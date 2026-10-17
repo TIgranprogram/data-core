@@ -321,6 +321,18 @@
       `Записей: ${d.count.toLocaleString('ru-RU')} · проанализировано семпла: ${d.sampled}` +
       (d.truncated ? ' · показаны первые 400 полей' : '')));
 
+    // Зона удаления — только для остатков. Backend дополнительно не пустит
+    // ни действующие, ни связевые таблицы, ни неизвестные имена.
+    if (d.kind === 'legacy') {
+      const bar = el('div', 'danger-zone');
+      const btn = el('button', 'btn btn-danger', `Удалить коллекцию «${d.name}»`);
+      btn.type = 'button';
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); dropCollection(d); });
+      bar.append(btn, el('span', 'danger-note',
+        'Необратимо: коллекция исчезнет вместе с записями. Действующие и связевые таблицы удалить нельзя.'));
+      td.append(bar);
+    }
+
     const wrap = el('div', 'table-wrap sub-wrap');
     const t = el('table', 'table sub-table');
     const thead = el('thead');
@@ -348,6 +360,30 @@
       tb.append(tr);
     });
     t.append(tb); wrap.append(t); td.append(wrap);
+  }
+
+  /**
+   * Удаление коллекции-остатка.
+   * Двойная защита от опечатки: ввод имени + проверка на бэке по реестру.
+   */
+  async function dropCollection(c) {
+    const typed = prompt(
+      'ВНИМАНИЕ: коллекция будет удалена БЕЗВОЗВРАТНО, вместе с записями.\n\n' +
+      `Коллекция: «${c.name}»\n` +
+      `Записей:   ${c.count ? c.count.toLocaleString('ru-RU') : 0}\n\n` +
+      'Чтобы подтвердить, введите имя коллекции точно (без кавычек):',
+      '',
+    );
+    if (typed === null) return;                      // Esc — отмена
+    if (typed.trim() !== c.name) {
+      toast('Имя не совпало — удаление отменено.');
+      return;
+    }
+    try {
+      const r = await api('/admin/collections/' + encodeURIComponent(c.name), { method: 'DELETE' });
+      toast(`Коллекция «${r.name}» удалена (записей: ${r.removedDocuments})`);
+      await loadCollections(true);   // перечитывает список и сводку
+    } catch (e) { toast(e.message); }
   }
 
   let toastTimer;

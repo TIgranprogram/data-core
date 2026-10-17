@@ -342,6 +342,10 @@ dialog::backdrop { background: rgba(30, 41, 51, .6); }
 .col-desc { margin: 0 0 6px; color: var(--title); font-size: 14px; }
 .col-detail-cell > .muted { margin: 0 0 10px; }
 
+/* Зона удаления (только для остатков) */
+.danger-zone { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 14px; }
+.danger-note { font-size: 12.5px; color: var(--muted); max-width: 520px; line-height: 1.35; }
+
 .sub-wrap { box-shadow: none; border-color: var(--line); }
 .sub-table { min-width: 560px; }
 .sub-table th { background: #eef1f4; background-image: none; }

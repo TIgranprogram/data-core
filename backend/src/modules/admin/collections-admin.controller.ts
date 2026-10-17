@@ -1,8 +1,18 @@
-import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AuditAction } from '../../common/interceptors/audit.interceptor';
 
 /**
  * Data Core — «справочник таблиц» (админ-only).
@@ -451,5 +461,56 @@ export class CollectionsAdminController {
       kind: metaFor(name)?.kind ?? 'core',
       fields,
     };
+  }
+
+  /**
+   * DELETE /api/admin/collections/:name — удаляет коллекцию-остаток (drop).
+   *
+   * Операция необратимая, поэтому контур защиты намеренно узкий:
+   *   1. Только ТОЧНОЕ имя из реестра COLLECTIONS (без нормализации регистра и
+   *      подчёркиваний) — нельзя удалить то, о чём реестр ничего не знает, и
+   *      нельзя попасть в чужое имя с такой же «нормализацией».
+   *   2. Только kind === 'legacy' — действующие (core) и связевые (link) таблицы
+   *      недоступны для удаления (409).
+   *   3. Дроп пишется в журнал аудита (@AuditAction → AuditLog). Имя идёт в
+   *      details.after (снапшот ответа), а НЕ в entityId: AuditService.log
+   *      приводит entityId к Types.ObjectId, а имя коллекции — не хекс-строка
+   *      24 символов, поэтому запись молча упала бы в catch().
+   */
+  @Delete(':name')
+  @Permissions('user:admin')
+  @Roles('admin')
+  @AuditAction({ action: 'drop-collection', entityType: 'Collection' })
+  async remove(@Param('name') name: string) {
+    if (!name || !/^[A-Za-z0-9_\-]+$/.test(name)) {
+      throw new BadRequestException('Invalid collection name');
+    }
+
+    // Точное совпадение с реестром — без COLLECTIONS_BY_NORM (см. шифр выше).
+    const meta = COLLECTIONS[name];
+    if (!meta) {
+      throw new BadRequestException(
+        'Коллекция не описана в реестре — из админки удалять её нельзя: ' + name,
+      );
+    }
+    if (meta.kind !== 'legacy') {
+      throw new ConflictException(
+        'Удалять можно только остатки (legacy). Эта таблица — ' +
+          meta.kind +
+          ': ' +
+          name,
+      );
+    }
+
+    const db = this.db();
+    const known =
+      (await db.listCollections({ name }, { nameOnly: true }).toArray()).length > 0;
+    if (!known) throw new NotFoundException('Collection not found: ' + name);
+
+    const coll = db.collection(name);
+    const removedDocuments = await coll.estimatedDocumentCount().catch(() => 0);
+    await coll.drop();
+
+    return { name, dropped: true, removedDocuments, kind: meta.kind, category: meta.category };
   }
 }

@@ -1640,6 +1640,24 @@
             "description": ""
           }
         }
+      },
+      "delete": {
+        "operationId": "CollectionsAdminController_remove",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
       }
     },
     "/device/enroll": {
