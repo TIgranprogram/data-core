@@ -11,7 +11,7 @@
 - [x] Выбрана архитектура: свой API поверх MongoDB, переиспользование боевого бэкенда kppdf-8.0
 - [x] Создан репозиторий https://github.com/TIgranprogram/data-core (Private)
 - [x] Вынесен бэкенд целиком (890 файлов: src, тесты, Dockerfile; без node_modules/dist/.env/uploads)
-- [x] Самодостаточный `docker-compose.yml`: `mongo:7` (rs0) + backend; Mongo только на `127.0.0.1`
+- [x] Самодостаточный `docker-compose.yml`: `mongo:4.4` (rs0; позже понижен с `mongo:7` — см. AVX ниже) + backend; Mongo только на `127.0.0.1`
 - [x] `.env.example` + `.gitignore`; документация: `README`, `docs/CONNECT.md` (JWT + ключи `kppd_` + примеры подключения для разных платформ)
 - [x] Секреты вынесены из git в локальные gitignored `deploy/synology/config.env` + `CREDENTIALS.md`; инфра-данные (IP/домены) вычищены из трекаемых файлов (коммит `e2a3773`)
 - [x] Клон на рабочую машину + копия секретов; промежуточная папка в kppdf-8.0 заархивирована и удалена
@@ -39,7 +39,8 @@
 
 ### 3. Бэкапы (до того, как появятся ценные данные)
 - [x] **Адаптировать `deploy/synology/backup.sh` под data-core**: заменено на `datacore-mongo` / `datacore` (и `KPPDF_DATA_DIR` → `DATA_DIR=/var/lib/datacore`)
-- [ ] Настроить cron на VM: `0 3 * * * cd /opt/data-core && bash deploy/synology/backup.sh >> /var/log/datacore-backup.log 2>&1`
+- [x] Настроить cron на VM: `0 3 * * * cd /opt/data-core && bash deploy/synology/backup.sh >> /var/log/datacore-backup.log 2>&1`
+  - 📝 Выполнено 2026-10-17: на VM не было cron → `apt-get install cron` + `systemctl enable --now cron`; джоба в `/etc/cron.d/datacore` (ротация 14 дней), ручной прогон бэкапа (91 коллекция) прошёл
 - [x] **Restore-дрилл**: восстановить дамп в тестовую БД и убедиться, что данные читаются
   - 📝 Выполнено 2026-10-17 локально: `mongorestore --db datacore_restore_test` → 91 коллекция, **107/107 документов**, `admin` читается (`role=admin, isOwner=true`); тестовая БД после сверки удалена. Скрипт сверки: `deploy/synology/verify-restore.js`
 - [ ] Копия бэкапов вне NAS (USB / второй диск)
@@ -78,10 +79,12 @@
 > 🛠 **Готово (2026-10-17):** статическая админка `backend/admin/` (vanilla JS, без сборки), отдаётся тем же NestJS на **`http://localhost:3001/admin`**. Вход по JWT, два раздела: **Пользователи** (список/поиск/создание/изменение/сброс пароля/удаление) и **API-ключи** (список/TTL/выдача с одноразовым показом `kppd_`/отзыв). Смонтирована в `main.ts` (`/admin`), скопирована в Docker-образ. Проверено end-to-end в браузере: логин → список пользователей → вкладка ключей.
 
 ### 8. Деплой отдельным контуром на VM
-- [ ] Адаптировать `deploy/synology/deploy.*` под data-core (сейчас заточены под kppdf: сборка фронта, `REMOTE_DIR=/opt/kppdf-8.0`)
-- [ ] Поднять на VM рядом с работающим kppdf: `REMOTE_DIR=/opt/data-core`, `KPPDF_DATA_DIR=/var/lib/datacore` (уже прописано в локальном `config.env`)
-- [ ] Health-check + первый реальный ключ на прод-контуре
-- _Критерий: `http://<LAN_IP>:3000/api/health/ready` отвечает, CRM не пострадал (IP — в локальном `deploy/synology/CREDENTIALS.md`)_
+- [x] Адаптировать `deploy/synology/deploy.*` под data-core
+  - 📝 `deploy.py` переписан (без NX-фронта/desktop-installer, `/opt/data-core`, `/var/lib/datacore`, порт 3001, контейнеры `datacore-*`, `.env` с MONGO_* креденшелами, проверка Mongo-auth после деплоя); `deploy.ps1` — снят kppdf-only гейт TZ-OPS-310 (в этом репо нет `tasks/`); `preflight.ps1` — `backend/admin` вместо `frontend/src` + обязательность MONGO_*
+- [x] Поднять на VM рядом с работающим kppdf: `REMOTE_DIR=/opt/data-core`, `DATA_DIR=/var/lib/datacore`, `HOST_PORT=3001`, `MONGO_PORT=27018`
+  - 📝 2026-10-17: `deploy.py --wipe` → rs0 ready → backend ready → Health 200 → Auth login OK → Admin UI 200 → Mongo отклоняет неавторизованные чтения; kppdf не пострадал (:3000 отвечает). Gotcha: VM CPU Celeron J4125 без AVX → контур на `mongo:4.4`
+- [x] Health-check + первый реальный ключ на прод-контуре
+- _Критерий: `http://<LAN_IP>:3001/api/health/ready` отвечает, kppdf не пострадал (IP — в локальном `deploy/synology/CREDENTIALS.md`)_
 
 ---
 

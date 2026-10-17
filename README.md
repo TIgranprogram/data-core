@@ -22,7 +22,7 @@
 | **[VISION.md](VISION.md)** | Зачем проект существует, какая была проблема, какие рассматривались варианты и почему выбран этот, принципы |
 | **[ROADMAP.md](ROADMAP.md)** | Что сделано, чек-листы первых шагов (P0) и планы (P1/P2), известные шероховатости |
 | **[docs/CONNECT.md](docs/CONNECT.md)** | Как подключиться: JWT, ключи `kppd_`, примеры для разных платформ |
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**, **[docs/STACK.md](docs/STACK.md)**, **[docs/data-model.md](docs/data-model.md)** | Унаследованы из kppdf-8.0 — технические детали (будут переписаны после чистки модулей) |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**, **[docs/STACK.md](docs/STACK.md)**, **[docs/data-model.md](docs/data-model.md)** | Технические детали. `data-model.md` уже переписан под действующие сущности data-core (~28, подмножество kppdf-8.0); ARCHITECTURE/STACK — унаследованы из kppdf-8.0 |
 
 ---
 
@@ -33,21 +33,22 @@ data-core/
 ├── VISION.md           ← ЗАЧЕМ: контекст, решения, принципы
 ├── ROADMAP.md          ← ЧТО ДЕЛАТЬ: чек-листы и планы
 ├── backend/            ← NestJS API (авторизация, ключи, модули данных)
-├── docker-compose.yml  ← весь стек: mongo:7 (rs0) + backend
+├── docker-compose.yml  ← весь стек: mongo:4.4 (rs0) + backend
 ├── .env.example        ← шаблон настроек (скопируй в .env)
 ├── deploy/synology/    ← скрипты деплоя и бэкапа на Synology VM
 └── docs/
     ├── CONNECT.md      ← КАК ПОДКЛЮЧИТЬСЯ с любой платформы
     ├── ARCHITECTURE.md ← архитектура (унаследована из kppdf-8.0)
     ├── STACK.md        ← стек технологий
-    ├── data-model.md   ← описание данных (90 сущностей)
+    ├── data-model.md   ← описание данных (~28 сущностей, подмножество kppdf-8.0)
     └── data-model-audit.md
 ```
 
 ## Быстрый старт
 
 ```bash
-cp .env.example .env          # заполнить: JWT_SECRET, JWT_REFRESH_SECRET, ADMIN_PASSWORD
+cp .env.example .env          # заполнить: JWT_SECRET, JWT_REFRESH_SECRET, ADMIN_PASSWORD,
+                              # MONGO_ROOT_PASSWORD, MONGO_APP_PASSWORD, MONGO_KEYFILE_SECRET
 docker compose up -d --build
 curl -sf http://localhost:3000/api/health/ready
 ```
@@ -56,6 +57,12 @@ curl -sf http://localhost:3000/api/health/ready
 - Health: `http://localhost:3000/api/health/ready`
 - Swagger UI: `http://localhost:3000/docs` (в prod выключен, включается `SWAGGER_ENABLED=true`)
 - Первый вход: `ADMIN_USERNAME` / `ADMIN_PASSWORD` из `.env`
+
+> **Порты и AVX.** По умолчанию Mongo публикуется на `127.0.0.1:27017`, API — на `:3000`.
+> Если эти порты уже заняты другим контуром (например, kppdf), задай в `.env`
+> `MONGO_PORT` и `HOST_PORT` (data-core-контур идёт на `:27018` / `:3001`).
+> Образ Mongo по умолчанию **`mongo:4.4`** — на CPU без AVX (Celeron J4125 на Synology VM)
+> MongoDB 5.0+ падает с «Illegal instruction»; на AVX-железе можно поднять `MONGO_IMAGE=mongo:7`.
 
 ## Подключение из других приложений
 
@@ -69,8 +76,8 @@ curl -sf http://localhost:3000/api/health/ready
 
 | Что | Как |
 |--|--|
-| MongoDB | **только** `127.0.0.1:27017` — наружу не публикуется никогда |
-| API | `:3000`, за JWT-авторизацией + rate limiting |
+| MongoDB | **только** `127.0.0.1:<MONGO_PORT>` (по умолч. 27017) — наружу не публикуется никогда |
+| API | `:3000` (или заданный `HOST_PORT`), за JWT-авторизацией + rate limiting + `--auth` (root/app-user) |
 | Машинные ключи | `kppd_...`, выдаются админом, с TTL и отзывом |
 | Роли | `admin` / `manager` / `user` + permissions на уровне модулей |
 
@@ -82,7 +89,7 @@ bash deploy/synology/backup.sh     # mongodump → ежедневно по cron 
 Ретеншен — 14 дней (`BACKUP_RETENTION_DAYS`). Копию держать и вне NAS (USB/второй диск).
 **Правило: бэкап без проверенного restore — не бэкап.** Restore-дрилл делается один раз сразу после первого деплоя.
 
-> ⚠️ Внимание: `deploy/synology/backup.sh` пока настроен на контур kppdf (`kppdf-mongo` / БД `kppdf`) — перед запуском адаптировать под data-core. Подробности и все остальные «подводные камни» — в [ROADMAP.md](ROADMAP.md), раздел «Известные шероховатости».
+> ✅ `deploy/synology/backup.sh` адаптирован под data-core (контейнеры `datacore-*`, БД `datacore`) и уже висит в cron на VM (`/etc/cron.d/datacore`, ежедневно 03:00, ротация 14 дней). Restore-дрилл прогнан и локально, и на VM — все записи совпадают. Все остальные «подводные камни» — в [ROADMAP.md](ROADMAP.md), раздел «Известные шероховатости».
 
 ## Деплой на Synology VM
 
@@ -93,7 +100,7 @@ bash deploy/synology/backup.sh     # mongodump → ежедневно по cron 
 
 ## Статус и планы
 
-Проект вынесен из kppdf-8.0 **целиком, без вычистки** (сначала полный перенос, потом чистка): в `backend/` сейчас много унаследованного CRM-домена, который к личному ядру данных не относится.
+Проект вынесен из kppdf-8.0 **целиком, без вычистки** (сначала полный перенос, потом чистка). Чистка выполнена (задача H): из 93 модулей оставлено **37** — платформенное ядро (авторизация, ключи, пользователи, роли/права, аудит, настройки, устройства/desktop, статусы) + канонические справочники (организации, контрагенты, люди, площадки, категории, единицы, валюты, цвета, материалы, изделия, модули изделий, фото, атрибуты, виды работ). Транзакционный CRM-домен (сделки, заказы, склад, производство, документооборот DocStudio, импорты и т.п.) удалён.
 
 - **Что сделано и что делать дальше** — чек-листы в [ROADMAP.md](ROADMAP.md)
 - **Почему так и какие были альтернативы** — [VISION.md](VISION.md)

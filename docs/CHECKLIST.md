@@ -34,7 +34,9 @@
   - удалено: **56 модулей** (93 → 37), 5 миграций, 6 сидов, 19 e2e (+`integration`)
   - verified: typecheck **0**; юнит **69 suites/623 tests**; e2e **14 suites/89 tests**; `nest build` **0**; live на Docker — `GET /modules`/`/work-types`/`/materials`/`/products` (list+findOne с populate WorkType) = **200**, work-types CRUD-цикл OK, 14 удалённых CRM-эндпоинтов = **404**, admin UI 200, Таблицы **91 коллекция**
   - починено 6 pre-existing e2e-падений (extraction-debt `b38e526`): DTO требует sku/article/categoryId, которых тесты не шлали; плюс 409 на delete модуля, прикреплённого к композиции (снимать composition-линию первым), и invalid-id → 404
-- [ ] **I. Финал** — обновить ROADMAP/README/CHECKLIST по факту, единый коммит(ы)
+- [x] **I. Финал** — обновить ROADMAP/README/CHECKLIST по факту
+  - done: `docs/data-model.md` сужен до действующих сущностей (1827→684 строк, ~28 сущностей/7 доменов); `docs/openapi.json` перегенерирован (373→131 paths, CRM-эндпоинты убраны); README — mongo:4.4 (было 7), порты/AVX-заметка, «90→~28 сущностей», сняты устаревшие предупреждения про backup.sh/kppdf и «много CRM-домена»; ROADMAP — отмечены cron на VM (P0.3) и деплой на VM (P1.8), mongo:7→4.4, порт критерия 3000→3001
+  - extra verify: жизненный цикл API-ключа `kppd_` (выдача → работает на защищённом эндпоинте → отзыв → **401**)
 
 ## ⛔ Вне автономного выполнения (нужен доступ/участие)
 
