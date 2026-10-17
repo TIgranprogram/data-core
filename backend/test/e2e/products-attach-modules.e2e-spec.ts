@@ -22,24 +22,32 @@ describe('Products composition modules (TZ-CATALOG-304)', () => {
     const { access } = await loginAsAdmin(app);
     adminToken = access;
 
+    // Module create is validated against an active module-type category.
+    const cat = await request(app.getHttpServer())
+      .post('/api/categories')
+      .set(authHeader(adminToken))
+      .send({ name: 'E2E Attach Modules', slug: 'e2e-attach-modules', type: 'module', skuPrefix: 'E2EAM' })
+      .expect(201);
+    const catId = cat.body._id;
+
     const product = await request(app.getHttpServer())
       .post('/api/products')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Composition Product', kind: 'good', unit: 'шт', status: 'new', isActive: true })
+      .send({ name: 'E2E Composition Product', sku: 'SKU-E2E-ATTACH-001', kind: 'good', unit: 'шт', status: 'new', isActive: true })
       .expect(201);
     productId = product.body._id;
 
     const m1 = await request(app.getHttpServer())
       .post('/api/modules')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Composition Mod 1', workTypes: [] })
+      .send({ name: 'E2E Composition Mod 1', article: 'E2E-ATTACH-MOD-001', categoryId: catId, workTypes: [] })
       .expect(201);
     module1 = m1.body._id;
 
     const m2 = await request(app.getHttpServer())
       .post('/api/modules')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Composition Mod 2', workTypes: [] })
+      .send({ name: 'E2E Composition Mod 2', article: 'E2E-ATTACH-MOD-002', categoryId: catId, workTypes: [] })
       .expect(201);
 
     module2 = m2.body._id;
@@ -47,6 +55,19 @@ describe('Products composition modules (TZ-CATALOG-304)', () => {
 
   afterAll(async () => {
     if (productId) {
+      // Снять все composition-линии до удаления продукта: productRefs в
+      // product-module remove() не фильтрует deletedAt («catalog history»),
+      // поэтому module-ссылки из композиции блокируют delete → 409.
+      const comp = await request(app.getHttpServer())
+        .get(`/api/products/${productId}/composition`)
+        .set(authHeader(adminToken));
+      if (comp.status === 200) {
+        for (const line of comp.body as Array<{ _id: string }>) {
+          await request(app.getHttpServer())
+            .delete(`/api/products/${productId}/composition/${line._id}`)
+            .set(authHeader(adminToken));
+        }
+      }
       await request(app.getHttpServer())
         .delete(`/api/products/${productId}`)
         .set(authHeader(adminToken))
@@ -155,7 +176,8 @@ describe('Products composition modules (TZ-CATALOG-304)', () => {
       .set(authHeader(adminToken))
       .send({ lineType: 'module', refId: module2, quantity: 1 })
       .expect((response) => {
-        expect([400, 500]).toContain(response.status);
+        // findActive() бросает NotFoundException для невалидного ObjectId → 404.
+        expect(response.status).toBe(404);
       });
   });
 });

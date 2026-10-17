@@ -38,10 +38,5 @@
     "controllerPath": "backend/src/modules/rate-limit/rate-limit.controller.ts",
     "reason": "Operator-only rate-limit inspection. system:read gate candidate.",
     "planned_remediation_tz": "TZ-258.B"
-  },
-  {
-    "controllerPath": "backend/src/modules/registry/registry.controller.ts",
-    "reason": "Data-source registry for the document-constructor tool-pane. Should add 'document:read' gate when wiring TZ-258.B is in.",
-    "planned_remediation_tz": "TZ-258.B"
   }
 ]

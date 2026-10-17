@@ -12,7 +12,6 @@ import { RoleModule } from './modules/role/role.module';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SettingModule } from './modules/setting/setting.module';
-import { FormProfilesModule } from './modules/form-profiles/form-profiles.module';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { DesktopModule } from './modules/desktop/desktop.module';
 import { StatusModule } from './modules/status/status.module';
@@ -22,72 +21,20 @@ import { OrganizationModule } from './modules/organization/organization.module';
 import { CounterpartyModule } from './modules/counterparty/counterparty.module';
 import { RoleOrgModule } from './modules/role-org/role-org.module';
 import { RoleCounterpartyModule } from './modules/role-counterparty/role-counterparty.module';
-import { InteractionModule } from './modules/interaction/interaction.module';
 import { CategoryModule } from './modules/category/category.module';
 import { UnitModule } from './modules/unit/unit.module';
+import { WorkTypeModule } from './modules/work-type/work-type.module';
 import { MaterialModule } from './modules/material/material.module';
 import { ProductModule } from './modules/product/product.module';
 import { ProductPhotoModule } from './modules/product-photo/product-photo.module';
 import { ProductModuleModule } from './modules/product-module/product-module.module';
 import { ProductModulePhotoModule } from './modules/product-module-photo/product-module-photo.module';
 import { PhotosModule } from './modules/photos/photos.module';
-import { AttachmentModule } from './modules/attachments/attachment.module';
-import { MutationJournalModule } from './modules/mutation-journal/mutation-journal.module';
-import { ImportTaskModule } from './modules/import-task/import-task.module';
-import { ImportMappingProfileModule } from './modules/import-mapping-profile/import-mapping-profile.module';
-import { ImportTodoModule } from './modules/import-todo/import-todo.module';
-import { BomModule } from './modules/bom/bom.module';
-import { WorkCenterModule } from './modules/work-center/work-center.module';
-import { WorkTypeModule } from './modules/work-type/work-type.module';
-import { WorkerModule } from './modules/worker/worker.module';
-import { RoutingStepModule } from './modules/routing-step/routing-step.module';
-import { TechProcessModule } from './modules/tech-process/tech-process.module';
-import { OrderTaskModule } from './modules/order-task/order-task.module';
-import { ProductionOrderModule } from './modules/production-order/production-order.module';
-import { WorkOrderModule } from './modules/work-order/work-order.module';
-import { WorkOrderOperationModule } from './modules/work-order-operation/work-order-operation.module';
-import { CostCalculationModule } from './modules/cost-calculation/cost-calculation.module';
-import { ActualCostModule } from './modules/actual-cost/actual-cost.module';
-import { OrderClosingModule } from './modules/order-closing/order-closing.module';
-import { WarehouseModule } from './modules/warehouse/warehouse.module';
-import { StorageItemModule } from './modules/storage-item/storage-item.module';
-import { StockMovementModule } from './modules/stock-movement/stock-movement.module';
-import { ReservationModule } from './modules/reservation/reservation.module';
-import { InventoryModule } from './modules/inventory/inventory.module';
 import { CurrencyModule } from './modules/currency/currency.module';
-import { PurchaseRequestModule } from './modules/purchase-request/purchase-request.module';
-import { PurchaseOrderModule } from './modules/purchase-order/purchase-order.module';
-import { SupplyModule } from './modules/supply/supply.module';
-import { SupplyRequestModule } from './modules/supply/supply-request.module';
-import { DeskNoteModule } from './modules/desk-note/desk-note.module';
-import { InvoiceModule } from './modules/invoice/invoice.module';
-import { TenderModule } from './modules/tender/tender.module';
-import { RppModule } from './modules/rpp/rpp.module';
-import { QuotationModule } from './modules/quotation/quotation.module';
-import { ContractModule } from './modules/contract/contract.module';
-import { OrderModule } from './modules/order/order.module';
 import { SiteModule } from './modules/site/site.module';
-import { ShipmentModule } from './modules/shipment/shipment.module';
-import { CartSessionModule } from './modules/cart-session/cart-session.module';
-import { CartItemModule } from './modules/cart-item/cart-item.module';
-import { DocTypeModule } from './modules/doc-type/doc-type.module';
-import { DocumentTemplateModule } from './modules/document-template/document-template.module';
-import { DocumentTemplateCategoryModule } from './modules/document-template-category/document-template-category.module';
-import { TextBlockCategoryModule } from './modules/text-block-category/text-block-category.module';
+// TZ-PRODUCTS-301: справочник цветов (RAL) — продуктовая словарная сущность
 import { ColorReferenceModule } from './modules/color-reference/color-reference.module';
 import { DictionaryLabelModule } from './modules/dictionary-label/dictionary-label.module';
-import { TemplateBlockModule } from './modules/template-block/template-block.module';
-import { TextBlockModule } from './modules/text-block/text-block.module';
-import { TableTemplateModule } from './modules/table-template/table-template.module';
-import { GeneratedDocumentModule } from './modules/generated-document/generated-document.module';
-import { StudioDocumentModule } from './modules/studio-document/studio-document.module';
-import { UploadsModule } from './modules/uploads/uploads.module';
-import { DocumentTableTypeModule } from './modules/document-table-type/document-table-type.module';
-import { RegistryModule } from './modules/registry/registry.module';
-import { ReconciliationActModule } from './modules/reconciliation-act/reconciliation-act.module';
-import { FinancialReportModule } from './modules/financial-report/financial-report.module';
-import { ImportJobsModule } from './modules/import-jobs/import-jobs.module';
-import { CommentModule } from './modules/comment/comment.module';
 import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerBehindAuthGuard } from './common/guards/throttler-behind-auth.guard';
@@ -99,10 +46,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency-storage.modu
 import { IdempotencyMiddleware } from './common/idempotency/idempotency.middleware';
 import { AttributeDefinitionModule } from './modules/attribute-definition/attribute-definition.module';
 import { EntityAttributeValueModule } from './modules/entity-attribute-value/entity-attribute-value.module';
-import { CertificateModule } from './modules/certificate/certificate.module';
-import { ComplianceRuleModule } from './modules/compliance-rule/compliance-rule.module';
 import { ProductPassportModule } from './modules/product-passport/product-passport.module';
-import { InventorFileModule } from './modules/inventor-file/inventor-file.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { UserContextInterceptor } from './common/interceptors/user-context.interceptor';
@@ -116,19 +60,19 @@ import { OrgRolesSeed } from './common/seed/org-roles.seed';
 import { CounterpartyRolesSeed } from './common/seed/counterparty-roles.seed';
 import { UnitsSeed } from './common/seed/units.seed';
 import { CategoriesSeed } from './common/seed/categories.seed';
-import { WarehouseSeed } from './common/seed/warehouse.seed';
 import { CurrenciesSeed } from './common/seed/currencies.seed';
-import { DevFixturesSeed } from './common/seed/dev-fixtures.seed';
-import { LocalDemoSeed } from './common/seed/local-demo.seed';
-import { DocumentTemplateCategoriesSeed } from './common/seed/document-template-categories.seed';
-import { BlankA4TemplateSeed } from './common/seed/blank-a4-template.seed';
-import { TextBlockCategoriesSeed } from './common/seed/text-block-categories.seed';
 import { ColorReferencesSeed } from './common/seed/color-references.seed';
-import { BomComponentResolveService } from './modules/bom/migrations/bom-component-resolve.service';
 import { HealthController } from './health.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { RequestMethod } from '@nestjs/common';
 
+/**
+ * data-core — платформенное ядро + канонические справочники (VISION #4).
+ *
+ * Транзакционный CRM-домен (сделки, заказы, склад, производство,
+ * документооборот/DocStudio, импорты и т.п.) удалён при чистке H:
+ * 93 → 35 модулей. См. ROADMAP.md «P1.5 / H».
+ */
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -171,107 +115,53 @@ import { RequestMethod } from '@nestjs/common';
       }),
     }),
     DatabaseModule,
+    // ─── Платформенное ядро ───────────────────────────────────────────
     CounterModule,
     PermissionsModule,
     RoleModule,
     UserModule,
     AuthModule,
     SettingModule,
-    FormProfilesModule, // TZ-DICT-314: QuickCreate form profiles S/M/L
     FeatureFlagModule,
     DesktopModule,
     StatusModule,
     AuditModule,
-    PersonModule,
-    OrganizationModule,
-    SiteModule, // TZ-ORDERS-303: площадки заказчика (до Counterparty/Order)
-    CounterpartyModule,
-    RoleOrgModule,
-    RoleCounterpartyModule,
-    InteractionModule,
-    CategoryModule,
-    UnitModule,
-    MaterialModule,
-    ProductModule,
-    ProductPhotoModule,
-    ProductModuleModule,
-    ProductModulePhotoModule, // TZ-83 Фаза A.7: новая entity
-    PhotosModule,
-    AttachmentModule,
-    MutationJournalModule,
-    ImportTaskModule, // TZD-22: AI Import Task assembly point (no SoT / no journal)
-    ImportMappingProfileModule, // TZD-37: org-scoped field mapping profiles
-    ImportTodoModule, // TZD-29: manager import todos (finish list)
-    BomModule,
-    WorkCenterModule,
-    WorkTypeModule,
-    WorkerModule,
-    RoutingStepModule,
-    TechProcessModule,
-    OrderTaskModule,
-    ProductionOrderModule,
-    WorkOrderModule,
-    WorkOrderOperationModule,
-    CostCalculationModule,
-    ActualCostModule,
-    OrderClosingModule,
-    WarehouseModule,
-    StorageItemModule,
-    StockMovementModule,
-    ReservationModule,
-    InventoryModule,
-    CurrencyModule,
-    PurchaseRequestModule,
-    PurchaseOrderModule,
-    SupplyModule, // TZ-SUPPLY-301: задачи закупки + confirm
-    SupplyRequestModule, // TZ-SUPPLY-305: быстрый заказ снабжения (строки + spawn в реестр)
-    DeskNoteModule, // TZ-DESK-408: заметки стола (anchor order/line/module)
-    InvoiceModule,
-    TenderModule,
-    RppModule,
-    QuotationModule,
-    ContractModule,
-    OrderModule,
-    ShipmentModule,
-    CartSessionModule,
-    CartItemModule,
-    DocTypeModule,
-    DocumentTemplateModule,
-    // TZ-DOC-307: категории шаблонов документов (отдельная сущность)
-    DocumentTemplateCategoryModule,
-    // TZ-DOC-315/321: категории текстовых блоков + system «Общее» seed wiring
-    TextBlockCategoryModule,
-    // TZ-PRODUCTS-301: справочник цветов (RAL) — продуктовая словарная сущность
-    ColorReferenceModule,
-    DictionaryLabelModule,
-    TemplateBlockModule,
-    TextBlockModule, // TZ-86 Фаза A.1: новая entity для reusable text snippets
-    TableTemplateModule,
-    DocumentTableTypeModule,
-    GeneratedDocumentModule,
-    StudioDocumentModule, // TZ-DOC-STUDIO-201b: StudioDocument CRUD + org scope + revision gate
-    UploadsModule, // TZ-DOC-STUDIO-1801: orphan upload sweep
-    RegistryModule, // TZ-86 Фаза A.5: data-source catalogue for Document Constructor tool pane
-    ReconciliationActModule,
-    FinancialReportModule,
-    ImportJobsModule,
-    CommentModule,
     RateLimitModule,
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1000, limit: 10 },
       { name: 'long', ttl: 60000, limit: 100 },
     ]),
-    AttributeDefinitionModule,
-    EntityAttributeValueModule,
-    CertificateModule,
-    ComplianceRuleModule,
-    ProductPassportModule,
-    InventorFileModule,
     TerminusModule,
     PermissionsBootModule, // TZ-255: registers PermissionsBootValidator for OnApplicationBootstrap catalog scan
     AdminModule,            // TZ-257: /api/admin/users + /api/admin/roles (read-only slice)
     DeviceEnrollmentModule, // TZ-AUTH-303: /api/device/* + /api/admin/devices/*
     IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
+    // ─── Канонические справочники (VISION #4) ─────────────────────────
+    PersonModule,
+    OrganizationModule,
+    CounterpartyModule,
+    RoleOrgModule,
+    RoleCounterpartyModule,
+    SiteModule, // площадки контрагента
+    CategoryModule,
+    UnitModule,
+    // Канонический справочник видов работ: product-module и product
+    // популейтят workTypes.workTypeId → без него GET /modules и
+    // GET /products/:id падают 500 (runtime-ref зависимость).
+    WorkTypeModule,
+    CurrencyModule,
+    ColorReferenceModule,       // TZ-PRODUCTS-301: справочник цветов (RAL)
+    DictionaryLabelModule,
+    MaterialModule,
+    ProductModule,
+    ProductPhotoModule,
+    ProductModuleModule,
+    ProductModulePhotoModule, // TZ-83 Фаза A.7: новая entity
+    ProductPassportModule,
+    PhotosModule, // загрузка изображений (логотипы и т.п.)
+    // ─── EAV-инфраструктура (нужна product) ───────────────────────────
+    AttributeDefinitionModule,
+    EntityAttributeValueModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -305,22 +195,9 @@ import { RequestMethod } from '@nestjs/common';
     CounterpartyRolesSeed,
     UnitsSeed,
     CategoriesSeed,
-    WarehouseSeed,
     CurrenciesSeed,
-    DevFixturesSeed,
-    LocalDemoSeed,
-    // TZ-DOC-307: системная default-категория шаблонов «Общее»
-    DocumentTemplateCategoriesSeed,
-    // TZ-DOC-STUDIO-2004: per-org sentinel «Пустой A4» for blank studio finalize
-    BlankA4TemplateSeed,
-    // TZ-DOC-315/321: системная default-категория текстовых блоков «Общее»
-    TextBlockCategoriesSeed,
     // TZ-PRODUCTS-301: системный default-цвет «Не выбран»
     ColorReferencesSeed,
-    // TZ-105.2: idempotent orphan FK migration (OnApplicationBootstrap lifecycle,
-    // distinct from seeds' OnModuleInit per TZ-87 pattern). Dry-run default
-    // via `BOM_MIGRATE_DRY_RUN=true`; set to "false" to apply migrations.
-    BomComponentResolveService,
   ],
 })
 export class AppModule implements NestModule {

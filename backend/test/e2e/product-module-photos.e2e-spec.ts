@@ -27,10 +27,17 @@ describe('ProductModulePhotos (TZ-83 Phase E)', () => {
     const { access } = await loginAsAdmin(app);
     adminToken = access;
 
+    // Module create is validated against an active module-type category.
+    const cat = await request(app.getHttpServer())
+      .post('/api/categories')
+      .set(authHeader(adminToken))
+      .send({ name: 'E2E Photo Modules', slug: 'e2e-photo-modules', type: 'module', skuPrefix: 'E2EPM' })
+      .expect(201);
+
     const m = await request(app.getHttpServer())
       .post('/api/modules')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Photos Module', workTypes: [] })
+      .send({ name: 'E2E Photos Module', article: 'E2E-PHOTO-MOD-001', categoryId: cat.body._id, workTypes: [] })
       .expect(201);
     testModuleId = m.body._id;
   });

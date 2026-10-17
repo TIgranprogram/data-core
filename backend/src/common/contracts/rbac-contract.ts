@@ -265,8 +265,6 @@ export type OwnershipColumn = 'createdBy' | null;
 
 export const OWNERSHIP_BY_ENTITY: Record<string, OwnershipColumn> = {
   // User-owned (TZ-251 IDOR scope).
-  documentTemplate: 'createdBy',
-  generatedDocument: 'createdBy',
   photo: 'createdBy',
 
   // Shared corporate data — `read`/`write`/`admin` permissions are
@@ -275,9 +273,6 @@ export const OWNERSHIP_BY_ENTITY: Record<string, OwnershipColumn> = {
   product: null,
   material: null,
   category: null,
-  warehouse: null,
-  order: null,
-  contract: null,
   organization: null,
 };
 

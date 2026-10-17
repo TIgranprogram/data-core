@@ -6,8 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import {
   OWNER_ONLY_KEY,
 } from './ownership.decorator';
@@ -16,15 +15,11 @@ import {
   type AuthenticatedUserLike,
   isUserOwnedEntity,
 } from '../../contracts/rbac-contract';
-import {
-  DocumentTemplate,
-  DocumentTemplateDocument,
-} from '../../../modules/document-template/document-template.schema';
 
 /**
  * TZ-251 §ШАГ 2 — Object-level ownership guard.
  *
- * Pair with `@OwnerOnly('documentTemplate')` on `:id` mutation routes.
+ * Pair with `@OwnerOnly('photo')` on `:id` mutation routes.
  *
  * Authorization ladder (must run AFTER `JwtAuthGuard` + `RolesGuard`):
  *
@@ -43,7 +38,7 @@ import {
  *      unusual providers may not populate req.user — fail explicitly
  *      rather than crash on `req.user.role`.
  *
- *   5. Admin wildcard (`role === 'admin'` AND permission includes `'*'`)
+ *   5. Admin wildcard (`role === 'admin'` OR permission includes `'*'`)
  *      → allow. Rationale: canonical escape hatch documented in
  *      `rbac-contract.ts §System roles` (admin role with wildcard).
  *
@@ -68,11 +63,7 @@ import {
  */
 @Injectable()
 export class OwnershipGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    @InjectModel(DocumentTemplate.name)
-    private readonly documentTemplateModel: Model<DocumentTemplateDocument>,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const entityKey = this.reflector.getAllAndOverride<string | undefined>(
@@ -158,16 +149,13 @@ export class OwnershipGuard implements CanActivate {
    */
   private async lookupDocument(
     entityKey: string,
-    id: string,
+    _id: string,
   ): Promise<Record<string, unknown> | null> {
-    if (entityKey === 'documentTemplate') {
-      const doc = await this.documentTemplateModel.findById(id).lean().exec();
-      return doc;
-    }
-    // Defensive: caller may have passed a key that isUserOwnedEntity()
-    // accepted but the guard doesn't yet have the model. Future-proof:
-    // new entities WILL be added here as they get registered with the
-    // contract.
+    // DocumentTemplate (сущность kppdf) удалён при чистке CRM-домена —
+    // в ядре нет ни одного @OwnerOnly-контроллера. Если появится новая
+    // owned-сущность: (a) добавь её в OWNERSHIP_BY_ENTITY, (b) инжектируй
+    // модель сюда, (c) добавь ветку по entityKey.
+    void entityKey;
     return null;
   }
 }

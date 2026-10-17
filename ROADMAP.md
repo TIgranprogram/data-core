@@ -56,12 +56,13 @@
 
 ## 🛣 Дальше (P1)
 
-### 5. Чистка CRM-модулей (балласт из kppdf)
-- [ ] Оставить: `auth`, `user`, `role`, `permissions`, `setting`, `feature-flag`, `audit-log`, `health`, `desktop` (ключи), `rate-limit`
-- [ ] Удалить CRM-домен: `quotation`, `tender`, `rpp`, `work-order*`, `production*`, `shipment`, `supply`, `studio-document`, `template-block`, `table-template`, `warehouse`, `storage-item`, `stock-movement`, `reservation`, `purchase-*`, `cost-*`, `product*`, `material`, `counterparty`, `person`, `interaction`, …
-- [ ] Почистить seed'ы, e2e-тесты удалённых модулей, ссылки в `app.module.ts`
-- [ ] Обновить `docs/data-model.md` (оставить только действующие сущности)
-- _Критерий: `pnpm typecheck && pnpm test` зелёные; сборка образа проходит_
+### 5. Чистка CRM-модулей (балласт из kppdf) ✅
+- [x] Оставить по границе **VISION #4** (платформенное ядро + канонические справочники): `auth`, `user`, `role`, `permissions`, `admin`, `setting`, `feature-flag`, `audit`, `desktop`, `rate-limit`, `device-enrollment`, `status`, `photos`, `counter`, `dictionary-label`, + канонические справочники `organization`, `counterparty`, `person`, `site`, `role-org`, `role-counterparty`, `category`, `unit`, `currency`, `color-reference`, `material`, `product`, `product-module`, `product-photo`, `product-module-photo`, `product-passport`, `attribute-definition`, `entity-attribute-value`, `work-type`, `catalog` (composition-line), `document-render` (utils) → **37 модулей** из 93
+- [x] Удалить транзакционный CRM-домен: `quotation`, `contract`, `order*`, `shipment`, `supply*`, `warehouse`/`storage-item`/`stock-movement`/`reservation`/`inventory`, `production*`/`work-order*`/`routing`/`tech-process`, `cost-*`/`actual-cost`/`order-closing`, `invoice`/`tender`/`desk-note`/`rpp`/`registry`/`financial-report`/`reconciliation-act`, `studio-document`/`template-block`/`text-block`/`table-template`/`document-template*`/`generated-document`/`doc-type`/`document-table-type`, `import-*`, `bom`, `cart-*`, `interaction`, `attachment`, `mutation-journal`, `comment`/`certificate`/`compliance-rule`/`inventor-file`, `work-center`/`worker`, `form-profiles`, `uploads` (только orphan-sweep DocStudio) и др. — **56 модулей удалено**
+- [x] Почистить seed'ы (−6), e2e-тесты (−19), миграции (−5); decouple `database.module`/`ownership.guard`/`product-module`←cost-calculation/`rbac-contract`; **переписан `app.module.ts`** под KEEP-набор
+- [x] Обновить `docs/data-model.md` (оставить только действующие сущности)
+- _Критерий: `pnpm typecheck && pnpm test` зелёные; сборка образа проходит_ ✅ (typecheck 0; юнит 69/623; e2e 14/89; `nest build` 0; live: KEEP-эндпоинты 200, CRM-эндпоинты 404)
+  - 📝 runtime-зависимости, пойманные только сканом populate/ref (не статическим сканом импортов): `product`+`product-module` популейтят `WorkType`, `catalog-graph` ходит по `workTypes.workTypeId` — поэтому `work-type` восстановлен из числа удалённых (канонический справочник, а не CRM). Первичная классификация была уточнена так же для `catalog`/`document-render` (нужны KEEP-домену) и обратно для `uploads` (оказался балластом).
 
 ### 6. Публичный контракт (OpenAPI)
 - [x] CI/скрипт экспорта `openapi.json` в репозиторий

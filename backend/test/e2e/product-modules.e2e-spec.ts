@@ -18,12 +18,28 @@ describe('ProductModules (TZ-83 Phase E)', () => {
   let ctx: TestContext;
   let app: INestApplication;
   let adminToken: string;
+  let moduleCategoryId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
     app = ctx.app;
     const { access } = await loginAsAdmin(app);
     adminToken = access;
+
+    // TZ-NX-REG-CATEGORY-WIRE-MODULES: create is validated against an
+    // active module-type category. The seed only creates material/product
+    // categories, so provision one here.
+    const cat = await request(app.getHttpServer())
+      .post('/api/categories')
+      .set(authHeader(adminToken))
+      .send({
+        name: 'E2E Modules',
+        slug: 'e2e-modules',
+        type: 'module',
+        skuPrefix: 'E2EMOD',
+      })
+      .expect(201);
+    moduleCategoryId = cat.body._id;
   });
 
   afterAll(async () => {
@@ -42,6 +58,7 @@ describe('ProductModules (TZ-83 Phase E)', () => {
       .send({
         name: 'Test Module E2E',
         article: 'TEST-MOD-001',
+        categoryId: moduleCategoryId,
         dimensions: { width: 100, height: 50, depth: 30, unit: 'мм' },
         weight: 1.2,
         workTypes: [],
@@ -75,26 +92,29 @@ describe('ProductModules (TZ-83 Phase E)', () => {
     const productRes = await request(app.getHttpServer())
       .post('/api/products')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Test Product', kind: 'good', unit: 'шт', status: 'new', isActive: true })
+      .send({ name: 'E2E Test Product', sku: 'SKU-E2E-PM-001', kind: 'good', unit: 'шт', status: 'new', isActive: true })
       .expect(201);
     const productId = productRes.body._id;
 
     const m1 = await request(app.getHttpServer())
       .post('/api/modules')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Fil 1', workTypes: [] })
+      .send({ name: 'E2E Fil 1', article: 'E2E-FIL-001', categoryId: moduleCategoryId, workTypes: [] })
       .expect(201);
     const m2 = await request(app.getHttpServer())
       .post('/api/modules')
       .set(authHeader(adminToken))
-      .send({ name: 'E2E Fil 2', workTypes: [] })
+      .send({ name: 'E2E Fil 2', article: 'E2E-FIL-002', categoryId: moduleCategoryId, workTypes: [] })
       .expect(201);
 
-    await request(app.getHttpServer())
+    const compRes = await request(app.getHttpServer())
       .post(`/api/products/${productId}/composition`)
       .set(authHeader(adminToken))
       .send({ lineType: 'module', refId: m1.body._id, quantity: 1 })
       .expect(201);
+    // addComposition возвращает полный массив composition; находим _id линии m1.
+    const lineId = (compRes.body as Array<{ refId: string; _id: string }>)
+      .find((l) => l.refId === m1.body._id)!._id;
 
     const filtered = await request(app.getHttpServer())
       .get(`/api/modules?productId=${productId}`)
@@ -103,7 +123,12 @@ describe('ProductModules (TZ-83 Phase E)', () => {
     expect(filtered.body.length).toBe(1);
     expect(filtered.body[0]._id).toBe(m1.body._id);
 
-    // cleanup
+    // cleanup: сначала снять composition-линию, иначе delete m1 → 409
+    // (productRefs в remove() не фильтрует deletedAt → «catalog history»).
+    await request(app.getHttpServer())
+      .delete(`/api/products/${productId}/composition/${lineId}`)
+      .set(authHeader(adminToken))
+      .expect(204);
     await request(app.getHttpServer())
       .delete(`/api/modules/${m1.body._id}`)
       .set(authHeader(adminToken))

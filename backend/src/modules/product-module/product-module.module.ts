@@ -8,12 +8,11 @@ import { Material, MaterialSchema } from '../material/material.schema';
 import { Category, CategorySchema } from '../category/category.schema';
 import { CompositionLineService } from '../catalog/composition-line.service';
 import { CatalogGraphModule } from '../catalog-graph/catalog-graph.module';
-import { CostCalculationModule } from '../cost-calculation/cost-calculation.module';
 
 /**
  * TZ-83: ProductModuleService uses Product for M:N reverse lookup and
  * Material for TZ-MATERIALS-309 immutable-dimension enforcement.
- * TZ-COST-302: cost-preview via CostCalculationService (same rollup walk).
+ * TZ-COST-302 cost-preview удалён вместе с модулем cost-calculation (чистка CRM-домена).
  */
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { CostCalculationModule } from '../cost-calculation/cost-calculation.modu
       { name: Category.name, schema: CategorySchema },
     ]),
     CatalogGraphModule,
-    CostCalculationModule,
   ],
   controllers: [ProductModuleController],
   providers: [ProductModuleService, CompositionLineService],

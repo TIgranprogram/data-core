@@ -42,9 +42,7 @@ function serviceWith(materials: unknown[], categoryDoc: unknown = MODULE_CATEGOR
     ),
   };
   return {
-    service: new ProductModuleService(model, productModel, materialModel, categoryModel, compositionLines as any, graphStub() as any, {
-      previewModuleCost: jest.fn(),
-    } as any),
+    service: new ProductModuleService(model, productModel, materialModel, categoryModel, compositionLines as any, graphStub() as any),
     model,
     materialModel,
     categoryModel,
@@ -318,7 +316,6 @@ describe('ProductModuleService.findAll — photos (TZ-NX-MODULE-LIST-POPULATE-PH
       {} as never,
       undefined,
       graphStub() as never,
-      { previewModuleCost: jest.fn() } as never,
     );
   }
 

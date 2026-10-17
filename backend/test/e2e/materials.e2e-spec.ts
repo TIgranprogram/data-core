@@ -28,11 +28,11 @@ describe('Materials (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/materials')
         .set(authHeader(token))
-        .send({ name: 'Steel Sheet', unit: 'кг' });
+        .send({ name: 'Steel Sheet', article: 'MTL-STK-001', unit: 'кг' });
       await request(app.getHttpServer())
         .post('/api/materials')
         .set(authHeader(token))
-        .send({ name: 'Aluminum Rod', unit: 'шт' });
+        .send({ name: 'Aluminum Rod', article: 'MTL-ALU-001', unit: 'шт' });
 
       const res = await request(app.getHttpServer())
         .get('/api/materials')
@@ -49,7 +49,7 @@ describe('Materials (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/materials')
         .set(authHeader(token))
-        .send({ name: 'Steklo 4mm', unit: 'м2', pricePerUnit: 500 });
+        .send({ name: 'Steklo 4mm', article: 'MTL-GLS-001', unit: 'м2', pricePerUnit: 500 });
       expect([200, 201]).toContain(res.status);
       expect(res.body._id).toBeDefined();
       expect(res.body.name).toBe('Steklo 4mm');
@@ -61,6 +61,7 @@ describe('Materials (e2e)', () => {
         .set(authHeader(token))
         .send({
           name: 'Лист Ст3',
+          article: 'MTL-ST3-001',
           unit: 'кг',
           materialKind: 'raw',
           assortment: 'Лист',
@@ -121,7 +122,7 @@ describe('Materials (e2e)', () => {
       const created = await request(app.getHttpServer())
         .post('/api/materials')
         .set(authHeader(token))
-        .send({ name: 'Copper Wire', unit: 'м' });
+        .send({ name: 'Copper Wire', article: 'MTL-CU-001', unit: 'м' });
       const id = created.body._id;
 
       const res = await request(app.getHttpServer())

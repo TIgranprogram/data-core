@@ -242,8 +242,6 @@ describe('RBAC contract (TZ-254)', () => {
 
   describe('OWNERSHIP_BY_ENTITY', () => {
     it('marks user-owned entities with `createdBy`', () => {
-      expect(OWNERSHIP_BY_ENTITY.documentTemplate).toBe('createdBy');
-      expect(OWNERSHIP_BY_ENTITY.generatedDocument).toBe('createdBy');
       expect(OWNERSHIP_BY_ENTITY.photo).toBe('createdBy');
     });
 
@@ -252,14 +250,10 @@ describe('RBAC contract (TZ-254)', () => {
       expect(OWNERSHIP_BY_ENTITY.product).toBeNull();
       expect(OWNERSHIP_BY_ENTITY.material).toBeNull();
       expect(OWNERSHIP_BY_ENTITY.category).toBeNull();
-      expect(OWNERSHIP_BY_ENTITY.warehouse).toBeNull();
-      expect(OWNERSHIP_BY_ENTITY.order).toBeNull();
-      expect(OWNERSHIP_BY_ENTITY.contract).toBeNull();
       expect(OWNERSHIP_BY_ENTITY.organization).toBeNull();
     });
 
     it('isUserOwnedEntity() returns true for createdBy-entries and false otherwise', () => {
-      expect(isUserOwnedEntity('documentTemplate')).toBe(true);
       expect(isUserOwnedEntity('photo')).toBe(true);
       expect(isUserOwnedEntity('counterparty')).toBe(false);
       expect(isUserOwnedEntity('product')).toBe(false);

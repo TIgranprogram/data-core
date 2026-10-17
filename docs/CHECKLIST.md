@@ -27,7 +27,13 @@
 - [x] **G. Деплой на VM отдельным контуром (P1.8)** — `/opt/data-core`, `:3001`, не трогая kppdf; затем cron (D)
   - done: deploy.py --wipe → rs0 ready → backend ready → Health 200 (mongo up) → Auth login OK → Admin UI 200 → Mongo rejects unauthenticated reads; kppdf untouched (Up 3h healthy, :3000=200)
   - gotcha: VM CPU Celeron J4125 без AVX → MongoDB 5.0+ (вкл.7) падает "Illegal instruction" → контур на mongo:4.4 (rs.ok=1 myState=1, MONGO_IMAGE=mongo:4.4); mongoose 8.24 совместимость доказана (test-mongoose-compat.js), скрипты шелл-агностичны (mongo vs mongosh)
-- [ ] **H. Чистка CRM-модулей (P1.5)** — оставить ядро, удалить CRM-домен; typecheck+build+тесты зелёные
+- [x] **H. Чистка CRM-модулей (P1.5)** — оставить ядро, удалить CRM-домен; typecheck+build+тесты зелёные
+  - done: граница по VISION #4 — оставлено платформенное ядро + канонические справочники (auth/user/role/permissions/setting/feature-flag/audit/desktop/rate-limit + организации/контрагенты/площадки/категории/единицы/валюты/цвета/люди/материалы/изделия/модули/фото/EAV/статусы/пропуска), удалён транзакционный CRM-домен (сделки/заказы/склад/производство/документооборот DocStudio/импорты и т.п.); итого **37 модульных директорий** из 93
+  - decouple: `database.module.ts` (миграция quotation-index-hygiene), `ownership.guard.ts` (модель DocumentTemplate → pass-through null), `product-module` ← cost-calculation (эндпоинт cost-preview), `rbac-contract` ownership-матрица (убраны documentTemplate/generatedDocument/warehouse/order/contract), `LEGACY_RBAC_EXCEPTIONS` (запись registry); **`app.module.ts` переписан** под 37 KEEP-модулей + 11 сидов (охранён каркас guard/interceptor/Throttler/middleware)
+  - классификация уточнена сканами: `catalog` (composition-line) и `document-render` (utils) восстановлены — нужны KEEP-домену; `work-type` восстановлен как канонический справочник (product+product-module популейтят `workTypes.workTypeId` → без него `GET /modules` и `GET /products/:id` = 500); `uploads` напротив переведён в DELETE (только orphan-sweep template-block)
+  - удалено: **56 модулей** (93 → 37), 5 миграций, 6 сидов, 19 e2e (+`integration`)
+  - verified: typecheck **0**; юнит **69 suites/623 tests**; e2e **14 suites/89 tests**; `nest build` **0**; live на Docker — `GET /modules`/`/work-types`/`/materials`/`/products` (list+findOne с populate WorkType) = **200**, work-types CRUD-цикл OK, 14 удалённых CRM-эндпоинтов = **404**, admin UI 200, Таблицы **91 коллекция**
+  - починено 6 pre-existing e2e-падений (extraction-debt `b38e526`): DTO требует sku/article/categoryId, которых тесты не шлали; плюс 409 на delete модуля, прикреплённого к композиции (снимать composition-линию первым), и invalid-id → 404
 - [ ] **I. Финал** — обновить ROADMAP/README/CHECKLIST по факту, единый коммит(ы)
 
 ## ⛔ Вне автономного выполнения (нужен доступ/участие)

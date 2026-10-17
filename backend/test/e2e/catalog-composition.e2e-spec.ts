@@ -15,6 +15,7 @@ describe('Catalog composition (TZ-CATALOG-302)', () => {
   let partMaterialId: string;
   let productLineId: string;
   let moduleLineId: string;
+  let moduleCategoryId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -22,34 +23,41 @@ describe('Catalog composition (TZ-CATALOG-302)', () => {
     token = (await loginAsAdmin(app)).access;
     const auth = authHeader(token);
 
+    // Module create is validated against an active module-type category.
+    moduleCategoryId = (await request(app.getHttpServer())
+      .post('/api/categories')
+      .set(auth)
+      .send({ name: 'TZ302 Modules', slug: 'tz302-modules', type: 'module', skuPrefix: 'TZ302M' })
+      .expect(201)).body._id;
+
     productId = (await request(app.getHttpServer())
       .post('/api/products')
       .set(auth)
-      .send({ name: 'TZ302 Composition Product', kind: 'good', unit: 'шт' })
+      .send({ name: 'TZ302 Composition Product', sku: 'SKU-TZ302-001', kind: 'good', unit: 'шт' })
       .expect(201)).body._id;
 
     moduleId = (await request(app.getHttpServer())
       .post('/api/modules')
       .set(auth)
-      .send({ name: 'TZ302 Composition Module', workTypes: [] })
+      .send({ name: 'TZ302 Composition Module', article: 'TZ302-MOD-001', categoryId: moduleCategoryId, workTypes: [] })
       .expect(201)).body._id;
 
     nestedModuleId = (await request(app.getHttpServer())
       .post('/api/modules')
       .set(auth)
-      .send({ name: 'TZ302 Nested Module', workTypes: [] })
+      .send({ name: 'TZ302 Nested Module', article: 'TZ302-MOD-002', categoryId: moduleCategoryId, workTypes: [] })
       .expect(201)).body._id;
 
     rawMaterialId = (await request(app.getHttpServer())
       .post('/api/materials')
       .set(auth)
-      .send({ name: 'TZ302 Raw Material', unit: 'кг', materialKind: 'raw' })
+      .send({ name: 'TZ302 Raw Material', article: 'TZ302-RAW-001', unit: 'кг', materialKind: 'raw' })
       .expect(201)).body._id;
 
     partMaterialId = (await request(app.getHttpServer())
       .post('/api/materials')
       .set(auth)
-      .send({ name: 'TZ302 Part Material', unit: 'шт', materialKind: 'part' })
+      .send({ name: 'TZ302 Part Material', article: 'TZ302-PART-001', unit: 'шт', materialKind: 'part' })
       .expect(201)).body._id;
   });
 
@@ -93,12 +101,12 @@ describe('Catalog composition (TZ-CATALOG-302)', () => {
     const legacyProductId = (await request(app.getHttpServer())
       .post('/api/products')
       .set(authHeader(token))
-      .send({ name: 'TZ302 Legacy Product', kind: 'good', unit: 'шт' })
+      .send({ name: 'TZ302 Legacy Product', sku: 'SKU-TZ302-LEG-001', kind: 'good', unit: 'шт' })
       .expect(201)).body._id;
     const legacyModuleId = (await request(app.getHttpServer())
       .post('/api/modules')
       .set(authHeader(token))
-      .send({ name: 'TZ302 Legacy Module', workTypes: [] })
+      .send({ name: 'TZ302 Legacy Module', article: 'TZ302-MOD-LEG-001', categoryId: moduleCategoryId, workTypes: [] })
       .expect(201)).body._id;
     try {
       // TZ-CATALOG-304: API attach is gone (410). Seed legacy field directly for dual-read coverage.
