@@ -1,0 +1,61 @@
+# Personal Data Core — самостоятельный сервер данных (MongoDB + NestJS API)
+#
+# Up:     docker compose up -d --build
+# Env:    cp .env.example .env   (compose подставляет ${...} из .env)
+# Health: http://localhost:3000/api/health/ready
+# Swagger: http://localhost:3000/docs  (dev; в prod — SWAGGER_ENABLED=true)
+#
+# MongoDB опубликован ТОЛЬКО на 127.0.0.1 — наружу доступ идёт через API (:3000)
+# или через SSH-туннель. Никогда не публикуй 27017 наружу.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: datacore-mongo
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - ${DATA_DIR}/mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  # Одноразовая инициализация Replica Set rs0 (обязателен для транзакций).
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    # rs.status() возвращает {ok:0} и НЕ бросает ошибку, когда RS не инициализирован.
+    entrypoint: >-
+      sh -c "mongosh --host mongo:27017 --eval
+      'var s=null; try { s=rs.status(); } catch(e) { s={ok:0}; }
+      if (!s || s.ok!==1) {
+        printjson(rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"mongo:27017\"}]}));
+      } else { print(\"rs already ok\"); }'"
+
+  backend:
+    build: ./backend
+    container_name: datacore-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    env_file: .env
+    volumes:
+      - ${DATA_DIR}/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 40s

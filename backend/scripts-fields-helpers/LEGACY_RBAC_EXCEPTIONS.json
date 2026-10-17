@@ -1,0 +1,47 @@
+[
+  {
+    "controllerPath": "backend/src/modules/health/health.controller.ts",
+    "reason": "Health/readiness probes must remain without authentication so external uptime checkers (k8s, k8s probes, blackbox-exporter) can hit /health without credentials. Liveness probes are NOT authorized by RBAC.",
+    "planned_remediation_tz": null
+  },
+  {
+    "controllerPath": "backend/src/modules/auth/auth.controller.ts",
+    "reason": "Login / refresh / logout / me endpoints cannot require authentication BEFORE they issue the JWT. They opt out of @Permissions via deliberate absence (the guard's no-metadata passthrough takes care of it).",
+    "planned_remediation_tz": null
+  },
+  {
+    "controllerPath": "backend/src/modules/permissions/permissions.controller.ts",
+    "reason": "Catalog bootstrap endpoint intentionally reads the permission catalog from Mongo without forcing the user to pre-declare a permission for the act of reading permissions (bootstrap dependency). Should add a 'system:read' gate in TZ-258 close-out.",
+    "planned_remediation_tz": "TZ-258.A"
+  },
+  {
+    "controllerPath": "backend/src/modules/setting/setting.controller.ts",
+    "reason": "System-level settings (org config, feature flags). Pre-TZ-255 these were gated only by @Roles('admin'). Should add 'system:read' / 'system:write' gates.",
+    "planned_remediation_tz": "TZ-258.B"
+  },
+  {
+    "controllerPath": "backend/src/modules/feature-flag/feature-flag.controller.ts",
+    "reason": "Pre-TZ-255, these were admin-only via @Roles. system:write gate candidate.",
+    "planned_remediation_tz": "TZ-258.B"
+  },
+  {
+    "controllerPath": "backend/src/modules/counter/counter.controller.ts",
+    "reason": "Atomic counter service used by document-template. Pre-TZ-255, relied on @Roles. system:write gate candidate.",
+    "planned_remediation_tz": "TZ-258.B"
+  },
+  {
+    "controllerPath": "backend/src/modules/audit/audit.controller.ts",
+    "reason": "Audit log read endpoint. Should add 'audit:read' permission (not yet in catalog; deferred to TZ-258.C with new catalog key).",
+    "planned_remediation_tz": "TZ-258.C"
+  },
+  {
+    "controllerPath": "backend/src/modules/rate-limit/rate-limit.controller.ts",
+    "reason": "Operator-only rate-limit inspection. system:read gate candidate.",
+    "planned_remediation_tz": "TZ-258.B"
+  },
+  {
+    "controllerPath": "backend/src/modules/registry/registry.controller.ts",
+    "reason": "Data-source registry for the document-constructor tool-pane. Should add 'document:read' gate when wiring TZ-258.B is in.",
+    "planned_remediation_tz": "TZ-258.B"
+  }
+]
