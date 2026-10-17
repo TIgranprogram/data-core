@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Data Core">
+  <defs>
+    <linearGradient id="pyblue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="10%" stop-color="#3776ab"/>
+      <stop offset="90%" stop-color="#2b5b84"/>
+    </linearGradient>
+    <linearGradient id="pyyellow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="10%" stop-color="#ffdf76"/>
+      <stop offset="90%" stop-color="#ffd343"/>
+    </linearGradient>
+  </defs>
+  <!-- Два переплетённых «фрагмента данных»: синий сверху, жёлтый снизу -->
+  <path fill="url(#pyblue)" d="M32 6c-9 0-13 4-13 9 0 4 3 6 8 8 6 2 9 4 9 8 0 4-4 7-11 7-4 0-8-1-11-3l-3 7c3 2 8 4 14 4 10 0 16-5 16-12 0-5-3-8-9-10-6-2-9-4-9-7 0-3 3-5 8-5 4 0 7 1 9 3l3-7c-3-2-7-2-11-2z"/>
+  <path fill="url(#pyyellow)" d="M32 58c9 0 13-4 13-9 0-4-3-6-8-8-6-2-9-4-9-8 0-4 4-7 11-7 4 0 8 1 11 3l3-7c-3-2-8-4-14-4-10 0-16 5-16 12 0 5 3 8 9 10 6 2 9 4 9 7 0 3-3 5-8 5-4 0-7-1-9-3l-3 7c3 2 7 2 11 2z"/>
+</svg>

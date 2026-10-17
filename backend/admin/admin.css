@@ -1,67 +1,314 @@
-/* Data Core — статическая админка. Минималистичная, без фреймворков. */
+/* Data Core — админка в стиле python.org.
+ * Палитра и градиенты взяты из реального CSS python.org (style.*.css):
+ *   синий   #3776ab / #2b5b84 / #1e415e  (шапка — градиент #1e415e → #2b5b84)
+ *   жёлтый  #ffd343 / #ffdf76            (акценты, кнопки, ховеры)
+ *   тёмная  #1e2933 / #13191e            (верхняя панель)
+ *   светлый #fcfcfc → #f9f9f9            (контент)
+ *   рамки   #e6e8ea / #caccce            красный #b55863  зелёный #82b043
+ */
 :root {
-  --bg: #f5f6f8; --card: #fff; --line: #e3e6ea; --text: #1c2430; --muted: #6b7684;
-  --primary: #2563eb; --primary-d: #1d4ed8; --danger: #dc2626; --ok: #16a34a;
+  --py-blue: #3776ab;
+  --py-blue-dark: #2b5b84;
+  --py-blue-deep: #1e415e;
+  --py-yellow: #ffd343;
+  --py-yellow-light: #ffdf76;
+  --py-yellow-pale: #ffeba9;
+  --py-topbar: #1e2933;
+  --py-topbar-deep: #13191e;
+  --bg: #f2f4f6;
+  --card: #ffffff;
+  --line: #e6e8ea;
+  --line-strong: #caccce;
+  --text: #222222;
+  --muted: #666666;
+  --title: #444444;
+  --danger: #b55863;
+  --danger-light: #c57b84;
+  --ok: #82b043;
+  --font: "Source Sans Pro", "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+  --mono: "DejaVu Sans Mono", "Lucida Console", "Consolas", monospace;
 }
+
 * { box-sizing: border-box; }
 /* КРИТИЧНО: атрибут hidden должен побеждать любой display из классов.
    Иначе .login-wrap{display:grid} перебивает [hidden] и форма логина
-   остаётся на весь экран после входа (баг 2026-10-17: кнопка "войти"
-   "не работает", хотя бэкенд отдаёт 200). */
+   остаётся на весь экран после входа (баг 2026-10-17). */
 [hidden] { display: none !important; }
-body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
-.muted { color: var(--muted); } .small { font-size: 12px; }
-code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
-.error { color: var(--danger); font-size: 13px; }
 
-/* Login */
-.login-wrap { min-height: 100vh; display: grid; place-items: center; }
-.login-card { background: var(--card); padding: 32px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.08); width: 320px; }
-.login-card h1 { margin: 0 0 4px; font-size: 24px; }
-.login-card label, .dialog-form label { display: block; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
-input, select { width: 100%; padding: 9px 11px; margin-top: 4px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff; }
-input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 0; border-color: transparent; }
+body {
+  margin: 0;
+  font: 16px/1.55 var(--font);
+  color: var(--text);
+  background: var(--bg);
+  /* python.org content-wrapper: мягкий вертикальный градиент */
+  background-image: linear-gradient(#fcfcfc 10%, #f9f9f9 90%);
+  background-attachment: fixed;
+}
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+code, .mono { font-family: var(--mono); }
 
-/* Buttons */
-.btn { border: 1px solid var(--line); background: #fff; color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; }
-.btn:hover { background: #f0f2f5; }
-.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-d); }
-.btn-danger { color: var(--danger); border-color: #f3c6c6; }
-.btn-danger:hover { background: #fdf0f0; }
-.btn-sm { padding: 4px 9px; font-size: 13px; margin-right: 4px; }
+/* ============ LOGIN ============ */
+.login-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  /* python.org main-header градиент */
+  background: var(--py-blue-dark);
+  background-image: linear-gradient(var(--py-blue-deep) 10%, var(--py-blue-dark) 90%);
+  border-top: 1px solid #191919;
+  padding: 24px;
+}
+.login-card {
+  background: var(--card);
+  width: 360px;
+  max-width: 100%;
+  padding: 28px 30px 30px;
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+  border-top: 4px solid var(--py-yellow);
+}
+.login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.login-brand img { width: 42px; height: 42px; }
+.login-card h1 { margin: 0; font-size: 24px; color: var(--py-blue-deep); font-weight: 700; }
+.login-card .muted { margin: 0 0 14px; }
+.login-card label { display: block; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.login-card .btn { width: 100%; margin-top: 18px; font-size: 16px; padding: 10px; }
+.login-foot { margin-top: 16px; text-align: center; font-size: 12px; color: var(--muted); }
+.login-foot::before { content: ">>> "; color: var(--py-yellow); font-weight: 700; }
+
+input, select {
+  width: 100%;
+  padding: 9px 11px;
+  margin-top: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font: inherit;
+  background: #fff;
+  color: var(--text);
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--py-blue);
+  box-shadow: 0 0 0 2px rgba(55, 118, 171, .2);
+}
+
+/* ============ BUTTONS (python.org градиентные) ============ */
+.btn {
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background-color: #ccc;
+  background-image: linear-gradient(#d9d9d9 10%, #ccc 90%);
+  color: #4d4d4d;
+  padding: 7px 15px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  text-shadow: 1px 1px 1px rgba(255, 255, 255, .3);
+}
+.btn:hover { background-image: linear-gradient(#e4e4e4 10%, #d4d4d4 90%); }
+
+/* Основная кнопка = синий градиент (как button[type=submit] на python.org) */
+.btn-primary {
+  color: #e6e8ea;
+  text-shadow: none;
+  border: 1px solid #1e415e;
+  background-color: var(--py-blue-dark);
+  background-image: linear-gradient(var(--py-blue) 10%, var(--py-blue-dark) 90%);
+}
+.btn-primary:hover { background-image: linear-gradient(#4285bc 10%, #30668f 90%); }
+
+/* Жёлтая кнопка (как .donate-button) */
+.btn-accent {
+  color: #4d4d4d;
+  border: 1px solid #d9b62f;
+  background-color: var(--py-yellow);
+  background-image: linear-gradient(var(--py-yellow-light) 10%, var(--py-yellow) 90%);
+}
+.btn-accent:hover { background-image: linear-gradient(#ffe790 10%, #ffdc5c 90%); }
+
+/* Опасная кнопка (как deletion-form на python.org) */
+.btn-danger {
+  color: #fff;
+  text-shadow: none;
+  border: 1px solid #9c4750;
+  background-color: var(--danger);
+  background-image: linear-gradient(var(--danger-light) 10%, var(--danger) 90%);
+}
+.btn-danger:hover { background-image: linear-gradient(#cf878f 10%, #a54d57 90%); }
+
+.btn-sm { padding: 4px 10px; font-size: 13px; margin-right: 4px; }
 .btn:disabled { opacity: .5; cursor: default; }
 
-/* Layout */
-.topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: var(--card); border-bottom: 1px solid var(--line); }
-.topbar-left { display: flex; gap: 12px; align-items: baseline; }
-.badge { font-size: 12px; padding: 3px 9px; border-radius: 20px; background: #eef1f4; color: var(--muted); }
-.badge.ok { background: #dcf5e4; color: var(--ok); } .badge.bad { background: #fbe3e3; color: var(--danger); }
-.tabs { display: flex; gap: 4px; padding: 8px 24px 0; background: var(--card); border-bottom: 1px solid var(--line); }
-.tab { border: none; background: none; padding: 10px 16px; cursor: pointer; font: inherit; color: var(--muted); border-bottom: 2px solid transparent; }
-.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-.tab-panel { padding: 24px; max-width: 1100px; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.panel-head h2 { margin: 0; }
+/* ============ TOP BAR (тёмная полоса) ============ */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 20px;
+  background: var(--py-topbar);
+  background-image: linear-gradient(var(--py-topbar-deep) 10%, #1f2a32 90%);
+  border-bottom: 1px solid #1f3b47;
+  color: #bbb;
+  font-size: 13px;
+}
+.topbar-left { display: flex; gap: 14px; align-items: center; }
+.topbar a { color: #bbb; text-decoration: none; }
+.topbar a:hover { color: #fff; }
+.topbar-right { display: flex; gap: 14px; align-items: center; }
+.topbar .btn { padding: 3px 11px; font-size: 12px; }
 
-/* Table */
-.filters { display: flex; gap: 8px; margin-bottom: 16px; }
-.filters input, .filters select { margin-top: 0; }
-.filters input { flex: 1; }
-.table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.badge { font-size: 12px; padding: 3px 10px; border-radius: 3px; background: #2f3b45; color: #bbb; }
+.badge.ok { background: rgba(130, 176, 67, .22); color: #a5d15f; }
+.badge.bad { background: rgba(181, 88, 99, .25); color: #e79aa2; }
+
+/* ============ HEADER (синий градиент + логотип) ============ */
+.app-header {
+  background: var(--py-blue-dark);
+  background-image: linear-gradient(var(--py-blue-deep) 10%, var(--py-blue-dark) 90%);
+  border-top: 1px solid #191919;
+  border-bottom: 1px solid #444;
+  padding: 14px 20px 0;
+}
+.app-header-inner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.app-logo { width: 44px; height: 44px; }
+.app-title { margin: 0; font-size: 22px; color: #fff; font-weight: 700; letter-spacing: .2px; }
+.app-title small { display: block; font-size: 12px; font-weight: 400; color: var(--py-yellow); letter-spacing: .3px; }
+.app-header .spacer { flex: 1; }
+.app-user { color: #cfd8de; font-size: 14px; }
+
+/* ============ TABS (как python.org main navigation) ============ */
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+  border: none;
+}
+.tab {
+  border: none;
+  background: none;
+  padding: 10px 18px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  color: #cfd8de;
+  border-bottom: 3px solid transparent;
+  border-radius: 3px 3px 0 0;
+}
+.tab:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.tab.active { color: #fff; border-bottom-color: var(--py-yellow); background: rgba(255, 255, 255, .1); }
+
+/* ============ CONTENT ============ */
+.tab-panel { padding: 24px 20px; max-width: 1160px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 10px; }
+.panel-head h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--title);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-head h2::before { content: ">>>"; color: var(--py-yellow); font-weight: 700; font-family: var(--mono); font-size: .85em; }
+.panel-note { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+.panel-note code { background: var(--line); padding: 1px 5px; border-radius: 3px; }
+
+.filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.filters input, .filters select { margin-top: 0; width: auto; }
+.filters input { flex: 1; min-width: 200px; }
+
+/* ============ TABLE (карточка) ============ */
+.table-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: auto;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+.table { width: 100%; border-collapse: collapse; min-width: 720px; }
 .table th, .table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.table th { background: #fafbfc; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.table th {
+  background: #f2f4f6;
+  background-image: linear-gradient(#f7f8f9 10%, #eef0f2 90%);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.table tbody tr:hover { background: #fcfcfc; }
 .table tr:last-child td { border-bottom: none; }
+.table .muted { color: var(--muted); }
+
 .pager { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+.pager .btn { padding: 4px 12px; }
 
-/* Dialog */
-dialog { border: none; border-radius: 12px; padding: 0; box-shadow: 0 20px 60px rgba(0,0,0,.25); width: 380px; }
-dialog::backdrop { background: rgba(0,0,0,.4); }
-.dialog-form { padding: 24px; }
-.dialog-form h3 { margin: 0 0 8px; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.key-reveal { background: #1c2430; color: #7ee787; padding: 14px; border-radius: 8px; word-break: break-all; white-space: pre-wrap; font-size: 14px; }
+/* ============ DIALOG ============ */
+dialog {
+  border: none;
+  border-radius: 6px;
+  padding: 0;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .4);
+  width: 400px;
+  max-width: 92vw;
+}
+dialog::backdrop { background: rgba(30, 41, 51, .6); }
+.dialog-form { padding: 22px 24px 24px; }
+.dialog-form h3 { margin: 0 0 4px; color: var(--py-blue-deep); font-size: 19px; }
+.dialog-form h3::before { content: ">>> "; color: var(--py-yellow); font-family: var(--mono); }
+.dialog-form label { display: block; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.key-reveal {
+  background: var(--py-topbar-deep);
+  color: var(--py-yellow);
+  padding: 14px;
+  border-radius: 4px;
+  border-left: 3px solid var(--py-yellow);
+  word-break: break-all;
+  white-space: pre-wrap;
+  font-size: 14px;
+  font-family: var(--mono);
+}
 
-/* Toast */
-#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1c2430; color: #fff; padding: 11px 20px; border-radius: 10px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 999; max-width: 90vw; }
+/* ============ FOOTER (как site-base на python.org) ============ */
+.app-footer {
+  margin-top: 30px;
+  background: var(--py-topbar);
+  background-image: linear-gradient(var(--py-topbar-deep) 10%, #1f2a32 90%);
+  border-top: 1px solid #1f3b47;
+  color: #999;
+  font-size: 12px;
+  padding: 16px 20px;
+  text-align: center;
+}
+.app-footer::before { content: ">>> "; color: var(--py-yellow); font-family: var(--mono); }
+
+/* ============ TOAST ============ */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--py-topbar-deep);
+  color: #fff;
+  padding: 11px 20px;
+  border-radius: 4px;
+  border-left: 4px solid var(--py-yellow);
+  opacity: 0;
+  pointer-events: none;
+  transition: all .25s;
+  z-index: 999;
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.error { color: var(--danger); font-size: 13px; margin-top: 10px; }
+
+@media (max-width: 640px) {
+  .app-header-inner { gap: 10px; }
+  .tab-panel { padding: 18px 14px; }
+  .tab { padding: 9px 13px 11px; font-size: 14px; }
+}

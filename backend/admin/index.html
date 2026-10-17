@@ -4,13 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Data Core — Админка</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg" />
   <link rel="stylesheet" href="admin.css" />
 </head>
 <body>
   <!-- ================= LOGIN ================= -->
   <section id="login-view" class="login-wrap">
     <form id="login-form" class="login-card">
-      <h1>Data Core</h1>
+      <div class="login-brand">
+        <img src="logo.svg" alt="Data Core" />
+        <h1>Data Core</h1>
+      </div>
       <p class="muted">Вход в админку</p>
       <label>Логин
         <input id="login-username" name="username" autocomplete="username" required />
@@ -20,33 +24,47 @@
       </label>
       <button type="submit" class="btn btn-primary">Войти</button>
       <p id="login-error" class="error" hidden></p>
+      <p class="login-foot">API и данные — только через авторизованный доступ</p>
     </form>
   </section>
 
   <!-- ================= APP ================= -->
   <section id="app-view" hidden>
-    <header class="topbar">
+    <!-- тёмная служебная полоса -->
+    <div class="topbar">
       <div class="topbar-left">
-        <strong>Data Core</strong>
-        <span class="muted" id="whoami"></span>
+        <span>Data Core</span>
+        <span class="muted">ядро данных</span>
       </div>
       <div class="topbar-right">
         <span id="health-badge" class="badge">…</span>
         <button id="logout-btn" class="btn">Выйти</button>
       </div>
-    </header>
+    </div>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="users">Пользователи</button>
-      <button class="tab" data-tab="keys">API-ключи</button>
-    </nav>
+    <!-- синяя шапка с логотипом и вкладками -->
+    <header class="app-header">
+      <div class="app-header-inner">
+        <img class="app-logo" src="logo.svg" alt="" />
+        <h1 class="app-title">Data Core
+          <small>администрирование пользователей и ключей</small>
+        </h1>
+        <span class="spacer"></span>
+        <span id="whoami" class="app-user"></span>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="users">Пользователи</button>
+        <button class="tab" data-tab="keys">API-ключи</button>
+      </nav>
+    </header>
 
     <!-- ---------- Users tab ---------- -->
     <main id="tab-users" class="tab-panel">
       <div class="panel-head">
         <h2>Пользователи</h2>
-        <button id="user-create-btn" class="btn btn-primary">+ Создать</button>
+        <button id="user-create-btn" class="btn btn-accent">+ Создать</button>
       </div>
+      <p class="panel-note">Роли: <code>user</code> — чтение, <code>manager</code> — чтение и запись, <code>admin</code> — полный доступ.</p>
 
       <form id="user-search-form" class="filters">
         <input id="user-search" placeholder="Поиск: логин, email, имя" />
@@ -56,21 +74,23 @@
           <option value="manager">manager</option>
           <option value="user">user</option>
         </select>
-        <button class="btn" type="submit">Найти</button>
+        <button class="btn btn-primary" type="submit">Найти</button>
       </form>
 
-      <table class="table" id="users-table">
-        <thead>
-          <tr>
-            <th>Логин</th><th>Имя</th><th>Email</th><th>Роль</th><th>Активен</th><th>Создан</th><th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="table" id="users-table">
+          <thead>
+            <tr>
+              <th>Логин</th><th>Имя</th><th>Email</th><th>Роль</th><th>Активен</th><th>Создан</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
       <div class="pager">
-        <button id="users-prev" class="btn">←</button>
+        <button id="users-prev" class="btn">← Назад</button>
         <span id="users-page" class="muted"></span>
-        <button id="users-next" class="btn">→</button>
+        <button id="users-next" class="btn">Вперёд →</button>
       </div>
 
       <!-- create / edit form -->
@@ -102,17 +122,19 @@
     <!-- ---------- API keys tab ---------- -->
     <main id="tab-keys" class="tab-panel" hidden>
       <div class="panel-head">
-        <h2>API-ключи (<code>kppd_</code>)</h2>
-        <button id="key-create-btn" class="btn btn-primary">+ Выдать ключ</button>
+        <h2>API-ключи</h2>
+        <button id="key-create-btn" class="btn btn-accent">+ Выдать ключ</button>
       </div>
-      <p class="muted">Один ключ = одна интеграция. Ключ показывается один раз при выдаче.</p>
+      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция; показывается только один раз при выдаче.</p>
 
-      <table class="table" id="keys-table">
-        <thead>
-          <tr><th>Метка</th><th>TTL</th><th>Создан</th><th>Отозван</th><th>Использовался</th><th></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="table" id="keys-table">
+          <thead>
+            <tr><th>Метка</th><th>TTL</th><th>Создан</th><th>Отозван</th><th>Использовался</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
       <dialog id="key-dialog">
         <form id="key-form" method="dialog" class="dialog-form">
@@ -143,12 +165,16 @@
           <p class="muted">Больше он не будет показан: на сервере хранится только хеш.</p>
           <pre id="key-shown-value" class="key-reveal"></pre>
           <div class="dialog-actions">
-            <button type="button" id="key-copy" class="btn btn-primary">Скопировать</button>
+            <button type="button" id="key-copy" class="btn btn-accent">Скопировать</button>
             <button type="button" id="key-shown-close" class="btn">Закрыть</button>
           </div>
         </div>
       </dialog>
     </main>
+
+    <footer class="app-footer">
+      Personal Data Core · MongoDB + REST API · доступ только по JWT и ключам <span class="mono">kppd_</span>
+    </footer>
   </section>
 
   <script src="admin.js"></script>
