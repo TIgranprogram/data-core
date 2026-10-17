@@ -13,6 +13,14 @@ DATA_DIR="${DATA_DIR:-/var/lib/datacore}"
 MONGO_CONTAINER="${MONGO_CONTAINER:-datacore-mongo}"
 MONGO_DB="${MONGO_DB:-datacore}"
 
+# Mongo с --auth (задача B): дамп берём от root-пользователя.
+# Пароль приходит из .env (MONGO_ROOT_PASSWORD) — в скрипте не хранится.
+MONGO_ROOT_USER="${MONGO_ROOT_USER:-root}"
+if [[ -z "${MONGO_ROOT_PASSWORD:-}" ]]; then
+  echo "ERROR: MONGO_ROOT_PASSWORD is not set (deploy/synology/.env)" >&2
+  exit 1
+fi
+
 DOCKER="${DOCKER_CMD:-docker}"
 DATE="$(date +%Y-%m-%d_%H%M)"
 BACKUP_ROOT="${DATA_DIR}/backups"
@@ -23,7 +31,12 @@ echo "=== Data Core backup ($(date)) ==="
 echo "    mongo container: ${MONGO_CONTAINER}, db: ${MONGO_DB}"
 
 # mongodump внутри контейнера → копия на хост
-$DOCKER exec "$MONGO_CONTAINER" mongodump --db "$MONGO_DB" --out "/tmp/dump-${DATE}"
+$DOCKER exec "$MONGO_CONTAINER" mongodump \
+  --username "$MONGO_ROOT_USER" \
+  --password "$MONGO_ROOT_PASSWORD" \
+  --authenticationDatabase admin \
+  --db "$MONGO_DB" \
+  --out "/tmp/dump-${DATE}"
 $DOCKER cp "${MONGO_CONTAINER}:/tmp/dump-${DATE}" "${BACKUP_ROOT}/mongo-${DATE}"
 $DOCKER exec "$MONGO_CONTAINER" rm -rf "/tmp/dump-${DATE}"
 

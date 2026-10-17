@@ -13,18 +13,62 @@ services:
     image: mongo:7
     container_name: datacore-mongo
     restart: unless-stopped
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    # --auth: доступ только по паролю (задача B, P0.4). На ПУСТОМ datadir
+    # entrypoint сам создаёт root из MONGO_INITDB_ROOT_*; на уже существующем
+    # (локальный контур) пользователей создаёт backend/scripts/mongo-bootstrap-auth.js.
+    # --keyFile обязателен: MongoDB не запускает --auth вместе с replica set
+    # без security.keyFile (одноузловой rs0 использует его как общий секрет кластера).
+    command:
+      [
+        "mongod",
+        "--replSet",
+        "rs0",
+        "--bind_ip_all",
+        "--auth",
+        "--keyFile",
+        "/run/secrets/mongo-keyfile",
+      ]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
     ports:
       # Host-порт Mongo тоже параметризован: на машине может крутиться другой
       # контур (odr/kppdf) с занятым 27017 → подставь свой из .env (MONGO_PORT).
+      # Привязка ТОЛЬКО к 127.0.0.1 — наружу 27017 не торчит никогда.
       - "127.0.0.1:${MONGO_PORT:-27017}:27017"
     volumes:
       - ${DATA_DIR}/mongodb:/data/db
+      - mongo-secrets:/run/secrets:ro
+    depends_on:
+      mongo-keyfile:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # ping требует аутентификации → логинимся как root
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\"",
+        ]
       interval: 10s
       timeout: 5s
       retries: 8
+
+  # Разовая генерация keyfile в именованный том mongo-secrets.
+  # Файл должен принадлежать uid 999 (mongodb) и быть доступен только ему (600),
+  # иначе mongod упадёт с "permissions are too open".
+  mongo-keyfile:
+    image: mongo:7
+    restart: "no"
+    environment:
+      MONGO_KEYFILE_SECRET: ${MONGO_KEYFILE_SECRET:?MONGO_KEYFILE_SECRET is required}
+    volumes:
+      - mongo-secrets:/secrets
+    entrypoint: >-
+      sh -c "mkdir -p /secrets
+      && printf '%s' \"$$MONGO_KEYFILE_SECRET\" > /secrets/mongo-keyfile
+      && chown 999:999 /secrets/mongo-keyfile
+      && chmod 600 /secrets/mongo-keyfile
+      && echo 'keyfile ready'"
 
   # Одноразовая инициализация Replica Set rs0 (обязателен для транзакций).
   mongo-init:
@@ -33,9 +77,15 @@ services:
       mongo:
         condition: service_healthy
     restart: "no"
+    environment:
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
     # rs.status() возвращает {ok:0} и НЕ бросает ошибку, когда RS не инициализирован.
+    # С --auth логинимся как root, иначе и rs.status(), и rs.initiate() отклоняются.
     entrypoint: >-
-      sh -c "mongosh --host mongo:27017 --eval
+      sh -c "mongosh --host mongo:27017
+      -u \"$$MONGO_ROOT_USER\" -p \"$$MONGO_ROOT_PASSWORD\"
+      --authenticationDatabase admin --eval
       'var s=null; try { s=rs.status(); } catch(e) { s={ok:0}; }
       if (!s || s.ok!==1) {
         printjson(rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"mongo:27017\"}]}));
@@ -67,3 +117,8 @@ services:
       timeout: 10s
       retries: 6
       start_period: 40s
+
+# Именованные тома. mongo-secrets — keyfile для --auth + rs0
+# (наружу не монтируется, только внутри контура).
+volumes:
+  mongo-secrets:

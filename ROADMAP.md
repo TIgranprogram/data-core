@@ -40,14 +40,17 @@
 ### 3. Бэкапы (до того, как появятся ценные данные)
 - [x] **Адаптировать `deploy/synology/backup.sh` под data-core**: заменено на `datacore-mongo` / `datacore` (и `KPPDF_DATA_DIR` → `DATA_DIR=/var/lib/datacore`)
 - [ ] Настроить cron на VM: `0 3 * * * cd /opt/data-core && bash deploy/synology/backup.sh >> /var/log/datacore-backup.log 2>&1`
-- [ ] **Restore-дрилл**: восстановить дамп в тестовую БД и убедиться, что данные читаются
+- [x] **Restore-дрилл**: восстановить дамп в тестовую БД и убедиться, что данные читаются
+  - 📝 Выполнено 2026-10-17 локально: `mongorestore --db datacore_restore_test` → 91 коллекция, **107/107 документов**, `admin` читается (`role=admin, isOwner=true`); тестовая БД после сверки удалена. Скрипт сверки: `deploy/synology/verify-restore.js`
 - [ ] Копия бэкапов вне NAS (USB / второй диск)
 - _Критерий: бэкап создаётся ежедневно и восстановлен хотя бы раз_
 
 ### 4. Аутентификация MongoDB
-- [ ] Включить `--auth` + создать root/app-user в compose; бэкенд подключается с `authSource`
-- [ ] Убедиться: `27017` недоступна ни с какой машины, кроме VM
-- _Критерий: прямое подключение к Mongo без пароля отклоняется_
+- [x] Включить `--auth` + создать root/app-user в compose; бэкенд подключается с `authSource`
+  - 📝 Выполнено 2026-10-17 (локальный контур): `--auth` + **`--keyFile`** (MongoDB требует `security.keyFile` при `--auth`+replica set — keyfile генерирует одноразовый сервис `mongo-keyfile` в именованном томе `mongo-secrets`, 600/uid 999). Пользователи: `root` (admin db, для init/бэкапов) и `datacore` (readWrite на `datacore`, `authSource=datacore` в `MONGO_URI`). На существующем datadir пользователей создал `backend/scripts/mongo-bootstrap-auth.js` (пароли из env, в репо не лежат); healthcheck и `rs.initiate` теперь логинятся как root. `backup.sh` обновлён (`mongodump -u root --authenticationDatabase admin`).
+- [x] Убедиться: `27017` недоступна ни с какой машины, кроме VM
+  - 📝 Локально: `docker port` → `127.0.0.1:27018`; `Test-NetConnection LAN-IP:27018` → **False**, `127.0.0.1:27018` → True. На VM дополнительно проверить после деплоя.
+- _Критерий: прямое подключение к Mongo без пароля отклоняется_ ✅ (`Command find requires authentication`)
 
 ---
 
@@ -99,7 +102,9 @@
 | `deploy/synology/backup.sh` | Был настроен на `kppdf-mongo` / БД `kppdf` | ✅ Адаптирован на `datacore-mongo` / `datacore` (задача 3) |
 | `deploy/synology/deploy.*` | Заточены под kppdf (сборка NX-фронта, `REMOTE_DIR=/opt/kppdf-8.0`, mongo 4.4) | Адаптировать (задача 8); `docker-compose.prod.yml` уже создан (контур :3001, mongo 7) |
 | `docker-compose.prod.yml` | Создан, но ещё не проверен реальным деплоем на VM | Задача 8 |
-| MongoDB | Без аутентификации (`--auth` не включён) | Задача 4 |
+| MongoDB | ~~Без аутентификации (`--auth` не включён)~~ | ✅ Включено локально (задача 4): `--auth` + `--keyFile` (обязателен при rs0!), пользователи `root`/`datacore`, `backup.sh` с паролем. Повторить на VM при деплое |
+| MongoDB keyfile | MongoDB **не стартует** с `--auth`+`--replSet` без `security.keyFile` (`BadValue`) | Сервис `mongo-keyfile` пишет файл (600, uid 999) в том `mongo-secrets`; `--keyFile /run/secrets/mongo-keyfile` |
+| Git Bash на Windows | MSYS конвертит `/tmp/...` → Windows-путь при вызове `docker exec` → `backup.sh` падает (`Could not find the file /tmp/...`) | Локально гонять с `MSYS_NO_PATHCONV=1`; на VM (Linux) не проявляется |
 | `backend/` | 92 модуля, большинство — CRM-балласт | Задача 5 |
 | Swagger | В prod выключен (`main.ts`), `openapi.json` нигде не экспортируется | Задача 6 |
 | Версии Mongo | В prod kppdf — mongo 4.4; здесь — mongo 7 | Не смешивать контуры; не поднимать data-core на 4.4 |

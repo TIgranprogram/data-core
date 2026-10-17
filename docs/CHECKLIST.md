@@ -13,8 +13,10 @@
 
 ## 📋 Остальное из ROADMAP (P0/P1)
 
-- [ ] **B. Mongo auth (P0.4)** — `--auth` + root/app-user в compose; бэкенд с `authSource`; 27017 не наружу
-- [ ] **C. Restore-дрилл (P0.3)** — mongodump → восстановить в тестовую БД → данные читаются
+- [x] **B. Mongo auth (P0.4)** — `--auth` + root/app-user в compose; бэкенд с `authSource`; 27017 не наружу
+  - done: `--auth`+`--keyFile`, users root/datacore, no-auth read → rejected, LAN:27018 → False, backup.sh авторизован
+- [x] **C. Restore-дрилл (P0.3)** — mongodump → восстановить в тестовую БД → данные читаются
+  - done: `datacore_restore_test` 91 коллекция/107 доков → ALL COUNTS MATCH, scratch удалена
 - [ ] **D. Cron бэкапов на VM (P0.3)** — после деплоя: `0 3 * * *` + ретеншен 14 дней
 - [ ] **E. OpenAPI экспорт (P1.6)** — скрипт экспорта `openapi.json` в репозиторий
 - [ ] **F. Деплой-скрипты под data-core (P1.8)** — `deploy.py`/`deploy.ps1`/`deploy.sh` без kppdf-балласта
