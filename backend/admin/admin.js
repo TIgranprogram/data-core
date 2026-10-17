@@ -174,7 +174,9 @@
   }
 
   // ---- Tables (справочник коллекций) ----
-  const colState = { items: [], search: '', cache: new Map() };
+  const colState = { items: [], categories: [], search: '', cache: new Map() };
+  /** Русские подписи типов таблиц (бейдж рядом с именем). */
+  const KIND_LABEL = { core: 'действующая', link: 'связевая', legacy: 'остаток' };
 
   async function loadCollections(force = false) {
     const tbody = $('#cols-table tbody');
@@ -184,14 +186,41 @@
     try {
       const r = await api('/admin/collections');
       colState.items = r.items || [];
+      colState.categories = r.categories || [];
       renderCollections();
+      renderTablesSummary();
     } catch (e) { tbody.replaceChildren(); toast(e.message); }
+  }
+
+  /** Легенда над таблицей: всего + разбивка по типам (оставить / удалить). */
+  function renderTablesSummary() {
+    const wrap = $('#tables-summary'); if (!wrap) return;
+    const counts = { core: 0, link: 0, legacy: 0 };
+    colState.items.forEach((c) => { counts[c.kind] = (counts[c.kind] || 0) + 1; });
+
+    wrap.replaceChildren();
+    const total = el('span', 'sum-pill sum-total');
+    total.append(el('b', '', String(colState.items.length)), el('span', '', 'таблиц всего'));
+    wrap.append(total);
+
+    const pill = (kind, label) => {
+      const p = el('span', 'sum-pill k-' + kind);
+      p.append(el('i', 'dot'), el('b', '', String(counts[kind] || 0)), el('span', '', label));
+      wrap.append(p);
+    };
+    pill('core', 'действующих');
+    pill('link', 'связевых');
+    pill('legacy', 'остатков (можно удалить)');
+
+    wrap.append(el('span', 'sum-hint',
+      'действующая — есть модуль-код · связевая — вложена в основные таблицы · остаток — код удалён при чистке H'));
   }
 
   function renderCollections() {
     const tbody = $('#cols-table tbody'); tbody.replaceChildren();
     const s = colState.search.toLowerCase();
-    const items = colState.items.filter((c) => !s || c.name.toLowerCase().includes(s));
+    const items = colState.items.filter((c) =>
+      !s || c.name.toLowerCase().includes(s) || (c.description || '').toLowerCase().includes(s));
     $('#cols-summary').textContent = items.length
       ? `${items.length} из ${colState.items.length} · записей суммарно ${items.reduce((a, c) => a + c.count, 0).toLocaleString('ru-RU')}`
       : '';
@@ -199,23 +228,56 @@
       const tr = el('tr'); const td = el('td', 'muted', 'Ничего не найдено'); td.colSpan = 6; tr.append(td); tbody.append(tr);
       return;
     }
+
+    // Группировка по категориям (порядок — из ответа API); категории без
+    // совпадений пропускаются, чтобы поиск работал по всему списку.
+    const byCat = new Map();
     items.forEach((c) => {
-      const main = colRow(c), detail = detailRow();
-      main.addEventListener('click', () => toggleCol(c, main, detail));
-      tbody.append(main, detail);
+      const id = c.category || 'unknown';
+      if (!byCat.has(id)) byCat.set(id, []);
+      byCat.get(id).push(c);
     });
+    const ordered = colState.categories.filter((cat) => byCat.has(cat.id));
+    byCat.forEach((_, id) => { if (!ordered.some((c) => c.id === id)) ordered.push({ id, label: id }); });
+
+    ordered.forEach((cat) => {
+      const rows = byCat.get(cat.id).slice().sort((a, b) => a.name.localeCompare(b.name));
+      tbody.append(catRow(cat, rows.length));
+      rows.forEach((c) => {
+        const main = colRow(c), detail = detailRow();
+        main.addEventListener('click', () => toggleCol(c, main, detail));
+        tbody.append(main, detail);
+      });
+    });
+  }
+
+  /** Строка-заголовок категории (на всю ширину таблицы). */
+  function catRow(cat, n) {
+    const tr = el('tr', 'cat-row' + (cat.legacy ? ' legacy' : ''));
+    const td = el('td'); td.colSpan = 6;
+    td.append(el('span', 'cat-label', cat.label), el('span', 'cat-count', String(n)));
+    tr.append(td);
+    return tr;
   }
 
   function colRow(c) {
     const tr = el('tr', 'col-row');
-    const caret = el('td', 'col-caret', '▸'); tr.append(caret);
+    tr.append(el('td', 'col-caret', '▸'));
+
     const nameTd = el('td');
     nameTd.append(el('span', 'col-name', c.name));
+    const kind = c.kind || 'core';
+    nameTd.append(el('span', 'kind kind-' + kind, KIND_LABEL[kind] || kind));
     tr.append(nameTd);
+
+    // Русское описание — сразу после имени (основная колонка для чтения).
+    const doc = el('td', 'col-doc', c.description || '—');
+    if (!c.description) doc.classList.add('muted');
+    tr.append(doc);
+
     tr.append(el('td', 'num', c.count.toLocaleString('ru-RU')));
     tr.append(el('td', 'num', String(c.fieldCount)));
     tr.append(el('td', 'muted small', (c.keyFields || []).map((f) => f.name).join(', ') || '—'));
-    tr.append(el('td', 'muted small', c.description || '—'));
     return tr;
   }
 
@@ -248,7 +310,13 @@
 
   function renderColDetail(td, d) {
     td.replaceChildren();
-    if (d.description) td.append(el('p', 'col-desc', d.description));
+    if (d.description) {
+      const p = el('p', 'col-desc');
+      p.append(document.createTextNode(d.description));
+      const kind = d.kind || 'core';
+      p.append(el('span', 'kind kind-' + kind, KIND_LABEL[kind] || kind));
+      td.append(p);
+    }
     td.append(el('p', 'muted small',
       `Записей: ${d.count.toLocaleString('ru-RU')} · проанализировано семпла: ${d.sampled}` +
       (d.truncated ? ' · показаны первые 400 полей' : '')));

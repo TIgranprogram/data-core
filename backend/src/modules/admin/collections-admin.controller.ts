@@ -35,28 +35,184 @@ interface FieldStat {
   completeness: number;
 }
 
-/** Человекочитаемые описания ядра Personal Data Core. */
-const COLLECTION_DOCS: Record<string, string> = {
-  users:
-    'Пользователи. Логин, хеш пароля, роль, права, isActive. Хеш пароля никогда не покидает API.',
-  roles: 'Роли доступа (admin / manager / user) и назначенные им права.',
-  permissions: 'Справочник прав, которые раздаются ролям и пользователям.',
-  settings: 'Служебные настройки системы (ключ → значение).',
-  featureflags: 'Переключатели функций (feature flags).',
-  auditlogs:
-    'Журнал аудита: кто и что изменил (action, entityType, снапшот до/после).',
-  desktoppairingkeys:
-    'Машинные API-ключи kppd_… На сервере хранится только хеш; есть TTL и отзыв.',
-  ratelimits: 'Счётчики rate-limiting (по пользователю / IP).',
-  counters: 'Транзакционные счётчики порядковых номеров документов (rs0).',
+/** Категории справочника таблиц (порядок отображения в админке). */
+interface CategoryDef {
+  id: string;
+  label: string;
+  /** true — остатки удалённого домена: модульного кода нет, кандидат на удаление. */
+  legacy?: boolean;
+}
+
+const CATEGORIES: CategoryDef[] = [
+  { id: 'access', label: 'Доступ и безопасность' },
+  { id: 'system', label: 'Служебные и системные' },
+  { id: 'orgs', label: 'Организации, контрагенты и люди' },
+  { id: 'classifiers', label: 'Классификаторы и справочники' },
+  { id: 'catalog', label: 'Каталог: материалы и изделия' },
+  { id: 'links', label: 'Связевые и вложенные (несамостоятельные)' },
+  { id: 'legacy-docs', label: 'Остатки: документооборот (код удалён)', legacy: true },
+  { id: 'legacy-sales', label: 'Остатки: продажи, сделки и закупки (код удалён)', legacy: true },
+  { id: 'legacy-prod', label: 'Остатки: производство (код удалён)', legacy: true },
+  { id: 'legacy-wh', label: 'Остатки: склад и инвентарь (код удалён)', legacy: true },
+  { id: 'legacy-misc', label: 'Остатки: прочее (код удалён)', legacy: true },
+  { id: 'unknown', label: 'Не классифицировано' },
+];
+
+/**
+ * Тип таблицы — прямая подсказка для решения «оставить / удалить»:
+ *   core   — действующая самостоятельная (за ней стоит модуль, код есть)
+ *   link   — действующая связевая/вложенная: создаётся из нескольких таблиц,
+ *            сама по себе не самостоятельна (вложена в core-домен)
+ *   legacy — остаток удалённого домена: модуль удалён при чистке H,
+ *            таблица — кандидат на удаление
+ */
+type CollectionKind = 'core' | 'link' | 'legacy';
+
+interface CollectionMeta {
+  category: string;
+  kind: CollectionKind;
+  /** Короткое описание по-русски: что это за таблица. */
+  doc: string;
+}
+
+/**
+ * Полный реестр всех коллекций БД: русское описание + категория + тип.
+ *
+ * `core`/`link` (42 шт.) соответствуют 36 схемам действующих модулей (см.
+ * grep `collection:` в *.schema.ts); `legacy` (49 шт.) — коллекции, чьи модули
+ * удалены при чистке H (см. docs/CHECKLIST.md), в коде не создаются и не пишутся.
+ * Часть `legacy` всё ещё читается в проверках удаления (409) — см. пометку в doc.
+ */
+const COLLECTIONS: Record<string, CollectionMeta> = {
+  // ================= Доступ и безопасность =================
+  users: { category: 'access', kind: 'core', doc: 'Пользователи: логин, хеш пароля, роль, isActive. Хеш пароля не покидает API.' },
+  roles: { category: 'access', kind: 'core', doc: 'Роли доступа (admin / manager / user) и назначенные им права.' },
+  permissions: { category: 'access', kind: 'core', doc: 'Справочник прав, которые раздаются ролям и пользователям.' },
+  featureflags: { category: 'access', kind: 'core', doc: 'Переключатели функций платформы (feature flags).' },
+  rate_limit_entries: { category: 'access', kind: 'core', doc: 'Счётчики rate-limiting по IP / пользователю (защита API от перебора).' },
+  desktop_pairing_keys: { category: 'access', kind: 'core', doc: 'Машинные API-ключи kppd_… На сервере только хеш; есть TTL и отзыв.' },
+  browserdevicegrants: { category: 'access', kind: 'core', doc: 'Гранты браузерных устройств: какой браузер допущен к каким данным.' },
+  deviceinvites: { category: 'access', kind: 'core', doc: 'Приглашения устройств для парной авторизации (pairing owner-инвайты).' },
+
+  // ================= Служебные и системные =================
+  settings: { category: 'system', kind: 'core', doc: 'Служебные настройки системы (ключ → значение).' },
+  counters: { category: 'system', kind: 'core', doc: 'Транзакционные счётчики порядковых номеров документов (rs0).' },
+  auditlogs: { category: 'system', kind: 'core', doc: 'Журнал аудита: кто и что изменил (action, entityType, снапшот до/после).' },
+  idempotency_records: { category: 'system', kind: 'core', doc: 'Записи идемпотентности: повторный запрос возвращает тот же ответ.' },
+  entitystatuses: { category: 'system', kind: 'core', doc: 'Текущий статус каждой сущности (заказ, продукт, контрагент…).' },
+  statusworkflows: { category: 'system', kind: 'core', doc: 'Граф переходов статусов: из какого статуса в какой можно перейти.' },
+
+  // ================= Организации, контрагенты и люди =================
+  organizations: { category: 'orgs', kind: 'core', doc: 'Организации (компании): юр.-данные и реквизиты.' },
+  persons: { category: 'orgs', kind: 'core', doc: 'Люди / контакты: ФИО, телефоны, email.' },
+  counterparties: { category: 'orgs', kind: 'core', doc: 'Контрагенты — клиенты и поставщики.' },
+  sites: { category: 'orgs', kind: 'core', doc: 'Площадки и адреса организаций.' },
+
+  // ================= Классификаторы и справочники =================
+  categories: { category: 'classifiers', kind: 'core', doc: 'Иерархия категорий (дерево) для классификации материалов и продукции.' },
+  units: { category: 'classifiers', kind: 'core', doc: 'Единицы измерения (шт, кг, м…).' },
+  currencies: { category: 'classifiers', kind: 'core', doc: 'Валюты и их курсы.' },
+  color_references: { category: 'classifiers', kind: 'core', doc: 'Справочник цветов (цветовая палитра материалов).' },
+  dictionary_labels: { category: 'classifiers', kind: 'core', doc: 'Метки и подписи справочников (локализация значений).' },
+  worktypes: { category: 'classifiers', kind: 'core', doc: 'Виды работ — канонический справочник каталога (нужен продуктам/модулям).' },
+  attributedefinitions: { category: 'classifiers', kind: 'core', doc: 'Определения атрибутов: структура дополнительных полей сущностей.' },
+
+  // ================= Каталог: материалы и изделия =================
+  materials: { category: 'catalog', kind: 'core', doc: 'Материалы: номенклатура, свойства, единицы измерения.' },
+  products: { category: 'catalog', kind: 'core', doc: 'Продукция: карточки изделий каталога.' },
+  productmodules: { category: 'catalog', kind: 'core', doc: 'Модули / комплектующие продукции (состав изделия).' },
+  productpassports: { category: 'catalog', kind: 'core', doc: 'Паспорта изделий (технические характеристики в паспорте).' },
+  photos: { category: 'catalog', kind: 'core', doc: 'Фотохранилище: сами изображения (файл / ссылка).' },
+
+  // ================= Связевые и вложенные (несамостоятельные) =================
+  organizationcontacts: { category: 'links', kind: 'link', doc: 'Связь «организация ↔ контакт»: кто входит в организацию и в какой роли.' },
+  orgroles: { category: 'links', kind: 'link', doc: 'Связь «организация ↔ роль»: какие роли выданы внутри организации.' },
+  counterpartyroles: { category: 'links', kind: 'link', doc: 'Связь «контрагент ↔ роль»: какую роль играет контрагент.' },
+  productphotos: { category: 'links', kind: 'link', doc: 'Связь «продукт ↔ фото»: какие изображения относятся к изделию.' },
+  productmodulephotos: { category: 'links', kind: 'link', doc: 'Связь «модуль ↔ фото»: изображения комплектующего.' },
+  entityattributevalues: { category: 'links', kind: 'link', doc: 'Значения атрибутов, привязанные к конкретной сущности (EAV).' },
+
+  // ================= Остатки: документооборот (код удалён) =================
+  document_templates: { category: 'legacy-docs', kind: 'legacy', doc: 'Шаблоны документов. Остаток удалённого DocStudio — модульного кода нет, кандидат на удаление.' },
+  document_template_categories: { category: 'legacy-docs', kind: 'legacy', doc: 'Категории шаблонов документов. Остаток удалённого DocStudio, кандидат на удаление.' },
+  doc_types: { category: 'legacy-docs', kind: 'legacy', doc: 'Типы документов (есть остаточные данные). Остаток удалённого домена, кандидат на удаление.' },
+  document_table_types: { category: 'legacy-docs', kind: 'legacy', doc: 'Типы таблиц внутри документов. Остаток удалённого DocStudio, кандидат на удаление.' },
+  table_templates: { category: 'legacy-docs', kind: 'legacy', doc: 'Шаблоны таблиц документов. Остаток удалённого DocStudio, кандидат на удаление.' },
+  template_blocks: { category: 'legacy-docs', kind: 'legacy', doc: 'Блоки шаблонов. Остаток удалённого DocStudio, кандидат на удаление.' },
+  text_blocks: { category: 'legacy-docs', kind: 'legacy', doc: 'Библиотека текстовых блоков. Остаток удалённого DocStudio, кандидат на удаление.' },
+  text_block_categories: { category: 'legacy-docs', kind: 'legacy', doc: 'Категории текстовых блоков. Остаток удалённого DocStudio, кандидат на удаление.' },
+  studio_documents: { category: 'legacy-docs', kind: 'legacy', doc: 'Документы DocStudio. Остаток удалённого домена, кандидат на удаление.' },
+  generated_documents: { category: 'legacy-docs', kind: 'legacy', doc: 'Сгенерированные (выгруженные) документы. Остаток удалённого домена, кандидат на удаление.' },
+  form_profiles: { category: 'legacy-docs', kind: 'legacy', doc: 'Профили форм. Остаток удалённого домена, кандидат на удаление.' },
+
+  // ================= Остатки: продажи, сделки и закупки (код удалён) =================
+  quotations: { category: 'legacy-sales', kind: 'legacy', doc: 'Коммерческие предложения (КП). Остаток удалённого CRM; читается только в проверке удаления продукции.' },
+  contracts: { category: 'legacy-sales', kind: 'legacy', doc: 'Договоры. Остаток удалённого CRM, кандидат на удаление.' },
+  orders: { category: 'legacy-sales', kind: 'legacy', doc: 'Заказы. Остаток удалённого CRM; читается только в проверке удаления продукции.' },
+  shipments: { category: 'legacy-sales', kind: 'legacy', doc: 'Отгрузки. Остаток удалённого CRM, кандидат на удаление.' },
+  invoices: { category: 'legacy-sales', kind: 'legacy', doc: 'Счета. Остаток удалённого CRM, кандидат на удаление.' },
+  tenders: { category: 'legacy-sales', kind: 'legacy', doc: 'Тендеры и заявки. Остаток удалённого CRM, кандидат на удаление.' },
+  desknotes: { category: 'legacy-sales', kind: 'legacy', doc: 'Служебные записки. Остаток удалённого CRM, кандидат на удаление.' },
+  rpps: { category: 'legacy-sales', kind: 'legacy', doc: 'Реестры РПП. Остаток удалённого CRM, кандидат на удаление.' },
+  purchaseorders: { category: 'legacy-sales', kind: 'legacy', doc: 'Закупочные заказы (PO). Остаток удалённого домена; читается в проверке удаления материалов.' },
+  purchaserequests: { category: 'legacy-sales', kind: 'legacy', doc: 'Запросы на закупку (PR). Остаток удалённого домена, кандидат на удаление.' },
+  supplyrequests: { category: 'legacy-sales', kind: 'legacy', doc: 'Запросы снабжения. Остаток удалённого домена, кандидат на удаление.' },
+  supplytasks: { category: 'legacy-sales', kind: 'legacy', doc: 'Задачи снабжения. Остаток удалённого домена, кандидат на удаление.' },
+  cart_items: { category: 'legacy-sales', kind: 'legacy', doc: 'Позиции корзины (e-commerce). Остаток удалённого CRM, кандидат на удаление.' },
+  cart_sessions: { category: 'legacy-sales', kind: 'legacy', doc: 'Сессии корзины. Остаток удалённого CRM, кандидат на удаление.' },
+  financial_reports: { category: 'legacy-sales', kind: 'legacy', doc: 'Финансовые отчёты. Остаток удалённого домена, кандидат на удаление.' },
+  reconciliation_acts: { category: 'legacy-sales', kind: 'legacy', doc: 'Акты сверки расчётов. Остаток удалённого домена, кандидат на удаление.' },
+
+  // ================= Остатки: производство (код удалено) =================
+  productionorders: { category: 'legacy-prod', kind: 'legacy', doc: 'Производственные заказы. Остаток удалённого производства, кандидат на удаление.' },
+  ordertasks: { category: 'legacy-prod', kind: 'legacy', doc: 'Задачи по заказу. Остаток удалённого производства, кандидат на удаление.' },
+  workorders: { category: 'legacy-prod', kind: 'legacy', doc: 'Наряд-заказы на работу. Остаток удалённого производства, кандидат на удаление.' },
+  workorderoperations: { category: 'legacy-prod', kind: 'legacy', doc: 'Операции наряда-заказа. Остаток удалённого производства, кандидат на удаление.' },
+  workcenters: { category: 'legacy-prod', kind: 'legacy', doc: 'Рабочие центры (станки, участки). Остаток удалённого производства, кандидат на удаление.' },
+  workers: { category: 'legacy-prod', kind: 'legacy', doc: 'Работники / исполнители. Остаток удалённого производства; читается в проверке удаления видов работ.' },
+  routingsteps: { category: 'legacy-prod', kind: 'legacy', doc: 'Шаги маршрутной карты (маршрутизация). Остаток удалённого производства, кандидат на удаление.' },
+  techprocesses: { category: 'legacy-prod', kind: 'legacy', doc: 'Технологические процессы. Остаток удалённого производства, кандидат на удаление.' },
+  costcalculations: { category: 'legacy-prod', kind: 'legacy', doc: 'Калькуляция себестоимости. Остаток удалённого производства; читается в проверке удаления материалов/продукции.' },
+  actualcosts: { category: 'legacy-prod', kind: 'legacy', doc: 'Фактические затраты. Остаток удалённого производства, кандидат на удаление.' },
+  orderclosings: { category: 'legacy-prod', kind: 'legacy', doc: 'Закрытия заказов / периодов. Остаток удалённого производства, кандидат на удаление.' },
+
+  // ================= Остатки: склад и инвентарь (код удалён) =================
+  warehouses: { category: 'legacy-wh', kind: 'legacy', doc: 'Склады (есть остаточные данные). Остаток удалённого склада, кандидат на удаление.' },
+  storageitems: { category: 'legacy-wh', kind: 'legacy', doc: 'Позиции хранения на складе. Остаток удалённого склада, кандидат на удаление.' },
+  stockmovements: { category: 'legacy-wh', kind: 'legacy', doc: 'Движения запасов (приход / расход). Остаток удалённого склада, кандидат на удаление.' },
+  reservations: { category: 'legacy-wh', kind: 'legacy', doc: 'Резервы запасов. Остаток удалённого склада, кандидат на удаление.' },
+  boms: { category: 'legacy-wh', kind: 'legacy', doc: 'Ведомость материалов (BOM). Остаток удалённого домена; читается в проверке удаления модулей/продукции.' },
+
+  // ================= Остатки: прочее (код удалён) =================
+  import_jobs: { category: 'legacy-misc', kind: 'legacy', doc: 'Задачи импорта данных. Остаток удалённого домена, кандидат на удаление.' },
+  import_mapping_profiles: { category: 'legacy-misc', kind: 'legacy', doc: 'Профили маппинга полей при импорте. Остаток удалённого домена, кандидат на удаление.' },
+  import_tasks: { category: 'legacy-misc', kind: 'legacy', doc: 'Детали задач импорта. Остаток удалённого домена, кандидат на удаление.' },
+  import_todos: { category: 'legacy-misc', kind: 'legacy', doc: 'Незавершённые шаги импорта. Остаток удалённого домена, кандидат на удаление.' },
+  interactions: { category: 'legacy-misc', kind: 'legacy', doc: 'Взаимодействия с клиентами (CRM). Остаток удалённого CRM, кандидат на удаление.' },
+  comments: { category: 'legacy-misc', kind: 'legacy', doc: 'Комментарии к сущностям. Остаток удалённого домена, кандидат на удаление.' },
+  certificates: { category: 'legacy-misc', kind: 'legacy', doc: 'Сертификаты и документы соответствия. Остаток удалённого домена, кандидат на удаление.' },
+  compliancerules: { category: 'legacy-misc', kind: 'legacy', doc: 'Правила комплаенса / соответствия. Остаток удалённого домена, кандидат на удаление.' },
+  inventorfiles: { category: 'legacy-misc', kind: 'legacy', doc: 'Файлы инвентаризации. Остаток удалённого домена, кандидат на удаление.' },
+  catalogattachments: { category: 'legacy-misc', kind: 'legacy', doc: 'Вложения каталога. Остаток удалённого домена, кандидат на удаление.' },
+  mutation_journal: { category: 'legacy-misc', kind: 'legacy', doc: 'Журнал мутаций (служебный). Остаток удалённого домена, кандидат на удаление.' },
+  migration_flags: { category: 'legacy-misc', kind: 'legacy', doc: 'Флаги выполненных миграций. Служебное, код миграций удалён — кандидат на удаление.' },
 };
+
+/** Индекс для поиска без учёта регистра/подчёркиваний (устойчивость к вводу из URL). */
+const COLLECTIONS_BY_NORM: Record<string, CollectionMeta> = Object.fromEntries(
+  Object.entries(COLLECTIONS).map(([k, v]) => [normalizeName(k), v]),
+);
 
 function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[_\-\s]/g, '');
 }
 
+function metaFor(name: string): CollectionMeta | undefined {
+  return COLLECTIONS[name] ?? COLLECTIONS_BY_NORM[normalizeName(name)];
+}
+
 function describe(name: string): string | undefined {
-  return COLLECTION_DOCS[normalizeName(name)];
+  return metaFor(name)?.doc;
 }
 
 function classify(value: unknown): string {
@@ -233,6 +389,8 @@ export class CollectionsAdminController {
       fieldCount: number;
       keyFields: { name: string; types: string[] }[];
       description?: string;
+      category: string;
+      kind: CollectionKind;
     }[] = [];
 
     for (const name of names) {
@@ -240,16 +398,21 @@ export class CollectionsAdminController {
       const count = await coll.estimatedDocumentCount().catch(() => 0);
       const sample = await coll.find({}).limit(LIST_SAMPLE).toArray();
       const preview = topLevelPreview(sample);
+      const meta = metaFor(name);
       items.push({
         name,
         count,
         fieldCount: preview.length,
         keyFields: preview,
-        description: describe(name),
+        description: meta?.doc,
+        // Неизвестная коллекция (новая/внешняя) уходит в «Не классифицировано» —
+        // её видно сразу и её надо описать в COLLECTIONS.
+        category: meta?.category ?? 'unknown',
+        kind: meta?.kind ?? 'core',
       });
     }
 
-    return { total: items.length, items };
+    return { total: items.length, categories: CATEGORIES, items };
   }
 
   /** GET /api/admin/collections/:name — расшифровка одной коллекции. */
@@ -284,6 +447,8 @@ export class CollectionsAdminController {
       sampled,
       truncated,
       description: describe(name),
+      category: metaFor(name)?.category ?? 'unknown',
+      kind: metaFor(name)?.kind ?? 'core',
       fields,
     };
   }

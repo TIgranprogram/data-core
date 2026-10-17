@@ -179,10 +179,12 @@
         <h2>Таблицы</h2>
         <span id="cols-summary" class="muted small"></span>
       </div>
-      <p class="panel-note">Справочник коллекций MongoDB: нажмите на строку, чтобы раскрыть её поля — типы, заполненность и пример значения. Чувствительные значения (пароли, хеши, токены) маскируются на сервере.</p>
+      <p class="panel-note">Справочник коллекций MongoDB, сгруппированный по категориям. У каждой таблицы есть русское описание и тип: <b>действующая</b> (за ней стоит модуль), <b>связевая</b> (создаётся из нескольких таблиц, сама по себе не самостоятельна) или <b>остаток</b> (код удалён — кандидат на удаление). Нажмите строку, чтобы раскрыть поля — типы, заполненность и пример значения. Чувствительные значения маскируются на сервере.</p>
+
+      <div id="tables-summary" class="tables-summary"></div>
 
       <form id="col-search-form" class="filters">
-        <input id="col-search" placeholder="Поиск таблицы по названию…" />
+        <input id="col-search" placeholder="Поиск по имени или описанию таблицы…" />
         <button class="btn btn-primary" type="submit">Найти</button>
         <button class="btn" type="button" id="col-refresh">Обновить</button>
       </form>
@@ -193,10 +195,10 @@
             <tr>
               <th class="col-caret"></th>
               <th>Таблица</th>
-              <th>Записей</th>
-              <th>Полей</th>
+              <th>Описание (рус.)</th>
+              <th class="num">Записей</th>
+              <th class="num">Полей</th>
               <th>Ключевые поля</th>
-              <th>Описание</th>
             </tr>
           </thead>
           <tbody></tbody>

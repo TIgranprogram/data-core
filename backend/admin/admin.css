@@ -280,6 +280,61 @@ dialog::backdrop { background: rgba(30, 41, 51, .6); }
 .col-row.open .col-name { color: var(--py-blue-deep); font-weight: 700; }
 .col-name { font-family: var(--mono); font-size: 14px; }
 .col-row .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table th.num { text-align: right; }
+
+/* Колонка русского описания — основная для чтения */
+.col-doc { font-size: 13.5px; color: var(--title); line-height: 1.4; min-width: 240px; max-width: 470px; }
+.col-doc.muted { color: var(--muted); }
+
+/* ---- Сводка-легенда над таблицей (сколько чего и можно ли удалять) ---- */
+.tables-summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
+.sum-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px; border-radius: 13px;
+  background: #fff; border: 1px solid var(--line);
+  font-size: 13px; color: var(--title);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .03);
+}
+.sum-pill b { font-size: 15px; font-weight: 700; }
+.sum-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: #ccc; flex: none; }
+.sum-total { background: var(--py-topbar); border-color: var(--py-topbar); color: #e6e8ea; }
+.sum-total b { color: var(--py-yellow); }
+.sum-pill.k-core .dot { background: var(--ok); }
+.sum-pill.k-link .dot { background: var(--py-blue); }
+.sum-pill.k-legacy .dot { background: var(--py-yellow); box-shadow: inset 0 0 0 1px #d9b62f; }
+.sum-hint { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
+
+/* ---- Строка-заголовок категории ---- */
+.cat-row > td {
+  background: #eceff2;
+  background-image: linear-gradient(#f0f2f5 10%, #e5e9ee 90%);
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  padding: 8px 14px;
+}
+.cat-row .cat-label { font-weight: 700; color: var(--py-blue-deep); font-size: 13.5px; }
+.cat-row .cat-label::before { content: "» "; color: var(--py-blue); font-family: var(--mono); }
+.cat-row .cat-count {
+  display: inline-block; margin-left: 8px;
+  font-size: 12px; color: var(--muted); background: #fff;
+  border: 1px solid var(--line-strong); border-radius: 10px; padding: 0 8px;
+}
+/* Остатки удалённого домена — янтарная подсветка, чтобы читались как «можно удалить» */
+.cat-row.legacy > td { background: #fdf6e3; background-image: linear-gradient(#fefaf0 10%, #fbeec6 90%); border-color: #ecd9a0; }
+.cat-row.legacy .cat-label { color: #8a6d1a; }
+.cat-row.legacy .cat-label::before { color: #c9a227; }
+.cat-row.legacy .cat-count { border-color: #ecd9a0; }
+
+/* ---- Бейдж типа таблицы ---- */
+.kind {
+  display: inline-block; margin-left: 7px;
+  font-family: var(--font); font-size: 10.5px; line-height: 1.6;
+  padding: 0 7px; border-radius: 9px; border: 1px solid;
+  vertical-align: middle; white-space: nowrap; font-weight: 600;
+}
+.kind-core { color: #5b7d2b; background: #eef5e3; border-color: #cddfae; }
+.kind-link { color: #2b5b84; background: #e7f0f7; border-color: #c3d8e8; }
+.kind-legacy { color: #8a6d1a; background: #fdf3d7; border-color: #ecd9a0; }
 
 /* Строка-раскрытие: поле занимает всю ширину таблицы */
 .col-detail > td { background: #fbfcfd; padding: 0; border-bottom: 1px solid var(--line-strong); }
