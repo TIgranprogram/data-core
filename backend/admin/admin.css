@@ -272,6 +272,44 @@ dialog::backdrop { background: rgba(30, 41, 51, .6); }
   font-family: var(--mono);
 }
 
+/* ============ TABLES TAB (справочник коллекций) ============ */
+.col-caret { width: 26px; color: var(--py-blue); font-family: var(--mono); text-align: center; }
+.col-row { cursor: pointer; user-select: none; }
+.col-row:hover { background: #f4f8fb; }
+.col-row.open { background: #eef4f9; }
+.col-row.open .col-name { color: var(--py-blue-deep); font-weight: 700; }
+.col-name { font-family: var(--mono); font-size: 14px; }
+.col-row .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Строка-раскрытие: поле занимает всю ширину таблицы */
+.col-detail > td { background: #fbfcfd; padding: 0; border-bottom: 1px solid var(--line-strong); }
+.col-detail-cell { padding: 14px 18px 16px !important; }
+.col-desc { margin: 0 0 6px; color: var(--title); font-size: 14px; }
+.col-detail-cell > .muted { margin: 0 0 10px; }
+
+.sub-wrap { box-shadow: none; border-color: var(--line); }
+.sub-table { min-width: 560px; }
+.sub-table th { background: #eef1f4; background-image: none; }
+.sub-table td { padding: 7px 14px; font-size: 14px; vertical-align: middle; }
+.sub-table .example-cell { font-family: var(--mono); font-size: 12.5px; color: var(--muted); max-width: 380px; word-break: break-word; white-space: pre-wrap; }
+
+.type-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: var(--mono);
+  background: #eaf1f7;
+  color: var(--py-blue-deep);
+  border: 1px solid #d3e0ea;
+  white-space: nowrap;
+}
+
+/* Заполненность поля: тонкая полоса */
+.bar { display: inline-block; width: 110px; height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; vertical-align: middle; margin-right: 6px; }
+.bar i { display: block; height: 100%; background: var(--ok); border-radius: 4px; }
+.bar i.low { background: var(--py-yellow); }
+
 /* ============ FOOTER (как site-base на python.org) ============ */
 .app-footer {
   margin-top: 30px;

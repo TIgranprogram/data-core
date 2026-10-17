@@ -59,9 +59,9 @@
   // ---- Tabs ----
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
-    $('#tab-users').hidden = t.dataset.tab !== 'users';
-    $('#tab-keys').hidden = t.dataset.tab !== 'keys';
+    document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== `tab-${t.dataset.tab}`; });
     if (t.dataset.tab === 'keys') loadKeys();
+    if (t.dataset.tab === 'tables') loadCollections();
   }));
 
   // ---- Users ----
@@ -173,7 +173,115 @@
     } catch (e) { const p = $('#key-form-error'); p.textContent = e.message; p.hidden = false; }
   }
 
-  // ---- Toast ----
+  // ---- Tables (справочник коллекций) ----
+  const colState = { items: [], search: '', cache: new Map() };
+
+  async function loadCollections(force = false) {
+    const tbody = $('#cols-table tbody');
+    if (!force && colState.items.length) { renderCollections(); return; }
+    tbody.replaceChildren();
+    const ph = el('tr'); const ptd = el('td', 'muted', 'Загрузка…'); ptd.colSpan = 6; ph.append(ptd); tbody.append(ph);
+    try {
+      const r = await api('/admin/collections');
+      colState.items = r.items || [];
+      renderCollections();
+    } catch (e) { tbody.replaceChildren(); toast(e.message); }
+  }
+
+  function renderCollections() {
+    const tbody = $('#cols-table tbody'); tbody.replaceChildren();
+    const s = colState.search.toLowerCase();
+    const items = colState.items.filter((c) => !s || c.name.toLowerCase().includes(s));
+    $('#cols-summary').textContent = items.length
+      ? `${items.length} из ${colState.items.length} · записей суммарно ${items.reduce((a, c) => a + c.count, 0).toLocaleString('ru-RU')}`
+      : '';
+    if (!items.length) {
+      const tr = el('tr'); const td = el('td', 'muted', 'Ничего не найдено'); td.colSpan = 6; tr.append(td); tbody.append(tr);
+      return;
+    }
+    items.forEach((c) => {
+      const main = colRow(c), detail = detailRow();
+      main.addEventListener('click', () => toggleCol(c, main, detail));
+      tbody.append(main, detail);
+    });
+  }
+
+  function colRow(c) {
+    const tr = el('tr', 'col-row');
+    const caret = el('td', 'col-caret', '▸'); tr.append(caret);
+    const nameTd = el('td');
+    nameTd.append(el('span', 'col-name', c.name));
+    tr.append(nameTd);
+    tr.append(el('td', 'num', c.count.toLocaleString('ru-RU')));
+    tr.append(el('td', 'num', String(c.fieldCount)));
+    tr.append(el('td', 'muted small', (c.keyFields || []).map((f) => f.name).join(', ') || '—'));
+    tr.append(el('td', 'muted small', c.description || '—'));
+    return tr;
+  }
+
+  function detailRow() {
+    const tr = el('tr', 'col-detail'); tr.hidden = true;
+    const td = el('td', 'col-detail-cell'); td.colSpan = 6;
+    tr.append(td);
+    return tr;
+  }
+
+  async function toggleCol(c, main, detail) {
+    const caret = main.querySelector('.col-caret');
+    if (!detail.hidden) { detail.hidden = true; main.classList.remove('open'); caret.textContent = '▸'; return; }
+    main.classList.add('open'); caret.textContent = '▾';
+
+    const td = detail.querySelector('.col-detail-cell');
+    const cached = colState.cache.get(c.name);
+    if (cached) { renderColDetail(td, cached); detail.hidden = false; return; }
+
+    td.replaceChildren(el('p', 'muted', 'Загрузка полей…'));
+    detail.hidden = false;
+    try {
+      const d = await api('/admin/collections/' + encodeURIComponent(c.name) + '?sample=200');
+      colState.cache.set(c.name, d);
+      renderColDetail(td, d);
+    } catch (e) {
+      td.replaceChildren(el('p', 'error', 'Ошибка: ' + e.message));
+    }
+  }
+
+  function renderColDetail(td, d) {
+    td.replaceChildren();
+    if (d.description) td.append(el('p', 'col-desc', d.description));
+    td.append(el('p', 'muted small',
+      `Записей: ${d.count.toLocaleString('ru-RU')} · проанализировано семпла: ${d.sampled}` +
+      (d.truncated ? ' · показаны первые 400 полей' : '')));
+
+    const wrap = el('div', 'table-wrap sub-wrap');
+    const t = el('table', 'table sub-table');
+    const thead = el('thead');
+    const hr = el('tr');
+    ['Поле', 'Тип', 'Заполненность', 'Пример'].forEach((h) => hr.append(el('th', '', h)));
+    thead.append(hr); t.append(thead);
+    const tb = el('tbody');
+    (d.fields || []).forEach((f) => {
+      const tr = el('tr');
+      tr.append(el('td', '', f.path));
+      const typeTd = el('td');
+      typeTd.append(el('span', 'type-pill', f.types.join(' | ')));
+      tr.append(typeTd);
+      const barTd = el('td');
+      const pct = Math.round(f.completeness * 100);
+      const bar = el('div', 'bar');
+      const fill = el('i'); fill.style.width = pct + '%';
+      if (pct < 60) fill.classList.add('low');
+      bar.append(fill);
+      const pctSpan = el('span', 'muted small', ' ' + pct + '%');
+      barTd.append(bar, pctSpan);
+      tr.append(barTd);
+      const ex = f.example === undefined || f.example === null ? '—' : (typeof f.example === 'object' ? JSON.stringify(f.example) : String(f.example));
+      tr.append(el('td', 'small example-cell', ex));
+      tb.append(tr);
+    });
+    t.append(tb); wrap.append(t); td.append(wrap);
+  }
+
   let toastTimer;
   function toast(msg) {
     let t = $('#toast');
@@ -201,6 +309,8 @@
   $('#key-cancel').addEventListener('click', () => $('#key-dialog').close());
   $('#key-shown-close').addEventListener('click', () => $('#key-shown-dialog').close());
   $('#key-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#key-shown-value').textContent); toast('Скопировано'); } catch { /* ignore */ } });
+  $('#col-search-form').addEventListener('submit', (e) => { e.preventDefault(); colState.search = $('#col-search').value.trim(); renderCollections(); });
+  $('#col-refresh').addEventListener('click', () => { colState.cache.clear(); loadCollections(true); });
 
   // ---- Boot ----
   if (store.token) showApp(); else showLogin();

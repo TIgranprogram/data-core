@@ -55,6 +55,7 @@
       <nav class="tabs">
         <button class="tab active" data-tab="users">Пользователи</button>
         <button class="tab" data-tab="keys">API-ключи</button>
+        <button class="tab" data-tab="tables">Таблицы</button>
       </nav>
     </header>
 
@@ -170,6 +171,37 @@
           </div>
         </div>
       </dialog>
+    </main>
+
+    <!-- ---------- Tables tab (справочник коллекций) ---------- -->
+    <main id="tab-tables" class="tab-panel" hidden>
+      <div class="panel-head">
+        <h2>Таблицы</h2>
+        <span id="cols-summary" class="muted small"></span>
+      </div>
+      <p class="panel-note">Справочник коллекций MongoDB: нажмите на строку, чтобы раскрыть её поля — типы, заполненность и пример значения. Чувствительные значения (пароли, хеши, токены) маскируются на сервере.</p>
+
+      <form id="col-search-form" class="filters">
+        <input id="col-search" placeholder="Поиск таблицы по названию…" />
+        <button class="btn btn-primary" type="submit">Найти</button>
+        <button class="btn" type="button" id="col-refresh">Обновить</button>
+      </form>
+
+      <div class="table-wrap">
+        <table class="table" id="cols-table">
+          <thead>
+            <tr>
+              <th class="col-caret"></th>
+              <th>Таблица</th>
+              <th>Записей</th>
+              <th>Полей</th>
+              <th>Ключевые поля</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </main>
 
     <footer class="app-footer">
