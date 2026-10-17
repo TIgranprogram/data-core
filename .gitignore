@@ -6,3 +6,7 @@ uploads/
 .env
 .env.local
 .DS_Store
+
+# Локальные секреты (копируются вручную при переносе на новую машину/клон)
+deploy/synology/config.env
+deploy/synology/CREDENTIALS.md

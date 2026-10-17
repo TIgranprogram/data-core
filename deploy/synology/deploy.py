@@ -80,8 +80,8 @@ def resolve_settings(args, cfg):
         fail("Unknown platform: " + platform + ". Use ubuntu or synology.")
 
     defaults = PLATFORMS[platform]
-    host = args.host or cfg.get("DEPLOY_HOST") or "192.168.1.52"
-    user = args.user or cfg.get("DEPLOY_USER") or "tiit"
+    host = args.host or cfg.get("DEPLOY_HOST") or "<LAN_IP>"
+    user = args.user or cfg.get("DEPLOY_USER") or "<SSH_USER>"
     password = args.password or cfg.get("DEPLOY_PASSWORD") or None
     ssh_key = cfg.get("DEPLOY_SSH_KEY") or None
     if ssh_key:
@@ -98,7 +98,7 @@ def resolve_settings(args, cfg):
         "1",
         "yes",
     )
-    cors = cfg.get("CORS_ORIGIN") or "https://kppdf-crm.ru"
+    cors = cfg.get("CORS_ORIGIN") or "https://<DOMAIN>"
     desktop_download_url = (
         cfg["DESKTOP_DOWNLOAD_URL"]
         if "DESKTOP_DOWNLOAD_URL" in cfg

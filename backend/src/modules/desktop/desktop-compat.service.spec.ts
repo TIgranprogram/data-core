@@ -41,13 +41,13 @@ describe('DesktopCompatService (TZD-40)', () => {
     process.env.DESKTOP_MIN_VERSION = '0.5.0';
     process.env.DESKTOP_RECOMMENDED_VERSION = '0.5.1';
     process.env.DESKTOP_DOWNLOAD_URL =
-      'https://kppdf-crm.ru/downloads/kppdf-desktop-setup.exe';
+      'https://<DOMAIN>/downloads/kppdf-desktop-setup.exe';
     process.env.APP_VERSION = 'a966e424';
 
     expect(service.compat()).toEqual({
       minDesktopVersion: '0.5.0',
       recommendedDesktopVersion: '0.5.1',
-      downloadUrl: 'https://kppdf-crm.ru/downloads/kppdf-desktop-setup.exe',
+      downloadUrl: 'https://<DOMAIN>/downloads/kppdf-desktop-setup.exe',
       serverBuildId: 'a966e424',
     });
   });

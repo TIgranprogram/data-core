@@ -1,7 +1,7 @@
 # Deploy — KPPDF 8.0 (Synology VM)
 
 > **Одна точка входа для деплоя.** Секреты не в git: `CREDENTIALS.md` + `config.env`.  
-> **Последний успешный warm deploy:** 2026-08-27 · код `4d55d0ea` · prod `https://kppdf-crm.ru`.  
+> **Последний успешный warm deploy:** 2026-08-27 · код `4d55d0ea` · prod `https://<DOMAIN>`.  
 > **Цель UI:** после cutover — **NX** (`frontend-nx` → staging `frontend/browser/`). Канон: [`docs/ops/DEPLOY-NX-PROD.md`](../../docs/ops/DEPLOY-NX-PROD.md).  
 > Пока `DEPLOY-READY.status != READY` или `frontend_target != nx` — деплой **STOP** (prep: `tasks/PROMPT-CLAUDE-DEPLOY-PREP-NX.md`).
 
@@ -36,9 +36,9 @@ $env:PYTHONIOENCODING='utf-8'
 7. Smoke (логин/пароль из `CREDENTIALS.md`, в чат не писать) + NX UI checks из `docs/ops/DEPLOY-NX-PROD.md` §4:
 
 ```powershell
-curl.exe -sf http://192.168.1.52:3000/api/health/ready
-curl.exe -sf -u "LOGIN:PASS" https://kppdf-crm.ru/api/health/ready
-curl.exe -sf -u "LOGIN:PASS" -o NUL -w "%{http_code}" https://kppdf-crm.ru/
+curl.exe -sf http://<LAN_IP>:3000/api/health/ready
+curl.exe -sf -u "LOGIN:PASS" https://<DOMAIN>/api/health/ready
+curl.exe -sf -u "LOGIN:PASS" -o NUL -w "%{http_code}" https://<DOMAIN>/
 ```
 
 8. Отчёт PO: SHA + «warm NX deploy OK» + health. В `DEPLOY-READY.md` поставь `status: INVALID` и `why_invalid: deployed <sha> <date>`, закоммить штамп.
@@ -145,8 +145,8 @@ Volumes на хосте. Удаляет **только** явный `--wipe` + �
 ## После деплоя — проверка
 
 ```
-https://kppdf-crm.ru/
-https://kppdf-crm.ru/api/health/ready
+https://<DOMAIN>/
+https://<DOMAIN>/api/health/ready
 ```
 
 Логин admin — только из `CREDENTIALS.md`. Стили «голые» → Ctrl+F5. 401 → пароль/softlock.
@@ -155,7 +155,7 @@ https://kppdf-crm.ru/api/health/ready
 
 ## Уроки деплоев (сжато)
 
-1. VPN off перед SSH `192.168.1.52`. Домен: `kppdf-crm.ru`.
+1. VPN off перед SSH `<LAN_IP>`. Домен: `<DOMAIN>`.
 2. `main == origin/main`, дерево чистое.
 3. Windows: `$env:PYTHONUTF8='1'` перед `deploy.ps1`.
 4. Один деплой за раз; кэшированный docker build по умолчанию.
@@ -165,8 +165,8 @@ https://kppdf-crm.ru/api/health/ready
 ### Smoke
 
 ```powershell
-curl.exe -sf http://192.168.1.52:3000/api/health/ready
-# UI: https://kppdf-crm.ru/ — Ctrl+F5, login из CREDENTIALS.md
+curl.exe -sf http://<LAN_IP>:3000/api/health/ready
+# UI: https://<DOMAIN>/ — Ctrl+F5, login из CREDENTIALS.md
 ```
 
 ### Если VM «мёртвая»

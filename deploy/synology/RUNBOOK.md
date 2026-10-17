@@ -10,17 +10,17 @@
 ## Архитектура
 
 ```
-https://kppdf-crm.ru → VPS nginx (443) → localhost:4200
+https://<DOMAIN> → VPS nginx (443) → localhost:4200
                                               ↑
                     autossh reverse tunnel (VM→VPS)
                                               │
-                    VM 192.168.1.52 (Synology Ubuntu)
+                    VM <LAN_IP> (Synology Ubuntu)
                       └─ Docker: kppdf-backend:3000
                       └─ Docker: kppdf-mongo (4.4, rs0)
 ```
 
-Канон домена: **`kppdf-crm.ru`**.  
-`CORS_ORIGIN` (предпочтительно) = `https://kppdf-crm.ru`. Alias `CORS_ORIGINS` — legacy, тот же comma-separated список.
+Канон домена: **`<DOMAIN>`**.  
+`CORS_ORIGIN` (предпочтительно) = `https://<DOMAIN>`. Alias `CORS_ORIGINS` — legacy, тот же comma-separated список.
 
 ---
 
@@ -49,10 +49,10 @@ openssl rand -hex 32   # JWT_REFRESH_SECRET
 1. **TZ-OPS-310 DONE** — есть `tasks/_archive/2026-08/TZ-OPS-310.done.md` и заполненный `docs/ops/server-harden-evidence.md`.  
    Иначе: VPN OFF → промпт `tasks/_backlog/ops/PROMPT-OPS-310-HARDEN.md` → закрыть harden → потом деплой.  
    Spec: `tasks/_backlog/ops/TZ-OPS-310-server-harden-before-deploy.md`.
-2. **VPN OFF** — иначе LAN `192.168.1.52` часто недоступен.
+2. **VPN OFF** — иначе LAN `<LAN_IP>` часто недоступен.
 3. `config.env` + `CREDENTIALS.md` скопированы из `*.example` и заполнены.
 4. `JWT_SECRET` ≠ `JWT_REFRESH_SECRET`, оба ≥32; `ADMIN_PASSWORD` ≥12, не demo-default.
-5. `CORS_ORIGIN=https://kppdf-crm.ru` (канон).
+5. `CORS_ORIGIN=https://<DOMAIN>` (канон).
 6. SSH: `DEPLOY_SSH_KEY` (предпочтительно) или `DEPLOY_PASSWORD`.
 7. `WIPE=false` после первой чистой установки (не сносить живые данные).
 8. FE artifact: `cd frontend-nx && pnpm exec nx build kppdf-web` → `frontend/browser/` (делает `deploy.py`; prod static = NX).
@@ -88,13 +88,13 @@ $env:PYTHONIOENCODING='utf-8'
 ## Быстрая проверка
 
 ```text
-https://kppdf-crm.ru/
-https://kppdf-crm.ru/api/health/ready
+https://<DOMAIN>/
+https://<DOMAIN>/api/health/ready
 ```
 
 ```powershell
-ssh -i $env:USERPROFILE\.ssh\kppdf80-vm tiit@192.168.1.52 "sudo docker ps"
-curl http://192.168.1.52:3000/api/health/ready
+ssh -i $env:USERPROFILE\.ssh\<SSH_KEY_NAME> <SSH_USER>@<LAN_IP> "sudo docker ps"
+curl http://<LAN_IP>:3000/api/health/ready
 ```
 
 Логин: `admin` + пароль из **CREDENTIALS.md** (не admin123).
@@ -139,7 +139,7 @@ LM Studio local helper: [`docs/agents/LM-STUDIO-AGENT.md`](../../docs/agents/LM-
 ## Бэкап MongoDB
 
 ```bash
-ssh tiit@192.168.1.52
+ssh <SSH_USER>@<LAN_IP>
 cd /opt/kppdf-8.0 && sudo bash backup.sh
 # → /var/lib/kppdf80/backups/...
 ```

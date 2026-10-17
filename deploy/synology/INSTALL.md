@@ -9,9 +9,9 @@
 
 | Сервер | Роль |
 |--------|------|
-| **VPS** (193.222.62.240) | nginx (SSL/HTTP/2) + SSH tunnel endpoint |
-| **VM** (192.168.1.52, Synology VMM) | Docker: backend + MongoDB |
-| **Synology** (10.0.0.47) | Хост для VM |
+| **VPS** (<WAN_IP>) | nginx (SSL/HTTP/2) + SSH tunnel endpoint |
+| **VM** (<LAN_IP>, Synology VMM) | Docker: backend + MongoDB |
+| **Synology** (<NAS_IP>) | Хост для VM |
 
 ---
 
@@ -20,7 +20,7 @@
 ### 2.1 Docker
 
 ```bash
-ssh tiit@192.168.1.52
+ssh <SSH_USER>@<LAN_IP>
 # скопировать и запустить server-setup-ubuntu.sh из репо
 sudo bash server-setup-ubuntu.sh
 ```
@@ -32,8 +32,8 @@ sudo bash server-setup-ubuntu.sh
 ### 2.3 SSL на VPS
 
 ```bash
-ssh root@193.222.62.240
-certbot --nginx -d kppdf-crm.ru --non-interactive --agree-tos --email admin@kppdf-crm.ru --redirect
+ssh root@<WAN_IP>
+certbot --nginx -d <DOMAIN> --non-interactive --agree-tos --email admin@<DOMAIN> --redirect
 ```
 
 ---
@@ -44,7 +44,7 @@ certbot --nginx -d kppdf-crm.ru --non-interactive --agree-tos --email admin@kppd
 pip install -r deploy/synology/requirements.txt
 copy deploy\synology\config.env.example deploy\synology\config.env
 copy deploy\synology\CREDENTIALS.example.md deploy\synology\CREDENTIALS.md
-# заполнить config.env (JWT, ADMIN_PASSWORD, SSH key/password, CORS=https://kppdf-crm.ru)
+# заполнить config.env (JWT, ADMIN_PASSWORD, SSH key/password, CORS=https://<DOMAIN>)
 
 # чистая установка (только пока нет реальных данных):
 .\deploy\synology\deploy.ps1 -Wipe -Seed
@@ -60,7 +60,7 @@ copy deploy\synology\CREDENTIALS.example.md deploy\synology\CREDENTIALS.md
 
 ## 4. Проверка
 
-- https://kppdf-crm.ru/api/health/ready → ok
+- https://<DOMAIN>/api/health/ready → ok
 - Логин `admin` + пароль из `CREDENTIALS.md`
 - Ctrl+F5 если кэш старого CSS
 
@@ -69,6 +69,6 @@ copy deploy\synology\CREDENTIALS.example.md deploy\synology\CREDENTIALS.md
 ## 5. Бэкап
 
 ```bash
-ssh tiit@192.168.1.52
+ssh <SSH_USER>@<LAN_IP>
 cd /opt/kppdf-8.0 && sudo bash backup.sh
 ```

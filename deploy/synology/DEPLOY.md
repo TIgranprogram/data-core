@@ -13,12 +13,12 @@
 ┌──────────────────────────────────────────────────────────────┐
 │                        ИНТЕРНЕТ                               │
 │                                                              │
-│   Пользователь → https://kppdf-crm.ru/                       │
+│   Пользователь → https://<DOMAIN>/                       │
 └──────────────────────┬───────────────────────────────────────┘
-                       │ DNS → 193.222.62.240
+                       │ DNS → <WAN_IP>
                        ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  VPS (box-946037) — 193.222.62.240                           │
+│  VPS (<VPS_HOSTNAME>) — <WAN_IP>                           │
 │  Ubuntu 26.04 LTS                                            │
 │                                                              │
 │  ┌───────────────┐     ┌──────────────────┐                  │
@@ -27,7 +27,7 @@
 │  │ Let's Encrypt │     └──────────────────┘                  │
 │  └───────────────┘                                           │
 │                                                              │
-│  SSL: /etc/letsencrypt/live/kppdf-crm.ru/                    │
+│  SSL: /etc/letsencrypt/live/<DOMAIN>/                    │
 │  Автопродление: certbot timer (ежедневно)                    │
 └──────────────────────────────┬───────────────────────────────┘
                                │
@@ -36,11 +36,11 @@
           ╚════════════════════════════╝
                                │
 ┌──────────────────────────────────────────────────────────────┐
-│  Synology NAS (10.0.0.47)                                    │
-│  VMM: Ubuntu VM "ubuntu24kppdf_8"                            │
+│  Synology NAS (<NAS_IP>)                                    │
+│  VMM: Ubuntu VM "<VM_NAME>"                            │
 │                                                              │
 │  ┌─────────────────────────────────────────┐                 │
-│  │  VM — 192.168.1.52                     │                 │
+│  │  VM — <LAN_IP>                     │                 │
 │  │                                         │                 │
 │  │  ┌────────────────┐  ┌───────────────┐  │                 │
 │  │  │ kppdf-backend  │  │ kppdf-mongo   │  │                 │
@@ -55,7 +55,7 @@
 ### Цепочка запроса
 
 ```
-1. Браузер → https://kppdf-crm.ru/ (DNS: 193.222.62.240)
+1. Браузер → https://<DOMAIN>/ (DNS: <WAN_IP>)
 2. VPS nginx:443 (HTTP/2 + SSL) → proxy_pass http://localhost:4200
 3. localhost:4200 → SSH reverse tunnel (autossh systemd)
 4. SSH tunnel → VM localhost:3000 → Docker kppdf-backend
@@ -64,7 +64,7 @@
 
 ### Почему туннель
 
-VPS (193.222.62.240) и VM (192.168.1.52) в разных сетях. Synology NAS (10.0.0.47) — хост VM, но не маршрутизируется до VPS. Единственный способ связать их — SSH reverse tunnel, который VM сама устанавливает к VPS.
+VPS (<WAN_IP>) и VM (<LAN_IP>) в разных сетях. Synology NAS (<NAS_IP>) — хост VM, но не маршрутизируется до VPS. Единственный способ связать их — SSH reverse tunnel, который VM сама устанавливает к VPS.
 
 ---
 
@@ -72,13 +72,13 @@ VPS (193.222.62.240) и VM (192.168.1.52) в разных сетях. Synology N
 
 | Компонент | Статус | Детали |
 |-----------|--------|--------|
-| Домен kppdf-crm.ru | ✅ | DNS → 193.222.62.240 |
+| Домен <DOMAIN> | ✅ | DNS → <WAN_IP> |
 | SSL сертификат | ✅ | Let's Encrypt,到期 2026-10-23, автопродление |
 | nginx на VPS | ✅ | HTTP/2, SSL, gzip, кеширование статики |
 | SSH tunnel | ✅ | autossh + systemd, автоперезапуск 10 сек |
 | Backend на VM | ✅ | Docker kppdf-backend, healthy |
 | MongoDB на VM | ✅ | Docker kppdf-mongo 4.4, replica set rs0, healthy |
-| CORS | ✅ | http + https kppdf-crm.ru |
+| CORS | ✅ | http + https <DOMAIN> |
 
 ---
 
@@ -86,9 +86,9 @@ VPS (193.222.62.240) и VM (192.168.1.52) в разных сетях. Synology N
 
 | Сервер | IP | Роль |
 |--------|-----|------|
-| **VPS** | `193.222.62.240` | nginx (SSL termination) + SSH tunnel endpoint |
-| **VM** | `192.168.1.52` (LAN) | Docker: backend + MongoDB |
-| **Synology** | `10.0.0.47` (LAN) | VMM: Ubuntu VM |
+| **VPS** | `<WAN_IP>` | nginx (SSL termination) + SSH tunnel endpoint |
+| **VM** | `<LAN_IP>` (LAN) | Docker: backend + MongoDB |
+| **Synology** | `<NAS_IP>` (LAN) | VMM: Ubuntu VM |
 
 ---
 
@@ -96,8 +96,8 @@ VPS (193.222.62.240) и VM (192.168.1.52) в разных сетях. Synology N
 
 | Сервер | Команда | Секреты |
 |--------|---------|---------|
-| VPS | `ssh root@193.222.62.240` | см. `CREDENTIALS.md` |
-| VM | `ssh -i %USERPROFILE%\.ssh\kppdf80-vm tiit@192.168.1.52` | ключ / пароль в `CREDENTIALS.md` |
+| VPS | `ssh root@<WAN_IP>` | см. `CREDENTIALS.md` |
+| VM | `ssh -i %USERPROFILE%\.ssh\<SSH_KEY_NAME> <SSH_USER>@<LAN_IP>` | ключ / пароль в `CREDENTIALS.md` |
 
 **Не хранить пароли в этом файле.** VM доступна по LAN; при включённом VPN часто недоступна.
 
@@ -109,7 +109,7 @@ VPS (193.222.62.240) и VM (192.168.1.52) в разных сетях. Synology N
 
 ```nginx
 server {
-    server_name kppdf-crm.ru 193.222.62.240 _;
+    server_name <DOMAIN> <WAN_IP> _;
     client_max_body_size 10M;
     http2 on;
 
@@ -156,19 +156,19 @@ server {
 
     listen [::]:443 ssl ipv6only=on;
     listen 443 ssl;
-    ssl_certificate /etc/letsencrypt/live/kppdf-crm.ru/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/kppdf-crm.ru/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/<DOMAIN>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/<DOMAIN>/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
 
 server {
-    if ($host = kppdf-crm.ru) {
+    if ($host = <DOMAIN>) {
         return 301 https://$host$request_uri;
     }
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name kppdf-crm.ru 193.222.62.240 _;
+    server_name <DOMAIN> <WAN_IP> _;
     return 404;
 }
 ```
@@ -218,7 +218,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 JWT_SECRET=<64 hex>
 JWT_REFRESH_SECRET=<другой 64 hex>
 ADMIN_PASSWORD=<сильный, ≥12, НЕ demo-default>
-CORS_ORIGIN=https://kppdf-crm.ru
+CORS_ORIGIN=https://<DOMAIN>
 KPPDF_DATA_DIR=/var/lib/kppdf80
 TRUST_PROXY=1
 ```
@@ -293,8 +293,8 @@ curl http://localhost:3000/api/health/ready
 curl -4 -s http://127.0.0.1:4200/api/health/ready
 
 # 3. HTTPS:
-https://kppdf-crm.ru/
-https://kppdf-crm.ru/api/health/ready
+https://<DOMAIN>/
+https://<DOMAIN>/api/health/ready
 ```
 
 **Логин:** `admin` + пароль из `CREDENTIALS.md` (не demo-default / не admin123).
@@ -308,7 +308,7 @@ https://kppdf-crm.ru/api/health/ready
 apt-get install -y certbot python3-certbot-nginx
 
 # Получение сертификата:
-certbot --nginx -d kppdf-crm.ru --non-interactive --agree-tos --email admin@kppdf-crm.ru --redirect
+certbot --nginx -d <DOMAIN> --non-interactive --agree-tos --email admin@<DOMAIN> --redirect
 
 # Автопродление (настроено автоматически):
 systemctl status certbot.timer
@@ -317,7 +317,7 @@ systemctl status certbot.timer
 certbot renew --dry-run
 ```
 
-Сертификат: `/etc/letsencrypt/live/kppdf-crm.ru/`
+Сертификат: `/etc/letsencrypt/live/<DOMAIN>/`
 - `fullchain.pem` — цепочка сертификатов
 - `privkey.pem` — приватный ключ
 
@@ -327,9 +327,9 @@ certbot renew --dry-run
 
 | # | Проблема | Причина | Решение |
 |---|----------|---------|---------|
-| 1 | **502 Bad Gateway** | Туннель упал | `ssh tiit@192.168.1.52 "sudo systemctl restart kppdf-tunnel"` |
-| 2 | **502 Bad Gateway** | Backend упал | `ssh tiit@192.168.1.52 "sudo docker restart kppdf-backend"` |
-| 3 | **ERR_CONNECTION_REFUSED** (порт 443) | SSL не настроен | `certbot --nginx -d kppdf-crm.ru --redirect` |
+| 1 | **502 Bad Gateway** | Туннель упал | `ssh <SSH_USER>@<LAN_IP> "sudo systemctl restart kppdf-tunnel"` |
+| 2 | **502 Bad Gateway** | Backend упал | `ssh <SSH_USER>@<LAN_IP> "sudo docker restart kppdf-backend"` |
+| 3 | **ERR_CONNECTION_REFUSED** (порт 443) | SSL не настроен | `certbot --nginx -d <DOMAIN> --redirect` |
 | 4 | **CORS error** | URL нет в CORS_ORIGIN | Добавить в `.env` на VM + `--force-recreate backend` |
 | 5 | MongoDB AVX error | CPU Synology без AVX | `mongo:4.4` (уже используется) |
 | 6 | `no replset config` | RS не инициализирован | `docker exec kppdf-mongo mongo --eval "rs.initiate(...)"` |
@@ -376,13 +376,13 @@ certbot renew --dry-run
 | SSL | Нет | **Let's Encrypt + HTTP/2** |
 | Туннель | Нет | **autossh + systemd** |
 | Деплой | deploy.py | **deploy.ps1 / deploy.sh → deploy.py** |
-| Домен | sport-set.ru | **kppdf-crm.ru** |
+| Домен | sport-set.ru | **<DOMAIN>** |
 
 ---
 
 ## 15b. TZ-AUTH-305 — `auth_request` вместо Basic (**ПРИМЕНЕНО 2026-08-15**)
 
-> **Статус:** cutover выполнен на VPS `box-946037` после команды PO
+> **Статус:** cutover выполнен на VPS `<VPS_HOSTNAME>` после команды PO
 > `деплой / убирай подъезд`. Политика: `docs/ops/home-host-access.md` §4.1.
 > Бэкап: `/etc/nginx/sites-available/kppdf-proxy.bak-auth-basic`.
 
@@ -429,4 +429,4 @@ nginx -t && systemctl reload nginx
 | 2026-07-25 | **v3** — VPS подготовлен, setup-tunnel-vm.sh создан |
 | 2026-07-25 | v2 — Диагностика VPS, nginx настроен |
 | 2026-07-25 | v1 — Первый деплой v8 |
-| 2026-07-13 | VM `ubuntu24kppdf_8` создана |
+| 2026-07-13 | VM `<VM_NAME>` создана |

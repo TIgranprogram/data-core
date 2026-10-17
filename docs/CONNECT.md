@@ -64,7 +64,7 @@ Content-Type: application/json
 {
   "ttl": "30d",                       // 1d | 7d | 30d | 90d | never
   "label": "google-sheets-inventory",  // для себя: где используется
-  "apiBaseUrl": "http://192.168.1.52:3000"
+  "apiBaseUrl": "http://<LAN_IP>:3000"
 }
 ```
 
@@ -85,7 +85,7 @@ Authorization: Bearer kppd_xxxxx...
 ### Google Apps Script (таблица читает и пишет в базу)
 
 ```javascript
-const BASE = 'http://192.168.1.52:3000/api';
+const BASE = 'http://<LAN_IP>:3000/api';
 const KEY  = 'kppd_xxxxx...';
 
 function loadData() {
@@ -115,7 +115,7 @@ function saveRow(name, qty) {
 ```python
 import requests
 
-BASE = "http://192.168.1.52:3000/api"
+BASE = "http://<LAN_IP>:3000/api"
 H = {"Authorization": "Bearer kppd_xxxxx..."}
 
 r = requests.get(f"{BASE}/materials", headers=H, timeout=10)
@@ -126,7 +126,7 @@ print(r.json())
 ### PHP
 
 ```php
-$ch = curl_init('http://192.168.1.52:3000/api/materials');
+$ch = curl_init('http://<LAN_IP>:3000/api/materials');
 curl_setopt_array($ch, [
   CURLOPT_HTTPHEADER => ['Authorization: Bearer kppd_xxxxx...'],
   CURLOPT_RETURNTRANSFER => true,

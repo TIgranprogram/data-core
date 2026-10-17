@@ -126,7 +126,7 @@ def main() -> None:
         f"JWT_SECRET={cfg['JWT_SECRET']}\n"
         f"JWT_REFRESH_SECRET={cfg['JWT_REFRESH_SECRET']}\n"
         f"ADMIN_PASSWORD={new_pw}\n"
-        f"CORS_ORIGIN={cfg.get('CORS_ORIGIN', 'https://kppdf-crm.ru')}\n"
+        f"CORS_ORIGIN={cfg.get('CORS_ORIGIN', 'https://<DOMAIN>')}\n"
         f"KPPDF_DATA_DIR={cfg.get('KPPDF_DATA_DIR', '/var/lib/kppdf80')}\n"
         "TRUST_PROXY=1\n"
     )
@@ -147,7 +147,7 @@ def main() -> None:
     payload = json.dumps({"username": "admin", "password": new_pw}).encode()
     for label, url in (
         ("LAN", "http://127.0.0.1:3000/api/auth/login"),
-        ("PUBLIC", "https://kppdf-crm.ru/api/auth/login"),
+        ("PUBLIC", "https://<DOMAIN>/api/auth/login"),
     ):
         try:
             req = urllib.request.Request(

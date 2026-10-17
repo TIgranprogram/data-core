@@ -13,13 +13,13 @@ copy deploy\synology\CREDENTIALS.example.md deploy\synology\CREDENTIALS.md
 
 | Поле | Значение |
 |------|----------|
-| VM name | `ubuntu24kppdf_8` |
-| LAN IP | **`192.168.1.52`** |
+| VM name | `<VM_NAME>` |
+| LAN IP | **`<LAN_IP>`** |
 | Docker bridge | `172.17.0.1` (не для SSH) |
-| WAN IP | `193.222.62.240` (SSH auth fail с dev-машины) |
-| Пользователь | `tiit` |
+| WAN IP | `<WAN_IP>` (SSH auth fail с dev-машины) |
+| Пользователь | `<SSH_USER>` |
 | Пароль | `<DEPLOY_PASSWORD>` — см. gitignored `CREDENTIALS.md` / `config.env` |
-| SSH-ключи (Windows) | `%USERPROFILE%\.ssh\kppdf80-vm` |
+| SSH-ключи (Windows) | `%USERPROFILE%\.ssh\<SSH_KEY_NAME>` |
 
 ---
 
@@ -27,16 +27,16 @@ copy deploy\synology\CREDENTIALS.example.md deploy\synology\CREDENTIALS.md
 
 | Переменная | Описание |
 |------------|----------|
-| `DEPLOY_HOST` | **`192.168.1.52`** (LAN) — основной; WAN `193.222.62.240` не работает |
-| `DEPLOY_USER` | `tiit` |
+| `DEPLOY_HOST` | **`<LAN_IP>`** (LAN) — основной; WAN `<WAN_IP>` не работает |
+| `DEPLOY_USER` | `<SSH_USER>` |
 | `DEPLOY_PASSWORD` | SSH-пароль (или `DEPLOY_SSH_KEY`) |
-| `DEPLOY_SSH_KEY` | путь к приватному ключу `kppdf80-vm` |
+| `DEPLOY_SSH_KEY` | путь к приватному ключу `<SSH_KEY_NAME>` |
 | `REMOTE_DIR` | `/opt/kppdf-8.0` |
 | `KPPDF_DATA_DIR` | `/var/lib/kppdf80` |
 | `JWT_SECRET` | 64 hex |
 | `JWT_REFRESH_SECRET` | отдельная 64 hex строка |
 | `ADMIN_PASSWORD` | ≥12 символов, не demo-default |
-| `CORS_ORIGIN` | `https://kppdf-crm.ru` |
+| `CORS_ORIGIN` | `https://<DOMAIN>` |
 
 ---
 
@@ -44,8 +44,8 @@ copy deploy\synology\CREDENTIALS.example.md deploy\synology\CREDENTIALS.md
 
 | Поле | Значение |
 |------|----------|
-| URL prod | https://kppdf-crm.ru |
-| URL LAN | http://192.168.1.52:3000 |
+| URL prod | https://<DOMAIN> |
+| URL LAN | http://<LAN_IP>:3000 |
 | Admin login | `admin` |
 | Admin password | из `config.env` `ADMIN_PASSWORD` (не demo-default) |
 
@@ -66,7 +66,7 @@ sudo docker ps
 
 | | |
 |---|---|
-| Домен | kppdf-crm.ru |
+| Домен | <DOMAIN> |
 | Tunnel | ~~cloudflared~~ — legacy kppdf-3.0 (см. `deploy/synology/tunnel_*.py` там). Канон v8: SSH reverse tunnel, systemd `kppdf-tunnel` на VM → VPS. См. `DEPLOY.md`. |
 
 ---
@@ -75,8 +75,8 @@ sudo docker ps
 
 | Проект | Файл |
 |--------|------|
-| kppdf-3.0 | `WebstormProjects/kppdf-3.0/deploy/synology/config.env` |
-| kppdf-4.0 | `WebstormProjects/kppdf-4.0/deploy/config.env` |
+| kppdf-3.0 | `<OLD_PROJECT>/deploy/synology/config.env` |
+| kppdf-4.0 | `<OLD_PROJECT>/deploy/config.env` |
 
 > **SSH на сервер КП3 для перелива данных** — отдельный ключ, не этот контур:  
 > `deploy/kp3-data-copy/` + канон `docs/ops/kp3-data-copy-access.md` (ключ `kppdf8-kp3-data-copy`).
