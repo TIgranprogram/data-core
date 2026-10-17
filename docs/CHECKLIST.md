@@ -18,7 +18,8 @@
 - [x] **C. Restore-дрилл (P0.3)** — mongodump → восстановить в тестовую БД → данные читаются
   - done: `datacore_restore_test` 91 коллекция/107 доков → ALL COUNTS MATCH, scratch удалена
 - [ ] **D. Cron бэкапов на VM (P0.3)** — после деплоя: `0 3 * * *` + ретеншен 14 дней
-- [ ] **E. OpenAPI экспорт (P1.6)** — скрипт экспорта `openapi.json` в репозиторий
+- [x] **E. OpenAPI экспорт (P1.6)** — скрипт экспорта `openapi.json` в репозиторий
+  - done: `pnpm openapi:export` (общая swagger-конфиг с UI) → `docs/openapi.json`, 373 paths
 - [ ] **F. Деплой-скрипты под data-core (P1.8)** — `deploy.py`/`deploy.ps1`/`deploy.sh` без kppdf-балласта
 - [ ] **G. Деплой на VM отдельным контуром (P1.8)** — `/opt/data-core`, `:3001`, не трогая kppdf; затем cron (D)
 - [ ] **H. Чистка CRM-модулей (P1.5)** — оставить ядро, удалить CRM-домен; typecheck+build+тесты зелёные

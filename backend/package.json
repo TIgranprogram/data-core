@@ -13,6 +13,7 @@
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "jest",
+    "openapi:export": "node dist/src/export-openapi.js",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand --forceExit",
     "user:set-password": "node reset-password.js",
     "photos:backfill-thumbs": "ts-node scripts/tz-photo-303-backfill-thumbs.ts"

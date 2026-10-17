@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import * as Sentry from '@sentry/node';
 import helmet from 'helmet';
@@ -10,6 +10,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { buildSwaggerConfig } from './swagger.config';
 import {
   flattenValidationErrors,
   HttpExceptionFilter,
@@ -317,12 +318,7 @@ async function bootstrap() {
     Logger.log(`📦 Frontend static: ${frontendPath}`, 'Bootstrap');
   }
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('KPPDF API')
-    .setDescription('Backend API for kppdf-8.0 ERP system')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
+  const swaggerConfig = buildSwaggerConfig();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   // TZ-91 §4 Phase C.1: Swagger gated by NODE_ENV !== 'production'.
   // Escape hatch: SWAGGER_ENABLED='true' for prod-debug scenarios only.

@@ -64,7 +64,8 @@
 - _Критерий: `pnpm typecheck && pnpm test` зелёные; сборка образа проходит_
 
 ### 6. Публичный контракт (OpenAPI)
-- [ ] CI/скрипт экспорта `openapi.json` в репозиторий
+- [x] CI/скрипт экспорта `openapi.json` в репозиторий
+  - 📝 `backend/src/export-openapi.ts` + `pnpm openapi:export` → генерирует из тех же декораторов, что и Swagger UI (общая конфиг `backend/src/swagger.config.ts`, title теперь «Data Core API», не «KPPDF API»). Локальный запуск: `docker compose exec backend node dist/src/export-openapi.js /app/openapi.json && docker compose cp backend:/app/openapi.json docs/openapi.json`. В репо: **`docs/openapi.json`** (373 paths, 442 KB).
 - [ ] Решить: Swagger UI под ключом в prod (`SWAGGER_ENABLED=true`) или только статический `openapi.json`
 - _Критерий: любая платформа может сгенерировать клиент по файлу из репозитория_
 
@@ -106,8 +107,8 @@
 | MongoDB keyfile | MongoDB **не стартует** с `--auth`+`--replSet` без `security.keyFile` (`BadValue`) | Сервис `mongo-keyfile` пишет файл (600, uid 999) в том `mongo-secrets`; `--keyFile /run/secrets/mongo-keyfile` |
 | Git Bash на Windows | MSYS конвертит `/tmp/...` → Windows-путь при вызове `docker exec` → `backup.sh` падает (`Could not find the file /tmp/...`) | Локально гонять с `MSYS_NO_PATHCONV=1`; на VM (Linux) не проявляется |
 | `backend/` | 92 модуля, большинство — CRM-балласт | Задача 5 |
-| Swagger | В prod выключен (`main.ts`), `openapi.json` нигде не экспортируется | Задача 6 |
+| Swagger | ~~`openapi.json` нигде не экспортируется~~ ✅ `docs/openapi.json` экспортируется (задача 6); в prod UI выключен по-прежнему | Решить: UI под ключом или только статический файл (задача 6) |
 | Версии Mongo | В prod kppdf — mongo 4.4; здесь — mongo 7 | Не смешивать контуры; не поднимать data-core на 4.4 |
 | `docs/ARCHITECTURE.md`, `STACK.md` | Исторические (из kppdf), содержат упоминания CRM | Переписать после чистки модулей |
-| `package.json` (backend) | `name: "kppdf-8.0-backend"`, swagger-title «KPPDF API» | Переименовать при чистке (задача 5/8) |
+| `package.json` (backend) | `name: "kppdf-8.0-backend"`; ~~swagger-title «KPPDF API»~~ ✅ переименован в «Data Core API» (задача 6) | Переименовать `name` при чистке (задача 5/8) |
 | `kppd_`-ключ и `/api/admin/users` | Ключ не несёт owner-флага → owner-admin скрыт (TZ-AUTH-306), `total:0` | Ожидаемо; для данных ключ работает. Не путать за баг |
