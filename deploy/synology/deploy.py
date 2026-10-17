@@ -85,7 +85,9 @@ def resolve_settings(args, cfg):
     host = args.host or cfg.get("DEPLOY_HOST") or "<LAN_IP>"
     user = args.user or cfg.get("DEPLOY_USER") or "<SSH_USER>"
     password = args.password or cfg.get("DEPLOY_PASSWORD") or None
-    ssh_key = cfg.get("DEPLOY_SSH_KEY") or None
+    # DEPLOY_SSH_KEY: env имеет приоритет над config.env — нужно, когда деплой
+    # идёт из контейнера/CI (путь к ключу отличается от путёвки в config.env).
+    ssh_key = os.environ.get("DEPLOY_SSH_KEY") or cfg.get("DEPLOY_SSH_KEY") or None
     if ssh_key:
         ssh_key = os.path.expandvars(os.path.expanduser(ssh_key))
         if not os.path.isfile(ssh_key):
@@ -139,6 +141,10 @@ def resolve_settings(args, cfg):
         + "@mongo:27017/datacore?replicaSet=rs0&authSource=datacore"
     )
 
+    # Образ Mongo. Дефолт 4.4 — VM (Celeron J4125) без AVX не запускает 5.0+.
+    # Переопределяется MONGO_IMAGE в config.env при переезде на AVX-железо.
+    mongo_image = cfg.get("MONGO_IMAGE") or "mongo:4.4"
+
     return {
         "platform": platform,
         "host": host,
@@ -157,6 +163,7 @@ def resolve_settings(args, cfg):
         "mongo_app_password": mongo_app_password,
         "mongo_keyfile_secret": keyfile_secret,
         "mongo_uri": mongo_uri,
+        "mongo_image": mongo_image,
     }
 
 
@@ -388,6 +395,8 @@ def make_env_file(settings):
         "MONGO_URI=" + settings["mongo_uri"],
         "MONGO_DB=datacore",
         "MONGO_REPLICA_SET=rs0",
+        # VM (J4125) без AVX → 4.4; переопределяется MONGO_IMAGE в config.env
+        "MONGO_IMAGE=" + settings["mongo_image"],
     ]
     return "\n".join(lines) + "\n"
 
@@ -441,15 +450,19 @@ def wipe_remote(remote, settings):
 # -- Verification helpers -----------------------------------------------
 
 def wait_for_replica_set(remote, settings, max_wait=90):
-    """rs0 must be initiated before backend can connect (mongosh 7 + auth)."""
+    """rs0 must be initiated before backend can connect (auth enabled)."""
     log("Waiting for Mongo replica set rs0...")
-    root_pw = settings["mongo_root_password"].replace("'", "'\\''")
+    # Пароли генерируются token_urlsafe (alnum + -_), поэтому их можно безопасно
+    # взять в двойные кавычки внутри одинарных (sh -c '...').
+    # BIN: mongo:4.4 даёт только легаси `mongo`, 5.0+ — только `mongosh`.
+    root_pw = settings["mongo_root_password"]
     for i in range(max_wait // 5):
         status = remote.exec(
             remote.docker
-            + " exec datacore-mongo mongosh --quiet -u root -p '" + root_pw
-            + "' --authenticationDatabase admin --eval "
-            + "'try{print(rs.status().ok)}catch(e){print(0)}'",
+            + " exec datacore-mongo sh -c 'BIN=$(command -v mongosh || command -v mongo);"
+            + " $BIN --quiet -u root -p \"" + root_pw + "\""
+            + " --authenticationDatabase admin"
+            + " --eval \"try{print(rs.status().ok)}catch(e){print(0)}\"'",
             timeout=15,
         )
         if status.strip().splitlines() and status.strip().splitlines()[-1].strip().startswith("1"):
@@ -482,9 +495,10 @@ def verify_mongo_auth(remote, settings):
     log("Verifying Mongo auth (no-password read must be rejected)...")
     r = remote.exec(
         remote.docker
-        + " exec datacore-mongo mongosh --quiet --eval "
-        + "'try{db.getSiblingDB(\"datacore\").users.find().limit(1).toArray();"
-        + "print(\"NOAUTH-ACCEPTED\")}catch(e){print(\"NOAUTH-REJECTED\")}'",
+        + " exec datacore-mongo sh -c 'BIN=$(command -v mongosh || command -v mongo);"
+        + " $BIN --quiet --eval "
+        + "\"try{db.getSiblingDB(\\\"datacore\\\").users.find().limit(1).toArray();"
+        + "print(\\\"NOAUTH-ACCEPTED\\\")}catch(e){print(\\\"NOAUTH-REJECTED\\\")}\"'",
         timeout=15,
     )
     if "NOAUTH-REJECTED" in r:
@@ -543,7 +557,16 @@ def main():
         settings["host"], settings["user"], settings["password"],
         docker=settings["docker"], ssh_key=settings.get("ssh_key"))
     remote.connect()
-    remote.exec("mkdir -p " + settings["remote_dir"])
+    # /opt (и /volume1/docker) принадлежат root — простой mkdir молча не работает,
+    # и все следующие шаги (upload/extract/compose) падают каскадом.
+    # Создаём через sudo и отдаём пользователю деплоя.
+    r = remote.exec_sudo(
+        "mkdir -p " + settings["remote_dir"]
+        + " && chown " + settings["user"] + ":" + settings["user"] + " " + settings["remote_dir"],
+        timeout=30)
+    if not settings["remote_dir"] or (r and ("No such file" in r or "cannot create" in r)):
+        fail("Cannot create remote dir " + settings["remote_dir"] + ": " + (r or "")[:200])
+    ok("Remote dir ready: " + settings["remote_dir"])
     if settings["wipe"]:
         wipe_remote(remote, settings)
     ensure_data_dirs(remote, settings)
@@ -561,6 +584,8 @@ def main():
         "cd " + settings["remote_dir"] + " && tar xzf " + ARCHIVE_NAME + " && "
         "rm -f " + ARCHIVE_NAME + " && ls -d */",
         timeout=60)
+    if (r and ("ERR:" in r or "No such file" in r or "tar:" in r)) or not r:
+        fail("Extract failed: " + (r or "(empty)")[:300])
     ok("Extracted: " + r[:120])
 
     print()

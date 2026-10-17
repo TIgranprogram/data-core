@@ -10,7 +10,12 @@
 
 services:
   mongo:
-    image: mongo:7
+    # 4.4 — потому что VM (Celeron J4125) физически не имеет AVX, а MongoDB
+    # 5.0+ требует AVX (падает "Illegal instruction"). Проверено: mongoose 8.24
+    # полностью совместим с 4.4.30 (backend/scripts/test-mongoose-compat.js).
+    # На AVX-железе можно поднять MONGO_IMAGE=mongo:7 в .env (после проверки
+    # restore-дриллом — дампы 4.4->7 переносятся mongodump/mongorestore).
+    image: ${MONGO_IMAGE:-mongo:4.4}
     container_name: datacore-mongo
     restart: unless-stopped
     # --auth: доступ только по паролю (задача B, P0.4). На ПУСТОМ datadir
@@ -43,11 +48,13 @@ services:
       mongo-keyfile:
         condition: service_completed_successfully
     healthcheck:
-      # ping требует аутентификации → логинимся как root
+      # ping требует аутентификации → логинимся как root.
+      # BIN: mongo:4.4 даёт только легаси-шелл `mongo`, 5.0+ — только `mongosh`.
+      # Оба понимают -u/-p/--authenticationDatabase/--eval.
       test:
         [
           "CMD-SHELL",
-          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\"",
+          "BIN=$$(command -v mongosh || command -v mongo); $$BIN --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\"",
         ]
       interval: 10s
       timeout: 5s
@@ -57,7 +64,7 @@ services:
   # Файл должен принадлежать uid 999 (mongodb) и быть доступен только ему (600),
   # иначе mongod упадёт с "permissions are too open".
   mongo-keyfile:
-    image: mongo:7
+    image: ${MONGO_IMAGE:-mongo:4.4}
     restart: "no"
     environment:
       MONGO_KEYFILE_SECRET: ${MONGO_KEYFILE_SECRET:?MONGO_KEYFILE_SECRET is required}
@@ -72,7 +79,7 @@ services:
 
   # Одноразовая инициализация Replica Set rs0 (обязателен для транзакций).
   mongo-init:
-    image: mongo:7
+    image: ${MONGO_IMAGE:-mongo:4.4}
     depends_on:
       mongo:
         condition: service_healthy
@@ -82,14 +89,42 @@ services:
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
     # rs.status() возвращает {ok:0} и НЕ бросает ошибку, когда RS не инициализирован.
     # С --auth логинимся как root, иначе и rs.status(), и rs.initiate() отклоняются.
+    # BIN: поддерживаем и mongo:4.4 (легаси `mongo`), и 5.0+ (`mongosh`).
     entrypoint: >-
-      sh -c "mongosh --host mongo:27017
+      sh -c "BIN=$$(command -v mongosh || command -v mongo);
+      $$BIN --host mongo:27017
       -u \"$$MONGO_ROOT_USER\" -p \"$$MONGO_ROOT_PASSWORD\"
       --authenticationDatabase admin --eval
       'var s=null; try { s=rs.status(); } catch(e) { s={ok:0}; }
       if (!s || s.ok!==1) {
         printjson(rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"mongo:27017\"}]}));
       } else { print(\"rs already ok\"); }'"
+
+  # Приложение-пользователь Mongo (idempotent). MONGO_INITDB_ROOT_* создаёт только
+  # root — без этого сервиса на пустом datadir бэкенд не смог бы авторизоваться.
+  # Значения передаются в JS аргументами (легаси-шелл mongo:4.4 не знает process.env),
+  # пароли НЕ должны содержать одинарные кавычки (они внутри JS-строк).
+  mongo-appuser:
+    image: ${MONGO_IMAGE:-mongo:4.4}
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    restart: "no"
+    environment:
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
+      MONGO_APP_USER: ${MONGO_APP_USER:-datacore}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}
+      MONGO_DB: ${MONGO_DB:-datacore}
+    volumes:
+      - ./backend/scripts/mongo-create-appuser.js:/scripts/mongo-create-appuser.js:ro
+    entrypoint: >-
+      sh -c "BIN=$$(command -v mongosh || command -v mongo);
+      $$BIN --host mongo:27017
+      -u \"$$MONGO_ROOT_USER\" -p \"$$MONGO_ROOT_PASSWORD\"
+      --authenticationDatabase admin --eval
+      \"load('/scripts/mongo-create-appuser.js');
+      createAppUser('$$MONGO_APP_USER','$$MONGO_APP_PASSWORD','$$MONGO_DB');\""
 
   backend:
     build: ./backend
@@ -99,6 +134,8 @@ services:
       mongo:
         condition: service_healthy
       mongo-init:
+        condition: service_completed_successfully
+      mongo-appuser:
         condition: service_completed_successfully
     ports:
       # Host-порт параметризован (HOST_PORT): внутри контейнера приложение
