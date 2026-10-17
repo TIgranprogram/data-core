@@ -1,0 +1,81 @@
+# Personal Data Core — Production stack (Ubuntu VM on Synology)
+#
+# Отдельный контур РЯДОМ с работающим kppdf-8.0:
+#   kppdf:     :3000 (mongo 4.4, kppdf-mongo)  — НЕ трогать
+#   data-core: :3001 (mongo 7,  datacore-mongo) — этот файл
+#
+# Up:     sudo docker compose -f docker-compose.prod.yml up -d --build
+# Logs:   sudo docker compose -f docker-compose.prod.yml logs -f backend
+# Health: curl -sf http://localhost:3001/api/health/ready
+#
+# Секреты (JWT_*, ADMIN_PASSWORD) приходят из .env на хосте — дефолтов нет.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: datacore-mongo
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      # только localhost VM; наружу доступ через API или SSH-туннель
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - ${DATA_DIR}/mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  # Одноразовая инициализация Replica Set rs0 (обязателен для транзакций).
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    # rs.status() возвращает {ok:0} и НЕ бросает ошибку, когда RS не инициализирован.
+    entrypoint: >-
+      sh -c "mongosh --host mongo:27017 --eval
+      'var s=null; try { s=rs.status(); } catch(e) { s={ok:0}; }
+      if (!s || s.ok!==1) {
+        printjson(rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"mongo:27017\"}]}));
+      } else { print(\"rs already ok\"); }'"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: datacore-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      MONGO_URI: mongodb://mongo:27017/datacore?replicaSet=rs0
+      MONGO_DB: datacore
+      MONGO_REPLICA_SET: rs0
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}"
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-15m}"
+      JWT_REFRESH_EXPIRES_IN: "${JWT_REFRESH_EXPIRES_IN:-30d}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-http://localhost:3001}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      SWAGGER_ENABLED: "${SWAGGER_ENABLED:-false}"
+      TRUST_PROXY: "${TRUST_PROXY:-1}"
+    volumes:
+      - ${DATA_DIR}/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 40s

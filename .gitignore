@@ -1,11 +1,17 @@
 node_modules/
 dist/
 coverage/
-uploads/
+# Runtime uploads dir (только в корне/бэкенде) — НЕ использовать голое "uploads/",
+# оно матчит и src/modules/uploads/ и вырезает модуль из git (инцидент 2026-10-17).
+/uploads/
+backend/uploads/
 *.log
 .env
 .env.local
 .DS_Store
+
+# Локальные данные MongoDB/uploads (Docker bind mount)
+.data/
 
 # Локальные секреты (копируются вручную при переносе на новую машину/клон)
 deploy/synology/config.env

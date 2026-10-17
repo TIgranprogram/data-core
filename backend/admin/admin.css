@@ -1,0 +1,62 @@
+/* Data Core — статическая админка. Минималистичная, без фреймворков. */
+:root {
+  --bg: #f5f6f8; --card: #fff; --line: #e3e6ea; --text: #1c2430; --muted: #6b7684;
+  --primary: #2563eb; --primary-d: #1d4ed8; --danger: #dc2626; --ok: #16a34a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
+.error { color: var(--danger); font-size: 13px; }
+
+/* Login */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; }
+.login-card { background: var(--card); padding: 32px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.08); width: 320px; }
+.login-card h1 { margin: 0 0 4px; font-size: 24px; }
+.login-card label, .dialog-form label { display: block; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+input, select { width: 100%; padding: 9px 11px; margin-top: 4px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff; }
+input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 0; border-color: transparent; }
+
+/* Buttons */
+.btn { border: 1px solid var(--line); background: #fff; color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; }
+.btn:hover { background: #f0f2f5; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-d); }
+.btn-danger { color: var(--danger); border-color: #f3c6c6; }
+.btn-danger:hover { background: #fdf0f0; }
+.btn-sm { padding: 4px 9px; font-size: 13px; margin-right: 4px; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* Layout */
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: var(--card); border-bottom: 1px solid var(--line); }
+.topbar-left { display: flex; gap: 12px; align-items: baseline; }
+.badge { font-size: 12px; padding: 3px 9px; border-radius: 20px; background: #eef1f4; color: var(--muted); }
+.badge.ok { background: #dcf5e4; color: var(--ok); } .badge.bad { background: #fbe3e3; color: var(--danger); }
+.tabs { display: flex; gap: 4px; padding: 8px 24px 0; background: var(--card); border-bottom: 1px solid var(--line); }
+.tab { border: none; background: none; padding: 10px 16px; cursor: pointer; font: inherit; color: var(--muted); border-bottom: 2px solid transparent; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-panel { padding: 24px; max-width: 1100px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.panel-head h2 { margin: 0; }
+
+/* Table */
+.filters { display: flex; gap: 8px; margin-bottom: 16px; }
+.filters input, .filters select { margin-top: 0; }
+.filters input { flex: 1; }
+.table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.table th, .table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.table th { background: #fafbfc; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.table tr:last-child td { border-bottom: none; }
+.pager { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+
+/* Dialog */
+dialog { border: none; border-radius: 12px; padding: 0; box-shadow: 0 20px 60px rgba(0,0,0,.25); width: 380px; }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+.dialog-form { padding: 24px; }
+.dialog-form h3 { margin: 0 0 8px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.key-reveal { background: #1c2430; color: #7ee787; padding: 14px; border-radius: 8px; word-break: break-all; white-space: pre-wrap; font-size: 14px; }
+
+/* Toast */
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1c2430; color: #fff; padding: 11px 20px; border-radius: 10px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 999; max-width: 90vw; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

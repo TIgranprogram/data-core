@@ -127,6 +127,19 @@ async function bootstrap() {
     prefix: '/fonts/',
   });
 
+  // Personal Data Core — статическая админка (без сборки, vanilla JS).
+  // Отдаётся с того же origin на /admin (index.html + admin.js + admin.css).
+  // Живёт в ./admin рядом с dist/ (в Docker — скопирована в /app/admin).
+  const adminDir = join(__dirname, '..', 'admin');
+  const adminDirCwd = join(process.cwd(), 'admin');
+  const adminPath = existsSync(adminDir) ? adminDir : adminDirCwd;
+  if (existsSync(adminPath)) {
+    app.useStaticAssets(adminPath, { prefix: '/admin/' });
+    Logger.log(`🛠  Admin UI: /admin (from ${adminPath})`, 'Bootstrap');
+  } else {
+    Logger.warn(`Admin UI dir not found (${adminPath}) — /admin disabled`, 'Bootstrap');
+  }
+
   // Compression
   app.use(compression());
 
@@ -295,6 +308,8 @@ async function bootstrap() {
       // TZD-24: installer ZIP/exe — never fall back to SPA index.html
       // (prod bug: GET /downloads/*.exe returned ~1.5KB HTML → CSP noise).
       if (p.startsWith('/downloads')) return next();
+      // Data Core admin UI — свой статический index, не SPA.
+      if (p.startsWith('/admin')) return next();
       res.sendFile(join(frontendPath, 'index.html'), (err: Error | null) => {
         if (err) next(err);
       });

@@ -34,6 +34,8 @@ COPY --from=build /app/node_modules ./node_modules
 # TZ-BACKEND-DOCSTUDIO-BLOCK-STYLE — self-hosted @font-face files (dev+prod images
 # share no system font set; render loads these for typeface parity in PDF).
 COPY --from=build /app/assets ./assets
+# Personal Data Core — статическая админка (/admin), без сборки.
+COPY --from=build /app/admin ./admin
 COPY package.json ./
 EXPOSE 3000
 CMD ["node", "dist/src/main.js"]

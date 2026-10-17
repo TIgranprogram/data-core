@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Core — Админка</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <!-- ================= LOGIN ================= -->
+  <section id="login-view" class="login-wrap">
+    <form id="login-form" class="login-card">
+      <h1>Data Core</h1>
+      <p class="muted">Вход в админку</p>
+      <label>Логин
+        <input id="login-username" name="username" autocomplete="username" required />
+      </label>
+      <label>Пароль
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn btn-primary">Войти</button>
+      <p id="login-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <!-- ================= APP ================= -->
+  <section id="app-view" hidden>
+    <header class="topbar">
+      <div class="topbar-left">
+        <strong>Data Core</strong>
+        <span class="muted" id="whoami"></span>
+      </div>
+      <div class="topbar-right">
+        <span id="health-badge" class="badge">…</span>
+        <button id="logout-btn" class="btn">Выйти</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="users">Пользователи</button>
+      <button class="tab" data-tab="keys">API-ключи</button>
+    </nav>
+
+    <!-- ---------- Users tab ---------- -->
+    <main id="tab-users" class="tab-panel">
+      <div class="panel-head">
+        <h2>Пользователи</h2>
+        <button id="user-create-btn" class="btn btn-primary">+ Создать</button>
+      </div>
+
+      <form id="user-search-form" class="filters">
+        <input id="user-search" placeholder="Поиск: логин, email, имя" />
+        <select id="user-role-filter">
+          <option value="">Все роли</option>
+          <option value="admin">admin</option>
+          <option value="manager">manager</option>
+          <option value="user">user</option>
+        </select>
+        <button class="btn" type="submit">Найти</button>
+      </form>
+
+      <table class="table" id="users-table">
+        <thead>
+          <tr>
+            <th>Логин</th><th>Имя</th><th>Email</th><th>Роль</th><th>Активен</th><th>Создан</th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="pager">
+        <button id="users-prev" class="btn">←</button>
+        <span id="users-page" class="muted"></span>
+        <button id="users-next" class="btn">→</button>
+      </div>
+
+      <!-- create / edit form -->
+      <dialog id="user-dialog">
+        <form id="user-form" method="dialog" class="dialog-form">
+          <h3 id="user-dialog-title">Новый пользователь</h3>
+          <input type="hidden" id="user-id" />
+          <label>Логин <input id="f-username" required /></label>
+          <label>Отображаемое имя <input id="f-displayName" /></label>
+          <label>Email <input id="f-email" type="email" /></label>
+          <label>Роль
+            <select id="f-role">
+              <option value="user">user (чтение)</option>
+              <option value="manager">manager (чтение+запись)</option>
+              <option value="admin">admin (полный доступ)</option>
+            </select>
+          </label>
+          <label id="f-password-wrap">Пароль <input id="f-password" type="password" autocomplete="new-password" /></label>
+          <p class="muted small">Пароль задаётся только при создании. Для смены — кнопка «Сброс пароля» в списке.</p>
+          <div class="dialog-actions">
+            <button type="button" id="user-cancel" class="btn">Отмена</button>
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+          </div>
+          <p id="user-form-error" class="error" hidden></p>
+        </form>
+      </dialog>
+    </main>
+
+    <!-- ---------- API keys tab ---------- -->
+    <main id="tab-keys" class="tab-panel" hidden>
+      <div class="panel-head">
+        <h2>API-ключи (<code>kppd_</code>)</h2>
+        <button id="key-create-btn" class="btn btn-primary">+ Выдать ключ</button>
+      </div>
+      <p class="muted">Один ключ = одна интеграция. Ключ показывается один раз при выдаче.</p>
+
+      <table class="table" id="keys-table">
+        <thead>
+          <tr><th>Метка</th><th>TTL</th><th>Создан</th><th>Отозван</th><th>Использовался</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <dialog id="key-dialog">
+        <form id="key-form" method="dialog" class="dialog-form">
+          <h3>Выдать ключ</h3>
+          <label>Метка (где будет использоваться)
+            <input id="k-label" placeholder="например: google-sheets-inventory" required />
+          </label>
+          <label>TTL
+            <select id="k-ttl">
+              <option value="7d">7 дней</option>
+              <option value="30d" selected>30 дней</option>
+              <option value="90d">90 дней</option>
+              <option value="never">без срока</option>
+            </select>
+          </label>
+          <label>API Base URL <input id="k-apiBaseUrl" required /></label>
+          <div class="dialog-actions">
+            <button type="button" id="key-cancel" class="btn">Отмена</button>
+            <button type="submit" class="btn btn-primary">Выдать</button>
+          </div>
+          <p id="key-form-error" class="error" hidden></p>
+        </form>
+      </dialog>
+
+      <dialog id="key-shown-dialog">
+        <div class="dialog-form">
+          <h3>Ключ выдан — сохраните его сейчас</h3>
+          <p class="muted">Больше он не будет показан: на сервере хранится только хеш.</p>
+          <pre id="key-shown-value" class="key-reveal"></pre>
+          <div class="dialog-actions">
+            <button type="button" id="key-copy" class="btn btn-primary">Скопировать</button>
+            <button type="button" id="key-shown-close" class="btn">Закрыть</button>
+          </div>
+        </div>
+      </dialog>
+    </main>
+  </section>
+
+  <script src="admin.js"></script>
+</body>
+</html>

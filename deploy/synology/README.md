@@ -1,6 +1,7 @@
 # Deploy — KPPDF 8.0 (Synology VM)
 
 > **Одна точка входа для деплоя.** Секреты не в git: `CREDENTIALS.md` + `config.env`.  
+> **SSH доступ проверен 2026-10-17:** ключ `%USERPROFILE%\.ssh\kppdf80-vm` пересоздан и установлен на VM; вход по ключу и по паролю работают. Все варианты подключения — в `CREDENTIALS.md`, раздел «Быстрое подключение».  
 > **Последний успешный warm deploy:** 2026-08-27 · код `4d55d0ea` · prod `https://<DOMAIN>`.  
 > **Цель UI:** после cutover — **NX** (`frontend-nx` → staging `frontend/browser/`). Канон: [`docs/ops/DEPLOY-NX-PROD.md`](../../docs/ops/DEPLOY-NX-PROD.md).  
 > Пока `DEPLOY-READY.status != READY` или `frontend_target != nx` — деплой **STOP** (prep: `tasks/PROMPT-CLAUDE-DEPLOY-PREP-NX.md`).
