@@ -1,12 +1,11 @@
-# KPPDF 8.0 — one-command deploy (Windows)
+# Personal Data Core — one-command deploy (Windows)
 # Usage (from repo root OR from this folder):
 #   .\deploy\synology\deploy.ps1
-#   .\deploy\synology\deploy.ps1 -Seed
-#   .\deploy\synology\deploy.ps1 -Wipe -Seed
+#   .\deploy\synology\deploy.ps1 -Wipe
 #   .\deploy\synology\deploy.ps1 -SkipBuild
+#   .\deploy\synology\deploy.ps1 -SkipPreflight
 
 param(
-    [switch]$Seed,
     [switch]$Wipe,
     [switch]$SkipBuild,
     [switch]$SkipPreflight
@@ -18,7 +17,7 @@ $Root = (Resolve-Path (Join-Path $Here "..\..")).Path
 Set-Location $Root
 
 Write-Host ""
-Write-Host "=== KPPDF 8.0 deploy.ps1 ===" -ForegroundColor Cyan
+Write-Host "=== Data Core deploy.ps1 ===" -ForegroundColor Cyan
 Write-Host "  Root: $Root"
 Write-Host ""
 
@@ -37,15 +36,6 @@ if ($LASTEXITCODE -ne 0) {
     pip install -r (Join-Path $Here "requirements.txt")
 }
 
-# Deploy gate: TZ-OPS-310 always required (even with -SkipPreflight)
-$ops310 = Join-Path $Root "tasks\_archive\2026-08\TZ-OPS-310.done.md"
-if (-not (Test-Path $ops310)) {
-    Write-Host "[FAIL] TZ-OPS-310 server harden not archived." -ForegroundColor Red
-    Write-Host "  Do first (VPN OFF): tasks/_backlog/ops/PROMPT-OPS-310-HARDEN.md" -ForegroundColor Yellow
-    Write-Host "  Spec: tasks/_backlog/ops/TZ-OPS-310-server-harden-before-deploy.md" -ForegroundColor Yellow
-    exit 1
-}
-
 if (-not $SkipPreflight) {
     $pre = Join-Path $Here "preflight.ps1"
     if (Test-Path $pre) {
@@ -59,10 +49,9 @@ if (-not $SkipPreflight) {
 }
 
 $argsList = @()
-if ($Seed) { $argsList += "--seed" }
 if ($Wipe) {
     Write-Host ""
-    Write-Host "WARNING: -Wipe will DELETE /opt/kppdf-8.0 + mongo data on the VM." -ForegroundColor Red
+    Write-Host "WARNING: -Wipe will DELETE /opt/data-core + mongo data on the VM." -ForegroundColor Red
     Write-Host "Only use while the system is NOT in real production use." -ForegroundColor Red
     $argsList += "--wipe"
 }

@@ -1,4 +1,4 @@
-# Personal Data Core — Production stack (Ubuntu VM on Synology)
+# Personal Data Core — Production stack (Ubuntu VM на Synology)
 #
 # Отдельный контур РЯДОМ с работающим kppdf-8.0:
 #   kppdf:     :3000 (mongo 4.4, kppdf-mongo)  — НЕ трогать
@@ -8,24 +8,64 @@
 # Logs:   sudo docker compose -f docker-compose.prod.yml logs -f backend
 # Health: curl -sf http://localhost:3001/api/health/ready
 #
-# Секреты (JWT_*, ADMIN_PASSWORD) приходят из .env на хосте — дефолтов нет.
+# Секреты (JWT_*, ADMIN_PASSWORD, MONGO_*) приходят из .env на хосте — дефолтов нет.
+# Порты контура: API 3001, mongo 27018 (только 127.0.0.1 VM).
 
 services:
   mongo:
     image: mongo:7
     container_name: datacore-mongo
     restart: unless-stopped
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    # --auth + --keyFile — как в локальном docker-compose.yml (задача B/P0.4):
+    # MongoDB не запускает --auth с replica set без security.keyFile.
+    # На ПУСТОМ datadir entrypoint сам создаёт root из MONGO_INITDB_ROOT_*.
+    command:
+      [
+        "mongod",
+        "--replSet",
+        "rs0",
+        "--bind_ip_all",
+        "--auth",
+        "--keyFile",
+        "/run/secrets/mongo-keyfile",
+      ]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
     ports:
       # только localhost VM; наружу доступ через API или SSH-туннель
       - "127.0.0.1:27018:27017"
     volumes:
       - ${DATA_DIR}/mongodb:/data/db
+      - mongo-secrets:/run/secrets:ro
+    depends_on:
+      mongo-keyfile:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # ping требует аутентификации → логинимся как root
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\"",
+        ]
       interval: 10s
       timeout: 5s
       retries: 8
+
+  # Разовая генерация keyfile (600, uid 999) в именованный том mongo-secrets.
+  mongo-keyfile:
+    image: mongo:7
+    restart: "no"
+    environment:
+      MONGO_KEYFILE_SECRET: ${MONGO_KEYFILE_SECRET:?MONGO_KEYFILE_SECRET is required}
+    volumes:
+      - mongo-secrets:/secrets
+    entrypoint: >-
+      sh -c "mkdir -p /secrets
+      && printf '%s' \"$$MONGO_KEYFILE_SECRET\" > /secrets/mongo-keyfile
+      && chown 999:999 /secrets/mongo-keyfile
+      && chmod 600 /secrets/mongo-keyfile
+      && echo 'keyfile ready'"
 
   # Одноразовая инициализация Replica Set rs0 (обязателен для транзакций).
   mongo-init:
@@ -34,9 +74,14 @@ services:
       mongo:
         condition: service_healthy
     restart: "no"
-    # rs.status() возвращает {ok:0} и НЕ бросает ошибку, когда RS не инициализирован.
+    environment:
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
+    # С --auth логинимся как root, иначе и rs.status(), и rs.initiate() отклоняются.
     entrypoint: >-
-      sh -c "mongosh --host mongo:27017 --eval
+      sh -c "mongosh --host mongo:27017
+      -u \"$$MONGO_ROOT_USER\" -p \"$$MONGO_ROOT_PASSWORD\"
+      --authenticationDatabase admin --eval
       'var s=null; try { s=rs.status(); } catch(e) { s={ok:0}; }
       if (!s || s.ok!==1) {
         printjson(rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"mongo:27017\"}]}));
@@ -58,8 +103,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
-      MONGO_URI: mongodb://mongo:27017/datacore?replicaSet=rs0
-      MONGO_DB: datacore
+      # с креденшелами: app-user datacore, authSource=datacore (задача B)
+      MONGO_URI: ${MONGO_URI:?MONGO_URI is required (with user:password@host)}
+      MONGO_DB: ${MONGO_DB:-datacore}
       MONGO_REPLICA_SET: rs0
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}"
@@ -79,3 +125,7 @@ services:
       timeout: 10s
       retries: 6
       start_period: 40s
+
+# Именованные тома. mongo-secrets — keyfile для --auth + rs0.
+volumes:
+  mongo-secrets:

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# KPPDF 8.0 — one-command deploy (Linux / macOS / Git Bash)
+# Personal Data Core — one-command deploy (Linux / macOS / Git Bash)
 # Usage (from repo root):
 #   ./deploy/synology/deploy.sh
-#   ./deploy/synology/deploy.sh --seed
-#   ./deploy/synology/deploy.sh --wipe --seed
+#   ./deploy/synology/deploy.sh --wipe
 #   ./deploy/synology/deploy.sh --skip-build
 
 set -euo pipefail
@@ -13,7 +12,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 cd "$ROOT"
 
 echo ""
-echo "=== KPPDF 8.0 deploy.sh ==="
+echo "=== Data Core deploy.sh ==="
 echo "  Root: $ROOT"
 echo ""
 

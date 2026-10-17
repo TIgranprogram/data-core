@@ -101,7 +101,7 @@
 | `.gitignore` (инцидент 2026-10-17) | Строка `uploads/` матчила `backend/src/modules/uploads/` и вырезала модуль из git → `nest build` падал. **Исправлено:** `/uploads/` + `backend/uploads/`, модуль восстановлен из kppdf | ✅ Закрыто; не возвращать голое `uploads/` |
 | Порты на рабочей машине | Контур `odr` занимает 3000/27017 | data-core на **3001/27018** (`.env`: `HOST_PORT`, `MONGO_PORT`); в compose порты параметризованы |
 | `deploy/synology/backup.sh` | Был настроен на `kppdf-mongo` / БД `kppdf` | ✅ Адаптирован на `datacore-mongo` / `datacore` (задача 3) |
-| `deploy/synology/deploy.*` | Заточены под kppdf (сборка NX-фронта, `REMOTE_DIR=/opt/kppdf-8.0`, mongo 4.4) | Адаптировать (задача 8); `docker-compose.prod.yml` уже создан (контур :3001, mongo 7) |
+| `deploy/synology/deploy.*` | ~~Заточены под kppdf~~ | ✅ Адаптировано под data-core (задача F): NX-фронта нет, `/opt/data-core`, порт 3001, `.env` c MONGO_*; `config.env` (секреты) в архив не попадает |
 | `docker-compose.prod.yml` | Создан, но ещё не проверен реальным деплоем на VM | Задача 8 |
 | MongoDB | ~~Без аутентификации (`--auth` не включён)~~ | ✅ Включено локально (задача 4): `--auth` + `--keyFile` (обязателен при rs0!), пользователи `root`/`datacore`, `backup.sh` с паролем. Повторить на VM при деплое |
 | MongoDB keyfile | MongoDB **не стартует** с `--auth`+`--replSet` без `security.keyFile` (`BadValue`) | Сервис `mongo-keyfile` пишет файл (600, uid 999) в том `mongo-secrets`; `--keyFile /run/secrets/mongo-keyfile` |
