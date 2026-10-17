@@ -80,6 +80,14 @@
       $('#users-next').disabled = userState.page >= pages;
     } catch (e) { toast(e.message); }
   }
+  /**
+   * API отдаёт пользователей и ключи с полем `id` (mongoose virtual), НЕ `_id`.
+   * Раньше здесь читался только `u._id`, из-за чего «Изменить» теряла id
+   * (диалог уходил в создание нового), а «Сброс пароля» и «Удалить» шли на
+   * /admin/users/undefined → CastError → 500.
+   */
+  function userId(u) { return (u && (u.id || u._id)) || ''; }
+
   function userRow(u) {
     const tr = el('tr');
     tr.append(el('td', '', u.username), el('td', '', u.displayName || '—'), el('td', '', u.email || '—'),
@@ -93,7 +101,7 @@
   }
   function openUserDialog(u) {
     $('#user-dialog-title').textContent = u ? 'Изменить пользователя' : 'Новый пользователь';
-    $('#user-id').value = u?._id || '';
+    $('#user-id').value = userId(u);
     $('#f-username').value = u?.username || '';
     $('#f-displayName').value = u?.displayName || '';
     $('#f-email').value = u?.email || '';
@@ -121,12 +129,12 @@
   async function resetPassword(u) {
     const pw = prompt(`Новый пароль для «${u.username}»:`);
     if (!pw) return;
-    try { await api(`/admin/users/${u._id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: pw }) }); toast('Пароль изменён'); }
+    try { await api(`/admin/users/${userId(u)}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: pw }) }); toast('Пароль изменён'); }
     catch (e) { toast(e.message); }
   }
   async function deleteUser(u) {
     if (!confirm(`Удалить пользователя «${u.username}»?`)) return;
-    try { await api('/admin/users/' + u._id, { method: 'DELETE' }); loadUsers(); }
+    try { await api('/admin/users/' + userId(u), { method: 'DELETE' }); loadUsers(); }
     catch (e) { toast(e.message); }
   }
 

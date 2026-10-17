@@ -3,6 +3,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { MongooseModule, getConnectionToken } from '@nestjs/mongoose';
 import { Connection, connect, type Mongoose } from 'mongoose';
 import { AppModule } from '../../src/app.module';
+import { HttpExceptionFilter } from '../../src/common/filters/http-exception.filter';
+import { MulterExceptionFilter } from '../../src/common/filters/multer-exception.filter';
+import { VersionConflictFilter } from '../../src/common/filters/version-conflict.filter';
 import { TEST_ADMIN_PASSWORD } from './admin.fixture';
 
 export interface TestContext {
@@ -77,6 +80,14 @@ export async function createTestApp(): Promise<TestContext> {
 
   const app = module.createNestApplication({ logger: false });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  // Регистрируем те же глобальные фильтры, что и main.ts (прод). Без этого
+  // тестовое приложение трактовало ошибки иначе, чем боевое: например,
+  // mongoose CastError в тестах улетал как 500, а в проде — как 400.
+  app.useGlobalFilters(
+    new VersionConflictFilter(),
+    new MulterExceptionFilter(),
+    new HttpExceptionFilter(),
+  );
   app.setGlobalPrefix('api');
   await app.init();
 

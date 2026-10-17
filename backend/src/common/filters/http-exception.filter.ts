@@ -180,6 +180,18 @@ export function flattenValidationErrors(
   return lines;
 }
 
+/**
+ * Mongoose throws this when a value cannot be coerced into the schema type —
+ * most often `Cast to ObjectId failed for value "undefined" at path "_id"`.
+ */
+function isCastError(exception: unknown): boolean {
+  return (
+    exception instanceof Error &&
+    exception.name === 'CastError' &&
+    typeof (exception as { path?: unknown }).path === 'string'
+  );
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -189,15 +201,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    // Mongoose CastError (e.g. GET /admin/users/undefined) is a CLIENT mistake,
+    // not a server fault. Before this it escaped as HTTP 500 + full stack in the
+    // logs, so a stale frontend id (or a hand-typed URL) looked like an outage.
+    // Now it is a plain 400 with the offending field named.
+    const castPath = isCastError(exception)
+      ? String((exception as { path?: unknown }).path ?? '_id')
+      : undefined;
+
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+        : castPath !== undefined
+          ? HttpStatus.BAD_REQUEST
+          : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const payload =
       exception instanceof HttpException
         ? exception.getResponse()
-        : 'Internal server error';
+        : castPath !== undefined
+          ? `Некорректный идентификатор «${castPath}»: ожидается 24-символьный hex`
+          : 'Internal server error';
 
     let message: string | string[];
 

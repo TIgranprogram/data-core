@@ -1,4 +1,4 @@
-import { ArgumentsHost, NotFoundException } from '@nestjs/common';
+import { ArgumentsHost, Logger, NotFoundException } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
 import {
   HttpExceptionFilter,
@@ -122,5 +122,53 @@ describe('HttpExceptionFilter', () => {
     expect(json.mock.calls[0][0].message).toBe(
       'Изделие не найдено: не указан идентификатор',
     );
+  });
+
+  it('maps a Mongoose CastError to 400 instead of 500', () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const host = {
+      switchToHttp: () => ({
+        getResponse: () => ({ status }),
+        getRequest: () => ({ url: '/api/admin/users/undefined', method: 'DELETE' }),
+      }),
+    } as unknown as ArgumentsHost;
+
+    // Форма, в которой mongoose реально бросает ошибку (см. лог бэкенда
+    // от 2026-10-17: DELETE /api/admin/users/undefined → CastError → 500).
+    const castError = Object.assign(
+      new Error(
+        'Cast to ObjectId failed for value "undefined" (type string) at path "_id" for model "User"',
+      ),
+      { name: 'CastError', path: '_id' },
+    );
+
+    new HttpExceptionFilter().catch(castError, host);
+
+    expect(status).toHaveBeenCalledWith(400);
+    expect(json.mock.calls[0][0].statusCode).toBe(400);
+    expect(String(json.mock.calls[0][0].message)).toMatch(/идентификатор/i);
+    expect(String(json.mock.calls[0][0].message)).toMatch(/_id/);
+  });
+
+  it('still answers 500 for a genuinely unexpected error', () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const host = {
+      switchToHttp: () => ({
+        getResponse: () => ({ status }),
+        getRequest: () => ({ url: '/api/products', method: 'GET' }),
+      }),
+    } as unknown as ArgumentsHost;
+
+    const spy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      new HttpExceptionFilter().catch(new TypeError('boom'), host);
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(status).toHaveBeenCalledWith(500);
+    expect(json.mock.calls[0][0].statusCode).toBe(500);
   });
 });
