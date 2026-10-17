@@ -58,6 +58,9 @@ services:
     env_file: .env
     volumes:
       - ${DATA_DIR}/uploads:/app/uploads
+      # Локальная разработка: admin UI без пересборки образа.
+      # (В prod-образ admin копируется через Dockerfile — см. docker-compose.prod.yml.)
+      - ./backend/admin:/app/admin:ro
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]
       interval: 15s

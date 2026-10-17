@@ -4,6 +4,11 @@
   --primary: #2563eb; --primary-d: #1d4ed8; --danger: #dc2626; --ok: #16a34a;
 }
 * { box-sizing: border-box; }
+/* КРИТИЧНО: атрибут hidden должен побеждать любой display из классов.
+   Иначе .login-wrap{display:grid} перебивает [hidden] и форма логина
+   остаётся на весь экран после входа (баг 2026-10-17: кнопка "войти"
+   "не работает", хотя бэкенд отдаёт 200). */
+[hidden] { display: none !important; }
 body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
 .muted { color: var(--muted); } .small { font-size: 12px; }
 code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
