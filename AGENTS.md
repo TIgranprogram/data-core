@@ -19,7 +19,7 @@
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
 | Что уже сделано и как проверялось | [docs/HISTORY.md](docs/HISTORY.md) — журнал, только при расследовании | без нужды |
-| Деплой на VM | skill `datacore-deploy`, [deploy/synology/README.md](deploy/synology/README.md) | `reset-admin-password.py`, `server-setup-ubuntu.sh` — kppdf, не запускать (TASKS T16) |
+| Деплой на VM | skill `datacore-deploy`, [deploy/synology/README.md](deploy/synology/README.md) | — |
 
 ## Структура (только значимое)
 
@@ -64,7 +64,7 @@ pnpm в PATH может не быть → используй `npx`.
 
 ## Известные ловушки (сэкономят часы)
 
-- Сущности в ответах API имеют виртуальный **`id`**, а не `_id` (баг в админке уже был).
+- Идентификатор в ответах **несогласован**: пользователи/ключи/админ-эндпоинты отдают `id`, справочники каталога (materials и др., `.lean()`) — `_id`. Клиентам читать `x.id ?? x._id` (TASKS T18).
 - Мусорный ObjectId → `CastError` → глобальный фильтр отдаёт **400** (не 500).
 - Rate-limit: глобально 10/с и 100/мин, `/auth/login` — 5/мин и 20/час. Серия запросов без пауз → 429, это не баг.
 - `GET /api/admin/users` через `kppd_`-ключ → `total:0`: owner-админ скрыт от не-owner актора (TZ-AUTH-306). Не баг.

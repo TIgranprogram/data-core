@@ -342,17 +342,6 @@
         }
       }
     },
-    "/internal/counter/test": {
-      "post": {
-        "operationId": "CounterController_test",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/roles": {
       "get": {
         "operationId": "RoleController_findAll",

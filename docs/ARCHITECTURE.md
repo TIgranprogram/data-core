@@ -30,7 +30,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 - Подключение и **глобальные плагины** — `database/database.module.ts`: `soft-delete` (запросы скрывают `deletedAt != null`; `.softDelete()`), `audit` (createdBy/updatedBy), `user-context`.
 - `common/mongoose/optimistic-lock.plugin.ts` — версионирование там, где подключён.
 - Транзакции требуют replica set (поэтому rs0 даже на одном узле).
-- API отдаёт `id` (virtual), не `_id`. Списки: `{ items, total, page, limit }`.
+- Идентификатор: часть модулей отдаёт `id` (virtual, админ/пользователи/ключи), часть — `_id` (lean-запросы каталога) — TASKS T18. Списки: `{ items, total, page, limit }`.
 - Мульти-организационность: многие сущности имеют `organizationId`; сервисы фильтруют по организации актора.
 - Удаление справочников защищено проверками «где используется» (`where-used`, `catalog-graph`). ⚠ часть проверок смотрит в удалённые CRM-коллекции — TASKS T1.
 
