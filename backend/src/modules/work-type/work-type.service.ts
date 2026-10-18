@@ -51,8 +51,9 @@ export class WorkTypeService implements OnModuleInit {
 
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
-    const refs = await Promise.all([this.model.db.collection('costcalculations').findOne({ 'labor.workTypeId': doc._id }), this.model.db.collection('productmodules').findOne({ 'workTypes.workTypeId': doc._id }), this.model.db.collection('workers').findOne({ workTypeIds: doc._id })]);
-    if (refs.some(Boolean)) throw new ConflictException('WorkType is referenced by catalog history and cannot be archived');
+    // T1: только действующий каталог (виды работ модулей); legacy costcalculations/workers не проверяем.
+    const moduleRef = await this.model.db.collection('productmodules').findOne({ 'workTypes.workTypeId': doc._id }, { projection: { _id: 1 } });
+    if (moduleRef) throw new ConflictException('WorkType is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null }, { $set: { deletedAt: new Date(), isActive: false } }).exec();
   }
 }

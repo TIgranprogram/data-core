@@ -15,6 +15,7 @@ import { CompositionLineDocumentShape } from '../catalog/composition-line.schema
 import { CompositionLineService } from '../catalog/composition-line.service';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
 import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
+import { isUsedInComposition } from '../catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()
@@ -308,8 +309,8 @@ export class ProductService {
   }
 
   async remove(id: string, organizationId?: string | null): Promise<void> {
-    const doc = await this.findActive(id, organizationId); const refs = await Promise.all([this.model.db.collection('orders').findOne({ 'items.productId': doc._id }), this.model.db.collection('quotations').findOne({ 'items.productId': doc._id }), this.model.db.collection('costcalculations').findOne({ productId: doc._id }), this.model.db.collection('boms').findOne({ productId: doc._id })]);
-    if (refs.some(Boolean)) throw new ConflictException('Product is referenced by catalog history and cannot be archived');
+    const doc = await this.findActive(id, organizationId); const used = await isUsedInComposition(this.model.db, 'product', doc._id);
+    if (used) throw new ConflictException('Product is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, { $set: { deletedAt: new Date(), isActive: false, status: 'archived' } }).exec();
   }
 

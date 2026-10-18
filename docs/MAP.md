@@ -44,7 +44,7 @@
 | `attribute-definition` | `/attribute-definitions` | `attributedefinitions` | EAV: определения |
 | `entity-attribute-value` | `/:entityType/:entityId/attributes[/:attributeId]` | `entityattributevalues` | EAV: значения; логика в `common/eav/eav.service.ts` |
 
-**Вспомогательные (без контроллеров):** `catalog` — composition-line (DTO/схема/сервис состава), `catalog-graph` — обход дерева состава / where-used (используют material, product, product-module, work-type), `document-render` — утилиты форматирования.
+**Вспомогательные (без контроллеров):** `catalog` — composition-line (DTO/схема/сервис состава), `catalog-references.ts` — защита удаления «используется в составе» (products/productmodules), `catalog-graph` — обход дерева состава / where-used (используют material, product, product-module, work-type), `document-render` — утилиты форматирования.
 
 ## common/ и прочее
 
