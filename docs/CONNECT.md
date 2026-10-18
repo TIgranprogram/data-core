@@ -10,9 +10,12 @@
 
 | | |
 |--|--|
-| Базовый URL API | `http://<твой-сервер>:3000/api` |
-| Документация (Swagger UI) | `http://<твой-сервер>:3000/docs` (нужен `SWAGGER_ENABLED=true` в prod) |
+| Базовый URL API | `http://<твой-сервер>:3001/api` |
+| Документация (Swagger UI) | `http://<твой-сервер>:3001/docs` (нужен `SWAGGER_ENABLED=true` в prod) |
 | Health-check | `GET /api/health/ready` |
+| Контракт эндпоинтов | `docs/openapi.json` (пути в нём без префикса `/api`) |
+
+Порт `3001` — и на VM, и локально (`HOST_PORT` в `.env`; дефолт compose — `3000`).
 
 ---
 
@@ -36,15 +39,27 @@ Content-Type: application/json
 Authorization: Bearer <access>
 ```
 
-Access-токен живёт 15 минут. Refresh — через cookie `refreshToken` (`POST /api/auth/refresh`).
+Вместо `Authorization` можно слать тот же токен в заголовке `X-Access-Token: <access>` — сервер проверяет его первым (удобно, когда `Authorization` занят HTTP Basic прокси).
+
+Access-токен живёт 15 минут (`JWT_EXPIRES_IN`), refresh — 30 дней. Обновить access:
+
+```
+POST /api/auth/refresh
+Authorization: Bearer <refresh>        # или X-Access-Token: <refresh>
+Content-Type: application/json
+
+{}
+```
+
+Ответ: `{ "access": "<JWT>" }`. Refresh-токен берётся **из заголовка**, не из тела и не из cookie (сервер ставит cookie `refreshToken`, но не читает её). После `POST /api/auth/logout` старые refresh-токены отклоняются (401).
 
 **curl:**
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
+TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"..."}' | jq -r .access)
 
-curl -s http://localhost:3000/api/<модуль> -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:3001/api/<модуль> -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -64,16 +79,18 @@ Content-Type: application/json
 {
   "ttl": "30d",                       // 1d | 7d | 30d | 90d | never
   "label": "my-app-inventory",        // для себя: где используется
-  "apiBaseUrl": "http://<LAN_IP>:3000"
+  "apiBaseUrl": "http://<LAN_IP>:3001"  // обязателен
 }
 ```
 
 Ответ содержит `apiKey` — **покажется один раз**, сохрани. Хеш хранится на сервере.
 
-**Использовать** — тот же заголовок:
+**Использовать** — тот же заголовок (или `X-Access-Token: kppd_xxxxx...`):
 ```
 Authorization: Bearer kppd_xxxxx...
 ```
+
+Ключ действует **с правами выдавшего его пользователя** (его роль и организация); деактивация пользователя отключает и его ключи.
 
 **Отозвать:** `POST /api/desktop/pairing-keys/:id/revoke`
 **Список ключей:** `GET /api/desktop/pairing-keys`
@@ -87,7 +104,7 @@ Authorization: Bearer kppd_xxxxx...
 ### Google Apps Script (таблица читает и пишет в базу)
 
 ```javascript
-const BASE = 'http://<LAN_IP>:3000/api';
+const BASE = 'http://<LAN_IP>:3001/api';
 const KEY  = 'kppd_xxxxx...';
 
 function loadData() {
@@ -101,23 +118,33 @@ function loadData() {
   rows.items.forEach((r, i) => sh.getRange(i + 1, 1).setValue(r.name));
 }
 
-function saveRow(name, qty) {
-  UrlFetchApp.fetch(BASE + '/materials', {
+// name, article, unit — обязательны; поля вне DTO (например qty) → 400
+function saveRow(name, article, unit) {
+  const res = UrlFetchApp.fetch(BASE + '/materials', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + KEY },
-    payload: JSON.stringify({ name, qty }),
+    payload: JSON.stringify({ name, article, unit }),
     muteHttpExceptions: true,
   });
+  if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
 }
 ```
+
+**Создать материал (curl):**
+```bash
+curl -s -X POST http://<LAN_IP>:3001/api/materials \
+  -H "Authorization: Bearer kppd_xxxxx..." -H "Content-Type: application/json" \
+  -d '{"name":"Лист стальной 2 мм","article":"LS-2","unit":"шт"}'
+```
+Обязательные поля: `name` (1–256), `article` (1–64), `unit` (1–32). Необязательные — см. `CreateMaterialDto` в `docs/openapi.json` (`sku`, `materialKind`, `categoryId`, `description`, …). Сервер работает с `forbidNonWhitelisted`: **любое лишнее поле → 400**. Запись — роли `admin`/`manager`, чтение списка — `admin`/`director`/`manager`.
 
 ### Python
 
 ```python
 import requests
 
-BASE = "http://<LAN_IP>:3000/api"
+BASE = "http://<LAN_IP>:3001/api"
 H = {"Authorization": "Bearer kppd_xxxxx..."}
 
 r = requests.get(f"{BASE}/materials", headers=H, timeout=10)
@@ -128,7 +155,7 @@ print(r.json())
 ### PHP
 
 ```php
-$ch = curl_init('http://<LAN_IP>:3000/api/materials');
+$ch = curl_init('http://<LAN_IP>:3001/api/materials');
 curl_setopt_array($ch, [
   CURLOPT_HTTPHEADER => ['Authorization: Bearer kppd_xxxxx...'],
   CURLOPT_RETURNTRANSFER => true,
@@ -148,11 +175,12 @@ $data = json_decode(curl_exec($ch), true);
 
 | Роль | Права |
 |--|--|
-| `admin` | всё, включая выдачу ключей и управление пользователями |
-| `manager` | чтение + запись в рабочих модулях |
-| `user` | в основном чтение |
+| `admin` | всё (`*`), включая выдачу ключей и управление пользователями |
+| `director` | полный операционный доступ (в основном чтение), без управления пользователями и ролями |
+| `manager` | чтение + запись в рабочих модулях, без управления пользователями |
+| `user` | минимум: отдельные эндпоинты чтения (например, `GET /materials` ему недоступен — 403) |
 
-Права раздаются в модулях (`Roles`, `Permissions`). Новая внешняя интеграция — заводи под **отдельный ключ с TTL**, чтобы в любой момент можно было отозвать одну интеграцию, не трогая остальные.
+Системные роли создаются сидом (`common/seed/admin.seed.ts`). Доступ задаётся на каждом эндпоинте (`@Roles`, `@Permissions`) — точный список ролей смотри в контроллере модуля (`docs/MAP.md`). Новая внешняя интеграция — заводи под **отдельный ключ с TTL**, чтобы в любой момент можно было отозвать одну интеграцию, не трогая остальные.
 
 ---
 
