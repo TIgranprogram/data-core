@@ -20,6 +20,9 @@ description: Безопасный деплой data-core на Synology/Ubuntu VM
 или напрямую `python deploy/synology/deploy.py` (`py` если `python` нет в PATH). Флаги: `--skip-build`.
 **`--wipe` / `-Wipe` ЗАПРЕЩЁН** без явного письменного «да, стереть данные»: удаляет `/opt/data-core/*`, `/var/lib/datacore/mongodb/*` и `uploads/*`. Строка `WIPE=true` в `config.env` включает то же самое.
 
+## Если нет Python (ручной деплой по ssh — проверен 2026-10-18)
+Архив только так: `git -c core.autocrlf=false archive --format=tar.gz -o release.tgz HEAD backend docker-compose.prod.yml deploy` (иначе CRLF → bash на VM ломается). На VM: распаковать во временную папку, скопировать туда `deploy/synology/.env`, старые `backend/` `deploy/` переименовать в `*.prev-<дата>`, новые положить на место; `.env` в корне не трогать. Затем `docker compose -f docker-compose.prod.yml build backend` → `up -d --no-deps backend`. sudo на VM требует пароль — не нужен, docker доступен пользователю. История — `docs/HISTORY.md`.
+
 ## Перед деплоем
 1. typecheck + юнит зелёные (skill `datacore-verify`), изменения закоммичены.
 2. Секреты (`JWT_*`, `ADMIN_PASSWORD`, `MONGO_*`) в `config.env` заполнены: пустые/`CHANGE_ME` `deploy.py` молча сгенерирует заново → на живых данных backend не подключится к Mongo.
