@@ -11,7 +11,7 @@
 | `user` | `/users`, `/users/:id`, `/users/me/profile`, `change-password` | `users` | `refreshTokenVersion` инвалидирует refresh-токены |
 | `role` | `/roles` | `roles` | системные роли admin/manager/user (сид) |
 | `permissions` | — (сервис) | `permissions` | каталог прав: `common/seed/permissions.constants.ts` |
-| `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]` | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind: core/link/legacy`) |
+| `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]` | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind: core/link/legacy`; `app_*` → `kind:'app'`, категория «Данные приложений») |
 | `desktop` | `/desktop/pairing-keys` (выдать/список/revoke), `/desktop/pairing`, `/desktop/compat` | `desktop_pairing_keys` | **машинные ключи `kppd_`**; проверка ключа — `desktop-pairing-key.service.ts` `authenticateBearer` |
 | `device-enrollment` | `/device/*`, `/admin/devices/*` | `browserdevicegrants`, `deviceinvites` | привязка браузеров по cookie `__Host-kppdf-device` |
 | `audit` | `/audit-logs` | `auditlogs` | пишется `AuditInterceptor` + `@AuditAction` |
@@ -22,6 +22,7 @@
 | `counter` | — (только сервис `CounterService`, без HTTP) | `counters` | атомарная нумерация |
 | `dictionary-label` | `/dictionary-labels` | `dictionary_labels` | подписи справочников |
 | `photos` | `/photos`, `/photos/upload`, `/photos/:id/frame` | `photos` | sharp-превью; файлы в `uploads/` → `/uploads/*` |
+| `app-data` | `/apps`, `/apps/:app/:collection`, `/apps/:app/:collection/:id` (GET/POST/PATCH/PUT/DELETE) | `app_<app>_<collection>` (создаются на лету) | **P1**: CRUD JSON-документов любого приложения без кода на сервере; сырые коллекции через Connection, служебные поля и soft-delete ставит сервис; валидация имён/filter/sort — `app-data.validation.ts`; scope ключа по приложениям — `app-scope.guard.ts`; парсер тела 16 МБ — `app-data.body-parser.ts` (подключён в `main.ts` и e2e-харнессе); права `app-data:read/write/admin`; модуль стоит в `app.module` до EAV (коллизия маршрута `/:entityType/:entityId/attributes`) |
 
 ## Канонические справочники
 

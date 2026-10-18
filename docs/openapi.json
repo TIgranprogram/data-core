@@ -1846,6 +1846,321 @@
         }
       }
     },
+    "/apps": {
+      "get": {
+        "operationId": "AppDataController_listApps",
+        "summary": "Приложения и их коллекции со счётчиками (count — живые, deleted — помеченные)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      }
+    },
+    "/apps/{app}/{collection}": {
+      "get": {
+        "operationId": "AppDataController_list",
+        "summary": "Список документов { items, total, page, limit }",
+        "parameters": [
+          {
+            "name": "app",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Номер страницы, с 1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Размер страницы, по умолчанию 50, максимум 200",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "`field` или `-field`, несколько через запятую",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "JSON: {\"field\": value} или {\"field\": {\"$op\": value}}; операторы: $eq $ne $gt $gte $lt $lte $in $nin $exists",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      },
+      "post": {
+        "operationId": "AppDataController_create",
+        "summary": "Создать документ (объект) или пачку (массив до 500)",
+        "parameters": [
+          {
+            "name": "app",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "413": {
+            "description": "Документ больше 256 КБ"
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      }
+    },
+    "/apps/{app}/{collection}/{id}": {
+      "get": {
+        "operationId": "AppDataController_findOne",
+        "parameters": [
+          {
+            "name": "app",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Нет документа (или он удалён)"
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      },
+      "patch": {
+        "operationId": "AppDataController_patch",
+        "summary": "Слияние верхнего уровня: переданные поля перезаписываются, остальные сохраняются",
+        "parameters": [
+          {
+            "name": "app",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      },
+      "put": {
+        "operationId": "AppDataController_replace",
+        "summary": "Полная замена документа (служебные поля сохраняет сервер)",
+        "parameters": [
+          {
+            "name": "app",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      },
+      "delete": {
+        "operationId": "AppDataController_remove",
+        "summary": "Soft-delete (deletedAt); ?hard=true — физически, только с app-data:admin",
+        "parameters": [
+          {
+            "name": "app",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hard",
+            "required": false,
+            "in": "query",
+            "description": "true — удалить физически (нужно app-data:admin)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Данные приложений"
+        ]
+      }
+    },
     "/persons": {
       "get": {
         "operationId": "PersonController_list",
