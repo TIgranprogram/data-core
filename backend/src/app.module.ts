@@ -52,6 +52,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { UserContextInterceptor } from './common/interceptors/user-context.interceptor';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { IdNormalizeInterceptor } from './common/interceptors/id-normalize.interceptor';
 import { AdminSeed } from './common/seed/admin.seed';
 import { AdminPasswordDriftDetector } from './common/seed/admin-password-drift-detector';
 import { SettingsSeed } from './common/seed/settings.seed';
@@ -187,6 +188,8 @@ import { RequestMethod } from '@nestjs/common';
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_INTERCEPTOR, useClass: UserContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    // T18: аддитивно добавляет `id` рядом с `_id` во все ответы.
+    { provide: APP_INTERCEPTOR, useClass: IdNormalizeInterceptor },
     ThrottlerBehindAuthGuard,
     AdminSeed,
     AdminPasswordDriftDetector,

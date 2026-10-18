@@ -22,7 +22,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
    - `PermissionsGuard`: `@Permissions('x:y')` — нужна capability из каталога `common/seed/permissions.constants.ts`.
    - `RolesGuard`: `@Roles('admin', …)` — легаси-проверка по имени роли; AND с permissions.
 3. **ValidationPipe** (глобально): `whitelist + forbidNonWhitelisted + transform` — **лишнее поле в теле → 400**.
-4. **Interceptors:** `UserContextInterceptor` (кладёт актора в AsyncLocalStorage → плагины Mongoose видят, кто пишет), `AuditInterceptor` (+ `@AuditAction`) → `auditlogs`.
+4. **Interceptors:** `IdNormalizeInterceptor` (`id` рядом с `_id`), `UserContextInterceptor` (кладёт актора в AsyncLocalStorage → плагины Mongoose видят, кто пишет), `AuditInterceptor` (+ `@AuditAction`) → `auditlogs`.
 5. **Filters:** `VersionConflictFilter` (optimistic lock → 409), `MulterExceptionFilter` (413/400), `HttpExceptionFilter` (общий; `CastError` → 400, единый формат ошибки).
 
 ## Слой данных
@@ -30,7 +30,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 - Подключение и **глобальные плагины** — `database/database.module.ts`: `soft-delete` (запросы скрывают `deletedAt != null`; `.softDelete()`), `audit` (createdBy/updatedBy), `user-context`.
 - `common/mongoose/optimistic-lock.plugin.ts` — версионирование там, где подключён.
 - Транзакции требуют replica set (поэтому rs0 даже на одном узле).
-- Идентификатор: часть модулей отдаёт `id` (virtual, админ/пользователи/ключи), часть — `_id` (lean-запросы каталога) — TASKS T18. Списки: `{ items, total, page, limit }`.
+- Идентификатор: глобальный `IdNormalizeInterceptor` (T18) добавляет строковый `id` рядом с `_id` в каждый объект ответа (аддитивно). Списки: `{ items, total, page, limit }`.
 - Мульти-организационность: многие сущности имеют `organizationId`; сервисы фильтруют по организации актора.
 - Удаление справочников защищено проверками «где используется» (`where-used`, `catalog-graph`). ⚠ часть проверок смотрит в удалённые CRM-коллекции — TASKS T1.
 

@@ -53,7 +53,7 @@
 | `common/guards/` | `jwt-auth.guard` (JWT **или** `kppd_` из `Authorization: Bearer`/`X-Access-Token`), `permissions.guard`, `roles.guard`, `throttler-behind-auth.guard`, `last-admin`/`owner-*` guards |
 | `common/decorators/` | `@Public` `@Roles` `@Permissions` `@CurrentUser` `@AuditAction` `@IsObjectId` |
 | `common/filters/` | `http-exception` (CastError→400), `multer-exception` (413/400), `version-conflict` (optimistic lock) |
-| `common/interceptors/` | `user-context`, `audit` (глобальные) |
+| `common/interceptors/` | `user-context`, `audit`, `id-normalize` (глобальные) |
 | `common/seed/` | сиды на старте (`OnApplicationBootstrap`): admin, permissions, roles, settings, statuses, units, categories, currencies, colors, org/counterparty roles |
 | `common/idempotency/` | `Idempotency-Key` middleware + хранилище |
 | `common/mongoose/optimistic-lock.plugin.ts` | версия документа → 409 при конфликте |
