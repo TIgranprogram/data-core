@@ -22,6 +22,8 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 # Personal Data Core — статическая админка (/admin), без сборки.
 COPY --from=build /app/admin ./admin
+# Веб-приложение «Снабжение / Склад» (PWA, /app), без сборки.
+COPY --from=build /app/pwa ./pwa
 COPY package.json ./
 EXPOSE 3000
 CMD ["node", "dist/src/main.js"]

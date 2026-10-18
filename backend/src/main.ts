@@ -121,6 +121,17 @@ async function bootstrap() {
     Logger.warn(`Admin UI dir not found (${adminPath}) — /admin disabled`, 'Bootstrap');
   }
 
+  // Веб-приложение «Снабжение / Склад» (PWA, без сборки) — /app (за nginx: /db/app/).
+  // no-cache: index/js/sw всегда сверяются с сервером; офлайн-работу обеспечивает service worker.
+  const pwaPath = [join(__dirname, '..', 'pwa'), join(process.cwd(), 'pwa')].find((p) => existsSync(p));
+  if (pwaPath) {
+    app.useStaticAssets(pwaPath, {
+      prefix: '/app/',
+      setHeaders: (res: { setHeader(name: string, value: string): void }) => res.setHeader('Cache-Control', 'no-cache'),
+    });
+    Logger.log(`📦 PWA «Снабжение/Склад»: /app (from ${pwaPath})`, 'Bootstrap');
+  }
+
   // Compression
   app.use(compression());
 

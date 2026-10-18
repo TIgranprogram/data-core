@@ -149,6 +149,11 @@ function dcSyncSheet_(sh, cfg, budget) {
   const values = sh.getRange(cfg.headerRow + 1, 1, n, lastCol).getValues();
   const keyIdx = headers.indexOf(cfg.keyHeader);
   if (keyIdx < 0) throw new Error(`нет колонки «${cfg.keyHeader}»`);
+  // Ключи полей, которые даёт эта таблица (только их скрипт имеет право очищать в базе)
+  const sheetKeys = headers
+    .filter((h, c) => h && c !== idCol - 1 && !(cfg.skip || []).includes(h))
+    .map((h) => cfg.fields[h] || dcSlug_(h))
+    .filter(Boolean);
 
   // 1) Строки → записи; выдать id новым строкам и «разклеить» скопированные дубли id
   const ids = values.map((r) => String(r[idCol - 1] || '').trim());
@@ -185,9 +190,9 @@ function dcSyncSheet_(sh, cfg, budget) {
     if (budget.writes <= 0) break;
     const prev = byUid[d.uid];
     const body = Object.assign({}, d);
-    Object.keys(prev).forEach((k) => {   // поле очистили в таблице → очистить и в базе
-      if (!(k in body) && !['id', '_id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'deletedAt'].includes(k)) body[k] = null;
-    });
+    // Поле очистили в таблице → очистить и в базе. Только поля из колонок таблицы:
+    // поля, которые добавило приложение (фото, связи со складом), не трогаем.
+    sheetKeys.forEach((k) => { if (!(k in body) && k in prev) body[k] = null; });
     dcApi_('patch', `${path}/${prev.id}`, body);
     patched++; budget.writes--; Utilities.sleep(150);
   }
