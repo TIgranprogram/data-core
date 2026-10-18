@@ -53,7 +53,7 @@
 ## Бэкапы на VM
 
 - Cron: `/etc/cron.d/datacore`, `0 3 * * *` от пользователя деплоя → `cd /opt/data-core && bash deploy/synology/backup.sh >> /var/log/datacore-backup.log 2>&1`.
-- `backup.sh` берёт `MONGO_ROOT_PASSWORD` из **`deploy/synology/.env` рядом со скриптом** (или из окружения), а не из `/opt/data-core/.env`, который пишет `deploy.py`. Нет переменной → `ERROR: MONGO_ROOT_PASSWORD is not set`, exit 1. `--wipe` удаляет и этот файл. Проверка: `tail /var/log/datacore-backup.log`, `ls /var/lib/datacore/backups`.
+- `backup.sh` берёт `MONGO_ROOT_PASSWORD` из `deploy/synology/.env` рядом со скриптом, а если его нет — из корневого `/opt/data-core/.env`, который пишет `deploy.py` (T17). Нет переменной нигде → `ERROR: MONGO_ROOT_PASSWORD is not set`, exit 1. Проверка: `tail /var/log/datacore-backup.log`, `ls /var/lib/datacore/backups`.
 - Restore-дрилл: `mongorestore --db datacore_restore_test <дамп>/datacore` (внутри `datacore-mongo`, от root) → `verify-restore.js` → `ALL COUNTS MATCH` → удалить `datacore_restore_test`. В живую `datacore` не восстанавливать без «да» пользователя.
 
 ## Диагностика на VM
