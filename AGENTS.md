@@ -73,6 +73,7 @@ pnpm в PATH может не быть → используй `npx`.
 - Модели с soft-delete: обычные запросы скрывают `deletedAt != null`; админ-«Таблицы» читают сырые коллекции.
 - `AuditService.log` приводит `entityId` к ObjectId — не-hex строку туда не клади (пиши в `details`).
 - В БД остаются **55 legacy-коллекций** удалённого CRM-домена (реестр в `modules/admin/collections-admin.controller.ts`, `kind:'legacy'`).
+- **Никогда не запускай `bash -x` / `set -x` на скриптах, которые читают `.env`** — трассировка печатает секреты (инцидент 2026-10-18, T22).
 - Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.
 - e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `datacore-test`). Никогда не направляй его на `datacore`.
 

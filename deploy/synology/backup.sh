@@ -47,6 +47,10 @@ $DOCKER exec "$MONGO_CONTAINER" rm -rf "/tmp/dump-${DATE}"
 if [[ -d "${DATA_DIR}/uploads" ]]; then
   cp -a "${DATA_DIR}/uploads" "${BACKUP_ROOT}/uploads-${DATE}"
 fi
+# Дата папки бэкапа = момент бэкапа. Иначе cp -a переносит старую mtime исходной папки
+# (после переноса фото kppdf она старше 14 дней) и ротация ниже сразу удаляет свежую копию.
+touch "${BACKUP_ROOT}/mongo-${DATE}"
+[[ -d "${BACKUP_ROOT}/uploads-${DATE}" ]] && touch "${BACKUP_ROOT}/uploads-${DATE}"
 
 # --- Rotation: remove backups older than BACKUP_RETENTION_DAYS ---
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
