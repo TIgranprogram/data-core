@@ -11,7 +11,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 
 ```bash
 npx tsc --noEmit            # норма: exit 0
-npx jest --silent           # норма: все suites passed (база 65/684 на 2026-10-18)
+npx jest --silent           # норма: все suites passed (база 66/723 на 2026-10-18)
 npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
 ```
 
@@ -25,7 +25,7 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
 ```
-Норма: все suites passed (база 17 suites / 127 tests).
+Норма: все suites passed (база 18 suites / 137 tests).
 Если в `backend/` нет `.env` (например, в git worktree), `ConfigModule` падает ещё при импорте `AppModule` — передай тестовые `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 символов) и `ADMIN_PASSWORD=admin123456` прямо в команде.
 
 ## 3. Live-smoke (если менял рантайм/админку)
@@ -36,6 +36,8 @@ curl -sf http://localhost:3001/api/health/ready
 ```
 Логин: `POST /api/auth/login` (лимит 5/мин — не долби). Админка: `http://localhost:3001/admin` (правки `backend/admin/` видны без пересборки — смонтирован том). Браузерная проверка — встроенный браузер.
 Деструктивные действия на живой БД (`datacore`) — **запрещены** без «да» пользователя.
+
+> Добавил `import` нового пакета или менял `main.ts`/Dockerfile → обязательно `docker compose build backend` + health: тесты не ловят отсутствующие в prod-образе зависимости.
 
 ## 4. Если изменился контракт API — openapi
 

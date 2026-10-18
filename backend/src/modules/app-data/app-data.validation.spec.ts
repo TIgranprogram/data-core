@@ -237,3 +237,13 @@ describe('AppScopeGuard (P1 × P2)', () => {
     expect(allowedApps(user)).toEqual(['notes']);
   });
 });
+
+describe('согласованность имени приложения с правами ключа (P1↔P2)', () => {
+  it('KEY_SCOPE_APP_RE совпадает с APP_NAME_RE', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { KEY_SCOPE_APP_RE } = require('../../common/guards/key-scope');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { APP_NAME_RE } = require('./app-data.validation');
+    expect(KEY_SCOPE_APP_RE.source).toBe(APP_NAME_RE.source);
+  });
+});

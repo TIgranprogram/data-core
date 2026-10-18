@@ -15,7 +15,8 @@ export interface KeyScope {
 
 export const KEY_SCOPE_ACCESS: readonly KeyScopeAccess[] = ['read', 'write', 'full'];
 /** Имя приложения (совпадает с правилом модуля app-data). */
-export const KEY_SCOPE_APP_RE = /^[a-z][a-z0-9_]{0,39}$/;
+/** Совпадает с APP_NAME_RE модуля app-data (без «_» — имя коллекции app_<app>_<coll> было бы неоднозначным); сверяется тестом. */
+export const KEY_SCOPE_APP_RE = /^[a-z][a-z0-9]{0,39}$/;
 export const KEY_SCOPE_MAX_APPS = 50;
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
