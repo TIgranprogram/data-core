@@ -7,7 +7,7 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().default(3000),
 
   MONGO_URI: Joi.string().uri().required(),
-  MONGO_DB: Joi.string().default('kppdf'),
+  MONGO_DB: Joi.string().default('datacore'),
   MONGO_REPLICA_SET: Joi.string().default('rs0'),
 
   CORS_ORIGIN: Joi.string().default('http://localhost:3000'),

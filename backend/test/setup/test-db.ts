@@ -16,7 +16,7 @@ export interface TestContext {
 }
 
 /**
- * Creates a NestJS testing application backed by a fresh `kppdf-test`
+ * Creates a NestJS testing application backed by a fresh `datacore-test`
  * MongoDB database.
  *
  * CRITICAL: Before bootstrapping the app, we delete every collection in
@@ -32,10 +32,10 @@ export interface TestContext {
  * password.
  *
  * Must be run with `jest --runInBand` so that only one suite bootstraps
- * at a time (each suite clears + re-seeds the same `kppdf-test` db).
+ * at a time (each suite clears + re-seeds the same `datacore-test` db).
  */
 export async function createTestApp(): Promise<TestContext> {
-  const testDb = process.env.MONGO_DB_TEST ?? 'kppdf-test';
+  const testDb = process.env.MONGO_DB_TEST ?? 'datacore-test';
   process.env.MONGO_DB = testDb;
   process.env.NODE_ENV = 'test';
   process.env.DISABLE_THROTTLE = '1';
@@ -50,7 +50,7 @@ export async function createTestApp(): Promise<TestContext> {
 
   // --- Pre-init: clear all collections so seeds run fresh ---
   const mongoUri =
-    process.env.MONGO_URI ?? 'mongodb://localhost:27017/kppdf?replicaSet=rs0&directConnection=true';
+    process.env.MONGO_URI ?? 'mongodb://localhost:27017/datacore?replicaSet=rs0&directConnection=true';
   // Replace the database name in the URI with the test database name.
   const testUri = mongoUri.replace(/\/[^/?]+(\?|$)/, `/${testDb}$1`);
   const preMongoose: Mongoose = await connect(testUri);

@@ -11,7 +11,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 
 ```bash
 npx tsc --noEmit            # норма: exit 0
-npx jest --silent           # норма: все suites passed (база 69/625 на 2026-10-18)
+npx jest --silent           # норма: все suites passed (база 62/575 на 2026-10-18, после T2)
 npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
 ```
 
@@ -20,7 +20,7 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ## 2. Если менял маршруты/DTO/guards — e2e
 
 Нужен живой Mongo rs0 (Docker Desktop запущен, `docker compose up -d` из корня).
-- Харнесс `test/setup/test-db.ts` берёт `MONGO_URI`, **подменяет имя БД на `MONGO_DB_TEST` (умолч. `kppdf-test`) и дропает там все коллекции**. Никогда не ставь `MONGO_DB_TEST=datacore`.
+- Харнесс `test/setup/test-db.ts` берёт `MONGO_URI`, **подменяет имя БД на `MONGO_DB_TEST` (умолч. `datacore-test`) и дропает там все коллекции**. Никогда не ставь `MONGO_DB_TEST=datacore`.
 - Пользователь `datacore` имеет права только на БД `datacore` → для e2e нужен URI с root: `mongodb://root:<MONGO_ROOT_PASSWORD>@localhost:<MONGO_PORT>/x?replicaSet=rs0&directConnection=true&authSource=admin` (пароль из корневого `.env`, в чат не выводить).
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit

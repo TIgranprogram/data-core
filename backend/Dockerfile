@@ -17,23 +17,9 @@ RUN pnpm run build
 FROM node:20-alpine AS prod
 WORKDIR /app
 ENV NODE_ENV=production
-# Quotation PDF (puppeteer-core): Chromium + Cyrillic fonts in prod image.
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-dejavu \
-    font-noto \
-    font-noto-cjk
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 # prod stage doesn't need pnpm or corepack — CMD invokes `node`, not pnpm scripts.
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
-# TZ-BACKEND-DOCSTUDIO-BLOCK-STYLE — self-hosted @font-face files (dev+prod images
-# share no system font set; render loads these for typeface parity in PDF).
-COPY --from=build /app/assets ./assets
 # Personal Data Core — статическая админка (/admin), без сборки.
 COPY --from=build /app/admin ./admin
 COPY package.json ./

@@ -36,7 +36,7 @@ deploy/synology/               deploy.py (деплой), backup.sh (cron-бэк�
 docker-compose.yml             mongo:4.4 rs0 --auth --keyFile + backend (локально и на VM)
 ```
 
-**Игнорируй:** `node_modules/`, `dist/`, `.data/` (живые данные Mongo/бэкапы — НЕ трогать), `backend/uploads/`, `pnpm-lock.yaml`, `backend/assets/fonts/`.
+**Игнорируй:** `node_modules/`, `dist/`, `.data/` (живые данные Mongo/бэкапы — НЕ трогать), `backend/uploads/`, `pnpm-lock.yaml`.
 **Секреты (gitignored, не читать без нужды, никогда не коммитить и не выводить в чат):** `.env`, `deploy/synology/config.env`, `deploy/synology/CREDENTIALS.md`.
 
 ## Команды (из `backend/`)
@@ -46,7 +46,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 69 suites / 625 tests (на 2026-10-18) |
+| Юнит-тесты | `npx jest --silent` | 62 suites / 575 tests (на 2026-10-18, после T2) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |
@@ -54,7 +54,7 @@ pnpm в PATH может не быть → используй `npx`.
 ## Жёсткие правила
 
 1. **Не ломать контракт API.** Префикс ключей `kppd_`, пути `/api/...`, форма ответов `{items,total,page,limit}` — публичный контракт для внешних клиентов. Меняешь эндпоинт → перегенерируй `docs/openapi.json` и обнови `docs/MAP.md`.
-2. **Данные священны.** Никаких `dropDatabase`, `deploy.py --wipe`, удаления коллекций, массовых `deleteMany` на живой БД без явного «да» пользователя. Деструктивные проверки — только на тестовой БД (`kppdf-test`) или на копии.
+2. **Данные священны.** Никаких `dropDatabase`, `deploy.py --wipe`, удаления коллекций, массовых `deleteMany` на живой БД без явного «да» пользователя. Деструктивные проверки — только на тестовой БД (`datacore-test`) или на копии.
 3. **Прямой доступ к Mongo из клиентов запрещён** (VISION #1). Mongo публикуется только на `127.0.0.1`.
 4. **На VM рядом работает чужой прод-контур kppdf** (`:3000`, `/opt/kppdf*`). Его не трогать; data-core — `/opt/data-core`, `:3001`, контейнеры `datacore-*`.
 5. Mongo на VM — **4.4** (CPU без AVX). Не использовать фичи Mongo 5+.
@@ -72,7 +72,7 @@ pnpm в PATH может не быть → используй `npx`.
 - `AuditService.log` приводит `entityId` к ObjectId — не-hex строку туда не клади (пиши в `details`).
 - В БД остаются **55 legacy-коллекций** удалённого CRM-домена (реестр в `modules/admin/collections-admin.controller.ts`, `kind:'legacy'`).
 - Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.
-- e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `kppdf-test`). Никогда не направляй его на `datacore`.
+- e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `datacore-test`). Никогда не направляй его на `datacore`.
 
 ## Скиллы проекта (`.claude/skills/`)
 
