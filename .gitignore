@@ -19,3 +19,6 @@ deploy/synology/CREDENTIALS.md
 
 # Claude Code — личные настройки
 .claude/settings.local.json
+
+# Рабочие выгрузки пользователя (бизнес-данные) — не в git
+/для анализа/
