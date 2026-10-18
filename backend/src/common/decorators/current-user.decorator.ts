@@ -1,4 +1,5 @@
 import { ExecutionContext, createParamDecorator } from '@nestjs/common';
+import type { KeyScope } from '../guards/key-scope';
 
 export interface AuthenticatedUser {
   id: string;
@@ -10,6 +11,8 @@ export interface AuthenticatedUser {
   organizationId?: string | null;
   /** TZ-AUTH-306: single hidden owner marker (server-hydrated). */
   isOwner?: boolean;
+  /** P2: права машинного ключа `kppd_` (только при входе по ключу; у JWT — нет). */
+  keyScope?: KeyScope;
 }
 
 /**

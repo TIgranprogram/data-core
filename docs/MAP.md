@@ -12,7 +12,7 @@
 | `role` | `/roles` | `roles` | системные роли admin/manager/user (сид) |
 | `permissions` | — (сервис) | `permissions` | каталог прав: `common/seed/permissions.constants.ts` |
 | `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]` | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind: core/link/legacy`; `app_*` → `kind:'app'`, категория «Данные приложений») |
-| `desktop` | `/desktop/pairing-keys` (выдать/список/revoke), `/desktop/pairing`, `/desktop/compat` | `desktop_pairing_keys` | **машинные ключи `kppd_`**; проверка ключа — `desktop-pairing-key.service.ts` `authenticateBearer` |
+| `desktop` | `/desktop/pairing-keys` (выдать/список/revoke), `/desktop/pairing`, `/desktop/compat` | `desktop_pairing_keys` | **машинные ключи `kppd_`**; проверка ключа — `desktop-pairing-key.service.ts` `authenticateBearer`; scope ключа (P2) — `common/guards/key-scope.ts` |
 | `device-enrollment` | `/device/*`, `/admin/devices/*` | `browserdevicegrants`, `deviceinvites` | привязка браузеров по cookie `__Host-kppdf-device` |
 | `audit` | `/audit-logs` | `auditlogs` | пишется `AuditInterceptor` + `@AuditAction` |
 | `setting` | `/settings`, `/settings/:key`, `catalog-appearance` | `settings` | сид `settings.seed.ts` |

@@ -1,5 +1,22 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  KEY_SCOPE_ACCESS,
+  KEY_SCOPE_APP_RE,
+  KEY_SCOPE_MAX_APPS,
+  type KeyScopeAccess,
+} from '../../common/guards/key-scope';
 import {
   CurrentUser,
   AuthenticatedUser,
@@ -11,6 +28,20 @@ import {
   DesktopPairingKeyService,
 } from './desktop-pairing-key.service';
 import type { DesktopPairingTtl } from './desktop-pairing-key.schema';
+
+/** P2: права ключа. Не передан = full (права выдавшего). */
+class PairingKeyScopeDto {
+  @IsIn(KEY_SCOPE_ACCESS as KeyScopeAccess[])
+  access!: KeyScopeAccess;
+
+  /** Приложения для /api/apps/:app/… — не передан или пуст = все. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(KEY_SCOPE_MAX_APPS)
+  @IsString({ each: true })
+  @Matches(KEY_SCOPE_APP_RE, { each: true })
+  apps?: string[];
+}
 
 class IssuePairingKeyDto {
   @IsOptional()
@@ -26,6 +57,11 @@ class IssuePairingKeyDto {
   @IsString()
   @IsUrl({ require_tld: false })
   apiBaseUrl!: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PairingKeyScopeDto)
+  scope?: PairingKeyScopeDto;
 }
 
 @Controller('desktop')
@@ -50,6 +86,7 @@ export class DesktopPairingController {
       ttl: dto.ttl,
       label: dto.label,
       apiBaseUrl: dto.apiBaseUrl,
+      scope: dto.scope,
     });
   }
 
@@ -61,6 +98,7 @@ export class DesktopPairingController {
       ttl: dto.ttl ?? '30d',
       label: dto.label,
       apiBaseUrl: dto.apiBaseUrl,
+      scope: dto.scope,
     });
   }
 

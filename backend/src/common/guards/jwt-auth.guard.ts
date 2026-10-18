@@ -1,5 +1,6 @@
 import {
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
   isPairingKeyBearer,
 } from '../../modules/desktop/desktop-pairing-key.service';
 import { JWT_ACCESS_HEADER } from '../../modules/auth/jwt-from-request';
+import { keyScopeViolation, type KeyScope } from './key-scope';
 
 function firstHeader(
   value: string | string[] | undefined,
@@ -48,7 +50,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     const req = context.switchToHttp().getRequest<{
       headers: Record<string, string | string[] | undefined>;
-      user?: { id?: string; role?: string };
+      method?: string;
+      originalUrl?: string;
+      url?: string;
+      user?: { id?: string; role?: string; keyScope?: KeyScope };
     }>();
     // Prefer X-Access-Token for pairing keys so Authorization can stay
     // HTTP Basic (nginx «подъезд») — same pattern as SPA JWT hotfix.
@@ -93,6 +98,19 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     if (!activity.active) {
       throw new UnauthorizedException(`User access revoked: ${activity.reason}`);
+    }
+
+    // P2: ключ с ограниченным scope (read/write) — режем запись и админ-маршруты.
+    // У JWT-сессий keyScope нет, проверка для них не срабатывает.
+    if (pairingToken) {
+      const violation = keyScopeViolation(
+        req.user?.keyScope,
+        req.method ?? 'GET',
+        req.originalUrl ?? req.url ?? '',
+      );
+      if (violation) {
+        throw new ForbiddenException(violation);
+      }
     }
 
     return true;
