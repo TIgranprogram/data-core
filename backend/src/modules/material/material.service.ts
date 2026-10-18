@@ -10,7 +10,7 @@ import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
 import { CompositionLineService } from '../catalog/composition-line.service';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
 import { CompositionLineDocumentShape } from '../catalog/composition-line.schema';
-import { isUsedInComposition } from '../catalog/catalog-references';
+import { isUsedByCrm, isUsedInComposition } from '../catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()
@@ -264,7 +264,7 @@ export class MaterialService {
       ? await this.model.findOne({ _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }).exec()
       : await this.model.findById(id).exec();
     if (!doc || doc.deletedAt) throw new NotFoundException(`Material ${id} not found`);
-    const used = await isUsedInComposition(this.model.db, 'material', doc._id, { productmodules: [{ 'materials.materialId': doc._id }] });
+    const used = (await isUsedInComposition(this.model.db, 'material', doc._id, { productmodules: [{ 'materials.materialId': doc._id }] })) || (await isUsedByCrm(this.model.db, 'material', doc._id));
     if (used) throw new ConflictException('Material is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, { $set: { deletedAt: new Date() } }).exec();
   }

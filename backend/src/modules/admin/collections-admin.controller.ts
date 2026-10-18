@@ -50,8 +50,8 @@ interface FieldStat {
 interface CategoryDef {
   id: string;
   label: string;
-  /** true — остатки удалённого домена: модульного кода нет, кандидат на удаление. */
-  legacy?: boolean;
+  /** true — таблицы CRM kppdf: в data-core модуля нет, пишет kppdf (общая база). */
+  crm?: boolean;
 }
 
 const CATEGORIES: CategoryDef[] = [
@@ -62,11 +62,11 @@ const CATEGORIES: CategoryDef[] = [
   { id: 'catalog', label: 'Каталог: материалы и изделия' },
   { id: 'links', label: 'Связевые и вложенные (несамостоятельные)' },
   { id: 'apps', label: 'Данные приложений' },
-  { id: 'legacy-docs', label: 'Остатки: документооборот (код удалён)', legacy: true },
-  { id: 'legacy-sales', label: 'Остатки: продажи, сделки и закупки (код удалён)', legacy: true },
-  { id: 'legacy-prod', label: 'Остатки: производство (код удалён)', legacy: true },
-  { id: 'legacy-wh', label: 'Остатки: склад и инвентарь (код удалён)', legacy: true },
-  { id: 'legacy-misc', label: 'Остатки: прочее (код удалён)', legacy: true },
+  { id: 'crm-docs', label: 'CRM kppdf: документооборот', crm: true },
+  { id: 'crm-sales', label: 'CRM kppdf: продажи, сделки и закупки', crm: true },
+  { id: 'crm-prod', label: 'CRM kppdf: производство', crm: true },
+  { id: 'crm-wh', label: 'CRM kppdf: склад и инвентарь', crm: true },
+  { id: 'crm-misc', label: 'CRM kppdf: прочее', crm: true },
   { id: 'unknown', label: 'Не классифицировано' },
 ];
 
@@ -75,12 +75,12 @@ const CATEGORIES: CategoryDef[] = [
  *   core   — действующая самостоятельная (за ней стоит модуль, код есть)
  *   link   — действующая связевая/вложенная: создаётся из нескольких таблиц,
  *            сама по себе не самостоятельна (вложена в core-домен)
- *   legacy — остаток удалённого домена: модуль удалён при чистке H,
- *            таблица — кандидат на удаление
+ *   crm    — таблица CRM kppdf: модуля в data-core нет, но kppdf работает на этой
+ *            же базе (единая база с 2026-10-18) — удалять из админки нельзя
  *   app    — данные приложения из /api/apps (P1): коллекции app_<app>_<collection>
  *            создаются клиентами на лету, в реестре не описываются
  */
-type CollectionKind = 'core' | 'link' | 'legacy' | 'app';
+type CollectionKind = 'core' | 'link' | 'crm' | 'app';
 
 interface CollectionMeta {
   category: string;
@@ -93,9 +93,8 @@ interface CollectionMeta {
  * Полный реестр всех коллекций БД: русское описание + категория + тип.
  *
  * `core`/`link` (42 шт.) соответствуют 36 схемам действующих модулей (см.
- * grep `collection:` в *.schema.ts); `legacy` (49 шт.) — коллекции, чьи модули
- * удалены при чистке H (см. docs/CHECKLIST.md), в коде не создаются и не пишутся.
- * Часть `legacy` всё ещё читается в проверках удаления (409) — см. пометку в doc.
+ * grep `collection:` в *.schema.ts); `crm` — таблицы CRM kppdf (модули удалены из data-core
+ * при чистке H, но kppdf пишет в них на общей базе); часть читается в проверках удаления (409).
  */
 const COLLECTIONS: Record<string, CollectionMeta> = {
   // ================= Доступ и безопасность =================
@@ -147,69 +146,69 @@ const COLLECTIONS: Record<string, CollectionMeta> = {
   entityattributevalues: { category: 'links', kind: 'link', doc: 'Значения атрибутов, привязанные к конкретной сущности (EAV).' },
 
   // ================= Остатки: документооборот (код удалён) =================
-  document_templates: { category: 'legacy-docs', kind: 'legacy', doc: 'Шаблоны документов. Остаток удалённого DocStudio — модульного кода нет, кандидат на удаление.' },
-  document_template_categories: { category: 'legacy-docs', kind: 'legacy', doc: 'Категории шаблонов документов. Остаток удалённого DocStudio, кандидат на удаление.' },
-  doc_types: { category: 'legacy-docs', kind: 'legacy', doc: 'Типы документов (есть остаточные данные). Остаток удалённого домена, кандидат на удаление.' },
-  document_table_types: { category: 'legacy-docs', kind: 'legacy', doc: 'Типы таблиц внутри документов. Остаток удалённого DocStudio, кандидат на удаление.' },
-  table_templates: { category: 'legacy-docs', kind: 'legacy', doc: 'Шаблоны таблиц документов. Остаток удалённого DocStudio, кандидат на удаление.' },
-  template_blocks: { category: 'legacy-docs', kind: 'legacy', doc: 'Блоки шаблонов. Остаток удалённого DocStudio, кандидат на удаление.' },
-  text_blocks: { category: 'legacy-docs', kind: 'legacy', doc: 'Библиотека текстовых блоков. Остаток удалённого DocStudio, кандидат на удаление.' },
-  text_block_categories: { category: 'legacy-docs', kind: 'legacy', doc: 'Категории текстовых блоков. Остаток удалённого DocStudio, кандидат на удаление.' },
-  studio_documents: { category: 'legacy-docs', kind: 'legacy', doc: 'Документы DocStudio. Остаток удалённого домена, кандидат на удаление.' },
-  generated_documents: { category: 'legacy-docs', kind: 'legacy', doc: 'Сгенерированные (выгруженные) документы. Остаток удалённого домена, кандидат на удаление.' },
-  form_profiles: { category: 'legacy-docs', kind: 'legacy', doc: 'Профили форм. Остаток удалённого домена, кандидат на удаление.' },
+  document_templates: { category: 'crm-docs', kind: 'crm', doc: 'Шаблоны документов. Таблица CRM kppdf.' },
+  document_template_categories: { category: 'crm-docs', kind: 'crm', doc: 'Категории шаблонов документов. Таблица CRM kppdf.' },
+  doc_types: { category: 'crm-docs', kind: 'crm', doc: 'Типы документов. Таблица CRM kppdf.' },
+  document_table_types: { category: 'crm-docs', kind: 'crm', doc: 'Типы таблиц внутри документов. Таблица CRM kppdf.' },
+  table_templates: { category: 'crm-docs', kind: 'crm', doc: 'Шаблоны таблиц документов. Таблица CRM kppdf.' },
+  template_blocks: { category: 'crm-docs', kind: 'crm', doc: 'Блоки шаблонов. Таблица CRM kppdf.' },
+  text_blocks: { category: 'crm-docs', kind: 'crm', doc: 'Библиотека текстовых блоков. Таблица CRM kppdf.' },
+  text_block_categories: { category: 'crm-docs', kind: 'crm', doc: 'Категории текстовых блоков. Таблица CRM kppdf.' },
+  studio_documents: { category: 'crm-docs', kind: 'crm', doc: 'Документы DocStudio. Таблица CRM kppdf.' },
+  generated_documents: { category: 'crm-docs', kind: 'crm', doc: 'Сгенерированные (выгруженные) документы. Таблица CRM kppdf.' },
+  form_profiles: { category: 'crm-docs', kind: 'crm', doc: 'Профили форм. Таблица CRM kppdf.' },
 
   // ================= Остатки: продажи, сделки и закупки (код удалён) =================
-  quotations: { category: 'legacy-sales', kind: 'legacy', doc: 'Коммерческие предложения (КП). Остаток удалённого CRM; читается только в проверке удаления продукции.' },
-  contracts: { category: 'legacy-sales', kind: 'legacy', doc: 'Договоры. Остаток удалённого CRM, кандидат на удаление.' },
-  orders: { category: 'legacy-sales', kind: 'legacy', doc: 'Заказы. Остаток удалённого CRM; читается только в проверке удаления продукции.' },
-  shipments: { category: 'legacy-sales', kind: 'legacy', doc: 'Отгрузки. Остаток удалённого CRM, кандидат на удаление.' },
-  invoices: { category: 'legacy-sales', kind: 'legacy', doc: 'Счета. Остаток удалённого CRM, кандидат на удаление.' },
-  tenders: { category: 'legacy-sales', kind: 'legacy', doc: 'Тендеры и заявки. Остаток удалённого CRM, кандидат на удаление.' },
-  desknotes: { category: 'legacy-sales', kind: 'legacy', doc: 'Служебные записки. Остаток удалённого CRM, кандидат на удаление.' },
-  rpps: { category: 'legacy-sales', kind: 'legacy', doc: 'Реестры РПП. Остаток удалённого CRM, кандидат на удаление.' },
-  purchaseorders: { category: 'legacy-sales', kind: 'legacy', doc: 'Закупочные заказы (PO). Остаток удалённого домена; читается в проверке удаления материалов.' },
-  purchaserequests: { category: 'legacy-sales', kind: 'legacy', doc: 'Запросы на закупку (PR). Остаток удалённого домена, кандидат на удаление.' },
-  supplyrequests: { category: 'legacy-sales', kind: 'legacy', doc: 'Запросы снабжения. Остаток удалённого домена, кандидат на удаление.' },
-  supplytasks: { category: 'legacy-sales', kind: 'legacy', doc: 'Задачи снабжения. Остаток удалённого домена, кандидат на удаление.' },
-  cart_items: { category: 'legacy-sales', kind: 'legacy', doc: 'Позиции корзины (e-commerce). Остаток удалённого CRM, кандидат на удаление.' },
-  cart_sessions: { category: 'legacy-sales', kind: 'legacy', doc: 'Сессии корзины. Остаток удалённого CRM, кандидат на удаление.' },
-  financial_reports: { category: 'legacy-sales', kind: 'legacy', doc: 'Финансовые отчёты. Остаток удалённого домена, кандидат на удаление.' },
-  reconciliation_acts: { category: 'legacy-sales', kind: 'legacy', doc: 'Акты сверки расчётов. Остаток удалённого домена, кандидат на удаление.' },
+  quotations: { category: 'crm-sales', kind: 'crm', doc: 'Коммерческие предложения (КП). Таблица CRM kppdf.' },
+  contracts: { category: 'crm-sales', kind: 'crm', doc: 'Договоры. Таблица CRM kppdf.' },
+  orders: { category: 'crm-sales', kind: 'crm', doc: 'Заказы. Таблица CRM kppdf.' },
+  shipments: { category: 'crm-sales', kind: 'crm', doc: 'Отгрузки. Таблица CRM kppdf.' },
+  invoices: { category: 'crm-sales', kind: 'crm', doc: 'Счета. Таблица CRM kppdf.' },
+  tenders: { category: 'crm-sales', kind: 'crm', doc: 'Тендеры и заявки. Таблица CRM kppdf.' },
+  desknotes: { category: 'crm-sales', kind: 'crm', doc: 'Служебные записки. Таблица CRM kppdf.' },
+  rpps: { category: 'crm-sales', kind: 'crm', doc: 'Реестры РПП. Таблица CRM kppdf.' },
+  purchaseorders: { category: 'crm-sales', kind: 'crm', doc: 'Закупочные заказы (PO). Таблица CRM kppdf.' },
+  purchaserequests: { category: 'crm-sales', kind: 'crm', doc: 'Запросы на закупку (PR). Таблица CRM kppdf.' },
+  supplyrequests: { category: 'crm-sales', kind: 'crm', doc: 'Запросы снабжения. Таблица CRM kppdf.' },
+  supplytasks: { category: 'crm-sales', kind: 'crm', doc: 'Задачи снабжения. Таблица CRM kppdf.' },
+  cart_items: { category: 'crm-sales', kind: 'crm', doc: 'Позиции корзины (e-commerce). Таблица CRM kppdf.' },
+  cart_sessions: { category: 'crm-sales', kind: 'crm', doc: 'Сессии корзины. Таблица CRM kppdf.' },
+  financial_reports: { category: 'crm-sales', kind: 'crm', doc: 'Финансовые отчёты. Таблица CRM kppdf.' },
+  reconciliation_acts: { category: 'crm-sales', kind: 'crm', doc: 'Акты сверки расчётов. Таблица CRM kppdf.' },
 
   // ================= Остатки: производство (код удалено) =================
-  productionorders: { category: 'legacy-prod', kind: 'legacy', doc: 'Производственные заказы. Остаток удалённого производства, кандидат на удаление.' },
-  ordertasks: { category: 'legacy-prod', kind: 'legacy', doc: 'Задачи по заказу. Остаток удалённого производства, кандидат на удаление.' },
-  workorders: { category: 'legacy-prod', kind: 'legacy', doc: 'Наряд-заказы на работу. Остаток удалённого производства, кандидат на удаление.' },
-  workorderoperations: { category: 'legacy-prod', kind: 'legacy', doc: 'Операции наряда-заказа. Остаток удалённого производства, кандидат на удаление.' },
-  workcenters: { category: 'legacy-prod', kind: 'legacy', doc: 'Рабочие центры (станки, участки). Остаток удалённого производства, кандидат на удаление.' },
-  workers: { category: 'legacy-prod', kind: 'legacy', doc: 'Работники / исполнители. Остаток удалённого производства; читается в проверке удаления видов работ.' },
-  routingsteps: { category: 'legacy-prod', kind: 'legacy', doc: 'Шаги маршрутной карты (маршрутизация). Остаток удалённого производства, кандидат на удаление.' },
-  techprocesses: { category: 'legacy-prod', kind: 'legacy', doc: 'Технологические процессы. Остаток удалённого производства, кандидат на удаление.' },
-  costcalculations: { category: 'legacy-prod', kind: 'legacy', doc: 'Калькуляция себестоимости. Остаток удалённого производства; читается в проверке удаления материалов/продукции.' },
-  actualcosts: { category: 'legacy-prod', kind: 'legacy', doc: 'Фактические затраты. Остаток удалённого производства, кандидат на удаление.' },
-  orderclosings: { category: 'legacy-prod', kind: 'legacy', doc: 'Закрытия заказов / периодов. Остаток удалённого производства, кандидат на удаление.' },
+  productionorders: { category: 'crm-prod', kind: 'crm', doc: 'Производственные заказы. Таблица CRM kppdf.' },
+  ordertasks: { category: 'crm-prod', kind: 'crm', doc: 'Задачи по заказу. Таблица CRM kppdf.' },
+  workorders: { category: 'crm-prod', kind: 'crm', doc: 'Наряд-заказы на работу. Таблица CRM kppdf.' },
+  workorderoperations: { category: 'crm-prod', kind: 'crm', doc: 'Операции наряда-заказа. Таблица CRM kppdf.' },
+  workcenters: { category: 'crm-prod', kind: 'crm', doc: 'Рабочие центры (станки, участки). Таблица CRM kppdf.' },
+  workers: { category: 'crm-prod', kind: 'crm', doc: 'Работники / исполнители. Таблица CRM kppdf.' },
+  routingsteps: { category: 'crm-prod', kind: 'crm', doc: 'Шаги маршрутной карты (маршрутизация). Таблица CRM kppdf.' },
+  techprocesses: { category: 'crm-prod', kind: 'crm', doc: 'Технологические процессы. Таблица CRM kppdf.' },
+  costcalculations: { category: 'crm-prod', kind: 'crm', doc: 'Калькуляция себестоимости. Таблица CRM kppdf.' },
+  actualcosts: { category: 'crm-prod', kind: 'crm', doc: 'Фактические затраты. Таблица CRM kppdf.' },
+  orderclosings: { category: 'crm-prod', kind: 'crm', doc: 'Закрытия заказов / периодов. Таблица CRM kppdf.' },
 
   // ================= Остатки: склад и инвентарь (код удалён) =================
-  warehouses: { category: 'legacy-wh', kind: 'legacy', doc: 'Склады (есть остаточные данные). Остаток удалённого склада, кандидат на удаление.' },
-  storageitems: { category: 'legacy-wh', kind: 'legacy', doc: 'Позиции хранения на складе. Остаток удалённого склада, кандидат на удаление.' },
-  stockmovements: { category: 'legacy-wh', kind: 'legacy', doc: 'Движения запасов (приход / расход). Остаток удалённого склада, кандидат на удаление.' },
-  reservations: { category: 'legacy-wh', kind: 'legacy', doc: 'Резервы запасов. Остаток удалённого склада, кандидат на удаление.' },
-  boms: { category: 'legacy-wh', kind: 'legacy', doc: 'Ведомость материалов (BOM). Остаток удалённого домена; читается в проверке удаления модулей/продукции.' },
+  warehouses: { category: 'crm-wh', kind: 'crm', doc: 'Склады. Таблица CRM kppdf.' },
+  storageitems: { category: 'crm-wh', kind: 'crm', doc: 'Позиции хранения на складе. Таблица CRM kppdf.' },
+  stockmovements: { category: 'crm-wh', kind: 'crm', doc: 'Движения запасов (приход / расход). Таблица CRM kppdf.' },
+  reservations: { category: 'crm-wh', kind: 'crm', doc: 'Резервы запасов. Таблица CRM kppdf.' },
+  boms: { category: 'crm-wh', kind: 'crm', doc: 'Ведомость материалов (BOM). Таблица CRM kppdf.' },
 
   // ================= Остатки: прочее (код удалён) =================
-  import_jobs: { category: 'legacy-misc', kind: 'legacy', doc: 'Задачи импорта данных. Остаток удалённого домена, кандидат на удаление.' },
-  import_mapping_profiles: { category: 'legacy-misc', kind: 'legacy', doc: 'Профили маппинга полей при импорте. Остаток удалённого домена, кандидат на удаление.' },
-  import_tasks: { category: 'legacy-misc', kind: 'legacy', doc: 'Детали задач импорта. Остаток удалённого домена, кандидат на удаление.' },
-  import_todos: { category: 'legacy-misc', kind: 'legacy', doc: 'Незавершённые шаги импорта. Остаток удалённого домена, кандидат на удаление.' },
-  interactions: { category: 'legacy-misc', kind: 'legacy', doc: 'Взаимодействия с клиентами (CRM). Остаток удалённого CRM, кандидат на удаление.' },
-  comments: { category: 'legacy-misc', kind: 'legacy', doc: 'Комментарии к сущностям. Остаток удалённого домена, кандидат на удаление.' },
-  certificates: { category: 'legacy-misc', kind: 'legacy', doc: 'Сертификаты и документы соответствия. Остаток удалённого домена, кандидат на удаление.' },
-  compliancerules: { category: 'legacy-misc', kind: 'legacy', doc: 'Правила комплаенса / соответствия. Остаток удалённого домена, кандидат на удаление.' },
-  inventorfiles: { category: 'legacy-misc', kind: 'legacy', doc: 'Файлы инвентаризации. Остаток удалённого домена, кандидат на удаление.' },
-  catalogattachments: { category: 'legacy-misc', kind: 'legacy', doc: 'Вложения каталога. Остаток удалённого домена, кандидат на удаление.' },
-  mutation_journal: { category: 'legacy-misc', kind: 'legacy', doc: 'Журнал мутаций (служебный). Остаток удалённого домена, кандидат на удаление.' },
-  migration_flags: { category: 'legacy-misc', kind: 'legacy', doc: 'Флаги выполненных миграций. Служебное, код миграций удалён — кандидат на удаление.' },
+  import_jobs: { category: 'crm-misc', kind: 'crm', doc: 'Задачи импорта данных. Таблица CRM kppdf.' },
+  import_mapping_profiles: { category: 'crm-misc', kind: 'crm', doc: 'Профили маппинга полей при импорте. Таблица CRM kppdf.' },
+  import_tasks: { category: 'crm-misc', kind: 'crm', doc: 'Детали задач импорта. Таблица CRM kppdf.' },
+  import_todos: { category: 'crm-misc', kind: 'crm', doc: 'Незавершённые шаги импорта. Таблица CRM kppdf.' },
+  interactions: { category: 'crm-misc', kind: 'crm', doc: 'Взаимодействия с клиентами (CRM). Таблица CRM kppdf.' },
+  comments: { category: 'crm-misc', kind: 'crm', doc: 'Комментарии к сущностям. Таблица CRM kppdf.' },
+  certificates: { category: 'crm-misc', kind: 'crm', doc: 'Сертификаты и документы соответствия. Таблица CRM kppdf.' },
+  compliancerules: { category: 'crm-misc', kind: 'crm', doc: 'Правила комплаенса / соответствия. Таблица CRM kppdf.' },
+  inventorfiles: { category: 'crm-misc', kind: 'crm', doc: 'Файлы инвентаризации. Таблица CRM kppdf.' },
+  catalogattachments: { category: 'crm-misc', kind: 'crm', doc: 'Вложения каталога. Таблица CRM kppdf.' },
+  mutation_journal: { category: 'crm-misc', kind: 'crm', doc: 'Журнал мутаций (служебный). Таблица CRM kppdf.' },
+  migration_flags: { category: 'crm-misc', kind: 'crm', doc: 'Флаги выполненных миграций. Таблица CRM kppdf.' },
 };
 
 /** Индекс для поиска без учёта регистра/подчёркиваний (устойчивость к вводу из URL). */
@@ -479,14 +478,14 @@ export class CollectionsAdminController {
   }
 
   /**
-   * DELETE /api/admin/collections/:name — удаляет коллекцию-остаток (drop).
+   * DELETE /api/admin/collections/:name — удаляет коллекцию данных приложения (drop).
    *
    * Операция необратимая, поэтому контур защиты намеренно узкий:
    *   1. Только ТОЧНОЕ имя из реестра COLLECTIONS (без нормализации регистра и
    *      подчёркиваний) — нельзя удалить то, о чём реестр ничего не знает, и
    *      нельзя попасть в чужое имя с такой же «нормализацией».
-   *   2. Только kind === 'legacy' или 'app' (данные приложения, P1; точное имя
-   *      app_<app>_<collection>) — действующие (core) и связевые (link) таблицы
+   *   2. Только kind === 'app' (данные приложения, P1; точное имя
+   *      app_<app>_<collection>) — core, link и crm (таблицы kppdf на общей базе)
    *      недоступны для удаления (409).
    *   3. Дроп пишется в журнал аудита (@AuditAction → AuditLog). Имя идёт в
    *      details.after (снапшот ответа), а НЕ в entityId: AuditService.log
@@ -509,9 +508,9 @@ export class CollectionsAdminController {
         'Коллекция не описана в реестре — из админки удалять её нельзя: ' + name,
       );
     }
-    if (meta.kind !== 'legacy' && meta.kind !== 'app') {
+    if (meta.kind !== 'app') {
       throw new ConflictException(
-        'Удалять можно только остатки (legacy) и данные приложений (app). Эта таблица — ' +
+        'Удалять можно только данные приложений (app). Эта таблица — ' +
           meta.kind +
           ': ' +
           name,

@@ -202,7 +202,7 @@
   // ---- Tables (справочник коллекций) ----
   const colState = { items: [], categories: [], search: '', cache: new Map() };
   /** Русские подписи типов таблиц (бейдж рядом с именем). */
-  const KIND_LABEL = { core: 'действующая', link: 'связевая', legacy: 'остаток', app: 'приложение' };
+  const KIND_LABEL = { core: 'действующая', link: 'связевая', crm: 'CRM kppdf', app: 'приложение' };
 
   async function loadCollections(force = false) {
     const tbody = $('#cols-table tbody');
@@ -221,7 +221,7 @@
   /** Легенда над таблицей: всего + разбивка по типам (оставить / удалить). */
   function renderTablesSummary() {
     const wrap = $('#tables-summary'); if (!wrap) return;
-    const counts = { core: 0, link: 0, legacy: 0, app: 0 };
+    const counts = { core: 0, link: 0, crm: 0, app: 0 };
     colState.items.forEach((c) => { counts[c.kind] = (counts[c.kind] || 0) + 1; });
 
     wrap.replaceChildren();
@@ -237,7 +237,7 @@
     pill('core', 'действующих');
     pill('link', 'связевых');
     pill('app', 'данных приложений');
-    pill('legacy', 'остатков (можно удалить)');
+    pill('crm', 'таблиц CRM kppdf (не удаляются)');
 
     wrap.append(el('span', 'sum-hint',
       'действующая — есть модуль-код · связевая — вложена в основные таблицы · приложение — данные из /api/apps · остаток — код удалён при чистке H'));
@@ -280,7 +280,7 @@
 
   /** Строка-заголовок категории (на всю ширину таблицы). */
   function catRow(cat, n) {
-    const tr = el('tr', 'cat-row' + (cat.legacy ? ' legacy' : ''));
+    const tr = el('tr', 'cat-row' + (cat.crm ? ' legacy' : ''));
     const td = el('td'); td.colSpan = 6;
     td.append(el('span', 'cat-label', cat.label), el('span', 'cat-count', String(n)));
     tr.append(td);
@@ -350,7 +350,7 @@
 
     // Зона удаления — только для остатков и данных приложений (P1). Backend дополнительно
     // не пустит ни действующие, ни связевые таблицы, ни неизвестные имена.
-    if (d.kind === 'legacy' || d.kind === 'app') {
+    if (d.kind === 'app') {
       const bar = el('div', 'danger-zone');
       const btn = el('button', 'btn btn-danger', `Удалить коллекцию «${d.name}»`);
       btn.type = 'button';

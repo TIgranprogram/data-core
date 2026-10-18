@@ -6,11 +6,9 @@ import { ProductModuleService } from '../product-module/product-module.service';
 import { WorkTypeService } from '../work-type/work-type.service';
 
 /**
- * T1 — защита удаления справочников смотрит только в действующий каталог
- * (products / productmodules), а не в legacy-коллекции удалённого CRM-домена.
+ * Защита удаления справочников: действующий каталог (products / productmodules)
+ * + таблицы CRM kppdf, который с 2026-10-18 работает на той же базе.
  */
-
-const LEGACY = ['orders', 'quotations', 'costcalculations', 'purchaseorders', 'boms', 'workers'];
 
 /** Фейковый `model.db`: `hits` — коллекции, где findOne «находит» ссылку. */
 function fakeDb(hits: string[] = []) {
@@ -46,49 +44,45 @@ function modelWith(doc: Record<string, unknown>, hits: string[] = []) {
 
 type Remover = (model: unknown) => { remove: (id: string) => Promise<void> };
 
-const cases: { title: string; make: Remover; owners: string[] }[] = [
+const cases: { title: string; make: Remover; owners: string[]; crm: string[] }[] = [
   {
     title: 'MaterialService',
     make: (m) => new MaterialService(m as never, {} as never, {} as never, {} as never, undefined),
     owners: ['products', 'productmodules'],
+    crm: ['costcalculations', 'purchaseorders'],
   },
   {
     title: 'ProductService',
     make: (m) => new ProductService(m as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never),
     owners: ['products', 'productmodules'],
+    crm: ['orders', 'quotations', 'costcalculations', 'boms'],
   },
   {
     title: 'ProductModuleService',
     make: (m) => new ProductModuleService(m as never, {} as never, {} as never, {} as never, undefined, {} as never),
     owners: ['products', 'productmodules'],
+    crm: ['boms'],
   },
   {
     title: 'WorkTypeService',
     make: (m) => new WorkTypeService(m as never),
     owners: ['productmodules'],
+    crm: ['costcalculations', 'workers'],
   },
 ];
 
-describe.each(cases)('$title.remove — защита удаления (T1)', ({ make, owners }) => {
+describe.each(cases)('$title.remove — защита удаления', ({ make, owners, crm }) => {
   const id = new Types.ObjectId();
   const doc = () => ({ _id: id, deletedAt: null });
 
-  it('архивирует запись без ссылок и не обращается к legacy-коллекциям', async () => {
+  it('архивирует запись без ссылок, проверив каталог и CRM', async () => {
     const { model, calls } = modelWith(doc());
     await make(model).remove(id.toString());
     expect(model.updateOne).toHaveBeenCalledTimes(1);
-    const touched = calls.map((c) => c.name);
-    expect(touched.sort()).toEqual([...owners].sort());
-    expect(touched.filter((n) => LEGACY.includes(n))).toEqual([]);
+    expect(calls.map((c) => c.name).sort()).toEqual([...owners, ...crm].sort());
   });
 
-  it('удаляется, даже если в legacy-коллекциях есть «мусорные» ссылки', async () => {
-    const { model } = modelWith(doc(), LEGACY);
-    await expect(make(model).remove(id.toString())).resolves.toBeUndefined();
-    expect(model.updateOne).toHaveBeenCalledTimes(1);
-  });
-
-  it.each(owners)('409, если запись используется в %s', async (owner) => {
+  it.each([...owners, ...crm])('409, если запись используется в %s', async (owner) => {
     const { model } = modelWith(doc(), [owner]);
     await expect(make(model).remove(id.toString())).rejects.toBeInstanceOf(ConflictException);
     expect(model.updateOne).not.toHaveBeenCalled();
@@ -122,6 +116,10 @@ describe('фильтры поиска ссылок в составе', () => {
     const id = new Types.ObjectId();
     const { model, calls } = modelWith({ _id: id, deletedAt: null });
     await cases[3].make(model).remove(id.toString());
-    expect(calls).toEqual([{ name: 'productmodules', filter: { 'workTypes.workTypeId': id } }]);
+    expect(calls[0]).toEqual({ name: 'productmodules', filter: { 'workTypes.workTypeId': id } });
+    expect(calls.slice(1)).toEqual([
+      { name: 'costcalculations', filter: { 'labor.workTypeId': id } },
+      { name: 'workers', filter: { workTypeIds: id } },
+    ]);
   });
 });

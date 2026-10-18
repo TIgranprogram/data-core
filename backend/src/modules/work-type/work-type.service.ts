@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { WorkType, WorkTypeDocument } from './work-type.schema';
 import { CreateWorkTypeDto } from './dto/create-work-type.dto';
 import { UpdateWorkTypeDto } from './dto/update-work-type.dto';
+import { isUsedByCrm } from '../catalog/catalog-references';
 
 @Injectable()
 export class WorkTypeService implements OnModuleInit {
@@ -51,9 +52,9 @@ export class WorkTypeService implements OnModuleInit {
 
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
-    // T1: только действующий каталог (виды работ модулей); legacy costcalculations/workers не проверяем.
+    // Виды работ модулей + ссылки из CRM kppdf (единая база, см. catalog-references).
     const moduleRef = await this.model.db.collection('productmodules').findOne({ 'workTypes.workTypeId': doc._id }, { projection: { _id: 1 } });
-    if (moduleRef) throw new ConflictException('WorkType is referenced by catalog history and cannot be archived');
+    if (moduleRef || (await isUsedByCrm(this.model.db, 'workType', doc._id))) throw new ConflictException('WorkType is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null }, { $set: { deletedAt: new Date(), isActive: false } }).exec();
   }
 }

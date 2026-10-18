@@ -9,7 +9,7 @@ import { CompositionLineDocumentShape } from '../catalog/composition-line.schema
 import { CompositionLineService } from '../catalog/composition-line.service';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
 import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
-import { isUsedInComposition } from '../catalog/catalog-references';
+import { isUsedByCrm, isUsedInComposition } from '../catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 export interface MaterialInModuleDto { materialId: string; quantity?: number; unit?: string; isPurchased?: boolean; overrideDimensions?: { length?: number; width?: number; height?: number; unit?: string }; sortOrder?: number; }
@@ -175,7 +175,7 @@ export class ProductModuleService {
 
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
-    const used = await isUsedInComposition(this.model.db, 'module', doc._id, { products: [{ productModuleIds: doc._id }] });
+    const used = (await isUsedInComposition(this.model.db, 'module', doc._id, { products: [{ productModuleIds: doc._id }] })) || (await isUsedByCrm(this.model.db, 'module', doc._id));
     if (used) throw new ConflictException('ProductModule is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null }, { $set: { deletedAt: new Date() } }).exec();
   }
