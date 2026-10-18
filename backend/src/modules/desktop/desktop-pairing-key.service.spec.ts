@@ -193,4 +193,54 @@ describe('DesktopPairingKeyService (TZD-21)', () => {
     await service.revoke(USER_ID, issued.id);
     expect(await service.listForUser(USER_ID)).toEqual([]);
   });
+  describe('P2: scope ключа', () => {
+    const admin = { id: USER_ID, username: 'admin', role: 'admin' };
+    const base = { apiBaseUrl: 'http://127.0.0.1:3000' };
+
+    it('без scope: поле в БД не пишется, keyScope = full (старое поведение)', async () => {
+      const res = await service.issue(admin, base);
+      expect(res.scope).toEqual({ access: 'full' });
+      expect(docs[0]).not.toHaveProperty('scope');
+      const u = await service.authenticateBearer(res.apiKey);
+      expect(u.keyScope).toEqual({ access: 'full' });
+      const list = await service.listForUser(USER_ID);
+      expect(list[0]!.scope).toEqual({ access: 'full' });
+    });
+
+    it('scope read + apps сохраняется, отдаётся в списке и в req.user.keyScope', async () => {
+      const res = await service.issue(admin, {
+        ...base,
+        scope: { access: 'read', apps: ['inventory', 'tasks', 'inventory'] },
+      });
+      expect(res.scope).toEqual({ access: 'read', apps: ['inventory', 'tasks'] });
+      expect(docs[0]!.scope).toEqual({ access: 'read', apps: ['inventory', 'tasks'] });
+      const u = await service.authenticateBearer(res.apiKey);
+      expect(u.keyScope).toEqual({ access: 'read', apps: ['inventory', 'tasks'] });
+      expect((await service.listForUser(USER_ID))[0]!.scope).toEqual({
+        access: 'read',
+        apps: ['inventory', 'tasks'],
+      });
+    });
+
+    it('пустой apps = все приложения (поле apps не пишется)', async () => {
+      const res = await service.issue(admin, { ...base, scope: { access: 'write', apps: [] } });
+      expect(res.scope).toEqual({ access: 'write' });
+    });
+
+    it('отклоняет неверный access и имена приложений', async () => {
+      await expect(service.issue(admin, { ...base, scope: { access: 'root' } })).rejects.toThrow(
+        /scope.access/,
+      );
+      await expect(
+        service.issue(admin, { ...base, scope: { access: 'read', apps: ['Bad-Name'] } }),
+      ).rejects.toThrow(/scope.apps/);
+      await expect(
+        service.issue(admin, {
+          ...base,
+          scope: { access: 'read', apps: Array.from({ length: 51 }, (_, i) => 'a' + i) },
+        }),
+      ).rejects.toThrow(/scope.apps/);
+      expect(docs).toHaveLength(0);
+    });
+  });
 });

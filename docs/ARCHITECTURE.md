@@ -18,7 +18,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 
 1. **Middleware:** `RequestIdMiddleware` (все), `IdempotencyMiddleware` (POST/PUT/PATCH/DELETE; заголовок `Idempotency-Key` → повтор отдаёт сохранённый ответ), helmet, compression, CORS.
 2. **Guards:** `ThrottlerBehindAuthGuard` (rate-limit, ставится в `main.ts`; `DISABLE_THROTTLE=1` только dev/test) + в `app.module.ts` строго по порядку `JwtAuthGuard` → `PermissionsGuard` → `RolesGuard` (порядок не менять — от него зависят тексты 403).
-   - `JwtAuthGuard`: `@Public()` пропускает. Иначе берёт токен из `X-Access-Token` или `Authorization: Bearer`. Если токен начинается с `kppd_` — это машинный ключ: `DesktopPairingKeyService.authenticateBearer` → `req.user` = пользователь, выдавший ключ (его роль и права). Иначе — JWT (passport `jwt`). Затем проверка, что пользователь и его роль активны (кэш `user-activity-cache`).
+   - `JwtAuthGuard`: `@Public()` пропускает. Иначе берёт токен из `X-Access-Token` или `Authorization: Bearer`. Если токен начинается с `kppd_` — это машинный ключ: `DesktopPairingKeyService.authenticateBearer` → `req.user` = пользователь, выдавший ключ (его роль и права) + `keyScope` (`{access:'read'|'write'|'full', apps?}`, нет в БД → `full`). Иначе — JWT (passport `jwt`, `keyScope` нет). Затем проверка, что пользователь и его роль активны (кэш `user-activity-cache`). Для ключа — scope (`common/guards/key-scope.ts`): `read` → только GET/HEAD/OPTIONS; `read`/`write` → 403 на админ-маршрутах (`/api/admin/*`, `/api/desktop/pairing*`, `/api/roles*`, запись `/api/users*`). `apps` проверяет модуль app-data.
    - `PermissionsGuard`: `@Permissions('x:y')` — нужна capability из каталога `common/seed/permissions.constants.ts`.
    - `RolesGuard`: `@Roles('admin', …)` — легаси-проверка по имени роли; AND с permissions.
 3. **ValidationPipe** (глобально): `whitelist + forbidNonWhitelisted + transform` — **лишнее поле в теле → 400**.
@@ -40,7 +40,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 |--|--|--|
 | Логин | `POST /api/auth/login` | `{username,password}` → `{access, refresh, user}`; throttle 5/мин, softlock после серии неудач |
 | Refresh | `POST /api/auth/refresh` | refresh-JWT в `X-Access-Token` или `Bearer`; версия `refreshTokenVersion` у пользователя |
-| Машинный ключ | `/api/desktop/pairing-keys` | `kppd_…`, хранится хеш, TTL `1d/7d/30d/90d/never`, revoke; ключ действует от имени выдавшего |
+| Машинный ключ | `/api/desktop/pairing-keys` | `kppd_…`, хранится хеш, TTL `1d/7d/30d/90d/never`, revoke; ключ действует от имени выдавшего, урезанный `scope` (`read`/`write`/`full` + `apps`; без scope = `full`) |
 | Роли | сид в `common/seed/admin.seed.ts` | `admin` / `director` / `manager` / `user` + права из каталога (виды работ правятся по `production:write` — наследие kppdf) |
 | Owner | `user.isOwner` | seeded admin = owner; owner скрыт от не-owner акторов, последнего админа удалить нельзя (`last-admin.guard`) |
 | Секреты | `config/secret-validation.service.ts` | в `NODE_ENV=production` слабые/одинаковые JWT-секреты и короткий `ADMIN_PASSWORD` (<12) → процесс не стартует |

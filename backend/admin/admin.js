@@ -143,13 +143,24 @@
     const tbody = $('#keys-table tbody'); tbody.replaceChildren();
     try {
       const list = await api('/desktop/pairing-keys');
-      if (!list || !list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ключей нет'); td.colSpan = 6; tr.append(td); tbody.append(tr); return; }
+      if (!list || !list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ключей нет'); td.colSpan = 7; tr.append(td); tbody.append(tr); return; }
       list.forEach((k) => tbody.append(keyRow(k)));
     } catch (e) { toast(e.message); }
   }
+  /** P2: подпись прав ключа (scope). Нет scope = полный доступ (старые ключи). */
+  const ACCESS_LABEL = { read: 'Только чтение', write: 'Чтение и запись', full: 'Полный доступ' };
+  function scopeText(scope) {
+    const s = scope || { access: 'full' };
+    let t = ACCESS_LABEL[s.access] || ACCESS_LABEL.full;
+    if (Array.isArray(s.apps) && s.apps.length) t += ' · приложения: ' + s.apps.join(', ');
+    return t;
+  }
+  function parseApps(raw) {
+    return [...new Set(String(raw || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))];
+  }
   function keyRow(k) {
     const tr = el('tr');
-    tr.append(el('td', '', k.label || k.tokenPrefix || '—'), el('td', '', k.ttl || '—'),
+    tr.append(el('td', '', k.label || k.tokenPrefix || '—'), el('td', '', scopeText(k.scope)), el('td', '', k.ttl || '—'),
       el('td', '', fmtDate(k.createdAt)), el('td', '', k.revokedAt ? fmtDate(k.revokedAt) : '—'),
       el('td', '', fmtDate(k.lastUsedAt)));
     const td = el('td');
@@ -164,6 +175,7 @@
   }
   function openKeyDialog() {
     $('#k-label').value = ''; $('#k-ttl').value = '30d';
+    $('#k-access').value = 'write'; $('#k-apps').value = '';
     $('#k-apiBaseUrl').value = location.origin;
     $('#key-form-error').hidden = true;
     $('#key-dialog').showModal();
@@ -171,8 +183,11 @@
   async function createKey(ev) {
     ev.preventDefault();
     try {
+      const scope = { access: $('#k-access').value };
+      const apps = parseApps($('#k-apps').value);
+      if (apps.length) scope.apps = apps;
       const r = await api('/desktop/pairing-keys', { method: 'POST', body: JSON.stringify({
-        label: $('#k-label').value, ttl: $('#k-ttl').value, apiBaseUrl: $('#k-apiBaseUrl').value,
+        label: $('#k-label').value, ttl: $('#k-ttl').value, apiBaseUrl: $('#k-apiBaseUrl').value, scope,
       })});
       $('#key-dialog').close();
       $('#key-shown-value').textContent = r.apiKey;

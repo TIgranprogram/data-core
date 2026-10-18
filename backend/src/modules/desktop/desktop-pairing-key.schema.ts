@@ -1,9 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { KEY_SCOPE_ACCESS, type KeyScopeAccess } from '../../common/guards/key-scope';
 
 export type DesktopPairingKeyDocument = HydratedDocument<DesktopPairingKey>;
 
 export type DesktopPairingTtl = '1d' | '7d' | '30d' | '90d' | 'never';
+
+/** P2: права ключа. Поля нет = full (права выдавшего, старое поведение). */
+@Schema({ _id: false })
+export class DesktopPairingKeyScope {
+  @Prop({ type: String, required: true, enum: KEY_SCOPE_ACCESS })
+  access!: KeyScopeAccess;
+
+  @Prop({ type: [String], required: false, default: undefined })
+  apps?: string[];
+}
+export const DesktopPairingKeyScopeSchema = SchemaFactory.createForClass(DesktopPairingKeyScope);
 
 @Schema({ softDelete: false,  collection: 'desktop_pairing_keys', timestamps: true })
 export class DesktopPairingKey {
@@ -32,6 +44,9 @@ export class DesktopPairingKey {
 
   @Prop({ type: Date, required: false, default: null })
   lastUsedAt!: Date | null;
+
+  @Prop({ type: DesktopPairingKeyScopeSchema, required: false, default: undefined })
+  scope?: DesktopPairingKeyScope;
 
   createdAt?: Date;
   updatedAt?: Date;

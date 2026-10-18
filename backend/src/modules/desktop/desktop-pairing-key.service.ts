@@ -14,6 +14,13 @@ import {
   DesktopPairingTtl,
 } from './desktop-pairing-key.schema';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import {
+  KEY_SCOPE_ACCESS,
+  KEY_SCOPE_APP_RE,
+  KEY_SCOPE_MAX_APPS,
+  normalizeKeyScope,
+  type KeyScope,
+} from '../../common/guards/key-scope';
 
 const MAX_ACTIVE = 10;
 const PREFIX = 'kppd_';
@@ -44,13 +51,19 @@ export class DesktopPairingKeyService {
 
   async issue(
     user: AuthenticatedUser,
-    opts: { ttl?: DesktopPairingTtl; label?: string; apiBaseUrl: string },
+    opts: {
+      ttl?: DesktopPairingTtl;
+      label?: string;
+      apiBaseUrl: string;
+      scope?: { access: string; apps?: string[] };
+    },
   ): Promise<{
     id: string;
     apiKey: string;
     expiresAt: string | null;
     label: string;
     tokenPrefix: string;
+    scope: KeyScope;
     pairing: {
       apiBaseUrl: string;
       apiKey: string;
@@ -62,6 +75,8 @@ export class DesktopPairingKeyService {
     if (!['1d', '7d', '30d', '90d', 'never'].includes(ttl)) {
       throw new BadRequestException('Invalid ttl');
     }
+
+    const scope = this.validateScope(opts.scope);
 
     const active = await this.countActive(user.id);
     if (active >= MAX_ACTIVE) {
@@ -88,6 +103,8 @@ export class DesktopPairingKeyService {
       expiresAt,
       revokedAt: null,
       lastUsedAt: null,
+      // Без scope в запросе поле не пишем — ключ ведёт себя как раньше (full).
+      ...(opts.scope ? { scope } : {}),
     });
 
     return {
@@ -96,6 +113,7 @@ export class DesktopPairingKeyService {
       expiresAt: expiresAt ? expiresAt.toISOString() : null,
       label,
       tokenPrefix,
+      scope,
       pairing: {
         apiBaseUrl: opts.apiBaseUrl,
         apiKey: secret,
@@ -114,6 +132,7 @@ export class DesktopPairingKeyService {
       revokedAt: string | null;
       createdAt: string | null;
       lastUsedAt: string | null;
+      scope: KeyScope;
     }>
   > {
     // Active keys only — revoked rows are deleted on revoke (PO: не висеть в UI).
@@ -130,6 +149,7 @@ export class DesktopPairingKeyService {
       revokedAt: null,
       createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
       lastUsedAt: r.lastUsedAt ? new Date(r.lastUsedAt).toISOString() : null,
+      scope: normalizeKeyScope(r.scope),
     }));
   }
 
@@ -177,7 +197,30 @@ export class DesktopPairingKeyService {
       role: user.role,
       permissions: user.permissions ?? [],
       organizationId: user.organizationId?.toString() ?? null,
+      keyScope: normalizeKeyScope(doc.scope),
     };
+  }
+
+  /** P2: проверка scope при выдаче (дублирует DTO — сервис зовут и не из HTTP). */
+  private validateScope(raw?: { access: string; apps?: string[] }): KeyScope {
+    if (!raw) return { access: 'full' };
+    if (!KEY_SCOPE_ACCESS.includes(raw.access as KeyScope['access'])) {
+      throw new BadRequestException('Invalid scope.access');
+    }
+    const scope: KeyScope = { access: raw.access as KeyScope['access'] };
+    if (raw.apps !== undefined) {
+      if (!Array.isArray(raw.apps) || raw.apps.length > KEY_SCOPE_MAX_APPS) {
+        throw new BadRequestException(`scope.apps: массив до ${KEY_SCOPE_MAX_APPS} имён`);
+      }
+      const apps = [...new Set(raw.apps)];
+      for (const a of apps) {
+        if (typeof a !== 'string' || !KEY_SCOPE_APP_RE.test(a)) {
+          throw new BadRequestException(`scope.apps: недопустимое имя приложения «${String(a)}»`);
+        }
+      }
+      if (apps.length > 0) scope.apps = apps;
+    }
+    return scope;
   }
 
   /** Constant-time compare helper for tests. */

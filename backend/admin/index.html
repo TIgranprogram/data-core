@@ -126,12 +126,12 @@
         <h2>API-ключи</h2>
         <button id="key-create-btn" class="btn btn-accent">+ Выдать ключ</button>
       </div>
-      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция; показывается только один раз при выдаче.</p>
+      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция с минимально нужными правами; показывается только один раз при выдаче.</p>
 
       <div class="table-wrap">
         <table class="table" id="keys-table">
           <thead>
-            <tr><th>Метка</th><th>TTL</th><th>Создан</th><th>Отозван</th><th>Использовался</th><th></th></tr>
+            <tr><th>Метка</th><th>Права</th><th>TTL</th><th>Создан</th><th>Отозван</th><th>Использовался</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -150,6 +150,17 @@
               <option value="90d">90 дней</option>
               <option value="never">без срока</option>
             </select>
+          </label>
+          <label>Права
+            <select id="k-access">
+              <option value="read">Только чтение</option>
+              <option value="write" selected>Чтение и запись</option>
+              <option value="full">Полный доступ (как у администратора)</option>
+            </select>
+          </label>
+          <p class="muted">«Только чтение» и «Чтение и запись» не дают управлять пользователями, ролями, ключами и устройствами.</p>
+          <label>Приложения (через запятую, необязательно)
+            <input id="k-apps" placeholder="например: inventory, tasks — пусто = все" />
           </label>
           <label>API Base URL <input id="k-apiBaseUrl" required /></label>
           <div class="dialog-actions">
