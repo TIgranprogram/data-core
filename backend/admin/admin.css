@@ -440,3 +440,13 @@ dialog::backdrop { background: rgba(30, 41, 51, .6); }
 .tabs::-webkit-scrollbar { display: none; }
 .tab { white-space: nowrap; flex-shrink: 0; }
 @media (max-width: 600px) { .tab { padding: 10px 12px 12px; font-size: 14px; } }
+
+/* ---------- A2: просмотр записей ---------- */
+.view-switch { margin: 6px 0 10px; }
+.docs-bar input { min-width: 220px; }
+.docs-table td { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-row { cursor: pointer; }
+.doc-row:hover { background: #f5f8fb; }
+.doc-deleted td { color: var(--muted); text-decoration: line-through; }
+.doc-full td { background: #fafafa; white-space: normal; max-width: none; }
+.doc-full .cx-code { max-height: 420px; }

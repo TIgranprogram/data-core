@@ -47,7 +47,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 67 suites / 732 tests; e2e 19 / 142 (на 2026-10-18) |
+| Юнит-тесты | `npx jest --silent` | 68 suites / 736 tests; e2e 20 / 147 (на 2026-10-18) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |

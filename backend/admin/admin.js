@@ -361,6 +361,20 @@
       td.append(bar);
     }
 
+    // Переключатель: структура полей / сами записи (A2)
+    const sw = el('div', 'cx-langs view-switch');
+    const bFields = el('button', 'btn btn-sm cx-lang active', 'Поля'); bFields.type = 'button';
+    const bDocs = el('button', 'btn btn-sm cx-lang', 'Записи (' + d.count.toLocaleString('ru-RU') + ')'); bDocs.type = 'button';
+    sw.append(bFields, bDocs);
+    const docsBox = el('div', 'docs-box'); docsBox.hidden = true;
+    let docsLoaded = false;
+    bFields.addEventListener('click', (ev) => { ev.stopPropagation(); bFields.classList.add('active'); bDocs.classList.remove('active'); wrap.hidden = false; docsBox.hidden = true; });
+    bDocs.addEventListener('click', (ev) => {
+      ev.stopPropagation(); bDocs.classList.add('active'); bFields.classList.remove('active'); wrap.hidden = true; docsBox.hidden = false;
+      if (!docsLoaded) { docsLoaded = true; renderDocsViewer(docsBox, d.name); }
+    });
+    td.append(sw, docsBox);
+
     const wrap = el('div', 'table-wrap sub-wrap');
     const t = el('table', 'table sub-table');
     const thead = el('thead');
@@ -388,6 +402,77 @@
       tb.append(tr);
     });
     t.append(tb); wrap.append(t); td.append(wrap);
+  }
+
+  // ---- A2: просмотр записей коллекции (только чтение; секреты маскирует сервер) ----
+  function shortVal(v) {
+    if (v === null || v === undefined) return '—';
+    if (Array.isArray(v)) return `[${v.length}]`;
+    if (typeof v === 'object') { const s = JSON.stringify(v); return s.length > 60 ? s.slice(0, 60) + '…' : s; }
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) { const d = new Date(s); if (!isNaN(d)) return d.toLocaleString('ru-RU'); }
+    return s.length > 60 ? s.slice(0, 60) + '…' : s;
+  }
+
+  function renderDocsViewer(box, name) {
+    const st = { page: 1, limit: 20, deleted: 'exclude', q: '' };
+    box.replaceChildren();
+    const bar = el('form', 'filters docs-bar');
+    const q = el('input'); q.placeholder = 'Поиск: имя, логин, артикул, email… или id';
+    const del = el('select');
+    [['exclude', 'Без удалённых'], ['include', 'Все'], ['only', 'Только удалённые']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; del.append(o); });
+    const go = el('button', 'btn btn-primary', 'Найти'); go.type = 'submit';
+    bar.append(q, del, go);
+    const info = el('p', 'muted small', '');
+    const wrap = el('div', 'table-wrap sub-wrap');
+    const pager = el('div', 'pager');
+    const prev = el('button', 'btn btn-sm', '← Назад'); prev.type = 'button';
+    const pageInfo = el('span', 'muted small', '');
+    const next = el('button', 'btn btn-sm', 'Вперёд →'); next.type = 'button';
+    pager.append(prev, pageInfo, next);
+    box.append(bar, info, wrap, pager);
+
+    async function load() {
+      wrap.replaceChildren(el('p', 'muted', 'Загрузка записей…'));
+      const qs = new URLSearchParams({ page: st.page, limit: st.limit, deleted: st.deleted });
+      if (st.q) qs.set('q', st.q);
+      let r;
+      try { r = await api('/admin/collections/' + encodeURIComponent(name) + '/docs?' + qs); }
+      catch (e) { wrap.replaceChildren(el('p', 'error', 'Ошибка: ' + e.message)); return; }
+      const pages = Math.max(1, Math.ceil(r.total / r.limit));
+      info.textContent = `Найдено: ${r.total.toLocaleString('ru-RU')} · сначала новые · секретные поля скрыты (***) · нажмите строку, чтобы увидеть запись целиком`;
+      pageInfo.textContent = ` стр. ${r.page} / ${pages} `;
+      prev.disabled = r.page <= 1; next.disabled = r.page >= pages;
+      if (!r.items.length) { wrap.replaceChildren(el('p', 'muted', 'Записей нет')); return; }
+
+      // Колонки: _id + самые частые поля страницы (служебные — в конец не берём)
+      const freq = new Map();
+      r.items.forEach((d) => Object.keys(d).forEach((k) => { if (!['_id', 'id', '__v', 'deletedAt', 'updatedAt'].includes(k)) freq.set(k, (freq.get(k) || 0) + 1); }));
+      const prefer = ['name', 'title', 'label', 'username', 'article', 'email', 'status', 'createdAt'];
+      const cols = ['_id', ...[...freq.keys()].sort((a, b) => (prefer.indexOf(b) > -1) - (prefer.indexOf(a) > -1) || freq.get(b) - freq.get(a)).slice(0, 6)];
+
+      const t = el('table', 'table sub-table docs-table');
+      const hr = el('tr'); cols.forEach((c) => hr.append(el('th', '', c)));
+      const thead = el('thead'); thead.append(hr); t.append(thead);
+      const tb = el('tbody');
+      r.items.forEach((d) => {
+        const tr = el('tr', 'doc-row' + (d.deletedAt ? ' doc-deleted' : ''));
+        cols.forEach((c) => tr.append(el('td', c === '_id' ? 'mono small' : 'small', shortVal(d[c]))));
+        const full = el('tr', 'doc-full'); full.hidden = true;
+        const fullTd = el('td'); fullTd.colSpan = cols.length;
+        const pre = el('pre', 'cx-code', JSON.stringify(d, null, 2));
+        fullTd.append(pre); full.append(fullTd);
+        tr.addEventListener('click', () => { full.hidden = !full.hidden; });
+        tb.append(tr, full);
+      });
+      t.append(tb);
+      wrap.replaceChildren(t);
+    }
+
+    bar.addEventListener('submit', (e) => { e.preventDefault(); st.q = q.value.trim(); st.deleted = del.value; st.page = 1; load(); });
+    prev.addEventListener('click', () => { st.page = Math.max(1, st.page - 1); load(); });
+    next.addEventListener('click', () => { st.page += 1; load(); });
+    load();
   }
 
   /**

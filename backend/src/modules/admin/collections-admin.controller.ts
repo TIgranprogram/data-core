@@ -14,6 +14,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { parseMongoCollectionName } from '../app-data/app-data.validation';
+import { buildDocsFilter, parseDocsQuery, sanitizeValue } from './collection-docs';
 
 /**
  * Data Core — «справочник таблиц» (админ-only).
@@ -437,6 +438,42 @@ export class CollectionsAdminController {
     }
 
     return { total: items.length, categories: CATEGORIES, items };
+  }
+
+  /**
+   * GET /api/admin/collections/:name/docs — записи коллекции постранично (A2, только чтение).
+   * ?page=1&limit=20 (≤100) · deleted=exclude|include|only · q=<текст или 24-hex id>.
+   * Сырые документы через драйвер, секреты замаскированы (`collection-docs.ts`).
+   */
+  @Get(':name/docs')
+  @Permissions('user:admin')
+  @Roles('admin')
+  async docs(
+    @Param('name') name: string,
+    @Query() raw: { page?: string; limit?: string; deleted?: string; q?: string },
+  ) {
+    if (!name || !/^[A-Za-z0-9_\-]+$/.test(name)) {
+      throw new BadRequestException('Invalid collection name');
+    }
+    const query = parseDocsQuery(raw);
+    const db = this.db();
+    const known = (await db.listCollections({ name }, { nameOnly: true }).toArray()).length > 0;
+    if (!known) throw new NotFoundException('Collection not found: ' + name);
+
+    const coll = db.collection(name);
+    const filter = buildDocsFilter(query);
+    const [total, docs] = await Promise.all([
+      coll.countDocuments(filter),
+      coll.find(filter).sort({ _id: -1 }).skip((query.page - 1) * query.limit).limit(query.limit).toArray(),
+    ]);
+    return {
+      name,
+      items: docs.map((d) => sanitizeValue(d)),
+      total,
+      page: query.page,
+      limit: query.limit,
+      deleted: query.deleted,
+    };
   }
 
   /** GET /api/admin/collections/:name — расшифровка одной коллекции. */
