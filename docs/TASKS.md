@@ -48,6 +48,8 @@
   ✅ 2026-10-18: `DATE=%Y-%m-%d_%H%M%S`. Ротация (`mongo-*`/`uploads-*`) не затронута.
 - [ ] **T20. Туннель data-core — на systemd.** Сейчас `datacore-tunnel.sh` стартует из crontab tiit (sudo на VM требует пароль). Когда будет sudo — перевести в systemd-юнит по образцу `kppdf-tunnel` и убрать строку из crontab.
 - [ ] **T21. kppdf — клиент API вместо прямого писателя.** Сейчас kppdf пишет в `datacore` напрямую (единая база 2026-10-18). При доработке CRM: не менять схемы общих коллекций без синхронизации с data-core; в перспективе — перевести kppdf на API data-core.
+- [x] **T22. Сменить пароль root Mongo** (2026-10-18 при отладке `bash -x backup.sh` значение попало в лог переписки с ИИ).
+  ✅ 2026-10-18: новый пароль сгенерирован на VM (в чат не выводился), `changeUserPassword` → обновлены `/opt/data-core/.env`, `/opt/data-core/deploy/synology/.env`, локальный `deploy/synology/config.env`; `datacore-mongo` пересоздан (healthy). Проверено: data-core и kppdf 200, бэкап `mongo-2026-10-18_121810` OK, **старый пароль отклоняется**; временные копии со старым паролем удалены. Пользователи `kppdf`/`datacore` не менялись. Урок — в AGENTS.md (не запускать `bash -x` на скриптах с .env).
 - [x] **T14. Устаревшие комментарии со ссылками на несуществующие доки** (`docs/SECURITY-OPERATIONS.md`, `tasks/…`, `frontend/…` — ~50 шт.). Низкий приоритет: править попутно, когда трогаешь файл.
   ✅ 2026-10-18: в коде осталось 6 мёртвых ссылок — исправлены (`CHECKLIST.md` → `HISTORY.md`, `SECURITY-OPERATIONS.md` → `backend/README.md`, архив задач — пометка). Проверено grep по `backend/{src,test,scripts}`.
 
