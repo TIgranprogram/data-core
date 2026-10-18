@@ -9,7 +9,7 @@
  * plugin drift cannot silently break the audit chain.
  *
  * Strategy:
- *   1. Bootstrap test app (creates kppdf-test DB + seeds admin via AdminSeed).
+ *   1. Bootstrap test app (creates datacore-test DB + seeds admin via AdminSeed).
  *   2. Login as admin via canonical TZ-95.1 fixture.
  *   3. Fire a POST to a known @AuditAction-decorated endpoint — `POST /api/units`
  *      is the canonical choice (units fixture is deterministic + minimal).

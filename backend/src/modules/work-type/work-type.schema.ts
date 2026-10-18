@@ -37,7 +37,7 @@ export class WorkType {
   @Prop({ type: Number, default: null, min: 0, max: 359 })
   accentHue?: number | null;
 
-  @Prop({ type: Types.ObjectId, ref: 'WorkCenter', index: true })
+  @Prop({ type: Types.ObjectId, index: true })
   workCenterId?: Types.ObjectId;
 
   /** TZ-COST-301 — расценка ₽/час; legacy без поля → backfill 0 на boot. */

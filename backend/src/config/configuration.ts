@@ -43,8 +43,8 @@ export default (): AppConfig => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   nodeEnv: process.env.NODE_ENV ?? 'development',
   mongo: {
-    uri: process.env.MONGO_URI ?? 'mongodb://localhost:27017/kppdf',
-    db: process.env.MONGO_DB ?? 'kppdf',
+    uri: process.env.MONGO_URI ?? 'mongodb://localhost:27017/datacore',
+    db: process.env.MONGO_DB ?? 'datacore',
     replicaSet: process.env.MONGO_REPLICA_SET ?? 'rs0',
   },
   cors: {

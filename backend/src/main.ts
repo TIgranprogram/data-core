@@ -8,7 +8,6 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { buildSwaggerConfig } from './swagger.config';
 import {
@@ -77,18 +76,12 @@ async function bootstrap() {
   app.useLogger(createQuietNestLogger(app.get(PinoLogger)));
 
   // Helmet with CSP and HSTS hardening.
-  // NOTE: Angular production (beasties) may emit
-  //   <link rel="stylesheet" media="print" onload="this.media='all'">
-  // which needs script-src-attr. Prefer disabling inlineCritical in
-  // angular.json; keep a narrow allow here so a rebuild without that
-  // flag does not blank the UI again.
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          scriptSrcAttr: ["'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'blob:'],
           fontSrc: ["'self'", 'data:'],
@@ -109,25 +102,6 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
-  // TZ-BACKEND-DOCSTUDIO-BLOCK-STYLE — self-hosted @font-face files for the
-  // document PDF render (dev and prod images share no system font set).
-  // Served under /fonts/* → ./assets/fonts/. The PDF pipeline loads the rendered
-  // document via page.setContent (null / "about:blank" origin), so the document's
-  // @font-face url(...) is a cross-origin fetch. It must be allowed: without an
-  // open ACAO/CORP the headless browser silently substitutes a fallback face
-  // (the exact „PDF ≠ экран“ trap this TZ exists to close). Web fonts are public
-  // assets, so a wildcard ACAO + cross-origin CORP here is the safe conventional
-  // choice; Helmet's default same-origin CORP is overridden only for /fonts/*.
-  app.use('/fonts/', (_req: Request, res: Response, next: NextFunction) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    next();
-  });
-  app.useStaticAssets(join(process.cwd(), 'assets', 'fonts'), {
-    prefix: '/fonts/',
-  });
-
   // Personal Data Core — статическая админка (без сборки, vanilla JS).
   // Отдаётся с того же origin на /admin (index.html + admin.js + admin.css).
   // Живёт в ./admin рядом с dist/ (в Docker — скопирована в /app/admin).
@@ -146,20 +120,9 @@ async function bootstrap() {
 
   // TZ-91 §4 Phase A.6: CORS multi-origin — read CORS_ORIGIN (preferred, new convention) or
   // CORS_ORIGINS (legacy, deprecated). Comma-separated list, trimmed, empty handlers dropped.
-  // Desktop (Tauri 2):
-  // - dev: http://localhost:1420
-  // - Windows packaged WebView2: http://tauri.localhost (default scheme)
-  // - macOS/Linux / optional https scheme: tauri://localhost, https://tauri.localhost
+  // Разрешены только origin'ы из env — никаких неявных добавок.
   const corsEnv = process.env.CORS_ORIGIN ?? process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:4200';
   const corsOrigins = corsEnv.split(',').map((o) => o.trim()).filter(Boolean);
-  for (const desktopOrigin of [
-    'http://localhost:1420',
-    'http://tauri.localhost',
-    'tauri://localhost',
-    'https://tauri.localhost',
-  ]) {
-    if (!corsOrigins.includes(desktopOrigin)) corsOrigins.push(desktopOrigin);
-  }
   app.enableCors({
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
@@ -214,19 +177,8 @@ async function bootstrap() {
     );
   }
 
-  // TZ-DOC-323: a `category` field in a text-block payload was the most
-  // likely legacy property to slip through here. We surface a friendly
-  // operator-actionable message naming the canonical replacement
-  // (`categoryId`) on `forbidNonWhitelisted` failures, instead of the
-  // generic `property <name> should not exist`.
-  //
-  // Probe (src/main.ts / DTO:CreateTextBlockDto) confirms the error
-  // shape class-validator emits for whitelist rejections:
-  //   errors[i].property           = the rejected property name ('category')
-  //   errors[i].constraints.whitelistValidation
-  //                                 = the canonical message
-  //   errors[i].value               = the rejected value
-  // Anything else uses the standard default message.
+  // Whitelist-ошибки отдаются каноническим сообщением class-validator
+  // (`property <name> should not exist`).
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -237,19 +189,7 @@ async function bootstrap() {
         for (const err of errors) {
           const wlm = err.constraints?.whitelistValidation;
           if (wlm) {
-            if (err.property === 'category') {
-              // TZ-DOC-323 — the legacy enum was removed; surface a
-              // domain-aware message.
-              lines.push(
-                `Property 'category' is no longer accepted on this endpoint. ` +
-                  `It was a legacy enum introduced pre-TZ-DOC-315 and removed by TZ-DOC-323. ` +
-                  `Use 'categoryId' instead (a 24-hex ObjectId of a TextBlockCategory).`,
-              );
-            } else {
-              // Other unknown properties keep the canonical class-validator
-              // message verbatim so unrelated 4xx shapes are untouched.
-              lines.push(wlm);
-            }
+            lines.push(wlm);
           } else {
             // Nested validation errors are flattened before they reach the
             // global filter, preserving the full property path for operators.
@@ -269,54 +209,6 @@ async function bootstrap() {
   // filter is registered first; the global catch-all backs it up.
   app.useGlobalFilters(new VersionConflictFilter(), new MulterExceptionFilter(), new HttpExceptionFilter());
   app.setGlobalPrefix('api');
-
-  // Desktop installer (TZD-16/24) under /downloads/*. Prefer a folder that
-  // actually contains the ZIP/exe (staging or published SPA tree).
-  // Local FE (:4200) proxies /downloads → here (proxy.conf.json).
-  // Never SPA-fallback these paths (see production middleware below).
-  const downloadDirs = [
-    process.env.FRONTEND_PATH ? join(process.env.FRONTEND_PATH, 'downloads') : '',
-    join(process.cwd(), '..', 'frontend', 'browser', 'downloads'),
-    join(process.cwd(), '..', 'frontend', 'downloads'),
-    join(process.cwd(), 'frontend', 'browser', 'downloads'),
-    join(process.cwd(), 'frontend', 'downloads'),
-  ].filter((d) => d && existsSync(d));
-  const downloadDirWithInstaller = downloadDirs.find(
-    (d) =>
-      existsSync(join(d, 'kppdf-desktop-setup.zip')) ||
-      existsSync(join(d, 'kppdf-desktop-setup.exe')),
-  );
-  if (downloadDirWithInstaller || downloadDirs.length > 0) {
-    const dir = downloadDirWithInstaller ?? downloadDirs[0]!;
-    app.useStaticAssets(dir, { prefix: '/downloads/' });
-    Logger.log(`📥 Desktop downloads: ${dir}`, 'Bootstrap');
-    if (!downloadDirWithInstaller) {
-      Logger.warn(
-        '📥 /downloads mounted but no kppdf-desktop-setup.zip|.exe — run: pnpm --dir desktop publish-installer',
-        'Bootstrap',
-      );
-    }
-  }
-
-  // Production: serve built Angular SPA from FRONTEND_PATH (Synology/docker deploy).
-  const frontendPath = process.env.FRONTEND_PATH;
-  if (process.env.NODE_ENV === 'production' && frontendPath) {
-    app.useStaticAssets(frontendPath, { index: false });
-    app.use((req: Request, res: Response, next: NextFunction) => {
-      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-      const p = req.path;
-      if (p.startsWith('/api') || p.startsWith('/uploads')) return next();
-      // TZD-24: installer ZIP/exe — never fall back to SPA index.html
-      // (prod bug: GET /downloads/*.exe returned ~1.5KB HTML → CSP noise).
-      if (p.startsWith('/downloads')) return next();
-      // Data Core admin UI — свой статический index, не SPA.
-      if (p.startsWith('/admin')) return next();
-      res.sendFile(join(frontendPath, 'index.html'), (err: Error | null) => {
-        if (err) next(err);
-      });
-    });
-    Logger.log(`📦 Frontend static: ${frontendPath}`, 'Bootstrap');
-  }
 
   const swaggerConfig = buildSwaggerConfig();
   const document = SwaggerModule.createDocument(app, swaggerConfig);

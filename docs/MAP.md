@@ -19,7 +19,7 @@
 | `feature-flag` | `/feature-flags` | `featureflags` | |
 | `rate-limit` | `/rate-limits` | `rate_limit_entries` | просмотр/сброс блокировок |
 | `status` | `/statuses/:entityType`, `/workflows/:entityType` | `entitystatuses`, `statusworkflows` | |
-| `counter` | `/internal/counter/test` (⚠ тестовый, см. TASKS) | `counters` | атомарная нумерация |
+| `counter` | — (только сервис `CounterService`, без HTTP) | `counters` | атомарная нумерация |
 | `dictionary-label` | `/dictionary-labels` | `dictionary_labels` | подписи справочников |
 | `photos` | `/photos`, `/photos/upload`, `/photos/:id/frame` | `photos` | sharp-превью; файлы в `uploads/` → `/uploads/*` |
 
@@ -63,6 +63,6 @@
 | `swagger.config.ts`, `export-openapi.ts` | Swagger UI `/docs` (не в prod) и экспорт `openapi.json` |
 | `../admin/` | админка: `index.html`, `admin.js` (вся логика), `admin.css` |
 
-## Мёртвый код (не опирайся, кандидаты на удаление — TASKS T2)
+## Мёртвый код (TASKS T2 — вычищен)
 
-`common/db/session-runner.ts`, `common/interceptors/logging.interceptor.ts`, `common/interceptors/org-scope.interceptor.ts`, `common/guards/ownership/*`, `common/mongoose/index.ts`, `common/pdf/pdf-semaphore.ts`, `common/sanitize-html.ts`, `common/snapshot/*`, `common/validators/is-object-id.pipe.ts`, `modules/product/dto/query-product.dto.ts`, `database/migrations/*` (нигде не запускаются).
+Удалён в T2 (2026-10-18). Известных мёртвых файлов нет. `common/mongoose/index.ts` ранее числился здесь ошибочно — он реэкспортирует `optimisticLockPlugin` (используют схемы category/material/organization/product).

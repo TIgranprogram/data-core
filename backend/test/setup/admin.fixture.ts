@@ -23,7 +23,7 @@ import { loginAsAdmin as _loginAsAdmin, authHeader, type AuthTokens } from './te
  */
 
 // Test-side fallback defaults. These are intentionally hardcoded — the
-// test bootstrap clears the kppdf-test MongoDB before seeding, so the
+// test bootstrap clears the datacore-test MongoDB before seeding, so the
 // db state is fully controlled by `createTestApp()`.
 //
 // Rationale: production `.env` ships `ADMIN_PASSWORD=admin12345678`
