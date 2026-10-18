@@ -450,3 +450,5 @@ dialog::backdrop { background: rgba(30, 41, 51, .6); }
 .doc-deleted td { color: var(--muted); text-decoration: line-through; }
 .doc-full td { background: #fafafa; white-space: normal; max-width: none; }
 .doc-full .cx-code { max-height: 420px; }
+
+.link { color: var(--py-blue); text-decoration: underline dotted; cursor: pointer; }

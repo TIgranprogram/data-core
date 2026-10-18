@@ -111,7 +111,11 @@ async function bootstrap() {
   const adminDirCwd = join(process.cwd(), 'admin');
   const adminPath = existsSync(adminDir) ? adminDir : adminDirCwd;
   if (existsSync(adminPath)) {
-    app.useStaticAssets(adminPath, { prefix: '/admin/' });
+    // no-cache: браузер всегда сверяет версию (ETag) — после деплоя не показывает старую админку из кэша.
+    app.useStaticAssets(adminPath, {
+      prefix: '/admin/',
+      setHeaders: (res: { setHeader(name: string, value: string): void }) => res.setHeader('Cache-Control', 'no-cache'),
+    });
     Logger.log(`🛠  Admin UI: /admin (from ${adminPath})`, 'Bootstrap');
   } else {
     Logger.warn(`Admin UI dir not found (${adminPath}) — /admin disabled`, 'Bootstrap');

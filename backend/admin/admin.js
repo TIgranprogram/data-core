@@ -66,6 +66,7 @@
     if (t.dataset.tab === 'keys') loadKeys();
     if (t.dataset.tab === 'tables') loadCollections();
     if (t.dataset.tab === 'connect') loadConnect();
+    if (t.dataset.tab === 'audit') { auditState.page = 1; loadAudit(); }
   }));
 
   // ---- Users ----
@@ -507,6 +508,74 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ''; }, 3500);
   }
 
+  // ---- A3: журнал изменений (/api/audit-logs) ----
+  const ACTION_RU = {
+    create: 'создание', update: 'изменение', delete: 'удаление', archive: 'в архив', restore: 'восстановление', duplicate: 'копия',
+    'drop-collection': 'удаление таблицы', 'add-composition-line': 'состав: добавлена строка', 'update-composition-line': 'состав: изменена строка',
+    'remove-composition-line': 'состав: удалена строка', 'admin.user.created': 'создан пользователь', 'admin.user.updated': 'изменён пользователь',
+    'admin.user.deleted': 'удалён пользователь', 'admin.user.password_reset': 'сброс пароля', 'admin.user.activated': 'пользователь включён',
+    'admin.user.deactivated': 'пользователь отключён', 'admin.user.password-changed': 'смена пароля', login: 'вход', logout: 'выход',
+    'admin.role.created': 'создана роль', 'admin.role.updated': 'изменена роль', 'admin.role.deleted': 'удалена роль',
+    'admin.permissions.catalog': 'просмотр каталога прав', set_attribute: 'атрибут задан', delete_attribute: 'атрибут удалён',
+    reorder: 'порядок изменён', replace: 'замена', put_asset: 'файл загружен', remove_asset: 'файл удалён', clear: 'очистка', clear_all: 'очистка всего',
+  };
+  const actionRu = (a) => ACTION_RU[a] || a;
+  const auditState = { page: 1, limit: 50, facetsLoaded: false };
+
+  async function loadAuditFacets() {
+    if (auditState.facetsLoaded) return;
+    try {
+      const f = await api('/audit-logs/facets');
+      const fill = (sel, items, val, label) => items.forEach((it) => { const o = el('option', '', label(it)); o.value = val(it); sel.append(o); });
+      fill($('#audit-entity'), f.entityTypes, (x) => x, (x) => x);
+      fill($('#audit-action'), f.actions, (x) => x, (x) => actionRu(x) + (ACTION_RU[x] ? ' (' + x + ')' : ''));
+      fill($('#audit-user'), f.users, (u) => u.userId, (u) => u.userName);
+      auditState.facetsLoaded = true;
+    } catch (e) { toast(e.message); }
+  }
+
+  async function loadAudit() {
+    loadAuditFacets();
+    const tbody = $('#audit-table tbody');
+    tbody.replaceChildren(el('tr', '', ''));
+    tbody.firstChild.append(el('td', 'muted', 'Загрузка…'));
+    const qs = new URLSearchParams({ page: auditState.page, limit: auditState.limit });
+    const add = (k, v) => { if (v) qs.set(k, v); };
+    add('entityType', $('#audit-entity').value); add('action', $('#audit-action').value); add('userId', $('#audit-user').value);
+    add('from', $('#audit-from').value); add('to', $('#audit-to').value);
+    if (auditState.entityId) qs.set('entityId', auditState.entityId);
+    let r;
+    try { r = await api('/audit-logs?' + qs); } catch (e) { tbody.replaceChildren(); toast(e.message); return; }
+    const pages = Math.max(1, Math.ceil(r.total / r.limit));
+    $('#audit-summary').textContent = 'записей: ' + r.total.toLocaleString('ru-RU') + (auditState.entityId ? ' · только запись ' + auditState.entityId : '');
+    $('#audit-page').textContent = ' стр. ' + r.page + ' / ' + pages + ' ';
+    $('#audit-prev').disabled = r.page <= 1; $('#audit-next').disabled = r.page >= pages;
+    tbody.replaceChildren();
+    if (!r.items.length) { const tr = el('tr'); const td = el('td', 'muted', 'Записей нет'); td.colSpan = 6; tr.append(td); tbody.append(tr); return; }
+    r.items.forEach((it) => {
+      const tr = el('tr', 'doc-row');
+      tr.append(
+        el('td', 'small', it.createdAt ? new Date(it.createdAt).toLocaleString('ru-RU') : '—'),
+        el('td', '', it.userName || '—'),
+        el('td', '', actionRu(it.action)),
+        el('td', '', it.entityType || '—'),
+      );
+      const idTd = el('td', 'mono small');
+      if (it.entityId) {
+        const a = el('a', 'link', it.entityId.slice(-8)); a.href = '#'; a.title = 'Показать всю историю этой записи: ' + it.entityId;
+        a.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); auditState.entityId = it.entityId; auditState.page = 1; loadAudit(); });
+        idTd.append(a);
+      } else idTd.textContent = '—';
+      tr.append(idTd, el('td', 'small muted', it.ipAddress || ''));
+      const full = el('tr', 'doc-full'); full.hidden = true;
+      const td = el('td'); td.colSpan = 6;
+      td.append(el('pre', 'cx-code', JSON.stringify(it.details ?? {}, null, 2)));
+      full.append(td);
+      tr.addEventListener('click', () => { full.hidden = !full.hidden; });
+      tbody.append(tr, full);
+    });
+  }
+
   // ---- Подключение: адрес, ключ, промт для ИИ, примеры, схема (/api/meta/*) ----
   const BASE_URL = location.origin + API;
   // Служебные таблицы не нужны клиентам — в промт и краткую схему не берём.
@@ -712,6 +781,11 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#key-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#key-shown-value').textContent); toast('Скопировано'); } catch { /* ignore */ } });
   $('#col-search-form').addEventListener('submit', (e) => { e.preventDefault(); colState.search = $('#col-search').value.trim(); renderCollections(); });
   $('#col-refresh').addEventListener('click', () => { colState.cache.clear(); loadCollections(true); });
+  // Журнал
+  $('#audit-form').addEventListener('submit', (e) => { e.preventDefault(); auditState.page = 1; auditState.entityId = ''; loadAudit(); });
+  $('#audit-reset').addEventListener('click', () => { ['#audit-entity', '#audit-action', '#audit-user', '#audit-from', '#audit-to'].forEach((s) => { $(s).value = ''; }); auditState.entityId = ''; auditState.page = 1; loadAudit(); });
+  $('#audit-prev').addEventListener('click', () => { auditState.page = Math.max(1, auditState.page - 1); loadAudit(); });
+  $('#audit-next').addEventListener('click', () => { auditState.page += 1; loadAudit(); });
   // Подключение
   document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
     const src = $(b.dataset.copy); const text = src.value != null && src.tagName === 'TEXTAREA' ? src.value : src.textContent;

@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { getCurrentUser } from '../../common/context/user-context';
 import { AuditLog, AuditLogDocument } from './audit-log.schema';
+import { AuditQueryRaw, parseAuditQuery } from './audit-query';
+import { sanitizeValue } from '../admin/collection-docs';
 
 export interface LogEntry {
   action: string;
@@ -60,26 +62,35 @@ export class AuditService {
     }
   }
 
-  async findAll(
-    filter: { entityType?: string; userId?: string; action?: string } = {},
-    page = 1,
-    limit = 50,
-  ): Promise<{ items: AuditLogDocument[]; total: number; page: number; limit: number }> {
-    const skip = (page - 1) * limit;
-    const query: Record<string, unknown> = {};
-    if (filter.entityType) query.entityType = filter.entityType;
-    if (filter.userId) query.userId = new Types.ObjectId(filter.userId);
-    if (filter.action) query.action = filter.action;
-
-    const [items, total] = await Promise.all([
-      this.model
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.model.countDocuments(query).exec(),
+  /** A3: журнал постранично с фильтрами; details очищены от секретов. */
+  async findAll(raw: AuditQueryRaw = {}): Promise<{ items: unknown[]; total: number; page: number; limit: number }> {
+    const { filter, page, limit } = parseAuditQuery(raw);
+    const [docs, total] = await Promise.all([
+      this.model.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
+      this.model.countDocuments(filter).exec(),
     ]);
-    return { items, total, page, limit };
+    return { items: docs.map((d) => sanitizeValue(d)), total, page, limit };
+  }
+
+  /** A3: значения для фильтров журнала (типы сущностей, действия, пользователи). */
+  async facets(): Promise<{ entityTypes: string[]; actions: string[]; users: { userId: string; userName: string }[] }> {
+    const [entityTypes, actions, users] = await Promise.all([
+      this.model.distinct('entityType').exec(),
+      this.model.distinct('action').exec(),
+      this.model
+        .aggregate<{ _id: Types.ObjectId; userName?: string }>([
+          { $match: { userId: { $ne: null } } },
+          { $group: { _id: '$userId', userName: { $last: '$userName' } } },
+          { $limit: 500 },
+        ])
+        .exec(),
+    ]);
+    return {
+      entityTypes: (entityTypes as string[]).filter(Boolean).sort(),
+      actions: (actions as string[]).filter(Boolean).sort(),
+      users: users
+        .map((u) => ({ userId: String(u._id), userName: u.userName || String(u._id) }))
+        .sort((a, b) => a.userName.localeCompare(b.userName)),
+    };
   }
 }

@@ -1172,37 +1172,93 @@
     "/audit-logs": {
       "get": {
         "operationId": "AuditController_list",
+        "summary": "Журнал изменений: кто, что и когда (сначала новые)",
         "parameters": [
           {
-            "name": "entityType",
-            "required": true,
+            "name": "limit",
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "≤ 200, по умолчанию 50",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD или ISO (включительно)",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "YYYY-MM-DD или ISO",
+            "schema": {}
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "schema": {}
           },
           {
             "name": "userId",
-            "required": true,
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {}
           },
           {
             "name": "action",
-            "required": true,
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {}
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {}
           }
         ],
         "responses": {
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/audit-logs/facets": {
+      "get": {
+        "operationId": "AuditController_facets",
+        "summary": "Значения для фильтров журнала: типы сущностей, действия, пользователи",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/rate-limits": {
