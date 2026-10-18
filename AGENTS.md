@@ -31,9 +31,12 @@ backend/src/common/            guards, decorators, filters, interceptors, seed/,
 backend/src/database/          подключение Mongo + глобальные плагины (soft-delete, audit, user-context)
 backend/src/modules/<name>/    модуль: *.schema.ts, *.service.ts, *.controller.ts, dto/, *.spec.ts
 backend/admin/                 админка (vanilla JS, без сборки) → /admin
+backend/pwa/                   приложение «Снабжение / Склад» (vanilla JS, PWA, офлайн) → /app
 backend/test/e2e/              e2e (нужен живой Mongo rs0)
 backend/scripts/               разовые/аудит-скрипты (не часть рантайма)
 deploy/synology/               deploy.py (деплой), backup.sh (cron-бэкап), verify-restore.js
+deploy/google-sheets/          скрипт синхронизации Google-таблиц (таблица → база / база → таблица)
+deploy/supply-app/             инструкция приложения + cutover.js (остатки → движения)
 docker-compose.yml             mongo:4.4 rs0 --auth --keyFile + backend (локально и на VM)
 ```
 

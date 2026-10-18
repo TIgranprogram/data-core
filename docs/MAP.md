@@ -64,6 +64,7 @@
 | `health.controller.ts` | `/health`, `/health/ready`, `/health/live` (публичные) |
 | `swagger.config.ts`, `export-openapi.ts` | Swagger UI `/docs` (не в prod) и экспорт `openapi.json` |
 | `../admin/` | админка: `index.html`, `admin.js` (вся логика), `admin.css` |
+| `../pwa/` | веб-приложение «Снабжение / Склад» → `/app/`: `app.js` (вся логика: вход JWT+refresh, IndexedDB-кэш и очередь `outbox`, остатки из движений), `sw.js` (офлайн-оболочка, кэш фото), `manifest.webmanifest`; данные — `/api/apps/supply/*`, `/api/apps/warehouse/*`; переход и зеркало таблиц — `deploy/supply-app/`, `deploy/google-sheets/` |
 
 ## Таблицы CRM kppdf
 

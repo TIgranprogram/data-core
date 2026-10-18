@@ -18,6 +18,7 @@
 | Что | Где |
 |--|--|
 | Админка | `https://kppdf-crm.ru/db/admin/` (из домашней сети также `http://<IP-VM>:3001/admin`) |
+| Приложение «Снабжение / Склад» | `https://kppdf-crm.ru/db/app/` (ПК и телефон, работает офлайн) |
 | API | `https://kppdf-crm.ru/db/api/...` |
 | CRM kppdf | `https://kppdf-crm.ru/` |
 | Контракт API | [docs/openapi.json](docs/openapi.json) (Swagger UI в prod выключен) |
@@ -35,6 +36,7 @@
 | [docs/MAP.md](docs/MAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/data-model.md](docs/data-model.md) | Код, устройство, сущности |
 | [deploy/synology/README.md](deploy/synology/README.md) | Сервер: деплой, туннель `/db/`, единая база, откат |
 | [deploy/google-sheets/README.md](deploy/google-sheets/README.md) | Синхронизация Google-таблиц (Снабжение, Склад) с базой — установка за 5 минут |
+| [deploy/supply-app/README.md](deploy/supply-app/README.md) | Приложение «Снабжение / Склад» и переход с таблиц |
 | [deploy/backup-pull/README.md](deploy/backup-pull/README.md) | Копия бэкапов на Windows-ПК, восстановление |
 | [docs/HISTORY.md](docs/HISTORY.md) | Что сделано и как проверялось |
 
@@ -43,7 +45,7 @@
 ```
 data-core/
 ├── AGENTS.md / CLAUDE.md   ← вход для ИИ-агентов
-├── backend/                ← NestJS API (src/, admin/ — админка, test/, scripts/)
+├── backend/                ← NestJS API (src/, admin/ — админка, pwa/ — приложение, test/, scripts/)
 ├── docker-compose.yml      ← локальный контур: mongo:4.4 (rs0, --auth) + backend
 ├── docker-compose.prod.yml ← контур на VM
 ├── deploy/synology/        ← деплой (deploy.py), бэкап (backup.sh), туннель, nginx-блок /db/
