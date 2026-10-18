@@ -60,3 +60,17 @@ Vanilla JS без сборки: `admin.js` (вся логика, fetch к `/api`
 - VM (Synology, Ubuntu, Celeron без AVX → mongo 4.4): `/opt/data-core`, данные `/var/lib/datacore`, рядом прод kppdf на `:3000` — не трогать.
 - Бэкап: `deploy/synology/backup.sh` (mongodump от root) по cron 03:00, ротация 14 дней; сверка восстановления — `deploy/synology/verify-restore.js`.
 - Деплой: `deploy/synology/deploy.py` (skill `datacore-deploy`).
+
+## Единая база (с 2026-10-18)
+
+```
+Google-таблицы / скрипты / новые приложения ──HTTP + kppd_──> data-core API (:3001, https://kppdf-crm.ru/db/api)──┐
+                                                                                                             ├──> MongoDB datacore (datacore-mongo)
+CRM kppdf (:3000, https://kppdf-crm.ru) ──────── напрямую, Mongo-пользователь kppdf (readWrite datacore) ─────┘
+```
+- Одна физическая база `datacore`. Данные kppdf перенесены 2026-10-18 (kppdf — главный источник: его admin, роли, доступы устройств); старая база kppdf (`/var/lib/kppdf80/mongodb`, контейнер `kppdf-mongo` остановлен) хранится для отката.
+- Пользователи общие: один логин/пароль в обоих приложениях (JWT-секреты разные — сессии отдельные). Ключи `kppd_` общие: полный (`full`) ключ работает в обоих API, ключ со scope `read`/`write` — **только в data-core** (kppdf отклоняет 401).
+- Загрузки общие: `/var/lib/datacore/uploads` смонтирован в оба backend.
+- Защита: CRM-таблицы (`kind:'crm'`) из админки data-core не удаляются; удаление справочника в data-core блокируется ссылками и из каталога, и из CRM (`catalog-references.ts` → `isUsedByCrm`).
+- Оба сида досоздают недостающее (права/роли — объединение). kppdf — прямой писатель в БД (исключение из VISION #1, осознанное: тот же код-предок, те же плагины soft-delete/audit). Цель на будущее — kppdf как клиент API data-core.
+- Откат: `deploy/synology/README.md` → «Единая база: откат».

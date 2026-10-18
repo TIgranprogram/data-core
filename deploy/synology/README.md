@@ -69,6 +69,14 @@
 - Админка сама определяет префикс (`PREFIX` в `admin.js`) — работает и на `:3001/admin`, и на `/db/admin/`.
 - Порты 4200/4201 на VPS слушают `0.0.0.0` (sshd `GatewayPorts`), но снаружи закрыты фаерволом (проверено 2026-10-18). Не открывать.
 
+## Единая база с kppdf (2026-10-18)
+
+- kppdf-backend: `/opt/kppdf-8.0/docker-compose.prod.yml` без своей Mongo, сеть `data-core_default`, `MONGO_URI=mongodb://kppdf:<pw>@datacore-mongo:27017/datacore?directConnection=true&authSource=datacore` в `/opt/kppdf-8.0/.env` (пароль — `/opt/kppdf-8.0/.kppdf-mongo-pw`, 600; локально — в gitignored `D:\kppdf-8.0\deploy\synology\config.env`).
+- **Порядок старта:** сначала контур data-core (`datacore-mongo`), потом kppdf. `down` контура data-core роняет и kppdf.
+- Бэкапы до слияния: `/var/lib/datacore/backups/mongo-2026-10-18_0901` (datacore), `kppdf-premerge-2026-10-18_090145` (kppdf), `kppdf-uploads-premerge-2026-10-18_090145`. Файлы kppdf до правки: `/opt/kppdf-8.0/.env.bak-premerge`, `docker-compose.prod.yml.bak-premerge`, `desktop-pairing-key.service.ts.bak-premerge`.
+- **Откат kppdf на свою базу:** `cd /opt/kppdf-8.0 && cp .env.bak-premerge .env && cp docker-compose.prod.yml.bak-premerge docker-compose.prod.yml && docker start kppdf-mongo && docker compose -f docker-compose.prod.yml up -d backend` (данные, внесённые после слияния, останутся только в datacore).
+- Старая база kppdf (`/var/lib/kppdf80/mongodb`, контейнер `kppdf-mongo` — остановлен) **не удалять без подтверждения пользователя** (TASKS D7).
+
 ## Диагностика на VM
 
 ```bash

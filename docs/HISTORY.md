@@ -60,6 +60,14 @@
 - По разрешению пользователя: админка научилась работать под префиксом (`PREFIX` в `admin.js`, проверено локальным прокси — логин уходит на `/db/api/auth/login`); на VM `TRUST_PROXY=1` (бэкап `.env.bak-20261018`), образ пересобран; туннель `datacore-tunnel.sh` (crontab tiit, VPS 127.0.0.1:4201 → VM :3001); на VPS бэкап `kppdf-proxy.bak-datacore-20261018`, вставлен блок `location ^~ /db/`, `nginx -t` OK, reload.
 - Проверено снаружи: `/db` → 301 `/db/admin/`; `/db/admin/` 200; `/db/api/health/ready` 200; `/db/api/apps` и `/db/api/materials` без ключа 401; kppdf `/home` 401 (device-check, как раньше), `/api/health` 200, `/api/apps` 404 (это kppdf); прямые порты VPS 4200/4201 снаружи закрыты; `kppdf-tunnel` active.
 
+## 🔗 Единая база data-core + kppdf (2026-10-18)
+
+- По решению пользователя одна база `datacore` для всех: CRM kppdf переключён на неё, таблицы/скрипты/приложения — через API data-core.
+- Анализ: в обеих базах почти не было реальных данных (kppdf: 2 пользователя, 2 материала, 2 фото, доступы устройств, сиды) → данные kppdf главные, `mongorestore --drop` (nsFrom kppdf.* → datacore.*), `app_*` не тронуты. Сверка: **все счётчики kppdf совпали** в datacore. Uploads kppdf скопированы в `/var/lib/datacore/uploads`.
+- data-core: CRM-таблицы → `kind:'crm'` (удалять нельзя, только `app_*`), возвращены проверки удаления по CRM. Юнит 66/728, e2e 18/138.
+- kppdf (`fb0973e9`): compose без своей Mongo, сеть `data-core_default`, `MONGO_URI` из .env (пользователь `kppdf` readWrite), deploy.py требует `MONGO_URI`, scoped-ключи отклоняются. Образ собран заранее — простой kppdf ≈ 3 мин.
+- Проверено: kppdf и data-core health 200 (локально и через домен); материал, созданный через data-core, читается kppdf; удалённый через kppdf — 404 в data-core; read-ключ: data-core 200 / kppdf 401; `kppdf-mongo` остановлен, kppdf работает. Пользователь-admin общий (пароль kppdf).
+
 ## ⛔ Вне автономного выполнения (нужен доступ/участие)
 
 - [ ] J1. Подключение Google Таблицы (P0.2) — нужен реальный Google-аккаунут/таблица
