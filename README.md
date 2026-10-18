@@ -15,14 +15,20 @@
 
 ---
 
-## 📚 Навигация (с чего начать читать)
+## 📚 Навигация
+
+> 🤖 **ИИ-агентам:** начинать с [AGENTS.md](AGENTS.md) — там карта документации, команды, правила и ловушки.
 
 | Документ | Что внутри |
 |--|--|
-| **[VISION.md](VISION.md)** | Зачем проект существует, какая была проблема, какие рассматривались варианты и почему выбран этот, принципы |
-| **[ROADMAP.md](ROADMAP.md)** | Что сделано, чек-листы первых шагов (P0) и планы (P1/P2), известные шероховатости |
-| **[docs/CONNECT.md](docs/CONNECT.md)** | Как подключиться: JWT, ключи `kppd_`, примеры для разных платформ |
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**, **[docs/STACK.md](docs/STACK.md)**, **[docs/data-model.md](docs/data-model.md)** | Технические детали. `data-model.md` уже переписан под действующие сущности data-core (~28, подмножество kppdf-8.0); ARCHITECTURE/STACK — унаследованы из kppdf-8.0 |
+| **[VISION.md](VISION.md)** | Зачем проект, решения, принципы |
+| **[ROADMAP.md](ROADMAP.md)** | План (P0/P1/P2) |
+| **[docs/TASKS.md](docs/TASKS.md)** | Единый бэклог открытых задач (аудит 2026-10-18) |
+| **[docs/CONNECT.md](docs/CONNECT.md)** | Как подключиться: JWT, ключи `kppd_`, примеры |
+| **[docs/MAP.md](docs/MAP.md)** | Карта кода: модуль → маршруты → коллекции |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Путь запроса, auth/RBAC, слой данных, инфраструктура |
+| **[docs/data-model.md](docs/data-model.md)** | Сущности и поля (~28) |
+| **[docs/HISTORY.md](docs/HISTORY.md)** | Журнал сделанного и проверок |
 
 ---
 
@@ -30,18 +36,14 @@
 
 ```
 data-core/
-├── VISION.md           ← ЗАЧЕМ: контекст, решения, принципы
-├── ROADMAP.md          ← ЧТО ДЕЛАТЬ: чек-листы и планы
-├── backend/            ← NestJS API (авторизация, ключи, модули данных)
-├── docker-compose.yml  ← весь стек: mongo:4.4 (rs0) + backend
-├── .env.example        ← шаблон настроек (скопируй в .env)
-├── deploy/synology/    ← скрипты деплоя и бэкапа на Synology VM
-└── docs/
-    ├── CONNECT.md      ← КАК ПОДКЛЮЧИТЬСЯ с любой платформы
-    ├── ARCHITECTURE.md ← архитектура (унаследована из kppdf-8.0)
-    ├── STACK.md        ← стек технологий
-    ├── data-model.md   ← описание данных (~28 сущностей, подмножество kppdf-8.0)
-    └── data-model-audit.md
+├── AGENTS.md / CLAUDE.md ← вход для ИИ-агентов
+├── VISION.md / ROADMAP.md
+├── backend/              ← NestJS API (src/, admin/ — админка, test/, scripts/)
+├── docker-compose.yml    ← mongo:4.4 (rs0, --auth) + backend
+├── .env.example          ← шаблон настроек (скопируй в .env)
+├── deploy/synology/      ← деплой (deploy.py) и бэкап (backup.sh) на VM
+├── .claude/skills/       ← скиллы агентов: verify, new-module, docs-sync, deploy
+└── docs/                 ← TASKS, MAP, ARCHITECTURE, CONNECT, data-model, HISTORY, openapi.json
 ```
 
 ## Быстрый старт

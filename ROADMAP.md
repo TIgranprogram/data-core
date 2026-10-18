@@ -1,7 +1,7 @@
 # ROADMAP — что сделано, что делать
 
-> Чек-лист проекта. Обновляй по мере прохождения: `[x]` = сделано.
-> Контекст и «почему» — в [VISION.md](../VISION.md). Как подключаться — в [docs/CONNECT.md](docs/CONNECT.md).
+> План проекта. Открытые мелкие задачи и находки аудита — в [docs/TASKS.md](docs/TASKS.md) (единый бэклог).
+> Контекст и «почему» — в [VISION.md](VISION.md). Как подключаться — в [docs/CONNECT.md](docs/CONNECT.md).
 
 ---
 
@@ -67,7 +67,7 @@
 
 ### 6. Публичный контракт (OpenAPI)
 - [x] CI/скрипт экспорта `openapi.json` в репозиторий
-  - 📝 `backend/src/export-openapi.ts` + `pnpm openapi:export` → генерирует из тех же декораторов, что и Swagger UI (общая конфиг `backend/src/swagger.config.ts`, title теперь «Data Core API», не «KPPDF API»). Локальный запуск: `docker compose exec backend node dist/src/export-openapi.js /app/openapi.json && docker compose cp backend:/app/openapi.json docs/openapi.json`. В репо: **`docs/openapi.json`** (373 paths, 442 KB).
+  - 📝 `backend/src/export-openapi.ts` + `pnpm openapi:export` → генерирует из тех же декораторов, что и Swagger UI (общая конфиг `backend/src/swagger.config.ts`, title теперь «Data Core API», не «KPPDF API»). Локальный запуск: `docker compose exec backend node dist/src/export-openapi.js /app/openapi.json && docker compose cp backend:/app/openapi.json docs/openapi.json`. В репо: **`docs/openapi.json`** (131 path после чистки H).
 - [ ] Решить: Swagger UI под ключом в prod (`SWAGGER_ENABLED=true`) или только статический `openapi.json`
 - _Критерий: любая платформа может сгенерировать клиент по файлу из репозитория_
 
@@ -106,15 +106,8 @@
 |--|-----------|-------------|
 | `.gitignore` (инцидент 2026-10-17) | Строка `uploads/` матчила `backend/src/modules/uploads/` и вырезала модуль из git → `nest build` падал. **Исправлено:** `/uploads/` + `backend/uploads/`, модуль восстановлен из kppdf | ✅ Закрыто; не возвращать голое `uploads/` |
 | Порты на рабочей машине | Контур `odr` занимает 3000/27017 | data-core на **3001/27018** (`.env`: `HOST_PORT`, `MONGO_PORT`); в compose порты параметризованы |
-| `deploy/synology/backup.sh` | Был настроен на `kppdf-mongo` / БД `kppdf` | ✅ Адаптирован на `datacore-mongo` / `datacore` (задача 3) |
-| `deploy/synology/deploy.*` | ~~Заточены под kppdf~~ | ✅ Адаптировано под data-core (задача F): NX-фронта нет, `/opt/data-core`, порт 3001, `.env` c MONGO_*; `config.env` (секреты) в архив не попадает |
-| `docker-compose.prod.yml` | Создан, но ещё не проверен реальным деплоем на VM | Задача 8 |
-| MongoDB | ~~Без аутентификации (`--auth` не включён)~~ | ✅ Включено локально (задача 4): `--auth` + `--keyFile` (обязателен при rs0!), пользователи `root`/`datacore`, `backup.sh` с паролем. Повторить на VM при деплое |
 | MongoDB keyfile | MongoDB **не стартует** с `--auth`+`--replSet` без `security.keyFile` (`BadValue`) | Сервис `mongo-keyfile` пишет файл (600, uid 999) в том `mongo-secrets`; `--keyFile /run/secrets/mongo-keyfile` |
 | Git Bash на Windows | MSYS конвертит `/tmp/...` → Windows-путь при вызове `docker exec` → `backup.sh` падает (`Could not find the file /tmp/...`) | Локально гонять с `MSYS_NO_PATHCONV=1`; на VM (Linux) не проявляется |
-| `backend/` | 92 модуля, большинство — CRM-балласт | Задача 5 |
 | Swagger | ~~`openapi.json` нигде не экспортируется~~ ✅ `docs/openapi.json` экспортируется (задача 6); в prod UI выключен по-прежнему | Решить: UI под ключом или только статический файл (задача 6) |
-| Версии Mongo | В prod kppdf — mongo 4.4; здесь — mongo 7 | Не смешивать контуры; не поднимать data-core на 4.4 |
-| `docs/ARCHITECTURE.md`, `STACK.md` | Исторические (из kppdf), содержат упоминания CRM | Переписать после чистки модулей |
-| `package.json` (backend) | `name: "kppdf-8.0-backend"`; ~~swagger-title «KPPDF API»~~ ✅ переименован в «Data Core API» (задача 6) | Переименовать `name` при чистке (задача 5/8) |
+| `package.json` (backend) | `name: "kppdf-8.0-backend"` | TASKS T5 |
 | `kppd_`-ключ и `/api/admin/users` | Ключ не несёт owner-флага → owner-admin скрыт (TZ-AUTH-306), `total:0` | Ожидаемо; для данных ключ работает. Не путать за баг |

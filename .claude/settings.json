@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit*)",
+      "Bash(npx jest*)",
+      "Bash(npx eslint*)",
+      "Bash(npx nest build*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(docker ps*)",
+      "Bash(docker compose ps*)",
+      "Bash(docker compose logs*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./deploy/synology/config.env)",
+      "Bash(*deploy.py*--wipe*)",
+      "Bash(*deploy.ps1*-Wipe*)"
+    ]
+  }
+}

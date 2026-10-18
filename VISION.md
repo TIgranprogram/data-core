@@ -1,7 +1,7 @@
 # VISION — зачем существует Personal Data Core
 
 > Полный контекст проекта: откуда пришли, какую задачу решаем, какие были варианты и почему выбран этот.
-> Дополняет [README](../README.md) (что это и как запустить) и [ROADMAP](../ROADMAP.md) (что делать).
+> Дополняет [README](README.md) (что это и как запустить) и [ROADMAP](ROADMAP.md) (что делать).
 
 ---
 
@@ -60,18 +60,18 @@
 
 Проект вынесен **целиком, без вычистки** (решение: сначала полный перенос, потом чистка):
 
-- ✅ `backend/` — NestJS + Mongoose: auth, users, roles, permissions, settings, audit, health, ключи `kppd_` (модуль `desktop`), 92 модуля (включая CRM-домен, который будет чиститься)
-- ✅ `docker-compose.yml` — `mongo:7` (Replica Set `rs0`) + backend, Mongo только на localhost
+- ✅ `backend/` — NestJS + Mongoose: auth, users, roles, permissions, settings, audit, health, ключи `kppd_` (модуль `desktop`), изначально 92 модуля; CRM-домен затем удалён (задача H) → 37
+- ✅ `docker-compose.yml` — Mongo (Replica Set `rs0`, сейчас `mongo:4.4`) + backend, Mongo только на localhost
 - ✅ `deploy/synology/` — деплой/бэкап (без секретов; реальные значения в gitignored `config.env` / `CREDENTIALS.md`)
 - ✅ `docs/` — ARCHITECTURE, STACK, data-model (+audit), CONNECT (как подключаться)
 - ❌ Не перенесилось (осталось в kppdf-8.0): frontend, desktop, mobile, задачи/очередь, данные (`data/`), аналитика
 
-## 6. Текущее состояние (2026-10-17)
+## 6. Текущее состояние (2026-10-18)
 
 - Репозиторий: **https://github.com/TIgranprogram/data-core** (Private), локально: `D:\data-core`
 - Код: полный бэкенд + compose + документация для подключений; инфраструктурные данные (IP/домены) вычищены из git, реальные значения — в локальных gitignored файлах
 - **Работает прод-контур kppdf (на той же VM)** — data-core деплоится отдельным контуром (`/opt/data-core`, `/var/lib/datacore`), чтобы не трогать работающий CRM
-- Не сделано: чистка CRM-модулей, Mongo-аутентификация, админка пользователей/ключей, публичный OpenAPI — см. [ROADMAP](../ROADMAP.md)
+- Сделано: чистка CRM-модулей, Mongo-аутентификация, админка, OpenAPI, деплой на VM, бэкапы. Открытое — [ROADMAP](ROADMAP.md) и [docs/TASKS.md](docs/TASKS.md)
 
 ## 7. Чего здесь НЕ будет
 

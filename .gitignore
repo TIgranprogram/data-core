@@ -16,3 +16,6 @@ backend/uploads/
 # Локальные секреты (копируются вручную при переносе на новую машину/клон)
 deploy/synology/config.env
 deploy/synology/CREDENTIALS.md
+
+# Claude Code — личные настройки
+.claude/settings.local.json

@@ -1,0 +1,68 @@
+# MAP — карта кода (модуль → маршруты → коллекции)
+
+> Все пути относительно `backend/src/`. Маршруты — под префиксом `/api`. Точные контракты: grep по `docs/openapi.json`.
+> Типовой модуль: `modules/<m>/{<m>.module,.controller,.service,.schema}.ts` + `dto/` + `*.spec.ts`. Открывай только нужный файл.
+
+## Платформенное ядро
+
+| Модуль | Маршруты | Коллекции | Заметки |
+|--|--|--|--|
+| `auth` | `/auth/login` `refresh` `logout` `me` `register`(→410) | — | JWT access 15м; refresh через strategy `jwt-refresh`; login-softlock в `common/login-softlock` |
+| `user` | `/users`, `/users/:id`, `/users/me/profile`, `change-password` | `users` | `refreshTokenVersion` инвалидирует refresh-токены |
+| `role` | `/roles` | `roles` | системные роли admin/manager/user (сид) |
+| `permissions` | — (сервис) | `permissions` | каталог прав: `common/seed/permissions.constants.ts` |
+| `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]` | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind: core/link/legacy`) |
+| `desktop` | `/desktop/pairing-keys` (выдать/список/revoke), `/desktop/pairing`, `/desktop/compat` | `desktop_pairing_keys` | **машинные ключи `kppd_`**; проверка ключа — `desktop-pairing-key.service.ts` `authenticateBearer` |
+| `device-enrollment` | `/device/*`, `/admin/devices/*` | `browserdevicegrants`, `deviceinvites` | привязка браузеров по cookie `__Host-kppdf-device` |
+| `audit` | `/audit-logs` | `auditlogs` | пишется `AuditInterceptor` + `@AuditAction` |
+| `setting` | `/settings`, `/settings/:key`, `catalog-appearance` | `settings` | сид `settings.seed.ts` |
+| `feature-flag` | `/feature-flags` | `featureflags` | |
+| `rate-limit` | `/rate-limits` | `rate_limit_entries` | просмотр/сброс блокировок |
+| `status` | `/statuses/:entityType`, `/workflows/:entityType` | `entitystatuses`, `statusworkflows` | |
+| `counter` | `/internal/counter/test` (⚠ тестовый, см. TASKS) | `counters` | атомарная нумерация |
+| `dictionary-label` | `/dictionary-labels` | `dictionary_labels` | подписи справочников |
+| `photos` | `/photos`, `/photos/upload`, `/photos/:id/frame` | `photos` | sharp-превью; файлы в `uploads/` → `/uploads/*` |
+
+## Канонические справочники
+
+| Модуль | Маршруты | Коллекции | Заметки |
+|--|--|--|--|
+| `organization` (+`contacts/`) | `/organizations`, `/organizations/current`, `/organizations/:id/assets/:role`, `/organizations/:orgId/contacts` | `organizations`, `organizationcontacts` | мульти-орг: `organizationId` во многих сущностях |
+| `counterparty` | `/counterparties`, `/counterparties/quick` | `counterparties` | ИНН-валидатор `common/validators/inn.validator.ts` |
+| `person` | `/persons` | `persons` | |
+| `site` | `/sites`, `/sites/ensure-default` | `sites` | площадки контрагента |
+| `role-org` / `role-counterparty` | `/org-roles`, `/counterparty-roles` | `orgroles`, `counterpartyroles` | сиды |
+| `category` | `/categories`, `tree`, `reorder`, `reorder-children` | `categories` | дерево |
+| `unit` / `currency` | `/units`, `/currencies` (по `:key`), `active` | `units`, `currencies` | сиды; валюта всегда RUB |
+| `color-reference` | `/color-references` | `color_references` | RAL; сид «Не выбран» |
+| `work-type` | `/work-types`, `where-used` | `worktypes` | нужен product/product-module (populate) |
+| `material` | `/materials`, `composition`, `tree`, `where-used`, `duplicate` | `materials` | создание требует `name`, `article`, `unit` |
+| `product` | `/products`, `bulk`, `composition`, `tree`, `where-used`, `duplicate`, `:productId/modules` | `products` | EAV-атрибуты, состав (composition-lines) |
+| `product-module` | `/modules`, `bulk`, `composition`, `tree`, `where-used` | `productmodules` | |
+| `product-photo` / `product-module-photo` | `/products/:productId/photos`, `/product-module-photos` | `productphotos`, `productmodulephotos` | |
+| `product-passport` | `/passports`, `/products/:productId/passport` | `productpassports` | |
+| `attribute-definition` | `/attribute-definitions` | `attributedefinitions` | EAV: определения |
+| `entity-attribute-value` | `/:entityType/:entityId/attributes[/:attributeId]` | `entityattributevalues` | EAV: значения; логика в `common/eav/eav.service.ts` |
+
+**Вспомогательные (без контроллеров):** `catalog` — composition-line (DTO/схема/сервис состава), `catalog-graph` — обход дерева состава / where-used (используют material, product, product-module, work-type), `document-render` — утилиты форматирования.
+
+## common/ и прочее
+
+| Путь | Что |
+|--|--|
+| `common/guards/` | `jwt-auth.guard` (JWT **или** `kppd_` из `Authorization: Bearer`/`X-Access-Token`), `permissions.guard`, `roles.guard`, `throttler-behind-auth.guard`, `last-admin`/`owner-*` guards |
+| `common/decorators/` | `@Public` `@Roles` `@Permissions` `@CurrentUser` `@AuditAction` `@IsObjectId` |
+| `common/filters/` | `http-exception` (CastError→400), `multer-exception` (413/400), `version-conflict` (optimistic lock) |
+| `common/interceptors/` | `user-context`, `audit` (глобальные) |
+| `common/seed/` | сиды на старте (`OnApplicationBootstrap`): admin, permissions, roles, settings, statuses, units, categories, currencies, colors, org/counterparty roles |
+| `common/idempotency/` | `Idempotency-Key` middleware + хранилище |
+| `common/mongoose/optimistic-lock.plugin.ts` | версия документа → 409 при конфликте |
+| `database/` | `database.module.ts` (подключение + глобальные плагины `soft-delete`, `audit`, `user-context`) |
+| `config/` | `configuration.ts` (env → конфиг), `env.validation.ts` (Joi), `secret-validation.service.ts` (в prod падает при слабых секретах) |
+| `health.controller.ts` | `/health`, `/health/ready`, `/health/live` (публичные) |
+| `swagger.config.ts`, `export-openapi.ts` | Swagger UI `/docs` (не в prod) и экспорт `openapi.json` |
+| `../admin/` | админка: `index.html`, `admin.js` (вся логика), `admin.css` |
+
+## Мёртвый код (не опирайся, кандидаты на удаление — TASKS T2)
+
+`common/db/session-runner.ts`, `common/interceptors/logging.interceptor.ts`, `common/interceptors/org-scope.interceptor.ts`, `common/guards/ownership/*`, `common/mongoose/index.ts`, `common/pdf/pdf-semaphore.ts`, `common/sanitize-html.ts`, `common/snapshot/*`, `common/validators/is-object-id.pipe.ts`, `modules/product/dto/query-product.dto.ts`, `database/migrations/*` (нигде не запускаются).
