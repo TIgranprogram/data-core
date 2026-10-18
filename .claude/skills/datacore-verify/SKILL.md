@@ -11,7 +11,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 
 ```bash
 npx tsc --noEmit            # норма: exit 0
-npx jest --silent           # норма: все suites passed (база 62/575 на 2026-10-18, после T2)
+npx jest --silent           # норма: все suites passed (база 63/593 на 2026-10-18)
 npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
 ```
 
