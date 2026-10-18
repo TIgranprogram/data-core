@@ -2,7 +2,10 @@
  * Один файл, ходит в тот же origin на /api. JWT живёт в sessionStorage.
  */
 (() => {
-  const API = '/api';
+  // Админка может жить за префиксом прокси (https://<домен>/db/admin/ → /admin/).
+  // PREFIX = всё до «/admin» в текущем пути: '' локально, '/db' за nginx.
+  const PREFIX = location.pathname.replace(/\/admin(\/.*)?$/, '');
+  const API = PREFIX + '/api';
   const store = {
     get token() { return sessionStorage.getItem('dc_token') || ''; },
     set token(v) { v ? sessionStorage.setItem('dc_token', v) : sessionStorage.removeItem('dc_token'); },
@@ -176,7 +179,7 @@
   function openKeyDialog() {
     $('#k-label').value = ''; $('#k-ttl').value = '30d';
     $('#k-access').value = 'write'; $('#k-apps').value = '';
-    $('#k-apiBaseUrl').value = location.origin;
+    $('#k-apiBaseUrl').value = location.origin + PREFIX;
     $('#key-form-error').hidden = true;
     $('#key-dialog').showModal();
   }
