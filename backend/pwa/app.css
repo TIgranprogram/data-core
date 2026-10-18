@@ -92,3 +92,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outl
 .tabs { flex: 1 1 auto; min-width: 0; }
 .net { margin-left: 0; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
 @media (max-width: 600px) { .topbar { gap: 4px; padding: 4px 8px; } .tab { padding: 8px 8px; } .topbar-logo { width: 22px; height: 22px; } }
+/* Кнопка возврата в CRM kppdf (корень того же домена) */
+.crm-link { flex-shrink: 0; display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 6px; background: var(--yellow); color: var(--blue-deep); font-weight: 700; font-size: 13px; text-decoration: none; white-space: nowrap; }
+.crm-link:hover { background: #ffe07a; }
+@media (max-width: 600px) { .crm-link { height: 28px; padding: 0 8px; font-size: 12px; } }

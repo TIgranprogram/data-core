@@ -3,7 +3,7 @@
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
  * Данные /api не кэшируются здесь — их хранит само приложение в IndexedDB.
  */
-const SHELL = 'dc-app-shell-v1';
+const SHELL = 'dc-app-shell-v2';
 const PHOTOS = 'dc-app-photos-v1';
 const SHELL_FILES = ['./', './index.html', './app.css', './app.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
