@@ -24,6 +24,7 @@ describe('Sheets sync (Google service account)', () => {
   // Состояние «Google-таблицы»
   let supply: unknown[][];
   let stock: unknown[][];
+  const invoices: unknown[][] = [['№', 'Поставщик', 'Наименование'], [1, 'ООО Крепёж', 'Счёт на болты']];
   let shared = true;
 
   const fakeGoogle: typeof fetch = async (input) => {
@@ -33,9 +34,9 @@ describe('Sheets sync (Google service account)', () => {
     if (!shared) return json(403, { error: { message: 'The caller does not have permission' } });
     if (url.includes('values:batchGet')) {
       const ranges = new URL(url).searchParams.getAll('ranges');
-      return json(200, { valueRanges: ranges.map((r) => ({ values: r.includes('Склад') ? stock : supply })) });
+      return json(200, { valueRanges: ranges.map((r) => ({ values: r.includes('Склад') ? stock : r.includes('Реестр') ? invoices : supply })) });
     }
-    return json(200, { properties: { title: 'Снабжение и склад (тест)' }, sheets: [{ properties: { title: 'Снабжение' } }, { properties: { title: 'Склад' } }, { properties: { title: 'Прочее' } }] });
+    return json(200, { properties: { title: 'Снабжение и склад (тест)' }, sheets: [{ properties: { title: 'Снабжение' } }, { properties: { title: 'Реестр счетов' } }, { properties: { title: 'Склад' } }, { properties: { title: 'Прочее' } }] });
   };
 
   const db = () => ctx!.connection.db!;
@@ -53,7 +54,7 @@ describe('Sheets sync (Google service account)', () => {
     sync = app.get(SheetsSyncService);
     sync.fetchFn = fakeGoogle;
     token = await loginAsAdmin(app);
-    for (const c of ['supplyrequests', 'materials', 'storageitems', 'organizations', 'warehouses', 'sheets_sync_sources']) await db().collection(c).deleteMany({});
+    for (const c of ['app_supply_invoices', 'supplyrequests', 'materials', 'storageitems', 'organizations', 'warehouses', 'sheets_sync_sources']) await db().collection(c).deleteMany({});
     await db().collection('warehouses').insertOne({ name: 'Главный склад', type: 'main', isActive: true, isDefault: true, deletedAt: null });
 
     const head = ['№', 'Дата', 'Наименование', 'Кол-во', 'Статус', 'Поставщик', 'Тип счета', 'Фото'];
@@ -86,13 +87,13 @@ describe('Sheets sync (Google service account)', () => {
   it('подключение по ссылке находит листы', async () => {
     const r = await request(app.getHttpServer()).post('/api/admin/sheets-sync/sources').set(authHeader(token.access)).send({ url: `https://docs.google.com/spreadsheets/d/${SID}/edit#gid=0` }).expect(201);
     expect(r.body.spreadsheetId).toBe(SID);
-    expect(r.body.sheetsFound).toEqual(['Снабжение', 'Склад']);
+    expect(r.body.sheetsFound).toEqual(['Снабжение', 'Реестр счетов', 'Склад']);
   });
 
   it('вторая таблица с копией листа «Снабжение» (IMPORTRANGE) — копия не берётся', async () => {
     const r = await request(app.getHttpServer()).post('/api/admin/sheets-sync/sources').set(authHeader(token.access)).send({ url: 'TEST_SHEET_2_copy_abcdefghijklmn' }).expect(201);
     expect(r.body.sheetsFound).toEqual([]);
-    expect(r.body.sheetsSkipped).toEqual(['Снабжение', 'Склад']);
+    expect(r.body.sheetsSkipped).toEqual(['Снабжение', 'Реестр счетов', 'Склад']);
     await request(app.getHttpServer()).delete(`/api/admin/sheets-sync/sources/${r.body.id}`).set(authHeader(token.access)).expect(200);
   });
 
@@ -104,6 +105,7 @@ describe('Sheets sync (Google service account)', () => {
     expect(r.body.items[0].error).toBeNull();
     expect(r.body.items[0].lines).toEqual([
       'Снабжение: строк 10, новых 10, изменено 0, удалено 0',
+      'Реестр счетов: строк 1, новых 1, изменено 0, удалено 0',
       'Склад: строк 2, новых 1, изменено 0, связано с существующими 1',
     ]);
     const reqs = await live('supplyrequests');
@@ -129,7 +131,8 @@ describe('Sheets sync (Google service account)', () => {
   it('повтор — без изменений и без дублей', async () => {
     const r = await run();
     expect(r.body.items[0].lines[0]).toBe('Снабжение: строк 10, новых 0, изменено 0, удалено 0');
-    expect(r.body.items[0].lines[1]).toBe('Склад: строк 2, новых 0, изменено 0');
+    expect(r.body.items[0].lines[1]).toBe('Реестр счетов: строк 1, новых 0, изменено 0, удалено 0');
+    expect(r.body.items[0].lines[2]).toBe('Склад: строк 2, новых 0, изменено 0');
     expect(await live('supplyrequests')).toHaveLength(11);
     expect(await live('materials')).toHaveLength(2);
   });
@@ -144,6 +147,7 @@ describe('Sheets sync (Google service account)', () => {
     const r = await run();
     expect(r.body.items[0].lines).toEqual([
       'Снабжение: строк 9, новых 0, изменено 3, удалено 1',
+      'Реестр счетов: строк 1, новых 0, изменено 0, удалено 0',
       'Склад: строк 1, новых 0, изменено 1, нет в таблице 1 (не удаляются)',
     ]);
     const reqs = await live('supplyrequests');

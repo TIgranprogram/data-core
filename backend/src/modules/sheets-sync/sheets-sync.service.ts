@@ -320,6 +320,6 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
     }
     for (let i = 0; i < ops.length; i += 500) await coll.bulkWrite(ops.slice(i, i + 500), { ordered: false });
 
-    return `${map.sheet}: строк ${rows.length}, новых ${created}, изменено ${updated}` + + `, удалено ${deleted}${guard}`;
+    return `${map.sheet}: строк ${rows.length}, новых ${created}, изменено ${updated}, удалено ${deleted}${guard}`;
   }
 }
