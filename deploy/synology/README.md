@@ -34,12 +34,14 @@
 2. Архив `backend/` + `docker-compose.prod.yml` + `deploy/` (без `node_modules`, `dist`, `.env`, `config.env`, `CREDENTIALS.md`).
 3. SSH (ключ → пароль → agent); `sudo mkdir/chown REMOTE_DIR`; при `--wipe` — стирание (ниже); создание `DATA_DIR/{mongodb,uploads,backups}` (mongodb → uid 999).
 4. Загрузка и распаковка архива поверх `REMOTE_DIR`; генерация `REMOTE_DIR/.env` (секреты, `MONGO_URI`, `MONGO_IMAGE`, `SWAGGER_ENABLED=false`).
-5. `docker compose -f docker-compose.prod.yml down --remove-orphans` → `build backend` (кроме `--skip-build`) → `up -d`. **Даунтайм data-core на время сборки.**
+5. `build backend` (кроме `--skip-build`; старый backend работает) → `up -d` — пересоздаются только изменившиеся контейнеры. **Без `down`**: `datacore-mongo` обслуживает и kppdf, остановка базы уронила бы CRM.
 6. Проверки: rs0 `ok` → `GET :3001/api/health/ready` (до 120 с; иначе печатает логи и `FAIL`) → `POST /api/auth/login` admin → `/admin/` 200 → Mongo без пароля отклоняет чтение.
 
 Флаги: `--skip-build`, `--platform ubuntu|synology` (synology: `/volume1/docker/...`), `--host/--user/--password` (перекрывают `config.env`). `DEPLOY_SSH_KEY` из переменной окружения важнее `config.env`.
 
 ## ⚠️ `--wipe` / `-Wipe` / `WIPE=true`
+
+**С 2026-10-18 заблокирован в `deploy.py`:** база общая с CRM kppdf, wipe сотрёт и его данные. Снять блок можно только `FORCE_WIPE_UNIFIED=yes` — по письменному решению пользователя и после бэкапа.
 
 Только по явному письменному «да, стереть данные» пользователя. Делает: `compose down`, `docker rm -f datacore-backend datacore-mongo`, **`rm -rf REMOTE_DIR/*`, `DATA_DIR/mongodb/*` и `DATA_DIR/uploads/*`** (бэкапы в `DATA_DIR/backups` остаются). kppdf не трогает. Включается и строкой `WIPE=true` в `config.env` — проверь, что её там нет.
 

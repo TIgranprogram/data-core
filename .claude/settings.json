@@ -15,6 +15,11 @@
     "deny": [
       "Read(./.env)",
       "Read(./deploy/synology/config.env)",
+      "Read(./deploy/synology/CREDENTIALS.md)",
+      "Read(./.claude/worktrees/**)",
+      "Read(./.data/**)",
+      "Read(./backend/node_modules/**)",
+      "Read(./backend/dist/**)",
       "Bash(*deploy.py*--wipe*)",
       "Bash(*deploy.ps1*-Wipe*)"
     ]

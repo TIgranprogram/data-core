@@ -46,7 +46,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 66 suites / 723 tests; e2e 18 / 137 (на 2026-10-18, после P1+P2+T18) |
+| Юнит-тесты | `npx jest --silent` | 66 suites / 728 tests; e2e 18 / 138 (на 2026-10-18) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |
@@ -72,7 +72,7 @@ pnpm в PATH может не быть → используй `npx`.
 - `GET /api/admin/users` через `kppd_`-ключ → `total:0`: owner-админ скрыт от не-owner актора (TZ-AUTH-306). Не баг.
 - Модели с soft-delete: обычные запросы скрывают `deletedAt != null`; админ-«Таблицы» читают сырые коллекции.
 - `AuditService.log` приводит `entityId` к ObjectId — не-hex строку туда не клади (пиши в `details`).
-- В БД остаются **55 legacy-коллекций** удалённого CRM-домена (реестр в `modules/admin/collections-admin.controller.ts`, `kind:'legacy'`).
+- В БД есть таблицы CRM kppdf (`kind:'crm'` в реестре `modules/admin/collections-admin.controller.ts`) — это **живые данные kppdf** на общей базе: не удалять, не менять их схему из data-core.
 - **Никогда не запускай `bash -x` / `set -x` на скриптах, которые читают `.env`** — трассировка печатает секреты (инцидент 2026-10-18, T22).
 - Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.
 - e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `datacore-test`). Никогда не направляй его на `datacore`.

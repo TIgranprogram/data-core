@@ -11,7 +11,7 @@
 | `user` | `/users`, `/users/:id`, `/users/me/profile`, `change-password` | `users` | `refreshTokenVersion` инвалидирует refresh-токены |
 | `role` | `/roles` | `roles` | системные роли admin/manager/user (сид) |
 | `permissions` | — (сервис) | `permissions` | каталог прав: `common/seed/permissions.constants.ts` |
-| `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]` | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind: core/link/legacy`; `app_*` → `kind:'app'`, категория «Данные приложений») |
+| `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]` | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind`: `core` / `link` / `crm` — таблицы CRM kppdf на общей базе, не удаляются / `app` — `app_*`, единственное, что можно удалить из админки) |
 | `desktop` | `/desktop/pairing-keys` (выдать/список/revoke), `/desktop/pairing`, `/desktop/compat` | `desktop_pairing_keys` | **машинные ключи `kppd_`**; проверка ключа — `desktop-pairing-key.service.ts` `authenticateBearer`; scope ключа (P2) — `common/guards/key-scope.ts` |
 | `device-enrollment` | `/device/*`, `/admin/devices/*` | `browserdevicegrants`, `deviceinvites` | привязка браузеров по cookie `__Host-kppdf-device` |
 | `audit` | `/audit-logs` | `auditlogs` | пишется `AuditInterceptor` + `@AuditAction` |
@@ -64,6 +64,6 @@
 | `swagger.config.ts`, `export-openapi.ts` | Swagger UI `/docs` (не в prod) и экспорт `openapi.json` |
 | `../admin/` | админка: `index.html`, `admin.js` (вся логика), `admin.css` |
 
-## Мёртвый код (TASKS T2 — вычищен)
+## Таблицы CRM kppdf
 
-Удалён в T2 (2026-10-18). Известных мёртвых файлов нет. `common/mongoose/index.ts` ранее числился здесь ошибочно — он реэкспортирует `optimisticLockPlugin` (используют схемы category/material/organization/product).
+В базе `datacore` живут и коллекции CRM kppdf (заказы, КП, склад, производство, документы…): модулей в data-core для них нет, пишет kppdf (`D:\kppdf-8.0`). В реестре — `kind:'crm'`. Проверки удаления справочников учитывают ссылки из них (`modules/catalog/catalog-references.ts` → `isUsedByCrm`).

@@ -423,6 +423,13 @@ def wipe_remote(remote, settings):
     """Stop stack and delete app dir + mongo data (dev/demo wipe only)."""
     remote_dir = settings["remote_dir"]
     data_dir = settings["data_dir"]
+    # ЕДИНАЯ БАЗА: в datacore лежат и данные CRM kppdf — wipe уничтожит их тоже.
+    if os.environ.get("FORCE_WIPE_UNIFIED") != "yes":
+        fail(
+            "WIPE запрещён: база datacore общая с CRM kppdf (единая база с 2026-10-18), "
+            "wipe сотрёт и данные kppdf. Только по письменному решению пользователя и после "
+            "бэкапа: FORCE_WIPE_UNIFIED=yes python deploy/synology/deploy.py --wipe"
+        )
     log("WIPE: stopping containers and clearing " + remote_dir + " + mongo data")
     remote.exec_sudo(
         "cd " + remote_dir + " && "
@@ -590,11 +597,13 @@ def main():
 
     print()
     print("Step 5/6: Docker build & start...")
+    # ЕДИНАЯ БАЗА (2026-10-18): datacore-mongo обслуживает и CRM kppdf. Без `down`:
+    # сначала собираем образ (старый backend работает), затем `up -d` пересоздаёт только
+    # изменившиеся контейнеры — mongo не останавливается, kppdf не теряет базу.
     if args.skip_build:
-        action = "$DC down --remove-orphans 2>/dev/null || true; $DC up -d"
+        action = "$DC up -d"
     else:
-        action = ("$DC down --remove-orphans 2>/dev/null || true; "
-                  "$DC build backend && $DC up -d")
+        action = "$DC build backend && $DC up -d"
     r = remote.docker_compose(settings["remote_dir"], action, timeout=900)
     ok("Docker: " + (r[:400] if r else "ok"))
     if r and ("ERR:" in r or "error" in r.lower() or "Error" in r):

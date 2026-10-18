@@ -68,12 +68,29 @@
 - kppdf (`fb0973e9`): compose без своей Mongo, сеть `data-core_default`, `MONGO_URI` из .env (пользователь `kppdf` readWrite), deploy.py требует `MONGO_URI`, scoped-ключи отклоняются. Образ собран заранее — простой kppdf ≈ 3 мин.
 - Проверено: kppdf и data-core health 200 (локально и через домен); материал, созданный через data-core, читается kppdf; удалённый через kppdf — 404 в data-core; read-ключ: data-core 200 / kppdf 401; `kppdf-mongo` остановлен, kppdf работает. Пользователь-admin общий (пароль kppdf).
 
-## ⛔ Вне автономного выполнения (нужен доступ/участие)
+## ✅ Аудит и доработки 2026-10-18 — закрытые задачи (кратко)
 
-- [ ] J1. Подключение Google Таблицы (P0.2) — нужен реальный Google-аккаунут/таблица
-- [ ] J2. Копия бэкапов вне NAS (P0.3) — USB/второй физический диск
-- [ ] J3. Смена дефолтного пароля админа — делается вручную в админке
+| Задача | Что сделано / как проверено |
+|--|--|
+| T1 | Проверки удаления справочников — общий `catalog/catalog-references.ts`; после объединения баз добавлен `isUsedByCrm` (ссылки из CRM kppdf снова блокируют). Юнит `catalog-delete-guards.spec.ts`. |
+| T2 | Мёртвый код удалён (ownership/org-scope, pdf, snapshot, sanitize-html, migrations, jsdom/dompurify). |
+| T3 | Chromium/шрифты/puppeteer убраны → образ 2,02 ГБ → 623 МБ. |
+| T4, T4a | main.ts: убраны SPA/downloads/Tauri-CORS/TZ-DOC-323; CORS только из env. |
+| T5 | Имена kppdf → datacore в конфиге; тестовая БД `datacore-test`. |
+| T6 | Удалён `/api/internal/counter/test`; openapi перегенерирован. |
+| T7, T8, T13 | Деплой-доки сведены в `deploy/synology/README.md`; CONNECT.md по факту кода; `.env.example` дополнен. |
+| T11, T12 | Висячий `ref: 'WorkCenter'` убран; `pnpm lint` починен. |
+| T14 | 6 мёртвых ссылок на доки в коде исправлены. |
+| T15 | Каталог прав data-core 30 → 16 (kppdf досоздаёт свои — объединение). |
+| T16, T17 | kppdf-скрипты reset-admin-password/server-setup удалены; `backup.sh` читает корневой .env как запасной (проверено на VM). |
+| T18 | Глобальный `IdNormalizeInterceptor`: `id` рядом с `_id` во всех ответах. |
+| T19 | Имя бэкапа с секундами; плюс fix: ротация удаляла свежую копию uploads (`touch` после `cp -a`). |
+| T22 | Пароль root Mongo сменён после утечки в лог (`bash -x`); старый отклоняется. |
+| P1 | `/api/apps/:app/:collection` — хранилище данных приложений без кода на сервере. |
+| P2 | Scope ключей `kppd_`: read / write / full + apps; kppdf отклоняет ключи со scope. |
+| J2 | Копия бэкапов на Windows: задача «DataCore backup pull» → `D:\datacore-backups`, 30 дней. |
+| D1 | Swagger в prod выключен (контракт — `docs/openapi.json`). |
+| D7, D8 | Старая база kppdf удалена (бэкап `kppdf-premerge-2026-10-18_090145` сохранён); kppdf перенесён на GitHub `TIgranprogram/kppdf-8.0`. |
+| Прочее | Публичный доступ `https://kppdf-crm.ru/db/`; единая база data-core + kppdf; админка под префиксом; CRM-таблицы `kind:'crm'` не удаляются. |
 
----
-
-_Статус обновляется по ходу. Старт: A1._
+Итоговые нормы: typecheck 0 · юнит 66/728 · e2e 18/138 · eslint 0 errors. Открытое — [TASKS.md](TASKS.md).
