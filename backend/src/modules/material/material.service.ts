@@ -10,6 +10,7 @@ import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
 import { CompositionLineService } from '../catalog/composition-line.service';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
 import { CompositionLineDocumentShape } from '../catalog/composition-line.schema';
+import { isUsedInComposition } from '../catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()
@@ -263,10 +264,8 @@ export class MaterialService {
       ? await this.model.findOne({ _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }).exec()
       : await this.model.findById(id).exec();
     if (!doc || doc.deletedAt) throw new NotFoundException(`Material ${id} not found`);
-    const moduleRefs = await this.model.db.collection('productmodules').findOne({ $or: [{ 'composition.refId': doc._id, 'composition.lineType': 'material' }, { 'materials.materialId': doc._id }] });
-    const costRefs = await this.model.db.collection('costcalculations').findOne({ 'materials.materialId': doc._id });
-    const purchaseRefs = await this.model.db.collection('purchaseorders').findOne({ 'items.materialId': doc._id });
-    if (moduleRefs || costRefs || purchaseRefs) throw new ConflictException('Material is referenced by catalog history and cannot be archived');
+    const used = await isUsedInComposition(this.model.db, 'material', doc._id, { productmodules: [{ 'materials.materialId': doc._id }] });
+    if (used) throw new ConflictException('Material is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, { $set: { deletedAt: new Date() } }).exec();
   }
 

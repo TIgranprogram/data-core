@@ -20,10 +20,10 @@ import {
 describe('RBAC contract (TZ-254)', () => {
   describe('catalog re-export', () => {
     it('exports the same PERMISSIONS catalog as the seed module', () => {
-      // 30 keys seeded by PermissionsService (3+3+3+2+2+3+2+2+3+2+2+2+1 desktop);
-      // we use a smoke-test bound to catch accidental truncation or remap.
-      // TZD-72 added `desktop:admin` (29 -> 30).
-      expect(PERMISSIONS.length).toBe(30);
+      // 16 keys seeded by PermissionsService: user 3 + role 3 + product 3 + category 2 + material 2 + production 2 + desktop 1.
+      // Smoke-test bound to catch accidental truncation or remap.
+      // TZD-72 added `desktop:admin` (29 -> 30); T15 removed the CRM sections (30 -> 16).
+      expect(PERMISSIONS.length).toBe(16);
     });
 
     it('every permission key is well-formed `<section>:<action>`', () => {
@@ -44,26 +44,11 @@ describe('RBAC contract (TZ-254)', () => {
       }
     });
 
-    it('covers identity (user, role) + catalog (product, category, material) + production + warehouse + procurement + sales + document + finance + system sections', () => {
-      // Widened Set<string> so the `sections.has(s)` lookup accepts the
-      // string literal — the runtime contract is unaffected.
-      const sections: Set<string> = new Set(PERMISSIONS.map((p) => p.section));
-      for (const s of [
-        'user',
-        'role',
-        'product',
-        'category',
-        'material',
-        'production',
-        'warehouse',
-        'procurement',
-        'sales',
-        'document',
-        'finance',
-        'system',
-      ]) {
-        expect(sections.has(s)).toBe(true);
-      }
+    it('covers exactly identity (user, role) + catalog (product, category, material) + production (work types) + desktop sections (T15)', () => {
+      const sections = new Set<string>(PERMISSIONS.map((p) => p.section));
+      expect([...sections].sort()).toEqual(
+        ['category', 'desktop', 'material', 'product', 'production', 'role', 'user'],
+      );
     });
   });
 

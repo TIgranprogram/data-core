@@ -273,10 +273,10 @@ describe('@Permissions decorator — canonical key construction', () => {
     expect(PERMISSIONS_KEY).toBe('permissions');
   });
 
-  it('canonical key set has 30 entries (matches the seed catalog)', () => {
+  it('canonical key set has 16 entries (matches the seed catalog)', () => {
     // Regression pin against catalog drift. If the seed in
     // permissions.constants.ts grows or shrinks, update this number
-    // and document why. TZD-72 added `desktop:admin` (29 -> 30).
-    expect(CANONICAL.size).toBe(30);
+    // and document why. TZD-72 added `desktop:admin` (29 -> 30); T15 removed CRM sections (30 -> 16).
+    expect(CANONICAL.size).toBe(16);
   });
 });
