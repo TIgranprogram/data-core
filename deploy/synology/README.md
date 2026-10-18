@@ -56,6 +56,19 @@
 - `backup.sh` берёт `MONGO_ROOT_PASSWORD` из `deploy/synology/.env` рядом со скриптом, а если его нет — из корневого `/opt/data-core/.env`, который пишет `deploy.py` (T17). Нет переменной нигде → `ERROR: MONGO_ROOT_PASSWORD is not set`, exit 1. Проверка: `tail /var/log/datacore-backup.log`, `ls /var/lib/datacore/backups`.
 - Restore-дрилл: `mongorestore --db datacore_restore_test <дамп>/datacore` (внутри `datacore-mongo`, от root) → `verify-restore.js` → `ALL COUNTS MATCH` → удалить `datacore_restore_test`. В живую `datacore` не восстанавливать без «да» пользователя.
 
+## Публичный доступ: https://kppdf-crm.ru/db/ (с 2026-10-18)
+
+```
+браузер/приложение → https://kppdf-crm.ru/db/...  → VPS nginx (location ^~ /db/, срезает /db)
+  → 127.0.0.1:4201 на VPS → обратный туннель datacore-tunnel → VM 127.0.0.1:3001 → datacore-backend
+```
+- Админка: `https://kppdf-crm.ru/db/admin/`; API: `https://kppdf-crm.ru/db/api/...` (`/db` → редирект на админку). kppdf на `/` не затронут.
+- Туннель: `deploy/synology/datacore-tunnel.sh` из **crontab пользователя tiit** (`* * * * *`, flock + autossh, sudo не нужен); `VPS_TARGET` — только в crontab. Проверка на VM: `pgrep -af "autossh.*4201"`. Туннель kppdf (`kppdf-tunnel`, 4200→3000) — отдельный systemd-сервис, не трогать.
+- nginx: блок из `deploy/synology/nginx-datacore-db.conf` вставлен перед `location /` в `/etc/nginx/sites-available/kppdf-proxy`. **Бэкап до правки:** `kppdf-proxy.bak-datacore-20261018`. **Откат:** `cp /etc/nginx/sites-available/kppdf-proxy.bak-datacore-20261018 /etc/nginx/sites-available/kppdf-proxy && nginx -t && systemctl reload nginx`.
+- Backend за прокси: `TRUST_PROXY=1` в `/opt/data-core/.env` (бэкап `.env.bak-20261018`) — rate-limit по реальному IP из `X-Forwarded-For`, который nginx перезаписывает.
+- Админка сама определяет префикс (`PREFIX` в `admin.js`) — работает и на `:3001/admin`, и на `/db/admin/`.
+- Порты 4200/4201 на VPS слушают `0.0.0.0` (sshd `GatewayPorts`), но снаружи закрыты фаерволом (проверено 2026-10-18). Не открывать.
+
 ## Диагностика на VM
 
 ```bash
