@@ -342,6 +342,21 @@
         }
       }
     },
+    "/": {
+      "get": {
+        "operationId": "ApiRootController_root",
+        "summary": "Справка по API (что это и куда идти дальше)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "health"
+        ]
+      }
+    },
     "/roles": {
       "get": {
         "operationId": "RoleController_findAll",
@@ -2234,6 +2249,81 @@
         },
         "tags": [
           "Данные приложений"
+        ]
+      }
+    },
+    "/admin/sheets-sync": {
+      "get": {
+        "operationId": "SheetsSyncController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/sheets-sync/sources": {
+      "post": {
+        "operationId": "SheetsSyncController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSheetSourceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/sheets-sync/sources/{id}": {
+      "delete": {
+        "operationId": "SheetsSyncController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/sheets-sync/run": {
+      "post": {
+        "operationId": "SheetsSyncController_run",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
         ]
       }
     },
@@ -6212,6 +6302,18 @@
       "UpdateDeviceDto": {
         "type": "object",
         "properties": {}
+      },
+      "AddSheetSourceDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Ссылка на Google-таблицу (https://docs.google.com/spreadsheets/d/…) или её ID"
+          }
+        },
+        "required": [
+          "url"
+        ]
       },
       "CreatePersonDto": {
         "type": "object",

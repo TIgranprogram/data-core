@@ -35,7 +35,7 @@
 | [VISION.md](VISION.md) | Зачем проект и принципы |
 | [docs/MAP.md](docs/MAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/data-model.md](docs/data-model.md) | Код, устройство, сущности |
 | [deploy/synology/README.md](deploy/synology/README.md) | Сервер: деплой, туннель `/db/`, единая база, откат |
-| [deploy/google-sheets/README.md](deploy/google-sheets/README.md) | Синхронизация Google-таблиц (Снабжение, Склад) с базой — установка за 5 минут; с Gemini — [GEMINI.md](deploy/google-sheets/GEMINI.md) |
+| [deploy/google-sheets/README.md](deploy/google-sheets/README.md) | Google-таблицы → база: сервер читает их сам (сервисный аккаунт, админка → «Google-таблицы»); запасной способ — Apps Script |
 | [deploy/supply-app/README.md](deploy/supply-app/README.md) | Приложение «Снабжение / Склад» и переход с таблиц |
 | [deploy/backup-pull/README.md](deploy/backup-pull/README.md) | Копия бэкапов на Windows-ПК, восстановление |
 | [docs/HISTORY.md](docs/HISTORY.md) | Что сделано и как проверялось |

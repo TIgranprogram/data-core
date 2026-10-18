@@ -102,6 +102,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   users: { category: 'access', kind: 'core', doc: 'Пользователи: логин, хеш пароля, роль, isActive. Хеш пароля не покидает API.' },
   roles: { category: 'access', kind: 'core', doc: 'Роли доступа (admin / manager / user) и назначенные им права.' },
   permissions: { category: 'access', kind: 'core', doc: 'Справочник прав, которые раздаются ролям и пользователям.' },
+  sheets_sync_sources: { category: 'access', kind: 'core', doc: 'Google-таблицы, которые сервер читает через сервисный аккаунт (ссылка, итог последней синхронизации).' },
   featureflags: { category: 'access', kind: 'core', doc: 'Переключатели функций платформы (feature flags).' },
   rate_limit_entries: { category: 'access', kind: 'core', doc: 'Счётчики rate-limiting по IP / пользователю (защита API от перебора).' },
   desktop_pairing_keys: { category: 'access', kind: 'core', doc: 'Машинные API-ключи kppd_… На сервере только хеш; есть TTL и отзыв.' },

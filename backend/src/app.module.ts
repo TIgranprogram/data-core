@@ -48,6 +48,7 @@ import { AttributeDefinitionModule } from './modules/attribute-definition/attrib
 import { EntityAttributeValueModule } from './modules/entity-attribute-value/entity-attribute-value.module';
 import { ProductPassportModule } from './modules/product-passport/product-passport.module';
 import { AppDataModule } from './modules/app-data/app-data.module';
+import { SheetsSyncModule } from './modules/sheets-sync/sheets-sync.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -141,6 +142,7 @@ import { RequestMethod } from '@nestjs/common';
     DeviceEnrollmentModule, // TZ-AUTH-303: /api/device/* + /api/admin/devices/*
     IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
     AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
+    SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
     // ─── Канонические справочники (VISION #4) ─────────────────────────
     PersonModule,

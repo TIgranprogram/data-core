@@ -66,6 +66,7 @@
     if (t.dataset.tab === 'keys') loadKeys();
     if (t.dataset.tab === 'tables') loadCollections();
     if (t.dataset.tab === 'connect') loadConnect();
+    if (t.dataset.tab === 'sheets') loadSheets();
     if (t.dataset.tab === 'audit') { auditState.page = 1; loadAudit(); }
   }));
 
@@ -499,6 +500,55 @@
       await loadCollections(true);   // перечитывает список и сводку
     } catch (e) { toast(e.message); }
   }
+
+  // ---- Google-таблицы (сервер читает их сервисным аккаунтом) ----
+  async function loadSheets() {
+    const list = $('#gs-list');
+    try {
+      const s = await api('/admin/sheets-sync');
+      $('#gs-interval').textContent = s.intervalMin;
+      $('#gs-email').textContent = s.serviceEmail || '—';
+      $('#gs-key-note').textContent = s.configured
+        ? 'Ключ Google установлен на сервере.'
+        : (s.keyError ? 'Ошибка ключа: ' + s.keyError : 'Ключ Google ещё не установлен на сервере (secrets/google-sa.json) — синхронизация не работает.');
+      list.textContent = '';
+      if (!s.items.length) { list.textContent = 'Пока ни одной таблицы.'; return; }
+      for (const src of s.items) {
+        const card = el('div', 'gs-src');
+        const head = el('div', 'cx-row');
+        const a = el('a', null, src.title); a.href = 'https://docs.google.com/spreadsheets/d/' + src.spreadsheetId + '/edit'; a.target = '_blank'; a.rel = 'noopener';
+        head.append(a, el('span', 'muted small', ' · последняя синхронизация: ' + fmtDate(src.lastRunAt)));
+        const del = el('button', 'btn btn-sm', 'Отключить'); del.type = 'button'; del.style.marginLeft = 'auto';
+        del.onclick = async () => {
+          if (!confirm('Отключить «' + src.title + '»? Уже перенесённые записи останутся в базе.')) return;
+          try { await api('/admin/sheets-sync/sources/' + src.id, { method: 'DELETE' }); toast('Отключено'); loadSheets(); } catch (e) { toast(e.message); }
+        };
+        head.append(del);
+        card.append(head);
+        if (src.lastError) card.append(el('div', 'small', '❌ ' + src.lastError));
+        for (const line of src.lastResult || []) card.append(el('div', 'small', line));
+        list.append(card);
+      }
+    } catch (e) { list.textContent = e.message; }
+  }
+  $('#gs-add')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try {
+      const r = await api('/admin/sheets-sync/sources', { method: 'POST', body: JSON.stringify({ url: $('#gs-url').value.trim() }) });
+      $('#gs-url').value = '';
+      toast('Подключено: «' + r.title + '»' + (r.sheetsFound.length ? ' — листы: ' + r.sheetsFound.join(', ') : ' — нужных листов не найдено'));
+      loadSheets();
+    } catch (e) { toast(e.message); }
+  });
+  $('#gs-run')?.addEventListener('click', async () => {
+    const b = $('#gs-run'); b.disabled = true; b.textContent = '⏳ Синхронизация…';
+    try {
+      const r = await api('/admin/sheets-sync/run', { method: 'POST' });
+      toast(r.skipped ? 'Не запущено: ' + r.reason : 'Готово');
+    } catch (e) { toast(e.message); }
+    b.disabled = false; b.textContent = '🔄 Синхронизировать сейчас';
+    loadSheets();
+  });
 
   let toastTimer;
   function toast(msg) {

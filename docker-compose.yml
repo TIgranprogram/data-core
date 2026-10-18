@@ -149,6 +149,7 @@ services:
       # (В prod-образ admin копируется через Dockerfile — см. docker-compose.prod.yml.)
       - ./backend/admin:/app/admin:ro
       - ./backend/pwa:/app/pwa:ro
+      - ./secrets:/app/secrets:ro
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]
       interval: 15s

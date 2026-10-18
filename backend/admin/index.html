@@ -57,6 +57,7 @@
         <button class="tab" data-tab="keys">API-ключи</button>
         <button class="tab" data-tab="tables">Таблицы</button>
         <button class="tab" data-tab="audit">Журнал</button>
+        <button class="tab" data-tab="sheets">Google-таблицы</button>
         <button class="tab" data-tab="connect">Подключение</button>
       </nav>
     </header>
@@ -251,6 +252,30 @@
     </main>
 
     <!-- ---------- Connect tab (как подключить приложение / таблицу / ИИ) ---------- -->
+    <main id="tab-sheets" class="tab-panel" hidden>
+      <div class="panel-head">
+        <h2>Google-таблицы</h2>
+        <button class="btn btn-primary" type="button" id="gs-run">🔄 Синхронизировать сейчас</button>
+      </div>
+      <p class="panel-note">Сервер сам читает Google-таблицы (только чтение) и раз в <b id="gs-interval">10</b> мин переносит листы «Снабжение», «Реестр счетов», «Склад», «Движение склада» в базу — без дублей. В таблицы ничего ставить не нужно.</p>
+      <section class="cx-card">
+        <h3>1. Адрес робота — поделитесь с ним таблицей (роль «Читатель»)</h3>
+        <div class="cx-row"><code id="gs-email" class="cx-value">—</code><button class="btn btn-sm" type="button" data-copy="#gs-email">Копировать</button></div>
+        <p class="muted small" id="gs-key-note"></p>
+      </section>
+      <section class="cx-card">
+        <h3>2. Подключить таблицу</h3>
+        <form id="gs-add" class="cx-row">
+          <input id="gs-url" type="url" placeholder="Ссылка на таблицу: https://docs.google.com/spreadsheets/d/…" required style="flex:1" />
+          <button class="btn btn-accent" type="submit">Подключить</button>
+        </form>
+      </section>
+      <section class="cx-card">
+        <h3>3. Подключённые таблицы</h3>
+        <div id="gs-list" class="muted">Загрузка…</div>
+      </section>
+    </main>
+
     <main id="tab-connect" class="tab-panel" hidden>
       <div class="panel-head">
         <h2>Подключение</h2>
