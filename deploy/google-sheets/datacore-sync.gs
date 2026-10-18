@@ -3,7 +3,8 @@
  * DATA CORE — синхронизация Google-таблицы с единой базой (Таблица → База)
  * =========================================================================
  * Куда: Расширения → Apps Script → новый файл «datacore-sync» → вставить целиком.
- * Первый запуск: выбрать функцию datacoreSetup → ▶ Выполнить → разрешить доступ → ввести ключ.
+ * Первый запуск: вставить ключ в DATACORE_KEY_HERE (ниже) → 💾 → выбрать функцию datacoreSetup → ▶ Выполнить →
+ *   разрешить доступ. Итог — в «Журнале выполнения» внизу редактора; меню «🔗 База данных» — после обновления таблицы.
  *
  * Как устроено (без дублей и потерь):
  *  - В каждом синхронизируемом листе появляется скрытая колонка «ID базы» с уникальным id строки.
@@ -17,6 +18,9 @@
  * Данные в базе: /api/apps/<app>/<collection> (например supply/requests, warehouse/items).
  * Документация: github TIgranprogram/data-core → deploy/google-sheets/README.md
  */
+
+// ↓↓↓ ВСТАВЬТЕ КЛЮЧ между кавычками (вида kppd_…), нажмите 💾 и запустите datacoreSetup ↓↓↓
+const DATACORE_KEY_HERE = '';
 
 const DC = {
   BASE_URL_DEFAULT: 'https://kppdf-crm.ru/db/api',
@@ -93,28 +97,46 @@ const DC_MOVE_LABEL = { in: 'Приход', reserve: 'Бронь', unreserve: '�
 
 // ------------------------------- Установка -------------------------------
 
+/**
+ * Первый запуск — из редактора скриптов: вставьте ключ в DATACORE_KEY_HERE (вверху файла), 💾,
+ * выберите datacoreSetup → ▶ Выполнить. Окон не открывает: итог — в «Журнале выполнения» внизу редактора.
+ */
 function datacoreSetup() {
-  const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getScriptProperties();
+  const key = String(DATACORE_KEY_HERE || '').trim() || props.getProperty('DATACORE_KEY') || '';
+  if (!/^kppd_/.test(key)) {
+    throw new Error('Нет ключа. Вставьте ключ kppd_… между кавычками в строке DATACORE_KEY_HERE (самый верх скрипта), нажмите 💾 и запустите datacoreSetup ещё раз.');
+  }
+  props.setProperty('DATACORE_KEY', key);
+  if (!props.getProperty('DATACORE_BASE')) props.setProperty('DATACORE_BASE', DC.BASE_URL_DEFAULT);
+  dcInstallTriggers_();
+  dcApi_('get', '/health/ready');
+  console.log('✅ Ключ сохранён, сервер на связи. Синхронизация — каждые 10 минут. Первая синхронизация…');
+  dcRun_(false);
+  console.log('Готово. Обновите вкладку таблицы — появится меню «🔗 База данных».');
+}
+
+/** Смена ключа из меню таблицы (окно открывается в самой таблице). */
+function datacoreChangeKey() {
+  const ui = SpreadsheetApp.getUi();
   const r = ui.prompt('Data Core — ключ', 'Вставьте ключ kppd_… (админка → API-ключи, права «Чтение и запись», приложения: supply, warehouse):', ui.ButtonSet.OK_CANCEL);
   if (r.getSelectedButton() !== ui.Button.OK) return;
   const key = r.getResponseText().trim();
   if (!/^kppd_/.test(key)) { ui.alert('Это не похоже на ключ kppd_…'); return; }
+  const props = PropertiesService.getScriptProperties();
   props.setProperty('DATACORE_KEY', key);
   if (!props.getProperty('DATACORE_BASE')) props.setProperty('DATACORE_BASE', DC.BASE_URL_DEFAULT);
+  dcInstallTriggers_();
+  datacoreSyncNow();
+}
 
-  // Триггеры: пересоздаём только свои
+function dcInstallTriggers_() {
+  // Пересоздаём только свои триггеры
   ScriptApp.getProjectTriggers()
     .filter((t) => ['datacoreSyncAuto', 'datacoreMenu'].includes(t.getHandlerFunction()))
     .forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('datacoreSyncAuto').timeBased().everyMinutes(10).create();
   ScriptApp.newTrigger('datacoreMenu').forSpreadsheet(SpreadsheetApp.getActive()).onOpen().create();
-  datacoreMenu();
-
-  const check = dcApi_('get', '/health/ready');
-  ui.alert('Готово', 'Ключ сохранён, синхронизация — каждые 10 минут.\nСервер: ' + (check ? 'на связи ✅' : '?') +
-    '\n\nСейчас выполню первую синхронизацию.', ui.ButtonSet.OK);
-  datacoreSyncNow();
 }
 
 function datacoreMenu() {
@@ -125,7 +147,7 @@ function datacoreMenu() {
     .addItem('⬆️ Режим: таблица → база (до перехода)', 'datacoreModePush')
     .addItem('⬇️ Режим: база → таблица (после перехода)', 'datacoreModePull')
     .addSeparator()
-    .addItem('🔑 Сменить ключ / переустановить', 'datacoreSetup')
+    .addItem('🔑 Сменить ключ', 'datacoreChangeKey')
     .addToUi();
 }
 
@@ -379,7 +401,7 @@ function dcApi_(method, path, body) {
   const props = PropertiesService.getScriptProperties();
   const key = props.getProperty('DATACORE_KEY');
   const base = props.getProperty('DATACORE_BASE') || DC.BASE_URL_DEFAULT;
-  if (!key) throw new Error('не задан ключ — меню «🔗 База данных → Сменить ключ»');
+  if (!key) throw new Error('не задан ключ — вставьте его в DATACORE_KEY_HERE и запустите datacoreSetup');
   for (let attempt = 1; attempt <= 4; attempt++) {
     const res = UrlFetchApp.fetch(base + path, {
       method: method, contentType: 'application/json', muteHttpExceptions: true,
