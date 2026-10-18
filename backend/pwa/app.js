@@ -1,28 +1,24 @@
-/* «Снабжение / Склад» — PWA на единой базе Data Core (без сборки, vanilla JS).
- * Данные: /api/apps/supply/requests, /api/apps/warehouse/items, /api/apps/warehouse/movements.
+/* «Склад · Снабжение» — PWA на единой базе (без сборки, vanilla JS).
+ * Данные — ОБЩИЕ с CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md):
+ *   заявки  → /api/supply/requests (коллекция supplyrequests),
+ *   склад   → /api/stock/items (materials + storageitems), движения — /api/stock/items/:id/move.
  * Офлайн: данные кэшируются в IndexedDB, изменения копятся в очереди (outbox) и досылаются.
- * Без дублей: у каждой записи свой uid; перед повторной отправкой «создания» очередь
- * проверяет, нет ли уже записи с этим uid (обрыв связи после успешного POST).
- * Остатки склада считаются из движений (приход/бронь/списание…), а не вписываются руками.
+ * Без дублей: у каждой операции свой clientUid — сервер не проводит её дважды.
  */
 (() => {
   'use strict';
   // ---------- Константы ----------
   const PREFIX = location.pathname.replace(/\/app(\/.*)?$/, '');       // '' или '/db'
   const API = PREFIX + '/api';
-  const COLL = { requests: '/apps/supply/requests', items: '/apps/warehouse/items', movements: '/apps/warehouse/movements' };
   const STATUSES = ['✅ Заказать', '⏳ Ожидает', '💰 Оплачено', '⚙️ В работе', '☑️ Получено', '❌ Отменено'];
   const STATUS_CLASS = { 'Заказать': 'b-order', 'Ожидает': 'b-wait', 'Оплачено': 'b-paid', 'В работе': 'b-work', 'Получено': 'b-done', 'Отменено': 'b-cancel' };
-  const PRIORITIES = ['Срочно', 'Обычно', 'Низко'];
-  const COMPANIES = ['СИЮ', 'ССЮ'];
-  const CATEGORIES = ['Оборудование', 'Покупные изделия', 'Металл', 'Дерево', 'Метизы', 'Расходники', 'Услуги'];
+  const PRIORITIES = ['Срочно', 'Обычный', 'Низко'];
   const MOVE = {
-    in: { label: 'Приход', sign: 1, hint: 'Поступление на склад.' },
-    reserve: { label: 'Бронь', sign: 0, hint: 'Резерв под заказ: остаток не меняется, «свободно» уменьшается.' },
-    unreserve: { label: 'Снять бронь', sign: 0, hint: 'Возврат резерва в свободный остаток.' },
-    out: { label: 'Списание', sign: -1, hint: 'Выдача в производство / расход.' },
-    adjust: { label: 'Корректировка', sign: 1, hint: 'Инвентаризация: «+» — излишек, «−» — недостача.' },
-    opening: { label: 'Начальный остаток', sign: 1, hint: '' },
+    in: { label: 'Приход', hint: 'Поступление на склад.' },
+    reserve: { label: 'Бронь', hint: 'Резерв под заказ: остаток не меняется, «свободно» уменьшается.' },
+    unreserve: { label: 'Снять бронь', hint: 'Возврат резерва в свободный остаток.' },
+    out: { label: 'Списание', hint: 'Выдача в производство / расход.' },
+    adjust: { label: 'Корректировка', hint: 'Инвентаризация: «+» — излишек, «−» — недостача.' },
   };
   const PAGE = 100;
 
@@ -30,12 +26,12 @@
   const $ = (s, r = document) => r.querySelector(s);
   const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2));
-  const today = () => new Date().toISOString().slice(0, 10);
   const fmtDate = (s) => { if (!s) return ''; const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : String(s); };
   const num = (v) => { const n = Number(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
   const fmtNum = (n) => (Math.round(n * 1000) / 1000).toLocaleString('ru-RU');
   const norm = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
   const statusWord = (s) => String(s || '').replace(/^[^\p{L}]+/u, '').trim();
+  const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.className = 'show'; clearTimeout(toastT); toastT = setTimeout(() => { t.className = ''; }, 3500); }
 
@@ -46,6 +42,7 @@
     get user() { try { return JSON.parse(localStorage.getItem('dca_user') || 'null'); } catch { return null; } },
     set user(v) { v ? localStorage.setItem('dca_user', JSON.stringify(v)) : localStorage.removeItem('dca_user'); },
   };
+  const me = () => S.user?.displayName || S.user?.username || '';
   class NetError extends Error {}
   class AuthError extends Error {}
 
@@ -55,7 +52,7 @@
     if (opts.body && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
     // Таймаут: на плохой связи запрос не должен висеть бесконечно (загрузка фото — дольше)
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), opts.body instanceof FormData ? 120000 : 15000);
+    const timer = setTimeout(() => ctrl.abort(), opts.body instanceof FormData ? 120000 : 20000);
     try { return await fetch(API + path, { ...opts, headers, signal: ctrl.signal }); }
     catch { throw new NetError('Нет связи с сервером'); }
     finally { clearTimeout(timer); }
@@ -77,6 +74,8 @@
     }
     return res.status === 204 ? null : res.json();
   }
+  const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body) });
+  const patch = (path, body) => api(path, { method: 'PATCH', body: JSON.stringify(body) });
 
   // ---------- IndexedDB: кэш данных и очередь изменений ----------
   const idb = (() => {
@@ -96,72 +95,125 @@
     };
   })();
 
+  // ---------- Данные сервера → вид приложения ----------
+  // Заявка CRM (supplyrequests) → строка «Снабжения»
+  const reqView = (r) => ({
+    key: r.clientUid || r.id, id: r.id, num: r.num, date: (r.requestDate || r.createdAt || '').slice(0, 10),
+    name: r.title || r.materialName || '', category: r.categoryName || '', qty: r.qty, unit: r.unit, article: r.article, color: r.color,
+    supplier: r.supplierName || '', link: r.productUrl || r.sheetExtra?.link || '', customer: r.orderLabel || '', status: r.statusLabel,
+    priority: r.priorityLabel, ourCompany: r.companyName || '', delivery: r.deliveryNote || '', invoiceNo: r.invoiceNo || '',
+    priceWithVat: r.priceHint, note: r.notes || '', requestedBy: r.requestedBy || '', received: r.status === 'received',
+    receivedQty: r.receivedQty, materialId: r.materialId || null,
+  });
+  // Форма заявки → тело запроса /api/supply/requests
+  const reqBody = (v) => clean({
+    title: v.name ?? undefined, categoryName: v.category ?? '', qty: v.qty ?? undefined, unit: v.unit ?? '', article: v.article ?? '',
+    color: v.color ?? '', supplierName: v.supplier ?? '', productUrl: v.link ?? '', orderLabel: v.customer ?? '',
+    statusLabel: v.status ?? undefined, priorityLabel: v.priority ?? undefined, companyName: v.ourCompany ?? '',
+    deliveryNote: v.delivery ?? '', invoiceNo: v.invoiceNo ?? '', priceHint: v.priceWithVat ?? undefined, notes: v.note ?? '',
+  });
+  // Позиция склада (materials + storageitems) → строка «Склада»
+  const itemView = (i) => ({
+    key: i.id, id: i.id, name: i.name, category: i.categoryName || '', unit: i.unit, article: i.article, minQty: i.minQuantity,
+    weightKg: i.weightKg, photos: i.photos || [], onHand: num(i.quantity), reserved: num(i.reservedQty),
+  });
+  const itemBody = (v) => clean({ name: v.name ?? undefined, categoryName: v.category ?? undefined, unit: v.unit ?? undefined, article: v.article ?? undefined, minQuantity: v.minQty ?? undefined, weightKg: v.weightKg ?? undefined });
+
   // ---------- Состояние ----------
-  const st = { requests: [], items: [], movements: [], queue: [], online: navigator.onLine, syncing: false, view: 'supply' };
+  const st = { requests: [], items: [], lookups: { suppliers: [], companies: [], categories: [] }, queue: [], online: navigator.onLine, syncing: false, view: 'supply' };
   const sFilter = { q: '', status: '', cat: '', sup: '', who: '', co: '', shown: PAGE };
   const wFilter = { q: '', mode: '', cat: '', shown: PAGE };
 
-  async function loadAll(coll) {
-    const out = [];
-    for (let page = 1; page < 200; page++) {
-      const r = await api(`${COLL[coll]}?limit=200&page=${page}&sort=-createdAt`);
-      out.push(...r.items);
-      if (out.length >= r.total || !r.items.length) break;
-    }
-    return out;
-  }
   async function refreshData() {
-    const [requests, items, movements] = await Promise.all(['requests', 'items', 'movements'].map(loadAll));
-    Object.assign(st, { requests, items, movements });
-    await Promise.all(['requests', 'items', 'movements'].map((k) => idb.set(k, st[k])));
+    const [reqs, items, lookups] = await Promise.all([api('/supply/requests?limit=1000'), api('/stock/items?limit=1000'), api('/supply/lookups')]);
+    st.requests = reqs.items.map(reqView);
+    st.items = items.items.map(itemView);
+    st.lookups = lookups;
+    await Promise.all([idb.set('v2.requests', st.requests), idb.set('v2.items', st.items), idb.set('v2.lookups', st.lookups)]);
     applyQueueLocally();
   }
   async function loadCache() {
-    for (const k of ['requests', 'items', 'movements']) st[k] = (await idb.get(k)) || [];
+    st.requests = (await idb.get('v2.requests')) || [];
+    st.items = (await idb.get('v2.items')) || [];
+    st.lookups = (await idb.get('v2.lookups')) || st.lookups;
     st.queue = await idb.queue();
     applyQueueLocally();
   }
+  const findReq = (key) => st.requests.find((r) => r.key === key || r.id === key);
+  const findItem = (ref) => st.items.find((i) => (ref.id && i.id === ref.id) || (ref.name && norm(i.name) === norm(ref.name)));
+
   // Неотправленные изменения показываем сразу (оптимистично)
-  function applyQueueLocally() {
-    for (const op of st.queue) {
-      if (op.kind === 'create') { if (!st[op.coll].some((d) => d.uid === op.doc.uid)) st[op.coll].unshift({ ...op.doc, _pending: true }); }
-      if (op.kind === 'patch') { const d = st[op.coll].find((x) => x.uid === op.uid); if (d) Object.assign(d, op.patch, { _pending: true }); }
-      if (op.kind === 'photo') { const d = st[op.coll].find((x) => x.uid === op.uid); if (d) d._pendingPhotos = (d._pendingPhotos || 0) + 1; }
+  function applyOp(op) {
+    if (op.kind === 'req.create' && !findReq(op.key)) st.requests.unshift({ ...op.view, key: op.key, _pending: true });
+    if (op.kind === 'req.patch') { const r = findReq(op.key); if (r) Object.assign(r, op.view, { _pending: true }); }
+    if (op.kind === 'req.receive') {
+      const r = findReq(op.key); if (r) Object.assign(r, { status: STATUSES[4], received: true, _pending: true });
+      const i = findItem({ name: op.itemName }); if (i) { i.onHand += op.qty; i._pending = true; }
+      else st.items.unshift({ key: 'new:' + op.itemName, name: op.itemName, unit: r?.unit, category: r?.category, onHand: op.qty, reserved: 0, photos: [], _pending: true });
+    }
+    if (op.kind === 'item.create' && !findItem({ name: op.view.name })) st.items.unshift({ ...op.view, key: 'new:' + op.view.name, onHand: 0, reserved: 0, photos: [], _pending: true });
+    if (op.kind === 'item.patch') { const i = findItem(op.ref); if (i) Object.assign(i, op.view, { _pending: true }); }
+    if (op.kind === 'item.photo') { const i = findItem(op.ref); if (i) i._pendingPhotos = (i._pendingPhotos || 0) + 1; }
+    if (op.kind === 'item.move') {
+      const i = findItem(op.ref); if (!i) return;
+      const q = num(op.qty);
+      if (op.type === 'in') i.onHand += q;
+      if (op.type === 'out') { i.onHand -= q; i.reserved = Math.max(0, i.reserved - q); }
+      if (op.type === 'adjust') i.onHand += q;
+      if (op.type === 'reserve') i.reserved += q;
+      if (op.type === 'unreserve') i.reserved = Math.max(0, i.reserved - q);
+      i._pending = true;
     }
   }
+  function applyQueueLocally() { for (const op of st.queue) applyOp(op); }
 
   // ---------- Очередь изменений ----------
   async function enqueue(op) {
     op.at = Date.now();
+    op.clientUid = op.clientUid || uuid();
     await idb.push(op);
     st.queue = await idb.queue();
-    applyQueueLocally();
+    applyOp(op);
     render(); updateNet();
     flush();
   }
-  async function idByUid(coll, uid) {
-    const local = st[coll].find((d) => d.uid === uid && d.id && !d._pending);
+  // id заявки: известен сразу или после создания (ищем по clientUid в свежем списке)
+  async function reqId(key) {
+    const local = st.requests.find((r) => (r.key === key || r.id === key) && r.id);
     if (local) return local.id;
-    const r = await api(`${COLL[coll]}?limit=1&filter=${encodeURIComponent(JSON.stringify({ uid }))}`);
-    return r.items[0] ? r.items[0].id : null;
+    const list = await api('/supply/requests?limit=1000');
+    const hit = list.items.find((r) => r.clientUid === key || r.id === key);
+    return hit ? hit.id : null;
   }
+  // id позиции: по id или по наименованию (новая позиция, созданная офлайн)
+  async function itemId(ref) {
+    if (ref.id) return ref.id;
+    const r = await api('/stock/items?limit=50&search=' + encodeURIComponent(ref.name));
+    const hit = r.items.find((i) => norm(i.name) === norm(ref.name));
+    return hit ? hit.id : null;
+  }
+  const notYet = () => Object.assign(new Error('Запись ещё не создана'), { retry: true });
   async function runOp(op) {
-    if (op.kind === 'create') {
-      if (await idByUid(op.coll, op.doc.uid)) return;           // уже создано (повтор после обрыва)
-      await api(COLL[op.coll], { method: 'POST', body: JSON.stringify(op.doc) });
-    } else if (op.kind === 'patch') {
-      const id = await idByUid(op.coll, op.uid);
-      if (!id) throw Object.assign(new Error('Запись ещё не создана'), { retry: true });
-      await api(`${COLL[op.coll]}/${id}`, { method: 'PATCH', body: JSON.stringify(op.patch) });
-    } else if (op.kind === 'photo') {
-      const id = await idByUid(op.coll, op.uid);
-      if (!id) throw Object.assign(new Error('Запись ещё не создана'), { retry: true });
-      const fd = new FormData(); fd.append('file', op.blob, op.name || 'photo.jpg');
-      const photo = await api('/photos/upload', { method: 'POST', body: fd });
-      const cur = await api(`${COLL[op.coll]}/${id}`);
-      const thumb = photo.variants && photo.variants.thumb ? photo.variants.thumb.storageUrl : photo.storageUrl;
-      const photos = [...(cur.photos || []), { id: photo.id || photo._id, url: photo.storageUrl, thumb }];
-      await api(`${COLL[op.coll]}/${id}`, { method: 'PATCH', body: JSON.stringify({ photos }) });
+    switch (op.kind) {
+      case 'req.create': await post('/supply/requests', { ...op.body, clientUid: op.key }); return;
+      case 'req.patch': { const id = await reqId(op.key); if (!id) throw notYet(); await patch(`/supply/requests/${id}`, op.body); return; }
+      case 'req.receive': {
+        const id = await reqId(op.key); if (!id) throw notYet();
+        try { await post(`/supply/requests/${id}/receive`, { qty: op.qty, clientUid: op.clientUid }); }
+        catch (e) { if (e.status !== 409) throw e; }   // уже оприходована (повтор) — не ошибка
+        return;
+      }
+      case 'item.create': await post('/stock/items', op.body); return;
+      case 'item.patch': { const id = await itemId(op.ref); if (!id) throw notYet(); await patch(`/stock/items/${id}`, op.body); return; }
+      case 'item.move': { const id = await itemId(op.ref); if (!id) throw notYet(); await post(`/stock/items/${id}/move`, { type: op.type, qty: op.qty, note: op.note, clientUid: op.clientUid }); return; }
+      case 'item.photo': {
+        const id = await itemId(op.ref); if (!id) throw notYet();
+        const fd = new FormData(); fd.append('file', op.blob, op.name || 'photo.jpg');
+        const photo = await api('/photos/upload', { method: 'POST', body: fd });
+        await post(`/stock/items/${id}/photos`, { photoId: photo.id || photo._id });
+        return;
+      }
+      default: return; // операции старого формата (до объединения баз) — просто убираем
     }
   }
   async function flush() {
@@ -203,24 +255,8 @@
     n.textContent = off ? `нет связи${q ? ' · в очереди ' + q : ''}` : st.syncing ? 'синхронизация…' : q ? `отправка: ${q}` : 'онлайн';
   }
 
-  // ---------- Остатки склада ----------
-  function stockOf(item) {
-    const mv = st.movements.filter((m) => m.itemUid === item.uid);
-    if (!item.fromMovements && !mv.length) {
-      // Позиция из Google-таблицы до перехода: показываем табличные цифры
-      const onHand = num(item.currentQty), reserved = num(item.reservedQty);
-      return { onHand, reserved, free: onHand - reserved, moves: mv, legacy: true };
-    }
-    let onHand = 0, reserved = 0;
-    for (const m of mv) {
-      const q = num(m.qty);
-      if (m.type === 'in' || m.type === 'opening' || m.type === 'adjust') onHand += q;
-      else if (m.type === 'out') onHand -= q;
-      else if (m.type === 'reserve') reserved += q;
-      else if (m.type === 'unreserve') reserved -= q;
-    }
-    return { onHand, reserved, free: onHand - reserved, moves: mv, legacy: false };
-  }
+  // ---------- Остатки ----------
+  const stockOf = (i) => ({ onHand: i.onHand, reserved: i.reserved, free: i.onHand - i.reserved });
   function stockBadge(item, s) {
     const min = num(item.minQty);
     if (s.onHand <= 0) return ['нет', 'b-zero'];
@@ -236,20 +272,20 @@
     sel.value = current || '';
   }
   const uniq = (arr) => [...new Set(arr.filter(Boolean).map((v) => String(v).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+  const catNames = () => uniq([...st.lookups.categories.map((c) => c.name), ...st.items.map((i) => i.category), ...st.requests.map((r) => r.category)]);
 
   function renderSupply() {
-    const all = st.requests.filter((r) => !r.deletedAt);
-    // фишки статусов
+    const all = st.requests;
     const chips = $('#s-chips'); chips.replaceChildren();
     const counts = {}; all.forEach((r) => { const w = statusWord(r.status) || 'без статуса'; counts[w] = (counts[w] || 0) + 1; });
     const mk = (label, val, n) => { const b = el('button', 'chip' + (sFilter.status === val ? ' active' : ''), n != null ? `${label} ${n}` : label); b.onclick = () => { sFilter.status = sFilter.status === val ? '' : val; sFilter.shown = PAGE; render(); }; chips.append(b); };
     mk('Все', '', all.length);
     STATUSES.map(statusWord).forEach((w) => { if (counts[w]) mk(w, w, counts[w]); });
-    fillSelect($('#s-cat'), uniq([...CATEGORIES, ...all.map((r) => r.category)]), 'Все категории', sFilter.cat);
-    fillSelect($('#s-sup'), uniq(all.map((r) => r.supplier)), 'Все поставщики', sFilter.sup);
+    fillSelect($('#s-cat'), catNames(), 'Все категории', sFilter.cat);
+    fillSelect($('#s-sup'), uniq([...st.lookups.suppliers, ...all.map((r) => r.supplier)]), 'Все поставщики', sFilter.sup);
     fillSelect($('#s-who'), uniq(all.map((r) => r.requestedBy)), 'Кто подал: все', sFilter.who);
-    fillSelect($('#s-co'), uniq([...COMPANIES, ...all.map((r) => r.ourCompany)]), 'Все компании', sFilter.co);
-    $('#suppliers').replaceChildren(...uniq(all.map((r) => r.supplier)).map((v) => { const o = el('option'); o.value = v; return o; }));
+    fillSelect($('#s-co'), uniq([...st.lookups.companies, ...all.map((r) => r.ourCompany)]), 'Все компании', sFilter.co);
+    $('#suppliers').replaceChildren(...uniq([...st.lookups.suppliers, ...all.map((r) => r.supplier)]).map((v) => { const o = el('option'); o.value = v; return o; }));
 
     const q = norm(sFilter.q);
     const list = all.filter((r) =>
@@ -262,7 +298,8 @@
     const ul = $('#s-list'); ul.replaceChildren();
     list.slice(0, sFilter.shown).forEach((r) => {
       const li = el('li', 'row');
-      li.append(thumbOf(r));
+      const item = r.materialId ? st.items.find((i) => i.id === r.materialId) : null;
+      li.append(thumbOf(item || {}));
       const main = el('div', 'row-main');
       main.append(el('div', 'row-title', (r.num ? `№${r.num} · ` : '') + (r.name || '—')));
       main.append(el('div', 'row-sub', [r.qty != null ? `${fmtNum(num(r.qty))} ${r.unit || ''}`.trim() : '', r.supplier, r.requestedBy, fmtDate(r.date)].filter(Boolean).join(' · ')));
@@ -283,35 +320,34 @@
     if (p) { const img = el('img', 'thumb'); img.src = PREFIX + (p.thumb || p.url); img.alt = ''; img.loading = 'lazy'; return img; }
     return el('div', 'thumb', doc._pendingPhotos ? '⏳' : '📦');
   }
-  function renderPhotos(box, doc, coll) {
+  function renderPhotos(box, item) {
     box.replaceChildren();
-    (doc.photos || []).forEach((p) => { const img = el('img'); img.src = PREFIX + (p.thumb || p.url); img.alt = ''; img.onclick = () => window.open(PREFIX + p.url, '_blank'); box.append(img); });
-    if (doc._pendingPhotos) box.append(el('span', 'muted small', `⏳ фото в очереди: ${doc._pendingPhotos}`));
+    (item.photos || []).forEach((p) => { const img = el('img'); img.src = PREFIX + (p.thumb || p.url); img.alt = ''; img.onclick = () => window.open(PREFIX + p.url, '_blank'); box.append(img); });
+    if (item._pendingPhotos) box.append(el('span', 'muted small', `⏳ фото в очереди: ${item._pendingPhotos}`));
     const add = el('button', 'add', '+ Фото'); add.type = 'button';
-    add.onclick = () => pickPhoto(coll, doc);
+    add.onclick = () => pickPhoto(item);
     box.append(add);
   }
-  function pickPhoto(coll, doc) {
+  function pickPhoto(item) {
     const inp = $('#photo-input');
     inp.value = '';
     inp.onchange = async () => {
       const f = inp.files && inp.files[0]; if (!f) return;
       if (f.size > 10 * 1024 * 1024) { toast('Фото больше 10 МБ'); return; }
-      await enqueue({ kind: 'photo', coll, uid: doc.uid, blob: f, name: f.name });
+      await enqueue({ kind: 'item.photo', ref: { id: item.id, name: item.name }, blob: f, name: f.name });
       toast(navigator.onLine ? 'Фото загружается…' : 'Фото сохранено и отправится при появлении связи');
       reopenCurrent();
     };
     inp.click();
   }
 
-  let current = null; // { type: 'req'|'item', uid }
+  let current = null; // { type: 'req'|'item', key, isNew }
   function reopenCurrent() {
-    if (!current) return;
-    const coll = current.type === 'req' ? 'requests' : 'items';
-    const doc = st[coll].find((d) => d.uid === current.uid);
-    if (!doc) return;
-    if (current.type === 'req') renderPhotos($('#req-photos'), doc, 'requests');
-    else { renderPhotos($('#item-photos'), doc, 'items'); renderItemStats(doc); }
+    if (!current || current.type !== 'item') return;
+    const item = st.items.find((i) => i.key === current.key || (current.name && norm(i.name) === norm(current.name)));
+    if (!item) return;
+    renderPhotos($('#item-photos'), item);
+    renderItemStats(item);
   }
 
   function setFormValues(form, doc) {
@@ -328,48 +364,47 @@
     });
     return out;
   }
+  function ensureOption(sel, value) { if (value && sel.value !== value) { const o = el('option', '', value); o.value = value; sel.append(o); sel.value = value; } }
 
   function openRequest(r) {
     const f = $('#req-form');
-    fillSelect(f.elements.category, CATEGORIES, '—', ''); fillSelect(f.elements.status, STATUSES, '—', '');
-    fillSelect(f.elements.priority, PRIORITIES, '—', ''); fillSelect(f.elements.ourCompany, COMPANIES, '—', '');
+    fillSelect(f.elements.category, catNames(), '—', ''); fillSelect(f.elements.status, STATUSES, '—', '');
+    fillSelect(f.elements.priority, PRIORITIES, '—', ''); fillSelect(f.elements.ourCompany, st.lookups.companies, '—', '');
     const isNew = !r;
-    const doc = r || { uid: uuid(), status: STATUSES[0], priority: 'Обычно', unit: 'шт', ourCompany: COMPANIES[0], date: today(), requestedBy: S.user?.displayName || S.user?.username };
-    current = { type: 'req', uid: doc.uid, isNew };
+    const doc = r || { key: uuid(), status: STATUSES[0], priority: 'Обычный', unit: 'шт', ourCompany: st.lookups.companies[0] || '', requestedBy: me() };
+    current = { type: 'req', key: doc.key, isNew };
     setFormValues(f, doc);
-    // значение не из списка (старые данные) — добавим, чтобы не потерять
-    for (const k of ['category', 'status', 'priority', 'ourCompany']) if (doc[k] && f.elements[k].value !== doc[k]) { const o = el('option', '', doc[k]); o.value = doc[k]; f.elements[k].append(o); f.elements[k].value = doc[k]; }
+    for (const k of ['category', 'status', 'priority', 'ourCompany']) ensureOption(f.elements[k], doc[k]);
     $('#req-title').textContent = isNew ? 'Новая заявка' : `Заявка${doc.num ? ' №' + doc.num : ''}`;
-    $('#req-meta').textContent = isNew ? '' : [doc.requestedBy && `Подал: ${doc.requestedBy}`, doc.date && `дата ${fmtDate(doc.date)}`, doc.receivedAt && `оприходовано ${fmtDate(doc.receivedAt)}`].filter(Boolean).join(' · ');
-    renderPhotos($('#req-photos'), doc, 'requests');
-    $('#req-photos').hidden = isNew;
-    $('#req-receive').hidden = isNew || !!doc.receivedAt;
+    $('#req-meta').textContent = isNew ? '' : [doc.requestedBy && `Подал: ${doc.requestedBy}`, doc.date && `дата ${fmtDate(doc.date)}`, doc.received && `оприходовано${doc.receivedQty ? ': ' + fmtNum(doc.receivedQty) : ''}`].filter(Boolean).join(' · ');
+    $('#req-photos').hidden = true;
+    $('#req-receive').hidden = isNew || !!doc.received;
     $('#req-dlg').showModal();
   }
   $('#req-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const vals = formValues(e.target, ['qty', 'priceWithVat']);
     if (!vals.name) return;
+    const view = { ...Object.fromEntries(Object.entries(vals).map(([k, v]) => [k, v ?? ''])), qty: vals.qty ?? 1 };
     if (current.isNew) {
       const maxNum = st.requests.reduce((m, r) => Math.max(m, num(r.num)), 0);
-      const doc = Object.fromEntries(Object.entries({ ...vals, uid: current.uid, num: maxNum + 1, date: today(), requestedBy: S.user?.displayName || S.user?.username }).filter(([, v]) => v != null));
-      await enqueue({ kind: 'create', coll: 'requests', doc });
+      await enqueue({ kind: 'req.create', key: current.key, body: { ...reqBody(vals), requestedBy: me() }, view: { ...view, num: maxNum + 1, date: new Date().toISOString().slice(0, 10), requestedBy: me() } });
       toast('Заявка создана');
     } else {
-      await enqueue({ kind: 'patch', coll: 'requests', uid: current.uid, patch: vals });
+      await enqueue({ kind: 'req.patch', key: current.key, body: reqBody(vals), view });
       toast('Сохранено');
     }
     $('#req-dlg').close();
   });
   $('#req-receive').addEventListener('click', () => {
-    const r = st.requests.find((d) => d.uid === current.uid);
-    const match = st.items.find((i) => norm(i.name) === norm(r.name));
+    const r = findReq(current.key);
+    const match = (r.materialId && st.items.find((i) => i.id === r.materialId)) || st.items.find((i) => norm(i.name) === norm(r.name));
     openMove('in', match || null, { request: r });
   });
 
   // ---------- Склад ----------
   function renderStock() {
-    const items = st.items.filter((i) => !i.deletedAt);
+    const items = st.items;
     const withStock = items.map((i) => ({ i, s: stockOf(i) }));
     const low = withStock.filter(({ i, s }) => stockBadge(i, s)[0] !== 'в норме');
     const chips = $('#w-chips'); chips.replaceChildren();
@@ -377,14 +412,14 @@
     mk('Все', '', items.length);
     mk('К закупке / нет', 'low', low.length);
     mk('В брони', 'res', withStock.filter(({ s }) => s.reserved > 0).length);
-    fillSelect($('#w-cat'), uniq([...CATEGORIES, ...items.map((i) => i.category)]), 'Все категории', wFilter.cat);
+    fillSelect($('#w-cat'), catNames(), 'Все категории', wFilter.cat);
     $('#items-list').replaceChildren(...items.map((i) => { const o = el('option'); o.value = i.name; return o; }));
 
     const q = norm(wFilter.q);
     const list = withStock.filter(({ i, s }) =>
       (!wFilter.cat || i.category === wFilter.cat) &&
       (wFilter.mode !== 'low' || stockBadge(i, s)[0] !== 'в норме') && (wFilter.mode !== 'res' || s.reserved > 0) &&
-      (!q || norm([i.name, i.article, i.category, i.location].join(' ')).includes(q)))
+      (!q || norm([i.name, i.article, i.category].join(' ')).includes(q)))
       .sort((a, b) => String(a.i.name).localeCompare(String(b.i.name), 'ru'));
     $('#w-count').textContent = `Позиций: ${list.length}`;
     const ul = $('#w-list'); ul.replaceChildren();
@@ -393,7 +428,7 @@
       li.append(thumbOf(i));
       const main = el('div', 'row-main');
       main.append(el('div', 'row-title', i.name || '—'));
-      main.append(el('div', 'row-sub', [i.category, i.unit, i.location, s.reserved > 0 ? `бронь ${fmtNum(s.reserved)}` : ''].filter(Boolean).join(' · ')));
+      main.append(el('div', 'row-sub', [i.category, i.unit, i.article, s.reserved > 0 ? `бронь ${fmtNum(s.reserved)}` : ''].filter(Boolean).join(' · ')));
       const side = el('div', 'row-side');
       side.append(el('div', 'qty', fmtNum(s.onHand)));
       const [t, c] = stockBadge(i, s);
@@ -406,38 +441,45 @@
     $('#w-more').hidden = list.length <= wFilter.shown;
   }
 
-  function renderItemStats(item) {
+  const HIST_LABEL = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', reserve: 'Бронь', unreserve: 'Снятие брони', transfer: 'Перемещение' };
+  async function renderItemStats(item) {
     const s = stockOf(item);
     const box = $('#item-stats'); box.replaceChildren();
     [['Остаток', s.onHand], ['В брони', s.reserved], ['Свободно', s.free]].forEach(([l, v]) => { const d = el('div', 'stat', l); d.prepend(el('b', '', fmtNum(v))); box.append(d); });
-    if (s.legacy) box.append(el('p', 'muted small wide', 'Цифры из Google-таблицы (до перехода на приложение).'));
-    const ul = $('#item-moves'); ul.replaceChildren();
-    const mv = [...s.moves].sort((a, b) => String(b.date || b.createdAt).localeCompare(String(a.date || a.createdAt)));
-    if (!mv.length) ul.append(el('li', 'muted', 'Движений пока нет'));
-    mv.slice(0, 100).forEach((m) => {
-      const sign = m.type === 'out' ? '−' : (m.type === 'in' || m.type === 'opening' || (m.type === 'adjust' && num(m.qty) >= 0)) ? '+' : '';
-      ul.append(el('li', '', [fmtDate(m.date), (MOVE[m.type] || {}).label || m.type, `${sign}${fmtNum(Math.abs(num(m.qty)))}`, m.ref, m.note, m.byName, m._pending ? '⏳' : ''].filter(Boolean).join(' · ')));
-    });
+    const ul = $('#item-moves');
+    if (!item.id) { ul.replaceChildren(el('li', 'muted', 'История появится после отправки')); return; }
+    ul.replaceChildren(el('li', 'muted', 'Загрузка истории…'));
+    try {
+      const h = await api(`/stock/items/${item.id}/history`);
+      ul.replaceChildren();
+      if (!h.items.length) ul.append(el('li', 'muted', 'Движений пока нет'));
+      h.items.slice(0, 100).forEach((m) => {
+        const sign = m.type === 'out' ? '−' : m.type === 'in' ? '+' : '';
+        ul.append(el('li', '', [fmtDate(m.date), HIST_LABEL[m.type] || m.type, `${sign}${fmtNum(Math.abs(num(m.qty)))}`, m.note].filter(Boolean).join(' · ')));
+      });
+    } catch (e) {
+      ul.replaceChildren(el('li', 'muted', e instanceof NetError ? 'История недоступна без связи' : 'Не удалось загрузить историю'));
+    }
   }
   function openItem(i) {
     const f = $('#item-form');
-    fillSelect(f.elements.category, CATEGORIES, '—', '');
+    fillSelect(f.elements.category, catNames(), '—', '');
     const isNew = !i;
-    const doc = i || { uid: uuid(), unit: 'шт', fromMovements: true };
-    current = { type: 'item', uid: doc.uid, isNew };
+    const doc = i || { unit: 'шт' };
+    current = { type: 'item', key: doc.key, name: doc.name, isNew };
     setFormValues(f, doc);
-    if (doc.category && f.elements.category.value !== doc.category) { const o = el('option', '', doc.category); o.value = doc.category; f.elements.category.append(o); f.elements.category.value = doc.category; }
+    ensureOption(f.elements.category, doc.category);
     $('#item-title').textContent = isNew ? 'Новая позиция' : doc.name;
     const acts = $('#item-actions'); acts.replaceChildren();
     if (!isNew) {
       ['in', 'reserve', 'unreserve', 'out', 'adjust'].forEach((t) => { const b = el('button', 'btn', MOVE[t].label); b.type = 'button'; b.onclick = () => openMove(t, doc); acts.append(b); });
       const toReq = el('button', 'btn', 'В заявку'); toReq.type = 'button';
-      toReq.onclick = () => { $('#item-dlg').close(); openRequest(null); const rf = $('#req-form'); rf.elements.name.value = doc.name || ''; rf.elements.unit.value = doc.unit || 'шт'; rf.elements.article.value = doc.article || ''; if (doc.category) rf.elements.category.value = doc.category; };
+      toReq.onclick = () => { $('#item-dlg').close(); openRequest(null); const rf = $('#req-form'); rf.elements.name.value = doc.name || ''; rf.elements.unit.value = doc.unit || 'шт'; rf.elements.article.value = doc.article || ''; ensureOption(rf.elements.category, doc.category); };
       acts.append(toReq);
       renderItemStats(doc);
     } else { $('#item-stats').replaceChildren(); $('#item-moves').replaceChildren(); }
     $('#item-stats').hidden = isNew; $('#item-moves').hidden = isNew; acts.hidden = isNew;
-    renderPhotos($('#item-photos'), doc, 'items');
+    if (!isNew) renderPhotos($('#item-photos'), doc);
     $('#item-photos').hidden = isNew;
     $('#item-dlg').showModal();
   }
@@ -446,12 +488,12 @@
     const vals = formValues(e.target, ['minQty', 'weightKg']);
     if (!vals.name) return;
     if (current.isNew) {
-      if (st.items.some((i) => !i.deletedAt && norm(i.name) === norm(vals.name))) { toast('Позиция с таким наименованием уже есть'); return; }
-      const doc = Object.fromEntries(Object.entries({ ...vals, uid: current.uid, fromMovements: true }).filter(([, v]) => v != null));
-      await enqueue({ kind: 'create', coll: 'items', doc });
+      if (st.items.some((i) => norm(i.name) === norm(vals.name))) { toast('Позиция с таким наименованием уже есть'); return; }
+      await enqueue({ kind: 'item.create', body: itemBody(vals), view: { ...vals } });
       toast('Позиция создана');
     } else {
-      await enqueue({ kind: 'patch', coll: 'items', uid: current.uid, patch: vals });
+      const item = st.items.find((i) => i.key === current.key);
+      await enqueue({ kind: 'item.patch', ref: { id: item?.id, name: item?.name }, body: itemBody(vals), view: { ...vals } });
       toast('Сохранено');
     }
     $('#item-dlg').close();
@@ -460,15 +502,14 @@
   // ---------- Движение ----------
   let mvCtx = null;
   function openMove(type, item, extra = {}) {
-    mvCtx = { type, itemUid: item ? item.uid : null, request: extra.request || null };
+    mvCtx = { type, item: item || null, request: extra.request || null };
     const f = $('#mv-form'); f.reset();
-    $('#mv-title').textContent = MOVE[type].label;
+    $('#mv-title').textContent = extra.request ? 'Оприходовать' : MOVE[type].label;
     $('#mv-item').textContent = item ? item.name : (extra.request ? `Заявка: ${extra.request.name}` : '');
-    $('#mv-hint').textContent = MOVE[type].hint + (type !== 'in' && item ? ` Свободно сейчас: ${fmtNum(stockOf(item).free)}.` : '');
-    $('#mv-item-pick').hidden = !!item;
+    $('#mv-hint').textContent = (extra.request ? 'Приход на склад по заявке; заявка станет «Получено».' : MOVE[type].hint) + (type !== 'in' && item ? ` Свободно сейчас: ${fmtNum(stockOf(item).free)}.` : '');
+    $('#mv-item-pick').hidden = !!item || !!extra.request;
     f.elements.itemName.value = extra.request ? extra.request.name : '';
     f.elements.qty.value = extra.request && extra.request.qty != null ? num(extra.request.qty) : '';
-    f.elements.date.value = today();
     f.elements.ref.value = extra.request ? `заявка №${extra.request.num || ''}`.trim() : '';
     $('#mv-dlg').showModal();
   }
@@ -477,30 +518,29 @@
     const f = e.target;
     const qty = num(f.elements.qty.value);
     if (!qty || (mvCtx.type !== 'adjust' && qty < 0)) { toast('Укажите количество'); return; }
-    let itemUid = mvCtx.itemUid;
-    if (!itemUid) {
+    const note = [f.elements.ref.value.trim(), f.elements.note.value.trim()].filter(Boolean).join(' · ') || undefined;
+
+    if (mvCtx.request) {   // оприходование заявки: сервер сам заведёт позицию, если её нет
+      const r = mvCtx.request;
+      await enqueue({ kind: 'req.receive', key: r.key, qty, itemName: mvCtx.item ? mvCtx.item.name : r.name });
+      $('#mv-dlg').close(); if ($('#req-dlg').open) $('#req-dlg').close();
+      toast(`Оприходовано: ${fmtNum(qty)}`);
+      return;
+    }
+    let item = mvCtx.item;
+    if (!item) {
       const name = f.elements.itemName.value.trim();
       if (!name) { toast('Укажите позицию склада'); return; }
-      let item = st.items.find((i) => !i.deletedAt && norm(i.name) === norm(name));
-      if (!item) {   // новая позиция прямо из заявки
-        const r = mvCtx.request || {};
-        item = { uid: uuid(), name, category: r.category, unit: r.unit || 'шт', article: r.article, fromMovements: true };
-        await enqueue({ kind: 'create', coll: 'items', doc: Object.fromEntries(Object.entries(item).filter(([, v]) => v != null)) });
-      }
-      itemUid = item.uid;
+      item = st.items.find((i) => norm(i.name) === norm(name));
+      if (!item) { await enqueue({ kind: 'item.create', body: { name }, view: { name } }); item = st.items.find((i) => norm(i.name) === norm(name)); }
     }
-    const item = st.items.find((i) => i.uid === itemUid);
-    if (item && !item.fromMovements) await enqueue({ kind: 'patch', coll: 'items', uid: itemUid, patch: { fromMovements: true } });
-    if (['out', 'reserve'].includes(mvCtx.type) && item && qty > stockOf(item).free + 1e-9 && !confirm(`Свободно только ${fmtNum(stockOf(item).free)}. Всё равно провести?`)) return;
-    const mv = { uid: uuid(), type: mvCtx.type, itemUid, itemName: item ? item.name : f.elements.itemName.value.trim(), qty,
-      date: f.elements.date.value || today(), ref: f.elements.ref.value.trim() || undefined, note: f.elements.note.value.trim() || undefined,
-      requestUid: mvCtx.request ? mvCtx.request.uid : undefined, byName: S.user?.displayName || S.user?.username };
-    await enqueue({ kind: 'create', coll: 'movements', doc: Object.fromEntries(Object.entries(mv).filter(([, v]) => v !== undefined)) });
-    if (mvCtx.request) await enqueue({ kind: 'patch', coll: 'requests', uid: mvCtx.request.uid, patch: { receivedAt: mv.date, itemUid, status: STATUSES[4] } });
+    if (['out', 'reserve'].includes(mvCtx.type) && qty > stockOf(item).free + 1e-9) {
+      toast(`Свободно только ${fmtNum(stockOf(item).free)} — сервер не проведёт больше`); return;
+    }
+    await enqueue({ kind: 'item.move', ref: { id: item.id, name: item.name }, type: mvCtx.type, qty, note });
     $('#mv-dlg').close();
-    if ($('#req-dlg').open) $('#req-dlg').close();
     toast(`${MOVE[mvCtx.type].label}: ${fmtNum(qty)} проведено`);
-    if ($('#item-dlg').open && item) renderItemStats(st.items.find((i) => i.uid === itemUid) || item);
+    if ($('#item-dlg').open) renderItemStats(item);
   });
 
   // ---------- Рендер, навигация, вход ----------

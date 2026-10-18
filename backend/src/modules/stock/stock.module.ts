@@ -1,0 +1,28 @@
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { CounterModule } from '../counter/counter.module';
+import { Material, MaterialSchema } from '../material/material.schema';
+import { Reservation, ReservationSchema } from './schemas/reservation.schema';
+import { StockMovement, StockMovementSchema } from './schemas/stock-movement.schema';
+import { StorageItem, StorageItemSchema } from './schemas/storage-item.schema';
+import { Warehouse, WarehouseSchema } from './schemas/warehouse.schema';
+import { StockController } from './stock.controller';
+import { StockService } from './stock.service';
+
+/** /api/stock — склад на общих коллекциях CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md). */
+@Module({
+  imports: [
+    CounterModule,
+    MongooseModule.forFeature([
+      { name: Warehouse.name, schema: WarehouseSchema },
+      { name: StorageItem.name, schema: StorageItemSchema },
+      { name: StockMovement.name, schema: StockMovementSchema },
+      { name: Reservation.name, schema: ReservationSchema },
+      { name: Material.name, schema: MaterialSchema },
+    ]),
+  ],
+  controllers: [StockController],
+  providers: [StockService],
+  exports: [StockService],
+})
+export class StockModule {}

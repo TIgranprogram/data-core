@@ -49,6 +49,8 @@ import { EntityAttributeValueModule } from './modules/entity-attribute-value/ent
 import { ProductPassportModule } from './modules/product-passport/product-passport.module';
 import { AppDataModule } from './modules/app-data/app-data.module';
 import { SheetsSyncModule } from './modules/sheets-sync/sheets-sync.module';
+import { StockModule } from './modules/stock/stock.module';
+import { SupplyModule } from './modules/supply/supply.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -142,6 +144,8 @@ import { RequestMethod } from '@nestjs/common';
     DeviceEnrollmentModule, // TZ-AUTH-303: /api/device/* + /api/admin/devices/*
     IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
     AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
+    StockModule,            // /api/stock — склад на общих коллекциях CRM (materials, storageitems, stockmovements, reservations)
+    SupplyModule,           // /api/supply — заявки снабжения на общей коллекции CRM supplyrequests
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
     // ─── Канонические справочники (VISION #4) ─────────────────────────

@@ -73,4 +73,5 @@ CRM kppdf (:3000, https://kppdf-crm.ru) ──────── напряму�
 - Загрузки общие: `/var/lib/datacore/uploads` смонтирован в оба backend.
 - Защита: CRM-таблицы (`kind:'crm'`) из админки data-core не удаляются; удаление справочника в data-core блокируется ссылками и из каталога, и из CRM (`catalog-references.ts` → `isUsedByCrm`).
 - Оба сида досоздают недостающее (права/роли — объединение). kppdf — прямой писатель в БД (исключение из VISION #1, осознанное: тот же код-предок, те же плагины soft-delete/audit). Цель на будущее — kppdf как клиент API data-core.
+- **Склад и снабжение — общие коллекции CRM** (`materials`, `storageitems`, `stockmovements`, `reservations`, `warehouses`, `supplyrequests`): CRM пишет их напрямую, приложение «Склад · Снабжение» и синхронизация Google-таблиц — через модули data-core `stock` / `supply` / `sheets-sync`. Схемы — копии kppdf; менять только синхронно. Подробно — [UNIFY-SUPPLY-WAREHOUSE.md](UNIFY-SUPPLY-WAREHOUSE.md).
 - Откат: `deploy/synology/README.md` → «Единая база: откат».

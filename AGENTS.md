@@ -36,7 +36,7 @@ backend/test/e2e/              e2e (нужен живой Mongo rs0)
 backend/scripts/               разовые/аудит-скрипты (не часть рантайма)
 deploy/synology/               deploy.py (деплой), backup.sh (cron-бэкап), verify-restore.js
 deploy/google-sheets/          скрипт синхронизации Google-таблиц (таблица → база / база → таблица)
-deploy/supply-app/             инструкция приложения + cutover.js (остатки → движения)
+deploy/supply-app/             инструкция приложения «Склад · Снабжение»
 docker-compose.yml             mongo:4.4 rs0 --auth --keyFile + backend (локально и на VM)
 ```
 
@@ -50,7 +50,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 70 suites / 747 tests; e2e 22 / 161 (на 2026-10-18) |
+| Юнит-тесты | `npx jest --silent` | 70 suites / 748 tests; e2e 23 / 168 (на 2026-10-18) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |
@@ -76,6 +76,7 @@ pnpm в PATH может не быть → используй `npx`.
 - `GET /api/admin/users` через `kppd_`-ключ → `total:0`: owner-админ скрыт от не-owner актора (TZ-AUTH-306). Не баг.
 - Модели с soft-delete: обычные запросы скрывают `deletedAt != null`; админ-«Таблицы» читают сырые коллекции.
 - `AuditService.log` приводит `entityId` к ObjectId — не-hex строку туда не клади (пиши в `details`).
+- Склад и снабжение (`materials`, `storageitems`, `stockmovements`, `reservations`, `warehouses`, `supplyrequests`) — **общие с CRM**: модули `stock`/`supply` пишут их по правилам kppdf, схемы в `stock/schemas/` и `supply/` — копии kppdf (менять синхронно). См. `docs/UNIFY-SUPPLY-WAREHOUSE.md`.
 - В БД есть таблицы CRM kppdf (`kind:'crm'` в реестре `modules/admin/collections-admin.controller.ts`) — это **живые данные kppdf** на общей базе: не удалять, не менять их схему из data-core.
 - **Никогда не запускай `bash -x` / `set -x` на скриптах, которые читают `.env`** — трассировка печатает секреты (инцидент 2026-10-18, T22).
 - Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.

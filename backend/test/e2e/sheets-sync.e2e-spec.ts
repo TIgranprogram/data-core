@@ -53,10 +53,11 @@ describe('Sheets sync (Google service account)', () => {
     sync = app.get(SheetsSyncService);
     sync.fetchFn = fakeGoogle;
     token = await loginAsAdmin(app);
-    for (const c of ['app_supply_requests', 'app_warehouse_items', 'sheets_sync_sources']) await db().collection(c).deleteMany({});
+    for (const c of ['supplyrequests', 'materials', 'storageitems', 'organizations', 'warehouses', 'sheets_sync_sources']) await db().collection(c).deleteMany({});
+    await db().collection('warehouses').insertOne({ name: 'Главный склад', type: 'main', isActive: true, isDefault: true, deletedAt: null });
 
-    const head = ['№', 'Дата', 'Наименование', 'Кол-во', 'Статус', 'Фото'];
-    supply = [head, ...Array.from({ length: 10 }, (_, i) => [i + 1, '18.10.2026', `Заявка ${i + 1}`, i + 1, '✅ Заказать', '=IMAGE(x)'])];
+    const head = ['№', 'Дата', 'Наименование', 'Кол-во', 'Статус', 'Поставщик', 'Тип счета', 'Фото'];
+    supply = [head, ...Array.from({ length: 10 }, (_, i) => [i + 1, '18.10.2026', `Заявка ${i + 1}`, i + 1, '✅ Заказать', i % 2 ? 'ООО Крепёж' : 'ооо крепёж', 'Счет', '=IMAGE(x)'])];
     stock = [['Склад'], [], [], [], [], ['Категория', 'Наименование ТМЦ', 'Ед. изм.', 'Текущий остаток'], ['Метизы', 'Болт М8', 'шт', 50], ['Метизы', 'Гайка М8', 'шт', 30]];
   });
 
@@ -95,50 +96,71 @@ describe('Sheets sync (Google service account)', () => {
     await request(app.getHttpServer()).delete(`/api/admin/sheets-sync/sources/${r.body.id}`).set(authHeader(token.access)).expect(200);
   });
 
-  it('позиция склада из приложения подхватывается по имени, заявка из приложения не трогается', async () => {
-    await db().collection('app_warehouse_items').insertOne({ uid: 'app-bolt', name: 'болт м8 ', photos: [{ url: '/uploads/b.webp' }], deletedAt: null });
-    await db().collection('app_supply_requests').insertOne({ uid: 'app-req', name: 'Из приложения', deletedAt: null });
+  it('первый прогон: заявки → supplyrequests, склад → materials + storageitems; позиция из CRM подхвачена по имени', async () => {
+    await db().collection('materials').insertOne({ name: 'болт м8 ', article: 'B-8', unit: 'шт', photoIds: [], notes: 'из CRM', deletedAt: null });
+    await db().collection('supplyrequests').insertOne({ title: 'Из приложения', qty: 1, status: 'requested', deletedAt: null });
 
     const r = await run();
     expect(r.body.items[0].error).toBeNull();
     expect(r.body.items[0].lines).toEqual([
       'Снабжение: строк 10, новых 10, изменено 0, удалено 0',
-      'Склад: строк 2, новых 1, изменено 0, связано с приложением 1, удалено 0',
+      'Склад: строк 2, новых 1, изменено 0, связано с существующими 1',
     ]);
-    const reqs = await live('app_supply_requests');
+    const reqs = await live('supplyrequests');
     expect(reqs).toHaveLength(11);
     const r1 = reqs.find((d) => d.num === 1)!;
-    expect(r1).toMatchObject({ date: '2026-10-18', name: 'Заявка 1', qty: 1, source: 'google-sheets' });
-    expect(r1.foto).toBeUndefined();
-    expect(typeof r1.uid).toBe('string');
-    const bolt = (await live('app_warehouse_items')).find((d) => d.uid === 'app-bolt')!;
-    expect(bolt).toMatchObject({ name: 'Болт М8', currentQty: 50, photos: [{ url: '/uploads/b.webp' }] });
+    expect(r1).toMatchObject({ title: 'Заявка 1', qty: 1, status: 'requested', paid: false, priority: 'normal', source: 'google-sheets', sheetExtra: { invoiceType: 'Счет' } });
+    expect(r1.requestDate).toBeInstanceOf(Date);
+    const orgs = await db().collection('organizations').find({}).toArray();
+    expect(orgs).toHaveLength(1); // «ООО Крепёж» и «ооо крепёж» — один поставщик
+    expect(String(r1.supplierId)).toBe(String(orgs[0]._id));
+
+    const mats = await live('materials');
+    expect(mats).toHaveLength(2);
+    const bolt = mats.find((m) => m.article === 'B-8')!;
+    expect(bolt).toMatchObject({ name: 'Болт М8', notes: 'из CRM' }); // поля CRM, которыми лист не управляет, не тронуты
+    const nut = mats.find((m) => m.name === 'Гайка М8')!;
+    expect(nut.article).toMatch(/^СКЛ-/);
+    const stock = await db().collection('storageitems').find({}).toArray();
+    expect(stock.find((x) => String(x.materialId) === String(bolt._id))).toMatchObject({ quantity: 50 });
+    expect(stock.find((x) => String(x.materialId) === String(nut._id))).toMatchObject({ quantity: 30 });
   });
 
   it('повтор — без изменений и без дублей', async () => {
     const r = await run();
     expect(r.body.items[0].lines[0]).toBe('Снабжение: строк 10, новых 0, изменено 0, удалено 0');
-    expect(r.body.items[0].lines[1]).toBe('Склад: строк 2, новых 0, изменено 0, удалено 0');
-    expect(await live('app_supply_requests')).toHaveLength(11);
+    expect(r.body.items[0].lines[1]).toBe('Склад: строк 2, новых 0, изменено 0');
+    expect(await live('supplyrequests')).toHaveLength(11);
+    expect(await live('materials')).toHaveLength(2);
   });
 
-  it('правка ячейки, очистка ячейки и удаление строки', async () => {
+  it('правка ячейки, очистка ячейки, удаление строки; остаток со склада обновляется', async () => {
     supply[1][3] = 99; // Кол-во заявки №1
-    supply[2][4] = ''; // Статус заявки №2 очищен
+    supply[2][4] = '💰 Оплачено'; // статус заявки №2
+    supply[3][5] = ''; // поставщик заявки №3 стёрт
     supply.splice(10, 1); // удалена заявка №10
+    stock[6][3] = 45; // Болт: остаток 45
+    stock.splice(7, 1); // Гайка убрана из таблицы — номенклатуру не удаляем
     const r = await run();
-    expect(r.body.items[0].lines[0]).toBe('Снабжение: строк 9, новых 0, изменено 2, удалено 1');
-    const reqs = await live('app_supply_requests');
+    expect(r.body.items[0].lines).toEqual([
+      'Снабжение: строк 9, новых 0, изменено 3, удалено 1',
+      'Склад: строк 1, новых 0, изменено 1, нет в таблице 1 (не удаляются)',
+    ]);
+    const reqs = await live('supplyrequests');
     expect(reqs.find((d) => d.num === 1)!.qty).toBe(99);
-    expect(reqs.find((d) => d.num === 2)!.status).toBeUndefined();
+    expect(reqs.find((d) => d.num === 2)).toMatchObject({ status: 'ordered', paid: true });
+    expect(reqs.find((d) => d.num === 3)!.supplierId).toBeUndefined();
     expect(reqs.find((d) => d.num === 10)).toBeUndefined();
-    expect(reqs.find((d) => d.uid === 'app-req')).toBeDefined(); // запись приложения цела
+    expect(reqs.find((d) => d.title === 'Из приложения')).toBeDefined(); // заявка не из таблицы цела
+    expect(await live('materials')).toHaveLength(2);
+    const bolt = (await live('materials')).find((m) => m.article === 'B-8')!;
+    expect(await db().collection('storageitems').findOne({ materialId: bolt._id })).toMatchObject({ quantity: 45 });
   });
 
   it('лист очистили по ошибке — массовое удаление не выполняется', async () => {
     supply = [supply[0]];
     const r = await run();
     expect(r.body.items[0].lines[0]).toContain('⚠️ удаление 9 записей пропущено');
-    expect(await live('app_supply_requests')).toHaveLength(10);
+    expect(await live('supplyrequests')).toHaveLength(10);
   });
 });

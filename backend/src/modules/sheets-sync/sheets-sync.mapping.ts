@@ -8,8 +8,18 @@ import { createHash } from 'crypto';
  * строку узнаём по ключу `rowKey` — номеру заявки «№», наименованию ТМЦ и т.п.
  * `rowKey: null` — естественного ключа нет (журнал движений): ключ = содержимое строки.
  */
+/**
+ * Куда пишется лист: общие коллекции CRM (docs/UNIFY-SUPPLY-WAREHOUSE.md) или хранилище приложений.
+ *  supply    → supplyrequests (+ organizations, categories)
+ *  stock     → materials + storageitems (склад по умолчанию)
+ *  movements → stockmovements (история, остатки не пересчитываются)
+ *  app       → app_<app>_<collection> (пока нет места в CRM: «Реестр счетов»)
+ */
+export type SheetTarget = 'supply' | 'stock' | 'movements' | 'app';
+
 export interface SheetMap {
   sheet: string;
+  target: SheetTarget;
   headerRow: number;
   app: string;
   collection: string;
@@ -20,13 +30,11 @@ export interface SheetMap {
   /** Заголовок → поле; неописанные колонки → транслит заголовка. */
   fields: Record<string, string>;
   skip: string[];
-  /** Позиции склада: подхватить запись, созданную в приложении, с тем же наименованием. */
-  adoptByName?: boolean;
 }
 
 export const SHEET_MAPS: SheetMap[] = [
   {
-    sheet: 'Снабжение', headerRow: 1, app: 'supply', collection: 'requests', requiredHeader: 'Наименование', rowKey: '№',
+    sheet: 'Снабжение', target: 'supply', headerRow: 1, app: 'supply', collection: 'requests', requiredHeader: 'Наименование', rowKey: '№',
     fields: {
       '№': 'num', 'Дата': 'date', 'Категория': 'category', 'Наименование': 'name', 'Ед_изм.': 'unit',
       'Кол-во': 'qty', 'Подал заявку': 'requestedBy', 'Артикул': 'article', 'Цвет': 'color',
@@ -37,7 +45,7 @@ export const SHEET_MAPS: SheetMap[] = [
     skip: ['Фото', 'ID базы'],
   },
   {
-    sheet: 'Реестр счетов', headerRow: 1, app: 'supply', collection: 'invoices', requiredHeader: 'Наименование', rowKey: '№',
+    sheet: 'Реестр счетов', target: 'app', headerRow: 1, app: 'supply', collection: 'invoices', requiredHeader: 'Наименование', rowKey: '№',
     fields: {
       '№': 'num', 'Поставщик': 'supplier', 'Категория': 'category', 'Артикул': 'article', 'Наименование': 'name',
       'Ед_изм.': 'unit', 'Кол-во': 'qty', 'Цена с НДС': 'priceWithVat', 'Тип счета': 'invoiceType', '№ Счета': 'invoiceNo', 'Дата счета': 'invoiceDate',
@@ -45,7 +53,7 @@ export const SHEET_MAPS: SheetMap[] = [
     skip: ['Фото', 'ID базы'],
   },
   {
-    sheet: 'Склад', headerRow: 6, app: 'warehouse', collection: 'items', requiredHeader: 'Наименование ТМЦ', rowKey: 'Наименование ТМЦ',
+    sheet: 'Склад', target: 'stock', headerRow: 6, app: 'warehouse', collection: 'items', requiredHeader: 'Наименование ТМЦ', rowKey: 'Наименование ТМЦ',
     fields: {
       'Категория': 'category', 'Наименование ТМЦ': 'name', 'Ед. изм.': 'unit', 'Артикул': 'article', 'Начальный остаток': 'openingQty',
       'Поступило': 'receivedQty', 'Забронировано': 'reservedQty', 'Списано': 'writtenOffQty', 'Текущий остаток': 'currentQty',
@@ -53,12 +61,11 @@ export const SHEET_MAPS: SheetMap[] = [
       'Место хранения': 'location',
     },
     skip: ['Фото', 'ID базы'],
-    adoptByName: true,
   },
   {
     // Журнал движений из таблицы — история (в остатки приложения не входит: нет itemUid).
     // Колонки калькулятора веса справа переносятся как есть (транслитом).
-    sheet: 'Движение склада', headerRow: 1, app: 'warehouse', collection: 'movements', requiredHeader: 'Наименование ТМЦ', rowKey: '№',
+    sheet: 'Движение склада', target: 'movements', headerRow: 1, app: 'warehouse', collection: 'movements', requiredHeader: 'Наименование ТМЦ', rowKey: '№',
     fields: {
       '№': 'num', 'Дата': 'date', 'Тип операции': 'operation', 'Объект / Заказчик': 'customer',
       'Ответственный / Инициатор': 'byName', 'Категория': 'category', 'Наименование ТМЦ': 'itemName', 'Ед. изм.': 'unit',

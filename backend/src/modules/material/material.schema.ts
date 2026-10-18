@@ -100,6 +100,17 @@ export class Material {
   @Prop({ type: [CompositionLineSchema], default: [] })
   composition?: CompositionLine[];
 
+  // ── Общие поля единой базы (data-core ↔ kppdf), добавлены 2026-10-18 ──
+  /** Синхронизация Google-таблиц (data-core sheets-sync): откуда позиция и её отпечаток. */
+  @Prop({ index: true, sparse: true })
+  sheetSource?: string;
+
+  @Prop()
+  sheetKey?: string;
+
+  @Prop()
+  syncHash?: string;
+
   /** TZ-CATALOG-314 archive marker; legacy rows without this field remain active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
