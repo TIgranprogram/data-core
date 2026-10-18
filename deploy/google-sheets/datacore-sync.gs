@@ -59,6 +59,38 @@ const DC = {
   ],
 };
 
+/**
+ * Режим «База → Таблица» (после перехода на приложение «Снабжение / Склад»).
+ * Главное место ввода — приложение; таблица получает зеркало в отдельные листы «… (база)»
+ * (старые листы с формулами не трогаются, остаются архивом). Лист-зеркало перезаписывается целиком.
+ * Зеркало строится в той таблице, где есть исходный лист (source).
+ */
+const DC_PULL = [
+  {
+    source: 'Снабжение', sheet: 'Снабжение (база)', path: '/apps/supply/requests',
+    sort: (a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.num) || 0) - (Number(a.num) || 0),
+    columns: [['№', 'num'], ['Дата', 'date'], ['Фото', '@photo'], ['Категория', 'category'], ['Наименование', 'name'], ['Ед. изм.', 'unit'],
+      ['Кол-во', 'qty'], ['Подал заявку', 'requestedBy'], ['Артикул', 'article'], ['Цвет', 'color'], ['Поставщик', 'supplier'],
+      ['Ссылка', 'link'], ['Заказчик', 'customer'], ['Примечание', 'note'], ['Статус', 'status'], ['Приоритет', 'priority'],
+      ['Наша компания', 'ourCompany'], ['Доставка', 'delivery'], ['№ счёта', 'invoiceNo'], ['Дата счёта', 'invoiceDate'],
+      ['Цена с НДС', 'priceWithVat'], ['Оприходовано', 'receivedAt']],
+  },
+  {
+    source: 'Склад', sheet: 'Склад (база)', path: '/apps/warehouse/items', stock: true,
+    sort: (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'),
+    columns: [['Фото', '@photo'], ['Категория', 'category'], ['Наименование ТМЦ', 'name'], ['Ед. изм.', 'unit'], ['Артикул', 'article'],
+      ['Остаток', '@onHand'], ['В брони', '@reserved'], ['Свободно', '@free'], ['Мин. остаток', 'minQty'], ['Статус', '@status'],
+      ['Место хранения', 'location'], ['Вес 1 шт.', 'weightKg']],
+  },
+  {
+    source: 'Склад', sheet: 'Движение склада (база)', path: '/apps/warehouse/movements',
+    sort: (a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')),
+    columns: [['Дата', 'date'], ['Тип', '@moveType'], ['Наименование', 'itemName'], ['Кол-во', 'qty'], ['Основание / заказ', 'ref'],
+      ['Примечание', 'note'], ['Кто', 'byName']],
+  },
+];
+const DC_MOVE_LABEL = { in: 'Приход', reserve: 'Бронь', unreserve: 'Снять бронь', out: 'Списание', adjust: 'Корректировка', opening: 'Начальный остаток' };
+
 // ------------------------------- Установка -------------------------------
 
 function datacoreSetup() {
@@ -90,13 +122,34 @@ function datacoreMenu() {
     .addItem('🔄 Синхронизировать сейчас', 'datacoreSyncNow')
     .addItem('ℹ️ Последняя синхронизация', 'datacoreStatus')
     .addSeparator()
+    .addItem('⬆️ Режим: таблица → база (до перехода)', 'datacoreModePush')
+    .addItem('⬇️ Режим: база → таблица (после перехода)', 'datacoreModePull')
+    .addSeparator()
     .addItem('🔑 Сменить ключ / переустановить', 'datacoreSetup')
     .addToUi();
 }
 
 function datacoreStatus() {
-  const s = PropertiesService.getScriptProperties().getProperty('DATACORE_LAST') || 'ещё не запускалась';
-  SpreadsheetApp.getUi().alert('Последняя синхронизация', s, SpreadsheetApp.getUi().ButtonSet.OK);
+  const props = PropertiesService.getScriptProperties();
+  const s = props.getProperty('DATACORE_LAST') || 'ещё не запускалась';
+  const mode = dcMode_() === 'pull' ? 'база → таблица (зеркало)' : 'таблица → база';
+  SpreadsheetApp.getUi().alert('Последняя синхронизация', 'Режим: ' + mode + '\n\n' + s, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function dcMode_() { return PropertiesService.getScriptProperties().getProperty('DATACORE_MODE') || 'push'; }
+
+function datacoreModePush() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('Режим «таблица → база»', 'Таблица снова станет главным местом ввода и будет отправлять строки в базу. Используйте только ДО перехода на приложение. Включить?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  PropertiesService.getScriptProperties().setProperty('DATACORE_MODE', 'push');
+  ui.alert('Режим «таблица → база» включён.');
+}
+
+function datacoreModePull() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('Режим «база → таблица»', 'После перехода главное место ввода — приложение «Снабжение / Склад». Таблица перестанет отправлять данные в базу и будет получать зеркало в листы «… (база)». Старые листы не меняются. Включить?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  PropertiesService.getScriptProperties().setProperty('DATACORE_MODE', 'pull');
+  datacoreSyncNow();
 }
 
 // ------------------------------- Запуск -------------------------------
@@ -111,7 +164,16 @@ function dcRun_(interactive) {
   try {
     const budget = { writes: DC.MAX_WRITES_PER_RUN };
     const ss = SpreadsheetApp.getActive();
-    DC.SHEETS.forEach((cfg) => {
+    if (dcMode_() === 'pull') {
+      let movesCache = null;
+      DC_PULL.forEach((cfg) => {
+        if (!ss.getSheetByName(cfg.source)) return; // зеркало — только в той таблице, где был исходный лист
+        try {
+          if (cfg.stock && !movesCache) movesCache = dcListAll_('/apps/warehouse/movements');
+          lines.push(dcPullSheet_(ss, cfg, movesCache));
+        } catch (e) { lines.push(`${cfg.sheet}: ❌ ${e.message}`); }
+      });
+    } else DC.SHEETS.forEach((cfg) => {
       const sh = ss.getSheetByName(cfg.sheet);
       if (!sh) return; // этого листа в этой таблице нет — пропускаем
       try { lines.push(dcSyncSheet_(sh, cfg, budget)); }
@@ -124,6 +186,60 @@ function dcRun_(interactive) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ------------------------- Зеркало «База → Таблица» -------------------------
+
+function dcPullSheet_(ss, cfg, moves) {
+  const docs = dcListAll_(cfg.path).filter((d) => !d.deletedAt).sort(cfg.sort);
+  const base = (PropertiesService.getScriptProperties().getProperty('DATACORE_BASE') || DC.BASE_URL_DEFAULT).replace(/\/api\/?$/, '');
+  const byItem = {};
+  (moves || []).forEach((m) => { (byItem[m.itemUid] = byItem[m.itemUid] || []).push(m); });
+
+  const rows = docs.map((d) => {
+    const st = cfg.stock ? dcStock_(d, byItem[d.uid] || []) : null;
+    return cfg.columns.map(([, key]) => {
+      if (key === '@photo') {
+        const p = (d.photos || [])[0];
+        return p ? `=IMAGE("${base}${p.thumb || p.url}")` : '';
+      }
+      if (key === '@onHand') return st.onHand;
+      if (key === '@reserved') return st.reserved;
+      if (key === '@free') return st.onHand - st.reserved;
+      if (key === '@status') {
+        const min = Number(d.minQty) || 0;
+        if (st.onHand <= 0) return '❌ Нет';
+        return min > 0 && st.onHand - st.reserved < min ? '⚠️ К закупке' : '✅ В норме';
+      }
+      if (key === '@moveType') return DC_MOVE_LABEL[d.type] || d.type || '';
+      const v = d[key];
+      return v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : v);
+    });
+  });
+
+  const sh = ss.getSheetByName(cfg.sheet) || ss.insertSheet(cfg.sheet);
+  sh.clearContents();
+  const header = cfg.columns.map(([label]) => label);
+  sh.getRange(1, 1, rows.length + 1, header.length).setValues([header].concat(rows));
+  sh.getRange(1, 1, 1, header.length).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  return `${cfg.sheet}: зеркало обновлено, строк ${rows.length}`;
+}
+
+/** Остаток позиции — как в приложении: из движений; до перехода — табличные цифры. */
+function dcStock_(item, mv) {
+  if (!item.fromMovements && !mv.length) {
+    return { onHand: Number(item.currentQty) || 0, reserved: Number(item.reservedQty) || 0 };
+  }
+  let onHand = 0, reserved = 0;
+  mv.forEach((m) => {
+    const q = Number(m.qty) || 0;
+    if (m.type === 'in' || m.type === 'opening' || m.type === 'adjust') onHand += q;
+    else if (m.type === 'out') onHand -= q;
+    else if (m.type === 'reserve') reserved += q;
+    else if (m.type === 'unreserve') reserved -= q;
+  });
+  return { onHand, reserved };
 }
 
 // ------------------------------- Ядро -------------------------------

@@ -6,6 +6,7 @@
  *   currentQty > 0  → движение «opening» (начальный остаток) на это количество;
  *   reservedQty > 0 → движение «reserve» (бронь);
  *   затем позиция помечается fromMovements: true — дальше остатки считаются только из движений.
+ * Темп ~90 запросов в минуту (лимит API — 100): 250 позиций — около 6 минут.
  * Идемпотентно: uid движений детерминированы (opening-<uid позиции>), повторный запуск ничего не задвоит.
  *
  * Запуск (Node 18+), ключ с правами «Чтение и запись» для приложения warehouse:
@@ -21,12 +22,16 @@ if (!KEY) { console.error('Задайте DATACORE_KEY=kppd_…'); process.exit(
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function api(method, path, body) {
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 8; attempt++) {
     const res = await fetch(BASE + path, { method, headers: { Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
-    if (res.status === 429 || res.status >= 500) { await sleep(1500 * attempt); continue; }
+    if (res.status === 429 || res.status >= 500) {
+      const wait = Number(res.headers.get('retry-after')) || 10 * attempt; // лимит API — 100 запросов в минуту
+      console.log(`  … сервер просит подождать (${res.status}), пауза ${wait} с`);
+      await sleep(wait * 1000); continue;
+    }
     const text = await res.text();
     if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${text.slice(0, 200)}`);
-    await sleep(120); // бережём лимит API
+    await sleep(650); // ~90 запросов в минуту — ниже лимита API (100/мин)
     return text ? JSON.parse(text) : null;
   }
   throw new Error(`${method} ${path}: сервер перегружен`);
