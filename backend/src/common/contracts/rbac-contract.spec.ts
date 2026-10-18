@@ -20,15 +20,15 @@ import {
 describe('RBAC contract (TZ-254)', () => {
   describe('catalog re-export', () => {
     it('exports the same PERMISSIONS catalog as the seed module', () => {
-      // 16 keys seeded by PermissionsService: user 3 + role 3 + product 3 + category 2 + material 2 + production 2 + desktop 1.
+      // 19 keys seeded by PermissionsService: user 3 + role 3 + product 3 + category 2 + material 2 + production 2 + desktop 1 + app-data 3.
       // Smoke-test bound to catch accidental truncation or remap.
-      // TZD-72 added `desktop:admin` (29 -> 30); T15 removed the CRM sections (30 -> 16).
-      expect(PERMISSIONS.length).toBe(16);
+      // TZD-72 added `desktop:admin` (29 -> 30); T15 removed the CRM sections (30 -> 16); P1 added app-data (16 -> 19).
+      expect(PERMISSIONS.length).toBe(19);
     });
 
     it('every permission key is well-formed `<section>:<action>`', () => {
       for (const p of PERMISSIONS) {
-        expect(p.key).toMatch(/^[a-z]+:(read|write|admin)$/);
+        expect(p.key).toMatch(/^[a-z]+(-[a-z]+)*:(read|write|admin)$/);
       }
     });
 
@@ -44,10 +44,10 @@ describe('RBAC contract (TZ-254)', () => {
       }
     });
 
-    it('covers exactly identity (user, role) + catalog (product, category, material) + production (work types) + desktop sections (T15)', () => {
+    it('covers exactly identity (user, role) + catalog (product, category, material) + production (work types) + desktop + app-data sections (T15, P1)', () => {
       const sections = new Set<string>(PERMISSIONS.map((p) => p.section));
       expect([...sections].sort()).toEqual(
-        ['category', 'desktop', 'material', 'product', 'production', 'role', 'user'],
+        ['app-data', 'category', 'desktop', 'material', 'product', 'production', 'role', 'user'],
       );
     });
   });

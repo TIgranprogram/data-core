@@ -54,8 +54,10 @@ const MANAGER_PAGES = [
  * TZ-PRODUCTION-309: manager also gets production:write so WorkType mutate +
  * order estimate-days (Permissions-only routes) stay usable for managers.
  */
-const DIRECTOR_PERMISSIONS = ['production:read'] as const;
-const MANAGER_PERMISSIONS = ['production:read', 'production:write'] as const;
+// P1: app-data — manager читает и пишет, director/user только читают; admin получает всё через '*'.
+const DIRECTOR_PERMISSIONS = ['production:read', 'app-data:read'] as const;
+const MANAGER_PERMISSIONS = ['production:read', 'production:write', 'app-data:read', 'app-data:write'] as const;
+const USER_PERMISSIONS = ['app-data:read'] as const;
 
 const WORKER_PAGES = [
   'doc-texts',
@@ -94,7 +96,7 @@ const SYSTEM_ROLES = [
     name: 'user',
     label: 'User',
     description: 'Worker ? self-service + document access',
-    permissions: [],
+    permissions: [...USER_PERMISSIONS],
     isSystem: true,
     sortOrder: 100,
     pages: [...WORKER_PAGES],

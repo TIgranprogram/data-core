@@ -19,6 +19,7 @@ import { VersionConflictFilter } from './common/filters/version-conflict.filter'
 import { ThrottlerBehindAuthGuard } from './common/guards/throttler-behind-auth.guard';
 import { createQuietNestLogger } from './common/logging/quiet-nest-logger';
 import { SecretValidationService } from './config/secret-validation.service';
+import { registerAppDataBodyParser } from './modules/app-data/app-data.body-parser';
 
 async function bootstrap() {
   // TZ-157: Initialize Sentry before NestJS so exceptions in bootstrap are captured
@@ -127,6 +128,9 @@ async function bootstrap() {
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
   });
+
+  // P1: /api/apps принимает документы до 256 КБ и bulk — стандартных 100 КБ мало.
+  registerAppDataBodyParser(app);
 
   // TZ-249 §2.1 — TRUST_PROXY=1 explicitly opts into trusting
   // X-Forwarded-For for downstream guards. Default is FALSE: spoofable

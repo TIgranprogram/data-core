@@ -13,6 +13,7 @@ import { Connection, Types } from 'mongoose';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
+import { parseMongoCollectionName } from '../app-data/app-data.validation';
 
 /**
  * Data Core — «справочник таблиц» (админ-only).
@@ -60,6 +61,7 @@ const CATEGORIES: CategoryDef[] = [
   { id: 'classifiers', label: 'Классификаторы и справочники' },
   { id: 'catalog', label: 'Каталог: материалы и изделия' },
   { id: 'links', label: 'Связевые и вложенные (несамостоятельные)' },
+  { id: 'apps', label: 'Данные приложений' },
   { id: 'legacy-docs', label: 'Остатки: документооборот (код удалён)', legacy: true },
   { id: 'legacy-sales', label: 'Остатки: продажи, сделки и закупки (код удалён)', legacy: true },
   { id: 'legacy-prod', label: 'Остатки: производство (код удалён)', legacy: true },
@@ -75,8 +77,10 @@ const CATEGORIES: CategoryDef[] = [
  *            сама по себе не самостоятельна (вложена в core-домен)
  *   legacy — остаток удалённого домена: модуль удалён при чистке H,
  *            таблица — кандидат на удаление
+ *   app    — данные приложения из /api/apps (P1): коллекции app_<app>_<collection>
+ *            создаются клиентами на лету, в реестре не описываются
  */
-type CollectionKind = 'core' | 'link' | 'legacy';
+type CollectionKind = 'core' | 'link' | 'legacy' | 'app';
 
 interface CollectionMeta {
   category: string;
@@ -217,8 +221,19 @@ function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[_\-\s]/g, '');
 }
 
+/** P1: коллекция данных приложения (`app_<app>_<collection>`) — описание строится из имени. */
+function appMeta(name: string): CollectionMeta | undefined {
+  const parsed = parseMongoCollectionName(name);
+  if (!parsed) return undefined;
+  return {
+    category: 'apps',
+    kind: 'app',
+    doc: `Данные приложения «${parsed.app}», коллекция «${parsed.collection}» — /api/apps/${parsed.app}/${parsed.collection}.`,
+  };
+}
+
 function metaFor(name: string): CollectionMeta | undefined {
-  return COLLECTIONS[name] ?? COLLECTIONS_BY_NORM[normalizeName(name)];
+  return COLLECTIONS[name] ?? appMeta(name) ?? COLLECTIONS_BY_NORM[normalizeName(name)];
 }
 
 function describe(name: string): string | undefined {
@@ -470,7 +485,8 @@ export class CollectionsAdminController {
    *   1. Только ТОЧНОЕ имя из реестра COLLECTIONS (без нормализации регистра и
    *      подчёркиваний) — нельзя удалить то, о чём реестр ничего не знает, и
    *      нельзя попасть в чужое имя с такой же «нормализацией».
-   *   2. Только kind === 'legacy' — действующие (core) и связевые (link) таблицы
+   *   2. Только kind === 'legacy' или 'app' (данные приложения, P1; точное имя
+   *      app_<app>_<collection>) — действующие (core) и связевые (link) таблицы
    *      недоступны для удаления (409).
    *   3. Дроп пишется в журнал аудита (@AuditAction → AuditLog). Имя идёт в
    *      details.after (снапшот ответа), а НЕ в entityId: AuditService.log
@@ -487,15 +503,15 @@ export class CollectionsAdminController {
     }
 
     // Точное совпадение с реестром — без COLLECTIONS_BY_NORM (см. шифр выше).
-    const meta = COLLECTIONS[name];
+    const meta = COLLECTIONS[name] ?? appMeta(name);
     if (!meta) {
       throw new BadRequestException(
         'Коллекция не описана в реестре — из админки удалять её нельзя: ' + name,
       );
     }
-    if (meta.kind !== 'legacy') {
+    if (meta.kind !== 'legacy' && meta.kind !== 'app') {
       throw new ConflictException(
-        'Удалять можно только остатки (legacy). Эта таблица — ' +
+        'Удалять можно только остатки (legacy) и данные приложений (app). Эта таблица — ' +
           meta.kind +
           ': ' +
           name,

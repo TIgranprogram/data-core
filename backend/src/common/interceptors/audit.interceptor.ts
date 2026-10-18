@@ -25,6 +25,11 @@ export interface AuditActionMetadata {
    * default; sensitive read surfaces may opt in without auditing every GET.
    */
   auditRead?: boolean;
+  /**
+   * Своё содержимое `details` вместо `{ after: <ответ> }` — например, чтобы
+   * положить параметры маршрута (не-ObjectId) или не писать в журнал bulk-ответ целиком.
+   */
+  details?: (data: unknown, params: Record<string, string>) => Record<string, unknown>;
 }
 
 export const AuditAction = (meta: AuditActionMetadata): MethodDecorator =>
@@ -82,7 +87,9 @@ export class AuditInterceptor implements NestInterceptor {
             action: meta.action,
             entityType: meta.entityType,
             entityId: entityId ?? idFromResponse,
-            details: { after: this.safeSnapshot(data) },
+            details: meta.details
+              ? meta.details(data, req.params ?? {})
+              : { after: this.safeSnapshot(data) },
             ipAddress: req.ip,
             userId: reqUser?.id,
             userName: reqUser?.username,
