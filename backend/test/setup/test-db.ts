@@ -7,6 +7,7 @@ import { HttpExceptionFilter } from '../../src/common/filters/http-exception.fil
 import { MulterExceptionFilter } from '../../src/common/filters/multer-exception.filter';
 import { VersionConflictFilter } from '../../src/common/filters/version-conflict.filter';
 import { TEST_ADMIN_PASSWORD } from './admin.fixture';
+import { registerAppDataBodyParser } from '../../src/modules/app-data/app-data.body-parser';
 
 export interface TestContext {
   app: INestApplication;
@@ -89,6 +90,7 @@ export async function createTestApp(): Promise<TestContext> {
     new HttpExceptionFilter(),
   );
   app.setGlobalPrefix('api');
+  registerAppDataBodyParser(app); // как в main.ts
   await app.init();
 
   const connection = app.get<Connection>(getConnectionToken());

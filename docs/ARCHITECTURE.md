@@ -31,6 +31,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 - `common/mongoose/optimistic-lock.plugin.ts` — версионирование там, где подключён.
 - Транзакции требуют replica set (поэтому rs0 даже на одном узле).
 - Идентификатор: глобальный `IdNormalizeInterceptor` (T18) добавляет строковый `id` рядом с `_id` в каждый объект ответа (аддитивно). Списки: `{ items, total, page, limit }`.
+- Данные приложений (P1, `modules/app-data`): `/api/apps/:app/:collection` пишет в сырые коллекции `app_<app>_<collection>` через Connection, без Mongoose-схем — глобальные плагины туда не действуют, служебные поля (`createdAt/updatedAt/createdBy/updatedBy/deletedAt`) и soft-delete ставит сам сервис. `filter` — только whitelist операторов (`app-data.validation.ts`).
 - Мульти-организационность: многие сущности имеют `organizationId`; сервисы фильтруют по организации актора.
 - Удаление справочников защищено проверками «где используется» (`where-used`, `catalog-graph`). ⚠ часть проверок смотрит в удалённые CRM-коллекции — TASKS T1.
 
@@ -51,7 +52,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 
 ## Админка (`backend/admin/`)
 
-Vanilla JS без сборки: `admin.js` (вся логика, fetch к `/api`, JWT в памяти/хранилище), `index.html`, `admin.css`. Разделы: Пользователи, API-ключи, Таблицы (реестр коллекций из `collections-admin.controller.ts`; удаление разрешено только `kind:'legacy'`). Локально монтируется томом (правка без пересборки), в prod копируется в образ.
+Vanilla JS без сборки: `admin.js` (вся логика, fetch к `/api`, JWT в памяти/хранилище), `index.html`, `admin.css`. Разделы: Пользователи, API-ключи, Таблицы (реестр коллекций из `collections-admin.controller.ts`; удаление разрешено только `kind:'legacy'` и `kind:'app'` — данные приложений, P1; с вводом имени для подтверждения). Локально монтируется томом (правка без пересборки), в prod копируется в образ.
 
 ## Инфраструктура
 

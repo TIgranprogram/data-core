@@ -32,6 +32,10 @@ export const PERMISSIONS = [
   // ни один маршрут их не требовал (домен CRM удалён). Ключи, оставшиеся у ролей в БД, безвредны.
   /** TZD-72: gates pairing-key issue/list/revoke + the NX shell download/pairing button. */
   { key: 'desktop:admin', section: 'desktop', action: 'admin', description: 'Download Desktop / issue pairing keys' },
+  /** P1: универсальное хранилище /api/apps/:app/:collection. admin — физическое удаление (?hard=true). */
+  { key: 'app-data:read', section: 'app-data', action: 'read', description: 'Read app data (/api/apps)' },
+  { key: 'app-data:write', section: 'app-data', action: 'write', description: 'Create/edit/soft-delete app data' },
+  { key: 'app-data:admin', section: 'app-data', action: 'admin', description: 'Hard-delete app data documents' },
 ] as const;
 
 /**

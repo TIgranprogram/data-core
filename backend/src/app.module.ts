@@ -47,6 +47,7 @@ import { IdempotencyMiddleware } from './common/idempotency/idempotency.middlewa
 import { AttributeDefinitionModule } from './modules/attribute-definition/attribute-definition.module';
 import { EntityAttributeValueModule } from './modules/entity-attribute-value/entity-attribute-value.module';
 import { ProductPassportModule } from './modules/product-passport/product-passport.module';
+import { AppDataModule } from './modules/app-data/app-data.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { UserContextInterceptor } from './common/interceptors/user-context.interceptor';
@@ -137,6 +138,7 @@ import { RequestMethod } from '@nestjs/common';
     AdminModule,            // TZ-257: /api/admin/users + /api/admin/roles (read-only slice)
     DeviceEnrollmentModule, // TZ-AUTH-303: /api/device/* + /api/admin/devices/*
     IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
+    AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
     // ─── Канонические справочники (VISION #4) ─────────────────────────
     PersonModule,
     OrganizationModule,

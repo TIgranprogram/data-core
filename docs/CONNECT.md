@@ -171,6 +171,80 @@ $data = json_decode(curl_exec($ch), true);
 
 ---
 
+## 3a. Данные своего приложения (`/api/apps`)
+
+Для своих данных приложения **не нужно ничего добавлять на сервер**: придумай имя приложения и коллекции — и сразу пиши/читай JSON-документы. Коллекция создаётся при первой записи (в БД — `app_<app>_<collection>`, в админке «Таблицы» — раздел «Данные приложений»).
+
+| Запрос | Что делает |
+|--|--|
+| `GET /api/apps` | список приложений и их коллекций: `{items:[{app, collections:[{name, count, deleted}]}], total}` |
+| `GET /api/apps/:app/:collection` | список `{items, total, page, limit}`; параметры `page` (с 1), `limit` (по умолч. 50, максимум 200 — больше урезается), `sort`, `filter` |
+| `GET /api/apps/:app/:collection/:id` | один документ |
+| `POST /api/apps/:app/:collection` | создать: объект → один документ (201); **массив до 500** → пачка, ответ `{items, total}` |
+| `PATCH /api/apps/:app/:collection/:id` | слияние верхнего уровня: переданные поля заменяются, остальные сохраняются |
+| `PUT /api/apps/:app/:collection/:id` | полная замена документа |
+| `DELETE /api/apps/:app/:collection/:id` | мягкое удаление (`deletedAt`, документ пропадает из чтения); `?hard=true` — физически, только с правом `app-data:admin` (admin) |
+
+**Правила:**
+- Имя приложения — `^[a-z][a-z0-9]{0,39}$` (**без** `_`, иначе имя коллекции в БД неоднозначно), коллекции — `^[a-z][a-z0-9_]{0,39}$`. Иначе 400.
+- В ответе у документа всегда `id` (строка) и `_id`. Служебные поля `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `deletedAt` ставит сервер — если прислать их (или `id`/`_id`) в теле, они молча игнорируются.
+- Ключи документа с `$` или `.` → 400. Документ больше 256 КБ → 413. Тело запроса — до 16 МБ.
+- Невалидный `id` → 400, нет документа (или он удалён) → 404.
+- `sort`: `field` (по возрастанию) или `-field` (по убыванию), несколько — через запятую: `sort=-createdAt,title`. Вложенные поля — через точку.
+- `filter` — JSON (не забудь URL-кодировать): `{"status":"open"}` или `{"qty":{"$gte":1,"$lt":10}}`. Разрешены только операторы `$eq $ne $gt $gte $lt $lte $in $nin $exists` внутри поля; всё остальное (`$where`, `$expr`, `$regex`, `$or`, …) → 400. `id` в фильтре = `_id`; `createdAt`/`updatedAt` сравниваются с ISO-датой (`"2026-01-01"`).
+- Права: чтение — `app-data:read` (есть у всех системных ролей), запись — `app-data:write` (admin, manager), физическое удаление — `app-data:admin` (admin). Если ключу `kppd_` задан список приложений, чужое приложение → 403.
+
+**curl:**
+```bash
+BASE=http://<LAN_IP>:3001/api; KEY=kppd_xxxxx...
+# создать
+curl -s -X POST $BASE/apps/budget/expenses -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" -d '{"title":"Кофе","amount":250,"tags":["еда"]}'
+# найти траты от 100, новые сверху
+curl -s -G $BASE/apps/budget/expenses -H "Authorization: Bearer $KEY" \
+  --data-urlencode 'filter={"amount":{"$gte":100}}' --data-urlencode 'sort=-createdAt'
+# изменить одно поле / удалить
+curl -s -X PATCH $BASE/apps/budget/expenses/<id> -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" -d '{"amount":300}'
+curl -s -X DELETE $BASE/apps/budget/expenses/<id> -H "Authorization: Bearer $KEY"
+```
+
+**Python:**
+```python
+import json, requests
+
+BASE = "http://<LAN_IP>:3001/api/apps/budget/expenses"
+H = {"Authorization": "Bearer kppd_xxxxx..."}
+
+doc = requests.post(BASE, json={"title": "Кофе", "amount": 250}, headers=H, timeout=10).json()
+requests.post(BASE, json=[{"title": "Хлеб", "amount": 60}, {"title": "Сыр", "amount": 400}], headers=H, timeout=10)
+
+page = requests.get(BASE, headers=H, timeout=10, params={
+    "filter": json.dumps({"amount": {"$gte": 100}}), "sort": "-amount", "limit": 200,
+}).json()
+for item in page["items"]:
+    print(item["id"], item["title"], item["amount"])
+
+requests.patch(f"{BASE}/{doc['id']}", json={"amount": 300}, headers=H, timeout=10)
+requests.delete(f"{BASE}/{doc['id']}", headers=H, timeout=10)
+```
+
+**JavaScript (браузер / Node 18+):**
+```javascript
+const BASE = 'http://<LAN_IP>:3001/api/apps/budget/expenses';
+const H = { Authorization: 'Bearer kppd_xxxxx...', 'Content-Type': 'application/json' };
+
+const doc = await (await fetch(BASE, { method: 'POST', headers: H, body: JSON.stringify({ title: 'Кофе', amount: 250 }) })).json();
+const q = new URLSearchParams({ filter: JSON.stringify({ amount: { $gte: 100 } }), sort: '-createdAt' });
+const { items, total } = await (await fetch(`${BASE}?${q}`, { headers: H })).json();
+await fetch(`${BASE}/${doc.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ amount: 300 }) });
+await fetch(`${BASE}/${doc.id}`, { method: 'DELETE', headers: H });
+```
+
+Все изменения пишутся в журнал аудита (`entityType: AppData`, в `details` — `app` и `collection`).
+
+---
+
 ## 4. Кто и что может (права)
 
 | Роль | Права |
