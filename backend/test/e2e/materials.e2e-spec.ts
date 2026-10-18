@@ -44,6 +44,29 @@ describe('Materials (e2e)', () => {
     });
   });
 
+  describe('T18: единый id в ответах', () => {
+    it('создание, чтение и список отдают id рядом с _id', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/materials')
+        .set(authHeader(token))
+        .send({ name: 'Id Contract', article: 'MTL-ID-001', unit: 'шт' });
+      expect(created.status).toBe(201);
+      expect(typeof created.body.id).toBe('string');
+      expect(created.body.id).toBe(String(created.body._id));
+
+      const one = await request(app.getHttpServer())
+        .get(`/api/materials/${created.body.id}`)
+        .set(authHeader(token));
+      expect(one.status).toBe(200);
+      expect(one.body.id).toBe(created.body.id);
+
+      const list = await request(app.getHttpServer())
+        .get('/api/materials')
+        .set(authHeader(token));
+      expect(list.body.items.every((m: { id?: string; _id?: string }) => m.id === String(m._id))).toBe(true);
+    });
+  });
+
   describe('POST /materials', () => {
     it('admin creates a material', async () => {
       const res = await request(app.getHttpServer())
