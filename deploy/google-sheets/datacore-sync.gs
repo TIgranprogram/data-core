@@ -316,8 +316,11 @@ function dcSyncSheet_(sh, cfg, budget) {
   // 4) Удалённые из таблицы строки → мягкое удаление в базе (с защитой)
   const live = {};
   rows.forEach((d) => { live[d.uid] = true; });
-  const gone = remote.filter((d) => d.uid && !live[d.uid]);
-  if (gone.length && gone.length > Math.max(3, remote.length * DC.DELETE_GUARD_RATIO)) {
+  // Удаляем только то, что сам скрипт принёс из таблицы (есть syncHash). Записи, созданные
+  // в приложении «Снабжение / Склад» (заявки, движения), таблица не видит — их не трогаем.
+  const gone = remote.filter((d) => d.uid && d.syncHash && !live[d.uid]);
+  const fromSheet = remote.filter((d) => d.syncHash).length;
+  if (gone.length && gone.length > Math.max(3, fromSheet * DC.DELETE_GUARD_RATIO)) {
     skippedDelete = true;
   } else {
     for (const d of gone) {
