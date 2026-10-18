@@ -13,7 +13,7 @@
 //     docker exec -i datacore-mongo sh -c 'mongo --quiet' <<EOF
 //     var ROOT_PWD='...'; var APP_PWD='...'; ...
 //     EOF
-//   (см. комментарий к вызову в docs/CHECKLIST.md; на mongo:5+ шелл mongosh)
+//   (см. комментарий к вызову в docs/HISTORY.md; на mongo:5+ шелл mongosh)
 //
 // ВАЖНО: после включения --auth этот же скрипт уже НЕ выполнится без пароля —
 // он предназначен только для первичного бутстрапа.

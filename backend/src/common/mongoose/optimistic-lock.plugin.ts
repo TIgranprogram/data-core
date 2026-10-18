@@ -8,7 +8,7 @@ import { Schema } from 'mongoose';
  * VersionError on array-field updates (`photoIds`, organization `assets`) —
  * product photo save showed «Изделие уже изменено» (2026-08-11).
  *
- * @see tasks/_archive/2026-08/TZ-ORG-ASSETS-301.done.md
+ * (история задачи TZ-ORG-ASSETS-301 — в git kppdf-8.0)
  * @see TZ-CATALOG-339
  */
 export function optimisticLockPlugin(schema: Schema): void {

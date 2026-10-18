@@ -26,7 +26,7 @@ import {
  * explicit-string equality, matching the opt-out convention used by
  * `AdminPasswordDriftDetector` next door. Never automatic; operator must
  * opt out deliberately. Documented as an `OPERATIONAL ACTION` in
- * `docs/SECURITY-OPERATIONS.md`.
+ * `backend/README.md`.
  */
 
 /** Thrown by `SecretValidationService.assertProductionSafe` in production. */
@@ -52,7 +52,7 @@ export interface SecretHint {
  * Intentionally narrow to keep false-positive rate near zero in
  * legitimate dev workflows that happen to contain words like "secret"
  * or "password" as substrings of real secrets. The list is owned by
- * the security runbook (`docs/SECURITY-OPERATIONS.md §3.2`) — any new
+ * the security runbook (`backend/README.md, раздел о безопасности`) — any new
  * placeholder convention must be added both here and in the doc.
  */
 const BANNED_PLACEHOLDER_SUBSTRINGS: readonly string[] = [
@@ -192,7 +192,7 @@ export class SecretValidationService {
         `Insecure production environment rejected (TZ-248).\n` +
           `Detected weak secret markers — fix before promoting to production:\n` +
           `${detail}\n` +
-          `See docs/SECURITY-OPERATIONS.md for the rotation procedure.`,
+          `See backend/README.md for the rotation procedure.`,
       );
     }
 

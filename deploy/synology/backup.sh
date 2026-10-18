@@ -25,7 +25,8 @@ if [[ -z "${MONGO_ROOT_PASSWORD:-}" ]]; then
 fi
 
 DOCKER="${DOCKER_CMD:-docker}"
-DATE="$(date +%Y-%m-%d_%H%M)"
+# Секунды в имени: два запуска в одну минуту не пишут в одну папку (T19).
+DATE="$(date +%Y-%m-%d_%H%M%S)"
 BACKUP_ROOT="${DATA_DIR}/backups"
 
 mkdir -p "$BACKUP_ROOT"

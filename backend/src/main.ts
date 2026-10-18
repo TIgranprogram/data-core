@@ -37,7 +37,7 @@ async function bootstrap() {
   // so insecure configs never reach DB / DI / Mongo. Production throws ->
   // exit 1. Dev/test logs warnings via NestJS Logger only. Opt-out is
   // explicit-string `DISABLE_SECRET_VALIDATION=1` (see
-  // docs/SECURITY-OPERATIONS.md for the opt-out policy).
+  // backend/README.md for the opt-out policy).
   try {
     SecretValidationService.assertProductionSafe(process.env);
   } catch (err) {
