@@ -5,7 +5,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# .env: сначала рядом со скриптом (как исторически настроено на VM), иначе — корневой .env,
+# который пишет deploy.py (/opt/data-core/.env). T17.
 ENV_FILE="${SCRIPT_DIR}/.env"
+[[ -f "$ENV_FILE" ]] || ENV_FILE="${SCRIPT_DIR}/../../.env"
 [[ -f "$ENV_FILE" ]] && set -a && source "$ENV_FILE" && set +a
 
 # data-core defaults (можно переопределить в deploy/synology/.env)
@@ -17,7 +20,7 @@ MONGO_DB="${MONGO_DB:-datacore}"
 # Пароль приходит из .env (MONGO_ROOT_PASSWORD) — в скрипте не хранится.
 MONGO_ROOT_USER="${MONGO_ROOT_USER:-root}"
 if [[ -z "${MONGO_ROOT_PASSWORD:-}" ]]; then
-  echo "ERROR: MONGO_ROOT_PASSWORD is not set (deploy/synology/.env)" >&2
+  echo "ERROR: MONGO_ROOT_PASSWORD is not set (deploy/synology/.env или корневой .env)" >&2
   exit 1
 fi
 

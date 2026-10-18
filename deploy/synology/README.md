@@ -26,8 +26,6 @@
 | `requirements.txt` | — | `paramiko`. |
 | `backup.sh` | **на VM** | `mongodump` БД `datacore` от root → `DATA_DIR/backups/mongo-<дата>`, копия `uploads-<дата>`, ротация `BACKUP_RETENTION_DAYS` (14). |
 | `verify-restore.js` | на VM / локально, mongo shell | Сверка счётчиков `datacore` vs `datacore_restore_test` после restore-дрилла. |
-| `reset-admin-password.py` | ⛔ **не запускать** | Не адаптирован: бьёт в `kppdf-backend`/`kppdf-mongo`, переписывает `/opt/kppdf-8.0/.env` — сломает чужой прод. Пароль админа меняй в админке. См. `docs/TASKS.md`. |
-| `server-setup-ubuntu.sh` | ⛔ не запускать | Первичная настройка VM под kppdf (`/opt/kppdf-8.0`, `ufw allow 3000`). VM уже настроена. |
 
 ## deploy.py — что происходит
 

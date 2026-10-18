@@ -28,4 +28,4 @@ description: Безопасный деплой data-core на Synology/Ubuntu VM
 ## После деплоя (deploy.py проверяет сам, сверь вывод)
 `/api/health/ready` 200 → логин OK → `/admin` 200 → Mongo отклоняет неавторизованное чтение → kppdf `:3000` по-прежнему 200. Итог записать в `docs/HISTORY.md`.
 
-Что делает каждый скрипт и шаг `deploy.py` — `deploy/synology/README.md`. `reset-admin-password.py` и `server-setup-ubuntu.sh` — kppdf-версии, **не запускать** (`docs/TASKS.md` T16).
+Что делает каждый скрипт и шаг `deploy.py` — `deploy/synology/README.md`. Пароль админа меняется в админке (Пользователи → Сброс пароля).
