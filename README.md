@@ -95,7 +95,7 @@ bash deploy/synology/backup.sh     # mongodump → ежедневно по cron 
 
 ## Деплой на Synology VM
 
-См. `deploy/synology/README.md`, `RUNBOOK.md`, `DEPLOY.md`.
+См. [deploy/synology/README.md](deploy/synology/README.md) и skill `datacore-deploy`.
 Секреты (`config.env`, `CREDENTIALS.md`) в git не попадают — держатся локально и копируются в клон вручную.
 
 ---

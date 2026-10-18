@@ -19,7 +19,7 @@
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
 | Что уже сделано и как проверялось | [docs/HISTORY.md](docs/HISTORY.md) — журнал, только при расследовании | без нужды |
-| Деплой на VM | skill `datacore-deploy`, `deploy/synology/deploy.py` | `deploy/synology/*.md` — устарели (kppdf), см. TASKS |
+| Деплой на VM | skill `datacore-deploy`, [deploy/synology/README.md](deploy/synology/README.md) | `reset-admin-password.py`, `server-setup-ubuntu.sh` — kppdf, не запускать (TASKS T16) |
 
 ## Структура (только значимое)
 
