@@ -80,9 +80,9 @@ const CATEGORIES: CategoryDef[] = [
  *   app    — данные приложения из /api/apps (P1): коллекции app_<app>_<collection>
  *            создаются клиентами на лету, в реестре не описываются
  */
-type CollectionKind = 'core' | 'link' | 'crm' | 'app';
+export type CollectionKind = 'core' | 'link' | 'crm' | 'app';
 
-interface CollectionMeta {
+export interface CollectionMeta {
   category: string;
   kind: CollectionKind;
   /** Короткое описание по-русски: что это за таблица. */
@@ -96,7 +96,7 @@ interface CollectionMeta {
  * grep `collection:` в *.schema.ts); `crm` — таблицы CRM kppdf (модули удалены из data-core
  * при чистке H, но kppdf пишет в них на общей базе); часть читается в проверках удаления (409).
  */
-const COLLECTIONS: Record<string, CollectionMeta> = {
+export const COLLECTIONS: Record<string, CollectionMeta> = {
   // ================= Доступ и безопасность =================
   users: { category: 'access', kind: 'core', doc: 'Пользователи: логин, хеш пароля, роль, isActive. Хеш пароля не покидает API.' },
   roles: { category: 'access', kind: 'core', doc: 'Роли доступа (admin / manager / user) и назначенные им права.' },
@@ -263,7 +263,7 @@ function trimExample(value: unknown): unknown {
 /** Чувствительные поля: тип и заполненность показываем, значение — нет. */
 const SENSITIVE_RE = /(password|secret|token|apikey|api_key|hash|credential|private)/i;
 
-function isSensitive(path: string): boolean {
+export function isSensitive(path: string): boolean {
   // tokenPrefix / refreshTokenVersion — витринные значения, не секреты
   if (/(prefix|version|count)$/i.test(path)) return false;
   return SENSITIVE_RE.test(path);

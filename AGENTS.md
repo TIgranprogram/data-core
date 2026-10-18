@@ -14,6 +14,7 @@
 | Любая работа с кодом | [docs/MAP.md](docs/MAP.md) — модуль → маршруты → коллекции → файлы | весь `backend/src` подряд |
 | Как устроен запрос, auth, RBAC, плагины | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | — |
 | Поля сущностей | [docs/data-model.md](docs/data-model.md) (ориентир), истина — `*.schema.ts` | — |
+| Схема таблиц / контракт для клиента | живой API: `GET /api/meta/schema`, `/api/meta/openapi.json`, `/api/meta/guide` (модуль `modules/meta`); в админке — вкладка «Подключение» | — |
 | Точный контракт эндпоинта | `docs/openapi.json` — **только grep по пути**, файл 175 КБ | целиком |
 | Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог), [ROADMAP.md](ROADMAP.md) (план) | — |
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
@@ -46,7 +47,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 66 suites / 728 tests; e2e 18 / 138 (на 2026-10-18) |
+| Юнит-тесты | `npx jest --silent` | 67 suites / 732 tests; e2e 19 / 142 (на 2026-10-18) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |

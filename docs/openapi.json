@@ -2161,6 +2161,66 @@
         ]
       }
     },
+    "/meta/schema": {
+      "get": {
+        "operationId": "MetaController_schema",
+        "summary": "Таблицы и поля базы (из моделей), без секретных полей",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "meta"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/meta/openapi.json": {
+      "get": {
+        "operationId": "MetaController_openapi",
+        "summary": "Полный контракт API (OpenAPI 3)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "meta"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/meta/guide": {
+      "get": {
+        "operationId": "MetaController_guide",
+        "summary": "Инструкция по подключению для ИИ-агента (markdown)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "meta"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/persons": {
       "get": {
         "operationId": "PersonController_list",

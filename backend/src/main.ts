@@ -20,6 +20,7 @@ import { ThrottlerBehindAuthGuard } from './common/guards/throttler-behind-auth.
 import { createQuietNestLogger } from './common/logging/quiet-nest-logger';
 import { SecretValidationService } from './config/secret-validation.service';
 import { registerAppDataBodyParser } from './modules/app-data/app-data.body-parser';
+import { MetaService } from './modules/meta/meta.controller';
 
 async function bootstrap() {
   // TZ-157: Initialize Sentry before NestJS so exceptions in bootstrap are captured
@@ -216,6 +217,8 @@ async function bootstrap() {
 
   const swaggerConfig = buildSwaggerConfig();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
+  // GET /api/meta/openapi.json — тот же контракт для клиентов и ИИ (даже когда Swagger UI выключен).
+  app.get(MetaService).setOpenApi(document);
   // TZ-91 §4 Phase C.1: Swagger gated by NODE_ENV !== 'production'.
   // Escape hatch: SWAGGER_ENABLED='true' for prod-debug scenarios only.
   // Strict `=== 'true'` (no truthy coercion) avoids accidental enabling

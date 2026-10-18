@@ -65,6 +65,7 @@
     document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== `tab-${t.dataset.tab}`; });
     if (t.dataset.tab === 'keys') loadKeys();
     if (t.dataset.tab === 'tables') loadCollections();
+    if (t.dataset.tab === 'connect') loadConnect();
   }));
 
   // ---- Users ----
@@ -240,7 +241,7 @@
     pill('crm', 'таблиц CRM kppdf (не удаляются)');
 
     wrap.append(el('span', 'sum-hint',
-      'действующая — есть модуль-код · связевая — вложена в основные таблицы · приложение — данные из /api/apps · остаток — код удалён при чистке H'));
+      'действующая — есть модуль-код · связевая — вложена в основные таблицы · приложение — данные из /api/apps (можно удалить) · CRM kppdf — таблицы CRM на общей базе (удалять нельзя)'));
   }
 
   function renderCollections() {
@@ -421,6 +422,190 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ''; }, 3500);
   }
 
+  // ---- Подключение: адрес, ключ, промт для ИИ, примеры, схема (/api/meta/*) ----
+  const BASE_URL = location.origin + API;
+  // Служебные таблицы не нужны клиентам — в промт и краткую схему не берём.
+  const META_HIDE = new Set(['users', 'roles', 'permissions', 'featureflags', 'rate_limit_entries', 'desktop_pairing_keys',
+    'browserdevicegrants', 'deviceinvites', 'auditlogs', 'idempotency_records', 'counters', 'dictionary_labels', 'migration_flags']);
+  const cxState = { schema: null, lang: 'sheets' };
+
+  function fieldLabel(f) {
+    let s = f.path + (f.required ? '*' : '');
+    if (f.ref) s += '→' + f.ref;
+    if (f.enum) s += ' [' + f.enum.slice(0, 6).join('|') + (f.enum.length > 6 ? '|…' : '') + ']';
+    return s;
+  }
+  const SYS_FIELDS = new Set(['_id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'updatedBy', 'organizationId']);
+
+  function buildPrompt(schema) {
+    const lines = (schema ? schema.collections : [])
+      .filter((c) => !META_HIDE.has(c.collection) && c.kind !== 'crm')
+      .map((c) => {
+        const fs = c.fields.filter((f) => !SYS_FIELDS.has(f.path)).sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0)).slice(0, 16).map(fieldLabel).join(', ');
+        return `- ${c.collection}${c.description ? ' — ' + c.description : ''}\n  поля: ${fs || '—'}`;
+      });
+    return [
+      'Ты подключаешься к единой базе данных пользователя (Data Core) через REST API. Прямого доступа к БД нет — только API.',
+      '',
+      `Адрес API: ${BASE_URL}`,
+      'Ключ: <ВСТАВЬ СЮДА КЛЮЧ kppd_…>',
+      'Каждый запрос — с заголовком: Authorization: Bearer <ключ>',
+      '',
+      'Сначала прочитай (тем же ключом):',
+      `1) GET ${BASE_URL}/meta/guide — правила, лимиты, ошибки (markdown)`,
+      `2) GET ${BASE_URL}/meta/schema — все таблицы и поля (типы, обязательные, варианты значений)`,
+      `3) GET ${BASE_URL}/meta/openapi.json — полный контракт маршрутов`,
+      '',
+      'Правила:',
+      `- Данные нового приложения храни в ${BASE_URL}/apps/<приложение>/<коллекция> (GET список/один, POST объект или массив, PATCH, PUT, DELETE). Имя приложения — латиница и цифры без «_».`,
+      '- Общие справочники (материалы, изделия, контрагенты, организации…) — через их маршруты; они общие с CRM, не ломай их. Лишние поля в теле запроса → 400.',
+      '- Списки приходят как { items, total, page, limit }; у каждого объекта есть строковый id.',
+      '- Не больше ~10 запросов в секунду; пачки — одним POST с массивом. Ключ не публикуй.',
+      '',
+      'Таблицы сейчас (* — обязательное, → ссылка):',
+      ...lines,
+    ].join('\n');
+  }
+
+  function codeSample(lang, app, coll) {
+    const path = `/apps/${app}/${coll}`;
+    if (lang === 'sheets') {
+      return `// Google Таблица → Расширения → Apps Script. Ключ: Настройки проекта → Свойства скрипта → DATACORE_KEY
+const BASE = '${BASE_URL}';
+const KEY = PropertiesService.getScriptProperties().getProperty('DATACORE_KEY');
+const PATH = '${path}';
+
+function api(method, path, body) {
+  const r = UrlFetchApp.fetch(BASE + path, {
+    method: method, contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + KEY },
+    payload: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.getResponseCode() >= 300) throw new Error(r.getResponseCode() + ': ' + r.getContentText());
+  return r.getContentText() ? JSON.parse(r.getContentText()) : null;
+}
+
+// Загрузить данные из базы на лист «${coll}» (первая строка — заголовки)
+function pull() {
+  const res = api('get', PATH + '?limit=200&sort=-createdAt');
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName('${coll}') || ss.insertSheet('${coll}');
+  const keys = ['id', ...new Set(res.items.flatMap(o => Object.keys(o)).filter(k => !['id', '_id'].includes(k)))];
+  sh.clear();
+  sh.getRange(1, 1, 1, keys.length).setValues([keys]);
+  if (res.items.length) sh.getRange(2, 1, res.items.length, keys.length).setValues(
+    res.items.map(o => keys.map(k => o[k] == null ? '' : typeof o[k] === 'object' ? JSON.stringify(o[k]) : o[k])));
+}
+
+// Отправить строки листа в базу: пустой id — создать, есть id — обновить
+function push() {
+  const sh = SpreadsheetApp.getActive().getSheetByName('${coll}');
+  const [head, ...rows] = sh.getDataRange().getValues();
+  const skip = ['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'deletedAt'];
+  rows.forEach(r => {
+    const o = {}; head.forEach((h, i) => { if (h && !skip.includes(h) && r[i] !== '') o[h] = r[i]; });
+    const id = r[head.indexOf('id')];
+    if (id) api('patch', PATH + '/' + id, o); else api('post', PATH, o);
+  });
+  pull();
+}`;
+    }
+    if (lang === 'python') {
+      return `import requests
+
+BASE = "${BASE_URL}"
+H = {"Authorization": "Bearer kppd_..."}   # ключ лучше брать из переменной окружения
+
+# создать (можно списком — до 500 шт.)
+r = requests.post(f"{BASE}${path}", json={"customer": "Иван", "total": 1500}, headers=H, timeout=10)
+r.raise_for_status(); item = r.json(); print(item["id"])
+
+# список с фильтром и сортировкой
+import json
+q = {"filter": json.dumps({"total": {"$gte": 1000}}), "sort": "-createdAt", "limit": 50}
+print(requests.get(f"{BASE}${path}", params=q, headers=H, timeout=10).json()["items"])
+
+# изменить и удалить
+requests.patch(f"{BASE}${path}/{item['id']}", json={"status": "paid"}, headers=H, timeout=10)
+requests.delete(f"{BASE}${path}/{item['id']}", headers=H, timeout=10)`;
+    }
+    if (lang === 'js') {
+      return `const BASE = '${BASE_URL}';
+const KEY = process.env.DATACORE_KEY;   // kppd_...
+const api = async (method, path, body) => {
+  const r = await fetch(BASE + path, { method, headers: { Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw new Error(r.status + ': ' + await r.text());
+  return r.status === 204 ? null : r.json();
+};
+
+const item = await api('POST', '${path}', { customer: 'Иван', total: 1500 });
+const list = await api('GET', '${path}?limit=50&sort=-createdAt&filter=' + encodeURIComponent(JSON.stringify({ total: { $gte: 1000 } })));
+await api('PATCH', '${path}/' + item.id, { status: 'paid' });
+await api('DELETE', '${path}/' + item.id);`;
+    }
+    return `KEY=kppd_...
+curl -s -X POST "${BASE_URL}${path}" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"customer":"Иван","total":1500}'
+curl -s "${BASE_URL}${path}?limit=50&sort=-createdAt" -H "Authorization: Bearer $KEY"
+curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
+  }
+
+  const LANG_NOTE = {
+    sheets: 'Вставьте в Apps Script, сохраните ключ в «Свойствах скрипта» под именем DATACORE_KEY, запустите pull() — данные появятся на листе. Правьте строки и запускайте push().',
+    python: 'Нужна библиотека requests (pip install requests).',
+    js: 'Node.js 18+ или браузер (в браузере не храните ключ в открытом коде страницы).',
+    curl: 'Для быстрой проверки из терминала.',
+  };
+
+  function renderCode() {
+    const app = ($('#cx-app').value.trim().toLowerCase() || 'shop').replace(/[^a-z0-9]/g, '');
+    const coll = ($('#cx-coll').value.trim().toLowerCase() || 'items').replace(/[^a-z0-9_]/g, '');
+    $('#cx-code').textContent = codeSample(cxState.lang, app, coll);
+    $('#cx-lang-note').textContent = LANG_NOTE[cxState.lang];
+  }
+
+  function renderSchema(schema) {
+    const box = $('#cx-schema');
+    box.replaceChildren();
+    schema.collections.filter((c) => !META_HIDE.has(c.collection)).forEach((c) => {
+      const d = el('details', 'cx-coll');
+      const sum = el('summary');
+      sum.append(el('b', 'mono', c.collection), el('span', 'muted small', ' ' + (c.description || '') + ' · полей: ' + c.fields.length));
+      d.append(sum);
+      const ul = el('ul', 'cx-fields');
+      const add = (fields, prefix) => fields.forEach((f) => {
+        const li = el('li', 'mono small', prefix + fieldLabel(f) + ' : ' + (f.itemType ? f.type + '<' + f.itemType + '>' : f.type));
+        ul.append(li);
+        if (f.fields) add(f.fields, prefix + f.path + '.');
+      });
+      add(c.fields, '');
+      d.append(ul);
+      box.append(d);
+    });
+  }
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  async function fetchText(path) {
+    const res = await fetch(API + path, { headers: { Authorization: `Bearer ${store.token}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  }
+
+  async function loadConnect() {
+    $('#cx-base').textContent = BASE_URL;
+    renderCode();
+    try {
+      if (!cxState.schema) cxState.schema = await api('/meta/schema');
+      $('#cx-prompt').value = buildPrompt(cxState.schema);
+      renderSchema(cxState.schema);
+    } catch (e) { $('#cx-prompt').value = buildPrompt(null); toast(e.message); }
+  }
+
   // ---- Wire up ----
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -442,6 +627,21 @@
   $('#key-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#key-shown-value').textContent); toast('Скопировано'); } catch { /* ignore */ } });
   $('#col-search-form').addEventListener('submit', (e) => { e.preventDefault(); colState.search = $('#col-search').value.trim(); renderCollections(); });
   $('#col-refresh').addEventListener('click', () => { colState.cache.clear(); loadCollections(true); });
+  // Подключение
+  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+    const src = $(b.dataset.copy); const text = src.value != null && src.tagName === 'TEXTAREA' ? src.value : src.textContent;
+    try { await navigator.clipboard.writeText(text); toast('Скопировано'); } catch { toast('Не удалось скопировать — выделите и скопируйте вручную'); }
+  }));
+  document.querySelectorAll('.cx-lang').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.cx-lang').forEach((x) => x.classList.toggle('active', x === b));
+    cxState.lang = b.dataset.lang; renderCode();
+  }));
+  $('#cx-app').addEventListener('input', renderCode);
+  $('#cx-coll').addEventListener('input', renderCode);
+  $('#cx-issue-key').addEventListener('click', openKeyDialog);
+  $('#cx-dl-schema').addEventListener('click', async () => { try { download('datacore-schema.json', await fetchText('/meta/schema'), 'application/json'); } catch (e) { toast(e.message); } });
+  $('#cx-dl-openapi').addEventListener('click', async () => { try { download('datacore-openapi.json', await fetchText('/meta/openapi.json'), 'application/json'); } catch (e) { toast(e.message); } });
+  $('#cx-dl-guide').addEventListener('click', async () => { try { download('datacore-guide.md', await fetchText('/meta/guide'), 'text/markdown'); } catch (e) { toast(e.message); } });
 
   // ---- Boot ----
   if (store.token) showApp(); else showLogin();

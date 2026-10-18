@@ -91,6 +91,8 @@
 | J2 | Копия бэкапов на Windows: задача «DataCore backup pull» → `D:\datacore-backups`, 30 дней. |
 | D1 | Swagger в prod выключен (контракт — `docs/openapi.json`). |
 | D7, D8 | Старая база kppdf удалена (бэкап `kppdf-premerge-2026-10-18_090145` сохранён); kppdf перенесён на GitHub `TIgranprogram/kppdf-8.0`. |
+| A1-connect | Вкладка «Подключение» в админке: адрес, выдача ключа, примеры (Google-таблица/Python/JS/curl), промт для ИИ со схемой; модуль `meta` (`/api/meta/schema`, `openapi.json`, `guide`), доступен любому ключу. Тексты админки: роль director, «CRM kppdf» вместо «остаток», вкладки прокручиваются на телефоне. Юнит 67/732, e2e 19/142 (+`meta.e2e-spec`). |
+| J4 | 5 завершённых сессий архивированы, `.claude/worktrees` удалён. |
 | Прочее | Публичный доступ `https://kppdf-crm.ru/db/`; единая база data-core + kppdf; админка под префиксом; CRM-таблицы `kind:'crm'` не удаляются. |
 
 Итоговые нормы: typecheck 0 · юнит 66/728 · e2e 18/138 · eslint 0 errors. Открытое — [TASKS.md](TASKS.md).

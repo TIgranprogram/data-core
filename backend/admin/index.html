@@ -47,7 +47,7 @@
       <div class="app-header-inner">
         <img class="app-logo" src="logo.svg" alt="" />
         <h1 class="app-title">Data Core
-          <small>администрирование пользователей и ключей</small>
+          <small>единая база данных: подключение, ключи, таблицы, пользователи</small>
         </h1>
         <span class="spacer"></span>
         <span id="whoami" class="app-user"></span>
@@ -56,6 +56,7 @@
         <button class="tab active" data-tab="users">Пользователи</button>
         <button class="tab" data-tab="keys">API-ключи</button>
         <button class="tab" data-tab="tables">Таблицы</button>
+        <button class="tab" data-tab="connect">Подключение</button>
       </nav>
     </header>
 
@@ -65,13 +66,14 @@
         <h2>Пользователи</h2>
         <button id="user-create-btn" class="btn btn-accent">+ Создать</button>
       </div>
-      <p class="panel-note">Роли: <code>user</code> — чтение, <code>manager</code> — чтение и запись, <code>admin</code> — полный доступ.</p>
+      <p class="panel-note">Роли: <code>user</code> — чтение, <code>director</code> — всё операционное без управления пользователями, <code>manager</code> — чтение и запись, <code>admin</code> — полный доступ.</p>
 
       <form id="user-search-form" class="filters">
         <input id="user-search" placeholder="Поиск: логин, email, имя" />
         <select id="user-role-filter">
           <option value="">Все роли</option>
           <option value="admin">admin</option>
+          <option value="director">director</option>
           <option value="manager">manager</option>
           <option value="user">user</option>
         </select>
@@ -105,6 +107,7 @@
           <label>Роль
             <select id="f-role">
               <option value="user">user (чтение)</option>
+              <option value="director">director (операционный, без пользователей)</option>
               <option value="manager">manager (чтение+запись)</option>
               <option value="admin">admin (полный доступ)</option>
             </select>
@@ -190,7 +193,7 @@
         <h2>Таблицы</h2>
         <span id="cols-summary" class="muted small"></span>
       </div>
-      <p class="panel-note">Справочник коллекций MongoDB, сгруппированный по категориям. У каждой таблицы есть русское описание и тип: <b>действующая</b> (за ней стоит модуль), <b>связевая</b> (создаётся из нескольких таблиц, сама по себе не самостоятельна) или <b>остаток</b> (код удалён — кандидат на удаление). Нажмите строку, чтобы раскрыть поля — типы, заполненность и пример значения. Чувствительные значения маскируются на сервере.</p>
+      <p class="panel-note">Справочник коллекций MongoDB, сгруппированный по категориям. У каждой таблицы есть русское описание и тип: <b>действующая</b> (за ней стоит модуль), <b>связевая</b> (создаётся из нескольких таблиц, сама по себе не самостоятельна) или <b>CRM kppdf</b> (таблицы CRM на общей базе — модуля в data-core нет, удалить нельзя); <b>приложение</b> — данные из <code>/api/apps</code>. Нажмите строку, чтобы раскрыть поля — типы, заполненность и пример значения. Чувствительные значения маскируются на сервере.</p>
 
       <div id="tables-summary" class="tables-summary"></div>
 
@@ -215,6 +218,64 @@
           <tbody></tbody>
         </table>
       </div>
+    </main>
+
+    <!-- ---------- Connect tab (как подключить приложение / таблицу / ИИ) ---------- -->
+    <main id="tab-connect" class="tab-panel" hidden>
+      <div class="panel-head">
+        <h2>Подключение</h2>
+      </div>
+      <p class="panel-note">Как подключить к базе любое приложение, Google-таблицу, скрипт или ИИ-агента. Нужно всего два значения: <b>адрес API</b> и <b>ключ</b>. Всё остальное клиент узнаёт из API сам.</p>
+
+      <div class="cx-grid">
+        <section class="cx-card">
+          <h3>1. Адрес API</h3>
+          <div class="cx-row"><code id="cx-base" class="cx-value"></code><button class="btn btn-sm" type="button" data-copy="#cx-base">Копировать</button></div>
+          <p class="muted small">Из интернета — этот адрес. Из домашней сети можно и напрямую <code>http://&lt;IP-VM&gt;:3001/api</code>.</p>
+        </section>
+        <section class="cx-card">
+          <h3>2. Ключ</h3>
+          <p class="small">Одна интеграция — один ключ с минимальными правами. Для таблицы менеджера: «Чтение и запись»; для отчётов: «Только чтение». Ключ показывается <b>один раз</b>.</p>
+          <button class="btn btn-accent" type="button" id="cx-issue-key">+ Выдать ключ</button>
+          <p class="muted small">Каждый запрос: заголовок <code>Authorization: Bearer kppd_…</code></p>
+        </section>
+      </div>
+
+      <section class="cx-card">
+        <h3>3. Для ИИ-агента — готовый промт</h3>
+        <p class="small">Скопируйте и отдайте агенту (Claude, ChatGPT, Gemini…), подставив ключ. В промте — адрес, правила и актуальная схема таблиц; полную инструкцию агент прочитает сам по <code>/meta/guide</code>.</p>
+        <textarea id="cx-prompt" class="cx-text" rows="14" readonly></textarea>
+        <div class="cx-row">
+          <button class="btn btn-primary" type="button" data-copy="#cx-prompt">Скопировать промт</button>
+          <button class="btn" type="button" id="cx-dl-schema">Скачать схему (JSON)</button>
+          <button class="btn" type="button" id="cx-dl-openapi">Скачать OpenAPI</button>
+          <button class="btn" type="button" id="cx-dl-guide">Скачать инструкцию (.md)</button>
+        </div>
+      </section>
+
+      <section class="cx-card">
+        <h3>4. Примеры кода</h3>
+        <p class="small">Свои данные приложения живут в <code>/apps/&lt;приложение&gt;/&lt;коллекция&gt;</code> — коллекция создаётся при первой записи, сервер дорабатывать не нужно.</p>
+        <div class="filters">
+          <label class="cx-inline">Приложение <input id="cx-app" value="shop" /></label>
+          <label class="cx-inline">Коллекция <input id="cx-coll" value="orders" /></label>
+        </div>
+        <div class="cx-langs">
+          <button class="btn btn-sm cx-lang active" type="button" data-lang="sheets">Google-таблица</button>
+          <button class="btn btn-sm cx-lang" type="button" data-lang="python">Python</button>
+          <button class="btn btn-sm cx-lang" type="button" data-lang="js">JavaScript</button>
+          <button class="btn btn-sm cx-lang" type="button" data-lang="curl">curl</button>
+        </div>
+        <p id="cx-lang-note" class="muted small"></p>
+        <pre id="cx-code" class="cx-code"></pre>
+        <button class="btn btn-sm" type="button" data-copy="#cx-code">Копировать код</button>
+      </section>
+
+      <section class="cx-card">
+        <h3>5. Схема базы</h3>
+        <p class="small">Таблицы и поля из моделей сервера (<code>GET /meta/schema</code>). <b>*</b> — обязательное поле, → — ссылка на другую таблицу. Секретные поля не показываются.</p>
+        <div id="cx-schema" class="cx-schema"></div>
+      </section>
     </main>
 
     <footer class="app-footer">

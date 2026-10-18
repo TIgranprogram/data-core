@@ -23,6 +23,7 @@
 | `dictionary-label` | `/dictionary-labels` | `dictionary_labels` | подписи справочников |
 | `photos` | `/photos`, `/photos/upload`, `/photos/:id/frame` | `photos` | sharp-превью; файлы в `uploads/` → `/uploads/*` |
 | `app-data` | `/apps`, `/apps/:app/:collection`, `/apps/:app/:collection/:id` (GET/POST/PATCH/PUT/DELETE) | `app_<app>_<collection>` (создаются на лету) | **P1**: CRUD JSON-документов любого приложения без кода на сервере; сырые коллекции через Connection, служебные поля и soft-delete ставит сервис; валидация имён/filter/sort — `app-data.validation.ts`; scope ключа по приложениям — `app-scope.guard.ts`; парсер тела 16 МБ — `app-data.body-parser.ts` (подключён в `main.ts` и e2e-харнессе); права `app-data:read/write/admin`; модуль стоит в `app.module` до EAV (коллизия маршрута `/:entityType/:entityId/attributes`) |
+| `meta` | `/meta/schema`, `/meta/openapi.json`, `/meta/guide` | — | самоописание API для клиентов и ИИ: таблицы/поля из моделей (без секретов), контракт OpenAPI (из `main.ts` → `MetaService`), markdown-инструкция `meta-guide.ts`. Любой ключ, в т.ч. read |
 
 ## Канонические справочники
 
