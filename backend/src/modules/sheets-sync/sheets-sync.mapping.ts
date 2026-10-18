@@ -56,8 +56,15 @@ export const SHEET_MAPS: SheetMap[] = [
     adoptByName: true,
   },
   {
-    sheet: 'Движение склада', headerRow: 1, app: 'warehouse', collection: 'movements', requiredHeader: 'Наименование', rowKey: null,
-    fields: {}, skip: ['Фото', 'ID базы'],
+    // Журнал движений из таблицы — история (в остатки приложения не входит: нет itemUid).
+    // Колонки калькулятора веса справа переносятся как есть (транслитом).
+    sheet: 'Движение склада', headerRow: 1, app: 'warehouse', collection: 'movements', requiredHeader: 'Наименование ТМЦ', rowKey: '№',
+    fields: {
+      '№': 'num', 'Дата': 'date', 'Тип операции': 'operation', 'Объект / Заказчик': 'customer',
+      'Ответственный / Инициатор': 'byName', 'Категория': 'category', 'Наименование ТМЦ': 'itemName', 'Ед. изм.': 'unit',
+      'Кол-во': 'qty', 'Основание / Примечание': 'note',
+    },
+    skip: ['Фото', 'ID базы'],
   },
 ];
 

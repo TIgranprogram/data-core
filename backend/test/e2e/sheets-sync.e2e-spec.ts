@@ -88,6 +88,13 @@ describe('Sheets sync (Google service account)', () => {
     expect(r.body.sheetsFound).toEqual(['Снабжение', 'Склад']);
   });
 
+  it('вторая таблица с копией листа «Снабжение» (IMPORTRANGE) — копия не берётся', async () => {
+    const r = await request(app.getHttpServer()).post('/api/admin/sheets-sync/sources').set(authHeader(token.access)).send({ url: 'TEST_SHEET_2_copy_abcdefghijklmn' }).expect(201);
+    expect(r.body.sheetsFound).toEqual([]);
+    expect(r.body.sheetsSkipped).toEqual(['Снабжение', 'Склад']);
+    await request(app.getHttpServer()).delete(`/api/admin/sheets-sync/sources/${r.body.id}`).set(authHeader(token.access)).expect(200);
+  });
+
   it('позиция склада из приложения подхватывается по имени, заявка из приложения не трогается', async () => {
     await db().collection('app_warehouse_items').insertOne({ uid: 'app-bolt', name: 'болт м8 ', photos: [{ url: '/uploads/b.webp' }], deletedAt: null });
     await db().collection('app_supply_requests').insertOne({ uid: 'app-req', name: 'Из приложения', deletedAt: null });

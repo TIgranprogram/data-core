@@ -23,6 +23,8 @@ interface SourceDoc {
   lastRunAt?: Date | null;
   lastResult?: string[];
   lastError?: string | null;
+  /** Какие листы брать из этой таблицы. Лист, уже взятый из другой таблицы (копия через IMPORTRANGE), не берётся — иначе дубли. */
+  sheets?: string[];
 }
 
 type Raw = Record<string, unknown> & { _id: Types.ObjectId };
@@ -137,11 +139,13 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
-    const doc: SourceDoc = { _id: new Types.ObjectId(), spreadsheetId, title: meta.properties?.title ?? spreadsheetId, addedAt: new Date(), lastRunAt: null, lastResult: [], lastError: null };
-    await this.sources().insertOne(doc);
     const names = (meta.sheets ?? []).map((s) => s.properties?.title ?? '');
+    const claimed = new Set((await this.sources().find({}).toArray()).flatMap((s) => s.sheets ?? []));
     const known = SHEET_MAPS.filter((m) => names.includes(m.sheet)).map((m) => m.sheet);
-    return { id: String(doc._id), ...doc, _id: String(doc._id), sheetsFound: known };
+    const sheets = known.filter((n) => !claimed.has(n));
+    const doc: SourceDoc = { _id: new Types.ObjectId(), spreadsheetId, title: meta.properties?.title ?? spreadsheetId, addedAt: new Date(), lastRunAt: null, lastResult: [], lastError: null, sheets };
+    await this.sources().insertOne(doc);
+    return { id: String(doc._id), ...doc, _id: String(doc._id), sheetsFound: sheets, sheetsSkipped: known.filter((n) => claimed.has(n)) };
   }
 
   async removeSource(id: string) {
@@ -173,7 +177,7 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
         `${SHEETS_API}/${src.spreadsheetId}?fields=properties.title,sheets.properties.title`,
       );
       const names = (meta.sheets ?? []).map((s) => s.properties?.title ?? '');
-      const maps = SHEET_MAPS.filter((m) => names.includes(m.sheet));
+      const maps = SHEET_MAPS.filter((m) => names.includes(m.sheet) && (!src.sheets || src.sheets.includes(m.sheet)));
       if (!maps.length) lines.push(`нет листов ${SHEET_MAPS.map((m) => `«${m.sheet}»`).join(', ')}`);
       if (maps.length) {
         const q = maps.map((m) => `ranges=${encodeURIComponent(`'${m.sheet.replace(/'/g, "''")}'`)}`).join('&');
