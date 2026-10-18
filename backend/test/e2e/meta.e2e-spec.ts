@@ -33,6 +33,12 @@ describe('Meta (e2e)', () => {
     await ctx?.cleanup();
   });
 
+  it('GET /api — публичная справка вместо 404', async () => {
+    const res = await http().get('/api').expect(200);
+    expect(res.body).toMatchObject({ name: 'Data Core API', status: 'ok' });
+    expect(Object.keys(res.body.next)).toContain('meta/guide');
+  });
+
   it('без ключа — 401', async () => {
     await http().get('/api/meta/schema').expect(401);
     await http().get('/api/meta/guide').expect(401);

@@ -25,7 +25,7 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
 ```
-Норма: все suites passed (база 21 suites / 152 tests).
+Норма: все suites passed (база 21 suites / 153 tests).
 Если в `backend/` нет `.env` (например, в git worktree), `ConfigModule` падает ещё при импорте `AppModule` — передай тестовые `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 символов) и `ADMIN_PASSWORD=admin123456` прямо в команде.
 
 ## 3. Live-smoke (если менял рантайм/админку)

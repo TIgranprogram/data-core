@@ -66,6 +66,7 @@ import { CategoriesSeed } from './common/seed/categories.seed';
 import { CurrenciesSeed } from './common/seed/currencies.seed';
 import { ColorReferencesSeed } from './common/seed/color-references.seed';
 import { HealthController } from './health.controller';
+import { ApiRootController } from './api-root.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { RequestMethod } from '@nestjs/common';
 
@@ -168,7 +169,7 @@ import { RequestMethod } from '@nestjs/common';
     AttributeDefinitionModule,
     EntityAttributeValueModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, ApiRootController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // TZ-255: guard execution order is JWT → Permissions → Roles.
