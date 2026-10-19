@@ -143,6 +143,10 @@ export class SupplyRequest {
   @Prop({ type: Date })
   requestDate?: Date;
 
+  /** Дата счёта поставщика (2026-10-19: платёжный календарь — расход ложится на эту дату). Необязательное, общее с kppdf. */
+  @Prop({ type: Date, index: true, sparse: true })
+  invoiceDate?: Date;
+
   /** Колонки таблицы, для которых в схеме ещё нет поля (тип/дата счёта и т.п.) — переносятся как есть. */
   @Prop({ type: Object })
   sheetExtra?: Record<string, unknown>;
@@ -161,6 +165,10 @@ export class SupplyRequest {
 
   @Prop()
   syncHash?: string;
+
+  /** Правлено в приложении (data-core, 2026-10-19): синхронизация таблиц такую запись больше не перезаписывает. */
+  @Prop()
+  editedInApp?: boolean;
 
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;

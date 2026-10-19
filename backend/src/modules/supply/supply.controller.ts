@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SupplyReceiveDto, SupplyRequestDto } from './dto';
@@ -13,11 +14,19 @@ export class SupplyController {
 
   @Get('requests')
   @Roles('admin', 'director', 'manager', 'user')
-  list(@Query('search') search?: string, @Query('status') status?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.supply.list({ search, status, page: Number(page) || 1, limit: Number(limit) || 1000 });
+  @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤1000, по умолчанию 1000' })
+  @ApiQuery({ name: 'search', required: false, description: 'наименование, артикул, заказчик, примечание, кто подал, № счёта, № заявки, поставщик' })
+  @ApiQuery({ name: 'sort', required: false, description: 'num | requestDate | title | qty | priceHint | status | requestedBy | createdAt | updatedAt | deletedAt; «-» — по убыванию (умолч. -requestDate)' })
+  @ApiQuery({ name: 'status', required: false, description: 'через запятую: in_progress, requested, ordered, paid, received, cancelled' })
+  @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'materialId', required: false })
+  @ApiQuery({ name: 'requestedBy', required: false }) @ApiQuery({ name: 'priority', required: false })
+  @ApiQuery({ name: 'from', required: false, description: 'ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false, description: 'ГГГГ-ММ-ДД' })
+  @ApiQuery({ name: 'deleted', required: false, description: '1 — только удалённые (корзина)' })
+  list(@Query() q: Record<string, string>) {
+    return this.supply.list(q);
   }
 
-  /** Подсказки для формы: поставщики, наши компании, категории. */
+  /** Подсказки для формы и фильтров: поставщики, наши компании, категории, «кто подал». */
   @Get('lookups')
   @Roles('admin', 'director', 'manager', 'user')
   lookups() {
@@ -32,20 +41,40 @@ export class SupplyController {
 
   @Post('requests')
   @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
   create(@Body() dto: SupplyRequestDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.supply.create(dto, user?.id);
   }
 
   @Patch('requests/:id')
   @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: SupplyRequestDto) {
     return this.supply.update(id, dto);
+  }
+
+  /** В корзину (мягкое удаление). */
+  @Delete('requests/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.deleted', entityType: 'SupplyRequest', idParam: 'id' })
+  remove(@Param('id') id: string) {
+    return this.supply.remove(id);
+  }
+
+  /** Вернуть из корзины. */
+  @Post('requests/:id/restore')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.restored', entityType: 'SupplyRequest', idParam: 'id' })
+  restore(@Param('id') id: string) {
+    return this.supply.restore(id);
   }
 
   /** Оприходовать на склад: приход + статус «Получено». */
   @Post('requests/:id/receive')
   @HttpCode(200)
   @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.received', entityType: 'SupplyRequest', idParam: 'id' })
   receive(@Param('id') id: string, @Body() dto: SupplyReceiveDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.supply.receive(id, dto, user?.id);
   }

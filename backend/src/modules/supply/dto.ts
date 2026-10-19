@@ -19,6 +19,8 @@ export class SupplyRequestDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 1000) productUrl?: string;
   @ApiPropertyOptional({ description: 'Цена с НДС' }) @IsOptional() @IsNumber() @Min(0) priceHint?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) invoiceNo?: string;
+  @ApiPropertyOptional({ description: 'Тип счёта: Счет на оплату, Счет-договор, УПД… (хранится в sheetExtra.invoiceType)' }) @IsOptional() @IsString() @Length(0, 60) invoiceType?: string;
+  @ApiPropertyOptional({ description: 'Дата счёта ГГГГ-ММ-ДД; пустая строка — очистить' }) @IsOptional() @IsString() @Length(0, 30) invoiceDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) deliveryNote?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) notes?: string;
   @ApiPropertyOptional({ description: '⏳ Ожидает / ✅ Заказать / ⚙️ В работе / 💰 Оплачено / ☑️ Получено / ❌ Отменено' }) @IsOptional() @IsString() @Length(0, 40) statusLabel?: string;

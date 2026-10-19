@@ -24,7 +24,12 @@ describe('Sheets sync (Google service account)', () => {
   // Состояние «Google-таблицы»
   let supply: unknown[][];
   let stock: unknown[][];
-  const invoices: unknown[][] = [['№', 'Поставщик', 'Наименование'], [1, 'ООО Крепёж', 'Счёт на болты']];
+  const invoices: unknown[][] = [['№', 'Поставщик', 'Наименование'], [1, 'ООО Крепёж', 'Счёт на болты']]; // «Реестр счетов» — больше не загружается
+  const orders: unknown[][] = [
+    ['№ заказа', 'Дата отгрузки', 'Дата оплаты', 'Заказчик', 'Наша компания', 'Форма оплаты', 'Наименование', 'Кол-во', 'Ед.изм.', 'Вид', 'Цвет', 'Цена за ед.', 'Доход вручную', 'Сумма', 'Дата в отчёт', 'Примечание'],
+    ['34', '10.10.2026', '', 'ООО "СТРОЙСЕРВИС"', 'ССЮ', 'б/р', 'Флагшток стальной h 8м', '3', 'шт', '', '', '1 000,50', '', '=формула', '10.10.2026', ''],
+    ['34', '10.10.2026', '15.10.2026', 'ООО "СТРОЙСЕРВИС"', 'ССЮ', 'б/р', 'Качеля одинарная', 1, 'шт', '', '', 9000, 7500, '', '', 'скидка'],
+  ];
   let shared = true;
 
   const fakeGoogle: typeof fetch = async (input) => {
@@ -34,9 +39,9 @@ describe('Sheets sync (Google service account)', () => {
     if (!shared) return json(403, { error: { message: 'The caller does not have permission' } });
     if (url.includes('values:batchGet')) {
       const ranges = new URL(url).searchParams.getAll('ranges');
-      return json(200, { valueRanges: ranges.map((r) => ({ values: r.includes('Склад') ? stock : r.includes('Реестр') ? invoices : supply })) });
+      return json(200, { valueRanges: ranges.map((r) => ({ values: r.includes('Склад') ? stock : r.includes('Реестр') ? invoices : r.includes('Заказы') ? orders : supply })) });
     }
-    return json(200, { properties: { title: 'Снабжение и склад (тест)' }, sheets: [{ properties: { title: 'Снабжение' } }, { properties: { title: 'Реестр счетов' } }, { properties: { title: 'Склад' } }, { properties: { title: 'Прочее' } }] });
+    return json(200, { properties: { title: 'Снабжение и склад (тест)' }, sheets: [{ properties: { title: 'Снабжение' } }, { properties: { title: 'Реестр счетов' } }, { properties: { title: 'Заказы' } }, { properties: { title: 'Склад' } }, { properties: { title: 'Прочее' } }] });
   };
 
   const db = () => ctx!.connection.db!;
@@ -54,8 +59,9 @@ describe('Sheets sync (Google service account)', () => {
     sync = app.get(SheetsSyncService);
     sync.fetchFn = fakeGoogle;
     token = await loginAsAdmin(app);
-    for (const c of ['app_supply_invoices', 'supplyrequests', 'materials', 'storageitems', 'organizations', 'warehouses', 'sheets_sync_sources']) await db().collection(c).deleteMany({});
+    for (const c of ['app_supply_invoices', 'incomes', 'supplyrequests', 'materials', 'storageitems', 'organizations', 'warehouses', 'sheets_sync_sources']) await db().collection(c).deleteMany({});
     await db().collection('warehouses').insertOne({ name: 'Главный склад', type: 'main', isActive: true, isDefault: true, deletedAt: null });
+    await db().collection('organizations').insertOne({ name: 'ССЮ', shortName: 'ССЮ', inn: 'TEST-SSU', isOurCompany: true, type: [], deletedAt: null });
 
     const head = ['№', 'Дата', 'Наименование', 'Кол-во', 'Статус', 'Поставщик', 'Тип счета', 'Фото'];
     supply = [head, ...Array.from({ length: 10 }, (_, i) => [i + 1, '18.10.2026', `Заявка ${i + 1}`, i + 1, '✅ Заказать', i % 2 ? 'ООО Крепёж' : 'ооо крепёж', 'Счет', '=IMAGE(x)'])];
@@ -87,13 +93,13 @@ describe('Sheets sync (Google service account)', () => {
   it('подключение по ссылке находит листы', async () => {
     const r = await request(app.getHttpServer()).post('/api/admin/sheets-sync/sources').set(authHeader(token.access)).send({ url: `https://docs.google.com/spreadsheets/d/${SID}/edit#gid=0` }).expect(201);
     expect(r.body.spreadsheetId).toBe(SID);
-    expect(r.body.sheetsFound).toEqual(['Снабжение', 'Реестр счетов', 'Склад']);
+    expect(r.body.sheetsFound).toEqual(['Снабжение', 'Заказы', 'Склад']); // «Реестр счетов» — копия «Снабжения», не загружается
   });
 
   it('вторая таблица с копией листа «Снабжение» (IMPORTRANGE) — копия не берётся', async () => {
     const r = await request(app.getHttpServer()).post('/api/admin/sheets-sync/sources').set(authHeader(token.access)).send({ url: 'TEST_SHEET_2_copy_abcdefghijklmn' }).expect(201);
     expect(r.body.sheetsFound).toEqual([]);
-    expect(r.body.sheetsSkipped).toEqual(['Снабжение', 'Реестр счетов', 'Склад']);
+    expect(r.body.sheetsSkipped).toEqual(['Снабжение', 'Заказы', 'Склад']);
     await request(app.getHttpServer()).delete(`/api/admin/sheets-sync/sources/${r.body.id}`).set(authHeader(token.access)).expect(200);
   });
 
@@ -105,7 +111,7 @@ describe('Sheets sync (Google service account)', () => {
     expect(r.body.items[0].error).toBeNull();
     expect(r.body.items[0].lines).toEqual([
       'Снабжение: строк 10, новых 10, изменено 0, удалено 0',
-      'Реестр счетов: строк 1, новых 1, изменено 0, удалено 0',
+      'Заказы: строк 2, новых 2, изменено 0, удалено 0',
       'Склад: строк 2, новых 1, изменено 0, связано с существующими 1',
     ]);
     const reqs = await live('supplyrequests');
@@ -114,8 +120,19 @@ describe('Sheets sync (Google service account)', () => {
     expect(r1).toMatchObject({ title: 'Заявка 1', qty: 1, status: 'requested', paid: false, priority: 'normal', source: 'google-sheets', sheetExtra: { invoiceType: 'Счет' } });
     expect(r1.requestDate).toBeInstanceOf(Date);
     const orgs = await db().collection('organizations').find({}).toArray();
-    expect(orgs).toHaveLength(1); // «ООО Крепёж» и «ооо крепёж» — один поставщик
-    expect(String(r1.supplierId)).toBe(String(orgs[0]._id));
+    const sup = orgs.filter((o) => !o.isOurCompany);
+    expect(sup).toHaveLength(1); // «ООО Крепёж» и «ооо крепёж» — один поставщик
+    expect(String(r1.supplierId)).toBe(String(sup[0]._id));
+
+    // Лист «Заказы» → доходы: сумма = кол-во × цена, «доход вручную» важнее; дата в отчёт = оплата ?? отгрузка
+    const inc = await live('incomes');
+    expect(inc).toHaveLength(2);
+    const ssu = orgs.find((o) => o.isOurCompany)!;
+    expect(inc.find((d) => d.title === 'Флагшток стальной h 8м')).toMatchObject({ orderNo: '34', qty: 3, unitPrice: 1000.5, amount: 3001.5, companyId: ssu._id, paymentForm: 'б/р', source: 'google-sheets' });
+    const swing = inc.find((d) => d.title === 'Качеля одинарная')!;
+    expect(swing).toMatchObject({ amount: 7500, notes: 'скидка' });
+    expect((swing.reportDate as Date).toISOString().slice(0, 10)).toBe('2026-10-15');
+    expect(await db().collection('app_supply_invoices').countDocuments({})).toBe(0); // реестр не загружается
 
     const mats = await live('materials');
     expect(mats).toHaveLength(2);
@@ -131,7 +148,7 @@ describe('Sheets sync (Google service account)', () => {
   it('повтор — без изменений и без дублей', async () => {
     const r = await run();
     expect(r.body.items[0].lines[0]).toBe('Снабжение: строк 10, новых 0, изменено 0, удалено 0');
-    expect(r.body.items[0].lines[1]).toBe('Реестр счетов: строк 1, новых 0, изменено 0, удалено 0');
+    expect(r.body.items[0].lines[1]).toBe('Заказы: строк 2, новых 0, изменено 0, удалено 0');
     expect(r.body.items[0].lines[2]).toBe('Склад: строк 2, новых 0, изменено 0');
     expect(await live('supplyrequests')).toHaveLength(11);
     expect(await live('materials')).toHaveLength(2);
@@ -147,7 +164,7 @@ describe('Sheets sync (Google service account)', () => {
     const r = await run();
     expect(r.body.items[0].lines).toEqual([
       'Снабжение: строк 9, новых 0, изменено 3, удалено 1',
-      'Реестр счетов: строк 1, новых 0, изменено 0, удалено 0',
+      'Заказы: строк 2, новых 0, изменено 0, удалено 0',
       'Склад: строк 1, новых 0, изменено 1, нет в таблице 1 (не удаляются)',
     ]);
     const reqs = await live('supplyrequests');
@@ -161,10 +178,33 @@ describe('Sheets sync (Google service account)', () => {
     expect(await db().collection('storageitems').findOne({ materialId: bolt._id })).toMatchObject({ quantity: 45 });
   });
 
+  it('хозяин — приложение: изменённое/удалённое в приложении таблица не трогает; строка, вернувшаяся в лист, — возвращается', async () => {
+    const auth = authHeader(token.access);
+    const reqs = await live('supplyrequests');
+    const n1 = reqs.find((d) => d.num === 1)!, n2 = reqs.find((d) => d.num === 2)!;
+    await request(app.getHttpServer()).patch(`/api/supply/requests/${n1._id}`).set(auth).send({ qty: 7 }).expect(200);
+    await request(app.getHttpServer()).delete(`/api/supply/requests/${n2._id}`).set(auth).expect(200);
+    const bolt = (await live('materials')).find((m) => m.article === 'B-8')!;
+    await request(app.getHttpServer()).post(`/api/stock/items/${bolt._id}/move`).set(auth).send({ type: 'in', qty: 5 }).expect(201); // 45 → 50
+
+    supply[1][3] = 1000; // в таблице правят заявку №1 — в базе остаётся правка приложения
+    supply[2][3] = 2000; // и удалённую в приложении №2 — она не воскресает
+    supply.push([10, '18.10.2026', 'Заявка 10', 10, '✅ Заказать', 'ООО Крепёж', 'Счет', '']); // №10 вернули в лист
+    stock[6][3] = 1; // остаток Болта в таблице — не перезаписывает движения приложения
+    const r = await run();
+    expect(r.body.items[0].lines[0]).toBe('Снабжение: строк 10, новых 0, изменено 1, не тронуто (изменено/удалено в приложении) 2, удалено 0');
+    expect(r.body.items[0].lines[2]).toContain('не тронуто (изменено/удалено в приложении) 1');
+    const after = await db().collection('supplyrequests').find({}).toArray();
+    expect(after.find((d) => d.num === 1)).toMatchObject({ qty: 7, deletedAt: null });
+    expect(after.find((d) => d.num === 2)!.deletedAt).toBeInstanceOf(Date);
+    expect(after.find((d) => d.num === 10)).toMatchObject({ deletedAt: null, qty: 10 });
+    expect(await db().collection('storageitems').findOne({ materialId: bolt._id })).toMatchObject({ quantity: 50 });
+  });
+
   it('лист очистили по ошибке — массовое удаление не выполняется', async () => {
     supply = [supply[0]];
     const r = await run();
-    expect(r.body.items[0].lines[0]).toContain('⚠️ удаление 9 записей пропущено');
+    expect(r.body.items[0].lines[0]).toContain('⚠️ удаление 8 записей пропущено');
     expect(await live('supplyrequests')).toHaveLength(10);
   });
 });

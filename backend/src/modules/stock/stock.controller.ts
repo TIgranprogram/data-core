@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { StockItemDto, StockMoveDto, StockPhotoDto } from './dto';
@@ -20,11 +21,44 @@ export class StockController {
     return this.stock.listWarehouses();
   }
 
-  /** Позиции склада по умолчанию: материал + остаток / бронь / свободно. */
+  /** Позиции склада по умолчанию: материал + остаток / бронь / свободно; counts — для чипов «к закупке / нет / в брони». */
   @Get('items')
   @Roles('admin', 'director', 'manager', 'user')
-  list(@Query('search') search?: string, @Query('categoryId') categoryId?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.stock.listItems({ search, categoryId, page: Number(page) || 1, limit: Number(limit) || 1000 });
+  @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤1000, по умолчанию 1000' })
+  @ApiQuery({ name: 'search', required: false, description: 'наименование, артикул, код, примечание' })
+  @ApiQuery({ name: 'sort', required: false, description: 'name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt; «-» — по убыванию' })
+  @ApiQuery({ name: 'status', required: false, description: 'через запятую: ok, low, none, reserved' })
+  @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
+  list(@Query() q: Record<string, string>) {
+    return this.stock.listItems(q);
+  }
+
+  /** Сводка по категориям: позиций всего / к закупке / нет на складе. */
+  @Get('categories')
+  @Roles('admin', 'director', 'manager', 'user')
+  categories() {
+    return this.stock.categorySummary();
+  }
+
+  /** Журнал движений по всем позициям. */
+  @Get('movements')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤500, по умолчанию 50' })
+  @ApiQuery({ name: 'type', required: false, description: 'in, out, adjust (через запятую)' })
+  @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'materialId', required: false })
+  @ApiQuery({ name: 'search', required: false, description: 'наименование позиции или примечание' })
+  @ApiQuery({ name: 'sort', required: false, description: 'date | qty | type | createdAt (умолч. -date)' })
+  movements(@Query() q: Record<string, string>) {
+    return this.stock.listMovements(q);
+  }
+
+  /** Отменить движение: проводится обратное, исходное помечается отменённым. */
+  @Post('movements/:id/cancel')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.movement.cancelled', entityType: 'StockMovement', idParam: 'id' })
+  cancelMovement(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.cancelMovement(id, user?.id);
   }
 
   @Get('items/:id')
@@ -42,12 +76,14 @@ export class StockController {
   /** Новая позиция (материал + строка остатка). Такое же наименование — вернётся существующая. */
   @Post('items')
   @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.created', entityType: 'Material' })
   create(@Body() dto: StockItemDto) {
     return this.stock.createItem(dto);
   }
 
   @Patch('items/:id')
   @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.updated', entityType: 'Material', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: StockItemDto) {
     return this.stock.updateItem(id, dto);
   }
@@ -61,7 +97,24 @@ export class StockController {
   /** Приход / списание / корректировка / бронь / снятие брони. */
   @Post('items/:id/move')
   @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.moved', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, quantity: (data as { quantity?: number })?.quantity }) })
   move(@Param('id') id: string, @Body() dto: StockMoveDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.stock.move(id, dto, user?.id);
+  }
+
+  /** В корзину: только без остатка и брони (иначе 409 с объяснением). */
+  @Delete('items/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.deleted', entityType: 'Material', idParam: 'id' })
+  remove(@Param('id') id: string) {
+    return this.stock.removeItem(id);
+  }
+
+  @Post('items/:id/restore')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.restored', entityType: 'Material', idParam: 'id' })
+  restore(@Param('id') id: string) {
+    return this.stock.restoreItem(id);
   }
 }

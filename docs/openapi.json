@@ -1256,6 +1256,44 @@
         ]
       }
     },
+    "/audit-logs/record": {
+      "get": {
+        "operationId": "AuditController_record",
+        "summary": "История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда",
+        "parameters": [
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "query",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/audit-logs/facets": {
       "get": {
         "operationId": "AuditController_facets",
@@ -2271,36 +2309,51 @@
         "operationId": "StockController_list",
         "parameters": [
           {
-            "name": "search",
-            "required": true,
+            "name": "deleted",
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "1 — корзина",
+            "schema": {}
           },
           {
             "name": "categoryId",
-            "required": true,
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {}
           },
           {
-            "name": "page",
-            "required": true,
+            "name": "status",
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "через запятую: ok, low, none, reserved",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt; «-» — по убыванию",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "наименование, артикул, код, примечание",
+            "schema": {}
           },
           {
             "name": "limit",
-            "required": true,
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "≤1000, по умолчанию 1000",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
           }
         ],
         "responses": {
@@ -2327,6 +2380,110 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/categories": {
+      "get": {
+        "operationId": "StockController_categories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/movements": {
+      "get": {
+        "operationId": "StockController_movements",
+        "parameters": [
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "date | qty | type | createdAt (умолч. -date)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "наименование позиции или примечание",
+            "schema": {}
+          },
+          {
+            "name": "materialId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "in, out, adjust (через запятую)",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "≤500, по умолчанию 50",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/movements/{id}/cancel": {
+      "post": {
+        "operationId": "StockController_cancelMovement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -2379,6 +2536,27 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      },
+      "delete": {
+        "operationId": "StockController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2478,41 +2656,117 @@
         ]
       }
     },
+    "/stock/items/{id}/restore": {
+      "post": {
+        "operationId": "StockController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/supply/requests": {
       "get": {
         "operationId": "SupplyController_list",
         "parameters": [
           {
-            "name": "search",
-            "required": true,
+            "name": "deleted",
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "1 — только удалённые (корзина)",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ-ДД",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ-ДД",
+            "schema": {}
+          },
+          {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "requestedBy",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "materialId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "supplierId",
+            "required": false,
+            "in": "query",
+            "schema": {}
           },
           {
             "name": "status",
-            "required": true,
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "через запятую: in_progress, requested, ordered, paid, received, cancelled",
+            "schema": {}
           },
           {
-            "name": "page",
-            "required": true,
+            "name": "sort",
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "num | requestDate | title | qty | priceHint | status | requestedBy | createdAt | updatedAt | deletedAt; «-» — по убыванию (умолч. -requestDate)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "наименование, артикул, заказчик, примечание, кто подал, № счёта, № заявки, поставщик",
+            "schema": {}
           },
           {
             "name": "limit",
-            "required": true,
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "description": "≤1000, по умолчанию 1000",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
           }
         ],
         "responses": {
@@ -2613,6 +2867,50 @@
         "tags": [
           "Снабжение"
         ]
+      },
+      "delete": {
+        "operationId": "SupplyController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/requests/{id}/restore": {
+      "post": {
+        "operationId": "SupplyController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
       }
     },
     "/supply/requests/{id}/receive": {
@@ -2645,6 +2943,310 @@
         },
         "tags": [
           "Снабжение"
+        ]
+      }
+    },
+    "/incomes": {
+      "get": {
+        "operationId": "IncomesController_list",
+        "parameters": [
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "по дате в отчёт (оплаты, иначе отгрузки), ГГГГ-ММ-ДД",
+            "schema": {}
+          },
+          {
+            "name": "orderNo",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "draft (не отгружено) | awaiting (отгружено, ждём оплату) | paid",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "№ заказа, заказчик, наименование, примечание, вид, цвет",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      },
+      "post": {
+        "operationId": "IncomesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/lookups": {
+      "get": {
+        "operationId": "IncomesController_lookups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}": {
+      "get": {
+        "operationId": "IncomesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      },
+      "patch": {
+        "operationId": "IncomesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      },
+      "delete": {
+        "operationId": "IncomesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/restore": {
+      "post": {
+        "operationId": "IncomesController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/finance/cashflow": {
+      "get": {
+        "operationId": "FinanceController_cashflow",
+        "parameters": [
+          {
+            "name": "opening",
+            "required": false,
+            "in": "query",
+            "description": "Остаток на начало периода, ₽",
+            "schema": {}
+          },
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "description": "all | СИЮ | ССЮ | id организации",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ-ДД (умолч. конец месяца); период ≤ 1 года",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ-ДД (умолч. начало месяца)",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/summary": {
+      "get": {
+        "operationId": "FinanceController_summary",
+        "parameters": [
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/needs-fill": {
+      "get": {
+        "operationId": "FinanceController_needsFill",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
         ]
       }
     },
@@ -6840,6 +7442,10 @@
           "invoiceNo": {
             "type": "string"
           },
+          "invoiceDate": {
+            "type": "string",
+            "description": "Дата счёта ГГГГ-ММ-ДД; пустая строка — очистить"
+          },
           "deliveryNote": {
             "type": "string"
           },
@@ -6869,6 +7475,71 @@
           },
           "clientUid": {
             "type": "string"
+          }
+        }
+      },
+      "IncomeDto": {
+        "type": "object",
+        "properties": {
+          "orderNo": {
+            "type": "string",
+            "description": "№ заказа"
+          },
+          "customer": {
+            "type": "string",
+            "description": "Заказчик"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания по id (organizations)"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Наша компания по названию: СИЮ / ССЮ"
+          },
+          "paymentForm": {
+            "type": "string",
+            "description": "Форма оплаты: б/р, нал…"
+          },
+          "title": {
+            "type": "string",
+            "description": "Наименование (обязательно при создании)"
+          },
+          "qty": {
+            "type": "object"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Вид"
+          },
+          "color": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "object",
+            "description": "Цена за единицу"
+          },
+          "amountManual": {
+            "type": "object",
+            "description": "Доход вручную (важнее кол-во × цена)"
+          },
+          "shipDate": {
+            "type": "string",
+            "description": "Дата отгрузки"
+          },
+          "paidDate": {
+            "type": "string",
+            "description": "Дата оплаты"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не создаёт дубль"
           }
         }
       },

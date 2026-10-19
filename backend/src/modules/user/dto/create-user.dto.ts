@@ -54,8 +54,8 @@ export class CreateUserDto {
   @Length(8, 128, { message: 'Пароль должен быть не короче 8 символов' })
   password!: string;
 
-  @ApiProperty({ enum: ['user', 'manager', 'admin'], description: 'Роль пользователя' })
-  @IsIn(['user', 'manager', 'admin'], { message: 'Недопустимая роль' })
+  @ApiProperty({ enum: ['user', 'manager', 'director', 'admin'], description: 'Роль пользователя' })
+  @IsIn(['user', 'manager', 'director', 'admin'], { message: 'Недопустимая роль: выберите наблюдателя, менеджера, директора или администратора' })
   role!: string;
 
   @ApiPropertyOptional({ type: [String], description: 'Разрешения' })

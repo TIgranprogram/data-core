@@ -1,8 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
 import type { AuditQueryRaw } from './audit-query';
+
+/** Типы записей рабочего приложения, чью историю видят все роли. */
+export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income'];
 
 /**
  * Журнал аудита (только admin). Пишут оба приложения единой базы — data-core и kppdf.
@@ -28,6 +31,24 @@ export class AuditController {
   @ApiQuery({ name: 'limit', required: false, description: '≤ 200, по умолчанию 50' })
   list(@Query() raw: AuditQueryRaw) {
     return this.service.findAll(raw);
+  }
+
+  /**
+   * История одной записи рабочего приложения (карточка → «История»): кто и когда менял.
+   * Доступна всем ролям, но только для типов записей приложения и без содержимого details.
+   */
+  @Get('record')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiOperation({ summary: 'История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда' })
+  @ApiQuery({ name: 'entityType', required: true, description: RECORD_HISTORY_TYPES.join(' | ') })
+  @ApiQuery({ name: 'entityId', required: true })
+  async record(@Query('entityType') entityType: string, @Query('entityId') entityId: string) {
+    if (!RECORD_HISTORY_TYPES.includes(entityType)) throw new BadRequestException('История для этого типа записей недоступна');
+    const r = await this.service.findAll({ entityType, entityId, limit: '100' } as AuditQueryRaw);
+    return {
+      items: (r.items as Array<Record<string, unknown>>).map((d) => ({ action: d.action, userName: d.userName ?? null, createdAt: d.createdAt })),
+      total: r.total,
+    };
   }
 
   @Get('facets')

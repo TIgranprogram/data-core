@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
@@ -99,5 +100,79 @@ describe('Stock & supply on shared CRM collections', () => {
     expect(r.body.suppliers).toContain('ООО «Крепёж»');
     expect(r.body.companies).toContain('СИЮ');
     expect(r.body.categories.map((c: { name: string }) => c.name)).toContain('Метизы');
+    expect(r.body.supplierRefs.find((s: { name: string }) => s.name === 'ООО «Крепёж»').id).toMatch(/^[0-9a-f]{24}$/);
+  });
+
+  // ---------- «Рабочее место» (CANON §4): страницы, сортировка, фильтры, корзина, отмена движений ----------
+
+  it('список заявок: страницы, сортировка, фильтр по статусу и поставщику, сумма и счётчики', async () => {
+    for (let i = 1; i <= 3; i++) await http().post('/api/supply/requests').set(auth()).send({ title: `Саморез ${i}`, qty: i, priceHint: i * 100, statusLabel: i === 3 ? 'Отменено' : 'Заказать' }).expect(201);
+    const all = await http().get('/api/supply/requests?limit=2&sort=num').set(auth()).expect(200);
+    expect(all.body).toMatchObject({ total: 5, page: 1, limit: 2 });
+    expect(all.body.items.map((r: { num: number }) => r.num)).toEqual([1, 2]);
+    expect(all.body.counts).toMatchObject({ all: 5, cancelled: 1, received: 1 });
+    const p2 = await http().get('/api/supply/requests?limit=2&page=2&sort=-num').set(auth()).expect(200);
+    expect(p2.body.items.map((r: { num: number }) => r.num)).toEqual([3, 2]);
+    const req = await http().get('/api/supply/requests?status=requested&search=саморез').set(auth()).expect(200);
+    expect(req.body).toMatchObject({ total: 2, sum: 300 });
+    expect(req.body.counts.cancelled).toBe(1); // счётчики — без учёта самого фильтра статуса
+    const lk = await http().get('/api/supply/lookups').set(auth()).expect(200);
+    const sup = lk.body.supplierRefs.find((s: { name: string }) => s.name === 'ООО «Крепёж»').id;
+    expect((await http().get(`/api/supply/requests?supplierId=${sup}`).set(auth()).expect(200)).body.total).toBe(2);
+    expect((await http().get('/api/supply/requests?search=№1').set(auth()).expect(200)).body.items[0].num).toBe(1);
+    await http().get('/api/supply/requests?sort=password').set(auth()).expect(400);
+    await http().get('/api/supply/requests?from=вчера').set(auth()).expect(400);
+  });
+
+  it('заявка: удалить → нет в списке, есть в корзине → восстановить; история изменений видна', async () => {
+    const r = await http().post('/api/supply/requests').set(auth()).send({ title: 'Удаляемая', qty: 1 }).expect(201);
+    await http().delete(`/api/supply/requests/${r.body.id}`).set(auth()).expect(200);
+    await http().get(`/api/supply/requests/${r.body.id}`).set(auth()).expect(404);
+    expect((await http().get('/api/supply/requests?search=Удаляемая').set(auth()).expect(200)).body.total).toBe(0);
+    const trash = await http().get('/api/supply/requests?deleted=1').set(auth()).expect(200);
+    expect(trash.body.items.map((x: { id: string }) => x.id)).toContain(r.body.id);
+    await http().delete(`/api/supply/requests/${r.body.id}`).set(auth()).expect(404);
+    expect((await http().post(`/api/supply/requests/${r.body.id}/restore`).set(auth()).expect(200)).body.title).toBe('Удаляемая');
+    await http().post(`/api/supply/requests/${r.body.id}/restore`).set(auth()).expect(404);
+    const hist = await http().get(`/api/audit-logs/record?entityType=SupplyRequest&entityId=${r.body.id}`).set(auth()).expect(200);
+    expect(hist.body.items.map((x: { action: string }) => x.action).sort()).toEqual(['supply.request.created', 'supply.request.deleted', 'supply.request.restored']);
+    await http().get(`/api/audit-logs/record?entityType=User&entityId=${r.body.id}`).set(auth()).expect(400);
+  });
+
+  it('позиция склада: с остатком не удаляется (409 с причиной), пустая — в корзину и обратно; фильтр/сортировка/счётчики', async () => {
+    const del = await http().delete(`/api/stock/items/${boltId}`).set(auth()).expect(409);
+    expect(del.body.message).toContain('остаток 42');
+    const empty = await http().post('/api/stock/items').set(auth()).send({ name: 'Пустая позиция', minQuantity: 5 }).expect(201);
+    const list = await http().get('/api/stock/items?status=none&sort=-name').set(auth()).expect(200);
+    expect(list.body.items.map((i: { name: string }) => i.name)).toContain('Пустая позиция');
+    expect(list.body.counts.all).toBeGreaterThanOrEqual(3);
+    const byQty = await http().get('/api/stock/items?sort=-quantity&limit=1').set(auth()).expect(200);
+    expect(byQty.body.items[0]).toMatchObject({ name: 'Гайка М8', quantity: 100 });
+    await http().delete(`/api/stock/items/${empty.body.id}`).set(auth()).expect(200);
+    expect((await http().get('/api/stock/items?search=Пустая').set(auth()).expect(200)).body.total).toBe(0);
+    expect((await http().get('/api/stock/items?deleted=1').set(auth()).expect(200)).body.items.map((i: { id: string }) => i.id)).toContain(empty.body.id);
+    expect((await http().post(`/api/stock/items/${empty.body.id}/restore`).set(auth()).expect(200)).body).toMatchObject({ name: 'Пустая позиция', minQuantity: 5 });
+    // сводка по категориям (плитки склада)
+    const cats = await http().get('/api/stock/categories').set(auth()).expect(200);
+    expect(cats.body.items.find((c: { name: string }) => c.name === 'Метизы')).toMatchObject({ total: 1, low: 0, none: 0 });
+    expect(cats.body.items.find((c: { id: string }) => c.id === 'none')).toMatchObject({ name: 'Без категории', none: 1 });
+  });
+
+  it('журнал движений: все позиции, фильтры; отмена = обратное движение, повторно нельзя', async () => {
+    const all = await http().get('/api/stock/movements?limit=50').set(auth()).expect(200);
+    expect(all.body.total).toBe(4); // in, out, adjust по болту + приход по заявке
+    const adj = all.body.items.find((m: { type: string }) => m.type === 'adjust');
+    expect(adj).toMatchObject({ delta: -3, materialName: 'Болт М8×30', canCancel: true });
+    const ins = await http().get(`/api/stock/movements?type=in&materialId=${boltId}`).set(auth()).expect(200);
+    expect(ins.body.total).toBe(1);
+    // отменить корректировку −3 → остаток 42 + 3 = 45
+    const after = await http().post(`/api/stock/movements/${adj.id}/cancel`).set(auth()).expect(200);
+    expect(after.body.quantity).toBe(45);
+    await http().post(`/api/stock/movements/${adj.id}/cancel`).set(auth()).expect(409);
+    const fresh = await http().get('/api/stock/movements?search=отмена').set(auth()).expect(200);
+    expect(fresh.body.items[0]).toMatchObject({ cancelOf: adj.id, canCancel: false, delta: 3 });
+    // запись истории из Google-таблицы не отменяется
+    const sheet = await db().collection('stockmovements').insertOne({ type: 'in', qty: 1, materialId: new Types.ObjectId(boltId), warehouseId: (await db().collection('warehouses').findOne({}))!._id, date: new Date(), source: 'google-sheets', deletedAt: null });
+    expect((await http().post(`/api/stock/movements/${sheet.insertedId}/cancel`).set(auth()).expect(409)).body.message).toContain('Google-таблицы');
   });
 });

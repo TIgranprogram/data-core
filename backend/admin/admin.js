@@ -23,7 +23,7 @@
     if (store.token) headers.Authorization = `Bearer ${store.token}`;
     if (opts.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
     const res = await fetch(API + path, { ...opts, headers });
-    if (res.status === 401 && store.token) { logout(); throw new Error('Сессия истекла — войдите снова'); }
+    if (res.status === 401 && store.token) { logout(); showLogin(); throw new Error('Сессия истекла — войдите снова'); }
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
       try { const j = await res.json(); msg = j.message || j.error || msg; if (Array.isArray(msg)) msg = msg.join('; '); } catch { /* ignore */ }
@@ -45,9 +45,18 @@
     $('#login-view').hidden = true;
     $('#app-view').hidden = false;
     const u = store.user;
-    $('#whoami').textContent = u ? `${u.username} · ${u.role}` : '';
+    $('#whoami').textContent = u ? `${u.username} · ${ROLE_RU[u.role] || u.role}${u.isOwner ? ' · владелец' : ''}` : '';
+    // Переходы: CRM живёт на корне домена только в публичном контуре (/db/…)
+    $('#crm-link').hidden = !PREFIX;
     loadUsers(); refreshHealth();
   }
+  const ROLE_RU = { admin: 'администратор', director: 'директор', manager: 'менеджер', user: 'наблюдатель' };
+  function initTheme() {
+    const b = $('#theme-btn'); if (!b || !window.dcTheme) { if (b) b.hidden = true; return; }
+    $('#theme-name').textContent = window.dcTheme.name();
+    b.onclick = () => { $('#theme-name').textContent = window.dcTheme.cycle(); };
+  }
+  initTheme();
   function showLogin() {
     $('#app-view').hidden = true;
     $('#login-view').hidden = false;
@@ -97,7 +106,7 @@
   function userRow(u) {
     const tr = el('tr');
     tr.append(el('td', '', u.username), el('td', '', u.displayName || '—'), el('td', '', u.email || '—'),
-      el('td', '', u.role), el('td', '', u.isActive ? 'да' : 'нет'), el('td', '', fmtDate(u.createdAt)));
+      el('td', '', ROLE_RU[u.role] || u.role), el('td', '', u.isActive ? 'да' : 'нет'), el('td', '', fmtDate(u.createdAt)));
     const td = el('td');
     const edit = el('button', 'btn btn-sm', 'Изменить'); edit.onclick = () => openUserDialog(u);
     const reset = el('button', 'btn btn-sm', 'Сброс пароля'); reset.onclick = () => resetPassword(u);
@@ -111,7 +120,8 @@
     $('#f-username').value = u?.username || '';
     $('#f-displayName').value = u?.displayName || '';
     $('#f-email').value = u?.email || '';
-    $('#f-role').value = u?.role || 'user';
+    $('#f-role').value = u?.role || 'manager';
+
     $('#f-password').value = '';
     $('#f-password-wrap').hidden = !!u; // пароль только при создании
     $('#f-username').disabled = !!u;    // логин не меняем

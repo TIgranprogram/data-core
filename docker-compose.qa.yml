@@ -1,0 +1,25 @@
+# Проверочный стенд на КОПИИ прод-базы (CANON §6). Не трогает локальную базу datacore.
+#
+# 1) Копия бэкапа восстановлена в БД `datacoreqa` (mongorestore --db datacoreqa, без --drop),
+#    Mongo-пользователь `datacoreqa` (readWrite только на datacoreqa).
+# 2) QA_MONGO_PW=<пароль> docker compose -f docker-compose.yml -f docker-compose.qa.yml up -d backend-qa
+# 3) http://localhost:3002/app/  (админка — /admin/)
+services:
+  backend-qa:
+    build: ./backend
+    container_name: datacore-backend-qa
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3002:3000"
+    env_file: .env
+    environment:
+      MONGO_URI: mongodb://datacoreqa:${QA_MONGO_PW:?QA_MONGO_PW is required}@mongo:27017/datacoreqa?authSource=admin&replicaSet=rs0
+      MONGO_DB: datacoreqa
+      SHEETS_SYNC_INTERVAL_MIN: "0"
+    volumes:
+      - ./backend/admin:/app/admin:ro
+      - ./backend/pwa:/app/pwa:ro
+      - ./secrets:/app/secrets:ro   # ключ робота Google — чтобы проверять синхронизацию таблиц на копии

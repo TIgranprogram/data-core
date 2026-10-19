@@ -3,150 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Снабжение и склад</title>
+  <title>Рабочее место</title>
   <meta name="theme-color" content="#1e415e" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="app.css" />
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="ui/tokens.css" />
+  <link rel="stylesheet" href="ui/base.css" />
 </head>
 <body>
-  <!-- Вход -->
-  <section id="login-view" class="login" hidden>
-    <form id="login-form" class="login-card">
-      <img src="icon.svg" alt="" class="login-logo" />
-      <h1>Снабжение и склад</h1>
-      <p class="muted">Вход по логину сотрудника</p>
-      <label>Логин <input id="login-username" autocomplete="username" required /></label>
-      <label>Пароль <input id="login-password" type="password" autocomplete="current-password" required /></label>
-      <p id="login-error" class="error" hidden></p>
-      <button class="btn btn-primary" type="submit">Войти</button>
-    </form>
-  </section>
-
-  <!-- Приложение -->
-  <section id="app-view" hidden>
-    <header class="topbar">
-      <a href="/" class="crm-link" title="Вернуться в CRM KPPDF">← CRM</a>
-      <nav class="tabs">
-        <button class="tab active" data-view="supply">Снабжение</button>
-        <button class="tab" data-view="stock">Склад</button>
-      </nav>
-      <span id="net" class="net" title="Состояние связи и очередь изменений"></span>
-      <button id="user-btn" class="btn btn-ghost" title="Выйти"></button>
-    </header>
-
-    <!-- Снабжение -->
-    <main id="view-supply" class="view">
-      <div class="toolbar">
-        <input id="s-search" type="search" placeholder="Поиск: наименование, артикул, поставщик…" />
-        <button id="s-add" class="btn btn-primary">+ Заявка</button>
-      </div>
-      <div id="s-chips" class="chips"></div>
-      <div class="filters">
-        <select id="s-cat"></select>
-        <select id="s-sup"></select>
-        <select id="s-who"></select>
-        <select id="s-co"></select>
-      </div>
-      <p id="s-count" class="muted small"></p>
-      <ul id="s-list" class="list"></ul>
-      <button id="s-more" class="btn more" hidden>Показать ещё</button>
-    </main>
-
-    <!-- Склад -->
-    <main id="view-stock" class="view" hidden>
-      <div class="toolbar">
-        <input id="w-search" type="search" placeholder="Поиск: наименование, артикул…" />
-        <button id="w-add" class="btn btn-primary">+ Позиция</button>
-      </div>
-      <div id="w-chips" class="chips"></div>
-      <div class="filters"><select id="w-cat"></select></div>
-      <p id="w-count" class="muted small"></p>
-      <ul id="w-list" class="list"></ul>
-      <button id="w-more" class="btn more" hidden>Показать ещё</button>
-    </main>
-  </section>
-
-  <!-- Карточка заявки -->
-  <dialog id="req-dlg" class="dlg">
-    <form id="req-form" method="dialog">
-      <header class="dlg-head"><h2 id="req-title">Заявка</h2><button type="button" class="btn btn-ghost" data-close>✕</button></header>
-      <div class="grid">
-        <label class="wide">Наименование* <input name="name" required /></label>
-        <label>Категория <select name="category"></select></label>
-        <label>Кол-во* <input name="qty" type="number" step="any" min="0" required /></label>
-        <label>Ед. изм. <input name="unit" list="units" /></label>
-        <label>Артикул <input name="article" /></label>
-        <label>Цвет <input name="color" /></label>
-        <label>Поставщик <input name="supplier" list="suppliers" /></label>
-        <label class="wide">Ссылка <input name="link" /></label>
-        <label>Заказчик <input name="customer" /></label>
-        <label>Статус <select name="status"></select></label>
-        <label>Приоритет <select name="priority"></select></label>
-        <label>Наша компания <select name="ourCompany"></select></label>
-        <label>Доставка <input name="delivery" /></label>
-        <label>№ счёта <input name="invoiceNo" /></label>
-        <label>Цена с НДС <input name="priceWithVat" type="number" step="any" min="0" /></label>
-        <label class="wide">Примечание <textarea name="note" rows="2"></textarea></label>
-      </div>
-      <div class="photos" id="req-photos"></div>
-      <p id="req-meta" class="muted small"></p>
-      <footer class="dlg-foot">
-        <button type="button" id="req-receive" class="btn" hidden>Оприходовать на склад</button>
-        <span class="spacer"></span>
-        <button type="button" class="btn" data-close>Отмена</button>
-        <button type="submit" class="btn btn-primary">Сохранить</button>
-      </footer>
-    </form>
-  </dialog>
-
-  <!-- Карточка позиции склада -->
-  <dialog id="item-dlg" class="dlg">
-    <form id="item-form" method="dialog">
-      <header class="dlg-head"><h2 id="item-title">Позиция</h2><button type="button" class="btn btn-ghost" data-close>✕</button></header>
-      <div id="item-stats" class="stats"></div>
-      <div id="item-actions" class="actions"></div>
-      <div class="grid">
-        <label class="wide">Наименование* <input name="name" required /></label>
-        <label>Категория <select name="category"></select></label>
-        <label>Ед. изм. <input name="unit" list="units" /></label>
-        <label>Артикул <input name="article" /></label>
-        <label>Мин. остаток <input name="minQty" type="number" step="any" min="0" /></label>
-        <label>Вес 1 шт., кг <input name="weightKg" type="number" step="any" min="0" /></label>
-      </div>
-      <div class="photos" id="item-photos"></div>
-      <h3 class="sub">История движений</h3>
-      <ul id="item-moves" class="moves"></ul>
-      <footer class="dlg-foot">
-        <span class="spacer"></span>
-        <button type="button" class="btn" data-close>Закрыть</button>
-        <button type="submit" class="btn btn-primary">Сохранить</button>
-      </footer>
-    </form>
-  </dialog>
-
-  <!-- Движение (приход / бронь / списание …) -->
-  <dialog id="mv-dlg" class="dlg dlg-sm">
-    <form id="mv-form" method="dialog">
-      <header class="dlg-head"><h2 id="mv-title">Движение</h2><button type="button" class="btn btn-ghost" data-close>✕</button></header>
-      <p id="mv-item" class="muted"></p>
-      <div class="grid">
-        <label>Количество* <input name="qty" type="number" step="any" required /></label>
-        <label class="wide" id="mv-item-pick" hidden>Позиция склада <input name="itemName" list="items-list" placeholder="Начните вводить наименование" /></label>
-        <label class="wide">Куда / заказ / основание <input name="ref" /></label>
-        <label class="wide">Примечание <input name="note" /></label>
-      </div>
-      <p id="mv-hint" class="muted small"></p>
-      <footer class="dlg-foot"><span class="spacer"></span><button type="button" class="btn" data-close>Отмена</button><button type="submit" class="btn btn-primary">Провести</button></footer>
-    </form>
-  </dialog>
-
-  <datalist id="units"><option value="шт"></option><option value="м"></option><option value="кг"></option><option value="уп"></option><option value="л"></option><option value="м²"></option><option value="компл"></option></datalist>
-  <datalist id="suppliers"></datalist>
-  <datalist id="items-list"></datalist>
-  <input id="photo-input" type="file" accept="image/*" capture="environment" hidden />
-  <div id="toast"></div>
-  <script src="app.js"></script>
+  <div id="root"></div>
+  <noscript>Для работы приложения включите JavaScript.</noscript>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -13,9 +13,13 @@ import { createHash } from 'crypto';
  *  supply    → supplyrequests (+ organizations, categories)
  *  stock     → materials + storageitems (склад по умолчанию)
  *  movements → stockmovements (история, остатки не пересчитываются)
- *  app       → app_<app>_<collection> (пока нет места в CRM: «Реестр счетов»)
+ *  incomes   → incomes (лист «Заказы»: доходы — строки заказов; 2026-10-19)
+ *  app       → app_<app>_<collection> (данные приложений без своего места)
+ * «Реестр счетов» больше НЕ загружается (2026-10-19): это копия строк «Снабжения» — номер и дата счёта уже
+ * есть в заявках (invoiceNo, invoiceDate). Старая копия `app_supply_invoices` — архив, удалить по «да» пользователя.
+ *  catalog   → «Справочник»: фото товаров → materials.photoIds, списки → settings (sheet-catalog.ts); есть в обеих таблицах — читается из каждой
  */
-export type SheetTarget = 'supply' | 'stock' | 'movements' | 'app';
+export type SheetTarget = 'supply' | 'stock' | 'movements' | 'incomes' | 'catalog' | 'app';
 
 export interface SheetMap {
   sheet: string;
@@ -25,8 +29,8 @@ export interface SheetMap {
   collection: string;
   /** Без этого поля строка считается пустой и не переносится. */
   requiredHeader: string;
-  /** Колонка-ключ строки; null — ключ по содержимому. */
-  rowKey: string | null;
+  /** Колонка-ключ строки (или несколько — ключ из их значений); null — ключ по содержимому. */
+  rowKey: string | string[] | null;
   /** Заголовок → поле; неописанные колонки → транслит заголовка. */
   fields: Record<string, string>;
   skip: string[];
@@ -45,12 +49,15 @@ export const SHEET_MAPS: SheetMap[] = [
     skip: ['Фото', 'ID базы'],
   },
   {
-    sheet: 'Реестр счетов', target: 'app', headerRow: 1, app: 'supply', collection: 'invoices', requiredHeader: 'Наименование', rowKey: '№',
+    // Доходы: строка заказа. Своего «№ строки» нет — ключ «№ заказа + Наименование» (повтор в одном заказе — #2, #3).
+    // «Сумма» и «Дата в отчёт» на листе — формулы; сервер считает их сам (incomeDerived).
+    sheet: 'Заказы', target: 'incomes', headerRow: 1, app: 'finance', collection: 'incomes', requiredHeader: 'Наименование', rowKey: ['№ заказа', 'Наименование'],
     fields: {
-      '№': 'num', 'Поставщик': 'supplier', 'Категория': 'category', 'Артикул': 'article', 'Наименование': 'name',
-      'Ед_изм.': 'unit', 'Кол-во': 'qty', 'Цена с НДС': 'priceWithVat', 'Тип счета': 'invoiceType', '№ Счета': 'invoiceNo', 'Дата счета': 'invoiceDate',
+      '№ заказа': 'orderNo', 'Дата отгрузки': 'shipDate', 'Дата оплаты': 'paidDate', 'Заказчик': 'customer', 'Наша компания': 'ourCompany',
+      'Форма оплаты': 'paymentForm', 'Наименование': 'name', 'Кол-во': 'qty', 'Ед.изм.': 'unit', 'Вид': 'kind', 'Цвет': 'color',
+      'Цена за ед.': 'unitPrice', 'Доход вручную': 'amountManual', 'Примечание': 'note',
     },
-    skip: ['Фото', 'ID базы'],
+    skip: ['Сумма', 'Дата в отчёт', 'ID базы'],
   },
   {
     sheet: 'Склад', target: 'stock', headerRow: 6, app: 'warehouse', collection: 'items', requiredHeader: 'Наименование ТМЦ', rowKey: 'Наименование ТМЦ',
@@ -61,6 +68,10 @@ export const SHEET_MAPS: SheetMap[] = [
       'Место хранения': 'location',
     },
     skip: ['Фото', 'ID базы'],
+  },
+  {
+    // Фото и списки. Разбирается отдельно (sheet-catalog.ts), значения — с формулами (там ссылки на фото).
+    sheet: 'Справочник', target: 'catalog', headerRow: 1, app: 'supply', collection: 'lists', requiredHeader: 'Категория', rowKey: null, fields: {}, skip: [],
   },
   {
     // Журнал движений из таблицы — история (в остатки приложения не входит: нет itemUid).
@@ -120,8 +131,11 @@ export function sheetToRows(values: unknown[][], map: SheetMap): { rows: SheetRo
   const headers = (values[headerIdx] ?? []).map((h) => String(h ?? '').trim());
   const reqIdx = headers.indexOf(map.requiredHeader);
   if (reqIdx < 0) throw new Error(`на листе «${map.sheet}» нет колонки «${map.requiredHeader}» в строке ${map.headerRow}`);
-  const keyIdx = map.rowKey ? headers.indexOf(map.rowKey) : -1;
-  if (map.rowKey && keyIdx < 0) throw new Error(`на листе «${map.sheet}» нет колонки «${map.rowKey}»`);
+  const keyCols = map.rowKey === null ? [] : Array.isArray(map.rowKey) ? map.rowKey : [map.rowKey];
+  const keyIdxs = keyCols.map((k) => headers.indexOf(k));
+  const missingKey = keyCols.find((_, i) => keyIdxs[i] < 0);
+  if (missingKey) throw new Error(`на листе «${map.sheet}» нет колонки «${missingKey}»`);
+  const keyIdx = keyIdxs[0] ?? -1;
 
   const cols = headers
     .map((h, i) => ({ i, field: h && !map.skip.includes(h) ? map.fields[h] || slugHeader(h) : '' }))
@@ -138,7 +152,8 @@ export function sheetToRows(values: unknown[][], map: SheetMap): { rows: SheetRo
       if (v !== undefined) doc[c.field] = v;
     }
     const hash = hashDoc(doc);
-    let base = map.rowKey ? (map.rowKey === map.requiredHeader ? normName(r[keyIdx]) : String(normalizeCell(r[keyIdx]) ?? '')) : hash;
+    let base = keyIdxs.length > 1 ? keyIdxs.map((i) => normName(normalizeCell(r[i]) ?? '')).join(' | ')
+      : map.rowKey ? (map.rowKey === map.requiredHeader ? normName(r[keyIdx]) : String(normalizeCell(r[keyIdx]) ?? '')) : hash;
     if (!base) base = hash; // пустой «№» — ключ по содержимому
     const n = (used.get(base) ?? 0) + 1;
     used.set(base, n);

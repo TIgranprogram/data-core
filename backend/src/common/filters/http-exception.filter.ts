@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import type { ValidationError } from 'class-validator';
+import { hasCyrillic, localizeFieldPrefix, russianFallback, translateMessage } from './error-messages-ru';
 
 const VALIDATION_MESSAGES: Record<string, string> = {
   isString: 'Должно быть строкой',
@@ -90,6 +91,8 @@ const MUST_BE_RU: [pattern: RegExp, ru: string][] = [
 function humanizeConstraintClause(clause: string): string {
   const trimmed = clause.trim();
   if (!trimmed) return '';
+  const ru = translateMessage(trimmed);
+  if (ru) return ru;
 
   const lengthConstraint = trimmed.match(
     /^(\S+) must be (longer than or equal to|shorter than or equal to) .+ characters$/i,
@@ -129,6 +132,8 @@ export function humanizeValidationMessage(message: string): string {
   if (typeof message !== 'string') return 'Ошибка валидации';
 
   const trimmed = message.trim();
+  const ru = translateMessage(trimmed);
+  if (ru) return ru;
   const notFound = humanizeNotFoundMessage(trimmed);
   if (notFound !== trimmed) return notFound;
 
@@ -239,12 +244,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
+    // Последний рубеж: всё, что осталось без перевода, — понятный русский текст по коду ответа,
+    // английский оригинал — в `detail` (для разработчиков и ИИ-клиентов API).
+    const originals: string[] = [];
+    const ensureRu = (m: string) => {
+      if (m && hasCyrillic(m)) return localizeFieldPrefix(m);
+      if (!m) return m;
+      originals.push(m);
+      return russianFallback(status);
+    };
+    message = Array.isArray(message) ? [...new Set(message.map(ensureRu))] : ensureRu(message);
+
     const errorResponse: Record<string, unknown> = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
       message,
+      ...(originals.length ? { detail: originals.join('; ') } : {}),
     };
 
     // Preserve structured codes from HttpException object payloads

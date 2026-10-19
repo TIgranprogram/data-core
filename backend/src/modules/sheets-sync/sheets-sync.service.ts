@@ -8,6 +8,8 @@ import { Types } from 'mongoose';
 import { mongoCollectionName } from '../app-data/app-data.validation';
 import { GoogleServiceAuth, type ServiceAccountKey } from './google-auth';
 import { SHEET_MAPS, sheetToRows, type SheetMap } from './sheets-sync.mapping';
+import { SheetCatalog } from './sheet-catalog';
+import { PhotosService } from '../photos/photos.service';
 import { SheetTargets } from './sheets-sync.targets';
 import { StockService } from '../stock/stock.service';
 
@@ -59,6 +61,7 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     private readonly stock: StockService,
+    private readonly photos: PhotosService,
   ) {
     this.keyFile = process.env.GOOGLE_SA_FILE
       || [join(process.cwd(), 'secrets', 'google-sa.json'), join(process.cwd(), '..', 'secrets', 'google-sa.json')].find((p) => existsSync(p))
@@ -182,20 +185,38 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
         `${SHEETS_API}/${src.spreadsheetId}?fields=properties.title,sheets.properties.title`,
       );
       const names = (meta.sheets ?? []).map((s) => s.properties?.title ?? '');
-      const maps = SHEET_MAPS.filter((m) => names.includes(m.sheet) && (!src.sheets || src.sheets.includes(m.sheet)));
+      // Листы источника: закреплённые за ним при подключении + новые в сопоставлении (напр. «Заказы», 2026-10-19),
+      // если их не забрала другая подключённая таблица (копии листов через IMPORTRANGE не берём дважды).
+      const claimedElsewhere = new Set((await this.sources().find({ _id: { $ne: src._id } }).toArray()).flatMap((s) => s.sheets ?? []));
+      const maps = SHEET_MAPS.filter((m) => names.includes(m.sheet) && (m.target === 'catalog' || !src.sheets || src.sheets.includes(m.sheet) || !claimedElsewhere.has(m.sheet)));
+      const ownSheets = maps.filter((m) => m.target !== 'catalog').map((m) => m.sheet);
+      if (src.sheets && ownSheets.some((s) => !src.sheets!.includes(s))) {
+        await this.sources().updateOne({ _id: src._id }, { $set: { sheets: [...new Set([...src.sheets, ...ownSheets])] } });
+      }
       if (!maps.length) lines.push(`нет листов ${SHEET_MAPS.map((m) => `«${m.sheet}»`).join(', ')}`);
-      if (maps.length) {
-        const q = maps.map((m) => `ranges=${encodeURIComponent(`'${m.sheet.replace(/'/g, "''")}'`)}`).join('&');
+      const catalog = maps.find((m) => m.target === 'catalog');
+      const dataMaps = maps.filter((m) => m.target !== 'catalog');
+      if (dataMaps.length) {
+        const q = dataMaps.map((m) => `ranges=${encodeURIComponent(`'${m.sheet.replace(/'/g, "''")}'`)}`).join('&');
         const data = await this.google<{ valueRanges?: { values?: unknown[][] }[] }>(
           `${SHEETS_API}/${src.spreadsheetId}/values:batchGet?${q}&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
         );
         const targets = new SheetTargets(this.connection, this.stock);
-        for (const [i, map] of maps.entries()) {
+        for (const [i, map] of dataMaps.entries()) {
           try {
             lines.push(await this.syncSheet(src.spreadsheetId, map, data.valueRanges?.[i]?.values ?? [], targets));
           } catch (e) {
             lines.push(`${map.sheet}: ❌ ${(e as Error).message}`);
           }
+        }
+      }
+      if (catalog) {
+        try {
+          const sheet = `'${catalog.sheet.replace(/'/g, "''")}'`;
+          const data = await this.google<{ values?: unknown[][] }>(`${SHEETS_API}/${src.spreadsheetId}/values/${encodeURIComponent(sheet)}?valueRenderOption=FORMULA`);
+          lines.push(await new SheetCatalog(this.connection, this.photos, this.fetchFn).sync(data.values ?? []));
+        } catch (e) {
+          lines.push(`${catalog.sheet}: ❌ ${(e as Error).message}`);
         }
       }
       await this.sources().updateOne({ _id: src._id }, { $set: { title: meta.properties?.title ?? src.title } });
@@ -223,14 +244,23 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
     const ad = targets.get(map.target);
     const coll = this.db().collection<Raw>(ad.collection);
     const sheetSource = `${spreadsheetId}/${map.sheet}`;
-    const existing = await coll.find({ sheetSource, deletedAt: null }).toArray();
-    const byKey = new Map(existing.map((d) => [String(d.sheetKey), d]));
+    // Хозяин данных — приложение (PRODUCT «Решения»): изменённое или удалённое в приложении (editedInApp)
+    // таблица больше не трогает. Удалённое самой синхронизацией (строку убрали из листа) — вернётся, если строка вернулась.
+    const all = await coll.find({ sheetSource }).toArray();
+    const existing = all.filter((d) => d.deletedAt == null);
+    const byKey = new Map(all.map((d) => [String(d.sheetKey), d]));
     const seen = new Set<string>();
-    let created = 0, updated = 0, adopted = 0, skipped = 0, linked = 0;
+    let created = 0, updated = 0, adopted = 0, skipped = 0, linked = 0, kept = 0;
 
     for (const row of rows) {
       let cur: Raw | null | undefined = byKey.get(row.key);
-      if (cur && cur.syncHash === row.hash) {
+      if (cur && cur.editedInApp) {
+        seen.add(String(cur._id));
+        if (cur.syncHash !== row.hash) kept++;
+        continue;
+      }
+      const revive = !!cur && cur.deletedAt != null;
+      if (cur && !revive && cur.syncHash === row.hash) {
         seen.add(String(cur._id));
         const link = ad.relink ? await ad.relink(cur, row.doc) : null;
         if (link) { await coll.updateOne({ _id: cur._id }, { $set: { ...link, updatedAt: new Date() } }); linked++; }
@@ -241,7 +271,7 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
       let isAdopted = false;
       if (!cur && ad.adopt) { cur = (await ad.adopt(row.doc, fields)) as Raw | null; isAdopted = !!cur; }
       const now = new Date();
-      const set: Record<string, unknown> = { sheetSource, sheetKey: row.key, syncHash: row.hash, updatedAt: now };
+      const set: Record<string, unknown> = { sheetSource, sheetKey: row.key, syncHash: row.hash, updatedAt: now, ...(revive ? { deletedAt: null } : {}) };
       const unset: Record<string, ''> = {};
       for (const [k, v] of Object.entries(fields)) if (v !== undefined) set[k] = v;
       let id: Types.ObjectId;
@@ -259,7 +289,7 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
       if (ad.afterWrite) await ad.afterWrite(id, row.doc);
     }
 
-    const gone = existing.filter((d) => !seen.has(String(d._id)));
+    const gone = existing.filter((d) => !seen.has(String(d._id)) && !d.editedInApp);
     let deleted = 0, note = '';
     if (gone.length && !ad.allowDelete) {
       note = `, нет в таблице ${gone.length} (не удаляются)`;
@@ -270,7 +300,7 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
       deleted = gone.length;
     }
     return `${map.sheet}: строк ${rows.length}, новых ${created}, изменено ${updated}` +
-      (adopted ? `, связано с существующими ${adopted}` : '') + (skipped ? `, без позиции на складе ${skipped}` : '') + (linked ? `, связано с позициями склада ${linked}` : '') +
+      (adopted ? `, связано с существующими ${adopted}` : '') + (skipped ? `, без позиции на складе ${skipped}` : '') + (linked ? `, связано с позициями склада ${linked}` : '') + (kept ? `, не тронуто (изменено/удалено в приложении) ${kept}` : '') +
       (ad.allowDelete ? `, удалено ${deleted}` : '') + note;
   }
 

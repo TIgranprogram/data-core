@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { UsersAdminController } from './users-admin.controller';
 import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
@@ -227,14 +227,14 @@ describe('UsersAdminController (TZ-257.A.1)', () => {
       expect(find).toHaveBeenCalledWith(expect.not.objectContaining({ isOwner: expect.anything() }));
     });
 
-    it('refuses a non-owner creating an admin account (OWNER_ONLY)', async () => {
-      const { controller } = buildController({});
+    it('allows a non-owner admin to create an admin or a director (решение 2026-10-19)', async () => {
+      const create = jest.fn().mockImplementation(async (d: any) => clientUserDoc({ role: d.role }));
+      const { controller } = buildController({ create });
       const actor: AuthenticatedUser = { id: 'a', username: 'a', role: 'admin' };
-      const dto = { username: 'bob', password: 'secret12', role: 'admin' } as any;
-      await expect(controller.create(dto, actor)).rejects.toBeInstanceOf(ForbiddenException);
-      await expect(controller.create(dto, actor)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'OWNER_ONLY' }),
-      });
+      for (const role of ['admin', 'director']) {
+        await expect(controller.create({ username: 'bob', password: 'secret12', role } as any, actor)).resolves.toBeDefined();
+      }
+      expect(create).toHaveBeenCalledTimes(2);
     });
 
     it('allows the owner to create an admin account', async () => {

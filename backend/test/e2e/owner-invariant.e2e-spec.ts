@@ -184,17 +184,27 @@ describe('Owner invariant (TZ-AUTH-306)', () => {
       .send({ displayName: 'Hijacked' });
     expect(patch.status).toBe(404);
 
-    // Creating an admin account → 403 OWNER_ONLY.
+    // Решение 2026-10-19: администраторов может быть несколько — обычный админ создаёт админа и директора.
     const createAdmin = await request(app.getHttpServer())
       .post('/api/admin/users')
       .set(authHeader(login.body.access))
-      .send({
-        username: `escalation-${Date.now()}`,
-        password: 'escalation-password',
-        role: 'admin',
-      });
-    expect(createAdmin.status).toBe(403);
-    expect(createAdmin.body.code).toBe('OWNER_ONLY');
+      .send({ username: `second-admin-${Date.now()}`, password: 'second-admin-password', role: 'admin' });
+    expect(createAdmin.status).toBe(201);
+    const createDirector = await request(app.getHttpServer())
+      .post('/api/admin/users')
+      .set(authHeader(login.body.access))
+      .send({ username: `director-${Date.now()}`, password: 'director-password', role: 'director' });
+    expect(createDirector.status).toBe(201);
+
+    // …но изменить/удалить другого администратора может только владелец → 403 OWNER_ONLY, по-русски.
+    const otherAdminId = createAdmin.body.id ?? createAdmin.body._id;
+    const demote = await request(app.getHttpServer())
+      .patch(`/api/admin/users/${otherAdminId}`)
+      .set(authHeader(login.body.access))
+      .send({ role: 'user' });
+    expect(demote.status).toBe(403);
+    expect(demote.body.code).toBe('OWNER_ONLY');
+    expect(demote.body.message).toContain('только владелец');
   });
 
   it('owner password login remains the break-glass entry', async () => {

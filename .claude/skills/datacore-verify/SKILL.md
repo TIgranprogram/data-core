@@ -25,7 +25,7 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
 ```
-Норма: все suites passed (база 23 suites / 168 tests).
+Норма: все suites passed (база 23 suites / 173 tests на 2026-10-19).
 Если в `backend/` нет `.env` (например, в git worktree), `ConfigModule` падает ещё при импорте `AppModule` — передай тестовые `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 символов) и `ADMIN_PASSWORD=admin123456` прямо в команде.
 
 ## 3. Live-smoke (если менял рантайм/админку)
@@ -38,6 +38,19 @@ curl -sf http://localhost:3001/api/health/ready
 Деструктивные действия на живой БД (`datacore`) — **запрещены** без «да» пользователя.
 
 > Добавил `import` нового пакета или менял `main.ts`/Dockerfile → обязательно `docker compose build backend` + health: тесты не ловят отсутствующие в prod-образе зависимости.
+
+## 3а. Стенд на копии прод-данных (обязателен для проверки приложения, CANON §6)
+
+Проверять интерфейс на пустой базе нельзя — только на копии реальных данных. Рабочую БД `datacore` не трогаем: копия живёт в отдельной БД `datacoreqa`.
+1. Свежий бэкап — `D:\datacore-backups\datacore-<дата>.tgz` (тянется с VM каждую ночь). Распаковать в scratchpad (`tar --force-local -xzf …`).
+2. `docker cp <распаковано>/mongo-*/datacore datacore-mongo:/tmp/prod-dump`, затем в контейнере от root (переменные контейнера, пароль не печатать): `mongorestore --db datacoreqa /tmp/prod-dump` (БД новая — `--drop` не нужен; если `datacoreqa` уже есть и нужна свежая — сначала спросить пользователя).
+3. Один раз: Mongo-пользователь `datacoreqa` (readWrite только на `datacoreqa`), пароль сгенерировать и держать в scratchpad.
+4. `QA_MONGO_PW=… docker compose -f docker-compose.yml -f docker-compose.qa.yml up -d --build backend-qa` → `http://localhost:3002/app/`. Код поменял — `build backend-qa` + `up -d --no-deps --force-recreate backend-qa` (без этого контейнер может остаться старым).
+5. Вход: тестовый пользователь в `datacoreqa.users` (bcryptjs-хеш из контейнера: `node -e "console.log(require('bcryptjs').hashSync(pw,10))"`), пароль генерируется, в чат не выводится.
+
+6. Снимки на разных ширинах (CANON §2 — 1920, 2560, 1024, 390): `QA_DIR=<scratchpad с qa-login.txt> node backend/scripts/qa-screenshot.mjs 1920 1080 '#requests?view=board' out.png` → открыть png и посмотреть. Встроенный браузер шире своей панели показывает неправильно — для широких экранов только так.
+
+e2e без root-пароля: Mongo-пользователь `datacoretest` (readWrite только на `datacore-test`) и `MONGO_URI=mongodb://datacoretest:<pw>@localhost:27018/datacore-test?authSource=admin&replicaSet=rs0&directConnection=true` + тестовые `JWT_SECRET`/`JWT_REFRESH_SECRET`/`ADMIN_PASSWORD` в команде.
 
 ## 4. Если изменился контракт API — openapi
 

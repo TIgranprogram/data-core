@@ -3,7 +3,6 @@ import {
   ConflictException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -139,14 +138,9 @@ export class UsersAdminController {
     @Body() dto: CreateUserDto,
     @CurrentUser() actor?: AuthenticatedUser,
   ): Promise<ReturnType<typeof toClientUser>> {
-    // TZ-AUTH-306 — granting administrator power is owner-only. Ordinary
-    // admins may create regular (non-admin) users but never promote to admin.
-    if (dto.role === 'admin' && actor?.isOwner !== true) {
-      throw new ForbiddenException({
-        code: 'OWNER_ONLY',
-        message: 'Only the system owner can create administrator accounts',
-      });
-    }
+    // Решение пользователя 2026-10-19: администраторов может быть несколько, любой администратор
+    // создаёт пользователя с любой ролью (в т.ч. администратора). Менять/удалять уже существующих
+    // администраторов по-прежнему может только владелец (OwnerTargetGuard).
     const doc = await this.userService.create(dto);
     return toClientUser(doc as unknown as Record<string, unknown>);
   }

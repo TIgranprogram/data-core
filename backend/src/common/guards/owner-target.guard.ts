@@ -75,11 +75,13 @@ export class OwnerTargetGuard implements CanActivate {
       return true;
     }
 
-    // Rule 3 — admin-power grant/revoke is owner-only.
+    // Rule 3 — изменять/удалять существующего администратора (снять права, выключить, сбросить пароль)
+    // может только владелец. Повысить пользователя до администратора может любой администратор
+    // (решение пользователя 2026-10-19: администраторов может быть несколько).
     if (!actorIsOwner && this.touchesAdminPower(method, target.role, req.body)) {
       throw new ForbiddenException({
         code: 'OWNER_ONLY',
-        message: 'Managing administrator accounts requires the system owner',
+        message: 'Изменять или удалять другого администратора может только владелец системы. Вы можете назначать администраторов и работать с остальными пользователями.',
       });
     }
 
@@ -112,8 +114,7 @@ export class OwnerTargetGuard implements CanActivate {
   ): boolean {
     // Any mutation of an existing admin user (delete/deactivate/reset/patch).
     if (targetRole === 'admin') return true;
-    // PATCH that promotes a non-admin to admin.
-    if (method === 'PATCH' && body?.role === 'admin') return true;
+    void method; void body; // повышение до администратора разрешено любому администратору
     return false;
   }
 }

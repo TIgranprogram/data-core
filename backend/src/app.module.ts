@@ -51,6 +51,8 @@ import { AppDataModule } from './modules/app-data/app-data.module';
 import { SheetsSyncModule } from './modules/sheets-sync/sheets-sync.module';
 import { StockModule } from './modules/stock/stock.module';
 import { SupplyModule } from './modules/supply/supply.module';
+import { IncomesModule } from './modules/incomes/incomes.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -146,6 +148,8 @@ import { RequestMethod } from '@nestjs/common';
     AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
     StockModule,            // /api/stock — склад на общих коллекциях CRM (materials, storageitems, stockmovements, reservations)
     SupplyModule,           // /api/supply — заявки снабжения на общей коллекции CRM supplyrequests
+    IncomesModule,          // /api/incomes — доходы (строки заказов), своя коллекция incomes
+    FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
     // ─── Канонические справочники (VISION #4) ─────────────────────────

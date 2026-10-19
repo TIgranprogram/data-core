@@ -1,6 +1,9 @@
 import { Types, type Connection } from 'mongoose';
+import { parseSheetDate } from '../../common/date-parse';
 import { CategoryResolver } from '../stock/category-resolver';
 import type { StockService } from '../stock/stock.service';
+import { incomeDerived } from '../incomes/income.schema';
+import { ourCompanies } from '../incomes/incomes.service';
 import { OrgResolver, normText } from '../supply/org-resolver';
 import { priorityFromLabel, statusFromLabel } from '../supply/supply-labels';
 import type { SheetTarget } from './sheets-sync.mapping';
@@ -29,7 +32,7 @@ export interface TargetAdapter {
 const str = (v: unknown) => { const s = String(v ?? '').trim(); return s || undefined; };
 const num = (v: unknown) => {
   if (v === undefined || v === null || v === '') return undefined;
-  const n = typeof v === 'number' ? v : Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/[\s\u00a0₽]/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : undefined;
 };
 const date = (v: unknown) => {
@@ -42,12 +45,13 @@ const isUrl = (v: unknown) => /^https?:\/\//i.test(String(v ?? '').trim());
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Поля листа «Снабжение», у которых есть место в схеме CRM; остальные уходят в sheetExtra. */
-const SUPPLY_KNOWN = new Set(['num', 'date', 'category', 'name', 'unit', 'qty', 'requestedBy', 'article', 'color', 'supplier', 'customer', 'note', 'status', 'priority', 'ourCompany', 'delivery', 'invoiceNo', 'priceWithVat', 'link']);
+const SUPPLY_KNOWN = new Set(['invoiceDate', 'num', 'date', 'category', 'name', 'unit', 'qty', 'requestedBy', 'article', 'color', 'supplier', 'customer', 'note', 'status', 'priority', 'ourCompany', 'delivery', 'invoiceNo', 'priceWithVat', 'link']);
 
 export class SheetTargets {
   private readonly orgs: OrgResolver;
   private readonly cats: CategoryResolver;
   private materialsByName: Map<string, Types.ObjectId> | null = null;
+  private ours: Array<{ id: Types.ObjectId; name: string; full: string }> | null = null;
 
   constructor(private readonly connection: Connection, private readonly stock: StockService) {
     this.orgs = new OrgResolver(connection);
@@ -70,6 +74,7 @@ export class SheetTargets {
     if (target === 'supply') return this.supply();
     if (target === 'stock') return this.stockItems();
     if (target === 'movements') return this.movements();
+    if (target === 'incomes') return this.incomes();
     throw new Error(`нет адаптера для ${target}`);
   }
 
@@ -77,7 +82,7 @@ export class SheetTargets {
     return {
       collection: 'supplyrequests',
       allowDelete: true,
-      managedFields: ['title', 'qty', 'unit', 'num', 'requestDate', 'categoryId', 'materialId', 'supplierId', 'companyId', 'orderLabel', 'requestedBy', 'article', 'color', 'productUrl', 'priceHint', 'invoiceNo', 'deliveryNote', 'notes', 'status', 'paid', 'priority', 'sheetExtra'],
+      managedFields: ['title', 'qty', 'unit', 'num', 'requestDate', 'categoryId', 'materialId', 'supplierId', 'companyId', 'orderLabel', 'requestedBy', 'article', 'color', 'productUrl', 'priceHint', 'invoiceNo', 'invoiceDate', 'deliveryNote', 'notes', 'status', 'paid', 'priority', 'sheetExtra'],
       toFields: async (r) => {
         const st = statusFromLabel(r.status);
         const extra: Doc = {};
@@ -89,7 +94,7 @@ export class SheetTargets {
           supplierId: await this.orgs.resolve(r.supplier, 'supplier'), companyId: await this.orgs.resolve(r.ourCompany, 'own'),
           orderLabel: str(r.customer), requestedBy: str(r.requestedBy), article: str(r.article), color: str(r.color),
           productUrl: isUrl(r.link) ? str(r.link) : undefined, priceHint: num(r.priceWithVat),
-          invoiceNo: str(r.invoiceNo), deliveryNote: str(r.delivery), notes: str(r.note),
+          invoiceNo: str(r.invoiceNo), invoiceDate: parseSheetDate(r.invoiceDate), deliveryNote: str(r.delivery), notes: str(r.note),
           status: st?.status ?? 'requested', paid: !!st?.paid, priority: priorityFromLabel(r.priority) ?? 'normal',
           sheetExtra: Object.keys(extra).length ? extra : undefined,
         };
@@ -131,6 +136,27 @@ export class SheetTargets {
           { $set: set, $setOnInsert: { warehouseId: wh._id, materialId: id, isActive: true, photos: [], deletedAt: null, createdAt: new Date() } },
           { upsert: true },
         );
+      },
+    };
+  }
+
+  /** Лист «Заказы» → incomes. Наша компания — только существующая (СИЮ/ССЮ), новые не создаются. */
+  private incomes(): TargetAdapter {
+    return {
+      collection: 'incomes',
+      allowDelete: true,
+      managedFields: ['orderNo', 'shipDate', 'paidDate', 'customer', 'companyId', 'paymentForm', 'title', 'qty', 'unit', 'kind', 'color', 'unitPrice', 'amountManual', 'notes', 'amount', 'reportDate'],
+      toFields: async (r) => {
+        if (!this.ours) this.ours = await ourCompanies(this.connection);
+        const company = normText(r.ourCompany);
+        const fields: Doc = {
+          orderNo: str(r.orderNo), shipDate: parseSheetDate(r.shipDate), paidDate: parseSheetDate(r.paidDate), customer: str(r.customer),
+          companyId: company ? this.ours.find((c) => normText(c.name) === company || normText(c.full) === company)?.id : undefined,
+          paymentForm: str(r.paymentForm), title: str(r.name), qty: num(r.qty), unit: str(r.unit), kind: str(r.kind), color: str(r.color),
+          unitPrice: num(r.unitPrice), amountManual: num(r.amountManual), notes: str(r.note),
+        };
+        const d = incomeDerived(fields as Parameters<typeof incomeDerived>[0]);
+        return { ...fields, amount: d.amount, reportDate: d.reportDate };
       },
     };
   }

@@ -1,11 +1,10 @@
-/* Service worker «Снабжение / Склад»: оболочка приложения работает без сети.
+/* Service worker «Рабочее место» (CANON §3): кэширует только оболочку — данные всегда с сервера.
  * Оболочка (html/css/js/иконки) — «сеть, иначе кэш»: при сети всегда свежая версия.
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
- * Данные /api не кэшируются здесь — их хранит само приложение в IndexedDB.
  */
-const SHELL = 'dc-app-shell-v3';
+const SHELL = 'dc-app-shell-v7';
 const PHOTOS = 'dc-app-photos-v1';
-const SHELL_FILES = ['./', './index.html', './app.css', './app.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
+const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));

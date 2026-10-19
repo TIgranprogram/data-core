@@ -184,7 +184,7 @@ describe('OwnerTargetGuard (TZ-AUTH-306)', () => {
       });
     });
 
-    it('refuses a non-owner promoting a regular user to admin', async () => {
+    it('allows a non-owner admin to promote a regular user to admin (решение 2026-10-19: несколько администраторов)', async () => {
       const guard = buildGuard({ _id: USER_ID, isOwner: false, role: 'user' });
       const ctx = makeContext({
         method: 'PATCH',
@@ -193,9 +193,7 @@ describe('OwnerTargetGuard (TZ-AUTH-306)', () => {
         body: { role: 'admin' },
         originalUrl: `/api/admin/users/${USER_ID}`,
       });
-      await expect(guard.canActivate(ctx)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'OWNER_ONLY' }),
-      });
+      await expect(guard.canActivate(ctx)).resolves.toBe(true);
     });
 
     it('allows the owner to manage admin accounts', async () => {

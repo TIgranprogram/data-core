@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Core — Админка</title>
-  <link rel="icon" type="image/svg+xml" href="logo.svg" />
+  <title>Администрирование · Рабочее место</title>
+  <link rel="icon" type="image/svg+xml" href="../app/icon.svg" />
+  <script src="../app/theme.js"></script>
+  <link rel="stylesheet" href="../app/ui/tokens.css" />
   <link rel="stylesheet" href="admin.css" />
 </head>
 <body>
   <!-- ================= LOGIN ================= -->
   <section id="login-view" class="login-wrap">
     <form id="login-form" class="login-card">
-      <div class="login-brand">
-        <img src="logo.svg" alt="Data Core" />
-        <h1>Data Core</h1>
-      </div>
-      <p class="muted">Вход в админку</p>
+      <img src="../app/icon.svg" alt="" class="login-logo" />
+      <h1>Администрирование</h1>
+      <p class="muted">Пользователи, ключи доступа, таблицы базы, журнал. Логин и пароль — те же, что в «Рабочем месте» и CRM.</p>
       <label>Логин
         <input id="login-username" name="username" autocomplete="username" required />
       </label>
@@ -24,43 +24,34 @@
       </label>
       <button type="submit" class="btn btn-primary">Войти</button>
       <p id="login-error" class="error" hidden></p>
-      <p class="login-foot">API и данные — только через авторизованный доступ</p>
+      <p class="login-foot"><a href="../app/">← Рабочее место</a></p>
     </form>
   </section>
 
   <!-- ================= APP ================= -->
   <section id="app-view" hidden>
-    <!-- тёмная служебная полоса -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <span>Data Core</span>
-        <span class="muted">ядро данных</span>
-      </div>
-      <div class="topbar-right">
-        <span id="health-badge" class="badge">…</span>
-        <button id="logout-btn" class="btn">Выйти</button>
-      </div>
-    </div>
-
-    <!-- синяя шапка с логотипом и вкладками -->
-    <header class="app-header">
-      <div class="app-header-inner">
-        <img class="app-logo" src="logo.svg" alt="" />
-        <h1 class="app-title">Data Core
-          <small>единая база данных: подключение, ключи, таблицы, пользователи</small>
-        </h1>
-        <span class="spacer"></span>
-        <span id="whoami" class="app-user"></span>
-      </div>
+    <aside class="sidebar" aria-label="Меню администрирования">
+      <a class="brand" href="../app/" title="В Рабочее место"><img src="../app/icon.svg" alt="" /><span>Администрирование<small>единая база</small></span></a>
       <nav class="tabs">
-        <button class="tab active" data-tab="users">Пользователи</button>
-        <button class="tab" data-tab="keys">API-ключи</button>
-        <button class="tab" data-tab="tables">Таблицы</button>
-        <button class="tab" data-tab="audit">Журнал</button>
-        <button class="tab" data-tab="sheets">Google-таблицы</button>
-        <button class="tab" data-tab="connect">Подключение</button>
+        <div class="side-group">Доступ</div>
+        <button class="tab active" data-tab="users"><span class="ico" aria-hidden="true">👥</span><span class="lbl">Пользователи</span></button>
+        <button class="tab" data-tab="keys"><span class="ico" aria-hidden="true">🔑</span><span class="lbl">API-ключи</span></button>
+        <div class="side-group">База</div>
+        <button class="tab" data-tab="tables"><span class="ico" aria-hidden="true">🗂</span><span class="lbl">Таблицы</span></button>
+        <button class="tab" data-tab="audit"><span class="ico" aria-hidden="true">📜</span><span class="lbl">Журнал</span></button>
+        <button class="tab" data-tab="sheets"><span class="ico" aria-hidden="true">📊</span><span class="lbl">Google-таблицы</span></button>
+        <button class="tab" data-tab="connect"><span class="ico" aria-hidden="true">🔌</span><span class="lbl">Подключение</span></button>
       </nav>
-    </header>
+      <div class="side-foot">
+        <div class="side-group">Перейти</div>
+        <a class="side-link" href="../app/"><span class="ico" aria-hidden="true">🏠</span><span class="lbl">Рабочее место</span></a>
+        <a class="side-link" id="crm-link" href="/" hidden><span class="ico" aria-hidden="true">📁</span><span class="lbl">CRM</span></a>
+        <button class="side-link" type="button" id="theme-btn"><span class="ico" aria-hidden="true">🌓</span><span class="lbl">Тема: <span id="theme-name">как в системе</span></span></button>
+        <div class="side-user"><span id="whoami" class="app-user"></span><span id="health-badge" class="badge">…</span></div>
+        <button id="logout-btn" class="side-link" type="button"><span class="ico" aria-hidden="true">⎋</span><span class="lbl">Выйти</span></button>
+      </div>
+    </aside>
+    <div class="main">
 
     <!-- ---------- Users tab ---------- -->
     <main id="tab-users" class="tab-panel">
@@ -68,16 +59,16 @@
         <h2>Пользователи</h2>
         <button id="user-create-btn" class="btn btn-accent">+ Создать</button>
       </div>
-      <p class="panel-note">Роли: <code>user</code> — чтение, <code>director</code> — всё операционное без управления пользователями, <code>manager</code> — чтение и запись, <code>admin</code> — полный доступ.</p>
+      <p class="panel-note">Роли: <b>наблюдатель</b> — только просмотр, <b>менеджер</b> — заявки, склад и заказы, <b>директор</b> — всё, кроме управления пользователями, <b>администратор</b> — полный доступ (администраторов может быть несколько; удалить или понизить администратора может только владелец).</p>
 
       <form id="user-search-form" class="filters">
         <input id="user-search" placeholder="Поиск: логин, email, имя" />
         <select id="user-role-filter">
           <option value="">Все роли</option>
-          <option value="admin">admin</option>
-          <option value="director">director</option>
-          <option value="manager">manager</option>
-          <option value="user">user</option>
+          <option value="admin">администратор</option>
+          <option value="director">директор</option>
+          <option value="manager">менеджер</option>
+          <option value="user">наблюдатель</option>
         </select>
         <button class="btn btn-primary" type="submit">Найти</button>
       </form>
@@ -108,10 +99,10 @@
           <label>Email <input id="f-email" type="email" /></label>
           <label>Роль
             <select id="f-role">
-              <option value="user">user (чтение)</option>
-              <option value="director">director (операционный, без пользователей)</option>
-              <option value="manager">manager (чтение+запись)</option>
-              <option value="admin">admin (полный доступ)</option>
+              <option value="user">Наблюдатель — только просмотр</option>
+              <option value="manager">Менеджер — заявки, склад, заказы</option>
+              <option value="director">Директор — всё, кроме пользователей</option>
+              <option value="admin">Администратор — полный доступ</option>
             </select>
           </label>
           <label id="f-password-wrap">Пароль <input id="f-password" type="password" autocomplete="new-password" /></label>
@@ -257,7 +248,7 @@
         <h2>Google-таблицы</h2>
         <button class="btn btn-primary" type="button" id="gs-run">🔄 Синхронизировать сейчас</button>
       </div>
-      <p class="panel-note">Сервер сам читает Google-таблицы (только чтение) и раз в <b id="gs-interval">10</b> мин переносит листы «Снабжение», «Реестр счетов», «Склад», «Движение склада» в базу — без дублей. В таблицы ничего ставить не нужно.</p>
+      <p class="panel-note">Сервер сам читает Google-таблицы (только чтение) и раз в <b id="gs-interval">10</b> мин переносит листы «Снабжение», «Склад», «Движение склада», «Заказы» и «Справочник» (списки и фото) в базу — без дублей. В таблицы ничего ставить не нужно.</p>
       <section class="cx-card">
         <h3>1. Адрес робота — поделитесь с ним таблицей (роль «Читатель»)</h3>
         <div class="cx-row"><code id="gs-email" class="cx-value">—</code><button class="btn btn-sm" type="button" data-copy="#gs-email">Копировать</button></div>
@@ -333,9 +324,8 @@
       </section>
     </main>
 
-    <footer class="app-footer">
-      Personal Data Core · MongoDB + REST API · доступ только по JWT и ключам <span class="mono">kppd_</span>
-    </footer>
+    <footer class="app-footer">Администрирование единой базы · доступ только по входу сотрудника и ключам <span class="mono">kppd_</span></footer>
+    </div>
   </section>
 
   <script src="admin.js"></script>

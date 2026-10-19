@@ -682,3 +682,30 @@ Write-paths, которые должны быть all-or-nothing, использ
   `purchase-order.receive`, `order.ship`, `stock-movement`, `reservation`)
   удалены в рамках задачи H; хелпер остался платформенным механизмом
   атомарных записей для KEEP-доменов.
+
+
+## Деньги (2026-10-19)
+
+### `Income` (Доход — строка заказа) — коллекция `incomes`, модуль `modules/incomes`
+| Поле | Тип | Заметки |
+|--|--|--|
+| orderNo | string | № заказа (строки одного заказа связаны номером) |
+| customer | string | заказчик текстом (карточки контрагентов — фаза 4) |
+| companyId | ObjectId → organizations | наша компания (`isOurCompany`: СИЮ / ССЮ) |
+| paymentForm | string | б/р, нал… |
+| title | string, обяз. | наименование |
+| qty, unit, unitPrice | number, string, number | |
+| amountManual | number | «доход вручную» — важнее qty × unitPrice |
+| kind, color | string | «Вид», «Цвет» листа |
+| shipDate, paidDate | Date | отгрузка, оплата |
+| notes | string | |
+| **amount** | number | вычисляется сервисом: amountManual ?? qty × unitPrice |
+| **reportDate** | Date | вычисляется: paidDate ?? shipDate — дата в платёжном календаре |
+| clientUid, sheetSource, sheetKey, syncHash, editedInApp, source | | повтор / синхронизация таблиц (как у заявок) |
+| deletedAt, createdBy, createdAt, updatedAt | | soft-delete, аудит |
+
+### `SupplyRequest.invoiceDate` (общая с kppdf `supplyrequests`)
+Необязательное `Date` — дата счёта поставщика; расход в платёжном календаре ложится на неё. Раньше лежала строкой в `sheetExtra.invoiceDate`.
+
+### Платёжный календарь — без своих таблиц
+Расход = `supplyrequests` (invoiceDate, priceHint — сумма строки с НДС, companyId; status ≠ cancelled). Доход = `incomes` (amount > 0, reportDate). Всё, где чего-то не хватает, — в `/api/finance/needs-fill`.

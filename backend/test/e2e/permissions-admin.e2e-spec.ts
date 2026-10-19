@@ -48,7 +48,9 @@ describe('Permissions admin catalog (TZ-275)', () => {
     // APP_GUARD order is Jwt → Permissions → Roles; this message proves
     // the denial came from the missing role:write capability, not only from
     // the legacy @Roles('admin') guard.
-    expect(response.body.message).toContain('Required permission');
+    // Пользователю — по-русски; исходный текст гварда — в detail.
+    expect(response.body.message).toBe('Недостаточно прав для этого действия.');
+    expect(JSON.stringify(response.body.detail)).toContain('Required permission');
   });
 
   it('allows an admin and records the catalog access audit action', async () => {

@@ -56,6 +56,23 @@ export class StockMovement {
   @Prop()
   syncHash?: string;
 
+  // ── Поля только data-core (2026-10-19): kppdf их не пишет и при чтении не использует ──
+  /** Изменение остатка со знаком (+ приход, − расход); у adjust qty хранится по модулю, знак — здесь. */
+  @Prop()
+  delta?: number;
+
+  /** Движение отменено (обратным движением `cancelOf`). */
+  @Prop({ type: Date })
+  cancelledAt?: Date;
+
+  /** Это движение — отмена движения с этим id. */
+  @Prop({ type: Types.ObjectId })
+  cancelOf?: Types.ObjectId;
+
+  /** Откуда запись: 'google-sheets' — история из таблицы (остаток по ней не менялся). */
+  @Prop()
+  source?: string;
+
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
