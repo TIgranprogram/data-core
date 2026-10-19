@@ -22,6 +22,8 @@ export interface SupplyInput {
   supplierName?: string;
   companyName?: string;
   orderLabel?: string;
+  salesOrderId?: string;
+  salesOrderLineId?: string;
   requestedBy?: string;
   article?: string;
   color?: string;
@@ -197,6 +199,16 @@ export class SupplyService {
     const f: Record<string, unknown> = {};
     const str = (k: keyof SupplyInput, to: string = k) => { if (dto[k] !== undefined) f[to] = String(dto[k] ?? '').trim() || undefined; };
     str('title'); str('unit'); str('orderLabel'); str('requestedBy'); str('article'); str('color'); str('productUrl'); str('invoiceNo'); str('deliveryNote'); str('notes');
+    // Привязка к заказу заказчика: id проверяется; подпись заказа пишется в orderLabel — её видит и CRM
+    if (dto.salesOrderId !== undefined) {
+      if (dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId)) {
+        const so = await this.connection.db!.collection('salesorders').findOne({ _id: new Types.ObjectId(dto.salesOrderId), deletedAt: null });
+        if (!so) throw new BadRequestException('Заказ не найден');
+        f.salesOrderId = so._id;
+        if (dto.orderLabel === undefined) f.orderLabel = `Заказ № ${so.orderNo}${so.customer ? ' · ' + so.customer : ''}`;
+      } else { f.salesOrderId = undefined; f.salesOrderLineId = undefined; }
+    }
+    if (dto.salesOrderLineId !== undefined) f.salesOrderLineId = dto.salesOrderLineId && Types.ObjectId.isValid(dto.salesOrderLineId) ? new Types.ObjectId(dto.salesOrderLineId) : undefined;
     if (dto.qty !== undefined) f.qty = Number(dto.qty);
     if (dto.priceHint !== undefined) f.priceHint = Number(dto.priceHint);
     if (dto.num !== undefined) f.num = Number(dto.num);

@@ -13,6 +13,8 @@ export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Поставщик по названию (организация создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 200) supplierName?: string;
   @ApiPropertyOptional({ description: 'Наша компания по названию' }) @IsOptional() @IsString() @Length(0, 200) companyName?: string;
   @ApiPropertyOptional({ description: 'Заказчик / участок' }) @IsOptional() @IsString() @Length(0, 300) orderLabel?: string;
+  @ApiPropertyOptional({ description: 'Заказ заказчика (salesorders.id); "" — отвязать' }) @IsOptional() @IsString() @Length(0, 30) salesOrderId?: string;
+  @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id); "" — без позиции' }) @IsOptional() @IsString() @Length(0, 30) salesOrderLineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 200) requestedBy?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) article?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) color?: string;

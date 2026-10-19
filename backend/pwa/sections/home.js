@@ -7,6 +7,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { moveLabel } from './movements.js';
 import { heading, patchStatus, receiveDialog, requests } from './requests.js';
 import { markToday } from './orders.js';
+import { STAGE } from './salesorders.js';
 
 /**
  * «Сегодня» — рабочий стол менеджера (CANON §2 «Главная»). Не витрина, а список дел:
@@ -119,6 +120,20 @@ export function mountHome(deps) {
     } }],
   });
 
+  const week = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const qDue = queue({
+    id: 'due', title: 'Сроки по заказам', hint: 'Отгрузка просрочена или в ближайшие 7 дней',
+    path: '/salesorders', query: { filter: 'active', sort: 'shipDate', dueTo: week }, link: '#salesorders?filter=active',
+    row: {
+      title: (x) => `Заказ № ${x.orderNo || '—'} · ${x.customer || ''}`,
+      sub: (x) => [STAGE[x.stage]?.label, `${x.lineCount} поз.`, x.title].filter(Boolean).join(' · '),
+      side: (x) => { const d = x.shipDate || x.productionDeadline || x.deliveryDeadline; return h('span', { class: 'num ' + (d && String(d).slice(0, 10) < isoDay() ? 'neg' : '') }, d ? date(d) : ''); },
+      open: (x) => deps.open('salesorders', x.id),
+    },
+    empty: 'Ближайших сроков нет',
+    actions: (x) => (x.stage === 'ready' ? [{ label: 'Отгружен', primary: true, title: 'Заказ отгружен сегодня', run: async () => { await api(`/salesorders/${x.id}`, { method: 'PATCH', body: { stage: 'shipped', shipDate: isoDay() } }); return true; } }] : []),
+  });
+
   const qPay = queue({
     id: 'pay', title: 'Ждём оплату от заказчиков', hint: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено»',
     path: '/incomes', query: { status: 'awaiting', sort: 'reportDate' }, link: '#orders?status=awaiting',
@@ -175,7 +190,7 @@ export function mountHome(deps) {
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
     summary,
     quick ? h('div', { class: 'panel quick-panel' }, quick) : null,
-    h('div', { class: 'queues' }, qOrder, qWait, qDecide, qStock, qPay, qFeed));
+    h('div', { class: 'queues' }, qOrder, qWait, qDecide, qStock, qDue, qPay, qFeed));
 
   reloadAll();
   return { el, reload: reloadAll, update: () => {} };

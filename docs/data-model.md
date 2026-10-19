@@ -689,7 +689,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 ### `Income` (Доход — строка заказа) — коллекция `incomes`, модуль `modules/incomes`
 | Поле | Тип | Заметки |
 |--|--|--|
-| orderNo | string | № заказа (строки одного заказа связаны номером) |
+| orderId | ObjectId → salesorders | шапка заказа (З.1); поля шапки ниже — кэш, истина — шапка |
+| lineNo | number | № позиции в заказе (при создании с orderId — следующий) |
+| orderNo | string | № заказа (кэш шапки) |
 | customer | string | заказчик текстом (карточки контрагентов — фаза 4) |
 | companyId | ObjectId → organizations | наша компания (`isOurCompany`: СИЮ / ССЮ) |
 | paymentForm | string | б/р, нал… |
@@ -702,7 +704,25 @@ Write-paths, которые должны быть all-or-nothing, использ
 | **amount** | number | вычисляется сервисом: amountManual ?? qty × unitPrice |
 | **reportDate** | Date | вычисляется: paidDate ?? shipDate — дата в платёжном календаре |
 | clientUid, sheetSource, sheetKey, syncHash, editedInApp, source | | повтор / синхронизация таблиц (как у заявок) |
+| importKey | string | ключ импорта Excel «компания\|номер\|наименование\|ед.» (`scripts/import-orders-xlsx.js`) |
+| deletedWithOrder | boolean | удалена вместе с заказом — вернётся при его восстановлении |
 | deletedAt, createdBy, createdAt, updatedAt | | soft-delete, аудит |
+
+### `SalesOrder` (Заказ заказчика — шапка) — коллекция `salesorders`, модуль `modules/salesorders` (TASKS З.1)
+Имя `orders` занято CRM kppdf — не трогаем. Позиции — `incomes` с `orderId`.
+| Поле | Тип | Заметки |
+|--|--|--|
+| orderNo | string | № как в документе («34», «110-П», «10 Новороссийск»); уникален внутри нашей компании |
+| companyId | ObjectId → organizations | наша компания (СИЮ / ССЮ); пусто — не определена (Спортсет, З.9) |
+| customer, title | string | заказчик, предмет заказа/контракта |
+| paymentForm | string | б/р, б/р 30%… |
+| contractNo, contractDate | string, Date | контракт |
+| shipDate, productionDeadline, deliveryDeadline | Date | отгрузка, срок изготовления, окончание поставки |
+| stage | enum | new → production → ready → shipped → closed (+ cancelled); «в работе» = new/production/ready, «выполненные» = shipped/closed |
+| notes | string | |
+| importKey | string, unique sparse | «компания\|номер» (`order-key.ts`); ставится при создании и не меняется — по нему лист «Заказы» и импорт находят шапку |
+| clientUid, source, editedInApp, importFiles | | повтор; google-sheets / import-xlsx; правилась в приложении — лист берёт поля из шапки |
+| deletedAt, createdBy, createdAt, updatedAt | | soft-delete (вместе с позициями), аудит |
 
 ### `SupplyRequest.invoiceDate` (общая с kppdf `supplyrequests`)
 Необязательное `Date` — дата счёта поставщика; расход в платёжном календаре ложится на неё. Раньше лежала строкой в `sheetExtra.invoiceDate`.

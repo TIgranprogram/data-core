@@ -11,13 +11,14 @@ import { movements } from './sections/movements.js';
 import { mountMoney } from './sections/money.js';
 import { mountOps } from './sections/ops.js';
 import { orders } from './sections/orders.js';
+import { salesorders } from './sections/salesorders.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
-const SECTIONS = { requests, stock, movements, orders };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['orders', 'Заказы', 'orders'], ['money', 'Платёжный календарь', 'money']];
+const SECTIONS = { requests, stock, movements, orders, salesorders };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -66,6 +67,7 @@ function shell() {
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
     h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.ops, navLinks.movements,
+    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders,
     h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money,
     h('div', { class: 'side-foot' },
       navLinks.trash,
@@ -101,8 +103,9 @@ function themeButton() {
 async function refreshCounts() {
   const set = (id, n) => { const c = navLinks[id]?.querySelector('.cnt'); if (c) { c.textContent = String(n); c.hidden = !n; } };
   try {
-    const [r, s, o] = await Promise.all([api('/supply/requests', { query: { limit: 1 } }), api('/stock/items', { query: { limit: 1 } }), api('/incomes', { query: { limit: 1 } }).catch(() => null)]);
+    const [r, s, o, so] = await Promise.all([api('/supply/requests', { query: { limit: 1 } }), api('/stock/items', { query: { limit: 1 } }), api('/incomes', { query: { limit: 1 } }).catch(() => null), api('/salesorders', { query: { limit: 1 } }).catch(() => null)]);
     if (o) set('orders', o.counts?.awaiting || 0);
+    if (so) set('salesorders', so.counts?.active || 0);
     const c = r.counts || {};
     set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0));
     set('stock', (s.counts?.low || 0) + (s.counts?.none || 0));
@@ -180,7 +183,7 @@ function syncCard(section, params) {
   if (params.new) {
     if (!session.canEdit || !sec.form) { patch({ new: undefined }); return; }
     const initial = { ...(sec.form.initial ? sec.form.initial() : {}) };
-    for (const k of ['title', 'unit', 'categoryName']) if (params[k]) initial[k] = params[k];
+    for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId']) if (params[k]) initial[k] = params[k];
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
     card = { key, of: ofName, handle: openCard(sec, { id: params.open }, ctx) };

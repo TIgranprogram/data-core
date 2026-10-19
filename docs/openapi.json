@@ -1265,7 +1265,7 @@
             "name": "entityType",
             "required": true,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder",
             "schema": {
               "type": "string"
             }
@@ -2623,6 +2623,53 @@
         ]
       }
     },
+    "/stock/batch": {
+      "post": {
+        "operationId": "StockController_batch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/batch/{batchId}/cancel": {
+      "post": {
+        "operationId": "StockController_cancelBatch",
+        "parameters": [
+          {
+            "name": "batchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/items/{id}/move": {
       "post": {
         "operationId": "StockController_move",
@@ -2971,6 +3018,13 @@
             "schema": {}
           },
           {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "description": "позиции заказа (salesorders), id через запятую",
+            "schema": {}
+          },
+          {
             "name": "orderNo",
             "required": false,
             "in": "query",
@@ -2993,7 +3047,7 @@
             "name": "sort",
             "required": false,
             "in": "query",
-            "description": "orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)",
+            "description": "lineNo | orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)",
             "schema": {}
           },
           {
@@ -3160,6 +3214,207 @@
         ]
       }
     },
+    "/salesorders": {
+      "get": {
+        "operationId": "SalesOrdersController_list",
+        "parameters": [
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "по дате отгрузки, ГГГГ-ММ-ДД",
+            "schema": {}
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "stage",
+            "required": false,
+            "in": "query",
+            "description": "этапы через запятую: new, production, ready, shipped, closed, cancelled",
+            "schema": {}
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "active (новый / в производстве / готов) | done (отгружен / закрыт) | all",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "orderNo | customer | stage | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "№ заказа, заказчик, предмет, № контракта, примечание",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      },
+      "post": {
+        "operationId": "SalesOrdersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}": {
+      "get": {
+        "operationId": "SalesOrdersController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      },
+      "patch": {
+        "operationId": "SalesOrdersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      },
+      "delete": {
+        "operationId": "SalesOrdersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}/restore": {
+      "post": {
+        "operationId": "SalesOrdersController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
     "/finance/cashflow": {
       "get": {
         "operationId": "FinanceController_cashflow",
@@ -3323,6 +3578,95 @@
         "tags": [
           "admin"
         ]
+      }
+    },
+    "/photos": {
+      "get": {
+        "operationId": "PhotosController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "operationId": "PhotosController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}": {
+      "get": {
+        "operationId": "PhotosController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "operationId": "PhotosController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/upload": {
+      "post": {
+        "operationId": "PhotosController_upload",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}/frame": {
+      "patch": {
+        "operationId": "PhotosController_updateFrame",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
       }
     },
     "/meta/schema": {
@@ -3832,95 +4176,6 @@
         ],
         "responses": {
           "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos": {
-      "get": {
-        "operationId": "PhotosController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      },
-      "post": {
-        "operationId": "PhotosController_create",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}": {
-      "get": {
-        "operationId": "PhotosController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      },
-      "delete": {
-        "operationId": "PhotosController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/upload": {
-      "post": {
-        "operationId": "PhotosController_upload",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}/frame": {
-      "patch": {
-        "operationId": "PhotosController_updateFrame",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
             "description": ""
           }
         }
@@ -7071,6 +7326,7 @@
             "enum": [
               "user",
               "manager",
+              "director",
               "admin"
             ],
             "description": "Роль пользователя"
@@ -7128,6 +7384,7 @@
             "enum": [
               "user",
               "manager",
+              "director",
               "admin"
             ],
             "description": "Роль пользователя"
@@ -7347,6 +7604,66 @@
           "photoId"
         ]
       },
+      "StockBatchLineDto": {
+        "type": "object",
+        "properties": {
+          "materialId": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество > 0; для count — фактический остаток (≥ 0)"
+          }
+        },
+        "required": [
+          "materialId",
+          "qty"
+        ]
+      },
+      "StockBatchDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out",
+              "count"
+            ],
+            "description": "приход / списание / пересчёт (qty = сколько лежит фактически)"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockBatchLineDto"
+            }
+          },
+          "note": {
+            "type": "string",
+            "description": "Основание / куда / от кого"
+          },
+          "documentRef": {
+            "type": "string",
+            "description": "Документ: накладная, счёт"
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Списание под заказ заказчика (salesorders.id)"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id)"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ операции клиента — повтор ничего не меняет"
+          }
+        },
+        "required": [
+          "type",
+          "lines"
+        ]
+      },
       "StockMoveDto": {
         "type": "object",
         "properties": {
@@ -7423,6 +7740,14 @@
             "type": "string",
             "description": "Заказчик / участок"
           },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ заказчика (salesorders.id); \"\" — отвязать"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id); \"\" — без позиции"
+          },
           "requestedBy": {
             "type": "string"
           },
@@ -7441,6 +7766,10 @@
           },
           "invoiceNo": {
             "type": "string"
+          },
+          "invoiceType": {
+            "type": "string",
+            "description": "Тип счёта: Счет на оплату, Счет-договор, УПД… (хранится в sheetExtra.invoiceType)"
           },
           "invoiceDate": {
             "type": "string",
@@ -7481,6 +7810,16 @@
       "IncomeDto": {
         "type": "object",
         "properties": {
+          "orderId": {
+            "type": "object",
+            "description": "Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать",
+            "nullable": true
+          },
+          "lineNo": {
+            "type": "object",
+            "description": "№ позиции в заказе (умолч. — следующий)",
+            "nullable": true
+          },
           "orderNo": {
             "type": "string",
             "description": "№ заказа"
@@ -7533,6 +7872,74 @@
           "paidDate": {
             "type": "string",
             "description": "Дата оплаты"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не создаёт дубль"
+          }
+        }
+      },
+      "SalesOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderNo": {
+            "type": "string",
+            "description": "№ заказа (обязателен при создании)"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания по id (organizations)"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Наша компания по названию: СИЮ / ССЮ; \"\" — без компании"
+          },
+          "customer": {
+            "type": "string",
+            "description": "Заказчик"
+          },
+          "title": {
+            "type": "string",
+            "description": "Предмет заказа / контракта"
+          },
+          "paymentForm": {
+            "type": "string",
+            "description": "Форма оплаты: б/р, б/р 30%, нал…"
+          },
+          "contractNo": {
+            "type": "string",
+            "description": "№ контракта"
+          },
+          "contractDate": {
+            "type": "string",
+            "description": "Дата контракта"
+          },
+          "shipDate": {
+            "type": "string",
+            "description": "Дата отгрузки"
+          },
+          "productionDeadline": {
+            "type": "string",
+            "description": "Срок изготовления"
+          },
+          "deliveryDeadline": {
+            "type": "string",
+            "description": "Окончание поставки"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "new",
+              "production",
+              "ready",
+              "shipped",
+              "closed",
+              "cancelled"
+            ],
+            "description": "new | production | ready | shipped | closed | cancelled"
           },
           "notes": {
             "type": "string"

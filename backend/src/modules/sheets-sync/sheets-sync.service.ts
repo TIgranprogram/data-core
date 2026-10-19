@@ -300,7 +300,7 @@ export class SheetsSyncService implements OnModuleInit, OnModuleDestroy {
       deleted = gone.length;
     }
     return `${map.sheet}: строк ${rows.length}, новых ${created}, изменено ${updated}` +
-      (adopted ? `, связано с существующими ${adopted}` : '') + (skipped ? `, без позиции на складе ${skipped}` : '') + (linked ? `, связано с позициями склада ${linked}` : '') + (kept ? `, не тронуто (изменено/удалено в приложении) ${kept}` : '') +
+      (adopted ? `, связано с существующими ${adopted}` : '') + (skipped ? `, без позиции на складе ${skipped}` : '') + (linked ? (map.target === 'incomes' ? `, привязано к заказам ${linked}` : `, связано с позициями склада ${linked}`) : '') + (kept ? `, не тронуто (изменено/удалено в приложении) ${kept}` : '') +
       (ad.allowDelete ? `, удалено ${deleted}` : '') + note;
   }
 

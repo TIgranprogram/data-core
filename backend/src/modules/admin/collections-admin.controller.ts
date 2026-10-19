@@ -174,6 +174,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   purchaserequests: { category: 'crm-sales', kind: 'crm', doc: 'Запросы на закупку (PR). Таблица CRM kppdf.' },
   supplyrequests: { category: 'crm-sales', kind: 'crm', doc: 'Запросы снабжения. Таблица CRM kppdf.' },
   incomes: { category: 'money', kind: 'core', doc: 'Доходы — строки заказов (лист «Заказы»): заказчик, наша компания, сумма, даты отгрузки и оплаты. Раздел «Заказы» и «Деньги» приложения.' },
+  salesorders: { category: 'money', kind: 'core', doc: 'Заказы заказчиков — шапки: номер, наша компания, заказчик, контракт, сроки, этап. Позиции — incomes (orderId). Раздел «Заказы» приложения.' },
   supplytasks: { category: 'crm-sales', kind: 'crm', doc: 'Задачи снабжения. Таблица CRM kppdf.' },
   cart_items: { category: 'crm-sales', kind: 'crm', doc: 'Позиции корзины (e-commerce). Таблица CRM kppdf.' },
   cart_sessions: { category: 'crm-sales', kind: 'crm', doc: 'Сессии корзины. Таблица CRM kppdf.' },

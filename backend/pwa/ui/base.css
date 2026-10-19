@@ -548,3 +548,12 @@ tr.period-row b { color: var(--heading); font-weight: 600; }
 .sg-row.active, .sg-row:hover { background: var(--row-hover); }
 .sg-row .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .sg-row small { color: var(--muted); font-size: 12px; }
+
+/* Карточка заказа: позиции */
+.so-sec { margin-top: var(--s4); }
+table.so-lines { width: 100%; border-collapse: collapse; font-size: var(--fs-table); }
+table.so-lines th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+table.so-lines td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.so-lines tr { cursor: pointer; }
+table.so-lines tbody tr:hover { background: var(--row-hover); }
+table.so-lines .num { text-align: right; }

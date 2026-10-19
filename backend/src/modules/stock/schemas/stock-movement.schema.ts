@@ -77,6 +77,13 @@ export class StockMovement {
   @Prop()
   source?: string;
 
+  /** Заказ заказчика data-core (`salesorders`) и его позиция (`incomes`) — поле только data-core; `orderId` занят CRM. */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  salesOrderId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId })
+  salesOrderLineId?: Types.ObjectId;
+
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;

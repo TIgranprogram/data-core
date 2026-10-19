@@ -1,8 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf } from 'class-validator';
+import { IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf } from 'class-validator';
 
 /** Доход (строка заказа). Числа: null — очистить поле. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить. */
 export class IncomeDto {
+  @ApiPropertyOptional({ description: 'Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsMongoId() orderId?: string | null;
+  @ApiPropertyOptional({ description: '№ позиции в заказе (умолч. — следующий)', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) lineNo?: number | null;
   @ApiPropertyOptional({ description: '№ заказа' }) @IsOptional() @IsString() @Length(0, 50) orderNo?: string;
   @ApiPropertyOptional({ description: 'Заказчик' }) @IsOptional() @IsString() @Length(0, 300) customer?: string;
   @ApiPropertyOptional({ description: 'Наша компания по id (organizations)' }) @IsOptional() @IsMongoId() companyId?: string;

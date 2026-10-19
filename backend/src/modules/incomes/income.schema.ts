@@ -6,12 +6,16 @@ export type IncomeDocument = HydratedDocument<Income>;
 /**
  * Доход = строка заказа (лист «Заказы» Google-таблицы): что отгрузили, кому, на сколько и когда оплатили.
  * Своя коллекция data-core (CRM `orders` не подходит: требует товар каталога и контрагента). Это и есть
- * раздел «Заказы» приложения; строки одного заказа связаны номером `orderNo`.
+ * позиция заказа заказчика: шапка — `salesorders` (orderId), поля шапки здесь — кэш (TASKS З.1–З.2).
  * Вычисляемые поля хранятся (для фильтров и сортировки) и пересчитываются сервисом при каждой записи:
  *   amount = amountManual ?? qty × unitPrice;  reportDate = paidDate ?? shipDate.
  */
 @Schema({ timestamps: true, collection: 'incomes' })
 export class Income {
+  /** Шапка заказа (salesorders). Истина для orderNo, customer, companyId, paymentForm, shipDate — она; здесь кэш. */
+  @Prop({ type: Types.ObjectId, ref: 'SalesOrder', index: true }) orderId?: Types.ObjectId;
+  /** № позиции в заказе (столбец «№» заказ-наряда). */
+  @Prop() lineNo?: number;
   /** № заказа (как в таблице; строка — бывают «34/2»). */
   @Prop({ trim: true, index: true }) orderNo?: string;
   /** Заказчик — текстом (карточки контрагентов — фаза 4, тогда появится customerId). */
@@ -37,6 +41,10 @@ export class Income {
   @Prop({ default: 0 }) amount!: number;
   @Prop({ type: Date, index: true }) reportDate?: Date;
 
+  /** Ключ импорта Excel-заказов «компания|номер|наименование+ед.» (scripts/import-orders-xlsx.js). */
+  @Prop({ index: true, sparse: true }) importKey?: string;
+  /** Удалена вместе с заказом — восстанавливается вместе с ним. */
+  @Prop() deletedWithOrder?: boolean;
   /** Повтор создания с тем же ключом не создаёт дубль. */
   @Prop({ index: true, sparse: true }) clientUid?: string;
   /** Синхронизация Google-таблиц (как у заявок): откуда строка, отпечаток; editedInApp — таблица больше не трогает. */

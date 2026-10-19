@@ -13,16 +13,19 @@ import { UNITS } from './lookups.js';
 export const INCOME_STATUS = {
   draft: { label: 'Не отгружено', tone: 'dim' },
   awaiting: { label: 'Ждём оплату', tone: 'warn' },
+  noamount: { label: 'Без суммы', tone: 'dim' },
   paid: { label: 'Оплачено', tone: 'ok' },
 };
 const STATUS_HINT = {
   '': 'Строки заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено». Сумма и даты нужны для платёжного календаря.',
   draft: 'Ещё не отгружено. Отгрузили — отметьте дату отгрузки.',
   awaiting: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено».',
+  noamount: 'Отгружено, но сумма не указана (позиции из Excel без цен) — впишите цену или сумму, тогда строка попадёт в оплату и календарь.',
   paid: 'Деньги получены — доход в платёжном календаре на дату оплаты.',
 };
 
 let lk = null;
+const m2 = (o) => `№ ${o.orderNo || '—'} · ${o.customer || ''}`;
 export const incomeLookups = () => (lk ??= api('/incomes/lookups').catch((e) => { lk = null; throw e; }));
 incomeLookups.reset = () => { lk = null; };
 
@@ -44,7 +47,7 @@ const toInitial = (r) => ({
 
 export const orders = {
   id: 'orders',
-  title: 'Заказы',
+  title: 'Позиции и оплаты',
   newTitle: 'Новая строка заказа',
   entityType: 'Income',
   historyLabels: { 'income.created': 'Создана', 'income.updated': 'Изменена', 'income.deleted': 'Удалена', 'income.restored': 'Восстановлена' },
@@ -113,7 +116,8 @@ export const orders = {
     fields: async () => {
       const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'нал'] }));
       return [
-        { key: 'orderNo', label: '№ заказа', max: 50 },
+        { key: 'orderId', label: 'Заказ', type: 'select', options: await import('./salesorders.js').then((m) => m.activeOrders()).then((os) => os.map((o) => ({ value: o.id, label: m2(o) }))).catch(() => []), hint: 'Позиция попадёт в карточку заказа; № и заказчик возьмутся из заказа', wide: true },
+        { key: 'orderNo', label: '№ заказа (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
@@ -136,7 +140,7 @@ export const orders = {
       return {
         orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), unit: s(v.unit), companyName: s(v.companyName), paymentForm: s(v.paymentForm),
         kind: s(v.kind), color: s(v.color), notes: s(v.notes), shipDate: v.shipDate || '', paidDate: v.paidDate || '',
-        qty: v.qty, unitPrice: v.unitPrice, amountManual: v.amountManual,
+        qty: v.qty, unitPrice: v.unitPrice, amountManual: v.amountManual, orderId: v.orderId || null,
       };
     },
     create: async (body) => { const r = await api('/incomes', { method: 'POST', body }); incomeLookups.reset(); return r; },

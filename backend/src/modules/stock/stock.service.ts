@@ -345,7 +345,7 @@ export class StockService {
    * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
-  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string }, userId?: string) {
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
@@ -367,6 +367,13 @@ export class StockService {
     const batchId = new Types.ObjectId();
     const now = new Date();
     let moved = 0;
+    // Под заказ: проверяем заказ; в CRM-поле orderId (строка) — тот же id, чтобы списание было видно и там
+    let soRef: Record<string, unknown> = {};
+    if (dto.salesOrderId) {
+      const so = await this.connection.db!.collection('salesorders').findOne({ _id: new Types.ObjectId(dto.salesOrderId), deletedAt: null });
+      if (!so) throw new BadRequestException('Заказ не найден');
+      soRef = { salesOrderId: so._id, orderId: String(so._id), ...(dto.salesOrderLineId ? { salesOrderLineId: new Types.ObjectId(dto.salesOrderLineId) } : {}) };
+    }
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
@@ -389,7 +396,7 @@ export class StockService {
             const type = dto.type === 'count' ? 'adjust' : dto.type;
             const ref = dto.type === 'count' ? `ADJUST:${note ?? 'пересчёт'}` : dto.documentRef;
             await this.movements.create([{ type, date: now, materialId: new Types.ObjectId(id), warehouseId: wh._id, qty: Math.abs(delta), delta, documentRef: ref,
-              notes: note ?? (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId }], { session });
+              notes: note ?? (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId, ...(dto.type === 'out' ? soRef : {}) }], { session });
             moved++;
           }
           if (dto.type === 'count') {

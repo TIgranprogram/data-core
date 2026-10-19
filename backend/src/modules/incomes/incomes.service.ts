@@ -8,9 +8,11 @@ import { normText } from '../supply/org-resolver';
 import type { IncomeDto } from './dto';
 import { Income, IncomeDocument, incomeDerived } from './income.schema';
 
-const INCOME_SORT = ['orderNo', 'customer', 'title', 'qty', 'unitPrice', 'amount', 'shipDate', 'paidDate', 'reportDate', 'createdAt', 'updatedAt', 'deletedAt'];
+const INCOME_SORT = ['lineNo', 'orderNo', 'customer', 'title', 'qty', 'unitPrice', 'amount', 'shipDate', 'paidDate', 'reportDate', 'createdAt', 'updatedAt', 'deletedAt'];
 const TEXT = ['orderNo', 'customer', 'paymentForm', 'title', 'unit', 'kind', 'color', 'notes'] as const;
 const NUM = ['qty', 'unitPrice', 'amountManual'] as const;
+/** Поля шапки заказа, продублированные в позиции (кэш; истина — salesorders). */
+const HEADER_CACHE = ['orderNo', 'customer', 'companyId', 'paymentForm', 'shipDate'] as const;
 
 /** Наши компании (organizations.isOurCompany): название → id. Для доходов новые «наши компании» не создаются. */
 export async function ourCompanies(connection: Connection) {
@@ -37,7 +39,7 @@ export class IncomesService {
       id: String(d._id), _id: String(d._id),
       companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
       /** paid — оплачено; awaiting — отгружено, ждём оплату; draft — ещё не отгружено. */
-      status: d.paidDate ? 'paid' : d.shipDate ? 'awaiting' : 'draft',
+      status: d.paidDate ? 'paid' : d.shipDate ? (Number(d.amount) > 0 ? 'awaiting' : 'noamount') : 'draft',
     }));
   }
 
@@ -46,12 +48,15 @@ export class IncomesService {
     const filter: Record<string, unknown> = { deletedAt: p.deleted ? { $ne: null } : null };
     if (q.companyId) filter.companyId = { $in: oids(q.companyId) };
     if (q.orderNo) filter.orderNo = String(q.orderNo);
+    if (q.orderId) filter.orderId = { $in: oids(q.orderId) };
     const range = dateRange(q.from, q.to);
     if (range) filter.reportDate = range;
     if (p.search) filter.$or = ['orderNo', 'customer', 'title', 'notes', 'kind', 'color'].map((f) => ({ [f]: p.search }));
     const statusCond: Record<string, Record<string, unknown>> = {
       paid: { paidDate: { $ne: null } },
-      awaiting: { paidDate: null, shipDate: { $ne: null } },
+      // «Ждём оплату» — только с суммой; отгружено без суммы (позиции из Excel без цен) — «Без суммы», в оплату не просится
+      awaiting: { paidDate: null, shipDate: { $ne: null }, amount: { $gt: 0 } },
+      noamount: { paidDate: null, shipDate: { $ne: null }, $or: [{ amount: null }, { amount: { $lte: 0 } }] },
       draft: { paidDate: null, shipDate: null },
     };
     const full = { ...filter, ...(q.status && statusCond[String(q.status)] ? statusCond[String(q.status)] : {}) };
@@ -64,7 +69,7 @@ export class IncomesService {
     const byStatus = Object.fromEntries(counts) as Record<string, number>;
     return {
       items: await this.present(docs as Array<Record<string, unknown>>), total, page: p.page, limit: p.limit,
-      sum: agg[0]?.sum ?? 0, counts: { all: byStatus.paid + byStatus.awaiting + byStatus.draft, ...byStatus },
+      sum: agg[0]?.sum ?? 0, counts: { all: byStatus.paid + byStatus.awaiting + byStatus.noamount + byStatus.draft, ...byStatus },
     };
   }
 
@@ -85,6 +90,8 @@ export class IncomesService {
       if (dto[k] && !d) throw new BadRequestException(`${k === 'shipDate' ? 'Дата отгрузки' : 'Дата оплаты'} — в формате ДД.ММ.ГГГГ`);
       f[k] = d;
     }
+    if (dto.lineNo !== undefined) f.lineNo = dto.lineNo === null ? undefined : Number(dto.lineNo);
+    if (dto.orderId !== undefined) f.orderId = dto.orderId ? oid(dto.orderId, 'заказа') : undefined;
     if (dto.companyId) f.companyId = new Types.ObjectId(dto.companyId);
     else if (dto.companyName !== undefined) {
       const name = normText(dto.companyName);
@@ -96,6 +103,17 @@ export class IncomesService {
       }
     }
     return f;
+  }
+
+  /**
+   * Позиция заказа: поля шапки (№, заказчик, компания, форма оплаты, отгрузка) — из salesorders, а не из формы.
+   * Применяется, когда позицию привязывают к заказу или правят её поля шапки.
+   */
+  private async applyHeader(f: Record<string, unknown>, orderId: unknown) {
+    if (!orderId) return;
+    const h = await this.connection.db!.collection('salesorders').findOne({ _id: orderId as Types.ObjectId, deletedAt: null });
+    if (!h) throw new BadRequestException('Заказ не найден — выберите из списка');
+    for (const k of HEADER_CACHE) f[k] = h[k] ?? undefined;
   }
 
   /** Пересчитать amount/reportDate по итоговому состоянию записи. */
@@ -111,6 +129,13 @@ export class IncomesService {
     }
     const f = await this.toFields(dto);
     if (!f.title) throw new BadRequestException('Укажите наименование');
+    if (f.orderId) {
+      await this.applyHeader(f, f.orderId);
+      if (f.lineNo === undefined) {
+        const last = await this.model.findOne({ orderId: f.orderId, deletedAt: null }).sort({ lineNo: -1 }).lean().exec();
+        f.lineNo = (last?.lineNo ?? 0) + 1;
+      }
+    }
     const { amount, reportDate } = this.derive({}, f);
     const doc = await this.model.create({
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
@@ -125,6 +150,8 @@ export class IncomesService {
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     const f = await this.toFields(dto);
     if ('title' in f && !f.title) throw new BadRequestException('Наименование не может быть пустым');
+    const orderId = 'orderId' in f ? f.orderId : cur.orderId;
+    if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
     const { amount, reportDate } = this.derive(cur as Record<string, unknown>, f);
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));

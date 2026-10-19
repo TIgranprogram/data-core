@@ -2,13 +2,15 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
+import { salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 
 /** Поиск по всему (PRODUCT §6): номер / название / поставщик → совпадения во всех разделах. */
 const SOURCES = [
   { section: requests, title: 'Заявки', path: '/supply/requests' },
   { section: stock, title: 'Склад', path: '/stock/items' },
-  { section: orders, title: 'Заказы', path: '/incomes' },
+  { section: salesorders, title: 'Заказы', path: '/salesorders' },
+  { section: orders, title: 'Позиции заказов', path: '/incomes' },
 ];
 
 export function mountSearch(params) {

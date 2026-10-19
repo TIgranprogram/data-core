@@ -9,6 +9,7 @@ import { quickAdd } from '../ui/quick.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
 import { pic } from './stock.js';
+import { joinRef, orderOptions, splitRef } from './salesorders.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 export const STATUS_ORDER = ['in_progress', 'requested', 'ordered', 'paid', 'received', 'cancelled'];
@@ -100,7 +101,8 @@ const fields = async (r) => {
     { key: 'priority', label: 'Приоритет', type: 'select', required: true, options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label })) },
     { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200 },
     { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
-    { key: 'orderLabel', label: 'Заказ / заказчик', type: 'combo', options: lk.customers || [], max: 300 },
+    { key: 'salesOrderRef', label: 'Под заказ (позиция)', type: 'select', options: await orderOptions(r ? joinRef(r) : '').catch(() => []), hint: 'Заявка появится в карточке заказа', wide: true },
+    { key: 'orderLabel', label: 'Заказчик / участок (текстом)', type: 'combo', options: lk.customers || [], max: 300 },
     { key: 'requestedBy', label: 'Кто подал', type: 'combo', options: lk.requestedBy, max: 200 },
     { key: 'requestDate', label: 'Дата заявки', type: 'date' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
@@ -116,7 +118,7 @@ const fields = async (r) => {
   ];
 };
 
-const toInitial = (r) => ({ ...r, status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
+const toInitial = (r) => ({ ...r, salesOrderRef: joinRef(r), status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
 
 export const requests = {
   id: 'requests',
@@ -245,6 +247,8 @@ export const requests = {
       if (v.priceHint !== null) body.priceHint = v.priceHint;
       if (v.requestDate) body.requestDate = v.requestDate;
       body.invoiceDate = v.invoiceDate || '';
+      Object.assign(body, splitRef(v.salesOrderRef));
+      if (body.salesOrderId && !v.orderLabel) delete body.orderLabel; // подпись заказа поставит сервер
       return body;
     },
     create: async (body) => { const r = await api('/supply/requests', { method: 'POST', body }); lookups.reset(); return r; },

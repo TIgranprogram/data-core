@@ -5,7 +5,7 @@ import { AuditService } from './audit.service';
 import type { AuditQueryRaw } from './audit-query';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
-export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income'];
+export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder'];
 
 /**
  * Журнал аудита (только admin). Пишут оба приложения единой базы — data-core и kppdf.

@@ -170,6 +170,13 @@ export class SupplyRequest {
   @Prop()
   editedInApp?: boolean;
 
+  /** Заказ заказчика data-core (`salesorders`) и его позиция (`incomes`) — поле только data-core; `orderId` занят CRM. */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  salesOrderId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId })
+  salesOrderLineId?: Types.ObjectId;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
 

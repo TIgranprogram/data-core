@@ -4,6 +4,8 @@ import { CategoryResolver } from '../stock/category-resolver';
 import type { StockService } from '../stock/stock.service';
 import { incomeDerived } from '../incomes/income.schema';
 import { ourCompanies } from '../incomes/incomes.service';
+import { normTitle, orderKey } from '../salesorders/order-key';
+import { ORDER_CACHE_FIELDS, findOrCreateOrder } from '../salesorders/order-link';
 import { OrgResolver, normText } from '../supply/org-resolver';
 import { priorityFromLabel, statusFromLabel } from '../supply/supply-labels';
 import type { SheetTarget } from './sheets-sync.mapping';
@@ -52,6 +54,8 @@ export class SheetTargets {
   private readonly cats: CategoryResolver;
   private materialsByName: Map<string, Types.ObjectId> | null = null;
   private ours: Array<{ id: Types.ObjectId; name: string; full: string }> | null = null;
+  /** Шапки заказов, найденные/созданные за прогон: importKey → шапка. */
+  private orders = new Map<string, Doc>();
 
   constructor(private readonly connection: Connection, private readonly stock: StockService) {
     this.orgs = new OrgResolver(connection);
@@ -140,23 +144,62 @@ export class SheetTargets {
     };
   }
 
+  private async ourCompany(v: unknown) {
+    if (!this.ours) this.ours = await ourCompanies(this.connection);
+    const company = normText(v);
+    return company ? this.ours.find((c) => normText(c.name) === company || normText(c.full) === company) : undefined;
+  }
+
+  /**
+   * Шапка заказа для строки листа «Заказы» (TASKS З.2): по ключу «компания|номер» найти или создать в salesorders.
+   * Без номера заказа — без шапки.
+   */
+  private async orderFor(r: Doc): Promise<Doc | undefined> {
+    const orderNo = str(r.orderNo);
+    if (!orderNo) return undefined;
+    const hit = await this.ourCompany(r.ourCompany);
+    const key = orderKey(hit?.name ?? '', orderNo);
+    let h = this.orders.get(key);
+    if (!h) {
+      h = await findOrCreateOrder(this.connection, {
+        company: hit?.name ?? '', orderNo, companyId: hit?.id, customer: str(r.customer), paymentForm: str(r.paymentForm),
+        shipDate: parseSheetDate(r.shipDate), source: 'google-sheets',
+      });
+      this.orders.set(key, h);
+    }
+    return h;
+  }
+
   /** Лист «Заказы» → incomes. Наша компания — только существующая (СИЮ/ССЮ), новые не создаются. */
   private incomes(): TargetAdapter {
     return {
       collection: 'incomes',
       allowDelete: true,
-      managedFields: ['orderNo', 'shipDate', 'paidDate', 'customer', 'companyId', 'paymentForm', 'title', 'qty', 'unit', 'kind', 'color', 'unitPrice', 'amountManual', 'notes', 'amount', 'reportDate'],
+      managedFields: ['orderId', 'orderNo', 'shipDate', 'paidDate', 'customer', 'companyId', 'paymentForm', 'title', 'qty', 'unit', 'kind', 'color', 'unitPrice', 'amountManual', 'notes', 'amount', 'reportDate'],
       toFields: async (r) => {
-        if (!this.ours) this.ours = await ourCompanies(this.connection);
-        const company = normText(r.ourCompany);
+        const order = await this.orderFor(r);
         const fields: Doc = {
-          orderNo: str(r.orderNo), shipDate: parseSheetDate(r.shipDate), paidDate: parseSheetDate(r.paidDate), customer: str(r.customer),
-          companyId: company ? this.ours.find((c) => normText(c.name) === company || normText(c.full) === company)?.id : undefined,
+          orderId: order?._id, orderNo: str(r.orderNo), shipDate: parseSheetDate(r.shipDate), paidDate: parseSheetDate(r.paidDate), customer: str(r.customer),
+          companyId: (await this.ourCompany(r.ourCompany))?.id,
           paymentForm: str(r.paymentForm), title: str(r.name), qty: num(r.qty), unit: str(r.unit), kind: str(r.kind), color: str(r.color),
           unitPrice: num(r.unitPrice), amountManual: num(r.amountManual), notes: str(r.note),
         };
+        // шапку правили в приложении — её поля истина, строка листа их не перебивает
+        if (order?.editedInApp) for (const k of ORDER_CACHE_FIELDS) fields[k] = order[k] ?? undefined;
         const d = incomeDerived(fields as Parameters<typeof incomeDerived>[0]);
         return { ...fields, amount: d.amount, reportDate: d.reportDate };
+      },
+      // позиция, заведённая импортом Excel/в приложении в том же заказе с тем же наименованием, — та же строка (без дубля)
+      adopt: async (_r, f) => {
+        if (!f.orderId) return null;
+        const same = await this.connection.db!.collection('incomes').find({ orderId: f.orderId, deletedAt: null, sheetSource: { $exists: false } }).toArray();
+        return same.find((d) => normTitle(d.title) === normTitle(f.title)) ?? null;
+      },
+      // строка не менялась, но шапки у неё ещё нет (строки, загруженные до З.2)
+      relink: async (cur, r) => {
+        if (cur.orderId) return null;
+        const order = await this.orderFor(r);
+        return order ? { orderId: order._id } : null;
       },
     };
   }

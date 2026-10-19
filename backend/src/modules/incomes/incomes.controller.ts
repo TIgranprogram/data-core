@@ -16,9 +16,10 @@ export class IncomesController {
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false, description: '№ заказа, заказчик, наименование, примечание, вид, цвет' })
-  @ApiQuery({ name: 'sort', required: false, description: 'orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)' })
+  @ApiQuery({ name: 'sort', required: false, description: 'lineNo | orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)' })
   @ApiQuery({ name: 'status', required: false, description: 'draft (не отгружено) | awaiting (отгружено, ждём оплату) | paid' })
   @ApiQuery({ name: 'companyId', required: false }) @ApiQuery({ name: 'orderNo', required: false })
+  @ApiQuery({ name: 'orderId', required: false, description: 'позиции заказа (salesorders), id через запятую' })
   @ApiQuery({ name: 'from', required: false, description: 'по дате в отчёт (оплаты, иначе отгрузки), ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>) {

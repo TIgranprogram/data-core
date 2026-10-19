@@ -4,12 +4,14 @@ import { dateTime } from '../core/format.js';
 import { toast, toastError } from '../ui/toast.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
+import { salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 
 /** Корзина (CANON §2 «Удаление»): всё удалённое, «Восстановить». */
 const SOURCES = [
   { section: requests, title: 'Заявки', path: '/supply/requests' },
   { section: stock, title: 'Позиции склада', path: '/stock/items' },
+  { section: salesorders, title: 'Заказы', path: '/salesorders' },
   { section: orders, title: 'Строки заказов', path: '/incomes' },
 ];
 

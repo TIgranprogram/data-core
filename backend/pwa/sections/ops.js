@@ -7,6 +7,7 @@ import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { pic } from './stock.js';
+import { orderOptions, splitRef } from './salesorders.js';
 
 /* «Операции» склада (TASKS фаза С): как касса — слева подбор (поиск «м10 гайка» + кнопки-фильтры
  * тип → резьба → длина → стандарт), справа корзина; одна кнопка проводит всё разом (POST /stock/batch),
@@ -52,13 +53,17 @@ export function mountOps(params) {
   const note = h('input', { maxlength: 300 });
   const doc = h('input', { maxlength: 200, placeholder: 'накладная, счёт' });
   const docWrap = h('label', { class: 'field' }, h('span', null, 'Документ'), doc);
+  const soSel = h('select', null, h('option', { value: '' }, '— не под заказ —'));
+  const soWrap = h('label', { class: 'field wide' }, h('span', null, 'Под заказ (позиция)'), soSel);
+  let soLoaded = false;
+  const loadOrders = async () => { if (soLoaded) return; soLoaded = true; try { for (const o of await orderOptions()) soSel.append(h('option', { value: o.value }, o.label)); } catch { soLoaded = false; } };
   const noteLabel = h('span', null);
   const submit = h('button', { class: 'btn btn-primary ops-submit', type: 'button' });
   const clear = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => setCart([]) }, 'Очистить');
   const basket = h('section', { class: 'panel ops-cart' },
     h('div', { class: 'panel-head' }, cartTitle, h('span', { class: 'spacer' }), clear),
     lines,
-    h('div', { class: 'ops-foot' }, h('div', { class: 'form-grid' }, h('label', { class: 'field' }, noteLabel, note), docWrap), submit));
+    h('div', { class: 'ops-foot' }, h('div', { class: 'form-grid' }, soWrap, h('label', { class: 'field' }, noteLabel, note), docWrap), submit));
   const mobileBar = h('button', { class: 'ops-mobile-bar btn btn-primary', type: 'button', onclick: () => basket.scrollIntoView({ behavior: 'smooth' }) });
 
   const arrivals = arrivalsBlock(() => reload().catch(() => {}));
@@ -71,6 +76,8 @@ export function mountOps(params) {
     noteLabel.textContent = m.note;
     note.placeholder = mode() === 'out' ? 'например: заказ 15, цех' : mode() === 'in' ? 'например: принёс поставщик' : 'пересчёт';
     docWrap.hidden = mode() !== 'in';
+    soWrap.hidden = mode() !== 'out';
+    if (mode() === 'out') loadOrders();
     if (mode() === 'in') arrivals.load(); else arrivals.el.hidden = true;
   }
 
@@ -210,6 +217,7 @@ export function mountOps(params) {
 
   submit.addEventListener('click', async () => {
     const body = { type: mode(), lines: ready(), note: note.value.trim() || undefined, documentRef: mode() === 'in' ? doc.value.trim() || undefined : undefined, clientUid: uid() };
+    if (mode() === 'out' && soSel.value) { const so = splitRef(soSel.value); body.salesOrderId = so.salesOrderId; if (so.salesOrderLineId) body.salesOrderLineId = so.salesOrderLineId; }
     if (!body.lines.length) return;
     const m = MODES[mode()];
     submit.disabled = true; const label = submit.textContent; submit.textContent = 'Проводим…';
@@ -217,7 +225,7 @@ export function mountOps(params) {
       const r = await api('/stock/batch', { method: 'POST', body });
       const left = cart().filter((l) => !body.lines.some((x) => x.materialId === l.id));
       store.set('dc-ops-' + mode(), left);
-      note.value = ''; doc.value = '';
+      note.value = ''; doc.value = ''; soSel.value = '';
       await reload();
       window.dispatchEvent(new CustomEvent('data-changed'));
       const extra = mode() === 'count' ? ` · изменилось ${r.moved}` : '';
