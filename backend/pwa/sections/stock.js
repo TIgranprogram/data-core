@@ -11,7 +11,8 @@ import { cancelMovement, moveLabel } from './movements.js';
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
 /** Миниатюра в строке списка (или пустое место того же размера — колонки не прыгают). */
-export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy' }) : h('span', { class: 'pic empty', 'aria-hidden': 'true' }, '▢'));
+const noPic = () => h('span', { class: 'pic empty', 'aria-hidden': 'true' }, '▢');
+export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(noPic()) }) : noPic());
 const photoThumb = (r) => {
   const p = (r.photos || [])[0];
   return p ? h('img', { class: 'thumb', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy' }) : null;
@@ -83,7 +84,7 @@ export const stock = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
     ],
     hints: {
-      '': 'Все позиции склада. В строке: «+ Приход», «− Списать»; если не хватает — «Заказать».',
+      '': 'Все позиции склада. В строке: «+ Приход», «− Списать»; если не хватает — «Заказать». Несколько позиций разом и пересчёт полки — раздел «Операции».',
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
       reserved: 'Часть остатка забронирована под заказы: «свободно» меньше остатка.',
@@ -112,6 +113,7 @@ export const stock = {
       { key: 'reservedQty', label: 'Бронь', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => qty(r.free) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
+      { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
       { key: 'status', label: 'Состояние', sort: 'status', render: (r) => badge(STOCK_STATUS, r.status) },
     ],
     card: {
@@ -130,6 +132,7 @@ export const stock = {
     view: (r) => [
       ['Состояние', badge(STOCK_STATUS, r.status)],
       ['Мин. остаток', r.minQuantity ? `${qty(r.minQuantity)} ${unit(r)}` : ''],
+      ['Пересчитано', r.lastCountedAt ? date(r.lastCountedAt) : 'ещё не пересчитывали'],
       ['Категория', r.categoryName],
       ['Ед. изм.', r.unit],
       ['Артикул', r.article],

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsMongoId, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
 
 export class StockItemDto {
   @ApiPropertyOptional({ description: 'Наименование (обязательно при создании)' }) @IsOptional() @IsString() @Length(1, 300) name?: string;
@@ -18,6 +19,20 @@ export class StockMoveDto {
   @ApiProperty({ description: 'Количество > 0; для adjust — изменение со знаком' }) @IsNumber() qty!: number;
   @ApiPropertyOptional({ description: 'Примечание / основание / для кого бронь' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор с тем же ключом ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+}
+
+export class StockBatchLineDto {
+  @ApiProperty() @IsMongoId() materialId!: string;
+  @ApiProperty({ description: 'Количество > 0; для count — фактический остаток (≥ 0)' }) @IsNumber() @Min(0) qty!: number;
+}
+
+export class StockBatchDto {
+  @ApiProperty({ enum: ['in', 'out', 'count'], description: 'приход / списание / пересчёт (qty = сколько лежит фактически)' })
+  @IsIn(['in', 'out', 'count']) type!: 'in' | 'out' | 'count';
+  @ApiProperty({ type: [StockBatchLineDto] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockBatchLineDto) lines!: StockBatchLineDto[];
+  @ApiPropertyOptional({ description: 'Основание / куда / от кого' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
+  @ApiPropertyOptional({ description: 'Документ: накладная, счёт' }) @IsOptional() @IsString() @Length(0, 200) documentRef?: string;
+  @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
 export class StockPhotoDto {

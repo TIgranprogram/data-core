@@ -9,6 +9,7 @@ import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
 import { movements } from './sections/movements.js';
 import { mountMoney } from './sections/money.js';
+import { mountOps } from './sections/ops.js';
 import { orders } from './sections/orders.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
@@ -16,7 +17,7 @@ import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
 const SECTIONS = { requests, stock, movements, orders };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['orders', 'Заказы', 'orders'], ['money', 'Платёжный календарь', 'money']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['orders', 'Заказы', 'orders'], ['money', 'Платёжный календарь', 'money']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -64,7 +65,7 @@ function shell() {
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
-    h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.movements,
+    h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.ops, navLinks.movements,
     h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money,
     h('div', { class: 'side-foot' },
       navLinks.trash,
@@ -136,12 +137,13 @@ function render({ section, params }) {
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = mountMoney(params);
+    else if (section === 'ops') list = mountOps(params);
     else if (section === 'trash') list = mountTrash();
     else if (section === 'search') list = mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
-    document.title = (sec?.title || ({ home: 'Сегодня', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
+    document.title = (sec?.title || ({ home: 'Сегодня', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
     window.scrollTo(0, 0);
   } else {
     mounted.list.update?.(params);

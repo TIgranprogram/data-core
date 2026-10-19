@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { debounce, h } from '../core/dom.js';
-import { qty } from '../core/format.js';
+import { qty, plural } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { mountBoard } from './board.js';
 import { icon } from './icons.js';
@@ -23,9 +23,14 @@ import { toastError } from './toast.js';
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
  *   rowAction?(row) → { label, title, run(row) } | null — кнопка следующего шага в строке (как на «Сегодня»),
  *   groupBy?(row) → подпись группы (строка-заголовок при смене значения: дни в «Движениях»), groupTotal?(rows) → узел,
+ *   periods?(P) → null | { date(row) → дата, total?(rows) → узел } — завершённое сворачивается по месяцам/годам
+ *     (TASKS фаза М): список грузится целиком (до 2000), текущий месяц раскрыт, прошлые — строкой «Сентябрь 2026 · 34»,
+ *     прошлые годы — строкой года; раскрытое запоминается. При поиске — всё раскрыто.
  * }
  * Возвращает { el, update(params), reload(), focusSearch(), destroy() }.
  */
+const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
 export function mountList(section, params, { onOpen, onCreate, quick, onChanged }) {
   const L = section.list;
   let P = { ...params };
@@ -177,8 +182,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   let seq = 0;
   let loaded = false;
   async function load() {
-    const { limit, page, sort, board: isBoard } = st();
+    let { limit, page, sort, board: isBoard } = st();
     const query = { search: P.q, ...(L.query ? L.query(P) : {}) };
+    const per = L.periods ? L.periods(P) : null;
+    if (per && !isBoard) { limit = 2000; page = 1; }
     for (const f of L.filters || []) if (P[f.key] && !(isBoard && f.key === 'status')) query[f.key] = P[f.key];
     if (isBoard) {
       countEl.textContent = '';
@@ -213,6 +220,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         ? h('div', { class: 'state' }, h('div', null, 'Ничего не найдено.'), h('button', { class: 'btn', type: 'button', onclick: resetFilters }, 'Сбросить фильтры'))
         : h('div', { class: 'state' }, h('div', null, L.emptyText || 'Записей пока нет.'),
           canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate }, '+ ' + (L.createLabel || 'Создать')) : null));
+    } else if (per) {
+      renderPeriods(per);
     } else {
       const trs = [];
       let group = null;
@@ -237,12 +246,73 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null))));
       markSelected();
     }
+    if (per) { foot.replaceChildren(...[h('span', null, resp.total ? `${qty(resp.total)} ${plural(resp.total, 'запись', 'записи', 'записей')} по месяцам` : ''), L.footer ? L.footer(resp) : null].filter(Boolean)); return; }
     const from = resp.total ? (page - 1) * limit + 1 : 0;
     const to = Math.min(resp.total, page * limit);
     foot.replaceChildren(...[
       h('span', null, resp.total ? `${from}–${to} из ${qty(resp.total)}` : ''),
       L.footer ? L.footer(resp) : null,
       resp.total > 25 ? pager({ page, limit, total: resp.total, onPage: (p) => patch({ page: p > 1 ? p : undefined }), onLimit: (n) => patch({ limit: n === 25 ? undefined : n, page: undefined }) }) : null].filter(Boolean));
+  }
+
+  /* ---------- Месяцы и годы (фаза М) ---------- */
+  const openKey = 'dc-open-' + section.id;
+  const opened = new Set((() => { try { return JSON.parse(localStorage.getItem(openKey) || '[]'); } catch { return []; } })());
+  const toggle = (k) => { opened.has(k) ? opened.delete(k) : opened.add(k); try { localStorage.setItem(openKey, JSON.stringify([...opened].slice(-60))); } catch { /* */ } renderPeriods(L.periods(P)); };
+  function renderPeriods(per) {
+    const now = new Date();
+    const curYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const all = !!P.q; // при поиске всё раскрыто
+    const months = new Map();
+    for (const r of rows) {
+      const d = per.date(r) ? new Date(per.date(r)) : null;
+      const ym = d && !Number.isNaN(d.getTime()) ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') : 'none';
+      if (!months.has(ym)) months.set(ym, []);
+      months.get(ym).push(r);
+    }
+    const keys = [...months.keys()].sort().reverse();
+    const cols = L.columns.length + (L.rowAction && session.canEdit ? 1 : 0);
+    const trs = []; const lis = [];
+    const head = (k, label, n, items, level, isOpen) => {
+      const tot = per.total ? per.total(items) : null;
+      trs.push(h('tr', { class: 'period-row lvl' + level + (isOpen ? ' open' : ''), onclick: () => toggle(k) },
+        h('td', { colspan: cols }, h('span', { class: 'p-caret', 'aria-hidden': 'true' }, isOpen ? '▾' : '▸'), h('b', null, label), h('span', { class: 'p-n' }, qty(n)), tot ? h('span', { class: 'p-tot' }, tot) : null)));
+      lis.push(h('li', { class: 'period-li lvl' + level, onclick: () => toggle(k) }, h('span', null, (isOpen ? '▾ ' : '▸ ') + label), h('span', { class: 'p-n' }, qty(n)), tot ? h('span', { class: 'p-tot' }, tot) : null));
+    };
+    const rowsOf = (items) => items.forEach((row) => {
+      const i = rows.indexOf(row);
+      const tr = h('tr', { onclick: () => onOpen(row), dataset: { i: String(i) } }, L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
+      if (L.rowAction && session.canEdit) tr.append(h('td', { class: 'act' }, actionButton(row)));
+      trs.push(tr);
+      lis.push(h('li', { onclick: () => onOpen(row) }, L.card.thumb ? L.card.thumb(row) : null,
+        h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
+        h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null)));
+    });
+    const monthName = (ym) => { if (ym === 'none') return 'Без даты'; const [y, m] = ym.split('-').map(Number); return MONTHS[m - 1] + ' ' + y; };
+    const year = String(now.getFullYear());
+    // этот год — месяцами; прошлые годы — строкой года, внутри месяцы
+    const byYear = new Map();
+    for (const k of keys) { const y = k === 'none' ? 'none' : k.slice(0, 4); if (!byYear.has(y)) byYear.set(y, []); byYear.get(y).push(k); }
+    for (const [y, ks] of byYear) {
+      const nested = y !== year && y !== 'none' && byYear.size > 1;
+      let show = true;
+      if (nested) {
+        const items = ks.flatMap((k) => months.get(k));
+        const yk = 'y' + y; const isOpen = all || opened.has(yk);
+        head(yk, y + ' год', items.length, items, 0, isOpen);
+        show = isOpen;
+      }
+      if (!show) continue;
+      for (const k of ks) {
+        const items = months.get(k);
+        const isOpen = all || k === curYM || opened.has(k) || (keys.length === 1);
+        head(k, monthName(k), items.length, items, nested ? 1 : 0, isOpen);
+        if (isOpen) rowsOf(items);
+      }
+    }
+    tbody.replaceChildren(...trs);
+    cards.replaceChildren(...lis);
+    markSelected();
   }
 
   /** Кнопка следующего шага в строке: делает дело на месте, список обновляется без моргания. */

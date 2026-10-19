@@ -1,10 +1,12 @@
 import { h } from '../core/dom.js';
 import { parseNum } from '../core/format.js';
+import { attachSuggest } from './suggest.js';
 
 /**
  * Форма из описания полей (CANON §2 «Карточка»). Поле:
  *   { key, label, type: text|number|money|date|select|combo|textarea, required, wide, options, hint, min, placeholder }
  *   options — массив строк или { value, label } (для select/combo); у combo можно вводить своё значение.
+ *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
  * Возвращает { el, read() → { values } | { errors }, dirty(), focus() }.
  */
 export function buildForm(fields, initial = {}) {
@@ -40,6 +42,11 @@ export function buildForm(fields, initial = {}) {
       h('span', null, f.label, f.required ? h('span', { class: 'req' }, ' *') : null), input, f.hint ? h('div', { class: 'hint' }, f.hint) : null, err);
     grid.append(label);
     inputs.set(f.key, { f, input, err, label });
+    if (f.suggest) {
+      attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
+        for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') x.input.value = String(v); }
+      } });
+    }
   }
   const snapshot = () => JSON.stringify([...inputs.values()].map(({ input }) => input.value));
   const start = snapshot();

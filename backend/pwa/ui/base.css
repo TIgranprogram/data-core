@@ -451,3 +451,100 @@ table.list td.pic-cell { width: 44px; padding-right: 0; }
 
 /* Переключатель темы в меню (кнопка вместо ссылки) */
 button.side-link { width: 100%; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
+
+/* ===== «Операции» склада (касса: подбор слева, список справа) ===== */
+.ops-hint { margin-top: -6px; margin-bottom: var(--s4); max-width: 900px; }
+.ops-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(380px, 1fr); gap: var(--s4); align-items: start; }
+.ops-grid > *, .ops-facet > *, .ops-facets { min-width: 0; }
+.ops-picker { display: flex; flex-direction: column; min-height: 60vh; }
+.ops-search-wrap { padding: var(--s4) var(--s4) var(--s2); }
+.ops-search { width: 100%; height: 46px; font-size: 16px; padding: 0 14px; border-radius: var(--radius); }
+.ops-cats { display: flex; gap: 2px; flex-wrap: wrap; padding: 0 var(--s3); border-bottom: 1px solid var(--border); }
+.ops-cats .chip { height: 40px; }
+.ops-cats .chip:disabled { opacity: .45; cursor: default; }
+.ops-facets { display: flex; flex-direction: column; gap: 8px; padding: var(--s3) var(--s4) 0; }
+.ops-facets:empty { display: none; }
+.ops-facet { display: grid; grid-template-columns: 88px 1fr; gap: 8px; align-items: start; }
+.ops-facet-l { font-size: var(--fs-sm); color: var(--muted); padding-top: 5px; }
+.ops-facet-v { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
+.tag small { color: var(--muted); font-size: 11px; }
+.tag:hover { border-color: var(--primary); }
+.tag.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.tag.active small { color: inherit; opacity: .8; }
+.ops-found { display: flex; align-items: center; gap: var(--s2); padding: var(--s3) var(--s4) var(--s2); font-size: var(--fs-sm); color: var(--muted); min-height: 44px; }
+.link-btn { border: 0; background: none; color: var(--link); font: inherit; cursor: pointer; padding: 0; text-decoration: underline dotted; }
+.ops-results { border-top: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - 360px); min-height: 240px; }
+.ops-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 34px; gap: var(--s3); align-items: center; padding: 8px var(--s4); border-bottom: 1px solid var(--border); cursor: pointer; }
+.ops-row:hover, .ops-row.active { background: var(--row-hover); }
+.ops-row.active { box-shadow: inset 3px 0 0 var(--gold); }
+.ops-row.in-cart { background: var(--row-selected); }
+.ops-name { min-width: 0; }
+.ops-name .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.ops-name small { color: var(--muted); font-size: 12px; }
+.ops-stock { font-weight: 600; white-space: nowrap; }
+.ops-stock small { font-weight: 400; color: var(--muted); }
+.ops-add { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); color: var(--muted); font-weight: 600; font-size: 13px; }
+.ops-row:hover .ops-add, .ops-row.active .ops-add { background: var(--primary); color: var(--on-primary); }
+.ops-empty { padding: var(--s5) var(--s4); text-align: center; }
+.ops-empty p { margin: 0 0 var(--s2); }
+.ops-cart { position: sticky; top: calc(var(--topbar-h) + 12px); display: flex; flex-direction: column; max-height: calc(100vh - var(--topbar-h) - 24px); }
+.ops-cart .panel-head h3 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--heading); }
+.ops-lines { overflow-y: auto; flex: 1; border-top: 1px solid var(--border); min-height: 120px; }
+.ops-line { display: grid; grid-template-columns: minmax(0, 1fr) 130px; grid-template-areas: "name x" "qty diff"; gap: 6px var(--s3); padding: 10px var(--s4); border-bottom: 1px solid var(--border); align-items: center; }
+.ops-line .ops-name { grid-area: name; }
+.ops-line .ops-x { grid-area: x; justify-self: end; }
+.ops-qty { grid-area: qty; display: flex; align-items: center; gap: 6px; }
+.ops-qty input { width: 92px; height: 34px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ops-unit { color: var(--muted); font-size: var(--fs-sm); }
+.ops-diff { grid-area: diff; font-size: var(--fs-sm); text-align: right; white-space: nowrap; }
+.ops-foot { padding: var(--s4); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--s3); background: var(--surface-2); border-radius: 0 0 var(--radius) var(--radius); }
+.ops-submit { height: 44px; font-size: 15px; }
+.ops-mobile-bar { display: none; }
+.ops-links { display: flex; gap: var(--s2); flex-wrap: wrap; }
+@media (max-width: 1100px) { .ops-grid { grid-template-columns: minmax(0, 1fr); } .ops-cart { position: static; max-height: none; } .ops-results { max-height: 55vh; } }
+@media (max-width: 720px) {
+  .ops-facet { grid-template-columns: 1fr; gap: 4px; }
+  .ops-facet-v { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .ops-mobile-bar:not([hidden]) { display: flex; position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; height: 48px; box-shadow: var(--shadow-lg); }
+  .ops { padding-bottom: 72px; }
+  .ops-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .ops-cats .chip { flex: none; }
+  .ops-foot .form-grid { grid-template-columns: 1fr; }
+}
+
+.ops-arrivals { margin-bottom: var(--s4); }
+.ops-arrivals .panel-head { flex-wrap: wrap; }
+.ops-arrivals .panel-head h3 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--heading); }
+.ops-arr-list { border-top: 1px solid var(--border); max-height: 260px; overflow-y: auto; }
+.ops-arr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--s3); align-items: center; padding: 8px var(--s4); border-bottom: 1px solid var(--border); }
+.ops-arr:last-child { border-bottom: 0; }
+.ops-arr-dlg { display: flex; flex-direction: column; max-height: 55vh; overflow-y: auto; margin-top: var(--s2); }
+.ops-arr-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 84px auto; gap: var(--s2); align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.ops-arr-row .ops-name { display: flex; flex-direction: column; }
+.ops-arr-q { height: 32px; text-align: right; }
+.nowrap { white-space: nowrap; }
+
+/* Месяцы и годы в списках (фаза М) */
+tr.period-row td { background: var(--surface-2); cursor: pointer; padding: 10px 14px; border-bottom: 1px solid var(--border); user-select: none; }
+tr.period-row:hover td { background: var(--surface-3); }
+tr.period-row.lvl0 td { font-size: 14px; }
+tr.period-row.lvl1 td { padding-left: 34px; }
+tr.period-row b { color: var(--heading); font-weight: 600; }
+.p-caret { display: inline-block; width: 18px; color: var(--muted); }
+.p-n { margin-left: 10px; font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 0 8px; }
+.p-tot { margin-left: 14px; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.period-li { background: var(--surface-2); font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.period-li.lvl1 { padding-left: 28px; }
+
+/* Подсказки под полем (ui/suggest.js) */
+.has-suggest { position: relative; }
+.suggest { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% - 2px); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); max-height: 360px; overflow-y: auto; }
+.sg-head { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+.sg-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+.sg-cats .tag { height: 24px; font-size: 12px; }
+.sg-row { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.sg-row:last-child { border-bottom: 0; }
+.sg-row.active, .sg-row:hover { background: var(--row-hover); }
+.sg-row .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.sg-row small { color: var(--muted); font-size: 12px; }

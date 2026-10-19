@@ -3,7 +3,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockItemDto, StockMoveDto, StockPhotoDto } from './dto';
+import { StockBatchDto, StockItemDto, StockMoveDto, StockPhotoDto } from './dto';
 import { StockService } from './stock.service';
 
 /**
@@ -92,6 +92,22 @@ export class StockController {
   @Roles('admin', 'manager')
   photo(@Param('id') id: string, @Body() dto: StockPhotoDto) {
     return this.stock.addPhoto(id, dto.photoId);
+  }
+
+  /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */
+  @Post('batch')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.batch', entityType: 'StockMovement' })
+  batch(@Body() dto: StockBatchDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.batch(dto, user?.id);
+  }
+
+  /** Отменить пакет целиком (обратные движения; история не стирается). */
+  @Post('batch/:batchId/cancel')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.batch.cancelled', entityType: 'StockMovement' })
+  cancelBatch(@Param('batchId') batchId: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.cancelBatch(batchId, user?.id);
   }
 
   /** Приход / списание / корректировка / бронь / снятие брони. */

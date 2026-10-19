@@ -1,6 +1,7 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
+import { patch } from '../core/router.js';
 import { toastError } from './toast.js';
 
 /**
@@ -129,13 +130,14 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
           const v = board.card(row);
           const card = h('article', { class: 'tcard' + (canMove ? ' movable' : ''), tabindex: '0',
             onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter') onOpen(row); } },
-          v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', draggable: 'false' }) : null,
+          v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
           h('div', { class: 't-title', title: v.title }, v.title),
           h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null));
           bindDrag(card, row, c.key);
           return card;
         }));
-        if (r.total > r.items.length) body.append(h('div', { class: 'col-more muted' }, `ещё ${qty(r.total - r.items.length)} — в таблице`));
+        // Остальное — списком (завершённое там свёрнуто по месяцам, фаза М)
+        if (r.total > r.items.length) body.append(h('button', { type: 'button', class: 'col-more link-btn', onclick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }) }, `ещё ${qty(r.total - r.items.length)} — списком по месяцам →`));
       } catch (e) {
         n.textContent = '—';
         body.replaceChildren(h('div', { class: 'col-more' }, 'Не загрузилось: ' + e.message));

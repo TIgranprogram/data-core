@@ -69,6 +69,10 @@ export class StockMovement {
   @Prop({ type: Types.ObjectId })
   cancelOf?: Types.ObjectId;
 
+  /** Пакет операций (экран «Операции»: списание/приход/пересчёт нескольких позиций разом) — отменяется целиком. */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  batchId?: Types.ObjectId;
+
   /** Откуда запись: 'google-sheets' — история из таблицы (остаток по ней не менялся). */
   @Prop()
   source?: string;

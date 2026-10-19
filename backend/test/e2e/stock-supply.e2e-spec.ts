@@ -175,4 +175,38 @@ describe('Stock & supply on shared CRM collections', () => {
     const sheet = await db().collection('stockmovements').insertOne({ type: 'in', qty: 1, materialId: new Types.ObjectId(boltId), warehouseId: (await db().collection('warehouses').findOne({}))!._id, date: new Date(), source: 'google-sheets', deletedAt: null });
     expect((await http().post(`/api/stock/movements/${sheet.insertedId}/cancel`).set(auth()).expect(409)).body.message).toContain('Google-таблицы');
   });
+  it('«Операции»: умный поиск (м10 → M10), пакет прихода/списания/пересчёта, отмена пакета целиком', async () => {
+    const nut = (await http().post('/api/stock/items').set(auth()).send({ name: 'Гайка шестигр., M10, DIN 934', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    const bolt = (await http().post('/api/stock/items').set(auth()).send({ name: 'Болт с шестигр. головкой, M10х100, DIN 933', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    // кириллица «м10» находит латинскую M10; слова в любом порядке
+    const found = (await http().get('/api/stock/items').query({ search: 'м10 гайк' }).set(auth()).expect(200)).body;
+    expect(found.items.map((i: { id: string }) => i.id)).toEqual([nut.id]);
+    expect((await http().get('/api/stock/items').query({ search: 'М10' }).set(auth()).expect(200)).body.total).toBe(2);
+
+    // приход двух позиций одной операцией
+    const inc = (await http().post('/api/stock/batch').set(auth()).send({ type: 'in', note: 'принесли без заявки', lines: [{ materialId: nut.id, qty: 100 }, { materialId: bolt.id, qty: 50 }], clientUid: 'batch-in-1' }).expect(201)).body;
+    expect(inc).toMatchObject({ lines: 2, moved: 2 });
+    // повтор с тем же ключом ничего не меняет
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: nut.id, qty: 100 }], clientUid: 'batch-in-1' }).expect(201);
+    expect((await http().get(`/api/stock/items/${nut.id}`).set(auth())).body.quantity).toBe(100);
+
+    // списание: не хватает одной — ничего не списано, обе названы
+    const bad = await http().post('/api/stock/batch').set(auth()).send({ type: 'out', lines: [{ materialId: nut.id, qty: 10 }, { materialId: bolt.id, qty: 999 }] }).expect(400);
+    expect(bad.body.message).toContain('Болт с шестигр. головкой');
+    expect((await http().get(`/api/stock/items/${nut.id}`).set(auth())).body.quantity).toBe(100);
+    const out = (await http().post('/api/stock/batch').set(auth()).send({ type: 'out', note: 'на заказ 15', lines: [{ materialId: nut.id, qty: 10 }, { materialId: bolt.id, qty: 5 }] }).expect(201)).body;
+    expect(out.items.find((i: { id: string }) => i.id === bolt.id).quantity).toBe(45);
+
+    // пересчёт: факт 88 гаек (−2), болты совпали (без движения) — дата пересчёта у обеих
+    const cnt = (await http().post('/api/stock/batch').set(auth()).send({ type: 'count', lines: [{ materialId: nut.id, qty: 88 }, { materialId: bolt.id, qty: 45 }] }).expect(201)).body;
+    expect(cnt).toMatchObject({ lines: 2, moved: 1 });
+    for (const i of cnt.items) expect(i.lastCountedAt).toBeTruthy();
+    expect(cnt.items.find((i: { id: string }) => i.id === nut.id).quantity).toBe(88);
+
+    // отмена списания целиком → остатки вернулись; повторно — 404
+    const back = (await http().post(`/api/stock/batch/${out.batchId}/cancel`).set(auth()).expect(201)).body;
+    expect(back.items.find((i: { id: string }) => i.id === bolt.id).quantity).toBe(50);
+    expect(back.items.find((i: { id: string }) => i.id === nut.id).quantity).toBe(98);
+    await http().post(`/api/stock/batch/${out.batchId}/cancel`).set(auth()).expect(404);
+  });
 });

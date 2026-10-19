@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go } from '../core/router.js';
@@ -58,10 +59,41 @@ async function changeStatus(r, ctx) {
   if (key && key !== supplyKey(r)) await setStatus(r, key, ctx);
 }
 
+/** Ранее заказанное + склад для подсказок в новой заявке (З.7): одно наименование — одна строка. */
+async function pastItems() {
+  const [reqs, stockRes] = await Promise.all([
+    api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch(() => ({ items: [] })),
+    api('/stock/items', { query: { limit: 10000 } }).catch(() => ({ items: [] })),
+  ]);
+  const by = new Map();
+  const key = (s) => normSearch(s);
+  for (const it of stockRes.items) {
+    by.set(key(it.name), { label: it.name, cat: it.categoryName || '', stock: it, values: { title: it.name, unit: it.unit, categoryName: it.categoryName, article: it.article } });
+  }
+  for (const r of reqs.items) {
+    if (!r.title) continue;
+    const k = key(r.title);
+    const x = by.get(k) || { label: r.title, cat: r.categoryName || '', values: { title: r.title } };
+    if (!x.last) {
+      x.last = r;
+      x.values = { ...x.values, unit: x.values.unit || r.unit, categoryName: x.values.categoryName || r.categoryName, supplierName: r.supplierName, article: x.values.article || r.article };
+      if (!x.cat) x.cat = r.categoryName || '';
+    }
+    x.n = (x.n || 0) + 1;
+    by.set(k, x);
+  }
+  return [...by.values()].map((x) => ({
+    ...x,
+    search: normSearch([x.label, x.cat, x.values.article, x.last?.supplierName].filter(Boolean).join(' ')),
+    sub: [x.cat, x.stock ? `на складе ${qty(x.stock.quantity)} ${x.stock.unit || ''}` : null,
+      x.last ? `заказывали ${x.n} раз, последний — ${date(x.last.requestDate)}${x.last.supplierName ? ' у ' + x.last.supplierName : ''}${x.last.priceHint ? ` за ${money(x.last.priceHint)} (${qty(x.last.qty)} ${x.last.unit || ''})` : ''}` : null].filter(Boolean).join(' · '),
+  }));
+}
+
 const fields = async (r) => {
   const lk = await lookups();
   return [
-    { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
+    { key: 'title', label: 'Наименование', required: true, wide: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции' },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0 },
     { key: 'unit', label: 'Ед. изм.', type: 'combo', options: [...new Set([...UNITS, ...(lk.units || [])])], max: 30 },
     { key: 'status', label: 'Статус', type: 'select', required: true, options: statusOptions() },
@@ -125,6 +157,8 @@ export const requests = {
       side: (r) => [badge(SUPPLY_STATUS, supplyKey(r)), r.priceHint ? h('span', { class: 'num small' }, money(r.priceHint)) : null],
     },
     footer: (resp) => h('span', { class: 'sum-line' }, `Сумма по выборке: ${money(resp.sum || 0)}`),
+    // Завершённое копится — сворачивается по месяцам получения/отмены (TASKS фаза М)
+    periods: (P) => (['received', 'cancelled'].includes(P.status) ? { date: (r) => r.receivedAt || r.requestDate || r.updatedAt, total: (rs) => money(rs.reduce((s, r) => s + (Number(r.priceHint) || 0), 0)) } : null),
     hints: {
       '': 'Все заявки. Кнопка в строке — следующий шаг: «В заказ» → «Заказано» → «Оплачено» → «Принять» на склад.',
       in_progress: 'Ждут решения: заказывать («В заказ») или отменить в карточке.',

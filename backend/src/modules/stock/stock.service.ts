@@ -7,6 +7,7 @@ import { isUsedByCrm, isUsedInComposition } from '../catalog/catalog-references'
 import { CounterService } from '../counter/counter.service';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { normText } from '../supply/org-resolver';
+import { matchesAll, searchTokens } from './search-norm';
 import { CategoryResolver } from './category-resolver';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
@@ -38,7 +39,7 @@ export interface MoveInput {
 }
 
 /** Поля, по которым можно сортировать позиции склада. */
-const ITEM_SORT = ['name', 'categoryName', 'unit', 'article', 'quantity', 'reservedQty', 'free', 'minQuantity', 'status', 'updatedAt', 'deletedAt'];
+const ITEM_SORT = ['name', 'categoryName', 'unit', 'article', 'quantity', 'reservedQty', 'free', 'minQuantity', 'status', 'updatedAt', 'deletedAt', 'lastCountedAt'];
 const MOVE_LABEL: Record<string, string> = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', transfer: 'Перемещение' };
 
 /**
@@ -101,23 +102,25 @@ export class StockService {
     const wh = await this.defaultWarehouse();
     const p = parseList(q, { sortable: ITEM_SORT, defaultSort: 'name', defaultLimit: 1000, maxLimit: 10000 });
     const filter: Record<string, unknown> = { deletedAt: p.deleted ? { $ne: null } : null };
-    if (p.search) filter.$or = [{ name: p.search }, { article: p.search }, { sku: p.search }, { notes: p.search }];
+    // Поиск — в памяти (search-norm): «м10 гайка» = «Гайка …, M10 …», слова в любом порядке
+    const tokens = q.search ? searchTokens(q.search) : [];
     if (q.categoryId) { const ids = oids(q.categoryId); filter.categoryId = { $in: [...ids, ...ids.map(String)] }; }
     if (q.materialIds) filter._id = { $in: q.materialIds };
 
-    const mats = await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec();
+    const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
+      .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     const [stocks, cats] = await Promise.all([
       this.storage.find({ warehouseId: wh._id, materialId: { $in: ids }, deletedAt: p.deleted ? undefined : null }).setOptions({ includeSoftDeleted: true }).lean().exec(),
       this.connection.db!.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
     ]);
     const catName = new Map(cats.map((c) => [String(c._id), String(c.name)]));
-    const byMat = new Map<string, { quantity: number; reservedQty: number; minQuantity: number; weightKg?: number; zoneName?: string; id: string }>();
+    const byMat = new Map<string, { quantity: number; reservedQty: number; minQuantity: number; weightKg?: number; zoneName?: string; id: string; lastCountedAt?: Date }>();
     for (const s of stocks) {
       const k = String(s.materialId);
       const cur = byMat.get(k);
       if (cur) { cur.quantity += s.quantity ?? 0; cur.reservedQty += s.reservedQty ?? 0; continue; }
-      byMat.set(k, { id: String(s._id), quantity: s.quantity ?? 0, reservedQty: s.reservedQty ?? 0, minQuantity: s.minQuantity ?? 0, weightKg: s.weightKg, zoneName: s.zoneName });
+      byMat.set(k, { id: String(s._id), quantity: s.quantity ?? 0, reservedQty: s.reservedQty ?? 0, minQuantity: s.minQuantity ?? 0, weightKg: s.weightKg, zoneName: s.zoneName, lastCountedAt: (s as { lastCountedAt?: Date }).lastCountedAt });
     }
     let rows = mats.map((m) => {
       const st = byMat.get(String(m._id));
@@ -127,6 +130,7 @@ export class StockService {
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
         notes: m.notes, quantity, reservedQty, free: quantity - reservedQty, minQuantity,
         weightKg: st?.weightKg ?? m.weightKg, zoneName: st?.zoneName ?? null, storageItemId: st?.id ?? null,
+        lastCountedAt: st?.lastCountedAt ?? null,
         photoIds: (m.photoIds ?? []) as Types.ObjectId[],
         status: quantity <= 0 ? 'none' : minQuantity > 0 && quantity - reservedQty < minQuantity ? 'low' : 'ok',
         updatedAt: (m as { updatedAt?: Date }).updatedAt,
@@ -333,6 +337,111 @@ export class StockService {
     }
     await this.markEdited(matId);
     return this.getItem(materialId);
+  }
+
+  /**
+   * Пакет операций (экран «Операции»): несколько позиций одной транзакцией — всё или ничего.
+   * out — проверяет все позиции заранее и называет каждую, где не хватает; count — qty = сколько лежит
+   * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
+   * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
+   */
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string }, userId?: string) {
+    if (dto.clientUid) {
+      const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
+      if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
+    }
+    // Одна позиция дважды — складываем (приход/списание) или берём последнюю (пересчёт)
+    const merged = new Map<string, number>();
+    for (const l of dto.lines) {
+      const n = Number(l.qty);
+      if (!Number.isFinite(n) || n < 0 || (dto.type !== 'count' && n === 0)) throw new BadRequestException('Укажите количество больше нуля в каждой строке');
+      merged.set(l.materialId, dto.type === 'count' ? n : (merged.get(l.materialId) ?? 0) + n);
+    }
+    const matIds = [...merged.keys()].map((id) => oid(id, 'позиции'));
+    const mats = await this.materials.find({ _id: { $in: matIds }, deletedAt: null }, { name: 1 }).lean().exec();
+    if (mats.length !== matIds.length) throw new NotFoundException('Часть позиций не найдена (удалены?) — обновите страницу');
+    const nameOf = new Map(mats.map((m) => [String(m._id), String(m.name)]));
+    const wh = await this.defaultWarehouse();
+    const note = dto.note?.trim() || undefined;
+    const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    const batchId = new Types.ObjectId();
+    const now = new Date();
+    let moved = 0;
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        moved = 0;
+        const items = new Map<string, StorageItemDocument>();
+        for (const id of matIds) items.set(String(id), await this.loadStorage(wh._id as Types.ObjectId, id, session));
+        if (dto.type === 'out') {
+          const short = [...merged].filter(([id, n]) => (items.get(id)!.quantity ?? 0) < n)
+            .map(([id, n]) => `«${nameOf.get(id)}»: есть ${items.get(id)!.quantity ?? 0}, нужно ${n}`);
+          if (short.length) throw new BadRequestException(`Недостаточно на складе — ${short.join('; ')}`);
+        }
+        for (const [id, n] of merged) {
+          const item = items.get(id)!;
+          const before = item.quantity ?? 0;
+          const delta = dto.type === 'in' ? n : dto.type === 'out' ? -n : Math.round((n - before) * 1000) / 1000;
+          if (delta !== 0) {
+            item.quantity = Math.round((before + delta) * 1000) / 1000;
+            if (dto.type === 'out' && (item.reservedQty ?? 0) > 0) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - n);
+            await item.save({ session });
+            const type = dto.type === 'count' ? 'adjust' : dto.type;
+            const ref = dto.type === 'count' ? `ADJUST:${note ?? 'пересчёт'}` : dto.documentRef;
+            await this.movements.create([{ type, date: now, materialId: new Types.ObjectId(id), warehouseId: wh._id, qty: Math.abs(delta), delta, documentRef: ref,
+              notes: note ?? (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId }], { session });
+            moved++;
+          }
+          if (dto.type === 'count') {
+            await this.connection.db!.collection('storageitems').updateOne({ _id: item._id }, { $set: { lastCountedAt: now } }, { session });
+          }
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+    await this.connection.db!.collection('materials').updateMany({ _id: { $in: matIds } }, { $set: { editedInApp: true } });
+    return { ...(await this.batchResult(String(batchId), dto.type, matIds)), lines: merged.size, moved };
+  }
+
+  private async batchResult(batchId: string, type: string, matIds?: Types.ObjectId[]) {
+    const ids = matIds ?? ((await this.movements.distinct('materialId', { batchId: new Types.ObjectId(batchId) }).exec()) as Types.ObjectId[]);
+    const items = ids.length ? (await this.listItems({ materialIds: ids, limit: 10000 })).items : [];
+    return { batchId, type, items };
+  }
+
+  /** Отменить пакет: обратные движения ко всем его неотменённым движениям, одной транзакцией. */
+  async cancelBatch(batchId: string, userId?: string) {
+    const bid = oid(batchId, 'операции');
+    const list = await this.movements.find({ batchId: bid, cancelledAt: null, deletedAt: null }).lean().exec();
+    if (!list.length) throw new NotFoundException('Операция не найдена или уже отменена');
+    const wh = await this.defaultWarehouse();
+    const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    const now = new Date();
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        for (const mv of list) {
+          const d = (mv as { delta?: number }).delta ?? 0;
+          const item = await this.loadStorage(wh._id as Types.ObjectId, mv.materialId as Types.ObjectId, session);
+          const next = Math.round(((item.quantity ?? 0) - d) * 1000) / 1000;
+          if (next < 0) {
+            const m = await this.materials.findById(mv.materialId, { name: 1 }).lean().exec();
+            throw new ConflictException(`Нельзя отменить: «${m?.name ?? 'позиция'}» уже израсходована (остаток станет ${next}). Сделайте пересчёт вручную.`);
+          }
+          item.quantity = next;
+          await item.save({ session });
+          const when = new Date(mv.date).toLocaleDateString('ru-RU');
+          const back = mv.type === 'adjust' ? 'adjust' : d > 0 ? 'out' : 'in';
+          await this.movements.create([{ type: back, date: now, materialId: mv.materialId, warehouseId: wh._id, qty: Math.abs(d), delta: -d,
+            documentRef: back === 'adjust' ? 'ADJUST:отмена пересчёта' : undefined, notes: `Отмена: ${MOVE_LABEL[mv.type] ?? mv.type} от ${when}`, createdBy, cancelOf: mv._id }], { session });
+          await this.movements.updateOne({ _id: mv._id }, { $set: { cancelledAt: now } }, { session }).exec();
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+    return this.batchResult(batchId, 'cancel');
   }
 
   private async loadStorage(warehouseId: Types.ObjectId, materialId: Types.ObjectId, session: ClientSession): Promise<StorageItemDocument> {
