@@ -13,12 +13,13 @@ import { mountOps } from './sections/ops.js';
 import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
 import { partners } from './sections/partners.js';
+import { invoice } from './sections/invoice.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners };
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money']];
 const DEFAULT = 'home';
 const root = $('#root');

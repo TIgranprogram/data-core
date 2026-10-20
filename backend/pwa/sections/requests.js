@@ -2,14 +2,13 @@ import { api, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
-import { go } from '../core/router.js';
+import { go, patch } from '../core/router.js';
 import { badge, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
 import { pic } from './stock.js';
-import { invoiceDialog } from './invoice.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
@@ -140,7 +139,7 @@ export const requests = {
     sortDefault: '-requestDate',
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
-    headActions: (reload) => [h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции одним окном', onclick: async () => { if (await invoiceDialog()) reload(); } }, '+ Счёт')],
+    headActions: () => [h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции сразу', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, '+ Счёт')],
     searchPlaceholder: 'Поиск: наименование, №, поставщик, заказ…',
     emptyText: 'Заявок пока нет.',
     filters: [

@@ -79,7 +79,7 @@ export function buildForm(fields, initial = {}) {
       load().then(() => {
         const cats = [...new Set(items.map((x) => x.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
         attachCombo(cat, { options: () => [{ label: 'Все категории', value: '' }, ...cats.map((c) => ({ label: c, value: c }))], onPick: (o) => { catSel = o.value; item.value = ''; item.focus(); } });
-        cat.addEventListener('change', () => { if (!cat.value || cat.value === 'Все категории') catSel = ''; });
+        cat.addEventListener('change', () => { const v = cat.value.trim(); catSel = !v || v === 'Все категории' ? '' : (cats.find((c) => c.toLowerCase() === v.toLowerCase()) || ''); });
         attachCombo(item, {
           options: () => items.filter((x) => !catSel || x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, group: catSel ? undefined : x.cat || 'Без категории', x })),
           onPick: (o) => {

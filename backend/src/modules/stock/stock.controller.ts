@@ -94,6 +94,14 @@ export class StockController {
     return this.stock.addPhoto(id, dto.photoId);
   }
 
+  /** Убрать фото позиции (главное — следующее по списку). */
+  @Delete('items/:id/photos/:photoId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.photo.removed', entityType: 'Material', idParam: 'id' })
+  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+    return this.stock.removePhoto(id, photoId);
+  }
+
   /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */
   @Post('batch')
   @Roles('admin', 'manager')

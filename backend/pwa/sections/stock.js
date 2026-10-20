@@ -127,6 +127,7 @@ export const stock = {
   card: {
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }),
+    photoRemove: (r, photoId) => api(`/stock/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
     heading: (r) => r.name,
     subheading: (r) => [r.categoryName, r.article && `арт. ${r.article}`].filter(Boolean).join(' · '),
     stats: (r) => [['Остаток', `${qty(r.quantity)} ${unit(r)}`], ['В брони', qty(r.reservedQty)], ['Свободно', qty(r.free)]],
@@ -185,7 +186,10 @@ export const stock = {
       if (twin) throw new Error(`Позиция «${twin.name}» уже есть на складе — найдите её поиском`);
       const { photoIds, ...rest } = body;
       let r = await api('/stock/items', { method: 'POST', body: rest });
-      for (const photoId of photoIds || []) r = await api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } });
+      for (const photoId of photoIds || []) {
+        try { r = await api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); }
+        catch (e) { toast(`Позиция создана, но фото не прикрепилось: ${e.message}. Добавьте фото в карточке.`, { error: true }); break; }
+      }
       lookups.reset();
       return r;
     },
@@ -194,6 +198,7 @@ export const stock = {
       let r = await api(`/stock/items/${id}`, { method: 'PATCH', body: rest });
       const have = new Set((r.photos || []).map((p) => p.id));
       for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });
+      for (const p of have) if (photoIds && !photoIds.includes(p)) r = await api(`/stock/items/${id}/photos/${p}`, { method: 'DELETE' });
       lookups.reset(); return r;
     },
   },

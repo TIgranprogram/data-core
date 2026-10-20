@@ -2,7 +2,6 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, parseNum, qty } from '../core/format.js';
 import { attachCombo } from '../ui/combo.js';
-import { modal } from '../ui/dialog.js';
 import { photoField } from '../ui/photos.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
@@ -21,7 +20,8 @@ const STATE = [
 ];
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
-export async function invoiceDialog() {
+/** Форма счёта для правой панели (card.js: section.form.build): { el, read, dirty, focus }. */
+async function buildInvoiceForm() {
   const [lk, items] = await Promise.all([lookups(), pastItems().catch(() => [])]);
   const field = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
   const no = h('input', { maxlength: 100, placeholder: 'например: 01097' });
@@ -51,10 +51,11 @@ export async function invoiceDialog() {
     lines.append(row.el);
     attachCombo(title, {
       options: () => items.map((x) => ({ label: x.label, sub: x.sub, group: x.cat || 'Без категории', x })),
-      onPick: (o) => { const v = o.x.values || {}; if (v.unit) unit.value = v.unit; if (v.categoryName) cat.value = v.categoryName; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; },
+      onPick: (o) => { const v = o.x.values || {}; row.picked = o.label; if (v.unit) unit.value = v.unit; if (v.categoryName) cat.value = v.categoryName; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; },
     });
     attachCombo(unit, { options: () => [...new Set([...UNITS, ...(lk.units || [])])].map((u) => ({ label: u })) });
     attachCombo(cat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })) });
+    title.addEventListener('input', () => { if (title.value !== row.picked) row.extra = {}; });
     sum.addEventListener('input', recalc);
     sum.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); } });
     rows.push(row);
@@ -73,39 +74,50 @@ export async function invoiceDialog() {
   addRow(false);
   recalc();
 
-  const done = await modal({
-    title: 'Внести счёт',
-    okText: 'Внести',
-    wide: true,
-    body,
-    onOk: async () => {
-      const invoiceNo = no.value.trim();
-      if (!invoiceNo) throw new Error('Впишите № счёта');
-      const list = rows.filter((r) => r.title.value.trim());
-      if (!list.length) throw new Error('Добавьте хотя бы одну позицию');
-      for (const r of list) if (!(parseNum(r.q.value) > 0)) throw new Error(`Количество для «${r.title.value.trim()}»`);
-      const st = STATE.find((s) => s.value === state);
-      let ok = 0;
-      for (const r of list) {
-        r.uid ??= uid();
-        const body2 = {
-          title: r.title.value.trim(), qty: parseNum(r.q.value), unit: r.unit.value.trim() || 'шт', categoryName: r.cat.value.trim(),
-          supplierName: sup.value.trim(), companyName: company.value, invoiceType: type.value.trim(), invoiceNo, invoiceDate: date.value || '',
-          productUrl: r.url.value.trim(), photoIds: r.photos.ids(), statusLabel: st.status, priorityLabel: 'Обычный', requestDate: date.value || isoDay(),
-          clientUid: r.uid, ...(r.extra.article ? { article: r.extra.article } : {}),
-        };
-        if (session.canMoney && parseNum(r.sum.value) > 0) body2.priceHint = parseNum(r.sum.value);
-        r.saved ??= await api('/supply/requests', { method: 'POST', body: body2 });
-        if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid } }); r.received = true; }
-        ok++;
+  const start = () => JSON.stringify([no.value, date.value, sup.value, company.value, type.value, state, rows.map((r) => [r.title.value, r.q.value, r.unit.value, r.sum.value, r.cat.value, r.url.value, r.photos.ids()])]);
+  const initialSnap = start();
+  async function save() {
+    const invoiceNo = no.value.trim();
+    if (!invoiceNo) throw new Error('впишите № счёта');
+    const list = rows.filter((r) => r.title.value.trim());
+    if (!list.length) throw new Error('добавьте хотя бы одну позицию');
+    for (const r of list) if (!(parseNum(r.q.value) > 0)) throw new Error(`укажите количество для «${r.title.value.trim()}»`);
+    const st = STATE.find((s) => s.value === state);
+    for (const r of list) {
+      r.uid ??= uid();
+      const body2 = {
+        title: r.title.value.trim(), qty: parseNum(r.q.value), unit: r.unit.value.trim() || 'шт', categoryName: r.cat.value.trim(),
+        supplierName: sup.value.trim(), companyName: company.value, invoiceType: type.value.trim(), invoiceNo, invoiceDate: date.value || '',
+        productUrl: r.url.value.trim(), photoIds: r.photos.ids(), statusLabel: st.status, priorityLabel: 'Обычный', requestDate: date.value || isoDay(),
+        clientUid: r.uid, ...(r.extra.article ? { article: r.extra.article } : {}),
+      };
+      if (session.canMoney && parseNum(r.sum.value) > 0) body2.priceHint = parseNum(r.sum.value);
+      if (!r.saved) {
+        r.saved = await api('/supply/requests', { method: 'POST', body: body2 }); // повтор после ошибки не задваивает
+        // внесённую строку больше не править (при сбое на следующей — видно, что эта уже в базе)
+        for (const el of [r.title, r.q, r.unit, r.sum, r.cat, r.url]) el.disabled = true;
+        r.el.classList.add('inv-done'); r.el.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       }
-      return ok;
-    },
-  });
-  if (done) {
-    toast(`Счёт ${no.value.trim()} внесён: ${done} ${done === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);
-    window.dispatchEvent(new CustomEvent('data-changed'));
+      if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid } }); r.received = true; }
+    }
+    toast(`Счёт ${invoiceNo} внесён: ${list.length} ${list.length === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);
+    return { id: null, invoiceNo, count: list.length };
   }
-  return done;
+  return { el: body, read: () => ({ values: { save } }), dirty: () => start() !== initialSnap, focus: () => no.focus() };
 }
-export const invoiceTotalHint = (n) => `${qty(n)}`;
+
+/** Раздел-«форма» для правой панели: открывается как новая запись (#requests?of=invoice&new=1), после «Внести» панель закрывается. */
+export const invoice = {
+  id: 'invoice',
+  title: 'Счёт',
+  newTitle: 'Внести счёт',
+  card: { heading: () => 'Счёт' },
+  get: async () => ({}),
+  form: {
+    build: () => buildInvoiceForm(),
+    toBody: (v) => v,
+    create: (v) => v.save(),
+    saveLabel: 'Внести',
+    closeAfterCreate: true,
+  },
+};

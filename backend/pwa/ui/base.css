@@ -671,3 +671,10 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 .lane .quick-panel { margin: 0; }
 @media (max-width: 1400px) { .lanes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .lanes > .lane:first-child { grid-column: 1 / -1; } }
 @media (max-width: 900px) { .lanes { grid-template-columns: minmax(0, 1fr); } }
+/* «Внести счёт» в правой панели: позиция — наименование сверху, кол-во/ед./сумма ниже */
+.drawer .inv-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.drawer .inv-main { grid-template-columns: 76px 84px minmax(0, 1fr) auto auto; }
+.drawer .inv-main .inv-t { grid-column: 1 / -1; }
+
+.inv-row.inv-done { opacity: .75; }
+.inv-row.inv-done::after { content: '✓ внесено'; display: block; margin-top: 4px; font-size: var(--fs-sm); color: var(--ok); }

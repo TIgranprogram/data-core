@@ -21,7 +21,7 @@ export function attachCombo(input, { options, onPick, max = 60 }) {
     const list = all().filter((o) => !tokens.length || tokens.every((t) => normSearch([o.label, o.sub, o.group].filter(Boolean).join(' ')).includes(t)));
     shown = list.slice(0, max);
     if (!shown.length) { box.replaceChildren(h('div', { class: 'combo-empty' }, tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст')); box.hidden = false; return; }
-    active = Math.min(active, shown.length - 1);
+    active = Math.min(active, shown.length - 1); // -1 — ничего не подсвечено: Enter не меняет введённое
     const rows = []; let grp;
     shown.forEach((o, i) => {
       if (o.group && o.group !== grp) { grp = o.group; rows.push(h('div', { class: 'combo-group' }, grp)); }
@@ -42,12 +42,12 @@ export function attachCombo(input, { options, onPick, max = 60 }) {
     close();
     onPick?.(o);
   }
-  input.addEventListener('focus', () => { active = 0; render(false); });
+  input.addEventListener('focus', () => { active = -1; render(false); });
   input.addEventListener('click', () => { if (box.hidden) render(false); });
-  input.addEventListener('input', () => { if (!picking) { active = 0; render(true); } });
+  input.addEventListener('input', () => { if (!picking) { active = -1; render(true); } });
   input.addEventListener('blur', () => setTimeout(close, 120));
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); if (box.hidden) render(false); else { active = Math.min(shown.length - 1, active + 1); render(!!input.value && !shown.some((o) => o.label === input.value)); } }
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (box.hidden) render(false); else { active = Math.min(shown.length - 1, Math.max(-1, active) + 1); render(!!input.value && !shown.some((o) => o.label === input.value)); } }
     else if (e.key === 'ArrowUp' && !box.hidden) { e.preventDefault(); active = Math.max(0, active - 1); render(!!input.value && !shown.some((o) => o.label === input.value)); }
     else if (e.key === 'Enter' && !box.hidden && shown[active]) { e.preventDefault(); pick(shown[active]); }
     else if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); close(); }

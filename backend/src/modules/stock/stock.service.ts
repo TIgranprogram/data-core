@@ -265,6 +265,17 @@ export class StockService {
     return this.getItem(materialId);
   }
 
+  async removePhoto(materialId: string, photoId: string) {
+    const _id = oid(materialId, 'позиции'); const pid = oid(photoId, 'фото');
+    const m = await this.materials.findOne({ _id, deletedAt: null }, { photoIds: 1, mainPhotoId: 1 }).lean().exec();
+    if (!m) throw new NotFoundException('Позиция не найдена');
+    const rest = ((m.photoIds ?? []) as Types.ObjectId[]).filter((p) => String(p) !== String(pid));
+    const main = String(m.mainPhotoId ?? '') === String(pid) ? rest[0] ?? null : m.mainPhotoId ?? null;
+    await this.materials.updateOne({ _id }, { $set: { photoIds: rest, mainPhotoId: main } }).exec();
+    await this.markEdited(_id);
+    return this.getItem(materialId);
+  }
+
   /**
    * Движение по позиции. in/out/adjust — как в CRM (остаток в storageitems + запись в stockmovements);
    * reserve/unreserve — reservedQty + reservations. Повтор с тем же clientUid ничего не меняет.
