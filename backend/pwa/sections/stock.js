@@ -6,6 +6,7 @@ import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
+import { facetFilter, ftQuery } from '../ui/facet-filter.js';
 import { cancelMovement, moveLabel } from './movements.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
@@ -75,6 +76,10 @@ export const stock = {
 
   list: {
     path: '/stock/items',
+    // фильтры «тип / резьба / длина / стандарт» — выпадающая панель поверх таблицы; выбранное уходит словами поиска
+    toolbarExtra: () => facetFilter({ categoryKey: 'categoryId' }),
+    extraKeys: ['ft'],
+    query: (P) => (P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') } : {}),
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Поиск: наименование, артикул…',

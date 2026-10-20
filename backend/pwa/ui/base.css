@@ -713,3 +713,16 @@ table.sum-tbl tr.total.q td { background: var(--surface-2); font-weight: 600; }
 @media (max-width: 1200px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .demo-note { background: var(--hint-bg); border-radius: var(--radius-sm); padding: 8px 12px; }
+
+/* Без дёрганья (2026-10-20): место под полосу прокрутки всегда занято — страница не прыгает вбок, когда список длиннее/короче экрана; цифры одной ширины */
+html { scrollbar-gutter: stable; }
+.chip b, .tag small, .tiles b, .count, .num { font-variant-numeric: tabular-nums; }
+
+/* Фильтры по признакам в «Остатках» (ui/facet-filter.js): панель поверх таблицы, не сдвигает её */
+.ff { position: relative; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.ff-btn.on { border-color: var(--primary); color: var(--link); }
+.ff-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.ff-tag { height: 28px; }
+.ff-pop { position: absolute; z-index: 45; top: calc(100% + 6px); left: 0; width: min(760px, 92vw); max-height: 60vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.ff-vals { flex-wrap: wrap; }
+.ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }

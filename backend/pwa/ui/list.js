@@ -12,6 +12,7 @@ import { toastError } from './toast.js';
  * Экран строится ОДИН раз; смена фильтра/страницы/сортировки — update(params): элементы управления не пересоздаются,
  * строки заменяются, когда пришли новые данные (старые остаются видны, без моргания).
  * section.list = {
+ *   toolbarExtra?() → { el, update(P) } — свой элемент в панели инструментов (фильтры по признакам у «Остатков»), extraKeys — его ключи в адресе;
  *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
  *   columns: [{ key, label, sort?, cls?, render(row) }],
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
@@ -80,11 +81,14 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       sel.value = P[f.key] || '';
     }).catch(() => { /* фильтр без вариантов — не критично */ });
   }
+  const extra = L.toolbarExtra ? L.toolbarExtra() : null;
+  if (extra) { toolbar.append(extra.el); extra.update(P); }
   const resetBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => resetFilters() }, 'Сбросить');
   toolbar.append(resetBtn);
   function resetFilters() {
     const clear = { q: undefined, page: undefined };
     for (const f of L.filters || []) clear[f.key] = undefined;
+    for (const k of L.extraKeys || []) clear[k] = undefined;
     search.value = '';
     patch(clear);
   }
@@ -355,6 +359,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const onlyOpen = [...dataKeys].every(same);
     if (onlyOpen) { markSelected(); return; }
     syncControls();
+    extra?.update(P);
     load();
   }
 
