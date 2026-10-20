@@ -178,3 +178,6 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--side); color: #fff; padding: 11px 18px; border-radius: var(--radius);
   border-left: 4px solid var(--gold); opacity: 0; pointer-events: none; transition: all .25s; z-index: 999; max-width: 90vw; box-shadow: var(--shadow-lg); }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Кнопки действий в строке — в одну линию */
+.table td:has(> .btn) { white-space: nowrap; width: 1%; }

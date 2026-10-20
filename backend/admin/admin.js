@@ -9,6 +9,8 @@
   const store = {
     get token() { return sessionStorage.getItem('dc_token') || ''; },
     set token(v) { v ? sessionStorage.setItem('dc_token', v) : sessionStorage.removeItem('dc_token'); },
+    get refresh() { return sessionStorage.getItem('dc_refresh') || ''; },
+    set refresh(v) { v ? sessionStorage.setItem('dc_refresh', v) : sessionStorage.removeItem('dc_refresh'); },
     get user() { try { return JSON.parse(sessionStorage.getItem('dc_user') || 'null'); } catch { return null; } },
     set user(v) { v ? sessionStorage.setItem('dc_user', JSON.stringify(v)) : sessionStorage.removeItem('dc_user'); },
   };
@@ -17,13 +19,33 @@
   const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
   const fmtDate = (s) => s ? new Date(s).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
-  // ---- HTTP helper: attach JWT, auto-logout on 401 ----
+  // Вход живёт 15 минут: на 401 — один раз продлеваем по refresh-токену (как «Рабочее место»), не вышло — на вход.
+  let refreshing = null;
+  function refreshAccess() {
+    if (!store.refresh) return Promise.resolve(false);
+    refreshing ??= fetch(API + '/auth/refresh', { method: 'POST', headers: { Authorization: `Bearer ${store.refresh}` } })
+      .then(async (r) => { if (!r.ok) return false; store.token = (await r.json()).access; return true; })
+      .catch(() => false).finally(() => { refreshing = null; });
+    return refreshing;
+  }
+  /** fetch с токеном и продлением входа. */
+  async function authFetch(path, opts = {}) {
+    const send = () => {
+      const headers = { ...(opts.headers || {}) };
+      if (store.token) headers.Authorization = `Bearer ${store.token}`;
+      if (opts.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      return fetch(API + path, { ...opts, headers });
+    };
+    let res = await send();
+    if (res.status === 401 && store.token && !path.startsWith('/auth/')) {
+      if (await refreshAccess()) res = await send();
+      if (res.status === 401) { logout(); showLogin(); throw new Error('Сессия истекла — войдите снова'); }
+    }
+    return res;
+  }
+  // ---- HTTP helper: attach JWT, auto-refresh, logout on 401 ----
   async function api(path, opts = {}) {
-    const headers = { ...(opts.headers || {}) };
-    if (store.token) headers.Authorization = `Bearer ${store.token}`;
-    if (opts.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-    const res = await fetch(API + path, { ...opts, headers });
-    if (res.status === 401 && store.token) { logout(); showLogin(); throw new Error('Сессия истекла — войдите снова'); }
+    const res = await authFetch(path, opts);
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
       try { const j = await res.json(); msg = j.message || j.error || msg; if (Array.isArray(msg)) msg = msg.join('; '); } catch { /* ignore */ }
@@ -36,9 +58,11 @@
   async function login(username, password) {
     const r = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     store.token = r.access;
+    store.refresh = r.refresh || '';
+    sessionStorage.removeItem('dc_out');
     store.user = r.user;
   }
-  function logout() { store.token = ''; store.user = null; }
+  function logout() { store.token = ''; store.refresh = ''; store.user = null; }
 
   // ---- View switching ----
   function showApp() {
@@ -805,7 +829,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   async function fetchText(path) {
-    const res = await fetch(API + path, { headers: { Authorization: `Bearer ${store.token}` } });
+    const res = await authFetch(path);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();
   }
@@ -827,7 +851,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     try { await login($('#login-username').value.trim(), $('#login-password').value); showApp(); }
     catch (ex) { err.textContent = ex.message; err.hidden = false; }
   });
-  $('#logout-btn').addEventListener('click', () => { logout(); showLogin(); });
+  $('#logout-btn').addEventListener('click', () => { logout(); sessionStorage.setItem('dc_out', '1'); showLogin(); });
   $('#user-create-btn').addEventListener('click', () => openUserDialog(null));
   $('#user-form').addEventListener('submit', saveUser);
   $('#user-cancel').addEventListener('click', () => $('#user-dialog').close());
@@ -863,5 +887,13 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#cx-dl-guide').addEventListener('click', async () => { try { download('datacore-guide.md', await fetchText('/meta/guide'), 'text/markdown'); } catch (e) { toast(e.message); } });
 
   // ---- Boot ----
+  // Уже вошли в «Рабочее место» (тот же сайт) администратором — второй раз логиниться не нужно
+  if (!store.token && !sessionStorage.getItem('dc_out')) {
+    try {
+      const u = JSON.parse(localStorage.getItem('dca_user') || 'null');
+      const acc = localStorage.getItem('dca_access'), ref = localStorage.getItem('dca_refresh');
+      if (u && u.role === 'admin' && (acc || ref)) { store.token = acc || 'expired'; store.refresh = ref || ''; store.user = u; }
+    } catch { /* приватный режим */ }
+  }
   if (store.token) showApp(); else showLogin();
 })();
