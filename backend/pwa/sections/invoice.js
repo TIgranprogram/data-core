@@ -48,6 +48,7 @@ async function buildInvoiceForm() {
     const sum = h('input', { inputmode: 'decimal', placeholder: 'сумма, ₽', class: 'inv-s', hidden: !session.canMoney, 'aria-label': 'Сумма' });
     const row = { title, q, unit, sum, cat, url: { value: '' }, photos: { ids: () => [] }, extra: {}, el: null };
     // форма новой позиции — в строке, нашим блоком
+    const nCat = h('input', { maxlength: 100, placeholder: 'Выберите категорию' });
     const nName = h('input', { maxlength: 300, placeholder: 'Как называется: «Болт мебельный, M8х40, DIN 603»' });
     const nArt = h('input', { maxlength: 100, placeholder: 'пусто — присвоится сам' });
     const nUnit = h('input', { value: 'шт', maxlength: 30 });
@@ -57,10 +58,10 @@ async function buildInvoiceForm() {
     const nSave = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Создать позицию');
     const nBox = h('div', { class: 'form-block inv-new', 'data-tone': 'info', hidden: true },
       h('div', { class: 'inv-new-head' }, h('b', null, 'Новая позиция в базе'), h('span', { class: 'muted small' }, ' — появится на складе в выбранной категории')),
-      h('div', { class: 'form-grid' }, field('Наименование *', nName, 'wide'), field('Артикул', nArt), field('Ед. изм.', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
+      h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Наименование *', nName, 'wide'), field('Артикул', nArt), field('Ед. изм.', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
         h('div', { class: 'field wide' }, h('span', null, 'Фото'), nPhotos.el)),
       nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { nBox.hidden = true; } }, 'Отмена')));
-    const addNew = h('button', { type: 'button', class: 'btn btn-sm', disabled: true, title: 'Нет в списке — добавить в базу', onclick: () => { nBox.hidden = false; nName.value = title.value.trim(); nName.focus(); } }, '+ Новая позиция');
+    const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = title.value.trim() || nName.value; (nCat.value ? nName : nCat).focus(); } }, 'Нет в списке — создать позицию');
     const del = h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Убрать позицию', onclick: () => { rows.splice(rows.indexOf(row), 1); row.el.remove(); recalc(); } }, '×');
     row.el = h('div', { class: 'inv-row' },
       h('div', { class: 'inv-pick' }, field('Категория', h('div', { class: 'has-combo' }, cat)), field('Позиция', h('div', { class: 'has-combo' }, title))),
@@ -70,7 +71,7 @@ async function buildInvoiceForm() {
     let catSel = '';
     const setCat = (name) => {
       catSel = name;
-      title.disabled = !name; addNew.disabled = !name;
+      title.disabled = !name;
       title.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию';
     };
     attachCombo(cat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })), onPick: (o) => { setCat(o.label); title.value = ''; row.extra = {}; title.focus(); } });
@@ -81,16 +82,20 @@ async function buildInvoiceForm() {
     });
     title.addEventListener('input', () => { if (title.value !== row.picked) row.extra = {}; });
     attachCombo(unit, { options: () => [...new Set([...UNITS, ...(lk.units || [])])].map((u) => ({ label: u })) });
+    attachCombo(nCat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })) });
     attachCombo(nUnit, { options: () => [...new Set([...UNITS, ...(lk.units || [])])].map((u) => ({ label: u })) });
     nSave.addEventListener('click', async () => {
       const name = nName.value.trim();
-      if (!name) { nErr.textContent = 'Впишите наименование'; nErr.hidden = false; return; }
+      const newCat = nCat.value.trim();
+      if (!newCat) { nErr.textContent = 'Выберите категорию'; nErr.hidden = false; nCat.focus(); return; }
+      if (!name) { nErr.textContent = 'Впишите наименование'; nErr.hidden = false; nName.focus(); return; }
       nSave.disabled = true; nErr.hidden = true;
       try {
-        let it = await api('/stock/items', { method: 'POST', body: { name, unit: nUnit.value.trim() || 'шт', categoryName: catSel, ...(nArt.value.trim() ? { article: nArt.value.trim() } : {}), ...(nUrl.value.trim() ? { notes: 'Ссылка: ' + nUrl.value.trim() } : {}) } });
+        let it = await api('/stock/items', { method: 'POST', body: { name, unit: nUnit.value.trim() || 'шт', categoryName: newCat, ...(nArt.value.trim() ? { article: nArt.value.trim() } : {}), ...(nUrl.value.trim() ? { notes: 'Ссылка: ' + nUrl.value.trim() } : {}) } });
         for (const photoId of nPhotos.ids()) it = await api(`/stock/items/${it.id}/photos`, { method: 'POST', body: { photoId } });
         // в списки и в строку
-        items.unshift({ label: it.name, cat: catSel, sub: [catSel, 'новая'].join(' · '), values: { title: it.name, unit: it.unit, categoryName: catSel, article: it.article } });
+        cat.value = newCat; setCat(newCat);
+        items.unshift({ label: it.name, cat: newCat, sub: [newCat, 'новая'].join(' · '), values: { title: it.name, unit: it.unit, categoryName: newCat, article: it.article } });
         title.value = it.name; row.picked = it.name; unit.value = it.unit || 'шт'; row.extra = { article: it.article };
         row.url = { value: nUrl.value.trim() };
         nBox.hidden = true;
@@ -110,7 +115,7 @@ async function buildInvoiceForm() {
     h('div', { class: 'form-grid inv-head' }, field('№ счёта *', no), field('Дата счёта', date), field('Поставщик', h('div', { class: 'has-combo' }, sup)), field('Наша компания', company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox)),
     h('div', { class: 'section-title' }, 'Позиции счёта'),
     lines,
-    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ позиция'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
+    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ Строка счёта'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
   attachCombo(sup, { options: () => (lk.suppliers || []).map((s) => ({ label: s })) });
   attachCombo(type, { options: () => (lk.invoiceTypes || []).map((s) => ({ label: s })) });
   addRow(false);
