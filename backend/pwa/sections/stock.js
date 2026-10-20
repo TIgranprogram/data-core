@@ -126,6 +126,7 @@ export const stock = {
 
   card: {
     gallery: (r) => r.photos || [],
+    photoAdd: (r, photoId) => api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }),
     heading: (r) => r.name,
     subheading: (r) => [r.categoryName, r.article && `арт. ${r.article}`].filter(Boolean).join(' · '),
     stats: (r) => [['Остаток', `${qty(r.quantity)} ${unit(r)}`], ['В брони', qty(r.reservedQty)], ['Свободно', qty(r.free)]],

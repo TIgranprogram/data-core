@@ -170,13 +170,14 @@ export function mountHome(deps) {
       const c = all.counts || {}, s = stock.counts || {};
       const item = (label, value, target, tone) => h('button', { type: 'button', class: 'sum-item' + (tone ? ' ' + tone : ''), onclick: () => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
         h('span', { class: 'sum-v' }, value), h('span', { class: 'sum-l' }, label));
-      summary.replaceChildren(
+      summary.replaceChildren(...[
         item('нужно заказать', qty(c.requested || 0), 'q-order', c.requested ? 'attn' : ''),
         item('ждём поставку', qty((c.ordered || 0) + (c.paid || 0)), 'q-wait'),
         item('ждут решения', qty(c.in_progress || 0), 'q-decide'),
         item('закончилось на складе', qty((s.none || 0) + (s.low || 0)), 'q-stock', s.none || s.low ? 'attn' : ''),
-        inc ? item('ждём оплату', qty(inc.counts?.awaiting || 0), 'q-pay', inc.counts?.awaiting ? 'attn' : '') : null,
-        h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, money(month.sum || 0)), h('span', { class: 'sum-l' }, `заявки за месяц · ${qty(month.total)} шт.`)));
+        inc && session.canMoney ? item('ждём оплату', qty(inc.counts?.awaiting || 0), 'q-pay', inc.counts?.awaiting ? 'attn' : '') : null,
+        session.canMoney ? h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, money(month.sum || 0)), h('span', { class: 'sum-l' }, `заявки за месяц · ${qty(month.total)} шт.`))
+          : h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, qty(month.total)), h('span', { class: 'sum-l' }, 'заявок за месяц'))].filter(Boolean));
     } catch (e) {
       // Разовый сбой (напр. в момент продления входа) — одна повторная попытка
       if (summaryRetry++ < 1) { setTimeout(loadSummary, 1200); return; }
@@ -190,7 +191,7 @@ export function mountHome(deps) {
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
     summary,
     quick ? h('div', { class: 'panel quick-panel' }, quick) : null,
-    h('div', { class: 'queues' }, qOrder, qWait, qDecide, qStock, qDue, qPay, qFeed));
+    h('div', { class: 'queues' }, qOrder, qWait, qDecide, qStock, qDue, session.canMoney ? qPay : null, qFeed));
 
   reloadAll();
   return { el, reload: reloadAll, update: () => {} };

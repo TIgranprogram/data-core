@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -8,6 +9,7 @@ import { SupplyService } from './supply.service';
 
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
 @ApiTags('Снабжение')
+@UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
 @Controller('supply')
 export class SupplyController {
   constructor(private readonly supply: SupplyService) {}

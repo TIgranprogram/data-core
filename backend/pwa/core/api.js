@@ -14,7 +14,10 @@ export const session = {
   set user(v) { store.set('dca_user', v ? JSON.stringify(v) : ''); },
   clear() { this.access = ''; this.refresh = ''; this.user = null; },
   /** Может ли менять данные (как на сервере: admin, manager). */
-  get canEdit() { return ['admin', 'manager'].includes(this.user?.role); },
+  // Иерархия ролей (backend common/roles-hierarchy.ts): директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель
+  get canEdit() { return ['admin', 'director', 'accountant', 'manager'].includes(this.user?.role) || this.user?.isOwner === true; },
+  /** Суммы, доходы, платёжный календарь — только админ / директор / бухгалтер (сервер всё равно скрывает). */
+  get canMoney() { return ['admin', 'director', 'accountant'].includes(this.user?.role) || this.user?.isOwner === true; },
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
 };
 

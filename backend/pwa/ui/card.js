@@ -2,6 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime } from '../core/format.js';
 import { confirmDlg } from './dialog.js';
+import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
 
@@ -9,7 +10,8 @@ import { toast, toastError } from './toast.js';
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
  * section = {
  *   title, entityType, noun ('заявку'), get(id) → row,
- *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), extra?(row, ctx) },
+ *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), extra?(row, ctx),
+ *           gallery?(row) → [{ id, url, thumb }], photoAdd?(row, photoId) → row, photoRemove?(row, photoId) → row },
  *   form?: { fields(row|null) → поля, toBody(values, row|null), create(body) → row, update(id, body) → row, initial?() },
  *   remove?: { run(row), restore(row), text(row), blocked?(row) → причина | null },
  *   duplicate?(row) → начальные значения новой записи,
@@ -21,7 +23,7 @@ import { toast, toastError } from './toast.js';
 export const DOCK_MIN = 1400;
 
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
-function gallery(pics) {
+function gallery(pics, onRemove) {
   const big = h('img', { class: 'g-big', src: PREFIX + pics[0].url, alt: '', loading: 'lazy' });
   let cur = 0;
   const show = (i) => { cur = i; big.src = PREFIX + pics[i].url; strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); };
@@ -33,7 +35,8 @@ function gallery(pics) {
     document.addEventListener('keydown', close, true);
     document.body.append(box);
   });
-  return h('div', { class: 'gallery' }, big, strip);
+  const del = onRemove ? h('button', { class: 'btn btn-ghost btn-sm g-del', type: 'button', title: 'Убрать это фото из карточки', onclick: (e) => { e.stopPropagation(); onRemove(pics[cur]); } }, 'Убрать фото') : null;
+  return h('div', { class: 'gallery' }, big, strip, del);
 }
 const docked = () => window.innerWidth >= DOCK_MIN;
 export function openCard(section, { id, mode = 'view', initial }, ctx) {
@@ -76,7 +79,12 @@ export function openCard(section, { id, mode = 'view', initial }, ctx) {
     subEl.textContent = section.card.subheading ? section.card.subheading(row) : '';
     const content = [];
     const pics = section.card.gallery ? section.card.gallery(row) : [];
-    if (pics.length) content.push(gallery(pics));
+    const canPhoto = session.canEdit && section.card.photoAdd;
+    if (pics.length) content.push(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
+      if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из карточки.', { okText: 'Убрать' }))) return;
+      try { actx().setRow(await section.card.photoRemove(row, p.id)); toast('Фото убрано'); } catch (e) { toastError(e); }
+    } : null));
+    if (canPhoto) content.push(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }));
     if (section.card.stats) content.push(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))));
     if (session.canEdit && section.card.actions) {
       const acts = section.card.actions(row, actx()).filter(Boolean);

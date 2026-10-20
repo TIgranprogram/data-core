@@ -163,10 +163,27 @@ export class IncomesService {
     const orderId = 'orderId' in f ? f.orderId : cur.orderId;
     if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
     const { amount, reportDate } = this.derive(cur as Record<string, unknown>, f);
+    // Оплата без суммы бессмысленна (так строка «оплачена» на 0 ₽) — сначала сумма
+    if (f.paidDate && !(amount > 0)) throw new BadRequestException('Сначала впишите сумму (цену за единицу или сумму строки), потом отмечайте оплату');
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
     await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+    return this.get(id);
+  }
+
+  async addPhoto(id: string, photoId: string) {
+    const _id = oid(id, 'позиции'); const pid = oid(photoId, 'фото');
+    if (!(await this.connection.db!.collection('photos').findOne({ _id: pid }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
+    const res = await this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid }, $set: { editedInApp: true } }).exec();
+    if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
+    return this.get(id);
+  }
+
+  async removePhoto(id: string, photoId: string) {
+    const _id = oid(id, 'позиции'); const pid = oid(photoId, 'фото');
+    const res = await this.model.updateOne({ _id, deletedAt: null }, { $pull: { photoIds: pid }, $set: { editedInApp: true } }).exec();
+    if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
     return this.get(id);
   }
 

@@ -3191,6 +3191,60 @@
         ]
       }
     },
+    "/incomes/{id}/photos": {
+      "post": {
+        "operationId": "IncomesController_addPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/photos/{photoId}": {
+      "delete": {
+        "operationId": "IncomesController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
     "/incomes/{id}/restore": {
       "post": {
         "operationId": "IncomesController_restore",
@@ -3211,6 +3265,101 @@
         },
         "tags": [
           "Доходы (заказы)"
+        ]
+      }
+    },
+    "/partners": {
+      "get": {
+        "operationId": "PartnersController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "supplier (умолч.) | customer | our",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
+        ]
+      }
+    },
+    "/partners/{id}": {
+      "get": {
+        "operationId": "PartnersController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
+        ]
+      },
+      "patch": {
+        "operationId": "PartnersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
+        ]
+      }
+    },
+    "/partners/{id}/merge": {
+      "post": {
+        "operationId": "PartnersController_merge",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
         ]
       }
     },
@@ -7326,10 +7475,11 @@
             "enum": [
               "user",
               "manager",
+              "accountant",
               "director",
               "admin"
             ],
-            "description": "Роль пользователя"
+            "description": "Роль: наблюдатель < менеджер < бухгалтер < директор; администратор — всё и пользователи"
           },
           "permissions": {
             "description": "Разрешения",
@@ -7384,10 +7534,11 @@
             "enum": [
               "user",
               "manager",
+              "accountant",
               "director",
               "admin"
             ],
-            "description": "Роль пользователя"
+            "description": "Роль: наблюдатель < менеджер < бухгалтер < директор; администратор — всё и пользователи"
           },
           "permissions": {
             "description": "Разрешения",

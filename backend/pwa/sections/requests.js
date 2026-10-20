@@ -109,7 +109,7 @@ const fields = async (r) => {
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },
     { key: 'invoiceNo', label: '№ счёта', max: 100 },
     { key: 'invoiceDate', label: 'Дата счёта', type: 'date', hint: 'В этот день расход попадёт в календарь' },
-    { key: 'priceHint', label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
+    { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
     { key: 'article', label: 'Артикул', max: 100 },
     { key: 'color', label: 'Цвет', max: 100 },
     { key: 'deliveryNote', label: 'Доставка', wide: true, max: 300 },
@@ -150,17 +150,17 @@ export const requests = {
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
       { key: 'supplierName', label: 'Поставщик', cls: 'md-hide', render: (r) => r.supplierName || '' },
       { key: 'requestedBy', label: 'Кто подал', sort: 'requestedBy', cls: 'nowrap md-hide', render: (r) => r.requestedBy || '' },
-      { key: 'priceHint', label: 'Сумма', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
+      { key: 'priceHint', money: true, label: 'Сумма', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
       { key: 'status', label: 'Статус', sort: 'status', cls: 'nowrap', render: (r) => h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), r.priority === 'urgent' ? h('span', null, ' ', badge(PRIORITY, 'urgent')) : null) },
     ],
     card: {
       title: heading,
       sub: (r) => [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.requestedBy, date(r.requestDate)].filter(Boolean).join(' · '),
-      side: (r) => [badge(SUPPLY_STATUS, supplyKey(r)), r.priceHint ? h('span', { class: 'num small' }, money(r.priceHint)) : null],
+      side: (r) => [badge(SUPPLY_STATUS, supplyKey(r)), r.priceHint && session.canMoney ? h('span', { class: 'num small' }, money(r.priceHint)) : null],
     },
-    footer: (resp) => h('span', { class: 'sum-line' }, `Сумма по выборке: ${money(resp.sum || 0)}`),
+    footer: (resp) => (session.canMoney ? h('span', { class: 'sum-line' }, `Сумма по выборке: ${money(resp.sum || 0)}`) : null),
     // Завершённое копится — сворачивается по месяцам получения/отмены (TASKS фаза М)
-    periods: (P) => (['received', 'cancelled'].includes(P.status) ? { date: (r) => r.receivedAt || r.requestDate || r.updatedAt, total: (rs) => money(rs.reduce((s, r) => s + (Number(r.priceHint) || 0), 0)) } : null),
+    periods: (P) => (['received', 'cancelled'].includes(P.status) ? { date: (r) => r.receivedAt || r.requestDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.priceHint) || 0), 0)) : undefined } : null),
     hints: {
       '': 'Все заявки. Кнопка в строке — следующий шаг: «В заказ» → «Заказано» → «Оплачено» → «Принять» на склад.',
       in_progress: 'Ждут решения: заказывать («В заказ») или отменить в карточке.',
@@ -187,7 +187,7 @@ export const requests = {
         pic: r.photo,
         title: heading(r),
         meta: [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.priority === 'urgent' ? badge(PRIORITY, 'urgent') : null].filter(Boolean).map((x) => (typeof x === 'string' ? h('span', null, x) : x)),
-        side: r.priceHint ? money(r.priceHint) : '',
+        side: r.priceHint && session.canMoney ? money(r.priceHint) : '',
       }),
       /** Перетаскивание в колонку: «Получено» — через оприходование на склад, остальное — смена статуса. */
       move: async (r, to) => {
@@ -206,7 +206,7 @@ export const requests = {
     view: (r) => [
       ['Статус', h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), ' ', r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
       ['Количество', `${qty(r.qty)} ${r.unit || ''}`.trim()],
-      ['Сумма с НДС', money(r.priceHint)],
+      ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''],
       ['Поставщик', r.supplierName],
       ['Категория', r.categoryName],
       ['Заказ / заказчик', r.orderLabel],

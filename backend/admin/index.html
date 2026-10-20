@@ -59,7 +59,7 @@
         <h2>Пользователи</h2>
         <button id="user-create-btn" class="btn btn-accent">+ Создать</button>
       </div>
-      <p class="panel-note">Роли: <b>наблюдатель</b> — только просмотр, <b>менеджер</b> — заявки, склад и заказы, <b>директор</b> — всё, кроме управления пользователями, <b>администратор</b> — полный доступ (администраторов может быть несколько, любой администратор управляет всеми; владельца удалить нельзя).</p>
+      <p class="panel-note">Роли по старшинству — каждая видит всё, что младшие: <b>наблюдатель</b> — только просмотр, без денег · <b>менеджер</b> — заявки, склад, заказы, без денег · <b>бухгалтер</b> — плюс деньги (суммы, оплаты, платёжный календарь) · <b>директор</b> — всё, кроме управления пользователями · <b>администратор</b> — всё и пользователи (администраторов может быть несколько; владельца удалить нельзя).</p>
 
       <form id="user-search-form" class="filters">
         <input id="user-search" placeholder="Поиск: логин, email, имя" />
@@ -68,6 +68,7 @@
           <option value="admin">администратор</option>
           <option value="director">директор</option>
           <option value="manager">менеджер</option>
+          <option value="accountant">бухгалтер</option>
           <option value="user">наблюдатель</option>
         </select>
         <button class="btn btn-primary" type="submit">Найти</button>
@@ -100,8 +101,9 @@
           <label>Роль
             <select id="f-role">
               <option value="user">Наблюдатель — только просмотр</option>
-              <option value="manager">Менеджер — заявки, склад, заказы</option>
-              <option value="director">Директор — всё, кроме пользователей</option>
+              <option value="manager">Менеджер — заявки, склад, заказы (без денег)</option>
+              <option value="accountant">Бухгалтер — всё, что у менеджера, плюс деньги</option>
+              <option value="director">Директор — всё, кроме управления пользователями</option>
               <option value="admin">Администратор — полный доступ</option>
             </select>
           </label>

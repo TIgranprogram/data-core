@@ -113,7 +113,7 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 .kpi .k-value { font-size: 28px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .kpi .k-hint { font-size: var(--fs-sm); color: var(--muted); }
 .kpi::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--tone, var(--border)); }
-.kpi.t-primary { --tone: var(--primary); } .kpi.t-gold { --tone: var(--gold); } .kpi.t-warn { --tone: var(--warn); } .kpi.t-danger { --tone: var(--danger); } .kpi.t-ok { --tone: var(--ok); } .kpi.t-info { --tone: var(--info); }
+.kpi.t-primary { --tone: var(--status-new); } .kpi.t-gold { --tone: var(--gold); } .kpi.t-warn { --tone: var(--warn); } .kpi.t-danger { --tone: var(--danger); } .kpi.t-ok { --tone: var(--ok); } .kpi.t-info { --tone: var(--info); }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s4); align-items: start; }
 @media (max-width: 1280px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
 
@@ -132,7 +132,7 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 .tcard .t-title { font-weight: 550; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tcard .t-meta { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: var(--fs-sm); flex-wrap: wrap; }
 .tcard .t-meta .num { color: var(--text); font-weight: 600; margin-left: auto; }
-.tone-dim { --tone: #9aa1ad; } .tone-primary { --tone: var(--primary); } .tone-info { --tone: var(--info); } .tone-warn { --tone: var(--gold); } .tone-ok { --tone: var(--ok); } .tone-danger { --tone: var(--danger); }
+.tone-dim { --tone: #9aa1ad; } .tone-primary { --tone: var(--status-new); } .tone-info { --tone: var(--info); } .tone-warn { --tone: var(--gold); } .tone-ok { --tone: var(--ok); } .tone-danger { --tone: var(--danger); }
 
 /* ---------- Плитки категорий ---------- */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s3); margin-bottom: var(--s4); }
@@ -204,7 +204,7 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 /* Статус — спокойно: цветная точка + обычный текст (без «ёлки» из цветных плашек) */
 .badge { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; white-space: nowrap; color: var(--text); }
 .badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, #a3aab6); flex: none; }
-.badge.ok { --dot: var(--ok); } .badge.warn { --dot: var(--gold); } .badge.danger { --dot: var(--danger); } .badge.info { --dot: var(--info); } .badge.primary { --dot: var(--primary); } .badge.dim { --dot: #a3aab6; color: var(--muted); }
+.badge.ok { --dot: var(--ok); } .badge.warn { --dot: var(--gold); } .badge.danger { --dot: var(--danger); } .badge.info { --dot: var(--info); } .badge.primary { --dot: var(--status-new); } .badge.dim { --dot: #a3aab6; color: var(--muted); }
 .pos { color: var(--ok); } .neg { color: var(--danger); }
 .thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--neutral-soft); flex: none; }
 
@@ -560,3 +560,20 @@ table.so-lines .num { text-align: right; }
 
 .so-pic { width: 48px; height: 48px; cursor: zoom-in; }
 table.so-lines .pic-cell { width: 56px; }
+
+/* Сводка денег: строки по компаниям */
+table.sum-tbl tr.sub td { color: var(--muted); font-size: var(--fs-sm); padding-top: 4px; padding-bottom: 4px; }
+table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
+
+/* Добавление фото в карточке (ui/photos.js) */
+.photo-drop { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin: 0 0 var(--s4); border: 1.5px dashed var(--border-strong); border-radius: var(--radius); color: var(--muted); font-size: var(--fs-sm); background: var(--surface-2); cursor: default; transition: background .15s, border-color .15s; }
+.photo-drop:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); }
+.photo-drop.over { border-color: var(--primary); background: var(--primary-soft); color: var(--text); }
+.photo-drop.busy { opacity: .7; }
+.pd-ico { font-size: 20px; }
+.g-del { margin-top: 6px; }
+
+.so-add { display: grid; grid-template-columns: minmax(0, 1fr) 70px 86px auto; gap: 6px; margin-top: 8px; }
+.so-add input, .so-add select { height: 34px; }
+.so-q { text-align: right; }
+@media (max-width: 720px) { .so-add { grid-template-columns: 1fr 70px 80px; } .so-add .btn { grid-column: 1 / -1; } }

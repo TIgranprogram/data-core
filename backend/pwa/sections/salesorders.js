@@ -1,6 +1,6 @@
-import { api, PREFIX } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, isoDay, money, qty } from '../core/format.js';
+import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { badge } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
@@ -41,18 +41,42 @@ async function setStage(r, stage) {
   return saved;
 }
 
+/** Быстрая строка «+ позиция» в карточке заказа: наименование, кол-во, ед. → Enter. Фото — в карточке позиции. */
+function addLineRow(r, after) {
+  const title = h('input', { placeholder: 'Новая позиция: наименование (Enter — добавить)', maxlength: 500 });
+  const q = h('input', { inputmode: 'decimal', value: '1', class: 'so-q', 'aria-label': 'Количество' });
+  const unit = h('select', { 'aria-label': 'Ед. изм.' }, ...['шт', 'компл', 'пара', 'м', 'м²', 'кг'].map((u) => h('option', { value: u }, u)));
+  const btn = h('button', { class: 'btn btn-primary btn-sm', type: 'button' }, 'Добавить');
+  const go = async () => {
+    const name = title.value.trim();
+    if (!name) { title.focus(); return; }
+    btn.disabled = true;
+    try {
+      const line = await api('/incomes', { method: 'POST', body: { orderId: r.id, title: name, qty: parseNum(q.value) || 1, unit: unit.value, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } });
+      toast(`Позиция добавлена — откройте её, чтобы добавить фото и сумму`);
+      title.value = ''; q.value = '1';
+      window.dispatchEvent(new CustomEvent('data-changed'));
+      after(line);
+    } catch (e) { toast(e.message, { error: true }); } finally { btn.disabled = false; }
+  };
+  title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  btn.addEventListener('click', go);
+  return h('div', { class: 'so-add' }, title, q, unit, btn);
+}
+
 function details(r) {
   const box = h('div', null, h('div', { class: 'muted' }, 'Загрузка позиций…'));
-  api(`/salesorders/${r.id}`).then((d) => {
+  const load = () => api(`/salesorders/${r.id}`).then((d) => {
     const lines = d.lines || [];
     const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
     box.replaceChildren(
       sec(`Позиции (${lines.length})`, lines.length
-        ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), h('th', { class: 'num' }, 'Сумма'))),
+        ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
           h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
             h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
-            h('td', { class: 'muted' }, l.color || ''), h('td', { class: 'num' }, l.amount ? money(l.amount) : '')))))
-        : h('p', { class: 'muted' }, 'Позиций пока нет.')),
+            h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
+        : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
+        session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
       sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
         ? h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`))))
         : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')),
@@ -60,6 +84,7 @@ function details(r) {
         ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, m.notes || ''))))
         : h('p', { class: 'muted' }, 'Списаний под заказ нет. В «Операциях» → «Списание» выберите этот заказ.')));
   }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не удалось загрузить: ' + e.message)));
+  load();
   return box;
 }
 
@@ -81,7 +106,8 @@ export const salesorders = {
       { key: 'filter', label: 'Состояние', type: 'chips', options: () => [{ value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
     ],
     hints: HINT,
-    periods: (P) => (P.filter === 'done' ? { date: (r) => r.shipDate || r.updatedAt, total: (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) } : null),
+    hintKey: 'filter',
+    periods: (P) => (P.filter === 'done' ? { date: (r) => r.shipDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
     rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: 'Следующий этап', run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
       { key: 'orderNo', label: '№', sort: 'orderNo', cls: 'nowrap', render: (r) => h('b', null, r.orderNo || '—') },
@@ -90,7 +116,7 @@ export const salesorders = {
       { key: 'companyName', label: 'Компания', cls: 'md-hide', render: (r) => r.companyName || h('span', { class: 'muted' }, '—') },
       { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => qty(r.lineCount) },
       { key: 'shipDate', label: 'Срок', sort: 'shipDate', cls: 'nowrap', render: due },
-      { key: 'amount', label: 'Сумма', cls: 'num right md-hide', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, '—')) },
+      { key: 'amount', money: true, label: 'Сумма', cls: 'num right md-hide', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, '—')) },
       { key: 'stage', label: 'Этап', sort: 'stage', cls: 'nowrap', render: (r) => badge(STAGE, r.stage) },
     ],
     card: {
@@ -103,7 +129,7 @@ export const salesorders = {
       card: (r) => ({
         title: `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
         meta: [r.title ? h('span', null, r.title.slice(0, 80)) : null, h('span', null, `${r.lineCount} поз.`), deadline(r) ? due(r) : null].filter(Boolean),
-        side: r.amount ? money(r.amount) : '',
+        side: r.amount && session.canMoney ? money(r.amount) : '',
       }),
       move: async (r, to) => { await setStage(r, to); return true; },
     },
@@ -112,7 +138,7 @@ export const salesorders = {
   card: {
     heading,
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
-    stats: (r) => [['Этап', STAGE[r.stage]?.label || r.stage], ['Позиций', qty(r.lineCount)], ['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']],
+    stats: (r) => [['Этап', STAGE[r.stage]?.label || r.stage], ['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
       ['Заказчик', r.customer],
       ['Предмет', r.title],

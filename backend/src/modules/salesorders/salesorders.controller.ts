@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -11,6 +12,7 @@ import { SalesOrdersService } from './salesorders.service';
  * Смотреть — все роли, менять — admin и manager (как доходы и снабжение).
  */
 @ApiTags('Заказы заказчиков')
+@UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
 @Controller('salesorders')
 export class SalesOrdersController {
   constructor(private readonly orders: SalesOrdersService) {}

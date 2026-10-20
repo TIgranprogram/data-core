@@ -1,4 +1,5 @@
 import { h } from '../core/dom.js';
+import { session } from '../core/api.js';
 import { parseNum } from '../core/format.js';
 import { attachSuggest } from './suggest.js';
 
@@ -10,6 +11,7 @@ import { attachSuggest } from './suggest.js';
  * Возвращает { el, read() → { values } | { errors }, dirty(), focus() }.
  */
 export function buildForm(fields, initial = {}) {
+  fields = fields.filter((f) => !f.money || session.canMoney); // суммы — только деньги-ролям
   const inputs = new Map();
   const grid = h('div', { class: 'form-grid' });
   for (const f of fields) {

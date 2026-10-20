@@ -99,4 +99,16 @@ describe('Finance: incomes + cashflow', () => {
       { category: 'Расходники', byCompany: { СИЮ: 0, ССЮ: 500.25 }, total: 500.25 },
     ]);
   });
+  it('оплата без суммы — 400 с объяснением; после «Вписать сумму» — можно; статус «Без суммы» → «Ждём оплату» → «Оплачено»', async () => {
+    const row = (await http().post('/api/incomes').set(auth()).send({ title: 'Скамья без цены', qty: 2, unit: 'шт', companyName: 'СИЮ', shipDate: '2026-10-01', clientUid: 'noamount-1' }).expect(201)).body;
+    expect(row.status).toBe('noamount');
+    const bad = await http().patch(`/api/incomes/${row.id}`).set(auth()).send({ paidDate: '2026-10-05' }).expect(400);
+    expect(bad.body.message).toContain('Сначала впишите сумму');
+    const priced = (await http().patch(`/api/incomes/${row.id}`).set(auth()).send({ unitPrice: 1500 }).expect(200)).body;
+    expect(priced).toMatchObject({ amount: 3000, status: 'awaiting' });
+    const paid = (await http().patch(`/api/incomes/${row.id}`).set(auth()).send({ paidDate: '2026-10-05' }).expect(200)).body;
+    expect(paid.status).toBe('paid');
+    // «Отменить оплату»
+    expect((await http().patch(`/api/incomes/${row.id}`).set(auth()).send({ paidDate: '' }).expect(200)).body.status).toBe('awaiting');
+  });
 });

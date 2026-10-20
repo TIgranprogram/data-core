@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { AuthenticatedUserLike } from '../contracts/rbac-contract';
+import { effectiveRoles } from '../roles-hierarchy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -36,7 +37,8 @@ export class RolesGuard implements CanActivate {
 
     const userRole = req.user?.role;
 
-    if (!userRole || !requiredRoles.includes(userRole)) {
+    // Иерархия (roles-hierarchy.ts): директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель
+    if (!userRole || !effectiveRoles(userRole).some((r) => requiredRoles.includes(r))) {
       throw new ForbiddenException(
         `Required role: ${requiredRoles.join(' | ')}, got: ${userRole ?? 'none'}`,
       );

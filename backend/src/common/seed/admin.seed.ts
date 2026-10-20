@@ -84,6 +84,17 @@ const SYSTEM_ROLES = [
     pages: [...DIRECTOR_PAGES],
   },
   {
+    // Бухгалтер (2026-10-20): всё, что у менеджера, плюс деньги (суммы, доходы, платёжный календарь); без пользователей.
+    // Иерархия ролей — common/roles-hierarchy.ts.
+    name: 'accountant',
+    label: 'Бухгалтер',
+    description: 'Деньги и всё, что у менеджера; без управления пользователями',
+    permissions: [...MANAGER_PERMISSIONS],
+    isSystem: true,
+    sortOrder: 8,
+    pages: [...MANAGER_PAGES],
+  },
+  {
     name: 'manager',
     label: 'Manager',
     description: 'Read/write most resources, no user management',

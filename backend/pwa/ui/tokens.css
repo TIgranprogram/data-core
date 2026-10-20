@@ -1,5 +1,8 @@
-/* Токены дизайна (CANON §2). Стиль — «бумага и чернила» CRM kppdf: холодная бумажная канва,
- * графитовый текст, золотой акцент, холодный синий для действий. Свои цвета/размеры в разделах запрещены. */
+/* Токены дизайна (CANON §2). Свои цвета/размеры в разделах запрещены.
+ * Светлая тема (2026-10-20, в пару к тёмной «зелёный на графите»): «чистая бумага и изумруд» — светлая канва
+ * с лёгкой прохладой, графитовый текст, заголовки — тёмно-изумрудные чернила, действия (кнопки, ссылки,
+ * выбранное) — изумрудные; золото — только «требует внимания»; синий — статус «новое / заказать».
+ * Контраст к белому: текст ≈ 16:1, второстепенный ≈ 5.6:1, изумруд кнопок/ссылок ≈ 5:1, белый на кнопке ≈ 5:1. */
 @font-face { font-family: 'Inter'; font-weight: 400; font-display: swap; src: url('../fonts/inter-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 @font-face { font-family: 'Inter'; font-weight: 500; font-display: swap; src: url('../fonts/inter-cyrillic-500-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 @font-face { font-family: 'Inter'; font-weight: 600; font-display: swap; src: url('../fonts/inter-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
@@ -26,15 +29,15 @@
   --topbar-h: 64px;
 
   /* бумага */
-  --bg: #f1f2f5;
+  --bg: #f1f4f3;
   --surface: #ffffff;
-  --surface-2: #f7f8fa;
-  --surface-3: #eceef2;
+  --surface-2: #f6f9f8;
+  --surface-3: #e9eeec;
   /* чернила */
-  --text: #1b1f27;
-  --muted: #6a7180;
-  --border: #e3e6eb;
-  --border-strong: #cfd4dc;
+  --text: #17201c;
+  --muted: #5d6964;
+  --border: #e0e6e3;
+  --border-strong: #cad4cf;
   /* меню */
   --side: #171c26;
   --side-2: #222938;
@@ -44,9 +47,9 @@
   --gold: #d9ab33;
   --gold-soft: #f8eccb;
   --gold-deep: #8a6a14;
-  --primary: #2f62b0;
-  --primary-hover: #26528f;
-  --primary-soft: #e6eef9;
+  --primary: #0f7d55;
+  --primary-hover: #0b6646;
+  --primary-soft: #e2f3ea;
   --danger: #c2372d;
   --danger-soft: #fbe9e7;
   --ok: #1f7a3f;
@@ -57,17 +60,19 @@
   --info-soft: #e0f1f7;
   --neutral-soft: #eceef2;
   /* производные (не зашивать цвета в разделах) */
-  --link: #2f62b0;
+  --link: #0b7350;
   --gold-hover: #cf9f22;
-  --topbar-bg: rgba(241, 242, 245, .88);
-  --row-hover: #f9fafb;
-  --row-selected: #fbf6e6;
-  --hint-bg: #fbf8ee;
+  --topbar-bg: rgba(241, 244, 243, .9);
+  --row-hover: #f5f9f7;
+  --row-selected: #e9f6ef;
+  --hint-bg: #eef7f2;
   --weekend: #f7f3e6;
   --weekend-head: #f1ead3;
   --on-danger: #ffffff;
   --on-primary: #ffffff;
-  --heading: var(--text);
+  --heading: #0e3b2b;
+  --side-text-hi: #6fe0b0;
+  --status-new: #2f62b0;
   --scheme: light;
 }
 
@@ -116,6 +121,7 @@
   --weekend: rgba(227, 183, 74, .05);
   --weekend-head: rgba(227, 183, 74, .10);
   --on-danger: #1f0b09;
+  --status-new: #6f9ee8;
   --scheme: dark;
 }
 

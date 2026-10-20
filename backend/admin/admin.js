@@ -74,7 +74,7 @@
     $('#crm-link').hidden = !PREFIX;
     loadUsers(); refreshHealth();
   }
-  const ROLE_RU = { admin: 'администратор', director: 'директор', manager: 'менеджер', user: 'наблюдатель' };
+  const ROLE_RU = { admin: 'администратор', director: 'директор', accountant: 'бухгалтер', manager: 'менеджер', user: 'наблюдатель' };
   function initTheme() {
     const b = $('#theme-btn'); if (!b || !window.dcTheme) { if (b) b.hidden = true; return; }
     $('#theme-name').textContent = window.dcTheme.name();

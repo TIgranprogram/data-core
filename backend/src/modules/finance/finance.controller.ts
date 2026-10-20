@@ -10,7 +10,7 @@ export class FinanceController {
   constructor(private readonly finance: FinanceService) {}
 
   @Get('cashflow')
-  @Roles('admin', 'director', 'manager', 'user')
+  @Roles('admin', 'accountant')
   @ApiQuery({ name: 'from', required: false, description: 'ГГГГ-ММ-ДД (умолч. начало месяца)' })
   @ApiQuery({ name: 'to', required: false, description: 'ГГГГ-ММ-ДД (умолч. конец месяца); период ≤ 1 года' })
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id организации' })
@@ -20,7 +20,7 @@ export class FinanceController {
   }
 
   @Get('summary')
-  @Roles('admin', 'director', 'manager', 'user')
+  @Roles('admin', 'accountant')
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'org', required: false })
   summary(@Query() q: Record<string, string>) {
     return this.finance.summary(q);
@@ -28,7 +28,7 @@ export class FinanceController {
 
   /** Записи, которые не попадают в расчёт: чего не хватает. */
   @Get('needs-fill')
-  @Roles('admin', 'director', 'manager', 'user')
+  @Roles('admin', 'accountant')
   needsFill() {
     return this.finance.needsFill();
   }

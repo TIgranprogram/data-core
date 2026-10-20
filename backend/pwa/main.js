@@ -12,13 +12,14 @@ import { mountMoney } from './sections/money.js';
 import { mountOps } from './sections/ops.js';
 import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
+import { partners } from './sections/partners.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -67,8 +68,8 @@ function shell() {
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
     h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.ops, navLinks.movements,
-    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders,
-    h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money,
+    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.partners,
+    session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money] : null,
     h('div', { class: 'side-foot' },
       navLinks.trash,
       session.user?.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,

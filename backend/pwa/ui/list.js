@@ -23,6 +23,7 @@ import { toastError } from './toast.js';
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
  *   rowAction?(row) → { label, title, run(row) } | null — кнопка следующего шага в строке (как на «Сегодня»),
  *   groupBy?(row) → подпись группы (строка-заголовок при смене значения: дни в «Движениях»), groupTotal?(rows) → узел,
+ *   колонка { money: true } — только тем, кто видит деньги (session.canMoney);
  *   periods?(P) → null | { date(row) → дата, total?(rows) → узел } — завершённое сворачивается по месяцам/годам
  *     (TASKS фаза М): список грузится целиком (до 2000), текущий месяц раскрыт, прошлые — строкой «Сентябрь 2026 · 34»,
  *     прошлые годы — строкой года; раскрытое запоминается. При поиске — всё раскрыто.
@@ -32,7 +33,7 @@ import { toastError } from './toast.js';
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 
 export function mountList(section, params, { onOpen, onCreate, quick, onChanged }) {
-  const L = section.list;
+  const L = { ...section.list, columns: section.list.columns.filter((c) => !c.money || session.canMoney) };
   let P = { ...params };
   const st = () => ({
     limit: Number(P.limit) || 25,
@@ -97,8 +98,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (!chipOpts) return;
     chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
       if (st().board && f.key === 'status') return [];
-      const cur = P[f.key] || '';
-      return [{ value: '', label: 'Все' }, ...chipOpts[i]].map((o) => {
+      const cur = P[f.key] || f.defaultValue || '';
+      return [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
         const n = f.count && lastResp ? f.count(lastResp, o.value) : undefined;
         return h('button', {
           type: 'button', class: 'chip' + (String(o.value) === cur ? ' active' : ''),
@@ -162,7 +163,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     panel.classList.toggle('compact', isBoard);
     boardBox.hidden = !isBoard;
     renderHead(); renderChips(); renderTiles();
-    const hint = L.hints && !isBoard ? L.hints[P.status || ''] : '';
+    const hint = L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
     hintBox.textContent = hint || ''; hintBox.hidden = !hint;
   }
 

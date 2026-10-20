@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -8,6 +9,7 @@ import { IncomesService } from './incomes.service';
 
 /** Доходы — строки заказов (лист «Заказы»). Смотреть — все роли, менять — admin и manager (как снабжение). */
 @ApiTags('Доходы (заказы)')
+@UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
 @Controller('incomes')
 export class IncomesController {
   constructor(private readonly incomes: IncomesService) {}
@@ -58,6 +60,22 @@ export class IncomesController {
   @AuditAction({ action: 'income.deleted', entityType: 'Income', idParam: 'id' })
   remove(@Param('id') id: string) {
     return this.incomes.remove(id);
+  }
+
+  /** Фото позиции: photoId из POST /api/photos/upload (перетаскивание / вставка / файл в карточке). */
+  @Post(':id/photos')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.photo.added', entityType: 'Income', idParam: 'id' })
+  addPhoto(@Param('id') id: string, @Body() body: { photoId?: string }) {
+    return this.incomes.addPhoto(id, String(body?.photoId ?? ''));
+  }
+
+  @Delete(':id/photos/:photoId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.photo.removed', entityType: 'Income', idParam: 'id' })
+  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+    return this.incomes.removePhoto(id, photoId);
   }
 
   @Post(':id/restore')

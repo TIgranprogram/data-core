@@ -1,8 +1,9 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, isoDay, money, qty } from '../core/format.js';
+import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge } from '../ui/badges.js';
+import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { UNITS } from './lookups.js';
 import { pic } from './stock.js';
@@ -21,7 +22,7 @@ const STATUS_HINT = {
   '': 'Строки заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено». Сумма и даты нужны для платёжного календаря.',
   draft: 'Ещё не отгружено. Отгрузили — отметьте дату отгрузки.',
   awaiting: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено».',
-  noamount: 'Отгружено, но сумма не указана (позиции из Excel без цен) — впишите цену или сумму, тогда строка попадёт в оплату и календарь.',
+  noamount: 'Отгружено, но сумма не указана (в Excel-заказах цен нет). Кнопка «Вписать сумму» в строке — и строка попадёт в «Ждём оплату» и в календарь.',
   paid: 'Деньги получены — доход в платёжном календаре на дату оплаты.',
 };
 
@@ -38,6 +39,35 @@ export async function markToday(r, field) {
   toast(field === 'paidDate' ? `Оплачено: ${money(saved.amount)}` : 'Отгружено сегодня', {
     undo: async () => { await api(`/incomes/${r.id}`, { method: 'PATCH', body: { [field]: r[field] ? String(r[field]).slice(0, 10) : '' } }); window.dispatchEvent(new Event('data-changed')); },
   });
+  return saved;
+}
+
+/** «Вписать сумму»: цена за единицу (сумма = кол-во × цена) или сумма строки целиком. */
+export async function priceDialog(r) {
+  const price = h('input', { inputmode: 'decimal', placeholder: '0,00', value: r.unitPrice ?? '' });
+  const total = h('input', { inputmode: 'decimal', placeholder: '0,00', value: r.amountManual ?? '' });
+  const out = h('p', { class: 'hint' });
+  const show = () => {
+    const p = parseNum(price.value), s = parseNum(total.value);
+    out.textContent = s > 0 ? `Сумма строки: ${money(s)}` : p > 0 && r.qty ? `Сумма строки: ${qty(r.qty)} × ${money(p)} = ${money(p * r.qty)}` : 'Впишите цену за единицу или сумму целиком.';
+  };
+  price.addEventListener('input', show); total.addEventListener('input', show); show();
+  const saved = await modal({
+    title: 'Сумма: ' + (r.title || ''),
+    okText: 'Сохранить',
+    body: h('div', null,
+      h('p', { class: 'hint' }, `${r.orderNo ? 'Заказ ' + r.orderNo + ' · ' : ''}${r.customer || ''} · ${qty(r.qty)} ${r.unit || ''}`),
+      h('div', { class: 'form-grid' },
+        h('label', { class: 'field' }, h('span', null, 'Цена за единицу, ₽'), price),
+        h('label', { class: 'field' }, h('span', null, 'или сумма целиком, ₽'), total)),
+      out),
+    onOk: async () => {
+      const p = parseNum(price.value), s = parseNum(total.value);
+      if (!(p > 0) && !(s > 0)) throw new Error('Впишите цену или сумму больше нуля');
+      return api(`/incomes/${r.id}`, { method: 'PATCH', body: { unitPrice: p > 0 ? p : null, amountManual: s > 0 ? s : null } });
+    },
+  });
+  if (saved) toast(`Сумма: ${money(saved.amount)}${saved.shipDate ? ' — строка в платёжном календаре' : ''}`);
   return saved;
 }
 
@@ -81,7 +111,8 @@ export const orders = {
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(INCOME_STATUS, r.status) },
     ],
     rowAction: (r) => (r.status === 'awaiting' ? { label: 'Оплачено', title: 'Деньги пришли сегодня', run: (row) => markToday(row, 'paidDate') }
-      : r.status === 'draft' ? { label: 'Отгружено', title: 'Отгрузили сегодня', run: (row) => markToday(row, 'shipDate') } : null),
+      : r.status === 'noamount' ? { label: 'Вписать сумму', title: 'Цена за единицу или сумма строки', run: async (row) => !!(await priceDialog(row)) }
+      : r.status === 'draft' ? [{ label: 'Сумма', title: 'Цена или сумма строки', run: async (row) => !!(await priceDialog(row)) }, { label: 'Отгружено', title: 'Отгрузили сегодня', run: (row) => markToday(row, 'shipDate') }] : null),
     card: {
       title: heading,
       sub: (r) => [r.customer, `${qty(r.qty)} ${r.unit || ''}`.trim(), r.companyName].filter(Boolean).join(' · '),
@@ -92,9 +123,11 @@ export const orders = {
 
   card: {
     gallery: (r) => r.photos || [],
+    photoAdd: (r, photoId) => api(`/incomes/${r.id}/photos`, { method: 'POST', body: { photoId } }),
+    photoRemove: (r, photoId) => api(`/incomes/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
     heading,
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
-    stats: (r) => [['Сумма', money(r.amount || 0)], ['Отгрузка', date(r.shipDate) || '—'], ['Оплата', date(r.paidDate) || '—']],
+    stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплата', date(r.paidDate) || '—']] : [])],
     view: (r) => [
       ['Статус', badge(INCOME_STATUS, r.status)],
       ['Заказчик', r.customer],
@@ -110,8 +143,10 @@ export const orders = {
       ['Весь заказ', r.orderNo ? h('a', { href: '#orders?orderNo=' + encodeURIComponent(r.orderNo) }, `все строки заказа ${r.orderNo} →`) : ''],
     ],
     actions: (r) => [
-      !r.paidDate && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
-      !r.shipDate && { label: 'Отгружено сегодня', primary: true, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
+      session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
+      session.canMoney && !r.paidDate && !!r.amount && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
+      session.canMoney && !!r.paidDate && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
+      !r.shipDate && { label: 'Отгружено сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
     ],
   },
 
@@ -125,8 +160,8 @@ export const orders = {
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', options: UNITS, max: 30 },
-        { key: 'unitPrice', label: 'Цена за ед., ₽', type: 'money', min: 0 },
-        { key: 'amountManual', label: 'Доход вручную, ₽', type: 'money', min: 0, hint: 'Если заполнено — важнее кол-во × цена' },
+        { key: 'unitPrice', money: true, label: 'Цена за ед., ₽', type: 'money', min: 0 },
+        { key: 'amountManual', money: true, label: 'Доход вручную, ₽', type: 'money', min: 0, hint: 'Если заполнено — важнее кол-во × цена' },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name), hint: 'Нужна для платёжного календаря' },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
