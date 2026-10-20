@@ -157,7 +157,7 @@ describe('OwnerTargetGuard (TZ-AUTH-306)', () => {
   });
 
   describe('rule 3 — admin power is owner-only', () => {
-    it('refuses a non-owner mutating another admin', async () => {
+    it('allows a non-owner admin to edit another admin (решение 2026-10-20)', async () => {
       const guard = buildGuard({ _id: ADMIN_ID, isOwner: false, role: 'admin' });
       const ctx = makeContext({
         method: 'PATCH',
@@ -166,12 +166,10 @@ describe('OwnerTargetGuard (TZ-AUTH-306)', () => {
         body: { role: 'manager' },
         originalUrl: `/api/admin/users/${ADMIN_ID}`,
       });
-      await expect(guard.canActivate(ctx)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'OWNER_ONLY' }),
-      });
+      await expect(guard.canActivate(ctx)).resolves.toBe(true);
     });
 
-    it('refuses a non-owner deleting an admin', async () => {
+    it('allows a non-owner admin to delete another admin (решение 2026-10-20)', async () => {
       const guard = buildGuard({ _id: ADMIN_ID, isOwner: false, role: 'admin' });
       const ctx = makeContext({
         method: 'DELETE',
@@ -179,9 +177,7 @@ describe('OwnerTargetGuard (TZ-AUTH-306)', () => {
         user: actor(false),
         originalUrl: `/api/admin/users/${ADMIN_ID}`,
       });
-      await expect(guard.canActivate(ctx)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'OWNER_ONLY' }),
-      });
+      await expect(guard.canActivate(ctx)).resolves.toBe(true);
     });
 
     it('allows a non-owner admin to promote a regular user to admin (решение 2026-10-19: несколько администраторов)', async () => {

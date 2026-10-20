@@ -75,16 +75,9 @@ export class OwnerTargetGuard implements CanActivate {
       return true;
     }
 
-    // Rule 3 — изменять/удалять существующего администратора (снять права, выключить, сбросить пароль)
-    // может только владелец. Повысить пользователя до администратора может любой администратор
-    // (решение пользователя 2026-10-19: администраторов может быть несколько).
-    if (!actorIsOwner && this.touchesAdminPower(method, target.role, req.body)) {
-      throw new ForbiddenException({
-        code: 'OWNER_ONLY',
-        message: 'Изменять или удалять другого администратора может только владелец системы. Вы можете назначать администраторов и работать с остальными пользователями.',
-      });
-    }
-
+    // Rule 3 снято (решение пользователя 2026-10-20): любой администратор управляет любыми пользователями,
+    // в том числе другими администраторами. Защищены только владелец (правила 1–2) и последний
+    // администратор (LastAdminGuard).
     return true;
   }
 
@@ -106,15 +99,4 @@ export class OwnerTargetGuard implements CanActivate {
     return false;
   }
 
-  /** Granting (role→admin) or revoking (mutating an admin user) admin power. */
-  private touchesAdminPower(
-    method: string,
-    targetRole: string,
-    body: Record<string, unknown> | undefined,
-  ): boolean {
-    // Any mutation of an existing admin user (delete/deactivate/reset/patch).
-    if (targetRole === 'admin') return true;
-    void method; void body; // повышение до администратора разрешено любому администратору
-    return false;
-  }
 }

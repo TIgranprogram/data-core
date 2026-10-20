@@ -196,15 +196,17 @@ describe('Owner invariant (TZ-AUTH-306)', () => {
       .send({ username: `director-${Date.now()}`, password: 'director-password', role: 'director' });
     expect(createDirector.status).toBe(201);
 
-    // …но изменить/удалить другого администратора может только владелец → 403 OWNER_ONLY, по-русски.
+    // …и менять/удалять другого администратора (решение 2026-10-20); владелец по-прежнему скрыт (404 выше)
     const otherAdminId = createAdmin.body.id ?? createAdmin.body._id;
     const demote = await request(app.getHttpServer())
       .patch(`/api/admin/users/${otherAdminId}`)
       .set(authHeader(login.body.access))
       .send({ role: 'user' });
-    expect(demote.status).toBe(403);
-    expect(demote.body.code).toBe('OWNER_ONLY');
-    expect(demote.body.message).toContain('только владелец');
+    expect(demote.status).toBe(200);
+    const del = await request(app.getHttpServer())
+      .delete(`/api/admin/users/${otherAdminId}`)
+      .set(authHeader(login.body.access));
+    expect([200, 204]).toContain(del.status);
   });
 
   it('owner password login remains the break-glass entry', async () => {
