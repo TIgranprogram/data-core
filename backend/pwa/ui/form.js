@@ -65,8 +65,9 @@ export function buildForm(fields, initial = {}) {
     if (f.type === 'pick') {
       let items = null; let catSel = '';
       const load = async () => { items ??= await f.load().catch(() => []); return items; };
-      const cat = h('input', { placeholder: 'Все категории', 'aria-label': 'Категория' });
-      const item = h('input', { placeholder: 'Начните печатать или выберите из списка…', 'aria-label': 'Позиция из базы' });
+      const cat = h('input', { placeholder: 'Выберите категорию', 'aria-label': 'Категория' });
+const setCat = (name) => { catSel = name; item.disabled = !name; item.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию'; };
+      const item = h('input', { placeholder: 'Сначала выберите категорию', 'aria-label': 'Позиция из базы', disabled: true });
       const clear = h('button', { type: 'button', class: 'btn btn-ghost btn-sm pick-clear', hidden: true, title: 'Не из базы — ввести вручную' }, '× вручную');
       const row = h('div', { class: 'pick-row' }, h('label', { class: 'field' }, h('span', null, 'Категория'), cat), h('label', { class: 'field pick-item' }, h('span', null, 'Позиция из базы'), item), clear);
       const wrap = h('div', { class: 'field wide pick' }, row, h('div', { class: 'hint' }, f.hint || 'Уже заказывали или есть на складе — выберите, поля заполнятся сами. Нет в списке — заполните «Наименование» вручную.'));
@@ -78,10 +79,10 @@ export function buildForm(fields, initial = {}) {
       };
       load().then(() => {
         const cats = [...new Set(items.map((x) => x.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-        attachCombo(cat, { options: () => [{ label: 'Все категории', value: '' }, ...cats.map((c) => ({ label: c, value: c }))], onPick: (o) => { catSel = o.value; item.value = ''; item.focus(); } });
-        cat.addEventListener('change', () => { const v = cat.value.trim(); catSel = !v || v === 'Все категории' ? '' : (cats.find((c) => c.toLowerCase() === v.toLowerCase()) || ''); });
+        attachCombo(cat, { options: () => cats.map((c) => ({ label: c, value: c })), onPick: (o) => { setCat(o.value); item.value = ''; item.focus(); } });
+        cat.addEventListener('change', () => { const v = cat.value.trim(); setCat(cats.find((c) => c.toLowerCase() === v.toLowerCase()) || ''); });
         attachCombo(item, {
-          options: () => items.filter((x) => !catSel || x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, group: catSel ? undefined : x.cat || 'Без категории', x })),
+          options: () => items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })),
           onPick: (o) => {
             for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') xx.input.value = String(val); }
             lock(true); summarize();

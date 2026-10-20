@@ -678,3 +678,14 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 
 .inv-row.inv-done { opacity: .75; }
 .inv-row.inv-done::after { content: '✓ внесено'; display: block; margin-top: 4px; font-size: var(--fs-sm); color: var(--ok); }
+/* Строка счёта: категория → позиция; кол-во / ед. / сумма; «+ Новая позиция» — блок в строке (2026-10-20) */
+.inv-row .field > span { font-size: var(--fs-sm); }
+.inv-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); gap: 8px; }
+.drawer .inv-main, .inv-main { display: grid; grid-template-columns: 90px 100px minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 6px; }
+.drawer .inv-main .inv-t { grid-column: auto; }
+.inv-btns { display: flex; gap: 6px; align-items: center; padding-bottom: 1px; }
+.inv-row input:disabled { background: var(--surface-3); color: var(--muted); }
+.inv-new { margin-top: 10px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); }
+.inv-new-head { margin-bottom: 8px; }
+.inv-new-foot { display: flex; gap: 8px; margin-top: 10px; }
+@media (max-width: 720px) { .inv-pick { grid-template-columns: 1fr; } .drawer .inv-main, .inv-main { grid-template-columns: 1fr 1fr; } .inv-btns { grid-column: 1 / -1; } }
