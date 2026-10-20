@@ -37,6 +37,26 @@ const xmlDec = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&qu
   .replace(/&#(\d+);/g, (m, n) => String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi, (m, n) => String.fromCharCode(parseInt(n, 16))).replace(/&amp;/g, '&');
 
 /** → [{ r: номер строки, c: { A: значение, B: … } }] */
+const PHOTOS = process.argv.includes('--photos');
+/** Фото позиции: файл в UPLOAD_DIR (как загрузка в приложении) + запись photos; у позиции уже есть фото — пропуск. */
+async function attachPhotos(db, line, l, write, st) {
+  if (!PHOTOS || !l.images?.length) return;
+  if (line.photoIds?.length) { st.photosKept = (st.photosKept || 0) + 1; return; }
+  st.photosNew = (st.photosNew || 0) + l.images.length;
+  if (!write || !line._id) return;
+  const dir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+  fs.mkdirSync(dir, { recursive: true });
+  const ids = [];
+  for (const [i, img] of l.images.entries()) {
+    const filename = require('crypto').randomUUID() + '.' + img.ext;
+    fs.writeFileSync(path.join(dir, filename), img.buf);
+    const now = new Date();
+    const r = await db.collection('photos').insertOne({ storageUrl: '/uploads/' + filename, originalFilename: `${String(l.title).slice(0, 60)} ${i + 1}.${img.ext}`, mimeType: img.mime, sizeBytes: img.buf.length, variant: 'original', source: 'import-xlsx', deletedAt: null, createdAt: now, updatedAt: now });
+    ids.push(r.insertedId);
+  }
+  await db.collection('incomes').updateOne({ _id: line._id }, { $set: { photoIds: ids, updatedAt: new Date() } });
+}
+
 function readXlsx(file) {
   const z = unzipSync(fs.readFileSync(file), { filter: (x) => !/media|\.bin$/.test(x.name) });
   const g = (n) => (z[n] ? strFromU8(z[n]) : '');
@@ -64,6 +84,32 @@ function readXlsx(file) {
     if (Object.keys(c).length) rows.push({ r: +r[1], c });
   }
   return rows;
+}
+
+/** Картинки листа по строкам (TASKS З.4): рисунок → якорь «from row» → файл xl/media. EMF/WMF браузер не покажет — пропуск. */
+function readImages(file) {
+  const z = unzipSync(fs.readFileSync(file));
+  const g = (n) => (z[n] ? strFromU8(z[n]) : '');
+  const byRow = new Map();
+  const sheetRels = Object.keys(z).find((n) => /^xl\/worksheets\/_rels\/sheet1\.xml\.rels$/.test(n));
+  const drawing = sheetRels && (g(sheetRels).match(/Target="([^"]*drawings\/drawing\d+\.xml)"/) || [])[1];
+  if (!drawing) return byRow;
+  const dPath = 'xl/drawings/' + drawing.split('/').pop();
+  const dRels = g('xl/drawings/_rels/' + drawing.split('/').pop() + '.rels');
+  const target = (rid) => (dRels.match(new RegExp('Id="' + rid + '"[^>]*Target="([^"]*)"')) || dRels.match(new RegExp('Target="([^"]*)"[^>]*Id="' + rid + '"')) || [])[1];
+  for (const a of g(dPath).matchAll(/<xdr:(?:two|one)CellAnchor[\s\S]*?<\/xdr:(?:two|one)CellAnchor>/g)) {
+    const row = (a[0].match(/<xdr:from>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>/) || [])[1];
+    const rid = (a[0].match(/r:embed="([^"]+)"/) || [])[1];
+    if (row === undefined || !rid) continue;
+    const t = target(rid); if (!t) continue;
+    const media = 'xl/media/' + t.split('/').pop();
+    const ext = media.split('.').pop().toLowerCase();
+    if (!['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) || !z[media]) continue;
+    const r = +row + 1;
+    if (!byRow.has(r)) byRow.set(r, []);
+    byRow.get(r).push({ buf: Buffer.from(z[media]), ext: ext === 'jpeg' ? 'jpg' : ext, mime: 'image/' + (ext === 'jpg' ? 'jpeg' : ext) });
+  }
+  return byRow;
 }
 
 // ───────────── нормализация ─────────────
@@ -151,6 +197,7 @@ function parseFile(file) {
       trailing.push(clean([c.B, c.C].filter((x) => x !== undefined).join(c.B !== undefined && c.C !== undefined ? ': ' : '')));
     }
   }
+  if (PHOTOS) { const imgs = readImages(file); for (const l of o.lines) l.images = imgs.get(l.row) || []; }
   if (trailing.length > 2 && o.lines.length) o.lines[o.lines.length - 1].extra.push(...trailing);
   else o.notes.push(...trailing);
   const co = companyOf(o.supplier);
@@ -261,7 +308,7 @@ async function apply(db, orders, write) {
     for (const l of o.lines) {
       const lineWant = { lineNo: l.lineNo, qty: l.qty, unit: l.unit, kind: l.kind, color: l.color, notes: l.notes };
       let cur = existing.find((d) => d.importKey === l.key) || await db.collection('incomes').findOne({ importKey: l.key });
-      if (cur) { st.linesFound++; claimed.add(String(cur._id)); continue; }
+      if (cur) { st.linesFound++; claimed.add(String(cur._id)); await attachPhotos(db, cur, l, write, st); continue; }
       cur = existing.find((d) => !d.importKey && !claimed.has(String(d._id)) && normTitle(d.title) === normTitle(l.title));
       if (cur) {
         claimed.add(String(cur._id));
@@ -269,6 +316,7 @@ async function apply(db, orders, write) {
         const set = { importKey: l.key, ...fillEmpty(cur, lineWant) };
         if (Object.keys(set).length > 1) st.linesEnriched++;
         if (write) await db.collection('incomes').updateOne({ _id: cur._id }, { $set: { ...set, updatedAt: now } });
+        await attachPhotos(db, cur, l, write, st);
         continue;
       }
       st.linesNew++;
@@ -278,7 +326,8 @@ async function apply(db, orders, write) {
         notes: l.notes, amount: 0, reportDate: header.shipDate, importKey: l.key, source: 'import-xlsx', deletedAt: null, createdAt: now, updatedAt: now,
       };
       for (const k of Object.keys(doc)) if (doc[k] === undefined) delete doc[k];
-      if (write) await db.collection('incomes').insertOne(doc);
+      if (write) { const ins = await db.collection('incomes').insertOne(doc); doc._id = ins.insertedId; }
+      await attachPhotos(db, doc, l, write, st);
     }
   }
   return st;
@@ -351,6 +400,7 @@ async function apply(db, orders, write) {
     console.log(`Итог в базе${write ? '' : ' (если запустить с --apply)'}:`);
     console.log(`  заказы: новых ${st.ordersNew}, уже есть ${st.ordersFound} (дополнено пустых полей: ${st.ordersEnriched})`);
     console.log(`  позиции: новых ${st.linesNew}, уже импортированы ${st.linesFound}, найдены с листа «Заказы» ${st.linesFromSheet} (дополнено: ${st.linesEnriched})`);
+    if (PHOTOS) console.log(`  фото позиций: ${write ? "загружено" : "будет загружено"} ${st.photosNew || 0}, у позиций уже есть фото — ${st.photosKept || 0}`);
     if (st.linesLinked) console.log(`  строк листа «Заказы» без шапки привязано к заказам: ${st.linesLinked}`);
     for (const m of st.missingCompany) console.log(`  ⚠ ${m}`);
   } finally {

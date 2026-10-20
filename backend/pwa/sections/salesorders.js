@@ -1,4 +1,4 @@
-import { api } from '../core/api.js';
+import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go } from '../core/router.js';
@@ -48,9 +48,9 @@ function details(r) {
     const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
     box.replaceChildren(
       sec(`Позиции (${lines.length})`, lines.length
-        ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), h('th', { class: 'num' }, 'Сумма'))),
+        ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), h('th', { class: 'num' }, 'Сумма'))),
           h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => go('orders', { open: l.id }), title: 'Открыть позицию (сумма, отгрузка, оплата)' },
-            h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', null, l.title), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
+            h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
             h('td', { class: 'muted' }, l.color || ''), h('td', { class: 'num' }, l.amount ? money(l.amount) : '')))))
         : h('p', { class: 'muted' }, 'Позиций пока нет.')),
       sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length

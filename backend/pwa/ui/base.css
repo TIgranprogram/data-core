@@ -557,3 +557,6 @@ table.so-lines td { padding: 7px 8px; border-bottom: 1px solid var(--border); ve
 table.so-lines tr { cursor: pointer; }
 table.so-lines tbody tr:hover { background: var(--row-hover); }
 table.so-lines .num { text-align: right; }
+
+.so-pic { width: 48px; height: 48px; cursor: zoom-in; }
+table.so-lines .pic-cell { width: 56px; }

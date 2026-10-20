@@ -109,6 +109,13 @@ export class SalesOrdersService {
     for (const m of stockMovements as Doc[]) { const x = matName.get(String(m.materialId)); m.materialName = x?.name ?? null; m.unit = x?.unit ?? null; }
     const ST: Record<string, string> = { in_progress: 'Ожидает', requested: 'Заказать', ordered: 'В работе', received: 'Получено', cancelled: 'Отменено' };
     for (const s of supplyRequests as Doc[]) s.statusLabel = s.status === 'ordered' && s.paid ? 'Оплачено' : ST[String(s.status)] ?? s.status;
+    // Фото позиций (из Excel «Вид» или загруженные): первое — превью в карточке заказа
+    const pids = lines.flatMap((l) => ((l.photoIds as Types.ObjectId[] | undefined) ?? []).slice(0, 1));
+    const ph = pids.length ? await db.collection('photos').find({ _id: { $in: pids } }, { projection: { storageUrl: 1 } }).toArray() : [];
+    const thumbs = pids.length ? await db.collection('photos').find({ parentPhotoId: { $in: pids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray() : [];
+    const phUrl = new Map(ph.map((p) => [String(p._id), String(p.storageUrl)]));
+    const thUrl = new Map(thumbs.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
+    for (const l of lines as Doc[]) { const id = String(((l.photoIds as unknown[]) ?? [])[0] ?? ''); if (phUrl.has(id)) l.photo = { url: phUrl.get(id), thumb: thUrl.get(id) ?? phUrl.get(id) }; }
     const header = (await this.present([doc]))[0];
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
