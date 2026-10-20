@@ -169,7 +169,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     boardBox.hidden = !isBoard;
     renderHead(); renderChips(); renderTiles();
     const hint = L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
-    hintBox.textContent = hint || ''; hintBox.hidden = !hint;
+    // banner(P) → { text, keys } — особая выборка (пришли по ссылке «Все →»): пометка + «Показать все» (снимает keys)
+    const bn = L.banner ? L.banner(P) : null;
+    if (bn) { hintBox.replaceChildren(h('b', null, bn.text), ' ', h('button', { type: 'button', class: 'link-btn', onclick: () => patch(Object.fromEntries([...bn.keys, 'page'].map((k) => [k, undefined]))) }, 'Показать все')); hintBox.hidden = false; hintBox.classList.add('banner'); }
+    else { hintBox.classList.remove('banner'); hintBox.textContent = hint || ''; hintBox.hidden = !hint; }
   }
 
   function markSelected() {

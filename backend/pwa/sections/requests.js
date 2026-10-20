@@ -170,7 +170,9 @@ export const requests = {
       { key: 'requestedBy', label: 'Кто подал: все', type: 'select', options: async () => (await lookups()).requestedBy.map((p) => ({ value: p, label: p })) },
       { key: 'from', label: 'С даты', short: 'с', type: 'date' },
       { key: 'to', label: 'По дату', short: 'по', type: 'date' },
+      { key: 'needsFill', type: 'hidden' },
     ],
+    banner: (P) => (P.needsFill ? { text: 'Показаны заявки, которые не попадают в выплаты: нет суммы, даты счёта или нашей компании. Откройте и допишите.', keys: ['needsFill'] } : null),
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => pic(r.photo) },
       { key: 'num', label: '№', sort: 'num', cls: 'num', render: (r) => r.num ?? '' },
@@ -187,7 +189,7 @@ export const requests = {
       sub: (r) => [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.requestedBy, date(r.requestDate)].filter(Boolean).join(' · '),
       side: (r) => [badge(SUPPLY_STATUS, supplyKey(r)), r.priceHint && session.canMoney ? h('span', { class: 'num small' }, money(r.priceHint)) : null],
     },
-    footer: (resp) => (session.canMoney ? h('span', { class: 'sum-line' }, `Сумма по выборке: ${money(resp.sum || 0)}`) : null),
+    footer: (resp) => (session.canMoney ? h('span', { class: 'sum-line', title: 'Сумма всех заявок в списке — с учётом вкладки, поиска и фильтров, по всем страницам' }, `Итого по списку: ${money(resp.sum || 0)} · ${qty(resp.total)} заявок`) : null),
     // Завершённое копится — сворачивается по месяцам получения/отмены (TASKS фаза М)
     periods: (P) => (['received', 'cancelled'].includes(P.status) ? { date: (r) => r.receivedAt || r.requestDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.priceHint) || 0), 0)) : undefined } : null),
     hints: {

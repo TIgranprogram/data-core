@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { searchTokens, tokenRegex } from '../stock/search-norm';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -172,19 +173,37 @@ export class SupplyService {
       if (or.length) { statusCond = { $or: or }; and.push(statusCond); }
     }
     if (q.supplierId) filter.supplierId = { $in: oids(q.supplierId) };
+    // needsFill=1 — «не попадают в выплаты» (те же условия, что «Деньги → Требуют заполнения»): нет суммы при дате счёта,
+    // нет даты счёта при сумме, или нет нашей компании; отменённые не считаются
+    if (q.needsFill) {
+      const ours = (await this.connection.db!.collection('organizations').find({ isOurCompany: true, deletedAt: null }, { projection: { _id: 1 } }).toArray()).map((o) => o._id);
+      and.push({ status: { $ne: 'cancelled' } });
+      and.push({ $or: [
+        { invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] },
+        { priceHint: { $gt: 0 }, $or: [{ invoiceDate: null }, { invoiceDate: { $exists: false } }] },
+        { invoiceDate: { $ne: null }, priceHint: { $gt: 0 }, $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] },
+      ] });
+    }
     if (q.categoryId) filter.categoryId = { $in: oids(q.categoryId) };
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
     if (q.requestedBy) filter.requestedBy = String(q.requestedBy);
     if (q.priority) filter.priority = String(q.priority);
     const range = dateRange(q.from, q.to);
     if (range) filter.requestDate = range;
-    if (p.search) {
-      const or: Record<string, unknown>[] = ['title', 'article', 'orderLabel', 'notes', 'requestedBy', 'invoiceNo', 'color'].map((f) => ({ [f]: p.search }));
-      const n = Number(String(q.search).trim().replace(/^№/, ''));
-      if (Number.isInteger(n) && n > 0) or.push({ num: n });
-      const orgs = await this.connection.db!.collection('organizations').find({ $or: [{ name: p.search }, { shortName: p.search }] }, { projection: { _id: 1 } }).toArray();
-      if (orgs.length) or.push({ supplierId: { $in: orgs.map((o) => o._id) } });
-      and.push({ $or: or });
+    // Поиск «как на складе» (2026-10-20): каждое слово отдельно (И), м10 = M10, по наименованию, №, поставщику, артикулу, счёту, заказчику, примечанию
+    if (q.search && String(q.search).trim()) {
+      const tokens = searchTokens(q.search);
+      const fields = ['title', 'article', 'orderLabel', 'notes', 'requestedBy', 'invoiceNo', 'color'];
+      const orgs = await this.connection.db!.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray();
+      for (const tk of tokens) {
+        const re = tokenRegex(tk);
+        const or: Record<string, unknown>[] = fields.map((fl) => ({ [fl]: re }));
+        const sup = orgs.filter((o) => re.test(String(o.name ?? '')) || re.test(String(o.shortName ?? ''))).map((o) => o._id);
+        if (sup.length) or.push({ supplierId: { $in: sup } });
+        const n = Number(tk.replace(/^№/, ''));
+        if (Number.isInteger(n) && n > 0) or.push({ num: n });
+        and.push({ $or: or });
+      }
     }
     // Счётчики по статусам (для чипов) — по всем фильтрам, кроме самого статуса
     const noStatus: Record<string, unknown> = { ...filter };

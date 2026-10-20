@@ -86,6 +86,10 @@ function shell() {
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'btn btn-ghost btn-icon burger', type: 'button', 'aria-label': 'Меню', onclick: () => shellEl.classList.toggle('nav-open') }, icon('menu')),
+    // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
+    h('div', { class: 'histnav' },
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад (Alt+←)', 'aria-label': 'Назад', onclick: () => history.back() }, '‹'),
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Вперёд (Alt+→)', 'aria-label': 'Вперёд', onclick: () => history.forward() }, '›')),
     h('div', { class: 'gsearch' }, gs, h('kbd', null, '/')));
   const main = h('main', { class: 'page', id: 'page' });
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),

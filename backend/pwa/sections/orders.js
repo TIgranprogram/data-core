@@ -118,7 +118,7 @@ export const orders = {
       sub: (r) => [r.customer, `${qty(r.qty)} ${r.unit || ''}`.trim(), r.companyName].filter(Boolean).join(' · '),
       side: (r) => [badge(INCOME_STATUS, r.status), r.amount ? h('span', { class: 'num small' }, money(r.amount)) : null],
     },
-    footer: (resp) => h('span', { class: 'sum-line' }, `Сумма по выборке: ${money(resp.sum || 0)}`),
+    footer: (resp) => h('span', { class: 'sum-line', title: 'Сумма всех позиций в списке — с учётом вкладки, поиска и фильтров, по всем страницам' }, `Итого по списку: ${money(resp.sum || 0)} · ${qty(resp.total)} позиций`),
   },
 
   card: {

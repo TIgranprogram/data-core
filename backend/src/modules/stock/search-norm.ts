@@ -29,3 +29,13 @@ export function matchesAll(tokens: string[], ...fields: unknown[]): boolean {
   const hay = normSearch(fields.filter(Boolean).join(' '));
   return tokens.every((t) => hay.includes(t));
 }
+
+/** Регулярка для слова поиска в БД: «м10» находит и «М10», и «M10» (похожие буквы кириллицы/латиницы — оба варианта). */
+const PAIRS: Record<string, string> = { а: 'aа', в: 'bв', с: 'cс', е: 'eеё', н: 'hн', к: 'kк', м: 'mм', о: 'oо', р: 'pр', т: 'tт', х: 'xх×*', у: 'yу' };
+export function tokenRegex(token: string): RegExp {
+  const src = [...token].map((ch) => {
+    const set = PAIRS[ch];
+    return set ? `[${set.replace(/[\]\\^*-]/g, '\\$&')}]` : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('');
+  return new RegExp(src, 'i');
+}

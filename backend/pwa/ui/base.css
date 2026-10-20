@@ -726,3 +726,8 @@ html { scrollbar-gutter: stable; }
 .ff-pop { position: absolute; z-index: 45; top: calc(100% + 6px); left: 0; width: min(760px, 92vw); max-height: 60vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .ff-vals { flex-wrap: wrap; }
 .ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+
+/* Назад / вперёд в верхней панели; пометка особой выборки над списком */
+.histnav { display: flex; gap: 2px; }
+.histnav .btn { font-size: 20px; line-height: 1; }
+.list-hint.banner, .banner { background: var(--warn-soft); }
