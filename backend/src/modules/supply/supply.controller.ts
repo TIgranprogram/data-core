@@ -4,7 +4,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { SupplyReceiveDto, SupplyRequestDto } from './dto';
+import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
@@ -70,6 +70,23 @@ export class SupplyController {
   @AuditAction({ action: 'supply.request.restored', entityType: 'SupplyRequest', idParam: 'id' })
   restore(@Param('id') id: string) {
     return this.supply.restore(id);
+  }
+
+  /** Добавить фото: photoId из POST /api/photos/upload (перетаскивание / вставка / файл). */
+  @Post('requests/:id/photos')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.photo.added', entityType: 'SupplyRequest', idParam: 'id' })
+  addPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto) {
+    return this.supply.addPhoto(id, dto.photoId);
+  }
+
+  /** Убрать фото из заявки (сам файл остаётся в фотохранилище). */
+  @Delete('requests/:id/photos/:photoId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.photo.removed', entityType: 'SupplyRequest', idParam: 'id' })
+  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+    return this.supply.removePhoto(id, photoId);
   }
 
   /** Оприходовать на склад: приход + статус «Получено». */

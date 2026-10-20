@@ -2960,6 +2960,70 @@
         ]
       }
     },
+    "/supply/requests/{id}/photos": {
+      "post": {
+        "operationId": "SupplyController_addPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplyPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/requests/{id}/photos/{photoId}": {
+      "delete": {
+        "operationId": "SupplyController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/requests/{id}/receive": {
       "post": {
         "operationId": "SupplyController_receive",
@@ -7940,9 +8004,25 @@
             "type": "string",
             "description": "Срочно / Обычный / Низко"
           },
+          "photoIds": {
+            "description": "Фото заявки (id из POST /api/photos/upload) — весь список, по порядку; [] — убрать все",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "clientUid": {
             "type": "string",
             "description": "Ключ клиента — повтор не создаёт дубль"
+          }
+        }
+      },
+      "SupplyPhotoDto": {
+        "type": "object",
+        "properties": {
+          "photoId": {
+            "type": "string",
+            "description": "id из POST /api/photos/upload"
           }
         }
       },

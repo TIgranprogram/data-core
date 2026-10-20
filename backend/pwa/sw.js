@@ -2,7 +2,7 @@
  * Оболочка (html/css/js/иконки) — «сеть, иначе кэш»: при сети всегда свежая версия.
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
  */
-const SHELL = 'dc-app-shell-v12';
+const SHELL = 'dc-app-shell-v14';
 const PHOTOS = 'dc-app-photos-v1';
 const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
@@ -41,7 +41,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(req)
       .then((res) => {
-        if (res.ok) caches.open(SHELL).then((c) => c.put(req, res.clone()));
+        if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(req, copy)); } // клон — сразу, пока тело не прочитано
         return res;
       })
       .catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html'))),

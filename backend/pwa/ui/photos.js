@@ -1,11 +1,11 @@
-import { api } from '../core/api.js';
+import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { toastError } from './toast.js';
 
 /**
  * Добавление фото в карточке (TASKS З.10): перетащить файлы, вставить из буфера (Ctrl+V — скриншот,
- * картинка из браузера) или выбрать файлом. Каждое фото: POST /photos/upload → attach(photoId) → строка.
- *   photoDrop({ attach: async (photoId) => row, done(row) })
+ * картинка из браузера) или выбрать файлом. Каждое фото: POST /photos/upload → attach(photoId, photo) → строка.
+ *   photoDrop({ attach: async (photoId, { url, thumb }) => row, done(row) })
  * Вставка работает, пока зона на экране и курсор не в текстовом поле.
  */
 export function photoDrop({ attach, done }) {
@@ -27,7 +27,7 @@ export function photoDrop({ attach, done }) {
         const fd = new FormData();
         fd.append('file', f, f.name && f.name !== 'image.png' ? f.name : `фото-${Date.now()}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`);
         const ph = await api('/photos/upload', { method: 'POST', body: fd });
-        row = await attach(String(ph._id || ph.id));
+        row = await attach(String(ph._id || ph.id), { url: ph.storageUrl, thumb: ph.variants?.thumb?.storageUrl || ph.storageUrl });
       }
     } catch (e) { toastError(e); }
     finally {
@@ -51,4 +51,20 @@ export function photoDrop({ attach, done }) {
   };
   document.addEventListener('paste', onPaste);
   return zone;
+}
+
+/**
+ * Фото внутри формы (новая запись / правка): миниатюры с «×» + зона добавления.
+ * Файлы загружаются сразу, к записи привязываются при сохранении формы.
+ *   const p = photoField([{ id, url, thumb }]);  p.el, p.ids() → ['…'], p.focus()
+ */
+export function photoField(initial = []) {
+  let pics = [...initial];
+  const strip = h('div', { class: 'pf-strip' });
+  const render = () => strip.replaceChildren(...pics.map((p, i) => h('div', { class: 'pf-item' },
+    h('img', { src: PREFIX + (p.thumb || p.url), alt: '', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
+    h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: () => { pics.splice(i, 1); render(); } }, '×'))));
+  const drop = photoDrop({ attach: async (id, p) => { pics.push({ id, ...p }); return pics; }, done: render });
+  render();
+  return { el: h('div', { class: 'photo-field' }, strip, drop), ids: () => pics.map((p) => p.id), focus: () => drop.focus() };
 }

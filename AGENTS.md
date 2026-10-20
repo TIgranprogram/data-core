@@ -19,6 +19,7 @@
 | Задача | Читай | Не читай |
 |--|--|--|
 | Любая работа над приложением/админкой | [docs/CANON.md](docs/CANON.md) + раздел в [docs/PRODUCT.md](docs/PRODUCT.md) | — |
+| Вид интерфейса: цвета, шрифты, отступы, компоненты, «сливается / криво» | skill `datacore-design` → [docs/DESIGN.md](docs/DESIGN.md) | `base.css` целиком |
 | Любая работа с кодом | [docs/MAP.md](docs/MAP.md) — модуль → маршруты → коллекции → файлы | весь `backend/src` подряд |
 | Как устроен запрос, auth, RBAC, плагины | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | — |
 | Поля сущностей | [docs/data-model.md](docs/data-model.md) (ориентир), истина — `*.schema.ts` | — |
@@ -92,6 +93,7 @@ pnpm в PATH может не быть → используй `npx`.
 
 ## Скиллы проекта (`.claude/skills/`)
 
+- `datacore-design` — правка вида интерфейса по дизайн-системе (`docs/DESIGN.md`).
 - `datacore-verify` — как проверить изменение (typecheck, юнит, e2e, live-smoke).
 - `datacore-new-module` — как добавить новую сущность/модуль по канону проекта.
 - `datacore-docs-sync` — какие доки обновлять после изменения.

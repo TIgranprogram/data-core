@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
 
 export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Наименование' }) @IsOptional() @IsString() @Length(0, 500) title?: string;
@@ -27,7 +27,13 @@ export class SupplyRequestDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) notes?: string;
   @ApiPropertyOptional({ description: '⏳ Ожидает / ✅ Заказать / ⚙️ В работе / 💰 Оплачено / ☑️ Получено / ❌ Отменено' }) @IsOptional() @IsString() @Length(0, 40) statusLabel?: string;
   @ApiPropertyOptional({ description: 'Срочно / Обычный / Низко' }) @IsOptional() @IsString() @Length(0, 40) priorityLabel?: string;
+  @ApiPropertyOptional({ description: 'Фото заявки (id из POST /api/photos/upload) — весь список, по порядку; [] — убрать все', type: [String] })
+  @IsOptional() @IsArray() @ArrayMaxSize(30) @IsMongoId({ each: true }) photoIds?: string[];
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+}
+
+export class SupplyPhotoDto {
+  @ApiPropertyOptional({ description: 'id из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
 }
 
 export class SupplyReceiveDto {

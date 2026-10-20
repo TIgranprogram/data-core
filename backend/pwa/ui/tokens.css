@@ -17,7 +17,10 @@
   --fs: 14px;
   --fs-sm: 12.5px;
   --fs-table: 13.5px;
-  --fs-h1: 24px;
+  --fs-h1: 26px;   /* заголовок страницы */
+  --fs-h2: 19px;   /* заголовок карточки, окна */
+  --fs-h3: 16px;   /* заголовок блока / очереди / панели */
+  --fs-label: 11.5px; /* подпись раздела в карточке, шапка таблицы (заглавными) */
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --radius: 10px;
@@ -58,6 +61,8 @@
   --warn-soft: #fcf0dc;
   --info: #0b6f8f;
   --info-soft: #e0f1f7;
+  --violet: #6a4cc2;
+  --violet-soft: #efeafb;
   --neutral-soft: #eceef2;
   /* производные (не зашивать цвета в разделах) */
   --link: #0b7350;
@@ -111,6 +116,8 @@
   --warn-soft: rgba(235, 168, 69, .14);
   --info: #4fbadb;
   --info-soft: rgba(79, 186, 219, .14);
+  --violet: #a68ff2;
+  --violet-soft: rgba(166, 143, 242, .15);
   --neutral-soft: #252c39;
   --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 2px 8px rgba(0, 0, 0, .25);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(227, 183, 74, .12);
@@ -127,4 +134,4 @@
 
 
 @media (max-width: 1100px) { :root { --gutter: 20px; } }
-@media (max-width: 720px) { :root { --gutter: 12px; --fs-h1: 20px; --topbar-h: 56px; } }
+@media (max-width: 720px) { :root { --gutter: 12px; --fs-h1: 21px; --fs-h2: 17px; --fs-h3: 15px; --topbar-h: 56px; } }

@@ -139,6 +139,40 @@ describe('Stock & supply on shared CRM collections', () => {
     await http().get(`/api/audit-logs/record?entityType=User&entityId=${r.body.id}`).set(auth()).expect(400);
   });
 
+  it('фото заявки: при создании, замена списком при правке, добавить / убрать; своё фото — главное', async () => {
+    const [p1, p2, p3] = await Promise.all(['a', 'b', 'c'].map(async (n) => (await db().collection('photos').insertOne({ storageUrl: `/uploads/${n}.jpg`, createdAt: new Date() })).insertedId));
+    await db().collection('photos').insertOne({ storageUrl: '/uploads/a-thumb.webp', parentPhotoId: p1, variant: 'thumb' });
+    const ids = (b: { photos: Array<{ id: string }> }) => b.photos.map((p) => p.id);
+    const r = await http().post('/api/supply/requests').set(auth()).send({ title: 'С фото', qty: 1, photoIds: [String(p1), String(p2)] }).expect(201);
+    expect(ids(r.body)).toEqual([String(p1), String(p2)]);
+    expect(r.body.photo).toEqual({ url: '/uploads/a.jpg', thumb: '/uploads/a-thumb.webp' });
+    // поле вне схемы CRM — лежит в коллекции
+    expect((await db().collection('supplyrequests').findOne({ _id: new Types.ObjectId(r.body.id) }))!.photoIds.map(String)).toEqual([String(p1), String(p2)]);
+    // правка: весь список (порядок и состав); без photoIds — фото не трогаются
+    expect(ids((await http().patch(`/api/supply/requests/${r.body.id}`).set(auth()).send({ photoIds: [String(p2)] }).expect(200)).body)).toEqual([String(p2)]);
+    expect(ids((await http().patch(`/api/supply/requests/${r.body.id}`).set(auth()).send({ notes: 'x' }).expect(200)).body)).toEqual([String(p2)]);
+    // карточка: добавить / убрать
+    expect(ids((await http().post(`/api/supply/requests/${r.body.id}/photos`).set(auth()).send({ photoId: String(p3) }).expect(200)).body)).toEqual([String(p2), String(p3)]);
+    const del = await http().delete(`/api/supply/requests/${r.body.id}/photos/${p2}`).set(auth()).expect(200);
+    expect(ids(del.body)).toEqual([String(p3)]);
+    expect(del.body.photo.url).toBe('/uploads/c.jpg');
+    // своё фото важнее фото позиции склада; убрали все — снова фото позиции
+    const matPhoto = (await db().collection('photos').insertOne({ storageUrl: '/uploads/mat.jpg' })).insertedId;
+    await db().collection('materials').updateOne({ _id: new Types.ObjectId(boltId) }, { $set: { mainPhotoId: matPhoto } });
+    const linked = await http().patch(`/api/supply/requests/${r.body.id}`).set(auth()).send({ materialId: boltId }).expect(200);
+    expect(linked.body.photo.url).toBe('/uploads/c.jpg');
+    expect(linked.body.materialPhoto.url).toBe('/uploads/mat.jpg');
+    const cleared = await http().patch(`/api/supply/requests/${r.body.id}`).set(auth()).send({ photoIds: [] }).expect(200);
+    expect(cleared.body.photos).toEqual([]);
+    expect(cleared.body.photo.url).toBe('/uploads/mat.jpg');
+    // незагруженное фото — 404 и заявка не создаётся; мусорный id — 400
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Без файла', photoIds: [String(new Types.ObjectId())] }).expect(404);
+    expect(await db().collection('supplyrequests').countDocuments({ title: 'Без файла' })).toBe(0);
+    await http().post(`/api/supply/requests/${r.body.id}/photos`).set(auth()).send({ photoId: 'xx' }).expect(400);
+    const hist = await http().get(`/api/audit-logs/record?entityType=SupplyRequest&entityId=${r.body.id}`).set(auth()).expect(200);
+    expect(hist.body.items.map((x: { action: string }) => x.action)).toEqual(expect.arrayContaining(['supply.request.photo.added', 'supply.request.photo.removed']));
+  });
+
   it('позиция склада: с остатком не удаляется (409 с причиной), пустая — в корзину и обратно; фильтр/сортировка/счётчики', async () => {
     const del = await http().delete(`/api/stock/items/${boltId}`).set(auth()).expect(409);
     expect(del.body.message).toContain('остаток 42');

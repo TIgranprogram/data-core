@@ -40,6 +40,8 @@ export interface SupplyInput {
   statusLabel?: string;
   /** Срочно / Обычный / Низко. */
   priorityLabel?: string;
+  /** Фото заявки — весь список (заменяет прежний). */
+  photoIds?: string[];
   clientUid?: string;
 }
 
@@ -103,9 +105,9 @@ export class SupplyService {
       this.names('materials', docs.map((d) => d.materialId)),
       this.materialPhotos(docs.map((d) => d.materialId)),
     ]);
-    // Своё фото заявки (из «Справочника», когда такой позиции на складе нет) — первое из photoIds
-    const reqPhoto = await this.photoUrls(new Map(docs.filter((d) => (d.photoIds as unknown[] | undefined)?.length)
-      .map((d) => [String(d._id), (d.photoIds as Types.ObjectId[])[0]] as [string, Types.ObjectId])));
+    // Свои фото заявки (загружены в приложении или из «Справочника») — photoIds, вне схемы CRM
+    const ownIds = (d: Record<string, unknown>) => (d.photoIds as Types.ObjectId[] | undefined) ?? [];
+    const own = await this.photoUrls(new Map(docs.flatMap((d) => ownIds(d)).map((p) => [String(p), p] as [string, Types.ObjectId])));
     return docs.map((d) => ({
       ...d,
       id: String(d._id), _id: String(d._id),
@@ -116,9 +118,41 @@ export class SupplyService {
       statusLabel: labelFromStatus(d.status as string, d.paid as boolean),
       priorityLabel: labelFromPriority(d.priority as string),
       invoiceType: (d.sheetExtra as { invoiceType?: string } | undefined)?.invoiceType ?? null,
-      /** Фото позиции склада (главное): { url, thumb } — из «Справочника» таблицы или загруженное в приложении. */
-      photo: (d.materialId ? photo.get(String(d.materialId)) : undefined) ?? reqPhoto.get(String(d._id)) ?? null,
+      /** Свои фото заявки: [{ id, url, thumb }] — их можно добавлять и убирать. */
+      photos: ownIds(d).filter((p) => own.has(String(p))).map((p) => ({ id: String(p), ...own.get(String(p))! })),
+      /** Главное фото для списка: первое своё, иначе главное фото позиции склада. */
+      photo: own.get(String(ownIds(d).find((p) => own.has(String(p))))) ?? (d.materialId ? photo.get(String(d.materialId)) : undefined) ?? null,
+      /** Фото позиции склада (если заявка к ней привязана) — показывается, когда своих нет. */
+      materialPhoto: (d.materialId ? photo.get(String(d.materialId)) : undefined) ?? null,
     }));
+  }
+
+  /** Проверить, что фото загружены, и вернуть их ObjectId (без дублей, по порядку). */
+  private async photoOids(ids: string[]) {
+    const list = [...new Set(ids.map(String))].map((i) => oid(i, 'фото'));
+    if (!list.length) return list;
+    const found = await this.connection.db!.collection('photos').countDocuments({ _id: { $in: list } });
+    if (found !== list.length) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
+    return list;
+  }
+
+  /** photoIds — поле вне схемы CRM: пишется с strict:false (иначе Mongoose его отбросит), схему не меняем. */
+  private async writePhotos(_id: Types.ObjectId, update: { $set?: { photoIds: Types.ObjectId[] }; $addToSet?: { photoIds: Types.ObjectId }; $pull?: { photoIds: Types.ObjectId } }) {
+    const res = await this.model.updateOne({ _id, deletedAt: null }, { ...update, $set: { ...update.$set, editedInApp: true } }, { strict: false }).exec();
+    if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
+  }
+
+  async addPhoto(id: string, photoId: string) {
+    const _id = oid(id, 'заявки');
+    const [pid] = await this.photoOids([photoId]);
+    await this.writePhotos(_id, { $addToSet: { photoIds: pid } });
+    return this.get(id);
+  }
+
+  async removePhoto(id: string, photoId: string) {
+    const _id = oid(id, 'заявки');
+    await this.writePhotos(_id, { $pull: { photoIds: oid(photoId, 'фото') } });
+    return this.get(id);
   }
 
   /**
@@ -240,6 +274,7 @@ export class SupplyService {
     }
     const fields = await this.toFields(dto);
     if (!fields.title && !fields.materialId) throw new BadRequestException('Укажите наименование');
+    const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {
       const last = await this.model.findOne({ num: { $ne: null } }).sort({ num: -1 }).lean().exec();
       fields.num = (Number(last?.num) || 0) + 1;
@@ -251,18 +286,21 @@ export class SupplyService {
       clientUid: dto.clientUid,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
+    if (photoIds.length) await this.writePhotos(doc._id as Types.ObjectId, { $set: { photoIds } });
     return this.get(String(doc._id));
   }
 
   async update(id: string, dto: SupplyInput) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const fields = await this.toFields(dto);
+    const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : undefined;
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(fields)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     set.editedInApp = true;
     if (fields.paid === false) unset.paidAt = '';
     const res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
+    if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     return this.get(id);
   }
 

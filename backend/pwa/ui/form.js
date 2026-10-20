@@ -1,25 +1,76 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { parseNum } from '../core/format.js';
+import { photoField } from './photos.js';
 import { attachSuggest } from './suggest.js';
 
 /**
  * Форма из описания полей (CANON §2 «Карточка»). Поле:
- *   { key, label, type: text|number|money|date|select|combo|textarea, required, wide, options, hint, min, placeholder }
+ *   { key, label, type: text|number|money|date|select|combo|textarea|photos, required, wide, options, hint, min, placeholder }
+ *   photos — значение [{ id, url, thumb }], в values — список id.
  *   options — массив строк или { value, label } (для select/combo); у combo можно вводить своё значение.
+ *   { section: 'Название', tone: main|info|money|who, collapsed?, fixed? } — начинает цветной блок полей (сетка 4 колонки).
+ *     Блок сворачивается кликом по заголовку (fixed — нельзя), состояние помнится; свёрнутый показывает, что в нём заполнено.
+ *   type: 'segment' — кнопки-переключатель для 2–4 вариантов (options: { value, label, tone? }).
+ *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
  * Возвращает { el, read() → { values } | { errors }, dirty(), focus() }.
  */
 export function buildForm(fields, initial = {}) {
   fields = fields.filter((f) => !f.money || session.canMoney); // суммы — только деньги-ролям
   const inputs = new Map();
-  const grid = h('div', { class: 'form-grid' });
+  const root = fields.some((f) => f.section) ? h('div', { class: 'form-blocks' }) : null;
+  let grid = h('div', { class: 'form-grid' });
+  if (root && !fields[0]?.section) root.append(grid);
+  const blocks = [];
+  let blk = null;
   for (const f of fields) {
+    if (f.section) {
+      grid = h('div', { class: 'form-grid' });
+      const block = h('section', { class: 'form-block', 'data-tone': f.tone || 'main' });
+      const sum = h('span', { class: 'form-sec-sum' });
+      const store = 'form-sec:' + f.section;
+      let closed = !!f.collapsed;
+      if (!f.fixed) { try { const x = localStorage.getItem(store); if (x !== null) closed = x === '1'; } catch { /* нет хранилища */ } }
+      const title = h('span', { class: 'form-sec-t' }, f.section);
+      const head = f.fixed
+        ? h('div', { class: 'form-sec' }, title)
+        : h('button', { type: 'button', class: 'form-sec', onclick: () => setOpen(b, b.block.classList.contains('closed'), true) },
+          title, sum, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
+      block.append(head, grid);
+      const b = { block, head, sum, store, keys: [] };
+      blocks.push(b); blk = b;
+      setOpen(b, !closed, false);
+      root.append(block);
+      continue;
+    }
     const id = 'f-' + f.key + '-' + Math.random().toString(36).slice(2, 7);
     const v = initial[f.key];
     let input;
     const opts = (f.options || []).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
-    if (f.type === 'select') {
+    if (f.type === 'photos') {
+      // Фото: значение — список id; файлы грузятся сразу, привязка — при сохранении
+      const pf = photoField(Array.isArray(v) ? v : []);
+      input = { el: pf.el, get value() { return JSON.stringify(pf.ids()); }, focus: pf.focus };
+      const err = h('div', { class: 'err', hidden: true });
+      const label = h('div', { class: 'field wide' }, h('span', null, f.label), pf.el, f.hint ? h('div', { class: 'hint' }, f.hint) : null, err);
+      grid.append(label);
+      inputs.set(f.key, { f, input, err, label, blk });
+      blk?.keys.push(f.key);
+      continue;
+    }
+    if (f.type === 'segment') {
+      let cur = String(v ?? opts[0]?.value ?? '');
+      const btns = opts.map((o) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', 'data-v': String(o.value), 'data-tone': o.tone || '', onclick: () => set(o.value) }, o.label));
+      const box = h('div', { class: 'fseg', role: 'radiogroup', id }, btns);
+      const set = (x) => {
+        cur = String(x ?? '');
+        for (const b of btns) { const on = b.dataset.v === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+        box.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      set(cur);
+      input = { el: box, get value() { return cur; }, set value(x) { set(x); }, focus: () => (btns.find((b) => b.dataset.v === cur) || btns[0])?.focus() };
+    } else if (f.type === 'select') {
       const list = [...opts];
       if (v != null && v !== '' && !list.some((o) => String(o.value) === String(v))) list.push({ value: v, label: String(v) });
       input = h('select', { id, name: f.key, value: v ?? '' },
@@ -40,16 +91,37 @@ export function buildForm(fields, initial = {}) {
       if (listId) grid.append(h('datalist', { id: listId }, opts.map((o) => h('option', { value: String(o.label) }))));
     }
     const err = h('div', { class: 'err', hidden: true });
-    const label = h('label', { class: 'field' + (f.wide ? ' wide' : ''), for: id },
-      h('span', null, f.label, f.required ? h('span', { class: 'req' }, ' *') : null), input, f.hint ? h('div', { class: 'hint' }, f.hint) : null, err);
+    const label = h(input.el ? 'div' : 'label', { class: 'field' + (f.wide ? ' wide' : '') + (f.span ? ' span-' + f.span : '') + (f.type === 'segment' ? ' is-seg' : ''), for: input.el ? undefined : id },
+      h('span', null, f.label, f.required ? h('span', { class: 'req' }, ' *') : null), input.el || input, f.hint ? h('div', { class: 'hint' }, f.hint) : null, err);
     grid.append(label);
-    inputs.set(f.key, { f, input, err, label });
+    inputs.set(f.key, { f, input, err, label, blk });
+    blk?.keys.push(f.key);
     if (f.suggest) {
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
         for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') x.input.value = String(v); }
+        summarize();
       } });
     }
   }
+  /** Свёрнутый блок показывает в заголовке то, что в нём уже заполнено. */
+  function summarize() {
+    for (const b of blocks) {
+      const parts = [];
+      for (const k of b.keys) {
+        const { f, input } = inputs.get(k);
+        const raw = String(input.value ?? '').trim();
+        if (f.type === 'photos') { const n = JSON.parse(raw || '[]').length; if (n) parts.push(`фото: ${n}`); continue; }
+        if (!raw) continue;
+        if (f.type === 'select') parts.push(input.selectedOptions?.[0]?.textContent || raw);
+        else if (f.type === 'segment') parts.push(input.el.querySelector('.on')?.textContent || raw);
+        else if (f.type === 'date') parts.push(raw.split('-').reverse().join('.'));
+        else parts.push(raw);
+      }
+      b.sum.textContent = parts.length ? parts.join(' · ') : 'не заполнено';
+    }
+  }
+  if (root) { root.addEventListener('input', summarize); root.addEventListener('change', summarize); summarize(); }
+
   const snapshot = () => JSON.stringify([...inputs.values()].map(({ input }) => input.value));
   const start = snapshot();
 
@@ -58,6 +130,7 @@ export function buildForm(fields, initial = {}) {
     for (const [key, { f, input, err, label }] of inputs) {
       const raw = input.value.trim();
       err.hidden = true; label.classList.remove('has-error');
+      if (f.type === 'photos') { values[key] = JSON.parse(raw); continue; }
       let val = raw === '' ? null : raw;
       if (val !== null && (f.type === 'number' || f.type === 'money')) {
         val = parseNum(raw);
@@ -69,6 +142,7 @@ export function buildForm(fields, initial = {}) {
       values[key] = val;
     }
     if (Object.keys(errors).length) {
+      for (const k of Object.keys(errors)) { const b = inputs.get(k).blk; if (b) setOpen(b, true, false); }
       const first = inputs.get(Object.keys(errors)[0]);
       first.input.focus();
       return { errors };
@@ -77,9 +151,15 @@ export function buildForm(fields, initial = {}) {
   }
 
   return {
-    el: grid,
+    el: root || grid,
     read,
     dirty: () => snapshot() !== start,
     focus: () => [...inputs.values()][0]?.input.focus(),
   };
+}
+
+function setOpen(b, open, remember) {
+  b.block.classList.toggle('closed', !open);
+  if (b.head.tagName === 'BUTTON') b.head.setAttribute('aria-expanded', String(open));
+  if (remember) { try { localStorage.setItem(b.store, open ? '0' : '1'); } catch { /* нет хранилища */ } }
 }
