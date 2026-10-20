@@ -160,7 +160,9 @@ export const requests = {
     sortDefault: '-requestDate',
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
-    headActions: () => [h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции сразу', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, '+ Счёт')],
+    headActions: () => [
+      h('button', { class: 'btn', type: 'button', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onclick: () => patch({ of: 'pasteorder', new: '1', open: undefined }) }, '+ Из таблицы'),
+      h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции сразу', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, '+ Счёт')],
     searchPlaceholder: 'Поиск: наименование, №, поставщик, заказ…',
     emptyText: 'Заявок пока нет.',
     filters: [

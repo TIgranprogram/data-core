@@ -1,6 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, parseNum, qty } from '../core/format.js';
+import { parsePasted } from '../core/paste-parse.js';
+import { normSearch } from '../core/facets.js';
 import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
 import { COST_CENTER } from '../ui/badges.js';
@@ -24,7 +26,8 @@ const STATE = [
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
 /** Форма счёта для правой панели (card.js: section.form.build): { el, read, dirty, focus }. */
-async function buildInvoiceForm() {
+/** opts.paste — режим «из таблицы» (TASKS В.8): поле вставки строк сверху, по умолчанию «Заказано», № счёта необязателен. */
+async function buildInvoiceForm(opts = {}) {
   const [lk, items] = await Promise.all([lookups(), pastItems().catch(() => [])]);
   const field = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
   const no = h('input', { maxlength: 100, placeholder: 'например: 01097' });
@@ -32,7 +35,7 @@ async function buildInvoiceForm() {
   const sup = h('input', { maxlength: 200 });
   const company = h('select', null, h('option', { value: '' }, '—'), ...(lk.companies || []).map((c) => h('option', { value: c }, c)));
   const type = h('input', { maxlength: 60 });
-  let state = 'received';
+  let state = opts.paste ? 'ordered' : 'received';
   let cc = 'workshop';
   const ccBox = h('div', { class: 'fseg' }, ...Object.entries(COST_CENTER).map(([k, l]) => h('button', { type: 'button', class: 'fseg-btn' + (k === cc ? ' on' : ''), onclick: (e) => { cc = k; ccBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); toStock.checked = k === 'workshop' || k === 'order'; } }, l)));
   const toStock = h('input', { type: 'checkbox', checked: true });
@@ -46,7 +49,7 @@ async function buildInvoiceForm() {
    * Нет в списке — «+ Новая позиция»: форма в самой строке (наименование, артикул, ед., ссылка, фото) создаёт позицию
    * склада в выбранной категории и подставляет её в строку.
    */
-  function addRow(focus = true) {
+  function addRow(focus = true, pre = null) {
     const cat = h('input', { maxlength: 100, placeholder: 'Выберите категорию' });
     const title = h('input', { placeholder: 'Сначала выберите категорию', maxlength: 500 });
     const q = h('input', { inputmode: 'decimal', value: '1', class: 'inv-q', 'aria-label': 'Количество' });
@@ -112,26 +115,71 @@ async function buildInvoiceForm() {
     sum.addEventListener('input', recalc);
     sum.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); } });
     rows.push(row);
+    if (pre) {
+      if (pre.cat) { cat.value = pre.cat; setCat(pre.cat); }
+      title.value = pre.title || ''; row.picked = pre.found ? pre.title : undefined;
+      q.value = String(pre.qty ?? 1); if (pre.unit) unit.value = pre.unit;
+      if (pre.sum) sum.value = String(pre.sum).replace('.', ',');
+      row.extra = pre.article ? { article: pre.article } : {};
+      row.srcArticle = pre.found ? '' : pre.article || ''; // артикул поставщика у новой позиции — не теряется при выборе категории
+      row.el.prepend(h('div', { class: 'inv-badge ' + (pre.found ? 'found' : 'new') }, pre.found ? '✓ нашлась в базе' : 'новая позиция — выберите категорию; при приёме появится на складе', pre.article ? h('span', { class: 'muted' }, ' · арт. ' + pre.article) : null));
+      recalc();
+    }
     if (focus) cat.focus();
   }
   function recalc() { totalEl.textContent = money(rows.reduce((s, r) => s + (parseNum(r.sum.value) || 0), 0)); }
 
+  // ---------- Вставка из Excel / с сайта ----------
+  const pasteArea = h('textarea', { rows: 6, class: 'paste-area', placeholder: 'Скопируйте строки из Excel или корзины сайта (артикул, наименование, количество, цена, сумма — лишние колонки не мешают) и вставьте сюда Ctrl+V' });
+  const pasteInfo = h('div', { class: 'hint' });
+  const normA = (s) => normSearch(s).replace(/\s+/g, '');
+  function findItem(p) {
+    const a = p.article ? normA(p.article) : '';
+    if (a) {
+      const byArt = items.find((x) => normA(x.values?.article || '') === a) || items.find((x) => normA(x.label).includes(a));
+      if (byArt) return byArt;
+    }
+    const n = normSearch(p.name);
+    return items.find((x) => normSearch(x.label) === n) || (n.length > 15 ? items.find((x) => normSearch(x.label).startsWith(n.slice(0, 40))) : null);
+  }
+  function applyPaste() {
+    const parsed = parsePasted(pasteArea.value);
+    if (!parsed.length) { pasteInfo.textContent = 'Не нашёл строк с товарами. Скопируйте строки таблицы целиком (с количеством и суммой).'; return; }
+    for (const rw of [...rows]) if (!rw.title.value.trim() && !rw.saved) { rows.splice(rows.indexOf(rw), 1); rw.el.remove(); }
+    let found = 0;
+    for (const p of parsed) {
+      const it = findItem(p);
+      if (it) found++;
+      addRow(false, it
+        ? { found: true, cat: it.cat || it.values?.categoryName || '', title: it.label, unit: it.values?.unit, article: it.values?.article || p.article, qty: p.qty, sum: p.sum }
+        : { found: false, title: p.name, article: p.article, qty: p.qty, sum: p.sum });
+    }
+    pasteInfo.textContent = 'Разобрано строк: ' + parsed.length + '. Нашлись в базе: ' + found + ', новых: ' + (parsed.length - found) + '. Проверьте ниже, выберите поставщика и нажмите «Внести».';
+    pasteArea.value = '';
+  }
+  const pasteBox = opts.paste ? h('div', { class: 'form-block paste-box', 'data-tone': 'info' },
+    h('div', { class: 'section-title' }, 'Вставьте строки таблицы'), pasteArea,
+    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('span', { class: 'spacer' })), pasteInfo) : null;
+
   const body = h('div', { class: 'inv' },
-    h('p', { class: 'hint' }, 'Счёт, которого не было в заявках (уже оплатили / уже привезли). На каждую позицию будет заявка с этим счётом — расходы и склад посчитаются как обычно.'),
-    h('div', { class: 'form-grid inv-head' }, field('№ счёта *', no), field('Дата счёта', date), field('Поставщик', h('div', { class: 'has-combo' }, sup)), field('Наша компания', company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — поставить на склад (снимите, если сразу в работу / в офис / на объект)')),
+    h('p', { class: 'hint' }, opts.paste
+      ? 'Заявки сразу на много позиций — из таблицы поставщика или корзины сайта. Найденное в базе подставится, остальное станет новыми позициями.'
+      : 'Счёт, которого не было в заявках (уже оплатили / уже привезли). На каждую позицию будет заявка с этим счётом — расходы и склад посчитаются как обычно.'),
+    pasteBox,
+    h('div', { class: 'form-grid inv-head' }, field(opts.paste ? '№ счёта (если уже есть)' : '№ счёта *', no), field('Дата счёта', date), field('Поставщик', h('div', { class: 'has-combo' }, sup)), field('Наша компания', company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — поставить на склад (снимите, если сразу в работу / в офис / на объект)')),
     h('div', { class: 'section-title' }, 'Позиции счёта'),
     lines,
     h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ Строка счёта'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
   attachCombo(sup, { options: () => (lk.suppliers || []).map((s) => ({ label: s })) });
   attachCombo(type, { options: () => (lk.invoiceTypes || []).map((s) => ({ label: s })) });
-  addRow(false);
+  if (!opts.paste) addRow(false);
   recalc();
 
   const start = () => JSON.stringify([no.value, date.value, sup.value, company.value, type.value, state, rows.map((r) => [r.cat.value, r.title.value, r.q.value, r.unit.value, r.sum.value])]);
   const initialSnap = start();
   async function save() {
     const invoiceNo = no.value.trim();
-    if (!invoiceNo) throw new Error('впишите № счёта');
+    if (!invoiceNo && state !== 'ordered') throw new Error('впишите № счёта (для «Оплачено» / «Получено» он нужен)');
     const list = rows.filter((r) => r.title.value.trim());
     if (!list.length) throw new Error('добавьте хотя бы одну позицию');
     for (const r of list) if (!r.cat.value.trim()) throw new Error(`выберите категорию для «${r.title.value.trim()}»`);
@@ -143,7 +191,7 @@ async function buildInvoiceForm() {
         title: r.title.value.trim(), qty: parseNum(r.q.value), unit: r.unit.value.trim() || 'шт', categoryName: r.cat.value.trim(),
         supplierName: sup.value.trim(), companyName: company.value, invoiceType: type.value.trim(), invoiceNo, invoiceDate: date.value || '',
         productUrl: r.url.value.trim(), photoIds: r.photos.ids(), statusLabel: st.status, priorityLabel: 'Обычный', requestDate: date.value || isoDay(),
-        clientUid: r.uid, costCenter: cc, ...(r.extra.article ? { article: r.extra.article } : {}),
+        clientUid: r.uid, costCenter: cc, ...((r.extra.article || r.srcArticle) ? { article: r.extra.article || r.srcArticle } : {}),
       };
       if (session.canMoney && parseNum(r.sum.value) > 0) body2.priceHint = parseNum(r.sum.value);
       if (!r.saved) {
@@ -154,13 +202,23 @@ async function buildInvoiceForm() {
       }
       if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid, toStock: toStock.checked, costCenter: cc } }); r.received = true; }
     }
-    toast(`Счёт ${invoiceNo} внесён: ${list.length} ${list.length === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);
+    toast(`${invoiceNo ? 'Счёт ' + invoiceNo : 'Заявки'} внесены: ${list.length} ${list.length === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);
     return { id: null, invoiceNo, count: list.length };
   }
-  return { el: body, read: () => ({ values: { save } }), dirty: () => start() !== initialSnap, focus: () => no.focus() };
+  return { el: body, read: () => ({ values: { save } }), dirty: () => start() !== initialSnap, focus: () => (opts.paste ? pasteArea : no).focus() };
 }
 
 /** Раздел-«форма» для правой панели: открывается как новая запись (#requests?of=invoice&new=1), после «Внести» панель закрывается. */
+/** «+ Из таблицы» — та же форма в режиме вставки (#requests?of=pasteorder&new=1). */
+export const pasteOrder = {
+  id: 'pasteorder',
+  title: 'Заявки из таблицы',
+  newTitle: 'Заявки из таблицы',
+  card: { heading: () => 'Заявки из таблицы' },
+  get: async () => ({}),
+  form: { build: () => buildInvoiceForm({ paste: true }), toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Внести', closeAfterCreate: true },
+};
+
 export const invoice = {
   id: 'invoice',
   title: 'Счёт',
