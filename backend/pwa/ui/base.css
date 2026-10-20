@@ -697,3 +697,19 @@ input.need { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); 
 /* Флажок с подписью (приём, счёт) */
 label.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: var(--fs); color: var(--text); cursor: pointer; }
 label.check input { width: 18px; height: 18px; }
+
+table.cal tr.res td, table.cal tr.res th { border-top: 2px solid var(--border-strong); }
+
+/* «Сводка» — обзор для директора (TASKS Д3.2) */
+.dash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); margin-top: var(--s4); }
+.dash-card { min-width: 0; }
+.shares { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 16px; }
+.share-l { display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; gap: 8px; align-items: baseline; font-size: var(--fs-sm); }
+.share-l .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.share-p { text-align: right; }
+.share-bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.share-bar i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+table.sum-tbl tr.total.q td { background: var(--surface-2); font-weight: 600; }
+@media (max-width: 1200px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.demo-note { background: var(--hint-bg); border-radius: var(--radius-sm); padding: 8px 12px; }

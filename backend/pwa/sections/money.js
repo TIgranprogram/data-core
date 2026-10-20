@@ -65,7 +65,7 @@ export function mountMoney(params) {
     const days = c.days;
     const sel = { date: null };
     const opsBox = h('div', { class: 'm-ops', hidden: true });
-    const head = h('tr', null, h('th', { class: 'sticky' }, 'Показатель'), h('th', { class: 'tot' }, 'Итого'),
+    const head = h('tr', null, h('th', { class: 'sticky' }, 'Показатель'), h('th', { class: 'tot', title: 'Total — итог за выбранный период' }, 'Итого (Total)'),
       days.map((d) => h('th', { class: 'day' + (d.weekday === 0 || d.weekday === 6 ? ' wkend' : '') + (d.date === new Date().toISOString().slice(0, 10) ? ' today' : '') },
         h('b', null, String(Number(d.date.slice(8)))), h('span', null, WD[d.weekday]))));
     const row = (label, cls, total, get, clickable) => h('tr', { class: cls },
@@ -84,8 +84,10 @@ export function mountMoney(params) {
       ...cos.map((co) => row(co, 'sub', cell(c.totals.incomeBy[co]), (d) => cell(d.incomeBy[co]), true)),
       row('Выплаты', 'grp out', cell(c.totals.expense, { strong: true }), (d) => cell(d.expense, { strong: true }), true),
       ...cos.map((co) => row(co, 'sub', cell(c.totals.expenseBy[co]), (d) => cell(d.expenseBy[co]), true)),
-      withOpen ? row('Остаток на конец дня', 'bal end', cell(c.totals.closing, { strong: true }), (d) => cell(d.closing))
-        : row('Итог с 1-го числа', 'bal end', cell(c.totals.closing, { strong: true, ...calm }), (d) => cell(d.closing, calm)),
+      // как ОДР у бухгалтеров: результат дня и финансовый результат нарастающим итогом (вчерашний + сегодняшний)
+      row('Результат дня', 'res', cell(c.totals.income - c.totals.expense, { strong: true }), (d) => cell(d.income - d.expense)),
+      row('Финансовый результат (нарастающий)', 'bal end', cell(c.totals.closing - c.totals.opening, { strong: true }), (d) => cell(d.closing - c.totals.opening)),
+      withOpen ? row('Остаток денег на конец дня', 'bal', cell(c.totals.closing, { strong: true }), (d) => cell(d.closing)) : null,
     ].filter(Boolean);
     function showOps(d) {
       sel.date = d.date;
@@ -113,13 +115,12 @@ export function mountMoney(params) {
     ];
   }
 
-  // ---------- Сводка ----------
+  // ---------- Сводка — обзор для директора (TASKS Д3.2, Д3.5) ----------
   function summary(s) {
     const cos = s.companies;
-    // Месяц | Поступления | Выплаты | Результат — по выбранным компаниям; по каждой — строкой ниже (если их несколько)
     const sum = (by, k) => cos.reduce((a, c) => a + (by[c]?.[k] || 0), 0);
-    const result = (inc, exp) => (inc ? cell(inc - exp, { strong: true }) : h('span', { class: 'muted', title: 'Доходы за месяц не внесены — у позиций заказов нет суммы или даты' }, 'доходов нет'));
-    const headRow = h('tr', null, h('th', null, 'Месяц'), h('th', { class: 'right' }, 'Поступления'), h('th', { class: 'right' }, 'Выплаты'), h('th', { class: 'right' }, 'Результат'));
+    const year = month().slice(0, 4);
+    const result = (inc, exp) => (inc ? cell(inc - exp, { strong: true }) : h('span', { class: 'muted', title: 'Доходы не внесены — у позиций заказов нет суммы' }, 'доходов нет'));
     const line = (label, by, cls) => {
       const inc = sum(by, 'income'), exp = sum(by, 'expense');
       const main = h('tr', { class: cls || '' }, h('td', null, label), h('td', { class: 'right' }, cell(inc)), h('td', { class: 'right' }, cell(exp)), h('td', { class: 'right' }, result(inc, exp)));
@@ -127,23 +128,45 @@ export function mountMoney(params) {
       return [main, ...cos.filter((c) => by[c]?.income || by[c]?.expense).map((c) => h('tr', { class: 'sub' }, h('td', null, c), h('td', { class: 'right' }, cell(by[c].income)), h('td', { class: 'right' }, cell(by[c].expense)), h('td', { class: 'right' }, by[c].income ? cell(by[c].income - by[c].expense) : '')))];
     };
     const name = (m) => { const [y, mo] = m.split('-').map(Number); return `${MONTHS[mo - 1]} ${y}`; };
-    // Пустые месяцы до первого с данными не показываем (год начался раньше, чем учёт)
-    const has = (m) => cos.some((c) => m.byCompany[c].income || m.byCompany[c].expense);
-    const first = s.months.findIndex(has);
-    // будущие месяцы не показываем (прогноз — отдельно); последний — текущий; новые сверху
-    const months = (first < 0 ? [] : s.months.slice(first)).filter((m) => m.month <= cur()).reverse();
-    const cats = h('tr', null, h('th', null, 'Категория'), cos.map((c) => h('th', { class: 'right' }, c)), h('th', { class: 'right' }, 'Всего'));
+    // месяцы года по порядок, после каждого квартала — «Итого за квартал»; будущие — не показываем (прогноз отдельно)
+    const months = s.months.filter((m) => m.month <= cur());
+    const first = months.findIndex((m) => sum(m.byCompany, 'income') || sum(m.byCompany, 'expense'));
+    const shown = first < 0 ? [] : months.slice(first);
+    const rows = []; let q = 0; let acc = null;
+    const flush = () => { if (acc) rows.push(h('tr', { class: 'total q' }, h('td', null, `Итого за ${['I', 'II', 'III', 'IV'][q - 1]} квартал`), h('td', { class: 'right' }, cell(acc.i, { strong: true })), h('td', { class: 'right' }, cell(acc.e, { strong: true })), h('td', { class: 'right' }, result(acc.i, acc.e)))); };
+    for (const m of shown) {
+      const mq = Math.ceil(Number(m.month.slice(5)) / 3);
+      if (mq !== q) { flush(); q = mq; acc = { i: 0, e: 0 }; }
+      acc.i += sum(m.byCompany, 'income'); acc.e += sum(m.byCompany, 'expense');
+      rows.push(...line(name(m.month), m.byCompany));
+    }
+    flush();
+    const inc = sum(s.total, 'income'), exp = sum(s.total, 'expense');
+    const kpi = (label, value, cls = '') => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, value), h('span', { class: 'sum-l' }, label));
+    // доли: направления / категории / поставщики — полоска = доля от самого большого
+    const shares = (title, hint, list) => {
+      const tot = list.reduce((a, x) => a + x.total, 0) || 1; const max = Math.max(1, ...list.map((x) => x.total));
+      return h('div', { class: 'panel dash-card' }, h('div', { class: 'q-head' }, h('div', null, h('h3', null, title), h('div', { class: 'q-hint' }, hint))),
+        list.length ? h('div', { class: 'shares' }, ...list.map((x) => h('div', { class: 'share' },
+          h('div', { class: 'share-l' }, h('span', { class: 'clip', title: x.label }, x.label), h('b', { class: 'num' }, money(x.total)), h('span', { class: 'muted num share-p' }, Math.round((x.total / tot) * 100) + '%')),
+          h('div', { class: 'share-bar' }, h('i', { style: { width: Math.max(2, (x.total / max) * 100) + '%' } })))))
+          : h('p', { class: 'muted', style: { padding: '0 16px 12px' } }, 'Расходов пока нет'));
+    };
     return [
-      h('div', { class: 'panel' }, h('div', { class: 'q-head' }, h('h3', null, 'Доходы и расходы по месяцам')),
-        h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' }, h('thead', null, headRow), h('tbody', null, months.length ? months.flatMap((m) => line(name(m.month), m.byCompany)) : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Операций пока нет')), line('Итого за год', s.total, 'total')))),
-        sum(s.total, 'income') ? null : h('p', { class: 'hint', style: { padding: '0 16px 12px' } }, 'Доходов пока нет: у позиций заказов не вписаны суммы. Впишите сумму в «Позициях и оплатах» (вкладка «Без суммы») — результат посчитается сам.')),
-      (s.expensesByCostCenter || []).length ? h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'Куда тратили: цех, офис, СМР, заказы')),
-        h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' }, h('thead', null, h('tr', null, h('th', null, 'Направление'), cos.map((c) => h('th', { class: 'right' }, c)), h('th', { class: 'right' }, 'Всего'))),
-          h('tbody', null, s.expensesByCostCenter.map((x) => h('tr', null, h('td', null, x.center), cos.map((c) => h('td', { class: 'right' }, cell(x.byCompany[c]))), h('td', { class: 'right' }, cell(x.total, { strong: true })))))))) : null,
-      h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'Расходы по категориям')),
-        h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' }, h('thead', null, cats),
-          h('tbody', null, s.expensesByCategory.length ? s.expensesByCategory.map((x) => h('tr', null, h('td', null, x.category), cos.map((c) => h('td', { class: 'right' }, cell(x.byCompany[c]))), h('td', { class: 'right' }, cell(x.total, { strong: true }))))
-            : h('tr', null, h('td', { colspan: cos.length + 2, class: 'muted' }, 'Расходов за период нет')))))),
+      h('div', { class: 'summary' },
+        kpi(`поступления за ${year}`, money(inc)),
+        kpi(`выплаты за ${year}`, money(exp)),
+        inc ? kpi('финансовый результат', money(inc - exp), inc - exp < 0 ? 'neg' : 'pos') : kpi('финансовый результат', '—', 'muted'),
+        kpi('месяцев с операциями', String(shown.length))),
+      inc ? null : h('p', { class: 'hint' }, 'Доходов пока нет: у позиций заказов не вписаны суммы («Позиции и оплаты» → «Без суммы» → «Вписать сумму»). Как только появятся — посчитается финансовый результат.'),
+      h('div', { class: 'dash-grid' },
+        shares('Куда тратили', 'Цех / офис / СМР / заказы', (s.expensesByCostCenter || []).map((x) => ({ label: x.center, total: x.total }))),
+        shares('На что тратили', 'По категориям', (s.expensesByCategory || []).map((x) => ({ label: x.category, total: x.total })).sort((a, b) => b.total - a.total)),
+        shares('Кому платили', 'Топ поставщиков', (s.expensesBySupplier || []).map((x) => ({ label: x.supplier, total: x.total })))),
+      h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, `Доходы и расходы по месяцам — ${year}`)),
+        h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' },
+          h('thead', null, h('tr', null, h('th', null, 'Период'), h('th', { class: 'right' }, 'Поступления'), h('th', { class: 'right' }, 'Выплаты'), h('th', { class: 'right' }, 'Результат'))),
+          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Операций пока нет')), ...line(`Итого (Total) за ${year}`, s.total, 'total'))))),
     ];
   }
 

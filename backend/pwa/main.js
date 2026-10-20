@@ -10,6 +10,9 @@ import { mountHome } from './sections/home.js';
 import { movements } from './sections/movements.js';
 import { mountMoney } from './sections/money.js';
 import { mountOps } from './sections/ops.js';
+import { mountPayroll } from './sections/payroll.js';
+/** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
+const FEATURES = { payroll: true };
 import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
 import { partners } from './sections/partners.js';
@@ -20,7 +23,7 @@ import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
 const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -70,7 +73,7 @@ function shell() {
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
     h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.ops, navLinks.movements,
     h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.partners,
-    session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money] : null,
+    session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
       navLinks.trash,
       session.user?.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,
@@ -143,12 +146,13 @@ function render({ section, params }) {
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = mountMoney(params);
     else if (section === 'ops') list = mountOps(params);
+    else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = mountPayroll();
     else if (section === 'trash') list = mountTrash();
     else if (section === 'search') list = mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
-    document.title = (sec?.title || ({ home: 'Сегодня', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
+    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
     window.scrollTo(0, 0);
   } else {
     mounted.list.update?.(params);
