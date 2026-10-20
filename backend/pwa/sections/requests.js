@@ -54,9 +54,10 @@ async function changeStatus(r, ctx) {
   const key = await modal({
     title: 'Сменить статус', okText: 'Сохранить',
     body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Статус'), sel),
-      h('p', { class: 'hint' }, '«Получено» здесь не приходует товар на склад — для этого кнопка «Оприходовать».')),
+      h('p', { class: 'hint' }, '«Получено» — откроется приём на склад: товар обязательно приходует, ничего не теряется.')),
     onOk: async () => sel.value,
   });
+  if (key === 'received' && supplyKey(r) !== 'received') { await receive(r, ctx); return; }
   if (key && key !== supplyKey(r)) await setStatus(r, key, ctx);
 }
 
@@ -109,7 +110,8 @@ const fields = async (r) => {
     { key: 'photos', label: 'Фото', type: 'photos', hint: 'Своё фото заявки показывается вместо фото позиции склада' },
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     { section: 'Поставщик и счёт', tone: 'money' },
-    { key: 'status', label: 'Статус', type: 'select', required: true, options: statusOptions() },
+    // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
+    { key: 'status', label: 'Статус', type: 'select', required: true, options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
     { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200 },
     { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },

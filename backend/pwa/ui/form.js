@@ -66,8 +66,8 @@ export function buildForm(fields, initial = {}) {
       let items = null; let catSel = '';
       const load = async () => { items ??= await f.load().catch(() => []); return items; };
       const cat = h('input', { placeholder: 'Выберите категорию', 'aria-label': 'Категория' });
-const setCat = (name) => { catSel = name; item.disabled = !name; item.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию'; };
-      const item = h('input', { placeholder: 'Сначала выберите категорию', 'aria-label': 'Позиция из базы', disabled: true });
+const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию'; };
+      const item = h('input', { placeholder: 'Сначала выберите категорию', 'aria-label': 'Позиция из базы' });
       const clear = h('button', { type: 'button', class: 'btn btn-ghost btn-sm pick-clear', hidden: true, title: 'Не из базы — ввести вручную' }, '× вручную');
       const row = h('div', { class: 'pick-row' }, h('label', { class: 'field' }, h('span', null, 'Категория'), cat), h('label', { class: 'field pick-item' }, h('span', null, 'Позиция из базы'), item), clear);
       const wrap = h('div', { class: 'field wide pick' }, row, h('div', { class: 'hint' }, f.hint || 'Уже заказывали или есть на складе — выберите, поля заполнятся сами. Нет в списке — заполните «Наименование» вручную.'));
@@ -82,7 +82,8 @@ const setCat = (name) => { catSel = name; item.disabled = !name; item.placeholde
         attachCombo(cat, { options: () => cats.map((c) => ({ label: c, value: c })), onPick: (o) => { setCat(o.value); item.value = ''; item.focus(); } });
         cat.addEventListener('change', () => { const v = cat.value.trim(); setCat(cats.find((c) => c.toLowerCase() === v.toLowerCase()) || ''); });
         attachCombo(item, {
-          options: () => items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })),
+          options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
+          empty: () => (catSel ? null : (cat.classList.add('need'), setTimeout(() => cat.classList.remove('need'), 1600), '← Сначала выберите категорию — тогда здесь будут её позиции')),
           onPick: (o) => {
             for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') xx.input.value = String(val); }
             lock(true); summarize();

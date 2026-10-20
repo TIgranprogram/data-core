@@ -689,3 +689,7 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 .inv-new-head { margin-bottom: 8px; }
 .inv-new-foot { display: flex; gap: 8px; margin-top: 10px; }
 @media (max-width: 720px) { .inv-pick { grid-template-columns: 1fr; } .drawer .inv-main, .inv-main { grid-template-columns: 1fr 1fr; } .inv-btns { grid-column: 1 / -1; } }
+
+/* Подсказка «сначала выберите категорию» */
+.combo-why { color: var(--warn); font-weight: 500; }
+input.need { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); transition: box-shadow .2s; }

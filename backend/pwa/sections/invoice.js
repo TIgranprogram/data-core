@@ -13,6 +13,8 @@ import { pastItems } from './requests.js';
  * обычная заявка с тем же № и датой счёта (POST /supply/requests), «получено» — сразу приход на склад
  * (POST /supply/requests/:id/receive). Повтор безопасен (clientUid на строку).
  */
+/** Подсветить поле, которое надо заполнить первым (категория). */
+const needCat = (el) => { el.classList.add('need'); setTimeout(() => el.classList.remove('need'), 1600); };
 const STATE = [
   { value: 'ordered', label: 'Заказано — ждём', status: 'В работе' },
   { value: 'paid', label: 'Оплачено', status: 'Оплачено' },
@@ -42,7 +44,7 @@ async function buildInvoiceForm() {
    */
   function addRow(focus = true) {
     const cat = h('input', { maxlength: 100, placeholder: 'Выберите категорию' });
-    const title = h('input', { placeholder: 'Сначала выберите категорию', maxlength: 500, disabled: true });
+    const title = h('input', { placeholder: 'Сначала выберите категорию', maxlength: 500 });
     const q = h('input', { inputmode: 'decimal', value: '1', class: 'inv-q', 'aria-label': 'Количество' });
     const unit = h('input', { value: 'шт', maxlength: 30, class: 'inv-u', 'aria-label': 'Ед. изм.' });
     const sum = h('input', { inputmode: 'decimal', placeholder: 'сумма, ₽', class: 'inv-s', hidden: !session.canMoney, 'aria-label': 'Сумма' });
@@ -71,13 +73,13 @@ async function buildInvoiceForm() {
     let catSel = '';
     const setCat = (name) => {
       catSel = name;
-      title.disabled = !name;
       title.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию';
     };
     attachCombo(cat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })), onPick: (o) => { setCat(o.label); title.value = ''; row.extra = {}; title.focus(); } });
     cat.addEventListener('change', () => { const v = cat.value.trim(); const c = (lk.categories || []).find((x) => x.name.toLowerCase() === v.toLowerCase()); setCat(c ? c.name : ''); });
     attachCombo(title, {
-      options: () => items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })),
+      options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
+      empty: () => (catSel ? null : (needCat(cat), '← Сначала выберите категорию — тогда здесь будут её позиции')),
       onPick: (o) => { const v = o.x.values || {}; row.picked = o.label; if (v.unit) unit.value = v.unit; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; },
     });
     title.addEventListener('input', () => { if (title.value !== row.picked) row.extra = {}; });

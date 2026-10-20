@@ -273,6 +273,7 @@ export class SupplyService {
       if (dup) return this.get(String(dup._id));
     }
     const fields = await this.toFields(dto);
+    if (fields.status === 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется (создайте заявку «Оплачено», затем «Принять»)');
     if (!fields.title && !fields.materialId) throw new BadRequestException('Укажите наименование');
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {
@@ -293,6 +294,11 @@ export class SupplyService {
   async update(id: string, dto: SupplyInput) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const fields = await this.toFields(dto);
+    // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
+    if (fields.status === 'received') {
+      const cur = await this.model.findById(id, { status: 1 }).lean().exec();
+      if (cur && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
+    }
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : undefined;
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(fields)) (v === undefined ? (unset[k] = '') : (set[k] = v));

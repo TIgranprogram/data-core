@@ -7,7 +7,7 @@ import { normSearch, searchTokens } from '../core/facets.js';
  * Открывается по фокусу/клику (весь список) и при наборе (фильтр «как в магазине»: слова в любом порядке, м10 = M10).
  * ↑↓ — выбор, Enter — взять, Esc — закрыть. free — можно оставить своё значение (иначе только из списка).
  */
-export function attachCombo(input, { options, onPick, max = 60 }) {
+export function attachCombo(input, { options, onPick, max = 60, empty }) {
   const box = h('div', { class: 'combo-list', hidden: true, role: 'listbox' });
   input.parentElement.classList.add('has-combo');
   input.insertAdjacentElement('afterend', box);
@@ -20,7 +20,7 @@ export function attachCombo(input, { options, onPick, max = 60 }) {
     const tokens = filter ? searchTokens(input.value) : [];
     const list = all().filter((o) => !tokens.length || tokens.every((t) => normSearch([o.label, o.sub, o.group].filter(Boolean).join(' ')).includes(t)));
     shown = list.slice(0, max);
-    if (!shown.length) { box.replaceChildren(h('div', { class: 'combo-empty' }, tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст')); box.hidden = false; return; }
+    if (!shown.length) { const why = empty?.(); box.replaceChildren(h('div', { class: 'combo-empty' + (why ? ' combo-why' : '') }, why || (tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст'))); box.hidden = false; return; }
     active = Math.min(active, shown.length - 1); // -1 — ничего не подсвечено: Enter не меняет введённое
     const rows = []; let grp;
     shown.forEach((o, i) => {
