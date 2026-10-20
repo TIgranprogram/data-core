@@ -9,6 +9,7 @@ import { quickAdd } from '../ui/quick.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
 import { pic } from './stock.js';
+import { invoiceDialog } from './invoice.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
@@ -61,7 +62,7 @@ async function changeStatus(r, ctx) {
 }
 
 /** Ранее заказанное + склад для подсказок в новой заявке (З.7): одно наименование — одна строка. */
-async function pastItems() {
+export async function pastItems() {
   const [reqs, stockRes] = await Promise.all([
     api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch(() => ({ items: [] })),
     api('/stock/items', { query: { limit: 10000 } }).catch(() => ({ items: [] })),
@@ -95,6 +96,7 @@ const fields = async (r) => {
   const lk = await lookups();
   return [
     { section: 'Что заказать', tone: 'main', fixed: true },
+    r ? null : { key: '_pick', type: 'pick', load: pastItems, target: 'title' },
     { key: 'title', label: 'Наименование', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
     { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
@@ -137,6 +139,8 @@ export const requests = {
     path: '/supply/requests',
     sortDefault: '-requestDate',
     createLabel: 'Заявка',
+    // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
+    headActions: (reload) => [h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции одним окном', onclick: async () => { if (await invoiceDialog()) reload(); } }, '+ Счёт')],
     searchPlaceholder: 'Поиск: наименование, №, поставщик, заказ…',
     emptyText: 'Заявок пока нет.',
     filters: [

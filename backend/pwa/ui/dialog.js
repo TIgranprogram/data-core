@@ -1,11 +1,11 @@
 import { h } from '../core/dom.js';
 
 /** Модальное окно. Возвращает Promise: значение из onOk или null при отмене. */
-export function modal({ title, body, okText = 'OK', cancelText = 'Отмена', danger = false, onOk }) {
+export function modal({ title, body, okText = 'OK', cancelText = 'Отмена', danger = false, wide = false, onOk }) {
   return new Promise((resolve) => {
     const err = h('div', { class: 'form-error', hidden: true });
     const ok = h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), type: 'submit' }, okText);
-    const form = h('form', { class: 'modal', role: 'dialog', 'aria-modal': 'true' },
+    const form = h('form', { class: 'modal' + (wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true' },
       h('div', { class: 'modal-head' }, h('h2', null, title)),
       h('div', { class: 'modal-body' }, err, body),
       h('div', { class: 'modal-foot' },

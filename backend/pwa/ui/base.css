@@ -627,3 +627,47 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 .so-add input, .so-add select { height: 34px; }
 .so-q { text-align: right; }
 @media (max-width: 720px) { .so-add { grid-template-columns: 1fr 70px 80px; } .so-add .btn { grid-column: 1 / -1; } }
+
+/* Единый выпадающий список (ui/combo.js) и «Категория → Позиция из базы» */
+.has-combo { position: relative; }
+.combo-input { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
+.combo-list { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 2px); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); max-height: 320px; overflow-y: auto; }
+.combo-opt { padding: 8px 12px; cursor: pointer; }
+.combo-opt.active, .combo-opt:hover { background: var(--row-hover); }
+.combo-opt.cur { font-weight: 600; }
+.combo-opt .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combo-opt small { color: var(--muted); font-size: 12px; }
+.combo-group { padding: 6px 12px 4px; font-size: var(--fs-label, 11px); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); position: sticky; top: 0; }
+.combo-empty { padding: 10px 12px; color: var(--muted); font-size: var(--fs-sm); }
+.pick { background: var(--primary-soft); border-radius: var(--radius); padding: 10px 12px; }
+.pick-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 2.4fr) auto; gap: 10px; align-items: end; }
+.pick-clear { margin-bottom: 2px; }
+.field.from-base input { background: var(--surface-2); color: var(--muted); }
+.field.from-base > span::after { content: ' · из базы'; color: var(--link); font-weight: 400; }
+@media (max-width: 720px) { .pick-row { grid-template-columns: 1fr; } }
+
+/* «Внести счёт» (sections/invoice.js) */
+.modal.wide { width: min(980px, 100%); }
+.inv-head { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.inv-head .wide { grid-column: 1 / -1; }
+.inv-lines { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.inv-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--surface-2); }
+.inv-main { display: grid; grid-template-columns: minmax(0, 1fr) 70px 80px 120px auto auto; gap: 6px; align-items: center; }
+.inv-main input { height: 34px; width: 100%; }
+.inv-t input { width: 100%; }
+.inv-q, .inv-s { text-align: right; }
+.inv-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.inv-more .wide { grid-column: 1 / -1; }
+.inv-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+@media (max-width: 720px) { .inv-head { grid-template-columns: 1fr; } .inv-main { grid-template-columns: 1fr 60px 70px; } .inv-main .inv-s { grid-column: 1 / 2; } }
+
+/* «Сегодня» по разделам (TASKS В.4) */
+.lanes { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+.lane, .lane-stack { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.lane-head { display: flex; align-items: center; gap: 10px; padding: 2px 2px 0; }
+.lane-head .ico { width: 22px; height: 22px; color: var(--heading); }
+.lane-head h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.01em; color: var(--heading); }
+.lane-link { margin-left: auto; font-size: var(--fs-sm); }
+.lane .quick-panel { margin: 0; }
+@media (max-width: 1400px) { .lanes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .lanes > .lane:first-child { grid-column: 1 / -1; } }
+@media (max-width: 900px) { .lanes { grid-template-columns: minmax(0, 1fr); } }

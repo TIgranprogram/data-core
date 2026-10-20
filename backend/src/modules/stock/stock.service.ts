@@ -543,6 +543,9 @@ export class StockService {
         source: d.source ?? null, fromSheet: d.source === 'google-sheets',
         cancelledAt: d.cancelledAt ?? null, cancelOf: d.cancelOf ? String(d.cancelOf) : null,
         createdBy: m.createdBy ? userName.get(String(m.createdBy)) ?? null : null,
+        // для карточки движения: операция пакетом, под какой заказ (кликабельно в приложении)
+        batchId: (m as { batchId?: Types.ObjectId }).batchId ? String((m as { batchId?: Types.ObjectId }).batchId) : null,
+        salesOrderId: (m as { salesOrderId?: Types.ObjectId }).salesOrderId ? String((m as { salesOrderId?: Types.ObjectId }).salesOrderId) : null,
         canCancel: d.source !== 'google-sheets' && !d.cancelledAt && !d.cancelOf && m.type !== 'transfer' && d.delta !== undefined,
       };
     });

@@ -12,7 +12,7 @@ import { toastError } from './toast.js';
  * Экран строится ОДИН раз; смена фильтра/страницы/сортировки — update(params): элементы управления не пересоздаются,
  * строки заменяются, когда пришли новые данные (старые остаются видны, без моргания).
  * section.list = {
- *   path, sortDefault, searchPlaceholder, createLabel,
+ *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
  *   columns: [{ key, label, sort?, cls?, render(row) }],
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
@@ -53,6 +53,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     h('h1', null, section.title, ' ', countEl),
     h('span', { class: 'spacer' }),
     viewSwitch,
+    ...(L.headActions && session.canEdit ? L.headActions(() => load()) : []),
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
 
   // ---------- Поиск и фильтры (создаются один раз) ----------

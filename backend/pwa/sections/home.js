@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { icon } from '../ui/icons.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
@@ -185,13 +186,19 @@ export function mountHome(deps) {
     }
   }
 
-  function reloadAll() { summaryRetry = 0; loadSummary(); queues.forEach((q) => q()); loadFeed(); deps.refreshCounts?.(); }
+  function reloadAll() { queues.forEach((q) => q()); loadFeed(); deps.refreshCounts?.(); }
 
+  const lane = (title, ico, href, linkText, ...kids) => h('section', { class: 'lane' },
+    h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
-    summary,
-    quick ? h('div', { class: 'panel quick-panel' }, quick) : null,
-    h('div', { class: 'queues' }, qOrder, qWait, qDecide, qStock, qDue, session.canMoney ? qPay : null, qFeed));
+    // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
+    h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },
+      lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, quick) : null, qOrder, qWait, qDecide),
+      lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qFeed),
+      h('div', { class: 'lane-stack' },
+        lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue),
+        session.canMoney ? lane('Деньги', 'money', '#money', 'Календарь →', qPay) : null)));
 
   reloadAll();
   return { el, reload: reloadAll, update: () => {} };

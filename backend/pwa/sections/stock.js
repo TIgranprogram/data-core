@@ -76,7 +76,7 @@ export const stock = {
   list: {
     path: '/stock/items',
     sortDefault: 'name',
-    createLabel: 'Позиция',
+    createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Поиск: наименование, артикул…',
     emptyText: 'На складе пока нет позиций.',
     filters: [
@@ -144,10 +144,10 @@ export const stock = {
     actions: (r) => [
       { label: '+ Приход', primary: true, run: (row, ctx) => move(row, 'in', ctx) },
       { label: '− Списание', run: (row, ctx) => move(row, 'out', ctx) },
-      { label: 'Бронь', run: (row, ctx) => move(row, 'reserve', ctx) },
+      { label: 'Забронировать под заказ', run: (row, ctx) => move(row, 'reserve', ctx) },
       r.reservedQty > 0 && { label: 'Снять бронь', run: (row, ctx) => move(row, 'unreserve', ctx) },
-      { label: 'Инвентаризация', run: (row, ctx) => move(row, 'adjust', ctx) },
-      { label: 'Создать заявку', run: (row) => patch({ of: 'requests', new: '1', open: undefined, title: row.name, unit: row.unit || '', categoryName: row.categoryName || '' }) },
+      { label: 'Пересчитать (сколько лежит)', run: (row, ctx) => move(row, 'adjust', ctx) },
+      { label: 'Заказать (новая заявка)', run: (row) => patch({ of: 'requests', new: '1', open: undefined, title: row.name, unit: row.unit || '', categoryName: row.categoryName || '' }) },
     ],
     extra: recentMoves,
   },
@@ -156,18 +156,23 @@ export const stock = {
     fields: async () => {
       const lk = await lookups().catch(() => ({ categories: [] }));
       return [
-        { key: 'name', label: 'Наименование', required: true, wide: true, max: 300 },
+        { section: 'Что за позиция', tone: 'main', fixed: true },
+        { key: 'name', label: 'Наименование', required: true, max: 300, span: 3, hint: 'Как называется на складе: «Болт мебельный, M8х40, DIN 603»' },
+        { key: 'article', label: 'Артикул', max: 100, span: 1, hint: 'Пусто — присвоится сам' },
         { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: UNITS, max: 30 },
-        { key: 'minQuantity', label: 'Мин. остаток', type: 'number', min: 0, hint: 'Меньше — позиция попадёт в «К закупке»' },
-        { key: 'article', label: 'Артикул', max: 100, hint: 'Пусто — присвоится автоматически' },
+        { section: 'Запас', tone: 'info' },
+        { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
         { key: 'weightKg', label: 'Вес 1 шт., кг', type: 'number', min: 0 },
+        { section: 'Фото и примечание', tone: 'who' },
+        { key: 'photos', label: 'Фото', type: 'photos', hint: 'Перетащите, вставьте Ctrl+V или выберите файл' },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
     },
-    initial: () => ({ unit: 'шт' }),
+    initial: () => ({ unit: 'шт', photos: [] }),
+    toInitial: (r) => ({ ...r, photos: r.photos || [] }),
     toBody: (v) => {
-      const b = { name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
+      const b = { photoIds: v.photos || [], name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;
       if (v.minQuantity !== null) b.minQuantity = v.minQuantity;
       if (v.weightKg !== null) b.weightKg = v.weightKg;
@@ -178,11 +183,19 @@ export const stock = {
       const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
       const twin = same.items.find((i) => norm(i.name) === norm(body.name));
       if (twin) throw new Error(`Позиция «${twin.name}» уже есть на складе — найдите её поиском`);
-      const r = await api('/stock/items', { method: 'POST', body });
+      const { photoIds, ...rest } = body;
+      let r = await api('/stock/items', { method: 'POST', body: rest });
+      for (const photoId of photoIds || []) r = await api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } });
       lookups.reset();
       return r;
     },
-    update: async (id, body) => { const r = await api(`/stock/items/${id}`, { method: 'PATCH', body }); lookups.reset(); return r; },
+    update: async (id, body) => {
+      const { photoIds, ...rest } = body;
+      let r = await api(`/stock/items/${id}`, { method: 'PATCH', body: rest });
+      const have = new Set((r.photos || []).map((p) => p.id));
+      for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });
+      lookups.reset(); return r;
+    },
   },
 
   remove: {

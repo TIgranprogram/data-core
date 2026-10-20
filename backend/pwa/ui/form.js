@@ -2,6 +2,7 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { parseNum } from '../core/format.js';
 import { photoField } from './photos.js';
+import { attachCombo } from './combo.js';
 import { attachSuggest } from './suggest.js';
 
 /**
@@ -11,13 +12,15 @@ import { attachSuggest } from './suggest.js';
  *   options — массив строк или { value, label } (для select/combo); у combo можно вводить своё значение.
  *   { section: 'Название', tone: main|info|money|who, collapsed?, fixed? } — начинает цветной блок полей (сетка 4 колонки).
  *     Блок сворачивается кликом по заголовку (fixed — нельзя), состояние помнится; свёрнутый показывает, что в нём заполнено.
+ *   type: 'pick' — «Категория → Позиция из базы» (TASKS В.1): { key: '_pick', type: 'pick', load: async () => [{ label, cat, sub, values }], target: 'title' };
+ *     выбор заполняет поля из values, поле target становится «из базы» (только чтение, «изменить» — вернуть ручной ввод). В read() не попадает.
  *   type: 'segment' — кнопки-переключатель для 2–4 вариантов (options: { value, label, tone? }).
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
  * Возвращает { el, read() → { values } | { errors }, dirty(), focus() }.
  */
 export function buildForm(fields, initial = {}) {
-  fields = fields.filter((f) => !f.money || session.canMoney); // суммы — только деньги-ролям
+  fields = fields.filter((f) => f && (!f.money || session.canMoney)); // суммы — только деньги-ролям
   const inputs = new Map();
   const root = fields.some((f) => f.section) ? h('div', { class: 'form-blocks' }) : null;
   let grid = h('div', { class: 'form-grid' });
@@ -59,6 +62,35 @@ export function buildForm(fields, initial = {}) {
       blk?.keys.push(f.key);
       continue;
     }
+    if (f.type === 'pick') {
+      let items = null; let catSel = '';
+      const load = async () => { items ??= await f.load().catch(() => []); return items; };
+      const cat = h('input', { placeholder: 'Все категории', 'aria-label': 'Категория' });
+      const item = h('input', { placeholder: 'Начните печатать или выберите из списка…', 'aria-label': 'Позиция из базы' });
+      const clear = h('button', { type: 'button', class: 'btn btn-ghost btn-sm pick-clear', hidden: true, title: 'Не из базы — ввести вручную' }, '× вручную');
+      const row = h('div', { class: 'pick-row' }, h('label', { class: 'field' }, h('span', null, 'Категория'), cat), h('label', { class: 'field pick-item' }, h('span', null, 'Позиция из базы'), item), clear);
+      const wrap = h('div', { class: 'field wide pick' }, row, h('div', { class: 'hint' }, f.hint || 'Уже заказывали или есть на складе — выберите, поля заполнятся сами. Нет в списке — заполните «Наименование» вручную.'));
+      grid.append(wrap);
+      const lock = (on) => {
+        const tg = inputs.get(f.target || 'title');
+        if (tg) { tg.input.readOnly = on; tg.label.classList.toggle('from-base', on); }
+        clear.hidden = !on;
+      };
+      load().then(() => {
+        const cats = [...new Set(items.map((x) => x.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+        attachCombo(cat, { options: () => [{ label: 'Все категории', value: '' }, ...cats.map((c) => ({ label: c, value: c }))], onPick: (o) => { catSel = o.value; item.value = ''; item.focus(); } });
+        cat.addEventListener('change', () => { if (!cat.value || cat.value === 'Все категории') catSel = ''; });
+        attachCombo(item, {
+          options: () => items.filter((x) => !catSel || x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, group: catSel ? undefined : x.cat || 'Без категории', x })),
+          onPick: (o) => {
+            for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') xx.input.value = String(val); }
+            lock(true); summarize();
+          },
+        });
+      });
+      clear.addEventListener('click', () => { lock(false); item.value = ''; const tg = inputs.get(f.target || 'title'); tg?.input.focus(); });
+      continue;
+    }
     if (f.type === 'segment') {
       let cur = String(v ?? opts[0]?.value ?? '');
       const btns = opts.map((o) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', 'data-v': String(o.value), 'data-tone': o.tone || '', onclick: () => set(o.value) }, o.label));
@@ -80,15 +112,13 @@ export function buildForm(fields, initial = {}) {
       input = h('textarea', { id, name: f.key, rows: f.rows || 3, maxlength: f.max || 2000 });
       input.value = v ?? '';
     } else {
-      const listId = f.type === 'combo' ? id + '-l' : undefined;
       input = h('input', {
-        id, name: f.key, list: listId, placeholder: f.placeholder, autocomplete: 'off',
+        id, name: f.key, placeholder: f.placeholder || (f.type === 'combo' ? 'Выберите или впишите' : undefined), autocomplete: 'off',
         type: f.type === 'date' ? 'date' : 'text',
         inputmode: f.type === 'number' || f.type === 'money' ? 'decimal' : undefined,
         maxlength: f.max || 500,
       });
       input.value = v ?? '';
-      if (listId) grid.append(h('datalist', { id: listId }, opts.map((o) => h('option', { value: String(o.label) }))));
     }
     const err = h('div', { class: 'err', hidden: true });
     const label = h(input.el ? 'div' : 'label', { class: 'field' + (f.wide ? ' wide' : '') + (f.span ? ' span-' + f.span : '') + (f.type === 'segment' ? ' is-seg' : ''), for: input.el ? undefined : id },
@@ -96,6 +126,7 @@ export function buildForm(fields, initial = {}) {
     grid.append(label);
     inputs.set(f.key, { f, input, err, label, blk });
     blk?.keys.push(f.key);
+    if (f.type === 'combo') attachCombo(input, { options: () => opts.map((o) => ({ label: String(o.label), value: o.value })) });
     if (f.suggest) {
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
         for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') x.input.value = String(v); }

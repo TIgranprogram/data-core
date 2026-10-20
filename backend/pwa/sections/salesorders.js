@@ -162,15 +162,18 @@ export const salesorders = {
     fields: async () => {
       const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р'] }));
       return [
+        { section: 'Заказ', tone: 'main', fixed: true },
         { key: 'orderNo', label: '№ заказа', required: true, max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: [...new Set(['б/р', 'б/р 30%', 'б/р 50%', ...(l.paymentForms || [])])], max: 50 },
         { key: 'stage', label: 'Этап', type: 'select', required: true, options: Object.entries(STAGE).map(([value, s]) => ({ value, label: s.label })) },
+        { section: 'Сроки', tone: 'info' },
         { key: 'productionDeadline', label: 'Срок изготовления', type: 'date' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
         { key: 'deliveryDeadline', label: 'Окончание поставки', type: 'date' },
+        { section: 'Контракт и примечание', tone: 'who', collapsed: true },
         { key: 'contractNo', label: '№ контракта', max: 100 },
         { key: 'contractDate', label: 'Дата контракта', type: 'date' },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },

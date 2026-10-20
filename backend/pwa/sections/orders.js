@@ -154,18 +154,22 @@ export const orders = {
     fields: async () => {
       const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'нал'] }));
       return [
+        { section: 'Позиция заказа', tone: 'main', fixed: true },
         { key: 'orderId', label: 'Заказ', type: 'select', options: await import('./salesorders.js').then((m) => m.activeOrders()).then((os) => os.map((o) => ({ value: o.id, label: m2(o) }))).catch(() => []), hint: 'Позиция попадёт в карточку заказа; № и заказчик возьмутся из заказа', wide: true },
         { key: 'orderNo', label: '№ заказа (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', options: UNITS, max: 30 },
+        { section: 'Деньги', tone: 'money', money: true },
         { key: 'unitPrice', money: true, label: 'Цена за ед., ₽', type: 'money', min: 0 },
         { key: 'amountManual', money: true, label: 'Доход вручную, ₽', type: 'money', min: 0, hint: 'Если заполнено — важнее кол-во × цена' },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name), hint: 'Нужна для платёжного календаря' },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
+        { section: 'Отгрузка и оплата', tone: 'info' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
         { key: 'paidDate', label: 'Дата оплаты', type: 'date' },
+        { section: 'Вид, цвет, примечание', tone: 'who', collapsed: true },
         { key: 'kind', label: 'Вид', max: 100 },
         { key: 'color', label: 'Цвет', max: 100 },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },

@@ -87,13 +87,20 @@ export const movements = {
     view: (m) => [
       ['Операция', typeBadge(m)],
       ['Количество', deltaCell(m)],
-      ['Позиция', h('a', { href: '#stock?open=' + m.materialId }, m.materialName)],
+      ['Позиция', h('a', { href: '#stock?open=' + m.materialId, title: 'Открыть позицию склада' }, m.materialName + ' →')],
+      ['Под заказ', m.salesOrderId ? h('a', { href: '#salesorders?open=' + m.salesOrderId }, 'открыть заказ →') : ''],
+      ['Все движения позиции', h('a', { href: '#movements?materialId=' + m.materialId }, 'показать →')],
+      ['Операция', m.batchId ? 'часть операции из «Операций» (несколько позиций разом)' : ''],
       ['Примечание', m.note],
       ['Кто провёл', m.createdBy],
       ['Источник', m.fromSheet ? 'Google-таблица (история; остаток по ней не менялся)' : ''],
       ['Отменено', m.cancelledAt ? dateTime(m.cancelledAt) : ''],
     ],
-    actions: (m) => [m.canCancel && { label: 'Отменить движение', run: async (row, ctx) => { if (await cancelMovement(row)) { ctx.changed(); ctx.reload(); } } }],
+    actions: (m) => [
+      m.canCancel && { label: 'Отменить это движение', run: async (row, ctx) => { if (await cancelMovement(row)) { ctx.changed(); ctx.reload(); } } },
+      m.batchId && !m.cancelledAt && { label: 'Отменить всю операцию', run: async (row, ctx) => { await api(`/stock/batch/${row.batchId}/cancel`, { method: 'POST' }); toast('Операция отменена целиком'); ctx.changed(); ctx.reload(); } },
+      { label: 'Открыть позицию', run: (row) => go('stock', { open: row.materialId }) },
+    ],
   },
 
   searchRow: (m) => ({ title: m.materialName, sub: [date(m.date), moveLabel(m)].join(' · '), side: deltaCell(m) }),
