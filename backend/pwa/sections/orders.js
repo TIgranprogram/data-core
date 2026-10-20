@@ -5,6 +5,7 @@ import { go } from '../core/router.js';
 import { badge } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { UNITS } from './lookups.js';
+import { pic } from './stock.js';
 
 /**
  * Раздел «Заказы» (PRODUCT §4, TASKS Ф.3/Ф.6) — строки заказов = доходы, коллекция incomes (/api/incomes).
@@ -68,6 +69,7 @@ export const orders = {
       { key: 'orderNo', label: 'Заказ', type: 'hidden' },
     ],
     columns: [
+      { key: 'pic', label: '', cls: 'pic-cell', render: (r) => pic(r.photos?.[0]) },
       { key: 'orderNo', label: 'Заказ', sort: 'orderNo', cls: 'num', render: (r) => r.orderNo || '' },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'md-hide', render: (r) => r.customer || '' },
       { key: 'title', label: 'Наименование', sort: 'title', cls: 'clip', render: (r) => h('span', { title: r.title }, r.title) },
@@ -89,6 +91,7 @@ export const orders = {
   },
 
   card: {
+    gallery: (r) => r.photos || [],
     heading,
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     stats: (r) => [['Сумма', money(r.amount || 0)], ['Отгрузка', date(r.shipDate) || '—'], ['Оплата', date(r.paidDate) || '—']],

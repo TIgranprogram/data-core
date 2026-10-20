@@ -34,8 +34,18 @@ export class IncomesService {
   private async present(docs: Array<Record<string, unknown>>) {
     const companies = await ourCompanies(this.connection);
     const name = new Map(companies.map((c) => [String(c.id), c.name]));
+    // Фото позиции (из Excel «Вид»): { url, thumb } — галерея в карточке позиции
+    const ids = docs.flatMap((d) => (d.photoIds as Types.ObjectId[] | undefined) ?? []);
+    const coll = this.connection.db!.collection('photos');
+    const [orig, th] = ids.length ? await Promise.all([
+      coll.find({ _id: { $in: ids } }, { projection: { storageUrl: 1 } }).toArray(),
+      coll.find({ parentPhotoId: { $in: ids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
+    ]) : [[], []];
+    const url = new Map(orig.map((p) => [String(p._id), String(p.storageUrl)]));
+    const thumb = new Map(th.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
     return docs.map((d) => ({
       ...d,
+      photos: ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => url.has(String(p))).map((p) => ({ id: String(p), url: url.get(String(p)), thumb: thumb.get(String(p)) ?? url.get(String(p)) })),
       id: String(d._id), _id: String(d._id),
       companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
       /** paid — оплачено; awaiting — отгружено, ждём оплату; draft — ещё не отгружено. */

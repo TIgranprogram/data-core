@@ -1,7 +1,7 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
-import { go } from '../core/router.js';
+import { go, patch } from '../core/router.js';
 import { badge } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { incomeLookups } from './orders.js';
@@ -49,7 +49,7 @@ function details(r) {
     box.replaceChildren(
       sec(`Позиции (${lines.length})`, lines.length
         ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), h('th', { class: 'num' }, 'Сумма'))),
-          h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => go('orders', { open: l.id }), title: 'Открыть позицию (сумма, отгрузка, оплата)' },
+          h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
             h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
             h('td', { class: 'muted' }, l.color || ''), h('td', { class: 'num' }, l.amount ? money(l.amount) : '')))))
         : h('p', { class: 'muted' }, 'Позиций пока нет.')),
