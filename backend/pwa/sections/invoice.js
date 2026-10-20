@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { isoDay, money, parseNum, qty } from '../core/format.js';
 import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
+import { COST_CENTER } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
 import { pastItems } from './requests.js';
@@ -32,6 +33,9 @@ async function buildInvoiceForm() {
   const company = h('select', null, h('option', { value: '' }, '—'), ...(lk.companies || []).map((c) => h('option', { value: c }, c)));
   const type = h('input', { maxlength: 60 });
   let state = 'received';
+  let cc = 'workshop';
+  const ccBox = h('div', { class: 'fseg' }, ...Object.entries(COST_CENTER).map(([k, l]) => h('button', { type: 'button', class: 'fseg-btn' + (k === cc ? ' on' : ''), onclick: (e) => { cc = k; ccBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); toStock.checked = k === 'workshop' || k === 'order'; } }, l)));
+  const toStock = h('input', { type: 'checkbox', checked: true });
   const stateBox = h('div', { class: 'fseg' }, ...STATE.map((s) => h('button', { type: 'button', class: 'fseg-btn' + (s.value === state ? ' on' : ''), onclick: (e) => { state = s.value; stateBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); } }, s.label)));
   const lines = h('div', { class: 'inv-lines' });
   const totalEl = h('b', { class: 'num' });
@@ -114,7 +118,7 @@ async function buildInvoiceForm() {
 
   const body = h('div', { class: 'inv' },
     h('p', { class: 'hint' }, 'Счёт, которого не было в заявках (уже оплатили / уже привезли). На каждую позицию будет заявка с этим счётом — расходы и склад посчитаются как обычно.'),
-    h('div', { class: 'form-grid inv-head' }, field('№ счёта *', no), field('Дата счёта', date), field('Поставщик', h('div', { class: 'has-combo' }, sup)), field('Наша компания', company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox)),
+    h('div', { class: 'form-grid inv-head' }, field('№ счёта *', no), field('Дата счёта', date), field('Поставщик', h('div', { class: 'has-combo' }, sup)), field('Наша компания', company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — поставить на склад (снимите, если сразу в работу / в офис / на объект)')),
     h('div', { class: 'section-title' }, 'Позиции счёта'),
     lines,
     h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ Строка счёта'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
@@ -139,7 +143,7 @@ async function buildInvoiceForm() {
         title: r.title.value.trim(), qty: parseNum(r.q.value), unit: r.unit.value.trim() || 'шт', categoryName: r.cat.value.trim(),
         supplierName: sup.value.trim(), companyName: company.value, invoiceType: type.value.trim(), invoiceNo, invoiceDate: date.value || '',
         productUrl: r.url.value.trim(), photoIds: r.photos.ids(), statusLabel: st.status, priorityLabel: 'Обычный', requestDate: date.value || isoDay(),
-        clientUid: r.uid, ...(r.extra.article ? { article: r.extra.article } : {}),
+        clientUid: r.uid, costCenter: cc, ...(r.extra.article ? { article: r.extra.article } : {}),
       };
       if (session.canMoney && parseNum(r.sum.value) > 0) body2.priceHint = parseNum(r.sum.value);
       if (!r.saved) {
@@ -148,7 +152,7 @@ async function buildInvoiceForm() {
         for (const el of [r.title, r.q, r.unit, r.sum, r.cat]) el.disabled = true;
         r.el.classList.add('inv-done'); r.el.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       }
-      if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid } }); r.received = true; }
+      if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid, toStock: toStock.checked, costCenter: cc } }); r.received = true; }
     }
     toast(`Счёт ${invoiceNo} внесён: ${list.length} ${list.length === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);
     return { id: null, invoiceNo, count: list.length };

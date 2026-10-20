@@ -3,7 +3,7 @@ import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { badge, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
+import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { toast } from '../ui/toast.js';
@@ -29,22 +29,39 @@ async function setStatus(r, key, ctx) {
   ctx.setRow(saved);
 }
 
-/** Окно «Оприходовать»: возвращает обновлённую заявку или null (отмена). */
+/** Окно «Принять» (2026-10-20): сколько пришло, куда пошло (Цех / Офис / СМР / Под заказ) и ставить ли на склад.
+ *  Без склада — заявка «Получено» с отметкой, куда ушло (сразу в работу, в офис, на объект): в воздухе ничего не остаётся. */
 export async function receiveDialog(r) {
   const left = h('input', { name: 'qty', inputmode: 'decimal', value: String(r.qty ?? '') });
+  let cc = r.costCenter || (r.salesOrderId ? 'order' : 'workshop');
+  const obj = h('input', { maxlength: 200, value: r.costObject || '', placeholder: 'объект / адрес' });
+  const objWrap = h('label', { class: 'field' }, h('span', null, 'Объект СМР'), obj);
+  const stock = h('input', { type: 'checkbox' });
+  const stockHint = h('span', { class: 'hint' });
+  const sync = () => {
+    objWrap.hidden = cc !== 'smr';
+    stockHint.textContent = stock.checked ? 'Остаток на складе увеличится.' : 'На склад не ставится — сразу в работу / туда, куда выбрали. Заявка станет «Получено».';
+  };
+  const setCc = (k, auto = true) => { cc = k; seg.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === k)); if (auto) stock.checked = k === 'workshop' || k === 'order'; sync(); };
+  const seg = h('div', { class: 'fseg' }, ...Object.entries(COST_CENTER).map(([k, l]) => h('button', { type: 'button', class: 'fseg-btn', 'data-v': k, onclick: () => setCc(k) }, l)));
+  setCc(cc);
+  stock.addEventListener('change', sync);
   const saved = await modal({
-    title: 'Оприходовать на склад',
+    title: 'Принять: ' + name(r),
     body: h('div', null,
-      h('p', { class: 'hint' }, `«${name(r)}» поступит на склад, заявка станет «Получено».` + (r.materialName ? '' : ' Если такой позиции на складе нет — она будет создана.')),
-      h('label', { class: 'field' }, h('span', null, `Количество${r.unit ? ', ' + r.unit : ''}`), left)),
-    okText: 'Оприходовать',
+      h('label', { class: 'field' }, h('span', null, `Сколько пришло${r.unit ? ', ' + r.unit : ''}`), left),
+      h('div', { class: 'field' }, h('span', null, 'Куда пошло'), seg),
+      objWrap,
+      h('label', { class: 'check' }, stock, ' Поставить на склад'), stockHint,
+      r.materialName || !stock.checked ? null : h('p', { class: 'hint' }, 'Такой позиции на складе нет — она будет создана.')),
+    okText: 'Принять',
     onOk: async () => {
       const n = Number(String(left.value).replace(',', '.').replace(/\s/g, ''));
       if (!(n > 0)) throw new Error('Укажите количество больше нуля');
-      return api(`/supply/requests/${r.id}/receive`, { method: 'POST', body: { qty: n } });
+      return api(`/supply/requests/${r.id}/receive`, { method: 'POST', body: { qty: n, toStock: stock.checked, costCenter: cc, ...(cc === 'smr' && obj.value.trim() ? { costObject: obj.value.trim() } : {}) } });
     },
   });
-  if (saved) toast('Оприходовано на склад');
+  if (saved) toast(saved.receivedTo === 'direct' ? `Получено — ${COST_CENTER[cc]}, без склада` : 'Принято на склад');
   return saved;
 }
 async function receive(r, ctx) { const saved = await receiveDialog(r); if (saved) ctx.setRow(saved); }
@@ -119,6 +136,8 @@ const fields = async (r) => {
     { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },
     { key: 'invoiceDate', label: 'Дата счёта', type: 'date', hint: 'День расхода в календаре', span: 1 },
     { section: 'Для кого', tone: 'who' },
+    { key: 'costCenter', label: 'Куда (направление затрат)', type: 'select', options: Object.entries(COST_CENTER).map(([value, label]) => ({ value, label })), hint: 'Для «Денег»: сколько ушло на цех, офис, СМР, заказы' },
+    { key: 'costObject', label: 'Объект СМР / уточнение', max: 200 },
     { key: 'salesOrderRef', label: 'Под заказ (позиция)', type: 'select', options: await orderOptions(r ? joinRef(r) : '').catch(() => []), hint: 'Заявка появится в карточке заказа', wide: true },
     { key: 'orderLabel', label: 'Заказчик / участок (текстом)', type: 'combo', options: lk.customers || [], max: 300, wide: true },
     { key: 'requestedBy', label: 'Кто подал', type: 'combo', options: lk.requestedBy, max: 200 },
@@ -223,6 +242,8 @@ export const requests = {
       ['Статус', h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), ' ', r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
       ['Количество', `${qty(r.qty)} ${r.unit || ''}`.trim()],
       ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''],
+      ['Куда', [COST_CENTER[r.costCenter] || (r.salesOrderId ? COST_CENTER.order : ''), r.costObject].filter(Boolean).join(' · ')],
+      ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
       ['Поставщик', r.supplierName],
       ['Категория', r.categoryName],
       ['Заказ / заказчик', r.orderLabel],
@@ -263,6 +284,7 @@ export const requests = {
       };
       if (v.priceHint !== null) body.priceHint = v.priceHint;
       if (v.requestDate) body.requestDate = v.requestDate;
+      body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
       body.invoiceDate = v.invoiceDate || '';
       Object.assign(body, splitRef(v.salesOrderRef));
       if (body.salesOrderId && !v.orderLabel) delete body.orderLabel; // подпись заказа поставит сервер

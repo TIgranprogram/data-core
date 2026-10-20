@@ -18,6 +18,8 @@ export const STOCK_STATUS = {
   none: { label: 'Нет', tone: 'danger' },
 };
 
+/** Направление затрат (backend supply/cost-center.ts): куда пошла закупка — для «Денег». */
+export const COST_CENTER = { workshop: 'Цех', office: 'Офис', smr: 'СМР', order: 'Под заказ' };
 export const PRIORITY = { urgent: { label: 'Срочно', tone: 'danger' }, normal: { label: 'Обычный', tone: 'dim' }, low: { label: 'Низко', tone: 'dim' } };
 
 export function badge(map, key) {

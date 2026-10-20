@@ -243,4 +243,16 @@ describe('Stock & supply on shared CRM collections', () => {
     expect(back.items.find((i: { id: string }) => i.id === nut.id).quantity).toBe(98);
     await http().post(`/api/stock/batch/${out.batchId}/cancel`).set(auth()).expect(404);
   });
+  it('«Получено» только через «Принять»; приём без склада (офис/СМР) — с отметкой, склад не меняется', async () => {
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Бумага А4', qty: 5, statusLabel: 'Получено', clientUid: 'cc-0' }).expect(400);
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Бумага А4', qty: 5, costCenter: 'office', clientUid: 'cc-1' }).expect(201)).body;
+    await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ statusLabel: 'Получено' }).expect(400);
+    const got = (await http().post(`/api/supply/requests/${r.id}/receive`).set(auth()).send({ qty: 5, toStock: false }).expect(200)).body;
+    expect(got).toMatchObject({ status: 'received', receivedTo: 'direct', costCenter: 'office' });
+    expect((await http().get('/api/stock/items').query({ search: 'Бумага А4' }).set(auth()).expect(200)).body.total).toBe(0);
+    // на склад — по умолчанию «Цех»
+    const r2 = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Саморез 4х16', qty: 10, clientUid: 'cc-2' }).expect(201)).body;
+    const got2 = (await http().post(`/api/supply/requests/${r2.id}/receive`).set(auth()).send({ qty: 10 }).expect(200)).body;
+    expect(got2).toMatchObject({ receivedTo: 'stock', costCenter: 'workshop' });
+  });
 });

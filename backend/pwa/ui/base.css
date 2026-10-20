@@ -693,3 +693,7 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 /* Подсказка «сначала выберите категорию» */
 .combo-why { color: var(--warn); font-weight: 500; }
 input.need { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); transition: box-shadow .2s; }
+
+/* Флажок с подписью (приём, счёт) */
+label.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: var(--fs); color: var(--text); cursor: pointer; }
+label.check input { width: 18px; height: 18px; }

@@ -12,6 +12,8 @@ export interface Op {
   /** Название нашей компании (СИЮ / ССЮ). */
   company: string;
   title: string;
+  /** Направление затрат (Цех / Офис / СМР / Заказы / Не указано) — только у расходов. */
+  costCenter?: string;
   /** № счёта / № заказа. */
   doc?: string;
   category?: string;
@@ -77,6 +79,7 @@ export function buildSummary(ops: Op[], from: string, to: string, companies: str
   const cell = () => Object.fromEntries(companies.map((c) => [c, { income: 0, expense: 0, profit: 0 }])) as Record<string, { income: number; expense: number; profit: number }>;
   const byMonth = new Map(months.map((m) => [m, cell()]));
   const categories = new Map<string, Record<string, number>>();
+  const centers = new Map<string, Record<string, number>>();
   for (const op of ops) {
     if (!(op.amount > 0) || op.date < from || op.date > to) continue;
     const m = byMonth.get(op.date.slice(0, 7));
@@ -87,6 +90,10 @@ export function buildSummary(ops: Op[], from: string, to: string, companies: str
       const row = categories.get(name) ?? Object.fromEntries(companies.map((x) => [x, 0]));
       row[op.company] = r2((row[op.company] ?? 0) + op.amount);
       categories.set(name, row);
+      const cc = op.costCenter || 'Не указано';
+      const rc = centers.get(cc) ?? Object.fromEntries(companies.map((x) => [x, 0]));
+      rc[op.company] = r2((rc[op.company] ?? 0) + op.amount);
+      centers.set(cc, rc);
     }
   }
   const total = cell();
@@ -96,5 +103,8 @@ export function buildSummary(ops: Op[], from: string, to: string, companies: str
     total,
     expensesByCategory: [...categories.entries()].map(([category, by]) => ({ category, byCompany: by, total: r2(Object.values(by).reduce((s, v) => s + v, 0)) }))
       .sort((a, b) => a.category.localeCompare(b.category, 'ru')),
+    /** Куда тратили: Цех / Офис / СМР / Заказы / Не указано. */
+    expensesByCostCenter: [...centers.entries()].map(([center, by]) => ({ center, byCompany: by, total: r2(Object.values(by).reduce((s, v) => s + v, 0)) }))
+      .sort((a, b) => b.total - a.total),
   };
 }

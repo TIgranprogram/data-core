@@ -177,6 +177,18 @@ export class SupplyRequest {
   @Prop({ type: Types.ObjectId })
   salesOrderLineId?: Types.ObjectId;
 
+  /** Направление затрат (cost-center.ts): workshop | office | smr | order — поле data-core. */
+  @Prop()
+  costCenter?: string;
+
+  /** Объект (для СМР) или уточнение направления. */
+  @Prop()
+  costObject?: string;
+
+  /** Куда получено: stock — приход на склад; direct — сразу в работу / в офис / на объект (без склада). */
+  @Prop()
+  receivedTo?: string;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
 

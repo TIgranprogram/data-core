@@ -24,6 +24,8 @@ export interface SupplyInput {
   orderLabel?: string;
   salesOrderId?: string;
   salesOrderLineId?: string;
+  costCenter?: string;
+  costObject?: string;
   requestedBy?: string;
   article?: string;
   color?: string;
@@ -243,6 +245,8 @@ export class SupplyService {
       } else { f.salesOrderId = undefined; f.salesOrderLineId = undefined; }
     }
     if (dto.salesOrderLineId !== undefined) f.salesOrderLineId = dto.salesOrderLineId && Types.ObjectId.isValid(dto.salesOrderLineId) ? new Types.ObjectId(dto.salesOrderLineId) : undefined;
+    if (dto.costCenter !== undefined) f.costCenter = dto.costCenter || undefined;
+    if (dto.costObject !== undefined) f.costObject = String(dto.costObject ?? '').trim() || undefined;
     if (dto.qty !== undefined) f.qty = Number(dto.qty);
     if (dto.priceHint !== undefined) f.priceHint = Number(dto.priceHint);
     if (dto.num !== undefined) f.num = Number(dto.num);
@@ -314,7 +318,7 @@ export class SupplyService {
    * Оприходовать: приход на склад по умолчанию + статус «received» (как receive() в CRM).
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
    */
-  async receive(id: string, dto: { qty?: number; clientUid?: string }, userId?: string) {
+  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string }, userId?: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
@@ -325,6 +329,14 @@ export class SupplyService {
     const qty = Number(dto.qty ?? doc.qty);
     if (!(qty > 0)) throw new BadRequestException('Укажите количество');
 
+    // Куда пошло: на склад (по умолчанию) или сразу в работу / офис / объект — тогда без прихода, но с отметкой (ничего не «в воздухе»)
+    const d0 = doc as unknown as { costCenter?: string; costObject?: string; salesOrderId?: unknown };
+    const costCenter = dto.costCenter || d0.costCenter || (d0.salesOrderId ? 'order' : 'workshop');
+    const costObject = dto.costObject?.trim() || d0.costObject;
+    if (dto.toStock === false) {
+      await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'direct', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+      return this.get(id);
+    }
     let materialId = doc.materialId ? String(doc.materialId) : '';
     if (!materialId) {
       const name = doc.title?.trim();
@@ -334,7 +346,7 @@ export class SupplyService {
       materialId = item.id;
     }
     await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
-    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
     return this.get(id);
   }
 

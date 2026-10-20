@@ -137,6 +137,9 @@ export function mountMoney(params) {
       h('div', { class: 'panel' }, h('div', { class: 'q-head' }, h('h3', null, 'Доходы и расходы по месяцам')),
         h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' }, h('thead', null, headRow), h('tbody', null, months.length ? months.flatMap((m) => line(name(m.month), m.byCompany)) : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Операций пока нет')), line('Итого за год', s.total, 'total')))),
         sum(s.total, 'income') ? null : h('p', { class: 'hint', style: { padding: '0 16px 12px' } }, 'Доходов пока нет: у позиций заказов не вписаны суммы. Впишите сумму в «Позициях и оплатах» (вкладка «Без суммы») — результат посчитается сам.')),
+      (s.expensesByCostCenter || []).length ? h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'Куда тратили: цех, офис, СМР, заказы')),
+        h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' }, h('thead', null, h('tr', null, h('th', null, 'Направление'), cos.map((c) => h('th', { class: 'right' }, c)), h('th', { class: 'right' }, 'Всего'))),
+          h('tbody', null, s.expensesByCostCenter.map((x) => h('tr', null, h('td', null, x.center), cos.map((c) => h('td', { class: 'right' }, cell(x.byCompany[c]))), h('td', { class: 'right' }, cell(x.total, { strong: true })))))))) : null,
       h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'Расходы по категориям')),
         h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' }, h('thead', null, cats),
           h('tbody', null, s.expensesByCategory.length ? s.expensesByCategory.map((x) => h('tr', null, h('td', null, x.category), cos.map((c) => h('td', { class: 'right' }, cell(x.byCompany[c]))), h('td', { class: 'right' }, cell(x.total, { strong: true }))))
@@ -190,7 +193,7 @@ export function mountMoney(params) {
         content = calendar(c);
       }
       if (my !== seq) return;
-      body.replaceChildren(...content);
+      body.replaceChildren(...content.filter(Boolean));
     } catch (e) {
       if (my === seq) body.replaceChildren(h('div', { class: 'panel state' }, 'Не удалось загрузить: ' + e.message, h('div', null, h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить'))));
     } finally { if (my === seq) el.classList.remove('loading'); }
