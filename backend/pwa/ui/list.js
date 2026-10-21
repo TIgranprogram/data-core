@@ -1,7 +1,8 @@
 import { exportList } from './list-export.js';
+import { searchBox } from './searchbox.js';
 import { enhanceSelect } from './select.js';
 import { api, session } from '../core/api.js';
-import { debounce, h } from '../core/dom.js';
+import { h } from '../core/dom.js';
 import { qty, plural } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { mountBoard } from './board.js';
@@ -64,9 +65,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
 
   // ---------- Поиск и фильтры (создаются один раз) ----------
-  const search = h('input', { type: 'search', placeholder: L.searchPlaceholder || 'Поиск…', value: P.q || '', 'aria-label': 'Поиск' });
-  search.addEventListener('input', debounce(() => patch({ q: search.value.trim(), page: undefined }), 300));
-  const toolbar = h('div', { class: 'toolbar' }, h('div', { class: 'search' }, search));
+  // общий поиск (ПО.3): пусто = весь список — q убирается из адреса и запроса, страница — на первую
+  const sb = searchBox({ value: P.q || '', placeholder: L.searchPlaceholder || 'Поиск…', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
+  const toolbar = h('div', { class: 'toolbar' }, h('div', { class: 'search' }, sb.el));
   const chipFilters = (L.filters || []).filter((f) => f.type === 'chips');
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
   const controls = {};
@@ -96,7 +97,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const clear = { q: undefined, page: undefined };
     for (const f of L.filters || []) clear[f.key] = undefined;
     for (const k of L.extraKeys || []) clear[k] = undefined;
-    search.value = '';
+    sb.set('', true);
     patch(clear);
   }
 
@@ -163,7 +164,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
     const { board: isBoard } = st();
-    if (document.activeElement !== search) search.value = P.q || '';
+    sb.set(P.q || '');
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
     const nOpt = otherFilters.filter((f) => P[f.key]).length;
     if (filtersToggle) filtersToggle.textContent = 'Фильтры' + (nOpt ? ' · ' + nOpt : '');
@@ -238,7 +239,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (!rows.length) {
       if (page > 1 && resp.total > 0) { patch({ page: Math.ceil(resp.total / limit) }); return; }
       stateRow(() => active
-        ? h('div', { class: 'state' }, h('div', null, 'Ничего не найдено.'), h('button', { class: 'btn', type: 'button', onclick: resetFilters }, 'Сбросить фильтры'))
+        ? h('div', { class: 'state' }, h('div', null, P.q ? `По «${P.q}» ничего не найдено.` : 'Ничего не найдено.'),
+          P.q ? h('button', { class: 'btn', type: 'button', onclick: () => { sb.set('', true); patch({ q: undefined, page: undefined }); } }, 'Сбросить поиск') : null,
+          h('button', { class: 'btn btn-ghost', type: 'button', onclick: resetFilters }, 'Сбросить всё'))
         : h('div', { class: 'state' }, h('div', null, L.emptyText || 'Записей пока нет.'),
           canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate }, '+ ' + (L.createLabel || 'Создать')) : null));
     } else if (per) {
@@ -382,7 +385,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     el,
     update,
     reload: () => (st().board && board ? board.reload() : load()),
-    focusSearch: () => search.focus(),
+    focusSearch: () => sb.focus(),
     destroy: () => document.removeEventListener('keydown', onKey),
   };
 }

@@ -1,9 +1,10 @@
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, events, login, PREFIX, session } from './core/api.js';
-import { $, debounce, h } from './core/dom.js';
+import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg } from './ui/dialog.js';
+import { searchBox } from './ui/searchbox.js';
 import { openCard } from './ui/card.js';
 import { icon } from './ui/icons.js';
 import { mountList } from './ui/list.js';
@@ -71,21 +72,20 @@ function shell() {
   navLinks.dicts = link('dicts', 'Справочники', 'dicts');
   navLinks.history = link('history', 'История', 'history'); // И.2 — директор и администратор
   const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.user?.role);
-  const gs = h('input', { type: 'search', placeholder: 'Найти заявку, позицию, поставщика…', 'aria-label': 'Поиск по всему' });
+  let gsb;
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
   // ПО.1: стёрли строку — назад на экран, с которого начали искать (без новой записи истории); 1 знак — не ищем
   let searchFrom = null;
-  const runSearch = () => {
-    const q = gs.value.trim();
+  const runSearch = (raw) => {
+    const q = String(raw ?? '').trim();
     if (!q) { if (current().section === 'search') { const [sec, qs = ''] = (searchFrom || '#home').replace(/^#/, '').split('?'); go(sec || 'home', Object.fromEntries(new URLSearchParams(qs)), { replace: true }); } searchFrom = null; return; }
     if (q.length < 2) return;
     if (current().section !== 'search') searchFrom = location.hash || '#home';
     go('search', { q }, { replace: current().section === 'search' });
   };
-  const liveSearch = debounce(runSearch, 400);
-  gs.addEventListener('input', liveSearch);
-  gs.addEventListener('search', runSearch); // крестик в поле
-  gs.addEventListener('keydown', (e) => { if (e.key === 'Enter' && gs.value.trim()) { go('search', { q: gs.value.trim() }, { replace: current().section === 'search' }); gs.blur(); } });
+  // общий поиск (ПО.3): от 2 знаков (1 — подсказка), пауза 0,4 с, крестик / Esc — очистить и вернуться
+  gsb = searchBox({ placeholder: 'Найти заявку, позицию, поставщика…', label: 'Поиск по всему', delay: 400, minLength: 2, className: 'gs-box', onSearch: runSearch, onEnter: (q) => { if (q.length >= 2) gsb.input.blur(); } });
+  const gs = gsb.input;
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
@@ -122,13 +122,13 @@ function shell() {
     // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
     h('div', { class: 'histnav' },
       backBtn, fwdBtn),
-    h('div', { class: 'gsearch' }, gs, h('kbd', null, '/')));
+    h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')));
   const main = h('main', { class: 'page', id: 'page' });
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
     h('div', { class: 'main' }, topbar, netBar, main));
   root.replaceChildren(shellEl);
   refreshCounts();
-  return { main, gs };
+  return { main, gs, gsb };
 }
 const roleName = (r) => ({ admin: 'администратор', director: 'руководитель', manager: 'менеджер', user: 'просмотр' })[r] || r || '';
 events.onNet = (ok) => { if (netBar) netBar.hidden = ok; };
@@ -165,7 +165,7 @@ const screenKey = (section, params) => section + (section === 'search' ? '?' + (
 function render({ section, params }) {
   if (!section) { go(DEFAULT, {}, { replace: true }); return; }
   for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === section);
-  ui.gs.value = section === 'search' ? params.q || '' : '';
+  ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
 
   const key = screenKey(section, params);
   const sec = SECTIONS[section];

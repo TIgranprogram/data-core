@@ -119,11 +119,17 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
     card.addEventListener('contextmenu', (e) => { if (drag) e.preventDefault(); });
   }
 
+  // только последний ответ (ПО.2): быстрый поиск-стирание — старый медленный ответ не затирает новый
+  let seq = 0;
   async function load() {
+    const my = ++seq;
     el.classList.add('loading');
     await Promise.all(cols.map(async ({ c, n, body }) => {
       try {
-        const r = await api(path, { query: { ...query, ...c.query, page: 1, limit: per } });
+        const q = { query: { ...query, ...c.query, page: 1, limit: per } };
+        // 6 колонок = 6 запросов: быстрое «ввёл-стёр» упирается в лимит 10/с → один повтор через секунду
+        const r = await api(path, q).catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return api(path, q); });
+        if (my !== seq) return;
         n.textContent = qty(r.total);
         if (!r.items.length) { body.replaceChildren(h('div', { class: 'col-more muted' }, 'Пусто')); return; }
         body.replaceChildren(...r.items.map((row) => {
@@ -139,11 +145,12 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
         // Остальное — списком (завершённое там свёрнуто по месяцам, фаза М)
         if (r.total > r.items.length) body.append(h('button', { type: 'button', class: 'col-more link-btn', onclick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }) }, `ещё ${qty(r.total - r.items.length)} — списком по месяцам →`));
       } catch (e) {
+        if (my !== seq) return;
         n.textContent = '—';
         body.replaceChildren(h('div', { class: 'col-more' }, 'Не загрузилось: ' + e.message));
       }
     }));
-    el.classList.remove('loading');
+    if (my === seq) el.classList.remove('loading');
   }
   load();
   return { el, reload: load, setQuery: (q) => { query = q; load(); } };

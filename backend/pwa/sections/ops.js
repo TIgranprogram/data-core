@@ -12,6 +12,7 @@ import { orderOptions, splitRef } from './salesorders.js';
 import { issueToFields } from './issue.js';
 import { reservationsPanel } from './reservations.js';
 import { enhanceSelect } from '../ui/select.js';
+import { searchBox } from '../ui/searchbox.js';
 import { weighButton } from './ops-weight.js';
 
 /* «Операции» склада (TASKS фаза С): как касса — слева подбор (поиск «м10 гайка» + кнопки-фильтры
@@ -43,9 +44,10 @@ export function mountOps(params) {
   const seg = h('div', { class: 'seg', role: 'tablist' });
   const head = h('div', { class: 'page-head' }, h('h1', null, 'Операции'), h('span', { class: 'spacer' }), seg);
   const hint = h('p', { class: 'hint ops-hint' });
-
   // ---------- Подбор ----------
-  const search = h('input', { type: 'search', class: 'ops-search', placeholder: 'Например: м10 гайка · din 933 · подшипник', 'aria-label': 'Поиск позиции', autocomplete: 'off' });
+  // общий поиск (ПО.3): пусто — всё; клавиши ↑↓ Enter — ниже
+  const sbo = searchBox({ delay: 120, label: 'Поиск позиции', onSearch: (v) => { st.q = v; st.active = 0; renderPicker(); }, placeholder: 'Например: м10 гайка · din 933 · подшипник', className: 'ops-sb' });
+  const search = sbo.input; search.classList.add('ops-search');
   const catRow = h('div', { class: 'ops-cats' });
   const facetBox = h('div', { class: 'ops-facets' });
   const found = h('div', { class: 'ops-found' });
@@ -64,7 +66,7 @@ export function mountOps(params) {
       setCart(cc);
     },
   });
-  const picker = h('section', { class: 'panel ops-picker' }, h('div', { class: 'ops-search-wrap' }, search, bulk.el), catRow, facetBox, found, results);
+  const picker = h('section', { class: 'panel ops-picker' }, h('div', { class: 'ops-search-wrap' }, sbo.el, bulk.el), catRow, facetBox, found, results);
   // ---------- Корзина ----------
   const cartTitle = h('h3', null);
   const lines = h('div', { class: 'ops-lines' });
@@ -139,7 +141,7 @@ export function mountOps(params) {
     const anyFilter = st.q || st.cat || Object.values(st.sel).some(Boolean);
     found.replaceChildren(...[
       h('span', null, anyFilter ? `Найдено ${list.length} ${plural(list.length, 'позиция', 'позиции', 'позиций')}` : `Всего ${list.length} ${plural(list.length, 'позиция', 'позиции', 'позиций')}`),
-      Object.values(st.sel).some(Boolean) || st.q ? h('button', { type: 'button', class: 'link-btn', onclick: () => { st.q = ''; search.value = ''; st.sel = {}; renderPicker(); search.focus(); } }, 'сбросить') : null,
+      Object.values(st.sel).some(Boolean) || st.q ? h('button', { type: 'button', class: 'link-btn', onclick: () => { st.q = ''; sbo.set('', true); st.sel = {}; renderPicker(); search.focus(); } }, 'сбросить') : null,
       h('span', { class: 'spacer' }),
       mode() === 'count' && anyFilter && list.length ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => takeAll(list) }, `Взять всё в пересчёт (${list.length})`) : null].filter(Boolean));
     st.active = Math.min(st.active, Math.max(0, list.length - 1));
@@ -305,14 +307,12 @@ export function mountOps(params) {
   }
 
   // ---------- Клавиатура: печатаешь → ↑↓ → Enter добавляет ----------
-  let tmr;
-  search.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => { st.q = search.value; st.active = 0; renderPicker(); }, 120); });
   search.addEventListener('keydown', (e) => {
     const list = shown();
     if (e.key === 'ArrowDown') { e.preventDefault(); st.active = Math.min(list.length - 1, st.active + 1); renderResults(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); st.active = Math.max(0, st.active - 1); renderResults(); }
     else if (e.key === 'Enter') {
-      e.preventDefault(); clearTimeout(tmr); st.q = search.value;
+      e.preventDefault(); st.q = search.value;
       const l = shown(); if (l[st.active]) add(l[st.active]); else if (mode() === 'in' && st.q.trim().length > 2) createNew(st.q.trim());
     }
   });

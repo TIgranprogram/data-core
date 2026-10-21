@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { searchBox } from '../ui/searchbox.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
@@ -28,8 +29,9 @@ export function mountDicts(params) {
   const nav = h('nav', { class: 'panel dict-nav', 'aria-label': 'Справочники' });
   const title = h('h3', null, '…');
   const hint = h('p', { class: 'hint dict-hint' });
-  const search = h('input', { type: 'search', placeholder: 'Найти в справочнике…', 'aria-label': 'Поиск в справочнике' });
-  search.addEventListener('input', () => { q = search.value.trim().toLowerCase(); renderTable(); });
+  // общий поиск (ПО.3): пусто — весь справочник
+  const sbx = searchBox({ placeholder: 'Найти в справочнике…', label: 'Поиск в справочнике', delay: 150, onSearch: (v) => { q = v.toLowerCase(); renderTable(); } });
+  const search = sbx.el;
   const addBtn = h('button', { type: 'button', class: 'btn btn-primary', hidden: !session.canEdit, onclick: () => patch({ of: 'dict', new: '1', open: undefined }) }, '+ Добавить');
   const candBtn = h('button', { type: 'button', class: 'btn', hidden: !session.canEdit, title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onclick: () => toggleCandidates() }, 'Найти в данных…');
   const cand = h('div', { class: 'dict-cand', hidden: true });
@@ -60,7 +62,7 @@ export function mountDicts(params) {
       body.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Справочник пуст.'), session.canEdit ? h('p', { class: 'muted' }, '«+ Добавить» — вписать вручную, «Найти в данных…» — взять то, что уже встречается в заявках и таблице.') : null));
       return;
     }
-    if (!rows.length) { body.replaceChildren(h('div', { class: 'state' }, `Ничего не найдено по «${search.value}».`)); return; }
+    if (!rows.length) { body.replaceChildren(h('div', { class: 'state' }, `Ничего не найдено по «${sbx.input.value}».`)); return; }
     const tbody = h('tbody');
     for (const r of rows) {
       const isOpen = openRows.has(r.id);
@@ -138,7 +140,7 @@ export function mountDicts(params) {
   reload();
   return {
     el, reload,
-    update: (p) => { if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; search.value = ''; cand.hidden = true; data = null; body.replaceChildren(h('div', { class: 'state' }, 'Загрузка…')); reload(); } },
+    update: (p) => { if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(h('div', { class: 'state' }, 'Загрузка…')); reload(); } },
   };
 }
 

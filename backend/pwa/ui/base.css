@@ -44,8 +44,8 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); margin: 0
 .topbar .burger { display: none; }
 .gsearch { position: relative; flex: 1; max-width: 560px; }
 .gsearch input { width: 100%; height: 38px; padding-left: 36px; background: var(--surface); }
-.gsearch::before { content: '⌕'; position: absolute; left: 13px; top: 7px; color: var(--muted); font-size: 18px; }
-.gsearch kbd { position: absolute; right: 10px; top: 9px; font: 11px var(--font); color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; background: var(--surface-2); }
+.gsearch::before { content: '⌕'; position: absolute; z-index: 1; pointer-events: none; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; line-height: 1; }
+.gsearch kbd { position: absolute; z-index: 1; right: 10px; top: 9px; font: 11px var(--font); color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; background: var(--surface-2); }
 .net-off { background: var(--danger); color: var(--on-danger); text-align: center; padding: 6px var(--gutter); font-size: var(--fs-sm); }
 .side-back { display: none; }
 
@@ -102,7 +102,7 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); }
 .search { position: relative; flex: 1 1 320px; min-width: 200px; max-width: 520px; }
 .search input { width: 100%; padding-left: 32px; }
-.search::before { content: '⌕'; position: absolute; left: 11px; top: 6px; color: var(--muted); font-size: 17px; }
+.search::before { content: '⌕'; position: absolute; z-index: 1; pointer-events: none; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 17px; line-height: 1; }
 .seg { display: inline-flex; background: var(--surface-3); border-radius: 9px; padding: 3px; gap: 2px; }
 .seg button { border: 0; background: transparent; height: 30px; padding: 0 12px; border-radius: 7px; font: inherit; font-weight: 550; color: var(--muted); cursor: pointer; }
 .seg button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
@@ -180,7 +180,7 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 @media (max-width: 720px) {
   .table-wrap { display: none; }
   .cards { display: block; }
-  .toolbar .search { flex: 1 1 0; min-width: 0; }
+  .toolbar .search { flex: 1 1 55%; min-width: 0; } /* ПО: поиск не уже половины строки — широкий фильтр уходит ниже */
   .filters-toggle { display: inline-flex; }
   .toolbar .opt { display: none; }
   .toolbar.open .opt { display: flex; flex: 1 1 140px; max-width: none; }
@@ -925,3 +925,14 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .kp-total { text-align: right; font-weight: 700; color: var(--heading); margin-bottom: var(--s4); }
 .imp-report ul { margin: var(--s2) 0; }
 @media (max-width: 720px) { .kp-line { grid-template-columns: 1fr 1fr auto; } .kp-name { grid-column: 1 / -1; } }
+
+/* Строка поиска — одна на всё (TASKS ПО.3, ui/searchbox.js): поле + свой крестик + подсказка «минимум N символов» */
+.sb { position: relative; display: block; width: 100%; }
+.sb input { width: 100%; padding-right: 34px; }
+.sb-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.sb-x:hover, .sb-x:focus-visible { background: var(--surface-2); color: var(--text); }
+.sb-hint { position: absolute; left: 0; top: calc(100% + 4px); z-index: 30; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow); color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
+@media (max-width: 720px) { .sb-x { width: 40px; height: 40px; } .sb input { padding-right: 44px; } }
+.gsearch .sb-x { right: 34px; }
+.gsearch .sb input { padding-right: 64px; }
+@media (max-width: 720px) { .gsearch .sb-x { right: 4px; } .gsearch .sb input { padding-right: 44px; } } /* kbd «/» на телефоне скрыт */
