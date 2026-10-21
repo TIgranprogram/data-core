@@ -1,63 +1,134 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
+import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { ProductPassportService } from './product-passport.service';
+import { PassportPdfService } from './passport-pdf.service';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
-import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import type { PassportTemplateContent } from './passport-template.default';
 
+const VIEW = ['admin', 'director', 'manager'] as const;
+const EDIT = ['admin', 'director'] as const;
+const attachment = (name: string) => `attachment; filename="passport.${name.endsWith('.zip') ? 'zip' : 'pdf'}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+
+/**
+ * Паспорта изделий (TASKS ПС): паспорт = экземпляр (номер, талон, номер изделия, дата, заказчик), модель — отдельно.
+ * Смотреть — менеджер и выше; создавать и менять — директор и админ. Номера выдаёт сервер.
+ */
+@ApiTags('Паспорта изделий')
 @Controller()
 export class ProductPassportController {
-  constructor(private readonly service: ProductPassportService) {}
+  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService) {}
 
+  /** Совместимость с kppdf: последний паспорт изделия-модели. */
   @Get('products/:productId/passport')
+  @Roles(...VIEW)
   findByProduct(@Param('productId') productId: string) {
     return this.service.findByProductId(productId);
   }
 
   @Post('products/:productId/passport')
-  @Roles('admin', 'manager')
+  @Roles(...EDIT)
   @AuditAction({ action: 'create', entityType: 'ProductPassport' })
-  createForProduct(
-    @Param('productId') productId: string,
-    @Body() dto: CreateProductPassportDto,
-  ) {
-    if (dto.productId && dto.productId !== productId) {
-      // align: prefer URL param
-      dto.productId = productId;
-    }
+  createForProduct(@Param('productId') productId: string, @Body() dto: CreateProductPassportDto) {
     return this.service.create({ ...dto, productId });
   }
 
   @Get('passports')
-  findAll(@Query('productId') productId?: string) {
-    return this.service.findAll(productId);
+  @Roles(...VIEW)
+  @ApiQuery({ name: 'search', required: false, description: '№ паспорта, талон, номер изделия, наименование, артикул, заказчик, объект, № заказа' })
+  @ApiQuery({ name: 'year', required: false }) @ApiQuery({ name: 'month', required: false, description: '1–12, вместе с year' })
+  @ApiQuery({ name: 'category', required: false }) @ApiQuery({ name: 'supplierOrgId', required: false }) @ApiQuery({ name: 'customer', required: false })
+  @ApiQuery({ name: 'noImages', required: false, description: '1 — без картинок' }) @ApiQuery({ name: 'incomplete', required: false, description: '1 — не хватает данных для выдачи' })
+  @ApiQuery({ name: 'productId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
+  @ApiQuery({ name: 'sort', required: false, description: 'passportNo | date | name | category | customerName | createdAt | updatedAt; «-» — по убыванию (умолч. -passportNo)' })
+  @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  list(@Query() q: Record<string, string>) {
+    return this.service.list(q);
+  }
+
+  /** Значения для фильтров: годы, категории, поставщики, заказчики. */
+  @Get('passports/facets')
+  @Roles(...VIEW)
+  facets() {
+    return this.service.facets();
+  }
+
+  /** «Шаблон паспорта» — типовые разделы 3–7 и таблицы (действующая версия). */
+  @Get('passports/template')
+  @Roles(...VIEW)
+  template() {
+    return this.service.template();
+  }
+
+  @Put('passports/template')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
+  saveTemplate(@Body() body: Partial<PassportTemplateContent>, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.saveTemplate(body, user?.id);
+  }
+
+  /** Пакет PDF по фильтру списка (до 200): ?stamp=1 — с печатью и подписью; ?mode=print — 2 стр. на A4. */
+  @Get('passports/zip')
+  @Roles(...EDIT)
+  async zip(@Query() q: Record<string, string>, @Res({ passthrough: true }) res: Response) {
+    const buf = await this.pdfs.zip(q, { stamp: q.stamp === '1', mode: q.mode === 'print' ? 'print' : 'pages' });
+    res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': attachment(`Паспорта_${new Date().toISOString().slice(0, 10)}.zip`) });
+    return new StreamableFile(buf);
   }
 
   @Get('passports/:id')
+  @Roles(...VIEW)
   findOne(@Param('id') id: string) {
-    return this.service.findById(id);
+    return this.service.get(id);
+  }
+
+  /** PDF паспорта: ?stamp=1 — с печатью и подписью организации-поставщика; ?mode=print — буклет 2 стр. на A4 альбомный. */
+  @Get('passports/:id/pdf')
+  @Roles(...EDIT)
+  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Res({ passthrough: true }) res: Response) {
+    const r = await this.pdfs.pdf(id, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages' });
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
+    return new StreamableFile(r.buf);
+  }
+
+  @Post('passports')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.created', entityType: 'ProductPassport' })
+  create(@Body() dto: CreateProductPassportDto) {
+    return this.service.create(dto);
+  }
+
+  /** Копия на ту же модель: новые номера, дата — сегодня, заказчик — пустой. */
+  @Post('passports/:id/copy')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.copied', entityType: 'ProductPassport', idParam: 'id' })
+  copy(@Param('id') id: string, @Body() dto: CreateProductPassportDto) {
+    return this.service.copy(id, dto);
   }
 
   @Patch('passports/:id')
-  @Roles('admin', 'manager')
-  @AuditAction({ action: 'update', entityType: 'ProductPassport' })
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: UpdateProductPassportDto) {
     return this.service.update(id, dto);
   }
 
   @Delete('passports/:id')
-  @Roles('admin', 'manager')
-  @AuditAction({ action: 'delete', entityType: 'ProductPassport' })
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.deleted', entityType: 'ProductPassport', idParam: 'id' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);
+  }
+
+  @Post('passports/:id/restore')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.restored', entityType: 'ProductPassport', idParam: 'id' })
+  restore(@Param('id') id: string) {
+    return this.service.restore(id);
   }
 }

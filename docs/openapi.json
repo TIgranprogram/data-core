@@ -1265,7 +1265,7 @@
             "name": "entityType",
             "required": true,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product",
             "schema": {
               "type": "string"
             }
@@ -1334,7 +1334,7 @@
             "name": "entityType",
             "required": false,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product",
             "schema": {}
           }
         ],
@@ -4112,6 +4112,193 @@
         ]
       }
     },
+    "/showcase": {
+      "get": {
+        "operationId": "ShowcaseController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "groupId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "post": {
+        "operationId": "ShowcaseController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/groups": {
+      "get": {
+        "operationId": "ShowcaseController_groups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/import": {
+      "post": {
+        "operationId": "ShowcaseController_import",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/kp": {
+      "post": {
+        "operationId": "ShowcaseController_kp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}": {
+      "get": {
+        "operationId": "ShowcaseController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "patch": {
+        "operationId": "ShowcaseController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "delete": {
+        "operationId": "ShowcaseController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/restore": {
+      "post": {
+        "operationId": "ShowcaseController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/health/disk": {
       "get": {
         "operationId": "DiskController_usage",
@@ -4423,6 +4610,42 @@
             "name": "from",
             "required": false,
             "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/forecast": {
+      "get": {
+        "operationId": "FinanceController_forecast",
+        "parameters": [
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "description": "all | СИЮ | ССЮ | id",
+            "schema": {}
+          },
+          {
+            "name": "opening",
+            "required": false,
+            "in": "query",
+            "description": "Остаток денег на сегодня, ₽",
+            "schema": {}
+          },
+          {
+            "name": "days",
+            "required": false,
+            "in": "query",
+            "description": "7–180, по умолчанию 30",
             "schema": {}
           }
         ],
@@ -7751,7 +7974,10 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       },
       "post": {
         "operationId": "ProductPassportController_createForProduct",
@@ -7779,27 +8005,185 @@
           "201": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       }
     },
     "/passports": {
       "get": {
-        "operationId": "ProductPassportController_findAll",
+        "operationId": "ProductPassportController_list",
         "parameters": [
           {
-            "name": "productId",
-            "required": true,
+            "name": "limit",
+            "required": false,
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "passportNo | date | name | category | customerName | createdAt | updatedAt; «-» — по убыванию (умолч. -passportNo)",
+            "schema": {}
+          },
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "incomplete",
+            "required": false,
+            "in": "query",
+            "description": "1 — не хватает данных для выдачи",
+            "schema": {}
+          },
+          {
+            "name": "noImages",
+            "required": false,
+            "in": "query",
+            "description": "1 — без картинок",
+            "schema": {}
+          },
+          {
+            "name": "customer",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "supplierOrgId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "1–12, вместе с year",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "№ паспорта, талон, номер изделия, наименование, артикул, заказчик, объект, № заказа",
+            "schema": {}
           }
         ],
         "responses": {
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "post": {
+        "operationId": "ProductPassportController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductPassportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/facets": {
+      "get": {
+        "operationId": "ProductPassportController_facets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/template": {
+      "get": {
+        "operationId": "ProductPassportController_template",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "put": {
+        "operationId": "ProductPassportController_saveTemplate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/zip": {
+      "get": {
+        "operationId": "ProductPassportController_zip",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       }
     },
     "/passports/{id}": {
@@ -7819,7 +8203,10 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       },
       "patch": {
         "operationId": "ProductPassportController_update",
@@ -7847,7 +8234,10 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       },
       "delete": {
         "operationId": "ProductPassportController_remove",
@@ -7865,7 +8255,105 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/pdf": {
+      "get": {
+        "operationId": "ProductPassportController_pdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stamp",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/copy": {
+      "post": {
+        "operationId": "ProductPassportController_copy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductPassportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/restore": {
+      "post": {
+        "operationId": "ProductPassportController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       }
     },
     "/attribute-definitions": {

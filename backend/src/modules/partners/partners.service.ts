@@ -12,7 +12,7 @@ const norm = (s: unknown) => clean(s).toLowerCase().replace(/ё/g, 'е').replace
 const realInn = (inn: unknown) => (inn && !String(inn).startsWith('БЕЗ-ИНН') ? String(inn) : null);
 const CUST = 'c:';
 /** Реквизиты контрагента (СП.1): поля CRM-схемы organizations + контакт (contactName/contactPhone — только data-core). */
-export const REQUISITES = ['kpp', 'legalAddress', 'phone', 'email', 'website', 'bankName', 'bankBik', 'bankAccount', 'bankCorrAccount', 'contactName', 'contactPhone', 'notes'] as const;
+export const REQUISITES = ['kpp', 'legalAddress', 'phone', 'email', 'website', 'bankName', 'bankBik', 'bankAccount', 'bankCorrAccount', 'contactName', 'contactPhone', 'notes', 'directorName', 'trademark'] as const;
 export type PartnerInput = { kind?: string; name?: string; inn?: string } & Partial<Record<(typeof REQUISITES)[number], string | null>>;
 const DIGITS: Record<string, [RegExp, string]> = {
   kpp: [/^\d{9}$/, 'КПП — 9 цифр'], bankBik: [/^\d{9}$/, 'БИК — 9 цифр'],

@@ -116,6 +116,14 @@ export class Organization {
   @Prop()
   directorName?: string;
 
+  /** Телефон (пишет раздел «Контрагенты»; в шапке паспорта — ПС.6). */
+  @Prop()
+  phone?: string;
+
+  /** Торговая марка — на титуле паспорта («STREET IRON»), ПС.1. */
+  @Prop()
+  trademark?: string;
+
   @Prop()
   registrationDate?: Date;
 
