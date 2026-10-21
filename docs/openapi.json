@@ -2945,6 +2945,29 @@
         ]
       }
     },
+    "/stock/items/{id}/ordered": {
+      "get": {
+        "operationId": "StockController_ordered",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/items/{id}/offcut": {
       "post": {
         "operationId": "StockController_offcut",
@@ -8885,6 +8908,10 @@
           },
           "clientUid": {
             "type": "string"
+          },
+          "partial": {
+            "type": "boolean",
+            "description": "Частично (ЗП.4): пришло меньше заказанного — заявка остаётся открытой на остаток"
           }
         }
       },

@@ -1,7 +1,7 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, parseNum, qty } from '../core/format.js';
-import { go, patch } from '../core/router.js';
+import { go } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
@@ -10,6 +10,7 @@ import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
 import { cancelMovement, moveLabel } from './movements.js';
 import { issueToFields } from './issue.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
+import { orderedBlock, orderItem, receiveField } from './item-orders.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -35,12 +36,14 @@ async function move(r, type, ctx) {
   const qIn = h('input', { name: 'qty', inputmode: 'decimal', value: type === 'unreserve' ? String(r.reservedQty) : inv ? String(r.quantity) : '' });
   const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Под какой заказ' : type === 'out' ? 'Куда / на какой заказ' : 'Основание' });
   const to = type === 'out' ? issueToFields() : null; // кому выдано (TASKS Л.3)
+  const recv = type === 'in' ? receiveField(r) : null; // приход закрывает открытую заявку (ЗП.4)
   const done = await modal({
     title: `${titles[type]}: ${r.name}`, okText: inv ? 'Сохранить остаток' : 'Провести',
     body: h('div', null, h('p', { class: 'hint' }, hints[type]),
       h('div', { class: 'form-grid' },
         h('label', { class: 'field' }, h('span', null, (inv ? 'Фактический остаток' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
         type === 'in' ? pipeInHelper(r, qIn) : null, // труба: «10 хлыстов по 6 м» = 60 м (СМ.2)
+        recv?.el,
         h('label', { class: 'field' }, h('span', null, 'Примечание'), note), to?.el)),
     onOk: async () => {
       const n = parseNum(qIn.value);
@@ -49,6 +52,12 @@ async function move(r, type, ctx) {
         const delta = Math.round((n - r.quantity) * 1000) / 1000;
         if (delta === 0) return r;
         return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'adjust', qty: delta, note: note.value.trim() || 'инвентаризация' } });
+      }
+      const req = recv?.value();
+      if (req) {
+        // пришло меньше заказанного — заявка остаётся открытой на остаток
+        await api(`/supply/requests/${req.id}/receive`, { method: 'POST', body: { qty: n, partial: n < req.qty } });
+        return api(`/stock/items/${r.id}`);
       }
       return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type, qty: n, note: note.value.trim() || undefined, ...(to ? to.value() : {}) } });
     },
@@ -101,7 +110,7 @@ export const stock = {
     },
     rowAction: (r) => {
       const silent = { setRow: () => {} };
-      const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { patch({ of: 'requests', new: '1', open: undefined, title: row.name, unit: row.unit || '', categoryName: row.categoryName || '' }); return false; } };
+      const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { orderItem(row); return false; } };
       const inc = { label: '+ Приход', title: 'Поступление на склад', run: (row) => move(row, 'in', silent) };
       const out = { label: '− Списать', title: 'Выдача / расход', run: (row) => move(row, 'out', silent) };
       return r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
@@ -110,7 +119,7 @@ export const stock = {
       key: 'categoryId',
       load: async () => (await api('/stock/categories')).items.filter((c) => c.id !== 'none').map((c) => ({
         value: c.id, label: c.name, n: c.total,
-        sub: c.low || c.none ? h('span', null, c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `нет ${c.none}` : null) : 'всё в норме',
+        sub: h('span', null, c.low || c.none ? [c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `нет ${c.none}` : null] : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
       })),
     },
     columns: [
@@ -120,10 +129,10 @@ export const stock = {
       { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => h('b', null, qty(r.quantity)) },
       { key: 'unit', label: 'Ед.', render: unit },
       { key: 'reservedQty', label: 'Бронь', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
-      { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => qty(r.free) },
+      { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
-      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => badge(STOCK_STATUS, r.status) },
+      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap' }, badge(STOCK_STATUS, r.status), r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  заказано ${qty(r.ordered)}`) : null) },
     ],
     card: {
       thumb: photoThumb,
@@ -150,7 +159,6 @@ export const stock = {
       ['Артикул', r.article],
       ['Вес 1 шт., кг', r.weightKg ? qty(r.weightKg) : ''],
       ['Примечание', r.notes],
-      ['Заявки', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'найти заявки по позиции →')],
     ],
     actions: (r) => [
       { label: '+ Приход', primary: true, run: (row, ctx) => move(row, 'in', ctx) },
@@ -159,9 +167,10 @@ export const stock = {
       r.reservedQty > 0 && { label: 'Снять бронь', run: (row, ctx) => move(row, 'unreserve', ctx) },
       { label: 'Пересчитать (сколько лежит)', run: (row, ctx) => move(row, 'adjust', ctx) },
       r.metal && !r.offcutOf && { label: 'Отложить обрезок…', run: (row, ctx) => offcutDialog(row, ctx) },
-      { label: 'Заказать (новая заявка)', run: (row) => patch({ of: 'requests', new: '1', open: undefined, title: row.name, unit: row.unit || '', categoryName: row.categoryName || '' }) },
+      { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
     ],
-    extra: recentMoves,
+    // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
+    extra: (r, ctx) => h('div', null, orderedBlock(r), recentMoves(r, ctx)),
   },
 
   form: {

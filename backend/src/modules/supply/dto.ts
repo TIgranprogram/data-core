@@ -44,4 +44,5 @@ export class SupplyReceiveDto {
   @ApiPropertyOptional({ description: 'Объект СМР / уточнение' }) @IsOptional() @IsString() @Length(0, 200) costObject?: string;
   @ApiPropertyOptional({ description: 'Получено (по умолчанию — количество в заявке)' }) @IsOptional() @IsNumber() @Min(0) qty?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional({ description: 'Частично (ЗП.4): пришло меньше заказанного — заявка остаётся открытой на остаток' }) @IsOptional() @IsBoolean() partial?: boolean;
 }

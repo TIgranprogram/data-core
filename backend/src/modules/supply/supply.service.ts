@@ -339,7 +339,7 @@ export class SupplyService {
    * Оприходовать: приход на склад по умолчанию + статус «received» (как receive() в CRM).
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
    */
-  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string }, userId?: string) {
+  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean }, userId?: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
@@ -365,6 +365,13 @@ export class SupplyService {
       const cat = doc.categoryId ? await this.connection.db!.collection('categories').findOne({ _id: doc.categoryId }) : null;
       const item = await this.stock.createItem({ name, unit: doc.unit, article: doc.article, categoryName: cat?.name as string | undefined });
       materialId = item.id;
+    }
+    // ЗП.4: пришла часть — приход, заявка остаётся открытой на остаток (qty уменьшается, receivedQty копится)
+    if (dto.partial && qty < Number(doc.qty)) {
+      await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''} (часть)`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
+      const left = Math.round((Number(doc.qty) - qty) * 1000) / 1000;
+      await this.model.updateOne({ _id: doc._id }, { $set: { qty: left, receivedQty: Math.round(((Number((doc as { receivedQty?: number }).receivedQty) || 0) + qty) * 1000) / 1000, editedInApp: true, materialId: new Types.ObjectId(materialId) } }).exec();
+      return this.get(id);
     }
     await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
     await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();

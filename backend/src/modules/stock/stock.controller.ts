@@ -168,6 +168,14 @@ export class StockController {
   }
 
   /** Приход / списание / корректировка / бронь / снятие брони. */
+  /** «Заказано» и «Поставщики / цены» позиции (ЗП.1, ЗП.5); цены — только деньги-ролям. */
+  @Get('items/:id/ordered')
+  @Roles('admin', 'director', 'manager', 'user')
+  ordered(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    const money = user?.isOwner === true || ['admin', 'director', 'accountant'].includes(user?.role ?? '');
+    return this.stock.itemOrdered(id, money);
+  }
+
   /** Обрезок трубы / листа: своя позиция «… — обрезок 1,2 м» + приход; труба — метры уходят из позиции (СМ.2). */
   @Post('items/:id/offcut')
   @Roles('admin', 'manager')

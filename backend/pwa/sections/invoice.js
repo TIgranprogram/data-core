@@ -11,6 +11,7 @@ import { COST_CENTER } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { pastItems } from './requests.js';
+import { orderedNote } from './item-orders.js';
 
 /**
  * «+ Счёт» (TASKS В.3): уже оплаченный / полученный счёт, которого не было в заявках — вносится одним окном.
@@ -74,10 +75,11 @@ async function buildInvoiceForm(opts = {}) {
       nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { nBox.hidden = true; } }, 'Отмена')));
     const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = title.value.trim() || nName.value; (nCat.value ? nName : nCat).focus(); } }, 'Нет в списке — создать позицию');
     const del = h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Убрать позицию', onclick: () => { rows.splice(rows.indexOf(row), 1); row.el.remove(); recalc(); } }, '×');
+    const dupe = orderedNote(); // ЗП.3: позиция уже заказана — предупредить в строке
     row.el = h('div', { class: 'inv-row' },
       h('div', { class: 'inv-pick' }, field('Категория', h('div', { class: 'has-combo' }, cat)), field('Позиция', h('div', { class: 'has-combo' }, title))),
       h('div', { class: 'inv-main' }, field('Кол-во', q), field('Ед.', h('div', { class: 'has-combo' }, unit)), session.canMoney ? field('Сумма, ₽', sum) : h('span'), h('div', { class: 'inv-btns' }, addNew, del)),
-      nBox);
+      dupe.el, nBox);
     lines.append(row.el);
     let catSel = '';
     const setCat = (name) => {
@@ -89,7 +91,7 @@ async function buildInvoiceForm(opts = {}) {
     attachCombo(title, {
       options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
       empty: () => (catSel ? null : (needCat(cat), '← Сначала выберите категорию — тогда здесь будут её позиции')),
-      onPick: (o) => { const v = o.x.values || {}; row.picked = o.label; if (v.unit) unit.value = v.unit; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; },
+      onPick: (o) => { const v = o.x.values || {}; row.picked = o.label; if (v.unit) unit.value = v.unit; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; dupe.check(o.label); },
     });
     title.addEventListener('input', () => { if (title.value !== row.picked) row.extra = {}; });
     attachCombo(unit, { options: () => unitList(lk).map((u) => ({ label: u })) });
@@ -132,8 +134,9 @@ async function buildInvoiceForm(opts = {}) {
         title.value = it.label; row.picked = it.label; if (it.values?.unit) unit.value = it.values.unit;
         row.extra = { article: it.values?.article }; row.srcArticle = '';
         badge.className = 'inv-badge found'; badge.replaceChildren('✓ ' + how);
+        dupe.check(it.label);
       };
-      if (pre.found) badge.append('✓ ' + (pre.how || 'нашлась в базе'));
+      if (pre.found) { badge.append('✓ ' + (pre.how || 'нашлась в базе')); dupe.check(pre.title); }
       else {
         badge.append('новая позиция — выберите категорию; при приёме появится на складе', pre.article ? h('span', { class: 'muted' }, ' · арт. ' + pre.article) : null);
         if (pre.similar?.length) badge.append(h('div', { class: 'inv-similar' }, h('span', { class: 'muted' }, 'Похоже на: '),

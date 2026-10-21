@@ -343,6 +343,29 @@ describe('Stock & supply on shared CRM collections', () => {
     await http().post(`/api/stock/items/${bolt.id}/offcut`).set(auth()).send({ lengthMm: 100 }).expect(400);
   });
 
+  it('ЗП: «уже заказано» по позиции (по id и по наименованию), поставщики и цены, частичный приход оставляет заявку открытой', async () => {
+    const it = (await http().post('/api/stock/items').set(auth()).send({ name: 'Саморез 4,2×19 ЗП', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    expect(it.ordered).toBe(0);
+    const r1 = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Саморез 4,2×19 ЗП', qty: 100, materialId: it.id, statusLabel: 'Заказать', clientUid: 'zp-1' }).expect(201)).body;
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'саморез 4,2×19 зп', qty: 50, statusLabel: 'Ожидает', clientUid: 'zp-2' }).expect(201); // без materialId — по наименованию
+    expect((await http().get(`/api/stock/items/${it.id}`).set(auth())).body.ordered).toBe(150);
+    const d = (await http().get(`/api/stock/items/${it.id}/ordered`).set(auth()).expect(200)).body;
+    expect(d.inTransit).toBe(150);
+    expect(d.open.map((x: { qty: number }) => x.qty).sort()).toEqual([100, 50].sort());
+    // пришло 40 из 100: остаток +40, заявка открыта на 60
+    await http().post(`/api/supply/requests/${r1.id}/receive`).set(auth()).send({ qty: 40, partial: true }).expect(200);
+    const after = (await http().get(`/api/stock/items/${it.id}`).set(auth())).body;
+    expect(after).toMatchObject({ quantity: 40, ordered: 110 });
+    const r1b = (await http().get(`/api/supply/requests/${r1.id}`).set(auth())).body;
+    expect(r1b).toMatchObject({ qty: 60, receivedQty: 40 });
+    expect(r1b.status).not.toBe('received');
+    // остаток пришёл — заявка закрыта, у позиции появился поставщик в «Поставщики и цены»
+    await http().post(`/api/supply/requests/${r1.id}/receive`).set(auth()).send({ qty: 60 }).expect(200);
+    const d2 = (await http().get(`/api/stock/items/${it.id}/ordered`).set(auth())).body;
+    expect(d2.inTransit).toBe(50);
+    expect(d2.suppliers.length).toBe(1);
+  });
+
   it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
     const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
     const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;

@@ -131,6 +131,8 @@ export class StockService {
       this.connection.db!.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
     ]);
     const catName = new Map(cats.map((c) => [String(c._id), String(c.name)]));
+    // «уже заказано» (ЗП.2): открытые заявки на позицию — по materialId или по тому же наименованию
+    const openReq = await this.openRequests(mats as { _id: Types.ObjectId; name?: string }[]);
     // обрезки этих позиций (СМ.2): родитель → [{ id, name, qty }] с остатком > 0 — «сначала брать обрезки»
     const kids = await this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null }, { projection: { name: 1, offcutOf: 1, dimensions: 1 } }).toArray();
     const kidStock = kids.length ? await this.storage.find({ warehouseId: wh._id, materialId: { $in: kids.map((k) => k._id) }, deletedAt: null }).lean().exec() : [];
@@ -158,6 +160,7 @@ export class StockService {
         id: String(m._id), materialId: String(m._id), name: m.name, article: m.article, sku: m.sku, unit: m.unit,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
         notes: m.notes, quantity, reservedQty, free: quantity - reservedQty, minQuantity,
+        ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
         assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, dims: dimsOf(m.dimensions),
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),
         offcutOf: (m as { offcutOf?: Types.ObjectId }).offcutOf ? String((m as { offcutOf?: Types.ObjectId }).offcutOf) : null,
@@ -192,14 +195,69 @@ export class StockService {
     return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
   }
 
+  /**
+   * Открытые заявки снабжения (ожидает / заказать / в работе) по позициям (ЗП.1–ЗП.3): заявка привязана `materialId`
+   * или (заявки из Google-таблицы) совпадает наименованием. materialId → заявки.
+   */
+  async openRequests(mats: { _id: Types.ObjectId; name?: string }[]) {
+    const out = new Map<string, { id: string; num: number | null; title: string; qty: number; unit: string; status: string; paid: boolean; invoiceDate: Date | null; requestDate: Date | null; requestedBy: string | null; supplierId: Types.ObjectId | null }[]>();
+    if (!mats.length) return out;
+    const byName = new Map(mats.map((m) => [normText(String(m.name ?? '')), String(m._id)]));
+    const ids = mats.map((m) => m._id);
+    const docs = await this.connection.db!.collection('supplyrequests').find({ deletedAt: null, status: { $in: ['in_progress', 'requested', 'ordered'] },
+      $or: [{ materialId: { $in: ids } }, { materialId: null }, { materialId: { $exists: false } }] },
+    { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, invoiceDate: 1, requestDate: 1, requestedBy: 1, supplierId: 1, materialId: 1 } }).toArray();
+    for (const d of docs) {
+      const key = d.materialId ? String(d.materialId) : byName.get(normText(String(d.title ?? '')));
+      if (!key) continue;
+      const list = out.get(key) ?? [];
+      list.push({ id: String(d._id), num: (d.num as number) ?? null, title: String(d.title ?? ''), qty: Number(d.qty) || 0, unit: String(d.unit ?? ''), status: String(d.status), paid: !!d.paid,
+        invoiceDate: (d.invoiceDate as Date) ?? null, requestDate: (d.requestDate as Date) ?? null, requestedBy: (d.requestedBy as string) ?? null, supplierId: (d.supplierId as Types.ObjectId) ?? null });
+      out.set(key, list);
+    }
+    return out;
+  }
+
+  /**
+   * «Заказано» и «Поставщики / цены» в карточке позиции (ЗП.1, ЗП.5): открытые заявки (№, кол-во, статус, дата счёта, кто),
+   * «в пути» итогом; полученные заявки — у кого брали и почём (последняя цена за ед.; деньги — только деньги-ролям).
+   */
+  async itemOrdered(materialId: string, canMoney: boolean) {
+    const mat = await this.materials.findOne({ _id: oid(materialId, 'позиции'), deletedAt: null }, { name: 1 }).lean().exec();
+    if (!mat) throw new NotFoundException('Позиция не найдена');
+    const open = (await this.openRequests([mat as { _id: Types.ObjectId; name?: string }])).get(String(mat._id)) ?? [];
+    const db = this.connection.db!;
+    const got = await db.collection('supplyrequests').find({ deletedAt: null, status: 'received', $or: [{ materialId: mat._id }, { title: { $regex: `^\\s*${escapeRe(String(mat.name))}\\s*$`, $options: 'i' } }] },
+      { projection: { qty: 1, priceHint: 1, supplierId: 1, receivedAt: 1, invoiceDate: 1, requestDate: 1 } }).sort({ receivedAt: -1, invoiceDate: -1 }).limit(200).toArray();
+    const orgIds = [...open.map((r) => r.supplierId), ...got.map((g) => g.supplierId)].filter(Boolean) as Types.ObjectId[];
+    const orgs = orgIds.length ? await db.collection('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1 } }).toArray() : [];
+    const on = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
+    const LBL: Record<string, string> = { in_progress: 'Ожидает', requested: 'Заказать', ordered: 'В работе' };
+    const sup = new Map<string, { name: string; count: number; lastDate: Date | null; lastPrice: number | null }>();
+    for (const g of got) {
+      const name = g.supplierId ? on.get(String(g.supplierId)) ?? 'Поставщик не указан' : 'Поставщик не указан';
+      const s = sup.get(name) ?? { name, count: 0, lastDate: null, lastPrice: null };
+      s.count++;
+      const when = (g.receivedAt ?? g.invoiceDate ?? g.requestDate) as Date | null;
+      if (s.count === 1) { s.lastDate = when ?? null; s.lastPrice = canMoney && Number(g.priceHint) > 0 && Number(g.qty) > 0 ? Math.round((Number(g.priceHint) / Number(g.qty)) * 100) / 100 : null; }
+      sup.set(name, s);
+    }
+    return {
+      open: open.map(({ supplierId, ...r }) => ({ ...r, statusLabel: r.status === 'ordered' && r.paid ? 'Оплачено' : LBL[r.status] ?? r.status, supplier: supplierId ? on.get(String(supplierId)) ?? null : null })),
+      inTransit: Math.round(open.reduce((s, r) => s + r.qty, 0) * 1000) / 1000,
+      suppliers: [...sup.values()].sort((a, b) => b.count - a.count),
+    };
+  }
+
   /** Сводка по категориям (плитки «Склада»): сколько позиций, сколько к закупке и сколько нет на складе. */
   async categorySummary() {
     const all = await this.listItems({ limit: 100000 } as Record<string, unknown>);
-    const by = new Map<string, { id: string; name: string; total: number; low: number; none: number }>();
+    const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
     for (const i of all.items) {
       const id = i.categoryId ?? 'none';
-      const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0 };
+      const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0, ordered: 0 };
       c.total++;
+      if (i.ordered > 0) c.ordered++;
       if (i.status === 'low') c.low++;
       if (i.status === 'none') c.none++;
       by.set(id, c);
