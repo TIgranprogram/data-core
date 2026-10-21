@@ -5,6 +5,7 @@ import { go, patch } from '../core/router.js';
 import { toast } from '../ui/toast.js';
 import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
+import { setCompositionTarget } from './composition.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -14,6 +15,14 @@ import { kpAdd, kpCount } from './kp.js';
  */
 const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy' }) : null);
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
+
+// «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели
+function compositionBlock(r) {
+  const items = r.composition || [];
+  return h('div', null, h('div', { class: 'section-title' }, `Состав${items.length ? ` (${items.length})` : ''}`),
+    items.length ? h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null, l.name, h('span', { class: 'muted' }, ` · ${qty(l.quantity)} ${l.unit}${l.article ? ' · ' + l.article : ''}`))))
+      : h('p', { class: 'muted' }, 'Состав не заполнен — «Изменить состав» в действиях карточки'));
+}
 
 // «Где в заказах» (БЗ-5): позиции заказов с этим изделием (по ссылке или по совпадению названия) — только просмотр
 function inOrders(r) {
@@ -70,7 +79,7 @@ export const products = {
     heading: (r) => r.name,
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
-    extra: inOrders,
+    extra: (r) => h('div', null, compositionBlock(r), inOrders(r)),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
@@ -79,7 +88,8 @@ export const products = {
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
       ['Описание', r.description],
     ],
-    actions: (r) => [{ label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
+    actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
+      { label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { q: row.name }) }],
   },
 

@@ -83,7 +83,43 @@ export class ShowcaseService {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
-    return { ...item, orderLines: await this.orderLines(d as Doc) };
+    return { ...item, orderLines: await this.orderLines(d as Doc), composition: await this.composition(d as Doc) };
+  }
+
+  /** Состав изделия (БЗ-5): строки-материалы из products.composition с названиями из справочника; прочие строки (модули, изделия) в этот список не входят. */
+  private async composition(d: Doc) {
+    const lines = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => l.lineType === 'material');
+    if (!lines.length) return [];
+    const mats = await this.db.collection('materials').find({ _id: { $in: lines.map((l) => l.refId as Types.ObjectId) } }, { projection: { name: 1, article: 1, unit: 1 } }).toArray();
+    const by = new Map(mats.map((m) => [String(m._id), m]));
+    return lines.map((l) => {
+      const m = by.get(String(l.refId));
+      return { id: String(l._id ?? ''), materialId: String(l.refId), name: String(m?.name ?? '(материал удалён)'), article: (m?.article as string) ?? null, unit: String(l.unit ?? m?.unit ?? 'шт'), quantity: Number(l.quantity) || 0, notes: (l.notes as string) ?? null };
+    });
+  }
+
+  /** Заменить состав-материалы изделия; строки других типов остаются как есть. lines: [{ materialId, quantity, notes? }]. */
+  async setComposition(id: string, lines: { materialId?: string; quantity?: number | string; notes?: string }[]) {
+    const _id = oid(id, 'изделия');
+    const d = await this.db.collection('products').findOne({ _id, deletedAt: null });
+    if (!d) throw new NotFoundException('Изделие не найдено');
+    if (!Array.isArray(lines) || lines.length > 300) throw new BadRequestException('Некорректный состав');
+    const ids = lines.map((l) => oid(String(l.materialId ?? ''), 'материала'));
+    const mats = new Map((await this.db.collection('materials').find({ _id: { $in: ids } }, { projection: { unit: 1 } }).toArray()).map((m) => [String(m._id), m]));
+    const seen = new Set<string>();
+    const next = lines.map((l, i) => {
+      const key = String(ids[i]);
+      const m = mats.get(key);
+      if (!m) throw new BadRequestException('Материал не найден в справочнике');
+      if (seen.has(key)) throw new BadRequestException('Один материал указан дважды — сложите количество в одну строку');
+      seen.add(key);
+      const q = Number(String(l.quantity ?? '').replace(',', '.'));
+      if (!Number.isFinite(q) || q <= 0) throw new BadRequestException('Количество должно быть больше нуля');
+      return { _id: new Types.ObjectId(), lineType: 'material', refId: ids[i], quantity: q, sortOrder: i, unit: String(m.unit ?? 'шт'), notes: clean(l.notes) || undefined };
+    });
+    const others = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => l.lineType !== 'material');
+    await this.db.collection('products').updateOne({ _id }, { $set: { composition: [...next, ...others], updatedAt: new Date() } });
+    return this.get(id);
   }
 
   /** Где изделие в заказах: позиции со ссылкой productId или с тем же названием (без регистра), до 30 штук (БЗ-5). */

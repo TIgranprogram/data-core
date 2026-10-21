@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -43,6 +43,12 @@ export class ShowcaseController {
   @Get(':id')
   @Roles('admin', 'director', 'manager', 'user')
   get(@Param('id') id: string) { return this.s.get(id); }
+
+  /** Состав-материалы изделия целиком (БЗ-5): { lines: [{ materialId, quantity, notes? }] }. */
+  @Put(':id/composition')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.composition', entityType: 'Product', idParam: 'id' })
+  setComposition(@Param('id') id: string, @Body() b: { lines?: { materialId?: string; quantity?: number | string; notes?: string }[] }) { return this.s.setComposition(id, b?.lines ?? []); }
 
   @Post()
   @Roles('admin', 'manager')
