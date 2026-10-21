@@ -35,4 +35,15 @@ describe('record-history (И.1): «было → стало» из соседни
     expect(simple(new Date('2026-10-21T00:00:00Z'))).toBe('2026-10-21T00:00:00.000Z');
     expect(simple([1])).toBeUndefined();
   });
+  it('частичная запись (чистка артикулов): только изменённые поля, остальное не «стирается»', () => {
+    const r = withChanges([
+      { action: 'stock.item.article.cleaned', details: { partial: true, after: { article: '90664165' } } },
+      { action: 'stock.item.updated', details: { after: { name: 'Микрометр', article: 'СКЛ-2026-001', unit: 'шт' } } },
+    ], true);
+    expect(r[0].changes).toEqual([{ field: 'article', from: 'СКЛ-2026-001', to: '90664165' }]);
+  });
+  it('частичная запись без прошлых снимков — «было» из самой записи (before)', () => {
+    const r = withChanges([{ action: 'stock.item.article.cleaned', details: { partial: true, before: { article: 'СКЛ-2026-001' }, after: { article: '90664165', internalArticle: 'СКЛ-2026-001' } } }], true);
+    expect(r[0].changes).toEqual([{ field: 'article', from: 'СКЛ-2026-001', to: '90664165' }, { field: 'internalArticle', from: null, to: 'СКЛ-2026-001' }]);
+  });
 });

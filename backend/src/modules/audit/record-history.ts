@@ -49,10 +49,13 @@ export function withChanges<T extends { details?: unknown }>(itemsNewestFirst: T
   const asc = [...itemsNewestFirst].reverse();
   let prev: Record<string, unknown> | null = null;
   const res = asc.map((it, i) => {
-    const after = (it.details as { after?: Record<string, unknown> } | undefined)?.after;
+    const det = it.details as { after?: Record<string, unknown>; before?: Record<string, unknown>; partial?: boolean } | undefined;
+    const after = det?.after;
     const snap = after && typeof after === 'object' && !Array.isArray(after) ? after : null;
-    const changes = snap ? diffSnapshots(prev, snap, canMoney) : [];
-    if (snap) prev = snap;
+    // partial — запись только изменённых полей (чистка артикулов и т. п.): сравниваем эти поля, остальное берём из прошлого снимка
+    const was = det?.partial ? Object.fromEntries(Object.keys(snap ?? {}).map((k) => [k, prev?.[k] ?? det.before?.[k] ?? null])) : prev;
+    const changes = snap ? diffSnapshots(was, snap, canMoney) : [];
+    if (snap) prev = det?.partial ? { ...(prev ?? {}), ...snap } : snap;
     return { ...it, changes, first: i === 0 };
   });
   return res.reverse();

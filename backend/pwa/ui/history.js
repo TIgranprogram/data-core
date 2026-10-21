@@ -10,11 +10,11 @@ const FIELD = {
   title: 'Наименование', name: 'Название', qty: 'Количество', unit: 'Ед.', status: 'Статус', stage: 'Этап', notes: 'Примечание', note: 'Примечание',
   priceHint: 'Сумма', amount: 'Сумма', unitPrice: 'Цена', paid: 'Оплачено', paidDate: 'Дата оплаты', shipDate: 'Отгрузка', invoiceNo: 'Счёт', invoiceDate: 'Дата счёта',
   supplierName: 'Поставщик', supplier: 'Поставщик', categoryName: 'Категория', requestedBy: 'Кто подал', customer: 'Заказчик', orderNo: '№ заказа',
-  statusLabel: 'Статус', priority: 'Приоритет', quantity: 'Остаток', reservedQty: 'В брони', minQuantity: 'Мин. остаток', article: 'Артикул', inn: 'ИНН', kpp: 'КПП', phone: 'Телефон', email: 'Почта',
+  statusLabel: 'Статус', priority: 'Приоритет', article: 'Артикул', internalArticle: 'Внутр. код', articleSource: 'Артикул — откуда', quantity: 'Остаток', reservedQty: 'В брони', minQuantity: 'Мин. остаток', article: 'Артикул', inn: 'ИНН', kpp: 'КПП', phone: 'Телефон', email: 'Почта',
   website: 'Сайт', legalAddress: 'Адрес', contactName: 'Контакт', costCenter: 'Направление', deletedAt: 'Удалено', companyName: 'Компания',
 };
 const ACT = { created: 'Создано', updated: 'Изменено', deleted: 'Удалено', restored: 'Восстановлено', merged: 'Объединено', cancelled: 'Отменено', received: 'Оприходовано',
-  added: 'Добавлено фото', removed: 'Убрано', batch: 'Операция склада', imported: 'Загружено', issued: 'Выдано по брони', list: 'Бронь по списку', moved: 'Движение', released: 'Бронь снята' };
+  cleaned: 'Чистка артикулов', added: 'Добавлено фото', removed: 'Убрано', batch: 'Операция склада', imported: 'Загружено', issued: 'Выдано по брони', list: 'Бронь по списку', moved: 'Движение', released: 'Бронь снята' };
 /** «supply.request.updated» → «Изменено». */
 export const actionLabel = (a) => ACT[String(a || '').split('.').pop()] || String(a || '');
 
