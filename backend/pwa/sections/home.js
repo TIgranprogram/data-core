@@ -220,8 +220,20 @@ export function mountHome(deps) {
 
   const lane = (title, ico, href, linkText, ...kids) => h('section', { class: 'lane' },
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
+  // место на диске сервера (TASKS ДИ.2): админу — плашка, только когда занято больше 80%
+  const diskNote = h('p', { class: 'hint disk-note', hidden: true });
+  if (session.user?.role === 'admin' || session.user?.isOwner) {
+    api('/health/disk').then((d) => {
+      if (d.level === 'ok') return;
+      diskNote.hidden = false;
+      diskNote.replaceChildren(h('b', null, `Диск сервера занят на ${String(d.usedPct).replace('.', ',')}%`),
+        ` — свободно ${(Math.round((d.freeBytes / 1024 ** 3) * 10) / 10).toLocaleString('ru-RU')} ГБ${d.daysLeft != null ? `, хватит примерно на ${d.daysLeft} дн.` : ''}. `,
+        h('a', { href: '../admin/' }, 'Подробнее — «Администрирование → Сервер»'));
+    }).catch(() => {});
+  }
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
+    diskNote,
     actions,
     // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
     h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },

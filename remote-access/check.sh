@@ -16,4 +16,10 @@ fi
 printf '3. Сайт https://kppdf-crm.ru/db/api/health/ready: '
 code=$(curl -s -o /dev/null -w "%{http_code}" https://kppdf-crm.ru/db/api/health/ready); echo "$code"; [[ "$code" == 200 ]] || ok=0
 
+printf '4. Место на диске сервера: '
+if d=$(ssh -o BatchMode=yes -o ConnectTimeout=15 datacore-vm 'df -h /var/lib/datacore | tail -1' 2>/dev/null); then
+  echo "$d" | awk '{print "занято " $3 " из " $2 " (" $5 "), свободно " $4}'
+  pct=$(echo "$d" | awk '{gsub("%","",$5); print $5}'); [[ "${pct:-0}" -gt 90 ]] && echo "   ВНИМАНИЕ: занято больше 90% — освободите место до выкладки"
+else echo "не удалось узнать"; fi
+
 [[ $ok == 1 ]] && echo "== Всё на связи, можно выкладывать: bash remote-access/deploy.sh" || { echo "== Есть проблемы — см. выше"; exit 1; }

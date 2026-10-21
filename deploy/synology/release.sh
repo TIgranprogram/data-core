@@ -18,6 +18,14 @@ cd "$(git rev-parse --show-toplevel)"
 [[ -z "$(git status --porcelain -- backend deploy docker-compose.prod.yml)" ]] || { echo "Есть незакоммиченные изменения — сначала коммит"; exit 1; }
 echo "== Версия: $(git log --oneline -1)"
 
+# Место на диске VM (TASKS ДИ.3): показать и остановиться, если свободно < 2 ГБ (бэкап + сборка образа его съедят)
+echo "== 0. Место на диске VM"
+"${SSH[@]}" 'df -h /var/lib/datacore | tail -1'
+FREE_KB=$("${SSH[@]}" 'df -Pk /var/lib/datacore | tail -1 | awk "{print \$4}"')
+if [[ -z "$FREE_KB" || "$FREE_KB" -lt 2097152 ]]; then
+  echo "СТОП: на VM свободно меньше 2 ГБ (${FREE_KB:-?} КБ) — освободите место (старые бэкапы, docker image prune) и повторите"; exit 1
+fi
+
 echo "== 1. Бэкап базы на VM"
 "${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1 && tail -1 /tmp/dc-backup.log'
 
@@ -36,7 +44,8 @@ echo "== 3. Сборка и перезапуск backend (mongo не трога�
 echo "== 4. Проверка"
 "${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health/ready); [ "$s" = 200 ] && break; sleep 3; done
   echo "data-core /api/health/ready: $s"; echo "/app/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/app/)"; echo "/admin/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/admin/)"
-  echo "kppdf :3000: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/)"; docker ps --format "{{.Names}} {{.Status}}" | grep -E "datacore|kppdf"'
+  echo "kppdf :3000: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/)"; docker ps --format "{{.Names}} {{.Status}}" | grep -E "datacore|kppdf"
+  echo "место после выкладки: $(df -h /var/lib/datacore | tail -1)"'
 
 if [[ $DATA == 1 ]]; then
   echo "== 5. Данные (в контейнере datacore-backend, его MONGO_URI)"

@@ -101,6 +101,7 @@
     if (t.dataset.tab === 'connect') loadConnect();
     if (t.dataset.tab === 'sheets') loadSheets();
     if (t.dataset.tab === 'audit') { auditState.page = 1; loadAudit(); }
+    if (t.dataset.tab === 'server') loadServer();
   }));
 
   // ---- Users ----
@@ -833,6 +834,26 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();
   }
+
+  // ---- Сервер: место на диске (TASKS ДИ.2) ----
+  // меньше гигабайта — в мегабайтах (иначе «0 ГБ» у небольшой базы)
+  const gb = (b) => (b == null ? '—' : b < 1024 ** 3 ? Math.max(b ? 0.1 : 0, Math.round((b / 1024 ** 2) * 10) / 10).toLocaleString('ru-RU') + ' МБ' : (Math.round((b / 1024 ** 3) * 10) / 10).toLocaleString('ru-RU') + ' ГБ');
+  async function loadServer() {
+    const box = $('#server-box');
+    try {
+      const d = await api('/health/disk');
+      const bar = el('div', 'srv-bar ' + d.level); const fill = el('i'); fill.style.width = Math.min(100, d.usedPct) + '%'; bar.append(fill);
+      const head = el('div', 'srv-head');
+      head.append(el('b', 'srv-big', `Занято ${gb(d.usedBytes)} из ${gb(d.totalBytes)}`), el('span', 'srv-pct ' + d.level, `${String(d.usedPct).replace('.', ',')}% · свободно ${gb(d.freeBytes)}`));
+      const forecast = d.daysLeft != null ? `При росте ${gb(d.growthPerDay)} в день места хватит примерно на ${d.daysLeft} дн.`
+        : d.growthPerDay != null ? 'За последние дни занятое место не растёт.' : 'Прогноз появится, когда накопится история (от 3 дней — снимок пишется при каждом открытии этой вкладки).';
+      const rows = [['База (Mongo)', gb(d.parts.mongoBytes)], ['Фото и файлы', `${gb(d.parts.uploadsBytes)} · ${d.parts.uploadsFiles} файлов`],
+        ['Бэкапы', d.parts.backupsBytes == null ? 'не видно (том данных не подключён)' : `${gb(d.parts.backupsBytes)} · копий базы: ${d.parts.backupCount}`], ['Что измеряется', d.volume]];
+      const dl = el('dl', 'srv-parts'); rows.forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, v)));
+      box.replaceChildren(head, bar, el('p', 'panel-note', forecast), dl, el('p', 'muted', 'Проверено: ' + new Date(d.checkedAt).toLocaleString('ru-RU')));
+    } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось узнать место на диске: ' + e.message)); }
+  }
+  $('#server-refresh').addEventListener('click', loadServer);
 
   async function loadConnect() {
     $('#cx-base').textContent = BASE_URL;

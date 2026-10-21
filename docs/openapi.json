@@ -3957,6 +3957,20 @@
         ]
       }
     },
+    "/health/disk": {
+      "get": {
+        "operationId": "DiskController_usage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
     "/fill-audit": {
       "get": {
         "operationId": "FillAuditController_report",

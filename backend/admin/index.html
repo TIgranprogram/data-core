@@ -40,6 +40,7 @@
         <button class="tab" data-tab="tables"><span class="ico" aria-hidden="true">🗂</span><span class="lbl">Таблицы</span></button>
         <button class="tab" data-tab="audit"><span class="ico" aria-hidden="true">📜</span><span class="lbl">Журнал</span></button>
         <button class="tab" data-tab="sheets"><span class="ico" aria-hidden="true">📊</span><span class="lbl">Google-таблицы</span></button>
+        <button class="tab" data-tab="server"><span class="ico" aria-hidden="true">💾</span><span class="lbl">Сервер</span></button>
         <button class="tab" data-tab="connect"><span class="ico" aria-hidden="true">🔌</span><span class="lbl">Подключение</span></button>
       </nav>
       <div class="side-foot">
@@ -267,6 +268,16 @@
         <h3>3. Подключённые таблицы</h3>
         <div id="gs-list" class="muted">Загрузка…</div>
       </section>
+    </main>
+
+    <!-- ---------- Сервер: место на диске (ДИ.2) ---------- -->
+    <main id="tab-server" class="tab-panel" hidden>
+      <div class="panel-head">
+        <h2>Сервер</h2>
+        <button id="server-refresh" class="btn" type="button">Обновить</button>
+      </div>
+      <p class="panel-note">Место на диске сервера, где лежат база, фото и бэкапы. Больше 80% — жёлтый, больше 90% — красный: пора чистить старые бэкапы или добавлять диск. Выкладка останавливается сама, если свободно меньше 2 ГБ.</p>
+      <div id="server-box" class="srv"><p class="muted">Загрузка…</p></div>
     </main>
 
     <main id="tab-connect" class="tab-panel" hidden>

@@ -56,6 +56,7 @@ import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { DictsModule } from './modules/dicts/dicts.module';
 import { FillAuditModule } from './modules/fill-audit/fill-audit.module';
+import { DiskModule } from './modules/disk/disk.controller';
 import { FinanceModule } from './modules/finance/finance.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -155,6 +156,7 @@ import { RequestMethod } from '@nestjs/common';
     IncomesModule,          // /api/incomes — доходы (строки заказов), своя коллекция incomes
     PartnersModule,
     DictsModule,            // /api/dicts — «Справочники»: категории, единицы, цвета, сотрудники, виды работ, графики выплат, типы счетов, услуги         // /api/partners — «Контрагенты»: поставщики (organizations) и заказчики (текст в заказах), объединение дублей
+    DiskModule,             // /api/health/disk — место на диске сервера (админ / директор)
     FillAuditModule,        // /api/fill-audit — «Требуют заполнения» по категориям (что, зачем, куда идти)
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)

@@ -181,3 +181,15 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 
 /* Кнопки действий в строке — в одну линию */
 .table td:has(> .btn) { white-space: nowrap; width: 1%; }
+
+/* «Сервер» — место на диске (TASKS ДИ.2) */
+.srv { max-width: 760px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s5); }
+.srv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3); margin-bottom: var(--s3); }
+.srv-big { font-size: var(--fs-h3); color: var(--heading); font-variant-numeric: tabular-nums; }
+.srv-pct { color: var(--muted); font-variant-numeric: tabular-nums; }
+.srv-pct.warn { color: var(--warn); } .srv-pct.danger { color: var(--danger); }
+.srv-bar { height: 14px; border-radius: 7px; background: var(--surface-3); overflow: hidden; margin-bottom: var(--s3); }
+.srv-bar i { display: block; height: 100%; background: var(--ok); }
+.srv-bar.warn i { background: var(--warn); } .srv-bar.danger i { background: var(--danger); }
+.srv-parts { display: grid; grid-template-columns: max-content 1fr; gap: var(--s2) var(--s4); margin: var(--s4) 0; }
+.srv-parts dt { color: var(--muted); } .srv-parts dd { margin: 0; font-variant-numeric: tabular-nums; }
