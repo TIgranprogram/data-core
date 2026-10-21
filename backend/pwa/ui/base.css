@@ -738,3 +738,6 @@ html { scrollbar-gutter: stable; }
 .inv-badge { font-size: var(--fs-sm); margin-bottom: 6px; font-weight: 500; }
 .inv-badge.found { color: var(--ok); }
 .inv-badge.new { color: var(--warn); }
+
+.inv-similar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-weight: 400; }
+.inv-similar .tag { height: auto; min-height: 26px; white-space: normal; text-align: left; }

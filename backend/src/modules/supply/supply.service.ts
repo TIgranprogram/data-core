@@ -8,6 +8,7 @@ import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { CategoryResolver } from '../stock/category-resolver';
 import { StockService } from '../stock/stock.service';
 import { OrgResolver } from './org-resolver';
+import { SupplierAliases } from './supplier-aliases';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
 
@@ -368,6 +369,8 @@ export class SupplyService {
     await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
     return this.get(id);
   }
+
+  aliases() { return new SupplierAliases(this.connection); }
 
   /** Названия поставщиков и «наших компаний» — для подсказок в форме. */
   async lookups() {

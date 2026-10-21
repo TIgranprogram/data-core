@@ -2,6 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, parseNum, qty } from '../core/format.js';
 import { parsePasted } from '../core/paste-parse.js';
+import { matchLines, rememberPairs } from '../core/bulk-match.js';
 import { normSearch } from '../core/facets.js';
 import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
@@ -122,7 +123,22 @@ async function buildInvoiceForm(opts = {}) {
       if (pre.sum) sum.value = String(pre.sum).replace('.', ',');
       row.extra = pre.article ? { article: pre.article } : {};
       row.srcArticle = pre.found ? '' : pre.article || ''; // артикул поставщика у новой позиции — не теряется при выборе категории
-      row.el.prepend(h('div', { class: 'inv-badge ' + (pre.found ? 'found' : 'new') }, pre.found ? '✓ нашлась в базе' : 'новая позиция — выберите категорию; при приёме появится на складе', pre.article ? h('span', { class: 'muted' }, ' · арт. ' + pre.article) : null));
+      row.src = pre.src || null; // строка поставщика (для «как называется у поставщика»)
+      const badge = h('div', { class: 'inv-badge ' + (pre.found ? 'found' : 'new') });
+      const useItem = (it, how) => {
+        const cName = it.cat || it.values?.categoryName || '';
+        if (cName) { cat.value = cName; setCat(cName); }
+        title.value = it.label; row.picked = it.label; if (it.values?.unit) unit.value = it.values.unit;
+        row.extra = { article: it.values?.article }; row.srcArticle = '';
+        badge.className = 'inv-badge found'; badge.replaceChildren('✓ ' + how);
+      };
+      if (pre.found) badge.append('✓ ' + (pre.how || 'нашлась в базе'));
+      else {
+        badge.append('новая позиция — выберите категорию; при приёме появится на складе', pre.article ? h('span', { class: 'muted' }, ' · арт. ' + pre.article) : null);
+        if (pre.similar?.length) badge.append(h('div', { class: 'inv-similar' }, h('span', { class: 'muted' }, 'Похоже на: '),
+          ...pre.similar.map((s) => h('button', { type: 'button', class: 'tag', title: 'Это та же позиция — взять её', onclick: () => useItem(s.item, 'выбрана похожая: ' + Math.round(s.score * 100) + '%') }, s.item.label.slice(0, 60), h('small', null, Math.round(s.score * 100) + '%')))));
+      }
+      row.el.prepend(badge);
       recalc();
     }
     if (focus) cat.focus();
@@ -132,27 +148,20 @@ async function buildInvoiceForm(opts = {}) {
   // ---------- Вставка из Excel / с сайта ----------
   const pasteArea = h('textarea', { rows: 6, class: 'paste-area', placeholder: 'Скопируйте строки из Excel или корзины сайта (артикул, наименование, количество, цена, сумма — лишние колонки не мешают) и вставьте сюда Ctrl+V' });
   const pasteInfo = h('div', { class: 'hint' });
-  const normA = (s) => normSearch(s).replace(/\s+/g, '');
-  function findItem(p) {
-    const a = p.article ? normA(p.article) : '';
-    if (a) {
-      const byArt = items.find((x) => normA(x.values?.article || '') === a) || items.find((x) => normA(x.label).includes(a));
-      if (byArt) return byArt;
-    }
-    const n = normSearch(p.name);
-    return items.find((x) => normSearch(x.label) === n) || (n.length > 15 ? items.find((x) => normSearch(x.label).startsWith(n.slice(0, 40))) : null);
-  }
-  function applyPaste() {
+  async function applyPaste() {
     const parsed = parsePasted(pasteArea.value);
     if (!parsed.length) { pasteInfo.textContent = 'Не нашёл строк с товарами. Скопируйте строки таблицы целиком (с количеством и суммой).'; return; }
     for (const rw of [...rows]) if (!rw.title.value.trim() && !rw.saved) { rows.splice(rows.indexOf(rw), 1); rw.el.remove(); }
+    pasteInfo.textContent = 'Ищу в базе…';
+    const res = await matchLines(parsed, items, { supplierName: sup.value.trim() });
+    const HOW = { alias: 'нашлась: так называется у этого поставщика', article: 'нашлась по артикулу', name: 'нашлась по названию', similar: 'нашлась (очень похожа)' };
     let found = 0;
-    for (const p of parsed) {
-      const it = findItem(p);
+    for (const m of res) {
+      const p = m.line; const it = m.item;
       if (it) found++;
       addRow(false, it
-        ? { found: true, cat: it.cat || it.values?.categoryName || '', title: it.label, unit: it.values?.unit, article: it.values?.article || p.article, qty: p.qty, sum: p.sum }
-        : { found: false, title: p.name, article: p.article, qty: p.qty, sum: p.sum });
+        ? { found: true, how: HOW[m.by] + (m.by === 'similar' ? ' ' + Math.round(m.score * 100) + '%' : ''), cat: it.cat || it.values?.categoryName || '', title: it.label, unit: it.values?.unit, article: it.values?.article || p.article, qty: p.qty, sum: p.sum, src: p }
+        : { found: false, title: p.name, article: p.article, qty: p.qty, sum: p.sum, similar: m.similar, src: p });
     }
     pasteInfo.textContent = 'Разобрано строк: ' + parsed.length + '. Нашлись в базе: ' + found + ', новых: ' + (parsed.length - found) + '. Проверьте ниже, выберите поставщика и нажмите «Внести».';
     pasteArea.value = '';
@@ -202,6 +211,7 @@ async function buildInvoiceForm(opts = {}) {
       }
       if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid, toStock: toStock.checked, costCenter: cc } }); r.received = true; }
     }
+    rememberPairs(sup.value.trim(), list.filter((x) => x.src).map((x) => ({ extName: x.src.name, extArticle: x.src.article, title: x.title.value.trim(), unit: x.unit.value.trim(), categoryName: x.cat.value.trim(), article: x.extra.article || x.srcArticle || undefined })));
     toast(`${invoiceNo ? 'Счёт ' + invoiceNo : 'Заявки'} внесены: ${list.length} ${list.length === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);
     return { id: null, invoiceNo, count: list.length };
   }
