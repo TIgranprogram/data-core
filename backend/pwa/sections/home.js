@@ -234,6 +234,12 @@ export function mountHome(deps) {
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
     diskNote,
+    // МП.1: на телефоне — три задачи «на ходу» крупно (на компьютере блок скрыт, там — строка действий)
+    session.canEdit ? h('div', { class: 'go-tiles' },
+      h('button', { type: 'button', class: 'go-tile', onclick: () => { const q = el.querySelector('.quick-panel'); q?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => q?.querySelector('input, select')?.focus(), 400); } },
+        h('b', null, '+ Быстрая заявка'), h('span', null, '«закончилось» — категория, позиция, сколько')),
+      h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
+      h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))) : null,
     actions,
     // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
     h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },

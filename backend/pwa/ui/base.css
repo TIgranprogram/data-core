@@ -840,3 +840,20 @@ html { scrollbar-gutter: stable; }
 .timeline .changes { flex-basis: 100%; list-style: none; margin: 0; padding: 0 0 0 var(--s4); }
 .timeline .changes li { display: block; border: 0; padding: 2px 0; }
 .timeline .changes s { text-decoration-color: var(--muted); }
+
+/* ── Телефон: работа на ходу (TASKS МП.1, DESIGN §8 2026-10-21) — палец: цели от 44px, поля 16px (без увеличения на iPhone) ── */
+.go-tiles { display: none; }
+@media (max-width: 720px) {
+  .btn, .seg button, .chip, input, select, textarea, .side-link, .q-row .btn, .row-act { min-height: 44px; }
+  input, select, textarea { font-size: 16px; }
+  .tag { min-height: 40px; padding-left: var(--s3); padding-right: var(--s3); }
+  .go-tiles { display: grid; gap: var(--s3); margin: 0 0 var(--s4); }
+  .go-tile { display: flex; flex-direction: column; gap: 2px; min-height: 72px; justify-content: center; padding: var(--s3) var(--s4); border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow); color: var(--text); text-decoration: none; text-align: left; font: inherit; cursor: pointer; }
+  .go-tile b { font-size: var(--fs-h3); color: var(--heading); }
+  .go-tile span { color: var(--muted); font-size: var(--fs-sm); }
+  .go-tile:active { background: var(--row-hover); }
+  .ops-row { min-height: 56px; }
+  .ops-add { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+  .ops-cart .ops-submit { width: 100%; min-height: 52px; font-size: var(--fs-h3); }
+}
