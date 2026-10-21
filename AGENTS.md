@@ -28,6 +28,7 @@
 | Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог), [ROADMAP.md](ROADMAP.md) (план) | — |
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
+| Данные на проде (правит только пользователь) | [docs/DATA-FIX-USER.md](docs/DATA-FIX-USER.md) — дополнять, не исполнять | — |
 | Что уже сделано и как проверялось | [docs/HISTORY.md](docs/HISTORY.md) — журнал, только при расследовании | без нужды |
 | Деплой на VM | skill `datacore-deploy`, [deploy/synology/README.md](deploy/synology/README.md) | — |
 
