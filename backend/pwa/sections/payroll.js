@@ -36,7 +36,7 @@ export function mountPayroll() {
         h('td', { class: 'num right ' + (p.accrued - p.paid > 0 ? 'neg' : '') }, money(p.accrued - p.paid)),
         h('td', { class: 'muted' }, p.schedule)))),
       h('tfoot', null, h('tr', { class: 'total' }, h('td', { colspan: 5 }, 'Итого (Total)'), h('td', { class: 'num right' }, money(total)), h('td', { class: 'num right' }, money(paid)), h('td', { class: 'num right' }, money(total - paid)), h('td'))))))
-    , h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'ФОТ по компаниям')),
+    , h('div', { class: 'panel dash-card compact-card', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'ФОТ по компаниям')),
       h('div', { class: 'shares' }, ...Object.entries(byCo).map(([c, v]) => h('div', { class: 'share' },
         h('div', { class: 'share-l' }, h('span', null, c), h('b', { class: 'num' }, money(v)), h('span', { class: 'muted num share-p' }, Math.round((v / total) * 100) + '%')),
         h('div', { class: 'share-bar' }, h('i', { style: { width: (v / Math.max(...Object.values(byCo))) * 100 + '%' } })))))));
