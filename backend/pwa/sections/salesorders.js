@@ -81,8 +81,12 @@ function details(r) {
       sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
         ? h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`))))
         : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')),
+      // брони под заказ (TASKS Б.3): сколько ещё в брони и сколько выдано; открыть — «Операции → Бронь по списку»
+      (d.reservations || []).length ? sec(`Брони на складе (${d.reservations.length})`,
+        h('ul', { class: 'timeline' }, ...d.reservations.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
+          ` · ${g.lines} поз. · ${g.left ? 'в брони ' + qty(g.left) : 'всё выдано'}${g.issued ? ' · выдано ' + qty(g.issued) : ''}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`))))) : '',
       sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
-        ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, m.notes || ''))))
+        ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
         : h('p', { class: 'muted' }, 'Списаний под заказ нет. В «Операциях» → «Списание» выберите этот заказ.')));
   }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не удалось загрузить: ' + e.message)));
   load();

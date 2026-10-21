@@ -84,6 +84,19 @@ export class StockMovement {
   @Prop({ type: Types.ObjectId })
   salesOrderLineId?: Types.ObjectId;
 
+  // ── Выдача со склада (data-core, 2026-10-21, TASKS Б.2 / Л.3) ──
+  /** Выдано по брони (reservations) — «Выдать по брони». */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  reservationId?: Types.ObjectId;
+
+  /** Кому выдано: сотрудник (persons). */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  issuedToPersonId?: Types.ObjectId;
+
+  /** Кому / куда выдано текстом: объект, бригада (если не сотрудник). */
+  @Prop({ trim: true })
+  issuedTo?: string;
+
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;

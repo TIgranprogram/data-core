@@ -8,6 +8,7 @@ import { toast } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftQuery } from '../ui/facet-filter.js';
 import { cancelMovement, moveLabel } from './movements.js';
+import { issueToFields } from './issue.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -32,12 +33,13 @@ async function move(r, type, ctx) {
   };
   const qIn = h('input', { name: 'qty', inputmode: 'decimal', value: type === 'unreserve' ? String(r.reservedQty) : inv ? String(r.quantity) : '' });
   const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Под какой заказ' : type === 'out' ? 'Куда / на какой заказ' : 'Основание' });
+  const to = type === 'out' ? issueToFields() : null; // кому выдано (TASKS Л.3)
   const done = await modal({
     title: `${titles[type]}: ${r.name}`, okText: inv ? 'Сохранить остаток' : 'Провести',
     body: h('div', null, h('p', { class: 'hint' }, hints[type]),
       h('div', { class: 'form-grid' },
         h('label', { class: 'field' }, h('span', null, (inv ? 'Фактический остаток' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
-        h('label', { class: 'field' }, h('span', null, 'Примечание'), note))),
+        h('label', { class: 'field' }, h('span', null, 'Примечание'), note), to?.el)),
     onOk: async () => {
       const n = parseNum(qIn.value);
       if (n === undefined || Number.isNaN(n) || n < 0 || (!inv && n === 0)) throw new Error(inv ? 'Введите число не меньше 0' : 'Введите количество больше нуля');
@@ -46,7 +48,7 @@ async function move(r, type, ctx) {
         if (delta === 0) return r;
         return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'adjust', qty: delta, note: note.value.trim() || 'инвентаризация' } });
       }
-      return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type, qty: n, note: note.value.trim() || undefined } });
+      return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type, qty: n, note: note.value.trim() || undefined, ...(to ? to.value() : {}) } });
     },
   });
   if (done) { toast(`${titles[type]}: проведено`); ctx.setRow(done); }

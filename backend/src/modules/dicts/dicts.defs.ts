@@ -14,7 +14,8 @@ type ObjectId = mongo.ObjectId;
  */
 export type Doc = Document & { _id: ObjectId };
 export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color'; required?: boolean; options?: { value: string; label: string }[]; ref?: string; hint?: string; wide?: boolean };
-export type Related = { title: string; items: { label: string; sub?: string; href?: string }[]; total: number };
+/** more — дополнительные блоки «связанного» (у сотрудника: заявки + что выдано со склада). */
+export type Related = { title: string; items: { label: string; sub?: string; href?: string }[]; total: number; more?: Related[] };
 
 export interface DictDef {
   key: string;
@@ -283,8 +284,15 @@ export const DICTS: DictDef[] = [
     related: async (db, d) => {
       const names = [`${s(d.firstName)} ${s(d.lastName)}`, `${s(d.lastName)} ${s(d.firstName)}`].map((x) => x.trim()).filter(Boolean);
       const q = { deletedAt: null, requestedBy: { $in: names.map((n) => new RegExp(`^\\s*${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')) } };
-      const [rows, total] = await Promise.all([db.collection('supplyrequests').find(q).sort({ requestDate: -1 }).limit(15).project({ num: 1, title: 1 }).toArray(), db.collection('supplyrequests').countDocuments(q)]);
-      return { title: 'Заявки, которые подал', total, items: rows.map((r) => ({ label: `№${r.num ?? ''} ${s(r.title)}`, href: '#requests?open=' + String(r._id) })) };
+      const iq = { issuedToPersonId: d._id, type: 'out', deletedAt: null, cancelledAt: null };
+      const [rows, total, mvs, mvTotal] = await Promise.all([db.collection('supplyrequests').find(q).sort({ requestDate: -1 }).limit(15).project({ num: 1, title: 1 }).toArray(), db.collection('supplyrequests').countDocuments(q),
+        db.collection('stockmovements').find(iq).sort({ date: -1 }).limit(15).project({ materialId: 1, qty: 1, date: 1 }).toArray(), db.collection('stockmovements').countDocuments(iq)]);
+      // что выдано со склада этому сотруднику (TASKS Л.3)
+      const mats = mvs.length ? await db.collection('materials').find({ _id: { $in: mvs.map((m) => m.materialId) } }, { projection: { name: 1, unit: 1 } }).toArray() : [];
+      const mat = new Map(mats.map((m) => [String(m._id), m]));
+      const day = (v: unknown) => (v instanceof Date ? v.toLocaleDateString('ru-RU') : '');
+      const issued: Related = { title: 'Выдано со склада', total: mvTotal, items: mvs.map((m) => ({ label: s(mat.get(String(m.materialId))?.name) || 'позиция', sub: `${m.qty} ${s(mat.get(String(m.materialId))?.unit)} · ${day(m.date)}`, href: '#movements?open=' + String(m._id) })) };
+      return { title: 'Заявки, которые подал', total, items: rows.map((r) => ({ label: `№${r.num ?? ''} ${s(r.title)}`, href: '#requests?open=' + String(r._id) })), more: [issued] };
     },
     reassign: async (db, from, to) => {
       const names = [`${s(from.firstName)} ${s(from.lastName)}`, `${s(from.lastName)} ${s(from.firstName)}`].map((x) => x.trim()).filter(Boolean);

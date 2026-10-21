@@ -99,20 +99,38 @@ export class SalesOrdersService {
     const _id = doc._id as Types.ObjectId;
     // Привязка — поля data-core salesOrderId (orderId в заявках занят CRM-заказами)
     const db = this.connection.db!;
-    const [lines, supplyRequests, stockMovements] = await Promise.all([
+    const [lines, supplyRequests, stockMovements, reservations] = await Promise.all([
       this.incomes().find({ orderId: _id, deletedAt: null }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray(),
       db.collection('supplyrequests').find({ salesOrderId: _id, deletedAt: null }, { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, salesOrderLineId: 1, supplierId: 1 } }).sort({ requestDate: -1 }).toArray(),
-      db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1 } }).sort({ date: -1 }).toArray(),
+      db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1 } }).sort({ date: -1 }).toArray(),
+      // брони под заказ (TASKS Б.3): активные и выданные, снятые — нет
+      db.collection('reservations').find({ salesOrderId: _id, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, materialId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1 } }).sort({ createdAt: -1 }).toArray(),
     ]);
-    const mats = await db.collection('materials').find({ _id: { $in: stockMovements.map((m) => m.materialId).filter(Boolean) } }, { projection: { name: 1, unit: 1 } }).toArray();
+    const mats = await db.collection('materials').find({ _id: { $in: [...stockMovements, ...reservations].map((m) => m.materialId).filter(Boolean) } }, { projection: { name: 1, unit: 1 } }).toArray();
     const matName = new Map(mats.map((m) => [String(m._id), m]));
-    for (const m of stockMovements as Doc[]) { const x = matName.get(String(m.materialId)); m.materialName = x?.name ?? null; m.unit = x?.unit ?? null; }
+    // кому выдано (TASKS Л.3)
+    const pids = stockMovements.map((m) => m.issuedToPersonId).filter(Boolean) as Types.ObjectId[];
+    const persons = pids.length ? await db.collection('persons').find({ _id: { $in: pids } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [];
+    const pName = new Map(persons.map((p) => [String(p._id), [p.lastName, p.firstName].filter(Boolean).join(' ')]));
+    for (const m of stockMovements as Doc[]) {
+      const x = matName.get(String(m.materialId)); m.materialName = x?.name ?? null; m.unit = x?.unit ?? null;
+      m.issuedToLabel = [m.issuedToPersonId ? pName.get(String(m.issuedToPersonId)) : null, m.issuedTo].filter(Boolean).join(' · ') || null;
+    }
+    const resGroups = new Map<string, { key: string; name: string; createdAt: unknown; lines: number; left: number; issued: number }>();
+    for (const r of reservations) {
+      const key = String(r.batchId ?? r._id);
+      const g = resGroups.get(key) ?? { key, name: String(r.groupName || r.orderId || 'Бронь'), createdAt: r.createdAt, lines: 0, left: 0, issued: 0 };
+      g.lines++;
+      if (r.status === 'active') g.left += Number(r.qty) || 0;
+      g.issued += Number(r.issuedQty ?? (r.status === 'fulfilled' ? r.qty : 0)) || 0;
+      resGroups.set(key, g);
+    }
     const ST: Record<string, string> = { in_progress: 'Ожидает', requested: 'Заказать', ordered: 'В работе', received: 'Получено', cancelled: 'Отменено' };
     for (const s of supplyRequests as Doc[]) s.statusLabel = s.status === 'ordered' && s.paid ? 'Оплачено' : ST[String(s.status)] ?? s.status;
     // Фото позиций (из Excel «Вид» или загруженные): первое — превью в карточке заказа
-    const pids = lines.flatMap((l) => ((l.photoIds as Types.ObjectId[] | undefined) ?? []).slice(0, 1));
-    const ph = pids.length ? await db.collection('photos').find({ _id: { $in: pids } }, { projection: { storageUrl: 1 } }).toArray() : [];
-    const thumbs = pids.length ? await db.collection('photos').find({ parentPhotoId: { $in: pids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray() : [];
+    const phIds = lines.flatMap((l) => ((l.photoIds as Types.ObjectId[] | undefined) ?? []).slice(0, 1));
+    const ph = phIds.length ? await db.collection('photos').find({ _id: { $in: phIds } }, { projection: { storageUrl: 1 } }).toArray() : [];
+    const thumbs = phIds.length ? await db.collection('photos').find({ parentPhotoId: { $in: phIds }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray() : [];
     const phUrl = new Map(ph.map((p) => [String(p._id), String(p.storageUrl)]));
     const thUrl = new Map(thumbs.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
     for (const l of lines as Doc[]) { const id = String(((l.photoIds as unknown[]) ?? [])[0] ?? ''); if (phUrl.has(id)) l.photo = { url: phUrl.get(id), thumb: thUrl.get(id) ?? phUrl.get(id) }; }
@@ -122,6 +140,7 @@ export class SalesOrdersService {
       ...header,
       lines: fix(lines.map((l) => ({ ...l, status: l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft' }))),
       supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements),
+      reservations: [...resGroups.values()].map((g) => ({ ...g, left: Math.round(g.left * 1000) / 1000, issued: Math.round(g.issued * 1000) / 1000 })),
     };
   }
 

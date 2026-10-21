@@ -84,7 +84,8 @@ export class PartnersService {
         { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
       ]).toArray() : [];
       const s = new Map(agg.map((a) => [String(a._id), a]));
-      return { ...c, related: orders.map((o) => { const a = s.get(String(o._id)); return { ...o, id: String(o._id), _id: String(o._id), lineCount: a?.lines ?? 0, amount: a?.amount ?? 0, paidAmount: a?.paid ?? 0 }; }) };
+      return { ...c, related: orders.map((o) => { const a = s.get(String(o._id)); return { ...o, id: String(o._id), _id: String(o._id), lineCount: a?.lines ?? 0, amount: a?.amount ?? 0, paidAmount: a?.paid ?? 0 }; }),
+        ...(await this.stockByOrders(orders)) };
     }
     const _id = this.oid(id);
     const o = await this.db.collection('organizations').findOne({ _id, deletedAt: null });
@@ -94,6 +95,41 @@ export class PartnersService {
     const reqs = await this.db.collection('supplyrequests').find({ [our ? 'companyId' : 'supplierId']: _id, deletedAt: null }).sort({ requestDate: -1 }).limit(100)
       .project({ num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, priceHint: 1 }).toArray();
     return { ...row, related: reqs.map((r) => ({ ...r, id: String(r._id), _id: String(r._id) })) };
+  }
+
+  /**
+   * Склад по заказам заказчика (TASKS ЗК.3 / Б.3): брони (активные и выданные, по названию брони) и выдачи со склада
+   * под эти заказы — кому выдано. Только чтение; последние 50 выдач.
+   */
+  private async stockByOrders(orders: Doc[]) {
+    const ids = orders.map((o) => o._id as Types.ObjectId);
+    if (!ids.length) return { reservations: [], issues: [] };
+    const orderNo = new Map(orders.map((o) => [String(o._id), String(o.orderNo ?? '')]));
+    const [res, mvs] = await Promise.all([
+      this.db.collection('reservations').find({ salesOrderId: { $in: ids }, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1, salesOrderId: 1 } }).toArray(),
+      this.db.collection('stockmovements').find({ salesOrderId: { $in: ids }, type: 'out', deletedAt: null, cancelledAt: null }, { projection: { date: 1, materialId: 1, qty: 1, issuedToPersonId: 1, issuedTo: 1, salesOrderId: 1 } }).sort({ date: -1 }).limit(50).toArray(),
+    ]);
+    const groups = new Map<string, { key: string; name: string; orderId: string; orderNo: string; createdAt: unknown; lines: number; left: number; issued: number }>();
+    for (const r of res) {
+      const key = String(r.batchId ?? r._id);
+      const g = groups.get(key) ?? { key, name: String(r.groupName || r.orderId || 'Бронь'), orderId: String(r.salesOrderId), orderNo: orderNo.get(String(r.salesOrderId)) ?? '', createdAt: r.createdAt, lines: 0, left: 0, issued: 0 };
+      g.lines++;
+      if (r.status === 'active') g.left += Number(r.qty) || 0;
+      g.issued += Number(r.issuedQty ?? (r.status === 'fulfilled' ? r.qty : 0)) || 0;
+      groups.set(key, g);
+    }
+    const [mats, persons] = await Promise.all([
+      this.db.collection('materials').find({ _id: { $in: mvs.map((m) => m.materialId) } }, { projection: { name: 1, unit: 1 } }).toArray(),
+      this.db.collection('persons').find({ _id: { $in: mvs.map((m) => m.issuedToPersonId).filter(Boolean) } }, { projection: { lastName: 1, firstName: 1 } }).toArray(),
+    ]);
+    const mat = new Map(mats.map((m) => [String(m._id), m]));
+    const pn = new Map(persons.map((p) => [String(p._id), [p.lastName, p.firstName].filter(Boolean).join(' ')]));
+    return {
+      reservations: [...groups.values()],
+      issues: mvs.map((m) => ({ id: String(m._id), date: m.date, qty: m.qty, name: String(mat.get(String(m.materialId))?.name ?? ''), unit: String(mat.get(String(m.materialId))?.unit ?? ''),
+        orderId: String(m.salesOrderId), orderNo: orderNo.get(String(m.salesOrderId)) ?? '',
+        to: [m.issuedToPersonId ? pn.get(String(m.issuedToPersonId)) : null, m.issuedTo].filter(Boolean).join(' · ') || null })),
+    };
   }
 
   /** Правка: поставщик — название, ИНН, почта, телефон, сайт, примечание; заказчик — только название (во всех заказах). */

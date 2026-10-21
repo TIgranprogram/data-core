@@ -3,7 +3,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockBatchDto, StockItemDto, StockMoveDto, StockPhotoDto, StockReserveListDto } from './dto';
+import { StockBatchDto, StockIssueDto, StockItemDto, StockMoveDto, StockPhotoDto, StockReserveListDto } from './dto';
 import { StockService } from './stock.service';
 
 /**
@@ -47,6 +47,7 @@ export class StockController {
   @ApiQuery({ name: 'type', required: false, description: 'in, out, adjust (через запятую)' })
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'materialId', required: false })
   @ApiQuery({ name: 'search', required: false, description: 'наименование позиции или примечание' })
+  @ApiQuery({ name: 'personId', required: false, description: 'кому выдано (persons.id)' }) @ApiQuery({ name: 'salesOrderId', required: false, description: 'под заказ (через запятую)' })
   @ApiQuery({ name: 'sort', required: false, description: 'date | qty | type | createdAt (умолч. -date)' })
   movements(@Query() q: Record<string, string>) {
     return this.stock.listMovements(q);
@@ -115,6 +116,22 @@ export class StockController {
   @Roles('admin', 'director', 'manager', 'user')
   reservations() {
     return this.stock.listReservations();
+  }
+
+  /** Карточка брони: что забронировано, сколько выдано и кому, под какой заказ, заявки на недостающее. key — batchId или id брони. */
+  @Get('reservations/group/:key')
+  @Roles('admin', 'director', 'manager', 'user')
+  reservationDetail(@Param('key') key: string) {
+    return this.stock.reservationDetail(key);
+  }
+
+  /** «Выдать по брони»: списание по броням (целиком или частично), кому выдано. */
+  @Post('reservations/issue')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.reserve.issued', entityType: 'StockMovement' })
+  issueReservations(@Body() dto: StockIssueDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.issueReservations(dto, user?.id);
   }
 
   @Post('reservations/:id/release')

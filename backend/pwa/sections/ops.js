@@ -1,4 +1,4 @@
-import { api, session } from '../core/api.js';
+import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
 import { date, parseNum, plural, qty } from '../core/format.js';
@@ -9,6 +9,8 @@ import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { pic } from './stock.js';
 import { orderOptions, splitRef } from './salesorders.js';
+import { issueToFields } from './issue.js';
+import { reservationsPanel } from './reservations.js';
 
 /* «Операции» склада (TASKS фаза С): как касса — слева подбор (поиск «м10 гайка» + кнопки-фильтры
  * тип → резьба → длина → стандарт), справа корзина; одна кнопка проводит всё разом (POST /stock/batch),
@@ -71,6 +73,7 @@ export function mountOps(params) {
   const docWrap = h('label', { class: 'field' }, h('span', null, 'Документ'), doc);
   const soSel = h('select', null, h('option', { value: '' }, '— не под заказ —'));
   const soWrap = h('label', { class: 'field wide' }, h('span', null, 'Под заказ (позиция)'), soSel);
+  const issueTo = issueToFields(); // кому выдано (TASKS Л.3) — только списание
   let soLoaded = false;
   const loadOrders = async () => { if (soLoaded) return; soLoaded = true; try { for (const o of await orderOptions()) soSel.append(h('option', { value: o.value }, o.label)); } catch { soLoaded = false; } };
   const noteLabel = h('span', null);
@@ -81,22 +84,14 @@ export function mountOps(params) {
     h('div', { class: 'panel-head' }, cartTitle, h('span', { class: 'spacer' }), clear),
     shortBox,
     lines,
-    h('div', { class: 'ops-foot' }, h('div', { class: 'form-grid' }, soWrap, h('label', { class: 'field' }, noteLabel, note), docWrap), submit));
+    h('div', { class: 'ops-foot' }, h('div', { class: 'form-grid' }, soWrap, issueTo.el, h('label', { class: 'field' }, noteLabel, note), docWrap), submit));
   const mobileBar = h('button', { class: 'ops-mobile-bar btn btn-primary', type: 'button', onclick: () => basket.scrollIntoView({ behavior: 'smooth' }) });
 
   const arrivals = arrivalsBlock(() => reload().catch(() => {}));
-  const resBox = h('section', { class: 'panel ops-arrivals', hidden: true });
-  async function loadReservations() {
-    let res; try { res = await api('/stock/reservations'); } catch { resBox.hidden = true; return; }
-    resBox.hidden = !res.items.length;
-    resBox.replaceChildren(
-      h('div', { class: 'panel-head' }, h('h3', null, `Активные брони: ${res.items.length}`), h('span', { class: 'muted small' }, 'Снять бронь — товар снова станет «свободно»')),
-      h('div', { class: 'ops-arr-list' }, ...res.items.map((g) => h('details', { class: 'ops-res' },
-        h('summary', null, h('b', null, g.name), h('span', { class: 'muted' }, ` · ${g.lines.length} ${plural(g.lines.length, 'позиция', 'позиции', 'позиций')}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`),
-          g.batchId && session.canEdit ? h('button', { type: 'button', class: 'btn btn-sm', onclick: async (e) => { e.preventDefault(); await api(`/stock/reservations/group/${g.batchId}/release`, { method: 'POST' }); toast(`Бронь «${g.name}» снята`); await reload(); loadReservations(); } }, 'Снять всю бронь') : null),
-        ...g.lines.map((l) => h('div', { class: 'ops-res-line' }, h('span', { class: 'clip' }, l.name), h('b', { class: 'num' }, `${qty(l.qty)} ${l.unit}`),
-          session.canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await reload(); loadReservations(); } }, 'снять') : null))))));
-  }
+  // активные брони: выдать / снять / путь брони (sections/reservations.js)
+  const resPanel = reservationsPanel({ onChange: () => reload() });
+  const resBox = resPanel.el;
+  const loadReservations = () => resPanel.load();
   const el = h('div', { class: 'ops' }, head, hint, arrivals.el, resBox, h('div', { class: 'ops-grid' }, picker, basket), mobileBar);
 
   function renderChrome() {
@@ -107,6 +102,7 @@ export function mountOps(params) {
     note.placeholder = mode() === 'out' ? 'например: заказ 15, цех' : mode() === 'in' ? 'например: принёс поставщик' : 'пересчёт';
     docWrap.hidden = mode() !== 'in';
     soWrap.hidden = mode() !== 'out' && mode() !== 'reserve';
+    issueTo.el.hidden = mode() !== 'out';
     shortBox.hidden = true;
     if (mode() === 'reserve') loadReservations(); else resBox.hidden = true;
     if (mode() === 'out') loadOrders();
@@ -255,6 +251,7 @@ export function mountOps(params) {
   submit.addEventListener('click', async () => {
     const body = { type: mode(), lines: ready(), note: note.value.trim() || undefined, documentRef: mode() === 'in' ? doc.value.trim() || undefined : undefined, clientUid: uid() };
     if (mode() === 'out' && soSel.value) { const so = splitRef(soSel.value); body.salesOrderId = so.salesOrderId; if (so.salesOrderLineId) body.salesOrderLineId = so.salesOrderLineId; }
+    if (mode() === 'out') Object.assign(body, issueTo.value());
     if (!body.lines.length) return;
     const m = MODES[mode()];
     if (mode() === 'reserve') { await doReserve(body); return; }
@@ -263,7 +260,7 @@ export function mountOps(params) {
       const r = await api('/stock/batch', { method: 'POST', body });
       const left = cart().filter((l) => !body.lines.some((x) => x.materialId === l.id));
       store.set('dc-ops-' + mode(), left);
-      note.value = ''; doc.value = ''; soSel.value = '';
+      note.value = ''; doc.value = ''; soSel.value = ''; issueTo.reset();
       await reload();
       window.dispatchEvent(new CustomEvent('data-changed'));
       const extra = mode() === 'count' ? ` · изменилось ${r.moved}` : '';

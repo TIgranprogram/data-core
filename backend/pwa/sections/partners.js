@@ -49,9 +49,22 @@ function related(r) {
       session.canMoney && o.amount ? h('span', { class: 'num' }, money(o.amount) + (o.paidAmount >= o.amount ? ' · оплачен' : o.paidAmount ? ` · оплачено ${money(o.paidAmount)}` : ' · не оплачен')) : null);
     const group = (title, list) => (list.length ? [h('div', { class: 'section-title' }, `${title} (${list.length})`), h('ul', { class: 'timeline' }, ...list.map(row))] : []);
     const unpaid = session.canMoney ? items.reduce((s, o) => s + Math.max(0, (o.amount || 0) - (o.paidAmount || 0)), 0) : 0;
+    // закрытые прошлых лет — свёрнуты (TASKS ЗК.3)
+    const year = String(new Date().getFullYear());
+    const yearOf = (o) => String(o.shipDate || '').slice(0, 4);
+    const doneNow = done.filter((o) => !yearOf(o) || yearOf(o) >= year), donePast = done.filter((o) => yearOf(o) && yearOf(o) < year);
+    // склад по его заказам (TASKS Б.3 / ЗК.3): брони и что выдано, кому
+    const res = r.reservations || [], iss = r.issues || [];
     return h('div', null,
       unpaid > 0 ? h('p', { class: 'hint' }, 'Ещё не оплачено по заказам: ', h('b', { class: 'num' }, money(unpaid))) : null,
-      ...group('В работе', open), ...group('Отгружены и закрыты', done));
+      ...group('В работе', open), ...group('Отгружены и закрыты', doneNow),
+      donePast.length ? h('details', { class: 'past-years' }, h('summary', { class: 'section-title' }, `Заказы прошлых лет (${donePast.length})`), h('ul', { class: 'timeline' }, ...donePast.map(row))) : null,
+      res.length ? h('div', null, h('div', { class: 'section-title' }, `Брони на складе (${res.length})`),
+        h('ul', { class: 'timeline' }, ...res.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
+          [g.orderNo && `заказ №${g.orderNo}`, `${g.lines} поз.`, g.left ? 'в брони ' + qty(g.left) : 'всё выдано', g.issued ? 'выдано ' + qty(g.issued) : ''].filter(Boolean).join(' · ')))))) : null,
+      iss.length ? h('div', null, h('div', { class: 'section-title' }, `Выдано со склада по его заказам (${iss.length})`),
+        h('ul', { class: 'timeline' }, ...iss.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('a', { href: '#movements?open=' + m.id }, m.name), h('span', { class: 'num' }, `${qty(m.qty)} ${m.unit}`),
+          h('span', { class: 'muted' }, [m.orderNo && `заказ №${m.orderNo}`, m.to ? 'кому: ' + m.to : ''].filter(Boolean).join(' · ')))))) : null);
   }
   return h('div', null, h('div', { class: 'section-title' }, `${r.kind === 'our' ? 'Заявки на эту компанию' : 'Заявки этому поставщику'} (${items.length})`),
     items.length ? h('ul', { class: 'timeline' }, ...items.map((x) => h('li', null,

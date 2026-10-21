@@ -81,6 +81,10 @@ export class Reservation {
   /** Кто поставил бронь (users). */
   @Prop({ type: Types.ObjectId })
   createdBy?: Types.ObjectId;
+
+  /** Сколько уже выдано по брони (TASKS Б.2): qty — остаток брони, у выданной целиком (fulfilled) qty = выдано. */
+  @Prop({ default: 0 })
+  issuedQty?: number;
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);

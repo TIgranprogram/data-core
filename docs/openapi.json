@@ -2414,6 +2414,20 @@
             "schema": {}
           },
           {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "description": "под заказ (через запятую)",
+            "schema": {}
+          },
+          {
+            "name": "personId",
+            "required": false,
+            "in": "query",
+            "description": "кому выдано (persons.id)",
+            "schema": {}
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
@@ -2682,6 +2696,53 @@
       "get": {
         "operationId": "StockController_reservations",
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations/group/{key}": {
+      "get": {
+        "operationId": "StockController_reservationDetail",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations/issue": {
+      "post": {
+        "operationId": "StockController_issueReservations",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIssueDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -8300,6 +8361,50 @@
           "lines"
         ]
       },
+      "StockIssueLineDto": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Бронь (reservations.id)"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Сколько выдать; нет — всю бронь"
+          }
+        },
+        "required": [
+          "reservationId"
+        ]
+      },
+      "StockIssueDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIssueLineDto"
+            }
+          },
+          "personId": {
+            "type": "string",
+            "description": "Кому выдано — сотрудник (persons.id)"
+          },
+          "issuedTo": {
+            "type": "string",
+            "description": "Кому / куда выдано текстом"
+          },
+          "note": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
       "StockBatchDto": {
         "type": "object",
         "properties": {
@@ -8337,6 +8442,14 @@
           "clientUid": {
             "type": "string",
             "description": "Ключ операции клиента — повтор ничего не меняет"
+          },
+          "personId": {
+            "type": "string",
+            "description": "Списание: кому выдано — сотрудник (persons.id)"
+          },
+          "issuedTo": {
+            "type": "string",
+            "description": "Списание: кому / куда выдано текстом (объект, бригада)"
           }
         },
         "required": [
@@ -8369,6 +8482,14 @@
           "clientUid": {
             "type": "string",
             "description": "Ключ операции клиента — повтор с тем же ключом ничего не меняет"
+          },
+          "personId": {
+            "type": "string",
+            "description": "Списание: кому выдано — сотрудник (persons.id)"
+          },
+          "issuedTo": {
+            "type": "string",
+            "description": "Списание: кому / куда выдано текстом (объект, бригада)"
           }
         },
         "required": [

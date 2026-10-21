@@ -104,6 +104,7 @@
 | Подсказки под полем | `.suggest`, `.sg-row` (`ui/suggest.js`) | «уже заказывали / есть на складе» |
 | Календарь денег | `table.cal` | только «Платёжный календарь» |
 | Справочники | `.dict-layout` > `.dict-nav` (`.dict-group`, `.dict-link` + счётчик, `.active` — золотая полоса) + `.dict-main` (`.dict-head`, `table.list.dict-table`, строка `.dict-row` раскрывается в `.dict-more`), «Найти в данных…» — `.dict-cand` | только раздел «Справочники»; ввод/правка — правая панель (of=dict) |
+| Брони и выдача | `.ops-res` (details: summary + `.res-acts` «Выдать всё / Снять всю») → `.res-detail` (`.res-meta`, строки `.ops-res-line`, «Выдано», «Заказано недостающее»); «Кому выдано» — `.issue-to` (список сотрудников по видам работ + текст), окно «Выдать» — `modal` (сколько + кому, ≤3 поля) | «Операции → Бронь по списку», списание (`sections/issue.js`, `sections/reservations.js`) |
 | Требуют заполнения | `.fill-list` > `.fill-area` (h3) + `.panel.fill-group` (`.fill-head` раскрывает `.q-list`); в карточке — `.fill-note` и `.field.fill-here` (золотая обводка нужного поля) | страница #fill, блок на «Сегодня» (`.queue`) |
 
 ## 5. Поведение

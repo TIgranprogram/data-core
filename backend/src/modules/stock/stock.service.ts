@@ -36,7 +36,14 @@ export interface MoveInput {
   documentRef?: string;
   /** Служебное: это движение отменяет движение с этим id. */
   cancelOf?: Types.ObjectId;
+  /** Списание: кому выдано (TASKS Л.3) — сотрудник и/или текстом. */
+  personId?: string;
+  issuedTo?: string;
 }
+
+/** ФИО сотрудника из persons (как в «Справочниках»). */
+const personName = (p: { lastName?: unknown; firstName?: unknown; patronymic?: unknown }) =>
+  [p.lastName, p.firstName, p.patronymic].map((x) => (x == null ? '' : String(x).trim())).filter(Boolean).join(' ');
 
 /** Поля, по которым можно сортировать позиции склада. */
 const ITEM_SORT = ['name', 'categoryName', 'unit', 'article', 'quantity', 'reservedQty', 'free', 'minQuantity', 'status', 'updatedAt', 'deletedAt', 'lastCountedAt'];
@@ -295,13 +302,14 @@ export class StockService {
     const wh = await this.defaultWarehouse();
     const note = dto.note?.trim() || undefined;
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    const target = dto.type === 'out' ? await this.issueTarget(dto.personId, dto.issuedTo) : {};
 
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
         const item = await this.loadStorage(wh._id as Types.ObjectId, matId, session);
         const movement = (type: 'in' | 'out' | 'adjust', q: number, ref: string | undefined, delta: number) =>
-          this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}) }], { session });
+          this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' ? target : {}) }], { session });
 
         if (dto.type === 'in') {
           item.quantity = (item.quantity ?? 0) + qty;
@@ -356,7 +364,7 @@ export class StockService {
    * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
-  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string }, userId?: string) {
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
@@ -385,6 +393,7 @@ export class StockService {
       if (!so) throw new BadRequestException('Заказ не найден');
       soRef = { salesOrderId: so._id, orderId: String(so._id), ...(dto.salesOrderLineId ? { salesOrderLineId: new Types.ObjectId(dto.salesOrderLineId) } : {}) };
     }
+    if (dto.type === 'out') soRef = { ...soRef, ...(await this.issueTarget(dto.personId, dto.issuedTo)) };
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
@@ -448,6 +457,19 @@ export class StockService {
             throw new ConflictException(`Нельзя отменить: «${m?.name ?? 'позиция'}» уже израсходована (остаток станет ${next}). Сделайте пересчёт вручную.`);
           }
           item.quantity = next;
+          // выдача по брони отменена — бронь возвращается (TASKS Б.2)
+          const resId = (mv as { reservationId?: Types.ObjectId }).reservationId;
+          if (resId && d < 0) {
+            const r = await this.reservations.findById(resId).session(session).exec();
+            if (r) {
+              const back = Math.abs(d);
+              r.qty = (r.status === 'active' ? r.qty : 0) + back;
+              r.issuedQty = Math.max(0, (r.issuedQty ?? 0) - back);
+              r.status = 'active'; r.isActive = true;
+              await r.save({ session });
+              item.reservedQty = (item.reservedQty ?? 0) + back;
+            }
+          }
           await item.save({ session });
           const when = new Date(mv.date).toLocaleDateString('ru-RU');
           const back = mv.type === 'adjust' ? 'adjust' : d > 0 ? 'out' : 'in';
@@ -525,7 +547,7 @@ export class StockService {
       const g = groups.get(k) ?? { key: k, name: x.groupName || d.orderId || 'Бронь', batchId: x.batchId ? String(x.batchId) : null, createdAt: x.createdAt,
         createdBy: x.createdBy ? un.get(String(x.createdBy)) ?? null : null, salesOrder: x.salesOrderId ? so.get(String(x.salesOrderId)) ?? null : null, lines: [] };
       const m = nm.get(String(d.materialId));
-      g.lines.push({ id: String(d._id), materialId: String(d.materialId), name: m?.name ?? '(позиция удалена)', unit: m?.unit ?? '', qty: d.qty });
+      g.lines.push({ id: String(d._id), materialId: String(d.materialId), name: m?.name ?? '(позиция удалена)', unit: m?.unit ?? '', qty: d.qty, issued: (d as { issuedQty?: number }).issuedQty ?? 0 });
       groups.set(k, g);
     }
     const items = [...groups.values()];
@@ -560,6 +582,129 @@ export class StockService {
     if (!list.length) throw new NotFoundException('Бронь не найдена или уже снята');
     for (const r of list) await this.releaseReservation(String(r._id));
     return { batchId, released: list.length };
+  }
+
+  /** Кому выдано (TASKS Л.3): сотрудник из «Справочников» и/или текст («объект Парк», «бригада 2»). */
+  private async issueTarget(personId?: string, issuedTo?: string): Promise<Record<string, unknown>> {
+    const out: Record<string, unknown> = {};
+    if (personId) {
+      const p = await this.connection.db!.collection('persons').findOne({ _id: oid(personId, 'сотрудника'), deletedAt: null }, { projection: { _id: 1 } });
+      if (!p) throw new BadRequestException('Сотрудник не найден — обновите страницу');
+      out.issuedToPersonId = p._id;
+    }
+    const t = issuedTo?.trim();
+    if (t) out.issuedTo = t.slice(0, 200);
+    return out;
+  }
+
+  /**
+   * «Выдать по брони» (TASKS Б.2): списание (out, `reservationId`) по броням одной операцией — всё или ничего.
+   * Целиком — бронь «выдана» (fulfilled, qty = выдано); частично — бронь остаётся с остатком, `issuedQty` копит выданное.
+   * Движения пакета с общим `batchId`: «Отменить» возвращает и остаток, и бронь (cancelBatch).
+   */
+  async issueReservations(dto: { lines: { reservationId: string; qty?: number }[]; personId?: string; issuedTo?: string; note?: string; clientUid?: string }, userId?: string) {
+    if (dto.clientUid) {
+      const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
+      if (prev) return { ...(await this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), 'issue')), issued: 0 };
+    }
+    const want = new Map<string, number | undefined>();
+    for (const l of dto.lines) {
+      if (l.qty !== undefined && !(Number(l.qty) > 0)) throw new BadRequestException('Укажите, сколько выдать (больше нуля)');
+      want.set(String(oid(l.reservationId, 'брони')), l.qty === undefined ? undefined : Number(l.qty));
+    }
+    const target = await this.issueTarget(dto.personId, dto.issuedTo);
+    const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    const batchId = new Types.ObjectId();
+    const now = new Date();
+    const matIds: Types.ObjectId[] = [];
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        matIds.length = 0;
+        const list = await this.reservations.find({ _id: { $in: [...want.keys()].map((id) => new Types.ObjectId(id)) }, status: 'active', deletedAt: null }).session(session).exec();
+        if (list.length !== want.size) throw new ConflictException('Часть броней уже выдана или снята — обновите страницу');
+        const mats = await this.materials.find({ _id: { $in: list.map((r) => r.materialId) } }, { name: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+        const nameOf = new Map(mats.map((m) => [String(m._id), String(m.name)]));
+        const plan: { r: ReservationDocument; n: number; item: StorageItemDocument }[] = [];
+        const short: string[] = [];
+        for (const r of list) {
+          const n = want.get(String(r._id)) ?? r.qty;
+          if (n > r.qty) throw new BadRequestException(`«${nameOf.get(String(r.materialId))}»: в брони ${r.qty}, выдать ${n} нельзя`);
+          const item = await this.loadStorage(r.warehouseId, r.materialId as Types.ObjectId, session);
+          if ((item.quantity ?? 0) < n) short.push(`«${nameOf.get(String(r.materialId))}»: есть ${item.quantity ?? 0}, нужно ${n}`);
+          plan.push({ r, n, item });
+        }
+        if (short.length) throw new BadRequestException(`Недостаточно на складе — ${short.join('; ')}`);
+        let first = true;
+        for (const { r, n, item } of plan) {
+          item.quantity = Math.round(((item.quantity ?? 0) - n) * 1000) / 1000;
+          item.reservedQty = Math.max(0, Math.round(((item.reservedQty ?? 0) - n) * 1000) / 1000);
+          await item.save({ session });
+          const x = r as ReservationDocument & { groupName?: string; salesOrderId?: Types.ObjectId };
+          await this.movements.create([{ type: 'out', date: now, materialId: r.materialId, warehouseId: r.warehouseId, qty: n, delta: -n,
+            notes: dto.note?.trim() || `Выдано по брони «${x.groupName || r.orderId}»`, clientUid: first ? dto.clientUid : undefined, createdBy, batchId, reservationId: r._id,
+            ...(x.salesOrderId ? { salesOrderId: x.salesOrderId, orderId: String(x.salesOrderId) } : {}), ...target }], { session });
+          first = false;
+          const left = Math.round((r.qty - n) * 1000) / 1000;
+          r.issuedQty = Math.round(((r.issuedQty ?? 0) + n) * 1000) / 1000;
+          if (left <= 0) { r.qty = r.issuedQty; r.status = 'fulfilled'; r.isActive = false; } else r.qty = left;
+          await r.save({ session });
+          matIds.push(r.materialId as Types.ObjectId);
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+    await this.connection.db!.collection('materials').updateMany({ _id: { $in: matIds } }, { $set: { editedInApp: true } });
+    return { ...(await this.batchResult(String(batchId), 'issue', matIds)), issued: matIds.length };
+  }
+
+  /**
+   * Карточка брони (TASKS Б.3): путь целиком — кто поставил, под какой заказ, что забронировано и сколько уже выдано,
+   * кому выдавали, и заявки снабжения на то, чего не хватило («Заказать недостающее», clientUid `short-<batchId>-…`).
+   * key — batchId списка или id одиночной брони.
+   */
+  async reservationDetail(key: string) {
+    const id = oid(key, 'брони');
+    let docs = await this.reservations.find({ batchId: id, deletedAt: null }).sort({ createdAt: 1 }).lean().exec();
+    if (!docs.length) docs = await this.reservations.find({ _id: id, deletedAt: null }).lean().exec();
+    if (!docs.length) throw new NotFoundException('Бронь не найдена');
+    type Extra = { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date; createdBy?: Types.ObjectId; salesOrderId?: Types.ObjectId; issuedQty?: number };
+    const head = docs[0] as typeof docs[number] & Extra;
+    const db = this.connection.db!;
+    const [mats, issues, so, author, requests] = await Promise.all([
+      this.materials.find({ _id: { $in: docs.map((d) => d.materialId) } }, { name: 1, unit: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec(),
+      this.movements.find({ reservationId: { $in: docs.map((d) => d._id) }, deletedAt: null, cancelledAt: null }).sort({ date: -1 }).lean().exec(),
+      head.salesOrderId ? db.collection('salesorders').findOne({ _id: head.salesOrderId }, { projection: { orderNo: 1, title: 1, customer: 1 } }) : null,
+      head.createdBy ? db.collection('users').findOne({ _id: head.createdBy }, { projection: { displayName: 1, username: 1 } }) : null,
+      head.batchId ? db.collection('supplyrequests').find({ clientUid: { $regex: '^short-' + String(head.batchId) + '-' }, deletedAt: null }, { projection: { num: 1, title: 1, status: 1, qty: 1, unit: 1 } }).toArray() : [],
+    ]);
+    const nm = new Map(mats.map((m) => [String(m._id), m]));
+    const who = await this.issuedNames(issues);
+    const lines = docs.map((d) => {
+      const x = d as typeof d & Extra; const m = nm.get(String(d.materialId));
+      const active = d.status === 'active';
+      return { id: String(d._id), materialId: String(d.materialId), name: m?.name ?? '(позиция удалена)', unit: m?.unit ?? '', status: d.status,
+        left: active ? d.qty : 0, issued: x.issuedQty ?? (d.status === 'fulfilled' ? d.qty : 0), canIssue: active && d.qty > 0 };
+    });
+    return {
+      key, batchId: head.batchId ? String(head.batchId) : null, name: head.groupName || head.orderId || 'Бронь', createdAt: head.createdAt ?? null,
+      createdBy: author ? String(author.displayName || author.username || '') : null,
+      salesOrder: so ? { id: String(so._id), label: [so.orderNo, so.title].filter(Boolean).join(' · '), customer: so.customer ?? null } : null,
+      lines,
+      issues: issues.map((mv) => ({ id: String(mv._id), date: mv.date, qty: mv.qty, name: nm.get(String(mv.materialId))?.name ?? '', unit: nm.get(String(mv.materialId))?.unit ?? '',
+        to: who.get(String(mv._id)) ?? null, batchId: (mv as { batchId?: Types.ObjectId }).batchId ? String((mv as { batchId?: Types.ObjectId }).batchId) : null })),
+      requests: (requests as { _id: Types.ObjectId; num?: number; title?: string; status?: string; qty?: number; unit?: string }[])
+        .map((r) => ({ id: String(r._id), num: r.num ?? null, title: r.title ?? '', status: r.status ?? '', qty: r.qty ?? null, unit: r.unit ?? '' })),
+    };
+  }
+
+  /** «Кому выдано» для списка движений: ФИО сотрудника и/или текст. id движения → подпись. */
+  async issuedNames(docs: { _id: unknown; issuedToPersonId?: Types.ObjectId; issuedTo?: string }[]) {
+    const ids = docs.map((d) => d.issuedToPersonId).filter(Boolean) as Types.ObjectId[];
+    const persons = ids.length ? await this.connection.db!.collection('persons').find({ _id: { $in: ids } }, { projection: { lastName: 1, firstName: 1, patronymic: 1 } }).toArray() : [];
+    const pn = new Map(persons.map((p) => [String(p._id), personName(p as { lastName?: unknown })]));
+    return new Map(docs.map((d) => [String(d._id), [d.issuedToPersonId ? pn.get(String(d.issuedToPersonId)) : null, d.issuedTo].filter(Boolean).join(' · ') || null]));
   }
 
   private async loadStorage(warehouseId: Types.ObjectId, materialId: Types.ObjectId, session: ClientSession): Promise<StorageItemDocument> {
@@ -628,10 +773,13 @@ export class StockService {
     const range = dateRange(q.from, q.to);
     if (range) filter.date = range;
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
+    // кому выдано / под какой заказ (карточка сотрудника, карточка заказчика)
+    if (q.personId) filter.issuedToPersonId = oid(q.personId, 'сотрудника');
+    if (q.salesOrderId) filter.salesOrderId = { $in: oids(q.salesOrderId) };
     if (q.id) filter._id = oid(q.id, 'движения');
     if (p.search) {
       const mats = await this.materials.find({ $or: [{ name: p.search }, { article: p.search }] }, { _id: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
-      filter.$or = [{ materialId: { $in: mats.map((m) => m._id) } }, { notes: p.search }];
+      filter.$or = [{ materialId: { $in: mats.map((m) => m._id) } }, { notes: p.search }, { issuedTo: p.search }];
     }
     const [docs, total] = await Promise.all([
       this.movements.find(filter).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
@@ -643,6 +791,7 @@ export class StockService {
     const users = await this.connection.db!.collection('users')
       .find({ _id: { $in: docs.map((d) => d.createdBy).filter(Boolean) as Types.ObjectId[] } }, { projection: { displayName: 1, username: 1 } }).toArray();
     const userName = new Map(users.map((u) => [String(u._id), String(u.displayName || u.username)]));
+    const issued = await this.issuedNames(docs as never);
     const items = docs.map((m) => {
       const mat = byId.get(String(m.materialId));
       const d = m as typeof m & { delta?: number; cancelledAt?: Date; cancelOf?: Types.ObjectId; source?: string };
@@ -657,6 +806,8 @@ export class StockService {
         // для карточки движения: операция пакетом, под какой заказ (кликабельно в приложении)
         batchId: (m as { batchId?: Types.ObjectId }).batchId ? String((m as { batchId?: Types.ObjectId }).batchId) : null,
         salesOrderId: (m as { salesOrderId?: Types.ObjectId }).salesOrderId ? String((m as { salesOrderId?: Types.ObjectId }).salesOrderId) : null,
+        issuedTo: issued.get(String(m._id)) ?? null,
+        reservationId: (m as { reservationId?: Types.ObjectId }).reservationId ? String((m as { reservationId?: Types.ObjectId }).reservationId) : null,
         canCancel: d.source !== 'google-sheets' && !d.cancelledAt && !d.cancelOf && m.type !== 'transfer' && d.delta !== undefined,
       };
     });

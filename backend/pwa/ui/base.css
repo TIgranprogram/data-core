@@ -757,7 +757,16 @@ html { scrollbar-gutter: stable; }
 .ops-res { border-bottom: 1px solid var(--border); padding: 8px 16px; }
 .ops-res summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ops-res summary .btn { margin-left: auto; }
-.ops-res-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 0 4px 16px; font-size: var(--fs-sm); }
+.ops-res-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 4px 0 4px 16px; font-size: var(--fs-sm); }
+.ops-res summary .res-acts { margin-left: auto; display: flex; gap: 8px; }
+.ops-res summary .res-acts .btn { margin-left: 0; }
+.res-acts { display: flex; gap: 4px; justify-content: flex-end; }
+.res-detail { padding: 4px 0 8px; }
+.res-meta { font-size: var(--fs-sm); padding: 0 0 4px 16px; }
+.res-detail .section-title { margin: 8px 0 4px 16px; }
+.res-detail .timeline { margin-left: 16px; }
+.issue-to { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 720px) { .issue-to { grid-template-columns: 1fr; } .ops-res-line { grid-template-columns: minmax(0, 1fr) auto; } .ops-res-line .res-acts { grid-column: 1 / -1; } }
 
 /* «Сегодня»: быстрые действия и «Быстро заказать» (TASKS С2) */
 .today-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 var(--s4); }

@@ -19,6 +19,8 @@ export class StockMoveDto {
   @ApiProperty({ description: 'Количество > 0; для adjust — изменение со знаком' }) @IsNumber() qty!: number;
   @ApiPropertyOptional({ description: 'Примечание / основание / для кого бронь' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор с тем же ключом ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
+  @ApiPropertyOptional({ description: 'Списание: кому / куда выдано текстом (объект, бригада)' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
 }
 
 export class StockBatchLineDto {
@@ -35,6 +37,22 @@ export class StockBatchDto {
   @ApiPropertyOptional({ description: 'Списание под заказ заказчика (salesorders.id)' }) @IsOptional() @IsMongoId() salesOrderId?: string;
   @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id)' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
+  @ApiPropertyOptional({ description: 'Списание: кому / куда выдано текстом (объект, бригада)' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
+}
+
+export class StockIssueLineDto {
+  @ApiProperty({ description: 'Бронь (reservations.id)' }) @IsMongoId() reservationId!: string;
+  @ApiPropertyOptional({ description: 'Сколько выдать; нет — всю бронь' }) @IsOptional() @IsNumber() @Min(0) qty?: number;
+}
+
+/** «Выдать по брони» (TASKS Б.2): списание по броням одной операцией. */
+export class StockIssueDto {
+  @ApiProperty({ type: [StockIssueLineDto] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockIssueLineDto) lines!: StockIssueLineDto[];
+  @ApiPropertyOptional({ description: 'Кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
+  @ApiPropertyOptional({ description: 'Кому / куда выдано текстом' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) note?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
 export class StockReserveListDto {

@@ -178,9 +178,11 @@ export const dict = {
     extra: (r) => {
       const rel = r.related || { items: [] };
       if (!rel.title) return null;
-      return h('div', null, h('div', { class: 'section-title' }, `${rel.title} (${qty(rel.total)})`),
-        rel.items.length ? h('ul', { class: 'timeline' }, ...rel.items.map((x) => h('li', null, x.href ? h('a', { href: x.href }, x.label) : x.label, x.sub ? h('span', { class: 'muted' }, x.sub) : null)))
-          : h('p', { class: 'muted' }, 'Пока нигде не используется'));
+      // у сотрудника — ещё «Выдано со склада» (related.more, TASKS Л.3)
+      const block = (b, empty) => [h('div', { class: 'section-title' }, `${b.title} (${qty(b.total)})`),
+        b.items.length ? h('ul', { class: 'timeline' }, ...b.items.map((x) => h('li', null, x.href ? h('a', { href: x.href }, x.label) : x.label, x.sub ? h('span', { class: 'muted' }, ' · ' + x.sub) : null)))
+          : h('p', { class: 'muted' }, empty)];
+      return h('div', null, ...block(rel, 'Пока нигде не используется'), ...(rel.more || []).flatMap((b) => block(b, 'Пока ничего')));
     },
   },
   form: {

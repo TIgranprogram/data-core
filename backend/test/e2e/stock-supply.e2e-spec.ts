@@ -275,6 +275,40 @@ describe('Stock & supply on shared CRM collections', () => {
     expect((await http().get('/api/stock/reservations').set(auth()).expect(200)).body.items.some((g: { batchId: string }) => g.batchId === r.batchId)).toBe(false);
   });
 
+  it('Б.2/Л.3: выдать по брони частично и целиком, кому выдано; отмена возвращает бронь', async () => {
+    const a = (await http().post('/api/stock/items').set(auth()).send({ name: 'Уголок 50×50', unit: 'м', categoryName: 'Металл' }).expect(201)).body;
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: a.id, qty: 30 }] }).expect(201);
+    const person = (await db().collection('persons').insertOne({ lastName: 'Петров', firstName: 'Иван', status: 'active', deletedAt: null })).insertedId;
+    const r = (await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Навес', lines: [{ materialId: a.id, qty: 12 }] }).expect(201)).body;
+    const line = r.lines[0];
+    // частично: 5 из 12 — бронь остаётся на 7
+    await http().post('/api/stock/reservations/issue').set(auth()).send({ lines: [{ reservationId: line.id, qty: 5 }], personId: String(person) }).expect(200);
+    let d = (await http().get(`/api/stock/reservations/group/${r.batchId}`).set(auth()).expect(200)).body;
+    expect(d.lines[0]).toMatchObject({ left: 7, issued: 5, status: 'active' });
+    expect(d.issues[0].to).toBe('Петров Иван');
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ quantity: 25, reservedQty: 7 });
+    // больше брони — нельзя
+    await http().post('/api/stock/reservations/issue').set(auth()).send({ lines: [{ reservationId: line.id, qty: 8 }] }).expect(400);
+    // остаток целиком, кому — текстом
+    const all = (await http().post('/api/stock/reservations/issue').set(auth()).send({ lines: [{ reservationId: line.id }], issuedTo: 'объект Парк' }).expect(200)).body;
+    d = (await http().get(`/api/stock/reservations/group/${r.batchId}`).set(auth())).body;
+    expect(d.lines[0]).toMatchObject({ status: 'fulfilled', issued: 12, canIssue: false });
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ quantity: 18, reservedQty: 0 });
+    // отмена выдачи — бронь снова активна на 7, остаток вернулся
+    await http().post(`/api/stock/batch/${all.batchId}/cancel`).set(auth()).expect(201);
+    d = (await http().get(`/api/stock/reservations/group/${r.batchId}`).set(auth())).body;
+    expect(d.lines[0]).toMatchObject({ status: 'active', left: 7, issued: 5 });
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ quantity: 25, reservedQty: 7 });
+    // журнал: фильтр по сотруднику и подпись «кому выдано»
+    const mv = (await http().get(`/api/stock/movements?personId=${person}`).set(auth()).expect(200)).body;
+    expect(mv.items).toHaveLength(1);
+    expect(mv.items[0]).toMatchObject({ issuedTo: 'Петров Иван', reservationId: line.id });
+    // списание в «Операциях» — с «кому выдано»; несуществующий сотрудник — 400
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'out', lines: [{ materialId: a.id, qty: 1 }], personId: String(new Types.ObjectId()) }).expect(400);
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'out', lines: [{ materialId: a.id, qty: 1 }], issuedTo: 'бригада 2' }).expect(201);
+    expect((await http().get('/api/stock/movements?limit=1').set(auth())).body.items[0].issuedTo).toBe('бригада 2');
+  });
+
   it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
     const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
     const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;
