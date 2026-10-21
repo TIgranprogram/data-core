@@ -17,10 +17,15 @@ export function ftQuery(s) {
   const sel = parseFt(s);
   return [sel.type, sel.thread, sel.length ? 'х' + sel.length : '', sel.std].filter(Boolean).join(' ');
 }
+/** Металл (СМ.1): марка, сечение, толщина — отдельными параметрами списка (сервер фильтрует по полям позиции). */
+export function ftParams(s) {
+  const sel = parseFt(s);
+  return { ...(sel.grade ? { grade: sel.grade } : {}), ...(sel.section ? { section: sel.section } : {}), ...(sel.thick ? { thickness: sel.thick } : {}) };
+}
 
 export function facetFilter({ categoryKey = 'categoryId' } = {}) {
   let items = null; let P = {};
-  const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, 'Тип, резьба, размер ▾');
+  const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, 'Тип, резьба, размер, марка ▾');
   const tags = h('span', { class: 'ff-tags' });
   const pop = h('div', { class: 'ff-pop', hidden: true, role: 'dialog', 'aria-label': 'Фильтры по признакам' });
   const el = h('div', { class: 'ff' }, btn, tags, pop);

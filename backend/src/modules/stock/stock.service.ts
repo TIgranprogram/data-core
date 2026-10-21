@@ -9,6 +9,7 @@ import { Material, MaterialDocument } from '../material/material.schema';
 import { normText } from '../supply/org-resolver';
 import { matchesAll, searchTokens } from './search-norm';
 import { CategoryResolver } from './category-resolver';
+import { type Dims, dimsOf, mergeDims, metalKind, offcutName } from './metal';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
@@ -25,6 +26,10 @@ export interface StockItemInput {
   minQuantity?: number;
   weightKg?: number;
   notes?: string;
+  /** Металл (СМ.1): сортамент / сечение, марка стали, размеры в мм (null — стереть). */
+  assortment?: string | null;
+  materialGrade?: string | null;
+  dims?: Dims;
 }
 
 export interface MoveInput {
@@ -114,14 +119,31 @@ export class StockService {
     if (q.categoryId) { const ids = oids(q.categoryId); filter.categoryId = { $in: [...ids, ...ids.map(String)] }; }
     if (q.materialIds) filter._id = { $in: q.materialIds };
 
+    // металл (СМ.1): марка, сечение, толщина — фильтры «Остатков»
+    if (q.grade) filter.materialGrade = String(q.grade);
+    if (q.section) filter.assortment = String(q.section);
+    if (q.thickness && Number(q.thickness) > 0) filter.dimensions = { $elemMatch: { type: 'thickness', value: Number(q.thickness) } };
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
-      .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes));
+      .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     const [stocks, cats] = await Promise.all([
       this.storage.find({ warehouseId: wh._id, materialId: { $in: ids }, deletedAt: p.deleted ? undefined : null }).setOptions({ includeSoftDeleted: true }).lean().exec(),
       this.connection.db!.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
     ]);
     const catName = new Map(cats.map((c) => [String(c._id), String(c.name)]));
+    // обрезки этих позиций (СМ.2): родитель → [{ id, name, qty }] с остатком > 0 — «сначала брать обрезки»
+    const kids = await this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null }, { projection: { name: 1, offcutOf: 1, dimensions: 1 } }).toArray();
+    const kidStock = kids.length ? await this.storage.find({ warehouseId: wh._id, materialId: { $in: kids.map((k) => k._id) }, deletedAt: null }).lean().exec() : [];
+    const kidQty = new Map<string, number>();
+    for (const s of kidStock) kidQty.set(String(s.materialId), (kidQty.get(String(s.materialId)) ?? 0) + (s.quantity ?? 0));
+    const offcutsOf = new Map<string, { id: string; name: string; qty: number; length: number | null }[]>();
+    for (const k of kids) {
+      const n = kidQty.get(String(k._id)) ?? 0;
+      if (n <= 0) continue;
+      const list = offcutsOf.get(String(k.offcutOf)) ?? [];
+      list.push({ id: String(k._id), name: String(k.name), qty: n, length: dimsOf(k.dimensions).length ?? null });
+      offcutsOf.set(String(k.offcutOf), list);
+    }
     const byMat = new Map<string, { quantity: number; reservedQty: number; minQuantity: number; weightKg?: number; zoneName?: string; id: string; lastCountedAt?: Date }>();
     for (const s of stocks) {
       const k = String(s.materialId);
@@ -136,6 +158,10 @@ export class StockService {
         id: String(m._id), materialId: String(m._id), name: m.name, article: m.article, sku: m.sku, unit: m.unit,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
         notes: m.notes, quantity, reservedQty, free: quantity - reservedQty, minQuantity,
+        assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, dims: dimsOf(m.dimensions),
+        metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),
+        offcutOf: (m as { offcutOf?: Types.ObjectId }).offcutOf ? String((m as { offcutOf?: Types.ObjectId }).offcutOf) : null,
+        offcuts: offcutsOf.get(String(m._id)) ?? [],
         weightKg: st?.weightKg ?? m.weightKg, zoneName: st?.zoneName ?? null, storageItemId: st?.id ?? null,
         lastCountedAt: st?.lastCountedAt ?? null,
         photoIds: (m.photoIds ?? []) as Types.ObjectId[],
@@ -224,6 +250,8 @@ export class StockService {
     const mat = await this.materials.create({
       name, unit: dto.unit?.trim() || 'шт', article: dto.article?.trim() || (await this.autoArticle()),
       sku: await this.skuFor(categoryId), categoryId, notes: dto.notes, weightKg: dto.weightKg,
+      ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
+      ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
     });
     const wh = await this.defaultWarehouse();
     await this.storage.updateOne(
@@ -246,6 +274,8 @@ export class StockService {
     if (dto.article?.trim()) set.article = dto.article.trim();
     if (dto.notes !== undefined) set.notes = dto.notes;
     if (dto.weightKg !== undefined) set.weightKg = dto.weightKg;
+    for (const k of ['assortment', 'materialGrade'] as const) if (dto[k] !== undefined) set[k] = dto[k]?.trim() || null;
+    if (dto.dims) set.dimensions = mergeDims(mat.dimensions, dto.dims);
     if (dto.categoryId && Types.ObjectId.isValid(dto.categoryId)) set.categoryId = new Types.ObjectId(dto.categoryId);
     else if (dto.categoryName) set.categoryId = await new CategoryResolver(this.connection).resolve(dto.categoryName);
     if (Object.keys(set).length) await this.materials.updateOne({ _id }, { $set: set }).exec();
@@ -582,6 +612,52 @@ export class StockService {
     if (!list.length) throw new NotFoundException('Бронь не найдена или уже снята');
     for (const r of list) await this.releaseReservation(String(r._id));
     return { batchId, released: list.length };
+  }
+
+  /**
+   * Обрезок, который ещё пригодится (TASKS СМ.2): своя позиция «<позиция> — обрезок 1,2 м» (шт, `offcutOf`, размеры),
+   * находится или создаётся; приход count шт. Труба (в метрах) — эти метры уходят из родителя (кусок отделили);
+   * лист — родитель не меняется (лист уже списан целиком, обрезок — то, что осталось). Пакет — «Отменить» целиком.
+   */
+  async offcut(materialId: string, dto: { lengthMm: number; widthMm?: number; count?: number; note?: string }, userId?: string) {
+    const parent = await this.getItem(materialId);
+    if (parent.offcutOf) throw new BadRequestException('Это уже обрезок — отрежьте от основной позиции');
+    if (!parent.metal) throw new BadRequestException('Обрезки — только у труб и листов (категория «…труба…» / «…лист…»)');
+    const len = Math.round(Number(dto.lengthMm)), wid = dto.widthMm ? Math.round(Number(dto.widthMm)) : undefined, count = Math.max(1, Math.round(Number(dto.count ?? 1)));
+    if (!(len > 0)) throw new BadRequestException('Укажите длину обрезка');
+    if (parent.metal === 'sheet' && !(wid && wid > 0)) throw new BadRequestException('Укажите оба размера обрезка листа');
+    const takeM = parent.metal === 'pipe' ? Math.round((len / 1000) * count * 1000) / 1000 : 0;
+    if (takeM > parent.quantity) throw new BadRequestException(`На складе ${parent.quantity} м — обрезок ${takeM} м отделить нельзя`);
+    const name = offcutName(parent.name, parent.metal, len, wid);
+    let kid = await this.findMaterialByName(name);
+    if (!kid) {
+      const created = await this.createItem({ name, unit: 'шт', categoryId: parent.categoryId ?? undefined, assortment: parent.assortment, materialGrade: parent.materialGrade,
+        dims: { ...parent.dims, length: len, ...(wid ? { width: wid } : {}) }, notes: `Обрезок позиции «${parent.name}»` });
+      kid = await this.materials.findById(created.id).exec();
+    }
+    await this.connection.db!.collection('materials').updateOne({ _id: kid!._id }, { $set: { offcutOf: new Types.ObjectId(materialId) } });
+    const wh = await this.defaultWarehouse();
+    const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    const batchId = new Types.ObjectId(); const now = new Date();
+    const note = dto.note?.trim() || `обрезок ${name.split(' — обрезок ')[1]}`;
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (takeM > 0) {
+          const p = await this.loadStorage(wh._id as Types.ObjectId, new Types.ObjectId(materialId), session);
+          p.quantity = Math.round(((p.quantity ?? 0) - takeM) * 1000) / 1000;
+          await p.save({ session });
+          await this.movements.create([{ type: 'out', date: now, materialId: new Types.ObjectId(materialId), warehouseId: wh._id, qty: takeM, delta: -takeM, notes: `В обрезки: ${note}`, createdBy, batchId }], { session });
+        }
+        const k = await this.loadStorage(wh._id as Types.ObjectId, kid!._id as Types.ObjectId, session);
+        k.quantity = (k.quantity ?? 0) + count;
+        await k.save({ session });
+        await this.movements.create([{ type: 'in', date: now, materialId: kid!._id, warehouseId: wh._id, qty: count, delta: count, notes: note, createdBy, batchId }], { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    return { batchId: String(batchId), parent: await this.getItem(materialId), offcut: await this.getItem(String(kid!._id)) };
   }
 
   /** Кому выдано (TASKS Л.3): сотрудник из «Справочников» и/или текст («объект Парк», «бригада 2»). */

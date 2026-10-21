@@ -30,12 +30,14 @@ export function facetsOf(name) {
   };
 }
 
-export const FACETS = [['type', 'Тип'], ['thread', 'Резьба'], ['length', 'Длина, мм'], ['std', 'Стандарт']];
+export const FACETS = [['type', 'Тип'], ['thread', 'Резьба'], ['length', 'Длина, мм'], ['std', 'Стандарт'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм']];
+/** Признаки металла (СМ.1) — из полей позиции, а не из названия; в «Остатках» уходят на сервер отдельными фильтрами. */
+export const METAL_FACETS = new Set(['section', 'grade', 'thick']);
 
 /** Подготовить позиции: признаки + строка для поиска (один раз после загрузки). */
 export function index(items) {
   for (const it of items) {
-    it._f = facetsOf(it.name);
+    it._f = { ...facetsOf(it.name), section: it.assortment || null, grade: it.materialGrade || null, thick: it.dims?.thickness ? String(it.dims.thickness) : null };
     it._s = normSearch([it.name, it.article, it.sku, it.categoryName].filter(Boolean).join(' '));
   }
   return items;

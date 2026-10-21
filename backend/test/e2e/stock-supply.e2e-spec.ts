@@ -309,6 +309,40 @@ describe('Stock & supply on shared CRM collections', () => {
     expect((await http().get('/api/stock/movements?limit=1').set(auth())).body.items[0].issuedTo).toBe('бригада 2');
   });
 
+  it('СМ.1/СМ.2: труба — сортамент, марка, размеры, фильтры; обрезок отделяет метры; лист — обрезок без списания', async () => {
+    const pipe = (await http().post('/api/stock/items').set(auth()).send({ name: 'Труба профильная 40×20×2', unit: 'м', categoryName: 'Профильная труба', assortment: '40×20×2', materialGrade: 'Ст3', dims: { thickness: 2, length: 6000 } }).expect(201)).body;
+    expect(pipe).toMatchObject({ metal: 'pipe', assortment: '40×20×2', materialGrade: 'Ст3', dims: { thickness: 2, length: 6000 } });
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: pipe.id, qty: 60 }] }).expect(201);
+    // фильтры «Остатков»: марка / сечение / толщина
+    expect((await http().get('/api/stock/items').query({ grade: 'Ст3' }).set(auth())).body.items.map((i: { id: string }) => i.id)).toEqual([pipe.id]);
+    expect((await http().get('/api/stock/items').query({ section: '40×20×2', thickness: 2 }).set(auth())).body.total).toBe(1);
+    expect((await http().get('/api/stock/items').query({ grade: 'AISI 304' }).set(auth())).body.total).toBe(0);
+    // правка: стереть марку, поменять длину хлыста
+    const ed = (await http().patch(`/api/stock/items/${pipe.id}`).set(auth()).send({ materialGrade: null, dims: { length: 5850 } }).expect(200)).body;
+    expect(ed).toMatchObject({ materialGrade: null, dims: { thickness: 2, length: 5850 } });
+    // обрезок 1,2 м × 2: из трубы уходит 2,4 м, у обрезка 2 шт; у трубы — список обрезков
+    const oc = (await http().post(`/api/stock/items/${pipe.id}/offcut`).set(auth()).send({ lengthMm: 1200, count: 2 }).expect(201)).body;
+    expect(oc.offcut).toMatchObject({ name: 'Труба профильная 40×20×2 — обрезок 1,2 м', quantity: 2, unit: 'шт', offcutOf: pipe.id });
+    expect(oc.parent.quantity).toBe(57.6);
+    expect(oc.parent.offcuts).toEqual([expect.objectContaining({ id: oc.offcut.id, qty: 2, length: 1200 })]);
+    await http().post(`/api/stock/items/${oc.offcut.id}/offcut`).set(auth()).send({ lengthMm: 500 }).expect(400);
+    // повтор того же размера — та же позиция; отмена — метры вернулись
+    const oc2 = (await http().post(`/api/stock/items/${pipe.id}/offcut`).set(auth()).send({ lengthMm: 1200 }).expect(201)).body;
+    expect(oc2.offcut.id).toBe(oc.offcut.id);
+    await http().post(`/api/stock/batch/${oc2.batchId}/cancel`).set(auth()).expect(201);
+    expect((await http().get(`/api/stock/items/${pipe.id}`).set(auth())).body.quantity).toBe(57.6);
+    // лист: обрезок требует ширину, родитель не меняется
+    const sheet = (await http().post('/api/stock/items').set(auth()).send({ name: 'Лист г/к 2 мм', unit: 'лист', categoryName: 'Лист', dims: { thickness: 2, length: 2500, width: 1250 } }).expect(201)).body;
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: sheet.id, qty: 5 }] }).expect(201);
+    await http().post(`/api/stock/items/${sheet.id}/offcut`).set(auth()).send({ lengthMm: 1000 }).expect(400);
+    const so = (await http().post(`/api/stock/items/${sheet.id}/offcut`).set(auth()).send({ lengthMm: 1000, widthMm: 500 }).expect(201)).body;
+    expect(so.offcut.name).toBe('Лист г/к 2 мм — обрезок 1×0,5 м');
+    expect(so.parent.quantity).toBe(5);
+    // не металл — нельзя
+    const bolt = (await http().post('/api/stock/items').set(auth()).send({ name: 'Винт М4', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    await http().post(`/api/stock/items/${bolt.id}/offcut`).set(auth()).send({ lengthMm: 100 }).expect(400);
+  });
+
   it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
     const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
     const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;

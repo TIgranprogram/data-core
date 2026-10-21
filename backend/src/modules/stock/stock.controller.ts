@@ -3,7 +3,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockBatchDto, StockIssueDto, StockItemDto, StockMoveDto, StockPhotoDto, StockReserveListDto } from './dto';
+import { StockBatchDto, StockIssueDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReserveListDto } from './dto';
 import { StockService } from './stock.service';
 
 /**
@@ -28,6 +28,7 @@ export class StockController {
   @ApiQuery({ name: 'search', required: false, description: 'наименование, артикул, код, примечание' })
   @ApiQuery({ name: 'sort', required: false, description: 'name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt; «-» — по убыванию' })
   @ApiQuery({ name: 'status', required: false, description: 'через запятую: ok, low, none, reserved' })
+  @ApiQuery({ name: 'grade', required: false, description: 'марка стали' }) @ApiQuery({ name: 'section', required: false, description: 'сортамент / сечение' }) @ApiQuery({ name: 'thickness', required: false, description: 'толщина, мм' })
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>) {
     return this.stock.listItems(q);
@@ -167,6 +168,14 @@ export class StockController {
   }
 
   /** Приход / списание / корректировка / бронь / снятие брони. */
+  /** Обрезок трубы / листа: своя позиция «… — обрезок 1,2 м» + приход; труба — метры уходят из позиции (СМ.2). */
+  @Post('items/:id/offcut')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.offcut', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, offcut: (data as { offcut?: { name?: string } })?.offcut?.name }) })
+  offcut(@Param('id') id: string, @Body() dto: StockOffcutDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.offcut(id, dto, user?.id);
+  }
+
   @Post('items/:id/move')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.moved', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, quantity: (data as { quantity?: number })?.quantity }) })

@@ -2400,6 +2400,27 @@
             "schema": {}
           },
           {
+            "name": "thickness",
+            "required": false,
+            "in": "query",
+            "description": "толщина, мм",
+            "schema": {}
+          },
+          {
+            "name": "section",
+            "required": false,
+            "in": "query",
+            "description": "сортамент / сечение",
+            "schema": {}
+          },
+          {
+            "name": "grade",
+            "required": false,
+            "in": "query",
+            "description": "марка стали",
+            "schema": {}
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -2914,6 +2935,39 @@
             }
           }
         ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/items/{id}/offcut": {
+      "post": {
+        "operationId": "StockController_offcut",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockOffcutDto"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": ""
@@ -8459,6 +8513,18 @@
           },
           "notes": {
             "type": "string"
+          },
+          "assortment": {
+            "type": "object",
+            "description": "Металл: сортамент / сечение (40×20×2, 2 мм); null — стереть"
+          },
+          "materialGrade": {
+            "type": "object",
+            "description": "Марка стали (Ст3, AISI 304); null — стереть"
+          },
+          "dims": {
+            "type": "object",
+            "description": "Размеры, мм: { length, width, thickness, diameter } (null — стереть)"
           }
         }
       },
@@ -8610,6 +8676,29 @@
         "required": [
           "type",
           "lines"
+        ]
+      },
+      "StockOffcutDto": {
+        "type": "object",
+        "properties": {
+          "lengthMm": {
+            "type": "number",
+            "description": "Длина обрезка, мм"
+          },
+          "widthMm": {
+            "type": "number",
+            "description": "Ширина (лист), мм"
+          },
+          "count": {
+            "type": "number",
+            "description": "Сколько таких кусков (по умолчанию 1)"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lengthMm"
         ]
       },
       "StockMoveDto": {

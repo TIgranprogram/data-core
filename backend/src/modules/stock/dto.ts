@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
 
 export class StockItemDto {
   @ApiPropertyOptional({ description: 'Наименование (обязательно при создании)' }) @IsOptional() @IsString() @Length(1, 300) name?: string;
@@ -11,6 +11,17 @@ export class StockItemDto {
   @ApiPropertyOptional({ description: 'Минимальный остаток' }) @IsOptional() @IsNumber() @Min(0) minQuantity?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) weightKg?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) notes?: string;
+  @ApiPropertyOptional({ description: 'Металл: сортамент / сечение (40×20×2, 2 мм); null — стереть' }) @IsOptional() @IsString() @Length(0, 200) assortment?: string | null;
+  @ApiPropertyOptional({ description: 'Марка стали (Ст3, AISI 304); null — стереть' }) @IsOptional() @IsString() @Length(0, 100) materialGrade?: string | null;
+  @ApiPropertyOptional({ description: 'Размеры, мм: { length, width, thickness, diameter } (null — стереть)' }) @IsOptional() @IsObject() dims?: { length?: number | null; width?: number | null; thickness?: number | null; diameter?: number | null };
+}
+
+/** Обрезок, который ещё пригодится (TASKS СМ.2). */
+export class StockOffcutDto {
+  @ApiProperty({ description: 'Длина обрезка, мм' }) @IsNumber() @Min(1) lengthMm!: number;
+  @ApiPropertyOptional({ description: 'Ширина (лист), мм' }) @IsOptional() @IsNumber() @Min(1) widthMm?: number;
+  @ApiPropertyOptional({ description: 'Сколько таких кусков (по умолчанию 1)' }) @IsOptional() @IsNumber() @Min(1) count?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) note?: string;
 }
 
 export class StockMoveDto {

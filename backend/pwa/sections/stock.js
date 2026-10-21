@@ -6,9 +6,10 @@ import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
-import { facetFilter, ftQuery } from '../ui/facet-filter.js';
+import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
 import { cancelMovement, moveLabel } from './movements.js';
 import { issueToFields } from './issue.js';
+import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -39,6 +40,7 @@ async function move(r, type, ctx) {
     body: h('div', null, h('p', { class: 'hint' }, hints[type]),
       h('div', { class: 'form-grid' },
         h('label', { class: 'field' }, h('span', null, (inv ? 'Фактический остаток' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
+        type === 'in' ? pipeInHelper(r, qIn) : null, // труба: «10 хлыстов по 6 м» = 60 м (СМ.2)
         h('label', { class: 'field' }, h('span', null, 'Примечание'), note), to?.el)),
     onOk: async () => {
       const n = parseNum(qIn.value);
@@ -81,7 +83,7 @@ export const stock = {
     // фильтры «тип / резьба / длина / стандарт» — выпадающая панель поверх таблицы; выбранное уходит словами поиска
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId' }),
     extraKeys: ['ft'],
-    query: (P) => (P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') } : {}),
+    query: (P) => (P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}),
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Поиск: наименование, артикул…',
@@ -143,6 +145,7 @@ export const stock = {
       ['Мин. остаток', r.minQuantity ? `${qty(r.minQuantity)} ${unit(r)}` : ''],
       ['Пересчитано', r.lastCountedAt ? date(r.lastCountedAt) : 'ещё не пересчитывали'],
       ['Категория', r.categoryName],
+      ...metalView(r),
       ['Ед. изм.', r.unit],
       ['Артикул', r.article],
       ['Вес 1 шт., кг', r.weightKg ? qty(r.weightKg) : ''],
@@ -155,6 +158,7 @@ export const stock = {
       { label: 'Забронировать под заказ', run: (row, ctx) => move(row, 'reserve', ctx) },
       r.reservedQty > 0 && { label: 'Снять бронь', run: (row, ctx) => move(row, 'unreserve', ctx) },
       { label: 'Пересчитать (сколько лежит)', run: (row, ctx) => move(row, 'adjust', ctx) },
+      r.metal && !r.offcutOf && { label: 'Отложить обрезок…', run: (row, ctx) => offcutDialog(row, ctx) },
       { label: 'Заказать (новая заявка)', run: (row) => patch({ of: 'requests', new: '1', open: undefined, title: row.name, unit: row.unit || '', categoryName: row.categoryName || '' }) },
     ],
     extra: recentMoves,
@@ -172,20 +176,21 @@ export const stock = {
         { section: 'Запас', tone: 'info' },
         { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
         { key: 'weightKg', label: 'Вес 1 шт., кг', type: 'number', min: 0 },
+        ...metalFields(),
         { section: 'Фото и примечание', tone: 'who' },
         { key: 'photos', label: 'Фото', type: 'photos', hint: 'Перетащите, вставьте Ctrl+V или выберите файл' },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
     },
     initial: () => ({ unit: 'шт', photos: [] }),
-    toInitial: (r) => ({ ...r, photos: r.photos || [] }),
+    toInitial: (r) => ({ ...r, ...metalInitial(r), photos: r.photos || [] }),
     toBody: (v) => {
       const b = { photoIds: v.photos || [], name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;
       // пустое поле = стереть значение (В.7): null уходит на сервер, мин. остаток станет 0
       b.minQuantity = v.minQuantity;
       b.weightKg = v.weightKg;
-      return b;
+      return { ...b, ...metalBody(v) };
     },
     create: async (body) => {
       const same = await api('/stock/items', { query: { search: body.name, limit: 20 } });
