@@ -2,6 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
+import { forecastView } from './money-forecast.js';
 
 /**
  * «Деньги» (PRODUCT §5, TASKS Ф.6): платёжный календарь СИЮ/ССЮ по дням, сводка по месяцам, «требуют заполнения».
@@ -35,7 +36,9 @@ export function mountMoney(params) {
   const monthLabel = h('span', { class: 'm-label' });
   const orgSeg = h('div', { class: 'seg' });
   const opening = h('input', { class: 'm-open', inputmode: 'decimal', placeholder: 'не знаю', 'aria-label': 'Остаток на начало месяца', title: 'Остаток денег на начало месяца (запоминается в этом браузере)' });
-  opening.addEventListener('change', () => { store.set('dc-opening-' + month() + '-' + org(), opening.value.trim()); load(); });
+  // прогноз — «остаток на сегодня», календарь — «на 1-е число месяца» (БЗ-1)
+  const openKey = () => (tab() === 'forecast' ? 'dc-forecast-opening-' + org() : 'dc-opening-' + month() + '-' + org());
+  opening.addEventListener('change', () => { store.set(openKey(), opening.value.trim()); load(); });
   const nextBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => patch({ month: shiftMonth(month(), step()) }) }, '›');
   // в «Сводке» листаем годами, в календаре — месяцами
   const step = () => (tab() === 'summary' ? 12 : 1);
@@ -45,24 +48,26 @@ export function mountMoney(params) {
       monthLabel,
       nextBtn),
     orgSeg,
-    h('label', { class: 'date-f' }, h('span', null, 'остаток денег на 1-е'), opening));
+    h('label', { class: 'date-f' }, h('span', { class: 'm-open-l' }, 'остаток денег на 1-е'), opening));
   const body = h('div', { class: 'm-body' });
   const el = h('div', { class: 'money' },
     h('div', { class: 'page-head' }, h('h1', null, 'Деньги'), h('span', { class: 'spacer' }), tabs),
     controls, body);
 
   function renderChrome(companies) {
-    tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
+    tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
       h('button', { type: 'button', class: tab() === k ? 'active' : '', onclick: () => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }, l)));
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = tab() === 'summary' ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
     orgSeg.replaceChildren(...['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) =>
       h('button', { type: 'button', class: org() === c ? 'active' : '', onclick: () => patch({ org: c === 'all' ? undefined : c }) }, c === 'all' ? 'Все' : c)));
-    opening.value = store.get('dc-opening-' + month() + '-' + org()) || '';
+    opening.value = store.get(openKey()) || '';
+    controls.querySelector('.m-month').hidden = tab() === 'forecast'; // прогноз — с сегодня, месяц не листается
+    controls.querySelector('.m-open-l').textContent = tab() === 'forecast' ? 'остаток денег на сегодня' : 'остаток денег на 1-е';
     controls.hidden = tab() === 'fill';
     nextBtn.disabled = tab() === 'summary' ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
     nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
-    opening.parentElement.hidden = tab() !== 'calendar';
+    opening.parentElement.hidden = tab() !== 'calendar' && tab() !== 'forecast';
   }
 
   // ---------- Календарь ----------
@@ -202,7 +207,13 @@ export function mountMoney(params) {
       let content;
       // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
-      if (tab() === 'summary') {
+      if (tab() === 'forecast') {
+        const days = [30, 60, 90].includes(Number(P.days)) ? Number(P.days) : 30;
+        const f = await api('/finance/forecast', { query: { days, org: org(), opening: opening.value.trim().replace(',', '.') || 0 } });
+        if (my !== seq) return;
+        renderChrome(f.companies);
+        content = forecastView(f, { horizon: days, hasOpening: hasOpening(opening) });
+      } else if (tab() === 'summary') {
         const y = m.slice(0, 4);
         const to = `${y}-12-31` < todayIso() ? `${y}-12-31` : todayIso();
         // прошлый год — тот же отрезок (1 января … та же дата), чтобы сравнение было честным
@@ -235,7 +246,7 @@ export function mountMoney(params) {
     reload: load,
     /** Смена вкладки/месяца/компании — без пересоздания экрана; открытая карточка — без перезагрузки данных. */
     update(next) {
-      const changed = ['tab', 'month', 'org'].some((k) => (next[k] || '') !== (P[k] || ''));
+      const changed = ['tab', 'month', 'org', 'days'].some((k) => (next[k] || '') !== (P[k] || ''));
       P = { ...next };
       if (changed) load();
     },

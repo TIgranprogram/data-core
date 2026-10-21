@@ -111,4 +111,22 @@ describe('Finance: incomes + cashflow', () => {
     // «Отменить оплату»
     expect((await http().patch(`/api/incomes/${row.id}`).set(auth()).send({ paidDate: '' }).expect(200)).body.status).toBe('awaiting');
   });
+
+  it('БЗ-1: прогноз — будущие выплаты и поступления, разрыв, «без срока», роли', async () => {
+    const day = (n: number) => new Date(Date.parse('2030-01-10T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+    const today = day(0);
+    const orgs = await db().collection('organizations').find({ isOurCompany: true, deletedAt: null }).toArray();
+    const co = String(orgs[0].shortName || orgs[0].name);
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Металл прогноз', qty: 1, priceHint: 150000, companyName: co, invoiceDate: day(3), statusLabel: 'В работе', clientUid: 'fc-e1' }).expect(201);
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Краска без даты', qty: 1, priceHint: 40000, companyName: co, statusLabel: 'Заказать', clientUid: 'fc-e2' }).expect(201);
+    const f = (await http().get('/api/finance/forecast').query({ days: 30, opening: 100000, today, org: co }).set(auth()).expect(200)).body;
+    expect(f).toMatchObject({ from: today, to: day(29), opening: 100000 });
+    expect(f.days).toHaveLength(30);
+    expect(f.totals.expense).toBe(150000);
+    expect(f.firstGap).toBe(day(3));
+    expect(f.minBalance.amount).toBe(-50000);
+    expect(f.noDate.items.some((x: { title: string }) => x.title.includes('Краска без даты'))).toBe(true);
+    await http().get('/api/finance/forecast').query({ days: 5 }).set(auth()).expect(400);
+  });
+
 });
