@@ -8,7 +8,7 @@ export type PassportTemplateDocument = HydratedDocument<PassportTemplate>;
  * «Шаблон паспорта» — типовые разделы 3–7 и таблицы (TASKS ПС.1). Каждая правка — новая версия
  * (старая остаётся с isActive=false — видно, по какому тексту выдан паспорт).
  */
-@Schema({ collection: 'passporttemplates', timestamps: true })
+@Schema({ collection: 'passporttemplates', timestamps: true, softDelete: false }) // версии не удаляются — старые isActive=false
 export class PassportTemplate {
   @Prop({ required: true })
   version!: number;
