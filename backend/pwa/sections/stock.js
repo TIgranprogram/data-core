@@ -173,7 +173,7 @@ export const stock = {
     card: {
       thumb: photoThumb,
       title: (r) => r.name,
-      sub: (r) => [r.categoryName, r.reservedQty ? `бронь ${qty(r.reservedQty)}` : '', r.article].filter(Boolean).join(' · '),
+      sub: (r) => [r.categoryName, r.reservedQty ? `бронь ${qty(r.reservedQty)}` : '', r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
       side: (r) => [h('b', { class: 'num' }, `${qty(r.quantity)} ${unit(r)}`), badge(STOCK_STATUS, r.status)],
     },
   },
@@ -183,7 +183,7 @@ export const stock = {
     photoAdd: (r, photoId) => api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }),
     photoRemove: (r, photoId) => api(`/stock/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
     heading: (r) => r.name,
-    subheading: (r) => [r.categoryName, r.article && `арт. ${r.article}`].filter(Boolean).join(' · '),
+    subheading: (r) => [r.categoryName, r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
     stats: (r) => [['Остаток', `${qty(r.quantity)} ${unit(r)}`], ['В брони', qty(r.reservedQty)], ['Свободно', qty(r.free)]],
     view: (r) => [
       ['Состояние', badge(STOCK_STATUS, r.status)],
@@ -192,7 +192,9 @@ export const stock = {
       ['Категория', r.categoryName],
       ...metalView(r),
       ['Ед. изм.', r.unit],
-      ['Артикул', r.article],
+      // АР.1: артикул поставщика и внутренний код — раздельно; СКЛ-… — не артикул
+      ['Артикул (поставщика)', r.supplierArticle ? h('span', null, r.supplierArticle, r.articleSource ? h('span', { class: 'muted' }, ` · из: ${r.articleSource}`) : null) : h('span', { class: 'muted' }, 'нет — впишите из счёта или заявки')],
+      ['Внутр. код', r.internalCode ? h('span', { class: 'muted' }, r.internalCode) : ''],
       ['Вес 1 шт.', r.weightG ? `${qty(r.weightG)} г` : ''],
       ['Примечание', r.notes],
     ],
@@ -215,7 +217,7 @@ export const stock = {
       return [
         { section: 'Что за позиция', tone: 'main', fixed: true },
         { key: 'name', label: 'Наименование', required: true, max: 300, span: 3, hint: 'Как называется на складе: «Болт мебельный, M8х40, DIN 603»' },
-        { key: 'article', label: 'Артикул', max: 100, span: 1, hint: 'Пусто — присвоится сам' },
+        { key: 'article', label: 'Артикул (поставщика)', max: 100, span: 1, hint: 'Из счёта / заявки. Пусто — останется внутренний код' },
         { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },
         // новая позиция — сразу «Начальный остаток»: штуками или по весу (НО.2)
@@ -231,7 +233,7 @@ export const stock = {
       ];
     },
     initial: () => ({ unit: 'шт', photos: [] }),
-    toInitial: (r) => ({ ...r, ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
+    toInitial: (r) => ({ ...r, article: r.supplierArticle || '', ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
     toBody: (v) => {
       const b = { photoIds: v.photos || [], name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;

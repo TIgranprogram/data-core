@@ -147,7 +147,7 @@ export function mountOps(params) {
       const inc = inCart.get(it.id);
       return h('div', { class: 'ops-row' + (i === st.active ? ' active' : '') + (inc ? ' in-cart' : ''), role: 'option', onclick: () => add(it), title: 'Добавить в список' },
         pic(it.photos?.[0]),
-        h('div', { class: 'ops-name' }, h('div', { class: 'clip' }, it.name), h('small', null, [it.offcutOf ? 'обрезок — берите первым' : '', it.categoryName, it.article, it.offcuts?.length ? `есть обрезки: ${it.offcuts.length}` : ''].filter(Boolean).join(' · '))),
+        h('div', { class: 'ops-name' }, h('div', { class: 'clip' }, it.name), h('small', null, [it.offcutOf ? 'обрезок — берите первым' : '', it.categoryName, it.supplierArticle && 'арт. ' + it.supplierArticle, it.offcuts?.length ? `есть обрезки: ${it.offcuts.length}` : ''].filter(Boolean).join(' · '))),
         h('div', { class: 'ops-stock num' + (it.quantity <= 0 ? ' neg' : '') }, qty(it.quantity), h('small', null, ' ' + (it.unit || ''))),
         h('span', { class: 'ops-add', 'aria-hidden': 'true' }, inc ? (mode() === 'count' ? '✓' : '+1') : '+'));
     });

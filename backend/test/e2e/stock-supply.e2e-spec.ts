@@ -423,6 +423,38 @@ describe('Stock & supply on shared CRM collections', () => {
     expect(await db().collection('materials').findOne({ _id: new Types.ObjectId(m.id) })).toMatchObject({ weightKg: 0.066, weightUnit: 'kg' });
   });
 
+  it('АР: артикул из заявки → в позицию (автоартикул СКЛ-… — внутренний код); свой не перезаписывается; дубль — 409 и в «Требуют заполнения»', async () => {
+    const a = (await http().post('/api/stock/items').set(auth()).send({ name: 'Сиденье Forto, 465х275х220 АР', unit: 'шт', categoryName: 'Комплектующие' }).expect(201)).body;
+    expect(a.article).toMatch(/^СКЛ-/);
+    expect(a).toMatchObject({ supplierArticle: null });
+    const auto = a.article;
+    // заявка с артикулом на эту позицию → артикул переносится, СКЛ-… остаётся внутренним кодом
+    await http().post('/api/supply/requests').set(auth()).send({ title: a.name, qty: 1, materialId: a.id, article: 'СФБОЧ-КсОК-АР', clientUid: 'ar-1' }).expect(201);
+    const a2 = (await http().get(`/api/stock/items/${a.id}`).set(auth())).body;
+    expect(a2).toMatchObject({ article: 'СФБОЧ-КсОК-АР', supplierArticle: 'СФБОЧ-КсОК-АР', articleSource: expect.stringContaining('заявка') });
+    expect(a2.internalCode).toContain(auto);
+    // вторая позиция с тем же артикулом в заявке — не трогаем (дубль), видно в «Требуют заполнения»
+    const b = (await http().post('/api/stock/items').set(auth()).send({ name: 'Сиденье Forto без подвесов АР', unit: 'шт', categoryName: 'Комплектующие' }).expect(201)).body;
+    await http().post('/api/supply/requests').set(auth()).send({ title: b.name, qty: 1, materialId: b.id, article: 'СФБОЧ-КсОК-АР', clientUid: 'ar-2' }).expect(201);
+    expect((await http().get(`/api/stock/items/${b.id}`).set(auth())).body.article).toMatch(/^СКЛ-/);
+    // свой артикул руками — не перезаписывается заявкой (конфликт)
+    const c = (await http().post('/api/stock/items').set(auth()).send({ name: 'Скоба АР', unit: 'шт', article: 'MY-1' }).expect(201)).body;
+    await http().post('/api/supply/requests').set(auth()).send({ title: c.name, qty: 1, materialId: c.id, article: 'OTHER-2', clientUid: 'ar-3' }).expect(201);
+    expect((await http().get(`/api/stock/items/${c.id}`).set(auth())).body.article).toBe('MY-1');
+    const fa = (await http().get('/api/fill-audit').query({ only: 'mat-article' }).set(auth()).expect(200)).body.groups[0];
+    expect(fa.items.map((x: { id: string }) => x.id)).toEqual(expect.arrayContaining([b.id, c.id]));
+    expect(fa.items.map((x: { id: string }) => x.id)).not.toContain(a.id);
+    // ручная правка на чужой артикул — 409; на свободный — записывается, источник «вручную»
+    expect((await http().patch(`/api/stock/items/${b.id}`).set(auth()).send({ article: 'сфбоч-ксок-ар' }).expect(409)).body.message).toContain('уже у позиции');
+    expect((await http().patch(`/api/stock/items/${b.id}`).set(auth()).send({ article: 'СФБОЧ-БП' }).expect(200)).body).toMatchObject({ supplierArticle: 'СФБОЧ-БП', articleSource: 'вручную' });
+    // приём по заявке тоже переносит артикул (позиция с автоартикулом)
+    const d = (await http().post('/api/stock/items').set(auth()).send({ name: 'Пружина АР', unit: 'шт' }).expect(201)).body;
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: d.name, qty: 2, clientUid: 'ar-4' }).expect(201)).body;
+    await db().collection('supplyrequests').updateOne({ _id: new Types.ObjectId(r.id) }, { $set: { article: 'С-20х200', materialId: new Types.ObjectId(d.id) } });
+    await http().post(`/api/supply/requests/${r.id}/receive`).set(auth()).send({}).expect(200);
+    expect((await http().get(`/api/stock/items/${d.id}`).set(auth())).body.supplierArticle).toBe('С-20х200');
+  });
+
   it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
     const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
     const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;

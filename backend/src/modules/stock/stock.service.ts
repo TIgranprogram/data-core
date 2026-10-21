@@ -11,6 +11,7 @@ import { matchesAll, searchTokens } from './search-norm';
 import { CategoryResolver } from './category-resolver';
 import { type Dims, dimsOf, mergeDims, metalKind, offcutName } from './metal';
 import { type ByWeight, gramsToKg, weightCount, weightGOf, weightNote } from './weight';
+import { type ArticleDecision, articleView, decideArticle, isAutoArticle } from './article';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
@@ -143,7 +144,7 @@ export class StockService {
     if (q.section) filter.assortment = String(q.section);
     if (q.thickness && Number(q.thickness) > 0) filter.dimensions = { $elemMatch: { type: 'thickness', value: Number(q.thickness) } };
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
-      .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade));
+      .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     const [stocks, cats] = await Promise.all([
       this.storage.find({ warehouseId: wh._id, materialId: { $in: ids }, deletedAt: p.deleted ? undefined : null }).setOptions({ includeSoftDeleted: true }).lean().exec(),
@@ -177,6 +178,8 @@ export class StockService {
       const quantity = st?.quantity ?? 0, reservedQty = st?.reservedQty ?? 0, minQuantity = st?.minQuantity ?? 0;
       return {
         id: String(m._id), materialId: String(m._id), name: m.name, article: m.article, sku: m.sku, unit: m.unit,
+        // АР.1: артикул поставщика и внутренний код (СКЛ-… / sku) — раздельно; откуда взят артикул
+        ...articleView(m as { article?: unknown; sku?: unknown; internalArticle?: unknown }), articleSource: (m as { articleSource?: string }).articleSource ?? null,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
         notes: m.notes, quantity, reservedQty, free: quantity - reservedQty, minQuantity,
         ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
@@ -317,6 +320,7 @@ export class StockService {
     const name = String(dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Укажите наименование');
     const existing = await this.findMaterialByName(name);
+    if (!existing && dto.article?.trim()) await this.assertArticleFree(dto.article.trim());
     if (existing) {
       await this.updateItem(String(existing._id), { ...dto, name: undefined });
       return this.getItem(String(existing._id));
@@ -349,7 +353,12 @@ export class StockService {
     const set: Record<string, unknown> = {};
     if (dto.name?.trim()) set.name = dto.name.trim();
     if (dto.unit?.trim()) set.unit = dto.unit.trim();
-    if (dto.article?.trim()) set.article = dto.article.trim();
+    if (dto.article?.trim() && dto.article.trim() !== mat.article) {
+      // АР.3: артикул уникален; прежний автоартикул остаётся внутренним кодом; откуда — «вручную»
+      await this.assertArticleFree(dto.article.trim(), _id);
+      set.article = dto.article.trim();
+      await this.connection.db!.collection('materials').updateOne({ _id }, { $set: { articleSource: 'вручную', articleSetAt: new Date(), ...(isAutoArticle(mat.article) && mat.article ? { internalArticle: mat.article } : {}) } });
+    }
     if (dto.notes !== undefined) set.notes = dto.notes;
     if (dto.weightKg !== undefined) set.weightKg = dto.weightKg;
     for (const k of ['assortment', 'materialGrade'] as const) if (dto[k] !== undefined) set[k] = dto[k]?.trim() || null;
@@ -786,6 +795,33 @@ export class StockService {
     if (!known || (differs && bw.saveUnitWeight)) await this.setWeightG(mat._id as Types.ObjectId, r.unitWeightG);
     const note = [dto.note?.trim(), weightNote(w, r)].filter(Boolean).join('; ');
     return { ...dto, qty: r.count!, note, byWeight: undefined };
+  }
+
+  /** Артикул уже у другой позиции — 409 с её названием (АР.3: артикул уникален в общей схеме). */
+  private async assertArticleFree(article: string, self?: Types.ObjectId) {
+    const twin = await this.materials.findOne({ article: new RegExp(`^\\s*${escapeRe(article)}\\s*$`, 'i'), deletedAt: null, ...(self ? { _id: { $ne: self } } : {}) }, { name: 1 }).lean().exec();
+    if (twin) throw new ConflictException(`Артикул «${article}» уже у позиции «${twin.name}» — это одна и та же позиция? Тогда объедините их или поправьте артикул`);
+  }
+
+  /**
+   * Артикул из заявки / листа в позицию (АР.2): только если у позиции пусто или автоартикул СКЛ-… (он остаётся
+   * внутренним кодом); свой артикул позиции не перезаписывается (расхождение — в «Требуют заполнения», fill-audit).
+   * source — откуда: «заявка №14», «Google-таблица, лист «Склад»».
+   */
+  async adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> {
+    if (!materialId || !Types.ObjectId.isValid(String(materialId))) return 'skip';
+    const _id = new Types.ObjectId(String(materialId));
+    const db = this.connection.db!;
+    const mat = await db.collection('materials').findOne({ _id, deletedAt: null }, { projection: { article: 1 } });
+    if (!mat) return 'skip';
+    const inc = String(incoming ?? '').trim();
+    const taken = inc && !isAutoArticle(inc) ? !!(await db.collection('materials').findOne({ _id: { $ne: _id }, deletedAt: null, article: new RegExp(`^\\s*${escapeRe(inc)}\\s*$`, 'i') }, { projection: { _id: 1 } })) : false;
+    const d = decideArticle(mat.article, inc, taken);
+    if (d !== 'set') return d;
+    try {
+      await db.collection('materials').updateOne({ _id }, { $set: { article: inc, articleSource: source, articleSetAt: new Date(), ...(mat.article ? { internalArticle: mat.article } : {}) } });
+    } catch { return 'duplicate'; } // уникальный индекс (другое написание того же артикула)
+    return 'set';
   }
 
   /** Вес 1 шт. в граммах → weightKg (кг) + пометка weightUnit 'kg' у позиции и её остатков (НО.0). */

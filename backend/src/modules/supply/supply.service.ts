@@ -314,7 +314,13 @@ export class SupplyService {
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
     if (photoIds.length) await this.writePhotos(doc._id as Types.ObjectId, { $set: { photoIds } });
+    await this.adoptArticle(doc as unknown as Record<string, unknown>);
     return this.get(String(doc._id));
+  }
+
+  /** АР.2: артикул заявки → в позицию склада, если у той пусто / автоартикул (правила — stock/article.ts). */
+  private async adoptArticle(d: Record<string, unknown> | null) {
+    if (d?.materialId && d.article) await this.stock.adoptArticle(d.materialId as Types.ObjectId, d.article, `заявка${d.num ? ' №' + d.num : ''}`).catch(() => undefined);
   }
 
   async update(id: string, dto: SupplyInput) {
@@ -333,6 +339,7 @@ export class SupplyService {
     const res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
+    await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
     return this.get(id);
   }
 
@@ -375,6 +382,7 @@ export class SupplyService {
       return this.get(id);
     }
     await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
+    if (doc.article) await this.stock.adoptArticle(materialId, doc.article, `заявка${doc.num ? ' №' + doc.num : ''}`).catch(() => undefined);
     await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
     return this.get(id);
   }

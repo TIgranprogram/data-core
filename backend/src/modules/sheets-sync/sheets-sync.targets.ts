@@ -104,6 +104,11 @@ export class SheetTargets {
           sheetExtra: Object.keys(extra).length ? extra : undefined,
         };
       },
+      // АР.2: артикул из «Снабжения» → в позицию склада (если у неё пусто / автоартикул)
+      afterWrite: async (_id, r) => {
+        const mid = await this.materialId(r.name);
+        if (mid && str(r.article)) await this.stock.adoptArticle(mid, str(r.article), `Google-таблица «Снабжение»${num(r.num) ? ', заявка №' + num(r.num) : ''}`).catch(() => undefined);
+      },
       relink: async (cur, r) => {
         if (cur.materialId) return null;
         const id = await this.materialId(r.name);
@@ -133,6 +138,7 @@ export class SheetTargets {
       }),
       afterWrite: async (id, r) => {
         this.rememberMaterial(r.name, id);
+        if (str(r.article)) await this.stock.adoptArticle(id, str(r.article), 'Google-таблица, лист «Склад»').catch(() => undefined); // необязательная колонка «Артикул» (АР.2)
         const wh = await this.stock.defaultWarehouse();
         const set: Doc = { quantity: num(r.currentQty) ?? 0, reservedQty: num(r.reservedQty) ?? 0, minQuantity: num(r.minQty) ?? 0, updatedAt: new Date() };
         const w = gramsToKg(num(r.weightKg));

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { decideArticle } from '../stock/article';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { canSeeMoney } from '../../common/roles-hierarchy';
@@ -82,6 +83,37 @@ export class FillAuditService {
       const { coll: _c, q: _q, item, sort: _s, ...g } = d;
       groups.push({ ...g, count, items: rows.map((r) => item(r as Q)) });
     }
+    if (!opts.only || opts.only === 'mat-article') { const g = await this.articleGroup(limit); if (g) groups.push(g); }
     return { total: groups.reduce((s, g) => s + g.count, 0), groups };
+  }
+
+  /**
+   * АР.3: у позиции склада артикул не тот, что в заявке на неё (по связи materialId): автоартикул СКЛ-… вместо настоящего,
+   * свой другой или этот артикул уже у другой позиции. Не меняем молча — показываем; «Заполнить» открывает поле «Артикул».
+   */
+  private async articleGroup(limit: number): Promise<FillGroup | null> {
+    const db = this.connection.db!;
+    const reqs = await db.collection('supplyrequests').aggregate([
+      { $match: { deletedAt: null, materialId: { $ne: null }, article: { $nin: [null, ''] } } },
+      { $sort: { requestDate: -1 } },
+      { $group: { _id: '$materialId', article: { $first: '$article' }, num: { $first: '$num' } } },
+    ]).toArray();
+    if (!reqs.length) return null;
+    const mats = await db.collection('materials').find({ _id: { $in: reqs.map((r) => r._id) }, deletedAt: null }, { projection: { name: 1, article: 1 } }).toArray();
+    const all = await db.collection('materials').find({ deletedAt: null, article: { $nin: [null, ''] } }, { projection: { article: 1 } }).toArray();
+    const owner = new Map(all.map((m) => [String(m.article).trim().toLowerCase(), String(m._id)]));
+    const req = new Map(reqs.map((r) => [String(r._id), r]));
+    const items: Item[] = [];
+    for (const m of mats) {
+      const r = req.get(String(m._id))!;
+      const o = owner.get(String(r.article).trim().toLowerCase());
+      const d = decideArticle(m.article, r.article, !!o && o !== String(m._id));
+      if (d === 'same' || d === 'skip') continue;
+      const why = d === 'set' ? 'артикул не перенесён' : d === 'duplicate' ? 'этот артикул уже у другой позиции' : 'у позиции другой';
+      items.push({ id: String(m._id), title: String(m.name ?? ''), sub: `в заявке${r.num ? ' №' + r.num : ''}: ${r.article} · сейчас: ${m.article || '—'} · ${why}` });
+    }
+    if (!items.length) return null;
+    return { key: 'mat-article', area: 'Склад', title: 'Артикул в заявке другой', why: 'Артикул поставщика из заявки не совпадает с позицией склада (или у позиции внутренний код СКЛ-…) — проверьте и впишите верный', section: 'stock', field: 'article', money: false,
+      count: items.length, items: items.slice(0, limit) };
   }
 }
