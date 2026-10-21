@@ -2,12 +2,13 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, parseNum, qty } from '../core/format.js';
 import { parsePasted } from '../core/paste-parse.js';
+import { downloadTemplate, readTableFile } from '../core/xlsx-read.js';
 import { matchLines, rememberPairs } from '../core/bulk-match.js';
 import { normSearch } from '../core/facets.js';
 import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
 import { COST_CENTER } from '../ui/badges.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS } from './lookups.js';
 import { pastItems } from './requests.js';
 
@@ -168,7 +169,8 @@ async function buildInvoiceForm(opts = {}) {
   }
   const pasteBox = opts.paste ? h('div', { class: 'form-block paste-box', 'data-tone': 'info' },
     h('div', { class: 'section-title' }, 'Вставьте строки таблицы'), pasteArea,
-    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('span', { class: 'spacer' })), pasteInfo) : null;
+    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('label', { class: 'btn btn-sm file-btn', title: 'Файл Excel (.xlsx) или CSV — первый лист' }, 'Загрузить файл…', h('input', { type: 'file', accept: '.xlsx,.csv,.txt', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; try { pasteArea.value = await readTableFile(fl); applyPaste(); } catch (err) { toastError(err); } } })),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onclick: () => downloadTemplate() }, 'Скачать шаблон'), h('span', { class: 'spacer' })), pasteInfo) : null;
 
   const body = h('div', { class: 'inv' },
     h('p', { class: 'hint' }, opts.paste

@@ -765,3 +765,6 @@ html { scrollbar-gutter: stable; }
 .qo-q { text-align: right; }
 .qo-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 @media (max-width: 720px) { .qo-row { grid-template-columns: 1fr 70px auto; } .qo-cat, .qo-item { grid-column: 1 / -1; } }
+
+.file-btn { cursor: pointer; }
+.bulk-foot { flex-wrap: wrap; align-items: center; }

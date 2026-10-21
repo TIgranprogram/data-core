@@ -1,6 +1,8 @@
 import { h } from '../core/dom.js';
 import { matchLines } from '../core/bulk-match.js';
 import { parsePasted } from '../core/paste-parse.js';
+import { downloadTemplate, readTableFile } from '../core/xlsx-read.js';
+import { toastError } from './toast.js';
 
 /**
  * «Вставить список» — общий компонент массового ввода (TASKS МВ.3). Вставка строк из Excel / сайта / спецификации →
@@ -17,7 +19,8 @@ export function bulkPaste({ items, onFound, supplierName = () => '', title = 'В
   const go = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Разобрать и найти');
   const panel = h('div', { class: 'panel bulk-panel', hidden: true },
     h('div', { class: 'section-title' }, title), area,
-    h('div', { class: 'bulk-foot' }, go, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { panel.hidden = true; } }, 'Закрыть')), info, rest);
+    h('div', { class: 'bulk-foot' }, go, h('label', { class: 'btn btn-sm file-btn', title: 'Файл Excel (.xlsx) или CSV — первый лист' }, 'Загрузить файл…', h('input', { type: 'file', accept: '.xlsx,.csv,.txt', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; try { area.value = await readTableFile(fl); go.click(); } catch (err) { toastError(err); } } })),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onclick: () => downloadTemplate() }, 'Скачать шаблон'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { panel.hidden = true; } }, 'Закрыть')), info, rest);
   const btn = h('button', { type: 'button', class: 'btn', title: 'Много позиций сразу: вставить строки из таблицы' }, '⇩ ' + title);
   btn.addEventListener('click', () => { panel.hidden = !panel.hidden; if (!panel.hidden) area.focus(); });
   go.addEventListener('click', async () => {
