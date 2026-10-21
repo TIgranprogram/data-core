@@ -80,6 +80,17 @@
 - **Откат kppdf на свою базу:** `cd /opt/kppdf-8.0 && cp .env.bak-premerge .env && cp docker-compose.prod.yml.bak-premerge docker-compose.prod.yml && docker start kppdf-mongo && docker compose -f docker-compose.prod.yml up -d backend` (данные, внесённые после слияния, останутся только в datacore).
 - Старая база kppdf (`/var/lib/kppdf80/mongodb`, контейнер `kppdf-mongo` — остановлен) **не удалять без подтверждения пользователя** (TASKS D7).
 
+## Выкладка с работы (вне домашней сети, с 2026-10-21)
+
+```
+рабочий ПК → ssh kppdf-crm.ru:22 (ProxyJump) → VPS 127.0.0.1:4222 → туннель → VM 127.0.0.1:22 → release.sh
+```
+- Ключ «рабочий ПК» (комментарий `datacore-work-pc`) — в gitignored `remote-access/secret/`; инструкция и скрипты — `remote-access/README.md`. Выкладка: `bash remote-access/deploy.sh` (= `VM=datacore-vm KEY=~/.ssh/datacore_work release.sh`).
+- VPS: строка в `/root/.ssh/authorized_keys` с `restrict,port-forwarding,permitopen="127.0.0.1:4222",command="/bin/false"` — консоли нет, только проход к 4222 (проверено: shell и другие порты отклоняются). sshd/nginx не менялись. Бэкап: `authorized_keys.bak-datacore-work-20261021`.
+- VM: ключ в `~tiit/.ssh/authorized_keys` с `from="127.0.0.1,::1"` (из локальной сети не пускает); туннель — строка `datacore-ssh-tunnel` в crontab tiit (`autossh -R 127.0.0.1:4222:127.0.0.1:22`, flock `/tmp/datacore-ssh-tunnel.lock`). Проверка: `pgrep -af "autossh.*4222"`. Бэкапы: `~/.ssh/authorized_keys.bak-datacore-work-20261021`, `~/crontab.bak-datacore-work-20261021`.
+- Порт 4222 на VPS из-за `GatewayPorts yes` слушает `0.0.0.0`, но снаружи закрыт ufw (открыты только 22/80/443). Не открывать.
+- **Отзыв:** `sed -i "/datacore-work-pc/d" ~/.ssh/authorized_keys` на VM и у root на VPS; туннель — убрать строку из crontab и `pkill -f "autossh.*4222"`.
+
 ## Диагностика на VM
 
 ```bash

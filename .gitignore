@@ -26,3 +26,6 @@ deploy/synology/CREDENTIALS.md
 # Ключ сервисного аккаунта Google (чтение Google-таблиц) — никогда не коммитить
 secrets/
 *google-sa*.json
+
+# Ключ «рабочий ПК» для выкладки с работы — секрет, никогда не коммитить
+/remote-access/secret/
