@@ -2,7 +2,8 @@
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, events, login, PREFIX, session } from './core/api.js';
 import { $, debounce, h } from './core/dom.js';
-import { current, go, onChange, patch } from './core/router.js';
+import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
+import { confirmDlg } from './ui/dialog.js';
 import { openCard } from './ui/card.js';
 import { icon } from './ui/icons.js';
 import { mountList } from './ui/list.js';
@@ -99,12 +100,19 @@ function shell() {
         h('div', { class: 'who' }, h('b', null, session.name), h('span', null, roleName(session.user?.role)))),
       h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти'))));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
+  // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)
+  const backBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Назад', onclick: () => window.history.back() }, '‹');
+  const fwdBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Вперёд', onclick: () => window.history.forward() }, '›');
+  onNav((i) => {
+    backBtn.disabled = !i.canBack; fwdBtn.disabled = !i.canForward;
+    backBtn.title = i.canBack ? `Назад: ${screenTitle(i.backUrl)} (Alt+←)` : 'Назад — это первый экран';
+    fwdBtn.title = i.canForward ? `Вперёд: ${screenTitle(i.forwardUrl)} (Alt+→)` : 'Вперёд — некуда';
+  });
   const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'btn btn-ghost btn-icon burger', type: 'button', 'aria-label': 'Меню', onclick: () => shellEl.classList.toggle('nav-open') }, icon('menu')),
     // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
     h('div', { class: 'histnav' },
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад (Alt+←)', 'aria-label': 'Назад', onclick: () => window.history.back() }, '‹'),
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Вперёд (Alt+→)', 'aria-label': 'Вперёд', onclick: () => window.history.forward() }, '›')),
+      backBtn, fwdBtn),
     h('div', { class: 'gsearch' }, gs, h('kbd', null, '/')));
   const main = h('main', { class: 'page', id: 'page' });
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
@@ -173,7 +181,7 @@ function render({ section, params }) {
     else { go(DEFAULT, {}, { replace: true }); return; }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
-    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
+    document.title = screenTitle('#' + section) + ' · Рабочее место';
     window.scrollTo(0, 0);
   } else {
     mounted.list.update?.(params);
@@ -181,10 +189,33 @@ function render({ section, params }) {
   syncCard(section, params);
 }
 
-/** Открыть запись: в адрес (для «Назад» и ссылки), без нового шага истории на каждую запись. */
+/** Открыть запись: в адрес (для «Назад» и ссылки) шагом «карточка»; соседняя запись в открытой карточке — без нового шага. */
 function openRecord(section, id) {
-  go(section, { ...current().params, open: id, new: undefined }, { replace: !!current().params.open });
+  go(section, { ...current().params, open: id, new: undefined }, { replace: !!current().params.open, kind: 'card' });
 }
+
+/** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
+const NAMES = { home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
+function screenTitle(url) {
+  const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
+  const name = SECTIONS[sec]?.title || NAMES[sec] || 'Сегодня';
+  return /(^|&)(open|new)=/.test(qs) ? `${name} (карточка)` : name;
+}
+
+/**
+ * Защита ввода (НВ.4): «Назад» / «Вперёд» / ссылка при открытом окне — сначала закрывается окно (как жест «назад» на Android);
+ * при несохранённой форме в карточке — одно подтверждение «Выйти без сохранения?». Нет — остаёмся, ввод цел.
+ */
+setGuard(async (next) => {
+  const dlg = document.querySelector('.modal-back');
+  if (dlg) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return false; }
+  if (card?.handle?.isDirty?.()) {
+    const ofName = next.params.of || (next.section === 'home' ? undefined : next.section);
+    const stays = ofName === card.of && (next.params.open || next.params.new) && card.key.includes(next.params.new ? 'new' : 'open:' + next.params.open);
+    if (!stays) return confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' });
+  }
+  return true;
+});
 
 /** Карточка: open=<id> или new=1; of=<раздел записи>, если запись другого раздела (на «Сегодня», заявка из склада). */
 function syncCard(section, params) {
@@ -203,7 +234,7 @@ function syncCard(section, params) {
   closeCard();
   const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined };
   const ctx = {
-    close: () => { card = null; patch(clear); },
+    close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     changed: () => { mounted?.list?.reload?.(); refreshCounts(); },
     opened: (id) => { card.key = ofName + 'open:' + id; patch({ ...clear, of: ofName !== section ? ofName : undefined, open: id }); },
   };

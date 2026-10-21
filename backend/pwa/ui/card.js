@@ -221,5 +221,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       return true;
     },
     get editing() { return !!form; },
+    /** В форме несохранённые правки (НВ.4: «Назад» спросит «Выйти без сохранения?»). */
+    isDirty: () => !!(form && form.dirty()),
   };
 }
