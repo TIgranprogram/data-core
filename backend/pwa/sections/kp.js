@@ -2,6 +2,7 @@ import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { money, parseNum, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
+import { downloadXlsx } from '../core/xlsx-write.js';
 import { attachCombo } from '../ui/combo.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';
@@ -99,6 +100,7 @@ async function buildImportForm() {
   area.addEventListener('input', () => { clearTimeout(area._t); area._t = setTimeout(check, 400); });
   file.addEventListener('change', async () => { if (file.files[0]) { try { area.value = await readTableFile(file.files[0]); check(); } catch (e) { report.replaceChildren(h('p', { class: 'err' }, e.message)); } } });
   const el = h('div', null, h('p', { class: 'hint' }, 'Каталог изделий: по артикулу — новые добавятся, у существующих обновятся название, раздел, группа, серия (цена — только если её ещё нет). Ничего не удаляется. Изделия без цены — черновики.'),
+    h('button', { class: 'btn', type: 'button', title: 'Пустая таблица с нужными колонками и примером', onclick: () => downloadXlsx('Шаблон каталога изделий.xlsx', [['Тип', 'Группа', 'Артикул', 'Наименование', 'Серия', 'Цена'], ['Детское игровое оборудование', 'Качели', 'КЧ-001', 'Качели двойные', 'Классик', 12500]], 'Каталог') }, '⇩ Скачать шаблон Excel'),
     h('label', { class: 'field wide' }, h('span', null, 'Файл Excel (.xlsx) или CSV'), file), h('label', { class: 'field wide' }, h('span', null, 'Или вставьте строки'), area), report);
   return {
     el, focus: () => area.focus(), dirty: () => !!area.value.trim(),
