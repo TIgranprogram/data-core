@@ -95,6 +95,7 @@
 | Очередь | `.queue`, `.q-head`, `.q-n`, `.q-hint`, `.q-row`, `.q-more` | очереди дел |
 | Таблица | `table.list`, `th.sortable`, `td.clip`, `.md-hide`, `tr.group-row`, `tr.period-row` | списки |
 | Пагинация | `.pager` | 25/50/100 |
+| Выгрузка | «⇩ Excel» — `.btn-ghost` в `.page-head` любого списка (`ui/list.js`, `L.export === false` — убрать) | весь список с фильтрами в .xlsx |
 | Состояния | `.state`, `.skeleton`, `.loading` (золотая полоска сверху) | пусто / ничего не найдено / ошибка / загрузка без моргания |
 | Карточка | `.drawer(-head/-body/-foot)`, `.fields`, `.stats`, `.section-title`, `.timeline` | |
 | Окно | `.modal(-head/-body/-foot)` (`ui/dialog.js`) | подтверждения, оприходование |

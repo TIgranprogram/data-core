@@ -1,3 +1,4 @@
+import { exportList } from './list-export.js';
 import { api, session } from '../core/api.js';
 import { debounce, h } from '../core/dom.js';
 import { qty, plural } from '../core/format.js';
@@ -50,10 +51,14 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const btnBoard = h('button', { type: 'button', onclick: () => patch({ view: 'board', page: undefined, status: undefined }) }, icon('board'), 'Доска');
   const viewSwitch = L.board ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, btnBoard) : null;
   const canCreate = section.form && session.canEdit && L.createLabel !== false;
+  // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки
+  const exportBtn = L.export === false ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
+    onclick: (e) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, e.currentTarget); } }, '⇩ Excel');
   const head = h('div', { class: 'page-head' },
     h('h1', null, section.title, ' ', countEl),
     h('span', { class: 'spacer' }),
     viewSwitch,
+    exportBtn,
     ...(L.headActions && session.canEdit ? L.headActions(() => load()) : []),
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
 
@@ -190,12 +195,17 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ---------- Загрузка ----------
   let seq = 0;
   let loaded = false;
+  /** Параметры запроса из адреса: поиск, свои параметры раздела, фильтры. */
+  function currentQuery(isBoard = false) {
+    const query = { search: P.q, ...(L.query ? L.query(P) : {}) };
+    for (const f of L.filters || []) if (P[f.key] && !(isBoard && f.key === 'status')) query[f.key] = P[f.key];
+    return query;
+  }
   async function load() {
     let { limit, page, sort, board: isBoard } = st();
-    const query = { search: P.q, ...(L.query ? L.query(P) : {}) };
+    const query = currentQuery(isBoard);
     const per = L.periods ? L.periods(P) : null;
     if (per && !isBoard) { limit = 2000; page = 1; }
-    for (const f of L.filters || []) if (P[f.key] && !(isBoard && f.key === 'status')) query[f.key] = P[f.key];
     if (isBoard) {
       countEl.textContent = '';
       if (!board) { board = mountBoard(L.board, L.path, query, { onOpen, onChanged: () => board.reload() }); boardBox.replaceChildren(board.el); }
