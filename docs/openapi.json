@@ -1265,7 +1265,7 @@
             "name": "entityType",
             "required": true,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem",
             "schema": {
               "type": "string"
             }
@@ -1279,6 +1279,84 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/audit-logs/app": {
+      "get": {
+        "operationId": "AuditController_appHistory",
+        "summary": "История изменений приложения: кто, что, когда (сначала новые)",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "≤ 200, по умолчанию 50",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/audit-logs/app/users": {
+      "get": {
+        "operationId": "AuditController_appUsers",
+        "parameters": [],
         "responses": {
           "200": {
             "description": ""

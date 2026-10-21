@@ -834,3 +834,9 @@ html { scrollbar-gutter: stable; }
 .fill-note { background: var(--gold-soft); color: var(--text); border-radius: var(--radius-sm); padding: var(--s2) var(--s3); margin-bottom: var(--s3); font-size: var(--fs-sm); }
 .field.fill-here > input, .field.fill-here > select, .field.fill-here > textarea, .field.fill-here input { outline: 2px solid var(--gold); outline-offset: 1px; }
 .field.fill-here > span:first-child { color: var(--gold-deep); font-weight: 700; }
+
+/* История: «Поле: было → стало» под строкой журнала (TASKS И.1) */
+.timeline li:has(> .changes) { flex-wrap: wrap; }
+.timeline .changes { flex-basis: 100%; list-style: none; margin: 0; padding: 0 0 0 var(--s4); }
+.timeline .changes li { display: block; border: 0; padding: 2px 0; }
+.timeline .changes s { text-decoration-color: var(--muted); }

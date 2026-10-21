@@ -38,7 +38,7 @@ export class PartnersController {
 
   @Patch(':id')
   @Roles('manager')
-  @AuditAction({ action: 'partner.updated', entityType: 'Partner', details: (_d, p) => ({ id: p.id }) })
+  @AuditAction({ action: 'partner.updated', entityType: 'Partner', idParam: 'id', details: (d, p) => ({ id: p.id, after: d }) })
   update(@Param('id') id: string, @Body() dto: PartnerInput) {
     return this.partners.update(id, dto ?? {});
   }

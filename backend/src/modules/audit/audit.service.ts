@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { getCurrentUser } from '../../common/context/user-context';
@@ -42,16 +42,17 @@ export class AuditService {
       const ctx = getCurrentUser();
       const userId = entry.userId ?? ctx?.userId;
       const userName = entry.userName ?? ctx?.username;
+      // id не ObjectId (заказчик «c:<название>», ключ справочника) — не в entityId (там ObjectId), а в details.id
+      const strId = typeof entry.entityId === 'string' ? entry.entityId : null;
+      const okId = strId !== null && Types.ObjectId.isValid(strId) && /^[0-9a-f]{24}$/i.test(strId);
+      const details = strId !== null && !okId ? { ...(entry.details ?? {}), id: (entry.details as { id?: unknown } | undefined)?.id ?? strId } : entry.details;
       await this.model.create({
         action: entry.action,
         entityType: entry.entityType,
-        entityId:
-          typeof entry.entityId === 'string'
-            ? new Types.ObjectId(entry.entityId)
-            : entry.entityId,
+        entityId: strId !== null ? (okId ? new Types.ObjectId(strId) : undefined) : entry.entityId,
         userId: userId ? new Types.ObjectId(userId) : undefined,
         userName,
-        details: entry.details,
+        details,
         packageTag: entry.packageTag,
         ipAddress: entry.ipAddress,
       });
@@ -70,6 +71,44 @@ export class AuditService {
       this.model.countDocuments(filter).exec(),
     ]);
     return { items: docs.map((d) => sanitizeValue(d)), total, page, limit };
+  }
+
+  /** История одной записи (И.1): по entityId (ObjectId) или details.id (строковые id), сначала новые. */
+  async recordLogs(entityType: string, entityId: string, limit = 100) {
+    const or: Record<string, unknown>[] = [{ 'details.id': entityId }];
+    if (/^[0-9a-f]{24}$/i.test(entityId)) or.push({ entityId: new Types.ObjectId(entityId) });
+    return this.model.find({ entityType, $or: or }).sort({ createdAt: -1 }).limit(limit).lean().exec();
+  }
+
+  /** Общий журнал приложения (И.2): только типы записей приложения, фильтры кто / раздел / даты. */
+  async appLogs(raw: AuditQueryRaw, types: string[]) {
+    const { filter, page, limit } = parseAuditQuery(raw);
+    if (filter.entityType && !types.includes(String(filter.entityType))) throw new BadRequestException('Такого раздела нет в истории приложения');
+    if (!filter.entityType) filter.entityType = { $in: types };
+    if (raw.id && /^[0-9a-f]{24}$/i.test(String(raw.id))) filter._id = new Types.ObjectId(String(raw.id)); // одна запись журнала (карточка)
+    const [docs, total] = await Promise.all([
+      this.model.find(filter, { action: 1, entityType: 1, entityId: 1, userId: 1, userName: 1, createdAt: 1, 'details.id': 1, 'details.after.title': 1, 'details.after.name': 1, 'details.after.num': 1, 'details.after.orderNo': 1, 'details.after.materialName': 1 })
+        .sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
+      this.model.countDocuments(filter).exec(),
+    ]);
+    const items = docs.map((d) => {
+      const det = (d.details ?? {}) as { id?: unknown; after?: Record<string, unknown> };
+      const a = det.after ?? {};
+      const title = [a.num ? `№${a.num}` : a.orderNo ? `№${a.orderNo}` : '', a.title ?? a.name ?? a.materialName ?? ''].filter(Boolean).join(' ');
+      return { id: String(d._id), createdAt: (d as { createdAt?: Date }).createdAt, action: d.action, entityType: d.entityType,
+        entityId: d.entityId ? String(d.entityId) : det.id ? String(det.id) : null, userName: d.userName ?? null, title: title || null };
+    });
+    return { items, total, page, limit };
+  }
+
+  /** Кто менял (для фильтра «кто» общего журнала приложения). */
+  async appUsers(types: string[]) {
+    const users = await this.model.aggregate<{ _id: Types.ObjectId; userName?: string }>([
+      { $match: { entityType: { $in: types }, userId: { $ne: null } } },
+      { $group: { _id: '$userId', userName: { $last: '$userName' } } },
+      { $limit: 500 },
+    ]).exec();
+    return users.map((u) => ({ value: String(u._id), label: u.userName || String(u._id) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
   }
 
   /** A3: значения для фильтров журнала (типы сущностей, действия, пользователи). */

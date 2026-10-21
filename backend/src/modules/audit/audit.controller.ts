@@ -1,11 +1,14 @@
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
 import type { AuditQueryRaw } from './audit-query';
+import { withChanges } from './record-history';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
-export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder'];
+export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem'];
+const canMoney = (u?: AuthenticatedUser) => u?.isOwner === true || ['admin', 'director', 'accountant'].includes(u?.role ?? '');
 
 /**
  * Журнал аудита (только admin). Пишут оба приложения единой базы — data-core и kppdf.
@@ -42,13 +45,32 @@ export class AuditController {
   @ApiOperation({ summary: 'История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда' })
   @ApiQuery({ name: 'entityType', required: true, description: RECORD_HISTORY_TYPES.join(' | ') })
   @ApiQuery({ name: 'entityId', required: true })
-  async record(@Query('entityType') entityType: string, @Query('entityId') entityId: string) {
+  async record(@Query('entityType') entityType: string, @Query('entityId') entityId: string, @CurrentUser() user?: AuthenticatedUser) {
     if (!RECORD_HISTORY_TYPES.includes(entityType)) throw new BadRequestException('История для этого типа записей недоступна');
-    const r = await this.service.findAll({ entityType, entityId, limit: '100' } as AuditQueryRaw);
+    if (!entityId?.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
+    // «было → стало» по полям (И.1) — из соседних снимков; деньги — только деньги-ролям; сами снимки наружу не отдаём
+    const items = withChanges(await this.service.recordLogs(entityType, entityId.trim()) as Array<Record<string, unknown>>, canMoney(user));
     return {
-      items: (r.items as Array<Record<string, unknown>>).map((d) => ({ action: d.action, userName: d.userName ?? null, createdAt: d.createdAt })),
-      total: r.total,
+      items: items.map((d) => ({ action: d.action, userName: d.userName ?? null, createdAt: d.createdAt, changes: d.changes, first: d.first })),
+      total: items.length,
     };
+  }
+
+  /** Общая история приложения (И.2): все изменения записей приложения — кто / раздел / даты. Директор и администратор. */
+  @Get('app')
+  @Roles('admin', 'director')
+  @ApiOperation({ summary: 'История изменений приложения: кто, что, когда (сначала новые)' })
+  @ApiQuery({ name: 'entityType', required: false, description: RECORD_HISTORY_TYPES.join(' | ') })
+  @ApiQuery({ name: 'userId', required: false }) @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤ 200, по умолчанию 50' })
+  appHistory(@Query() raw: AuditQueryRaw) {
+    return this.service.appLogs({ ...raw, action: undefined, entityId: undefined }, RECORD_HISTORY_TYPES);
+  }
+
+  @Get('app/users')
+  @Roles('admin', 'director')
+  appUsers() {
+    return this.service.appUsers(RECORD_HISTORY_TYPES);
   }
 
   @Get('facets')

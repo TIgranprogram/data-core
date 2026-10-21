@@ -1,6 +1,7 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime } from '../core/format.js';
+import { actionLabel, changeList } from './history.js';
 import { confirmDlg } from './dialog.js';
 import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
@@ -117,7 +118,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     try {
       const r = await api('/audit-logs/record', { query: { entityType: section.entityType, entityId: row.id } });
       const label = section.historyLabels || {};
-      ul.replaceChildren(...(r.items.length ? r.items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || x.action), h('span', { class: 'muted' }, x.userName || '')))
+      // подписи полей — из формы раздела (И.1: «Поле: было → стало»)
+      let names = {};
+      try { names = Object.fromEntries((section.form ? await section.form.fields(row) : []).filter((f) => f.key).map((f) => [f.key, f.label])); } catch { /* без подписей */ }
+      ul.replaceChildren(...(r.items.length ? r.items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
+        changeList(x.changes, names, x.first)))
         : [h('li', { class: 'muted' }, row.source === 'google-sheets' || row.sheetSource ? 'Запись пришла из Google-таблицы; изменений в приложении пока не было.' : 'Изменений в приложении пока не было.')]));
     } catch { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); }
   }

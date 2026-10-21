@@ -7,6 +7,8 @@ import { Types } from 'mongoose';
  */
 export interface AuditQueryRaw {
   entityType?: string;
+  /** Одна запись журнала (общая история приложения, И.2). */
+  id?: string;
   action?: string;
   userId?: string;
   entityId?: string;

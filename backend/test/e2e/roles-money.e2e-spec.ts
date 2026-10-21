@@ -51,4 +51,28 @@ describe('Roles hierarchy + money visibility', () => {
     await http().post('/api/supply/requests').set(as(tokens.director)).send({ title: 'Шайба', qty: 1, clientUid: 'rm-3' }).expect(201);
     await http().get('/api/admin/users').set(as(tokens.director)).expect(403);
   });
+
+  it('И.1/И.2: история записи «было → стало» (суммы — только деньги-ролям), общая история — директору', async () => {
+    const r = (await http().post('/api/supply/requests').set(as(admin.access)).send({ title: 'Уголок история', qty: 3, priceHint: 700, clientUid: 'rm-h1' }).expect(201)).body;
+    await http().patch(`/api/supply/requests/${r.id}`).set(as(admin.access)).send({ qty: 5, priceHint: 900 }).expect(200);
+    const q = { entityType: 'SupplyRequest', entityId: r.id };
+    const full = (await http().get('/api/audit-logs/record').query(q).set(as(tokens.director)).expect(200)).body;
+    expect(full.items[0].changes).toEqual(expect.arrayContaining([{ field: 'qty', from: 3, to: 5 }, { field: 'priceHint', from: 700, to: 900 }]));
+    expect(full.items[full.items.length - 1].first).toBe(true);
+    const mgr = (await http().get('/api/audit-logs/record').query(q).set(as(tokens.manager)).expect(200)).body;
+    expect(mgr.items[0].changes).toEqual([{ field: 'qty', from: 3, to: 5 }]);
+    // общая история: директору — да, менеджеру — нет; фильтр по разделу и одной записи
+    const app1 = (await http().get('/api/audit-logs/app').query({ entityType: 'SupplyRequest' }).set(as(tokens.director)).expect(200)).body;
+    expect(app1.items.some((x: { entityId: string; title: string }) => x.entityId === r.id && x.title.includes('Уголок история'))).toBe(true);
+    const one = (await http().get('/api/audit-logs/app').query({ id: app1.items[0].id }).set(as(tokens.director)).expect(200)).body;
+    expect(one.items).toHaveLength(1);
+    await http().get('/api/audit-logs/app').query({ entityType: 'User' }).set(as(tokens.director)).expect(400);
+    await http().get('/api/audit-logs/app').set(as(tokens.manager)).expect(403);
+    expect((await http().get('/api/audit-logs/app/users').set(as(tokens.director)).expect(200)).body.length).toBeGreaterThan(0);
+    // заказчик (id не ObjectId) — история тоже пишется и читается
+    await http().post('/api/partners').set(as(admin.access)).send({ kind: 'customer', name: 'ЗАО История' }).expect(201);
+    await http().patch(`/api/partners/${encodeURIComponent('c:ЗАО История')}`).set(as(admin.access)).send({ phone: '+7 1' }).expect(200);
+    const ph = (await http().get('/api/audit-logs/record').query({ entityType: 'Partner', entityId: 'c:ЗАО История' }).set(as(tokens.manager)).expect(200)).body;
+    expect(ph.items[0].changes).toEqual(expect.arrayContaining([{ field: 'phone', from: null, to: '+7 1' }]));
+  });
 });
