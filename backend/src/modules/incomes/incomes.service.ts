@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { customerNames } from '../partners/customer-names';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -201,13 +202,12 @@ export class IncomesService {
 
   /** Подсказки формы: наши компании, заказчики и формы оплаты, которые уже встречались. */
   async lookups() {
-    const lists = ((await this.connection.db!.collection('settings').findOne({ key: 'supply.sheetLists' }))?.value ?? {}) as Record<string, string[] | undefined>;
     const [companies, customers, forms] = await Promise.all([
       ourCompanies(this.connection),
-      this.model.distinct('customer', { deletedAt: null }).exec(),
+      customerNames(this.connection.db!), // ЗЧ.1: один источник «Заказчики»
       this.model.distinct('paymentForm', { deletedAt: null }).exec(),
     ]);
     const sort = (a: unknown[]) => a.filter(Boolean).map(String).sort((x, y) => x.localeCompare(y, 'ru'));
-    return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers: sort([...customers, ...(lists.customers ?? [])]).filter((v, i, a) => a.indexOf(v) === i), paymentForms: sort(['б/р', 'нал', ...forms]).filter((v, i, a) => a.indexOf(v) === i) };
+    return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers, paymentForms: sort(['б/р', 'нал', ...forms]).filter((v, i, a) => a.indexOf(v) === i) };
   }
 }

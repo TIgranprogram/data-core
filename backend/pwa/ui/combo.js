@@ -10,7 +10,7 @@ import { highlight, placeList } from './popup.js';
  * Текст не режем (ВС): панель шире поля, пункт переносится, совпадения выделены, выбранный — галочкой;
  * у края экрана — влево / вверх, на телефоне — лист снизу (ui/popup.js). Длинное значение в поле — целиком в подсказке.
  */
-export function attachCombo(input, { options, onPick, max = 60, empty }) {
+export function attachCombo(input, { options, onPick, max = 60, empty, extra }) {
   const box = h('div', { class: 'combo-list', hidden: true, role: 'listbox' });
   input.parentElement.classList.add('has-combo');
   input.insertAdjacentElement('afterend', box);
@@ -23,6 +23,9 @@ export function attachCombo(input, { options, onPick, max = 60, empty }) {
     const tokens = filter ? searchTokens(input.value) : [];
     const list = all().filter((o) => !tokens.length || tokens.every((t) => normSearch([o.label, o.sub, o.group].filter(Boolean).join(' ')).includes(t)));
     shown = list.slice(0, max);
+    // extra(text, shown) → [{ label, run }] — явные действия под списком («+ Новый заказчик «…»», ЗЧ.2)
+    const acts = (extra?.(input.value.trim(), shown) || []).map((a) => h('div', { class: 'combo-opt combo-act', role: 'option', onmousedown: async (e) => { e.preventDefault(); close(); await a.run(); } }, h('div', { class: 'opt-l' }, a.label)));
+    if (!shown.length && acts.length) { box.replaceChildren(...acts); box.hidden = false; placeList(box); return; }
     if (!shown.length) { const why = empty?.(); box.replaceChildren(h('div', { class: 'combo-empty' + (why ? ' combo-why' : '') }, why || (tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст'))); box.hidden = false; return; }
     active = Math.min(active, shown.length - 1); // -1 — ничего не подсвечено: Enter не меняет введённое
     const rows = []; let grp;
@@ -33,6 +36,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty }) {
         h('div', { class: 'opt-l' }, filter ? highlight(o.label, input.value) : String(o.label)), o.sub ? h('small', null, o.sub) : null));
     });
     if (list.length > shown.length) rows.push(h('div', { class: 'combo-empty' }, `ещё ${list.length - shown.length} — уточните поиск`));
+    rows.push(...acts);
     box.replaceChildren(...rows);
     box.hidden = false;
     placeList(box);

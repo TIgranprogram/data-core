@@ -130,7 +130,19 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     grid.append(label);
     inputs.set(f.key, { f, input, err, label, blk });
     blk?.keys.push(f.key);
-    if (f.type === 'combo') attachCombo(input, { options: () => opts.map((o) => ({ label: String(o.label), value: o.value })) });
+    if (f.type === 'combo') {
+      // f.extra — явные действия под списком; f.strict — только из списка (или через действие), прежнее значение можно оставить (ЗЧ.2)
+      const set = (k, val) => { const x = inputs.get(k); if (x) { x.input.value = val; x.input.dispatchEvent(new Event('input', { bubbles: true })); } };
+      attachCombo(input, { options: () => opts.map((o) => ({ label: String(o.label), value: o.value })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined });
+      if (f.strict) {
+        const was = String(v ?? '');
+        input.addEventListener('blur', () => setTimeout(() => {
+          const val = input.value.trim();
+          if (!val || val === was || opts.some((o) => String(o.label ?? o) === val)) { err.hidden = true; return; }
+          input.value = was; err.textContent = f.strictText || 'Выберите из списка'; err.hidden = false;
+        }, 200));
+      }
+    }
     if (f.suggest) {
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
         for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') x.input.value = String(v); }

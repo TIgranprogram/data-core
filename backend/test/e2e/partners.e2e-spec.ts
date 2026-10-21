@@ -45,6 +45,25 @@ describe('Partners', () => {
     expect((await http().get('/api/partners').query({ type: 'customer' }).set(auth()).expect(200)).body.items).toHaveLength(1);
   });
 
+  it('ЗЧ: «Заказчики» — один список (контрагенты + заказы), без текстов заявок; объединение меняет и «Заказчик» в заявках', async () => {
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Доска', qty: 1, orderLabel: 'Производство', clientUid: 'zch-1' }).expect(201);
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Брус', qty: 1, orderLabel: 'ип сахаджи', clientUid: 'zch-2' }).expect(201);
+    await http().post('/api/salesorders').set(auth()).send({ orderNo: 'ZCH1', customer: 'ИП Сахаджи', clientUid: 'zch-so' }).expect(201);
+    await http().post('/api/partners').set(auth()).send({ kind: 'customer', name: 'ООО Новый заказчик ЗЧ' }).expect(201);
+    const lk = (await http().get('/api/supply/lookups').set(auth()).expect(200)).body.customers as string[];
+    expect(lk).toEqual(expect.arrayContaining(['ИП Сахаджи', 'ООО Новый заказчик ЗЧ']));
+    expect(lk).not.toContain('Производство');
+    expect(lk.filter((x) => x.toLowerCase() === 'ип сахаджи')).toHaveLength(1);
+    const inc = (await http().get('/api/incomes/lookups').set(auth()).expect(200)).body.customers as string[];
+    expect(inc).toEqual(expect.arrayContaining(['ИП Сахаджи', 'ООО Новый заказчик ЗЧ']));
+    // объединить «ООО Новый заказчик ЗЧ» в «ИП Сахаджи»: дубль-контрагент — в корзину; текст заявок тоже меняется
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Гвозди', qty: 1, orderLabel: 'ООО Новый заказчик ЗЧ', clientUid: 'zch-3' }).expect(201);
+    await http().post(`/api/partners/${encodeURIComponent('c:ООО Новый заказчик ЗЧ')}/merge`).set(auth()).send({ intoId: 'c:ИП Сахаджи' }).expect(200);
+    const r3 = (await http().get('/api/supply/requests').query({ search: 'Гвозди' }).set(auth())).body.items[0];
+    expect(r3.orderLabel).toBe('ИП Сахаджи');
+    expect((await http().get('/api/supply/lookups').set(auth())).body.customers).not.toContain('ООО Новый заказчик ЗЧ');
+  });
+
   it('СП.1: новый поставщик и заказчик с реквизитами, проверка полей, корзина и восстановление', async () => {
     const sup = (await http().post('/api/partners').set(auth()).send({ kind: 'supplier', name: 'ООО Сталь-Трейд', inn: '7701234567', kpp: '770101001', bankBik: '044525225', bankAccount: '40702810900000000001', contactName: 'Ольга', phone: '+7 495 000-00-00' }).expect(201)).body;
     expect(sup).toMatchObject({ kind: 'supplier', inn: '7701234567', kpp: '770101001', bankBik: '044525225', contactName: 'Ольга', requests: 0 });

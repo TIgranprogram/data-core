@@ -12,6 +12,22 @@ import { pic } from './stock.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
+/** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
+function customerActions(text, shown, form) {
+  if (!text) return [];
+  const known = (lk) => shown.some((o) => String(o.label).toLowerCase() === lk.toLowerCase());
+  const create = async (name) => { if (!known(name)) { await api('/partners', { method: 'POST', body: { kind: 'customer', name } }).catch((e) => { if (e.status !== 409) throw e; }); form.add(name); lookups.reset?.(); } };
+  const acts = [];
+  const i = text.indexOf(',');
+  if (i > 0 && text.slice(i + 1).trim()) {
+    const x = text.slice(0, i).trim(), y = text.slice(i + 1).trim();
+    acts.push({ label: `Заказчик: «${x}» · Объект: «${y}» — разнести по полям`, run: async () => { await create(x); form.set('orderLabel', x); form.set('costObject', y); } });
+  } else if (!known(text)) {
+    acts.push({ label: `+ Новый заказчик «${text}»`, run: async () => { await create(text); form.set('orderLabel', text); toast(`Заказчик «${text}» добавлен в «Контрагенты»`); } });
+  }
+  return acts;
+}
+
 export const STATUS_ORDER = ['in_progress', 'requested', 'ordered', 'paid', 'received', 'cancelled'];
 const statusOptions = () => STATUS_ORDER.map((k) => ({ value: k, label: SUPPLY_STATUS[k].label }));
 export const NEXT = { in_progress: 'requested', requested: 'ordered', ordered: 'paid' };
@@ -139,7 +155,10 @@ const fields = async (r) => {
     { key: 'costCenter', label: 'Куда (направление затрат)', type: 'select', options: Object.entries(COST_CENTER).map(([value, label]) => ({ value, label })), hint: 'Для «Денег»: сколько ушло на цех, офис, СМР, заказы' },
     { key: 'costObject', label: 'Объект СМР / уточнение', max: 200 },
     { key: 'salesOrderRef', label: 'Под заказ (позиция)', type: 'select', options: await orderOptions(r ? joinRef(r) : '').catch(() => []), hint: 'Заявка появится в карточке заказа', wide: true },
-    { key: 'orderLabel', label: 'Заказчик / участок (текстом)', type: 'combo', options: lk.customers || [], max: 300, wide: true },
+    // ЗЧ.2: заказчик — из «Контрагентов» (один список); новый — явным «+ Новый заказчик «…»»; «X, Y» — разнести на заказчика и объект
+    { key: 'orderLabel', label: 'Заказчик', type: 'combo', options: lk.customers || [], max: 300, wide: true, strict: true,
+      strictText: 'Выберите заказчика из списка или нажмите «+ Новый заказчик «…»» в списке. Участок / объект — в поле «Объект СМР / уточнение»',
+      hint: 'Из «Контрагентов». Участок, объект — в «Объект СМР / уточнение»', extra: customerActions },
     { key: 'requestedBy', label: 'Кто подал', type: 'combo', options: lk.requestedBy, max: 200 },
     { key: 'requestDate', label: 'Дата заявки', type: 'date' },
   ];

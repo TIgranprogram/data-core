@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
 import { searchTokens, tokenRegex } from '../stock/search-norm';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -389,7 +390,8 @@ export class SupplyService {
     const lists = ((await this.connection.db!.collection('settings').findOne({ key: 'supply.sheetLists' }))?.value ?? {}) as Record<string, string[] | undefined>;
     const uniq = (a: unknown[]) => [...new Map(a.filter(Boolean).map((v) => [String(v).trim().toLowerCase().replace(/\s+/g, ' '), String(v).trim()])).values()].sort((x, y) => x.localeCompare(y, 'ru'));
     const people = uniq([...(await this.model.distinct('requestedBy', { deletedAt: null }).exec()), ...(lists.people ?? [])]);
-    const customers = uniq([...(await this.model.distinct('orderLabel', { deletedAt: null }).exec()), ...(lists.customers ?? [])]);
+    // ЗЧ.1: заказчики — один источник (контрагенты + заказы), не «всё, что когда-то вписали» и не список таблицы
+    const customers = await customerNames(this.connection.db!);
     const sup = orgs.filter((o) => (o.type as string[] | undefined)?.includes('supplier'));
     // «Справочники» (СП.5): заполненный справочник — единственный источник списка; пустой — старые источники
     const dict = async (k: string) => { const d = DICT.get(k)!; return d.options!((await this.connection.db!.collection(d.coll).find(d.match).toArray()) as Doc[]).filter(Boolean); };
@@ -402,7 +404,7 @@ export class SupplyService {
       /** Для фильтров: поставщики с id и «кто подал». */
       supplierRefs: sup.map((o) => ({ id: String(o._id), name: String(o.shortName || o.name) })),
       requestedBy: or(dPeople, people),
-      /** Списки «Справочника» Google-таблицы (+ то, что уже встречалось в заявках). */
+      /** Заказчики — контрагенты-заказчики и заказчики заказов (ЗЧ.1, `partners/customer-names.ts`). */
       customers,
       invoiceTypes: or(dInvoice, uniq(['Счет на оплату', 'Счет-договор', 'Счет', 'УПД', ...(lists.invoiceTypes ?? [])])),
       services: or(dServices, lists.services ?? []),
