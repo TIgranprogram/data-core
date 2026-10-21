@@ -10,6 +10,7 @@ export class StockItemDto {
   @ApiPropertyOptional({ description: 'Категория по названию (создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 100) categoryName?: string;
   @ApiPropertyOptional({ description: 'Минимальный остаток' }) @IsOptional() @IsNumber() @Min(0) minQuantity?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) weightKg?: number;
+  @ApiPropertyOptional({ description: 'Вес 1 шт., г (хранится в weightKg, кг); null — стереть' }) @IsOptional() @IsNumber() @Min(0) weightG?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) notes?: string;
   @ApiPropertyOptional({ description: 'Металл: сортамент / сечение (40×20×2, 2 мм); null — стереть' }) @IsOptional() @IsString() @Length(0, 200) assortment?: string | null;
   @ApiPropertyOptional({ description: 'Марка стали (Ст3, AISI 304); null — стереть' }) @IsOptional() @IsString() @Length(0, 100) materialGrade?: string | null;
@@ -30,6 +31,7 @@ export class StockMoveDto {
   @ApiProperty({ description: 'Количество > 0; для adjust — изменение со знаком; для count — сколько лежит ВСЕГО (с бронью), ≥ 0' }) @IsNumber() qty!: number;
   @ApiPropertyOptional({ description: 'count: остаток, который видел человек; не совпал с сервером — 409' }) @IsOptional() @IsNumber() expected?: number;
   @ApiPropertyOptional({ description: 'count/adjust ниже брони — подтверждено' }) @IsOptional() @IsBoolean() force?: boolean;
+  @ApiPropertyOptional({ description: 'По весу (in / count): { unitWeightG? | sampleCount + sampleWeightG, batchesG: [], tareG?, saveUnitWeight? } — штуки считает сервер' }) @IsOptional() @IsObject() byWeight?: { unitWeightG?: number; sampleCount?: number; sampleWeightG?: number; batchesG: number[]; tareG?: number; saveUnitWeight?: boolean };
   @ApiPropertyOptional({ description: 'Примечание / основание / для кого бронь' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор с тем же ключом ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
   @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
@@ -39,6 +41,7 @@ export class StockMoveDto {
 export class StockBatchLineDto {
   @ApiProperty() @IsMongoId() materialId!: string;
   @ApiProperty({ description: 'Количество > 0; для count — фактический остаток (≥ 0)' }) @IsNumber() @Min(0) qty!: number;
+  @ApiPropertyOptional({ description: 'Примечание строки (расчёт по весу, НО)' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
 }
 
 export class StockBatchDto {

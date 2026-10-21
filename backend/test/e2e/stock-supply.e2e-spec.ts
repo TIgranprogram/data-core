@@ -394,6 +394,35 @@ describe('Stock & supply on shared CRM collections', () => {
     expect((await mv())[0]).toMatchObject({ qtyBefore: 900, qtyAfter: 100 });
   });
 
+  it('НО: приход по весу (контрольный пример 10 шт = 80 г, партии 4 930 + 1 040 → 746 шт), вес 1 шт. в граммах / кг, пересчёт по весу', async () => {
+    const it = (await http().post('/api/stock/items').set(auth()).send({ name: 'Гайка колпачковая, M8, DIN 1587 НО', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    expect(it.weightG).toBeNull();
+    const r = (await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'in', qty: 1, byWeight: { sampleCount: 10, sampleWeightG: 80, batchesG: [4930, 1040] } }).expect(201)).body;
+    expect(r).toMatchObject({ quantity: 746, weightG: 8 });
+    const mv = (await http().get('/api/stock/movements').query({ materialId: it.id }).set(auth())).body.items[0];
+    expect(mv).toMatchObject({ type: 'in', delta: 746 });
+    expect(mv.note).toContain('по весу: 5 970 г ÷ 8 г = 746 шт (образец 10 шт = 80 г; партии 4 930 + 1 040)');
+    const raw = await db().collection('materials').findOne({ _id: new Types.ObjectId(it.id) });
+    expect(raw).toMatchObject({ weightKg: 0.008, weightUnit: 'kg' });
+    // пересчёт по весу с весом из карточки: 1 600 г ÷ 8 г = 200
+    expect((await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'count', qty: 0, expected: 746, byWeight: { batchesG: [1600] } }).expect(201)).body.quantity).toBe(200);
+    // образец сильно другой — вес 1 шт. в карточке не меняется без подтверждения; с подтверждением — меняется
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'in', qty: 1, byWeight: { sampleCount: 10, sampleWeightG: 100, batchesG: [100] } }).expect(201);
+    expect((await http().get(`/api/stock/items/${it.id}`).set(auth())).body.weightG).toBe(8);
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'in', qty: 1, byWeight: { sampleCount: 10, sampleWeightG: 100, batchesG: [100], saveUnitWeight: true } }).expect(201);
+    expect((await http().get(`/api/stock/items/${it.id}`).set(auth())).body.weightG).toBe(10);
+    // ошибки: нет партий, не штуки, списание по весу
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'in', qty: 1, byWeight: { batchesG: [] } }).expect(400);
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'out', qty: 1, byWeight: { batchesG: [100] } }).expect(400);
+    const m = (await http().post('/api/stock/items').set(auth()).send({ name: 'Труба НО', unit: 'м', categoryName: 'Труба' }).expect(201)).body;
+    await http().post(`/api/stock/items/${m.id}/move`).set(auth()).send({ type: 'in', qty: 1, byWeight: { unitWeightG: 5, batchesG: [100] } }).expect(400);
+    // старая запись (граммы в weightKg без пометки) читается как граммы; правка в граммах пишет кг с пометкой
+    await db().collection('materials').updateOne({ _id: new Types.ObjectId(m.id) }, { $set: { weightKg: 58 }, $unset: { weightUnit: '' } });
+    expect((await http().get(`/api/stock/items/${m.id}`).set(auth())).body.weightG).toBe(58);
+    expect((await http().patch(`/api/stock/items/${m.id}`).set(auth()).send({ weightG: 66 }).expect(200)).body.weightG).toBe(66);
+    expect(await db().collection('materials').findOne({ _id: new Types.ObjectId(m.id) })).toMatchObject({ weightKg: 0.066, weightUnit: 'kg' });
+  });
+
   it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
     const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
     const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;

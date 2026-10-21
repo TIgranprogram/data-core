@@ -886,3 +886,21 @@ html { scrollbar-gutter: stable; }
   .ff-pop.sheet { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 70vh; border-radius: var(--radius) var(--radius) 0 0; z-index: 60; }
 }
 .ff-pop.align-right { left: auto; right: 0; }
+
+/* «Количество: штуками / по весу» (TASKS НО, ui/weight-count.js) */
+.wc { display: flex; flex-direction: column; gap: var(--s3); }
+.wc-seg { align-self: flex-start; }
+.wc-weight { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.wc-step { display: flex; flex-direction: column; gap: var(--s2); }
+.wc-step > b { color: var(--heading); font-size: var(--fs); }
+.wc-grid, .wc-batches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--s2) var(--s3); align-items: end; }
+.wc-sub { color: var(--muted); font-size: var(--fs-sm); }
+.wc-known { font-size: var(--fs-sm); }
+.wc-save { font-size: var(--fs-sm); display: flex; gap: var(--s2); align-items: center; }
+.wc-result { padding: var(--s3); border-radius: var(--radius-sm); background: var(--surface); border: 1px dashed var(--border-strong); }
+.wc-result.ok { border-style: solid; border-color: var(--primary); }
+.wc-result.warn { border-color: var(--warn); }
+.wc-big { font-size: var(--fs-h2); font-weight: 700; color: var(--heading); font-variant-numeric: tabular-nums; }
+.wc-warn { color: var(--warn); font-size: var(--fs-sm); font-weight: 600; }
+.wc input[readonly] { background: var(--surface-2); color: var(--heading); font-weight: 600; }
+@media (max-width: 720px) { .wc-grid, .wc-batches { grid-template-columns: 1fr 1fr; } .wc-big { font-size: var(--fs-h1); } }

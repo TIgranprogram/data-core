@@ -10,6 +10,7 @@ import { normText } from '../supply/org-resolver';
 import { matchesAll, searchTokens } from './search-norm';
 import { CategoryResolver } from './category-resolver';
 import { type Dims, dimsOf, mergeDims, metalKind, offcutName } from './metal';
+import { type ByWeight, gramsToKg, weightCount, weightGOf, weightNote } from './weight';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
@@ -25,6 +26,8 @@ export interface StockItemInput {
   categoryName?: string;
   minQuantity?: number;
   weightKg?: number;
+  /** Вес 1 шт., г (НО): пишется в weightKg (кг) с пометкой weightUnit 'kg'; null — стереть. */
+  weightG?: number | null;
   notes?: string;
   /** Металл (СМ.1): сортамент / сечение, марка стали, размеры в мм (null — стереть). */
   assortment?: string | null;
@@ -48,6 +51,8 @@ export interface MoveInput {
   expected?: number;
   /** Пересчёт / корректировка ниже брони — только с явным подтверждением. */
   force?: boolean;
+  /** Количество по весу (НО): приход / пересчёт; штуки считает сервер, вес 1 шт. может сохранить в позицию. */
+  byWeight?: ByWeight & { saveUnitWeight?: boolean };
 }
 
 /**
@@ -179,7 +184,7 @@ export class StockService {
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),
         offcutOf: (m as { offcutOf?: Types.ObjectId }).offcutOf ? String((m as { offcutOf?: Types.ObjectId }).offcutOf) : null,
         offcuts: offcutsOf.get(String(m._id)) ?? [],
-        weightKg: st?.weightKg ?? m.weightKg, zoneName: st?.zoneName ?? null, storageItemId: st?.id ?? null,
+        weightKg: st?.weightKg ?? m.weightKg, weightG: weightGOf(m as { weightKg?: unknown; weightUnit?: unknown }), zoneName: st?.zoneName ?? null, storageItemId: st?.id ?? null,
         lastCountedAt: st?.lastCountedAt ?? null,
         photoIds: (m.photoIds ?? []) as Types.ObjectId[],
         status: quantity <= 0 ? 'none' : minQuantity > 0 && quantity - reservedQty < minQuantity ? 'low' : 'ok',
@@ -325,6 +330,7 @@ export class StockService {
       ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
       ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
     });
+    if (dto.weightG !== undefined) await this.setWeightG(mat._id as Types.ObjectId, dto.weightG);
     const wh = await this.defaultWarehouse();
     await this.storage.updateOne(
       { warehouseId: wh._id, materialId: mat._id, zoneName: null },
@@ -351,6 +357,7 @@ export class StockService {
     if (dto.categoryId && Types.ObjectId.isValid(dto.categoryId)) set.categoryId = new Types.ObjectId(dto.categoryId);
     else if (dto.categoryName) set.categoryId = await new CategoryResolver(this.connection).resolve(dto.categoryName);
     if (Object.keys(set).length) await this.materials.updateOne({ _id }, { $set: set }).exec();
+    if (dto.weightG !== undefined) await this.setWeightG(_id, dto.weightG);
     await this.markEdited(_id);
     if (dto.minQuantity !== undefined || dto.weightKg !== undefined) {
       const wh = await this.defaultWarehouse();
@@ -391,6 +398,7 @@ export class StockService {
    */
   async move(materialId: string, dto: MoveInput, userId?: string) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
+    if (dto.byWeight) dto = await this.applyWeight(materialId, dto);
     const qty = Number(dto.qty);
     if (!Number.isFinite(qty) || (!['adjust', 'count'].includes(dto.type) && qty <= 0) || (dto.type === 'adjust' && qty === 0) || (dto.type === 'count' && qty < 0)) {
       throw new BadRequestException('Укажите количество');
@@ -485,14 +493,16 @@ export class StockService {
    * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
-  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; force?: boolean }, userId?: string) {
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number; note?: string }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; force?: boolean }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
     }
     // Одна позиция дважды — складываем (приход/списание) или берём последнюю (пересчёт)
     const merged = new Map<string, number>();
+    const lineNote = new Map<string, string>(); // расчёт по весу у строки (НО)
     for (const l of dto.lines) {
+      if (l.note?.trim()) lineNote.set(l.materialId, l.note.trim());
       const n = Number(l.qty);
       if (!Number.isFinite(n) || n < 0 || (dto.type !== 'count' && n === 0)) throw new BadRequestException('Укажите количество больше нуля в каждой строке');
       merged.set(l.materialId, dto.type === 'count' ? n : (merged.get(l.materialId) ?? 0) + n);
@@ -543,7 +553,7 @@ export class StockService {
             const type = dto.type === 'count' ? 'adjust' : dto.type;
             const ref = dto.type === 'count' ? `ADJUST:${note ?? 'пересчёт'}` : dto.documentRef;
             await this.movements.create([{ type, date: now, materialId: new Types.ObjectId(id), warehouseId: wh._id, qty: Math.abs(delta), delta, documentRef: ref, qtyBefore: before, qtyAfter: item.quantity,
-              notes: note ?? (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId, ...(dto.type === 'out' ? soRef : {}) }], { session });
+              notes: [note, lineNote.get(id)].filter(Boolean).join('; ') || (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId, ...(dto.type === 'out' ? soRef : {}) }], { session });
             moved++;
           }
           if (dto.type === 'count') {
@@ -755,6 +765,35 @@ export class StockService {
       await session.endSession();
     }
     return { batchId: String(batchId), parent: await this.getItem(materialId), offcut: await this.getItem(String(kid!._id)) };
+  }
+
+  /**
+   * По весу (TASKS НО.3): штуки = общий вес ÷ вес 1 шт. (образец или из позиции), в примечание — расчёт;
+   * вес 1 шт. сохраняется в позицию, если его не было, или если отличается > 10% и это подтверждено (saveUnitWeight).
+   * Только для позиций в штуках, только приход и пересчёт.
+   */
+  private async applyWeight(materialId: string, dto: MoveInput): Promise<MoveInput> {
+    if (!['in', 'count'].includes(dto.type)) throw new BadRequestException('По весу — только приход и пересчёт');
+    const mat = await this.connection.db!.collection('materials').findOne({ _id: new Types.ObjectId(materialId), deletedAt: null }, { projection: { unit: 1, weightKg: 1, weightUnit: 1 } });
+    if (!mat) throw new NotFoundException('Позиция не найдена');
+    if (String(mat.unit || 'шт').toLowerCase() !== 'шт') throw new BadRequestException(`По весу считаются только штуки (у позиции «${mat.unit}»)`);
+    const bw = dto.byWeight!;
+    const known = weightGOf(mat as { weightKg?: unknown; weightUnit?: unknown }) ?? undefined;
+    const w: ByWeight = { ...bw, unitWeightG: bw.sampleCount !== undefined ? undefined : bw.unitWeightG ?? known };
+    const r = weightCount(w);
+    if (!r.ok) throw new BadRequestException(r.errors.join('; ') || 'Не получилось посчитать штуки по весу');
+    const differs = known ? Math.abs((r.unitWeightG ?? 0) - known) / known > 0.1 : true;
+    if (!known || (differs && bw.saveUnitWeight)) await this.setWeightG(mat._id as Types.ObjectId, r.unitWeightG);
+    const note = [dto.note?.trim(), weightNote(w, r)].filter(Boolean).join('; ');
+    return { ...dto, qty: r.count!, note, byWeight: undefined };
+  }
+
+  /** Вес 1 шт. в граммах → weightKg (кг) + пометка weightUnit 'kg' у позиции и её остатков (НО.0). */
+  private async setWeightG(_id: Types.ObjectId, g: number | null | undefined) {
+    const kg = g === null || g === undefined || !(Number(g) > 0) ? null : gramsToKg(Number(g));
+    const set = kg === null ? { weightKg: null } : { weightKg: kg, weightUnit: 'kg' };
+    await this.connection.db!.collection('materials').updateOne({ _id }, { $set: set });
+    await this.connection.db!.collection('storageitems').updateMany({ materialId: _id }, { $set: set });
   }
 
   /** Кому выдано (TASKS Л.3): сотрудник из «Справочников» и/или текст («объект Парк», «бригада 2»). */

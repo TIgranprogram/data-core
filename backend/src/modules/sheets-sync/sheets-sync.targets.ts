@@ -1,4 +1,5 @@
 import { Types, type Connection } from 'mongoose';
+import { gramsToKg } from '../stock/weight';
 import { parseSheetDate } from '../../common/date-parse';
 import { CategoryResolver } from '../stock/category-resolver';
 import type { StockService } from '../stock/stock.service';
@@ -115,9 +116,10 @@ export class SheetTargets {
     return {
       collection: 'materials',
       allowDelete: false,
-      managedFields: ['name', 'unit', 'categoryId', 'weightKg'],
+      managedFields: ['name', 'unit', 'categoryId', 'weightKg', 'weightUnit'],
       toFields: async (r) => ({
-        name: str(r.name), unit: str(r.unit) ?? 'шт', categoryId: await this.cats.resolve(r.category), weightKg: num(r.weightKg),
+        // «Вес 1 шт.» в листе «Склад» — в граммах (8; 16,5; 49), хотя заголовок «кг» (НО.0) → в поле кг делим на 1000
+        name: str(r.name), unit: str(r.unit) ?? 'шт', categoryId: await this.cats.resolve(r.category), weightKg: gramsToKg(num(r.weightKg)), weightUnit: num(r.weightKg) === undefined ? undefined : 'kg',
       }),
       adopt: async (_r, f) => {
         const clean = String(f.name ?? '').trim().replace(/\s+/g, ' ');
@@ -133,7 +135,7 @@ export class SheetTargets {
         this.rememberMaterial(r.name, id);
         const wh = await this.stock.defaultWarehouse();
         const set: Doc = { quantity: num(r.currentQty) ?? 0, reservedQty: num(r.reservedQty) ?? 0, minQuantity: num(r.minQty) ?? 0, updatedAt: new Date() };
-        const w = num(r.weightKg);
+        const w = gramsToKg(num(r.weightKg));
         if (w !== undefined) set.weightKg = w;
         await this.connection.db!.collection('storageitems').updateOne(
           { warehouseId: wh._id, materialId: id, zoneName: null },

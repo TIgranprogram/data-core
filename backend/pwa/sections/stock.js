@@ -11,6 +11,7 @@ import { cancelMovement, moveLabel } from './movements.js';
 import { issueToFields } from './issue.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
 import { orderedBlock, orderItem, receiveField } from './item-orders.js';
+import { weightCount } from '../ui/weight-count.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -58,16 +59,20 @@ async function move(r, type, ctx) {
   const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Под какой заказ' : type === 'out' ? 'Куда / на какой заказ' : 'Основание' });
   const to = type === 'out' ? issueToFields() : null; // кому выдано (TASKS Л.3)
   const recv = type === 'in' ? receiveField(r) : null; // приход закрывает открытую заявку (ЗП.4)
+  // НО.2: приход и пересчёт — штуками или по весу (один компонент); пересчёт по весу — тоже «всего, вместе с бронью» (ФИ)
+  const wc = (type === 'in' || inv) && !r.offcutOf ? weightCount({ qtyInput: qIn, unit: unit(r) || 'шт', unitWeightG: r.weightG, label: inv ? 'Сколько лежит на полке всего (вместе с забронированным)' : 'Количество', expectQty: inv ? r.quantity : null }) : null;
+  const byW = () => (wc?.mode() === 'w' ? { byWeight: wc.get().byWeight } : {});
   const done = await modal({
     title: `${titles[type]}: ${r.name}`, okText: inv ? 'Сохранить остаток' : 'Провести',
     body: h('div', null, h('p', { class: 'hint' }, hints[type]),
       h('div', { class: 'form-grid' },
-        h('label', { class: 'field' + (inv ? ' wide' : '') }, h('span', null, (inv ? 'Сколько лежит на полке всего (вместе с забронированным)' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
+        wc ? wc.el : h('label', { class: 'field' + (inv ? ' wide' : '') }, h('span', null, (inv ? 'Сколько лежит на полке всего (вместе с забронированным)' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
         preview,
         type === 'in' ? pipeInHelper(r, qIn) : null, // труба: «10 хлыстов по 6 м» = 60 м (СМ.2)
         recv?.el,
         h('label', { class: 'field' }, h('span', null, 'Примечание'), note), to?.el)),
     onOk: async () => {
+      if (wc?.mode() === 'w' && wc.get().errors?.length) throw new Error(wc.get().errors[0]);
       const n = parseNum(qIn.value);
       if (n === undefined || Number.isNaN(n) || n < 0 || (!inv && n === 0)) throw new Error(inv ? 'Введите число не меньше 0' : 'Введите количество больше нуля');
       if (inv) {
@@ -81,7 +86,7 @@ async function move(r, type, ctx) {
           throw new Error(below ? `Вы ввели ${qty(n)} — это меньше брони (${qty(r.reservedQty)}): свободно станет ${qty(n - r.reservedQty)}. Проверьте число. Если всё верно — нажмите ещё раз.`
             : `Остаток изменится сильно: ${qty(r.quantity)} → ${qty(n)}. Уверены? Если да — нажмите ещё раз.`);
         }
-        return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'count', qty: n, expected: r.quantity, force: below || undefined, note: note.value.trim() || 'инвентаризация' } });
+        return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'count', qty: n, expected: r.quantity, force: below || undefined, note: note.value.trim() || 'инвентаризация', ...byW() } });
       }
       const req = recv?.value();
       if (req) {
@@ -89,7 +94,7 @@ async function move(r, type, ctx) {
         await api(`/supply/requests/${req.id}/receive`, { method: 'POST', body: { qty: n, partial: n < req.qty } });
         return api(`/stock/items/${r.id}`);
       }
-      return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type, qty: n, note: note.value.trim() || undefined, ...(to ? to.value() : {}) } });
+      return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type, qty: n, note: note.value.trim() || undefined, ...(to ? to.value() : {}), ...(type === 'in' ? byW() : {}) } });
     },
   });
   if (done) { toast(`${titles[type]}: проведено`); ctx.setRow(done); }
@@ -188,7 +193,7 @@ export const stock = {
       ...metalView(r),
       ['Ед. изм.', r.unit],
       ['Артикул', r.article],
-      ['Вес 1 шт., кг', r.weightKg ? qty(r.weightKg) : ''],
+      ['Вес 1 шт.', r.weightG ? `${qty(r.weightG)} г` : ''],
       ['Примечание', r.notes],
     ],
     actions: (r) => [
@@ -205,7 +210,7 @@ export const stock = {
   },
 
   form: {
-    fields: async () => {
+    fields: async (row) => {
       const lk = await lookups().catch(() => ({ categories: [] }));
       return [
         { section: 'Что за позиция', tone: 'main', fixed: true },
@@ -213,9 +218,12 @@ export const stock = {
         { key: 'article', label: 'Артикул', max: 100, span: 1, hint: 'Пусто — присвоится сам' },
         { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },
+        // новая позиция — сразу «Начальный остаток»: штуками или по весу (НО.2)
+        ...(row ? [] : [{ section: 'Начальный остаток', tone: 'info', fixed: true },
+          { key: 'initial', type: 'widget', label: '', wide: true, widget: () => { const q = h('input', { inputmode: 'decimal', placeholder: '0' }); const wc = weightCount({ qtyInput: q, label: 'Сколько лежит' }); return { el: wc.el, get value() { return JSON.stringify(wc.get()); }, set value(_) { /* только ввод */ } }; } }]),
         { section: 'Запас', tone: 'info' },
         { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
-        { key: 'weightKg', label: 'Вес 1 шт., кг', type: 'number', min: 0 },
+        { key: 'weightG', label: 'Вес 1 шт., г', type: 'number', min: 0, hint: 'Для счёта по весу: штуки = вес партии ÷ вес 1 шт.' },
         ...metalFields(),
         { section: 'Фото и примечание', tone: 'who' },
         { key: 'photos', label: 'Фото', type: 'photos', hint: 'Перетащите, вставьте Ctrl+V или выберите файл' },
@@ -223,13 +231,14 @@ export const stock = {
       ];
     },
     initial: () => ({ unit: 'шт', photos: [] }),
-    toInitial: (r) => ({ ...r, ...metalInitial(r), photos: r.photos || [] }),
+    toInitial: (r) => ({ ...r, ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
     toBody: (v) => {
       const b = { photoIds: v.photos || [], name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;
       // пустое поле = стереть значение (В.7): null уходит на сервер, мин. остаток станет 0
       b.minQuantity = v.minQuantity;
-      b.weightKg = v.weightKg;
+      b.weightG = v.weightG; // НО: вес 1 шт. в граммах (сервер хранит кг)
+      if (v.initial) b.initial = v.initial;
       return { ...b, ...metalBody(v) };
     },
     create: async (body) => {
@@ -237,8 +246,13 @@ export const stock = {
       const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
       const twin = same.items.find((i) => norm(i.name) === norm(body.name));
       if (twin) throw new Error(`Позиция «${twin.name}» уже есть на складе — найдите её поиском`);
-      const { photoIds, ...rest } = body;
+      const { photoIds, initial, ...rest } = body;
       let r = await api('/stock/items', { method: 'POST', body: rest });
+      // начальный остаток — штуками или по весу (НО.2): приход в штуках, расчёт — в примечании
+      if (initial?.byWeight || initial?.qty > 0) {
+        try { r = await api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'in', qty: initial.qty || 1, note: 'Ввод начального остатка', ...(initial.byWeight ? { byWeight: initial.byWeight } : {}) } }); }
+        catch (e) { toast(`Позиция создана, но начальный остаток не записан: ${e.message}. Сделайте «+ Приход» в карточке.`, { error: true }); }
+      }
       for (const photoId of photoIds || []) {
         try { r = await api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); }
         catch (e) { toast(`Позиция создана, но фото не прикрепилось: ${e.message}. Добавьте фото в карточке.`, { error: true }); break; }

@@ -12,6 +12,7 @@ import { orderOptions, splitRef } from './salesorders.js';
 import { issueToFields } from './issue.js';
 import { reservationsPanel } from './reservations.js';
 import { enhanceSelect } from '../ui/select.js';
+import { weighButton } from './ops-weight.js';
 
 /* «Операции» склада (TASKS фаза С): как касса — слева подбор (поиск «м10 гайка» + кнопки-фильтры
  * тип → резьба → длина → стандарт), справа корзина; одна кнопка проводит всё разом (POST /stock/batch),
@@ -64,7 +65,6 @@ export function mountOps(params) {
     },
   });
   const picker = h('section', { class: 'panel ops-picker' }, h('div', { class: 'ops-search-wrap' }, search, bulk.el), catRow, facetBox, found, results);
-
   // ---------- Корзина ----------
   const cartTitle = h('h3', null);
   const lines = h('div', { class: 'ops-lines' });
@@ -227,7 +227,7 @@ export function mountOps(params) {
             mode() !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(-1), 'aria-label': 'Меньше' }, '−') : null,
             inp,
             mode() !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(1), 'aria-label': 'Больше' }, '+') : null,
-            h('span', { class: 'ops-unit' }, it.unit || '')),
+            h('span', { class: 'ops-unit' }, it.unit || ''), weighButton(it, mode(), (q, nt) => { const cc = cart(); const x = cc.find((y) => y.id === l.id); if (x) x.note = nt; store.set('dc-ops-' + mode(), cc); inp.value = String(q); inp.dispatchEvent(new Event('input')); })),
           diff,
           h('button', { class: 'btn btn-ghost btn-icon btn-sm ops-x', type: 'button', title: 'Убрать из списка', onclick: () => setCart(cart().filter((y) => y.id !== l.id)) }, '×'));
       }));
@@ -236,7 +236,7 @@ export function mountOps(params) {
   }
 
   function ready() {
-    return cart().filter((l) => byId.has(l.id)).map((l) => ({ materialId: l.id, qty: parseNum(l.qty) }))
+    return cart().filter((l) => byId.has(l.id)).map((l) => ({ materialId: l.id, qty: parseNum(l.qty), ...(l.note ? { note: l.note } : {}) })) // note — расчёт по весу (НО)
       .filter((l) => l.qty !== undefined && !Number.isNaN(l.qty) && (mode() === 'count' ? l.qty >= 0 : l.qty > 0));
   }
   function updateSubmit() {

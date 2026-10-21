@@ -94,7 +94,10 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       clear.addEventListener('click', () => { lock(false); item.value = ''; const tg = inputs.get(f.target || 'title'); tg?.input.focus(); });
       continue;
     }
-    if (f.type === 'segment') {
+    if (f.type === 'widget') {
+      // свой элемент (НО: «штуками / по весу»): f.widget(v) → { el, value — строка JSON }
+      input = f.widget(v);
+    } else if (f.type === 'segment') {
       let cur = String(v ?? opts[0]?.value ?? '');
       const btns = opts.map((o) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', 'data-v': String(o.value), 'data-tone': o.tone || '', onclick: () => set(o.value) }, o.label));
       const box = h('div', { class: 'fseg', role: 'radiogroup', id }, btns);
@@ -177,7 +180,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     for (const [key, { f, input, err, label }] of inputs) {
       const raw = input.value.trim();
       err.hidden = true; label.classList.remove('has-error');
-      if (f.type === 'photos') { values[key] = JSON.parse(raw); continue; }
+      if (f.type === 'photos' || f.type === 'widget') { values[key] = raw ? JSON.parse(raw) : null; continue; }
       let val = raw === '' ? null : raw;
       if (val !== null && (f.type === 'number' || f.type === 'money')) {
         val = parseNum(raw);
