@@ -77,6 +77,8 @@ describe('паспорта: разнос «Объекта» (ПС.3)', () => {
     ['ИП Азизова', { kind: 'customer', customerName: 'ИП Азизова' }],
     ['Заказ № 24 ИП Сахаджи (Спортсет)', { kind: 'order', orderNo: '24', customerName: 'ИП Сахаджи', note: 'Спортсет' }],
     ['Заказ№31\nИП Ароян', { kind: 'order', orderNo: '31', customerName: 'ИП Ароян' }],
+    ['Заказ 19 Академия благоустройства', { kind: 'order', orderNo: '19', objectName: 'Академия благоустройства' }],
+    ['ИП Жданов ЗАКАЗ № 8', { kind: 'order', orderNo: '8', customerName: 'ИП Жданов' }],
     ['СОШ2', { kind: 'unknown', objectName: 'СОШ2' }],
     ['', { kind: 'empty' }],
   ])('%s', (raw, want) => {

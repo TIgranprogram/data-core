@@ -90,8 +90,9 @@ export function splitObject(raw: unknown): ObjectParts {
   let s = cleanText(raw).replace(/\n/g, ' ');
   if (!s) return { kind: 'empty' };
   const out: ObjectParts = { kind: 'unknown' };
-  const ord = s.match(/Заказ\s*№\s*([\w/-]+)/i);
+  const ord = s.match(/Заказ\s*№?\s*(\d[\d/-]*)/i);
   if (ord) { out.orderNo = ord[1]; s = s.replace(ord[0], '').trim(); out.kind = 'order'; }
+  else if (/Заказ\s*№/i.test(s)) { s = s.replace(/Заказ\s*№\s*/i, '').trim(); out.kind = 'order'; } // «ЗАКАЗ № Гулькевичи» — номера нет
   const paren = s.match(/\(([^)]*)\)\s*$/);
   if (paren) { out.note = paren[1].trim(); s = s.replace(paren[0], '').trim(); }
   s = s.replace(/^[,;\s]+|[,;\s]+$/g, '');
