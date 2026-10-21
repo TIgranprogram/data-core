@@ -255,4 +255,23 @@ describe('Stock & supply on shared CRM collections', () => {
     const got2 = (await http().post(`/api/supply/requests/${r2.id}/receive`).set(auth()).send({ qty: 10 }).expect(200)).body;
     expect(got2).toMatchObject({ receivedTo: 'stock', costCenter: 'workshop' });
   });
+  it('бронь по списку: бронирует сколько свободно, нехватку возвращает; снять строку и всю бронь', async () => {
+    const a = (await http().post('/api/stock/items').set(auth()).send({ name: 'Рым-гайка М12 нерж', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    const b = (await http().post('/api/stock/items').set(auth()).send({ name: 'Скоба такелажная М6', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: a.id, qty: 10 }, { materialId: b.id, qty: 3 }] }).expect(201);
+    const r = (await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Качели К-12', lines: [{ materialId: a.id, qty: 4 }, { materialId: b.id, qty: 5 }], clientUid: 'rl-1' }).expect(201)).body;
+    expect(r.name).toBe('Качели К-12');
+    expect(r.lines).toHaveLength(2);
+    expect(r.short).toEqual([{ materialId: b.id, need: 5, reserved: 3 }]);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ reservedQty: 4, free: 6 });
+    // повтор с тем же ключом — без второй брони
+    await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Качели К-12', lines: [{ materialId: a.id, qty: 4 }], clientUid: 'rl-1' }).expect(201);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body.reservedQty).toBe(4);
+    const lineA = r.lines.find((l: { materialId: string }) => l.materialId === a.id);
+    await http().post(`/api/stock/reservations/${lineA.id}/release`).set(auth()).expect(200);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body.reservedQty).toBe(0);
+    await http().post(`/api/stock/reservations/group/${r.batchId}/release`).set(auth()).expect(200);
+    expect((await http().get(`/api/stock/items/${b.id}`).set(auth())).body.reservedQty).toBe(0);
+    expect((await http().get('/api/stock/reservations').set(auth()).expect(200)).body.items.some((g: { batchId: string }) => g.batchId === r.batchId)).toBe(false);
+  });
 });

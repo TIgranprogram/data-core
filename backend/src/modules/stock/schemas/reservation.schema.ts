@@ -64,6 +64,19 @@ export class Reservation {
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
+
+  // ── Поля только data-core (2026-10-21, «Бронь по списку»): kppdf их не пишет ──
+  /** Общий ключ брони одного списка (снимается целиком). */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  batchId?: Types.ObjectId;
+
+  /** Название брони: для чего (конструкция / изделие). */
+  @Prop()
+  groupName?: string;
+
+  /** Под заказ заказчика (salesorders). */
+  @Prop({ type: Types.ObjectId })
+  salesOrderId?: Types.ObjectId;
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);

@@ -37,6 +37,13 @@ export class StockBatchDto {
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
+export class StockReserveListDto {
+  @ApiProperty({ description: 'Для чего бронь: конструкция / изделие' }) @IsString() @Length(1, 200) groupName!: string;
+  @ApiProperty({ type: [StockBatchLineDto] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockBatchLineDto) lines!: StockBatchLineDto[];
+  @ApiPropertyOptional({ description: 'Под заказ (salesorders.id)' }) @IsOptional() @IsMongoId() salesOrderId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+}
+
 export class StockPhotoDto {
   @ApiProperty({ description: 'id фото из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
 }

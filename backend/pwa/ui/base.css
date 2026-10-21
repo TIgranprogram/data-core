@@ -741,3 +741,18 @@ html { scrollbar-gutter: stable; }
 
 .inv-similar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-weight: 400; }
 .inv-similar .tag { height: auto; min-height: 26px; white-space: normal; text-align: left; }
+
+/* «Вставить список» (ui/bulk.js) и «Бронь по списку» */
+.ops-search-wrap { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.ops-search-wrap .ops-search { flex: 1 1 260px; }
+.bulk { position: relative; }
+.bulk-panel { position: absolute; z-index: 44; right: 0; top: calc(100% + 6px); width: min(640px, 92vw); padding: 12px 14px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 8px; }
+.bulk-foot { display: flex; gap: 8px; }
+.bulk-rest { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; }
+.bulk-miss { border-top: 1px solid var(--border); padding-top: 8px; font-size: var(--fs-sm); }
+.ops-short { background: var(--warn-soft); padding: 10px 14px; border-top: 1px solid var(--border); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: 6px; }
+.ops-short ul { margin: 0; padding-left: 18px; }
+.ops-res { border-bottom: 1px solid var(--border); padding: 8px 16px; }
+.ops-res summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ops-res summary .btn { margin-left: auto; }
+.ops-res-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 0 4px 16px; font-size: var(--fs-sm); }

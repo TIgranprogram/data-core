@@ -1,9 +1,10 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
 import { date, parseNum, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
+import { bulkPaste } from '../ui/bulk.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { pic } from './stock.js';
@@ -15,6 +16,7 @@ import { orderOptions, splitRef } from './salesorders.js';
 const MODES = {
   out: { label: 'Списание', verb: 'Списать', done: 'Списано', note: 'Куда / на какой заказ', hint: 'Выдача в производство, расход. Найдите позиции (например «м10 гайка») и нажмите — они попадут в список на списание.' },
   in: { label: 'Приход', verb: 'Принять', done: 'Принято', note: 'От кого / основание', hint: 'Приехала машина по заявкам — блок «Ждём поставку»: выберите счёт и примите всё разом. Принесли без заявки — найдите позицию ниже (нет на складе — создайте её прямо здесь).' },
+  reserve: { label: 'Бронь по списку', verb: 'Забронировать', done: 'Забронировано', note: 'Для чего бронь (конструкция, изделие) *', hint: 'Спецификация от конструктора: «⇩ Вставить список» — вставьте строки из Excel, или добавьте позиции поиском. Справа видно, хватает ли свободного остатка. «Забронировать» — бронь под названием; снять — в «Активных бронях» ниже.' },
   count: { label: 'Пересчёт', verb: 'Сохранить пересчёт', done: 'Пересчёт сохранён', note: 'Примечание', hint: 'Пройдите по полке: выберите категорию или фильтр и нажмите «Взять всё в пересчёт», впишите, сколько лежит. Пустое поле — не пересчитано.' },
 };
 const store = {
@@ -45,7 +47,21 @@ export function mountOps(params) {
   const facetBox = h('div', { class: 'ops-facets' });
   const found = h('div', { class: 'ops-found' });
   const results = h('div', { class: 'ops-results', role: 'listbox' });
-  const picker = h('section', { class: 'panel ops-picker' }, h('div', { class: 'ops-search-wrap' }, search), catRow, facetBox, found, results);
+  const bulk = bulkPaste({
+    title: 'Вставить список',
+    items: () => items.map((x) => ({ label: x.name, cat: x.categoryName || '', values: { article: x.article, unit: x.unit }, ref: x })),
+    onFound: (list) => {
+      const cc = cart();
+      for (const { item, line } of list) {
+        const id = item.ref?.id || items.find((x) => x.name === item.label)?.id;
+        if (!id) continue;
+        const ex = cc.find((l) => l.id === id);
+        if (ex) ex.qty = String((parseNum(ex.qty) || 0) + (line.qty || 1)); else cc.push({ id, qty: String(line.qty || 1) });
+      }
+      setCart(cc);
+    },
+  });
+  const picker = h('section', { class: 'panel ops-picker' }, h('div', { class: 'ops-search-wrap' }, search, bulk.el), catRow, facetBox, found, results);
 
   // ---------- Корзина ----------
   const cartTitle = h('h3', null);
@@ -60,14 +76,28 @@ export function mountOps(params) {
   const noteLabel = h('span', null);
   const submit = h('button', { class: 'btn btn-primary ops-submit', type: 'button' });
   const clear = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => setCart([]) }, 'Очистить');
+  const shortBox = h('div', { class: 'ops-short', hidden: true });
   const basket = h('section', { class: 'panel ops-cart' },
     h('div', { class: 'panel-head' }, cartTitle, h('span', { class: 'spacer' }), clear),
+    shortBox,
     lines,
     h('div', { class: 'ops-foot' }, h('div', { class: 'form-grid' }, soWrap, h('label', { class: 'field' }, noteLabel, note), docWrap), submit));
   const mobileBar = h('button', { class: 'ops-mobile-bar btn btn-primary', type: 'button', onclick: () => basket.scrollIntoView({ behavior: 'smooth' }) });
 
   const arrivals = arrivalsBlock(() => reload().catch(() => {}));
-  const el = h('div', { class: 'ops' }, head, hint, arrivals.el, h('div', { class: 'ops-grid' }, picker, basket), mobileBar);
+  const resBox = h('section', { class: 'panel ops-arrivals', hidden: true });
+  async function loadReservations() {
+    let res; try { res = await api('/stock/reservations'); } catch { resBox.hidden = true; return; }
+    resBox.hidden = !res.items.length;
+    resBox.replaceChildren(
+      h('div', { class: 'panel-head' }, h('h3', null, `Активные брони: ${res.items.length}`), h('span', { class: 'muted small' }, 'Снять бронь — товар снова станет «свободно»')),
+      h('div', { class: 'ops-arr-list' }, ...res.items.map((g) => h('details', { class: 'ops-res' },
+        h('summary', null, h('b', null, g.name), h('span', { class: 'muted' }, ` · ${g.lines.length} ${plural(g.lines.length, 'позиция', 'позиции', 'позиций')}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`),
+          g.batchId && session.canEdit ? h('button', { type: 'button', class: 'btn btn-sm', onclick: async (e) => { e.preventDefault(); await api(`/stock/reservations/group/${g.batchId}/release`, { method: 'POST' }); toast(`Бронь «${g.name}» снята`); await reload(); loadReservations(); } }, 'Снять всю бронь') : null),
+        ...g.lines.map((l) => h('div', { class: 'ops-res-line' }, h('span', { class: 'clip' }, l.name), h('b', { class: 'num' }, `${qty(l.qty)} ${l.unit}`),
+          session.canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await reload(); loadReservations(); } }, 'снять') : null))))));
+  }
+  const el = h('div', { class: 'ops' }, head, hint, arrivals.el, resBox, h('div', { class: 'ops-grid' }, picker, basket), mobileBar);
 
   function renderChrome() {
     const m = MODES[mode()];
@@ -76,7 +106,9 @@ export function mountOps(params) {
     noteLabel.textContent = m.note;
     note.placeholder = mode() === 'out' ? 'например: заказ 15, цех' : mode() === 'in' ? 'например: принёс поставщик' : 'пересчёт';
     docWrap.hidden = mode() !== 'in';
-    soWrap.hidden = mode() !== 'out';
+    soWrap.hidden = mode() !== 'out' && mode() !== 'reserve';
+    shortBox.hidden = true;
+    if (mode() === 'reserve') loadReservations(); else resBox.hidden = true;
     if (mode() === 'out') loadOrders();
     if (mode() === 'in') arrivals.load(); else arrivals.el.hidden = true;
   }
@@ -177,6 +209,11 @@ export function mountOps(params) {
             const d = n === undefined || Number.isNaN(n) ? null : Math.round((n - it.quantity) * 1000) / 1000;
             diff.textContent = d === null ? 'не пересчитано' : d === 0 ? 'сходится' : (d > 0 ? '+' : '') + qty(d);
             diff.className = 'ops-diff num ' + (d === null ? 'muted' : d === 0 ? 'pos' : 'neg');
+          } else if (mode() === 'reserve') {
+            const free = it.free ?? it.quantity;
+            const ok = !(n > free);
+            diff.textContent = n ? (ok ? 'хватает' : `не хватает ${qty(n - free)} (свободно ${qty(free)})`) : '';
+            diff.className = 'ops-diff num ' + (ok ? 'pos' : 'neg');
           } else if (mode() === 'out') {
             const over = n > it.quantity;
             diff.textContent = over ? `есть только ${qty(it.quantity)}` : '';
@@ -189,7 +226,7 @@ export function mountOps(params) {
         showDiff();
         return h('div', { class: 'ops-line', 'data-id': l.id },
           h('div', { class: 'ops-name' }, h('div', { class: 'clip', title: it.name }, it.name),
-            h('small', null, mode() === 'count' ? `по учёту ${qty(it.quantity)} ${it.unit || ''}` + (it.lastCountedAt ? ` · пересчитано ${date(it.lastCountedAt)}` : '') : `на складе ${qty(it.quantity)} ${it.unit || ''}`)),
+            h('small', null, mode() === 'reserve' ? `свободно ${qty(it.free ?? it.quantity)} из ${qty(it.quantity)} ${it.unit || ''}` : mode() === 'count' ? `по учёту ${qty(it.quantity)} ${it.unit || ''}` + (it.lastCountedAt ? ` · пересчитано ${date(it.lastCountedAt)}` : '') : `на складе ${qty(it.quantity)} ${it.unit || ''}`)),
           h('div', { class: 'ops-qty' },
             mode() !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(-1), 'aria-label': 'Меньше' }, '−') : null,
             inp,
@@ -220,6 +257,7 @@ export function mountOps(params) {
     if (mode() === 'out' && soSel.value) { const so = splitRef(soSel.value); body.salesOrderId = so.salesOrderId; if (so.salesOrderLineId) body.salesOrderLineId = so.salesOrderLineId; }
     if (!body.lines.length) return;
     const m = MODES[mode()];
+    if (mode() === 'reserve') { await doReserve(body); return; }
     submit.disabled = true; const label = submit.textContent; submit.textContent = 'Проводим…';
     try {
       const r = await api('/stock/batch', { method: 'POST', body });
@@ -238,6 +276,32 @@ export function mountOps(params) {
       search.focus();
     } catch (e) { toastError(e); submit.textContent = label; submit.disabled = false; }
   });
+
+  async function doReserve(body) {
+    const groupName = note.value.trim();
+    if (!groupName) { toastError(new Error('Впишите, для чего бронь (конструкция, изделие)')); note.focus(); return; }
+    const so = soSel.value ? splitRef(soSel.value) : null;
+    submit.disabled = true;
+    try {
+      const r = await api('/stock/reserve-list', { method: 'POST', body: { groupName, lines: body.lines, clientUid: body.clientUid, ...(so?.salesOrderId ? { salesOrderId: so.salesOrderId } : {}) } });
+      store.set('dc-ops-reserve', []);
+      note.value = ''; soSel.value = '';
+      await reload(); loadReservations();
+      window.dispatchEvent(new CustomEvent('data-changed'));
+      toast(`Забронировано под «${groupName}»: ${r.lines.length} ${plural(r.lines.length, 'позиция', 'позиции', 'позиций')}`, { undo: async () => { await api(`/stock/reservations/group/${r.batchId}/release`, { method: 'POST' }); await reload(); loadReservations(); toast('Бронь снята'); } });
+      if (r.short?.length) {
+        const sh = r.short.map((s) => ({ ...s, it: byId.get(s.materialId) }));
+        shortBox.hidden = false;
+        shortBox.replaceChildren(h('b', null, `Не хватило на складе: ${sh.length} ${plural(sh.length, 'позиция', 'позиции', 'позиций')}`),
+          h('ul', null, ...sh.map((s) => h('li', null, `${s.it?.name || 'позиция'} — нужно ${qty(s.need)}, забронировано ${qty(s.reserved)}, не хватает ${qty(s.need - s.reserved)} ${s.it?.unit || ''}`))),
+          h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: async (e) => {
+            e.currentTarget.disabled = true;
+            for (const s of sh) await api('/supply/requests', { method: 'POST', body: { title: s.it?.name, qty: s.need - s.reserved, unit: s.it?.unit || 'шт', categoryName: s.it?.categoryName || '', statusLabel: 'Заказать', notes: `Не хватило для брони «${groupName}»`, clientUid: `short-${r.batchId}-${s.materialId}` } });
+            toast(`Заявки на недостающее: ${sh.length}`); shortBox.hidden = true; window.dispatchEvent(new CustomEvent('data-changed'));
+          } }, 'Заказать недостающее'));
+      }
+    } catch (e) { toastError(e); } finally { updateSubmit(); }
+  }
 
   // ---------- Клавиатура: печатаешь → ↑↓ → Enter добавляет ----------
   let tmr;

@@ -27,8 +27,9 @@ export async function matchLines(lines, items, { supplierName = '' } = {}) {
       const it = byLabel.get(normSearch(al.title)) || { label: al.title, cat: al.categoryName || '', values: { unit: al.unit, article: al.article, categoryName: al.categoryName } };
       return { line, item: it, by: 'alias', score: 1, similar: [] };
     }
-    const a = key(line.article);
-    if (a) {
+    // артикул в своей колонке, иначе — «код» внутри названия (DSR015-6s Такелажная…)
+    const codes = [line.article, ...String(line.name || '').split(/\s+/).filter((w) => w.length >= 4 && /\d/.test(w) && /[\p{L}-]/u.test(w) && !/^[мm]\d/i.test(w))].filter(Boolean).map(key);
+    for (const a of codes) {
       const it = items.find((x) => key(x.values?.article) === a) || items.find((x) => key(x.label).includes(a));
       if (it) return { line, item: it, by: 'article', score: 1, similar: [] };
     }
