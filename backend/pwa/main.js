@@ -1,7 +1,7 @@
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, events, login, PREFIX, session } from './core/api.js';
-import { $, h } from './core/dom.js';
+import { $, debounce, h } from './core/dom.js';
 import { current, go, onChange, patch } from './core/router.js';
 import { openCard } from './ui/card.js';
 import { icon } from './ui/icons.js';
@@ -62,7 +62,11 @@ function shell() {
   navLinks = Object.fromEntries(NAV.map(([id, label, ico]) => [id, link(id, label, ico)]));
   navLinks.trash = link('trash', 'Корзина', 'trash');
   const gs = h('input', { type: 'search', placeholder: 'Найти заявку, позицию, поставщика…', 'aria-label': 'Поиск по всему' });
-  gs.addEventListener('keydown', (e) => { if (e.key === 'Enter' && gs.value.trim()) { go('search', { q: gs.value.trim() }); gs.blur(); } });
+  // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
+  const runSearch = () => { const q = gs.value.trim(); if (q.length < 2) return; go('search', { q }, { replace: current().section === 'search' }); };
+  const liveSearch = debounce(runSearch, 400);
+  gs.addEventListener('input', liveSearch);
+  gs.addEventListener('keydown', (e) => { if (e.key === 'Enter' && gs.value.trim()) { go('search', { q: gs.value.trim() }, { replace: current().section === 'search' }); gs.blur(); } });
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
