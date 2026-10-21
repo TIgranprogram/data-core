@@ -23,7 +23,7 @@ import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
 const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -75,7 +75,7 @@ function shell() {
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
-    h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.ops, navLinks.movements,
+    h('div', { class: 'side-group' }, 'Склад'), navLinks.ops, navLinks.stock, navLinks.movements,
     h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.partners,
     session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
