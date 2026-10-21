@@ -2,6 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
+import { placeList } from './popup.js';
 
 /**
  * «Фильтры» по признакам из названий (тип / резьба / длина / стандарт) — как в «Операциях», для списка «Остатки».
@@ -49,7 +50,7 @@ export function facetFilter({ categoryKey = 'categoryId' } = {}) {
   }
   btn.addEventListener('click', () => {
     if (!pop.hidden) { close(); return; }
-    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); renderPop();
+    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); renderPop(); placeList(pop); // у края — влево, на телефоне — лист снизу (ВС)
     document.addEventListener('mousedown', outside, true);
   });
   function update(next) {

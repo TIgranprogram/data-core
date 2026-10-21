@@ -1,11 +1,14 @@
 import { h } from '../core/dom.js';
 import { normSearch, searchTokens } from '../core/facets.js';
+import { highlight, placeList } from './popup.js';
 
 /**
  * Единый выпадающий список (TASKS В.2) вместо браузерного <datalist> (тот рисовался по-своему, в тёмном — чёрным).
  *   attachCombo(input, { options: () => [{ value, label, sub?, group? }], onPick?(o), free = true, max = 60 })
  * Открывается по фокусу/клику (весь список) и при наборе (фильтр «как в магазине»: слова в любом порядке, м10 = M10).
- * ↑↓ — выбор, Enter — взять, Esc — закрыть. free — можно оставить своё значение (иначе только из списка).
+ * ↑↓ — выбор, Enter — взять, Esc / Tab — закрыть. free — можно оставить своё значение (иначе только из списка).
+ * Текст не режем (ВС): панель шире поля, пункт переносится, совпадения выделены, выбранный — галочкой;
+ * у края экрана — влево / вверх, на телефоне — лист снизу (ui/popup.js). Длинное значение в поле — целиком в подсказке.
  */
 export function attachCombo(input, { options, onPick, max = 60, empty }) {
   const box = h('div', { class: 'combo-list', hidden: true, role: 'listbox' });
@@ -25,17 +28,20 @@ export function attachCombo(input, { options, onPick, max = 60, empty }) {
     const rows = []; let grp;
     shown.forEach((o, i) => {
       if (o.group && o.group !== grp) { grp = o.group; rows.push(h('div', { class: 'combo-group' }, grp)); }
-      rows.push(h('div', { class: 'combo-opt' + (i === active ? ' active' : '') + (String(o.label) === input.value ? ' cur' : ''), role: 'option', onmousedown: (e) => { e.preventDefault(); pick(o); } },
-        h('div', { class: 'clip' }, o.label), o.sub ? h('small', null, o.sub) : null));
+      const cur = String(o.label) === input.value;
+      rows.push(h('div', { class: 'combo-opt' + (i === active ? ' active' : '') + (cur ? ' cur' : ''), role: 'option', 'aria-selected': cur ? 'true' : 'false', onmousedown: (e) => { e.preventDefault(); pick(o); } },
+        h('div', { class: 'opt-l' }, filter ? highlight(o.label, input.value) : String(o.label)), o.sub ? h('small', null, o.sub) : null));
     });
     if (list.length > shown.length) rows.push(h('div', { class: 'combo-empty' }, `ещё ${list.length - shown.length} — уточните поиск`));
     box.replaceChildren(...rows);
     box.hidden = false;
+    placeList(box);
     box.querySelector('.combo-opt.active')?.scrollIntoView({ block: 'nearest' });
   }
   function pick(o) {
     picking = true;
     input.value = String(o.label);
+    input.title = input.value; // длинное значение в узком поле — целиком при наведении (ВС.4)
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     picking = false;
@@ -51,6 +57,8 @@ export function attachCombo(input, { options, onPick, max = 60, empty }) {
     else if (e.key === 'ArrowUp' && !box.hidden) { e.preventDefault(); active = Math.max(0, active - 1); render(!!input.value && !shown.some((o) => o.label === input.value)); }
     else if (e.key === 'Enter' && !box.hidden && shown[active]) { e.preventDefault(); pick(shown[active]); }
     else if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); close(); }
+    else if (e.key === 'Tab') close();
   });
+  input.addEventListener('change', () => { input.title = input.value; });
   return { close, refresh: () => { if (!box.hidden) render(true); } };
 }

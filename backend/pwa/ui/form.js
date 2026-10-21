@@ -4,6 +4,7 @@ import { parseNum } from '../core/format.js';
 import { photoField } from './photos.js';
 import { attachCombo } from './combo.js';
 import { attachSuggest } from './suggest.js';
+import { enhanceSelect } from './select.js';
 
 /**
  * Форма из описания полей (CANON §2 «Карточка»). Поле:
@@ -110,6 +111,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       input = h('select', { id, name: f.key, value: v ?? '' },
         f.required ? null : h('option', { value: '' }, '—'),
         list.map((o) => h('option', { value: String(o.value) }, o.label)));
+      enhanceSelect(input); // длинные варианты (заказ, компания) — без обрезки (ВС.6); короткие остаются обычными
     } else if (f.type === 'textarea') {
       input = h('textarea', { id, name: f.key, rows: f.rows || 3, maxlength: f.max || 2000 });
       input.value = v ?? '';

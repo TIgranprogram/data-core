@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
+import { enhanceSelect } from '../ui/select.js';
 
 /*
  * «Уже заказано» по позиции склада (TASKS ЗП): блок «Заказано» и «Поставщики и цены» в карточке (ЗП.1, ЗП.5),
@@ -49,7 +50,7 @@ export function receiveField(r) {
   if (!(r.ordered > 0)) return null;
   const sel = h('select', null, h('option', { value: '' }, '— приход без заявки —'));
   const list = [];
-  ordered(r.id).then((d) => { for (const x of d.open) { list.push(x); sel.append(h('option', { value: x.id }, `№${x.num ?? '—'} · ${qty(x.qty)} ${x.unit} · ${x.statusLabel}`)); } if (list.length === 1) sel.value = list[0].id; }).catch(() => {});
+  ordered(r.id).then((d) => { for (const x of d.open) { list.push(x); sel.append(h('option', { value: x.id }, `№${x.num ?? '—'} · ${qty(x.qty)} ${x.unit} · ${x.statusLabel}`)); } if (list.length === 1) sel.value = list[0].id; enhanceSelect(sel); }).catch(() => {});
   return { el: h('label', { class: 'field wide' }, h('span', null, 'Закрыть заявку'), sel), value: () => list.find((x) => x.id === sel.value) || null };
 }
 

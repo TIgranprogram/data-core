@@ -1,4 +1,5 @@
 import { exportList } from './list-export.js';
+import { enhanceSelect } from './select.js';
 import { api, session } from '../core/api.js';
 import { debounce, h } from '../core/dom.js';
 import { qty, plural } from '../core/format.js';
@@ -84,6 +85,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     Promise.resolve(f.options()).then((opts) => {
       for (const o of opts) sel.append(h('option', { value: String(o.value) }, o.label));
       sel.value = P[f.key] || '';
+      enhanceSelect(sel); // длинные названия (поставщики, категории) — общий список без обрезки (ВС.6)
     }).catch(() => { /* фильтр без вариантов — не критично */ });
   }
   const extra = L.toolbarExtra ? L.toolbarExtra() : null;

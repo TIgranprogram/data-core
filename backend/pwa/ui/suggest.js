@@ -1,5 +1,6 @@
 import { h } from '../core/dom.js';
 import { searchTokens } from '../core/facets.js';
+import { highlight, placeList } from './popup.js';
 
 /**
  * Подсказки под полем ввода (TASKS З.7): печатаешь — внизу «уже заказывали / есть на складе»,
@@ -26,9 +27,11 @@ export function attachSuggest(input, { load, onPick, title = 'Уже заказ�
       h('div', { class: 'sg-head' }, h('span', null, title),
         cats.length > 1 ? h('span', { class: 'sg-cats' }, ...['', ...cats].map((c) => h('button', { type: 'button', class: 'tag' + (cat === c ? ' active' : ''), onmousedown: (e) => { e.preventDefault(); cat = c; render(); } }, c || 'Все'))) : null),
       ...shown.map((x, i) => h('div', { class: 'sg-row' + (i === active ? ' active' : ''), role: 'option', onmousedown: (e) => { e.preventDefault(); pick(x); } },
-        h('div', { class: 'clip' }, x.label), h('small', null, x.sub))),
+        h('div', { class: 'opt-l' }, highlight(x.label, input.value)), h('small', null, x.sub))),
       shown.length ? null : h('div', { class: 'sg-row muted' }, 'В этой категории ничего')].filter(Boolean));
     box.hidden = false;
+    placeList(box);
+    box.querySelector('.sg-row.active')?.scrollIntoView({ block: 'nearest' });
   }
   let picking = false;
   function pick(x) { onPick(x.values); close(); picking = true; input.dispatchEvent(new Event('input', { bubbles: true })); picking = false; }
@@ -42,5 +45,6 @@ export function attachSuggest(input, { load, onPick, title = 'Уже заказ�
     else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); render(); }
     else if (e.key === 'Enter' && shown[active]) { e.preventDefault(); pick(shown[active]); }
     else if (e.key === 'Escape') { e.stopPropagation(); close(); }
+    else if (e.key === 'Tab') close();
   });
 }

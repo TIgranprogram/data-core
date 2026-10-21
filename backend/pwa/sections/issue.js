@@ -2,6 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
+import { enhanceSelect } from '../ui/select.js';
 
 /*
  * «Кому выдано» (TASKS Л.3) и «Выдать по брони» (Б.2) — общее для «Операций», строки «− Списать» и броней.
@@ -35,6 +36,7 @@ export function issueToFields() {
   peopleByWork().then((groups) => {
     if (!groups.length) { sel.firstChild.textContent = '— сотрудников нет в «Справочниках» —'; return; }
     for (const g of groups) sel.append(h('optgroup', { label: g.group }, ...g.people.map((p) => h('option', { value: p.id }, p.name))));
+    enhanceSelect(sel); // много людей — поиск по списку, ФИО целиком (ВС.6)
   }).catch(() => { sel.firstChild.textContent = '— список не загрузился —'; });
   const el = h('label', { class: 'field wide' }, h('span', null, 'Кому выдано'), h('div', { class: 'issue-to' }, sel, txt));
   return {

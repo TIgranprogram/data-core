@@ -11,6 +11,7 @@ import { pic } from './stock.js';
 import { orderOptions, splitRef } from './salesorders.js';
 import { issueToFields } from './issue.js';
 import { reservationsPanel } from './reservations.js';
+import { enhanceSelect } from '../ui/select.js';
 
 /* «Операции» склада (TASKS фаза С): как касса — слева подбор (поиск «м10 гайка» + кнопки-фильтры
  * тип → резьба → длина → стандарт), справа корзина; одна кнопка проводит всё разом (POST /stock/batch),
@@ -37,7 +38,6 @@ export function mountOps(params) {
   /** Корзина каждого режима: [{ id, qty }] — переживает перезагрузку страницы. */
   const cart = () => store.get('dc-ops-' + mode()) || [];
   const setCart = (c) => { store.set('dc-ops-' + mode(), c); renderCart(); renderResults(); };
-
   // ---------- Шапка ----------
   const seg = h('div', { class: 'seg', role: 'tablist' });
   const head = h('div', { class: 'page-head' }, h('h1', null, 'Операции'), h('span', { class: 'spacer' }), seg);
@@ -75,7 +75,7 @@ export function mountOps(params) {
   const soWrap = h('label', { class: 'field wide' }, h('span', null, 'Под заказ (позиция)'), soSel);
   const issueTo = issueToFields(); // кому выдано (TASKS Л.3) — только списание
   let soLoaded = false;
-  const loadOrders = async () => { if (soLoaded) return; soLoaded = true; try { for (const o of await orderOptions()) soSel.append(h('option', { value: o.value }, o.label)); } catch { soLoaded = false; } };
+  const loadOrders = async () => { if (soLoaded) return; soLoaded = true; try { for (const o of await orderOptions()) soSel.append(h('option', { value: o.value }, o.label)); enhanceSelect(soSel); } catch { soLoaded = false; } };
   const noteLabel = h('span', null);
   const submit = h('button', { class: 'btn btn-primary ops-submit', type: 'button' });
   const clear = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => setCart([]) }, 'Очистить');
