@@ -73,9 +73,18 @@ function shell() {
   const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.user?.role);
   const gs = h('input', { type: 'search', placeholder: 'Найти заявку, позицию, поставщика…', 'aria-label': 'Поиск по всему' });
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
-  const runSearch = () => { const q = gs.value.trim(); if (q.length < 2) return; go('search', { q }, { replace: current().section === 'search' }); };
+  // ПО.1: стёрли строку — назад на экран, с которого начали искать (без новой записи истории); 1 знак — не ищем
+  let searchFrom = null;
+  const runSearch = () => {
+    const q = gs.value.trim();
+    if (!q) { if (current().section === 'search') { const [sec, qs = ''] = (searchFrom || '#home').replace(/^#/, '').split('?'); go(sec || 'home', Object.fromEntries(new URLSearchParams(qs)), { replace: true }); } searchFrom = null; return; }
+    if (q.length < 2) return;
+    if (current().section !== 'search') searchFrom = location.hash || '#home';
+    go('search', { q }, { replace: current().section === 'search' });
+  };
   const liveSearch = debounce(runSearch, 400);
   gs.addEventListener('input', liveSearch);
+  gs.addEventListener('search', runSearch); // крестик в поле
   gs.addEventListener('keydown', (e) => { if (e.key === 'Enter' && gs.value.trim()) { go('search', { q: gs.value.trim() }, { replace: current().section === 'search' }); gs.blur(); } });
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
