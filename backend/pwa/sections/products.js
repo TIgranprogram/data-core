@@ -1,0 +1,100 @@
+import { api, PREFIX, session } from '../core/api.js';
+import { h } from '../core/dom.js';
+import { money } from '../core/format.js';
+import { go, patch } from '../core/router.js';
+import { toast } from '../ui/toast.js';
+import { pic } from './stock.js';
+import { kpAdd, kpCount } from './kp.js';
+
+/*
+ * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
+ * наименование, раздел → группа, серия, цена, описание, фото); «В КП» в строке — собрать коммерческое предложение;
+ * «⇩ Загрузить каталог» — Excel / вставка (колонки как в «Перечне изделий»: Тип · Группа · Артикул · Наименование · Серия · Цена).
+ * Сервер — /api/showcase (поверх общей коллекции CRM products).
+ */
+const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy' }) : null);
+const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
+
+export const products = {
+  id: 'products',
+  title: 'Продукция',
+  newTitle: 'Новое изделие',
+  entityType: 'Product',
+  get: (id) => api(`/showcase/${id}`),
+
+  list: {
+    path: '/showcase',
+    sortDefault: 'name',
+    createLabel: 'Изделие',
+    searchPlaceholder: 'Поиск: наименование, артикул, серия…',
+    emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
+    filters: [{ key: 'groupId', label: 'Раздел', type: 'hidden' }],
+    tiles: {
+      key: 'groupId',
+      load: async () => (await api('/showcase/groups')).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: g.parentId ? 'группа' : 'раздел' })),
+    },
+    headActions: () => [
+      h('button', { class: 'btn', type: 'button', title: 'Excel или вставка из таблицы', onclick: () => patch({ of: 'catalogimport', new: '1', open: undefined }) }, '⇩ Загрузить каталог'),
+      h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`),
+    ],
+    hints: { '': 'Изделия компании. «В КП» в строке — добавить в коммерческое предложение; кнопка «КП» сверху — открыть и напечатать.' },
+    rowAction: (r) => ({ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`«${row.name}» в КП — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); return false; } }),
+    columns: [
+      { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => pic(r.photo) },
+      { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
+      { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
+      { key: 'group', label: 'Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
+      { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
+      { key: 'price', label: 'Цена', sort: 'price', cls: 'num right', render: (r) => (r.price ? money(r.price) : h('span', { class: 'muted' }, 'нет цены')) },
+    ],
+    card: {
+      thumb,
+      title: (r) => r.name,
+      sub: (r) => [r.sku && `арт. ${r.sku}`, r.group, r.series].filter(Boolean).join(' · '),
+      side: (r) => [h('b', { class: 'num' }, r.price ? money(r.price) : '—')],
+    },
+  },
+
+  card: {
+    heading: (r) => r.name,
+    subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
+    editTop: true,
+    gallery: (r) => r.photos || [],
+    photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
+    photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
+    view: (r) => [
+      ['Артикул', r.sku], ['Раздел', r.type], ['Группа', r.group], ['Серия', r.series],
+      ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
+      ['Описание', r.description],
+    ],
+    actions: (r) => [{ label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
+      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { q: row.name }) }],
+  },
+
+  form: {
+    fields: async () => [
+      { section: 'Изделие', tone: 'main', fixed: true },
+      { key: 'sku', label: 'Артикул', required: true, max: 64, span: 1 },
+      { key: 'name', label: 'Наименование', required: true, max: 256, span: 3 },
+      { key: 'type', label: 'Раздел', max: 100, hint: 'Например: Детское игровое оборудование' },
+      { key: 'group', label: 'Группа', max: 100, hint: 'Например: Качели' },
+      { key: 'series', label: 'Серия', max: 100 },
+      { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
+      { key: 'description', label: 'Описание', type: 'textarea', wide: true },
+    ],
+    toInitial: (r) => ({ ...r }),
+    toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, description: v.description || '' }),
+    create: (b) => api('/showcase', { method: 'POST', body: b }),
+    update: (id, b) => api(`/showcase/${id}`, { method: 'PATCH', body: b }),
+  },
+
+  remove: {
+    text: (r) => `Удалить изделие «${r.name}»?`,
+    run: (r) => api(`/showcase/${r.id}`, { method: 'DELETE' }),
+    restore: (r) => api(`/showcase/${r.id}/restore`, { method: 'POST' }),
+  },
+
+  searchRow: (r) => ({ title: r.name, sub: [r.sku && `арт. ${r.sku}`, r.group].filter(Boolean).join(' · '), side: r.price ? money(r.price) : '' }),
+  open: (id) => go('products', { open: id }),
+  canEdit: () => session.canEdit,
+};

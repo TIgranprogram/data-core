@@ -7,7 +7,7 @@ import type { AuditQueryRaw } from './audit-query';
 import { withChanges } from './record-history';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
-export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem'];
+export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem', 'Product'];
 const canMoney = (u?: AuthenticatedUser) => u?.isOwner === true || ['admin', 'director', 'accountant'].includes(u?.role ?? '');
 
 /**

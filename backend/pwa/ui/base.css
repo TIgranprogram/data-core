@@ -916,3 +916,12 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
   .money .page-head > .seg button { flex: none; }
   .sum-d { white-space: normal; }
 }
+
+/* Коммерческое предложение (TASKS БЗ-4, sections/kp.js) — строки КП в правой панели */
+.kp-lines { display: flex; flex-direction: column; gap: var(--s2); margin-bottom: var(--s3); }
+.kp-line { display: grid; grid-template-columns: minmax(0, 1fr) 90px 130px auto; gap: var(--s2); align-items: end; padding: var(--s2) 0; border-bottom: 1px solid var(--border); }
+.kp-name { display: flex; flex-direction: column; min-width: 0; }
+.kp-name b { overflow-wrap: anywhere; }
+.kp-total { text-align: right; font-weight: 700; color: var(--heading); margin-bottom: var(--s4); }
+.imp-report ul { margin: var(--s2) 0; }
+@media (max-width: 720px) { .kp-line { grid-template-columns: 1fr 1fr auto; } .kp-name { grid-column: 1 / -1; } }

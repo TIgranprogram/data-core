@@ -24,9 +24,11 @@ import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 import { history } from './sections/history.js';
+import { products } from './sections/products.js';
+import { catalogImport, kp } from './sections/kp.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history, products, kp, catalogimport: catalogImport };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -82,7 +84,7 @@ function shell() {
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
     h('div', { class: 'side-group' }, 'Склад'), navLinks.ops, navLinks.stock, navLinks.movements,
-    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.partners,
+    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.products, navLinks.partners,
     session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
       navLinks.dicts,
