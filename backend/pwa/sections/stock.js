@@ -180,8 +180,9 @@ export const stock = {
     toBody: (v) => {
       const b = { photoIds: v.photos || [], name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;
-      if (v.minQuantity !== null) b.minQuantity = v.minQuantity;
-      if (v.weightKg !== null) b.weightKg = v.weightKg;
+      // пустое поле = стереть значение (В.7): null уходит на сервер, мин. остаток станет 0
+      b.minQuantity = v.minQuantity;
+      b.weightKg = v.weightKg;
       return b;
     },
     create: async (body) => {

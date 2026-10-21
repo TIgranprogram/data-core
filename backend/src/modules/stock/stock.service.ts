@@ -248,7 +248,7 @@ export class StockService {
       await this.storage.updateOne(
         { warehouseId: wh._id, materialId: _id, zoneName: null },
         { $setOnInsert: { warehouseId: wh._id, materialId: _id, quantity: 0, reservedQty: 0, isActive: true, deletedAt: null, photos: [] },
-          $set: { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
+          $set: { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity ?? 0 } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
         { upsert: true },
       ).exec();
     }

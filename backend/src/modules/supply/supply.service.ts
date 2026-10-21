@@ -269,7 +269,7 @@ export class SupplyService {
     if (dto.costCenter !== undefined) f.costCenter = dto.costCenter || undefined;
     if (dto.costObject !== undefined) f.costObject = String(dto.costObject ?? '').trim() || undefined;
     if (dto.qty !== undefined) f.qty = Number(dto.qty);
-    if (dto.priceHint !== undefined) f.priceHint = Number(dto.priceHint);
+    if (dto.priceHint !== undefined) f.priceHint = dto.priceHint === null ? null : Number(dto.priceHint); // null — сумму стёрли (В.7)
     if (dto.num !== undefined) f.num = Number(dto.num);
     if (dto.requestDate) f.requestDate = new Date(dto.requestDate);
     if (dto.invoiceDate !== undefined) {

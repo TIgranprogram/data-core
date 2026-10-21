@@ -286,7 +286,7 @@ export const requests = {
         statusLabel: SUPPLY_STATUS[v.status]?.label, priorityLabel: PRIORITY[v.priority]?.label,
         photoIds: v.photos || [],
       };
-      if (v.priceHint !== null) body.priceHint = v.priceHint;
+      body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7)
       if (v.requestDate) body.requestDate = v.requestDate;
       body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
       body.invoiceDate = v.invoiceDate || '';

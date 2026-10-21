@@ -274,4 +274,14 @@ describe('Stock & supply on shared CRM collections', () => {
     expect((await http().get(`/api/stock/items/${b.id}`).set(auth())).body.reservedQty).toBe(0);
     expect((await http().get('/api/stock/reservations').set(auth()).expect(200)).body.items.some((g: { batchId: string }) => g.batchId === r.batchId)).toBe(false);
   });
+
+  it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
+    const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;
+    expect(r2.priceHint ?? null).toBeNull();
+    const it = (await http().post('/api/stock/items').set(auth()).send({ name: 'Стереть мин', unit: 'шт', minQuantity: 5, weightKg: 2 }).expect(201)).body;
+    const it2 = (await http().patch(`/api/stock/items/${it.id}`).set(auth()).send({ minQuantity: null, weightKg: null }).expect(200)).body;
+    expect(it2.minQuantity).toBe(0);
+    expect(it2.weightKg ?? null).toBeNull();
+  });
 });
