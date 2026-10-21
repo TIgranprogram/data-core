@@ -38,11 +38,20 @@ async function mergeDialog(r, ctx) {
 function related(r) {
   const items = r.related || [];
   if (r.kind === 'customer') {
-    return h('div', null, h('div', { class: 'section-title' }, `Заказы (${items.length})`),
-      items.length ? h('ul', { class: 'timeline' }, ...items.map((o) => h('li', null,
-        h('a', { href: '#salesorders?open=' + o.id }, `Заказ № ${o.orderNo || '—'}`),
-        h('span', { class: 'muted' }, [STAGE[o.stage]?.label, o.shipDate ? 'отгрузка ' + date(o.shipDate) : '', o.title].filter(Boolean).join(' · ')))))
-        : h('p', { class: 'muted' }, 'Заказов нет'));
+    // Заказчик целиком: в работе / закрытые, у каждого заказа — этап, позиции, сумма и оплата; клик — сам заказ
+    if (!items.length) return h('p', { class: 'muted' }, 'Заказов нет');
+    const open = items.filter((o) => !['shipped', 'closed', 'cancelled'].includes(o.stage));
+    const done = items.filter((o) => ['shipped', 'closed', 'cancelled'].includes(o.stage));
+    const row = (o) => h('li', null,
+      h('a', { href: '#salesorders?open=' + o.id }, `№ ${o.orderNo || '—'}`),
+      badge(STAGE, o.stage),
+      h('span', { class: 'muted clip' }, [o.title, o.lineCount ? `${qty(o.lineCount)} поз.` : '', o.shipDate ? 'отгрузка ' + date(o.shipDate) : ''].filter(Boolean).join(' · ')),
+      session.canMoney && o.amount ? h('span', { class: 'num' }, money(o.amount) + (o.paidAmount >= o.amount ? ' · оплачен' : o.paidAmount ? ` · оплачено ${money(o.paidAmount)}` : ' · не оплачен')) : null);
+    const group = (title, list) => (list.length ? [h('div', { class: 'section-title' }, `${title} (${list.length})`), h('ul', { class: 'timeline' }, ...list.map(row))] : []);
+    const unpaid = session.canMoney ? items.reduce((s, o) => s + Math.max(0, (o.amount || 0) - (o.paidAmount || 0)), 0) : 0;
+    return h('div', null,
+      unpaid > 0 ? h('p', { class: 'hint' }, 'Ещё не оплачено по заказам: ', h('b', { class: 'num' }, money(unpaid))) : null,
+      ...group('В работе', open), ...group('Отгружены и закрыты', done));
   }
   return h('div', null, h('div', { class: 'section-title' }, `${r.kind === 'our' ? 'Заявки на эту компанию' : 'Заявки этому поставщику'} (${items.length})`),
     items.length ? h('ul', { class: 'timeline' }, ...items.map((x) => h('li', null,

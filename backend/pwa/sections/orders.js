@@ -7,6 +7,7 @@ import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { UNITS } from './lookups.js';
 import { pic } from './stock.js';
+import { customerLink } from '../ui/links.js';
 
 /**
  * Раздел «Заказы» (PRODUCT §4, TASKS Ф.3/Ф.6) — строки заказов = доходы, коллекция incomes (/api/incomes).
@@ -130,7 +131,7 @@ export const orders = {
     stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплата', date(r.paidDate) || '—']] : [])],
     view: (r) => [
       ['Статус', badge(INCOME_STATUS, r.status)],
-      ['Заказчик', r.customer],
+      ['Заказчик', customerLink(r.customer)],
       ['Наша компания', r.companyName],
       ['Форма оплаты', r.paymentForm],
       ['Количество', r.qty != null ? `${qty(r.qty)} ${r.unit || ''}`.trim() : ''],

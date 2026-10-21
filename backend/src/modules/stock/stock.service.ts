@@ -480,7 +480,7 @@ export class StockService {
     const batchId = new Types.ObjectId();
     const so = dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId) ? new Types.ObjectId(dto.salesOrderId) : undefined;
     const short: { materialId: string; need: number; reserved: number }[] = [];
-    void userId;
+    const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
@@ -496,7 +496,7 @@ export class StockService {
           item.reservedQty = (item.reservedQty ?? 0) + take;
           await item.save({ session });
           await this.reservations.create([{ orderId: groupName, materialId: matId, warehouseId: wh._id, qty: take, isActive: true, status: 'active', notes: groupName,
-            batchId, groupName, ...(so ? { salesOrderId: so } : {}), ...(first && dto.clientUid ? { clientUid: dto.clientUid } : {}) }], { session });
+            batchId, groupName, createdBy, ...(so ? { salesOrderId: so } : {}), ...(first && dto.clientUid ? { clientUid: dto.clientUid } : {}) }], { session });
           first = false;
         }
       });
@@ -509,11 +509,21 @@ export class StockService {
     const docs = await this.reservations.find({ status: 'active', isActive: true, deletedAt: null }).sort({ createdAt: -1 }).limit(2000).lean().exec();
     const mats = await this.materials.find({ _id: { $in: docs.map((d) => d.materialId).filter(Boolean) } }, { name: 1, unit: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
     const nm = new Map(mats.map((m) => [String(m._id), m]));
-    const groups = new Map<string, { key: string; name: string; batchId: string | null; createdAt?: Date; lines: unknown[] }>();
+    // Кто поставил и под какой заказ — чтобы на «Сегодня» было видно, чья бронь и для чего
+    type Extra = { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date; createdBy?: Types.ObjectId; salesOrderId?: Types.ObjectId };
+    const ex = docs as (typeof docs[number] & Extra)[];
+    const [users, sos] = await Promise.all([
+      this.connection.db!.collection('users').find({ _id: { $in: ex.map((d) => d.createdBy).filter(Boolean) as Types.ObjectId[] } }, { projection: { displayName: 1, username: 1 } }).toArray(),
+      this.connection.db!.collection('salesorders').find({ _id: { $in: ex.map((d) => d.salesOrderId).filter(Boolean) as Types.ObjectId[] } }, { projection: { orderNo: 1, title: 1 } }).toArray(),
+    ]);
+    const un = new Map(users.map((u) => [String(u._id), String(u.displayName || u.username || '')]));
+    const so = new Map(sos.map((o) => [String(o._id), [o.orderNo, o.title].filter(Boolean).join(' · ')]));
+    const groups = new Map<string, { key: string; name: string; batchId: string | null; createdAt?: Date; createdBy: string | null; salesOrder: string | null; lines: unknown[] }>();
     for (const d of docs) {
-      const x = d as typeof d & { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date };
+      const x = d as typeof d & Extra;
       const k = x.batchId ? String(x.batchId) : 'one:' + String(d._id);
-      const g = groups.get(k) ?? { key: k, name: x.groupName || d.orderId || 'Бронь', batchId: x.batchId ? String(x.batchId) : null, createdAt: x.createdAt, lines: [] };
+      const g = groups.get(k) ?? { key: k, name: x.groupName || d.orderId || 'Бронь', batchId: x.batchId ? String(x.batchId) : null, createdAt: x.createdAt,
+        createdBy: x.createdBy ? un.get(String(x.createdBy)) ?? null : null, salesOrder: x.salesOrderId ? so.get(String(x.salesOrderId)) ?? null : null, lines: [] };
       const m = nm.get(String(d.materialId));
       g.lines.push({ id: String(d._id), materialId: String(d.materialId), name: m?.name ?? '(позиция удалена)', unit: m?.unit ?? '', qty: d.qty });
       groups.set(k, g);

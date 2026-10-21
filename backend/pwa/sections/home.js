@@ -173,6 +173,17 @@ export function mountHome(deps) {
   }).catch((e) => feed.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + e.message)));
   const qFeed = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Последние движения склада'), h('div', { class: 'q-hint' }, 'Приходы, списания, корректировки')), h('a', { href: '#movements', class: 'q-link' }, 'Все →')), feed);
 
+  // Брони на складе (TASKS Б.1): что отложено, под что, кем; открыть — «Операции» → «Бронь по списку»
+  const resList = h('ul', { class: 'q-list' }, h('li', { class: 'q-empty' }, h('span', { class: 'skel', style: { width: '50%' } })));
+  const loadRes = () => api('/stock/reservations').then((r) => {
+    if (!r.items.length) { resList.replaceChildren(h('li', { class: 'q-empty' }, 'Броней нет. Отложить позиции под заказ — «Бронь по списку»')); return; }
+    resList.replaceChildren(...r.items.slice(0, 6).map((g) => h('li', { class: 'q-row', tabindex: '0', onclick: () => go('ops', { mode: 'reserve' }) },
+      h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, g.name),
+        h('div', { class: 'q-sub' }, [`позиций: ${g.lines.length}`, g.salesOrder ? 'заказ ' + g.salesOrder : '', g.createdBy].filter(Boolean).join(' · '))),
+      h('div', { class: 'q-side' }, g.createdAt ? h('span', { class: 'q-date' }, date(g.createdAt)) : null))));
+  }).catch((e) => resList.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + e.message)));
+  const qRes = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Брони на складе'), h('div', { class: 'q-hint' }, 'Отложено под заказ / изделие — не трогать')), h('a', { href: '#ops?mode=reserve', class: 'q-link' }, 'Все →')), resList);
+
   // ---------- Сводка (цифры — переход к очереди на этой же странице) ----------
   let summaryRetry = 0;
   async function loadSummary() {
@@ -201,7 +212,7 @@ export function mountHome(deps) {
     }
   }
 
-  function reloadAll() { queues.forEach((q) => q()); loadFeed(); deps.refreshCounts?.(); }
+  function reloadAll() { queues.forEach((q) => q()); loadFeed(); loadRes(); deps.refreshCounts?.(); }
 
   const lane = (title, ico, href, linkText, ...kids) => h('section', { class: 'lane' },
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
@@ -211,7 +222,7 @@ export function mountHome(deps) {
     // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
     h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },
       lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, h('div', { class: 'section-title' }, 'Быстро заказать'), quick) : null, qOrder, qWait, qDecide),
-      lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qFeed),
+      lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qRes, qFeed),
       h('div', { class: 'lane-stack' },
         lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue),
         session.canMoney ? lane('Деньги', 'money', '#money', 'Календарь →', qPay) : null)));

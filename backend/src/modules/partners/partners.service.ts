@@ -58,7 +58,7 @@ export class PartnersService {
   private async customers() {
     const agg = await this.db.collection('salesorders').aggregate([
       { $match: { deletedAt: null, customer: { $nin: [null, ''] } } },
-      { $group: { _id: '$customer', n: { $sum: 1 }, active: { $sum: { $cond: [{ $in: ['$stage', ['new', 'production', 'ready']] }, 1, 0] } }, last: { $max: '$shipDate' } } },
+      { $group: { _id: '$customer', n: { $sum: 1 }, active: { $sum: { $cond: [{ $in: [{ $ifNull: ['$stage', 'new'] }, ['new', 'production', 'ready']] }, 1, 0] } }, last: { $max: '$shipDate' } } },
     ]).toArray();
     const sums = await this.db.collection('incomes').aggregate([
       { $match: { deletedAt: null, customer: { $nin: [null, ''] } } },
@@ -78,7 +78,13 @@ export class PartnersService {
       if (!c) throw new NotFoundException('Заказчик не найден');
       const orders = await this.db.collection('salesorders').find({ customer: name, deletedAt: null }).sort({ shipDate: -1 }).limit(100)
         .project({ orderNo: 1, stage: 1, shipDate: 1, title: 1 }).toArray();
-      return { ...c, related: orders.map((o) => ({ ...o, id: String(o._id), _id: String(o._id) })) };
+      // по каждому заказу — позиций, сумма и оплачено (как в «Заказах»); деньги скрывает MoneyMaskInterceptor
+      const agg = orders.length ? await this.db.collection('incomes').aggregate([
+        { $match: { orderId: { $in: orders.map((o) => o._id) }, deletedAt: null } },
+        { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
+      ]).toArray() : [];
+      const s = new Map(agg.map((a) => [String(a._id), a]));
+      return { ...c, related: orders.map((o) => { const a = s.get(String(o._id)); return { ...o, id: String(o._id), _id: String(o._id), lineCount: a?.lines ?? 0, amount: a?.amount ?? 0, paidAmount: a?.paid ?? 0 }; }) };
     }
     const _id = this.oid(id);
     const o = await this.db.collection('organizations').findOne({ _id, deletedAt: null });

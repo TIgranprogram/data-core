@@ -5,6 +5,7 @@ import { go, patch } from '../core/router.js';
 import { badge } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { incomeLookups } from './orders.js';
+import { customerLink } from '../ui/links.js';
 
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
@@ -140,7 +141,7 @@ export const salesorders = {
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     stats: (r) => [['Этап', STAGE[r.stage]?.label || r.stage], ['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
-      ['Заказчик', r.customer],
+      ['Заказчик', customerLink(r.customer)],
       ['Предмет', r.title],
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
       ['Форма оплаты', r.paymentForm],

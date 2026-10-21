@@ -77,6 +77,10 @@ export class Reservation {
   /** Под заказ заказчика (salesorders). */
   @Prop({ type: Types.ObjectId })
   salesOrderId?: Types.ObjectId;
+
+  /** Кто поставил бронь (users). */
+  @Prop({ type: Types.ObjectId })
+  createdBy?: Types.ObjectId;
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);
