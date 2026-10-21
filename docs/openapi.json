@@ -3541,6 +3541,13 @@
         "operationId": "PartnersController_list",
         "parameters": [
           {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина (удалённые, все виды)",
+            "schema": {}
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
@@ -3556,6 +3563,18 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
+        ]
+      },
+      "post": {
+        "operationId": "PartnersController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -3588,6 +3607,50 @@
       },
       "patch": {
         "operationId": "PartnersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
+        ]
+      },
+      "delete": {
+        "operationId": "PartnersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Контрагенты"
+        ]
+      }
+    },
+    "/partners/{id}/restore": {
+      "post": {
+        "operationId": "PartnersController_restore",
         "parameters": [
           {
             "name": "id",

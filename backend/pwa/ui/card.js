@@ -86,8 +86,9 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     } : null));
     if (canPhoto) content.push(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }));
     if (section.card.stats) content.push(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))));
-    if (session.canEdit && section.card.actions) {
-      const acts = section.card.actions(row, actx()).filter(Boolean);
+    if (session.canEdit && (section.card.actions || (section.card.editTop && section.form))) {
+      // editTop — «Изменить» первой кнопкой сверху (СП.1: внизу её не замечают)
+      const acts = [section.card.editTop && section.form ? { label: 'Изменить', primary: true, run: () => showForm('edit') } : null, ...(section.card.actions ? section.card.actions(row, actx()) : [])].filter(Boolean);
       if (acts.length) content.push(h('div', { class: 'actions' }, acts.map((a) => h('button', { class: 'btn' + (a.primary ? ' btn-primary' : ''), type: 'button', onclick: (e) => runAction(a, e.currentTarget) }, a.label))));
     }
     content.push(h('dl', { class: 'fields' }, section.card.view(row).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));

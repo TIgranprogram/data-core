@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
+import { createHash } from 'crypto';
 import { Types } from 'mongoose';
 import { escapeRe } from '../../common/list-query';
 
@@ -10,6 +11,21 @@ const norm = (s: unknown) => clean(s).toLowerCase().replace(/ё/g, 'е').replace
 /** Заглушка ИНН из синхронизации таблиц — человеку не показываем. */
 const realInn = (inn: unknown) => (inn && !String(inn).startsWith('БЕЗ-ИНН') ? String(inn) : null);
 const CUST = 'c:';
+/** Реквизиты контрагента (СП.1): поля CRM-схемы organizations + контакт (contactName/contactPhone — только data-core). */
+export const REQUISITES = ['kpp', 'legalAddress', 'phone', 'email', 'website', 'bankName', 'bankBik', 'bankAccount', 'bankCorrAccount', 'contactName', 'contactPhone', 'notes'] as const;
+export type PartnerInput = { kind?: string; name?: string; inn?: string } & Partial<Record<(typeof REQUISITES)[number], string | null>>;
+const DIGITS: Record<string, [RegExp, string]> = {
+  kpp: [/^\d{9}$/, 'КПП — 9 цифр'], bankBik: [/^\d{9}$/, 'БИК — 9 цифр'],
+  bankAccount: [/^\d{20}$/, 'Расчётный счёт — 20 цифр'], bankCorrAccount: [/^\d{20}$/, 'Корр. счёт — 20 цифр'],
+};
+const requisites = (o: Doc | null | undefined) => Object.fromEntries(REQUISITES.map((k) => [k, (o?.[k] as string) || null])) as Record<(typeof REQUISITES)[number], string | null>;
+/** Заказчик, заведённый в «Контрагентах» (реквизиты): организация с type 'customer' (поле CRM-схемы). */
+const CUSTOMER_ORG = { type: 'customer', isOurCompany: { $ne: true } };
+const NOT_CUSTOMER_ONLY = { $or: [{ type: { $ne: 'customer' } }, { type: 'supplier' }] };
+const exact = (name: string, i = false) => new RegExp(`^\\s*${escapeRe(name)}\\s*$`, i ? 'i' : '');
+const stubInn = (name: string) => `БЕЗ-ИНН-${createHash('md5').update(norm(name) + Date.now()).digest('hex').slice(0, 8)}`;
+/** Поля, которыми другие таблицы (в т.ч. CRM kppdf) ссылаются на организацию — проверка перед удалением. */
+const ORG_REF_FIELDS = ['organizationId', 'supplierId', 'customerId', 'companyId', 'counterpartyId', 'orgId', 'contractorId'];
 
 /**
  * «Контрагенты» (TASKS фаза 4, решение 2026-10-20) — поверх уже существующих данных, без переноса:
@@ -25,11 +41,12 @@ export class PartnersService {
 
   async list(q: Record<string, unknown> = {}) {
     const type = String(q.type || 'supplier');
+    if (String(q.deleted) === '1') return this.trash();
     const s = norm(q.search);
     const items = type === 'customer' ? await this.customers() : await this.suppliers(type === 'our');
     const filtered = s ? items.filter((x) => norm([x.name, x.inn, x.email, x.phone].filter(Boolean).join(' ')).includes(s)) : items;
     const [sup, cust, our] = await Promise.all([
-      this.db.collection('organizations').countDocuments({ deletedAt: null, isOurCompany: { $ne: true } }),
+      this.db.collection('organizations').countDocuments({ deletedAt: null, isOurCompany: { $ne: true }, ...NOT_CUSTOMER_ONLY }),
       this.customers().then((c) => c.length),
       this.db.collection('organizations').countDocuments({ deletedAt: null, isOurCompany: true }),
     ]);
@@ -37,7 +54,7 @@ export class PartnersService {
   }
 
   private async suppliers(our: boolean) {
-    const orgs = await this.db.collection('organizations').find({ deletedAt: null, isOurCompany: our ? true : { $ne: true } }).toArray();
+    const orgs = await this.db.collection('organizations').find({ deletedAt: null, ...(our ? { isOurCompany: true } : { isOurCompany: { $ne: true }, ...NOT_CUSTOMER_ONLY }) }).toArray();
     const ids = orgs.map((o) => o._id);
     const field = our ? 'companyId' : 'supplierId';
     const agg = await this.db.collection('supplyrequests').aggregate([
@@ -48,8 +65,7 @@ export class PartnersService {
     return orgs.map((o) => {
       const a = by.get(String(o._id));
       return {
-        id: String(o._id), kind: our ? 'our' : 'supplier', name: String(o.name), inn: realInn(o.inn),
-        email: (o.email as string) || null, phone: (o.phone as string) || null, website: (o.website as string) || null, notes: (o.notes as string) || null,
+        id: String(o._id), kind: our ? 'our' : 'supplier', name: String(o.name), inn: realInn(o.inn), ...requisites(o),
         requests: a?.n ?? 0, sum: a?.sum ?? 0, lastDate: a?.last ?? null,
       };
     }).sort((x, y) => y.requests - x.requests || x.name.localeCompare(y.name, 'ru'));
@@ -65,10 +81,16 @@ export class PartnersService {
       { $group: { _id: '$customer', sum: { $sum: { $ifNull: ['$amount', 0] } } } },
     ]).toArray();
     const sum = new Map(sums.map((x) => [String(x._id), x.sum as number]));
-    return agg.map((a) => ({
-      id: CUST + String(a._id), kind: 'customer', name: String(a._id), inn: null, email: null, phone: null, website: null, notes: null,
-      orders: a.n as number, activeOrders: a.active as number, sum: sum.get(String(a._id)) ?? 0, lastDate: a.last ?? null,
-    })).sort((x, y) => y.orders - x.orders || x.name.localeCompare(y.name, 'ru'));
+    // реквизиты заказчика — в организации type 'customer' с тем же названием (СП.1); заведённый без заказов — тоже в списке
+    const orgs = await this.db.collection('organizations').find({ deletedAt: null, ...CUSTOMER_ORG }).toArray();
+    const byName = new Map(orgs.map((o) => [norm(o.name), o]));
+    const rows = agg.map((a) => {
+      const o = byName.get(norm(a._id)); byName.delete(norm(a._id));
+      return { id: CUST + String(a._id), kind: 'customer', name: String(a._id), orgId: o ? String(o._id) : null, inn: realInn(o?.inn), ...requisites(o),
+        orders: a.n as number, activeOrders: a.active as number, sum: sum.get(String(a._id)) ?? 0, lastDate: (a.last as Date | null) ?? null };
+    });
+    for (const o of byName.values()) rows.push({ id: CUST + String(o.name), kind: 'customer', name: String(o.name), orgId: String(o._id), inn: realInn(o.inn), ...requisites(o), orders: 0, activeOrders: 0, sum: 0, lastDate: null });
+    return rows.sort((x, y) => y.orders - x.orders || x.name.localeCompare(y.name, 'ru'));
   }
 
   async get(id: string) {
@@ -132,31 +154,128 @@ export class PartnersService {
     };
   }
 
-  /** Правка: поставщик — название, ИНН, почта, телефон, сайт, примечание; заказчик — только название (во всех заказах). */
-  async update(id: string, dto: { name?: string; inn?: string; email?: string; phone?: string; website?: string; notes?: string }) {
-    if (id.startsWith(CUST)) {
-      const from = id.slice(CUST.length);
-      const to = clean(dto.name);
-      if (!to) throw new BadRequestException('Название не может быть пустым');
-      await this.renameCustomer(from, to);
-      return this.get(CUST + to);
-    }
-    const _id = this.oid(id);
+  /** Проверка и нормализация реквизитов (пусто → null; ИНН/КПП/БИК/счета — цифры). */
+  private async cleanRequisites(dto: PartnerInput, selfId?: Types.ObjectId) {
     const set: Doc = {};
-    if (dto.name !== undefined) { const n = clean(dto.name); if (!n) throw new BadRequestException('Название не может быть пустым'); set.name = n; }
     if (dto.inn !== undefined) {
       const inn = clean(dto.inn).replace(/\s/g, '');
       if (inn && !/^\d{10}(\d{2})?$/.test(inn)) throw new BadRequestException('ИНН — 10 цифр (организация) или 12 (ИП)');
       if (inn) {
-        const twin = await this.db.collection('organizations').findOne({ inn, _id: { $ne: _id }, deletedAt: null });
+        const twin = await this.db.collection('organizations').findOne({ inn, ...(selfId ? { _id: { $ne: selfId } } : {}), deletedAt: null });
         if (twin) throw new ConflictException(`ИНН ${inn} уже у «${twin.name}» — объедините их кнопкой «Объединить»`);
         set.inn = inn;
       }
     }
-    for (const k of ['email', 'phone', 'website', 'notes'] as const) if (dto[k] !== undefined) set[k] = clean(dto[k]) || null;
-    const res = await this.db.collection('organizations').updateOne({ _id, deletedAt: null }, { $set: { ...set, updatedAt: new Date() } });
+    for (const k of REQUISITES) {
+      if (dto[k] === undefined) continue;
+      let v = clean(dto[k]);
+      if (DIGITS[k]) { v = v.replace(/\s/g, ''); if (v && !DIGITS[k][0].test(v)) throw new BadRequestException(DIGITS[k][1]); }
+      if (k === 'email' && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) throw new BadRequestException('Почта — в виде name@example.ru');
+      set[k] = v || null;
+    }
+    return set;
+  }
+
+  private newOrg(name: string, kind: string, set: Doc) {
+    const now = new Date();
+    return this.db.collection('organizations').insertOne({
+      ...set, name, inn: (set.inn as string) || stubInn(name), isOurCompany: kind === 'our', type: kind === 'our' ? [] : [kind], partyTypes: [], isActive: true,
+      paymentTermDays: 10, vatRate: 20, photoIds: [], assets: [], deletedAt: null, createdAt: now, updatedAt: now, editedInApp: true,
+    });
+  }
+
+  /** «+ Новый контрагент» (СП.1): поставщик / заказчик / наша компания — запись в organizations. */
+  async create(dto: PartnerInput) {
+    const kind = String(dto.kind || 'supplier');
+    if (!['supplier', 'customer', 'our'].includes(kind)) throw new BadRequestException('Кто это: поставщик, заказчик или наша компания');
+    const name = clean(dto.name);
+    if (!name) throw new BadRequestException('Впишите название');
+    const same = await this.db.collection('organizations').findOne({ deletedAt: null, name: exact(name, true) });
+    if (same) throw new ConflictException(`«${same.name}» уже есть в контрагентах — откройте его`);
+    if (kind === 'customer' && (await this.customers()).some((c) => norm(c.name) === norm(name))) throw new ConflictException(`Заказчик «${name}» уже есть — откройте его`);
+    const { insertedId } = await this.newOrg(name, kind, await this.cleanRequisites(dto));
+    return this.get(kind === 'customer' ? CUST + name : String(insertedId));
+  }
+
+  /** Правка: реквизиты и название; у заказчика название меняется во всех заказах, реквизиты — в его организации (создаётся при первой правке). */
+  async update(id: string, dto: PartnerInput) {
+    if (id.startsWith(CUST)) {
+      const from = id.slice(CUST.length);
+      const to = dto.name === undefined ? from : clean(dto.name);
+      if (!to) throw new BadRequestException('Название не может быть пустым');
+      const org = await this.db.collection('organizations').findOne({ deletedAt: null, ...CUSTOMER_ORG, name: exact(from, true) });
+      const set = await this.cleanRequisites(dto, org?._id as Types.ObjectId | undefined);
+      if (to !== from) {
+        const hasOrders = await this.db.collection('salesorders').countDocuments({ customer: exact(from), deletedAt: null });
+        if (hasOrders) await this.renameCustomer(from, to);
+        else if (!org) throw new NotFoundException('Заказчик не найден');
+        set.name = to;
+      }
+      if (Object.keys(set).length) {
+        if (org) await this.db.collection('organizations').updateOne({ _id: org._id }, { $set: { ...set, updatedAt: new Date(), editedInApp: true } });
+        else await this.newOrg(to, 'customer', set); // заказчик был только текстом в заказах — заводим ему карточку реквизитов
+      }
+      return this.get(CUST + to);
+    }
+    const _id = this.oid(id);
+    const set = await this.cleanRequisites(dto, _id);
+    if (dto.name !== undefined) { const n = clean(dto.name); if (!n) throw new BadRequestException('Название не может быть пустым'); set.name = n; }
+    const res = await this.db.collection('organizations').updateOne({ _id, deletedAt: null }, { $set: { ...set, updatedAt: new Date(), editedInApp: true } });
     if (!res.matchedCount) throw new NotFoundException('Контрагент не найден');
     return this.get(id);
+  }
+
+  /**
+   * В корзину (СП.1). Нельзя, если на контрагента ссылаются заявки / заказы / записи CRM — 409 с причиной (CANON §2 «Удаление»).
+   * Заказчик с заказами не удаляется (он — текст в заказах): дубль написания — «Объединить с…».
+   */
+  async remove(id: string) {
+    let _id: Types.ObjectId;
+    if (id.startsWith(CUST)) {
+      const name = id.slice(CUST.length);
+      const n = await this.db.collection('salesorders').countDocuments({ customer: exact(name), deletedAt: null });
+      if (n) throw new ConflictException(`У заказчика ${n} заказ(ов) — удалить нельзя. Дубль написания — «Объединить с…»`);
+      const org = await this.db.collection('organizations').findOne({ deletedAt: null, ...CUSTOMER_ORG, name: exact(name, true) });
+      if (!org) throw new NotFoundException('Заказчик не найден');
+      _id = org._id as Types.ObjectId;
+    } else {
+      _id = this.oid(id);
+      if (!(await this.db.collection('organizations').findOne({ _id, deletedAt: null }))) throw new NotFoundException('Контрагент не найден');
+      const [asSupplier, asCompany, orders] = await Promise.all([
+        this.db.collection('supplyrequests').countDocuments({ supplierId: _id, deletedAt: null }),
+        this.db.collection('supplyrequests').countDocuments({ companyId: _id, deletedAt: null }),
+        this.db.collection('salesorders').countDocuments({ companyId: _id, deletedAt: null }),
+      ]);
+      const used = [asSupplier && `${asSupplier} заявк. как поставщик`, asCompany && `${asCompany} заявк. на компанию`, orders && `${orders} заказ.`].filter(Boolean);
+      if (used.length) throw new ConflictException(`Используется: ${used.join(', ')} — удалить нельзя. Дубль — «Объединить с…»`);
+      // общая база с CRM kppdf: любая другая таблица со ссылкой на организацию — тоже запрет
+      const or = ORG_REF_FIELDS.map((f) => ({ [f]: _id }));
+      for (const c of await this.db.listCollections({}, { nameOnly: true }).toArray()) {
+        if (['organizations', 'auditlogs'].includes(c.name) || c.name.startsWith('system.')) continue;
+        if (await this.db.collection(c.name).findOne({ $or: or }, { projection: { _id: 1 } })) throw new ConflictException(`На контрагента ссылаются записи («${c.name}») — удалить нельзя`);
+      }
+    }
+    await this.db.collection('organizations').updateOne({ _id }, { $set: { deletedAt: new Date(), editedInApp: true } });
+    return { id, orgId: String(_id), deleted: true };
+  }
+
+  /** Восстановить из корзины: id — организация (ObjectId). */
+  async restore(id: string) {
+    const _id = this.oid(id);
+    const o = await this.db.collection('organizations').findOne({ _id, deletedAt: { $ne: null }, mergedInto: { $exists: false } });
+    if (!o) throw new NotFoundException('В корзине такого нет (или он объединён с другим)');
+    if (realInn(o.inn) && (await this.db.collection('organizations').findOne({ inn: o.inn, deletedAt: null }))) throw new ConflictException(`ИНН ${o.inn} уже у другого контрагента`);
+    await this.db.collection('organizations').updateOne({ _id }, { $set: { deletedAt: null, updatedAt: new Date() } });
+    const isCust = !o.isOurCompany && Array.isArray(o.type) && o.type.includes('customer') && !o.type.includes('supplier');
+    return this.get(isCust ? CUST + String(o.name) : String(_id));
+  }
+
+  /** Корзина: удалённые контрагенты (объединённые дубли не показываем — их данные уже у другого). */
+  private async trash() {
+    const docs = await this.db.collection('organizations').find({ deletedAt: { $ne: null }, mergedInto: { $exists: false } }).sort({ deletedAt: -1 }).limit(100).toArray();
+    const items = docs.map((o) => ({ id: String(o._id), name: String(o.name), inn: realInn(o.inn), deletedAt: o.deletedAt,
+      kind: o.isOurCompany ? 'our' : Array.isArray(o.type) && o.type.includes('customer') && !o.type.includes('supplier') ? 'customer' : 'supplier' }));
+    return { items, total: items.length, page: 1, limit: 100 };
   }
 
   /** Объединить дубль `id` с `intoId`: всё связанное переходит к `intoId`. */

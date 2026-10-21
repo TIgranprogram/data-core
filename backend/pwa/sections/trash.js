@@ -6,6 +6,7 @@ import { requests } from './requests.js';
 import { orders } from './orders.js';
 import { salesorders } from './salesorders.js';
 import { stock } from './stock.js';
+import { partners } from './partners.js';
 
 /** Корзина (CANON §2 «Удаление»): всё удалённое, «Восстановить». */
 const SOURCES = [
@@ -13,6 +14,7 @@ const SOURCES = [
   { section: stock, title: 'Позиции склада', path: '/stock/items' },
   { section: salesorders, title: 'Заказы', path: '/salesorders' },
   { section: orders, title: 'Строки заказов', path: '/incomes' },
+  { section: partners, title: 'Контрагенты', path: '/partners' },
 ];
 
 export function mountTrash() {

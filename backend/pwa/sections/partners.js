@@ -86,7 +86,7 @@ export const partners = {
   list: {
     path: '/partners',
     sortDefault: '',
-    createLabel: false,
+    createLabel: 'Новый контрагент',
     searchPlaceholder: 'Поиск: название, ИНН, почта, телефон…',
     emptyText: 'Пусто.',
     filters: [
@@ -125,7 +125,11 @@ export const partners = {
       ...(session.canMoney ? [['Сумма', r.sum ? money(r.sum) : '—']] : []),
       ['Последняя', r.lastDate ? date(r.lastDate) : '—'],
     ],
-    view: (r) => [['ИНН', r.inn], ['Почта', r.email], ['Телефон', r.phone], ['Сайт', r.website], ['Примечание', r.notes]],
+    // «Изменить» — заметно сверху карточки (СП.1), не только внизу
+    editTop: true,
+    view: (r) => [['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Телефон', r.phone], ['Почта', r.email], ['Сайт', r.website],
+      ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
+      ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')], ['Примечание', r.notes]],
     actions: (r) => [
       r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
       r.kind === 'supplier' && { label: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) },
@@ -134,21 +138,46 @@ export const partners = {
   },
 
   form: {
-    fields: async (r) => (r?.kind === 'customer'
-      ? [{ key: 'name', label: 'Название (во всех заказах)', required: true, wide: true, max: 300, hint: 'Поменяется во всех заказах и позициях этого заказчика' }]
-      : [
-        { key: 'name', label: 'Название', required: true, wide: true, max: 300 },
-        { key: 'inn', label: 'ИНН', max: 12, hint: '10 цифр — организация, 12 — ИП' },
-        { key: 'phone', label: 'Телефон', max: 50 },
-        { key: 'email', label: 'Почта', max: 200 },
-        { key: 'website', label: 'Сайт', max: 300 },
-        { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
-      ]),
+    // СП.1: все реквизиты блоками; новый — сначала «кто это» (по вкладке списка)
+    fields: async (r) => [
+      { section: 'Контрагент', tone: 'main', fixed: true },
+      ...(r ? [] : [{ key: 'kind', label: 'Кто это', type: 'segment', required: true, wide: true,
+        options: [{ value: 'supplier', label: 'Поставщик' }, { value: 'customer', label: 'Заказчик' }, { value: 'our', label: 'Наша компания' }] }]),
+      { key: 'name', label: r?.kind === 'customer' ? 'Название (во всех заказах)' : 'Название', required: true, wide: true, max: 300,
+        hint: r?.kind === 'customer' ? 'Поменяется во всех заказах и позициях этого заказчика' : undefined },
+      { key: 'inn', label: 'ИНН', max: 12, hint: '10 цифр — организация, 12 — ИП' },
+      { key: 'kpp', label: 'КПП', max: 9 },
+      { key: 'legalAddress', label: 'Адрес', wide: true, max: 500 },
+      { section: 'Связь', tone: 'who' },
+      { key: 'phone', label: 'Телефон', max: 50 },
+      { key: 'email', label: 'Почта', max: 200 },
+      { key: 'website', label: 'Сайт', max: 300 },
+      { key: 'contactName', label: 'Контактное лицо', max: 200 },
+      { key: 'contactPhone', label: 'Телефон контакта', max: 50 },
+      { section: 'Банк и примечание', tone: 'money', collapsed: true },
+      { key: 'bankName', label: 'Банк', wide: true, max: 300 },
+      { key: 'bankBik', label: 'БИК', max: 9 },
+      { key: 'bankAccount', label: 'Расчётный счёт', max: 20 },
+      { key: 'bankCorrAccount', label: 'Корр. счёт', max: 20 },
+      { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
+    ],
+    initial: () => ({ kind: new URLSearchParams(location.hash.split('?')[1] || '').get('type') || 'supplier' }),
     toInitial: (r) => ({ ...r, inn: r.inn || '' }),
     toBody: (v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x === null ? '' : String(x)])),
+    create: (body) => api('/partners', { method: 'POST', body }),
     update: (id, body) => api(`/partners/${enc(id)}`, { method: 'PATCH', body }),
   },
 
-  searchRow: (r) => ({ title: r.name, sub: KIND[r.kind], side: '' }),
+  // в корзину — только незанятого; занятый сервер не даст (409 с причиной), дубль — «Объединить с…»
+  remove: {
+    text: (r) => `Удалить контрагента «${r.name}»?`,
+    blocked: (r) => (r.kind === 'customer' && r.orders ? `У заказчика ${r.orders} заказ(ов) — удалить нельзя. Если это дубль написания — «Объединить с…».`
+      : r.kind !== 'customer' && r.requests ? `На контрагента ${r.requests} заявок — удалить нельзя. Если это дубль — «Объединить с…».` : null),
+    run: (r) => api(`/partners/${enc(r.id)}`, { method: 'DELETE' }).then((x) => { r.orgId = x.orgId; return x; }),
+    restore: (r) => api(`/partners/${enc(r.orgId || r.id)}/restore`, { method: 'POST' }),
+  },
+
+  newTitle: 'Новый контрагент',
+  searchRow: (r) => ({ title: r.name, sub: [KIND[r.kind], r.inn ? 'ИНН ' + r.inn : ''].filter(Boolean).join(' · '), side: '' }),
   open: (id) => go('partners', { open: id }),
 };
