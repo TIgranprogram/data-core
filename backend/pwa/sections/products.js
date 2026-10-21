@@ -1,6 +1,6 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { money } from '../core/format.js';
+import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { toast } from '../ui/toast.js';
 import { pic } from './stock.js';
@@ -14,6 +14,16 @@ import { kpAdd, kpCount } from './kp.js';
  */
 const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy' }) : null);
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
+
+// «Где в заказах» (БЗ-5): позиции заказов с этим изделием (по ссылке или по совпадению названия) — только просмотр
+function inOrders(r) {
+  const items = r.orderLines || [];
+  if (!items.length) return h('p', { class: 'muted' }, 'В заказах не встречается');
+  return h('div', null, h('div', { class: 'section-title' }, `В заказах (${items.length})`),
+    h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null,
+      h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`),
+      h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · '))))));
+}
 
 export const products = {
   id: 'products',
@@ -59,6 +69,7 @@ export const products = {
     heading: (r) => r.name,
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
+    extra: inOrders,
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),

@@ -81,7 +81,17 @@ export class ShowcaseService {
   async get(id: string) {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');
-    return (await this.present([d as Doc]))[0];
+    const item = (await this.present([d as Doc]))[0];
+    return { ...item, orderLines: await this.orderLines(d as Doc) };
+  }
+
+  /** Где изделие в заказах: позиции со ссылкой productId или с тем же названием (без регистра), до 30 штук (БЗ-5). */
+  private async orderLines(d: Doc) {
+    const name = clean(d.name);
+    const or: Record<string, unknown>[] = [{ productId: d._id }];
+    if (name) or.push({ title: new RegExp('^\\s*' + escapeRe(name).replace(/\s+/g, '\\s+') + '\\s*$', 'i') });
+    const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, $or: or }).sort({ shipDate: -1 }).limit(30).toArray();
+    return lines.map((l) => ({ id: String(l._id), orderId: String(l.orderId), orderNo: l.orderNo ?? null, customer: l.customer ?? null, qty: l.qty ?? null, color: l.color ?? null, shipDate: l.shipDate ?? null, linked: !!l.productId }));
   }
 
   /** Категория type product по названию (с родителем) — найти или завести (slug и skuPrefix уникальны в общей схеме). */

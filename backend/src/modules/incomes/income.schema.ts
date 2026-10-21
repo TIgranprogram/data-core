@@ -15,6 +15,8 @@ export class Income {
   /** Шапка заказа (salesorders). Истина для orderNo, customer, companyId, paymentForm, shipDate — она; здесь кэш. */
   @Prop({ type: Types.ObjectId, ref: 'SalesOrder', index: true }) orderId?: Types.ObjectId;
   /** № позиции в заказе (столбец «№» заказ-наряда). */
+  /** Изделие из «Продукции» (необязательно, TASKS БЗ-5). Правка изделия описание позиции не меняет — позиция остаётся как в договоре. */
+  @Prop({ type: Types.ObjectId, ref: 'Product', index: true, sparse: true }) productId?: Types.ObjectId;
   @Prop() lineNo?: number;
   /** № заказа (как в таблице; строка — бывают «34/2»). */
   @Prop({ trim: true, index: true }) orderNo?: string;
