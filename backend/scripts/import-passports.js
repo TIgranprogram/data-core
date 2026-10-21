@@ -82,7 +82,13 @@ async function rollback(db, file) {
   const decFile = arg('--decisions') || path.join(__dirname, 'passports-decisions.json');
   const dec = has('--no-decisions') || !fs.existsSync(decFile) ? {} : JSON.parse(fs.readFileSync(decFile, 'utf8'));
   const dict = { ...(dec.typos || {}), ...(arg('--dict') ? JSON.parse(fs.readFileSync(arg('--dict'), 'utf8')) : {}) };
-  const plan = planImport(data, photos, { dict, categories: dec.categories, overrides: dec.overrides, fillFromModel: !!dec.fillFromModel, ourCompanies: ours.map((o) => ({ id: String(o._id), name: o.name, shortName: o.shortName })) });
+  // наши компании + псевдонимы из решений (в таблице «ООО «СпортИнЮг»», в карточке пока «СИЮ»)
+  const companies = ours.map((o) => ({ id: String(o._id), name: o.name, shortName: o.shortName }));
+  for (const [alias, orgName] of Object.entries(dec.supplierAliases || {})) {
+    const o = ours.find((x) => norm(x.name) === norm(orgName) || norm(x.shortName) === norm(orgName));
+    if (o) companies.push({ id: String(o._id), name: alias });
+  }
+  const plan = planImport(data, photos, { dict, categories: dec.categories, overrides: dec.overrides, fillFromModel: !!dec.fillFromModel, ourCompanies: companies });
 
   // модели из каталога: по артикулу (sku) или названию
   const products = await db.collection('products').find({ deletedAt: null }, { projection: { sku: 1, name: 1 } }).toArray();
