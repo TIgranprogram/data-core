@@ -1,0 +1,47 @@
+import { planImport } from './passport-import';
+import { serialDate, xmlText, type SheetData } from './xlsx-read';
+
+const HEAD = ['Паспорт№', 'Дата', 'Гарантийный Талон', 'Номер Изделия', 'Фото_ОбщийВид_ID', 'Артикул', 'Наименование', 'Категория', 'Высота', 'Длина', 'Ширина', 'Вес', 'Описание', 'Материалы', 'Установка', 'Назначение', 'Объект', 'Поставщик'];
+const sheet = (rows: string[][], images: SheetData['images'] = []): SheetData => ({
+  name: 'Данные', images,
+  rows: new Map([HEAD, ...rows].map((r, i) => [i + 1, new Map(r.map((v, c) => [c, v] as [number, string]).filter(([, v]) => v !== ''))])),
+});
+
+describe('перенос паспортов: разбор строк (ПС.3)', () => {
+  it('серийная дата, сущности XML', () => {
+    expect(serialDate(45884).toISOString().slice(0, 10)).toBe('2025-08-15');
+    expect(xmlText('&quot;Г&quot; &amp; &#1046;')).toBe('"Г" & Ж');
+  });
+
+  it('обычная строка: числа, чистка, «Объект», наша компания, картинка общего вида', () => {
+    const p = planImport(sheet([['224', '45884', '20258-224', '2254', '', '', 'Стойки волейбольные, (комплект , без сетки)', 'Спортивное оборудование', '3000', '108', '108', '25.6', 'Описание', 'трубы', 'Изделие устанавливается в стаканы.', 'Предназначено для волейбола.', 'Заказ № 24 ИП Сахаджи', 'ООО «СпортИнЮг»']], [{ row: 2, col: 4, media: 'xl/media/image1.png' }]), undefined,
+      { ourCompanies: [{ id: 'aaaaaaaaaaaaaaaaaaaaaaaa', name: 'ООО «СпортИнЮг»' }] });
+    const d = p.items[0].doc;
+    expect(d).toMatchObject({ passportNumber: '224', passportNo: 224, warrantyCode: '20258-224', productCode: '2254', name: 'Стойки волейбольные (комплект, без сетки)', weight: 25.6, orderNo: '24', customerName: 'ИП Сахаджи', supplierOrgId: 'aaaaaaaaaaaaaaaaaaaaaaaa', productCodeDuplicate: false, source: 'sheet:Pasports' });
+    expect((d.date as Date).toISOString().slice(0, 10)).toBe('2025-08-15');
+    expect(p.items[0].images).toEqual([{ kind: 'overview', media: 'xl/media/image1.png' }]);
+    expect(p.changes.find((c) => c.field === 'Наименование')?.reason).toBe('пробелы, кавычки, знаки препинания');
+  });
+
+  it('сдвиг колонок (№549) восстанавливается и выносится на проверку; обрезанная строка (№548) — не придумываем', () => {
+    const p = planImport(sheet([
+      ['548', '46307', '202610-548', '2576', '', '2_1', 'Стойки волейбольные', 'Спортивное оборудование', '3000', '108', '108', '25.6', 'Стойки волейбольные'],
+      ['549', '46308', '202610-549', '2577', '', '1_4', 'Стойка баскетбольная', 'Уличный тренажер', '4080', '1940', '1800', '130', 'Стойка баскетбольная (в дальнейшем «Изделие»)', 'Стойка баскетбольная «Г» образная (в дальнейшем именуемое «Изделие»), изготовленное из труб', 'стальной профильной трубы 120х120х4 мм.', 'Изделие устанавливается на площадках.', 'Предназначено для игры в баскетбол.'],
+    ]), undefined);
+    const [a, b] = p.items.map((i) => i.doc);
+    expect(a.materials).toBeUndefined();
+    expect(b).toMatchObject({ materials: 'стальной профильной трубы 120х120х4 мм.', installationMethod: 'Изделие устанавливается на площадках.', purpose: 'Предназначено для игры в баскетбол.' });
+    expect(b.objectName).toBeUndefined();
+    expect(p.decisions.map((d) => d.topic)).toEqual(expect.arrayContaining(['Обрезанная строка', 'Сдвиг колонок']));
+  });
+
+  it('дубль номера изделия — оставлен и помечен; опечатки — только списком без словаря, исправляются со словарём', () => {
+    const row = (no: string, name: string) => [no, '46140', `20264-${no}`, '2491', '', '', name, 'Воркаут'];
+    const p = planImport(sheet([row('461', 'Скамяь'), row('462', 'Скамья'), row('463', 'Скамья')]), undefined);
+    expect(p.items.every((i) => i.doc.productCodeDuplicate === true)).toBe(true);
+    expect(p.items[0].doc.name).toBe('Скамяь');
+    expect(p.decisions.some((d) => d.topic === 'Опечатка')).toBe(true);
+    const fixed = planImport(sheet([row('461', 'Скамяь')]), undefined, { dict: { Скамяь: 'Скамья' } });
+    expect(fixed.items[0].doc.name).toBe('Скамья');
+  });
+});
