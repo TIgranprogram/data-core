@@ -3,7 +3,7 @@
 import { api, canEditSection, events, login, PREFIX, session } from './core/api.js';
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
-import { confirmDlg } from './ui/dialog.js';
+import { confirmDlg, modal } from './ui/dialog.js';
 import { searchBox } from './ui/searchbox.js';
 import { openCard } from './ui/card.js';
 import { icon } from './ui/icons.js';
@@ -61,6 +61,27 @@ function showLogin(message) {
 }
 events.onAuthLost = () => { session.clear(); showLogin('Сессия истекла — войдите снова.'); };
 
+// ---------- «Установить на телефон» (TASKS МП.2–МП.3) ----------
+// Android Chrome отдаёт событие установки — кнопка сразу ставит приложение; иначе (iPhone, другой браузер) — короткая инструкция.
+// Уже установленное (открыто как приложение) кнопку не показывает.
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; });
+const isInstalled = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+function installLink() {
+  if (isInstalled()) return null;
+  return h('a', { class: 'side-link', href: '#', title: 'Установить «Рабочее место» на телефон или компьютер', onclick: async (e) => {
+    e.preventDefault();
+    if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice.catch(() => null); installEvt = null; if (r?.outcome === 'accepted') e.target.closest('a')?.remove(); return; }
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    modal({ title: 'Установить на телефон', okText: 'Понятно', cancelText: 'Закрыть', body: h('div', null,
+      h('p', null, 'Приложение ставится прямо из браузера — значок появится на экране телефона, открывается как обычное приложение и работает без связи (изменения уйдут, когда связь появится).'),
+      ios
+        ? h('ol', null, h('li', null, 'Откройте этот адрес в Safari.'), h('li', null, 'Нажмите «Поделиться» (квадрат со стрелкой).'), h('li', null, 'Выберите «На экран „Домой“».'))
+        : h('ol', null, h('li', null, 'Откройте этот адрес в Chrome на телефоне и войдите.'), h('li', null, 'Нажмите ⋮ (три точки справа сверху).'), h('li', null, 'Выберите «Установить приложение» или «Добавить на главный экран».')),
+      h('p', { class: 'hint' }, 'Адрес: ' + location.origin + location.pathname)) });
+  } }, icon('phone'), h('span', { class: 'lbl' }, 'Установить на телефон'));
+}
+
 // ---------- Каркас: меню слева, сверху поиск ----------
 let navLinks = {};
 let netBar;
@@ -99,6 +120,7 @@ function shell() {
     h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners,
     session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
+      installLink(),
       navLinks.dicts,
       seesHistory ? navLinks.history : null,
       navLinks.trash,
