@@ -2,7 +2,8 @@
  * общего вида из ячеек Данные!E; Sheets API их не отдаёт). Логика — src/modules/product-passport/passport-import.ts.
  *
  *   Отчёт (по умолчанию, ничего не пишет):
- *     MONGO_URI=… [MONGO_DB=…] node scripts/import-passports.js --file Pasports.xlsx [--dict typos.json] [--out-dir папка]
+ *     MONGO_URI=… [MONGO_DB=…] node scripts/import-passports.js --file Pasports.xlsx [--decisions файл] [--out-dir папка]
+ *     решения пользователя (опечатки, единые категории, поправки, «пустое — из той же модели») — scripts/passports-decisions.json
  *     --download вместо --file: скачать выгрузку по ссылке таблицы (таблица открыта по ссылке)
  *   Запись: … --apply [--backup <папка бэкапа>]  (на базе datacore --backup обязателен — сначала backup.sh)
  *     идемпотентно по passportNumber: новые — вставка; перенесённые раньше (source sheet:Pasports) — обновление
@@ -77,8 +78,11 @@ async function rollback(db, file) {
   const data = book.sheets.get('Данные'), photos = book.sheets.get('Фотографии');
   if (!data) throw new Error('В выгрузке нет листа «Данные»');
   const ours = await db.collection('organizations').find({ isOurCompany: true, deletedAt: null }, { projection: { name: 1, shortName: 1 } }).toArray();
-  const dict = arg('--dict') ? JSON.parse(fs.readFileSync(arg('--dict'), 'utf8')) : {};
-  const plan = planImport(data, photos, { dict, ourCompanies: ours.map((o) => ({ id: String(o._id), name: o.name, shortName: o.shortName })) });
+  // решения пользователя (опечатки, категории, поправки по паспортам) — scripts/passports-decisions.json; --decisions <файл> — другой
+  const decFile = arg('--decisions') || path.join(__dirname, 'passports-decisions.json');
+  const dec = has('--no-decisions') || !fs.existsSync(decFile) ? {} : JSON.parse(fs.readFileSync(decFile, 'utf8'));
+  const dict = { ...(dec.typos || {}), ...(arg('--dict') ? JSON.parse(fs.readFileSync(arg('--dict'), 'utf8')) : {}) };
+  const plan = planImport(data, photos, { dict, categories: dec.categories, overrides: dec.overrides, fillFromModel: !!dec.fillFromModel, ourCompanies: ours.map((o) => ({ id: String(o._id), name: o.name, shortName: o.shortName })) });
 
   // модели из каталога: по артикулу (sku) или названию
   const products = await db.collection('products').find({ deletedAt: null }, { projection: { sku: 1, name: 1 } }).toArray();

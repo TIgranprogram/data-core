@@ -17,7 +17,17 @@ export interface ImportCtx {
   dict?: Record<string, string>;
   /** наши компании — для supplierOrgId */
   ourCompanies?: OrgRef[];
+  /** единый список категорий: как в таблице → как правильно */
+  categories?: Record<string, string>;
+  /** решения по отдельным паспортам: { '549': { supplier: 'ООО «СпортИнЮг»' } } */
+  overrides?: Record<string, Record<string, unknown>>;
+  /** пустое (и категорию) — из паспортов той же модели (артикул + название) */
+  fillFromModel?: boolean;
 }
+
+/** Поля модели: одинаковы у всех паспортов одного изделия. */
+const MODEL_FIELDS = ['name', 'category', 'height', 'length', 'width', 'weight', 'materials', 'installationMethod', 'purpose', 'description'] as const;
+const LABEL: Record<string, string> = { name: 'Наименование', category: 'Категория', height: 'Высота', length: 'Длина', width: 'Ширина', weight: 'Вес', materials: 'Материалы', installationMethod: 'Установка', purpose: 'Назначение', description: 'Описание', supplier: 'Поставщик' };
 
 const HEAD = {
   no: 'Паспорт№', date: 'Дата', warranty: 'Гарантийный Талон', code: 'Номер Изделия', article: 'Артикул', name: 'Наименование', category: 'Категория',
@@ -114,7 +124,7 @@ export function planImport(data: SheetData, photos: SheetData | undefined, ctx: 
       materials = install; install = purpose; purpose = cleanText(object); object = '';
       ch('Материалы', was.materials, materials, 'сдвиг колонок восстановлен'); ch('Установка', was.install, install, 'сдвиг колонок восстановлен');
       ch('Назначение', was.purpose, purpose, 'сдвиг колонок восстановлен'); ch('Объект', was.object, '', 'сдвиг колонок восстановлен (было «Назначение»)');
-      decisions.push({ no, topic: 'Сдвиг колонок', text: 'колонки «Материалы → Объект» сдвинуты на одну вправо — восстановлено (проверьте); поставщик в строке пуст' });
+      decisions.push({ no, topic: 'Сдвиг колонок', text: 'колонки «Материалы → Объект» сдвинуты на одну вправо — восстановлено (проверьте)' });
     }
     if (!materials && !install && !purpose && !object && !supplier) decisions.push({ no, topic: 'Обрезанная строка', text: 'нет материалов, установки, назначения, объекта и поставщика — не придумываем; можно взять у паспорта той же модели (артикул ' + (doc.article || '—') + ')' });
     doc.description = description || undefined;
@@ -142,6 +152,53 @@ export function planImport(data: SheetData, photos: SheetData | undefined, ctx: 
     // убрать пустое
     for (const k of Object.keys(doc)) if (doc[k] === undefined) delete doc[k];
     items.push({ no, row: r, doc, images: imgs, objectRaw: cleanText(object) });
+  }
+
+  // решения пользователя по отдельным паспортам
+  for (const it of items) for (const [f, v] of Object.entries(ctx.overrides?.[it.no] ?? {})) {
+    if (String(it.doc[f] ?? '') === String(v)) continue;
+    changes.push({ no: it.no, field: LABEL[f] ?? f, before: String(it.doc[f] ?? ''), after: String(v), reason: 'решение пользователя' });
+    it.doc[f] = v;
+    if (f === 'supplier') { const org = (ctx.ourCompanies ?? []).find((o) => [o.name, o.shortName].filter(Boolean).some((n) => ourKey(String(n)) === ourKey(String(v)))); if (org) it.doc.supplierOrgId = org.id; }
+  }
+  // единый список категорий
+  if (ctx.categories) for (const it of items) {
+    const c = it.doc.category as string | undefined;
+    if (!c) continue;
+    const to = ctx.categories[c];
+    if (!to) { decisions.push({ no: it.no, topic: 'Категория', text: `«${c}» нет в общем списке категорий` }); continue; }
+    if (to !== c) { changes.push({ no: it.no, field: 'Категория', before: c, after: to, reason: 'единый список категорий' }); it.doc.category = to; }
+  }
+  // модели: пустое и категория — из паспортов той же модели (решение 2026-10-21: модели одинаковые, ошибки заполнения)
+  if (ctx.fillFromModel) {
+    const descEmpty = (d: Record<string, unknown>) => !d.description || normKey(String(d.description)) === normKey(String(d.name ?? '')); // «описание» = только название
+    const groups = new Map<string, PlanItem[]>();
+    for (const it of items) {
+      // модель = артикул + название (у «2_1» две разные стойки); без названия модель не определить
+      const k = it.doc.name ? `${normKey(String(it.doc.article ?? ''))}|${normKey(String(it.doc.name))}` : '';
+      if (k) groups.set(k, [...(groups.get(k) ?? []), it]);
+    }
+    for (const g of groups.values()) {
+      if (g.length < 2) continue;
+      for (const f of MODEL_FIELDS) {
+        const has = (d: Record<string, unknown>) => (f === 'description' ? !descEmpty(d) : d[f] !== undefined && d[f] !== '');
+        const votes = new Map<string, { v: unknown; nos: string[] }>();
+        for (const it of g) if (has(it.doc)) { const k = JSON.stringify(it.doc[f]); const e = votes.get(k) ?? { v: it.doc[f], nos: [] }; e.nos.push(it.no); votes.set(k, e); }
+        if (!votes.size) continue;
+        const best = [...votes.values()].sort((a, b) => b.nos.length - a.nos.length)[0];
+        for (const it of g) {
+          if (!has(it.doc)) { changes.push({ no: it.no, field: LABEL[f], before: String(it.doc[f] ?? ''), after: String(best.v), reason: `пусто — из паспорта той же модели №${best.nos[0]}` }); it.doc[f] = best.v; }
+          else if (f === 'category' && JSON.stringify(it.doc[f]) !== JSON.stringify(best.v)) { changes.push({ no: it.no, field: LABEL[f], before: String(it.doc[f]), after: String(best.v), reason: `одна категория у модели (как у №${best.nos.join(', ')})` }); it.doc[f] = best.v; }
+        }
+      }
+    }
+    // «Обрезанная строка» решена, если модель всё заполнила
+    for (let i = decisions.length - 1; i >= 0; i--) {
+      const d = decisions[i];
+      if (d.topic !== 'Обрезанная строка') continue;
+      const it = items.find((x) => x.no === d.no);
+      if (it?.doc.materials && it.doc.installationMethod && it.doc.purpose) decisions.splice(i, 1, { no: d.no, topic: 'Заполнено по модели', text: 'материалы, установка, назначение — из паспорта той же модели; объект и поставщик — пусто' });
+    }
   }
 
   // по всей таблице: дубли номера изделия, даты не по порядку, разные категории у одного названия
