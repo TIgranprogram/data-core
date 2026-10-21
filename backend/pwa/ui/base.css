@@ -756,3 +756,12 @@ html { scrollbar-gutter: stable; }
 .ops-res summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ops-res summary .btn { margin-left: auto; }
 .ops-res-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 0 4px 16px; font-size: var(--fs-sm); }
+
+/* «Сегодня»: быстрые действия и «Быстро заказать» (TASKS С2) */
+.today-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 var(--s4); }
+.quick-panel { padding: 12px 14px; }
+.qo-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 2.2fr) 70px auto auto; gap: 8px; align-items: center; }
+.qo-row input { height: 38px; width: 100%; }
+.qo-q { text-align: right; }
+.qo-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+@media (max-width: 720px) { .qo-row { grid-template-columns: 1fr 70px auto; } .qo-cat, .qo-item { grid-column: 1 / -1; } }

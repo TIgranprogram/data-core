@@ -1,8 +1,11 @@
 import { api, session } from '../core/api.js';
+import { pastItems } from './requests.js';
+import { lookups } from './lookups.js';
+import { quickOrder } from '../ui/quick-order.js';
 import { icon } from '../ui/icons.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
-import { patch } from '../core/router.js';
+import { patch, go } from '../core/router.js';
 import { status, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
 import { moveLabel } from './movements.js';
@@ -25,7 +28,19 @@ export function mountHome(deps) {
   const monthStart = isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
 
   const summary = h('div', { class: 'summary' });
-  const quick = session.canEdit ? requests.quick(() => { reloadAll(); }) : null;
+  // Быстро заказать — «Категория → Позиция из базы» (TASKS С2.1); категории — из подсказок формы заявки
+  let cats = [];
+  lookups().then((lk) => { cats = (lk.categories || []).map((x) => x.name); }).catch(() => {});
+  const quick = session.canEdit ? quickOrder({ load: pastItems, categories: () => cats, done: () => reloadAll() }) : null;
+  // Быстрые действия (TASKS С2.2): всё ежедневное — в один клик, туда, где делается
+  const act = (label, title, onclick) => h('button', { type: 'button', class: 'btn', title, onclick }, label);
+  const actions = session.canEdit ? h('div', { class: 'today-actions' },
+    act('+ Заявка', 'Полная форма новой заявки справа', () => patch({ of: 'requests', new: '1', open: undefined })),
+    act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
+    act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined })),
+    act('Принять машину', 'Приход по счёту: «Операции» → «Приход»', () => go('ops', { mode: 'in' })),
+    act('− Списать', 'Выдача со склада: «Операции» → «Списание»', () => go('ops', {})),
+    act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))) : null;
 
   // ---------- Очереди ----------
   const queues = [];
@@ -192,9 +207,10 @@ export function mountHome(deps) {
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
+    actions,
     // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
     h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },
-      lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, quick) : null, qOrder, qWait, qDecide),
+      lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, h('div', { class: 'section-title' }, 'Быстро заказать'), quick) : null, qOrder, qWait, qDecide),
       lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qFeed),
       h('div', { class: 'lane-stack' },
         lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue),
