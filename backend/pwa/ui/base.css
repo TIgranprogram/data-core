@@ -809,3 +809,17 @@ html { scrollbar-gutter: stable; }
   .dict-link.active::before { display: none; }
   .dict-tools, .dict-tools .search, .dict-tools .search input { width: 100%; }
 }
+
+/* «Требуют заполнения» (TASKS ТЗ.3): группы раскрываются, «Заполнить» — карточка сразу на нужном поле */
+.fill-list { display: grid; gap: var(--s2); max-width: 980px; }
+.fill-area { margin: var(--s4) 0 var(--s1); }
+.fill-area:first-child { margin-top: 0; }
+.fill-head { display: flex; align-items: center; gap: var(--s3); width: 100%; padding: var(--s3) var(--s4); background: none; border: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer; border-radius: var(--radius); }
+.fill-head:hover { background: var(--row-hover); }
+.fill-group.open .fill-head { border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; }
+.fill-chev { color: var(--muted); width: 14px; }
+.fill-t { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.fill-t .muted { font-size: var(--fs-sm); }
+.fill-note { background: var(--gold-soft); color: var(--text); border-radius: var(--radius-sm); padding: var(--s2) var(--s3); margin-bottom: var(--s3); font-size: var(--fs-sm); }
+.field.fill-here > input, .field.fill-here > select, .field.fill-here > textarea, .field.fill-here input { outline: 2px solid var(--gold); outline-offset: 1px; }
+.field.fill-here > span:first-child { color: var(--gold-deep); font-weight: 700; }

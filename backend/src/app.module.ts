@@ -55,6 +55,7 @@ import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { DictsModule } from './modules/dicts/dicts.module';
+import { FillAuditModule } from './modules/fill-audit/fill-audit.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -154,6 +155,7 @@ import { RequestMethod } from '@nestjs/common';
     IncomesModule,          // /api/incomes — доходы (строки заказов), своя коллекция incomes
     PartnersModule,
     DictsModule,            // /api/dicts — «Справочники»: категории, единицы, цвета, сотрудники, виды работ, графики выплат, типы счетов, услуги         // /api/partners — «Контрагенты»: поставщики (organizations) и заказчики (текст в заказах), объединение дублей
+    FillAuditModule,        // /api/fill-audit — «Требуют заполнения» по категориям (что, зачем, куда идти)
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps

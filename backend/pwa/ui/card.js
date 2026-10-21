@@ -39,7 +39,7 @@ function gallery(pics, onRemove) {
   return h('div', { class: 'gallery' }, big, strip, del);
 }
 const docked = () => window.innerWidth >= DOCK_MIN;
-export function openCard(section, { id, mode = 'view', initial }, ctx) {
+export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let row = null;
   let form = null;
   const titleEl = h('h2');
@@ -189,7 +189,20 @@ export function openCard(section, { id, mode = 'view', initial }, ctx) {
     form.focus();
   }
 
+  // «Требуют заполнения» (TASKS ТЗ.3): fill=<ключ поля> — сразу правка, нужное поле подсвечено, раскрыто и в фокусе
+  function markFill(key) {
+    const input = body.querySelector(`[name="${key}"]`);
+    const label = input?.closest('.field');
+    if (!label) { body.prepend(h('div', { class: 'fill-note' }, 'Это поле здесь не заполняется — посмотрите подсказку в списке «Требуют заполнения».')); return; }
+    label.closest('.closed')?.classList.remove('closed');
+    label.classList.add('fill-here');
+    body.prepend(h('div', { class: 'fill-note' }, 'Заполните: ', h('b', null, (label.querySelector('span')?.textContent || '').replace(/\s*\*$/, '')), ' — поле подсвечено. Затем «Сохранить».'));
+    label.scrollIntoView({ block: 'center' });
+    setTimeout(() => input.focus(), 50);
+  }
+
   if (mode === 'create') showForm('create', initial);
+  else if (fill && section.form && session.canEdit) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form) markFill(fill); });
   else showView();
   return {
     close: destroy,

@@ -17,6 +17,7 @@ import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
 import { partners } from './sections/partners.js';
 import { dict, mountDicts } from './sections/dicts.js';
+import { mountFill } from './sections/fill.js';
 import { invoice, pasteOrder } from './sections/invoice.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
@@ -160,11 +161,12 @@ function render({ section, params }) {
     else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = mountPayroll();
     else if (section === 'trash') list = mountTrash();
     else if (section === 'dicts') list = mountDicts(params);
+    else if (section === 'fill') list = mountFill(params);
     else if (section === 'search') list = mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
-    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
+    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
     window.scrollTo(0, 0);
   } else {
     mounted.list.update?.(params);
@@ -183,16 +185,16 @@ function syncCard(section, params) {
   const sec = SECTIONS[ofName];
   const want = sec && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
   if (!want) { closeCard(); return; }
-  const key = ofName + want;
+  const key = ofName + want + (params.fill ? '~' + params.fill : '');
   if (card?.key === key) return;
   // Та же панель, другая запись (стрелки, клик по соседней строке) — меняем содержимое, без закрытия
-  if (card && card.of === ofName && want.startsWith('open:') && card.key.includes('open:') && !card.handle.editing) {
+  if (card && card.of === ofName && !params.fill && want.startsWith('open:') && card.key.includes('open:') && !card.key.includes('~') && !card.handle.editing) {
     card.key = key;
     card.handle.load(params.open);
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, title: undefined, unit: undefined, categoryName: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined };
   const ctx = {
     close: () => { card = null; patch(clear); },
     changed: () => { mounted?.list?.reload?.(); refreshCounts(); },
@@ -204,7 +206,7 @@ function syncCard(section, params) {
     for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId']) if (params[k]) initial[k] = params[k];
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
-    card = { key, of: ofName, handle: openCard(sec, { id: params.open }, ctx) };
+    card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };
   }
 }
 

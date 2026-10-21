@@ -1,17 +1,19 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, money } from '../core/format.js';
-import { patch } from '../core/router.js';
+import { money } from '../core/format.js';
+import { go, patch } from '../core/router.js';
 
 /**
  * «Деньги» (PRODUCT §5, TASKS Ф.6): платёжный календарь СИЮ/ССЮ по дням, сводка по месяцам, «требуют заполнения».
  * Всё считается на сервере (/api/finance) из заявок (расходы) и заказов (доходы). Состояние — в адресе:
- * #money?tab=calendar|summary|fill&month=2026-10&org=all|СИЮ|ССЮ. Клик по сумме дня — операции дня;
+ * #money?tab=calendar|summary&month=2026-10&org=all|СИЮ|ССЮ. Клик по сумме дня — операции дня;
  * клик по операции — её карточка справа (страница не меняется).
  * Решение 2026-10-20: деньги — только факт по сегодня включительно; будущее (план, прогноз) — отдельный раздел позже.
  * Пока остаток на 1-е не введён, показываем не «остаток», а «итог с 1-го числа» — без тревожного красного.
  */
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+/** Пустые значения в долях «Куда / На что / Кому» → группа «Требуют заполнения» (sections/fill.js). */
+const UNSET = { 'Не указано': 'exp-cost', 'Без категории': 'exp-category', 'Поставщик не указан': 'exp-supplier' };
 const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 const cur = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).getUTCDate(); };
@@ -49,7 +51,7 @@ export function mountMoney(params) {
 
   function renderChrome(companies) {
     tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
-      h('button', { type: 'button', class: tab() === k ? 'active' : '', onclick: () => patch({ tab: k === 'calendar' ? undefined : k }) }, l)));
+      h('button', { type: 'button', class: tab() === k ? 'active' : '', onclick: () => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }, l)));
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
     orgSeg.replaceChildren(...['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) =>
@@ -108,7 +110,7 @@ export function mountMoney(params) {
       h('div', { class: 'summary' }, ...(withOpen
         ? [kpi('остаток на начало', t.opening), kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('остаток' + (upto ? ' сегодня' : ' на конец'), t.closing)]
         : [kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('итог месяца' + upto, t.income - t.expense, { calm: true, sign: true })]),
-        c.needsFill.total ? h('button', { class: 'sum-item attn', type: 'button', onclick: () => patch({ tab: 'fill' }) }, h('span', { class: 'sum-v' }, String(c.needsFill.total)), h('span', { class: 'sum-l' }, 'не попали в расчёт →')) : null),
+        c.needsFill.total ? h('button', { class: 'sum-item attn', type: 'button', onclick: () => go('fill') }, h('span', { class: 'sum-v' }, String(c.needsFill.total)), h('span', { class: 'sum-l' }, 'не попали в расчёт →')) : null),
       h('div', { class: 'panel cal-wrap' }, h('table', { class: 'cal' }, h('thead', null, head), h('tbody', null, rows))),
       h('p', { class: 'hint' }, `Только то, что уже было — по сегодня включительно; будущие даты здесь не показываются (для них будет отдельный прогноз). Выплаты — заявки с датой счёта, суммой и нашей компанией. Поступления — позиции заказов с суммой (по дате оплаты, иначе отгрузки). ${withOpen ? '' : 'Введите остаток денег на 1-е число — появится остаток по дням. '}Нажмите на сумму дня — увидите операции.`),
       h('div', { class: 'panel' }, opsBox),
@@ -148,7 +150,8 @@ export function mountMoney(params) {
       const tot = list.reduce((a, x) => a + x.total, 0) || 1; const max = Math.max(1, ...list.map((x) => x.total));
       return h('div', { class: 'panel dash-card' }, h('div', { class: 'q-head' }, h('div', null, h('h3', null, title), h('div', { class: 'q-hint' }, hint))),
         list.length ? h('div', { class: 'shares' }, ...list.map((x) => h('div', { class: 'share' },
-          h('div', { class: 'share-l' }, h('span', { class: 'clip', title: x.label }, x.label), h('b', { class: 'num' }, money(x.total)), h('span', { class: 'muted num share-p' }, Math.round((x.total / tot) * 100) + '%')),
+          // «Не указано» / «Без категории» — ссылка прямо в очередь заполнения (TASKS ТЗ.5)
+          h('div', { class: 'share-l' }, UNSET[x.label] ? h('a', { class: 'clip', href: '#fill?g=' + UNSET[x.label], title: 'Открыть список и заполнить' }, x.label + ' — заполнить →') : h('span', { class: 'clip', title: x.label }, x.label), h('b', { class: 'num' }, money(x.total)), h('span', { class: 'muted num share-p' }, Math.round((x.total / tot) * 100) + '%')),
           h('div', { class: 'share-bar' }, h('i', { style: { width: Math.max(2, (x.total / max) * 100) + '%' } })))))
           : h('p', { class: 'muted', style: { padding: '0 16px 12px' } }, 'Расходов пока нет'));
     };
@@ -170,26 +173,6 @@ export function mountMoney(params) {
     ];
   }
 
-  // ---------- Требуют заполнения ----------
-  function fill(nf) {
-    if (!nf.items.length) return [h('div', { class: 'panel state' }, 'Всё заполнено — все заявки и заказы попадают в расчёт 👍')];
-    const group = (type, title, hint, link) => {
-      const xs = nf.items.filter((x) => (type === 'income' ? x.type === 'income' : x.type !== 'income'));
-      if (!xs.length) return null;
-      const shown = xs.slice(0, 15);
-      return h('div', { class: 'panel queue' },
-        h('div', { class: 'q-head' }, h('div', null, h('h3', null, title + ' ', h('span', { class: 'q-n' }, String(xs.length))), h('div', { class: 'q-hint' }, hint)),
-          link ? h('a', { class: 'q-link', href: link }, 'Все →') : null),
-        h('ul', { class: 'q-list' }, shown.map((x) => h('li', { class: 'q-row', tabindex: '0', onclick: () => patch({ of: x.type === 'income' ? 'orders' : 'requests', open: x.id }) },
-          h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), h('div', { class: 'q-sub' }, [x.doc, x.date ? date(x.date) : ''].filter(Boolean).join(' · '))),
-          h('div', { class: 'q-side' }, h('span', { class: 'badge warn' }, 'нет: ' + x.missing.join(', '))))),
-          xs.length > shown.length ? h('li', { class: 'q-empty' }, `и ещё ${xs.length - shown.length} — откройте «Все →»`) : null));
-    };
-    return [h('div', { class: 'queues' },
-      group('expense', 'Заявки — не попадают в выплаты', 'Не хватает суммы, даты счёта или нашей компании. Нажмите — впишите в карточке («Изменить»).', '#requests?needsFill=1'),
-      group('income', 'Позиции заказов — не попадают в поступления', 'Нет суммы или даты отгрузки/оплаты. Быстрее всего — «Позиции и оплаты» → «Без суммы» → «Вписать сумму».', '#orders?status=noamount'))];
-  }
-
   let seq = 0;
   async function load() {
     const my = ++seq;
@@ -200,8 +183,9 @@ export function mountMoney(params) {
       const end = `${m}-${String(lastDay(m)).padStart(2, '0')}`;
       const q = { from: `${m}-01`, to: end < todayIso() ? end : todayIso(), org: org() };
       let content;
-      if (tab() === 'fill') content = fill(await api('/finance/needs-fill'));
-      else if (tab() === 'summary') {
+      // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
+      if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
+      if (tab() === 'summary') {
         const y = m.slice(0, 4);
         const s = await api('/finance/summary', { query: { from: `${y}-01-01`, to: `${y}-12-31` < todayIso() ? `${y}-12-31` : todayIso(), org: org() } });
         if (my !== seq) return;

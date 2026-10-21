@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { fillToday } from './fill.js';
 import { pastItems } from './requests.js';
 import { lookups } from './lookups.js';
 import { quickOrder } from '../ui/quick-order.js';
@@ -212,7 +213,10 @@ export function mountHome(deps) {
     }
   }
 
-  function reloadAll() { queues.forEach((q) => q()); loadFeed(); loadRes(); deps.refreshCounts?.(); }
+  // «Требуют заполнения» (TASKS ТЗ.4): чем заняться — группы с числами, клик — сразу к заполнению
+  const fill = fillToday();
+
+  function reloadAll() { queues.forEach((q) => q()); loadFeed(); loadRes(); fill.load(); deps.refreshCounts?.(); }
 
   const lane = (title, ico, href, linkText, ...kids) => h('section', { class: 'lane' },
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
@@ -224,6 +228,7 @@ export function mountHome(deps) {
       lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, h('div', { class: 'section-title' }, 'Быстро заказать'), quick) : null, qOrder, qWait, qDecide),
       lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qRes, qFeed),
       h('div', { class: 'lane-stack' },
+        lane('Заполнить', 'table', '#fill', 'Все группы →', fill.el),
         lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue),
         session.canMoney ? lane('Деньги', 'money', '#money', 'Календарь →', qPay) : null)));
 

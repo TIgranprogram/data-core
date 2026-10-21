@@ -3833,6 +3833,39 @@
         ]
       }
     },
+    "/fill-audit": {
+      "get": {
+        "operationId": "FillAuditController_report",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "строк в группе (1–200, умолч. 30)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "only",
+            "required": false,
+            "in": "query",
+            "description": "ключ одной группы, напр. exp-cost",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Требуют заполнения"
+        ]
+      }
+    },
     "/salesorders": {
       "get": {
         "operationId": "SalesOrdersController_list",
