@@ -26,3 +26,6 @@ deploy/synology/CREDENTIALS.md
 # Ключ сервисного аккаунта Google (чтение Google-таблиц) — никогда не коммитить
 secrets/
 *google-sa*.json
+
+# Доступ к деплою с рабочего ПК (ключи, ssh_config) — не в git
+/deploy/remote-access/
