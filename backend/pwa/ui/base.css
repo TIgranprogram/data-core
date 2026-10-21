@@ -365,6 +365,8 @@ body.detail-open .board { grid-auto-columns: minmax(240px, 1fr); }
 .sum-v { white-space: nowrap; font-size: clamp(19px, 1.5vw, 24px); font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; }
 .sum-item.attn .sum-v::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 .sum-l { color: var(--muted); font-size: var(--fs-sm); }
+.sum-d { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sum-d b { color: var(--text); font-weight: 600; }
 
 /* Быстрое добавление одной строкой */
 .quick-panel { margin-bottom: var(--s4); }

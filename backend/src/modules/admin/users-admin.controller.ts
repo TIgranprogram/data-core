@@ -136,6 +136,7 @@ export class UsersAdminController {
   @AuditAction({ action: 'admin.user.created', entityType: 'User' })
   async create(
     @Body() dto: CreateUserDto,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- актор нужен журналу аудита и тестам, проверка роли — гардами
     @CurrentUser() actor?: AuthenticatedUser,
   ): Promise<ReturnType<typeof toClientUser>> {
     // Решение пользователя 2026-10-19: администраторов может быть несколько, любой администратор

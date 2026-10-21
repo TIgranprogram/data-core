@@ -78,6 +78,7 @@ export class FillAuditService {
       const c = db.collection(d.coll);
       const [count, rows] = await Promise.all([c.countDocuments(d.q), c.find(d.q).sort(d.sort).limit(limit).toArray()]);
       if (!count) continue;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- служебные поля описания группы в ответ не идут
       const { coll: _c, q: _q, item, sort: _s, ...g } = d;
       groups.push({ ...g, count, items: rows.map((r) => item(r as Q)) });
     }

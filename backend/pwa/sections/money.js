@@ -36,10 +36,12 @@ export function mountMoney(params) {
   const orgSeg = h('div', { class: 'seg' });
   const opening = h('input', { class: 'm-open', inputmode: 'decimal', placeholder: 'не знаю', 'aria-label': 'Остаток на начало месяца', title: 'Остаток денег на начало месяца (запоминается в этом браузере)' });
   opening.addEventListener('change', () => { store.set('dc-opening-' + month() + '-' + org(), opening.value.trim()); load(); });
-  const nextBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => patch({ month: shiftMonth(month(), 1) }) }, '›');
+  const nextBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => patch({ month: shiftMonth(month(), step()) }) }, '›');
+  // в «Сводке» листаем годами, в календаре — месяцами
+  const step = () => (tab() === 'summary' ? 12 : 1);
   const controls = h('div', { class: 'm-controls' },
     h('div', { class: 'm-month' },
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Предыдущий месяц', onclick: () => patch({ month: shiftMonth(month(), -1) }) }, '‹'),
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад', onclick: () => patch({ month: shiftMonth(month(), -step()) }) }, '‹'),
       monthLabel,
       nextBtn),
     orgSeg,
@@ -53,12 +55,13 @@ export function mountMoney(params) {
     tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
       h('button', { type: 'button', class: tab() === k ? 'active' : '', onclick: () => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }, l)));
     const [y, m] = month().split('-').map(Number);
-    monthLabel.textContent = `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
+    monthLabel.textContent = tab() === 'summary' ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
     orgSeg.replaceChildren(...['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) =>
       h('button', { type: 'button', class: org() === c ? 'active' : '', onclick: () => patch({ org: c === 'all' ? undefined : c }) }, c === 'all' ? 'Все' : c)));
     opening.value = store.get('dc-opening-' + month() + '-' + org()) || '';
     controls.hidden = tab() === 'fill';
-    nextBtn.disabled = month() >= cur(); // будущее — отдельный прогноз
+    nextBtn.disabled = tab() === 'summary' ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
+    nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
     opening.parentElement.hidden = tab() !== 'calendar';
   }
 
@@ -118,16 +121,22 @@ export function mountMoney(params) {
   }
 
   // ---------- Сводка — обзор для директора (TASKS Д3.2, Д3.5) ----------
-  function summary(s) {
+  function summary(s, p) {
     const cos = s.companies;
     const sum = (by, k) => cos.reduce((a, c) => a + (by[c]?.[k] || 0), 0);
     const year = month().slice(0, 4);
+    const py = String(Number(year) - 1);
+    // сравнение с тем же периодом прошлого года (TASKS Д3.5): месяц → { i, e }
+    const pm = new Map((p?.months || []).map((m) => [m.month.slice(5), { i: sum(m.byCompany, 'income'), e: sum(m.byCompany, 'expense') }]));
+    const pInc = p ? sum(p.total, 'income') : 0, pExp = p ? sum(p.total, 'expense') : 0;
+    const hasPrev = !!(pInc || pExp);
+    const prevCell = (v) => (hasPrev ? [h('td', { class: 'right muted' }, v ? cell(v) : '—')] : []);
     const result = (inc, exp) => (inc ? cell(inc - exp, { strong: true }) : h('span', { class: 'muted', title: 'Доходы не внесены — у позиций заказов нет суммы' }, 'доходов нет'));
-    const line = (label, by, cls) => {
+    const line = (label, by, cls, prev) => {
       const inc = sum(by, 'income'), exp = sum(by, 'expense');
-      const main = h('tr', { class: cls || '' }, h('td', null, label), h('td', { class: 'right' }, cell(inc)), h('td', { class: 'right' }, cell(exp)), h('td', { class: 'right' }, result(inc, exp)));
+      const main = h('tr', { class: cls || '' }, h('td', null, label), h('td', { class: 'right' }, cell(inc)), h('td', { class: 'right' }, cell(exp)), h('td', { class: 'right' }, result(inc, exp)), ...prevCell(prev && (prev.i - prev.e)));
       if (cos.length < 2 || !(inc || exp)) return [main];
-      return [main, ...cos.filter((c) => by[c]?.income || by[c]?.expense).map((c) => h('tr', { class: 'sub' }, h('td', null, c), h('td', { class: 'right' }, cell(by[c].income)), h('td', { class: 'right' }, cell(by[c].expense)), h('td', { class: 'right' }, by[c].income ? cell(by[c].income - by[c].expense) : '')))];
+      return [main, ...cos.filter((c) => by[c]?.income || by[c]?.expense).map((c) => h('tr', { class: 'sub' }, h('td', null, c), h('td', { class: 'right' }, cell(by[c].income)), h('td', { class: 'right' }, cell(by[c].expense)), h('td', { class: 'right' }, by[c].income ? cell(by[c].income - by[c].expense) : ''), ...prevCell(0)))];
     };
     const name = (m) => { const [y, mo] = m.split('-').map(Number); return `${MONTHS[mo - 1]} ${y}`; };
     // месяцы года по порядок, после каждого квартала — «Итого за квартал»; будущие — не показываем (прогноз отдельно)
@@ -135,16 +144,23 @@ export function mountMoney(params) {
     const first = months.findIndex((m) => sum(m.byCompany, 'income') || sum(m.byCompany, 'expense'));
     const shown = first < 0 ? [] : months.slice(first);
     const rows = []; let q = 0; let acc = null;
-    const flush = () => { if (acc) rows.push(h('tr', { class: 'total q' }, h('td', null, `Итого за ${['I', 'II', 'III', 'IV'][q - 1]} квартал`), h('td', { class: 'right' }, cell(acc.i, { strong: true })), h('td', { class: 'right' }, cell(acc.e, { strong: true })), h('td', { class: 'right' }, result(acc.i, acc.e)))); };
+    const flush = () => { if (acc) rows.push(h('tr', { class: 'total q' }, h('td', null, `Итого за ${['I', 'II', 'III', 'IV'][q - 1]} квартал`), h('td', { class: 'right' }, cell(acc.i, { strong: true })), h('td', { class: 'right' }, cell(acc.e, { strong: true })), h('td', { class: 'right' }, result(acc.i, acc.e)), ...prevCell(acc.pi - acc.pe))); };
     for (const m of shown) {
       const mq = Math.ceil(Number(m.month.slice(5)) / 3);
-      if (mq !== q) { flush(); q = mq; acc = { i: 0, e: 0 }; }
-      acc.i += sum(m.byCompany, 'income'); acc.e += sum(m.byCompany, 'expense');
-      rows.push(...line(name(m.month), m.byCompany));
+      if (mq !== q) { flush(); q = mq; acc = { i: 0, e: 0, pi: 0, pe: 0 }; }
+      const pr = pm.get(m.month.slice(5));
+      acc.i += sum(m.byCompany, 'income'); acc.e += sum(m.byCompany, 'expense'); acc.pi += pr?.i || 0; acc.pe += pr?.e || 0;
+      rows.push(...line(name(m.month), m.byCompany, '', pr));
     }
     flush();
     const inc = sum(s.total, 'income'), exp = sum(s.total, 'expense');
-    const kpi = (label, value, cls = '') => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, value), h('span', { class: 'sum-l' }, label));
+    // «в 2025: 1 200 000 ₽ · +12%» — тот же период прошлого года
+    const vs = (now, was) => {
+      if (!hasPrev) return null;
+      const pct = was ? Math.round(((now - was) / Math.abs(was)) * 100) : null;
+      return h('span', { class: 'sum-d', title: `${py} год, тот же период` }, `в ${py}: ${money(was)}`, pct === null ? '' : h('b', null, ` · ${pct > 0 ? '+' : ''}${pct}%`));
+    };
+    const kpi = (label, value, cls = '', cmp = null) => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, value), h('span', { class: 'sum-l' }, label), cmp);
     // доли: направления / категории / поставщики — полоска = доля от самого большого
     const shares = (title, hint, list) => {
       const tot = list.reduce((a, x) => a + x.total, 0) || 1; const max = Math.max(1, ...list.map((x) => x.total));
@@ -157,19 +173,20 @@ export function mountMoney(params) {
     };
     return [
       h('div', { class: 'summary' },
-        kpi(`поступления за ${year}`, money(inc)),
-        kpi(`выплаты за ${year}`, money(exp)),
-        inc ? kpi('финансовый результат', money(inc - exp), inc - exp < 0 ? 'neg' : 'pos') : kpi('финансовый результат', '—', 'muted'),
-        kpi('месяцев с операциями', String(shown.length))),
+        kpi(`поступления за ${year}`, money(inc), '', vs(inc, pInc)),
+        kpi(`выплаты за ${year}`, money(exp), '', vs(exp, pExp)),
+        inc ? kpi('финансовый результат', money(inc - exp), inc - exp < 0 ? 'neg' : 'pos', pInc ? vs(inc - exp, pInc - pExp) : null) : kpi('финансовый результат', '—', 'muted'),
+        kpi('месяцев с операциями', String(shown.filter((m) => sum(m.byCompany, 'income') || sum(m.byCompany, 'expense')).length))),
       inc ? null : h('p', { class: 'hint' }, 'Доходов пока нет: у позиций заказов не вписаны суммы («Позиции и оплаты» → «Без суммы» → «Вписать сумму»). Как только появятся — посчитается финансовый результат.'),
+      hasPrev ? null : h('p', { class: 'hint' }, `Сравнение с ${py} годом появится, когда в базе будут операции ${py} года за тот же период (сейчас их нет).`),
       h('div', { class: 'dash-grid' },
         shares('Куда тратили', 'Цех / офис / СМР / заказы', (s.expensesByCostCenter || []).map((x) => ({ label: x.center, total: x.total }))),
         shares('На что тратили', 'По категориям', (s.expensesByCategory || []).map((x) => ({ label: x.category, total: x.total })).sort((a, b) => b.total - a.total)),
         shares('Кому платили', 'Топ поставщиков', (s.expensesBySupplier || []).map((x) => ({ label: x.supplier, total: x.total })))),
       h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, `Доходы и расходы по месяцам — ${year}`)),
         h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' },
-          h('thead', null, h('tr', null, h('th', null, 'Период'), h('th', { class: 'right' }, 'Поступления'), h('th', { class: 'right' }, 'Выплаты'), h('th', { class: 'right' }, 'Результат'))),
-          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 4, class: 'muted' }, 'Операций пока нет')), ...line(`Итого (Total) за ${year}`, s.total, 'total'))))),
+          h('thead', null, h('tr', null, h('th', null, 'Период'), h('th', { class: 'right' }, 'Поступления'), h('th', { class: 'right' }, 'Выплаты'), h('th', { class: 'right' }, 'Результат'), hasPrev ? h('th', { class: 'right', title: 'Результат того же месяца прошлого года' }, `Результат ${py}`) : null)),
+          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: hasPrev ? 5 : 4, class: 'muted' }, 'Операций пока нет')), ...line(`Итого (Total) за ${year}`, s.total, 'total', { i: pInc, e: pExp }))))),
     ];
   }
 
@@ -187,10 +204,16 @@ export function mountMoney(params) {
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
       if (tab() === 'summary') {
         const y = m.slice(0, 4);
-        const s = await api('/finance/summary', { query: { from: `${y}-01-01`, to: `${y}-12-31` < todayIso() ? `${y}-12-31` : todayIso(), org: org() } });
+        const to = `${y}-12-31` < todayIso() ? `${y}-12-31` : todayIso();
+        // прошлый год — тот же отрезок (1 января … та же дата), чтобы сравнение было честным
+        const pTo = `${Number(y) - 1}${to.slice(4)}`.replace(/-02-29$/, '-02-28');
+        const [s, p] = await Promise.all([
+          api('/finance/summary', { query: { from: `${y}-01-01`, to, org: org() } }),
+          api('/finance/summary', { query: { from: `${Number(y) - 1}-01-01`, to: pTo, org: org() } }).catch(() => null),
+        ]);
         if (my !== seq) return;
         renderChrome(s.companies);
-        content = summary(s);
+        content = summary(s, p);
       } else if (m > cur()) {
         content = [h('div', { class: 'panel state' }, h('div', null, 'Это будущий месяц — здесь показываются только прошедшие дни.'), h('div', { class: 'muted' }, 'План и прогноз денег будут отдельным разделом.'), h('button', { class: 'btn', type: 'button', onclick: () => patch({ month: undefined }) }, 'К текущему месяцу'))];
       } else {
