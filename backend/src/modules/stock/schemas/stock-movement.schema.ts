@@ -97,6 +97,19 @@ export class StockMovement {
   @Prop({ trim: true })
   issuedTo?: string;
 
+  /**
+   * Подтверждение получения вторым человеком (TASKS Б.4, решение пользователя 2026-10-21): выдача с получателем —
+   * pending («кладовщик выдал»), подтвердил получатель — confirmed («мастер получил»). Поля только data-core.
+   */
+  @Prop({ index: true, sparse: true })
+  receipt?: 'pending' | 'confirmed';
+
+  @Prop({ type: Types.ObjectId })
+  receivedBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  receivedAt?: Date;
+
   /** Остаток до и после движения (ФИ.5: в журнале «931 → 0», а не только «−931»). */
   @Prop()
   qtyBefore?: number;

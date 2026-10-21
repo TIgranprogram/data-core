@@ -464,4 +464,23 @@ describe('Stock & supply on shared CRM collections', () => {
     expect(it2.minQuantity).toBe(0);
     expect(it2.weightKg ?? null).toBeNull();
   });
+
+  it('Б.4: выдача с получателем ждёт «Получил»; подтверждает другой человек, не тот, кто выдал', async () => {
+    const a = (await http().post('/api/stock/items').set(auth()).send({ name: 'Электроды 3 мм', unit: 'уп' }).expect(201)).body;
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: a.id, qty: 10 }] }).expect(201);
+    const out = (await http().post('/api/stock/batch').set(auth()).send({ type: 'out', lines: [{ materialId: a.id, qty: 2 }], issuedTo: 'бригада 2' }).expect(201)).body;
+    const pend = (await http().get('/api/stock/receipts/pending').set(auth()).expect(200)).body.items;
+    const g = pend.find((x: { key: string }) => x.key === out.batchId);
+    expect(g).toMatchObject({ issuedTo: 'бригада 2', lines: [expect.objectContaining({ name: 'Электроды 3 мм', qty: 2 })] });
+    // тот, кто выдал, — нельзя
+    expect((await http().post('/api/stock/receipts/confirm').set(auth()).send({ ids: g.ids }).expect(409)).body.message).toContain('другой человек');
+    // второй человек (мастер) — можно
+    await http().post('/api/admin/users').set(auth()).send({ username: 'master-b4', password: 'master-pass-123', role: 'user' }).expect(201);
+    const m = (await http().post('/api/auth/login').send({ username: 'master-b4', password: 'master-pass-123' }).expect(200)).body.access;
+    expect((await http().post('/api/stock/receipts/confirm').set({ Authorization: 'Bearer ' + m }).send({ ids: g.ids }).expect(200)).body).toEqual({ confirmed: 1 });
+    expect((await http().get('/api/stock/receipts/pending').set(auth()).expect(200)).body.items.some((x: { key: string }) => x.key === out.batchId)).toBe(false);
+    // без получателя подтверждение не нужно
+    const plain = (await http().post('/api/stock/batch').set(auth()).send({ type: 'out', lines: [{ materialId: a.id, qty: 1 }] }).expect(201)).body;
+    expect((await http().get('/api/stock/receipts/pending').set(auth()).expect(200)).body.items.some((x: { key: string }) => x.key === plain.batchId)).toBe(false);
+  });
 });

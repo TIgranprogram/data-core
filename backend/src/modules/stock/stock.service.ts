@@ -842,7 +842,44 @@ export class StockService {
     }
     const t = issuedTo?.trim();
     if (t) out.issuedTo = t.slice(0, 200);
+    // есть получатель — выдача ждёт подтверждения «получил» вторым человеком (Б.4)
+    if (out.issuedToPersonId || out.issuedTo) out.receipt = 'pending';
     return out;
+  }
+
+  /** Выдачи, которые ждут «Получил» (Б.4): группой по одной операции (batchId) — кто выдал, кому, что. */
+  async pendingReceipts() {
+    const docs = await this.movements.find({ deletedAt: null, type: 'out', receipt: 'pending', cancelledAt: null }).sort({ date: -1 }).limit(500).lean().exec();
+    const mats = await this.materials.find({ _id: { $in: docs.map((d) => d.materialId) } }, { name: 1, unit: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    const mat = new Map(mats.map((m) => [String(m._id), m]));
+    const users = await this.connection.db!.collection('users').find({ _id: { $in: docs.map((d) => d.createdBy).filter(Boolean) as Types.ObjectId[] } }, { projection: { displayName: 1, username: 1 } }).toArray();
+    const un = new Map(users.map((u) => [String(u._id), String(u.displayName || u.username)]));
+    const issued = await this.issuedNames(docs as never);
+    const groups = new Map<string, { key: string; date: Date; issuedBy: string | null; issuedTo: string | null; ids: string[]; lines: { name: string; qty: number; unit: string }[] }>();
+    for (const d of docs) {
+      const b = (d as { batchId?: Types.ObjectId }).batchId;
+      const k = b ? String(b) : String(d._id);
+      const g = groups.get(k) ?? { key: k, date: d.date, issuedBy: d.createdBy ? un.get(String(d.createdBy)) ?? null : null, issuedTo: issued.get(String(d._id)) ?? null, ids: [], lines: [] };
+      const m = mat.get(String(d.materialId));
+      g.ids.push(String(d._id)); g.lines.push({ name: m?.name ?? '(позиция удалена)', qty: d.qty, unit: m?.unit ?? '' });
+      groups.set(k, g);
+    }
+    const items = [...groups.values()];
+    return { items, total: items.length, page: 1, limit: items.length };
+  }
+
+  /** «Получил» (Б.4): подтверждает другой человек — не тот, кто выдал. Отменённые и уже подтверждённые пропускаются. */
+  async confirmReceipts(ids: string[], userId?: string) {
+    const list = (Array.isArray(ids) ? ids : []).map((x) => oid(String(x), 'движения'));
+    if (!list.length) throw new BadRequestException('Не выбрано, что подтвердить');
+    const docs = await this.movements.find({ _id: { $in: list }, deletedAt: null, type: 'out', receipt: 'pending', cancelledAt: null }).lean().exec();
+    if (!docs.length) throw new NotFoundException('Нечего подтверждать — уже подтверждено или выдача отменена');
+    if (userId && docs.some((d) => d.createdBy && String(d.createdBy) === userId)) {
+      throw new ConflictException('Получение подтверждает другой человек — тот, кто получил (мастер), а не тот, кто выдал');
+    }
+    const r = await this.movements.updateMany({ _id: { $in: docs.map((d) => d._id) } },
+      { $set: { receipt: 'confirmed', receivedAt: new Date(), ...(userId && Types.ObjectId.isValid(userId) ? { receivedBy: new Types.ObjectId(userId) } : {}) } }).exec();
+    return { confirmed: r.modifiedCount };
   }
 
   /**
@@ -1056,6 +1093,7 @@ export class StockService {
         salesOrderId: (m as { salesOrderId?: Types.ObjectId }).salesOrderId ? String((m as { salesOrderId?: Types.ObjectId }).salesOrderId) : null,
         issuedTo: issued.get(String(m._id)) ?? null,
         reservationId: (m as { reservationId?: Types.ObjectId }).reservationId ? String((m as { reservationId?: Types.ObjectId }).reservationId) : null,
+        receipt: (m as { receipt?: string }).receipt ?? null, receivedAt: (m as { receivedAt?: Date }).receivedAt ?? null,
         canCancel: d.source !== 'google-sheets' && !d.cancelledAt && !d.cancelOf && m.type !== 'transfer' && d.delta !== undefined,
         qtyBefore: (m as { qtyBefore?: number }).qtyBefore ?? null, qtyAfter: (m as { qtyAfter?: number }).qtyAfter ?? null,
       };
