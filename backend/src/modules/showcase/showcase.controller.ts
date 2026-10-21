@@ -27,6 +27,13 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.imported', entityType: 'Product', details: (d) => ({ result: { total: (d as { total?: number }).total, new: (d as { new?: number }).new, update: (d as { update?: number }).update } }) })
   import(@Body() b: { text?: string; apply?: boolean }) { return this.s.import(String(b?.text ?? ''), !!b?.apply); }
 
+  /** Изделия из позиций заказов (БЗ-5): apply=false — отчёт, true — создать черновики и привязать позиции. */
+  @Post('from-orders')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.from-orders', entityType: 'Product', details: (d) => ({ new: (d as { new?: number }).new, created: (d as { created?: number }).created }) })
+  fromOrders(@Body() b: { apply?: boolean }) { return this.s.fromOrders(!!b?.apply); }
+
   @Post('kp')
   @HttpCode(200)
   @Roles('admin', 'director', 'manager')

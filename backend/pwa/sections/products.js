@@ -45,6 +45,7 @@ export const products = {
     },
     headActions: () => [
       h('button', { class: 'btn', type: 'button', title: 'Excel или вставка из таблицы', onclick: () => patch({ of: 'catalogimport', new: '1', open: undefined }) }, '⇩ Загрузить каталог'),
+      session.canEdit ? h('button', { class: 'btn', type: 'button', title: 'Создать изделия из позиций заказов', onclick: () => patch({ of: 'fromorders', new: '1', open: undefined }) }, 'Из заказов') : null,
       h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`),
     ],
     hints: { '': 'Изделия компании. «В КП» в строке — добавить в коммерческое предложение; кнопка «КП» сверху — открыть и напечатать.' },

@@ -112,9 +112,24 @@ async function buildImportForm() {
   };
 }
 
+// Изделия из заказов (БЗ-5): отчёт «что будет создано» и кнопка «Создать». Позиции заказов не меняются, кроме ссылки на изделие.
+async function buildFromOrdersForm() {
+  const r = await api('/showcase/from-orders', { method: 'POST', body: { apply: false } });
+  const el = h('div', null,
+    h('p', { class: 'hint' }, 'Позиции заказов, которых ещё нет в «Продукции», станут изделиями-черновиками (без цены): короткое название — из позиции, полное описание — в описание изделия. Текст и суммы в заказах не меняются; дальше изделие можно править и дополнять.'),
+    h('p', null, h('b', null, `Будет создано: ${r.new}`), ` · уже есть в продукции: ${r.exists} · позиций заказов проверено: ${r.lines}`),
+    r.new ? h('ul', { class: 'timeline' }, ...r.preview.map((p) => h('li', null, p.name, h('span', { class: 'muted' }, ` · позиций ${p.lines}${p.orders.length ? ', заказы ' + p.orders.join(', ') : ''}`)))) : h('p', { class: 'muted' }, 'Новых изделий нет'),
+    r.new > r.preview.length ? h('p', { class: 'muted' }, `…и ещё ${r.new - r.preview.length}`) : null);
+  return { el, dirty: () => false, read: () => ({ values: { save: async () => ({ id: null, ...(await api('/showcase/from-orders', { method: 'POST', body: { apply: true } })) }) } }) };
+}
+
 export const kp = {
   id: 'kp', title: 'Коммерческое предложение', newTitle: 'Коммерческое предложение', card: { heading: () => 'КП' }, get: async () => ({}),
   form: { build: buildKpForm, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Сформировать и открыть для печати', closeAfterCreate: true },
+};
+export const fromOrders = {
+  id: 'fromorders', title: 'Изделия из заказов', newTitle: 'Изделия из заказов', card: { heading: () => 'Из заказов' }, get: async () => ({}),
+  form: { build: buildFromOrdersForm, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Создать изделия', closeAfterCreate: true },
 };
 export const catalogImport = {
   id: 'catalogimport', title: 'Загрузка каталога', newTitle: 'Загрузить каталог изделий', card: { heading: () => 'Каталог' }, get: async () => ({}),

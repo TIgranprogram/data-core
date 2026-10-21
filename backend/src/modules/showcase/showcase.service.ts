@@ -7,6 +7,7 @@ import { escapeRe, oid } from '../../common/list-query';
 import { isUsedByCrm } from '../catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
+import { productNameKey, shortProductName } from './order-product-name';
 
 type Doc = Record<string, unknown> & { _id: Types.ObjectId };
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -181,6 +182,43 @@ export class ShowcaseService {
       }
     }
     return { ...report, applied: true };
+  }
+
+  /**
+   * Изделия из заказов (БЗ-5): позиции заказов, которых ещё нет в «Продукции» (по короткому имени без регистра), → черновики.
+   * apply=false — только отчёт. При apply: создаём изделие (status draft, без цены, полное описание из заказа) и ставим
+   * позициям productId (только где его не было). Текст и суммы позиций не трогаем — договор.
+   */
+  async fromOrders(apply: boolean) {
+    const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, productId: null }, { projection: { title: 1, orderNo: 1 } }).toArray();
+    const have = new Map<string, Types.ObjectId>();
+    for (const p of await this.db.collection('products').find({ deletedAt: null }, { projection: { name: 1 } }).toArray()) { const k = productNameKey(String(p.name ?? '')); if (!have.has(k)) have.set(k, p._id as Types.ObjectId); }
+    const groups = new Map<string, { name: string; description: string; ids: Types.ObjectId[]; orders: Set<string> }>();
+    for (const l of lines) {
+      const name = shortProductName(String(l.title ?? ''));
+      if (!name) continue;
+      const key = productNameKey(name);
+      const g = groups.get(key) ?? { name, description: String(l.title ?? '').trim(), ids: [], orders: new Set<string>() };
+      g.ids.push(l._id as Types.ObjectId); if (l.orderNo) g.orders.add(String(l.orderNo)); groups.set(key, g);
+    }
+    const plan = [...groups.entries()].map(([key, g]) => ({ key, ...g, action: have.has(key) ? 'exists' : 'new' }));
+    const fresh = plan.filter((p) => p.action === 'new');
+    const report = { lines: lines.length, new: fresh.length, exists: plan.length - fresh.length, preview: fresh.slice(0, 30).map((p) => ({ name: p.name, lines: p.ids.length, orders: [...p.orders].slice(0, 5) })) };
+    if (!apply) return { ...report, applied: false };
+    let created = 0;
+    for (const p of plan) {
+      let productId: Types.ObjectId | null = null;
+      if (p.action === 'new') {
+        const sku = 'ЗК-' + createHash('md5').update(p.key).digest('hex').slice(0, 6).toUpperCase();
+        try { productId = new Types.ObjectId((await this.create({ sku, name: p.name, description: p.description.length > p.name.length ? p.description : '' })).id); created++; } catch { continue; }
+      } else {
+        const e = have.get(p.key);
+        if (!e) continue;
+        productId = e;
+      }
+      await this.db.collection('incomes').updateMany({ _id: { $in: p.ids }, productId: null }, { $set: { productId } });
+    }
+    return { ...report, applied: true, created };
   }
 
   /** Данные коммерческого предложения: номер КП, реквизиты нашей компании, заказчик, строки с фото и суммами. */
