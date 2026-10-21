@@ -5,7 +5,7 @@ import { go } from '../core/router.js';
 import { badge } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
-import { UNITS } from './lookups.js';
+import { UNITS, unitList, lookups } from './lookups.js';
 import { pic } from './stock.js';
 import { customerLink } from '../ui/links.js';
 
@@ -161,7 +161,7 @@ export const orders = {
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
-        { key: 'unit', label: 'Ед. изм.', type: 'combo', options: UNITS, max: 30 },
+        { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(await lookups().catch(() => null)), max: 30 },
         { section: 'Деньги', tone: 'money', money: true },
         { key: 'unitPrice', money: true, label: 'Цена за ед., ₽', type: 'money', min: 0 },
         { key: 'amountManual', money: true, label: 'Доход вручную, ₽', type: 'money', min: 0, hint: 'Если заполнено — важнее кол-во × цена' },

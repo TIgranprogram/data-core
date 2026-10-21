@@ -24,4 +24,4 @@ export function canSeeMoney(user: { role?: string | null; isOwner?: boolean } | 
 }
 
 /** Денежные поля, которые скрываются от менеджера и наблюдателя (в ответах) и не принимаются от них (в запросах). */
-export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate'];
+export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate'];

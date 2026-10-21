@@ -9,7 +9,7 @@ import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
 import { COST_CENTER } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
-import { lookups, UNITS } from './lookups.js';
+import { lookups, UNITS, unitList } from './lookups.js';
 import { pastItems } from './requests.js';
 
 /**
@@ -92,7 +92,7 @@ async function buildInvoiceForm(opts = {}) {
       onPick: (o) => { const v = o.x.values || {}; row.picked = o.label; if (v.unit) unit.value = v.unit; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; },
     });
     title.addEventListener('input', () => { if (title.value !== row.picked) row.extra = {}; });
-    attachCombo(unit, { options: () => [...new Set([...UNITS, ...(lk.units || [])])].map((u) => ({ label: u })) });
+    attachCombo(unit, { options: () => unitList(lk).map((u) => ({ label: u })) });
     attachCombo(nCat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })) });
     attachCombo(nUnit, { options: () => [...new Set([...UNITS, ...(lk.units || [])])].map((u) => ({ label: u })) });
     nSave.addEventListener('click', async () => {

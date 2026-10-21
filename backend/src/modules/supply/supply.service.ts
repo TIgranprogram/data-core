@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { DICT, type Doc } from '../dicts/dicts.defs';
 import { searchTokens, tokenRegex } from '../stock/search-norm';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -383,18 +384,22 @@ export class SupplyService {
     const people = uniq([...(await this.model.distinct('requestedBy', { deletedAt: null }).exec()), ...(lists.people ?? [])]);
     const customers = uniq([...(await this.model.distinct('orderLabel', { deletedAt: null }).exec()), ...(lists.customers ?? [])]);
     const sup = orgs.filter((o) => (o.type as string[] | undefined)?.includes('supplier'));
+    // «Справочники» (СП.5): заполненный справочник — единственный источник списка; пустой — старые источники
+    const dict = async (k: string) => { const d = DICT.get(k)!; return d.options!((await this.connection.db!.collection(d.coll).find(d.match).toArray()) as Doc[]).filter(Boolean); };
+    const [dUnits, dPeople, dInvoice, dServices] = await Promise.all(['units', 'persons', 'invoiceTypes', 'services'].map(dict));
+    const or = (d: string[], fallback: string[]) => (d.length ? uniq(d) : fallback);
     return {
       suppliers: sup.map((o) => String(o.shortName || o.name)),
       companies: orgs.filter((o) => o.isOurCompany).map((o) => String(o.shortName || o.name)),
       categories: cats.map((c) => ({ id: String(c._id), name: String(c.name) })),
       /** Для фильтров: поставщики с id и «кто подал». */
       supplierRefs: sup.map((o) => ({ id: String(o._id), name: String(o.shortName || o.name) })),
-      requestedBy: people,
+      requestedBy: or(dPeople, people),
       /** Списки «Справочника» Google-таблицы (+ то, что уже встречалось в заявках). */
       customers,
-      invoiceTypes: uniq(['Счет на оплату', 'Счет-договор', 'Счет', 'УПД', ...(lists.invoiceTypes ?? [])]),
-      services: lists.services ?? [],
-      units: uniq(lists.units ?? []),
+      invoiceTypes: or(dInvoice, uniq(['Счет на оплату', 'Счет-договор', 'Счет', 'УПД', ...(lists.invoiceTypes ?? [])])),
+      services: or(dServices, lists.services ?? []),
+      units: or(dUnits, uniq(lists.units ?? [])),
     };
   }
 }

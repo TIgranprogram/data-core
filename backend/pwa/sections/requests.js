@@ -7,7 +7,7 @@ import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/ba
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { toast } from '../ui/toast.js';
-import { lookups, UNITS } from './lookups.js';
+import { lookups, UNITS, unitList } from './lookups.js';
 import { pic } from './stock.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
 
@@ -117,7 +117,7 @@ const fields = async (r) => {
     { key: 'title', label: 'Наименование', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
     { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
-    { key: 'unit', label: 'Ед. изм.', type: 'combo', options: [...new Set([...UNITS, ...(lk.units || [])])], max: 30, span: 1 },
+    { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(lk), max: 30, span: 1 },
     { key: 'priority', label: 'Приоритет', type: 'segment', required: true, options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
     { section: 'Детали товара', tone: 'info', collapsed: true },
     { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },

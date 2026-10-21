@@ -54,6 +54,7 @@ import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { PartnersModule } from './modules/partners/partners.module';
+import { DictsModule } from './modules/dicts/dicts.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -151,7 +152,8 @@ import { RequestMethod } from '@nestjs/common';
     StockModule,            // /api/stock — склад на общих коллекциях CRM (materials, storageitems, stockmovements, reservations)
     SupplyModule,           // /api/supply — заявки снабжения на общей коллекции CRM supplyrequests
     IncomesModule,          // /api/incomes — доходы (строки заказов), своя коллекция incomes
-    PartnersModule,         // /api/partners — «Контрагенты»: поставщики (organizations) и заказчики (текст в заказах), объединение дублей
+    PartnersModule,
+    DictsModule,            // /api/dicts — «Справочники»: категории, единицы, цвета, сотрудники, виды работ, графики выплат, типы счетов, услуги         // /api/partners — «Контрагенты»: поставщики (organizations) и заказчики (текст в заказах), объединение дублей
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps

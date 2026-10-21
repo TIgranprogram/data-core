@@ -5,7 +5,7 @@ import { go, patch } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
-import { lookups, UNITS } from './lookups.js';
+import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftQuery } from '../ui/facet-filter.js';
 import { cancelMovement, moveLabel } from './movements.js';
 
@@ -166,7 +166,7 @@ export const stock = {
         { key: 'name', label: 'Наименование', required: true, max: 300, span: 3, hint: 'Как называется на складе: «Болт мебельный, M8х40, DIN 603»' },
         { key: 'article', label: 'Артикул', max: 100, span: 1, hint: 'Пусто — присвоится сам' },
         { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
-        { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: UNITS, max: 30 },
+        { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },
         { section: 'Запас', tone: 'info' },
         { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
         { key: 'weightKg', label: 'Вес 1 шт., кг', type: 'number', min: 0 },

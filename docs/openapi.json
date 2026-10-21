@@ -2623,6 +2623,121 @@
         ]
       }
     },
+    "/stock/items/{id}/photos/{photoId}": {
+      "delete": {
+        "operationId": "StockController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reserve-list": {
+      "post": {
+        "operationId": "StockController_reserveList",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockReserveListDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations": {
+      "get": {
+        "operationId": "StockController_reservations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations/{id}/release": {
+      "post": {
+        "operationId": "StockController_releaseReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations/group/{batchId}/release": {
+      "post": {
+        "operationId": "StockController_releaseGroup",
+        "parameters": [
+          {
+            "name": "batchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/batch": {
       "post": {
         "operationId": "StockController_batch",
@@ -2840,6 +2955,34 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/aliases/match": {
+      "post": {
+        "operationId": "SupplyController_matchAliases",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/aliases": {
+      "post": {
+        "operationId": "SupplyController_rememberAliases",
+        "parameters": [],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -3424,6 +3567,269 @@
         },
         "tags": [
           "Контрагенты"
+        ]
+      }
+    },
+    "/dicts": {
+      "get": {
+        "operationId": "DictsController_groups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
+    "/dicts/{key}": {
+      "get": {
+        "operationId": "DictsController_list",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      },
+      "post": {
+        "operationId": "DictsController_create",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
+    "/dicts/{key}/candidates": {
+      "get": {
+        "operationId": "DictsController_candidates",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
+    "/dicts/{key}/import": {
+      "post": {
+        "operationId": "DictsController_importNames",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
+    "/dicts/{key}/{id}": {
+      "get": {
+        "operationId": "DictsController_get",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      },
+      "patch": {
+        "operationId": "DictsController_update",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      },
+      "delete": {
+        "operationId": "DictsController_remove",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
+    "/dicts/{key}/{id}/restore": {
+      "post": {
+        "operationId": "DictsController_restore",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
+    "/dicts/{key}/{id}/merge": {
+      "post": {
+        "operationId": "DictsController_merge",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
         ]
       }
     },
@@ -7835,6 +8241,32 @@
           "qty"
         ]
       },
+      "StockReserveListDto": {
+        "type": "object",
+        "properties": {
+          "groupName": {
+            "type": "string",
+            "description": "Для чего бронь: конструкция / изделие"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockBatchLineDto"
+            }
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Под заказ (salesorders.id)"
+          },
+          "clientUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "groupName",
+          "lines"
+        ]
+      },
       "StockBatchDto": {
         "type": "object",
         "properties": {
@@ -7963,6 +8395,14 @@
             "type": "string",
             "description": "Позиция заказа (incomes.id); \"\" — без позиции"
           },
+          "costCenter": {
+            "type": "string",
+            "description": "Направление затрат: workshop (цех) | office (офис) | smr (СМР) | order (под заказ); \"\" — не указано"
+          },
+          "costObject": {
+            "type": "string",
+            "description": "Объект СМР / уточнение"
+          },
           "requestedBy": {
             "type": "string"
           },
@@ -8029,6 +8469,18 @@
       "SupplyReceiveDto": {
         "type": "object",
         "properties": {
+          "toStock": {
+            "type": "boolean",
+            "description": "Поставить на склад (по умолчанию да); false — сразу в работу / офис / объект, без склада"
+          },
+          "costCenter": {
+            "type": "string",
+            "description": "Куда пошло: workshop | office | smr | order"
+          },
+          "costObject": {
+            "type": "string",
+            "description": "Объект СМР / уточнение"
+          },
           "qty": {
             "type": "number",
             "description": "Получено (по умолчанию — количество в заявке)"

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 export type PersonDocument = HydratedDocument<Person>;
 
@@ -30,6 +30,27 @@ export class Person {
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
+
+  // ── Поля data-core (2026-10-21, «Справочники» → «Сотрудники»): добавочные, CRM их не пишет ──
+  /** Вид работ (worktypes): сварщик, маляр… */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  workTypeId?: Types.ObjectId;
+
+  /** active — работает, vacation — в отпуске, fired — уволен. */
+  @Prop()
+  status?: string;
+
+  /** month — оклад, hour — почасовая. */
+  @Prop()
+  salaryKind?: string;
+
+  /** Ставка (₽ в месяц или за час) — денежное поле, скрыто от не-денежных ролей. */
+  @Prop()
+  salaryRate?: number;
+
+  /** График выплат (dict_values, dict = payoutSchedules). */
+  @Prop({ type: Types.ObjectId, sparse: true })
+  payoutScheduleId?: Types.ObjectId;
 }
 
 export const PersonSchema = SchemaFactory.createForClass(Person);

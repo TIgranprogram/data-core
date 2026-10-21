@@ -771,3 +771,41 @@ html { scrollbar-gutter: stable; }
 
 /* Доли (проценты) — компактной карточкой, не на всю ширину */
 .compact-card { max-width: 520px; }
+
+/* «Справочники» (TASKS СП.4, DESIGN §4): группы слева, таблица справа, строка раскрывается — что связано */
+.dict-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s4); align-items: start; }
+.dict-nav { padding: var(--s2); position: sticky; top: calc(var(--topbar-h) + var(--s3)); }
+.dict-group { font-size: var(--fs-label); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: var(--s3) var(--s2) var(--s1); }
+.dict-group:first-child { padding-top: var(--s1); }
+.dict-link { display: flex; align-items: center; gap: var(--s2); padding: 7px var(--s2); border-radius: var(--radius-sm); color: var(--text); position: relative; }
+.dict-link:hover { background: var(--row-hover); text-decoration: none; }
+.dict-link.active { background: var(--row-selected); font-weight: 600; color: var(--heading); }
+.dict-link.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: var(--gold); }
+.dict-link span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dict-link b { margin-left: auto; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.dict-main { min-width: 0; overflow: hidden; }
+.dict-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s3); padding: var(--s4) var(--s4) var(--s3); border-bottom: 1px solid var(--border); }
+.dict-titles { flex: 1 1 260px; min-width: 0; }
+.dict-hint { margin: var(--s1) 0 0; }
+.dict-tools { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.dict-tools .search input { width: 220px; }
+.dict-table .dict-chev { width: 28px; color: var(--muted); text-align: center; padding-right: 0; }
+.dict-row { cursor: pointer; }
+.dict-row.open { background: var(--row-selected); }
+.dict-more > td { background: var(--surface-2); padding-top: var(--s2); padding-bottom: var(--s3); white-space: normal; }
+.dict-rel .section-title { margin-top: 0; }
+.dict-rel-list { list-style: none; margin: 0; padding: 0; columns: 2 280px; column-gap: var(--s5); }
+.dict-rel-list li { padding: 3px 0; break-inside: avoid; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-strong); vertical-align: -2px; margin-right: 6px; }
+.dict-cand { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); background: var(--hint-bg); }
+.dict-cand-list { list-style: none; margin: var(--s2) 0; padding: 0; max-height: 320px; overflow: auto; }
+.dict-cand-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: 5px 0; border-bottom: 1px solid var(--border); }
+.dict-cand-list label { display: flex; align-items: center; gap: var(--s2); min-width: 200px; }
+@media (max-width: 900px) {
+  .dict-layout { grid-template-columns: 1fr; }
+  .dict-nav { position: static; display: flex; gap: var(--s1); overflow-x: auto; padding: var(--s1); }
+  .dict-group { display: none; }
+  .dict-link { flex: none; }
+  .dict-link.active::before { display: none; }
+  .dict-tools, .dict-tools .search, .dict-tools .search input { width: 100%; }
+}

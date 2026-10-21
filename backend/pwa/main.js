@@ -16,13 +16,14 @@ const FEATURES = { payroll: true };
 import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
 import { partners } from './sections/partners.js';
+import { dict, mountDicts } from './sections/dicts.js';
 import { invoice, pasteOrder } from './sections/invoice.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder };
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
@@ -61,6 +62,7 @@ function shell() {
     icon(ico), h('span', { class: 'lbl' }, label), h('span', { class: 'cnt', hidden: true }));
   navLinks = Object.fromEntries(NAV.map(([id, label, ico]) => [id, link(id, label, ico)]));
   navLinks.trash = link('trash', 'Корзина', 'trash');
+  navLinks.dicts = link('dicts', 'Справочники', 'dicts');
   const gs = h('input', { type: 'search', placeholder: 'Найти заявку, позицию, поставщика…', 'aria-label': 'Поиск по всему' });
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
   const runSearch = () => { const q = gs.value.trim(); if (q.length < 2) return; go('search', { q }, { replace: current().section === 'search' }); };
@@ -79,6 +81,7 @@ function shell() {
     h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.partners,
     session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
+      navLinks.dicts,
       navLinks.trash,
       session.user?.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,
       // CRM живёт на том же домене в корне (https://kppdf-crm.ru/), приложение — под /db/; локально CRM нет
@@ -156,11 +159,12 @@ function render({ section, params }) {
     else if (section === 'ops') list = mountOps(params);
     else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = mountPayroll();
     else if (section === 'trash') list = mountTrash();
+    else if (section === 'dicts') list = mountDicts(params);
     else if (section === 'search') list = mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
-    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
+    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
     window.scrollTo(0, 0);
   } else {
     mounted.list.update?.(params);
