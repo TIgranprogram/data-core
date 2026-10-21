@@ -39,7 +39,7 @@ function gallery(pics, onRemove) {
   return h('div', { class: 'gallery' }, big, strip, del);
 }
 const docked = () => window.innerWidth >= DOCK_MIN;
-export function openCard(section, { id, mode = 'view', initial }, ctx) {
+export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let row = null;
   let form = null;
   const titleEl = h('h2');
@@ -151,38 +151,58 @@ export function openCard(section, { id, mode = 'view', initial }, ctx) {
     body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }));
     foot.replaceChildren();
     let flds;
-    try { flds = await section.form.fields(isNew ? null : row); } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + e.message)); return; }
-    form = buildForm(flds, base);
+    try {
+      if (section.form.build) form = await section.form.build(base); // своя форма раздела (счёт с позициями)
+      else { flds = await section.form.fields(isNew ? null : row); form = buildForm(flds, base); }
+    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + e.message)); return; }
     const err = h('div', { class: 'form-error', hidden: true });
     body.replaceChildren(err, form.el);
-    const save = h('button', { class: 'btn btn-primary', type: 'button' }, isNew ? 'Создать' : 'Сохранить');
+    const saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
+    const save = h('button', { class: 'btn btn-primary', type: 'button' }, saveLabel);
     const cancel = h('button', { class: 'btn', type: 'button', onclick: async () => {
       if (form.dirty() && !(await confirmDlg('Отменить изменения?', 'Введённые данные не сохранятся.', { okText: 'Да, отменить' }))) return;
       if (isNew && !row) { destroy(); ctx.close(); } else showView(row);
     } }, 'Отмена');
     save.onclick = async () => {
+      let saved;
       const r = form.read();
       if (r.errors) return;
       save.disabled = true; save.textContent = 'Сохранение…'; err.hidden = true;
       try {
         const bodyData = section.form.toBody(r.values, isNew ? null : row);
-        const saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
-        form = null;
-        toast(isNew ? 'Создано' : 'Сохранено');
-        ctx.changed();
-        id = saved.id;
-        if (isNew) ctx.opened?.(saved.id);
-        showView(saved);
+        saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
       } catch (e) {
         err.textContent = 'Не сохранено: ' + e.message; err.hidden = false;
-        save.disabled = false; save.textContent = isNew ? 'Создать' : 'Сохранить';
+        save.disabled = false; save.textContent = saveLabel;
+        return;
       }
+      // после успешного сохранения — вне try: сбой показа не выдаётся за «Не сохранено» (и повтор не создаст дубль)
+      form = null;
+      if (section.form.closeAfterCreate) { ctx.changed(); window.dispatchEvent(new CustomEvent('data-changed')); destroy(); ctx.close(); return; }
+      toast(isNew ? 'Создано' : 'Сохранено');
+      ctx.changed();
+      id = saved.id;
+      if (isNew) ctx.opened?.(saved.id);
+      showView(saved);
     };
     foot.replaceChildren(save, cancel);
     form.focus();
   }
 
+  // «Требуют заполнения» (TASKS ТЗ.3): fill=<ключ поля> — сразу правка, нужное поле подсвечено, раскрыто и в фокусе
+  function markFill(key) {
+    const input = body.querySelector(`[name="${key}"]`);
+    const label = input?.closest('.field');
+    if (!label) { body.prepend(h('div', { class: 'fill-note' }, 'Это поле здесь не заполняется — посмотрите подсказку в списке «Требуют заполнения».')); return; }
+    label.closest('.closed')?.classList.remove('closed');
+    label.classList.add('fill-here');
+    body.prepend(h('div', { class: 'fill-note' }, 'Заполните: ', h('b', null, (label.querySelector('span')?.textContent || '').replace(/\s*\*$/, '')), ' — поле подсвечено. Затем «Сохранить».'));
+    label.scrollIntoView({ block: 'center' });
+    setTimeout(() => input.focus(), 50);
+  }
+
   if (mode === 'create') showForm('create', initial);
+  else if (fill && section.form && session.canEdit) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form) markFill(fill); });
   else showView();
   return {
     close: destroy,

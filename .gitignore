@@ -27,5 +27,8 @@ deploy/synology/CREDENTIALS.md
 secrets/
 *google-sa*.json
 
+# Ключ «рабочий ПК» для выкладки с работы — секрет, никогда не коммитить
+/remote-access/secret/
+
 # Доступ к деплою с рабочего ПК (ключи, ssh_config) — не в git
 /deploy/remote-access/

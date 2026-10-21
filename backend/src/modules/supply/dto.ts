@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, IsIn, IsBoolean } from 'class-validator';
 
 export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Наименование' }) @IsOptional() @IsString() @Length(0, 500) title?: string;
@@ -15,6 +15,8 @@ export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Заказчик / участок' }) @IsOptional() @IsString() @Length(0, 300) orderLabel?: string;
   @ApiPropertyOptional({ description: 'Заказ заказчика (salesorders.id); "" — отвязать' }) @IsOptional() @IsString() @Length(0, 30) salesOrderId?: string;
   @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id); "" — без позиции' }) @IsOptional() @IsString() @Length(0, 30) salesOrderLineId?: string;
+  @ApiPropertyOptional({ description: 'Направление затрат: workshop (цех) | office (офис) | smr (СМР) | order (под заказ); "" — не указано' }) @IsOptional() @IsIn(['', 'workshop', 'office', 'smr', 'order']) costCenter?: string;
+  @ApiPropertyOptional({ description: 'Объект СМР / уточнение' }) @IsOptional() @IsString() @Length(0, 200) costObject?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 200) requestedBy?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) article?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) color?: string;
@@ -37,6 +39,9 @@ export class SupplyPhotoDto {
 }
 
 export class SupplyReceiveDto {
+  @ApiPropertyOptional({ description: 'Поставить на склад (по умолчанию да); false — сразу в работу / офис / объект, без склада' }) @IsOptional() @IsBoolean() toStock?: boolean;
+  @ApiPropertyOptional({ description: 'Куда пошло: workshop | office | smr | order' }) @IsOptional() @IsIn(['workshop', 'office', 'smr', 'order']) costCenter?: string;
+  @ApiPropertyOptional({ description: 'Объект СМР / уточнение' }) @IsOptional() @IsString() @Length(0, 200) costObject?: string;
   @ApiPropertyOptional({ description: 'Получено (по умолчанию — количество в заявке)' }) @IsOptional() @IsNumber() @Min(0) qty?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }

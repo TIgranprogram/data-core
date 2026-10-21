@@ -627,3 +627,199 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 .so-add input, .so-add select { height: 34px; }
 .so-q { text-align: right; }
 @media (max-width: 720px) { .so-add { grid-template-columns: 1fr 70px 80px; } .so-add .btn { grid-column: 1 / -1; } }
+
+/* Единый выпадающий список (ui/combo.js) и «Категория → Позиция из базы» */
+.has-combo { position: relative; }
+.combo-input { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
+.combo-list { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 2px); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); max-height: 320px; overflow-y: auto; }
+.combo-opt { padding: 8px 12px; cursor: pointer; }
+.combo-opt.active, .combo-opt:hover { background: var(--row-hover); }
+.combo-opt.cur { font-weight: 600; }
+.combo-opt .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combo-opt small { color: var(--muted); font-size: 12px; }
+.combo-group { padding: 6px 12px 4px; font-size: var(--fs-label, 11px); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); position: sticky; top: 0; }
+.combo-empty { padding: 10px 12px; color: var(--muted); font-size: var(--fs-sm); }
+.pick { background: var(--primary-soft); border-radius: var(--radius); padding: 10px 12px; }
+.pick-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 2.4fr) auto; gap: 10px; align-items: end; }
+.pick-clear { margin-bottom: 2px; }
+.field.from-base input { background: var(--surface-2); color: var(--muted); }
+.field.from-base > span::after { content: ' · из базы'; color: var(--link); font-weight: 400; }
+@media (max-width: 720px) { .pick-row { grid-template-columns: 1fr; } }
+
+/* «Внести счёт» (sections/invoice.js) */
+.modal.wide { width: min(980px, 100%); }
+.inv-head { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.inv-head .wide { grid-column: 1 / -1; }
+.inv-lines { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.inv-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--surface-2); }
+.inv-main { display: grid; grid-template-columns: minmax(0, 1fr) 70px 80px 120px auto auto; gap: 6px; align-items: center; }
+.inv-main input { height: 34px; width: 100%; }
+.inv-t input { width: 100%; }
+.inv-q, .inv-s { text-align: right; }
+.inv-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.inv-more .wide { grid-column: 1 / -1; }
+.inv-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+@media (max-width: 720px) { .inv-head { grid-template-columns: 1fr; } .inv-main { grid-template-columns: 1fr 60px 70px; } .inv-main .inv-s { grid-column: 1 / 2; } }
+
+/* «Сегодня» по разделам (TASKS В.4) */
+.lanes { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+.lane, .lane-stack { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.lane-head { display: flex; align-items: center; gap: 10px; padding: 2px 2px 0; }
+.lane-head .ico { width: 22px; height: 22px; color: var(--heading); }
+.lane-head h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.01em; color: var(--heading); }
+.lane-link { margin-left: auto; font-size: var(--fs-sm); }
+.lane .quick-panel { margin: 0; }
+@media (max-width: 1400px) { .lanes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .lanes > .lane:first-child { grid-column: 1 / -1; } }
+@media (max-width: 900px) { .lanes { grid-template-columns: minmax(0, 1fr); } }
+/* «Внести счёт» в правой панели: позиция — наименование сверху, кол-во/ед./сумма ниже */
+.drawer .inv-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.drawer .inv-main { grid-template-columns: 76px 84px minmax(0, 1fr) auto auto; }
+.drawer .inv-main .inv-t { grid-column: 1 / -1; }
+
+.inv-row.inv-done { opacity: .75; }
+.inv-row.inv-done::after { content: '✓ внесено'; display: block; margin-top: 4px; font-size: var(--fs-sm); color: var(--ok); }
+/* Строка счёта: категория → позиция; кол-во / ед. / сумма; «+ Новая позиция» — блок в строке (2026-10-20) */
+.inv-row .field > span { font-size: var(--fs-sm); }
+.inv-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); gap: 8px; }
+.drawer .inv-main, .inv-main { display: grid; grid-template-columns: 90px 100px minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 6px; }
+.drawer .inv-main .inv-t { grid-column: auto; }
+.inv-btns { display: flex; gap: 6px; align-items: center; padding-bottom: 1px; }
+.inv-row input:disabled { background: var(--surface-3); color: var(--muted); }
+.inv-new { margin-top: 10px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); }
+.inv-new-head { margin-bottom: 8px; }
+.inv-new-foot { display: flex; gap: 8px; margin-top: 10px; }
+@media (max-width: 720px) { .inv-pick { grid-template-columns: 1fr; } .drawer .inv-main, .inv-main { grid-template-columns: 1fr 1fr; } .inv-btns { grid-column: 1 / -1; } }
+
+/* Подсказка «сначала выберите категорию» */
+.combo-why { color: var(--warn); font-weight: 500; }
+input.need { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); transition: box-shadow .2s; }
+
+/* Флажок с подписью (приём, счёт) */
+label.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: var(--fs); color: var(--text); cursor: pointer; }
+label.check input { width: 18px; height: 18px; }
+
+table.cal tr.res td, table.cal tr.res th { border-top: 2px solid var(--border-strong); }
+
+/* «Сводка» — обзор для директора (TASKS Д3.2) */
+.dash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); margin-top: var(--s4); }
+.dash-card { min-width: 0; }
+.shares { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 16px; }
+.share-l { display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; gap: 8px; align-items: baseline; font-size: var(--fs-sm); }
+.share-l .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.share-p { text-align: right; }
+.share-bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.share-bar i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+table.sum-tbl tr.total.q td { background: var(--surface-2); font-weight: 600; }
+@media (max-width: 1200px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.demo-note { background: var(--hint-bg); border-radius: var(--radius-sm); padding: 8px 12px; }
+
+/* Без дёрганья (2026-10-20): место под полосу прокрутки всегда занято — страница не прыгает вбок, когда список длиннее/короче экрана; цифры одной ширины */
+html { scrollbar-gutter: stable; }
+.chip b, .tag small, .tiles b, .count, .num { font-variant-numeric: tabular-nums; }
+
+/* Фильтры по признакам в «Остатках» (ui/facet-filter.js): панель поверх таблицы, не сдвигает её */
+.ff { position: relative; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.ff-btn.on { border-color: var(--primary); color: var(--link); }
+.ff-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.ff-tag { height: 28px; }
+.ff-pop { position: absolute; z-index: 45; top: calc(100% + 6px); left: 0; width: min(760px, 92vw); max-height: 60vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.ff-vals { flex-wrap: wrap; }
+.ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+
+/* Назад / вперёд в верхней панели; пометка особой выборки над списком */
+.histnav { display: flex; gap: 2px; }
+.histnav .btn { font-size: 20px; line-height: 1; }
+.list-hint.banner, .banner { background: var(--warn-soft); }
+
+/* «+ Из таблицы» (TASKS В.8) */
+.paste-box { padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); margin-bottom: 12px; }
+.paste-area { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+.inv-badge { font-size: var(--fs-sm); margin-bottom: 6px; font-weight: 500; }
+.inv-badge.found { color: var(--ok); }
+.inv-badge.new { color: var(--warn); }
+
+.inv-similar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-weight: 400; }
+.inv-similar .tag { height: auto; min-height: 26px; white-space: normal; text-align: left; }
+
+/* «Вставить список» (ui/bulk.js) и «Бронь по списку» */
+.ops-search-wrap { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.ops-search-wrap .ops-search { flex: 1 1 260px; }
+.bulk { position: relative; }
+.bulk-panel { position: absolute; z-index: 44; right: 0; top: calc(100% + 6px); width: min(640px, 92vw); padding: 12px 14px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 8px; }
+.bulk-foot { display: flex; gap: 8px; }
+.bulk-rest { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; }
+.bulk-miss { border-top: 1px solid var(--border); padding-top: 8px; font-size: var(--fs-sm); }
+.ops-short { background: var(--warn-soft); padding: 10px 14px; border-top: 1px solid var(--border); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: 6px; }
+.ops-short ul { margin: 0; padding-left: 18px; }
+.ops-res { border-bottom: 1px solid var(--border); padding: 8px 16px; }
+.ops-res summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ops-res summary .btn { margin-left: auto; }
+.ops-res-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 0 4px 16px; font-size: var(--fs-sm); }
+
+/* «Сегодня»: быстрые действия и «Быстро заказать» (TASKS С2) */
+.today-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 var(--s4); }
+.quick-panel { padding: 12px 14px; }
+.qo-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 2.2fr) 70px auto auto; gap: 8px; align-items: center; }
+.qo-row input { height: 38px; width: 100%; }
+.qo-q { text-align: right; }
+.qo-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+@media (max-width: 720px) { .qo-row { grid-template-columns: 1fr 70px auto; } .qo-cat, .qo-item { grid-column: 1 / -1; } }
+
+.file-btn { cursor: pointer; }
+.bulk-foot { flex-wrap: wrap; align-items: center; }
+
+/* Доли (проценты) — компактной карточкой, не на всю ширину */
+.compact-card { max-width: 520px; }
+
+/* «Справочники» (TASKS СП.4, DESIGN §4): группы слева, таблица справа, строка раскрывается — что связано */
+.dict-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s4); align-items: start; }
+.dict-nav { padding: var(--s2); position: sticky; top: calc(var(--topbar-h) + var(--s3)); }
+.dict-group { font-size: var(--fs-label); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: var(--s3) var(--s2) var(--s1); }
+.dict-group:first-child { padding-top: var(--s1); }
+.dict-link { display: flex; align-items: center; gap: var(--s2); padding: 7px var(--s2); border-radius: var(--radius-sm); color: var(--text); position: relative; }
+.dict-link:hover { background: var(--row-hover); text-decoration: none; }
+.dict-link.active { background: var(--row-selected); font-weight: 600; color: var(--heading); }
+.dict-link.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: var(--gold); }
+.dict-link span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dict-link b { margin-left: auto; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.dict-main { min-width: 0; overflow: hidden; }
+.dict-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s3); padding: var(--s4) var(--s4) var(--s3); border-bottom: 1px solid var(--border); }
+.dict-titles { flex: 1 1 260px; min-width: 0; }
+.dict-hint { margin: var(--s1) 0 0; }
+.dict-tools { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.dict-tools .search input { width: 220px; }
+.dict-table .dict-chev { width: 28px; color: var(--muted); text-align: center; padding-right: 0; }
+.dict-row { cursor: pointer; }
+.dict-row.open { background: var(--row-selected); }
+.dict-more > td { background: var(--surface-2); padding-top: var(--s2); padding-bottom: var(--s3); white-space: normal; }
+.dict-rel .section-title { margin-top: 0; }
+.dict-rel-list { list-style: none; margin: 0; padding: 0; columns: 2 280px; column-gap: var(--s5); }
+.dict-rel-list li { padding: 3px 0; break-inside: avoid; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-strong); vertical-align: -2px; margin-right: 6px; }
+.dict-cand { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); background: var(--hint-bg); }
+.dict-cand-list { list-style: none; margin: var(--s2) 0; padding: 0; max-height: 320px; overflow: auto; }
+.dict-cand-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: 5px 0; border-bottom: 1px solid var(--border); }
+.dict-cand-list label { display: flex; align-items: center; gap: var(--s2); min-width: 200px; }
+@media (max-width: 900px) {
+  .dict-layout { grid-template-columns: 1fr; }
+  .dict-nav { position: static; display: flex; gap: var(--s1); overflow-x: auto; padding: var(--s1); }
+  .dict-group { display: none; }
+  .dict-link { flex: none; }
+  .dict-link.active::before { display: none; }
+  .dict-tools, .dict-tools .search, .dict-tools .search input { width: 100%; }
+}
+
+/* «Требуют заполнения» (TASKS ТЗ.3): группы раскрываются, «Заполнить» — карточка сразу на нужном поле */
+.fill-list { display: grid; gap: var(--s2); max-width: 980px; }
+.fill-area { margin: var(--s4) 0 var(--s1); }
+.fill-area:first-child { margin-top: 0; }
+.fill-head { display: flex; align-items: center; gap: var(--s3); width: 100%; padding: var(--s3) var(--s4); background: none; border: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer; border-radius: var(--radius); }
+.fill-head:hover { background: var(--row-hover); }
+.fill-group.open .fill-head { border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; }
+.fill-chev { color: var(--muted); width: 14px; }
+.fill-t { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.fill-t .muted { font-size: var(--fs-sm); }
+.fill-note { background: var(--gold-soft); color: var(--text); border-radius: var(--radius-sm); padding: var(--s2) var(--s3); margin-bottom: var(--s3); font-size: var(--fs-sm); }
+.field.fill-here > input, .field.fill-here > select, .field.fill-here > textarea, .field.fill-here input { outline: 2px solid var(--gold); outline-offset: 1px; }
+.field.fill-here > span:first-child { color: var(--gold-deep); font-weight: 700; }

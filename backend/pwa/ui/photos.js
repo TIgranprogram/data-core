@@ -44,6 +44,11 @@ export function photoDrop({ attach, done }) {
   zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
   const onPaste = (e) => {
     if (!document.contains(zone)) { document.removeEventListener('paste', onPaste); return; }
+    if (!zone.offsetParent) return; // зона скрыта (свёрнутый блок, «ещё» в строке счёта)
+    const host = zone.closest('.inv-row, .field, .drawer') || zone.parentElement;
+    const a = document.activeElement;
+    // в счёте у каждой строки своя зона: вставляем только туда, где сейчас курсор
+    if (zone.closest('.inv-row') && !(a && host.contains(a))) return;
     const files = [...(e.clipboardData?.items || [])].filter((it) => it.kind === 'file' && /^image\//.test(it.type)).map((it) => it.getAsFile()).filter(Boolean);
     if (!files.length) return; // обычный текст — пусть вставляется как обычно
     e.preventDefault();

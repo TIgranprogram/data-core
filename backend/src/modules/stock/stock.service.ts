@@ -248,7 +248,7 @@ export class StockService {
       await this.storage.updateOne(
         { warehouseId: wh._id, materialId: _id, zoneName: null },
         { $setOnInsert: { warehouseId: wh._id, materialId: _id, quantity: 0, reservedQty: 0, isActive: true, deletedAt: null, photos: [] },
-          $set: { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
+          $set: { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity ?? 0 } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
         { upsert: true },
       ).exec();
     }
@@ -262,6 +262,17 @@ export class StockService {
     const res = await this.materials.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
     await this.materials.updateOne({ _id, $or: [{ mainPhotoId: null }, { mainPhotoId: { $exists: false } }] }, { $set: { mainPhotoId: pid } }).exec();
+    return this.getItem(materialId);
+  }
+
+  async removePhoto(materialId: string, photoId: string) {
+    const _id = oid(materialId, 'позиции'); const pid = oid(photoId, 'фото');
+    const m = await this.materials.findOne({ _id, deletedAt: null }, { photoIds: 1, mainPhotoId: 1 }).lean().exec();
+    if (!m) throw new NotFoundException('Позиция не найдена');
+    const rest = ((m.photoIds ?? []) as Types.ObjectId[]).filter((p) => String(p) !== String(pid));
+    const main = String(m.mainPhotoId ?? '') === String(pid) ? rest[0] ?? null : m.mainPhotoId ?? null;
+    await this.materials.updateOne({ _id }, { $set: { photoIds: rest, mainPhotoId: main } }).exec();
+    await this.markEdited(_id);
     return this.getItem(materialId);
   }
 
@@ -451,6 +462,106 @@ export class StockService {
     return this.batchResult(batchId, 'cancel');
   }
 
+  /**
+   * Бронь по списку (TASKS МВ.4): спецификация конструктора → бронь на складе под названием (и заказом).
+   * Каждая строка бронирует min(нужно, свободно); чего не хватает — в ответе `short` (для «Заказать недостающее»).
+   * Все брони списка — с общим `batchId` и `groupName`: снимаются строкой или целиком (releaseReservation / releaseGroup).
+   */
+  async reserveList(dto: { groupName: string; lines: { materialId: string; qty: number }[]; salesOrderId?: string; clientUid?: string }, userId?: string) {
+    const groupName = String(dto.groupName || '').trim();
+    if (!groupName) throw new BadRequestException('Назовите бронь: для чего (конструкция, заказ)');
+    if (dto.clientUid) {
+      const prev = await this.reservations.findOne({ clientUid: dto.clientUid }).lean().exec();
+      if (prev) return this.reservationGroup(String((prev as { batchId?: Types.ObjectId }).batchId));
+    }
+    const merged = new Map<string, number>();
+    for (const l of dto.lines) { const n = Number(l.qty); if (!(n > 0)) throw new BadRequestException('Количество в каждой строке — больше нуля'); merged.set(l.materialId, (merged.get(l.materialId) ?? 0) + n); }
+    const wh = await this.defaultWarehouse();
+    const batchId = new Types.ObjectId();
+    const so = dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId) ? new Types.ObjectId(dto.salesOrderId) : undefined;
+    const short: { materialId: string; need: number; reserved: number }[] = [];
+    const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        short.length = 0;
+        let first = true;
+        for (const [id, need] of merged) {
+          const matId = oid(id, 'позиции');
+          const item = await this.loadStorage(wh._id as Types.ObjectId, matId, session);
+          const free = Math.max(0, (item.quantity ?? 0) - (item.reservedQty ?? 0));
+          const take = Math.min(need, free);
+          if (take < need) short.push({ materialId: id, need, reserved: take });
+          if (take <= 0) continue;
+          item.reservedQty = (item.reservedQty ?? 0) + take;
+          await item.save({ session });
+          await this.reservations.create([{ orderId: groupName, materialId: matId, warehouseId: wh._id, qty: take, isActive: true, status: 'active', notes: groupName,
+            batchId, groupName, createdBy, ...(so ? { salesOrderId: so } : {}), ...(first && dto.clientUid ? { clientUid: dto.clientUid } : {}) }], { session });
+          first = false;
+        }
+      });
+    } finally { await session.endSession(); }
+    return { ...(await this.reservationGroup(String(batchId))), short };
+  }
+
+  /** Активные брони, сгруппированные по названию (для «Бронь по списку»). */
+  async listReservations() {
+    const docs = await this.reservations.find({ status: 'active', isActive: true, deletedAt: null }).sort({ createdAt: -1 }).limit(2000).lean().exec();
+    const mats = await this.materials.find({ _id: { $in: docs.map((d) => d.materialId).filter(Boolean) } }, { name: 1, unit: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    const nm = new Map(mats.map((m) => [String(m._id), m]));
+    // Кто поставил и под какой заказ — чтобы на «Сегодня» было видно, чья бронь и для чего
+    type Extra = { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date; createdBy?: Types.ObjectId; salesOrderId?: Types.ObjectId };
+    const ex = docs as (typeof docs[number] & Extra)[];
+    const [users, sos] = await Promise.all([
+      this.connection.db!.collection('users').find({ _id: { $in: ex.map((d) => d.createdBy).filter(Boolean) as Types.ObjectId[] } }, { projection: { displayName: 1, username: 1 } }).toArray(),
+      this.connection.db!.collection('salesorders').find({ _id: { $in: ex.map((d) => d.salesOrderId).filter(Boolean) as Types.ObjectId[] } }, { projection: { orderNo: 1, title: 1 } }).toArray(),
+    ]);
+    const un = new Map(users.map((u) => [String(u._id), String(u.displayName || u.username || '')]));
+    const so = new Map(sos.map((o) => [String(o._id), [o.orderNo, o.title].filter(Boolean).join(' · ')]));
+    const groups = new Map<string, { key: string; name: string; batchId: string | null; createdAt?: Date; createdBy: string | null; salesOrder: string | null; lines: unknown[] }>();
+    for (const d of docs) {
+      const x = d as typeof d & Extra;
+      const k = x.batchId ? String(x.batchId) : 'one:' + String(d._id);
+      const g = groups.get(k) ?? { key: k, name: x.groupName || d.orderId || 'Бронь', batchId: x.batchId ? String(x.batchId) : null, createdAt: x.createdAt,
+        createdBy: x.createdBy ? un.get(String(x.createdBy)) ?? null : null, salesOrder: x.salesOrderId ? so.get(String(x.salesOrderId)) ?? null : null, lines: [] };
+      const m = nm.get(String(d.materialId));
+      g.lines.push({ id: String(d._id), materialId: String(d.materialId), name: m?.name ?? '(позиция удалена)', unit: m?.unit ?? '', qty: d.qty });
+      groups.set(k, g);
+    }
+    const items = [...groups.values()];
+    return { items, total: items.length, page: 1, limit: items.length };
+  }
+
+  private async reservationGroup(batchId: string) {
+    const all = await this.listReservations();
+    return all.items.find((g) => g.batchId === batchId) ?? { key: batchId, batchId, name: '', lines: [] };
+  }
+
+  /** Снять одну бронь (строку): «свободно» на складе снова увеличится. */
+  async releaseReservation(id: string) {
+    const r = await this.reservations.findOne({ _id: oid(id, 'брони'), status: 'active', deletedAt: null }).exec();
+    if (!r) throw new NotFoundException('Бронь не найдена или уже снята');
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const item = await this.loadStorage(r.warehouseId as Types.ObjectId, r.materialId as Types.ObjectId, session);
+        item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - r.qty);
+        await item.save({ session });
+        r.status = 'released'; r.isActive = false;
+        await r.save({ session });
+      });
+    } finally { await session.endSession(); }
+    return { id, released: true };
+  }
+
+  /** Снять всю бронь списка. */
+  async releaseGroup(batchId: string) {
+    const list = await this.reservations.find({ batchId: oid(batchId, 'брони'), status: 'active', deletedAt: null }, { _id: 1 }).lean().exec();
+    if (!list.length) throw new NotFoundException('Бронь не найдена или уже снята');
+    for (const r of list) await this.releaseReservation(String(r._id));
+    return { batchId, released: list.length };
+  }
+
   private async loadStorage(warehouseId: Types.ObjectId, materialId: Types.ObjectId, session: ClientSession): Promise<StorageItemDocument> {
     const found = await this.storage.findOne({ warehouseId, materialId, deletedAt: null }).sort({ zoneName: 1 }).session(session).exec();
     if (found) return found;
@@ -543,6 +654,9 @@ export class StockService {
         source: d.source ?? null, fromSheet: d.source === 'google-sheets',
         cancelledAt: d.cancelledAt ?? null, cancelOf: d.cancelOf ? String(d.cancelOf) : null,
         createdBy: m.createdBy ? userName.get(String(m.createdBy)) ?? null : null,
+        // для карточки движения: операция пакетом, под какой заказ (кликабельно в приложении)
+        batchId: (m as { batchId?: Types.ObjectId }).batchId ? String((m as { batchId?: Types.ObjectId }).batchId) : null,
+        salesOrderId: (m as { salesOrderId?: Types.ObjectId }).salesOrderId ? String((m as { salesOrderId?: Types.ObjectId }).salesOrderId) : null,
         canCancel: d.source !== 'google-sheets' && !d.cancelledAt && !d.cancelOf && m.type !== 'transfer' && d.delta !== undefined,
       };
     });

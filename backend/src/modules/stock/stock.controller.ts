@@ -3,7 +3,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockBatchDto, StockItemDto, StockMoveDto, StockPhotoDto } from './dto';
+import { StockBatchDto, StockItemDto, StockMoveDto, StockPhotoDto, StockReserveListDto } from './dto';
 import { StockService } from './stock.service';
 
 /**
@@ -92,6 +92,45 @@ export class StockController {
   @Roles('admin', 'manager')
   photo(@Param('id') id: string, @Body() dto: StockPhotoDto) {
     return this.stock.addPhoto(id, dto.photoId);
+  }
+
+  /** Убрать фото позиции (главное — следующее по списку). */
+  @Delete('items/:id/photos/:photoId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.photo.removed', entityType: 'Material', idParam: 'id' })
+  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+    return this.stock.removePhoto(id, photoId);
+  }
+
+  /** Бронь по списку (спецификация): бронирует сколько свободно, нехватку возвращает в short. */
+  @Post('reserve-list')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.reserve.list', entityType: 'StockMovement' })
+  reserveList(@Body() dto: StockReserveListDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.reserveList(dto, user?.id);
+  }
+
+  /** Активные брони по названиям. */
+  @Get('reservations')
+  @Roles('admin', 'director', 'manager', 'user')
+  reservations() {
+    return this.stock.listReservations();
+  }
+
+  @Post('reservations/:id/release')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.reserve.released', entityType: 'StockMovement' })
+  releaseReservation(@Param('id') id: string) {
+    return this.stock.releaseReservation(id);
+  }
+
+  @Post('reservations/group/:batchId/release')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.reserve.group.released', entityType: 'StockMovement' })
+  releaseGroup(@Param('batchId') batchId: string) {
+    return this.stock.releaseGroup(batchId);
   }
 
   /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */

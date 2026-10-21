@@ -32,4 +32,4 @@
 
 ## Данные
 Существующие даты лежат в `sheetExtra.invoiceDate` строкой. Перенос — скрипт data-core
-`backend/scripts/migrate-invoice-date.js` (dry-run по умолчанию, `--apply` — запись; на живой базе — только по «да»).
+`backend/scripts/migrate-invoice-date.js` (выполнен на проде 2026-10-20 и удалён) (dry-run по умолчанию, `--apply` — запись; на живой базе — только по «да»).

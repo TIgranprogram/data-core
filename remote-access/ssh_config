@@ -1,0 +1,25 @@
+# Вход с рабочего ПК на домашний сервер через VPS. setup-work-pc.sh дописывает это в ~/.ssh/config.
+# datacore-jump — VPS (kppdf-crm.ru): ключ там умеет ТОЛЬКО пропустить дальше, консоли нет.
+# datacore-vm   — домашний сервер (tiit), через туннель VPS 127.0.0.1:4222 → VM :22.
+
+Host datacore-jump
+  HostName kppdf-crm.ru
+  Port 22
+  User root
+  HostKeyAlias datacore-vps
+  IdentityFile ~/.ssh/datacore_work
+  IdentitiesOnly yes
+  UserKnownHostsFile ~/.ssh/datacore_known_hosts
+  StrictHostKeyChecking yes
+
+Host datacore-vm
+  HostName 127.0.0.1
+  Port 4222
+  User tiit
+  ProxyJump datacore-jump
+  HostKeyAlias datacore-vm
+  IdentityFile ~/.ssh/datacore_work
+  IdentitiesOnly yes
+  UserKnownHostsFile ~/.ssh/datacore_known_hosts
+  StrictHostKeyChecking yes
+  ServerAliveInterval 30

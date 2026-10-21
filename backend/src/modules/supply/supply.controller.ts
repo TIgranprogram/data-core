@@ -28,6 +28,22 @@ export class SupplyController {
     return this.supply.list(q);
   }
 
+  /** «Как называется у поставщика» (МВ.2): найти наши позиции для строк из таблицы поставщика. */
+  @Post('aliases/match')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user')
+  matchAliases(@Body() body: { supplierName?: string; lines?: Array<{ name?: string; article?: string }> }) {
+    return this.supply.aliases().match(body?.supplierName, (body?.lines ?? []).slice(0, 500));
+  }
+
+  /** Запомнить пары «строка поставщика → наша позиция» (после внесения заявок из таблицы). */
+  @Post('aliases')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  rememberAliases(@Body() body: { supplierName?: string; pairs?: Array<{ extName?: string; extArticle?: string; title: string; unit?: string; categoryName?: string; article?: string }> }) {
+    return this.supply.aliases().remember(body?.supplierName, (body?.pairs ?? []).slice(0, 500));
+  }
+
   /** Подсказки для формы и фильтров: поставщики, наши компании, категории, «кто подал». */
   @Get('lookups')
   @Roles('admin', 'director', 'manager', 'user')

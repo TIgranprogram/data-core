@@ -17,7 +17,7 @@ import { loginAsAdmin as _loginAsAdmin, authHeader, type AuthTokens } from './te
  *
  * Cross-references:
  *   - TZ-91 §4 Phase A.4 + Phase D (ADMIN_PASSWORD ≥ 8 chars gate).
- *   - TZ-91 Phase B compliance check (`audit-roles-coverage.ts` reads these
+ *   - TZ-91 Phase B compliance check (скрипт audit-roles-coverage.ts удалён 2026-10-20; reads these
  *     same patterns to verify write-endpoint coverage on the test bootstrap path).
  *   - TZ-95 §QA-05:5.2 admin password drift fix.
  */

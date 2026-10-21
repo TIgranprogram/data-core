@@ -243,4 +243,45 @@ describe('Stock & supply on shared CRM collections', () => {
     expect(back.items.find((i: { id: string }) => i.id === nut.id).quantity).toBe(98);
     await http().post(`/api/stock/batch/${out.batchId}/cancel`).set(auth()).expect(404);
   });
+  it('«Получено» только через «Принять»; приём без склада (офис/СМР) — с отметкой, склад не меняется', async () => {
+    await http().post('/api/supply/requests').set(auth()).send({ title: 'Бумага А4', qty: 5, statusLabel: 'Получено', clientUid: 'cc-0' }).expect(400);
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Бумага А4', qty: 5, costCenter: 'office', clientUid: 'cc-1' }).expect(201)).body;
+    await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ statusLabel: 'Получено' }).expect(400);
+    const got = (await http().post(`/api/supply/requests/${r.id}/receive`).set(auth()).send({ qty: 5, toStock: false }).expect(200)).body;
+    expect(got).toMatchObject({ status: 'received', receivedTo: 'direct', costCenter: 'office' });
+    expect((await http().get('/api/stock/items').query({ search: 'Бумага А4' }).set(auth()).expect(200)).body.total).toBe(0);
+    // на склад — по умолчанию «Цех»
+    const r2 = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Саморез 4х16', qty: 10, clientUid: 'cc-2' }).expect(201)).body;
+    const got2 = (await http().post(`/api/supply/requests/${r2.id}/receive`).set(auth()).send({ qty: 10 }).expect(200)).body;
+    expect(got2).toMatchObject({ receivedTo: 'stock', costCenter: 'workshop' });
+  });
+  it('бронь по списку: бронирует сколько свободно, нехватку возвращает; снять строку и всю бронь', async () => {
+    const a = (await http().post('/api/stock/items').set(auth()).send({ name: 'Рым-гайка М12 нерж', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    const b = (await http().post('/api/stock/items').set(auth()).send({ name: 'Скоба такелажная М6', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: a.id, qty: 10 }, { materialId: b.id, qty: 3 }] }).expect(201);
+    const r = (await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Качели К-12', lines: [{ materialId: a.id, qty: 4 }, { materialId: b.id, qty: 5 }], clientUid: 'rl-1' }).expect(201)).body;
+    expect(r.name).toBe('Качели К-12');
+    expect(r.lines).toHaveLength(2);
+    expect(r.short).toEqual([{ materialId: b.id, need: 5, reserved: 3 }]);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ reservedQty: 4, free: 6 });
+    // повтор с тем же ключом — без второй брони
+    await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Качели К-12', lines: [{ materialId: a.id, qty: 4 }], clientUid: 'rl-1' }).expect(201);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body.reservedQty).toBe(4);
+    const lineA = r.lines.find((l: { materialId: string }) => l.materialId === a.id);
+    await http().post(`/api/stock/reservations/${lineA.id}/release`).set(auth()).expect(200);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body.reservedQty).toBe(0);
+    await http().post(`/api/stock/reservations/group/${r.batchId}/release`).set(auth()).expect(200);
+    expect((await http().get(`/api/stock/items/${b.id}`).set(auth())).body.reservedQty).toBe(0);
+    expect((await http().get('/api/stock/reservations').set(auth()).expect(200)).body.items.some((g: { batchId: string }) => g.batchId === r.batchId)).toBe(false);
+  });
+
+  it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
+    const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;
+    expect(r2.priceHint ?? null).toBeNull();
+    const it = (await http().post('/api/stock/items').set(auth()).send({ name: 'Стереть мин', unit: 'шт', minQuantity: 5, weightKg: 2 }).expect(201)).body;
+    const it2 = (await http().patch(`/api/stock/items/${it.id}`).set(auth()).send({ minQuantity: null, weightKg: null }).expect(200)).body;
+    expect(it2.minQuantity).toBe(0);
+    expect(it2.weightKg ?? null).toBeNull();
+  });
 });

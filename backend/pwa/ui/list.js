@@ -12,7 +12,8 @@ import { toastError } from './toast.js';
  * Экран строится ОДИН раз; смена фильтра/страницы/сортировки — update(params): элементы управления не пересоздаются,
  * строки заменяются, когда пришли новые данные (старые остаются видны, без моргания).
  * section.list = {
- *   path, sortDefault, searchPlaceholder, createLabel,
+ *   toolbarExtra?() → { el, update(P) } — свой элемент в панели инструментов (фильтры по признакам у «Остатков»), extraKeys — его ключи в адресе;
+ *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
  *   columns: [{ key, label, sort?, cls?, render(row) }],
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
@@ -53,6 +54,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     h('h1', null, section.title, ' ', countEl),
     h('span', { class: 'spacer' }),
     viewSwitch,
+    ...(L.headActions && session.canEdit ? L.headActions(() => load()) : []),
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
 
   // ---------- Поиск и фильтры (создаются один раз) ----------
@@ -79,11 +81,14 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       sel.value = P[f.key] || '';
     }).catch(() => { /* фильтр без вариантов — не критично */ });
   }
+  const extra = L.toolbarExtra ? L.toolbarExtra() : null;
+  if (extra) { toolbar.append(extra.el); extra.update(P); }
   const resetBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => resetFilters() }, 'Сбросить');
   toolbar.append(resetBtn);
   function resetFilters() {
     const clear = { q: undefined, page: undefined };
     for (const f of L.filters || []) clear[f.key] = undefined;
+    for (const k of L.extraKeys || []) clear[k] = undefined;
     search.value = '';
     patch(clear);
   }
@@ -164,7 +169,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     boardBox.hidden = !isBoard;
     renderHead(); renderChips(); renderTiles();
     const hint = L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
-    hintBox.textContent = hint || ''; hintBox.hidden = !hint;
+    // banner(P) → { text, keys } — особая выборка (пришли по ссылке «Все →»): пометка + «Показать все» (снимает keys)
+    const bn = L.banner ? L.banner(P) : null;
+    if (bn) { hintBox.replaceChildren(h('b', null, bn.text), ' ', h('button', { type: 'button', class: 'link-btn', onclick: () => patch(Object.fromEntries([...bn.keys, 'page'].map((k) => [k, undefined]))) }, 'Показать все')); hintBox.hidden = false; hintBox.classList.add('banner'); }
+    else { hintBox.classList.remove('banner'); hintBox.textContent = hint || ''; hintBox.hidden = !hint; }
   }
 
   function markSelected() {
@@ -354,6 +362,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const onlyOpen = [...dataKeys].every(same);
     if (onlyOpen) { markSelected(); return; }
     syncControls();
+    extra?.update(P);
     load();
   }
 

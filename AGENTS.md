@@ -44,7 +44,7 @@ backend/pwa/                   приложение «Снабжение / Ск�
 backend/test/e2e/              e2e (нужен живой Mongo rs0)
 backend/scripts/               разовые/аудит-скрипты (не часть рантайма)
 deploy/synology/               deploy.py (деплой), backup.sh (cron-бэкап), verify-restore.js
-deploy/google-sheets/          скрипт синхронизации Google-таблиц (таблица → база / база → таблица)
+deploy/google-sheets/          как сервер читает Google-таблицы (инструкция; сам код — modules/sheets-sync)
 deploy/supply-app/             инструкция приложения «Склад · Снабжение»
 docker-compose.yml             mongo:4.4 rs0 --auth --keyFile + backend (локально и на VM)
 ```
@@ -59,7 +59,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 75 suites / 770 tests; e2e 27 / 193 (на 2026-10-20) |
+| Юнит-тесты | `npx jest --silent` | 75 suites / 770 tests; e2e 29 / 201 (на 2026-10-21) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |

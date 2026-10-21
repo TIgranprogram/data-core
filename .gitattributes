@@ -1,0 +1,12 @@
+# Переводы строк: в репозитории всегда LF, на компьютере — как удобно системе (Windows — CRLF).
+# Без этого коммит с другого компьютера переписывает все файлы одними переводами строк (инцидент 2026-10-20).
+* text=auto
+# Скрипты для Linux-сервера — всегда LF, иначе bash на VM не запустит
+*.sh text eol=lf
+Dockerfile text eol=lf
+# Двоичные
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.xlsx binary

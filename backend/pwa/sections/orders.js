@@ -5,8 +5,9 @@ import { go } from '../core/router.js';
 import { badge } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
-import { UNITS } from './lookups.js';
+import { UNITS, unitList, lookups } from './lookups.js';
 import { pic } from './stock.js';
+import { customerLink } from '../ui/links.js';
 
 /**
  * Раздел «Заказы» (PRODUCT §4, TASKS Ф.3/Ф.6) — строки заказов = доходы, коллекция incomes (/api/incomes).
@@ -118,7 +119,7 @@ export const orders = {
       sub: (r) => [r.customer, `${qty(r.qty)} ${r.unit || ''}`.trim(), r.companyName].filter(Boolean).join(' · '),
       side: (r) => [badge(INCOME_STATUS, r.status), r.amount ? h('span', { class: 'num small' }, money(r.amount)) : null],
     },
-    footer: (resp) => h('span', { class: 'sum-line' }, `Сумма по выборке: ${money(resp.sum || 0)}`),
+    footer: (resp) => h('span', { class: 'sum-line', title: 'Сумма всех позиций в списке — с учётом вкладки, поиска и фильтров, по всем страницам' }, `Итого по списку: ${money(resp.sum || 0)} · ${qty(resp.total)} позиций`),
   },
 
   card: {
@@ -130,7 +131,7 @@ export const orders = {
     stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплата', date(r.paidDate) || '—']] : [])],
     view: (r) => [
       ['Статус', badge(INCOME_STATUS, r.status)],
-      ['Заказчик', r.customer],
+      ['Заказчик', customerLink(r.customer)],
       ['Наша компания', r.companyName],
       ['Форма оплаты', r.paymentForm],
       ['Количество', r.qty != null ? `${qty(r.qty)} ${r.unit || ''}`.trim() : ''],
@@ -154,18 +155,22 @@ export const orders = {
     fields: async () => {
       const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'нал'] }));
       return [
+        { section: 'Позиция заказа', tone: 'main', fixed: true },
         { key: 'orderId', label: 'Заказ', type: 'select', options: await import('./salesorders.js').then((m) => m.activeOrders()).then((os) => os.map((o) => ({ value: o.id, label: m2(o) }))).catch(() => []), hint: 'Позиция попадёт в карточку заказа; № и заказчик возьмутся из заказа', wide: true },
         { key: 'orderNo', label: '№ заказа (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
-        { key: 'unit', label: 'Ед. изм.', type: 'combo', options: UNITS, max: 30 },
+        { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(await lookups().catch(() => null)), max: 30 },
+        { section: 'Деньги', tone: 'money', money: true },
         { key: 'unitPrice', money: true, label: 'Цена за ед., ₽', type: 'money', min: 0 },
         { key: 'amountManual', money: true, label: 'Доход вручную, ₽', type: 'money', min: 0, hint: 'Если заполнено — важнее кол-во × цена' },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name), hint: 'Нужна для платёжного календаря' },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
+        { section: 'Отгрузка и оплата', tone: 'info' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
         { key: 'paidDate', label: 'Дата оплаты', type: 'date' },
+        { section: 'Вид, цвет, примечание', tone: 'who', collapsed: true },
         { key: 'kind', label: 'Вид', max: 100 },
         { key: 'color', label: 'Цвет', max: 100 },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },

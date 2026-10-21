@@ -1,4 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { DICT, type Doc } from '../dicts/dicts.defs';
+import { searchTokens, tokenRegex } from '../stock/search-norm';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -7,6 +9,7 @@ import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { CategoryResolver } from '../stock/category-resolver';
 import { StockService } from '../stock/stock.service';
 import { OrgResolver } from './org-resolver';
+import { SupplierAliases } from './supplier-aliases';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
 
@@ -24,6 +27,8 @@ export interface SupplyInput {
   orderLabel?: string;
   salesOrderId?: string;
   salesOrderLineId?: string;
+  costCenter?: string;
+  costObject?: string;
   requestedBy?: string;
   article?: string;
   color?: string;
@@ -170,19 +175,37 @@ export class SupplyService {
       if (or.length) { statusCond = { $or: or }; and.push(statusCond); }
     }
     if (q.supplierId) filter.supplierId = { $in: oids(q.supplierId) };
+    // needsFill=1 — «не попадают в выплаты» (те же условия, что «Деньги → Требуют заполнения»): нет суммы при дате счёта,
+    // нет даты счёта при сумме, или нет нашей компании; отменённые не считаются
+    if (q.needsFill) {
+      const ours = (await this.connection.db!.collection('organizations').find({ isOurCompany: true, deletedAt: null }, { projection: { _id: 1 } }).toArray()).map((o) => o._id);
+      and.push({ status: { $ne: 'cancelled' } });
+      and.push({ $or: [
+        { invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] },
+        { priceHint: { $gt: 0 }, $or: [{ invoiceDate: null }, { invoiceDate: { $exists: false } }] },
+        { invoiceDate: { $ne: null }, priceHint: { $gt: 0 }, $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] },
+      ] });
+    }
     if (q.categoryId) filter.categoryId = { $in: oids(q.categoryId) };
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
     if (q.requestedBy) filter.requestedBy = String(q.requestedBy);
     if (q.priority) filter.priority = String(q.priority);
     const range = dateRange(q.from, q.to);
     if (range) filter.requestDate = range;
-    if (p.search) {
-      const or: Record<string, unknown>[] = ['title', 'article', 'orderLabel', 'notes', 'requestedBy', 'invoiceNo', 'color'].map((f) => ({ [f]: p.search }));
-      const n = Number(String(q.search).trim().replace(/^№/, ''));
-      if (Number.isInteger(n) && n > 0) or.push({ num: n });
-      const orgs = await this.connection.db!.collection('organizations').find({ $or: [{ name: p.search }, { shortName: p.search }] }, { projection: { _id: 1 } }).toArray();
-      if (orgs.length) or.push({ supplierId: { $in: orgs.map((o) => o._id) } });
-      and.push({ $or: or });
+    // Поиск «как на складе» (2026-10-20): каждое слово отдельно (И), м10 = M10, по наименованию, №, поставщику, артикулу, счёту, заказчику, примечанию
+    if (q.search && String(q.search).trim()) {
+      const tokens = searchTokens(q.search);
+      const fields = ['title', 'article', 'orderLabel', 'notes', 'requestedBy', 'invoiceNo', 'color'];
+      const orgs = await this.connection.db!.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray();
+      for (const tk of tokens) {
+        const re = tokenRegex(tk);
+        const or: Record<string, unknown>[] = fields.map((fl) => ({ [fl]: re }));
+        const sup = orgs.filter((o) => re.test(String(o.name ?? '')) || re.test(String(o.shortName ?? ''))).map((o) => o._id);
+        if (sup.length) or.push({ supplierId: { $in: sup } });
+        const n = Number(tk.replace(/^№/, ''));
+        if (Number.isInteger(n) && n > 0) or.push({ num: n });
+        and.push({ $or: or });
+      }
     }
     // Счётчики по статусам (для чипов) — по всем фильтрам, кроме самого статуса
     const noStatus: Record<string, unknown> = { ...filter };
@@ -243,8 +266,10 @@ export class SupplyService {
       } else { f.salesOrderId = undefined; f.salesOrderLineId = undefined; }
     }
     if (dto.salesOrderLineId !== undefined) f.salesOrderLineId = dto.salesOrderLineId && Types.ObjectId.isValid(dto.salesOrderLineId) ? new Types.ObjectId(dto.salesOrderLineId) : undefined;
+    if (dto.costCenter !== undefined) f.costCenter = dto.costCenter || undefined;
+    if (dto.costObject !== undefined) f.costObject = String(dto.costObject ?? '').trim() || undefined;
     if (dto.qty !== undefined) f.qty = Number(dto.qty);
-    if (dto.priceHint !== undefined) f.priceHint = Number(dto.priceHint);
+    if (dto.priceHint !== undefined) f.priceHint = dto.priceHint === null ? null : Number(dto.priceHint); // null — сумму стёрли (В.7)
     if (dto.num !== undefined) f.num = Number(dto.num);
     if (dto.requestDate) f.requestDate = new Date(dto.requestDate);
     if (dto.invoiceDate !== undefined) {
@@ -273,6 +298,7 @@ export class SupplyService {
       if (dup) return this.get(String(dup._id));
     }
     const fields = await this.toFields(dto);
+    if (fields.status === 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется (создайте заявку «Оплачено», затем «Принять»)');
     if (!fields.title && !fields.materialId) throw new BadRequestException('Укажите наименование');
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {
@@ -293,6 +319,11 @@ export class SupplyService {
   async update(id: string, dto: SupplyInput) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const fields = await this.toFields(dto);
+    // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
+    if (fields.status === 'received') {
+      const cur = await this.model.findById(id, { status: 1 }).lean().exec();
+      if (cur && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
+    }
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : undefined;
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(fields)) (v === undefined ? (unset[k] = '') : (set[k] = v));
@@ -308,7 +339,7 @@ export class SupplyService {
    * Оприходовать: приход на склад по умолчанию + статус «received» (как receive() в CRM).
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
    */
-  async receive(id: string, dto: { qty?: number; clientUid?: string }, userId?: string) {
+  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string }, userId?: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
@@ -319,6 +350,14 @@ export class SupplyService {
     const qty = Number(dto.qty ?? doc.qty);
     if (!(qty > 0)) throw new BadRequestException('Укажите количество');
 
+    // Куда пошло: на склад (по умолчанию) или сразу в работу / офис / объект — тогда без прихода, но с отметкой (ничего не «в воздухе»)
+    const d0 = doc as unknown as { costCenter?: string; costObject?: string; salesOrderId?: unknown };
+    const costCenter = dto.costCenter || d0.costCenter || (d0.salesOrderId ? 'order' : 'workshop');
+    const costObject = dto.costObject?.trim() || d0.costObject;
+    if (dto.toStock === false) {
+      await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'direct', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+      return this.get(id);
+    }
     let materialId = doc.materialId ? String(doc.materialId) : '';
     if (!materialId) {
       const name = doc.title?.trim();
@@ -328,9 +367,11 @@ export class SupplyService {
       materialId = item.id;
     }
     await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
-    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
     return this.get(id);
   }
+
+  aliases() { return new SupplierAliases(this.connection); }
 
   /** Названия поставщиков и «наших компаний» — для подсказок в форме. */
   async lookups() {
@@ -343,18 +384,22 @@ export class SupplyService {
     const people = uniq([...(await this.model.distinct('requestedBy', { deletedAt: null }).exec()), ...(lists.people ?? [])]);
     const customers = uniq([...(await this.model.distinct('orderLabel', { deletedAt: null }).exec()), ...(lists.customers ?? [])]);
     const sup = orgs.filter((o) => (o.type as string[] | undefined)?.includes('supplier'));
+    // «Справочники» (СП.5): заполненный справочник — единственный источник списка; пустой — старые источники
+    const dict = async (k: string) => { const d = DICT.get(k)!; return d.options!((await this.connection.db!.collection(d.coll).find(d.match).toArray()) as Doc[]).filter(Boolean); };
+    const [dUnits, dPeople, dInvoice, dServices] = await Promise.all(['units', 'persons', 'invoiceTypes', 'services'].map(dict));
+    const or = (d: string[], fallback: string[]) => (d.length ? uniq(d) : fallback);
     return {
       suppliers: sup.map((o) => String(o.shortName || o.name)),
       companies: orgs.filter((o) => o.isOurCompany).map((o) => String(o.shortName || o.name)),
       categories: cats.map((c) => ({ id: String(c._id), name: String(c.name) })),
       /** Для фильтров: поставщики с id и «кто подал». */
       supplierRefs: sup.map((o) => ({ id: String(o._id), name: String(o.shortName || o.name) })),
-      requestedBy: people,
+      requestedBy: or(dPeople, people),
       /** Списки «Справочника» Google-таблицы (+ то, что уже встречалось в заявках). */
       customers,
-      invoiceTypes: uniq(['Счет на оплату', 'Счет-договор', 'Счет', 'УПД', ...(lists.invoiceTypes ?? [])]),
-      services: lists.services ?? [],
-      units: uniq(lists.units ?? []),
+      invoiceTypes: or(dInvoice, uniq(['Счет на оплату', 'Счет-договор', 'Счет', 'УПД', ...(lists.invoiceTypes ?? [])])),
+      services: or(dServices, lists.services ?? []),
+      units: or(dUnits, uniq(lists.units ?? [])),
     };
   }
 }

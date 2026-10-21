@@ -1,7 +1,7 @@
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, events, login, PREFIX, session } from './core/api.js';
-import { $, h } from './core/dom.js';
+import { $, debounce, h } from './core/dom.js';
 import { current, go, onChange, patch } from './core/router.js';
 import { openCard } from './ui/card.js';
 import { icon } from './ui/icons.js';
@@ -10,16 +10,22 @@ import { mountHome } from './sections/home.js';
 import { movements } from './sections/movements.js';
 import { mountMoney } from './sections/money.js';
 import { mountOps } from './sections/ops.js';
+import { mountPayroll } from './sections/payroll.js';
+/** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
+const FEATURES = { payroll: true };
 import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
 import { partners } from './sections/partners.js';
+import { dict, mountDicts } from './sections/dicts.js';
+import { mountFill } from './sections/fill.js';
+import { invoice, pasteOrder } from './sections/invoice.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['ops', 'Операции', 'ops'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -57,8 +63,13 @@ function shell() {
     icon(ico), h('span', { class: 'lbl' }, label), h('span', { class: 'cnt', hidden: true }));
   navLinks = Object.fromEntries(NAV.map(([id, label, ico]) => [id, link(id, label, ico)]));
   navLinks.trash = link('trash', 'Корзина', 'trash');
+  navLinks.dicts = link('dicts', 'Справочники', 'dicts');
   const gs = h('input', { type: 'search', placeholder: 'Найти заявку, позицию, поставщика…', 'aria-label': 'Поиск по всему' });
-  gs.addEventListener('keydown', (e) => { if (e.key === 'Enter' && gs.value.trim()) { go('search', { q: gs.value.trim() }); gs.blur(); } });
+  // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
+  const runSearch = () => { const q = gs.value.trim(); if (q.length < 2) return; go('search', { q }, { replace: current().section === 'search' }); };
+  const liveSearch = debounce(runSearch, 400);
+  gs.addEventListener('input', liveSearch);
+  gs.addEventListener('keydown', (e) => { if (e.key === 'Enter' && gs.value.trim()) { go('search', { q: gs.value.trim() }, { replace: current().section === 'search' }); gs.blur(); } });
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
@@ -67,10 +78,11 @@ function shell() {
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
-    h('div', { class: 'side-group' }, 'Склад'), navLinks.stock, navLinks.ops, navLinks.movements,
+    h('div', { class: 'side-group' }, 'Склад'), navLinks.ops, navLinks.stock, navLinks.movements,
     h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.partners,
-    session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money] : null,
+    session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
+      navLinks.dicts,
       navLinks.trash,
       session.user?.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,
       // CRM живёт на том же домене в корне (https://kppdf-crm.ru/), приложение — под /db/; локально CRM нет
@@ -82,6 +94,10 @@ function shell() {
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'btn btn-ghost btn-icon burger', type: 'button', 'aria-label': 'Меню', onclick: () => shellEl.classList.toggle('nav-open') }, icon('menu')),
+    // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
+    h('div', { class: 'histnav' },
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад (Alt+←)', 'aria-label': 'Назад', onclick: () => history.back() }, '‹'),
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Вперёд (Alt+→)', 'aria-label': 'Вперёд', onclick: () => history.forward() }, '›')),
     h('div', { class: 'gsearch' }, gs, h('kbd', null, '/')));
   const main = h('main', { class: 'page', id: 'page' });
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
@@ -142,12 +158,15 @@ function render({ section, params }) {
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = mountMoney(params);
     else if (section === 'ops') list = mountOps(params);
+    else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = mountPayroll();
     else if (section === 'trash') list = mountTrash();
+    else if (section === 'dicts') list = mountDicts(params);
+    else if (section === 'fill') list = mountFill(params);
     else if (section === 'search') list = mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
-    document.title = (sec?.title || ({ home: 'Сегодня', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
+    document.title = (sec?.title || ({ home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' })[section]) + ' · Рабочее место';
     window.scrollTo(0, 0);
   } else {
     mounted.list.update?.(params);
@@ -166,16 +185,16 @@ function syncCard(section, params) {
   const sec = SECTIONS[ofName];
   const want = sec && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
   if (!want) { closeCard(); return; }
-  const key = ofName + want;
+  const key = ofName + want + (params.fill ? '~' + params.fill : '');
   if (card?.key === key) return;
   // Та же панель, другая запись (стрелки, клик по соседней строке) — меняем содержимое, без закрытия
-  if (card && card.of === ofName && want.startsWith('open:') && card.key.includes('open:') && !card.handle.editing) {
+  if (card && card.of === ofName && !params.fill && want.startsWith('open:') && card.key.includes('open:') && !card.key.includes('~') && !card.handle.editing) {
     card.key = key;
     card.handle.load(params.open);
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, title: undefined, unit: undefined, categoryName: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined };
   const ctx = {
     close: () => { card = null; patch(clear); },
     changed: () => { mounted?.list?.reload?.(); refreshCounts(); },
@@ -187,7 +206,7 @@ function syncCard(section, params) {
     for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId']) if (params[k]) initial[k] = params[k];
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
-    card = { key, of: ofName, handle: openCard(sec, { id: params.open }, ctx) };
+    card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };
   }
 }
 

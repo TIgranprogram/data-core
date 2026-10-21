@@ -147,6 +147,7 @@ function companyOf(supplier) {
   const s = clean(supplier).toLowerCase().replace(/[\s\-–—_]/g, '');
   if (s === 'спортинюг') return { short: 'СИЮ', known: true };
   if (s === 'спортстройюг') return { short: 'ССЮ', known: true };
+  if (s === 'спортсет') return { short: 'СПОРТСЕТ', known: true }; // третья наша компания (решение 2026-10-20)
   return { short: clean(supplier).toUpperCase() || '?', known: false, label: clean(supplier) || '(пусто)' };
 }
 
