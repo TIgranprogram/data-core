@@ -26,6 +26,16 @@ export class FinanceController {
     return this.finance.summary(q);
   }
 
+  /** Прогноз (БЗ-1): ожидаемые выплаты и поступления вперёд, остаток по дням, кассовый разрыв. Отдельно от факта. */
+  @Get('forecast')
+  @Roles('admin', 'accountant')
+  @ApiQuery({ name: 'days', required: false, description: '7–180, по умолчанию 30' })
+  @ApiQuery({ name: 'opening', required: false, description: 'Остаток денег на сегодня, ₽' })
+  @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id' })
+  forecast(@Query() q: Record<string, string>) {
+    return this.finance.forecast(q);
+  }
+
   /** Записи, которые не попадают в расчёт: чего не хватает. */
   @Get('needs-fill')
   @Roles('admin', 'accountant')

@@ -5,6 +5,7 @@ import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { ourCompanies } from '../incomes/incomes.service';
 import { buildCashflow, buildSummary, type Op } from './cashflow';
+import { buildForecast, expectedOps, type ExpenseSrc, type IncomeSrc } from './forecast';
 
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -97,6 +98,52 @@ export class FinanceService {
     const ops = await this.ops(from, to, used.map((c) => c.id));
     const { days, totals } = buildCashflow(ops, from, to, opening, names);
     return { from, to, org: q.org || 'all', companies: names, opening, days, totals, needsFill: await this.needsFill() };
+  }
+
+  /**
+   * Прогноз (TASKS БЗ-1): с сегодня на days дней вперёд (7–180, по умолч. 30), остаток на сегодня — opening.
+   * Только будущее и «без срока»: то, что уже попало в факт (счёт по сегодня, отгружено по сегодня), сюда не входит.
+   */
+  async forecast(q: Record<string, unknown>) {
+    const days = q.days === undefined || q.days === '' ? 30 : Number(q.days);
+    if (!Number.isInteger(days) || days < 7 || days > 180) throw new BadRequestException('Горизонт прогноза — от 7 до 180 дней');
+    const opening = q.opening === undefined || q.opening === '' ? 0 : Number(String(q.opening).replace(',', '.'));
+    if (!Number.isFinite(opening)) throw new BadRequestException('Остаток на сегодня — число');
+    const today = String(q.today && DAY.test(String(q.today)) ? q.today : iso(new Date()));
+    const to = iso(new Date(Date.parse(today + 'T00:00:00Z') + (days - 1) * 86400000));
+    const { used } = await this.companies(q.org);
+    const names = used.map((c) => c.name);
+    const ids = used.map((c) => c.id);
+    const cname = new Map(used.map((c) => [String(c.id), c.name]));
+    const db = this.connection.db!;
+    const endOfToday = new Date(Date.parse(today + 'T00:00:00Z') + 86400000);
+    const [reqs, incs, orgs] = await Promise.all([
+      db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: ids },
+        $or: [{ invoiceDate: { $gte: endOfToday } }, { invoiceDate: null, status: { $in: ['in_progress', 'requested', 'ordered'] } }, { invoiceDate: { $exists: false }, status: { $in: ['in_progress', 'requested', 'ordered'] } }] },
+      { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1 } }).toArray(),
+      db.collection('incomes').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, $and: [{ $or: [{ paidDate: null }, { paidDate: { $exists: false } }] }, { $or: [{ reportDate: null }, { reportDate: { $exists: false } }, { reportDate: { $gte: endOfToday } }] }] },
+      { projection: { title: 1, amount: 1, companyId: 1, paymentForm: 1, shipDate: 1, orderId: 1, orderNo: 1, customer: 1, createdAt: 1 } }).toArray(),
+      db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
+    ]);
+    const orders = await db.collection('salesorders').find({ _id: { $in: incs.map((i) => i.orderId).filter(Boolean) } },
+      { projection: { stage: 1, deletedAt: 1, contractDate: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1, paymentForm: 1 } }).toArray();
+    const ord = new Map(orders.map((o) => [String(o._id), o]));
+    const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
+    const expenses: ExpenseSrc[] = reqs.map((r) => ({ id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), amount: Number(r.priceHint), company: cname.get(String(r.companyId)) ?? '?',
+      invoiceDate: iso(r.invoiceDate) || null, status: String(r.status), doc: r.invoiceNo ? String(r.invoiceNo) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined }));
+    const incomes: IncomeSrc[] = incs.flatMap((i) => {
+      const o = i.orderId ? ord.get(String(i.orderId)) : undefined;
+      if (o && (o.deletedAt || o.stage === 'cancelled')) return [];
+      return [{ id: String(i._id), title: String(i.title ?? ''), amount: Number(i.amount), company: cname.get(String(i.companyId)) ?? '?', paymentForm: (i.paymentForm ?? o?.paymentForm) as string | undefined,
+        orderNo: i.orderNo ? String(i.orderNo) : undefined, customer: i.customer ? String(i.customer) : undefined,
+        orderDate: iso(o?.contractDate) || iso(o?.createdAt) || iso(i.createdAt) || null,
+        due: iso(i.shipDate) || iso(o?.shipDate) || iso(o?.productionDeadline) || iso(o?.deliveryDeadline) || null }];
+    });
+    const { ops, noDate } = expectedOps(expenses, incomes, today);
+    const f = buildForecast(ops, today, to, opening, names);
+    const sum = (t: string) => Math.round(noDate.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0) * 100) / 100;
+    return { from: today, to, days: f.days, totals: f.totals, companies: names, opening, gapDays: f.gapDays, firstGap: f.firstGap, minBalance: f.minBalance, week: f.week,
+      noDate: { items: noDate, expense: sum('expense'), income: sum('income') } };
   }
 
   async summary(q: Record<string, unknown>) {
