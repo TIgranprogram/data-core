@@ -15,6 +15,7 @@ import { enhanceSelect } from './select.js';
  *     Блок сворачивается кликом по заголовку (fixed — нельзя), состояние помнится; свёрнутый показывает, что в нём заполнено.
  *   type: 'pick' — «Категория → Позиция из базы» (TASKS В.1): { key: '_pick', type: 'pick', load: async () => [{ label, cat, sub, values }], target: 'title' };
  *     выбор заполняет поля из values, поле target становится «из базы» (только чтение, «изменить» — вернуть ручной ввод). В read() не попадает.
+ *   type: 'hidden' — скрытое значение (его ставит suggest другого поля).
  *   type: 'segment' — кнопки-переключатель для 2–4 вариантов (options: { value, label, tone? }).
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
@@ -52,6 +53,14 @@ export function buildForm(fields, initial = {}) {
     const v = initial[f.key];
     let input;
     const opts = (f.options || []).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+    if (f.type === 'hidden') {
+      // скрытое значение (ПС.5: паспорт-образец модели) — заполняют подсказки других полей (suggest)
+      input = h('input', { type: 'hidden', name: f.key });
+      input.value = v ?? '';
+      grid.append(input);
+      inputs.set(f.key, { f, input, err: h('div', { hidden: true }), label: h('div'), blk });
+      continue;
+    }
     if (f.type === 'photos') {
       // Фото: значение — список id; файлы грузятся сразу, привязка — при сохранении
       const pf = photoField(Array.isArray(v) ? v : []);

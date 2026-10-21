@@ -1,6 +1,6 @@
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
-import { api, events, login, PREFIX, session } from './core/api.js';
+import { api, canEditSection, events, login, PREFIX, session } from './core/api.js';
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg } from './ui/dialog.js';
@@ -28,10 +28,11 @@ import { mountTrash } from './sections/trash.js';
 // раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
 import { history as historySection } from './sections/history.js';
 import { products } from './sections/products.js';
+import { passports } from './sections/passports.js';
 import { catalogImport, kp } from './sections/kp.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, kp, catalogimport: catalogImport };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -95,7 +96,7 @@ function shell() {
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
     h('div', { class: 'side-group' }, 'Склад'), navLinks.ops, navLinks.stock, navLinks.movements,
-    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.products, navLinks.partners,
+    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners,
     session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
       navLinks.dicts,
@@ -248,7 +249,7 @@ function syncCard(section, params) {
     opened: (id) => { card.key = ofName + 'open:' + id; patch({ ...clear, of: ofName !== section ? ofName : undefined, open: id }); },
   };
   if (params.new) {
-    if (!session.canEdit || !sec.form) { patch({ new: undefined }); return; }
+    if (!canEditSection(sec) || !sec.form) { patch({ new: undefined }); return; }
     const initial = { ...(sec.form.initial ? sec.form.initial() : {}) };
     for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId']) if (params[k]) initial[k] = params[k];
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };

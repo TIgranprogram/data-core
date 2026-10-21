@@ -45,10 +45,11 @@ export function photoDrop({ attach, done }) {
   const onPaste = (e) => {
     if (!document.contains(zone)) { document.removeEventListener('paste', onPaste); return; }
     if (!zone.offsetParent) return; // зона скрыта (свёрнутый блок, «ещё» в строке счёта)
-    const host = zone.closest('.inv-row, .field, .drawer') || zone.parentElement;
+    const host = zone.closest('.inv-row, .pp-kind, .field, .drawer') || zone.parentElement;
     const a = document.activeElement;
-    // в счёте у каждой строки своя зона: вставляем только туда, где сейчас курсор
+    // в счёте у каждой строки своя зона, в паспорте — у каждого вида картинок: вставляем только туда, где курсор (фокус или мышь)
     if (zone.closest('.inv-row') && !(a && host.contains(a))) return;
+    if (zone.closest('.pp-kind') && !((a && host.contains(a)) || host.matches(':hover'))) return;
     const files = [...(e.clipboardData?.items || [])].filter((it) => it.kind === 'file' && /^image\//.test(it.type)).map((it) => it.getAsFile()).filter(Boolean);
     if (!files.length) return; // обычный текст — пусть вставляется как обычно
     e.preventDefault();

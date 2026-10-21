@@ -41,7 +41,22 @@ export class FillAuditService {
     const incItem = (r: Q): Item => ({ id: String(r._id), title: String(r.title ?? ''), sub: [r.orderNo ? `заказ ${r.orderNo}` : '', r.customer].filter(Boolean).join(' · ') });
 
     type Def = Omit<FillGroup, 'count' | 'items'> & { coll: string; q: Q; item: (r: Q) => Item; sort: Record<string, 1 | -1> };
+    const ppLive = { deletedAt: null };
+    const ppItem = (r: Q): Item => ({ id: String(r._id), title: `№${r.passportNumber ?? ''} · ${String(r.name ?? '') || 'без названия'}`, sub: [r.date ? dmy(r.date) : '', r.customerName || r.objectName].filter(Boolean).join(' · ') });
     const defs: Def[] = [
+      // ── Паспорта изделий (ПС.4): без этого паспорт нельзя выдать (PDF неполный) ──
+      { key: 'pp-name', area: 'Паспорта', title: 'Паспорт без наименования', why: 'Наименование — на титуле, в талоне и в описании', section: 'passports', field: 'name', money: false,
+        coll: 'productpassports', q: { ...ppLive, ...empty('name') }, item: ppItem, sort: { passportNo: -1 } },
+      { key: 'pp-category', area: 'Паспорта', title: 'Паспорт без категории', why: 'Фильтр и отчёты по категориям', section: 'passports', field: 'category', money: false,
+        coll: 'productpassports', q: { ...ppLive, ...empty('category') }, item: ppItem, sort: { passportNo: -1 } },
+      { key: 'pp-overview', area: 'Паспорта', title: 'Нет картинки общего вида', why: 'Общий вид — на титуле паспорта', section: 'passports', field: 'img_overview', money: false,
+        coll: 'productpassports', q: { ...ppLive, 'images.kind': { $ne: 'overview' } }, item: ppItem, sort: { passportNo: -1 } },
+      { key: 'pp-supplier', area: 'Паспорта', title: 'Поставщик — не наша компания', why: 'Реквизиты, печать и подпись в PDF берутся из организации-поставщика', section: 'passports', field: 'supplierOrgId', money: false,
+        coll: 'productpassports', q: { ...ppLive, ...empty('supplierOrgId') }, item: ppItem, sort: { passportNo: -1 } },
+      { key: 'pp-dims', area: 'Паспорта', title: 'Нет габаритов или веса', why: 'Таблица 1 «Основные технические данные»', section: 'passports', field: 'height', money: false,
+        coll: 'productpassports', q: { ...ppLive, $or: [{ height: null }, { height: { $exists: false } }, { weight: null }, { weight: { $exists: false } }] }, item: ppItem, sort: { passportNo: -1 } },
+      { key: 'pp-materials', area: 'Паспорта', title: 'Нет материалов, установки или назначения', why: 'Раздел 1 «Описание»', section: 'passports', field: 'materials', money: false,
+        coll: 'productpassports', q: { ...ppLive, $or: [empty('materials'), empty('installationMethod'), empty('purpose')] }, item: ppItem, sort: { passportNo: -1 } },
       // ── Деньги: без этого платёжный календарь и сводка считают неверно ──
       { key: 'exp-amount', area: 'Деньги', title: 'Счёт есть, суммы нет', why: 'Заявка с датой счёта без суммы не попадает в выплаты', section: 'requests', field: 'priceHint', money: true,
         coll: 'supplyrequests', q: { ...live, invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] }, item: reqItem, sort: { invoiceDate: -1 } },

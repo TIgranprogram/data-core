@@ -21,6 +21,9 @@ export const session = {
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
 };
 
+/** Может ли менять записи раздела: свои права раздела (section.canEdit, напр. паспорта — директор/админ) или общее правило. */
+export const canEditSection = (section) => (section?.canEdit ? !!section.canEdit() : session.canEdit);
+
 export class ApiError extends Error {
   constructor(message, status = 0) { super(message); this.status = status; }
 }
@@ -44,9 +47,10 @@ async function raw(path, opts = {}, token) {
   const isForm = opts.body instanceof FormData;
   if (opts.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), isForm ? 120000 : 20000);
+  const timer = setTimeout(() => ctrl.abort(), opts.timeout || (isForm ? 120000 : 20000));
   try {
-    const res = await fetch(API + path, { ...opts, headers, body: isForm || opts.body === undefined ? opts.body : JSON.stringify(opts.body), signal: ctrl.signal });
+    const { timeout: _t, ...rest } = opts;
+    const res = await fetch(API + path, { ...rest, headers, body: isForm || opts.body === undefined ? opts.body : JSON.stringify(opts.body), signal: ctrl.signal });
     events.onNet(true);
     return res;
   } catch {
@@ -75,6 +79,24 @@ async function errorOf(res) {
   const russian = /[а-яё]/i.test(msg);
   if ([400, 409, 422].includes(res.status) && russian) return new ApiError(msg, res.status);
   return new ApiError(russian ? msg : HUMAN[res.status] || HUMAN[500], res.status);
+}
+
+/** Скачать файл (PDF, ZIP) с сервера и сохранить: имя — из Content-Disposition (filename*). */
+export async function apiFile(path, { query, fallback = 'file', timeout = 180000 } = {}) {
+  const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
+  let res = await raw(path + qs, { timeout }, session.access);
+  if (res.status === 401 && session.refresh) {
+    try { await refreshAccess(); } catch (e) { events.onAuthLost(); throw e; }
+    res = await raw(path + qs, { timeout }, session.access);
+  }
+  if (!res.ok) throw await errorOf(res);
+  const cd = res.headers.get('content-disposition') || '';
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  const name = m ? decodeURIComponent(m[1]) : fallback;
+  const blob = await res.blob();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  return name;
 }
 
 /** Запрос к API. path — без /api. body — объект (JSON) или FormData. */

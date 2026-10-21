@@ -109,6 +109,7 @@
 | Справочники | `.dict-layout` > `.dict-nav` (`.dict-group`, `.dict-link` + счётчик, `.active` — золотая полоса) + `.dict-main` (`.dict-head`, `table.list.dict-table`, строка `.dict-row` раскрывается в `.dict-more`), «Найти в данных…» — `.dict-cand` | только раздел «Справочники»; ввод/правка — правая панель (of=dict) |
 | Брони и выдача | `.ops-res` (details: summary + `.res-acts` «Выдать всё / Снять всю») → `.res-detail` (`.res-meta`, строки `.ops-res-line`, «Выдано», «Заказано недостающее»); «Кому выдано» — `.issue-to` (список сотрудников по видам работ + текст), окно «Выдать» — `modal` (сколько + кому, ≤3 поля) | «Операции → Бронь по списку», списание (`sections/issue.js`, `sections/reservations.js`) |
 | История | `.timeline` > `li` + `.changes` («Поле: ~~было~~ → **стало**», `ui/history.js` `changeList`); раздел «История» — обычный `ui/list.js` | карточка записи, `#history` |
+| Паспорта | `.pp-images` > `.pp-kind` (вид картинки: шапка `.pp-kind-head`, миниатюры `.pf-strip`, своя `.photo-drop` — Ctrl+V только в вид под курсором) | карточка паспорта (`sections/passports.js`) |
 | Требуют заполнения | `.fill-list` > `.fill-area` (h3) + `.panel.fill-group` (`.fill-head` раскрывает `.q-list`); в карточке — `.fill-note` и `.field.fill-here` (золотая обводка нужного поля) | страница #fill, блок на «Сегодня» (`.queue`) |
 
 ## 5. Поведение

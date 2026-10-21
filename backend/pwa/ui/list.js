@@ -1,7 +1,7 @@
 import { exportList } from './list-export.js';
 import { searchBox } from './searchbox.js';
 import { enhanceSelect } from './select.js';
-import { api, session } from '../core/api.js';
+import { api, canEditSection, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty, plural } from '../core/format.js';
 import { patch } from '../core/router.js';
@@ -52,7 +52,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const btnTable = h('button', { type: 'button', onclick: () => patch({ view: undefined, page: undefined }) }, icon('table'), 'Таблица');
   const btnBoard = h('button', { type: 'button', onclick: () => patch({ view: 'board', page: undefined, status: undefined }) }, icon('board'), 'Доска');
   const viewSwitch = L.board ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, btnBoard) : null;
-  const canCreate = section.form && session.canEdit && L.createLabel !== false;
+  const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки
   const exportBtn = L.export === false ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
     onclick: (e) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, e.currentTarget); } }, '⇩ Excel');
@@ -61,7 +61,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     h('span', { class: 'spacer' }),
     viewSwitch,
     exportBtn,
-    ...(L.headActions && session.canEdit ? L.headActions(() => load()) : []),
+    ...(L.headActions && canEditSection(section) ? L.headActions(() => load()) : []),
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
 
   // ---------- Поиск и фильтры (создаются один раз) ----------
@@ -135,7 +135,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         title: field ? 'Сортировать' : undefined,
         onclick: field ? () => patch({ sort: isSorted && !desc ? '-' + field : field, page: undefined }) : undefined,
       }, c.label, isSorted ? h('span', { class: 'arrow' }, desc ? '↓' : '↑') : null);
-    }), L.rowAction && session.canEdit ? h('th', { class: 'act' }) : null].filter(Boolean));
+    }), L.rowAction && canEditSection(section) ? h('th', { class: 'act' }) : null].filter(Boolean));
   }
   const tbody = h('tbody');
   const cards = h('ul', { class: 'cards' });
@@ -260,7 +260,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         }
         const tr = h('tr', { onclick: () => onOpen(row), dataset: { i: String(i) } },
           L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
-        if (L.rowAction && session.canEdit) tr.append(h('td', { class: 'act' }, actionButton(row)));
+        if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
         trs.push(tr);
       });
       tbody.replaceChildren(...trs);
@@ -295,7 +295,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       months.get(ym).push(r);
     }
     const keys = [...months.keys()].sort().reverse();
-    const cols = L.columns.length + (L.rowAction && session.canEdit ? 1 : 0);
+    const cols = L.columns.length + (L.rowAction && canEditSection(section) ? 1 : 0);
     const trs = []; const lis = [];
     const head = (k, label, n, items, level, isOpen) => {
       const tot = per.total ? per.total(items) : null;
@@ -306,7 +306,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const rowsOf = (items) => items.forEach((row) => {
       const i = rows.indexOf(row);
       const tr = h('tr', { onclick: () => onOpen(row), dataset: { i: String(i) } }, L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
-      if (L.rowAction && session.canEdit) tr.append(h('td', { class: 'act' }, actionButton(row)));
+      if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
       trs.push(tr);
       lis.push(h('li', { onclick: () => onOpen(row) }, L.card.thumb ? L.card.thumb(row) : null,
         h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),

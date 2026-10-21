@@ -936,3 +936,10 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gsearch .sb-x { right: 34px; }
 .gsearch .sb input { padding-right: 64px; }
 @media (max-width: 720px) { .gsearch .sb-x { right: 4px; } .gsearch .sb input { padding-right: 44px; } } /* kbd «/» на телефоне скрыт */
+
+/* Паспорта (ПС.4): картинки по видам в карточке — у каждого вида своя зона «перетащите / Ctrl+V» */
+.pp-images { margin: var(--s4) 0; }
+.pp-kind { padding: 10px 0; border-top: 1px solid var(--border); }
+.pp-kind-head { margin-bottom: 6px; font-size: var(--fs-sm); }
+.pp-kind .pf-strip { margin-bottom: 8px; }
+.pp-kind .photo-drop { margin: 0; padding: 8px 12px; }

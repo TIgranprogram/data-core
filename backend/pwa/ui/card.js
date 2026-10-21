@@ -1,4 +1,4 @@
-import { api, PREFIX, session } from '../core/api.js';
+import { api, canEditSection, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime } from '../core/format.js';
 import { actionLabel, changeList } from './history.js';
@@ -80,14 +80,14 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     subEl.textContent = section.card.subheading ? section.card.subheading(row) : '';
     const content = [];
     const pics = section.card.gallery ? section.card.gallery(row) : [];
-    const canPhoto = session.canEdit && section.card.photoAdd;
+    const canPhoto = canEditSection(section) && section.card.photoAdd;
     if (pics.length) content.push(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
       if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из карточки.', { okText: 'Убрать' }))) return;
       try { actx().setRow(await section.card.photoRemove(row, p.id)); toast('Фото убрано'); } catch (e) { toastError(e); }
     } : null));
     if (canPhoto) content.push(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }));
     if (section.card.stats) content.push(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))));
-    if (session.canEdit && (section.card.actions || (section.card.editTop && section.form))) {
+    if (canEditSection(section) && (section.card.actions || (section.card.editTop && section.form))) {
       // editTop — «Изменить» первой кнопкой сверху (СП.1: внизу её не замечают)
       const acts = [section.card.editTop && section.form ? { label: 'Изменить', primary: true, run: () => showForm('edit') } : null, ...(section.card.actions ? section.card.actions(row, actx()) : [])].filter(Boolean);
       if (acts.length) content.push(h('div', { class: 'actions' }, acts.map((a) => h('button', { class: 'btn' + (a.primary ? ' btn-primary' : ''), type: 'button', onclick: (e) => runAction(a, e.currentTarget) }, a.label))));
@@ -99,7 +99,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     body.replaceChildren(...content);
     loadHistory(hist);
 
-    if (session.canEdit) {
+    if (canEditSection(section)) {
       if (section.form) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, 'Изменить'));
       const items = [];
       if (section.duplicate && section.form) items.push(h('button', { type: 'button', onclick: () => { closeMenu(); showForm('create', section.duplicate(row)); } }, 'Дублировать'));
@@ -208,7 +208,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
 
   if (mode === 'create') showForm('create', initial);
-  else if (fill && section.form && session.canEdit) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form) markFill(fill); });
+  else if (fill && section.form && canEditSection(section)) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form) markFill(fill); });
   else showView();
   return {
     close: destroy,
