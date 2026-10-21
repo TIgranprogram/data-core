@@ -88,6 +88,7 @@ export const movements = {
     view: (m) => [
       ['Операция', typeBadge(m)],
       ['Количество', deltaCell(m)],
+      ['Остаток', m.qtyBefore != null ? `${qty(m.qtyBefore)} → ${qty(m.qtyAfter)}` : ''], // ФИ.5: было → стало
       ['Позиция', h('a', { href: '#stock?open=' + m.materialId, title: 'Открыть позицию склада' }, m.materialName + ' →')],
       ['Кому выдано', m.issuedTo],
       ['По брони', m.reservationId ? h('a', { href: '#ops?mode=reserve' }, 'выдано по брони — брони →') : ''],

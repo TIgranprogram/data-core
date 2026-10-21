@@ -97,6 +97,13 @@ export class StockMovement {
   @Prop({ trim: true })
   issuedTo?: string;
 
+  /** Остаток до и после движения (ФИ.5: в журнале «931 → 0», а не только «−931»). */
+  @Prop()
+  qtyBefore?: number;
+
+  @Prop()
+  qtyAfter?: number;
+
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;

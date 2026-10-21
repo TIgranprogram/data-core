@@ -366,6 +366,34 @@ describe('Stock & supply on shared CRM collections', () => {
     expect(d2.suppliers.length).toBe(1);
   });
 
+  it('ФИ: пересчёт — «сколько лежит всего», сервер считает разницу; меньше брони — 409 без подтверждения; журнал «было → стало»', async () => {
+    const it = (await http().post('/api/stock/items').set(auth()).send({ name: 'Болт M10x100 DIN 933 ФИ', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'in', qty: 931 }).expect(201);
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'reserve', qty: 750 }).expect(201);
+    const mv = async () => (await http().get('/api/stock/movements').query({ materialId: it.id }).set(auth())).body.items;
+    const n0 = (await mv()).length;
+    // 931 при учёте 931 — без движения (случай из жалобы)
+    expect((await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'count', qty: 931, expected: 931 }).expect(201)).body).toMatchObject({ quantity: 931, reservedQty: 750 });
+    expect((await mv()).length).toBe(n0);
+    // экран устарел (видел 1862) — 409, остаток не тронут
+    expect((await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'count', qty: 931, expected: 1862 }).expect(409)).body.message).toContain('изменился');
+    // меньше брони — 409; с подтверждением — проходит
+    expect((await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'count', qty: 0, expected: 931 }).expect(409)).body.message).toContain('Меньше, чем в брони');
+    expect((await http().get(`/api/stock/items/${it.id}`).set(auth())).body.quantity).toBe(931);
+    // меньше 0 — 400 всегда
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'count', qty: -5, force: true }).expect(400);
+    // нормальный пересчёт 900: корректировка −31, «было → стало» в журнале
+    expect((await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'count', qty: 900, expected: 931 }).expect(201)).body).toMatchObject({ quantity: 900, free: 150 });
+    const last = (await mv())[0];
+    expect(last).toMatchObject({ type: 'adjust', delta: -31, qtyBefore: 931, qtyAfter: 900 });
+    // старая корректировка разницей тоже не уводит ниже брони без подтверждения
+    await http().post(`/api/stock/items/${it.id}/move`).set(auth()).send({ type: 'adjust', qty: -900 }).expect(409);
+    // пересчёт в «Операциях» (пакет): ниже брони — 409, с force — проходит
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'count', lines: [{ materialId: it.id, qty: 100 }] }).expect(409);
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'count', lines: [{ materialId: it.id, qty: 100 }], force: true }).expect(201);
+    expect((await mv())[0]).toMatchObject({ qtyBefore: 900, qtyAfter: 100 });
+  });
+
   it('В.7: пустое поле стирает значение — сумма заявки, мин. остаток и вес позиции', async () => {
     const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Стереть сумму', qty: 1, priceHint: 500, clientUid: 'v7-1' }).expect(201)).body;
     const r2 = (await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ priceHint: null }).expect(200)).body;

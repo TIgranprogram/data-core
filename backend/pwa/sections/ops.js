@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
 import { date, parseNum, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { modal } from '../ui/dialog.js';
+import { confirmDlg, modal } from '../ui/dialog.js';
 import { bulkPaste } from '../ui/bulk.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
@@ -133,7 +133,6 @@ export function mountOps(params) {
 
   // обрезки с остатком — первыми (СМ.2: «сначала брать обрезки»)
   function shown() { const l = pick(items, { q: st.q, cat: st.cat, sel: st.sel }); return mode() === 'out' ? [...l.filter((x) => x.offcutOf && x.quantity > 0), ...l.filter((x) => !(x.offcutOf && x.quantity > 0))] : l; }
-
   function renderResults() {
     const list = shown();
     const inCart = new Map(cart().map((l) => [l.id, l]));
@@ -258,7 +257,11 @@ export function mountOps(params) {
     if (mode() === 'reserve') { await doReserve(body); return; }
     submit.disabled = true; const label = submit.textContent; submit.textContent = 'Проводим…';
     try {
-      const r = await api('/stock/batch', { method: 'POST', body });
+      // ФИ.3/ФИ.4: пересчёт ниже брони — сервер спрашивает подтверждение (409), «Да» — повтор с force
+      const r = await api('/stock/batch', { method: 'POST', body }).catch(async (e) => {
+        if (!(mode() === 'count' && e.status === 409 && /брон/i.test(e.message) && (await confirmDlg('Меньше, чем в брони', e.message, { okText: 'Да, сохранить', danger: true })))) throw e;
+        return api('/stock/batch', { method: 'POST', body: { ...body, force: true } });
+      });
       const left = cart().filter((l) => !body.lines.some((x) => x.materialId === l.id));
       store.set('dc-ops-' + mode(), left);
       note.value = ''; doc.value = ''; soSel.value = ''; issueTo.reset();
@@ -324,11 +327,9 @@ export function mountOps(params) {
     cats = cs.items.filter((c) => c.id !== 'none').map((c) => ({ id: c.id, name: c.name }));
     renderPicker(); renderCart();
   }
-
   renderChrome();
   results.replaceChildren(h('div', { class: 'ops-empty muted' }, 'Загрузка…'));
   reload().then(() => search.focus()).catch((e) => { results.replaceChildren(h('div', { class: 'ops-empty' }, h('p', null, 'Не удалось загрузить склад: ' + (e.message || e)), h('button', { class: 'btn', type: 'button', onclick: () => reload().catch(toastError) }, 'Повторить'))); });
-
   return {
     el,
     reload: () => reload().catch(() => {}),
@@ -338,7 +339,6 @@ export function mountOps(params) {
     },
   };
 }
-
 
 /* ---------- Приёмка машины: заявки «Заказано/Оплачено», сгруппированные по счёту и поставщику ---------- */
 function arrivalsBlock(onDone) {

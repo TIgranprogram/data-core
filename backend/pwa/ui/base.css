@@ -858,3 +858,8 @@ html { scrollbar-gutter: stable; }
   .ops-add { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
   .ops-cart .ops-submit { width: 100%; min-height: 52px; font-size: var(--fs-h3); }
 }
+
+/* Пересчёт: предпросмотр «по учёту → станет» до сохранения (TASKS ФИ.2) */
+.count-preview { grid-column: 1 / -1; margin: 0; padding: var(--s2) var(--s3); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.count-preview.change { color: var(--text); background: var(--hint-bg); }
+.count-preview.danger { color: var(--danger); background: var(--danger-soft); font-weight: 600; }

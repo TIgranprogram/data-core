@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
 
 export class StockItemDto {
   @ApiPropertyOptional({ description: 'Наименование (обязательно при создании)' }) @IsOptional() @IsString() @Length(1, 300) name?: string;
@@ -25,9 +25,11 @@ export class StockOffcutDto {
 }
 
 export class StockMoveDto {
-  @ApiProperty({ enum: ['in', 'out', 'adjust', 'reserve', 'unreserve'], description: 'приход / списание / корректировка (±) / бронь / снять бронь' })
-  @IsIn(['in', 'out', 'adjust', 'reserve', 'unreserve']) type!: 'in' | 'out' | 'adjust' | 'reserve' | 'unreserve';
-  @ApiProperty({ description: 'Количество > 0; для adjust — изменение со знаком' }) @IsNumber() qty!: number;
+  @ApiProperty({ enum: ['in', 'out', 'adjust', 'reserve', 'unreserve', 'count'], description: 'приход / списание / корректировка (±) / бронь / снять бронь / пересчёт (qty — сколько лежит всего)' })
+  @IsIn(['in', 'out', 'adjust', 'reserve', 'unreserve', 'count']) type!: 'in' | 'out' | 'adjust' | 'reserve' | 'unreserve' | 'count';
+  @ApiProperty({ description: 'Количество > 0; для adjust — изменение со знаком; для count — сколько лежит ВСЕГО (с бронью), ≥ 0' }) @IsNumber() qty!: number;
+  @ApiPropertyOptional({ description: 'count: остаток, который видел человек; не совпал с сервером — 409' }) @IsOptional() @IsNumber() expected?: number;
+  @ApiPropertyOptional({ description: 'count/adjust ниже брони — подтверждено' }) @IsOptional() @IsBoolean() force?: boolean;
   @ApiPropertyOptional({ description: 'Примечание / основание / для кого бронь' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор с тем же ключом ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
   @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
@@ -50,6 +52,7 @@ export class StockBatchDto {
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
   @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
   @ApiPropertyOptional({ description: 'Списание: кому / куда выдано текстом (объект, бригада)' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
+  @ApiPropertyOptional({ description: 'Пересчёт ниже брони — подтверждено' }) @IsOptional() @IsBoolean() force?: boolean;
 }
 
 export class StockIssueLineDto {

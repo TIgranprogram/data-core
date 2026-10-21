@@ -15,7 +15,7 @@ import { StockMovement, StockMovementDocument } from './schemas/stock-movement.s
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
 
-export type MoveType = 'in' | 'out' | 'adjust' | 'reserve' | 'unreserve';
+export type MoveType = 'in' | 'out' | 'adjust' | 'reserve' | 'unreserve' | 'count';
 
 export interface StockItemInput {
   name?: string;
@@ -44,6 +44,20 @@ export interface MoveInput {
   /** Списание: кому выдано (TASKS Л.3) — сотрудник и/или текстом. */
   personId?: string;
   issuedTo?: string;
+  /** Пересчёт (ФИ.4): остаток, который видел человек, — разошёлся с сервером → 409 «обновите». */
+  expected?: number;
+  /** Пересчёт / корректировка ниже брони — только с явным подтверждением. */
+  force?: boolean;
+}
+
+/**
+ * Пересчёт (TASKS ФИ.4): проверки до записи. «Сколько лежит» — ВСЕГО, вместе с бронью (бронь лежит на складе).
+ * Меньше 0 — нельзя; меньше брони — только с force (иначе свободно станет минусом).
+ */
+export function countGuard(target: number, current: number, reserved: number, force?: boolean): string | null {
+  if (!Number.isFinite(target) || target < 0) return 'Остаток не может быть меньше 0';
+  if (target < reserved && !force) return `Меньше, чем в брони (${reserved}): свободно станет ${Math.round((target - reserved) * 1000) / 1000}. Сначала снимите или выдайте бронь — или подтвердите`;
+  return null;
 }
 
 /** ФИО сотрудника из persons (как в «Справочниках»). */
@@ -378,7 +392,7 @@ export class StockService {
   async move(materialId: string, dto: MoveInput, userId?: string) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
     const qty = Number(dto.qty);
-    if (!Number.isFinite(qty) || (dto.type !== 'adjust' && qty <= 0) || (dto.type === 'adjust' && qty === 0)) {
+    if (!Number.isFinite(qty) || (!['adjust', 'count'].includes(dto.type) && qty <= 0) || (dto.type === 'adjust' && qty === 0) || (dto.type === 'count' && qty < 0)) {
       throw new BadRequestException('Укажите количество');
     }
     if (dto.clientUid) {
@@ -396,8 +410,11 @@ export class StockService {
     try {
       await session.withTransaction(async () => {
         const item = await this.loadStorage(wh._id as Types.ObjectId, matId, session);
+        const before = item.quantity ?? 0;
+        // «было → стало» у каждого движения (ФИ.5)
         const movement = (type: 'in' | 'out' | 'adjust', q: number, ref: string | undefined, delta: number) =>
-          this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' ? target : {}) }], { session });
+          this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy,
+            qtyBefore: before, qtyAfter: Math.round((before + delta) * 1000) / 1000, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' ? target : {}) }], { session });
 
         if (dto.type === 'in') {
           item.quantity = (item.quantity ?? 0) + qty;
@@ -409,9 +426,25 @@ export class StockService {
           if ((item.reservedQty ?? 0) > 0) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - qty);
           await item.save({ session });
           await movement('out', qty, dto.documentRef, -qty);
+        } else if (dto.type === 'count') {
+          // ФИ.4: человек ввёл, сколько лежит ВСЕГО; разницу считает сервер от своего остатка (не от числа на экране)
+          if (dto.expected !== undefined && Math.abs(Number(dto.expected) - before) > 1e-9) {
+            throw new ConflictException(`Остаток изменился, пока была открыта карточка: было ${dto.expected}, сейчас ${before}. Обновите карточку и пересчитайте ещё раз`);
+          }
+          const why = countGuard(qty, before, item.reservedQty ?? 0, dto.force);
+          if (why) throw qty < 0 ? new BadRequestException(why) : new ConflictException(why);
+          const delta = Math.round((qty - before) * 1000) / 1000;
+          if (delta !== 0) {
+            item.quantity = qty;
+            await item.save({ session });
+            await movement('adjust', Math.abs(delta), `ADJUST:${note ?? 'пересчёт'}`, delta);
+          }
+          await this.connection.db!.collection('storageitems').updateOne({ _id: item._id }, { $set: { lastCountedAt: new Date() } }, { session });
         } else if (dto.type === 'adjust') {
           const next = (item.quantity ?? 0) + qty;
           if (next < 0) throw new BadRequestException(`Остаток не может стать отрицательным (${next})`);
+          const why = countGuard(next, before, item.reservedQty ?? 0, dto.force);
+          if (why) throw new ConflictException(why);
           item.quantity = next;
           await item.save({ session });
           await movement('adjust', Math.abs(qty), `ADJUST:${note ?? 'корректировка'}`, qty);
@@ -452,7 +485,7 @@ export class StockService {
    * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
-  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string }, userId?: string) {
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; force?: boolean }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
@@ -493,6 +526,12 @@ export class StockService {
             .map(([id, n]) => `«${nameOf.get(id)}»: есть ${items.get(id)!.quantity ?? 0}, нужно ${n}`);
           if (short.length) throw new BadRequestException(`Недостаточно на складе — ${short.join('; ')}`);
         }
+        if (dto.type === 'count' && !dto.force) {
+          // ФИ.4: пересчёт ниже брони — только с подтверждением
+          const low = [...merged].filter(([id, n]) => n < (items.get(id)!.reservedQty ?? 0))
+            .map(([id, n]) => `«${nameOf.get(id)}»: лежит ${n}, в брони ${items.get(id)!.reservedQty}`);
+          if (low.length) throw new ConflictException(`Меньше, чем в брони — ${low.join('; ')}. Сначала снимите или выдайте бронь — или подтвердите`);
+        }
         for (const [id, n] of merged) {
           const item = items.get(id)!;
           const before = item.quantity ?? 0;
@@ -503,7 +542,7 @@ export class StockService {
             await item.save({ session });
             const type = dto.type === 'count' ? 'adjust' : dto.type;
             const ref = dto.type === 'count' ? `ADJUST:${note ?? 'пересчёт'}` : dto.documentRef;
-            await this.movements.create([{ type, date: now, materialId: new Types.ObjectId(id), warehouseId: wh._id, qty: Math.abs(delta), delta, documentRef: ref,
+            await this.movements.create([{ type, date: now, materialId: new Types.ObjectId(id), warehouseId: wh._id, qty: Math.abs(delta), delta, documentRef: ref, qtyBefore: before, qtyAfter: item.quantity,
               notes: note ?? (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId, ...(dto.type === 'out' ? soRef : {}) }], { session });
             moved++;
           }
@@ -943,6 +982,7 @@ export class StockService {
         issuedTo: issued.get(String(m._id)) ?? null,
         reservationId: (m as { reservationId?: Types.ObjectId }).reservationId ? String((m as { reservationId?: Types.ObjectId }).reservationId) : null,
         canCancel: d.source !== 'google-sheets' && !d.cancelledAt && !d.cancelOf && m.type !== 'transfer' && d.delta !== undefined,
+        qtyBefore: (m as { qtyBefore?: number }).qtyBefore ?? null, qtyAfter: (m as { qtyAfter?: number }).qtyAfter ?? null,
       };
     });
     return { items, total, page: p.page, limit: p.limit };

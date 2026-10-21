@@ -8694,6 +8694,10 @@
           "issuedTo": {
             "type": "string",
             "description": "Списание: кому / куда выдано текстом (объект, бригада)"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "Пересчёт ниже брони — подтверждено"
           }
         },
         "required": [
@@ -8734,13 +8738,22 @@
               "out",
               "adjust",
               "reserve",
-              "unreserve"
+              "unreserve",
+              "count"
             ],
-            "description": "приход / списание / корректировка (±) / бронь / снять бронь"
+            "description": "приход / списание / корректировка (±) / бронь / снять бронь / пересчёт (qty — сколько лежит всего)"
           },
           "qty": {
             "type": "number",
-            "description": "Количество > 0; для adjust — изменение со знаком"
+            "description": "Количество > 0; для adjust — изменение со знаком; для count — сколько лежит ВСЕГО (с бронью), ≥ 0"
+          },
+          "expected": {
+            "type": "number",
+            "description": "count: остаток, который видел человек; не совпал с сервером — 409"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "count/adjust ниже брони — подтверждено"
           },
           "note": {
             "type": "string",

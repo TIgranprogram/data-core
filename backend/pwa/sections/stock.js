@@ -31,9 +31,30 @@ async function move(r, type, ctx) {
     out: `Выдача в производство / расход. Свободно сейчас: ${qty(r.free)} ${unit(r)}.`,
     reserve: `Резерв под заказ: остаток не меняется, «свободно» уменьшается. Свободно сейчас: ${qty(r.free)} ${unit(r)}.`,
     unreserve: `Вернуть забронированное в свободный остаток. В брони: ${qty(r.reservedQty)} ${unit(r)}.`,
-    adjust: `Введите, сколько фактически лежит на складе. Сейчас по учёту: ${qty(r.quantity)} ${unit(r)}.`,
+    adjust: `По учёту ${qty(r.quantity)} ${unit(r)} · в брони ${qty(r.reservedQty)} · свободно ${qty(r.free)}. Бронь физически лежит на складе — считайте её вместе со всем.`,
   };
   const qIn = h('input', { name: 'qty', inputmode: 'decimal', value: type === 'unreserve' ? String(r.reservedQty) : inv ? String(r.quantity) : '' });
+  // ФИ.3: значение выделяется при фокусе — дописанные цифры не дают «931931»
+  qIn.addEventListener('focus', () => qIn.select());
+  // ФИ.2: предпросмотр до сохранения; «Сохранить» неактивна, пока изменений нет
+  const preview = inv ? h('p', { class: 'count-preview' }) : null;
+  let armed = false; // ФИ.3: опасное (меньше брони, сильно меньше, ноль) — второе нажатие подтверждает
+  const okBtn = () => qIn.closest('form')?.querySelector('button[type=submit]');
+  const showPreview = () => {
+    if (!inv) return;
+    armed = false;
+    const n = parseNum(qIn.value);
+    const b = okBtn(); if (b) b.textContent = 'Сохранить остаток';
+    if (n === undefined || Number.isNaN(n)) { preview.className = 'count-preview'; preview.textContent = 'Введите число — сколько лежит всего'; if (b) b.disabled = true; return; }
+    const d = Math.round((n - r.quantity) * 1000) / 1000, free = Math.round((n - r.reservedQty) * 1000) / 1000;
+    const below = n < r.reservedQty;
+    preview.className = 'count-preview' + (below ? ' danger' : d ? ' change' : '');
+    preview.textContent = d === 0 ? `По учёту ${qty(r.quantity)} → станет ${qty(n)} (изменений нет)`
+      : `Будет корректировка ${d > 0 ? '+' : '−'}${qty(Math.abs(d))}: остаток ${qty(r.quantity)} → ${qty(n)}, свободно станет ${qty(free)}`
+        + (below ? `. Меньше, чем в брони (${qty(r.reservedQty)}) — сначала снимите или выдайте бронь` : '');
+    if (b) b.disabled = d === 0;
+  };
+  if (inv) { qIn.addEventListener('input', showPreview); setTimeout(showPreview, 0); }
   const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Под какой заказ' : type === 'out' ? 'Куда / на какой заказ' : 'Основание' });
   const to = type === 'out' ? issueToFields() : null; // кому выдано (TASKS Л.3)
   const recv = type === 'in' ? receiveField(r) : null; // приход закрывает открытую заявку (ЗП.4)
@@ -41,7 +62,8 @@ async function move(r, type, ctx) {
     title: `${titles[type]}: ${r.name}`, okText: inv ? 'Сохранить остаток' : 'Провести',
     body: h('div', null, h('p', { class: 'hint' }, hints[type]),
       h('div', { class: 'form-grid' },
-        h('label', { class: 'field' }, h('span', null, (inv ? 'Фактический остаток' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
+        h('label', { class: 'field' + (inv ? ' wide' : '') }, h('span', null, (inv ? 'Сколько лежит на полке всего (вместе с забронированным)' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
+        preview,
         type === 'in' ? pipeInHelper(r, qIn) : null, // труба: «10 хлыстов по 6 м» = 60 м (СМ.2)
         recv?.el,
         h('label', { class: 'field' }, h('span', null, 'Примечание'), note), to?.el)),
@@ -49,9 +71,17 @@ async function move(r, type, ctx) {
       const n = parseNum(qIn.value);
       if (n === undefined || Number.isNaN(n) || n < 0 || (!inv && n === 0)) throw new Error(inv ? 'Введите число не меньше 0' : 'Введите количество больше нуля');
       if (inv) {
+        // ФИ.4: на сервер — «сколько лежит», разницу считает сервер; expected — что видел человек (разошлось — 409)
         const delta = Math.round((n - r.quantity) * 1000) / 1000;
         if (delta === 0) return r;
-        return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'adjust', qty: delta, note: note.value.trim() || 'инвентаризация' } });
+        const below = n < r.reservedQty, drastic = r.quantity > 0 && (n === 0 || Math.abs(delta) / r.quantity > 0.5);
+        if ((below || drastic) && !armed) {
+          armed = true;
+          const b = okBtn(); if (b) b.textContent = below ? 'Да, меньше брони — сохранить' : 'Да, уверен — сохранить';
+          throw new Error(below ? `Вы ввели ${qty(n)} — это меньше брони (${qty(r.reservedQty)}): свободно станет ${qty(n - r.reservedQty)}. Проверьте число. Если всё верно — нажмите ещё раз.`
+            : `Остаток изменится сильно: ${qty(r.quantity)} → ${qty(n)}. Уверены? Если да — нажмите ещё раз.`);
+        }
+        return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'count', qty: n, expected: r.quantity, force: below || undefined, note: note.value.trim() || 'инвентаризация' } });
       }
       const req = recv?.value();
       if (req) {
@@ -72,6 +102,7 @@ function recentMoves(r, ctx) {
     ul.replaceChildren(...res.items.map((m) => h('li', null,
       h('span', { class: 'when' }, date(m.date)), h('span', null, moveLabel(m)),
       h('span', { class: 'num ' + (m.delta > 0 ? 'pos' : m.delta < 0 ? 'neg' : '') }, (m.delta > 0 ? '+' : '') + qty(m.delta)),
+      m.qtyBefore != null && m.type === 'adjust' ? h('span', { class: 'num muted', title: 'Остаток было → стало' }, `${qty(m.qtyBefore)} → ${qty(m.qtyAfter)}`) : null, // ФИ.5
       h('span', { class: 'muted', style: { flex: '1' } }, m.note || ''),
       m.canCancel ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { const it = await cancelMovement(m); if (it) ctx.setRow(it); } }, 'Отменить') : null)));
     if (res.total > res.items.length) ul.append(h('li', null, h('a', { href: '#movements?materialId=' + r.id }, `Все движения (${res.total}) →`)));
