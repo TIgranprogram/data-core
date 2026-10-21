@@ -216,28 +216,7 @@ export function mountHome(deps) {
   // «Требуют заполнения» (TASKS ТЗ.4): чем заняться — группы с числами, клик — сразу к заполнению
   const fill = fillToday();
 
-  // Выдано — ждёт «Получил» вторым человеком (TASKS Б.4): кладовщик выдал → мастер подтверждает здесь
-  const recList = h('ul', { class: 'q-list' });
-  const recN = h('span', { class: 'q-n', hidden: true });
-  const qRec = h('section', { class: 'panel queue', hidden: true }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Ждут «Получил» ', recN),
-    h('div', { class: 'q-hint' }, 'Выдано со склада — получатель подтверждает, что забрал (не тот, кто выдал)'))), recList);
-  const loadRec = () => api('/stock/receipts/pending').then((r) => {
-    qRec.hidden = !r.items.length; recN.hidden = !r.items.length; recN.textContent = String(r.items.length);
-    recList.replaceChildren(...r.items.slice(0, 8).map((g) => {
-      const btn = h('button', { type: 'button', class: 'btn btn-primary btn-sm', title: 'Я получил — подтвердить' }, 'Получил');
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation(); btn.disabled = true; btn.textContent = 'Сохранение…';
-        try { await api('/stock/receipts/confirm', { method: 'POST', body: { ids: g.ids } }); toast('Получение подтверждено'); loadRec(); }
-        catch (err) { toastError(err); btn.disabled = false; btn.textContent = 'Получил'; }
-      });
-      const what = g.lines.slice(0, 3).map((l) => `${l.name} — ${qty(l.qty)} ${l.unit}`.trim()).join('; ') + (g.lines.length > 3 ? ` и ещё ${g.lines.length - 3}` : '');
-      return h('li', { class: 'q-row' },
-        h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, what), h('div', { class: 'q-sub' }, ['кому: ' + (g.issuedTo || '—'), g.issuedBy ? 'выдал ' + g.issuedBy : '', date(g.date)].filter(Boolean).join(' · '))),
-        h('div', { class: 'q-side' }, btn));
-    }));
-  }).catch(() => { qRec.hidden = true; });
-
-  function reloadAll() { queues.forEach((q) => q()); loadFeed(); loadRes(); loadRec(); fill.load(); deps.refreshCounts?.(); }
+  function reloadAll() { queues.forEach((q) => q()); loadFeed(); loadRes(); fill.load(); deps.refreshCounts?.(); }
 
   const lane = (title, ico, href, linkText, ...kids) => h('section', { class: 'lane' },
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
@@ -265,7 +244,7 @@ export function mountHome(deps) {
     // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
     h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },
       lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, h('div', { class: 'section-title' }, 'Быстро заказать'), quick) : null, qOrder, qWait, qDecide),
-      lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qRec, qRes, qFeed),
+      lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qRes, qFeed),
       h('div', { class: 'lane-stack' },
         lane('Заполнить', 'table', '#fill', 'Все группы →', fill.el),
         lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue),

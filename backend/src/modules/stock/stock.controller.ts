@@ -112,22 +112,6 @@ export class StockController {
     return this.stock.reserveList(dto, user?.id);
   }
 
-  /** Выдачи, которые ждут «Получил» вторым человеком (TASKS Б.4). */
-  @Get('receipts/pending')
-  @Roles('user')
-  pendingReceipts() {
-    return this.stock.pendingReceipts();
-  }
-
-  /** «Получил»: подтверждает получатель (не тот, кто выдал). Тело: { ids: id движений }. */
-  @Post('receipts/confirm')
-  @HttpCode(200)
-  @Roles('user')
-  @AuditAction({ action: 'stock.receipt.confirmed', entityType: 'StockMovement', details: (d, _p) => ({ meta: d as object }) })
-  confirmReceipts(@Body() body: { ids?: string[] }, @CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.confirmReceipts(body?.ids ?? [], user?.id);
-  }
-
   /** Активные брони по названиям. */
   @Get('reservations')
   @Roles('admin', 'director', 'manager', 'user')

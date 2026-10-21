@@ -91,7 +91,6 @@ export const movements = {
       ['Остаток', m.qtyBefore != null ? `${qty(m.qtyBefore)} → ${qty(m.qtyAfter)}` : ''], // ФИ.5: было → стало
       ['Позиция', h('a', { href: '#stock?open=' + m.materialId, title: 'Открыть позицию склада' }, m.materialName + ' →')],
       ['Кому выдано', m.issuedTo],
-      ['Получение', m.receipt === 'pending' ? 'ждёт «Получил» от получателя' : m.receipt === 'confirmed' ? 'получено' + (m.receivedAt ? ' ' + date(m.receivedAt) : '') : ''],
       ['По брони', m.reservationId ? h('a', { href: '#ops?mode=reserve' }, 'выдано по брони — брони →') : ''],
       ['Под заказ', m.salesOrderId ? h('a', { href: '#salesorders?open=' + m.salesOrderId }, 'открыть заказ →') : ''],
       ['Все движения позиции', h('a', { href: '#movements?materialId=' + m.materialId }, 'показать →')],
