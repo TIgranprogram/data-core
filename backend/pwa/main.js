@@ -23,11 +23,12 @@ import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { mountTrash } from './sections/trash.js';
-import { history } from './sections/history.js';
+// раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
+import { history as historySection } from './sections/history.js';
 import { products } from './sections/products.js';
 import { catalogImport, kp } from './sections/kp.js';
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history, products, kp, catalogimport: catalogImport };
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, kp, catalogimport: catalogImport };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
@@ -102,8 +103,8 @@ function shell() {
     h('button', { class: 'btn btn-ghost btn-icon burger', type: 'button', 'aria-label': 'Меню', onclick: () => shellEl.classList.toggle('nav-open') }, icon('menu')),
     // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
     h('div', { class: 'histnav' },
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад (Alt+←)', 'aria-label': 'Назад', onclick: () => history.back() }, '‹'),
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Вперёд (Alt+→)', 'aria-label': 'Вперёд', onclick: () => history.forward() }, '›')),
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад (Alt+←)', 'aria-label': 'Назад', onclick: () => window.history.back() }, '‹'),
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Вперёд (Alt+→)', 'aria-label': 'Вперёд', onclick: () => window.history.forward() }, '›')),
     h('div', { class: 'gsearch' }, gs, h('kbd', null, '/')));
   const main = h('main', { class: 'page', id: 'page' });
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),

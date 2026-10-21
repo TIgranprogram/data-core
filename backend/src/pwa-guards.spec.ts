@@ -1,0 +1,24 @@
+import { readdirSync, readFileSync, statSync } from 'fs';
+import { join } from 'path';
+
+/**
+ * Защита «Рабочего места» (TASKS НВ.1): импорт с именем глобального объекта браузера перекрывает его в модуле —
+ * так `import { history }` (раздел «История») сломал кнопки ‹ › (`history.back is not a function`).
+ */
+const ROOT = join(__dirname, '..', 'pwa');
+const GLOBALS = ['history', 'location', 'window', 'document', 'navigator', 'localStorage', 'sessionStorage', 'fetch', 'console'];
+const files = (dir: string): string[] => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? files(p) : p.endsWith('.js') ? [p] : []; });
+
+describe('pwa: импорты не перекрывают глобальные объекты браузера', () => {
+  it.each(files(ROOT).map((f) => [f.slice(ROOT.length + 1), f]))('%s', (_name, file) => {
+    const src = readFileSync(file, 'utf8');
+    const bad: string[] = [];
+    for (const m of src.matchAll(/^\s*import\s*\{([^}]*)\}\s*from/gm)) {
+      for (const part of m[1].split(',')) {
+        const local = part.trim().split(/\s+as\s+/).pop()!.trim();
+        if (GLOBALS.includes(local)) bad.push(local);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
