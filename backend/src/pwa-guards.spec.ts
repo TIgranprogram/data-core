@@ -22,3 +22,20 @@ describe('pwa: импорты не перекрывают глобальные �
     expect(bad).toEqual([]);
   });
 });
+
+/** Скорость С5: в index.html — modulepreload всех модулей, достижимых из main.js (иначе после выкладки — загрузка «лесенкой»). */
+describe('pwa: список modulepreload в index.html свежий', () => {
+  it('совпадает с модулями из main.js — иначе запустить node backend/scripts/pwa-preload.mjs', () => {
+    const IMPORT = /^\s*(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"](\.{1,2}\/[^'"]+)['"]/gm;
+    const seen = new Set<string>();
+    const walk = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      for (const m of readFileSync(file, 'utf8').matchAll(IMPORT)) walk(join(file, '..', m[1]));
+    };
+    walk(join(ROOT, 'main.js'));
+    const want = [...seen].map((f) => f.slice(ROOT.length + 1).replace(/\\/g, '/')).filter((f) => f !== 'main.js').sort();
+    const have = [...readFileSync(join(ROOT, 'index.html'), 'utf8').matchAll(/rel="modulepreload" href="([^"]+)"/g)].map((m) => m[1]).sort();
+    expect(have).toEqual(want);
+  });
+});
