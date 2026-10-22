@@ -6,6 +6,7 @@ import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
 import { rowsTable } from '../ui/rows-table.js';
 import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg } from '../ui/dialog.js';
 
 /**
  * Раздел «Паспорта изделий» (TASKS ПС.4–ПС.5): паспорт = экземпляр (№, талон, номер изделия, дата, заказчик/объект),
@@ -101,6 +102,14 @@ const imgsOf = (r, kind) => (r.images || []).filter((i) => i.kind === kind).sort
 const imagesBody = (list) => list.map((i, k) => ({ kind: i.kind, photoId: String(i.photoId), order: k, ...(i.caption ? { caption: i.caption } : {}) }));
 
 async function download(r, query, what) {
+  // «с печатью»: нет печати/подписи у поставщика — предупредить, а не молча отдать PDF без них (БЗ-6 ЭФ6)
+  if (query.stamp) {
+    const o = r.supplierOrg;
+    const lack = !o ? ['поставщик не выбран'] : [!o.hasSeal && 'печать', !o.hasSignature && 'подпись'].filter(Boolean);
+    if (lack.length && !(await confirmDlg('Нет печати или подписи', o
+      ? `У «${o.name}» не загружены: ${lack.join(', ')}. PDF будет без них. Загрузить: «Контрагенты → Наши компании → карточка → Печать и подпись».`
+      : 'В паспорте не выбран поставщик (наша компания) — печати и подписи не будет. Выберите его в «Изменить».', { okText: 'Скачать без них' }))) return;
+  }
   try { toast(`Готовлю ${what}…`); const name = await apiFile(`/passports/${r.id}/pdf`, { query, fallback: `Паспорт_${r.passportNumber}.pdf` }); toast(`Скачан: ${name}`); } catch (e) { toastError(e); }
 }
 
