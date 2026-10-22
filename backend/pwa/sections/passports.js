@@ -184,10 +184,34 @@ function periodBlock(m) {
   return h('div', null, h('b', null, m.period), h('ul', null, ...m.rows.map(row)));
 }
 
+/**
+ * Пункт текста в предпросмотре (Э5a3): «Изменить» — правка только для этого паспорта (в снимок), прямо в карточке;
+ * правленый пункт помечен «изменён для этого паспорта». Перенос в справочник — «Справочники → Паспорта → Разделы и тексты».
+ */
+function snapItem(r, ctx, s, i) {
+  const view = h('p', { class: 'pp-snap-item' }, i.number ? h('b', null, i.number + ' ') : '— ', i.text,
+    i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
+    canEdit() ? h('button', { type: 'button', class: 'link-btn', onclick: () => view.replaceWith(editor()) }, ' Изменить') : null);
+  const editor = () => {
+    const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
+    const save = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: async () => {
+      save.disabled = true; save.textContent = 'Сохранение…';
+      try { await api(`/passports/${r.id}/snapshot-item`, { method: 'PATCH', body: { sectionKey: s.key, itemKey: i.key, text: ta.value } }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Пункт изменён для этого паспорта'); } catch (e) { toastError(e); save.disabled = false; save.textContent = 'Сохранить'; }
+    } }, 'Сохранить');
+    const box = h('div', { class: 'field wide' }, ta, h('div', { class: 'hint' }, 'Меняется только этот паспорт; справочник и другие паспорта — нет'),
+      h('div', { class: 'rt-acts' }, save, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => box.replaceWith(view) }, 'Отмена')));
+    setTimeout(() => ta.focus(), 0);
+    return box;
+  };
+  return view;
+}
+
 /** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
 function previewBlock(r, ctx) {
   const t = r.textSnapshot;
   const refresh = canEdit() ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Собрать текст заново по справочникам и шаблону категории (выданный текст заменится)', onclick: async (e) => {
+    const edited = (t?.sections || []).reduce((n, x) => n + x.items.filter((it) => it.edited).length, 0);
+    if (edited && !(await confirmDlg('Пересобрать текст?', `Ручных правок в этом паспорте: ${edited}. После пересборки по справочникам они пропадут.`, { okText: 'Пересобрать' }))) return;
     e.target.disabled = true; e.target.textContent = 'Собираю…';
     try { await api(`/passports/${r.id}/snapshot`, { method: 'POST' }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Текст паспорта собран заново'); } catch (err) { toastError(err); e.target.disabled = false; e.target.textContent = 'Обновить текст по справочникам'; }
   } }, 'Обновить текст по справочникам') : null;
@@ -199,7 +223,7 @@ function previewBlock(r, ctx) {
     part(`Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
     part('Обслуживание по периодам', t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
     part('Монтаж', t.install?.text ? h('p', null, t.install.text) : null),
-    ...(t.sections || []).map((s) => part(`${s.number} ${s.title}`, h('div', null, ...s.items.map((i) => h('p', null, i.number ? h('b', null, i.number + ' ') : '— ', i.text))))),
+    ...(t.sections || []).map((s) => part(`${s.number} ${s.title}`, h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i))))),
     refresh);
 }
 

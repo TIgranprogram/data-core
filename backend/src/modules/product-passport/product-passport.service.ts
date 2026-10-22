@@ -12,6 +12,7 @@ import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, nextSeq, warran
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
+import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 
 type Doc = Record<string, unknown>;
@@ -288,6 +289,15 @@ export class ProductPassportService {
    * Снимок текста паспорта v2 (БЗ-6 Э4a3): шаблон «Для всех» + версия категории + части из справочников → `textSnapshot`.
    * Вызывается при создании паспорта с категорией и по кнопке «Обновить текст по справочникам». Паспорт v1 — не трогаем.
    */
+  /** Правка пункта текста только для этого паспорта (Э5a3): меняется снимок, справочники — нет. */
+  async editSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string; text?: string }) {
+    const doc = await this.findById(id);
+    const snap = (doc.toObject() as unknown as Doc).textSnapshot as { sections?: SnapshotSection[] } | undefined;
+    if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста (паспорт v1)');
+    doc.set('textSnapshot', { ...snap, sections: editSnapshotItem(snap.sections, String(b.sectionKey ?? ''), String(b.itemKey ?? ''), String(b.text ?? '')), editedAt: new Date() });
+    return doc.save();
+  }
+
   async snapshot(id: string): Promise<ProductPassportDocument | null> {
     const doc = await this.findById(id);
     const p = doc.toObject() as unknown as Doc;

@@ -118,6 +118,14 @@ export class ProductPassportController {
   }
 
   /** v2: пересобрать текст паспорта по справочникам и шаблону категории (снимок `textSnapshot`). Паспорт без категории — 400. */
+  /** v2: правка пункта текста только для этого паспорта { sectionKey, itemKey, text } (справочники не меняются). */
+  @Patch('passports/:id/snapshot-item')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshotItem: true } }) })
+  editSnapshotItem(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string; text?: string }) {
+    return this.service.editSnapshotItem(id, b ?? {});
+  }
+
   @Post('passports/:id/snapshot')
   @HttpCode(200)
   @Roles(...EDIT)
