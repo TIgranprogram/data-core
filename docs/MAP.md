@@ -40,7 +40,7 @@
 
 | Модуль | Маршруты | Коллекции | Заметки |
 |--|--|--|--|
-| `organization` (+`contacts/`) | `/organizations`, `/organizations/current`, `/organizations/:id/assets/:role`, `/organizations/:orgId/contacts` | `organizations`, `organizationcontacts` | мульти-орг: `organizationId` во многих сущностях |
+| `organization` (+`contacts/`) | `/organizations`, `/organizations/current`, `/organizations/:id/assets/:role`, `/organizations/:orgId/contacts` | `organizations`, `organizationcontacts` | мульти-орг: `organizationId` во многих сущностях Печать/подпись/логотип: `PUT :id/assets/:role?clearWhite=1` — EXIF, ≤ 1200 px PNG, белый фон → прозрачный (`asset-image.ts`); оригинал остаётся на диске. |
 | `counterparty` | `/counterparties`, `/counterparties/quick` | `counterparties` | ИНН-валидатор `common/validators/inn.validator.ts` |
 | `person` | `/persons` | `persons` | |
 | `site` | `/sites`, `/sites/ensure-default` | `sites` | площадки контрагента |
