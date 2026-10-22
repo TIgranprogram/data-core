@@ -129,7 +129,7 @@ export class OrganizationController {
     description:
       'Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, ' +
       'старая картинка удаляется. Печать (`seal`) меняет только admin. ' +
-      'Файл нормализуется: EXIF-поворот, ≤ 1200 px, PNG; `?clearWhite=1` — светлый фон становится прозрачным.',
+      'Файл нормализуется: EXIF-поворот, ≤ 800 px, PNG с палитрой; `?clearWhite=1` — светлый фон становится прозрачным.',
   })
   @ApiResponse({ status: 200, description: 'Файл записан в слот' })
   @ApiResponse({ status: 400, description: 'Файл не передан' })

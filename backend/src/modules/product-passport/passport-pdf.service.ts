@@ -24,22 +24,41 @@ export class PassportPdfService {
     private readonly flags: FeatureFlagService,
   ) {}
 
-  /** Файл картинки → PNG/JPEG для pdfkit (webp и прочее — через sharp, большие — уменьшаем). */
-  private async file(storageUrl?: string): Promise<Buffer | undefined> {
-    if (!storageUrl?.startsWith('/uploads/')) return undefined;
-    try {
-      const raw = await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)));
-      return await sharp(raw).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).png().toBuffer();
-    } catch (e) {
-      this.log.warn(`картинка ${storageUrl}: ${(e as Error).message}`);
-      return undefined;
+  /**
+   * Подготовленные картинки — в памяти: файлы в uploads не меняются (имя — uuid), а разбор большого PNG на сервере
+   * с одним ядром — секунды на каждый PDF. Не больше 60 штук, старые вытесняются.
+   */
+  private readonly prepared = new Map<string, Promise<Buffer | undefined>>();
+  private cached(key: string, make: () => Promise<Buffer | undefined>) {
+    let p = this.prepared.get(key);
+    if (!p) {
+      p = make();
+      this.prepared.set(key, p);
+      if (this.prepared.size > 60) this.prepared.delete(this.prepared.keys().next().value!);
     }
+    return p;
   }
 
-  /** Печать/подпись — с прозрачностью (без flatten). */
+  /** Файл картинки → JPEG для pdfkit (webp и прочее — через sharp, большие — уменьшаем; JPEG легче и быстрее PNG). */
+  private async file(storageUrl?: string): Promise<Buffer | undefined> {
+    if (!storageUrl?.startsWith('/uploads/')) return undefined;
+    return this.cached('f:' + storageUrl, async () => {
+      try {
+        const raw = await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)));
+        return await sharp(raw).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).jpeg({ quality: 85 }).toBuffer();
+      } catch (e) {
+        this.log.warn(`картинка ${storageUrl}: ${(e as Error).message}`);
+        return undefined;
+      }
+    });
+  }
+
+  /** Печать/подпись/логотип — PNG с прозрачностью (без flatten), не больше 800 px: в PDF они ~3–5 см. */
   private async asset(storageUrl?: string): Promise<Buffer | undefined> {
     if (!storageUrl?.startsWith('/uploads/')) return undefined;
-    try { return await sharp(await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)))).png().toBuffer(); } catch { return undefined; }
+    return this.cached('a:' + storageUrl, async () => {
+      try { return await sharp(await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)))).resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true }).png().toBuffer(); } catch { return undefined; }
+    });
   }
 
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
@@ -64,7 +83,7 @@ export class PassportPdfService {
 
   /** Пакет по фильтру списка (те же параметры, что GET /passports), не больше 200 паспортов. */
   async zip(q: Record<string, unknown>, opts: { stamp?: boolean; mode?: 'pages' | 'print' }) {
-    const { items } = await this.passports.list({ ...q, page: 1, limit: 200 });
+    const { items } = await this.passports.list({ ...q, page: 1, limit: 200 }, { full: true });
     const files: Array<{ name: string; data: Buffer }> = [];
     for (const it of items as Doc[]) {
       files.push({ name: fileName(it, opts.stamp), data: await this.render(it, opts) });

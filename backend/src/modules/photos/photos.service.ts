@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
+import { shrinkInPlace } from './image-shrink';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -88,16 +89,18 @@ export class PhotosService {
    */
   async upload(file: UploadedPhotoFile): Promise<PhotoUploadResult> {
     const originalFilename = decodeMulterOriginalName(file.originalname);
+    const originalPath = join(uploadDir(), file.filename);
+    // тяжёлое фото (> 2560 px или > 3 МБ) облегчаем на месте — дальше его тянут карточки, галереи и PDF
+    const shrunk = await shrinkInPlace(originalPath, file.mimetype, file.size);
     const original = await this.create({
       storageUrl: `/uploads/${file.filename}`,
       originalFilename,
       mimeType: file.mimetype,
-      sizeBytes: file.size,
+      sizeBytes: shrunk ?? file.size,
       variant: 'original',
     });
     const thumbFilename = `${randomUUID()}.webp`;
     const thumbPath = join(uploadDir(), thumbFilename);
-    const originalPath = join(uploadDir(), file.filename);
 
     // Повёрнутая копия — отдельный файл; сбой не фатален, оригинал остаётся.
     let full: PhotoUploadResult['full'];

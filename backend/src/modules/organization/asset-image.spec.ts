@@ -35,10 +35,10 @@ describe('asset-image', () => {
     expect(await alphaAt(data, 2, 2)).toBe(255);
   });
 
-  it('уменьшает до ≤ 1200 px и не увеличивает малое', async () => {
+  it('уменьшает до ≤ 800 px и не увеличивает малое', async () => {
     const big = await sharp({ create: { width: 3000, height: 1500, channels: 3, background: '#123' } }).jpeg().toBuffer();
     const r = await normalizeAssetImage(big);
-    expect(Math.max(r.width, r.height)).toBe(1200);
+    expect(Math.max(r.width, r.height)).toBe(800);
     expect((await normalizeAssetImage(await sample())).width).toBe(100);
   });
 

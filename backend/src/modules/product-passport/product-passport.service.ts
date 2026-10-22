@@ -41,12 +41,15 @@ export class ProductPassportService {
   ) {}
 
   // ─── список ──────────────────────────────────────────────────────────────────────────────────────
-  /** Список: поиск, фильтры (год, месяц, категория, поставщик, заказчик, без картинок, неполные), {items,total,page,limit}. */
-  async list(q: Record<string, unknown> = {}): Promise<{ items: Doc[]; total: number; page: number; limit: number; incomplete: number }> {
+  /**
+   * Список: поиск, фильтры (год, месяц, категория, поставщик, заказчик, без картинок, неполные), {items,total,page,limit}.
+   * Текст паспорта (`textSnapshot`, ~30 КБ на паспорт) в список не берётся — он нужен карточке и PDF; `full` — с ним (пакет PDF).
+   */
+  async list(q: Record<string, unknown> = {}, { full = false } = {}): Promise<{ items: Doc[]; total: number; page: number; limit: number; incomplete: number }> {
     const p = parseList(q, { sortable: SORT, defaultSort: '-passportNo', defaultLimit: 25 });
     const filter = this.filterOf(q, p.deleted);
     if (p.search) filter.$or = ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier'].map((f) => ({ [f]: p.search }));
-    const docs = await this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
+    const docs = await this.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
     // «неполные» считаются правилами, а не запросом — паспортов сотни, это дёшево
     const cats = await this.categoryRules();
     const inst = await this.installs();
@@ -97,6 +100,7 @@ export class ProductPassportService {
   async models(): Promise<Doc[]> {
     const groups = await this.model.aggregate([
       { $match: { deletedAt: null, name: { $nin: [null, ''] } } },
+      { $project: { textSnapshot: 0 } }, // текст паспорта модели не нужен — без него группировка в разы легче
       { $sort: { passportNo: -1 } },
       { $group: { _id: { a: { $ifNull: ['$article', ''] }, n: '$name' }, n: { $sum: 1 }, doc: { $first: '$$ROOT' } } },
       { $sort: { 'doc.category': 1, 'doc.name': 1 } },

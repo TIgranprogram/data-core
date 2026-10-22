@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 
-/** Максимум по большей стороне после нормализации (печать/подпись/логотип). */
-export const ASSET_MAX_SIDE = 1200;
+/** Максимум по большей стороне после нормализации (печать/подпись/логотип): в PDF они 3–5 см, 800 px — с запасом для печати. */
+export const ASSET_MAX_SIDE = 800;
 /** Яркость, с которой пиксель целиком прозрачный / начинает становиться прозрачным. */
 export const WHITE_FULL = 235;
 export const WHITE_SOFT = 200;
@@ -21,7 +21,8 @@ export function clearWhiteRgba(rgba: Buffer): Buffer {
 }
 
 /**
- * EXIF-поворот → уменьшение до ≤ 1200 px → (опц.) «убрать белый фон» → PNG.
+ * EXIF-поворот → уменьшение до ≤ 800 px → (опц.) «убрать белый фон» → PNG с палитрой (у печати и подписи мало цветов —
+ * файл в разы легче: 1,4 МБ → ~100 КБ; без этого каждый PDF и карточка компании тянули тяжёлый файл).
  * Оригинал не меняется: вызывающий кладёт результат в новый файл.
  */
 export async function normalizeAssetImage(
@@ -37,6 +38,6 @@ export async function normalizeAssetImage(
     const cleared = clearWhiteRgba(raw.data);
     pipeline = sharp(cleared, { raw: { width: raw.info.width, height: raw.info.height, channels: 4 } });
   }
-  const out = await pipeline.png().toBuffer({ resolveWithObject: true });
+  const out = await pipeline.png({ palette: true, quality: 90, compressionLevel: 9, effort: 8 }).toBuffer({ resolveWithObject: true });
   return { data: out.data, width: out.info.width, height: out.info.height };
 }

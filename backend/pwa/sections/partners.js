@@ -40,6 +40,18 @@ async function mergeDialog(r, ctx) {
  * Файл (PNG с прозрачным фоном — лучше) — выбрать, перетащить или вставить Ctrl+V; повторная загрузка заменяет.
  * Сервер: PUT /organizations/:id/assets/seal|signature (печать меняет только администратор).
  */
+/**
+ * Загруженная печать/подпись/логотип: сначала плашка «загружена ✓», картинка — по «Показать» (замечание 2026-10-22:
+ * «чтобы тяжёлое не грузилось каждый раз, когда не нужно»).
+ */
+function lazyPreview(cur, label, del) {
+  const box = h('div', { class: 'stamp-pic' });
+  const show = () => box.replaceChildren(h('div', { class: 'stamp-prev', title: 'Так выглядит на талоне; клетка — прозрачные места' },
+    h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), h('span', null, 'Продавец: ________')), del);
+  box.append(h('span', { class: 'badge ok' }, `${label}: загружена ✓`), h('button', { type: 'button', class: 'link-btn', onclick: show }, 'Показать'), del);
+  return box;
+}
+
 function stampBlock(r, ctx) {
   const slot = (role, label, tip) => {
     const cur = (r.assets || []).find((a) => a.role === role);
@@ -61,7 +73,7 @@ function stampBlock(r, ctx) {
     const del = cur ? h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
     return h('div', { class: 'pp-kind stamp-slot' },
       h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ' · ' + tip)),
-      cur ? h('div', { class: 'stamp-pic' }, h('div', { class: 'stamp-prev', title: 'Так выглядит на талоне; клетка — прозрачные места' }, h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), h('span', null, 'Продавец: ________')), del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
+      cur ? lazyPreview(cur, label, del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
       session.canEdit ? h('label', { class: 'check' }, clear, 'Убрать белый фон при загрузке') : null,
       session.canEdit ? zone : null);
   };

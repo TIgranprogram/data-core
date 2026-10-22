@@ -148,7 +148,7 @@ export class OrganizationService {
     this.assertMayReplaceSeal(role, user);
     const doc = await this.findById(id, user);
 
-    // ЭФ4: нормализованный PNG (EXIF, ≤1200 px, опц. прозрачный фон) — новый файл рядом;
+    // ЭФ4: нормализованный PNG (EXIF, ≤800 px, опц. прозрачный фон) — новый файл рядом;
     // оригинал остаётся на диске, слот ссылается на нормализованный.
     let storageUrl = `/uploads/${file.filename}`;
     let mimeType = file.mimetype;
