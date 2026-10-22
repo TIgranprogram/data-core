@@ -146,15 +146,17 @@ export class StockService {
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
       .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
     const ids = mats.map((m) => m._id as Types.ObjectId);
-    const [stocks, cats] = await Promise.all([
+    // скорость С7: независимые чтения — разом, категории — только нужные (не все категории CRM)
+    const catIds = [...new Set(mats.map((m) => m.categoryId).filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const [stocks, cats, openReq, kids] = await Promise.all([
       this.storage.find({ warehouseId: wh._id, materialId: { $in: ids }, deletedAt: p.deleted ? undefined : null }).setOptions({ includeSoftDeleted: true }).lean().exec(),
-      this.connection.db!.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
+      catIds.length ? this.connection.db!.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1 } }).toArray() : Promise.resolve([]),
+      // «уже заказано» (ЗП.2): открытые заявки на позицию — по materialId или по тому же наименованию
+      this.openRequests(mats as { _id: Types.ObjectId; name?: string }[]),
+      // обрезки этих позиций (СМ.2): родитель → [{ id, name, qty }] с остатком > 0 — «сначала брать обрезки»
+      this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null }, { projection: { name: 1, offcutOf: 1, dimensions: 1 } }).toArray(),
     ]);
     const catName = new Map(cats.map((c) => [String(c._id), String(c.name)]));
-    // «уже заказано» (ЗП.2): открытые заявки на позицию — по materialId или по тому же наименованию
-    const openReq = await this.openRequests(mats as { _id: Types.ObjectId; name?: string }[]);
-    // обрезки этих позиций (СМ.2): родитель → [{ id, name, qty }] с остатком > 0 — «сначала брать обрезки»
-    const kids = await this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null }, { projection: { name: 1, offcutOf: 1, dimensions: 1 } }).toArray();
     const kidStock = kids.length ? await this.storage.find({ warehouseId: wh._id, materialId: { $in: kids.map((k) => k._id) }, deletedAt: null }).lean().exec() : [];
     const kidQty = new Map<string, number>();
     for (const s of kidStock) kidQty.set(String(s.materialId), (kidQty.get(String(s.materialId)) ?? 0) + (s.quantity ?? 0));

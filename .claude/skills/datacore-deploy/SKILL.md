@@ -31,6 +31,10 @@ VM `192.168.1.52` напрямую недоступна → вход через 
 2. Секреты (`JWT_*`, `ADMIN_PASSWORD`, `MONGO_*`) в `config.env` заполнены: пустые/`CHANGE_ME` `deploy.py` молча сгенерирует заново → на живых данных backend не подключится к Mongo.
 3. Если меняется схема/данные — свежий бэкап на VM (`bash deploy/synology/backup.sh` там же).
 
+## Индексы на проде (М6, скорость С6)
+На проде `autoIndex` выключен: новый `index: true` / `Schema.index()` сам не создаётся. Добавил индекс → после выкладки:
+`docker cp backend/scripts/ensure-indexes.js datacore-backend:/app/scripts/` → `docker exec datacore-backend node scripts/ensure-indexes.js` (план) → `--apply`. Скрипт только создаёт недостающие (без удаления — индексы CRM на общих коллекциях не трогает); новую модель — дописать в `MODELS`.
+
 ## После деплоя (deploy.py проверяет сам, сверь вывод)
 `/api/health/ready` 200 → логин OK → `/admin` 200 → Mongo отклоняет неавторизованное чтение → kppdf `:3000` по-прежнему 200. Итог записать в `docs/HISTORY.md`.
 
