@@ -282,7 +282,7 @@ export class ShowcaseService {
    * apply=false — только отчёт. При apply: создаём изделие (status draft, без цены, полное описание из заказа) и ставим
    * позициям productId (только где его не было). Текст и суммы позиций не трогаем — договор.
    */
-  async fromOrders(apply: boolean) {
+  async fromOrders(apply: boolean, picks?: { key?: string; name?: string }[]) {
     const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, productId: null }, { projection: { title: 1, orderNo: 1 } }).toArray();
     const have = new Map<string, Types.ObjectId>();
     for (const p of await this.db.collection('products').find({ deletedAt: null }, { projection: { name: 1 } }).toArray()) { const k = productNameKey(String(p.name ?? '')); if (!have.has(k)) have.set(k, p._id as Types.ObjectId); }
@@ -296,14 +296,24 @@ export class ShowcaseService {
     }
     const plan = [...groups.entries()].map(([key, g]) => ({ key, ...g, action: have.has(key) ? 'exists' : 'new' }));
     const fresh = plan.filter((p) => p.action === 'new');
-    const report = { lines: lines.length, new: fresh.length, exists: plan.length - fresh.length, preview: fresh.slice(0, 30).map((p) => ({ name: p.name, lines: p.ids.length, orders: [...p.orders].slice(0, 5) })) };
+    const row = (p: (typeof plan)[number]) => ({ key: p.key, name: p.name, lines: p.ids.length, orders: [...p.orders].slice(0, 5) });
+    const report = { lines: lines.length, new: fresh.length, exists: plan.length - fresh.length, preview: fresh.slice(0, 30).map(row), items: fresh.map(row) };
     if (!apply) return { ...report, applied: false };
+    // выбор (галочки в панели): создаём только отмеченные, с поправленным названием; без picks — все, как раньше
+    let chosen: Map<string, string> | null = null;
+    if (picks !== undefined) {
+      if (!Array.isArray(picks) || picks.length > 2000) throw new BadRequestException('Некорректный выбор изделий');
+      chosen = new Map(picks.filter((x) => x?.key).map((x) => [String(x.key), clean(x.name).slice(0, 256)]));
+      if (!chosen.size) throw new BadRequestException('Отметьте изделия, которые создать');
+    }
     let created = 0;
     for (const p of plan) {
       let productId: Types.ObjectId | null = null;
       if (p.action === 'new') {
+        if (chosen && !chosen.has(p.key)) continue; // не отмечено — позиции заказов остаются без изделия
+        const name = chosen?.get(p.key) || p.name;
         const sku = 'ЗК-' + createHash('md5').update(p.key).digest('hex').slice(0, 6).toUpperCase();
-        try { productId = new Types.ObjectId((await this.create({ sku, name: p.name, description: p.description.length > p.name.length ? p.description : '' })).id); created++; } catch { continue; }
+        try { productId = new Types.ObjectId((await this.create({ sku, name, description: p.description.length > name.length ? p.description : '' })).id); created++; } catch { continue; }
       } else {
         const e = have.get(p.key);
         if (!e) continue;

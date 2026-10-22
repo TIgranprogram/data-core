@@ -88,4 +88,22 @@ describe('Showcase', () => {
     expect(none.product).toBeNull();
     expect((await http().get(`/api/showcase/${p.id}`).set(auth())).body.orderLines).toEqual([]); // позиции без заказа в «В заказах» не входят
   });
+
+  it('«Из заказов» с выбором: создаются только отмеченные, с поправленным названием; неотмеченные позиции не трогаются', async () => {
+    const db = ctx!.connection.db!;
+    const orderId = new Types.ObjectId();
+    const { insertedIds } = await db.collection('incomes').insertMany([
+      { title: 'Горка «Волна». Цвет: синий', orderId, orderNo: '77', amount: 0, deletedAt: null },
+      { title: 'Песочница «Ракушка»', orderId, orderNo: '77', amount: 0, deletedAt: null }]);
+    const dry = (await http().post('/api/showcase/from-orders').set(auth()).send({}).expect(200)).body;
+    expect(dry.items.map((x: { name: string }) => x.name).sort()).toEqual(['Горка «Волна»', 'Песочница «Ракушка»']);
+    const key = dry.items.find((x: { name: string }) => x.name === 'Горка «Волна»').key;
+    await http().post('/api/showcase/from-orders').set(auth()).send({ apply: true, picks: [] }).expect(400);
+    const res = (await http().post('/api/showcase/from-orders').set(auth()).send({ apply: true, picks: [{ key, name: 'Горка Волна 1,5 м' }] }).expect(200)).body;
+    expect(res.created).toBe(1);
+    const [slide, sand] = await Promise.all([db.collection('incomes').findOne({ _id: insertedIds[0] }), db.collection('incomes').findOne({ _id: insertedIds[1] })]);
+    expect((await db.collection('products').findOne({ _id: slide!.productId }))!.name).toBe('Горка Волна 1,5 м');
+    expect(sand!.productId ?? null).toBeNull();
+    expect((await http().post('/api/showcase/from-orders').set(auth()).send({}).expect(200)).body.items.map((x: { name: string }) => x.name)).toEqual(['Песочница «Ракушка»']);
+  });
 });

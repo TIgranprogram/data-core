@@ -112,15 +112,33 @@ async function buildImportForm() {
   };
 }
 
-// Изделия из заказов (БЗ-5): отчёт «что будет создано» и кнопка «Создать». Позиции заказов не меняются, кроме ссылки на изделие.
+// Изделия из заказов (БЗ-5): весь список «что можно создать» с галочками и названием, которое можно поправить;
+// создаются только отмеченные. Позиции заказов не меняются, кроме ссылки на изделие; неотмеченные остаются без изделия.
 async function buildFromOrdersForm() {
   const r = await api('/showcase/from-orders', { method: 'POST', body: { apply: false } });
+  const rows = (r.items || r.preview).map((p) => ({ p,
+    cb: h('input', { type: 'checkbox', checked: true, 'aria-label': 'Создать «' + p.name + '»' }),
+    name: h('input', { value: p.name, maxlength: 256, class: 'fo-name', 'aria-label': 'Название изделия' }) }));
+  const count = h('b');
+  const upd = () => { count.textContent = `Отмечено: ${rows.filter((x) => x.cb.checked).length} из ${rows.length}`; };
+  rows.forEach((x) => x.cb.addEventListener('change', upd)); upd();
+  const all = (on) => { rows.forEach((x) => { x.cb.checked = on; }); upd(); };
   const el = h('div', null,
-    h('p', { class: 'hint' }, 'Позиции заказов, которых ещё нет в «Продукции», станут изделиями-черновиками (без цены): короткое название — из позиции, полное описание — в описание изделия. Текст и суммы в заказах не меняются; дальше изделие можно править и дополнять.'),
-    h('p', null, h('b', null, `Будет создано: ${r.new}`), ` · уже есть в продукции: ${r.exists} · позиций заказов проверено: ${r.lines}`),
-    r.new ? h('ul', { class: 'timeline' }, ...r.preview.map((p) => h('li', null, p.name, h('span', { class: 'muted' }, ` · позиций ${p.lines}${p.orders.length ? ', заказы ' + p.orders.join(', ') : ''}`)))) : h('p', { class: 'muted' }, 'Новых изделий нет'),
-    r.new > r.preview.length ? h('p', { class: 'muted' }, `…и ещё ${r.new - r.preview.length}`) : null);
-  return { el, dirty: () => false, read: () => ({ values: { save: async () => ({ id: null, ...(await api('/showcase/from-orders', { method: 'POST', body: { apply: true } })) }) } }) };
+    h('p', { class: 'hint' }, 'Позиции заказов, которых ещё нет в «Продукции». Отметьте, что сделать изделиями-черновиками (без цены), и при желании поправьте название; полное описание из заказа попадёт в описание изделия. Неотмеченные позиции остаются как есть — их можно добавить позже тем же способом. Текст и суммы в заказах не меняются.'),
+    h('p', null, `Новых: ${r.new} · уже есть в «Продукции»: ${r.exists} (позиции привяжутся к ним сами) · позиций заказов проверено: ${r.lines}`),
+    rows.length ? h('div', { class: 'bulk-foot' }, count,
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => all(true) }, 'Выбрать все'),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => all(false) }, 'Снять все')) : null,
+    rows.length ? h('ul', { class: 'dict-cand-list fo-list' }, ...rows.map(({ p, cb, name }) => h('li', null, cb, name,
+      h('span', { class: 'muted small' }, `позиций ${p.lines}${p.orders.length ? ' · заказы ' + p.orders.join(', ') : ''}`)))) : h('p', { class: 'muted' }, 'Новых изделий нет'));
+  return {
+    el, dirty: () => false,
+    read: () => ({ values: { save: async () => {
+      const picks = rows.filter((x) => x.cb.checked).map((x) => ({ key: x.p.key, name: x.name.value.trim() || x.p.name }));
+      if (!picks.length) throw new Error('Отметьте изделия, которые создать');
+      return { id: null, ...(await api('/showcase/from-orders', { method: 'POST', body: { apply: true, picks } })) };
+    } } }),
+  };
 }
 
 export const kp = {

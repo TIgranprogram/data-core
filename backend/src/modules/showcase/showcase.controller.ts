@@ -32,7 +32,7 @@ export class ShowcaseController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.from-orders', entityType: 'Product', details: (d) => ({ new: (d as { new?: number }).new, created: (d as { created?: number }).created }) })
-  fromOrders(@Body() b: { apply?: boolean }) { return this.s.fromOrders(!!b?.apply); }
+  fromOrders(@Body() b: { apply?: boolean; picks?: { key?: string; name?: string }[] }) { return this.s.fromOrders(!!b?.apply, b?.picks); }
 
   @Post('kp')
   @HttpCode(200)

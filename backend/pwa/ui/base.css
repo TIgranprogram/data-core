@@ -817,6 +817,9 @@ html { scrollbar-gutter: stable; }
 .dict-cand-list { list-style: none; margin: var(--s2) 0; padding: 0; max-height: 320px; overflow: auto; }
 .dict-cand-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: 5px 0; border-bottom: 1px solid var(--border); }
 .dict-cand-list label { display: flex; align-items: center; gap: var(--s2); min-width: 200px; }
+/* «Изделия из заказов» (БЗ-5): тот же список с галочками, но во всю высоту панели и с полем названия */
+.fo-list { max-height: none; }
+.fo-list .fo-name { flex: 1 1 260px; }
 /* «Паспорта → Разделы и тексты» (БЗ-6 Э2d): дерево «раздел → пункты»; общий пункт — серый «общий», пункт категории — обычный */
 .pt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); padding: var(--s2) var(--s4); border-bottom: 1px solid var(--border); }
 .pt-info { flex: 1 1 320px; margin: 0; }
