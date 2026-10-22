@@ -351,6 +351,17 @@ export const DICTS: DictDef[] = [
   simpleList('invoiceTypes', 'Заявки и счета', 'Типы счетов', 'Поле «Тип счёта» в заявке и счёте: счёт на оплату, счёт-договор, УПД…', [],
     { coll: 'supplyrequests', field: 'sheetExtra.invoiceType' }, ['Счет на оплату', 'Счет-договор', 'Счет', 'УПД'], 'invoiceTypes'),
   simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в счетах: доставка, погрузка, аренда техники…', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
+
+  // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.3) ─────────
+  simpleList('passportStandards', 'Паспорта', 'Нормативы',
+    'ГОСТ, ТР ЕАЭС, СП, на которые ссылается текст паспорта: в тексте — {std:КОД}, подставляется «Название». Статус и дата проверки — чтобы не ссылаться на отменённое (паспорт предупредит).',
+    [
+      { key: 'code', label: 'Код для текста', required: true, hint: 'Латиницей, без пробелов: GOST_R_52301 → в тексте {std:GOST_R_52301}' },
+      { key: 'title', label: 'Полное наименование', wide: true },
+      { key: 'status', label: 'Статус', type: 'select', options: ['действует', 'проверить', 'не обязателен', 'заменён', 'не применять'].map((v) => ({ value: v, label: v })) },
+      { key: 'checkedAt', label: 'Проверено (дата)', hint: 'ГГГГ-ММ-ДД — когда сверяли по официальной базе' },
+      { key: 'applies', label: 'Где применяем', wide: true },
+    ]),
 ];
 
 export const DICT = new Map(DICTS.map((d) => [d.key, d]));
