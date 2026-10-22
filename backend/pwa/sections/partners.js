@@ -44,10 +44,12 @@ function stampBlock(r, ctx) {
   const slot = (role, label, tip) => {
     const cur = (r.assets || []).find((a) => a.role === role);
     const input = h('input', { type: 'file', accept: 'image/*', hidden: true });
+    // «Убрать белый фон»: для печати и подписи включено, для логотипа — нет (сервер делает светлое прозрачным)
+    const clear = h('input', { type: 'checkbox', checked: role !== 'logo' });
     const upload = async (file) => {
       if (!file || !/^image\//.test(file.type)) { toastError(new Error('Нужна картинка: PNG или JPG')); return; }
       const fd = new FormData(); fd.append('file', file, file.name || `${role}.png`);
-      try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'PUT', body: fd }); toast(`${label}: загружено`); ctx.reload(); } catch (e) { toastError(e); }
+      try { await api(`/organizations/${r.id}/assets/${role}${clear.checked ? '?clearWhite=1' : ''}`, { method: 'PUT', body: fd }); toast(`${label}: загружено`); ctx.reload(); } catch (e) { toastError(e); }
     };
     input.addEventListener('change', () => { upload(input.files[0]); input.value = ''; });
     const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Перетащите файл, вставьте Ctrl+V или нажмите' },
@@ -59,12 +61,13 @@ function stampBlock(r, ctx) {
     const del = cur ? h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
     return h('div', { class: 'pp-kind stamp-slot' },
       h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ' · ' + tip)),
-      cur ? h('div', { class: 'stamp-pic' }, h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
+      cur ? h('div', { class: 'stamp-pic' }, h('div', { class: 'stamp-prev', title: 'Так выглядит на талоне; клетка — прозрачные места' }, h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), h('span', null, 'Продавец: ________')), del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
+      session.canEdit ? h('label', { class: 'check' }, clear, 'Убрать белый фон при загрузке') : null,
       session.canEdit ? zone : null);
   };
-  return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Печать и подпись (для паспортов)'),
+  return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Печать, подпись и логотип (для паспортов)'),
     h('p', { class: 'muted' }, 'Лучше PNG с прозрачным фоном (скан без белого фона). В PDF паспорта «с печатью» ставятся на гарантийный талон.'),
-    slot('seal', 'Печать', 'круглая печать организации'), slot('signature', 'Подпись', 'подпись директора'));
+    slot('seal', 'Печать', 'круглая печать организации'), slot('signature', 'Подпись', 'подпись директора'), slot('logo', 'Логотип', 'логотип организации'));
 }
 
 function related(r, ctx) {

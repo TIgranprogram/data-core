@@ -15,6 +15,11 @@ import {
   type OrganizationAssetRole,
 } from './organization.schema';
 import { PhotosService } from '../photos/photos.service';
+import { UPLOAD_DIR } from '../photos/image-upload.options';
+import { normalizeAssetImage } from './asset-image';
+import { randomUUID } from 'crypto';
+import { promises as fsp } from 'fs';
+import { join } from 'path';
 
 /** Tenant context taken from the JWT, never from the request body. */
 export interface OrganizationActor {
@@ -137,16 +142,33 @@ export class OrganizationService {
     file: OrganizationAssetUpload,
     user?: OrganizationActor,
     uploadedBy?: string,
+    options: { clearWhite?: boolean } = {},
   ): Promise<OrganizationDocument> {
     this.assertAssetRole(role);
     this.assertMayReplaceSeal(role, user);
     const doc = await this.findById(id, user);
 
+    // ЭФ4: нормализованный PNG (EXIF, ≤1200 px, опц. прозрачный фон) — новый файл рядом;
+    // оригинал остаётся на диске, слот ссылается на нормализованный.
+    let storageUrl = `/uploads/${file.filename}`;
+    let mimeType = file.mimetype;
+    let sizeBytes = file.size;
+    try {
+      const norm = await normalizeAssetImage(join(UPLOAD_DIR, file.filename), { clearWhite: options.clearWhite });
+      const name = `${randomUUID()}.png`;
+      await fsp.writeFile(join(UPLOAD_DIR, name), norm.data);
+      storageUrl = `/uploads/${name}`;
+      mimeType = 'image/png';
+      sizeBytes = norm.data.length;
+    } catch (err) {
+      this.logger.warn(`Нормализация слота «${role}» не удалась, берём оригинал: ${(err as Error).message}`);
+    }
+
     const photo = await this.photos.create({
-      storageUrl: `/uploads/${file.filename}`,
+      storageUrl,
       originalFilename: file.originalname,
-      mimeType: file.mimetype,
-      sizeBytes: file.size,
+      mimeType,
+      sizeBytes,
       variant: 'original',
       alt: `${role} · ${doc.name}`,
     });

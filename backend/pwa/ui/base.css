@@ -973,6 +973,8 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gc-badge { align-self: flex-start; }
 /* Печать и подпись нашей компании (карточка «Наши») */
 .stamp-pic { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.stamp-prev { display: flex; align-items: flex-end; gap: 8px; padding: 6px 10px; border-radius: var(--radius-sm); color: var(--text); background: conic-gradient(var(--surface-3) 25%, var(--surface-2) 0 50%, var(--surface-3) 0 75%, var(--surface-2) 0) 0 0 / 16px 16px; } /* клетка — видна прозрачность; «Продавец» — как на талоне */
+.stamp-pic .stamp-prev img { background: none; padding: 0; }
 .stamp-pic img { max-height: 120px; max-width: 220px; object-fit: contain; background: #fff; border-radius: var(--radius-sm); padding: 4px; } /* печать — на белом, как на бумаге */
 /* Записи по месяцам в карточке (заявки контрагента): строка месяца — число и сумма, клик раскрывает */
 .month-group { border-bottom: 1px solid var(--border); }

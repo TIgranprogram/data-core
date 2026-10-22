@@ -128,7 +128,8 @@ export class OrganizationController {
     summary: 'Загрузить логотип / печать / подпись организации',
     description:
       'Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, ' +
-      'старая картинка удаляется. Печать (`seal`) меняет только admin.',
+      'старая картинка удаляется. Печать (`seal`) меняет только admin. ' +
+      'Файл нормализуется: EXIF-поворот, ≤ 1200 px, PNG; `?clearWhite=1` — светлый фон становится прозрачным.',
   })
   @ApiResponse({ status: 200, description: 'Файл записан в слот' })
   @ApiResponse({ status: 400, description: 'Файл не передан' })
@@ -140,6 +141,7 @@ export class OrganizationController {
     @UploadedFile()
     file?: { filename: string; originalname?: string; mimetype?: string; size?: number },
     @CurrentUser() user?: AuthenticatedUser,
+    @Query('clearWhite') clearWhite?: string,
   ) {
     if (!file) {
       throw new BadRequestException('Файл не передан: поле формы должно называться «file».');
@@ -150,6 +152,7 @@ export class OrganizationController {
       file,
       user,
       user?.id,
+      { clearWhite: clearWhite === '1' || clearWhite === 'true' },
     );
   }
 
