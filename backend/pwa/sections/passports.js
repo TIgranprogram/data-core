@@ -191,7 +191,11 @@ function periodBlock(m) {
 function snapItem(r, ctx, s, i) {
   const view = h('p', { class: 'pp-snap-item' }, i.number ? h('b', null, i.number + ' ') : '— ', i.text,
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
-    canEdit() ? h('button', { type: 'button', class: 'link-btn', onclick: () => view.replaceWith(editor()) }, ' Изменить') : null);
+    canEdit() ? h('button', { type: 'button', class: 'link-btn', onclick: () => view.replaceWith(editor()) }, ' Изменить') : null,
+    canEdit() && i.edited ? h('button', { type: 'button', class: 'link-btn', title: 'Этот текст пункта получат новые паспорта той же категории', onclick: async () => {
+      if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов категории. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
+      try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон категории, версия ${v.version}`); } catch (e) { toastError(e); }
+    } }, ' В справочник категории') : null);
   const editor = () => {
     const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
     const save = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: async () => {

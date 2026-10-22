@@ -13,6 +13,7 @@ import { standardWarnings, standardsDict, type StandardDoc } from './passport-co
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
+import { promoteToOwn } from './passport-promote';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 
 type Doc = Record<string, unknown>;
@@ -296,6 +297,20 @@ export class ProductPassportService {
     if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста (паспорт v1)');
     doc.set('textSnapshot', { ...snap, sections: editSnapshotItem(snap.sections, String(b.sectionKey ?? ''), String(b.itemKey ?? ''), String(b.text ?? '')), editedAt: new Date() });
     return doc.save();
+  }
+
+  /** «Перенести правку в справочник» (Э5a4): пункт из снимка → новая версия шаблона категории паспорта. */
+  async promoteSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string }, userId?: string) {
+    const p = (await this.findById(id)).toObject() as unknown as Doc;
+    const cat = String(p.passportCategory || '');
+    const sec = ((p.textSnapshot as { sections?: SnapshotSection[] } | undefined)?.sections ?? []).find((s) => s.key === b.sectionKey);
+    const item = sec?.items.find((i) => i.key === b.itemKey);
+    if (!cat || !item) throw new BadRequestException('Пункт не найден в тексте паспорта');
+    const { own: dbOwn } = await this.templatesFor(cat);
+    const code = PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2];
+    const own = dbOwn ?? code ?? null;
+    const sections = promoteToOwn(own?.sections as never, PASSPORT_TEXTS_V2.ALL.sections as never, String(b.sectionKey), String(b.itemKey), item.text);
+    return this.saveTemplate({ category: cat, sections: sections as never, tables: (own?.tables ?? []) as never }, userId);
   }
 
   async snapshot(id: string): Promise<ProductPassportDocument | null> {

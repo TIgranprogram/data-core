@@ -126,6 +126,15 @@ export class ProductPassportController {
     return this.service.editSnapshotItem(id, b ?? {});
   }
 
+  /** v2: перенести текст пункта из этого паспорта в версию шаблона его категории { sectionKey, itemKey }. */
+  @Post('passports/:id/snapshot-item/promote')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
+  promoteSnapshotItem(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string }, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.promoteSnapshotItem(id, b ?? {}, user?.id);
+  }
+
   @Post('passports/:id/snapshot')
   @HttpCode(200)
   @Roles(...EDIT)
