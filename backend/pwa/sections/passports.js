@@ -7,6 +7,7 @@ import { photoDrop } from '../ui/photos.js';
 import { rowsTable } from '../ui/rows-table.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { flag } from '../core/flags.js';
+import { KINDS, KINDS_V2, catNames } from '../core/passport-kinds.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg } from '../ui/dialog.js';
 
@@ -18,20 +19,6 @@ import { confirmDlg } from '../ui/dialog.js';
  */
 /** 1 паспорт, 2 паспорта, 5 паспортов. */
 const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
-const KINDS = [
-  ['overview', 'Фото изделия', 'на обложке паспорта'],
-  ['dimensions', 'Чертёж с размерами', 'в приложении «Габариты»'],
-  ['safety', 'Зона безопасности', 'площадка вокруг изделия с размерами'],
-  ['mounting', 'Схема монтажа', 'в приложении «Монтаж»'],
-];
-/** Виды картинок паспорта v2 (БЗ-6 §3.6) — в форме и карточке только при флаге passports.v2. */
-const KINDS_V2 = [
-  ['overview_callouts', 'Фото с подписями частей', 'стрелки с названиями частей изделия'],
-  ['nameplate', 'Где табличка с номером', 'показать, где закреплён шильдик'],
-  ['foundation', 'Схема фундамента', 'разрез опоры: грунт, щебень, бетон, размеры'],
-  ['holes', 'Разметка ям под опоры', 'план с расстояниями между опорами'],
-  ['assembly', 'Сборка по шагам', 'если изделие поставляется разобранным'],
-];
 let V2 = false;
 flag('passports.v2').then((v) => { V2 = v; });
 /** Виды картинок: обязательные для категории паспорта — первыми (порядок справочника), остальные — как были. */
@@ -55,7 +42,7 @@ const V2_NUMS = [
   ['fallHeight', 'Высота свободного падения, мм', 'Детское игровое'], ['siteLength', 'Площадка: длина, мм', 'С зоной безопасности'],
   ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', 'По умолчанию: 10, МАФ — 5'],
 ];
-const dictOpts = async (key) => ((await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || []).map((d) => ({ value: d.id, label: d.name, sub: d.categories || '' }));
+const dictOpts = async (key) => ((await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || []).map((d) => ({ value: d.id, label: d.name, sub: catNames(d.categories) }));
 /** Единый список категорий (решение 2026-10-21: без дублей и грамотно) — дополняется тем, что уже есть в паспортах. */
 const CATEGORIES = ['Уличный тренажёр', 'Спортивное оборудование', 'Воркаут', 'Благоустройство', 'МАФ', 'Качели', 'Карусель', 'Детский игровой комплекс'];
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
@@ -176,7 +163,7 @@ function imagesBlock(r, ctx) {
 }
 
 /** Паспорт v2 (БЗ-6 Э5a2): «Проверка» — чего не хватает; у рисунка — «Загрузить» (переход к его зоне загрузки ниже). */
-const IMG_BY_LABEL = { 'Общий вид': 'overview', 'Фото изделия': 'overview', 'Чертёж с размерами': 'dimensions', 'Зона безопасности': 'safety', 'Схема монтажа': 'mounting', 'Схема фундамента': 'foundation', 'Разметка ям под опоры': 'holes', 'Сборка по шагам': 'assembly', 'Фото с подписями частей': 'overview_callouts', 'Где табличка с номером': 'nameplate' };
+const IMG_BY_LABEL = { 'Фото изделия': 'overview', 'Чертёж с размерами': 'dimensions', 'Зона безопасности': 'safety', 'Схема монтажа': 'mounting', 'Схема фундамента': 'foundation', 'Разметка ям под опоры': 'holes', 'Сборка по шагам': 'assembly', 'Фото с подписями частей': 'overview_callouts', 'Где табличка с номером': 'nameplate' };
 function checkBlock(r) {
   const miss = r.missing || [];
   const warn = r.standardWarnings || [];
@@ -187,13 +174,19 @@ function checkBlock(r) {
     zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     zone.classList.add('fill-here'); setTimeout(() => zone.classList.remove('fill-here'), 2500);
   };
-  return h('div', null, h('div', { class: 'section-title' }, `Проверка — не хватает: ${miss.length}`),
+  return h('div', null, h('div', { class: 'section-title' }, miss.length ? `Проверка — не хватает: ${miss.length}` : 'Проверка'),
     h('ul', { class: 'timeline pp-check' }, ...miss.map((m) => {
-      const img = m.startsWith('Рисунок: ') || m === 'Общий вид' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
-      return h('li', null, m, img && canEdit() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => goTo(img) }, 'Загрузить') : null);
-    }),
-    ...warn.map((w) => h('li', { class: 'muted' }, 'Норматив — ' + w))));
+      const img = m.startsWith('Рисунок: ') || m === 'Фото изделия' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
+      // не картинка — «Заполнить»: открыть правку паспорта (та же кнопка «Изменить» карточки)
+      const fill = () => [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click();
+      return h('li', null, m, !canEdit() ? null : img ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => goTo(img) }, 'Загрузить') : h('button', { type: 'button', class: 'btn btn-sm', onclick: fill }, 'Заполнить'));
+    })),
+    warn.length ? h('div', null, h('div', { class: 'section-title' }, 'Нормативы — проверить'), h('p', { class: 'hint' }, 'Статус и дату проверки — в «Справочники → Паспорта → Нормативы». Паспорт выдавать можно.'),
+      h('ul', { class: 'timeline' }, ...warn.map((w) => h('li', { class: 'muted' }, w)))) : null);
 }
+
+/** Последний номер раздела снимка (ТО и монтаж в PDF идут следующими). */
+const lastNo = (t) => Math.max(2, ...(t.sections || []).map((s) => parseInt(s.number, 10) || 0));
 
 /** Таблица ТО одного периода: что проверить · где · мера. */
 function periodBlock(m) {
@@ -208,7 +201,7 @@ function periodBlock(m) {
 function snapItem(r, ctx, s, i) {
   const view = h('p', { class: 'pp-snap-item' }, i.number ? h('b', null, i.number + ' ') : '— ', i.text,
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
-    canEdit() ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => view.replaceWith(editor()) }, 'Править пункт') : null,
+    canEdit() ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm btn-icon pp-snap-edit', title: `Править пункт ${i.number || ''}`.trim(), 'aria-label': `Править пункт ${i.number || ''}`.trim(), onclick: () => view.replaceWith(editor()) }, '✎') : null,
     canEdit() && i.edited ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Этот текст пункта получат новые паспорта той же категории', onclick: async () => {
       if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов категории. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
       try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон категории, версия ${v.version}`); } catch (e) { toastError(e); }
@@ -240,11 +233,12 @@ function previewBlock(r, ctx) {
   const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
   return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),
     h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.join(', ') : ''}`),
-    part('Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
-    part(`Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
-    part('Обслуживание по периодам', t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
-    part('Монтаж', t.install?.text ? h('p', null, t.install.text) : null),
+    // порядок и номера — как в PDF: 1 описание, 2 правила, разделы шаблона, затем ТО и монтаж — следующими номерами
+    part('1 Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
+    part(`2 Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
     ...(t.sections || []).map((s) => part(`${s.number} ${s.title}`, h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i))))),
+    part(`${lastNo(t) + 1} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
+    part(`${lastNo(t) + 2} Монтаж по способу установки`, t.install?.text ? h('ol', null, ...String(t.install.text).split(/\r?\n/).filter(Boolean).map((x) => h('li', null, x))) : null),
     refresh);
 }
 

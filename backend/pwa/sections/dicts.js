@@ -7,6 +7,8 @@ import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { flag } from '../core/flags.js';
+import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
+import { tagPick } from '../ui/tag-pick.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 
 /**
@@ -18,7 +20,9 @@ import { mountTexts, TEXTS_KEY } from './passport-texts.js';
  */
 const dictKey = () => current().params.d || 'categories';
 const fmt = (f, v, refs) => {
-  if (v === undefined || v === null || v === '') return '';
+  if (v === undefined || v === null || v === '' || v === 'null' || (Array.isArray(v) && !v.length)) return '';
+  if (f?.key === 'requiredImages') return linesToKinds(v).map(kindName).join(', ');
+  if (f?.type === 'photo' || f?.type === 'photos') return `картинок: ${Array.isArray(v) ? v.length : 1}`;
   if (f?.type === 'money') return money(v);
   if (f?.type === 'select') return (f.options || refs?.[f.ref] || []).find((o) => String(o.value) === String(v))?.label || '';
   return String(v);
@@ -200,6 +204,13 @@ function canEditDict() {
 
 /** Поля-картинки справочника (photo — одна, photos — несколько; БЗ-6 Э9.7). */
 const isPhoto = (f) => f.type === 'photo' || f.type === 'photos';
+/** «foundation\nholes» → ['foundation','holes'] (safety_zone = safety; «(если разборное)» не теряем — assembly). */
+const linesToKinds = (v) => [...new Set(String(v || '').replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x)).map((k) => (k === 'safety_zone' ? 'safety' : k)))];
+/** Метки видов: известные + неизвестные из значения (не терять при сохранении). */
+const kindOptions = (v) => {
+  const known = [...KINDS, ...KINDS_V2].map(([value, label, sub]) => ({ value, label, sub }));
+  return [...known, ...linesToKinds(v).filter((k) => !known.some((o) => o.value === k)).map((k) => ({ value: k, label: k, sub: 'вид не из списка' }))];
+};
 const idsOf = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String);
 let photoKeys = new Map();
 function photoStrip(r, f) {
@@ -241,7 +252,8 @@ export const dict = {
       photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
       return info.fields.map((f) => ({
         key: f.key, label: f.label, required: !!f.required, wide: !!f.wide, hint: f.hint, max: 300,
-        type: isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
+        ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этой категории не выдаётся' } : {}),
+        type: f.key === 'requiredImages' ? 'widget' : isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
         money: f.type === 'money',
         placeholder: f.type === 'color' ? '#2e7d32' : undefined,
         options: f.type === 'select' ? (f.options || info.refs?.[f.ref] || []) : undefined,
@@ -250,7 +262,7 @@ export const dict = {
     initial: () => (dictKey() === 'persons' ? { status: 'active' } : {}),
     // картинки (БЗ-6 Э9.7): в форме — загрузка/вставка как везде; в базе — id фото (photo — один, photos — список)
     toInitial: (r) => ({ ...r, ...Object.fromEntries((r.dictInfo?.fields || []).filter(isPhoto).map((f) => [f.key, idsOf(r[f.key]).map((id) => ({ id, url: r.photos?.[id]?.url, thumb: r.photos?.[id]?.thumb || r.photos?.[id]?.url }))])) }),
-    toBody: (v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
+    toBody: (v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
     create: (b) => api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
     update: (id, b) => api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); return r; }),
   },

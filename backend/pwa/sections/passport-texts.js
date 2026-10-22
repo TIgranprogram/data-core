@@ -14,6 +14,16 @@ import { toast, toastError } from '../ui/toast.js';
  * Ключ пункта = раздел + номер по порядку: пункт № k раздела категории заменяет общий пункт № k того же раздела.
  */
 export const TEXTS_KEY = 'ptexts';
+/** Переменные в тексте пункта — метками с понятным названием (в паспорте подставится значение). */
+const VAR_NAMES = { name: 'наименование', article: 'артикул', code: 'номер изделия', serialNo: 'номер изделия', ageFrom: 'возраст от', ageTo: 'возраст до', heightMin: 'рост от', heightMax: 'рост до', weightMax: 'вес до', maxUsers: 'пользователей', fallHeight: 'высота падения', siteL: 'длина площадки', siteW: 'ширина площадки', serviceLifeYears: 'срок службы', warrantyMonths: 'гарантия, мес.', tempMin: 'темп. от', tempMax: 'темп. до', manufacturer: 'изготовитель' };
+function withVars(text) {
+  return String(text).split(/(\{[^}]+\})/).filter(Boolean).map((part) => {
+    const m = /^\{(std|fig|tab):([^}]+)\}$/.exec(part) || /^\{([A-Za-z]+)\}$/.exec(part);
+    if (!m) return part;
+    const label = m[2] ? (m[1] === 'std' ? 'норматив ' + m[2].replace(/_/g, ' ') : m[1] === 'fig' ? 'рисунок' : 'таблица') : VAR_NAMES[m[1]] || m[1];
+    return h('span', { class: 'pt-var', title: `${part} — подставится в паспорте` }, label);
+  });
+}
 export const CATS = [
   { code: 'ALL', name: 'Для всех' }, { code: 'TRN', name: 'Тренажёры' }, { code: 'WRK', name: 'Воркаут' }, { code: 'MAF', name: 'МАФ' },
   { code: 'DIO', name: 'Детское игровое (позже)' }, { code: 'DSP', name: 'Детское спортивное (позже)' },
@@ -79,12 +89,12 @@ export function mountTexts() {
   const open = (of, id) => patch({ of, open: id, new: undefined });
   function renderChips(cat) {
     chips.replaceChildren(...CATS.map((c) => h('button', { type: 'button', class: 'chip' + (c.code === cat ? ' active' : ''), 'aria-pressed': String(c.code === cat), title: c.name,
-      onclick: () => patch({ cat: c.code, of: undefined, open: undefined }) }, c.code, h('span', { class: 'md-hide' }, ' · ' + c.name))));
+      onclick: () => patch({ cat: c.code, of: undefined, open: undefined }) }, c.name)));
   }
   function renderTree(cat, t) {
     const sel = current().params.open || '';
-    info.textContent = (cat === 'ALL' ? 'Общая часть — её получают паспорта всех категорий (правится на чипе «Для всех»). ' : `Общие пункты — серые, правятся на чипе «Для всех». Тексты категории «${catName(cat)}»: `)
-      + (t.source === 'db' ? `версия ${t.version} в базе.` : 'из программы (своей версии в базе ещё нет — первое сохранение её создаст).');
+    info.textContent = (cat === 'ALL' ? 'Общая часть: эти разделы получают паспорта всех категорий. ' : `Серые пункты — общие (правятся в «Для всех»), остальные — только для «${catName(cat)}». `)
+      + (t.source === 'db' ? `Сохранено версий: ${t.version}.` : 'Тексты из программы — после первого сохранения появится своя версия.');
     if (!t.tree.length) { tree.replaceChildren(h('div', { class: 'state' }, 'Разделов нет.')); return; }
     tree.replaceChildren(...t.tree.map((s) => {
       const mine = s.ownSection != null;
@@ -92,14 +102,14 @@ export function mountTexts() {
       return h('section', { class: 'pt-sec' },
         h('div', { class: 'pt-sec-head' },
           h('h3', null, `${s.number} ${s.title}`),
-          h('span', { class: 'pt-sec-tag' }, s.allSection == null ? 'раздел категории' : mine ? 'общий + категории' : 'общий'),
+          h('span', { class: 'pt-sec-tag' }, cat === 'ALL' ? 'общий раздел' : s.allSection == null ? 'раздел категории' : mine ? 'общий + категории' : 'общий'),
           edit && mine ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: addHint, onclick: () => open('ptext', `${cat}.n.${s.key}`) }, '+ Пункт') : null),
         h('ol', { class: 'pt-items' }, ...s.items.map((it) => {
           const id = it.origin === 'all' ? `${cat}.a.${s.key}.${it.allIndex}` : `${cat}.i.${s.ownSection}.${it.ownIndex}`;
           const of = it.origin === 'all' ? 'ptextview' : 'ptext';
           return h('li', null, h('button', { type: 'button', class: 'pt-item' + (it.origin === 'all' ? ' all' : '') + (sel === id ? ' active' : ''), onclick: () => open(of, id) },
             h('span', { class: 'pt-num num' }, it.number || '—'),
-            h('span', { class: 'pt-text' }, it.bullet ? it.text : it.text.replace(LEAD, '')),
+            h('span', { class: 'pt-text' }, ...withVars(it.bullet ? it.text : it.text.replace(LEAD, ''))),
             it.origin === 'all' ? h('span', { class: 'pt-tag' }, 'общий') : it.origin === 'override' ? h('span', { class: 'pt-tag own' }, 'заменяет общий') : null));
         })));
     }));

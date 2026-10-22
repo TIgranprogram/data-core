@@ -837,7 +837,9 @@ html { scrollbar-gutter: stable; }
 .pt-num { flex: none; min-width: 44px; color: var(--muted); font-size: var(--fs-sm); }
 .pt-text { flex: 1 1 auto; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
 .pt-tag { flex: none; font-size: var(--fs-sm); color: var(--muted); border: 1px solid var(--border-strong); border-radius: 9px; padding: 0 7px; }
-.pt-tag.own { color: var(--gold-deep); background: var(--gold-soft); border-color: transparent; }
+.pt-tag.own { color: var(--text); background: var(--gold-soft); border-color: transparent; }
+.pt-var { display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--heading); font-size: var(--fs-sm); border: 1px dashed var(--border-strong); }
+.pp-snap-edit { margin-left: var(--s2); }
 .pt-vars { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
 .pt-ta { font-family: inherit; }
 .pt-plain { white-space: pre-wrap; font-weight: 400; }
@@ -875,7 +877,7 @@ html { scrollbar-gutter: stable; }
 /* ── Телефон: работа на ходу (TASKS МП.1, DESIGN §8 2026-10-21) — палец: цели от 44px, поля 16px (без увеличения на iPhone) ── */
 .go-tiles { display: none; }
 @media (max-width: 720px) {
-  .btn, .seg button, .chip, input, select, textarea, .side-link, .q-row .btn, .row-act, .tag, .link-btn { min-height: 44px; }
+  .btn, .seg button, .chip, input, select, textarea, .side-link, .q-row .btn, .row-act, .tag, .link-btn, .form-sec, .fseg-btn, .pt-item, details.month-group > summary { min-height: 44px; }
   input, select, textarea { font-size: 16px; }
   .tag { min-height: 44px; padding-left: var(--s3); padding-right: var(--s3); }
   .go-tiles { display: grid; gap: var(--s3); margin: 0 0 var(--s4); }

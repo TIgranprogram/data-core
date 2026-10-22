@@ -140,7 +140,7 @@ export function missingFields(p: PassportLike): string[] {
   if (empty(p.purpose)) m.push('Назначение');
   if (empty(p.description)) m.push('Описание');
   if (empty(p.customerName) && empty(p.objectName)) m.push('Заказчик / объект');
-  if (!(p.images || []).some((i) => i.kind === 'overview')) m.push('Общий вид');
+  if (!(p.images || []).some((i) => i.kind === 'overview')) m.push('Фото изделия');
   return m;
 }
 
@@ -184,10 +184,10 @@ export function requiredFieldsOf(code: string, cat?: { requiredFields?: string }
 /** Обязательные виды картинок паспорта по категории (справочник, по строке вид; «(если разборное)» — только у разборных). */
 export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImages?: string } | null): string[] {
   const out: string[] = [];
+  // по строке, через пробел или запятую; «(если разборное)» — относится к видам этой строки
   for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {
-    const kind = line.trim().split(/\s+/)[0];
-    if (!kind || (/если разборн/i.test(line) && !p.isKit)) continue;
-    if (!out.includes(kind)) out.push(kind);
+    if (/если разборн/i.test(line) && !p.isKit) continue;
+    for (const kind of line.replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x))) if (!out.includes(kind)) out.push(kind);
   }
   return out;
 }
@@ -207,7 +207,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   const has = new Set((p.images || []).map((i) => (i.kind === 'safety' ? 'safety_zone' : i.kind)));
   for (const kind of requiredImageKinds(p, cat)) {
     const k = kind === 'safety' ? 'safety_zone' : kind;
-    if (!has.has(k)) { const label = `Рисунок: ${IMAGE_KIND_LABELS[k] ?? k}`; if (!m.includes(label) && !(k === 'overview' && m.includes('Общий вид'))) m.push(label); }
+    if (!has.has(k)) { const label = `Рисунок: ${IMAGE_KIND_LABELS[k] ?? k}`; if (!m.includes(label) && !(k === 'overview' && m.includes('Фото изделия'))) m.push(label); }
   }
   return m;
 }
