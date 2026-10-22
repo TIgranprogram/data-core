@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { effectiveRoles } from '../../common/roles-hierarchy';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
@@ -21,6 +22,13 @@ function similarity(a: string, b: string) {
 export class DictsService {
   constructor(@InjectConnection() private readonly connection: Connection) {}
   private get db() { return this.connection.db!; }
+
+  /** Правка справочника с `editRoles` (группа «Паспорта» — директор и админ); остальные — как раньше (менеджер+ по @Roles). */
+  assertCanEdit(key: string, user?: { role?: string; isOwner?: boolean } | null) {
+    const roles = this.def(key).editRoles;
+    if (!roles || user?.isOwner === true || effectiveRoles(user?.role).some((r) => roles.includes(r))) return;
+    throw new ForbiddenException('Этот справочник правят директор и администратор');
+  }
 
   private def(key: string): DictDef {
     const d = DICT.get(key);
@@ -51,7 +59,7 @@ export class DictsService {
       const n = await this.db.collection(d.coll).countDocuments(d.match);
       let g = out.find((x) => x.group === d.group);
       if (!g) out.push((g = { group: d.group, items: [] }));
-      g.items.push({ key: d.key, title: d.title, hint: d.hint, count: n });
+      g.items.push({ key: d.key, title: d.title, hint: d.hint, count: n, ...(d.editRoles ? { editRoles: d.editRoles } : {}) });
     }
     return { items: out };
   }

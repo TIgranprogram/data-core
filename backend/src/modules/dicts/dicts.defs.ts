@@ -46,6 +46,8 @@ export interface DictDef {
   options?(docs: Doc[]): string[];
   /** Мягкое удаление: какие поля ставить (по умолчанию deletedAt). */
   softDelete?: Document;
+  /** Кто правит (роль и старше); по умолчанию — менеджер и старше. «Паспорта» — директор (и админ). */
+  editRoles?: string[];
 }
 
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -352,8 +354,23 @@ export const DICTS: DictDef[] = [
     { coll: 'supplyrequests', field: 'sheetExtra.invoiceType' }, ['Счет на оплату', 'Счет-договор', 'Счет', 'УПД'], 'invoiceTypes'),
   simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в счетах: доставка, погрузка, аренда техники…', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
 
-  // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.3) ─────────
-  simpleList('passportStandards', 'Паспорта', 'Нормативы',
+  // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.2, §3.3): правят директор и админ ─────────
+  {
+    ...simpleList('passportCategories', 'Паспорта', 'Категории паспортов',
+      'Вид изделия для паспорта: какие разделы, нормативы, обязательные рисунки и значения по умолчанию. ALL — «Для всех»: его тексты получают все категории. Не путать с категориями каталога — связь в поле «Категории каталога».',
+      [
+        { key: 'code', label: 'Код', required: true, hint: 'ALL, DIO, DSP, TRN, WRK, MAF — латиницей; по нему тексты и шаблоны' },
+        { key: 'catalogNames', label: 'Категории каталога', wide: true, hint: 'Через запятую, как в паспортах и каталоге: «Уличный тренажёр, Тренажёр уличный»' },
+        { key: 'standards', label: 'Нормативы (коды)', wide: true, hint: 'Коды из «Нормативов» через запятую: GOST_R_57538' },
+        { key: 'serviceLifeYears', label: 'Срок службы, лет' },
+        { key: 'warrantyMonths', label: 'Гарантия, мес.' },
+        { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: overview, dimensions, safety_zone, foundation… (виды картинок паспорта)' },
+        { key: 'extraSections', label: 'Разделы сверх общего', type: 'textarea', wide: true },
+      ]),
+    editRoles: ['director'],
+  },
+  {
+    ...simpleList('passportStandards', 'Паспорта', 'Нормативы',
     'ГОСТ, ТР ЕАЭС, СП, на которые ссылается текст паспорта: в тексте — {std:КОД}, подставляется «Название». Статус и дата проверки — чтобы не ссылаться на отменённое (паспорт предупредит).',
     [
       { key: 'code', label: 'Код для текста', required: true, hint: 'Латиницей, без пробелов: GOST_R_52301 → в тексте {std:GOST_R_52301}' },
@@ -362,6 +379,8 @@ export const DICTS: DictDef[] = [
       { key: 'checkedAt', label: 'Проверено (дата)', hint: 'ГГГГ-ММ-ДД — когда сверяли по официальной базе' },
       { key: 'applies', label: 'Где применяем', wide: true },
     ]),
+    editRoles: ['director'],
+  },
 ];
 
 export const DICT = new Map(DICTS.map((d) => [d.key, d]));

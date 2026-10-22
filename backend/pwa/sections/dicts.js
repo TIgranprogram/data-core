@@ -130,9 +130,11 @@ export function mountDicts(params) {
     try {
       const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
       groups = g.items; data = d;
+      editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
+      addBtn.hidden = !canEditDict();
       relCache.clear();
       title.textContent = d.dict.title; hint.textContent = d.dict.hint;
-      candBtn.hidden = !session.canEdit || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
+      candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
       renderNav(); renderTable();
     } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + e.message)); }
   }
@@ -163,8 +165,17 @@ async function mergeDialog(r, ctx) {
 }
 
 /** Карточка справочника (правая панель): открывается из «Справочников» (of=dict). */
+/** Справочник с ограничением правки (`editRoles`, группа «Паспорта» — директор и админ); остальные — как раньше. */
+let editRoles = null;
+function canEditDict() {
+  if (!session.canEdit) return false;
+  if (!editRoles || session.user?.isOwner === true) return true;
+  return editRoles.some((r) => (r === 'director' ? ['admin', 'director'] : [r]).includes(session.user?.role));
+}
+
 export const dict = {
   id: 'dict',
+  canEdit: canEditDict,
   title: 'Справочники',
   entityType: 'DictItem',
   historyLabels: { 'dict.created': 'Добавлено', 'dict.updated': 'Изменено', 'dict.deleted': 'Удалено', 'dict.restored': 'Восстановлено', 'dict.merged': 'Объединено' },

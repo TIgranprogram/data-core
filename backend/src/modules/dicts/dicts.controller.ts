@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Use
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { DictsService } from './dicts.service';
 
@@ -39,7 +40,8 @@ export class DictsController {
   @HttpCode(200)
   @Roles('manager')
   @AuditAction({ action: 'dict.imported', entityType: 'DictItem', details: (d, p) => ({ meta: { dict: p.key, ...(d as object) } }) })
-  importNames(@Param('key') key: string, @Body() body: { names?: string[] }) {
+  importNames(@Param('key') key: string, @Body() body: { names?: string[] }, @CurrentUser() user: AuthenticatedUser) {
+    this.dicts.assertCanEdit(key, user);
     return this.dicts.importNames(key, body?.names);
   }
 
@@ -52,21 +54,24 @@ export class DictsController {
   @Post(':key')
   @Roles('manager')
   @AuditAction({ action: 'dict.created', entityType: 'DictItem' })
-  create(@Param('key') key: string, @Body() body: Record<string, unknown>) {
+  create(@Param('key') key: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
+    this.dicts.assertCanEdit(key, user);
     return this.dicts.create(key, body);
   }
 
   @Patch(':key/:id')
   @Roles('manager')
   @AuditAction({ action: 'dict.updated', entityType: 'DictItem', idParam: 'id' })
-  update(@Param('key') key: string, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+  update(@Param('key') key: string, @Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
+    this.dicts.assertCanEdit(key, user);
     return this.dicts.update(key, id, body);
   }
 
   @Delete(':key/:id')
   @Roles('manager')
   @AuditAction({ action: 'dict.deleted', entityType: 'DictItem', idParam: 'id', details: (_d, p) => ({ meta: { dict: p.key } }) })
-  remove(@Param('key') key: string, @Param('id') id: string) {
+  remove(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    this.dicts.assertCanEdit(key, user);
     return this.dicts.remove(key, id);
   }
 
@@ -74,7 +79,8 @@ export class DictsController {
   @HttpCode(200)
   @Roles('manager')
   @AuditAction({ action: 'dict.restored', entityType: 'DictItem', idParam: 'id', details: (_d, p) => ({ meta: { dict: p.key } }) })
-  restore(@Param('key') key: string, @Param('id') id: string) {
+  restore(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    this.dicts.assertCanEdit(key, user);
     return this.dicts.restore(key, id);
   }
 
@@ -82,7 +88,8 @@ export class DictsController {
   @HttpCode(200)
   @Roles('manager')
   @AuditAction({ action: 'dict.merged', entityType: 'DictItem', idParam: 'id', details: (d, p) => ({ meta: { dict: p.key, into: (d as { _id?: string })?._id, moved: (d as { moved?: number })?.moved } }) })
-  merge(@Param('key') key: string, @Param('id') id: string, @Body() body: { intoId?: string }) {
+  merge(@Param('key') key: string, @Param('id') id: string, @Body() body: { intoId?: string }, @CurrentUser() user: AuthenticatedUser) {
+    this.dicts.assertCanEdit(key, user);
     return this.dicts.merge(key, id, String(body?.intoId ?? ''));
   }
 }
