@@ -66,7 +66,7 @@ events.onAuthLost = () => { session.clear(); showLogin('Сессия истек�
 // ---------- «Обновить приложение» (2026-10-22): у установленного приложения нет кнопки браузера «обновить» ----------
 function updateLink() {
   const ver = h('small', { class: 'side-ver' });
-  versionLabel().then((v) => { ver.textContent = v; });
+  versionLabel(ver);
   return h('a', { class: 'side-link', href: '#', title: 'Загрузить последнюю версию приложения (данные не теряются)', onclick: async (e) => {
     e.preventDefault();
     try { const reg = await navigator.serviceWorker?.getRegistration?.(); await reg?.update(); } catch { /* без service worker */ }

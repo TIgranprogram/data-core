@@ -31,7 +31,9 @@ echo "== 1. Бэкап базы на VM"
 
 echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
 TMP="$(mktemp -d)"
-git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" HEAD backend docker-compose.prod.yml deploy
+# версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
+PWA_VER="$(git log -1 --format='{"v":"%h","date":"%cI"}' -- backend/pwa)"
+git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend docker-compose.prod.yml deploy
 scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
 "${SSH[@]}" 'set -e; TS=$(date +%Y%m%d%H%M); R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
   cp /opt/data-core/deploy/synology/.env $R/deploy/synology/.env 2>/dev/null || true
