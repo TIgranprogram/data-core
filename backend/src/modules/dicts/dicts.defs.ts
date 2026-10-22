@@ -381,6 +381,54 @@ export const DICTS: DictDef[] = [
     ]),
     editRoles: ['director'],
   },
+  {
+    ...simpleList('passportElements', 'Паспорта', 'Функциональные элементы',
+      'Из чего состоит изделие по назначению (турник, брусья, горка…): фраза для описания, правила пользования и что проверять при ТО. Подставляются в текст паспорта по составу изделия.',
+      [
+        { key: 'code', label: 'Код', required: true, hint: 'Латиницей: HORIZONTAL_BAR' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: DIO, DSP, TRN, WRK, MAF' },
+        { key: 'inDescription', label: 'В описании', wide: true, hint: 'Фраза для раздела «Описание», напр. «горизонтальная перекладина для подтягиваний»' },
+        { key: 'purpose', label: 'Назначение', wide: true },
+        { key: 'usageRules', label: 'Правила пользования', type: 'textarea', wide: true, hint: 'По строке на шаг' },
+        { key: 'inspect', label: 'Что проверять при ТО', type: 'textarea', wide: true, hint: 'По строке на пункт' },
+        { key: 'standard', label: 'Норматив (код)', hint: 'Код из «Нормативов»' },
+      ]),
+    editRoles: ['director'],
+  },
+  {
+    ...simpleList('passportMaterials', 'Паспорта', 'Материалы и покрытия',
+      'Материалы изделий: фраза «изготовлено из…», уход и ремонт, типичные дефекты. Подставляются в паспорт по материалам изделия.',
+      [
+        { key: 'code', label: 'Код', required: true, hint: 'Латиницей: STEEL_POWDER' },
+        { key: 'madeOf', label: 'Изготовлено из…', wide: true, hint: 'В родительном падеже: «стальной трубы с порошковым покрытием»' },
+        { key: 'care', label: 'Уход и ремонт', type: 'textarea', wide: true, hint: 'По строке на пункт' },
+        { key: 'defects', label: 'Типичные дефекты (коды)', wide: true, hint: 'Коды из «Дефектов» через запятую' },
+      ]),
+    editRoles: ['director'],
+  },
+  {
+    ...simpleList('passportDefects', 'Паспорта', 'Дефекты',
+      'Типовые дефекты, которые ищут при осмотре, и что с ними делать. Попадают в таблицу «Дефект — мера — период» паспорта.',
+      [
+        { key: 'code', label: 'Код', required: true, hint: 'Латиницей: CORROSION' },
+        { key: 'applies', label: 'Элементы и материалы (коды)', wide: true, hint: 'Через запятую' },
+        { key: 'measure', label: 'Мера', wide: true, hint: 'Что делать при обнаружении' },
+        { key: 'period', label: 'Период проверки', type: 'select', options: ['ежедневно', 'ежемесячно', 'ежеквартально', 'ежегодно'].map((v) => ({ value: v, label: v })) },
+        { key: 'tolerance', label: 'Допуск', wide: true, hint: 'Что считается допустимым; число — только если оно общепринятое' },
+      ]),
+    editRoles: ['director'],
+  },
+  {
+    ...simpleList('passportInstall', 'Паспорта', 'Способы установки',
+      'Как изделие крепится на месте: текст монтажа, требования к основанию и какие рисунки обязательны.',
+      [
+        { key: 'code', label: 'Код', required: true, hint: 'Латиницей: CONCRETE_POSTS' },
+        { key: 'montage', label: 'Текст монтажа', type: 'textarea', wide: true, hint: 'По строке на шаг' },
+        { key: 'baseRequirements', label: 'Требования к основанию', type: 'textarea', wide: true, hint: 'По строке на пункт' },
+        { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: foundation, holes…' },
+      ]),
+    editRoles: ['director'],
+  },
 ];
 
 export const DICT = new Map(DICTS.map((d) => [d.key, d]));
