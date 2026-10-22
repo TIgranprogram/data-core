@@ -87,7 +87,7 @@ export class ProductPassportService {
     ]).exec();
     const items: Doc[] = groups.map((g) => {
       const d = g.doc as Doc;
-      return { id: String(d._id), passportNumber: d.passportNumber, n: g.n, name: d.name, article: d.article ?? '', category: d.category ?? '',
+      return { id: String(d._id), passportNumber: d.passportNumber, n: g.n, name: d.name, article: d.article ?? '', category: d.category ?? '', productId: d.productId ? String(d.productId) : null,
         ...Object.fromEntries(MODEL_FIELDS.filter((f) => !['productId', 'name', 'category', 'article'].includes(f)).map((f) => [f, d[f] ?? null])),
         images: d.images ?? [] };
     });

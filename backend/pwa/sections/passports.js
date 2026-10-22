@@ -2,7 +2,7 @@ import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch } from '../core/facets.js';
 import { date, isoDay } from '../core/format.js';
-import { current, go } from '../core/router.js';
+import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
 import { toast, toastError } from '../ui/toast.js';
 
@@ -43,6 +43,7 @@ async function models() {
   if (modelsCache && Date.now() - modelsAt < 60000) return modelsCache;
   const items = await api('/passports/models');
   modelsCache = items.map((r) => ({
+    productId: r.productId || null,
     label: r.name, cat: r.category || '', pic: r.thumb ? PREFIX + r.thumb : null,
     sub: [r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${r.n % 10 === 1 && r.n % 100 !== 11 ? 'паспорт' : 'паспорт.'}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
     search: normSearch([r.name, r.article, r.category].filter(Boolean).join(' ')),
@@ -64,7 +65,24 @@ const phrases = (field) => async () => {
 async function orders() {
   const items = (await api('/salesorders', { query: { limit: 500, sort: '-createdAt' } }).catch(() => ({ items: [] }))).items;
   return items.filter((o) => o.orderNo).map((o) => ({ label: `№ ${o.orderNo}${o.customer ? ' · ' + o.customer : ''}`, sub: [o.title, o.shipDate && 'отгрузка ' + date(o.shipDate)].filter(Boolean).join(' · '),
-    cat: '', search: normSearch([o.orderNo, o.customer, o.title].filter(Boolean).join(' ')), values: { orderNo: o.orderNo, customerName: o.customer || '' } }));
+    cat: '', search: normSearch([o.orderNo, o.customer, o.title].filter(Boolean).join(' ')), values: { orderNo: o.orderNo, customerName: o.customer || '', salesOrderId: o.id } }));
+}
+
+/**
+ * «Выпустить паспорт» из изделия или позиции заказа (БЗ-5): открывает «Новый паспорт» в правой панели. Модель ищется
+ * по ссылке на изделие, затем по артикулу, затем по названию — подставляются её поля и картинки; номер и талон — сервер.
+ * Возвращает true, если модель нашлась.
+ */
+let draft = null;
+export async function issuePassport({ productId, name, article, orderNo, salesOrderId, customerName }) {
+  const all = await models().catch(() => []);
+  const n = (s) => normSearch(s || '');
+  const m = (productId && all.find((x) => x.productId === productId))
+    || (article && all.find((x) => x.values.article && n(x.values.article) === n(article)))
+    || (name && all.find((x) => n(x.values.name) === n(name)));
+  draft = { ...(m ? m.values : { name: name || '', article: article || '' }), productId, salesOrderId, orderNo, customerName };
+  patch({ of: 'passports', new: '1', open: undefined });
+  return !!m;
 }
 
 /** «<Наименование> (в дальнейшем именуемое «Изделие»), изготовленное из <материалы>. <Установка> <Назначение>» — как на сервере. */
@@ -227,7 +245,7 @@ export const passports = {
       const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
       return [
         { section: 'Изделие (модель)', tone: 'main', fixed: true },
-        { key: '_copyFrom', type: 'hidden' },
+        { key: '_copyFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
         { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
           hint: r ? undefined : 'Начните печатать и выберите модель — подставятся габариты, материалы, описание и картинки',
           suggest: r ? undefined : models, suggestTitle: 'Модели: выберите — подставится всё, кроме заказчика и даты', suggestFocus: 'customerName' },
@@ -257,7 +275,12 @@ export const passports = {
       ];
     },
     // поставщик по умолчанию — наша компания, у которой больше всего паспортов (у модели свой — подставится при выборе)
-    initial: async () => ({ date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '' }),
+    // черновик «Выпустить паспорт» (issuePassport) — поверх, пустые значения не затирают умолчания
+    initial: async () => {
+      const d = draft; draft = null;
+      return { date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
+        ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
+    },
     toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomText(r.bom),
       ...Object.fromEntries(KINDS.map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
     toBody: (v, r) => {
@@ -275,6 +298,8 @@ export const passports = {
       if (images.length || r) body.images = images;
       if (!r && v.date) body.date = v.date;
       if (!r && v._copyFrom) body._copyFrom = v._copyFrom;
+      if (!r && v.productId) body.productId = v.productId;
+      if (!r && v.salesOrderId) body.salesOrderId = v.salesOrderId;
       return body;
     },
     create: async (body) => {

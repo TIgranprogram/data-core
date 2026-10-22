@@ -6,6 +6,7 @@ import { toast } from '../ui/toast.js';
 import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
+import { issuePassport, passports } from './passports.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -89,6 +90,9 @@ export const products = {
       ['Описание', r.description],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
+      ...(passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
+        if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
+      } }] : []),
       { label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { q: row.name }) }],
   },
