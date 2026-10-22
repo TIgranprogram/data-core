@@ -31,6 +31,7 @@ import { products } from './sections/products.js';
 import { passports } from './sections/passports.js';
 import { catalogImport, fromOrders, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
+import { versionLabel, watchUpdates } from './core/update-check.js';
 
 const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, composition };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
@@ -61,6 +62,17 @@ function showLogin(message) {
   user.focus();
 }
 events.onAuthLost = () => { session.clear(); showLogin('Сессия истекла — войдите снова.'); };
+
+// ---------- «Обновить приложение» (2026-10-22): у установленного приложения нет кнопки браузера «обновить» ----------
+function updateLink() {
+  const ver = h('small', { class: 'side-ver' });
+  versionLabel().then((v) => { ver.textContent = v; });
+  return h('a', { class: 'side-link', href: '#', title: 'Загрузить последнюю версию приложения (данные не теряются)', onclick: async (e) => {
+    e.preventDefault();
+    try { const reg = await navigator.serviceWorker?.getRegistration?.(); await reg?.update(); } catch { /* без service worker */ }
+    location.reload();
+  } }, icon('refresh'), h('span', { class: 'lbl' }, 'Обновить приложение', ver));
+}
 
 // ---------- «Установить на телефон» (TASKS МП.2–МП.3) ----------
 // Android Chrome отдаёт событие установки — кнопка сразу ставит приложение; иначе (iPhone, другой браузер) — короткая инструкция.
@@ -129,6 +141,7 @@ function shell() {
       // CRM живёт на том же домене в корне (https://kppdf-crm.ru/), приложение — под /db/; локально CRM нет
       PREFIX ? h('a', { class: 'side-link', href: '/', title: 'CRM' }, icon('crm'), h('span', { class: 'lbl' }, 'CRM')) : null,
       themeButton(),
+      updateLink(),
       h('div', { class: 'side-user' }, h('span', { class: 'avatar' }, initials),
         h('div', { class: 'who' }, h('b', null, session.name), h('span', null, roleName(session.user?.role)))),
       h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти'))));
@@ -299,4 +312,5 @@ window.addEventListener('online', () => events.onNet(true));
 window.addEventListener('offline', () => events.onNet(false));
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* без офлайн-оболочки */ });
+watchUpdates(); // новая выкладка — уведомление «Вышла новая версия · Обновить»
 if (session.refresh) showApp(); else showLogin();
