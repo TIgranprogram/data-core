@@ -26,6 +26,7 @@
 | Схема таблиц / контракт для клиента | живой API: `GET /api/meta/schema`, `/api/meta/openapi.json`, `/api/meta/guide` (модуль `modules/meta`); в админке — вкладка «Подключение» | — |
 | Точный контракт эндпоинта | `docs/openapi.json` — **только grep по пути**, файл 175 КБ | целиком |
 | Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог), [ROADMAP.md](ROADMAP.md) (план) | — |
+| Вопросы, ждущие решения пользователя | [docs/QUESTIONS.md](docs/QUESTIONS.md) — новые вопросы записывать туда; мёртвый код не оставлять | — |
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
 | Данные на проде (правит только пользователь) | [docs/DATA-FIX-USER.md](docs/DATA-FIX-USER.md) — дополнять, не исполнять | — |
