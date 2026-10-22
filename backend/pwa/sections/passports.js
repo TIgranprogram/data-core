@@ -83,7 +83,9 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
   const m = (productId && all.find((x) => x.productId === productId))
     || (article && all.find((x) => x.values.article && n(x.values.article) === n(article)))
     || (name && all.find((x) => n(x.values.name) === n(name)));
-  draft = { ...(m ? m.values : { name: name || '', article: article || '' }), productId, salesOrderId, orderNo, customerName };
+  // значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b) — поверх полей модели; форма v1 берёт только свои поля
+  const defaults = productId ? (await api(`/showcase/${productId}`).catch(() => null))?.passportDefaults || {} : {};
+  draft = { ...(m ? m.values : { name: name || '', article: article || '' }), ...defaults, productId, salesOrderId, orderNo, customerName };
   patch({ of: 'passports', new: '1', open: undefined });
   return !!m;
 }

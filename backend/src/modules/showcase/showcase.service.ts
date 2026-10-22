@@ -7,6 +7,7 @@ import { escapeRe, oid } from '../../common/list-query';
 import { isUsedByCrm } from '../catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
+import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { productNameKey, shortProductName } from './order-product-name';
 
 type Doc = Record<string, unknown> & { _id: Types.ObjectId };
@@ -83,7 +84,16 @@ export class ShowcaseService {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
-    return { ...item, orderLines: await this.orderLines(d as Doc), composition: await this.composition(d as Doc) };
+    return { ...item, orderLines: await this.orderLines(d as Doc), composition: await this.composition(d as Doc), passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
+  }
+
+  /** Значения паспорта по умолчанию (БЗ-6 Э4b): заменяются целиком; пустое тело — очистить. */
+  async setPassportDefaults(id: string, b: Record<string, unknown>) {
+    const _id = oid(id, 'изделия');
+    if (!(await this.db.collection('products').findOne({ _id, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
+    const v = normalizePassportDefaults(b ?? {});
+    await this.db.collection('products').updateOne({ _id }, Object.keys(v).length ? { $set: { passportDefaults: v, updatedAt: new Date() } } : { $unset: { passportDefaults: '' }, $set: { updatedAt: new Date() } });
+    return this.get(id);
   }
 
   /** Состав изделия (БЗ-5): строки-материалы из products.composition с названиями из справочника; прочие строки (модули, изделия) в этот список не входят. */

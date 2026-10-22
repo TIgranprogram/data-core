@@ -50,6 +50,12 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.composition', entityType: 'Product', idParam: 'id' })
   setComposition(@Param('id') id: string, @Body() b: { lines?: { materialId?: string; quantity?: number | string; notes?: string }[] }) { return this.s.setComposition(id, b?.lines ?? []); }
 
+  /** Значения паспорта по умолчанию (БЗ-6 Э4b): { passportCategory, elements[], materialIds[], installationTypeId, isKit, ageFrom… }. Правят директор и админ (как паспорта). */
+  @Put(':id/passport-defaults')
+  @Roles('admin', 'director')
+  @AuditAction({ action: 'showcase.passportDefaults', entityType: 'Product', idParam: 'id' })
+  setPassportDefaults(@Param('id') id: string, @Body() b: Record<string, unknown>) { return this.s.setPassportDefaults(id, b ?? {}); }
+
   @Post()
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.created', entityType: 'Product' })

@@ -1,0 +1,53 @@
+import { BadRequestException } from '@nestjs/common';
+import { Types } from 'mongoose';
+
+/**
+ * Значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b): `products.passportDefaults` — только новое поле
+ * (коллекция общая с kppdf). «Выпустить паспорт» подставляет их в новый паспорт; запасной путь — последний паспорт модели.
+ */
+export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'MAF'] as const;
+const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths'] as const;
+
+export interface PassportDefaults {
+  passportCategory?: string; elements?: Types.ObjectId[]; materialIds?: Types.ObjectId[]; installationTypeId?: Types.ObjectId | null; isKit?: boolean;
+  [k: string]: unknown;
+}
+
+const oidOf = (v: unknown, what: string) => {
+  if (!Types.ObjectId.isValid(String(v ?? ''))) throw new BadRequestException(`Некорректная ссылка: ${what}`);
+  return new Types.ObjectId(String(v));
+};
+
+/** Тело запроса → значения для записи; пустые поля не сохраняются, неизвестные — отбрасываются. */
+export function normalizePassportDefaults(b: Record<string, unknown>): PassportDefaults {
+  const out: PassportDefaults = {};
+  const cat = String(b.passportCategory ?? '').trim();
+  if (cat) {
+    if (!(PASSPORT_CATEGORY_CODES as readonly string[]).includes(cat)) throw new BadRequestException(`Категория паспорта: одна из ${PASSPORT_CATEGORY_CODES.join(', ')}`);
+    out.passportCategory = cat;
+  }
+  for (const k of ['elements', 'materialIds'] as const) {
+    if (b[k] === undefined || b[k] === null) continue;
+    if (!Array.isArray(b[k])) throw new BadRequestException(`${k}: список`);
+    const ids = (b[k] as unknown[]).map((x) => oidOf(x, k));
+    if (ids.length) out[k] = ids;
+  }
+  if (b.installationTypeId) out.installationTypeId = oidOf(b.installationTypeId, 'способ установки');
+  if (typeof b.isKit === 'boolean') out.isKit = b.isKit;
+  for (const k of NUMS) {
+    const raw = b[k];
+    if (raw === undefined || raw === null || raw === '') continue;
+    const n = Number(String(raw).replace(',', '.'));
+    if (!Number.isFinite(n) || n < 0) throw new BadRequestException(`${k}: неотрицательное число`);
+    out[k] = n;
+  }
+  return out;
+}
+
+/** Для ответа API: ObjectId → строки. */
+export const presentPassportDefaults = (d: PassportDefaults | null | undefined) => (!d ? null : {
+  ...d,
+  ...(d.elements ? { elements: d.elements.map(String) } : {}),
+  ...(d.materialIds ? { materialIds: d.materialIds.map(String) } : {}),
+  ...(d.installationTypeId ? { installationTypeId: String(d.installationTypeId) } : {}),
+});
