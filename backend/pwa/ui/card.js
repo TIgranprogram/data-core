@@ -134,7 +134,9 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
   async function runAction(a, btn) {
     btn.disabled = true;
-    try { await a.run(row, actx()); } catch (e) { toastError(e); } finally { btn.disabled = false; }
+    // дольше четверти секунды — крутилка на кнопке: видно, что дело идёт (замечание 2026-10-22 «тишина»)
+    const t = setTimeout(() => btn.classList.add('is-busy'), 250);
+    try { await a.run(row, actx()); } catch (e) { toastError(e); } finally { clearTimeout(t); btn.classList.remove('is-busy'); btn.disabled = false; }
   }
 
   async function doRemove() {

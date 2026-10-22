@@ -11,6 +11,7 @@ export function toast(text, { error = false, undo, ms } = {}) {
   }
   box.append(t);
   setTimeout(close, ms ?? (undo ? 10000 : error ? 6000 : 3500));
+  return close; // долгое действие: toast('Готовлю…', { ms: … }) — закрыть, когда готово
 }
 
 export const toastError = (e) => toast(e?.message || String(e), { error: true });

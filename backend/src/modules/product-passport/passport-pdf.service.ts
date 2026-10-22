@@ -42,7 +42,7 @@ export class PassportPdfService {
     try { return await sharp(await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)))).png().toBuffer(); } catch { return undefined; }
   }
 
-  async pdf(id: string, opts: { stamp?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
+  async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
     const p = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const buf = await this.render(p, opts);
     await this.passports.markIssued(p._id as Types.ObjectId);
@@ -73,7 +73,7 @@ export class PassportPdfService {
     return zipStore(files);
   }
 
-  private async render(p: Doc, opts: { stamp?: boolean; mode?: 'pages' | 'print'; mono?: boolean }) {
+  private async render(p: Doc, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean }) {
     const imgs = ((p.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
     const url = new Map(photos.map((x) => [String(x._id), x.storageUrl as string]));
@@ -94,8 +94,9 @@ export class PassportPdfService {
     const { orgIn, asset } = await this.orgOf(p);
     const stamp = !!opts.stamp;
     const mode = opts.mode === 'print' ? 'print' : 'pages';
-    const seal = stamp ? await this.asset(asset('seal')) : undefined;
-    const signature = stamp ? await this.asset(asset('signature')) : undefined;
+    // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
+    const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
+    const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
     if (v2) {
       // PDF v2 (БЗ-6 Э6): флаг passports.v2 включён и у паспорта есть снимок текста
       const text = p.textSnapshot as PdfV2Text;

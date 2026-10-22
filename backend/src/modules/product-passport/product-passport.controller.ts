@@ -138,8 +138,10 @@ export class ProductPassportController {
   @ApiQuery({ name: 'stamp', required: false, description: '1 — с печатью и подписью' })
   @ApiQuery({ name: 'mode', required: false, enum: ['pages', 'print', 'stand'], description: 'pages — A5 постранично (умолч.); print — буклет на A4; stand — лист для стенда A3 (только v2)' })
   @ApiQuery({ name: 'bw', required: false, description: '1 — чёрно-белый (только v2; без цвета категории)' })
-  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Res({ passthrough: true }) res: Response) {
-    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1' });
+  @ApiQuery({ name: 'seal', required: false, description: 'при stamp=1: 0 — без печати (только подпись)' })
+  @ApiQuery({ name: 'sign', required: false, description: 'при stamp=1: 0 — без подписи (только печать)' })
+  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Res({ passthrough: true }) res: Response) {
+    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1' });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }

@@ -22,6 +22,10 @@ const PATHS = {
   gallery: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
   refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
   table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>',
+  // форматы PDF паспорта: книжный лист, альбомный буклет со сгибом, высокий лист стенда
+  sheetA5: '<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 11.5h6M9 15h4"/>',
+  sheetBooklet: '<rect x="2" y="5" width="20" height="14" rx="1.5"/><path d="M12 5v14" stroke-dasharray="2 2"/><path d="M5 9h4M5 12h4M15 9h4M15 12h4"/>',
+  sheetA3: '<rect x="5" y="2" width="14" height="20" rx="1.5"/><path d="M8 6h8M8 9.5h8M8 13h8M8 16.5h5"/>',
 };
 
 export function icon(name, cls = 'ico') {

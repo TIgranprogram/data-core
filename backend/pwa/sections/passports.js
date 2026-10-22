@@ -9,7 +9,8 @@ import { tagPick } from '../ui/tag-pick.js';
 import { flag } from '../core/flags.js';
 import { KINDS, KINDS_V2, catNames } from '../core/passport-kinds.js';
 import { toast, toastError } from '../ui/toast.js';
-import { confirmDlg } from '../ui/dialog.js';
+import { confirmDlg, modal } from '../ui/dialog.js';
+import { icon } from '../ui/icons.js';
 
 /**
  * Раздел «Паспорта изделий» (TASKS ПС.4–ПС.5): паспорт = экземпляр (№, талон, номер изделия, дата, заказчик/объект),
@@ -129,16 +130,78 @@ function buildDescription(v) {
 const imgsOf = (r, kind) => (r.images || []).filter((i) => i.kind === kind).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 const imagesBody = (list) => list.map((i, k) => ({ kind: i.kind, photoId: String(i.photoId), order: k, ...(i.caption ? { caption: i.caption } : {}) }));
 
+/** Скачать PDF: «Готовлю…» висит, пока сервер собирает файл (на сервере с одним ядром — секунды), потом «Скачан». */
 async function download(r, query, what) {
-  // «с печатью»: нет печати/подписи у поставщика — предупредить, а не молча отдать PDF без них (БЗ-6 ЭФ6)
-  if (query.stamp) {
-    const o = r.supplierOrg;
-    const lack = !o ? ['поставщик не выбран'] : [!o.hasSeal && 'печать', !o.hasSignature && 'подпись'].filter(Boolean);
-    if (lack.length && !(await confirmDlg('Нет печати или подписи', o
-      ? `У «${o.name}» не загружены: ${lack.join(', ')}. PDF будет без них. Загрузить: «Контрагенты → Наши компании → карточка → Печать и подпись».`
-      : 'В паспорте не выбран поставщик (наша компания) — печати и подписи не будет. Выберите его в «Изменить».', { okText: 'Скачать без них' }))) return;
-  }
-  try { toast(`Готовлю ${what}…`); const name = await apiFile(`/passports/${r.id}/pdf`, { query, fallback: `Паспорт_${r.passportNumber}.pdf` }); toast(`Скачан: ${name}`); } catch (e) { toastError(e); }
+  const done = toast(`Готовлю ${what}… это может занять до минуты`, { ms: 180000 });
+  try { const name = await apiFile(`/passports/${r.id}/pdf`, { query, fallback: `Паспорт_${r.passportNumber}.pdf` }); done(); toast(`Скачан: ${name}`); }
+  catch (e) { done(); throw e; }
+}
+
+// Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)
+const FORMATS = [
+  { mode: 'pages', title: 'Файл A5', sub: 'книжный, постранично — отправить по почте', icon: 'sheetA5' },
+  { mode: 'print', title: 'Буклет A4', sub: 'альбомный лист, сложить пополам — распечатать', icon: 'sheetBooklet' },
+  { mode: 'stand', title: 'Лист для стенда A3', sub: 'правила пользования, книжный, без печати', v2: true, icon: 'sheetA3' },
+];
+
+/**
+ * Скачать / распечатать паспорт (замечание пользователя 2026-10-22): сначала — печать и подпись (галочки), потом вид
+ * (значками: A5, буклет A4, стенд A3), ч/б — у паспорта нового образца. Окно не закрывается, пока PDF готовится.
+ */
+async function printDialog(r) {
+  const v2 = V2 && !!r.textSnapshot;
+  const o = r.supplierOrg;
+  const chk = (label, on, note) => { const cb = h('input', { type: 'checkbox', checked: on }); return { cb, el: h('label', null, cb, label, note ? h('span', { class: 'muted small' }, ` (${note})`) : null) }; };
+  const seal = chk('Печать', !!o?.hasSeal, !o ? 'поставщик не выбран' : o.hasSeal ? '' : 'не загружена');
+  const sign = chk('Подпись', !!o?.hasSignature, !o ? '' : o.hasSignature ? '' : 'не загружена');
+  const mono = chk('Чёрно-белый', false);
+  let mode = 'print';
+  const opts = FORMATS.filter((f) => !f.v2 || v2).map((f) => {
+    const b = h('button', { type: 'button', class: 'pf-opt', role: 'radio', 'data-mode': f.mode, onclick: () => pick(f.mode) }, icon(f.icon, 'pf-ico'), h('b', null, f.title), h('small', null, f.sub));
+    return b;
+  });
+  const pick = (m) => { mode = m; opts.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m))); stampBox.hidden = m === 'stand'; };
+  const stampBox = h('div', { class: 'pf-checks' }, seal.el, sign.el);
+  const body = h('div', { class: 'pf' },
+    h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
+    h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, opts),
+    v2 ? h('div', { class: 'pf-checks' }, mono.el) : null,
+    v2 ? null : h('p', { class: 'hint' }, 'Паспорт старого образца — PDF в старом виде. Новый вид (тексты по справочникам, цвет категории) — «Перевести на новый вид» в действиях карточки.'));
+  pick(mode);
+  await modal({
+    title: `Паспорт № ${r.passportNumber || '—'} — PDF`, okText: 'Скачать PDF', wide: true, body,
+    onOk: async (form) => {
+      const ok = form.querySelector('[type=submit]');
+      ok.textContent = 'Готовлю PDF…'; ok.classList.add('is-busy');
+      try {
+        if (mode === 'stand') { await download(r, { mode: 'stand' }, 'лист для стенда'); return true; }
+        const s = seal.cb.checked, g = sign.cb.checked;
+        const q = { ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(v2 && mono.cb.checked ? { bw: 1 } : {}) };
+        await download(r, q, mode === 'print' ? 'буклет A4' : 'PDF');
+        return true;
+      } finally { ok.textContent = 'Скачать PDF'; ok.classList.remove('is-busy'); }
+    },
+  });
+}
+
+/** Старый паспорт → новый вид: выбрать категорию (подсказка — по старой категории); сервер соберёт текст по справочникам. */
+const OLD_TO_V2 = { 'уличный тренажёр': 'TRN', 'воркаут': 'WRK', 'спортивное оборудование': 'WRK', 'благоустройство': 'MAF', 'маф': 'MAF' };
+async function convertDialog(r, ctx) {
+  const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
+  const sel = h('select', { 'aria-label': 'Категория паспорта' }, h('option', { value: '' }, '— выберите —'), cats.map((c) => h('option', { value: c.value }, c.label)));
+  sel.value = OLD_TO_V2[String(r.category || '').trim().toLowerCase()] || '';
+  const res = await modal({
+    title: 'Перевести на новый вид', okText: 'Перевести',
+    body: h('div', null,
+      h('p', null, 'Паспорт получит категорию, текст соберётся по справочникам «Паспорта» — PDF будет в новом виде (как у новых паспортов). Номера, даты, заказчик, картинки не меняются.'),
+      h('label', { class: 'field wide' }, h('span', null, 'Категория', r.category ? h('span', { class: 'muted' }, ` (была: ${r.category})`) : null), sel),
+      h('p', { class: 'hint' }, 'Потом проверьте блок «Проверка» в карточке — чего не хватает для полного текста.')),
+    onOk: async () => {
+      if (!sel.value) throw new Error('Выберите категорию');
+      return api(`/passports/${r.id}`, { method: 'PATCH', body: { passportCategory: sel.value } });
+    },
+  });
+  if (res) { toast('Паспорт переведён на новый вид'); ctx.setRow(await api(`/passports/${r.id}`)); }
 }
 
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
@@ -337,8 +400,9 @@ export const passports = {
       noImages: 'Паспорта без картинок: перетащите или вставьте (Ctrl+V) общий вид в карточке.',
     },
     hintKey: 'state',
-    headActions: () => [h('button', { class: 'btn btn-ghost', type: 'button', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onclick: async () => {
-      try { toast('Собираю архив — это может занять минуту…'); const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (e) { toastError(e); }
+    headActions: () => [h('button', { class: 'btn btn-ghost', type: 'button', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onclick: async (e) => {
+      const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 }); const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
+      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er); } finally { done(); b.disabled = false; b.classList.remove('is-busy'); }
     } }, '⇩ PDF пакетом')],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
@@ -381,13 +445,9 @@ export const passports = {
       ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''],
     ],
     actions: (r) => [
-      { label: '⇩ PDF с печатью', run: (row) => download(row, { stamp: 1 }, 'PDF с печатью и подписью') },
-      { label: '⇩ PDF без печати', run: (row) => download(row, {}, 'PDF без печати') },
-      { label: '⇩ В печать (буклет A4)', run: (row) => download(row, { stamp: 1, mode: 'print' }, 'буклет для печати') },
-      // ч/б — только у PDF v2 (v1 и так без цвета)
-      V2 && r.textSnapshot && { label: '⇩ В печать ч/б (буклет A4)', run: (row) => download(row, { stamp: 1, mode: 'print', bw: 1 }, 'ч/б буклет для печати') },
-      // v2 (БЗ-6 Э6d): лист правил для информационного стенда — одна страница A3
-      V2 && r.textSnapshot && { label: '⇩ Лист для стенда (A3)', run: (row) => download(row, { mode: 'stand' }, 'лист для стенда') },
+      // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
+      { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
+      V2 && !r.passportCategory && canEdit() && { label: 'Перевести на новый вид', title: 'Старый паспорт: выбрать категорию — PDF будет в новом виде', run: (row, ctx) => convertDialog(row, ctx) },
       canEdit() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },

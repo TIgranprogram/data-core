@@ -214,7 +214,7 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 
 /* ---------- Карточка (боковая панель) ---------- */
 .drawer-back { position: fixed; inset: 0; background: rgba(16, 20, 28, .32); z-index: 40; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100%); background: var(--surface); z-index: 41; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--surface); z-index: 41; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
 .drawer-head { display: flex; align-items: flex-start; gap: var(--s2); padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
 .drawer-head .t { flex: 1; min-width: 0; }
 .drawer-head h2 { overflow-wrap: anywhere; }
@@ -337,7 +337,7 @@ table.list th.right { text-align: right; }
 @media (max-width: 720px) { .feed .f-when { display: none; } }
 
 /* ================= «Рабочий стол»: без моргания, карточка справа, очереди дел ================= */
-:root { --detail-w: clamp(440px, 33vw, 640px); }
+:root { --detail-w: clamp(480px, 40vw, 760px); } /* шире (просьба пользователя 2026-10-22): формы и карточки в одну строку чаще */
 
 /* Обновление без моргания: старые строки видны (приглушены), сверху бежит тонкая полоска */
 .list-panel, .board { position: relative; }
@@ -1040,3 +1040,22 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 
 /* Выбор нескольких значений метками (ui/tag-pick.js): паспорт v2 — элементы, материалы */
 .tag-pick { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+/* Кнопка за работой (замечание 2026-10-22: «нажал печать — тишина»): крутилка слева, нажать ещё раз нельзя */
+.btn.is-busy { cursor: progress; opacity: 1; }
+.btn.is-busy::before { content: ''; width: 14px; height: 14px; margin-right: 6px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; vertical-align: -2px; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn.is-busy::before { animation-duration: 2s; } }
+/* Окно «PDF и печать» паспорта: галочки печать/подпись, вид — плитки со значком (книжный / альбомный / стенд) */
+.pf .section-title { margin-top: var(--s3); }
+.pf-checks { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: var(--s2) 0; }
+.pf-checks label { display: flex; align-items: center; gap: var(--s2); min-height: 36px; cursor: pointer; }
+.pf-checks input { height: auto; }
+.pf-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s2); margin: var(--s2) 0; }
+.pf-opt { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--s3) var(--s2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; text-align: center; cursor: pointer; }
+.pf-opt:hover { background: var(--surface-2); }
+.pf-opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.pf-opt[aria-checked="true"] { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); background: var(--primary-soft); }
+.pf-opt small { color: var(--muted); font-size: var(--fs-sm); line-height: 1.3; }
+.pf-ico { width: 40px; height: 40px; color: var(--muted); }
+.pf-opt[aria-checked="true"] .pf-ico { color: var(--primary); }
