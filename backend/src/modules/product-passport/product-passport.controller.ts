@@ -137,8 +137,9 @@ export class ProductPassportController {
   @Roles(...EDIT)
   @ApiQuery({ name: 'stamp', required: false, description: '1 — с печатью и подписью' })
   @ApiQuery({ name: 'mode', required: false, enum: ['pages', 'print', 'stand'], description: 'pages — A5 постранично (умолч.); print — буклет на A4; stand — лист для стенда A3 (только v2)' })
-  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Res({ passthrough: true }) res: Response) {
-    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages' });
+  @ApiQuery({ name: 'bw', required: false, description: '1 — чёрно-белый (только v2; без цвета категории)' })
+  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Res({ passthrough: true }) res: Response) {
+    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1' });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }

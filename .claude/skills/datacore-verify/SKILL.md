@@ -57,7 +57,7 @@ curl -sf http://localhost:3001/api/health/ready
 2. `docker cp <распаковано>/mongo-*/datacore datacore-mongo:/tmp/prod-dump`, затем в контейнере от root (переменные контейнера, пароль не печатать): `mongorestore --db datacoreqa /tmp/prod-dump` (БД новая — `--drop` не нужен; если `datacoreqa` уже есть и нужна свежая — сначала спросить пользователя).
 3. Один раз: Mongo-пользователь `datacoreqa` (readWrite только на `datacoreqa`), пароль сгенерировать и держать в scratchpad.
 4. `QA_MONGO_PW=… docker compose -f docker-compose.yml -f docker-compose.qa.yml up -d --build backend-qa` → `http://localhost:3002/app/`. Код поменял — `build backend-qa` + `up -d --no-deps --force-recreate backend-qa` (без этого контейнер может остаться старым).
-5. Вход: тестовый пользователь в `datacoreqa.users` (bcryptjs-хеш из контейнера: `node -e "console.log(require('bcryptjs').hashSync(pw,10))"`), пароль генерируется, в чат не выводится.
+5. Вход: тестовый пользователь в `datacoreqa.users` (bcryptjs-хеш из контейнера: `node -e "console.log(require('bcryptjs').hashSync(pw,10))"`), пароль генерируется, в чат не выводится. Для входа пользователя на стенд (решение пользователя 2026-10-22): пользователь `admin` с простым паролем, который знает пользователь (в репо не писать), в `datacoreqa.users` — после свежего восстановления копии выставить заново (только на `datacoreqa`, не на `datacore`).
 
 6. Снимки на разных ширинах (CANON §2 — 1920, 2560, 1024, 390): `QA_DIR=<scratchpad с qa-login.txt> node backend/scripts/qa-screenshot.mjs 1920 1080 '#requests?view=board' out.png` → открыть png и посмотреть. Встроенный браузер шире своей панели показывает неправильно — для широких экранов только так.
 

@@ -371,6 +371,8 @@ export const passports = {
       { label: '⇩ PDF с печатью', run: (row) => download(row, { stamp: 1 }, 'PDF с печатью и подписью') },
       { label: '⇩ PDF без печати', run: (row) => download(row, {}, 'PDF без печати') },
       { label: '⇩ В печать (буклет A4)', run: (row) => download(row, { stamp: 1, mode: 'print' }, 'буклет для печати') },
+      // ч/б — только у PDF v2 (v1 и так без цвета)
+      V2 && r.textSnapshot && { label: '⇩ В печать ч/б (буклет A4)', run: (row) => download(row, { stamp: 1, mode: 'print', bw: 1 }, 'ч/б буклет для печати') },
       // v2 (БЗ-6 Э6d): лист правил для информационного стенда — одна страница A3
       V2 && r.textSnapshot && { label: '⇩ Лист для стенда (A3)', run: (row) => download(row, { mode: 'stand' }, 'лист для стенда') },
       canEdit() && { label: 'Копия на ту же модель', run: async (row, ctx) => {

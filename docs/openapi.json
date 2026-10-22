@@ -8465,6 +8465,15 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "bw",
+            "required": false,
+            "in": "query",
+            "description": "1 — чёрно-белый (только v2; без цвета категории)",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

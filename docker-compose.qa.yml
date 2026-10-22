@@ -19,6 +19,9 @@ services:
       MONGO_URI: mongodb://datacoreqa:${QA_MONGO_PW:?QA_MONGO_PW is required}@mongo:27017/datacoreqa?authSource=admin&replicaSet=rs0
       MONGO_DB: datacoreqa
       SHEETS_SYNC_INTERVAL_MIN: "0"
+      # Стенд локальный: без лимита попыток входа (решение пользователя 2026-10-22). В production DISABLE_THROTTLE запрещён.
+      NODE_ENV: development
+      DISABLE_THROTTLE: "1"
     volumes:
       - ./backend/admin:/app/admin:ro
       - ./backend/pwa:/app/pwa:ro

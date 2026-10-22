@@ -41,9 +41,12 @@ export interface PdfV2Input {
   defectImages?: Record<string, Buffer>;
   withStamp: boolean;
   mode: 'pages' | 'print';
+  /** Чёрно-белый: без цвета категории и заливки шапки обложки — для печати на ч/б принтере (решение пользователя 2026-10-22). */
+  mono?: boolean;
 }
 
 export const NEUTRAL_COLOR = '#546E7A';
+export const MONO_COLOR = '#000';
 
 /** Какой PDF печатать: v2 — только при включённом флаге и непустом снимке разделов; иначе v1 (как раньше). */
 export function pickPdfVersion(flagOn: boolean, p: { textSnapshot?: { sections?: unknown } | null } | null | undefined): 'v1' | 'v2' {
@@ -197,7 +200,7 @@ export function shortTiles(p: PdfPassportV2): Array<{ label: string; value: stri
 function ruleIcon(d: PDFKit.PDFDocument, x: number, y: number, r: number, text: string, color: string) {
   const cx = x + r, cy = y + r;
   if (/^не\s/i.test(text)) {
-    d.save().lineWidth(1.6).strokeColor('#C62828').circle(cx, cy, r - 1).stroke();
+    d.save().lineWidth(1.6).strokeColor(color === MONO_COLOR ? MONO_COLOR : '#C62828').circle(cx, cy, r - 1).stroke();
     d.moveTo(cx - (r - 1) * 0.7, cy - (r - 1) * 0.7).lineTo(cx + (r - 1) * 0.7, cy + (r - 1) * 0.7).stroke().restore();
   } else {
     d.save().fillColor(color).circle(cx, cy, r).fill();
@@ -216,7 +219,7 @@ export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok, fail) => { doc.on('end', () => ok(Buffer.concat(chunks))); doc.on('error', fail); });
 
-  const color = input.style?.color || NEUTRAL_COLOR;
+  const color = input.mono ? MONO_COLOR : input.style?.color || NEUTRAL_COLOR;
   const pages = layoutV2(doc, input, color);
   const total = pages.reduce((m, p) => Math.max(m, p.no ?? 0), 0);
   const foot = `${input.org?.shortName || input.org?.name || ''}${input.org?.shortName || input.org?.name ? ' · ' : ''}Паспорт № ${input.passport.passportNumber ?? ''}`;
@@ -541,14 +544,17 @@ function cover(input: PdfV2Input, color: string): V2Page {
   const { passport: p, org, images, logo, style } = input;
   return { kind: 'cover', draws: [{ y: 0, draw: (d) => {
     const band = 64;
-    d.save().fillColor(color).rect(0, 0, A5.w, band).fill().restore();
+    // ч/б — шапка без заливки: черта снизу, надписи чёрные
+    const onBand = color === MONO_COLOR ? MONO_COLOR : '#fff';
+    if (color === MONO_COLOR) d.lineWidth(1.4).strokeColor(color).moveTo(0, band).lineTo(A5.w, band).stroke();
+    else d.save().fillColor(color).rect(0, 0, A5.w, band).fill().restore();
     if (logo) {
       d.save().fillColor('#fff').roundedRect(M.l - 4, 12, 128, band - 24, 4).fill().restore();
       try { d.image(logo, M.l, 14, { fit: [120, band - 28], align: 'center', valign: 'center' }); } catch { /* без логотипа */ }
     } else if (org?.shortName || org?.name) {
-      d.font('gost').fontSize(12).fillColor('#fff').text(org.shortName || org.name || '', M.l, 24, { width: CW / 2, lineBreak: false, ellipsis: true });
+      d.font('gost').fontSize(12).fillColor(onBand).text(org.shortName || org.name || '', M.l, 24, { width: CW / 2, lineBreak: false, ellipsis: true });
     }
-    if (org?.trademark) d.font('gost').fontSize(13).fillColor('#fff').text(`«${org.trademark.replace(/[«»"]/g, '')}»`, A5.w / 2, 24, { width: A5.w / 2 - M.r, align: 'right', lineBreak: false });
+    if (org?.trademark) d.font('gost').fontSize(13).fillColor(onBand).text(`«${org.trademark.replace(/[«»"]/g, '')}»`, A5.w / 2, 24, { width: A5.w / 2 - M.r, align: 'right', lineBreak: false });
     let yy = band + 14;
     if (org?.name) { d.font('gost').fontSize(10.5).fillColor('#000').text(org.name, M.l, yy, { width: CW }); yy = d.y + 1; }
     const ol = [org?.inn ? `ИНН ${org.inn}${org.kpp ? `; КПП ${org.kpp}` : ''}` : '', org?.phone ? `Тел.: ${org.phone}` : '', org?.email ? `E-mail: ${org.email}` : ''].filter(Boolean).join(' · ');

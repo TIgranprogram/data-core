@@ -41,7 +41,7 @@ export class PassportPdfService {
     try { return await sharp(await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)))).png().toBuffer(); } catch { return undefined; }
   }
 
-  async pdf(id: string, opts: { stamp?: boolean; mode?: 'pages' | 'print' } = {}) {
+  async pdf(id: string, opts: { stamp?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
     const p = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const buf = await this.render(p, opts);
     await this.passports.markIssued(p._id as Types.ObjectId);
@@ -72,7 +72,7 @@ export class PassportPdfService {
     return zipStore(files);
   }
 
-  private async render(p: Doc, opts: { stamp?: boolean; mode?: 'pages' | 'print' }) {
+  private async render(p: Doc, opts: { stamp?: boolean; mode?: 'pages' | 'print'; mono?: boolean }) {
     const imgs = ((p.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
     const url = new Map(photos.map((x) => [String(x._id), x.storageUrl as string]));
@@ -99,7 +99,7 @@ export class PassportPdfService {
         style: await this.styleOf(p),
         logo: await this.asset(asset('logo')),
         defectImages: await this.defectImages(text),
-        seal, signature, withStamp: stamp, mode,
+        seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
       });
     }
     return renderPassportPdf({
