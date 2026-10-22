@@ -4,7 +4,9 @@ import { HydratedDocument, Types } from 'mongoose';
 export type ProductPassportDocument = HydratedDocument<ProductPassport>;
 
 /** Виды картинок паспорта (TASKS ПС.1): общий вид — титул; габариты — прил. 1; зона и монтаж — прил. 2. */
-export const PASSPORT_IMAGE_KINDS = ['overview', 'dimensions', 'safety', 'mounting'] as const;
+/** Виды картинок. Первые четыре — как было (v1); остальные — паспорт v2 (БЗ-6, §3.6): выноски элементов, табличка,
+ *  зона безопасности/приземления, фундамент, разметка скважин, сборка, картинка строки комплектности. */
+export const PASSPORT_IMAGE_KINDS = ['overview', 'dimensions', 'safety', 'mounting', 'overview_callouts', 'nameplate', 'safety_zone', 'foundation', 'holes', 'assembly', 'bom_item'] as const;
 export type PassportImageKind = (typeof PASSPORT_IMAGE_KINDS)[number];
 
 @Schema({ _id: false })
@@ -21,6 +23,10 @@ export class PassportImage {
   /** Подпись под картинкой («Вид спереди», «Рисунок 3 разрез»). */
   @Prop()
   caption?: string;
+
+  /** v2: для `bom_item` — обозначение строки комплектности (`bom[].code`), к которой картинка. */
+  @Prop()
+  refCode?: string;
 }
 const PassportImageSchema = SchemaFactory.createForClass(PassportImage);
 
@@ -33,6 +39,10 @@ export class PassportBomLine {
   @Prop() qty?: number;
   @Prop() unit?: string;
   @Prop() note?: string;
+  /** v2 (БЗ-6 §3.4): размер, масса, картинка детали. */
+  @Prop() size?: string;
+  @Prop() mass?: number;
+  @Prop({ type: Types.ObjectId, ref: 'Photo' }) photoId?: Types.ObjectId;
 }
 const PassportBomLineSchema = SchemaFactory.createForClass(PassportBomLine);
 
@@ -148,6 +158,32 @@ export class ProductPassport {
   /** Заметки — лист «Для заметок» в PDF (нет заметки — нет листа; 2026-10-22). Поле только data-core, kppdf его не читает. */
   @Prop({ trim: true })
   note?: string;
+
+  // ───── Паспорт v2 (БЗ-6, docs/PASSPORTS-V2.md §3.4) — только новые необязательные поля; kppdf их не читает ─────
+  /** Код категории паспорта (справочник `passportCategories`): DIO, DSP, TRN, WRK, MAF. Пусто — паспорт v1. */
+  @Prop() passportCategory?: string;
+  /** Функциональные элементы, материалы — id записей справочников (`dict_values`). Строковое `materials` (v1) не трогаем. */
+  @Prop({ type: [Types.ObjectId], default: undefined }) elements?: Types.ObjectId[];
+  @Prop({ type: [Types.ObjectId], default: undefined }) materialIds?: Types.ObjectId[];
+  @Prop({ type: Types.ObjectId }) installationTypeId?: Types.ObjectId;
+  /** Разборное — поставляется на сборку (тогда нужна схема сборки). */
+  @Prop() isKit?: boolean;
+  @Prop() ageFrom?: number;
+  @Prop() ageTo?: number;
+  @Prop() heightMin?: number;
+  @Prop() heightMax?: number;
+  @Prop() weightMax?: number;
+  @Prop() maxUsers?: number;
+  @Prop() fallHeight?: number;
+  @Prop() siteLength?: number;
+  @Prop() siteWidth?: number;
+  @Prop() serviceLifeYears?: number;
+  /** Сертификат / декларация: номер, срок, знак ЕАС. Без номера раздел «идентификационные сведения» и ЕАС не печатаются. */
+  @Prop({ type: Object }) certificate?: { number?: string; until?: string; hasEac?: boolean };
+  /** Изготовитель, если не совпадает с поставщиком. */
+  @Prop({ type: Types.ObjectId }) manufacturerOrgId?: Types.ObjectId;
+  /** Снимок собранного текста на момент выдачи: правка справочника не меняет выданный паспорт. */
+  @Prop({ type: Object }) textSnapshot?: { templateVersion?: number; ownVersion?: number | null; category?: string; at?: Date; sections?: unknown[]; missing?: string[] };
 
   /** Когда последний раз скачали PDF. */
   @Prop()

@@ -17,7 +17,7 @@ const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'created
 export const MODEL_FIELDS = ['productId', 'name', 'category', 'article', 'height', 'length', 'width', 'weight', 'materials', 'purpose', 'installationMethod', 'description', 'supplierOrgId', 'supplier', 'warrantyMonths', 'bom'] as const;
 /** Выданные номера: без `confirmNumbers: true` не меняются (ПС, «не менять молча»). */
 const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
-const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId'] as const;
+const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 @Injectable()
@@ -196,7 +196,8 @@ export class ProductPassportService {
     delete set.confirmNumbers;
     for (const f of OID_FIELDS) if (f in set) set[f] = set[f] ? this.oid(set[f]) : null;
     if ('date' in set) set.date = set.date ? new Date(String(set.date)) : null;
-    if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind, photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}) }));
+    if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind, photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
+    for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
     if (set.passportNumber !== undefined) set.passportNo = Number(set.passportNumber) || undefined;
     return set;
   }
