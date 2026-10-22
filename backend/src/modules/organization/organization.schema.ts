@@ -54,6 +54,10 @@ export class Organization {
   @Prop()
   shortName?: string;
 
+  /** Полное наименование для документов («Общество с ограниченной ответственностью «…»»; 2026-10-22). Нет — в документах `name`. */
+  @Prop()
+  fullName?: string;
+
   @Prop()
   legalForm?: string;
 

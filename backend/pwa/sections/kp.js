@@ -35,7 +35,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1p
 .r{text-align:right;white-space:nowrap}.ph img{width:72px;height:72px;object-fit:cover;border-radius:6px}.tot td{font-weight:700;font-size:15px;border-bottom:0}
 .note{margin-top:16px;white-space:pre-wrap}@media print{body{margin:12mm}.noprint{display:none}}</style></head><body>
 <p class="noprint m">Печать: Ctrl+P → «Сохранить как PDF».</p>
-<div class="head"><div><b style="font-size:16px">${esc(c.name || '')}</b><div class="m">${req}</div><div class="m">${bank}</div></div>
+<div class="head"><div><b style="font-size:16px">${esc(c.fullName || c.name || '')}</b><div class="m">${req}</div><div class="m">${bank}</div></div>
 <div style="text-align:right"><h1>Коммерческое предложение</h1><div>№ ${esc(d.number)} от ${esc(new Date(d.date).toLocaleDateString('ru-RU'))}</div>${d.customer ? `<div>Для: <b>${esc(d.customer)}</b></div>` : ''}</div></div>
 <table><thead><tr><th>№</th><th>Фото</th><th>Наименование</th><th class="r">Кол-во</th><th class="r">Цена</th><th class="r">Сумма</th></tr></thead><tbody>${rows}
 <tr class="tot"><td colspan="5" class="r">Итого</td><td class="r">${rub(d.total)}</td></tr></tbody></table>

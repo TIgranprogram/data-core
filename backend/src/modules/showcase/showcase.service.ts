@@ -283,7 +283,7 @@ export class ShowcaseService {
     const number = await this.counter.next('CommercialOffer', 'КП');
     return {
       number, date: new Date(), customer: clean(dto.customer) || null, note: String(dto.note ?? '').trim() || null,
-      company: co ? { name: co.name, shortName: co.shortName ?? null, inn: String(co.inn ?? '').startsWith('БЕЗ-ИНН') ? null : co.inn, kpp: co.kpp ?? null, address: co.legalAddress ?? null,
+      company: co ? { name: co.name, shortName: co.shortName ?? null, fullName: co.fullName ?? null, inn: String(co.inn ?? '').startsWith('БЕЗ-ИНН') ? null : co.inn, kpp: co.kpp ?? null, address: co.legalAddress ?? null,
         phone: co.phone ?? null, email: co.email ?? null, website: co.website ?? null, bankName: co.bankName ?? null, bankBik: co.bankBik ?? null, bankAccount: co.bankAccount ?? null, bankCorrAccount: co.bankCorrAccount ?? null } : null,
       items: lines, total: Math.round(lines.reduce((s, l) => s + l.sum, 0) * 100) / 100, noPrice: lines.filter((l) => !l.price).length,
     };

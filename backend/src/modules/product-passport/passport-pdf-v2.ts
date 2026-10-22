@@ -1,6 +1,6 @@
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
-import { fontDir, imposition, warranty, type Page, type PdfImage, type PdfOrg, type PdfPassport } from './passport-pdf';
+import { fontDir, imposition, warranty, type Page, type PdfImage, type PdfOrg, type PdfPassport, docName } from './passport-pdf';
 import type { ComposedSection } from './passport-compose';
 import type { InstallParts, MaintenanceTable } from './passport-compose-parts';
 
@@ -556,7 +556,7 @@ function cover(input: PdfV2Input, color: string): V2Page {
     }
     if (org?.trademark) d.font('gost').fontSize(13).fillColor(onBand).text(`«${org.trademark.replace(/[«»"]/g, '')}»`, A5.w / 2, 24, { width: A5.w / 2 - M.r, align: 'right', lineBreak: false });
     let yy = band + 14;
-    if (org?.name) { d.font('gost').fontSize(10.5).fillColor('#000').text(org.name, M.l, yy, { width: CW }); yy = d.y + 1; }
+    if (docName(org)) { d.font('gost').fontSize(10.5).fillColor('#000').text(docName(org), M.l, yy, { width: CW }); yy = d.y + 1; }
     const ol = [org?.inn ? `ИНН ${org.inn}${org.kpp ? `; КПП ${org.kpp}` : ''}` : '', org?.phone ? `Тел.: ${org.phone}` : '', org?.email ? `E-mail: ${org.email}` : ''].filter(Boolean).join(' · ');
     if (ol) { d.font('gost-i').fontSize(8.5).fillColor('#333').text(ol, M.l, yy, { width: CW }); yy = d.y; }
     yy = Math.max(yy + 18, 140);

@@ -12,7 +12,7 @@ import type { PassportTemplateContent, TemplateTable } from './passport-template
  */
 
 export interface PdfOrg {
-  name?: string; shortName?: string; inn?: string; kpp?: string; phone?: string; email?: string; trademark?: string;
+  name?: string; shortName?: string; fullName?: string; inn?: string; kpp?: string; phone?: string; email?: string; trademark?: string;
   directorName?: string; signerName?: string; signerPosition?: string;
 }
 export interface PdfImage { buf: Buffer; caption?: string }
@@ -42,6 +42,9 @@ export function fontDir(): string {
   const c = [join(process.cwd(), 'pwa', 'fonts'), join(__dirname, '..', '..', '..', 'pwa', 'fonts'), join(__dirname, '..', '..', '..', '..', 'pwa', 'fonts')];
   return c.find((p) => existsSync(join(p, 'gost-a.ttf'))) ?? c[0];
 }
+
+/** Название организации в документе: полное наименование, иначе обычное. */
+export const docName = (o: PdfOrg | null | undefined) => String(o?.fullName || o?.name || '').trim();
 
 /** «Тен Александр Тимурович» → «Тен А. Т.»; уже короткое — как есть. */
 export function shortFio(full?: string): string {
@@ -229,7 +232,7 @@ function cover(input: PdfInput): Page {
   const draws: Page['draws'] = [{ y: 0, draw: (d) => {
     let yy = M.t;
     const x = A5.w / 2 - 40, w = A5.w - x - M.r;
-    if (org?.name) { d.font('gost').fontSize(12.5).fillColor('#000').text(org.name, x, yy, { width: w }); yy = d.y + 1; }
+    if (docName(org)) { d.font('gost').fontSize(12.5).fillColor('#000').text(docName(org), x, yy, { width: w }); yy = d.y + 1; }
     for (const l of orgLines(org)) { d.font('gost').fontSize(10).text(l, x, yy, { width: w }); yy = d.y; }
     yy = Math.max(yy + 26, 150);
     d.font('gost-i').fontSize(17).text(`ПАСПОРТ № ${p.passportNumber ?? ''}`, M.l, yy, { width: CW, align: 'center' });
@@ -242,7 +245,7 @@ function cover(input: PdfInput): Page {
 
 export function warranty(input: Pick<PdfInput, 'passport' | 'org' | 'withStamp' | 'seal' | 'signature'>): Page {
   const { passport: p, org, withStamp, seal, signature } = input;
-  const seller = `${org?.signerPosition || 'Генеральный директор'} ${org?.name ?? ''} ${shortFio(org?.directorName || org?.signerName)}`.replace(/\s+/g, ' ').trim();
+  const seller = `${org?.signerPosition || 'Генеральный директор'} ${docName(org)} ${shortFio(org?.directorName || org?.signerName)}`.replace(/\s+/g, ' ').trim();
   const draws: Page['draws'] = [{ y: 0, draw: (d) => {
     const line = (label: string, yy: number, tail = '') => { d.font('gost-i').fontSize(11).fillColor('#000').text(`${label}`, M.l, yy, { continued: true }).text(`______________________________${tail}`); };
     d.font('gost').fontSize(14).fillColor('#000').text(`ГАРАНТИЙНЫЙ ТАЛОН № ${p.warrantyCode ?? ''}`, M.l, M.t, { width: CW, align: 'center' });

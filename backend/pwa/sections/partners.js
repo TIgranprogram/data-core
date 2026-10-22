@@ -192,7 +192,7 @@ export const partners = {
     ],
     // «Изменить» — заметно сверху карточки (СП.1), не только внизу
     editTop: true,
-    view: (r) => [['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Телефон', r.phone], ['Почта', r.email], ['Сайт', r.website],
+    view: (r) => [['Полное наименование', r.fullName], ['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Телефон', r.phone], ['Почта', r.email], ['Сайт', r.website],
       ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
       ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')], ['Примечание', r.notes]],
     actions: (r) => [
@@ -210,6 +210,7 @@ export const partners = {
         options: [{ value: 'supplier', label: 'Поставщик' }, { value: 'customer', label: 'Заказчик' }, { value: 'our', label: 'Наша компания' }] }]),
       { key: 'name', label: r?.kind === 'customer' ? 'Название (во всех заказах)' : 'Название', required: true, wide: true, max: 300,
         hint: r?.kind === 'customer' ? 'Поменяется во всех заказах и позициях этого заказчика' : undefined },
+      ...(r?.kind === 'customer' ? [] : [{ key: 'fullName', label: 'Полное наименование (в документах)', wide: true, max: 500, hint: 'Как в уставе: Общество с ограниченной ответственностью «…». Пусто — в документах будет «Название»' }]),
       { key: 'inn', label: 'ИНН', max: 12, hint: '10 цифр — организация, 12 — ИП' },
       { key: 'kpp', label: 'КПП', max: 9 },
       { key: 'legalAddress', label: 'Адрес', wide: true, max: 500 },

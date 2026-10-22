@@ -1,5 +1,5 @@
 import { applyDict, buildDescription, cleanText, missingFields, nextSeq, parseDecimal, parseRuDate, splitObject, warrantyCodeFor, type CounterColl } from './passport-rules';
-import { imposition, shortFio, saleDateLine, renderPassportPdf } from './passport-pdf';
+import { imposition, shortFio, saleDateLine, renderPassportPdf, docName } from './passport-pdf';
 import { DEFAULT_PASSPORT_TEMPLATE } from './passport-template.default';
 import { crc32, zipStore } from './zip';
 
@@ -103,6 +103,11 @@ describe('паспорта: описание и полнота (ПС.5)', () => 
 describe('паспорта: PDF и ZIP (ПС.6)', () => {
   it('спуск буклета 12 страниц — как в образце', () => {
     expect(imposition(12)).toEqual([[11, 0], [1, 10], [9, 2], [3, 8], [7, 4], [5, 6]]);
+  });
+  it('название в документе — полное наименование, иначе обычное', () => {
+    expect(docName({ name: 'ООО «СИЮ»', fullName: 'Общество с ограниченной ответственностью «СпортИнЮг»' })).toBe('Общество с ограниченной ответственностью «СпортИнЮг»');
+    expect(docName({ name: 'ООО «СИЮ»', fullName: '' })).toBe('ООО «СИЮ»');
+    expect(docName(null)).toBe('');
   });
   it('ФИО и дата продажи (месяц прописью)', () => {
     expect(shortFio('Тен Александр Тимурович')).toBe('Тен А. Т.');
