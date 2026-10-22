@@ -86,6 +86,34 @@ export class ProductPassportController {
     return this.service.saveTemplate(body, user?.id);
   }
 
+  /**
+   * «Разделы и тексты» v2 (БЗ-6 Э2d): общая часть «Для всех» (из кода, только чтение) + версия категории
+   * (source: 'db' — из базы, 'code' — тексты категории из кода, версии в базе ещё нет) + дерево с пометками
+   * «общий / категории / заменяет общий».
+   */
+  @Get('passports/texts')
+  @Roles(...VIEW)
+  @ApiQuery({ name: 'category', required: true, enum: ['DIO', 'DSP', 'TRN', 'WRK', 'MAF'] })
+  texts(@Query('category') category?: string) {
+    return this.service.texts(category);
+  }
+
+  /** Предпросмотр собранного текста категории без сохранения: { category, own?: sections } (own нет — сохранённая версия). */
+  @Post('passports/texts/preview')
+  @HttpCode(200)
+  @Roles(...VIEW)
+  textsPreview(@Body() body: { category?: string; own?: PassportTemplateContent['sections'] | null }) {
+    return this.service.textsPreview(body);
+  }
+
+  /** Новая версия текстов категории (как PUT /passports/template, но «Для всех» — 400: общая часть v2 в коде). */
+  @Put('passports/texts')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
+  saveTexts(@Body() body: { category?: string; sections?: PassportTemplateContent['sections'] }, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.saveTexts(body, user?.id);
+  }
+
   /** Пакет PDF по фильтру списка (до 200): ?stamp=1 — с печатью и подписью; ?mode=print — 2 стр. на A4. */
   @Get('passports/zip')
   @Roles(...EDIT)

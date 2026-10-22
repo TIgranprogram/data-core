@@ -123,6 +123,27 @@ describe('Паспорта изделий', () => {
     await http().put('/api/passports/template').set(as(admin.access)).send({ category: 'XXX', sections }).expect(400);
   });
 
+  it('«Разделы и тексты» v2: тексты категории, предпросмотр без сохранения, запись новой версии, «Для всех» — 400 (БЗ-6 Э2d)', async () => {
+    const t = (await http().get('/api/passports/texts').query({ category: 'DSP' }).set(as(manager)).expect(200)).body;
+    expect(t.source).toBe('code');
+    expect(t.all.sections.length).toBeGreaterThan(5);
+    const origins = t.tree.flatMap((s: { items: Array<{ origin: string }> }) => s.items.map((i) => i.origin));
+    expect(origins).toEqual(expect.arrayContaining(['all', 'own', 'override']));
+    // предпросмотр со своим (несохранённым) разделом — пункт в собранном тексте, в базе ничего не появилось
+    const own = [...t.own.sections, { key: 'e2dx', title: 'Проверка предпросмотра', paragraphs: ['Пункт предпросмотра для {name}.'] }];
+    const p = (await http().post('/api/passports/texts/preview').set(as(manager)).send({ category: 'DSP', own }).expect(200)).body;
+    expect(JSON.stringify(p.sections)).toContain('Пункт предпросмотра для [{name} не заполнено].');
+    expect(p.missing).toContain('name');
+    expect((await http().get('/api/passports/texts').query({ category: 'DSP' }).set(as(manager)).expect(200)).body.source).toBe('code');
+    // запись: менеджеру нельзя, «Для всех» — нельзя, категории — новая версия в базе
+    await http().put('/api/passports/texts').set(as(manager)).send({ category: 'DSP', sections: own }).expect(403);
+    const bad = await http().put('/api/passports/texts').set(as(admin.access)).send({ category: 'ALL', sections: own }).expect(400);
+    expect(JSON.stringify(bad.body)).toContain('Общая часть v2');
+    const saved = (await http().put('/api/passports/texts').set(as(admin.access)).send({ category: 'DSP', sections: own }).expect(200)).body;
+    expect(saved).toMatchObject({ source: 'db', version: 1 });
+    expect(JSON.stringify(saved.tree)).toContain('Проверка предпросмотра');
+  });
+
   it('PDF: application/pdf, постранично и «в печать», отметка выдачи', async () => {
     const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
     expect(r.headers['content-type']).toContain('application/pdf');

@@ -12,6 +12,7 @@ import { toast, toastError } from './toast.js';
  * section = {
  *   title, entityType, noun ('заявку'), get(id) → row,
  *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), extra?(row, ctx),
+ *           startEdit?(row) → true — открыть сразу в правке, noHistory — без «Истории изменений»,
  *           gallery?(row) → [{ id, url, thumb }], photoAdd?(row, photoId) → row, photoRemove?(row, photoId) → row },
  *   form?: { fields(row|null) → поля, toBody(values, row|null), create(body) → row, update(id, body) → row, initial?() },
  *   remove?: { run(row), restore(row), text(row), blocked?(row) → причина | null },
@@ -94,10 +95,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     }
     content.push(h('dl', { class: 'fields' }, section.card.view(row).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
     if (section.card.extra) content.push(section.card.extra(row, actx()));
-    const hist = h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…'));
-    content.push(h('div', { class: 'section-title' }, 'История изменений'), hist);
+    // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
+    const hist = section.card.noHistory ? null : h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…'));
+    if (hist) content.push(h('div', { class: 'section-title' }, 'История изменений'), hist);
     body.replaceChildren(...content);
-    loadHistory(hist);
+    if (hist) loadHistory(hist);
 
     if (canEditSection(section)) {
       if (section.form) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, 'Изменить'));
@@ -209,6 +211,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
 
   if (mode === 'create') showForm('create', initial);
   else if (fill && section.form && canEditSection(section)) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form) markFill(fill); });
+  // card.startEdit(row) — открыть сразу правкой (текст пункта паспорта: панель = поле ввода)
+  else if (section.card.startEdit && section.form && canEditSection(section)) showView().then(() => (row && section.card.startEdit(row) ? showForm('edit') : null));
   else showView();
   return {
     close: destroy,

@@ -15,6 +15,7 @@ import { buildV2Text } from './passport-v2-text';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { promoteToOwn } from './passport-promote';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
+import { textsTree } from './passport-texts-tree';
 
 type Doc = Record<string, unknown>;
 const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt'];
@@ -365,6 +366,48 @@ export class ProductPassportService {
     await this.templates.updateMany({ isActive: true, ...same }, { $set: { isActive: false } }).exec();
     await this.templates.create({ version: (own?.version ?? 0) + 1, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections, tables, ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
     return this.template(cat);
+  }
+
+  // ─── «Справочники → Паспорта → Разделы и тексты» (БЗ-6 Э2d) ─────────────────────────────────────
+  /** Версия категории для v2: из базы (source 'db'), иначе тексты категории из кода ('code'), для ALL — null. */
+  private async v2Own(cat: PassportCategory) {
+    if (cat === 'ALL') return { own: null, source: null as 'db' | 'code' | null };
+    const db = await this.ownDoc(cat);
+    if (db) return { own: { version: db.version, sections: db.sections, tables: db.tables ?? [], updatedAt: (db as unknown as { updatedAt?: Date }).updatedAt }, source: 'db' as const };
+    const code = PASSPORT_TEXTS_V2[cat];
+    return { own: code ? { version: 0, sections: code.sections, tables: code.tables ?? [] } : null, source: code ? ('code' as const) : null };
+  }
+
+  /** Тексты v2 категории: общая часть (из кода, только чтение) + своя версия + дерево «общий / категории / заменяет». */
+  async texts(category?: string) {
+    const cat = normalizeCategory(category);
+    const all = PASSPORT_TEXTS_V2.ALL;
+    const { own, source } = await this.v2Own(cat);
+    return { category: cat, all, own, source, version: own?.version ?? null, tree: textsTree(all, own) };
+  }
+
+  /** Предпросмотр без сохранения: сборка на пустом паспорте категории (незаполненные переменные — видимыми метками). */
+  async textsPreview(body: { category?: string; own?: PassportTemplateContent['sections'] | null }) {
+    const cat = normalizeCategory(body?.category);
+    if (body?.own != null && (!Array.isArray(body.own) || !body.own.every((s) => s && typeof s.key === 'string' && Array.isArray(s.paragraphs)))) throw new BadRequestException('own: [{ key, title, paragraphs[] }]');
+    const saved = (await this.v2Own(cat)).own;
+    const own = cat === 'ALL' ? null : body?.own ? { version: saved?.version ?? 0, sections: body.own } : saved;
+    const all = { ...PASSPORT_TEXTS_V2.ALL, version: 0 };
+    const { dict: standards } = await this.standards();
+    const text = buildV2Text({ passport: { passportCategory: cat === 'ALL' ? '' : cat }, all, own, standards });
+    return { ...text, category: cat, tree: textsTree(all, own) };
+  }
+
+  /** Запись версии категории из редактора текстов. «Для всех» v2 — в коде, шаблон ALL в базе — для PDF v1: здесь не пишется. */
+  async saveTexts(body: { category?: string; sections?: PassportTemplateContent['sections'] }, userId?: string) {
+    const cat = normalizeCategory(body?.category);
+    if (cat === 'ALL') throw new BadRequestException('Общая часть v2 — в коде; шаблон «Для всех» в базе — для PDF v1');
+    if (!Array.isArray(body.sections)) throw new BadRequestException('sections: [{ key, title, paragraphs[] }]');
+    const sections = body.sections.map((s) => ({ key: String(s?.key || ''), title: String(s?.title ?? ''), paragraphs: Array.isArray(s?.paragraphs) ? s.paragraphs.map((p) => String(p ?? '').trim()).filter(Boolean) : [] }));
+    if (sections.some((s) => !s.key)) throw new BadRequestException('У раздела нет ключа (key)');
+    const { own } = await this.v2Own(cat);
+    await this.saveTemplate({ category: cat, sections, tables: (own?.tables as PassportTemplateContent['tables']) ?? [] }, userId);
+    return this.texts(cat);
   }
 
   private oid(v: unknown): Types.ObjectId {

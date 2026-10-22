@@ -7,12 +7,14 @@ import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { flag } from '../core/flags.js';
+import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы, справа компактная таблица выбранного
  * справочника. Клик по строке — раскрывается: где используется (позиции, заявки, сотрудники). «Открыть» —
  * карточка справа (правка, объединить дубль, удалить, история). Все выпадающие списки приложения берутся отсюда.
  * Адрес: #dicts?d=<справочник>; карточка — of=dict&open=<id> (справочник — из d).
+ * d=ptexts — не справочник, а редактор «Паспорта → Разделы и тексты» (sections/passport-texts.js, только при флаге passports.v2).
  */
 const dictKey = () => current().params.d || 'categories';
 const fmt = (f, v, refs) => {
@@ -33,12 +35,14 @@ export function mountDicts(params) {
   // общий поиск (ПО.3): пусто — весь справочник
   const sbx = searchBox({ placeholder: 'Найти в справочнике…', label: 'Поиск в справочнике', delay: 150, onSearch: (v) => { q = v.toLowerCase(); renderTable(); } });
   const search = sbx.el;
+  const searchWrap = h('div', { class: 'search' }, search);
+  let texts = null; // экран «Разделы и тексты» (создаётся при первом открытии)
   const addBtn = h('button', { type: 'button', class: 'btn btn-primary', hidden: !session.canEdit, onclick: () => patch({ of: 'dict', new: '1', open: undefined }) }, '+ Добавить');
   const candBtn = h('button', { type: 'button', class: 'btn', hidden: !session.canEdit, title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onclick: () => toggleCandidates() }, 'Найти в данных…');
   const cand = h('div', { class: 'dict-cand', hidden: true });
   const body = h('div', { class: 'dict-body' });
   const box = h('section', { class: 'panel dict-main' },
-    h('header', { class: 'dict-head' }, h('div', { class: 'dict-titles' }, title, hint), h('div', { class: 'dict-tools' }, h('div', { class: 'search' }, search), candBtn, addBtn)),
+    h('header', { class: 'dict-head' }, h('div', { class: 'dict-titles' }, title, hint), h('div', { class: 'dict-tools' }, searchWrap, candBtn, addBtn)),
     cand, body);
   const el = h('div', { class: 'dicts' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Все выпадающие списки приложения — здесь: добавить, исправить, объединить дубли'))),
@@ -50,7 +54,10 @@ export function mountDicts(params) {
       h('div', { class: 'dict-group' }, g.group),
       ...g.items.map((d) => h('a', { class: 'dict-link' + (d.key === cur ? ' active' : ''), href: '#dicts?d=' + d.key, onclick: (e) => { e.preventDefault(); go('dicts', { d: d.key }, { replace: true }); } },
         h('span', null, d.title), h('b', { class: 'num' }, qty(d.count)))),
-    ]), h('div', { class: 'dict-group' }, 'Контрагенты'), h('a', { class: 'dict-link', href: '#partners' }, h('span', null, 'Поставщики, заказчики, наши компании'), h('b', null, '→')));
+      // группа «Паспорта» есть только при флаге passports.v2 — в ней же редактор текстов (БЗ-6 Э2d)
+      g.group === 'Паспорта' ? h('a', { class: 'dict-link' + (cur === TEXTS_KEY ? ' active' : ''), href: '#dicts?d=' + TEXTS_KEY, onclick: (e) => { e.preventDefault(); go('dicts', { d: TEXTS_KEY }, { replace: true }); } },
+        h('span', null, 'Разделы и тексты'), h('b', null, '→')) : null,
+    ]).filter(Boolean), h('div', { class: 'dict-group' }, 'Контрагенты'), h('a', { class: 'dict-link', href: '#partners' }, h('span', null, 'Поставщики, заказчики, наши компании'), h('b', null, '→')));
   }
 
   function renderTable() {
@@ -127,7 +134,23 @@ export function mountDicts(params) {
     } catch (e) { cand.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + e.message)); }
   }
 
+  async function reloadTexts() {
+    try {
+      const [g, v2] = await Promise.all([api('/dicts'), flag('passports.v2')]);
+      groups = v2 ? g.items : g.items.filter((x) => x.group !== 'Паспорта');
+      title.textContent = 'Разделы и тексты'; hint.textContent = 'Тексты паспортов v2 по категориям: что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
+      searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      renderNav();
+      if (!v2) { body.replaceChildren(h('div', { class: 'state' }, 'Паспорта v2 выключены (флаг passports.v2) — редактор текстов недоступен.')); return; }
+      if (!texts) texts = mountTexts();
+      if (!body.contains(texts.el)) body.replaceChildren(texts.el);
+      await texts.reload();
+    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + e.message)); }
+  }
+
   async function reload() {
+    if (dictKey() === TEXTS_KEY) return reloadTexts();
+    searchWrap.hidden = false;
     try {
       const [g, d, v2] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`), flag('passports.v2')]);
       // группа «Паспорта» (БЗ-6) — только при включённом флаге passports.v2; по прямой ссылке открывается и без него
@@ -144,7 +167,7 @@ export function mountDicts(params) {
   reload();
   return {
     el, reload,
-    update: (p) => { if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(h('div', { class: 'state' }, 'Загрузка…')); reload(); } },
+    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(h('div', { class: 'state' }, 'Загрузка…')); reload(); } },
   };
 }
 
