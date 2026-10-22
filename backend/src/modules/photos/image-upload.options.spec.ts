@@ -1,4 +1,4 @@
-import { decodeMulterOriginalName } from './image-upload.options';
+import { decodeMulterOriginalName, IMAGE_UPLOAD_MIME, uploadFileName } from './image-upload.options';
 
 describe('decodeMulterOriginalName (TZ-UX-332)', () => {
   it('restores Cyrillic names that Multer decoded as latin1', () => {
@@ -12,5 +12,17 @@ describe('decodeMulterOriginalName (TZ-UX-332)', () => {
 
   it('leaves ASCII filenames untouched', () => {
     expect(decodeMulterOriginalName('product.png')).toBe('product.png');
+  });
+});
+
+describe('загрузка картинок: тип и расширение (БЗ-6 ЭФ2)', () => {
+  it('SVG и не-картинки не принимаются, обычные форматы — да', () => {
+    expect(IMAGE_UPLOAD_MIME.test('image/svg+xml')).toBe(false);
+    expect(IMAGE_UPLOAD_MIME.test('text/html')).toBe(false);
+    for (const m of ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']) expect(IMAGE_UPLOAD_MIME.test(m)).toBe(true);
+  });
+  it('расширение — по типу, имя клиента не используется', () => {
+    expect(uploadFileName('image/png')).toMatch(/^[0-9a-f-]{36}\.png$/);
+    expect(uploadFileName('image/jpeg')).toMatch(/\.jpg$/);
   });
 });

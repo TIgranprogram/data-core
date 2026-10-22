@@ -1,13 +1,17 @@
+import { BadRequestException } from '@nestjs/common';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { randomUUID } from 'crypto';
 
 export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
 
 /** Один лимит и один список mime на все загрузки картинок. */
 export const IMAGE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
-export const IMAGE_UPLOAD_MIME = /^image\/(jpeg|png|webp|gif|avif|svg\+xml)$/;
+// SVG не принимаем (БЗ-6 ЭФ2): файлы отдаются с того же домена `/uploads/*`, SVG со скриптом = XSS.
+export const IMAGE_UPLOAD_MIME = /^image\/(jpeg|png|webp|gif|avif)$/;
+/** Расширение файла на диске — по типу, а не по имени от клиента (иначе `x.html` с типом image/png отдался бы как страница). */
+export const IMAGE_UPLOAD_EXT: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif' };
+export const uploadFileName = (mimetype: string) => `${randomUUID()}${IMAGE_UPLOAD_EXT[mimetype] ?? ''}`;
 
 const CYRILLIC = /[\u0400-\u04FF]/;
 const LATIN1_HIGH = /[\u0080-\u00FF]/;
@@ -35,9 +39,8 @@ export const imageUploadMulterOptions: MulterOptions = {
   storage: diskStorage({
     destination: UPLOAD_DIR,
     filename: (_req, file, cb) => {
-      // {uuid}.{ext} — random prefix avoids collisions and path traversal.
-      const id = randomUUID();
-      cb(null, `${id}${extname(file.originalname ?? '')}`);
+      // {uuid}.{ext по типу} — случайное имя: без коллизий и обхода путей; расширение не из имени клиента.
+      cb(null, uploadFileName(file.mimetype));
     },
   }),
   limits: {
@@ -50,7 +53,7 @@ export const imageUploadMulterOptions: MulterOptions = {
     }
     // Только картинки — никаких .exe/.zip/etc.
     if (!IMAGE_UPLOAD_MIME.test(file.mimetype)) {
-      cb(new Error(`Unsupported mimetype: ${file.mimetype}`), false);
+      cb(new BadRequestException(`Unsupported mimetype: ${file.mimetype}`), false); // 400 + русский текст (error-messages-ru)
       return;
     }
     cb(null, true);
