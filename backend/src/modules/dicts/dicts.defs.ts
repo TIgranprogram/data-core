@@ -364,6 +364,7 @@ export const DICTS: DictDef[] = [
         { key: 'standards', label: 'Нормативы (коды)', wide: true, hint: 'Коды из «Нормативов» через запятую: GOST_R_57538' },
         { key: 'serviceLifeYears', label: 'Срок службы, лет' },
         { key: 'warrantyMonths', label: 'Гарантия, мес.' },
+        { key: 'requiredFields', label: 'Обязательные поля', type: 'textarea', wide: true, hint: 'По строке ключ поля паспорта: ageFrom, ageTo, heightMin, heightMax, weightMax, maxUsers, fallHeight, siteLength, siteWidth, serviceLifeYears (можно «ключ — подпись»). Пусто — как в программе по умолчанию' },
         { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: overview, dimensions, safety_zone, foundation… (виды картинок паспорта)' },
         { key: 'extraSections', label: 'Разделы сверх общего', type: 'textarea', wide: true },
       ]),

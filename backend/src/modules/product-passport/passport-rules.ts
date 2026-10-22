@@ -166,7 +166,22 @@ export interface PassportV2Like extends PassportLike {
   [k: string]: unknown;
 }
 
-export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string } | null): string[] {
+/** Подписи полей v2 для «не хватает» — по ключу поля паспорта (справочник категорий хранит ключи). */
+export const V2_FIELD_LABELS: Record<string, string> = Object.fromEntries(Object.values(V2_REQUIRED_FIELDS).flat().map(([k, l]) => [k, l]).concat([
+  ['heightMax', 'Рост пользователя до'], ['ageTo', 'Возраст до'],
+]));
+
+/**
+ * Обязательные поля категории (Э9): из справочника «Категории паспортов» (`requiredFields` — по строке ключ поля,
+ * можно «ключ — подпись»); поле пустое — запасной путь, `V2_REQUIRED_FIELDS` в коде.
+ */
+export function requiredFieldsOf(code: string, cat?: { requiredFields?: string } | null): Array<[string, string]> {
+  const lines = String(cat?.requiredFields ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return V2_REQUIRED_FIELDS[code] ?? [];
+  return lines.map((l) => { const [k, ...rest] = l.split(/\s+[—-]\s+/); const key = k.trim(); return [key, rest.join(' - ').trim() || V2_FIELD_LABELS[key] || key]; });
+}
+
+export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null): string[] {
   const code = String(p.passportCategory || '');
   if (!code) return missingFields(p);
   // v2: текстовые поля v1 заменяет справочник — материалы, установка, назначение (из элементов), описание (снимок), категория каталога
@@ -176,7 +191,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'number' && !Number.isFinite(v));
   if (empty(p.elements) && code !== 'MAF') m.push('Элементы');
   if (empty(p.installationTypeId)) m.push('Способ установки');
-  for (const [k, label] of V2_REQUIRED_FIELDS[code] ?? []) if (empty(p[k])) m.push(label);
+  for (const [k, label] of requiredFieldsOf(code, cat)) if (empty(p[k])) m.push(label);
   // «safety» (v1) и «safety_zone» (v2) — одно и то же требование
   const has = new Set((p.images || []).map((i) => (i.kind === 'safety' ? 'safety_zone' : i.kind)));
   for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {

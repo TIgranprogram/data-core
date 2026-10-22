@@ -34,6 +34,14 @@ describe('missingFieldsV2', () => {
     expect(missingFieldsV2({ ...v2, materialIds: [] }, null)).toEqual(['Материалы']);
   });
 
+  it('обязательные поля — из справочника категорий (ключ или «ключ — подпись»); пусто — по умолчанию из программы (Э9)', () => {
+    const v2 = { ...base, passportCategory: 'TRN', elements: ['e1'], installationTypeId: 'i1' };
+    const fromDict = missingFieldsV2(v2, { requiredFields: ['maxUsers', 'fallHeight — Высота падения'].join(String.fromCharCode(10)) });
+    expect(fromDict).toEqual(expect.arrayContaining(['Пользователей одновременно', 'Высота падения']));
+    expect(fromDict).not.toContain('Рост пользователя от');
+    expect(missingFieldsV2(v2, { requiredFields: '' })).toContain('Рост пользователя от');
+  });
+
   it('схема сборки «если разборное» — только при isKit; MAF не требует элементов', () => {
     const cat = { requiredImages: 'overview\nassembly (если разборное)' };
     const maf = { ...base, passportCategory: 'MAF', installationTypeId: 'i1', serviceLifeYears: 5 };
