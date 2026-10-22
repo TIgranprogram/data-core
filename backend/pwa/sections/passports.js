@@ -319,9 +319,9 @@ export const passports = {
       { key: 'supplierOrgId', label: 'Поставщик', type: 'select', options: async () => (await facets()).suppliers.map((s) => ({ value: s.value, label: `${s.label} (${s.n})` })) },
       { key: 'customer', label: 'Заказчик', type: 'select', options: async () => (await facets()).customers.map((c) => ({ value: c.value, label: `${c.value} (${c.n})` })) },
     ],
-    // все паспорта по категориям с фото (основной вид); «Таблица» — для поиска и сортировки
+    // паспорта по категориям с фото (основной вид), по 50 на страницу — не все сотни сразу; «Таблица» — для поиска и сортировки
     gallery: {
-      default: true, limit: 400, sort: 'category', lastGroup: 'Без категории',
+      default: true, limit: 50, sort: 'category', lastGroup: 'Без категории',
       groupBy: (r) => r.category || 'Без категории',
       card: (r) => ({
         pic: r.thumb ? PREFIX + r.thumb : null,

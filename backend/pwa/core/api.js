@@ -102,17 +102,40 @@ export async function apiFile(path, { query, fallback = 'file', timeout = 180000
 /** Запрос к API. path — без /api. body — объект (JSON) или FormData. */
 export async function api(path, { method = 'GET', body, query } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
-  let res = await raw(path + qs, { method, body }, session.access);
+  // одинаковые GET, пока первый ещё в пути (меню и «Сегодня» просят одни и те же счётчики), — один запрос к серверу;
+  // разбор — у каждого свой, чтобы правка ответа одним местом не задела другое
+  if (method !== 'GET') return parse(await send(path + qs, method, body));
+  const key = path + qs;
+  let p = inflight.get(key);
+  if (!p) { p = send(key, method).finally(() => inflight.delete(key)); inflight.set(key, p); }
+  return parse(await p);
+}
+const inflight = new Map();
+const parse = (text) => (text ? JSON.parse(text) : null);
+
+/** JWT истекает в ближайшие 30 с (или нет токена). Не разобрался — false: решит ответ сервера. */
+function expiresSoon(token) {
+  if (!token) return true;
+  try {
+    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof p.exp === 'number' && p.exp * 1000 < Date.now() + 30000;
+  } catch { return false; }
+}
+
+/** Запрос с продлением входа по 401; тело ответа — текстом (пустое — null). */
+async function send(url, method, body) {
+  // срок входа истёк или вот-вот — продлить до запроса, а не после пачки отказов 401 (при открытии их ~20)
+  if (session.refresh && expiresSoon(session.access)) await refreshAccess().catch(() => {});
+  let res = await raw(url, { method, body }, session.access);
   if (res.status === 401 && session.refresh) {
     try { await refreshAccess(); } catch (e) { events.onAuthLost(); throw e; }
-    res = await raw(path + qs, { method, body }, session.access);
+    res = await raw(url, { method, body }, session.access);
   }
   if (res.status === 401) { events.onAuthLost(); throw new AuthError('Сессия истекла — войдите снова', 401); }
   if (!res.ok) throw await errorOf(res);
   // пустой ответ (204 или 200 без тела — например, удаление паспорта) — null, а не ошибка разбора JSON
   if (res.status === 204) return null;
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  return res.text();
 }
 
 export async function login(username, password) {

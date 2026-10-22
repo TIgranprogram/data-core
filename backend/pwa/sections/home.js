@@ -29,10 +29,14 @@ export function mountHome(deps) {
   const monthStart = isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
 
   const summary = h('div', { class: 'summary' });
-  // Быстро заказать — «Категория → Позиция из базы» (TASKS С2.1); категории — из подсказок формы заявки
+  // Быстро заказать — «Категория → Позиция из базы» (TASKS С2.1); категории — из подсказок формы заявки.
+  // Подсказки (весь склад + заявки) — только при первом касании поля, не при открытии «Сегодня» (сервер с одним ядром)
   let cats = [];
-  lookups().then((lk) => { cats = (lk.categories || []).map((x) => x.name); }).catch(() => {});
-  const quick = session.canEdit ? quickOrder({ load: pastItems, categories: () => cats, done: () => reloadAll() }) : null;
+  const loadQuick = () => Promise.all([
+    pastItems(),
+    lookups().then((lk) => { cats = (lk.categories || []).map((x) => x.name); }).catch(() => {}),
+  ]).then(([x]) => x);
+  const quick = session.canEdit ? quickOrder({ load: loadQuick, categories: () => cats, done: () => reloadAll() }) : null;
   // Быстрые действия (TASKS С2.2): всё ежедневное — в один клик, туда, где делается
   const act = (label, title, onclick) => h('button', { type: 'button', class: 'btn', title, onclick }, label);
   const actions = session.canEdit ? h('div', { class: 'today-actions' },
@@ -216,7 +220,12 @@ export function mountHome(deps) {
   // «Требуют заполнения» (TASKS ТЗ.4): чем заняться — группы с числами, клик — сразу к заполнению
   const fill = fillToday();
 
-  function reloadAll() { queues.forEach((q) => q()); loadFeed(); loadRes(); fill.load(); deps.refreshCounts?.(); }
+  // «Требуют заполнения» — самый тяжёлый подсчёт на сервере: после очередей, чтобы не задерживал их
+  function reloadAll() {
+    const first = [...queues.map((q) => q()), loadFeed(), loadRes()];
+    deps.refreshCounts?.();
+    Promise.allSettled(first).then(() => fill.load());
+  }
 
   const lane = (title, ico, href, linkText, ...kids) => h('section', { class: 'lane' },
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));

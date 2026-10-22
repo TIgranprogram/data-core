@@ -99,6 +99,9 @@ async function bootstrap() {
     }),
   );
 
+  // Сжатие — до раздачи статики, иначе /app и /admin уходят несжатыми (канал до VM узкий)
+  app.use(compression());
+
   // Static serve for uploaded photos at /uploads/* → ./uploads/
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
@@ -131,9 +134,6 @@ async function bootstrap() {
     });
     Logger.log(`📦 PWA «Снабжение/Склад»: /app (from ${pwaPath})`, 'Bootstrap');
   }
-
-  // Compression
-  app.use(compression());
 
   // TZ-91 §4 Phase A.6: CORS multi-origin — read CORS_ORIGIN (preferred, new convention) or
   // CORS_ORIGINS (legacy, deprecated). Comma-separated list, trimmed, empty handlers dropped.

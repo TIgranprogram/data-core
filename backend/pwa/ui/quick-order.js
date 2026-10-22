@@ -22,7 +22,12 @@ export function quickOrder({ load, categories, done }) {
   const el = h('div', { class: 'qo' },
     h('div', { class: 'qo-row' }, h('div', { class: 'has-combo qo-cat' }, cat), h('div', { class: 'has-combo qo-item' }, item), q, unit, go),
     h('div', { class: 'qo-foot' }, h('span', { class: 'muted small' }, 'Уже заказывали или есть на складе — выберите: поставщик, ед. и артикул подставятся. Нет в списке —'), other));
-  const ready = load().then((x) => { items = x; }).catch(() => { items = []; });
+  // подсказки грузятся при первом касании поля, а не при открытии экрана; пришли — обновить открытый список
+  let ready = null;
+  const ensure = () => (ready ??= load().then((x) => { items = x; }).catch(() => { items = []; })
+    .then(() => { const a = document.activeElement; if (a === cat || a === item) a.dispatchEvent(new Event('focus')); }));
+  cat.addEventListener('focus', ensure);
+  item.addEventListener('focus', ensure);
   attachCombo(cat, { options: () => (categories() || []).map((c) => ({ label: c })), onPick: (o) => { catSel = o.label; picked = null; item.value = ''; item.placeholder = `Позиция из «${o.label}»`; item.focus(); } });
   cat.addEventListener('change', () => { const v = cat.value.trim().toLowerCase(); catSel = (categories() || []).find((c) => c.toLowerCase() === v) || ''; });
   attachCombo(item, {
@@ -34,7 +39,7 @@ export function quickOrder({ load, categories, done }) {
   q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
   other.addEventListener('click', () => patch({ of: 'requests', new: '1', open: undefined, title: item.value.trim() || undefined, categoryName: catSel || undefined, unit: picked?.values?.unit || undefined }));
   go.addEventListener('click', async () => {
-    await ready;
+    await ensure();
     if (!picked) { if (item.value.trim()) other.click(); else { toastError(new Error('Выберите категорию и позицию — или «Новая позиция…»')); (catSel ? item : cat).focus(); } return; }
     const n = parseNum(q.value);
     if (!(n > 0)) { toastError(new Error('Количество больше нуля')); q.focus(); return; }
