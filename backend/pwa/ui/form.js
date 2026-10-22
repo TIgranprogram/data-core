@@ -196,6 +196,13 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
         const { f, input } = inputs.get(k);
         const raw = String(input.value ?? '').trim();
         if (f.type === 'photos') { const n = JSON.parse(raw || '[]').length; if (n) parts.push(`фото: ${n}`); continue; }
+        // свой элемент: f.summary(raw) или «Подпись: N» для списка (метки, строки таблицы); JSON в сводку не выводим
+        if (f.type === 'widget') {
+          if (f.summary) { const t = f.summary(raw); if (t) parts.push(t); continue; }
+          let v = null; try { v = JSON.parse(raw || 'null'); } catch { /* не JSON */ }
+          if (Array.isArray(v) && v.length) parts.push(`${f.label}: ${v.length}`);
+          continue;
+        }
         if (!raw) continue;
         if (f.type === 'select') parts.push(input.selectedOptions?.[0]?.textContent || raw);
         else if (f.type === 'segment') parts.push(input.el.querySelector('.on')?.textContent || raw);

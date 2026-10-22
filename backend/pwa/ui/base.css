@@ -1002,3 +1002,6 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .rt-table .rt-n { width: 28px; color: var(--muted); text-align: right; padding-right: 6px; font-variant-numeric: tabular-nums; }
 .rt-table td:last-child { width: 36px; }
 .rt-acts { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+
+/* Выбор нескольких значений метками (ui/tag-pick.js): паспорт v2 — элементы, материалы */
+.tag-pick { display: flex; flex-wrap: wrap; gap: var(--s2); }

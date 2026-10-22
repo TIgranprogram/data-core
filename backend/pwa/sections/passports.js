@@ -5,6 +5,8 @@ import { date, isoDay } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
 import { rowsTable } from '../ui/rows-table.js';
+import { tagPick } from '../ui/tag-pick.js';
+import { flag } from '../core/flags.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg } from '../ui/dialog.js';
 
@@ -20,6 +22,31 @@ const KINDS = [
   ['safety', 'Зона безопасности', 'приложение «Монтаж»'],
   ['mounting', 'Монтаж', 'рисунки монтажа'],
 ];
+/** Виды картинок паспорта v2 (БЗ-6 §3.6) — в форме и карточке только при флаге passports.v2. */
+const KINDS_V2 = [
+  ['overview_callouts', 'Общий вид с выносками', 'раздел «Описание»'],
+  ['nameplate', 'Место таблички', 'раздел «Описание»'],
+  ['safety_zone', 'Зона безопасности / приземления', 'приложение «Габариты»'],
+  ['foundation', 'Схема фундамента / опор', 'приложение «Установка»'],
+  ['holes', 'Схема скважин / разметки', 'приложение «Установка»'],
+  ['assembly', 'Сборка', 'приложение «Инструкция по сборке»'],
+];
+let V2 = false;
+flag('passports.v2').then((v) => { V2 = v; });
+const kinds = () => (V2 ? [...KINDS, ...KINDS_V2] : KINDS);
+/** Категории паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
+const V2_CATS = [
+  { value: '', label: 'Без категории (как раньше)' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
+  { value: 'DSP', label: 'Детское спортивное' }, { value: 'DIO', label: 'Детское игровое' }, { value: 'MAF', label: 'МАФ' },
+];
+const V2_NUMS = [
+  ['ageFrom', 'Возраст от, лет', 'Детское: от 3 (игровое), от 7 (спортивное)'], ['ageTo', 'Возраст до, лет', ''],
+  ['heightMin', 'Рост пользователя от, мм', 'Тренажёр: обычно от 1400'], ['heightMax', 'Рост до, мм', ''],
+  ['weightMax', 'Вес пользователя до, кг', 'Тренажёр: обычно до 120–150'], ['maxUsers', 'Пользователей одновременно', ''],
+  ['fallHeight', 'Высота свободного падения, мм', 'Детское игровое'], ['siteLength', 'Площадка: длина, мм', 'С зоной безопасности'],
+  ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', 'По умолчанию: 10, МАФ — 5'],
+];
+const dictOpts = async (key) => ((await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || []).map((d) => ({ value: d.id, label: d.name, sub: d.categories || '' }));
 /** Единый список категорий (решение 2026-10-21: без дублей и грамотно) — дополняется тем, что уже есть в паспортах. */
 const CATEGORIES = ['Уличный тренажёр', 'Спортивное оборудование', 'Воркаут', 'Благоустройство', 'МАФ', 'Качели', 'Карусель', 'Детский игровой комплекс'];
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
@@ -121,7 +148,7 @@ function imagesBlock(r, ctx) {
     try { ctx.setRow(await api(`/passports/${r.id}`, { method: 'PATCH', body: { images: imagesBody(images) } }).then(() => api(`/passports/${r.id}`))); } catch (e) { toastError(e); }
   };
   return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Картинки паспорта'),
-    ...KINDS.map(([kind, label, where]) => {
+    ...kinds().map(([kind, label, where]) => {
       const list = imgsOf(r, kind);
       return h('div', { class: 'pp-kind' },
         h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
@@ -158,6 +185,25 @@ function listQuery() {
   if (p.state === 'incomplete') q.incomplete = 1;
   if (p.state === 'noImages') q.noImages = 1;
   return q;
+}
+
+/** Паспорт v2 (БЗ-6 Э5a1): поля формы ↔ тело запроса. */
+function v2Initial(r) {
+  return {
+    passportCategory: r.passportCategory || '', elements: (r.elements || []).map(String), materialIds: (r.materialIds || []).map(String),
+    installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no',
+    ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])),
+  };
+}
+function v2Body(v) {
+  const b = {
+    elements: Array.isArray(v.elements) ? v.elements : [], materialIds: Array.isArray(v.materialIds) ? v.materialIds : [],
+    isKit: v.isKit === 'yes',
+    ...Object.fromEntries(V2_NUMS.filter(([k]) => v[k] !== null && v[k] !== undefined && v[k] !== '').map(([k]) => [k, v[k]])),
+  };
+  if (v.passportCategory) b.passportCategory = v.passportCategory;
+  if (v.installationTypeId) b.installationTypeId = v.installationTypeId;
+  return b;
 }
 
 export const passports = {
@@ -261,7 +307,19 @@ export const passports = {
 
   form: {
     fields: async (r) => {
-      const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
+      const [cats, ours, f, v2] = await Promise.all([categories(), ourCompanies(), facets(), flag('passports.v2')]);
+      V2 = v2;
+      const [els, mats, inst] = v2 ? await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall')]) : [[], [], []];
+      const v2Fields = !v2 ? [] : [
+        { section: 'Паспорт v2: категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
+        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS, wide: true, hint: 'От категории зависят разделы, нормативы и обязательные рисунки' },
+        { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => tagPick({ options: els, value: v }) },
+        { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v }) },
+        { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
+        { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
+        { section: 'Ограничения и техданные', tone: 'info', collapsed: !!r && !r.passportCategory },
+        ...V2_NUMS.map(([key, label, hint]) => ({ key, label, type: 'number', min: 0, span: 1, hint: hint || undefined })),
+      ];
       return [
         { section: 'Изделие (модель)', tone: 'main', fixed: true },
         { key: '_copyFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
@@ -274,6 +332,7 @@ export const passports = {
         { key: 'length', label: 'Длина, мм', type: 'number', min: 0, span: 1 },
         { key: 'width', label: 'Ширина, мм', type: 'number', min: 0, span: 1 },
         { key: 'weight', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
+        ...v2Fields,
         { section: 'Кому и когда', tone: 'who', fixed: !r },
         { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
         { key: 'orderNo', label: '№ заказа', max: 50, suggest: orders, suggestTitle: 'Заказы — выбор подставит заказчика', hint: 'Начните печатать номер или заказчика' },
@@ -288,7 +347,7 @@ export const passports = {
         { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
           hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
         { section: 'Картинки', tone: 'info', collapsed: !!r },
-        ...KINDS.map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label} (${where})`, type: 'photos', hint: r || kind !== 'overview' ? undefined : 'У выбранной модели картинки подставятся сами; свои — добавятся к ним' })),
+        ...kinds().map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label} (${where})`, type: 'photos', hint: r || kind !== 'overview' ? undefined : 'У выбранной модели картинки подставятся сами; свои — добавятся к ним' })),
         { section: 'Комплектность и заметки', tone: 'who', collapsed: true },
         { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
           widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] }),
@@ -304,7 +363,8 @@ export const passports = {
         ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
     },
     toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
-      ...Object.fromEntries(KINDS.map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
+      ...v2Initial(r),
+      ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
     toBody: (v, r) => {
       const s = (x) => (x === null || x === undefined ? '' : String(x));
       const body = {
@@ -316,7 +376,11 @@ export const passports = {
       body.description = s(v.description) || buildDescription(body);
       const bom = parseBom(v.bom);
       if (bom.length || r) body.bom = bom;
-      const images = KINDS.flatMap(([kind]) => (v['img_' + kind] || []).map((photoId, k) => ({ kind, photoId, order: k })));
+      const shown = new Set(kinds().map(([k]) => k));
+      // виды, которых нет в форме (v2-картинки при выключенном флаге), сохраняются как были
+      const kept = imagesBody((r?.images || []).filter((i) => !shown.has(i.kind)));
+      const images = [...kinds().flatMap(([kind]) => (v['img_' + kind] || []).map((photoId, k) => ({ kind, photoId, order: k }))), ...kept];
+      if (V2) Object.assign(body, v2Body(v));
       if (images.length || r) body.images = images;
       if (!r && v.date) body.date = v.date;
       if (!r && v._copyFrom) body._copyFrom = v._copyFrom;

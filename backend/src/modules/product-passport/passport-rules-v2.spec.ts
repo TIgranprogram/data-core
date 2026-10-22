@@ -27,6 +27,13 @@ describe('missingFieldsV2', () => {
     expect(missingFieldsV2(full, trnCat)).toEqual([]);
   });
 
+  it('v2: текстовые поля v1 (материалы, установка, назначение, описание, категория каталога) заменяет справочник', () => {
+    const v2 = { name: 'Т', date: '2026-10-22', supplierOrgId: 'x', height: 1, length: 1, width: 1, weight: 1, customerName: 'З', images: [{ kind: 'overview' }],
+      passportCategory: 'MAF', elements: ['e1'], materialIds: ['m1'], installationTypeId: 'i1', serviceLifeYears: 5 };
+    expect(missingFieldsV2(v2, { requiredImages: 'overview' })).toEqual([]);
+    expect(missingFieldsV2({ ...v2, materialIds: [] }, null)).toEqual(['Материалы']);
+  });
+
   it('схема сборки «если разборное» — только при isKit; MAF не требует элементов', () => {
     const cat = { requiredImages: 'overview\nassembly (если разборное)' };
     const maf = { ...base, passportCategory: 'MAF', installationTypeId: 'i1', serviceLifeYears: 5 };
