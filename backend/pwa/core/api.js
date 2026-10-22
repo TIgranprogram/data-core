@@ -109,7 +109,10 @@ export async function api(path, { method = 'GET', body, query } = {}) {
   }
   if (res.status === 401) { events.onAuthLost(); throw new AuthError('Сессия истекла — войдите снова', 401); }
   if (!res.ok) throw await errorOf(res);
-  return res.status === 204 ? null : res.json();
+  // пустой ответ (204 или 200 без тела — например, удаление паспорта) — null, а не ошибка разбора JSON
+  if (res.status === 204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export async function login(username, password) {
