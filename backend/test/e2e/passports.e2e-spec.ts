@@ -79,7 +79,7 @@ describe('Паспорта изделий', () => {
     expect((await http().get('/api/passports').query({ customer: 'ип азизова' }).set(as(manager)).expect(200)).body.total).toBe(1);
     const inc = (await http().get('/api/passports').query({ incomplete: 1 }).set(as(manager)).expect(200)).body;
     expect(inc.total).toBe(6); // у всех нет общего вида
-    expect(inc.items[0].missing).toContain('Общий вид');
+    expect(inc.items[0].missing).toContain('Фото изделия');
     const f = (await http().get('/api/passports/facets').set(as(manager)).expect(200)).body;
     expect(f.years.map((y: { value: number }) => y.value)).toContain(2026);
     expect(f.suppliers[0]).toMatchObject({ value: orgId });
