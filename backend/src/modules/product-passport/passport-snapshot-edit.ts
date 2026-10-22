@@ -25,6 +25,3 @@ export function editSnapshotItem(sections: SnapshotSection[], sectionKey: string
   if (!found) throw new BadRequestException('Пункт не найден в тексте паспорта — обновите карточку');
   return next;
 }
-
-/** Сколько пунктов правили вручную. */
-export const editedCount = (sections: SnapshotSection[] = []) => sections.reduce((n, s) => n + s.items.filter((i) => i.edited).length, 0);

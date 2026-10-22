@@ -10,22 +10,3 @@ export function normalizeCategory(v: unknown): PassportCategory {
   if (typeof v === 'string' && (PASSPORT_CATEGORIES as readonly string[]).includes(v)) return v as PassportCategory;
   throw new BadRequestException(`category: одно из ${PASSPORT_CATEGORIES.join(', ')}`);
 }
-
-interface VersionLike { version: number; isActive?: boolean; category?: string | null }
-
-const catOf = (t: VersionLike): string => (t.category ? t.category : 'ALL');
-
-/** Последняя активная версия именно этой категории (без подстановки ALL); нет — null. Версии без category = ALL. */
-export function pickOwnVersion<T extends VersionLike>(docs: T[], category: PassportCategory): T | null {
-  let best: T | null = null;
-  for (const d of docs) {
-    if (d.isActive === false || catOf(d) !== category) continue;
-    if (!best || d.version > best.version) best = d;
-  }
-  return best;
-}
-
-/** Версия для показа: своя категория, иначе «Для всех», иначе null. */
-export function pickTemplateVersion<T extends VersionLike>(docs: T[], category: PassportCategory): T | null {
-  return pickOwnVersion(docs, category) ?? (category === 'ALL' ? null : pickOwnVersion(docs, 'ALL'));
-}
