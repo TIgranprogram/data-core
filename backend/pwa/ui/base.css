@@ -974,3 +974,14 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 /* Печать и подпись нашей компании (карточка «Наши») */
 .stamp-pic { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .stamp-pic img { max-height: 120px; max-width: 220px; object-fit: contain; background: #fff; border-radius: var(--radius-sm); padding: 4px; } /* печать — на белом, как на бумаге */
+/* Записи по месяцам в карточке (заявки контрагента): строка месяца — число и сумма, клик раскрывает */
+.month-group { border-bottom: 1px solid var(--border); }
+.month-group > summary { display: flex; align-items: baseline; gap: 10px; padding: 8px 2px; cursor: pointer; list-style: none; }
+.month-group > summary::-webkit-details-marker { display: none; }
+.month-group > summary::before { content: '▸'; color: var(--muted); width: 12px; }
+.month-group[open] > summary::before { content: '▾'; }
+.month-group > summary b::first-letter { text-transform: uppercase; }
+.month-group > summary .p-n { color: var(--muted); font-size: var(--fs-sm); }
+.month-group > summary .p-tot { margin-left: auto; }
+.month-group > summary:hover { background: var(--row-hover); }
+.month-group .timeline { margin: 0 0 8px; }

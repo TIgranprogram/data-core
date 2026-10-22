@@ -104,13 +104,38 @@ function relatedRest(r, items) {
           h('span', { class: 'muted' }, [m.orderNo && `заказ №${m.orderNo}`, m.to ? 'кому: ' + m.to : ''].filter(Boolean).join(' · ')))))) : null);
   }
   return h('div', null, h('div', { class: 'section-title' }, `${r.kind === 'our' ? 'Заявки на эту компанию' : 'Заявки этому поставщику'} (${items.length})`),
-    items.length ? h('ul', { class: 'timeline' }, ...items.map((x) => h('li', null,
-      h('span', { class: 'when' }, date(x.requestDate)),
-      h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? ''} ${x.title}`),
-      h('span', { class: 'muted' }, `${qty(x.qty)} ${x.unit || ''}`),
-      badge(SUPPLY_STATUS, supplyKey(x)),
-      session.canMoney && x.priceHint ? h('span', { class: 'num' }, money(x.priceHint)) : null)))
-      : h('p', { class: 'muted' }, 'Заявок нет'));
+    items.length ? requestsByMonth(items) : h('p', { class: 'muted' }, 'Заявок нет'));
+}
+
+const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+/**
+ * Заявки контрагента по месяцам (замечание 2026-10-22: «заявок много — компактно»): строка месяца — число и сумма,
+ * клик раскрывает; открыт последний месяц, остальные свёрнуты (как месяцы в списках).
+ */
+function requestsByMonth(items) {
+  const groups = new Map();
+  for (const x of items) {
+    const d = x.requestDate ? new Date(x.requestDate) : null;
+    const k = d && !Number.isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'none';
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(x);
+  }
+  const keys = [...groups.keys()].sort().reverse().sort((a, b) => (a === 'none') - (b === 'none')); // «Без даты» — в конце
+  const label = (k) => { if (k === 'none') return 'Без даты'; const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
+  const row = (x) => h('li', null,
+    h('span', { class: 'when' }, date(x.requestDate)),
+    h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? ''} ${x.title}`),
+    h('span', { class: 'muted' }, `${qty(x.qty)} ${x.unit || ''}`),
+    badge(SUPPLY_STATUS, supplyKey(x)),
+    session.canMoney && x.priceHint ? h('span', { class: 'num' }, money(x.priceHint)) : null);
+  return h('div', { class: 'month-groups' }, ...keys.map((k, i) => {
+    const list = groups.get(k);
+    const sum = list.reduce((s, x) => s + (Number(x.priceHint) || 0), 0);
+    return h('details', { class: 'month-group', open: i === 0 },
+      h('summary', null, h('b', null, label(k)), h('span', { class: 'p-n' }, qty(list.length)),
+        session.canMoney && sum ? h('span', { class: 'p-tot num' }, money(sum)) : null),
+      h('ul', { class: 'timeline' }, ...list.map(row)));
+  }));
 }
 
 export const partners = {

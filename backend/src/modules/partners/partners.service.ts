@@ -116,7 +116,7 @@ export class PartnersService {
     if (!o) throw new NotFoundException('Контрагент не найден');
     const our = o.isOurCompany === true;
     const row = (await this.suppliers(our)).find((x) => x.id === id)!;
-    const reqs = await this.db.collection('supplyrequests').find({ [our ? 'companyId' : 'supplierId']: _id, deletedAt: null }).sort({ requestDate: -1 }).limit(100)
+    const reqs = await this.db.collection('supplyrequests').find({ [our ? 'companyId' : 'supplierId']: _id, deletedAt: null }).sort({ requestDate: -1 }).limit(3000) // все заявки — в карточке сгруппированы по месяцам
       .project({ num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, priceHint: 1 }).toArray();
     return { ...row, related: reqs.map((r) => ({ ...r, id: String(r._id), _id: String(r._id) })) };
   }
