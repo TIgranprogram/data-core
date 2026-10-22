@@ -368,6 +368,8 @@ export const passports = {
       { label: '⇩ PDF с печатью', run: (row) => download(row, { stamp: 1 }, 'PDF с печатью и подписью') },
       { label: '⇩ PDF без печати', run: (row) => download(row, {}, 'PDF без печати') },
       { label: '⇩ В печать (буклет A4)', run: (row) => download(row, { stamp: 1, mode: 'print' }, 'буклет для печати') },
+      // v2 (БЗ-6 Э6d): лист правил для информационного стенда — одна страница A3
+      V2 && r.textSnapshot && { label: '⇩ Лист для стенда (A3)', run: (row) => download(row, { mode: 'stand' }, 'лист для стенда') },
       canEdit() && { label: 'Копия на ту же модель', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
