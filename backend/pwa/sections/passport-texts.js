@@ -7,16 +7,16 @@ import { toast, toastError } from '../ui/toast.js';
 /**
  * «Справочники → Паспорта → Разделы и тексты» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2) — только при флаге passports.v2.
  * Экран: чипы категорий, дерево «раздел → пункты» собранного вида (как в паспорте): пункты «Для всех» — серые «общий»
- * (они в коде, здесь только чтение), пункты категории — обычные, «заменяет общий» — пункт категории на месте общего.
+ * (правятся на чипе «Для всех»), пункты категории — обычные, «заменяет общий» — пункт категории на месте общего.
  * Ввод — только в правой панели (DESIGN §5): ptext — пункт / новый пункт / новый раздел; ptextview — общий пункт и предпросмотр.
  * Адрес: #dicts?d=ptexts&cat=TRN; панель — of=ptext|ptextview&open=<кат>.<вид>.<…>.
- * Сохранение — новая версия категории (PUT /passports/texts, директор/админ); «Для всех» v2 не пишется (400).
+ * Сохранение — новая версия категории (PUT /passports/texts, директор/админ); «Для всех» (ALL) — общая часть v2, правится как своя версия (на сервере — category ALL_V2; шаблон «Для всех» PDF v1 не меняется).
  * Ключ пункта = раздел + номер по порядку: пункт № k раздела категории заменяет общий пункт № k того же раздела.
  */
 export const TEXTS_KEY = 'ptexts';
 export const CATS = [
-  { code: 'DIO', name: 'Детское игровое' }, { code: 'DSP', name: 'Детское спортивное' }, { code: 'TRN', name: 'Тренажёры' },
-  { code: 'WRK', name: 'Воркаут' }, { code: 'MAF', name: 'МАФ' },
+  { code: 'ALL', name: 'Для всех' }, { code: 'TRN', name: 'Тренажёры' }, { code: 'WRK', name: 'Воркаут' }, { code: 'MAF', name: 'МАФ' },
+  { code: 'DIO', name: 'Детское игровое (позже)' }, { code: 'DSP', name: 'Детское спортивное (позже)' },
 ];
 /** Переменные (§3.3 п. 8) — подсказка; клик вставляет в текст. */
 const VARS = ['{name}', '{article}', '{code}', '{serialNo}', '{ageFrom}', '{ageTo}', '{heightMin}', '{heightMax}', '{weightMax}', '{maxUsers}', '{fallHeight}',
@@ -82,8 +82,8 @@ export function mountTexts() {
   }
   function renderTree(cat, t) {
     const sel = current().params.open || '';
-    info.textContent = `Общая часть «Для всех» — в коде, здесь только чтение. Тексты категории «${catName(cat)}»: `
-      + (t.source === 'db' ? `версия ${t.version} в базе.` : 'из кода (своей версии в базе ещё нет — первое сохранение её создаст).');
+    info.textContent = (cat === 'ALL' ? 'Общая часть — её получают паспорта всех категорий (правится на чипе «Для всех»). ' : `Общие пункты — серые, правятся на чипе «Для всех». Тексты категории «${catName(cat)}»: `)
+      + (t.source === 'db' ? `версия ${t.version} в базе.` : 'из программы (своей версии в базе ещё нет — первое сохранение её создаст).');
     if (!t.tree.length) { tree.replaceChildren(h('div', { class: 'state' }, 'Разделов нет.')); return; }
     tree.replaceChildren(...t.tree.map((s) => {
       const mine = s.ownSection != null;
@@ -268,7 +268,7 @@ export const ptextview = {
     heading: (r) => (r.kind === 'p' ? 'Предпросмотр текста' : `Пункт ${r.number} · общий`),
     subheading: (r) => `${catName(r.cat)}${r.secTitle ? ' · ' + r.secTitle : ''}`,
     noHistory: true,
-    view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, r.text)], ['Где', 'Общая часть «Для всех» — в коде (только чтение)']]),
+    view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, r.text)], ['Где', 'Общая часть «Для всех» — правится на чипе «Для всех»']]),
     actions: (r) => (r.kind === 'a' && r.canReplace ? [{ label: 'Заменить для категории', run: () => patch({ of: 'ptext', open: `${r.cat}.n.${r.key}.copy` }) }] : []),
     extra: (r) => (r.kind === 'p' ? previewBox(r.p) : r.canReplace || !canEditTexts() ? null : h('p', { class: 'hint' }, 'Заменить можно только следующий по порядку общий пункт раздела — сначала замените предыдущие.')),
   },

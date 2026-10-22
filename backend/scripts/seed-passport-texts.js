@@ -3,13 +3,11 @@
  * НА ПРОДЕ — только после «да» пользователя.
  *
  *   План (ничего не меняет):  MONGO_URI=… [MONGO_DB=…] node scripts/seed-passport-texts.js [--only=TRN,DIO]
- *   Записать категории:       … --apply
- *   Записать и «Для всех»:    … --apply --include-all
+ *   Записать:                 … --apply
  *
  * Для каждой категории: версия = наибольшая в этой категории + 1; прежние активные этой категории → isActive:false.
- * «Для всех» (ALL) хранится без поля category (как сейчас). Если активная версия уже совпадает с текстом — пропуск.
- * ALL пишется только с --include-all: действующий PDF (v1) выводит шаблон «Для всех» как есть и подставляет только
- * {warrantyMonths} — {std:…}, {name}, {tab:…} в нём появятся буквально, пока PDF не переведён на снимок v2 (Э6). */
+ * «Для всех» v2 (ALL) пишется с category ALL_V2 (БЗ-6 Э9.4) — шаблон «Для всех» PDF v1 (category пусто/ALL) не трогается.
+ * Если активная версия уже совпадает с текстом — пропуск. */
 const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
 const TEXTS = require('./passport-texts.v2.json');
@@ -17,11 +15,11 @@ const TEXTS = require('./passport-texts.v2.json');
 const ORDER = ['ALL', 'TRN', 'WRK', 'DSP', 'MAF', 'DIO'];
 const argv = process.argv.slice(2);
 const apply = argv.includes('--apply');
-const includeAll = argv.includes('--include-all');
 const onlyArg = argv.find((a) => a.startsWith('--only='));
 const only = onlyArg ? onlyArg.slice(7).split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : null;
 
-const filterOf = (cat) => (cat === 'ALL' ? { category: { $in: [null, 'ALL'] } } : { category: cat });
+const dbCat = (cat) => (cat === 'ALL' ? 'ALL_V2' : cat);
+const filterOf = (cat) => ({ category: dbCat(cat) });
 const same = (doc, t) => !!doc && JSON.stringify(doc.sections || []) === JSON.stringify(t.sections) && JSON.stringify(doc.tables || []) === JSON.stringify(t.tables);
 const count = (t) => `${t.sections.length} разд., ${t.sections.reduce((n, s) => n + s.paragraphs.length, 0)} п.`;
 
@@ -45,11 +43,10 @@ const count = (t) => `${t.sections.length} разд., ${t.sections.reduce((n, s)
     const next = (last?.version ?? 0) + 1;
     const head = `${cat}: ${count(t)}; сейчас активна ${active ? 'v' + active.version : '—'}`;
     if (same(active, t)) { console.log(`${head} — уже совпадает, пропуск`); continue; }
-    if (cat === 'ALL' && !includeAll) { console.log(`${head} — будет v${next} только с --include-all (PDF v1 покажет {std:…} буквально до Э6)`); continue; }
     if (!apply) { console.log(`${head} → будет v${next}`); continue; }
     const now = new Date();
     await c.updateMany({ ...f, isActive: true }, { $set: { isActive: false, updatedAt: now } });
-    await c.insertOne({ version: next, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections: t.sections, tables: t.tables, createdAt: now, updatedAt: now });
+    await c.insertOne({ version: next, isActive: true, category: dbCat(cat), sections: t.sections, tables: t.tables, createdAt: now, updatedAt: now });
     console.log(`${head} → записана v${next}`);
     written++;
   }

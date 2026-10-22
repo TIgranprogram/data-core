@@ -15,6 +15,9 @@ import { buildV2Text } from './passport-v2-text';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { promoteToOwn } from './passport-promote';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
+
+/** Общая часть «Для всех» паспорта v2 в passporttemplates (отдельно от шаблона «Для всех» PDF v1). */
+const ALL_V2 = 'ALL_V2';
 import { textsTree } from './passport-texts-tree';
 
 type Doc = Record<string, unknown>;
@@ -312,7 +315,7 @@ export class ProductPassportService {
     const { own: dbOwn } = await this.templatesFor(cat);
     const code = PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2];
     const own = dbOwn ?? code ?? null;
-    const sections = promoteToOwn(own?.sections as never, PASSPORT_TEXTS_V2.ALL.sections as never, String(b.sectionKey), String(b.itemKey), item.text);
+    const sections = promoteToOwn(own?.sections as never, (await this.v2All()).sections as never, String(b.sectionKey), String(b.itemKey), item.text);
     return this.saveTemplate({ category: cat, sections: sections as never, tables: (own?.tables ?? []) as never }, userId);
   }
 
@@ -323,7 +326,7 @@ export class ProductPassportService {
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
     const cat = String(p.passportCategory);
     const { own: dbOwn } = await this.templatesFor(cat);
-    const all = { ...PASSPORT_TEXTS_V2.ALL, version: 0 };
+    const all = await this.v2All();
     const code = PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2];
     const own = dbOwn ?? (code ? { ...code, version: 0 } : null);
     const { dict: standards } = await this.standards();
@@ -378,10 +381,25 @@ export class ProductPassportService {
     return { own: code ? { version: 0, sections: code.sections, tables: code.tables ?? [] } : null, source: code ? ('code' as const) : null };
   }
 
-  /** Тексты v2 категории: общая часть (из кода, только чтение) + своя версия + дерево «общий / категории / заменяет». */
+  /**
+   * Общая часть «Для всех» v2 (Э9.4): своя версия в `passporttemplates` с category `ALL_V2` (шаблон «Для всех» PDF v1 —
+   * category пусто/ALL — не трогается), иначе — тексты из кода (`scripts/passport-texts.v2.json`).
+   */
+  private async v2All() {
+    const db = await this.templates.findOne({ isActive: true, category: ALL_V2 }).sort({ version: -1 }).lean().exec();
+    if (db) return { version: db.version, sections: db.sections, tables: db.tables ?? [], source: 'db' as const };
+    return { ...PASSPORT_TEXTS_V2.ALL, version: 0, source: 'code' as const };
+  }
+
+  /** Тексты v2 категории: общая часть + своя версия + дерево «общий / категории / заменяет». ALL — общая часть как «своя» (правится). */
   async texts(category?: string) {
     const cat = normalizeCategory(category);
-    const all = PASSPORT_TEXTS_V2.ALL;
+    const allV2 = await this.v2All();
+    if (cat === 'ALL') {
+      const own = { version: allV2.version, sections: allV2.sections, tables: allV2.tables };
+      return { category: cat, all: { sections: [], tables: [] }, own, source: allV2.source, version: allV2.version, tree: textsTree({ sections: [] } as never, own) };
+    }
+    const all = allV2;
     const { own, source } = await this.v2Own(cat);
     return { category: cat, all, own, source, version: own?.version ?? null, tree: textsTree(all, own) };
   }
@@ -392,19 +410,26 @@ export class ProductPassportService {
     if (body?.own != null && (!Array.isArray(body.own) || !body.own.every((s) => s && typeof s.key === 'string' && Array.isArray(s.paragraphs)))) throw new BadRequestException('own: [{ key, title, paragraphs[] }]');
     const saved = (await this.v2Own(cat)).own;
     const own = cat === 'ALL' ? null : body?.own ? { version: saved?.version ?? 0, sections: body.own } : saved;
-    const all = { ...PASSPORT_TEXTS_V2.ALL, version: 0 };
+    const allV2 = await this.v2All();
+    const all = cat === 'ALL' && body?.own ? { ...allV2, sections: body.own } : allV2;
     const { dict: standards } = await this.standards();
     const text = buildV2Text({ passport: { passportCategory: cat === 'ALL' ? '' : cat }, all, own, standards });
     return { ...text, category: cat, tree: textsTree(all, own) };
   }
 
-  /** Запись версии категории из редактора текстов. «Для всех» v2 — в коде, шаблон ALL в базе — для PDF v1: здесь не пишется. */
+  /** Запись версии категории из редактора текстов. ALL — общая часть v2 (category ALL_V2); шаблон «Для всех» PDF v1 не трогается. */
   async saveTexts(body: { category?: string; sections?: PassportTemplateContent['sections'] }, userId?: string) {
     const cat = normalizeCategory(body?.category);
-    if (cat === 'ALL') throw new BadRequestException('Общая часть v2 — в коде; шаблон «Для всех» в базе — для PDF v1');
     if (!Array.isArray(body.sections)) throw new BadRequestException('sections: [{ key, title, paragraphs[] }]');
     const sections = body.sections.map((s) => ({ key: String(s?.key || ''), title: String(s?.title ?? ''), paragraphs: Array.isArray(s?.paragraphs) ? s.paragraphs.map((p) => String(p ?? '').trim()).filter(Boolean) : [] }));
     if (sections.some((s) => !s.key)) throw new BadRequestException('У раздела нет ключа (key)');
+    if (cat === 'ALL') {
+      const cur = await this.v2All();
+      const last = await this.templates.findOne({ category: ALL_V2 }).sort({ version: -1 }).lean().exec();
+      await this.templates.updateMany({ isActive: true, category: ALL_V2 }, { $set: { isActive: false } }).exec();
+      await this.templates.create({ version: (last?.version ?? 0) + 1, isActive: true, category: ALL_V2, sections, tables: cur.tables, ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
+      return this.texts(cat);
+    }
     const { own } = await this.v2Own(cat);
     await this.saveTemplate({ category: cat, sections, tables: (own?.tables as PassportTemplateContent['tables']) ?? [] }, userId);
     return this.texts(cat);

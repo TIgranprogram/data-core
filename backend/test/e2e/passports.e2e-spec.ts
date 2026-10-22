@@ -135,10 +135,17 @@ describe('Паспорта изделий', () => {
     expect(JSON.stringify(p.sections)).toContain('Пункт предпросмотра для [{name} не заполнено].');
     expect(p.missing).toContain('name');
     expect((await http().get('/api/passports/texts').query({ category: 'DSP' }).set(as(manager)).expect(200)).body.source).toBe('code');
-    // запись: менеджеру нельзя, «Для всех» — нельзя, категории — новая версия в базе
+    // запись: менеджеру нельзя; «Для всех» v2 — своя версия (ALL_V2), шаблон «Для всех» PDF v1 не меняется (Э9.4)
     await http().put('/api/passports/texts').set(as(manager)).send({ category: 'DSP', sections: own }).expect(403);
-    const bad = await http().put('/api/passports/texts').set(as(admin.access)).send({ category: 'ALL', sections: own }).expect(400);
-    expect(JSON.stringify(bad.body)).toContain('Общая часть v2');
+    const v1Before = (await http().get('/api/passports/template').set(as(admin.access)).expect(200)).body;
+    const allNow = (await http().get('/api/passports/texts').query({ category: 'ALL' }).set(as(admin.access)).expect(200)).body;
+    const allEdited = allNow.own.sections.map((x: { paragraphs: string[] }, i: number) => (i === 0 ? { ...x, paragraphs: ['Свой общий пункт для проверки.', ...x.paragraphs.slice(1)] } : x));
+    const allSaved = (await http().put('/api/passports/texts').set(as(admin.access)).send({ category: 'ALL', sections: allEdited }).expect(200)).body;
+    expect(allSaved).toMatchObject({ source: 'db', version: 1 });
+    const v1After = (await http().get('/api/passports/template').set(as(admin.access)).expect(200)).body;
+    expect({ v: v1After.version, s: v1After.sections }).toEqual({ v: v1Before.version, s: v1Before.sections });
+    const pv = (await http().post('/api/passports/texts/preview').set(as(admin.access)).send({ category: 'TRN' }).expect(200)).body;
+    expect(JSON.stringify(pv.sections)).toContain('Свой общий пункт для проверки.');
     const saved = (await http().put('/api/passports/texts').set(as(admin.access)).send({ category: 'DSP', sections: own }).expect(200)).body;
     expect(saved).toMatchObject({ source: 'db', version: 1 });
     expect(JSON.stringify(saved.tree)).toContain('Проверка предпросмотра');
