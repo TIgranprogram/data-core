@@ -38,7 +38,7 @@ const CW = A5.w - M.l - M.r; // ширина набора
 const BOTTOM = A5.h - M.b;
 const BODY = 8.8; // кегль текста разделов (как в образце — мелкий наклонный)
 
-function fontDir(): string {
+export function fontDir(): string {
   const c = [join(process.cwd(), 'pwa', 'fonts'), join(__dirname, '..', '..', '..', 'pwa', 'fonts'), join(__dirname, '..', '..', '..', '..', 'pwa', 'fonts')];
   return c.find((p) => existsSync(join(p, 'gost-a.ttf'))) ?? c[0];
 }
@@ -58,7 +58,7 @@ export function saleDateLine(d: PdfPassport['date']): string {
   return `«____» ${MONTHS_GEN[dt.getUTCMonth()]} ${dt.getUTCFullYear()} г.`;
 }
 
-interface Page { kind: 'cover' | 'body' | 'warranty'; draws: Array<{ y: number; draw: (doc: PDFKit.PDFDocument, y: number) => void }>; no?: number }
+export interface Page { kind: 'cover' | 'body' | 'warranty'; draws: Array<{ y: number; draw: (doc: PDFKit.PDFDocument, y: number) => void }>; no?: number }
 
 export async function renderPassportPdf(input: PdfInput): Promise<Buffer> {
   const dir = fontDir();
@@ -240,7 +240,7 @@ function cover(input: PdfInput): Page {
   return { kind: 'cover', draws };
 }
 
-function warranty(input: PdfInput): Page {
+export function warranty(input: Pick<PdfInput, 'passport' | 'org' | 'withStamp' | 'seal' | 'signature'>): Page {
   const { passport: p, org, withStamp, seal, signature } = input;
   const seller = `${org?.signerPosition || 'Генеральный директор'} ${org?.name ?? ''} ${shortFio(org?.directorName || org?.signerName)}`.replace(/\s+/g, ' ').trim();
   const draws: Page['draws'] = [{ y: 0, draw: (d) => {
