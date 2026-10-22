@@ -729,3 +729,23 @@ Write-paths, которые должны быть all-or-nothing, использ
 
 ### Платёжный календарь — без своих таблиц
 Расход = `supplyrequests` (invoiceDate, priceHint — сумма строки с НДС, companyId; status ≠ cancelled). Доход = `incomes` (amount > 0, reportDate). Всё, где чего-то не хватает, — в `/api/finance/needs-fill`.
+
+## ProductPassport — поля паспорта v2 (БЗ-6, 2026-10-22)
+
+Коллекция `productpassports` общая с kppdf — поля только добавлены, все необязательные; истина — `product-passport.schema.ts`, ТЗ — [PASSPORTS-V2.md](PASSPORTS-V2.md) §3.4.
+
+| Поле | Тип | Смысл |
+|--|--|--|
+| `passportCategory` | `string` | DIO / DSP / TRN / WRK / MAF; пусто — паспорт v1 |
+| `elements`, `materialIds` | `ObjectId[]` | записи справочников `dict_values` (`passportElements`, `passportMaterials`) |
+| `installationTypeId` | `ObjectId` | `dict_values` (`passportInstall`) |
+| `isKit` | `boolean` | поставляется разобранным |
+| `ageFrom`, `ageTo`, `heightMin`, `heightMax`, `weightMax`, `maxUsers`, `fallHeight`, `siteLength`, `siteWidth`, `serviceLifeYears` | `number` | ограничения и техданные |
+| `certificate` | `{ number, until, hasEac }` | сертификат / декларация |
+| `manufacturerOrgId` | `ObjectId` | изготовитель, если не поставщик |
+| `textSnapshot` | `object` | собранный текст на момент выдачи (разделы, описание, правила, ТО, монтаж, нормативы; правленые пункты — `edited`, `original`) |
+| `note` | `string` | лист «Для заметок» (и v1) |
+| `images[].kind` | += `overview_callouts`, `nameplate`, `safety_zone`, `foundation`, `holes`, `assembly`, `bom_item`; `images[].refCode` | |
+| `bom[]` | += `size`, `mass`, `photoId` | |
+
+Связанное: `products.passportDefaults` (значения по умолчанию у изделия каталога), `passporttemplates.category` (версия текста категории), справочники `dict_values` группы «Паспорта» (`passportCategories`, `passportStandards`, `passportElements`, `passportMaterials`, `passportDefects` (+`photoId`), `passportInstall`, `passportStyle`).

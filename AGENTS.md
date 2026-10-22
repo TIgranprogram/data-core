@@ -90,6 +90,8 @@ pnpm в PATH может не быть → используй `npx`.
 - В БД есть таблицы CRM kppdf (`kind:'crm'` в реестре `modules/admin/collections-admin.controller.ts`) — это **живые данные kppdf** на общей базе: не удалять, не менять их схему из data-core.
 - **Никогда не запускай `bash -x` / `set -x` на скриптах, которые читают `.env`** — трассировка печатает секреты (инцидент 2026-10-18, T22).
 - Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.
+- Проверка pwa/admin: `node --check файл.js` **молча пропускает** синтаксические ошибки ES-модулей — только `node --input-type=module --check < файл` (2026-10-22: так в приложение чуть не ушла ошибка, ломавшая весь экран).
+- Паспорта v2 (БЗ-6) — за флагом `passports.v2` (выключен на проде); ТЗ и статус — `docs/PASSPORTS-V2.md` §9. Шаблон «Для всех» в `passporttemplates` — для PDF v1, тексты v2 «Для всех» — в коде (`scripts/passport-texts.v2.json`).
 - e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `datacore-test`). Никогда не направляй его на `datacore`.
 
 ## Скиллы проекта (`.claude/skills/`)
