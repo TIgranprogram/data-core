@@ -749,3 +749,14 @@ Write-paths, которые должны быть all-or-nothing, использ
 | `bom[]` | += `size`, `mass`, `photoId` | |
 
 Связанное: `products.passportDefaults` (значения по умолчанию у изделия каталога), `passporttemplates.category` (версия текста категории), справочники `dict_values` группы «Паспорта» (`passportCategories`, `passportStandards`, `passportElements`, `passportMaterials`, `passportDefects` (+`photoId`), `passportInstall`, `passportStyle`).
+
+### Дополнения 2026-10-22 (БЗ-6 Э9)
+
+| Где | Поле | Смысл |
+|--|--|--|
+| `organizations` | `fullName` | полное наименование для документов (паспорт: титул, талон; КП); нет — `name` |
+| `productpassports` | `schemeSource` | `standard` (по умолчанию) — стандартные схемы способа установки, где своих нет; `own` — только свои |
+| `dict_values` (`passportCategories`) | `requiredFields` | обязательные поля категории, по строке ключ поля |
+| `dict_values` (`passportInstall`) | `schemesFoundation`, `schemesHoles`, `schemesMounting` | id фото стандартных схем узлов |
+| `dict_values` (`passportDefects`, `passportStyle`) | `photoId` | id фото (в приложении — загрузка) |
+| `passporttemplates` | `category = ALL_V2` | общая часть «Для всех» паспорта v2 (отдельно от шаблона PDF v1) |
