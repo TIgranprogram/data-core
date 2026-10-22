@@ -9,7 +9,7 @@ import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passp
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
-import { standardsDict, type StandardDoc } from './passport-compose';
+import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
 
@@ -151,7 +151,10 @@ export class ProductPassportService {
     const images = ((doc.images as Array<Doc>) || []).map((i) => ({ ...i, url: url.get(String(i.photoId)) ?? null }));
     const supplierOrg = doc.supplierOrgId ? await this.connection.collection('organizations').findOne({ _id: doc.supplierOrgId as Types.ObjectId }, { projection: { name: 1, shortName: 1, assets: 1 } }) : null;
     const cat = doc.passportCategory ? (await this.categoryRules()).get(String(doc.passportCategory)) : null;
-    return { ...doc, images, missing: missingFieldsV2(doc as never, cat), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    // v2: предупреждения по нормативам из снимка (статус не «действует», проверка старше года)
+    const used = ((doc.textSnapshot as { standards?: string[] } | undefined)?.standards) ?? [];
+    const standardWarningsList = used.length ? standardWarnings(used, (await this.standards()).docs) : [];
+    return { ...doc, images, missing: missingFieldsV2(doc as never, cat), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */

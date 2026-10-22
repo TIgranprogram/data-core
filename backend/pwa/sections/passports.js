@@ -26,7 +26,6 @@ const KINDS = [
 const KINDS_V2 = [
   ['overview_callouts', 'Общий вид с выносками', 'раздел «Описание»'],
   ['nameplate', 'Место таблички', 'раздел «Описание»'],
-  ['safety_zone', 'Зона безопасности / приземления', 'приложение «Габариты»'],
   ['foundation', 'Схема фундамента / опор', 'приложение «Установка»'],
   ['holes', 'Схема скважин / разметки', 'приложение «Установка»'],
   ['assembly', 'Сборка', 'приложение «Инструкция по сборке»'],
@@ -150,13 +149,58 @@ function imagesBlock(r, ctx) {
   return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Картинки паспорта'),
     ...kinds().map(([kind, label, where]) => {
       const list = imgsOf(r, kind);
-      return h('div', { class: 'pp-kind' },
+      return h('div', { class: 'pp-kind', 'data-kind': kind },
         h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
           i.url ? h('img', { src: PREFIX + i.url, alt: '', title: i.caption || 'Открыть', onclick: () => window.open(PREFIX + i.url, '_blank') }) : h('span', { class: 'muted' }, 'нет файла'),
           canEdit() ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
         canEdit() ? photoDrop({ attach: async (photoId) => { r.images = [...(r.images || []), { kind, photoId, order: list.length }]; return r; }, done: () => save(r.images) }) : null);
     }));
+}
+
+/** Паспорт v2 (БЗ-6 Э5a2): «Проверка» — чего не хватает; у рисунка — «Загрузить» (переход к его зоне загрузки ниже). */
+const IMG_BY_LABEL = { 'Общий вид': 'overview', 'Габариты': 'dimensions', 'Зона безопасности': 'safety', 'Схема фундамента': 'foundation', 'Схема скважин': 'holes', 'Схема сборки': 'assembly', 'Общий вид с выносками': 'overview_callouts', 'Табличка': 'nameplate' };
+function checkBlock(r) {
+  const miss = r.missing || [];
+  const warn = r.standardWarnings || [];
+  if (!miss.length && !warn.length) return h('div', null, h('div', { class: 'section-title' }, 'Проверка'), h('p', { class: 'muted' }, 'Всё заполнено — паспорт можно выдавать.'));
+  const goTo = (kind) => {
+    const zone = document.querySelector(`.pp-kind[data-kind="${kind}"]`);
+    if (!zone) return;
+    zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    zone.classList.add('fill-here'); setTimeout(() => zone.classList.remove('fill-here'), 2500);
+  };
+  return h('div', null, h('div', { class: 'section-title' }, `Проверка — не хватает: ${miss.length}`),
+    h('ul', { class: 'timeline pp-check' }, ...miss.map((m) => {
+      const img = m.startsWith('Рисунок: ') || m === 'Общий вид' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
+      return h('li', null, m, img && canEdit() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => goTo(img) }, 'Загрузить') : null);
+    }),
+    ...warn.map((w) => h('li', { class: 'muted' }, 'Норматив — ' + w))));
+}
+
+/** Таблица ТО одного периода: что проверить · где · мера. */
+function periodBlock(m) {
+  const row = (x) => h('li', null, x.what, h('span', { class: 'muted' }, [x.where, x.measure].filter(Boolean).map((v) => ' · ' + v).join('')));
+  return h('div', null, h('b', null, m.period), h('ul', null, ...m.rows.map(row)));
+}
+
+/** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
+function previewBlock(r, ctx) {
+  const t = r.textSnapshot;
+  const refresh = canEdit() ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Собрать текст заново по справочникам и шаблону категории (выданный текст заменится)', onclick: async (e) => {
+    e.target.disabled = true; e.target.textContent = 'Собираю…';
+    try { await api(`/passports/${r.id}/snapshot`, { method: 'POST' }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Текст паспорта собран заново'); } catch (err) { toastError(err); e.target.disabled = false; e.target.textContent = 'Обновить текст по справочникам'; }
+  } }, 'Обновить текст по справочникам') : null;
+  if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран. '), refresh);
+  const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
+  return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),
+    h('p', { class: 'muted' }, `Собран ${t.at ? date(t.at) : ''} · шаблон v${t.templateVersion ?? 0}${t.ownVersion != null ? ' + версия категории v' + t.ownVersion : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.join(', ') : ''}`),
+    part('Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
+    part(`Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
+    part('Обслуживание по периодам', t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
+    part('Монтаж', t.install?.text ? h('p', null, t.install.text) : null),
+    ...(t.sections || []).map((s) => part(`${s.number} ${s.title}`, h('div', null, ...s.items.map((i) => h('p', null, i.number ? h('b', null, i.number + ' ') : '— ', i.text))))),
+    refresh);
 }
 
 function bomBlock(r) {
@@ -301,8 +345,9 @@ export const passports = {
       } },
     ],
     extra: (r, ctx) => h('div', null,
-      r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null,
-      imagesBlock(r, ctx), bomBlock(r)),
+      V2 && r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null),
+      imagesBlock(r, ctx), bomBlock(r),
+      V2 && r.passportCategory ? previewBlock(r, ctx) : null),
   },
 
   form: {
