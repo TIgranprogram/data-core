@@ -105,6 +105,11 @@ export class ProductPassportService {
    * из последнего паспорта модели; `n` — сколько паспортов выдано.
    */
   async models(): Promise<Doc[]> {
+    // скорость С9: один расчёт, пока не менялись паспорта и фото; результат общий — не менять
+    return this.versions ? this.versions.cached('passports.models', ['productpassports', 'photos'], '', () => this.buildModels()) : this.buildModels();
+  }
+
+  private async buildModels(): Promise<Doc[]> {
     const groups = await this.model.aggregate([
       { $match: { deletedAt: null, name: { $nin: [null, ''] } } },
       { $project: { textSnapshot: 0 } }, // текст паспорта модели не нужен — без него группировка в разы легче
