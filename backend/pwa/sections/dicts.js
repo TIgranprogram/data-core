@@ -6,6 +6,7 @@ import { current, go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
+import { flag } from '../core/flags.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы, справа компактная таблица выбранного
@@ -128,8 +129,9 @@ export function mountDicts(params) {
 
   async function reload() {
     try {
-      const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
-      groups = g.items; data = d;
+      const [g, d, v2] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`), flag('passports.v2')]);
+      // группа «Паспорта» (БЗ-6) — только при включённом флаге passports.v2; по прямой ссылке открывается и без него
+      groups = v2 ? g.items : g.items.filter((x) => x.group !== 'Паспорта'); data = d;
       editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
       addBtn.hidden = !canEditDict();
       relCache.clear();

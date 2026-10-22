@@ -20,7 +20,7 @@ describe('Dicts', () => {
 
   it('группы и справочники со счётчиками', async () => {
     const g = (await http().get('/api/dicts').set(auth()).expect(200)).body.items;
-    expect(g.map((x: { group: string }) => x.group)).toEqual(['Склад и позиции', 'Люди и ФОТ', 'Заявки и счета']);
+    expect(g.map((x: { group: string }) => x.group)).toEqual(['Склад и позиции', 'Люди и ФОТ', 'Заявки и счета', 'Паспорта']);
     expect(g[0].items.map((x: { key: string }) => x.key)).toEqual(['categories', 'units', 'colors']);
     await http().get('/api/dicts/nope').set(auth()).expect(404);
   });
