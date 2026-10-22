@@ -157,8 +157,8 @@ export const V2_REQUIRED_FIELDS: Record<string, Array<[string, string]>> = {
   MAF: [['serviceLifeYears', 'Срок службы']],
 };
 export const IMAGE_KIND_LABELS: Record<string, string> = {
-  overview: 'Общий вид', dimensions: 'Габариты', safety: 'Зона безопасности', mounting: 'Монтаж', overview_callouts: 'Общий вид с выносками',
-  nameplate: 'Табличка', safety_zone: 'Зона безопасности', foundation: 'Схема фундамента', holes: 'Схема скважин', assembly: 'Схема сборки', bom_item: 'Деталь комплектности',
+  overview: 'Фото изделия', dimensions: 'Чертёж с размерами', safety: 'Зона безопасности', mounting: 'Схема монтажа', overview_callouts: 'Фото с подписями частей',
+  nameplate: 'Где табличка с номером', safety_zone: 'Зона безопасности', foundation: 'Схема фундамента', holes: 'Разметка ям под опоры', assembly: 'Сборка по шагам', bom_item: 'Деталь комплектности',
 };
 
 export interface PassportV2Like extends PassportLike {
@@ -181,6 +181,17 @@ export function requiredFieldsOf(code: string, cat?: { requiredFields?: string }
   return lines.map((l) => { const [k, ...rest] = l.split(/\s+[—-]\s+/); const key = k.trim(); return [key, rest.join(' - ').trim() || V2_FIELD_LABELS[key] || key]; });
 }
 
+/** Обязательные виды картинок паспорта по категории (справочник, по строке вид; «(если разборное)» — только у разборных). */
+export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImages?: string } | null): string[] {
+  const out: string[] = [];
+  for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {
+    const kind = line.trim().split(/\s+/)[0];
+    if (!kind || (/если разборн/i.test(line) && !p.isKit)) continue;
+    if (!out.includes(kind)) out.push(kind);
+  }
+  return out;
+}
+
 export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null): string[] {
   const code = String(p.passportCategory || '');
   if (!code) return missingFields(p);
@@ -194,9 +205,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   for (const [k, label] of requiredFieldsOf(code, cat)) if (empty(p[k])) m.push(label);
   // «safety» (v1) и «safety_zone» (v2) — одно и то же требование
   const has = new Set((p.images || []).map((i) => (i.kind === 'safety' ? 'safety_zone' : i.kind)));
-  for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {
-    const kind = line.trim().split(/\s+/)[0];
-    if (!kind || (/если разборн/i.test(line) && !p.isKit)) continue;
+  for (const kind of requiredImageKinds(p, cat)) {
     const k = kind === 'safety' ? 'safety_zone' : kind;
     if (!has.has(k)) { const label = `Рисунок: ${IMAGE_KIND_LABELS[k] ?? k}`; if (!m.includes(label) && !(k === 'overview' && m.includes('Общий вид'))) m.push(label); }
   }

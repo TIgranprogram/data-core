@@ -15,7 +15,7 @@ describe('missingFieldsV2', () => {
 
   it('TRN: поля категории, элементы, способ установки и рисунки из справочника', () => {
     const m = missingFieldsV2({ ...base, passportCategory: 'TRN' }, trnCat);
-    expect(m).toEqual(expect.arrayContaining(['Элементы', 'Способ установки', 'Рост пользователя от', 'Срок службы', 'Рисунок: Габариты', 'Рисунок: Зона безопасности', 'Рисунок: Схема фундамента']));
+    expect(m).toEqual(expect.arrayContaining(['Элементы', 'Способ установки', 'Рост пользователя от', 'Срок службы', 'Рисунок: Чертёж с размерами', 'Рисунок: Зона безопасности', 'Рисунок: Схема фундамента']));
     expect(m).not.toContain('Рисунок: Общий вид');
   });
 
@@ -46,6 +46,6 @@ describe('missingFieldsV2', () => {
     const cat = { requiredImages: 'overview\nassembly (если разборное)' };
     const maf = { ...base, passportCategory: 'MAF', installationTypeId: 'i1', serviceLifeYears: 5 };
     expect(missingFieldsV2(maf, cat)).toEqual([]);
-    expect(missingFieldsV2({ ...maf, isKit: true }, cat)).toEqual(['Рисунок: Схема сборки']);
+    expect(missingFieldsV2({ ...maf, isKit: true }, cat)).toEqual(['Рисунок: Сборка по шагам']);
   });
 });

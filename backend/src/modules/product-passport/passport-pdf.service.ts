@@ -55,7 +55,7 @@ export class PassportPdfService {
   async stand(id: string) {
     const p = (await this.passports.findById(id)).toObject() as unknown as Doc;
     if (pickPdfVersion(await this.flags.isEnabled('passports.v2'), p as never) !== 'v2') {
-      throw new BadRequestException('Лист для стенда есть только у паспорта v2: нужен включённый флаг «passports.v2», выбранная категория и собранный текст паспорта («Обновить текст по справочникам»)');
+      throw new BadRequestException('Лист для стенда — только у паспорта с категорией: выберите категорию в «Изменить» и сохраните');
     }
     const { orgIn, asset } = await this.orgOf(p);
     const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: p.textSnapshot as PdfV2Text, style: await this.styleOf(p), logo: await this.asset(asset('logo')) });

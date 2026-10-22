@@ -175,7 +175,7 @@ export class ProductPassportController {
   @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshot: true } }) })
   async snapshot(@Param('id') id: string) {
     const r = await this.service.snapshot(id);
-    if (!r) throw new BadRequestException('У паспорта не выбрана категория (паспорт v1) — снимок текста не нужен');
+    if (!r) throw new BadRequestException('У паспорта не выбрана категория — текст по справочникам не собирается. Выберите категорию в «Изменить»');
     return r;
   }
 

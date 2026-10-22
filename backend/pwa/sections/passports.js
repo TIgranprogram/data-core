@@ -19,22 +19,28 @@ import { confirmDlg } from '../ui/dialog.js';
 /** 1 паспорт, 2 паспорта, 5 паспортов. */
 const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
 const KINDS = [
-  ['overview', 'Общий вид', 'на титуле'],
-  ['dimensions', 'Габариты', 'приложение «Габариты изделия»'],
-  ['safety', 'Зона безопасности', 'приложение «Монтаж»'],
-  ['mounting', 'Монтаж', 'рисунки монтажа'],
+  ['overview', 'Фото изделия', 'на обложке паспорта'],
+  ['dimensions', 'Чертёж с размерами', 'в приложении «Габариты»'],
+  ['safety', 'Зона безопасности', 'площадка вокруг изделия с размерами'],
+  ['mounting', 'Схема монтажа', 'в приложении «Монтаж»'],
 ];
 /** Виды картинок паспорта v2 (БЗ-6 §3.6) — в форме и карточке только при флаге passports.v2. */
 const KINDS_V2 = [
-  ['overview_callouts', 'Общий вид с выносками', 'раздел «Описание»'],
-  ['nameplate', 'Место таблички', 'раздел «Описание»'],
-  ['foundation', 'Схема фундамента / опор', 'приложение «Установка»'],
-  ['holes', 'Схема скважин / разметки', 'приложение «Установка»'],
-  ['assembly', 'Сборка', 'приложение «Инструкция по сборке»'],
+  ['overview_callouts', 'Фото с подписями частей', 'стрелки с названиями частей изделия'],
+  ['nameplate', 'Где табличка с номером', 'показать, где закреплён шильдик'],
+  ['foundation', 'Схема фундамента', 'разрез опоры: грунт, щебень, бетон, размеры'],
+  ['holes', 'Разметка ям под опоры', 'план с расстояниями между опорами'],
+  ['assembly', 'Сборка по шагам', 'если изделие поставляется разобранным'],
 ];
 let V2 = false;
 flag('passports.v2').then((v) => { V2 = v; });
-const kinds = () => (V2 ? [...KINDS, ...KINDS_V2] : KINDS);
+/** Виды картинок: обязательные для категории паспорта — первыми (порядок справочника), остальные — как были. */
+const kinds = (r) => {
+  const all = V2 ? [...KINDS, ...KINDS_V2] : KINDS;
+  const req = (r?.requiredImages || []).filter((k) => all.some(([x]) => x === k));
+  return [...req.map((k) => all.find(([x]) => x === k)), ...all.filter(([x]) => !req.includes(x))];
+};
+const isRequired = (r, kind) => (r?.requiredImages || []).includes(kind);
 /** Категории, отложенные пользователем (2026-10-22: «детские пока не делаем») — в выборе не предлагаются. */
 const LATER_CATS = ['DIO', 'DSP'];
 /** Категории паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
@@ -154,11 +160,11 @@ function imagesBlock(r, ctx) {
     try { ctx.setRow(await api(`/passports/${r.id}`, { method: 'PATCH', body: { images: imagesBody(images) } }).then(() => api(`/passports/${r.id}`))); } catch (e) { toastError(e); }
   };
   return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Картинки паспорта'),
-    ...kinds().map(([kind, label, where]) => {
+    ...kinds(r).map(([kind, label, where]) => {
       const list = imgsOf(r, kind);
       const std = (k) => (r.standardImages || []).filter((x) => x.kind === k && x.url);
       return h('div', { class: 'pp-kind', 'data-kind': kind },
-        h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
+        h('div', { class: 'pp-kind-head' }, h('b', null, label), isRequired(r, kind) ? h('span', { class: 'req' }, ' · обязательно') : null, h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
           i.url ? h('a', { href: PREFIX + i.url, target: '_blank', rel: 'noopener', title: i.caption || 'Открыть', 'aria-label': `${label}: открыть картинку` }, h('img', { src: PREFIX + i.url, alt: i.caption || label })) : h('span', { class: 'muted' }, 'нет файла'),
           canEdit() ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
@@ -170,7 +176,7 @@ function imagesBlock(r, ctx) {
 }
 
 /** Паспорт v2 (БЗ-6 Э5a2): «Проверка» — чего не хватает; у рисунка — «Загрузить» (переход к его зоне загрузки ниже). */
-const IMG_BY_LABEL = { 'Общий вид': 'overview', 'Габариты': 'dimensions', 'Зона безопасности': 'safety', 'Схема фундамента': 'foundation', 'Схема скважин': 'holes', 'Схема сборки': 'assembly', 'Общий вид с выносками': 'overview_callouts', 'Табличка': 'nameplate' };
+const IMG_BY_LABEL = { 'Общий вид': 'overview', 'Фото изделия': 'overview', 'Чертёж с размерами': 'dimensions', 'Зона безопасности': 'safety', 'Схема монтажа': 'mounting', 'Схема фундамента': 'foundation', 'Разметка ям под опоры': 'holes', 'Сборка по шагам': 'assembly', 'Фото с подписями частей': 'overview_callouts', 'Где табличка с номером': 'nameplate' };
 function checkBlock(r) {
   const miss = r.missing || [];
   const warn = r.standardWarnings || [];
@@ -233,7 +239,7 @@ function previewBlock(r, ctx) {
   if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран.'), refresh);
   const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
   return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),
-    h('p', { class: 'muted' }, `Собран ${t.at ? date(t.at) : ''} · шаблон v${t.templateVersion ?? 0}${t.ownVersion != null ? ' + версия категории v' + t.ownVersion : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.join(', ') : ''}`),
+    h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.join(', ') : ''}`),
     part('Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
     part(`Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
     part('Обслуживание по периодам', t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
@@ -434,7 +440,7 @@ export const passports = {
         { key: 'width', label: 'Ширина, мм', type: 'number', min: 0, span: 1 },
         { key: 'weight', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
         ...v2Fields,
-        { section: 'Кому и когда', tone: 'who', fixed: !r },
+        { section: 'Кому и когда', tone: 'who' },
         { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
         { key: 'orderNo', label: '№ заказа', max: 50, suggest: orders, suggestTitle: 'Заказы — выбор подставит заказчика', hint: 'Начните печатать номер или заказчика' },
         { key: 'objectName', label: 'Объект / адрес', wide: true, max: 500 },
@@ -448,7 +454,7 @@ export const passports = {
         { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
           hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
         { section: 'Картинки', tone: 'info', collapsed: !!r },
-        ...kinds().map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label} (${where})`, type: 'photos', hint: r || kind !== 'overview' ? undefined : 'У выбранной модели картинки подставятся сами; свои — добавятся к ним' })),
+        ...kinds(r).map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label}${isRequired(r, kind) ? ' — обязательно' : ''}`, type: 'photos', hint: r || kind !== 'overview' ? where : `${where}. У выбранной модели картинки подставятся сами; свои — добавятся к ним` })),
         { section: 'Комплектность и заметки', tone: 'who', collapsed: true },
         { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
           widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] }),

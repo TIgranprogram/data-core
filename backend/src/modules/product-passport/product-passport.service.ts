@@ -8,7 +8,7 @@ import { normalizeCategory, type PassportCategory } from './passport-template-se
 import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passport-template.default';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
-import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
+import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, requiredImageKinds, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
@@ -169,7 +169,9 @@ export class ProductPassportService {
     const stdPhotos = std.length ? await this.connection.collection('photos').find({ _id: { $in: std.map((x) => new Types.ObjectId(x.photoId)) } }, { projection: { storageUrl: 1 } }).toArray() : [];
     const stdUrl = new Map(stdPhotos.map((x) => [String(x._id), x.storageUrl as string]));
     const standardImages = std.map((x) => ({ ...x, url: stdUrl.get(x.photoId) ?? null }));
-    return { ...doc, images, standardImages, missing: missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
+    const requiredImages = requiredImageKinds(doc as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k));
+    return { ...doc, images, standardImages, requiredImages, missing: missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
@@ -306,7 +308,7 @@ export class ProductPassportService {
   async editSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string; text?: string }) {
     const doc = await this.findById(id);
     const snap = (doc.toObject() as unknown as Doc).textSnapshot as { sections?: SnapshotSection[] } | undefined;
-    if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста (паспорт v1)');
+    if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
     doc.set('textSnapshot', { ...snap, sections: editSnapshotItem(snap.sections, String(b.sectionKey ?? ''), String(b.itemKey ?? ''), String(b.text ?? '')), editedAt: new Date() });
     return doc.save();
   }

@@ -138,7 +138,7 @@ export function mountDicts(params) {
     try {
       const [g, v2] = await Promise.all([api('/dicts'), flag('passports.v2')]);
       groups = v2 ? g.items : g.items.filter((x) => x.group !== 'Паспорта');
-      title.textContent = 'Разделы и тексты'; hint.textContent = 'Тексты паспортов v2 по категориям: что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
+      title.textContent = 'Разделы и тексты'; hint.textContent = 'Тексты паспортов по категориям: что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!v2) { body.replaceChildren(h('div', { class: 'state' }, 'Паспорта v2 выключены (флаг passports.v2) — редактор текстов недоступен.')); return; }
