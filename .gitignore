@@ -32,3 +32,6 @@ secrets/
 
 # Доступ к деплою с рабочего ПК (ключи, ssh_config) — не в git
 /deploy/remote-access/
+
+# рабочие копии агентов Claude Code
+.claude/worktrees/
