@@ -67,6 +67,8 @@ export class PartnersService {
       return {
         id: String(o._id), kind: our ? 'our' : 'supplier', name: String(o.name), inn: realInn(o.inn), ...requisites(o),
         requests: a?.n ?? 0, sum: a?.sum ?? 0, lastDate: a?.last ?? null,
+        // печать / подпись / логотип нашей компании — для паспортов (ПС.6); загрузка — PUT /organizations/:id/assets/:role
+        ...(our ? { assets: ((o.assets as Array<{ role: string; storageUrl: string }>) || []).map((x) => ({ role: x.role, url: x.storageUrl })) } : {}),
       };
     }).sort((x, y) => y.requests - x.requests || x.name.localeCompare(y.name, 'ru'));
   }

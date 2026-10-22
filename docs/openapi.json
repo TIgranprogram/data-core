@@ -4197,6 +4197,20 @@
         ]
       }
     },
+    "/showcase/from-orders": {
+      "post": {
+        "operationId": "ShowcaseController_fromOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/kp": {
       "post": {
         "operationId": "ShowcaseController_kp",
@@ -4256,6 +4270,29 @@
       },
       "delete": {
         "operationId": "ShowcaseController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/composition": {
+      "put": {
+        "operationId": "ShowcaseController_setComposition",
         "parameters": [
           {
             "name": "id",
@@ -8135,6 +8172,34 @@
     "/passports/facets": {
       "get": {
         "operationId": "ProductPassportController_facets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/phrases": {
+      "get": {
+        "operationId": "ProductPassportController_phrases",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/models": {
+      "get": {
+        "operationId": "ProductPassportController_models",
         "parameters": [],
         "responses": {
           "200": {

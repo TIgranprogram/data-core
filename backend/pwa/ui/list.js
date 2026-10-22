@@ -22,6 +22,7 @@ import { toastError } from './toast.js';
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
  *   footer?(resp), query?(params),
  *   board?: см. ui/board.js — вид «Доска», ?view=board,
+ *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   tiles?: { key, load: async () => [{ value, label, n, sub }] } — плитки-фильтр над списком,
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
@@ -44,14 +45,16 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     page: Math.max(1, Number(P.page) || 1),
     sort: P.sort || L.sortDefault,
     board: !!L.board && P.view === 'board',
+    gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view)),
   });
   let rows = [];
 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
-  const btnTable = h('button', { type: 'button', onclick: () => patch({ view: undefined, page: undefined }) }, icon('table'), 'Таблица');
+  const btnTable = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default ? 'table' : undefined, page: undefined }) }, icon('table'), 'Таблица');
   const btnBoard = h('button', { type: 'button', onclick: () => patch({ view: 'board', page: undefined, status: undefined }) }, icon('board'), 'Доска');
-  const viewSwitch = L.board ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, btnBoard) : null;
+  const btnGallery = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default ? undefined : 'gallery', page: undefined }) }, icon('gallery'), 'Галерея');
+  const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки
   const exportBtn = L.export === false ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
@@ -139,10 +142,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
   const tbody = h('tbody');
   const cards = h('ul', { class: 'cards' });
+  const galleryBox = h('div', { class: 'gal-box', hidden: true });
   const tableBox = h('div', null, h('div', { class: 'table-wrap' }, h('table', { class: 'list' }, h('thead', null, theadRow), tbody)), cards);
   const foot = h('div', { class: 'list-foot' });
   const quickBox = quick && canCreate ? quick : null;
-  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length ? chipsBox : null, hintBox, toolbar, quickBox, tableBox, foot);
+  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length ? chipsBox : null, hintBox, toolbar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
 
@@ -163,7 +167,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
-    const { board: isBoard } = st();
+    const { board: isBoard, gallery: isGallery } = st();
     sb.set(P.q || '');
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
     const nOpt = otherFilters.filter((f) => P[f.key]).length;
@@ -171,7 +175,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     resetBtn.hidden = !((L.filters || []).some((f) => P[f.key]) || P.q);
     btnTable.classList.toggle('active', !isBoard);
     btnBoard.classList.toggle('active', isBoard);
-    tableBox.hidden = isBoard; foot.hidden = isBoard;
+    btnGallery.classList.toggle('active', isGallery);
+    btnTable.classList.toggle('active', !isBoard && !isGallery);
+    tableBox.hidden = isBoard || isGallery; foot.hidden = isBoard; galleryBox.hidden = !isGallery;
     if (quickBox) quickBox.hidden = isBoard;
     panel.classList.toggle('compact', isBoard);
     boardBox.hidden = !isBoard;
@@ -186,6 +192,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   function markSelected() {
     [...tbody.children].forEach((tr) => { const r = rows[Number(tr.dataset.i)]; tr.classList.toggle('selected', !!r && r.id === P.open); });
     [...cards.children].forEach((li, i) => li.classList.toggle('selected', !!rows[i] && rows[i].id === P.open));
+    galleryBox.querySelectorAll('.gcard').forEach((b) => b.classList.toggle('selected', b.dataset.id === P.open));
     const sel = tbody.querySelector('tr.selected');
     if (sel) sel.scrollIntoView({ block: 'nearest' });
   }
@@ -205,7 +212,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     return query;
   }
   async function load() {
-    let { limit, page, sort, board: isBoard } = st();
+    let { limit, page, sort, board: isBoard, gallery: isGallery } = st();
+    if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
     const query = currentQuery(isBoard);
     const per = L.periods ? L.periods(P) : null;
     if (per && !isBoard) { limit = 2000; page = 1; }
@@ -244,6 +252,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
           h('button', { class: 'btn btn-ghost', type: 'button', onclick: resetFilters }, 'Сбросить всё'))
         : h('div', { class: 'state' }, h('div', null, L.emptyText || 'Записей пока нет.'),
           canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate }, '+ ' + (L.createLabel || 'Создать')) : null));
+    } else if (isGallery) {
+      renderGallery();
     } else if (per) {
       renderPeriods(per);
     } else {
@@ -277,6 +287,21 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       h('span', null, resp.total ? `${from}–${to} из ${qty(resp.total)}` : ''),
       L.footer ? L.footer(resp) : null,
       resp.total > 25 ? pager({ page, limit, total: resp.total, onPage: (p) => patch({ page: p > 1 ? p : undefined }), onLimit: (n) => patch({ limit: n === 25 ? undefined : n, page: undefined }) }) : null].filter(Boolean));
+  }
+
+  /* ---------- Галерея: карточки с фото по группам (ПС: паспорта по категориям) ---------- */
+  function renderGallery() {
+    const groups = new Map();
+    for (const r of rows) { const g = L.gallery.groupBy ? L.gallery.groupBy(r) : ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); }
+    const order = [...groups].sort((a, b) => (a[0] === L.gallery.lastGroup) - (b[0] === L.gallery.lastGroup)); // «Без категории» — в конце
+    galleryBox.replaceChildren(...order.map(([g, items]) => h('section', { class: 'gal-group' },
+      g ? h('h3', { class: 'gal-head' }, g, h('span', { class: 'gal-n' }, qty(items.length))) : null,
+      h('div', { class: 'gal' }, ...items.map((row) => {
+        const v = L.gallery.card(row);
+        return h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id }, onclick: () => onOpen(row), title: v.title },
+          v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
+          h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.badge || null);
+      })))));
   }
 
   /* ---------- Месяцы и годы (фаза М) ---------- */

@@ -943,3 +943,34 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .pp-kind-head { margin-bottom: 6px; font-size: var(--fs-sm); }
 .pp-kind .pf-strip { margin-bottom: 8px; }
 .pp-kind .photo-drop { margin: 0; padding: 8px 12px; }
+
+/* Галерея (ui/list.js, ?view=gallery): карточки с фото по группам — паспорта по категориям */
+.gal-box { padding: var(--s4); }
+.gal-group + .gal-group { margin-top: var(--s4); }
+.gal-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 10px; }
+.gal-n { color: var(--muted); font-size: var(--fs-sm); font-weight: 500; }
+.gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.gcard { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font: inherit; min-width: 0; }
+.gcard:hover, .gcard:focus-visible { border-color: var(--border-strong); background: var(--surface-2); }
+.gcard.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.gc-pic { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: calc(var(--radius) - 2px); } /* чертежи — на белом в обеих темах */
+.gc-none { display: grid; place-items: center; background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
+.gc-title { font-weight: 600; font-size: var(--fs-sm); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.gc-meta { color: var(--muted); font-size: var(--fs-sm); }
+@media (max-width: 720px) { .gal-box { padding: 10px; } .gal { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } }
+
+/* «▾ Варианты» готовых текстов под длинным полем (ui/phrases.js) */
+.ph-btn { margin-top: 4px; font-size: var(--fs-sm); align-self: flex-start; }
+.ph-n { color: var(--muted); font-weight: 400; }
+.phrase-list { max-height: 420px; }
+.phrase-list .ph-text { font-weight: 400; white-space: normal; line-height: 1.4; }
+.phrase-list .ph-hint { cursor: default; font-size: var(--fs-sm); }
+.phrase-list .ph-hint:hover { background: none; }
+.sg-pic-row { display: flex; flex-direction: row; justify-content: flex-start; gap: 10px; align-items: center; }
+.sg-pic { flex: 0 0 56px; width: 56px; height: 42px; object-fit: contain; background: #fff; border-radius: var(--radius-sm); } /* чертёж — на белом */
+.sg-pic-none { background: var(--surface-2); }
+.sg-txt { min-width: 0; }
+.gc-badge { align-self: flex-start; }
+/* Печать и подпись нашей компании (карточка «Наши») */
+.stamp-pic { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.stamp-pic img { max-height: 120px; max-width: 220px; object-fit: contain; background: #fff; border-radius: var(--radius-sm); padding: 4px; } /* печать — на белом, как на бумаге */

@@ -5,7 +5,7 @@ import { highlight, placeList } from './popup.js';
 /**
  * Подсказки под полем ввода (TASKS З.7): печатаешь — внизу «уже заказывали / есть на складе»,
  * сверху — кнопки категорий для быстрого сужения; выбор заполняет сразу несколько полей формы.
- *   attachSuggest(input, { load: async () => [{ label, sub, cat, search, values }], onPick(values) })
+ *   attachSuggest(input, { load: async () => [{ label, sub, cat, search, values, pic? }], onPick(values) }) — pic: миниатюра слева (модели паспортов)
  * search — строка для поиска (нормализованная, как в facets.js).
  */
 export function attachSuggest(input, { load, onPick, title = 'Уже заказывали' }) {
@@ -26,8 +26,9 @@ export function attachSuggest(input, { load, onPick, title = 'Уже заказ�
     box.replaceChildren(...[
       h('div', { class: 'sg-head' }, h('span', null, title),
         cats.length > 1 ? h('span', { class: 'sg-cats' }, ...['', ...cats].map((c) => h('button', { type: 'button', class: 'tag' + (cat === c ? ' active' : ''), onmousedown: (e) => { e.preventDefault(); cat = c; render(); } }, c || 'Все'))) : null),
-      ...shown.map((x, i) => h('div', { class: 'sg-row' + (i === active ? ' active' : ''), role: 'option', onmousedown: (e) => { e.preventDefault(); pick(x); } },
-        h('div', { class: 'opt-l' }, highlight(x.label, input.value)), h('small', null, x.sub))),
+      ...shown.map((x, i) => h('div', { class: 'sg-row' + (x.pic !== undefined ? ' sg-pic-row' : '') + (i === active ? ' active' : ''), role: 'option', onmousedown: (e) => { e.preventDefault(); pick(x); } },
+        x.pic !== undefined ? (x.pic ? h('img', { class: 'sg-pic', src: x.pic, alt: '', loading: 'lazy' }) : h('span', { class: 'sg-pic sg-pic-none' })) : null,
+        h('div', { class: 'sg-txt' }, h('div', { class: 'opt-l' }, highlight(x.label, input.value)), h('small', null, x.sub)))),
       shown.length ? null : h('div', { class: 'sg-row muted' }, 'В этой категории ничего')].filter(Boolean));
     box.hidden = false;
     placeList(box);

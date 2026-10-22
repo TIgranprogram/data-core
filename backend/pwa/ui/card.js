@@ -150,7 +150,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   // ---------- Правка / создание ----------
   async function showForm(m, init) {
     const isNew = m === 'create';
-    const base = isNew ? init || (section.form.initial ? section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
+    const base = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
     menuBox.replaceChildren();
     titleEl.textContent = isNew ? section.newTitle || 'Новая запись' : 'Изменить';
     subEl.textContent = isNew ? '' : section.card.heading(row);

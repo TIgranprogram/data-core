@@ -23,3 +23,7 @@ services:
       - ./backend/admin:/app/admin:ro
       - ./backend/pwa:/app/pwa:ro
       - ./secrets:/app/secrets:ro   # ключ робота Google — чтобы проверять синхронизацию таблиц на копии
+      - qa-uploads:/app/uploads     # картинки стенда (паспорта, фото) — не пропадают при пересоздании контейнера
+
+volumes:
+  qa-uploads:

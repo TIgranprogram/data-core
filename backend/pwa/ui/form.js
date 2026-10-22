@@ -4,6 +4,7 @@ import { parseNum } from '../core/format.js';
 import { photoField } from './photos.js';
 import { attachCombo } from './combo.js';
 import { attachSuggest } from './suggest.js';
+import { attachPhrases } from './phrases.js';
 import { enhanceSelect } from './select.js';
 
 /**
@@ -18,6 +19,9 @@ import { enhanceSelect } from './select.js';
  *   type: 'hidden' — скрытое значение (его ставит suggest другого поля).
  *   type: 'segment' — кнопки-переключатель для 2–4 вариантов (options: { value, label, tone? }).
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
+ *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
+ *   suggestFocus — ключ поля, куда перейти после выбора подсказки.
+ *   compose — { from: [ключи], build(values) } — значение собирается из других полей на лету, пока его не поправили вручную.
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
  * Возвращает { el, read() → { values } | { errors }, dirty(), focus() }.
  */
@@ -155,13 +159,35 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
         }, 200));
       }
     }
+    if (f.phrases) {
+      const ph = attachPhrases(input, { load: f.phrases.load, title: f.phrases.title, context: () => (f.phrases.by ? inputs.get(f.phrases.by)?.input.value || '' : '') });
+      if (f.phrases.by) setTimeout(() => inputs.get(f.phrases.by)?.input.addEventListener('change', ph.refresh));
+    }
     if (f.suggest) {
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
-        for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') x.input.value = String(v); }
+        for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') { x.input.value = String(v); if (x.input.tagName === 'SELECT') x.input.dispatchEvent(new Event('change', { bubbles: true })); } }
         summarize();
+        if (f.suggestFocus) setTimeout(() => inputs.get(f.suggestFocus)?.input.focus(), 0); // ПС.5: выбрали модель — дальше «Заказчик»
       } });
     }
   }
+  // compose: { from: [ключи], build(values) → текст } — поле собирается из других на лету (ПС: «Описание целиком»);
+  // поправили вручную — больше не перезаписываем, под полем «↻ Собрать заново из полей выше»
+  for (const [, x] of inputs) {
+    const c = x.f.compose;
+    if (!c) continue;
+    const vals = () => Object.fromEntries(c.from.map((k) => [k, inputs.get(k)?.input.value ?? '']));
+    let auto = c.build(vals());
+    const manual = () => x.input.value.trim() !== '' && x.input.value !== auto;
+    const again = h('button', { type: 'button', class: 'link-btn ph-btn', onclick: () => { auto = c.build(vals()); x.input.value = auto; x.input.dispatchEvent(new Event('input', { bubbles: true })); again.hidden = true; } }, '↻ Собрать заново из полей выше');
+    x.input.insertAdjacentElement('afterend', again);
+    again.hidden = !manual();
+    if (!x.input.value.trim()) x.input.value = auto;
+    const update = () => { const next = c.build(vals()); if (!manual()) { x.input.value = next; auto = next; } again.hidden = !manual(); };
+    for (const k of c.from) { const src = inputs.get(k)?.input; src?.addEventListener('input', update); src?.addEventListener('change', update); }
+    x.input.addEventListener('input', () => { again.hidden = !manual(); });
+  }
+
   /** Свёрнутый блок показывает в заголовке то, что в нём уже заполнено. */
   function summarize() {
     for (const b of blocks) {

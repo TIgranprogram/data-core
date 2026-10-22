@@ -1,5 +1,6 @@
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { normSearch } from '../core/facets.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
@@ -36,24 +37,34 @@ let oursCache = null;
 const ourCompanies = async () => (oursCache ??= await api('/partners', { query: { type: 'our' } }).then((r) => r.items).catch(() => []));
 const categories = async () => [...new Set([...CATEGORIES, ...(await facets()).categories.map((c) => c.value)])];
 
-/** Модели для подсказки «выберите модель»: по одной на артикул + наименование (последний паспорт), кэш на минуту. */
+/** Модели для «выберите модель» (GET /passports/models: артикул + наименование, поля и фото последнего паспорта), кэш на минуту. */
 let modelsCache = null; let modelsAt = 0;
 async function models() {
   if (modelsCache && Date.now() - modelsAt < 60000) return modelsCache;
-  const items = (await api('/passports', { query: { limit: 1000, sort: '-passportNo' } })).items;
-  const seen = new Map();
-  for (const r of items) {
-    const k = `${(r.article || '').toLowerCase()}|${(r.name || '').toLowerCase().replace(/\s+/g, ' ')}`;
-    if (!r.name || seen.has(k)) continue;
-    seen.set(k, {
-      label: r.name, cat: r.category || '', sub: [r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `паспорт № ${r.passportNumber}`].filter(Boolean).join(' · '),
-      search: [r.name, r.article, r.category].filter(Boolean).join(' '),
-      values: { _copyFrom: r.id, name: r.name, category: r.category || '', article: r.article || '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight),
-        materials: r.materials || '', installationMethod: r.installationMethod || '', purpose: r.purpose || '', description: r.description || '', supplierOrgId: r.supplierOrgId || '', warrantyMonths: num(r.warrantyMonths ?? 12) },
-    });
-  }
-  modelsCache = [...seen.values()]; modelsAt = Date.now();
+  const items = await api('/passports/models');
+  modelsCache = items.map((r) => ({
+    label: r.name, cat: r.category || '', pic: r.thumb ? PREFIX + r.thumb : null,
+    sub: [r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${r.n % 10 === 1 && r.n % 100 !== 11 ? 'паспорт' : 'паспорт.'}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
+    search: normSearch([r.name, r.article, r.category].filter(Boolean).join(' ')),
+    values: { _copyFrom: r.id, name: r.name, category: r.category || '', article: r.article || '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight),
+      materials: r.materials || '', installationMethod: r.installationMethod || '', purpose: r.purpose || '', description: r.description || '', supplierOrgId: r.supplierOrgId || '', warrantyMonths: num(r.warrantyMonths ?? 12) },
+  }));
+  modelsAt = Date.now();
   return modelsCache;
+}
+
+/** Готовые тексты «Описания» (GET /passports/phrases) — один запрос на форму. */
+let phrasesP = null; let phrasesAt = 0;
+const phrases = (field) => async () => {
+  if (!phrasesP || Date.now() - phrasesAt > 60000) { phrasesP = api('/passports/phrases'); phrasesAt = Date.now(); }
+  return (await phrasesP)[field] || [];
+};
+
+/** Заказы для «№ заказа»: выбор подставляет и заказчика. */
+async function orders() {
+  const items = (await api('/salesorders', { query: { limit: 500, sort: '-createdAt' } }).catch(() => ({ items: [] }))).items;
+  return items.filter((o) => o.orderNo).map((o) => ({ label: `№ ${o.orderNo}${o.customer ? ' · ' + o.customer : ''}`, sub: [o.title, o.shipDate && 'отгрузка ' + date(o.shipDate)].filter(Boolean).join(' · '),
+    cat: '', search: normSearch([o.orderNo, o.customer, o.title].filter(Boolean).join(' ')), values: { orderNo: o.orderNo, customerName: o.customer || '' } }));
 }
 
 /** «<Наименование> (в дальнейшем именуемое «Изделие»), изготовленное из <материалы>. <Установка> <Назначение>» — как на сервере. */
@@ -132,12 +143,24 @@ export const passports = {
     filters: [
       { key: 'state', label: 'Показать', type: 'chips', options: () => [{ value: 'incomplete', label: 'Неполные' }, { value: 'noImages', label: 'Без картинок' }],
         count: (resp, v) => (v === '' ? undefined : v === 'incomplete' ? resp.incomplete : undefined) },
+      { key: 'category', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
       { key: 'year', label: 'Год', type: 'select', options: async () => (await facets()).years.map((y) => ({ value: String(y.value), label: `${y.value} (${y.n})` })) },
       { key: 'month', label: 'Месяц', type: 'select', options: async () => MONTHS.map((m, i) => ({ value: String(i + 1), label: m })) },
-      { key: 'category', label: 'Категория', type: 'select', options: async () => (await facets()).categories.map((c) => ({ value: c.value, label: `${c.value} (${c.n})` })) },
       { key: 'supplierOrgId', label: 'Поставщик', type: 'select', options: async () => (await facets()).suppliers.map((s) => ({ value: s.value, label: `${s.label} (${s.n})` })) },
       { key: 'customer', label: 'Заказчик', type: 'select', options: async () => (await facets()).customers.map((c) => ({ value: c.value, label: `${c.value} (${c.n})` })) },
     ],
+    // все паспорта по категориям с фото (основной вид); «Таблица» — для поиска и сортировки
+    gallery: {
+      default: true, limit: 400, sort: 'category', lastGroup: 'Без категории',
+      groupBy: (r) => r.category || 'Без категории',
+      card: (r) => ({
+        pic: r.thumb ? PREFIX + r.thumb : null,
+        title: r.name || 'без названия',
+        meta: [`№ ${r.passportNumber}`, date(r.date), r.customerName || r.objectName].filter(Boolean).join(' · '),
+        badge: r.missing?.length ? h('span', { class: 'badge warn gc-badge', title: 'Не хватает: ' + r.missing.join(', ') }, `не хватает ${r.missing.length}`) : null,
+      }),
+    },
+    tiles: { key: 'category', load: async () => (await facets()).categories.map((c) => ({ value: c.value, label: c.value, n: c.n })) },
     hints: {
       '': 'Паспорт — на каждое выданное изделие: свой номер, талон и номер изделия (их выдаёт система). Клик — карточка: картинки, «Скачать PDF», «Копия на ту же модель».',
       incomplete: 'Не хватает данных для выдачи: в строке видно, чего именно. Откройте и заполните — PDF соберётся полным.',
@@ -148,6 +171,7 @@ export const passports = {
       try { toast('Собираю архив — это может занять минуту…'); const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (e) { toastError(e); }
     } }, '⇩ PDF пакетом')],
     columns: [
+      { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
       { key: 'passportNumber', label: '№', sort: 'passportNo', cls: 'nowrap', render: (r) => h('b', null, r.passportNumber || '—') },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
       { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name || '' }, r.name || h('span', { class: 'muted' }, 'без названия')) },
@@ -157,6 +181,7 @@ export const passports = {
       { key: 'missing', label: 'Заполнено', cls: 'nowrap', render: (r) => (r.missing?.length ? h('span', { class: 'badge warn', title: 'Не хватает: ' + r.missing.join(', ') }, `нет ${r.missing.length}`) : h('span', { class: 'badge ok' }, 'всё')) },
     ],
     card: {
+      thumb: (r) => (r.thumb ? h('img', { class: 'thumb', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null),
       title: (r) => `№ ${r.passportNumber} · ${r.name || 'без названия'}`,
       sub: (r) => [date(r.date), r.customerName || r.objectName, r.missing?.length ? `не хватает: ${r.missing.length}` : ''].filter(Boolean).join(' · '),
       side: () => [],
@@ -205,7 +230,7 @@ export const passports = {
         { key: '_copyFrom', type: 'hidden' },
         { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
           hint: r ? undefined : 'Начните печатать и выберите модель — подставятся габариты, материалы, описание и картинки',
-          suggest: r ? undefined : models, suggestTitle: 'Модели из паспортов' },
+          suggest: r ? undefined : models, suggestTitle: 'Модели: выберите — подставится всё, кроме заказчика и даты', suggestFocus: 'customerName' },
         { key: 'category', label: 'Категория', type: 'select', options: cats },
         { key: 'article', label: 'Артикул', max: 50 },
         { key: 'height', label: 'Высота, мм', type: 'number', min: 0, span: 1 },
@@ -214,23 +239,25 @@ export const passports = {
         { key: 'weight', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
         { section: 'Кому и когда', tone: 'who', fixed: !r },
         { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
-        { key: 'orderNo', label: '№ заказа', max: 50 },
+        { key: 'orderNo', label: '№ заказа', max: 50, suggest: orders, suggestTitle: 'Заказы — выбор подставит заказчика', hint: 'Начните печатать номер или заказчика' },
         { key: 'objectName', label: 'Объект / адрес', wide: true, max: 500 },
         ...(r ? [] : [{ key: 'date', label: 'Дата', type: 'date', required: true, hint: 'По дате и номеру строится гарантийный талон' }]),
         { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })), hint: 'Реквизиты, печать и подпись в PDF — из карточки компании' },
         { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
         { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
-        { key: 'materials', label: 'Материалы («изготовленное из …»)', type: 'textarea', wide: true, max: 2000 },
-        { key: 'installationMethod', label: 'Установка', type: 'textarea', wide: true, rows: 2, max: 1000 },
-        { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000 },
-        { key: 'description', label: 'Описание целиком', type: 'textarea', wide: true, rows: 5, max: 4000, hint: 'Пусто — соберётся из наименования, материалов, установки и назначения' },
+        { key: 'materials', label: 'Материалы («изготовленное из …»)', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'category', title: 'Варианты' } },
+        { key: 'installationMethod', label: 'Установка', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'category', title: 'Варианты' } },
+        { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'category', title: 'Варианты' } },
+        { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
+          hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
         { section: 'Картинки', tone: 'info', collapsed: !!r },
         ...KINDS.map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label} (${where})`, type: 'photos', hint: r || kind !== 'overview' ? undefined : 'У выбранной модели картинки подставятся сами; свои — добавятся к ним' })),
         { section: 'Комплектность', tone: 'who', collapsed: true },
         { key: 'bom', label: 'Строками: обозначение | наименование | кол-во | ед. | примечание', type: 'textarea', wide: true, rows: 3, hint: 'Пусто — «И-1 | Изделие в сборе | 1 | шт.»' },
       ];
     },
-    initial: () => ({ date: isoDay(), warrantyMonths: '12' }),
+    // поставщик по умолчанию — наша компания, у которой больше всего паспортов (у модели свой — подставится при выборе)
+    initial: async () => ({ date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '' }),
     toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomText(r.bom),
       ...Object.fromEntries(KINDS.map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
     toBody: (v, r) => {

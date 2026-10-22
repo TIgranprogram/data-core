@@ -273,8 +273,12 @@ function syncCard(section, params) {
   };
   if (params.new) {
     if (!canEditSection(sec) || !sec.form) { patch({ new: undefined }); return; }
-    const initial = { ...(sec.form.initial ? sec.form.initial() : {}) };
-    for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId']) if (params[k]) initial[k] = params[k];
+    // initial() может быть async (паспорта: поставщик по умолчанию с сервера) — карточка дождётся
+    const initial = Promise.resolve(sec.form.initial ? sec.form.initial() : {}).then((b) => {
+      const x = { ...b };
+      for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId']) if (params[k]) x[k] = params[k];
+      return x;
+    });
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
     card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };

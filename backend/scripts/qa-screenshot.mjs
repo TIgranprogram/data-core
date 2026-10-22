@@ -7,7 +7,9 @@ import fs from 'fs';
 import path from 'path';
 const [W, H, HASH, OUT, AFTER] = process.argv.slice(2);
 const dir = process.env.QA_DIR || process.cwd();
-const PW = fs.readFileSync(path.join(dir, 'qa-login.txt'), 'utf8').trim();
+// QA_USER=qa-director — войти другим пользователем (пароль в QA_DIR/<QA_USER>.txt, токены — в <QA_USER>-tokens.json)
+const USER = process.env.QA_USER || 'qa';
+const PW = fs.readFileSync(path.join(dir, USER === 'qa' ? 'qa-login.txt' : `${USER}.txt`), 'utf8').trim();
 const port = 9300 + Math.floor(Math.random() * 500);
 const prof = path.join(dir, 'edge-prof-' + port);
 const br = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -27,10 +29,10 @@ await cmd('Page.enable');
 const ADMIN = HASH.startsWith('/admin');
 await cmd('Page.navigate', { url: 'http://localhost:3002' + (ADMIN ? HASH : '/app/') });
 await sleep(1500);
-const TOK = path.join(dir, 'qa-tokens.json');
+const TOK = path.join(dir, USER === 'qa' ? 'qa-tokens.json' : `${USER}-tokens.json`);
 let LR;
 if (fs.existsSync(TOK)) { const j = JSON.parse(fs.readFileSync(TOK, 'utf8')); LR = await ev(`localStorage.setItem('dca_access',${JSON.stringify(j.access)});localStorage.setItem('dca_refresh',${JSON.stringify(j.refresh)});localStorage.setItem('dca_user',${JSON.stringify(JSON.stringify(j.user))});'cached'`); }
-else { const j = JSON.parse(await ev(`fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'qa',password:${JSON.stringify(PW)}})}).then(r=>r.text())`)); if (j.access) { fs.writeFileSync(TOK, JSON.stringify(j)); LR = await ev(`localStorage.setItem('dca_access',${JSON.stringify(j.access)});localStorage.setItem('dca_refresh',${JSON.stringify(j.refresh)});localStorage.setItem('dca_user',${JSON.stringify(JSON.stringify(j.user))});'ok'`); } else LR = 'NO ' + JSON.stringify(j).slice(0, 120); }
+else { const j = JSON.parse(await ev(`fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:${JSON.stringify(USER)},password:${JSON.stringify(PW)}})}).then(r=>r.text())`)); if (j.access) { fs.writeFileSync(TOK, JSON.stringify(j)); LR = await ev(`localStorage.setItem('dca_access',${JSON.stringify(j.access)});localStorage.setItem('dca_refresh',${JSON.stringify(j.refresh)});localStorage.setItem('dca_user',${JSON.stringify(JSON.stringify(j.user))});'ok'`); } else LR = 'NO ' + JSON.stringify(j).slice(0, 120); }
 console.log('login:', LR);
 if (process.env.QA_THEME) await ev(`localStorage.setItem('dc-theme',${JSON.stringify(process.env.QA_THEME)});1`); // light | dark
 if (ADMIN) {

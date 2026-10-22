@@ -1,9 +1,9 @@
-import { api, session } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 
@@ -35,8 +35,45 @@ async function mergeDialog(r, ctx) {
   if (done) { toast(`Объединено: перенесено записей — ${done.moved}`); ctx.close(); window.dispatchEvent(new CustomEvent('data-changed')); go('partners', { type: type === 'customer' ? 'customer' : undefined, open: done.id }); }
 }
 
-function related(r) {
+/**
+ * Печать и подпись нашей компании (ПС.6): в PDF паспорта «с печатью» — на гарантийном талоне.
+ * Файл (PNG с прозрачным фоном — лучше) — выбрать, перетащить или вставить Ctrl+V; повторная загрузка заменяет.
+ * Сервер: PUT /organizations/:id/assets/seal|signature (печать меняет только администратор).
+ */
+function stampBlock(r, ctx) {
+  const slot = (role, label, tip) => {
+    const cur = (r.assets || []).find((a) => a.role === role);
+    const input = h('input', { type: 'file', accept: 'image/*', hidden: true });
+    const upload = async (file) => {
+      if (!file || !/^image\//.test(file.type)) { toastError(new Error('Нужна картинка: PNG или JPG')); return; }
+      const fd = new FormData(); fd.append('file', file, file.name || `${role}.png`);
+      try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'PUT', body: fd }); toast(`${label}: загружено`); ctx.reload(); } catch (e) { toastError(e); }
+    };
+    input.addEventListener('change', () => { upload(input.files[0]); input.value = ''; });
+    const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Перетащите файл, вставьте Ctrl+V или нажмите' },
+      h('span', null, cur ? 'Заменить: перетащите, Ctrl+V или ' : 'Перетащите, вставьте Ctrl+V или '), h('button', { type: 'button', class: 'link-btn', onclick: () => input.click() }, 'выберите файл'), input);
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('over'); upload(e.dataTransfer?.files?.[0]); });
+    zone.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file')?.getAsFile(); if (f) { e.preventDefault(); upload(f); } });
+    const del = cur ? h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
+    return h('div', { class: 'pp-kind stamp-slot' },
+      h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ' · ' + tip)),
+      cur ? h('div', { class: 'stamp-pic' }, h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
+      session.canEdit ? zone : null);
+  };
+  return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Печать и подпись (для паспортов)'),
+    h('p', { class: 'muted' }, 'Лучше PNG с прозрачным фоном (скан без белого фона). В PDF паспорта «с печатью» ставятся на гарантийный талон.'),
+    slot('seal', 'Печать', 'круглая печать организации'), slot('signature', 'Подпись', 'подпись директора'));
+}
+
+function related(r, ctx) {
   const items = r.related || [];
+  if (r.kind === 'our') return h('div', null, stampBlock(r, ctx), relatedRest(r, items));
+  return relatedRest(r, items);
+}
+
+function relatedRest(r, items) {
   if (r.kind === 'customer') {
     // Заказчик целиком: в работе / закрытые, у каждого заказа — этап, позиции, сумма и оплата; клик — сам заказ
     if (!items.length) return h('p', { class: 'muted' }, 'Заказов нет');
@@ -160,6 +197,9 @@ export const partners = {
       { key: 'bankAccount', label: 'Расчётный счёт', max: 20 },
       { key: 'bankCorrAccount', label: 'Корр. счёт', max: 20 },
       { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
+      ...(r?.kind === 'our' || !r ? [{ section: 'Для паспортов (наша компания)', tone: 'info', collapsed: !!r && !!(r.directorName || r.trademark) },
+        { key: 'directorName', label: 'Директор (Фамилия И. О. — в подписи талона)', max: 200 },
+        { key: 'trademark', label: 'Торговая марка (на титуле паспорта)', max: 100 }] : []),
     ],
     initial: () => ({ kind: new URLSearchParams(location.hash.split('?')[1] || '').get('type') || 'supplier' }),
     toInitial: (r) => ({ ...r, inn: r.inn || '' }),

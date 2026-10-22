@@ -85,6 +85,15 @@ describe('Паспорта изделий', () => {
     expect(f.suppliers[0]).toMatchObject({ value: orgId });
   });
 
+  it('модели и готовые тексты для формы (ПС.5)', async () => {
+    const models = (await http().get('/api/passports/models').set(as(manager)).expect(200)).body;
+    const urn = models.find((m: { name: string }) => m.name === 'Урна парковая');
+    expect(urn).toMatchObject({ n: 2, height: 800, materials: 'листовой стали 2 мм' });
+    const ph = (await http().get('/api/passports/phrases').set(as(manager)).expect(200)).body;
+    expect(ph.purpose).toEqual(expect.arrayContaining([expect.objectContaining({ text: 'Предназначено для сбора мусора', n: 2 })]));
+    expect(Object.keys(ph)).toEqual(['materials', 'installationMethod', 'purpose']);
+  });
+
   it('права: менеджер смотрит, но не создаёт и не скачивает PDF', async () => {
     await http().get(`/api/passports/${first}`).set(as(manager)).expect(200);
     await http().post('/api/passports').set(as(manager)).send({ name: 'x' }).expect(403);

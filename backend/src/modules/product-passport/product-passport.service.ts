@@ -36,7 +36,63 @@ export class ProductPassportService {
     // «неполные» считаются правилами, а не запросом — паспортов сотни, это дёшево
     const all: Array<Doc & { missing: string[] }> = docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFields(d as never) }));
     const rows = q.incomplete === '1' || q.incomplete === 'true' ? all.filter((d) => d.missing.length) : all;
-    return { items: rows.slice(p.skip, p.skip + p.limit), total: rows.length, page: p.page, limit: p.limit, incomplete: all.filter((d) => d.missing.length).length };
+    const items = rows.slice(p.skip, p.skip + p.limit);
+    await this.attachThumbs(items);
+    return { items, total: rows.length, page: p.page, limit: p.limit, incomplete: all.filter((d) => d.missing.length).length };
+  }
+
+  /** Миниатюра общего вида (галерея, строка списка): `thumb` — маленькая, `photoUrl` — оригинал. */
+  private async attachThumbs(items: Doc[]) {
+    const first = (d: Doc) => ((d.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number }>) || []).filter((i) => i.kind === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0]?.photoId;
+    const ids = items.map(first).filter(Boolean) as Types.ObjectId[];
+    if (!ids.length) return;
+    const photos = this.connection.collection('photos');
+    const [orig, thumbs] = await Promise.all([
+      photos.find({ _id: { $in: ids } }, { projection: { storageUrl: 1 } }).toArray(),
+      photos.find({ parentPhotoId: { $in: ids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
+    ]);
+    const url = new Map(orig.map((x) => [String(x._id), x.storageUrl as string]));
+    const th = new Map(thumbs.map((x) => [String(x.parentPhotoId), x.storageUrl as string]));
+    for (const d of items) { const id = first(d); if (!id) continue; d.photoUrl = url.get(String(id)) ?? null; d.thumb = th.get(String(id)) ?? d.photoUrl; }
+  }
+
+  /**
+   * Готовые тексты для «Описания» (ПС.5): материалы, установка, назначение — все разные варианты из паспортов,
+   * с числом паспортов и категориями (в форме сначала — для выбранной категории). Новый текст, сохранённый в паспорте,
+   * сам попадает в варианты.
+   */
+  async phrases(): Promise<Record<string, Array<{ text: string; n: number; categories: string[] }>>> {
+    const out: Record<string, Array<{ text: string; n: number; categories: string[] }>> = {};
+    for (const f of ['materials', 'installationMethod', 'purpose'] as const) {
+      const rows = await this.model.aggregate([
+        { $match: { deletedAt: null, [f]: { $nin: [null, ''] } } },
+        { $group: { _id: `$${f}`, n: { $sum: 1 }, categories: { $addToSet: '$category' } } },
+        { $sort: { n: -1, _id: 1 } },
+      ]).exec();
+      out[f] = rows.map((r) => ({ text: String(r._id), n: r.n, categories: (r.categories as unknown[]).filter(Boolean).map(String) }));
+    }
+    return out;
+  }
+
+  /**
+   * Модели (артикул + наименование) — для «Новый паспорт → выберите модель» (ПС.5): поля и картинки берутся
+   * из последнего паспорта модели; `n` — сколько паспортов выдано.
+   */
+  async models(): Promise<Doc[]> {
+    const groups = await this.model.aggregate([
+      { $match: { deletedAt: null, name: { $nin: [null, ''] } } },
+      { $sort: { passportNo: -1 } },
+      { $group: { _id: { a: { $ifNull: ['$article', ''] }, n: '$name' }, n: { $sum: 1 }, doc: { $first: '$$ROOT' } } },
+      { $sort: { 'doc.category': 1, 'doc.name': 1 } },
+    ]).exec();
+    const items: Doc[] = groups.map((g) => {
+      const d = g.doc as Doc;
+      return { id: String(d._id), passportNumber: d.passportNumber, n: g.n, name: d.name, article: d.article ?? '', category: d.category ?? '',
+        ...Object.fromEntries(MODEL_FIELDS.filter((f) => !['productId', 'name', 'category', 'article'].includes(f)).map((f) => [f, d[f] ?? null])),
+        images: d.images ?? [] };
+    });
+    await this.attachThumbs(items);
+    return items;
   }
 
   private filterOf(q: Record<string, unknown>, deleted = false): Doc {

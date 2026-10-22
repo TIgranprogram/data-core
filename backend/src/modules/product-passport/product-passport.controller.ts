@@ -57,6 +57,20 @@ export class ProductPassportController {
     return this.service.facets();
   }
 
+  /** Готовые тексты для «Описания»: материалы, установка, назначение — варианты с категориями (ПС.5). */
+  @Get('passports/phrases')
+  @Roles(...VIEW)
+  phrases() {
+    return this.service.phrases();
+  }
+
+  /** Модели (артикул + наименование) с фото и полями — выбор модели при создании паспорта. */
+  @Get('passports/models')
+  @Roles(...VIEW)
+  models() {
+    return this.service.models();
+  }
+
   /** «Шаблон паспорта» — типовые разделы 3–7 и таблицы (действующая версия). */
   @Get('passports/template')
   @Roles(...VIEW)
