@@ -38,6 +38,16 @@ const DEFAULT_FLAGS = [
     category: 'analytics',
     isActive: true,
   },
+  {
+    // БЗ-6 «Паспорта v2» (docs/PASSPORTS-V2.md): справочник «Паспорта», мастер и PDF v2. Выключен — всё как раньше.
+    // Включить: PUT /api/feature-flags/passports.v2 { "enabledByDefault": true } (админ)
+    key: 'passports.v2',
+    label: 'Паспорта v2',
+    description: 'Справочник «Паспорта» по категориям, мастер создания и PDF v2',
+    enabledByDefault: false,
+    category: 'passports',
+    isActive: true,
+  },
 ] as const;
 
 @Injectable()
