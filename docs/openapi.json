@@ -4313,6 +4313,29 @@
         ]
       }
     },
+    "/showcase/{id}/passport-defaults": {
+      "put": {
+        "operationId": "ShowcaseController_setPassportDefaults",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/{id}/restore": {
       "post": {
         "operationId": "ShowcaseController_restore",
@@ -5246,7 +5269,7 @@
       "put": {
         "operationId": "OrganizationController_putAsset",
         "summary": "Загрузить логотип / печать / подпись организации",
-        "description": "Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, старая картинка удаляется. Печать (`seal`) меняет только admin.",
+        "description": "Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, старая картинка удаляется. Печать (`seal`) меняет только admin. Файл нормализуется: EXIF-поворот, ≤ 1200 px, PNG; `?clearWhite=1` — светлый фон становится прозрачным.",
         "parameters": [
           {
             "name": "id",
@@ -5260,6 +5283,14 @@
             "name": "role",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clearWhite",
+            "required": true,
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -8214,7 +8245,25 @@
     "/passports/template": {
       "get": {
         "operationId": "ProductPassportController_template",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Категория блока текста; нет версии категории — «Для всех»",
+            "schema": {
+              "enum": [
+                "ALL",
+                "DIO",
+                "DSP",
+                "TRN",
+                "WRK",
+                "MAF"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -8226,6 +8275,62 @@
       },
       "put": {
         "operationId": "ProductPassportController_saveTemplate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/texts": {
+      "get": {
+        "operationId": "ProductPassportController_texts",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "DIO",
+                "DSP",
+                "TRN",
+                "WRK",
+                "MAF"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "put": {
+        "operationId": "ProductPassportController_saveTexts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/texts/preview": {
+      "post": {
+        "operationId": "ProductPassportController_textsPreview",
         "parameters": [],
         "responses": {
           "200": {
@@ -8340,16 +8445,92 @@
           },
           {
             "name": "stamp",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "1 — с печатью и подписью",
             "schema": {
               "type": "string"
             }
           },
           {
             "name": "mode",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "pages — A5 постранично (умолч.); print — буклет на A4; stand — лист для стенда A3 (только v2)",
+            "schema": {
+              "enum": [
+                "pages",
+                "print",
+                "stand"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot-item": {
+      "patch": {
+        "operationId": "ProductPassportController_editSnapshotItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot-item/promote": {
+      "post": {
+        "operationId": "ProductPassportController_promoteSnapshotItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot": {
+      "post": {
+        "operationId": "ProductPassportController_snapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
             "schema": {
               "type": "string"
             }
