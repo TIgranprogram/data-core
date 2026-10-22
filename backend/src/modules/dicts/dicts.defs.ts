@@ -429,6 +429,20 @@ export const DICTS: DictDef[] = [
       ]),
     editRoles: ['director'],
   },
+  {
+    ...simpleList('passportStyle', 'Паспорта', 'Оформление',
+      'Как выглядит PDF паспорта: цвет категории, фон обложки, рамка и пиктограммы правил. Запись с «Использовать = нет» в PDF не попадает.',
+      [
+        { key: 'code', label: 'Код', required: true, hint: 'Латиницей: COVER_TRN, FRAME_ALL, ICON_NO_CLIMB' },
+        { key: 'kind', label: 'Вид', type: 'select', options: ['цвет категории', 'фон обложки', 'рамка', 'пиктограмма правил'].map((v) => ({ value: v, label: v })) },
+        { key: 'category', label: 'Категория (код)', hint: 'ALL, DIO, DSP, TRN, WRK, MAF или пусто' },
+        { key: 'color', label: 'Цвет', type: 'color' },
+        { key: 'photoId', label: 'Картинка (id фото)', hint: 'id фото из «Фото»; выбор из галереи будет позже' },
+        { key: 'use', label: 'Использовать', type: 'select', options: ['да', 'нет'].map((v) => ({ value: v, label: v })) },
+        { key: 'text', label: 'Подпись', wide: true, hint: 'Для пиктограммы правил; можно {maxUsers}' },
+      ]),
+    editRoles: ['director'],
+  },
 ];
 
 export const DICT = new Map(DICTS.map((d) => [d.key, d]));

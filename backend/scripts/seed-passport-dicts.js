@@ -1,5 +1,5 @@
 /* Справочники «Паспорта» (БЗ-6 Э3a, docs/PASSPORTS-V2.md §3.3): элементы, материалы, дефекты, способы установки —
- * начальные записи в dict_values (dict: passportElements / passportMaterials / passportDefects / passportInstall).
+ * начальные записи в dict_values (dict: passportElements / passportMaterials / passportDefects / passportInstall / passportStyle).
  * Только добавляет недостающие (по коду), существующие не трогает. НА ПРОДЕ — только после «да» пользователя.
  *
  *   План (ничего не меняет):  MONGO_URI=… [MONGO_DB=…] node scripts/seed-passport-dicts.js
@@ -111,8 +111,26 @@ const INSTALL = [
     baseRequirements: L('Покрытие рассчитано на нагрузку от изделия', 'Покрытие уложено на подготовленное основание', 'Крепление не нарушает амортизирующих свойств покрытия'), requiredImages: L('foundation', 'safety_zone') },
 ];
 
+// ───────── Оформление PDF ─────────
+// Цвета: контраст с белым текстом (WCAG) — ALL 5.4, DIO 5.13, DSP 5.75, TRN 5.62, WRK 9.39, MAF 6.69 (все ≥ 4.5).
+const C = (cat, name, color) => ({ code: 'COLOR_' + cat, name, kind: 'цвет категории', category: cat, color, photoId: '', use: 'да', text: '' });
+const I = (code, name, text) => ({ code: 'ICON_' + code, name, kind: 'пиктограмма правил', category: 'ALL', color: '', photoId: '', use: 'да', text });
+const STYLE = [
+  C('ALL', 'Цвет: общий', '#546E7A'), C('DIO', 'Цвет: детские площадки', '#2E7D32'), C('DSP', 'Цвет: спортивные площадки', '#1565C0'),
+  C('TRN', 'Цвет: тренажёры', '#C62828'), C('WRK', 'Цвет: воркаут', '#6A1B9A'), C('MAF', 'Цвет: МАФ', '#8D4B00'),
+  I('INSPECT', 'Осмотр перед занятием', 'Перед занятием осмотрите оборудование'),
+  I('NO_WET', 'Мокрое оборудование', 'Не пользуйтесь мокрым или обледеневшим оборудованием'),
+  I('MAX_USERS', 'Число пользователей', 'Не более {maxUsers} человек одновременно'),
+  I('NO_CLIMB', 'Не залезать', 'Не залезайте на верхние части конструкции'),
+  I('NO_PUSH', 'Не толкать', 'Не толкайте и не раскачивайте других пользователей'),
+  I('SHOES', 'Обувь', 'Занимайтесь в закрытой спортивной обуви'),
+  I('KIDS_ADULT', 'Дети с взрослыми', 'Детям младшего возраста — только под присмотром взрослых'),
+  I('REPORT', 'Сообщить о неисправности', 'При обнаружении неисправности не пользуйтесь изделием и сообщите владельцу площадки'),
+  { code: 'FRAME_ALL', name: 'Рамка для всех категорий (пример)', kind: 'рамка', category: 'ALL', color: '', photoId: '', use: 'нет', text: '' },
+];
+
 const SETS = [
-  ['passportElements', ELEMENTS], ['passportMaterials', MATERIALS], ['passportDefects', DEFECTS], ['passportInstall', INSTALL],
+  ['passportElements', ELEMENTS], ['passportMaterials', MATERIALS], ['passportDefects', DEFECTS], ['passportInstall', INSTALL], ['passportStyle', STYLE],
 ];
 
 (async () => {
