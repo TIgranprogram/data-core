@@ -14,6 +14,7 @@ import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { promoteToOwn } from './passport-promote';
+import { standardSchemes } from './passport-schemes';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 
 /** Общая часть «Для всех» паспорта v2 в passporttemplates (отдельно от шаблона «Для всех» PDF v1). */
@@ -48,7 +49,8 @@ export class ProductPassportService {
     const docs = await this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
     // «неполные» считаются правилами, а не запросом — паспортов сотни, это дёшево
     const cats = await this.categoryRules();
-    const all: Array<Doc & { missing: string[] }> = docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(d as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
+    const inst = await this.installs();
+    const all: Array<Doc & { missing: string[] }> = docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(this.withSchemes(d as unknown as Doc, inst) as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
     const rows = q.incomplete === '1' || q.incomplete === 'true' ? all.filter((d) => d.missing.length) : all;
     const items = rows.slice(p.skip, p.skip + p.limit);
     await this.attachThumbs(items);
@@ -163,7 +165,11 @@ export class ProductPassportService {
     // v2: предупреждения по нормативам из снимка (статус не «действует», проверка старше года)
     const used = ((doc.textSnapshot as { standards?: string[] } | undefined)?.standards) ?? [];
     const standardWarningsList = used.length ? standardWarnings(used, (await this.standards()).docs) : [];
-    return { ...doc, images, missing: missingFieldsV2(doc as never, cat), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    const std = doc.passportCategory ? standardSchemes(doc as never, (await this.installs()).get(String(doc.installationTypeId ?? '')) ?? null) : [];
+    const stdPhotos = std.length ? await this.connection.collection('photos').find({ _id: { $in: std.map((x) => new Types.ObjectId(x.photoId)) } }, { projection: { storageUrl: 1 } }).toArray() : [];
+    const stdUrl = new Map(stdPhotos.map((x) => [String(x._id), x.storageUrl as string]));
+    const standardImages = std.map((x) => ({ ...x, url: stdUrl.get(x.photoId) ?? null }));
+    return { ...doc, images, standardImages, missing: missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
@@ -336,6 +342,18 @@ export class ProductPassportService {
     const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install } });
     doc.set('textSnapshot', { ...text, at: new Date() });
     return doc.save();
+  }
+
+  /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */
+  async installs() {
+    const docs = await this.connection.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }).toArray();
+    return new Map(docs.map((d) => [String(d._id), d as Record<string, unknown>]));
+  }
+
+  private withSchemes(d: Doc, inst: Map<string, Record<string, unknown>>) {
+    if (!d.passportCategory) return d;
+    const std = standardSchemes(d as never, inst.get(String(d.installationTypeId ?? '')) ?? null);
+    return std.length ? { ...d, images: [...((d.images as unknown[]) || []), ...std] } : d;
   }
 
   /** Справочник категорий паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */

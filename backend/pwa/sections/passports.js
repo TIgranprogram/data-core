@@ -154,11 +154,15 @@ function imagesBlock(r, ctx) {
   return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Картинки паспорта'),
     ...kinds().map(([kind, label, where]) => {
       const list = imgsOf(r, kind);
+      const std = (k) => (r.standardImages || []).filter((x) => x.kind === k && x.url);
       return h('div', { class: 'pp-kind', 'data-kind': kind },
         h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
           i.url ? h('img', { src: PREFIX + i.url, alt: '', title: i.caption || 'Открыть', onclick: () => window.open(PREFIX + i.url, '_blank') }) : h('span', { class: 'muted' }, 'нет файла'),
           canEdit() ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
+        // Э9.5: своих нет — стандартная схема способа установки (в паспорт попадёт она; своя загруженная её заменит)
+        !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт; загрузите свою, чтобы заменить'),
+          h('div', { class: 'pf-strip' }, ...std(kind).map((i) => h('a', { class: 'pf-item', href: PREFIX + i.url, target: '_blank', rel: 'noopener', 'aria-label': `${label}: стандартная схема` }, h('img', { src: PREFIX + i.url, alt: label }))))) : null,
         canEdit() ? photoDrop({ attach: async (photoId) => { r.images = [...(r.images || []), { kind, photoId, order: list.length }]; return r; }, done: () => save(r.images) }) : null);
     }));
 }
@@ -268,7 +272,7 @@ function listQuery() {
 function v2Initial(r) {
   return {
     passportCategory: r.passportCategory || '', elements: (r.elements || []).map(String), materialIds: (r.materialIds || []).map(String),
-    installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no',
+    installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no', schemeSource: r.schemeSource === 'own' ? 'own' : 'standard',
     ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])),
     certNumber: r.certificate?.number || '', certUntil: r.certificate?.until ? String(r.certificate.until).slice(0, 10) : '', certEac: r.certificate?.hasEac ? 'yes' : 'no',
   };
@@ -277,6 +281,7 @@ function v2Body(v) {
   const b = {
     elements: Array.isArray(v.elements) ? v.elements : [], materialIds: Array.isArray(v.materialIds) ? v.materialIds : [],
     isKit: v.isKit === 'yes',
+    schemeSource: v.schemeSource === 'own' ? 'own' : 'standard',
     ...Object.fromEntries(V2_NUMS.filter(([k]) => v[k] !== null && v[k] !== undefined && v[k] !== '').map(([k]) => [k, v[k]])),
   };
   if (v.passportCategory) b.passportCategory = v.passportCategory;
@@ -404,6 +409,8 @@ export const passports = {
         { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v }) },
         { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
         { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
+        { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
+          hint: 'Стандартные схемы — в «Справочники → Паспорта → Способы установки»' },
         { section: 'Ограничения и техданные', tone: 'info', collapsed: !!r && !r.passportCategory },
         ...V2_NUMS.map(([key, label, hint]) => ({ key, label, type: 'number', min: 0, span: 1, hint: hint || undefined })),
         { section: 'Сертификат / декларация', tone: 'info', collapsed: !r?.certificate?.number },

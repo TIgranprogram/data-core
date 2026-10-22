@@ -45,6 +45,7 @@ export class CreateProductPassportDto {
   @IsOptional() @IsArray() @IsObjectId({ each: true }) materialIds?: string[];
   @IsOptional() @IsObjectId() installationTypeId?: string;
   @IsOptional() @IsBoolean() isKit?: boolean;
+  @IsOptional() @IsIn(['standard', 'own']) schemeSource?: string;
   @IsOptional() @IsNumber() @Min(0) @Max(120) ageFrom?: number;
   @IsOptional() @IsNumber() @Min(0) @Max(120) ageTo?: number;
   @IsOptional() @IsNumber() @Min(0) heightMin?: number;

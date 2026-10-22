@@ -77,6 +77,7 @@ export class DictsService {
       .map((x) => ({ ...x, ...(x.workTypeId !== undefined ? { workTypeName: refs.worktypes?.find((r) => r.value === String(x.workTypeId))?.label ?? '' } : {}) }))
       .filter((x) => !s || norm(Object.values(x).join(' ')).includes(s))
       .sort((a, b) => String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru'));
+    await this.attachPhotos(d, items);
     return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, group: d.group, hint: d.hint, columns: d.columns, fields: d.fields, refs } };
   }
 
@@ -89,7 +90,21 @@ export class DictsService {
     const row = this.item(d, doc, used) as Record<string, unknown>;
     if (row.workTypeId !== undefined) row.workTypeName = base.refs.worktypes?.find((r) => r.value === row.workTypeId)?.label ?? '';
     if (row.payoutScheduleId !== undefined) row.payoutScheduleName = base.refs.payoutSchedules?.find((r) => r.value === row.payoutScheduleId)?.label ?? '';
+    await this.attachPhotos(d, [row]);
     return { ...row, related, dictInfo: { title: d.title, fields: d.fields, refs: base.refs } };
+  }
+
+  /** Поля-картинки (photo/photos): к строке — `photos: { id: { url, thumb } }` для показа и формы. */
+  private async attachPhotos(d: DictDef, rows: Record<string, unknown>[]) {
+    const pf = d.fields.filter((f) => f.type === 'photo' || f.type === 'photos');
+    if (!pf.length) return;
+    const ids = [...new Set(rows.flatMap((r) => pf.flatMap((f) => (Array.isArray(r[f.key]) ? (r[f.key] as unknown[]) : r[f.key] ? [r[f.key]] : []).map(String))))].filter((x) => Types.ObjectId.isValid(x));
+    if (!ids.length) return;
+    const photos = await this.db.collection('photos').find({ _id: { $in: ids.map((x) => new Types.ObjectId(x)) } }, { projection: { storageUrl: 1, thumbId: 1 } }).toArray();
+    const thumbs = await this.db.collection('photos').find({ _id: { $in: photos.map((p) => p.thumbId).filter(Boolean) } }, { projection: { storageUrl: 1 } }).toArray();
+    const tUrl = new Map(thumbs.map((t) => [String(t._id), t.storageUrl as string]));
+    const map = Object.fromEntries(photos.map((p) => [String(p._id), { url: p.storageUrl as string, thumb: tUrl.get(String(p.thumbId)) ?? (p.storageUrl as string) }]));
+    for (const r of rows) r.photos = map;
   }
 
   private async checkDuplicate(d: DictDef, name: string, exceptId?: string) {

@@ -168,6 +168,8 @@ export class ProductPassport {
   @Prop({ type: Types.ObjectId }) installationTypeId?: Types.ObjectId;
   /** Разборное — поставляется на сборку (тогда нужна схема сборки). */
   @Prop() isKit?: boolean;
+  /** Схемы узлов (Э9.5): 'standard' — из способа установки, где своих нет (по умолчанию); 'own' — только свои. */
+  @Prop() schemeSource?: string;
   @Prop() ageFrom?: number;
   @Prop() ageTo?: number;
   @Prop() heightMin?: number;

@@ -13,7 +13,8 @@ type ObjectId = mongo.ObjectId;
  * (счётчик «используется в N» и раскрытие строки), как перевести связанное при объединении дублей.
  */
 export type Doc = Document & { _id: ObjectId };
-export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color'; required?: boolean; options?: { value: string; label: string }[]; ref?: string; hint?: string; wide?: boolean };
+/** photo — одна картинка (id фото строкой), photos — несколько (список id); в приложении — загрузка, а не ввод id (БЗ-6 Э9.7). */
+export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos'; required?: boolean; options?: { value: string; label: string }[]; ref?: string; hint?: string; wide?: boolean };
 /** more — дополнительные блоки «связанного» (у сотрудника: заявки + что выдано со склада). */
 export type Related = { title: string; items: { label: string; sub?: string; href?: string }[]; total: number; more?: Related[] };
 
@@ -52,6 +53,13 @@ export interface DictDef {
 
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const opt = (v: unknown) => s(v) || null;
+/** Значение поля из тела запроса по типу: картинки — только валидные id фото. */
+const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(v).length === 24;
+const fieldValue = (f: Field, v: unknown) => {
+  if (f.type === 'photos') return (Array.isArray(v) ? v : []).map(String).filter(isOid);
+  if (f.type === 'photo') { const x = Array.isArray(v) ? v[0] : v; return isOid(x) ? String(x) : null; }
+  return opt(v);
+};
 const oidOrNull = (v: unknown) => (v && Types.ObjectId.isValid(String(v)) ? new Types.ObjectId(String(v)) : null);
 const count = async (db: Db, coll: string, q: Document) => db.collection(coll).countDocuments({ deletedAt: null, ...q });
 /** Сколько раз встречается каждое строковое значение поля (нормализовано). */
@@ -90,7 +98,7 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
     fields: [{ key: 'name', label: 'Название', required: true, wide: true }, ...extra],
     name: (d) => s(d.name),
     row: (d) => ({ name: s(d.name), ...Object.fromEntries(extra.map((f) => [f.key, d[f.key] ?? ''])) }),
-    toDoc: async (b, isNew) => ({ ...(isNew ? { dict: key, deletedAt: null, createdAt: new Date() } : {}), name: s(b.name), ...Object.fromEntries(extra.map((f) => [f.key, opt(b[f.key])])), updatedAt: new Date() }),
+    toDoc: async (b, isNew) => ({ ...(isNew ? { dict: key, deletedAt: null, createdAt: new Date() } : {}), name: s(b.name), ...Object.fromEntries(extra.map((f) => [f.key, fieldValue(f, b[f.key])])), updatedAt: new Date() }),
     usage: async (db, docs) => {
       if (!usage) return new Map();
       const t = await tally(db, usage.coll, usage.field);
@@ -416,7 +424,7 @@ export const DICTS: DictDef[] = [
         { key: 'measure', label: 'Мера', wide: true, hint: 'Что делать при обнаружении' },
         { key: 'period', label: 'Период проверки', type: 'select', options: ['ежедневно', 'ежемесячно', 'ежеквартально', 'ежегодно'].map((v) => ({ value: v, label: v })) },
         { key: 'tolerance', label: 'Допуск', wide: true, hint: 'Что считается допустимым; число — только если оно общепринятое' },
-        { key: 'photoId', label: 'Картинка (id фото)', hint: 'id фото из «Фото» — миниатюра дефекта в таблице ТО паспорта; выбор из галереи будет позже' },
+        { key: 'photoId', label: 'Картинка', type: 'photo', hint: 'Миниатюра дефекта в таблице ТО паспорта; перетащите файл, вставьте Ctrl+V или выберите' },
       ]),
     editRoles: ['director'],
   },
@@ -428,6 +436,10 @@ export const DICTS: DictDef[] = [
         { key: 'montage', label: 'Текст монтажа', type: 'textarea', wide: true, hint: 'По строке на шаг' },
         { key: 'baseRequirements', label: 'Требования к основанию', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: foundation, holes…' },
+        // Э9.5: стандартные схемы узлов — попадают в паспорт с этим способом установки, если у паспорта нет своих
+        { key: 'schemesFoundation', label: 'Стандартные схемы: фундамент / опоры', type: 'photos', wide: true, hint: 'Разрез узла: покрытие, грунт, бетон, щебень, размеры' },
+        { key: 'schemesHoles', label: 'Стандартные схемы: скважины / разметка', type: 'photos', wide: true, hint: 'План с расстояниями между опорами' },
+        { key: 'schemesMounting', label: 'Стандартные схемы: монтаж', type: 'photos', wide: true },
       ]),
     editRoles: ['director'],
   },
@@ -439,7 +451,7 @@ export const DICTS: DictDef[] = [
         { key: 'kind', label: 'Вид', type: 'select', options: ['цвет категории', 'фон обложки', 'рамка', 'пиктограмма правил'].map((v) => ({ value: v, label: v })) },
         { key: 'category', label: 'Категория (код)', hint: 'ALL, DIO, DSP, TRN, WRK, MAF или пусто' },
         { key: 'color', label: 'Цвет', type: 'color' },
-        { key: 'photoId', label: 'Картинка (id фото)', hint: 'id фото из «Фото»; выбор из галереи будет позже' },
+        { key: 'photoId', label: 'Картинка', type: 'photo', hint: 'Пиктограмма или фон; перетащите файл, вставьте Ctrl+V или выберите' },
         { key: 'use', label: 'Использовать', type: 'select', options: ['да', 'нет'].map((v) => ({ value: v, label: v })) },
         { key: 'text', label: 'Подпись', wide: true, hint: 'Для пиктограммы правил; можно {maxUsers}' },
       ]),

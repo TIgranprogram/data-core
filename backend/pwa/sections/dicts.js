@@ -1,4 +1,4 @@
-import { api, session } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { searchBox } from '../ui/searchbox.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
@@ -198,6 +198,17 @@ function canEditDict() {
   return editRoles.some((r) => (r === 'director' ? ['admin', 'director'] : [r]).includes(session.user?.role));
 }
 
+/** Поля-картинки справочника (photo — одна, photos — несколько; БЗ-6 Э9.7). */
+const isPhoto = (f) => f.type === 'photo' || f.type === 'photos';
+const idsOf = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String);
+let photoKeys = new Map();
+function photoStrip(r, f) {
+  const ids = idsOf(r[f.key]).filter((id) => r.photos?.[id]);
+  if (!ids.length) return '';
+  return h('div', { class: 'pf-strip' }, ...ids.map((id) => h('a', { class: 'pf-item', href: PREFIX + r.photos[id].url, target: '_blank', rel: 'noopener', title: 'Открыть картинку', 'aria-label': `${f.label}: открыть картинку` },
+    h('img', { src: PREFIX + (r.photos[id].thumb || r.photos[id].url), alt: f.label }))));
+}
+
 export const dict = {
   id: 'dict',
   canEdit: canEditDict,
@@ -211,7 +222,7 @@ export const dict = {
     stats: (r) => [['Используется', r.used ? qty(r.used) : '—']],
     view: (r) => (r.dictInfo?.fields || []).filter((f) => !['name', 'firstName', 'lastName', 'patronymic'].includes(f.key) || r.dict === 'persons')
       .filter((f) => f.type !== 'money' || session.canMoney)
-      .map((f) => [f.label, f.type === 'color' && r[f.key] ? h('span', null, h('i', { class: 'swatch', style: { background: r[f.key] } }), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
+      .map((f) => [f.label, isPhoto(f) ? photoStrip(r, f) : f.type === 'color' && r[f.key] ? h('span', null, h('i', { class: 'swatch', style: { background: r[f.key] } }), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
     actions: (r) => [{ label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) }],
     extra: (r) => {
       const rel = r.related || { items: [] };
@@ -227,17 +238,19 @@ export const dict = {
     // поля и списки выбора — с сервера (описание справочника), чтобы форма всегда совпадала с тем, что он хранит
     fields: async (r) => {
       const info = r?.dictInfo || (await api(`/dicts/${dictKey()}`)).dict;
+      photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
       return info.fields.map((f) => ({
         key: f.key, label: f.label, required: !!f.required, wide: !!f.wide, hint: f.hint, max: 300,
-        type: f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
+        type: isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
         money: f.type === 'money',
         placeholder: f.type === 'color' ? '#2e7d32' : undefined,
         options: f.type === 'select' ? (f.options || info.refs?.[f.ref] || []) : undefined,
       }));
     },
     initial: () => (dictKey() === 'persons' ? { status: 'active' } : {}),
-    toInitial: (r) => r,
-    toBody: (v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x === null || x === undefined ? '' : x])),
+    // картинки (БЗ-6 Э9.7): в форме — загрузка/вставка как везде; в базе — id фото (photo — один, photos — список)
+    toInitial: (r) => ({ ...r, ...Object.fromEntries((r.dictInfo?.fields || []).filter(isPhoto).map((f) => [f.key, idsOf(r[f.key]).map((id) => ({ id, url: r.photos?.[id]?.url, thumb: r.photos?.[id]?.thumb || r.photos?.[id]?.url }))])) }),
+    toBody: (v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
     create: (b) => api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
     update: (id, b) => api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); return r; }),
   },

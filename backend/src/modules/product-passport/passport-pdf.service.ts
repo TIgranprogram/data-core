@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { ProductPassportService } from './product-passport.service';
 import { renderPassportPdf, type PdfImage, type PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
+import { standardSchemes } from './passport-schemes';
 import { pickPdfVersion, renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 import { FeatureFlagService } from '../feature-flag/feature-flag.service';
 
@@ -82,6 +83,13 @@ export class PassportPdfService {
       if (!v2 && !byKind[i.kind]) continue; // v1 — только 4 старых вида (как раньше)
       const buf = await this.file(url.get(String(i.photoId)));
       if (buf) (byKind[i.kind] ||= []).push({ buf, caption: i.caption, refCode: i.refCode });
+    }
+    // v2: стандартные схемы узлов способа установки — по видам, где своих нет (Э9.5)
+    if (v2) {
+      const std = standardSchemes(p as never, (await this.passports.installs()).get(String(p.installationTypeId ?? '')) ?? null);
+      const sp = std.length ? await this.connection.collection('photos').find({ _id: { $in: std.map((x) => new Types.ObjectId(x.photoId)) } }, { projection: { storageUrl: 1 } }).toArray() : [];
+      const su = new Map(sp.map((x) => [String(x._id), x.storageUrl as string]));
+      for (const x of std) { const buf = await this.file(su.get(x.photoId)); if (buf) (byKind[x.kind] ||= []).push({ buf }); }
     }
     const { orgIn, asset } = await this.orgOf(p);
     const stamp = !!opts.stamp;
