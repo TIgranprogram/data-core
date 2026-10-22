@@ -34,6 +34,18 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.from-orders', entityType: 'Product', details: (d) => ({ new: (d as { new?: number }).new, created: (d as { created?: number }).created }) })
   fromOrders(@Body() b: { apply?: boolean; picks?: { key?: string; name?: string }[] }) { return this.s.fromOrders(!!b?.apply, b?.picks); }
 
+  /** Изделия из паспортов (БЗ-8): модели без изделия — группы-кандидаты на объединение и число одиночных. */
+  @Get('from-passports')
+  @Roles('admin', 'manager')
+  passportGroups() { return this.s.passportGroups(); }
+
+  /** Объединить группы в изделия { groups: [{ keys, main, name? }] } и/или изделия для остальных { rest: true }; паспорта получают productId. */
+  @Post('from-passports')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.from-passports', entityType: 'Product', details: (d) => ({ created: (d as { created?: number }).created, linked: (d as { linked?: number }).linked }) })
+  fromPassports(@Body() b: { groups?: { keys?: string[]; main?: string; name?: string }[]; rest?: boolean }) { return this.s.fromPassports(b ?? {}); }
+
   @Post('kp')
   @HttpCode(200)
   @Roles('admin', 'director', 'manager')

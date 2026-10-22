@@ -1,9 +1,10 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { money, parseNum, qty } from '../core/format.js';
+import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { attachCombo } from '../ui/combo.js';
+import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';
 
@@ -140,6 +141,59 @@ async function buildFromOrdersForm() {
     } } }),
   };
 }
+
+// Изделия из паспортов (БЗ-8): группы похожих моделей — выбрать главный вариант (лучший по заполнению уже выбран) и
+// «Объединить» или «Это разные изделия»; «Создать для остальных» — изделие на каждую одиночную модель. Паспорта не меняются, кроме ссылки.
+async function buildFromPassportsForm() {
+  const r = await api('/showcase/from-passports');
+  const art = (m) => [m.article ? `арт. ${m.article}` : 'без артикула', `${m.n} ${plural(m.n, 'паспорт', 'паспорта', 'паспортов')}`, `заполнено ${m.score}`].join(' · ');
+  const run = async (btn, body, done) => {
+    btn.disabled = true; btn.classList.add('is-busy');
+    try { const res = await api('/showcase/from-passports', { method: 'POST', body }); toast(`Изделий создано: ${res.created}, паспортов связано: ${res.linked}`); done(); }
+    catch (e) { toastError(e); btn.disabled = false; btn.classList.remove('is-busy'); }
+  };
+  const groupEl = (g, i) => {
+    const rows = g.map((m, k) => ({ m,
+      main: h('input', { type: 'radio', name: 'fp-main-' + i, checked: k === 0, 'aria-label': 'Главный вариант' }),
+      on: h('input', { type: 'checkbox', checked: true, 'aria-label': 'В эту группу' }) }));
+    const name = h('input', { value: g[0].name, maxlength: 256, class: 'fo-name', 'aria-label': 'Название изделия' });
+    rows.forEach((x) => x.main.addEventListener('change', () => { if (x.main.checked) { name.value = x.m.name; x.on.checked = true; } }));
+    const box = h('div', { class: 'fp-group' });
+    const merge = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Объединить');
+    const apart = h('button', { type: 'button', class: 'btn btn-sm', title: 'Каждый вариант станет отдельным изделием' }, 'Это разные изделия');
+    merge.addEventListener('click', () => {
+      const keys = rows.filter((x) => x.on.checked).map((x) => x.m.key);
+      const main = rows.find((x) => x.main.checked)?.m.key;
+      if (!main || !keys.includes(main)) { toastError(new Error('Главный вариант должен быть отмечен')); return; }
+      run(merge, { groups: [{ keys, main, name: name.value.trim() }] }, () => box.remove());
+    });
+    apart.addEventListener('click', () => run(apart, { groups: g.map((m) => ({ keys: [m.key], main: m.key })) }, () => box.remove()));
+    box.append(h('div', { class: 'section-title' }, `Похожие: ${g.length}`),
+      h('ul', { class: 'dict-cand-list fo-list' }, ...rows.map((x) => h('li', null, x.on, x.main, h('b', null, x.m.name), h('span', { class: 'muted small' }, art(x.m))))),
+      h('label', { class: 'field wide' }, h('span', null, 'Название изделия'), name),
+      h('div', { class: 'bulk-foot' }, merge, apart));
+    return box;
+  };
+  const el = h('div', null,
+    h('p', { class: 'hint' }, 'Паспорта без изделия в «Продукции». Похожие модели собраны в группы: галочка — паспорта группы, кружок — главный вариант (самый полно заполненный уже выбран), его данные станут данными изделия. Выданные паспорта — номера, текст, PDF — не меняются, только получают ссылку на изделие.'),
+    h('p', null, `Групп похожих: ${r.groups.length} · одиночных моделей: ${r.singles} · уже связано паспортов: ${r.linked}${r.noName ? ` · без названия: ${r.noName} (пропущены)` : ''}`),
+    ...r.groups.map(groupEl),
+    r.singles ? h('details', { class: 'month-group' }, h('summary', null, `Одиночные модели: ${r.singles} — «Создать изделия для остальных»`),
+      h('ul', { class: 'timeline' }, ...r.singlesPreview.map((m) => h('li', null, m.name, h('span', { class: 'muted' }, ` · ${art({ ...m, score: '—' })}`)))),
+      r.singles > r.singlesPreview.length ? h('p', { class: 'muted' }, `…и ещё ${r.singles - r.singlesPreview.length}`) : null) : null);
+  return {
+    el, dirty: () => false,
+    read: () => ({ values: { save: async () => {
+      if (!r.singles) throw new Error('Одиночных моделей нет');
+      return { id: null, ...(await api('/showcase/from-passports', { method: 'POST', body: { rest: true } })) };
+    } } }),
+  };
+}
+
+export const fromPassports = {
+  id: 'frompassports', title: 'Изделия из паспортов', newTitle: 'Изделия из паспортов', card: { heading: () => 'Из паспортов' }, get: async () => ({}),
+  form: { build: buildFromPassportsForm, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Создать изделия для остальных', closeAfterCreate: true },
+};
 
 export const kp = {
   id: 'kp', title: 'Коммерческое предложение', newTitle: 'Коммерческое предложение', card: { heading: () => 'КП' }, get: async () => ({}),

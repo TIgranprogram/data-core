@@ -1059,3 +1059,7 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .pf-opt small { color: var(--muted); font-size: var(--fs-sm); line-height: 1.3; }
 .pf-ico { width: 40px; height: 40px; color: var(--muted); }
 .pf-opt[aria-checked="true"] .pf-ico { color: var(--primary); }
+
+/* «Изделия из паспортов» (БЗ-8): группа похожих — список с галочками и кружком «главный», название, кнопки */
+.fp-group { padding: var(--s2) 0 var(--s3); border-bottom: 1px solid var(--border); }
+.fp-group .dict-cand-list input[type=radio] { height: auto; }
