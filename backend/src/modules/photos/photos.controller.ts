@@ -60,7 +60,12 @@ export class PhotosController {
     const result = await this.service.upload(file);
     return {
       ...result.original.toObject(),
-      variants: result.thumb ? { thumb: result.thumb } : {},
+      variants: {
+        ...(result.thumb ? { thumb: result.thumb } : {}),
+        ...(result.full ? { full: result.full } : {}),
+      },
+      /** Только если есть повёрнутая по EXIF копия: что показывать вместо оригинала. */
+      ...(result.full ? { displayUrl: result.full.storageUrl } : {}),
     };
   }
 

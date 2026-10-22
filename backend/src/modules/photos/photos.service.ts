@@ -7,6 +7,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Photo, PhotoDocument, PhotoFrame } from './photo.schema';
 import { decodeMulterOriginalName } from './image-upload.options';
+import { buildRotatedCopy } from './image-orientation';
 
 function uploadDir(): string {
   return process.env.UPLOAD_DIR ?? './uploads';
@@ -50,6 +51,8 @@ export interface PhotoVariantSummary {
 export interface PhotoUploadResult {
   original: PhotoDocument;
   thumb?: PhotoVariantSummary;
+  /** Повёрнутая по EXIF копия (только если у оригинала Orientation ≠ 1). */
+  full?: Omit<PhotoVariantSummary, 'variant'> & { variant: 'full' };
 }
 
 @Injectable()
@@ -96,8 +99,35 @@ export class PhotosService {
     const thumbPath = join(uploadDir(), thumbFilename);
     const originalPath = join(uploadDir(), file.filename);
 
+    // Повёрнутая копия — отдельный файл; сбой не фатален, оригинал остаётся.
+    let full: PhotoUploadResult['full'];
+    let fullFilePath: string | undefined;
+    try {
+      const { rotated } = await buildRotatedCopy(originalPath);
+      if (rotated) {
+        const fullFilename = `${randomUUID()}-full.${rotated.ext}`;
+        fullFilePath = join(uploadDir(), fullFilename);
+        await fs.writeFile(fullFilePath, rotated.data);
+        const doc = await this.create({
+          storageUrl: `/uploads/${fullFilename}`,
+          originalFilename,
+          variant: 'full',
+          mimeType: `image/${rotated.format}`,
+          sizeBytes: rotated.data.length,
+          widthPx: rotated.width,
+          heightPx: rotated.height,
+          parentPhotoId: original._id.toString(),
+        });
+        full = { ...this.toThumbSummary(doc), variant: 'full' };
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to rotate ${file.filename}: ${(error as Error).message}`);
+      if (fullFilePath) await fs.unlink(fullFilePath).catch(() => undefined);
+    }
+
     try {
       const output = await sharp(originalPath)
+        .rotate()
         .resize({
           width: 320,
           height: 320,
@@ -117,7 +147,7 @@ export class PhotosService {
         parentPhotoId: original._id.toString(),
       });
 
-      return { original, thumb: this.toThumbSummary(thumb) };
+      return { original, thumb: this.toThumbSummary(thumb), ...(full ? { full } : {}) };
     } catch (error) {
       this.logger.warn(
         `Failed to generate thumb for ${file.filename}: ${(error as Error).message}`,
@@ -127,7 +157,7 @@ export class PhotosService {
       } catch {
         // No partial thumb is expected when sharp fails, but cleanup is best effort.
       }
-      return { original };
+      return { original, ...(full ? { full } : {}) };
     }
   }
 
