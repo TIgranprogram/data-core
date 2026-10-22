@@ -12,6 +12,7 @@ import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, nextSeq, warran
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
+import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 
 type Doc = Record<string, unknown>;
 const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt'];
@@ -291,7 +292,12 @@ export class ProductPassportService {
     const doc = await this.findById(id);
     const p = doc.toObject() as unknown as Doc;
     if (!p.passportCategory) return null;
-    const { all, own } = await this.templatesFor(String(p.passportCategory));
+    // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
+    const cat = String(p.passportCategory);
+    const { own: dbOwn } = await this.templatesFor(cat);
+    const all = { ...PASSPORT_TEXTS_V2.ALL, version: 0 };
+    const code = PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2];
+    const own = dbOwn ?? (code ? { ...code, version: 0 } : null);
     const { dict: standards } = await this.standards();
     const dv = this.connection.collection('dict_values');
     const load = (d: string) => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>;
