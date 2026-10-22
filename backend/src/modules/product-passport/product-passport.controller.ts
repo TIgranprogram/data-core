@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -115,6 +115,17 @@ export class ProductPassportController {
   @AuditAction({ action: 'passport.created', entityType: 'ProductPassport' })
   create(@Body() dto: CreateProductPassportDto) {
     return this.service.create(dto);
+  }
+
+  /** v2: пересобрать текст паспорта по справочникам и шаблону категории (снимок `textSnapshot`). Паспорт без категории — 400. */
+  @Post('passports/:id/snapshot')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshot: true } }) })
+  async snapshot(@Param('id') id: string) {
+    const r = await this.service.snapshot(id);
+    if (!r) throw new BadRequestException('У паспорта не выбрана категория (паспорт v1) — снимок текста не нужен');
+    return r;
   }
 
   /** Копия на ту же модель: новые номера, дата — сегодня, заказчик — пустой. */

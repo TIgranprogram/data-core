@@ -10,6 +10,8 @@ import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
 import { standardsDict, type StandardDoc } from './passport-compose';
+import type { DictRec } from './passport-compose-parts';
+import { buildV2Text } from './passport-v2-text';
 
 type Doc = Record<string, unknown>;
 const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt'];
@@ -215,7 +217,10 @@ export class ProductPassportService {
     set.source = set.source || 'app';
     await this.assertFree(set);
     try {
-      return await this.model.create(set);
+      const doc = await this.model.create(set);
+      // v2: паспорт с категорией — сразу снимок текста (правка справочников потом его не меняет)
+      if (set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
+      return doc;
     } catch (e) {
       if ((e as { code?: number }).code === 11000) throw new ConflictException('Номер уже занят другим паспортом — повторите создание');
       throw e;
@@ -273,6 +278,24 @@ export class ProductPassportService {
     const t = (await this.ownDoc(cat)) ?? (cat === 'ALL' ? null : await this.ownDoc('ALL'));
     if (!t) return { version: 0, category: 'ALL', ...DEFAULT_PASSPORT_TEMPLATE };
     return { version: t.version, category: normalizeCategory(t.category), id: String(t._id), sections: t.sections, tables: t.tables, updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt };
+  }
+
+  /**
+   * Снимок текста паспорта v2 (БЗ-6 Э4a3): шаблон «Для всех» + версия категории + части из справочников → `textSnapshot`.
+   * Вызывается при создании паспорта с категорией и по кнопке «Обновить текст по справочникам». Паспорт v1 — не трогаем.
+   */
+  async snapshot(id: string): Promise<ProductPassportDocument | null> {
+    const doc = await this.findById(id);
+    const p = doc.toObject() as unknown as Doc;
+    if (!p.passportCategory) return null;
+    const { all, own } = await this.templatesFor(String(p.passportCategory));
+    const { dict: standards } = await this.standards();
+    const dv = this.connection.collection('dict_values');
+    const load = (d: string) => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>;
+    const [elements, materials, defects, install] = await Promise.all([load('passportElements'), load('passportMaterials'), load('passportDefects'), load('passportInstall')]);
+    const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install } });
+    doc.set('textSnapshot', { ...text, at: new Date() });
+    return doc.save();
   }
 
   /** Справочник категорий паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */
