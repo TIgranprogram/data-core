@@ -4,6 +4,7 @@ import { normSearch } from '../core/facets.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
+import { rowsTable } from '../ui/rows-table.js';
 import { toast, toastError } from '../ui/toast.js';
 
 /**
@@ -48,7 +49,8 @@ async function models() {
     sub: [r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${r.n % 10 === 1 && r.n % 100 !== 11 ? 'паспорт' : 'паспорт.'}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
     search: normSearch([r.name, r.article, r.category].filter(Boolean).join(' ')),
     values: { _copyFrom: r.id, name: r.name, category: r.category || '', article: r.article || '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight),
-      materials: r.materials || '', installationMethod: r.installationMethod || '', purpose: r.purpose || '', description: r.description || '', supplierOrgId: r.supplierOrgId || '', warrantyMonths: num(r.warrantyMonths ?? 12) },
+      materials: r.materials || '', installationMethod: r.installationMethod || '', purpose: r.purpose || '', description: r.description || '', supplierOrgId: r.supplierOrgId || '', warrantyMonths: num(r.warrantyMonths ?? 12),
+      bom: JSON.stringify(bomRows(r.bom)) },
   }));
   modelsAt = Date.now();
   return modelsCache;
@@ -126,12 +128,17 @@ function bomBlock(r) {
       h('tbody', null, ...rows.map((b) => h('tr', null, h('td', null, b.pos ?? ''), h('td', null, b.code ?? ''), h('td', null, b.name ?? ''), h('td', { class: 'num' }, b.qty ?? ''), h('td', null, b.unit ?? ''), h('td', { class: 'muted' }, b.note ?? ''))))));
 }
 
-/** Комплектность в форме — строками «обозначение | наименование | кол-во | ед. | примечание». */
-const bomText = (bom) => (bom?.length ? bom : []).map((b) => [b.code, b.name, b.qty, b.unit, b.note].map((x) => x ?? '').join(' | ').replace(/( \| )+$/, '')).join('\n');
-const parseBom = (text) => String(text || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l, i) => {
-  const [code, name, q, unit, note] = l.split('|').map((x) => x.trim());
-  return { pos: i + 1, code: code || '', name: name || '', qty: Number(String(q || '').replace(',', '.')) || 1, unit: unit || 'шт.', ...(note ? { note } : {}) };
-});
+/** Комплектность в форме — таблица (ui/rows-table.js) ↔ bom [{ pos, code, name, qty, unit, note }]. */
+const BOM_COLS = [
+  { key: 'code', label: 'Обозначение', width: '16%', placeholder: 'И-1' },
+  { key: 'name', label: 'Наименование', placeholder: 'Изделие в сборе' },
+  { key: 'qty', label: 'Кол-во', width: '11%', num: true, placeholder: '1' },
+  { key: 'unit', label: 'Ед.', width: '10%', placeholder: 'шт.' },
+  { key: 'note', label: 'Примечание', width: '20%' },
+];
+const bomRows = (bom) => (bom || []).map((b) => ({ code: b.code ?? '', name: b.name ?? '', qty: b.qty == null ? '' : num(b.qty), unit: b.unit ?? '', note: b.note ?? '' }));
+const parseBom = (rows) => (rows || []).filter((b) => b.name || b.code).map((b, i) => ({
+  pos: i + 1, code: b.code || '', name: b.name || '', qty: Number(String(b.qty || '').replace(',', '.')) || 1, unit: b.unit || 'шт.', ...(b.note ? { note: b.note } : {}) }));
 
 /** Параметры фильтров списка из адреса — для «PDF пакетом». */
 function listQuery() {
@@ -224,6 +231,7 @@ export const passports = {
       ['Заказчик', r.customerName],
       ['№ заказа', r.orderNo],
       ['Объект', r.objectName],
+      ['Заметки', r.note],
       ['Поставщик', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],
       ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''],
     ],
@@ -270,8 +278,11 @@ export const passports = {
           hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
         { section: 'Картинки', tone: 'info', collapsed: !!r },
         ...KINDS.map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label} (${where})`, type: 'photos', hint: r || kind !== 'overview' ? undefined : 'У выбранной модели картинки подставятся сами; свои — добавятся к ним' })),
-        { section: 'Комплектность', tone: 'who', collapsed: true },
-        { key: 'bom', label: 'Строками: обозначение | наименование | кол-во | ед. | примечание', type: 'textarea', wide: true, rows: 3, hint: 'Пусто — «И-1 | Изделие в сборе | 1 | шт.»' },
+        { section: 'Комплектность и заметки', tone: 'who', collapsed: true },
+        { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
+          widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] }),
+          hint: 'Пусто — «И-1 · Изделие в сборе · 1 шт.». Можно вставить строки из Excel (Ctrl+V в ячейку) или загрузить заполненный шаблон' },
+        { key: 'note', label: 'Заметки', type: 'textarea', wide: true, rows: 3, max: 4000, hint: 'Попадут в паспорт на лист «Для заметок»; пусто — листа не будет' },
       ];
     },
     // поставщик по умолчанию — наша компания, у которой больше всего паспортов (у модели свой — подставится при выборе)
@@ -281,19 +292,19 @@ export const passports = {
       return { date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
         ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
     },
-    toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomText(r.bom),
+    toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
       ...Object.fromEntries(KINDS.map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
     toBody: (v, r) => {
       const s = (x) => (x === null || x === undefined ? '' : String(x));
       const body = {
         name: s(v.name), category: s(v.category), article: s(v.article), materials: s(v.materials), installationMethod: s(v.installationMethod), purpose: s(v.purpose),
-        customerName: s(v.customerName), orderNo: s(v.orderNo), objectName: s(v.objectName),
+        customerName: s(v.customerName), orderNo: s(v.orderNo), objectName: s(v.objectName), note: s(v.note),
         ...(v.supplierOrgId ? { supplierOrgId: v.supplierOrgId } : {}),
         ...Object.fromEntries(['height', 'length', 'width', 'weight', 'warrantyMonths'].filter((k) => v[k] !== null && v[k] !== undefined).map((k) => [k, v[k]])),
       };
       body.description = s(v.description) || buildDescription(body);
       const bom = parseBom(v.bom);
-      if (bom.length) body.bom = bom;
+      if (bom.length || r) body.bom = bom;
       const images = KINDS.flatMap(([kind]) => (v['img_' + kind] || []).map((photoId, k) => ({ kind, photoId, order: k })));
       if (images.length || r) body.images = images;
       if (!r && v.date) body.date = v.date;

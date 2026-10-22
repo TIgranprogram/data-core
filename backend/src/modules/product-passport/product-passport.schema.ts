@@ -145,6 +145,10 @@ export class ProductPassport {
   @Prop({ type: [PassportBomLineSchema], default: undefined })
   bom?: PassportBomLine[];
 
+  /** Заметки — лист «Для заметок» в PDF (нет заметки — нет листа; 2026-10-22). Поле только data-core, kppdf его не читает. */
+  @Prop({ trim: true })
+  note?: string;
+
   /** Когда последний раз скачали PDF. */
   @Prop()
   pdfIssuedAt?: Date;

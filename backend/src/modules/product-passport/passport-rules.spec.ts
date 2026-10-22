@@ -1,5 +1,5 @@
 import { applyDict, buildDescription, cleanText, missingFields, nextSeq, parseDecimal, parseRuDate, splitObject, warrantyCodeFor, type CounterColl } from './passport-rules';
-import { imposition, shortFio, watermarkOf, renderPassportPdf } from './passport-pdf';
+import { imposition, shortFio, saleDateLine, renderPassportPdf } from './passport-pdf';
 import { DEFAULT_PASSPORT_TEMPLATE } from './passport-template.default';
 import { crc32, zipStore } from './zip';
 
@@ -104,12 +104,13 @@ describe('паспорта: PDF и ZIP (ПС.6)', () => {
   it('спуск буклета 12 страниц — как в образце', () => {
     expect(imposition(12)).toEqual([[11, 0], [1, 10], [9, 2], [3, 8], [7, 4], [5, 6]]);
   });
-  it('ФИО и водяной знак', () => {
+  it('ФИО и дата продажи (месяц прописью)', () => {
     expect(shortFio('Тен Александр Тимурович')).toBe('Тен А. Т.');
     expect(shortFio('Тен А.Т.')).toBe('Тен А.Т.');
-    expect(watermarkOf({ name: 'ООО «СпортИнЮг»' })).toBe('спортинюг');
+    expect(saleDateLine(new Date('2026-10-22T00:00:00Z'))).toBe('«____» октября 2026 г.');
+    expect(saleDateLine('2026-05-01')).toBe('«____» мая 2026 г.');
   });
-  it('PDF собирается без картинок: A5 постранично (кратно 4) и A4 «в печать»', async () => {
+  it('PDF собирается без картинок: A5 постранично (без добивки) и A4 «в печать» (кратно 4); «Для заметок» — только с заметкой', async () => {
     const input = { passport: { passportNumber: '600', warrantyCode: '202610-600', productCode: '2578', name: 'Урна парковая', description: 'Урна (в дальнейшем именуемое «Изделие»).', height: 800, length: 400, width: 400, weight: 12.5 },
       org: { name: 'ООО «СпортИнЮг»', inn: '2310181417', kpp: '231201001', trademark: 'STREET IRON', directorName: 'Тен А.Т.' },
       template: DEFAULT_PASSPORT_TEMPLATE, images: { dimensions: [], safety: [], mounting: [] }, withStamp: false };
@@ -117,8 +118,9 @@ describe('паспорта: PDF и ZIP (ПС.6)', () => {
     const print = await renderPassportPdf({ ...input, mode: 'print' });
     const count = (b: Buffer) => (b.toString('latin1').match(/\/Type \/Page\b/g) || []).length;
     expect(pages.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(count(pages) % 4).toBe(0);
-    expect(count(print)).toBe(count(pages) / 2);
+    expect(count(print)).toBe(Math.ceil(count(pages) / 4) * 2);
+    const withNote = await renderPassportPdf({ ...input, passport: { ...input.passport, note: 'Проверить крепёж через месяц' }, mode: 'pages' });
+    expect(count(withNote)).toBe(count(pages) + 1);
   });
   it('ZIP: подпись и CRC', () => {
     expect(crc32(Buffer.from('123456789'))).toBe(0xcbf43926);

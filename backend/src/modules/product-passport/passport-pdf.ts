@@ -19,7 +19,7 @@ export interface PdfImage { buf: Buffer; caption?: string }
 export interface PdfPassport {
   passportNumber?: string; warrantyCode?: string; productCode?: string; date?: Date | string | null; name?: string;
   description?: string; height?: number | null; length?: number | null; width?: number | null; weight?: number | null;
-  warrantyMonths?: number; bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string }>;
+  warrantyMonths?: number; note?: string; bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string }>;
 }
 export interface PdfInput {
   passport: PdfPassport;
@@ -50,14 +50,13 @@ export function shortFio(full?: string): string {
   return `${p[0]} ${p.slice(1, 3).map((x) => `${x[0]}.`).join(' ')}`;
 }
 
-/** Водяной знак: «ООО «СпортИнЮг»» → «СПОРТИНЮГ»; торговая марка не используется (знак — компания). */
-export function watermarkOf(org: PdfOrg | null): string {
-  const n = String(org?.shortName || org?.name || '').replace(/^(ООО|ИП|АО|ПАО|ЗАО)\s+/i, '').replace(/[«»"']/g, '').trim();
-  return n.toLowerCase();
-}
-
 const num = (v: unknown) => (v === undefined || v === null || v === '' || !Number.isFinite(Number(v)) ? '—' : String(v).replace('.', ','));
-const yearOf = (d: PdfPassport['date']) => (d ? new Date(d).getUTCFullYear() : new Date().getFullYear());
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+/** Дата продажи в талоне: ««___» октября 2026 г.» — месяц прописью по дате паспорта, число — от руки при продаже. */
+export function saleDateLine(d: PdfPassport['date']): string {
+  const dt = d ? new Date(d) : new Date();
+  return `«____» ${MONTHS_GEN[dt.getUTCMonth()]} ${dt.getUTCFullYear()} г.`;
+}
 
 interface Page { kind: 'cover' | 'body' | 'warranty'; draws: Array<{ y: number; draw: (doc: PDFKit.PDFDocument, y: number) => void }>; no?: number }
 
@@ -71,12 +70,10 @@ export async function renderPassportPdf(input: PdfInput): Promise<Buffer> {
   const done = new Promise<Buffer>((ok, fail) => { doc.on('end', () => ok(Buffer.concat(chunks))); doc.on('error', fail); });
 
   const pages = layout(doc, input);
-  const wm = watermarkOf(input.org);
   const drawPage = (p: Page, ox: number) => {
     doc.save();
     doc.translate(ox, 0);
     doc.rect(0, 0, A5.w, A5.h).clip();
-    if (wm) watermark(doc, wm);
     for (const d of p.draws) d.draw(doc, d.y);
     if (p.no) doc.font('gost-i').fontSize(11).fillColor('#000').text(String(p.no), 0, A5.h - 28, { width: A5.w, align: 'center', lineBreak: false });
     doc.restore();
@@ -103,18 +100,6 @@ export function imposition(P: number): Array<[number, number]> {
   const out: Array<[number, number]> = [];
   for (let s = 0; s < P / 4; s++) out.push([P - 1 - 2 * s, 2 * s], [2 * s + 1, P - 2 - 2 * s]);
   return out;
-}
-
-function watermark(doc: PDFKit.PDFDocument, text: string) {
-  doc.save();
-  doc.font('gost').fontSize(12).fillColor('#000').fillOpacity(0.16);
-  for (let y = -40; y < A5.h + 60; y += 52) {
-    for (let x = -60; x < A5.w + 40; x += 92) {
-      doc.save(); doc.rotate(-35, { origin: [x, y] }); doc.text(text, x, y, { lineBreak: false }); doc.restore();
-    }
-  }
-  doc.fillOpacity(1);
-  doc.restore();
 }
 
 /** Раскладка: титул, тело (разделы 1–7, таблицы, приложения), страницы-добивки, талон. */
@@ -205,7 +190,7 @@ function layout(doc: PDFKit.PDFDocument, input: PdfInput): Page[] {
       for (const im of slice) imageBlock(im, room / slice.length - (im.caption ? 22 : 8));
     }
   };
-  appendix('Габариты изделия', images.dimensions, 2);
+  appendix('Габариты изделия', images.dimensions, Math.max(1, images.dimensions.length)); // все картинки габаритов — на одном листе
   appendix('Инструкция по монтажу / сборке / установке', [...images.safety, ...images.mounting], 1);
   // Комплектность — всегда (по умолчанию «Изделие в сборе»)
   app++;
@@ -215,11 +200,17 @@ function layout(doc: PDFKit.PDFDocument, input: PdfInput): Page[] {
   const bom = (p.bom?.length ? p.bom : [{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }]).map((b) => [String(b.pos ?? ''), b.code ?? '', b.name ?? '', b.qty === undefined ? '' : String(b.qty), b.unit ?? '', b.note ?? '']);
   while (bom.length < 10) bom.push(['', '', '', '', '', '']);
   table('Таблица 5 — Комплектность изделия', ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', 'Примечание'], [8, 18, 34, 11, 11, 18], bom, 8);
+  // «Для заметок» — только если есть заметка (пользователь 2026-10-22)
+  const note = String(p.note ?? '').trim();
+  if (note) {
+    if (cur.draws.length) newPage();
+    heading('Для заметок');
+    para(note, 10);
+  }
   body.push(cur);
-
-  // добивка до кратного 4 (титул + тело + талон)
-  while ((body.length + 2) % 4) body.push({ kind: 'body', draws: [{ y: M.t, draw: (d, yy) => d.font('gost').fontSize(12).fillColor('#000').text('Для заметок', M.l, yy + 4, { width: CW, align: 'center' }) }] });
   body.forEach((pg, i) => { pg.no = i + 1; });
+  // печать буклетом: страниц кратно 4 — добивка пустыми сторонами (без номера), постранично — без добивки
+  if (input.mode === 'print') while ((body.length + 2) % 4) body.push({ kind: 'body', draws: [] });
   return [cover(input), ...body, warranty(input)];
 }
 
@@ -257,7 +248,7 @@ function warranty(input: PdfInput): Page {
     d.font('gost').fontSize(14).fillColor('#000').text(`ГАРАНТИЙНЫЙ ТАЛОН № ${p.warrantyCode ?? ''}`, M.l, M.t, { width: CW, align: 'center' });
     d.font('gost-i').fontSize(12).text(p.name ?? '', M.l, d.y + 4, { width: CW, align: 'center' });
     d.font('gost-i').fontSize(13).text(`Номер изделия: ${p.productCode ?? ''}`, M.l, d.y + 14, { width: CW, align: 'center' });
-    line('Дата продажи: ', 230, ` ${yearOf(p.date)} г.`);
+    d.font('gost-i').fontSize(11).fillColor('#000').text(`Дата продажи: ${saleDateLine(p.date)}`, M.l, 230);
     line('Покупатель: ', 278);
     const sy = 330;
     d.font('gost-i').fontSize(11).text('Продавец: ______________', M.l, sy, { continued: false });

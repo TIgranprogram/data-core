@@ -988,3 +988,15 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 /* Новая версия приложения (core/update-check.js): полоса снизу по центру + «Обновить» в меню с датой версии */
 .update-bar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 120; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); font-size: var(--fs-sm); max-width: calc(100vw - 24px); }
 .side-ver { display: block; color: inherit; opacity: .65; font-size: 11px; font-weight: 400; }
+
+/* Таблица строк в форме (ui/rows-table.js): комплектность паспорта — ячейки-поля, «+ Строка», шаблон и загрузка Excel */
+.rt { display: flex; flex-direction: column; gap: var(--s2); }
+.rt-wrap { overflow-x: auto; }
+.rt-table { width: 100%; min-width: 520px; border-collapse: collapse; }
+.rt-table th { text-align: left; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 4px 4px 6px; }
+.rt-table td { padding: 2px; vertical-align: middle; }
+.rt-table input { width: 100%; min-width: 0; }
+.rt-table input.num { text-align: right; }
+.rt-table .rt-n { width: 28px; color: var(--muted); text-align: right; padding-right: 6px; font-variant-numeric: tabular-nums; }
+.rt-table td:last-child { width: 36px; }
+.rt-acts { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
