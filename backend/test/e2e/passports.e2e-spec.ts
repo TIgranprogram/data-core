@@ -144,4 +144,31 @@ describe('Паспорта изделий', () => {
     expect((await http().get('/api/passports').query({ deleted: 1 }).set(as(admin.access)).expect(200)).body.total).toBe(1);
     await http().post(`/api/passports/${first}/restore`).set(as(admin.access)).expect(200);
   });
+  it('v2: паспорт с категорией — снимок текста; правка шаблона не меняет выданный, «обновить текст» — меняет (БЗ-6 Э4c)', async () => {
+    const dv = db().collection('dict_values');
+    await dv.deleteMany({ dict: { $in: ['passportElements', 'passportMaterials', 'passportCategories'] } });
+    const el = await dv.insertOne({ dict: 'passportElements', code: 'BAR', name: 'Турник', inDescription: 'перекладина для подтягиваний', purpose: 'подтягиваний', usageRules: 'Перед занятием осмотрите изделие', deletedAt: null });
+    const mat = await dv.insertOne({ dict: 'passportMaterials', code: 'ST', name: 'Сталь', madeOf: 'стальной трубы с порошковым покрытием', deletedAt: null });
+    await dv.insertOne({ dict: 'passportCategories', code: 'TRN', name: 'Уличный тренажёр', requiredImages: ['overview', 'foundation'].join(String.fromCharCode(10)), deletedAt: null });
+    const created = (await http().post('/api/passports').set(as(admin.access))
+      .send({ name: 'Тренажёр «Турник»', passportCategory: 'TRN', elements: [String(el.insertedId)], materialIds: [String(mat.insertedId)], supplierOrgId: orgId }).expect(201)).body;
+    expect(created.textSnapshot?.category).toBe('TRN');
+    expect(created.textSnapshot.description).toContain('перекладина для подтягиваний');
+    expect(created.textSnapshot.description).toContain('стальной трубы');
+    const before = JSON.stringify(created.textSnapshot.sections);
+    const card = (await http().get(`/api/passports/${created.id}`).set(as(admin.access)).expect(200)).body;
+    expect(card.missing).toEqual(expect.arrayContaining(['Способ установки', 'Рост пользователя от', 'Рисунок: Схема фундамента']));
+    // правка шаблона категории — выданный паспорт не меняется
+    const tpl = (await http().get('/api/passports/template').query({ category: 'TRN' }).set(as(admin.access)).expect(200)).body;
+    const sections = tpl.sections.map((x: { paragraphs: string[] }, i: number) => (i === 0 ? { ...x, paragraphs: [...x.paragraphs, 'Новый пункт для проверки снимка.'] } : x));
+    await http().put('/api/passports/template').set(as(admin.access)).send({ category: 'TRN', sections, tables: tpl.tables }).expect(200);
+    const after = (await http().get(`/api/passports/${created.id}`).set(as(admin.access)).expect(200)).body;
+    expect(JSON.stringify(after.textSnapshot.sections)).toBe(before);
+    // «обновить текст по справочникам» — новый пункт появился
+    const re = (await http().post(`/api/passports/${created.id}/snapshot`).set(as(admin.access)).expect(200)).body;
+    expect(JSON.stringify(re.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');
+    // паспорт v1 (без категории) — снимок не нужен
+    await http().post(`/api/passports/${first}/snapshot`).set(as(admin.access)).expect(400);
+    await http().post(`/api/passports/${created.id}/snapshot`).set(as(manager)).expect(403);
+  });
 });
