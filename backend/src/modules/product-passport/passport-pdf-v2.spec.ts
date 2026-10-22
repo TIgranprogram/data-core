@@ -1,10 +1,11 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
-import { pickPdfVersion, planFigures, renderPassportPdfV2, resolveStyle, shortTiles, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
+import { maintenanceColumns, pickPdfVersion, planFigures, renderPassportPdfV2, renderStandPdf, resolveStyle, shortTiles, standRules, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
 
 /** Образцы PDF для просмотра: PDFV2_OUT=<папка> npx jest passport-pdf-v2 */
 const OUT = process.env.PDFV2_OUT;
+const mediaBox = (b: Buffer) => (b.toString('latin1').match(/\/MediaBox \[([^\]]+)\]/) || [])[1]?.trim();
 const count = (b: Buffer) => (b.toString('latin1').match(/\/Type \/Page\b/g) || []).length;
 const png = (w: number, h: number, color: string) => sharp({ create: { width: w, height: h, channels: 3, background: color } }).png().toBuffer();
 
@@ -89,10 +90,10 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     expect(count(print)).toBe(Math.ceil(count(pages) / 4) * 2);
 
     const img = await png(800, 500, '#90caf9');
-    const withImg: PdfV2Input = { ...BASE, images: { overview: [{ buf: img }], dimensions: [{ buf: img, caption: 'Вид спереди' }], bom_item: [{ buf: img, refCode: 'П-1' }] }, logo: await png(300, 100, '#ffcc80') };
+    const withImg: PdfV2Input = { ...BASE, images: { overview: [{ buf: img }], foundation: [{ buf: img, caption: 'Разрез опоры' }], bom_item: [{ buf: img, refCode: 'П-1' }] }, logo: await png(300, 100, '#ffcc80') };
     const p2 = await renderPassportPdfV2(withImg);
     const pr2 = await renderPassportPdfV2({ ...withImg, mode: 'print' });
-    expect(count(p2)).toBe(count(pages) + 1); // одно приложение «Габариты» — одна страница
+    expect(count(p2)).toBe(count(pages) + 1); // рисунок без ссылки — одно приложение «Схемы установки опор», одна страница
     expect(count(pr2)).toBe(Math.ceil(count(p2) / 4) * 2);
 
     // пусто: ни «Коротко», ни ТО, ни монтажа, ни описания — только раздел, комплектность, обложка и талон
@@ -107,5 +108,51 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
       writeFileSync(join(OUT, 'passport-v2-A5.pdf'), p2);
       writeFileSync(join(OUT, 'passport-v2-print-A4.pdf'), pr2);
     }
+  });
+
+  it('рисунок со ссылкой в абзаце — «по месту», номер первым, в приложения не попадает; без ссылки — в приложении', async () => {
+    const b = await png(10, 10, '#fff');
+    const imgs = { dimensions: [{ buf: b }, { buf: b }], safety_zone: [{ buf: b }], foundation: [{ buf: b }] };
+    const plan = planFigures(['Размеры — {fig:dimensions}', 'см. {fig:foundation}'], imgs, ['Размеры — {fig:dimensions}']);
+    expect([...plan.inline.keys()]).toEqual(['dimensions']);
+    expect(plan.fig.get('dimensions')).toEqual([1, 2]);
+    expect(plan.inline.get('dimensions')?.[0].caption).toBe('Рисунок 1 — Габаритные размеры');
+    const inApp = plan.appendices.flatMap((a) => a.figs.map((f) => f.kind));
+    expect(inApp).not.toContain('dimensions');
+    expect(inApp).toEqual(['foundation', 'safety_zone']); // foundation — по ссылке в таблице, safety_zone — без ссылки
+    expect(plan.fig.get('foundation')).toEqual([3]);
+  });
+
+  it('PDF с рисунками «по месту» собирается; приложения на них не появляется', async () => {
+    const img = await png(800, 500, '#90caf9');
+    const plain = await renderPassportPdfV2(BASE);
+    const inl = await renderPassportPdfV2({ ...BASE, images: { dimensions: [{ buf: img }], safety_zone: [{ buf: img }] } });
+    expect(inl.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(count(inl)).toBeGreaterThanOrEqual(count(plain));
+    expect(count(inl)).toBeLessThanOrEqual(count(plain) + 1); // два рисунка в тексте, а не две страницы приложений
+    if (OUT) { mkdirSync(OUT, { recursive: true }); writeFileSync(join(OUT, 'passport-v2-inline-figs.pdf'), inl); }
+  });
+
+  it('таблица ТО: колонка «Вид» — только если картинка есть хотя бы у одной строки', async () => {
+    const pic = await png(60, 60, '#e57373');
+    expect(maintenanceColumns([{ photoId: 'a' }, {}], {}).withImg).toBe(false);
+    expect(maintenanceColumns([{}, {}], { a: pic }).cols).not.toContain('Вид');
+    const on = maintenanceColumns([{ photoId: 'x' }, { photoId: 'a' }], { a: pic });
+    expect(on.withImg).toBe(true);
+    expect(on.cols).toContain('Вид');
+    expect(on.widths).toHaveLength(on.cols.length);
+    const text: PdfV2Text = { ...TEXT, maintenance: [{ period: 'ежемесячно', rows: [{ what: 'Коррозия', where: 'Стойки', measure: 'Зачистить', tolerance: 'Нет', photoId: 'a' }, { what: 'Крепёж', where: 'Узлы', measure: '', tolerance: '' }] }] };
+    const buf = await renderPassportPdfV2({ ...BASE, text, defectImages: { a: pic } });
+    expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
+  });
+
+  it('лист для стенда: одна страница A3 книжная, даже при длинном списке правил', async () => {
+    expect(standRules(['Не более 4 человек', 'Не бегать'], ['— не бегать;', 'Держитесь за поручни'], 4)).toEqual(['Не бегать', 'Держитесь за поручни']);
+    const stand = await renderStandPdf({ passport: BASE.passport, org: { ...BASE.org, phone: '+7 (861) 000-00-00', email: 'info@example.ru' }, text: TEXT, style: BASE.style, logo: await png(300, 100, '#ffcc80') });
+    expect(count(stand)).toBe(1);
+    expect(mediaBox(stand)).toBe('0 0 841.89 1190.55');
+    const many = Array.from({ length: 40 }, (_, i) => `Правило номер ${i + 1}: длинный текст правила пользования оборудованием на площадке`);
+    expect(count(await renderStandPdf({ passport: { name: 'Урна' }, org: null, text: { rules: many }, style: {} }))).toBe(1);
+    if (OUT) { mkdirSync(OUT, { recursive: true }); writeFileSync(join(OUT, 'passport-v2-stand-A3.pdf'), stand); }
   });
 });

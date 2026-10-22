@@ -17,7 +17,8 @@ export interface PassportLike {
 export type Period = 'ежедневно' | 'ежемесячно' | 'ежеквартально' | 'ежегодно';
 export const PERIODS: Period[] = ['ежедневно', 'ежемесячно', 'ежеквартально', 'ежегодно'];
 
-export interface MaintenanceRow { what: string; where: string; measure: string; tolerance: string }
+/** photoId — id фото дефекта из справочника (миниатюра в PDF v2, Э6d); нет картинки — поля нет. */
+export interface MaintenanceRow { what: string; where: string; measure: string; tolerance: string; photoId?: string }
 export interface MaintenanceTable { period: Period; rows: MaintenanceRow[] }
 export interface InstallParts { text: string; requirements: string[]; requiredImages: string[] }
 
@@ -140,7 +141,10 @@ export function maintenanceTables(
     if (!where.length && !viaInstall) continue;
     if (!where.length && viaInstall) where.push(str(install?.name) || installCode);
     defectNames.add(what.toLowerCase());
-    push(period, { what, where: where.join(', '), measure: str(d.measure), tolerance: str(d.tolerance) });
+    const row: MaintenanceRow = { what, where: where.join(', '), measure: str(d.measure), tolerance: str(d.tolerance) };
+    const photoId = str(d.photoId);
+    if (photoId) row.photoId = photoId;
+    push(period, row);
   }
 
   for (const e of elements || []) {

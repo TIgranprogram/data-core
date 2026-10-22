@@ -55,6 +55,12 @@ describe('maintenanceTables', () => {
     expect(t[1].rows).toEqual([{ what: 'Крепление стоек', where: 'Турник', measure: '', tolerance: '' }]);
     expect(all.filter((w) => w === 'Коррозия')).toHaveLength(1);
   });
+  it('photoId дефекта переходит в строку ТО (миниатюра в PDF v2); нет картинки — поля нет', () => {
+    const d = [{ code: 'RUST', name: 'Ржавчина', applies: 'STEEL', period: 'ежемесячно', photoId: ' 65a000000000000000000001 ' }, { code: 'GAP', name: 'Зазор', applies: 'STEEL', period: 'ежемесячно' }];
+    const rows = maintenanceTables([{ code: 'STEEL', name: 'Сталь' }], [], d)[0].rows;
+    expect(rows[0].photoId).toBe('65a000000000000000000001');
+    expect('photoId' in rows[1]).toBe(false);
+  });
   it('без способа установки дефект установки отсутствует; пустые входы', () => {
     expect(maintenanceTables(mats, els, defects).map((x) => x.period)).toEqual(['ежедневно', 'ежемесячно', 'ежегодно']);
     expect(maintenanceTables([], [], [])).toEqual([]);

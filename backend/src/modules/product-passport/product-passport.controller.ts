@@ -101,11 +101,16 @@ export class ProductPassportController {
     return this.service.get(id);
   }
 
-  /** PDF паспорта: ?stamp=1 — с печатью и подписью организации-поставщика; ?mode=print — буклет 2 стр. на A4 альбомный. */
+  /**
+   * PDF паспорта: ?stamp=1 — с печатью и подписью организации-поставщика; ?mode=print — буклет 2 стр. на A4 альбомный;
+   * ?mode=stand — лист «Правила пользования» для стенда, A3 книжный (только паспорт v2 при флаге passports.v2, иначе 400).
+   */
   @Get('passports/:id/pdf')
   @Roles(...EDIT)
+  @ApiQuery({ name: 'stamp', required: false, description: '1 — с печатью и подписью' })
+  @ApiQuery({ name: 'mode', required: false, enum: ['pages', 'print', 'stand'], description: 'pages — A5 постранично (умолч.); print — буклет на A4; stand — лист для стенда A3 (только v2)' })
   async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Res({ passthrough: true }) res: Response) {
-    const r = await this.pdfs.pdf(id, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages' });
+    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages' });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }

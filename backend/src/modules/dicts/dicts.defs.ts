@@ -415,6 +415,7 @@ export const DICTS: DictDef[] = [
         { key: 'measure', label: 'Мера', wide: true, hint: 'Что делать при обнаружении' },
         { key: 'period', label: 'Период проверки', type: 'select', options: ['ежедневно', 'ежемесячно', 'ежеквартально', 'ежегодно'].map((v) => ({ value: v, label: v })) },
         { key: 'tolerance', label: 'Допуск', wide: true, hint: 'Что считается допустимым; число — только если оно общепринятое' },
+        { key: 'photoId', label: 'Картинка (id фото)', hint: 'id фото из «Фото» — миниатюра дефекта в таблице ТО паспорта; выбор из галереи будет позже' },
       ]),
     editRoles: ['director'],
   },
