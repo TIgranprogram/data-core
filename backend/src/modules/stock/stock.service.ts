@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -80,6 +81,9 @@ const MOVE_LABEL: Record<string, string> = { in: 'Приход', out: 'Спис�
  * StockMovementService / StorageItemService / ReservationService kppdf, чтобы CRM и приложение
  * видели одно и то же. Всё в пределах склада по умолчанию (`warehouses.isDefault`).
  */
+/** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */
+const STOCK_COLLS = ['materials', 'storageitems', 'supplyrequests', 'categories', 'warehouses'] as const;
+
 @Injectable()
 export class StockService {
   constructor(
@@ -90,6 +94,7 @@ export class StockService {
     @InjectModel(Reservation.name) private readonly reservations: Model<ReservationDocument>,
     @InjectModel(Material.name) private readonly materials: Model<MaterialDocument>,
     private readonly counter: CounterService,
+    @Optional() private readonly versions?: DataVersionService,
   ) {}
 
   /** Склад по умолчанию; если не назначен — первый действующий («Главный склад») становится им. */
@@ -131,11 +136,40 @@ export class StockService {
    * (сотни–тысячи позиций — это быстро). status: ok | low | none | reserved (через запятую). deleted=1 — корзина.
    */
   async listItems(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] } = {}) {
-    const wh = await this.defaultWarehouse();
     const p = parseList(q, { sortable: ITEM_SORT, defaultSort: 'name', defaultLimit: 1000, maxLimit: 10000 });
-    const filter: Record<string, unknown> = { deletedAt: p.deleted ? { $ne: null } : null };
     // Поиск — в памяти (search-norm): «м10 гайка» = «Гайка …, M10 …», слова в любом порядке
     const tokens = q.search ? searchTokens(q.search) : [];
+    // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
+    const make = () => this.itemRows(q, p.deleted, tokens);
+    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens]);
+    const { wh, rows: all } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
+    // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
+    const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0 };
+    for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; }
+    let rows = [...all];
+    if (q.status) {
+      const want = new Set(String(q.status).split(','));
+      rows = rows.filter((r) => want.has(r.status) || (want.has('reserved') && r.reservedQty > 0));
+    }
+    const [[field, dir]] = Object.entries(p.sort);
+    const key2 = field as keyof (typeof rows)[number];
+    rows.sort((a, b) => {
+      const x = a[key2], y = b[key2];
+      const c = typeof x === 'number' || typeof y === 'number' ? Number(x ?? 0) - Number(y ?? 0)
+        : x instanceof Date || y instanceof Date ? new Date((x as Date) ?? 0).getTime() - new Date((y as Date) ?? 0).getTime()
+          : String(x ?? '').localeCompare(String(y ?? ''), 'ru');
+      return c * dir || String(a.name).localeCompare(String(b.name), 'ru');
+    });
+    const page = rows.slice(p.skip, p.skip + p.limit);
+    const photos = await this.photoMap(page.flatMap((r) => r.photoIds));
+    const items = page.map(({ photoIds, ...r }) => ({ ...r, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
+    return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
+  }
+
+  /** Строки «Остатков» до фильтра по состоянию, сортировки и страниц: позиции, остатки, «уже заказано», обрезки. */
+  private async itemRows(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] }, deleted: boolean, tokens: string[]) {
+    const wh = await this.defaultWarehouse();
+    const filter: Record<string, unknown> = { deletedAt: deleted ? { $ne: null } : null };
     if (q.categoryId) { const ids = oids(q.categoryId); filter.categoryId = { $in: [...ids, ...ids.map(String)] }; }
     if (q.materialIds) filter._id = { $in: q.materialIds };
 
@@ -149,7 +183,7 @@ export class StockService {
     // скорость С7: независимые чтения — разом, категории — только нужные (не все категории CRM)
     const catIds = [...new Set(mats.map((m) => m.categoryId).filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     const [stocks, cats, openReq, kids] = await Promise.all([
-      this.storage.find({ warehouseId: wh._id, materialId: { $in: ids }, deletedAt: p.deleted ? undefined : null }).setOptions({ includeSoftDeleted: true }).lean().exec(),
+      this.storage.find({ warehouseId: wh._id, materialId: { $in: ids }, deletedAt: deleted ? undefined : null }).setOptions({ includeSoftDeleted: true }).lean().exec(),
       catIds.length ? this.connection.db!.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1 } }).toArray() : Promise.resolve([]),
       // «уже заказано» (ЗП.2): открытые заявки на позицию — по materialId или по тому же наименованию
       this.openRequests(mats as { _id: Types.ObjectId; name?: string }[]),
@@ -175,7 +209,7 @@ export class StockService {
       if (cur) { cur.quantity += s.quantity ?? 0; cur.reservedQty += s.reservedQty ?? 0; continue; }
       byMat.set(k, { id: String(s._id), quantity: s.quantity ?? 0, reservedQty: s.reservedQty ?? 0, minQuantity: s.minQuantity ?? 0, weightKg: s.weightKg, zoneName: s.zoneName, lastCountedAt: (s as { lastCountedAt?: Date }).lastCountedAt });
     }
-    let rows = mats.map((m) => {
+    const rows = mats.map((m) => {
       const st = byMat.get(String(m._id));
       const quantity = st?.quantity ?? 0, reservedQty = st?.reservedQty ?? 0, minQuantity = st?.minQuantity ?? 0;
       return {
@@ -197,26 +231,7 @@ export class StockService {
         deletedAt: (m as { deletedAt?: Date | null }).deletedAt ?? null,
       };
     });
-    // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
-    const counts = { all: rows.length, ok: 0, low: 0, none: 0, reserved: 0 };
-    for (const r of rows) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; }
-    if (q.status) {
-      const want = new Set(String(q.status).split(','));
-      rows = rows.filter((r) => want.has(r.status) || (want.has('reserved') && r.reservedQty > 0));
-    }
-    const [[field, dir]] = Object.entries(p.sort);
-    const key = field as keyof (typeof rows)[number];
-    rows.sort((a, b) => {
-      const x = a[key], y = b[key];
-      const c = typeof x === 'number' || typeof y === 'number' ? Number(x ?? 0) - Number(y ?? 0)
-        : x instanceof Date || y instanceof Date ? new Date((x as Date) ?? 0).getTime() - new Date((y as Date) ?? 0).getTime()
-          : String(x ?? '').localeCompare(String(y ?? ''), 'ru');
-      return c * dir || String(a.name).localeCompare(String(b.name), 'ru');
-    });
-    const page = rows.slice(p.skip, p.skip + p.limit);
-    const photos = await this.photoMap(page.flatMap((r) => r.photoIds));
-    const items = page.map(({ photoIds, ...r }) => ({ ...r, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
-    return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
+    return { wh, rows };
   }
 
   /**

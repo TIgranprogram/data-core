@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { decideArticle } from '../stock/article';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
@@ -21,14 +22,23 @@ const dmy = (d: unknown) => iso(d).split('-').reverse().join('.');
  * остальные — все. Условия «в расходах» — те же, что у платёжного календаря (сумма > 0 и дата счёта): именно эти строки
  * дают «не указано» в «Деньги → Сводка → Куда / На что / Кому».
  */
+/** Коллекции, которые читает «Требуют заполнения» (кэш С9). */
+const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems'] as const;
+
 @Injectable()
 export class FillAuditService {
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService) {}
   private get db() { return this.connection.db!; }
 
+  /** Скорость С9: отчёт считается один раз, пока не менялись его данные (кэш по версиям коллекций); результат общий — не менять. */
   async report(user: { role?: string | null; isOwner?: boolean } | undefined, opts: { limit?: number; only?: string } = {}) {
-    const limit = Math.min(Math.max(Number(opts.limit) || 30, 1), 200);
     const money = canSeeMoney(user);
+    const run = () => this.build(money, opts);
+    return this.versions ? this.versions.cached('fill-audit', FILL_COLLS, JSON.stringify([money, opts.limit ?? null, opts.only ?? null]), run) : run();
+  }
+
+  private async build(money: boolean, opts: { limit?: number; only?: string }) {
+    const limit = Math.min(Math.max(Number(opts.limit) || 30, 1), 200);
     const db = this.db;
     const ours = (await db.collection('organizations').find({ isOurCompany: true, deletedAt: null }, { projection: { _id: 1 } }).toArray()).map((o) => o._id);
     const persons = await db.collection('persons').find({ deletedAt: null }, { projection: { firstName: 1, lastName: 1 } }).toArray();

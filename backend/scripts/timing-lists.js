@@ -10,6 +10,7 @@ const d = (p) => require(path.join(root, 'dist/src/modules', p));
 (async () => {
   const { AppModule } = require(path.join(root, 'dist/src/app.module'));
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error'] });
+  await new Promise((r) => setTimeout(r, 4000)); // кэш списков (С9) включается через 3 с после старта
   const get = (p, name) => app.get(d(p)[name]);
   const stock = get('stock/stock.service', 'StockService');
   const supply = get('supply/supply.service', 'SupplyService');

@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { parseList } from '../../common/list-query';
@@ -38,6 +39,7 @@ export class ProductPassportService {
     @InjectModel(ProductPassport.name) private readonly model: Model<ProductPassportDocument>,
     @InjectModel(PassportTemplate.name) private readonly templates: Model<PassportTemplateDocument>,
     @InjectConnection() private readonly connection: Connection,
+    @Optional() private readonly versions?: DataVersionService,
   ) {}
 
   // ─── список ──────────────────────────────────────────────────────────────────────────────────────
@@ -47,15 +49,20 @@ export class ProductPassportService {
    */
   async list(q: Record<string, unknown> = {}, { full = false } = {}): Promise<{ items: Doc[]; total: number; page: number; limit: number; incomplete: number }> {
     const p = parseList(q, { sortable: SORT, defaultSort: '-passportNo', defaultLimit: 25 });
-    const filter = this.filterOf(q, p.deleted);
-    if (p.search) filter.$or = ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier'].map((f) => ({ [f]: p.search }));
-    const docs = await this.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
-    // «неполные» считаются правилами, а не запросом — паспортов сотни, это дёшево
-    const cats = await this.categoryRules();
-    const inst = await this.installs();
-    const all: Array<Doc & { missing: string[] }> = docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(this.withSchemes(d as unknown as Doc, inst) as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
+    const make = async () => {
+      const filter = this.filterOf(q, p.deleted);
+      if (p.search) filter.$or = ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier'].map((f) => ({ [f]: p.search }));
+      const docs = await this.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
+      // «неполные» считаются правилами, а не запросом — паспортов сотни
+      const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
+      return docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(this.withSchemes(d as unknown as Doc, inst) as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
+    };
+    // скорость С9: расчёт по всем паспортам — один раз, пока паспорта и справочники не менялись; строки общие — копируем
+    const rest = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page' && k !== 'limit'));
+    const all: Array<Doc & { missing: string[] }> = this.versions && !full
+      ? await this.versions.cached('passports.list', ['productpassports', 'dict_values'], JSON.stringify(rest), make) : await make();
     const rows = q.incomplete === '1' || q.incomplete === 'true' ? all.filter((d) => d.missing.length) : all;
-    const items = rows.slice(p.skip, p.skip + p.limit);
+    const items = rows.slice(p.skip, p.skip + p.limit).map((d) => ({ ...d }));
     await this.attachThumbs(items);
     return { items, total: rows.length, page: p.page, limit: p.limit, incomplete: all.filter((d) => d.missing.length).length };
   }

@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
+import { DataVersionModule } from './common/data-version/data-version.module';
 import { CounterModule } from './modules/counter/counter.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RoleModule } from './modules/role/role.module';
@@ -130,6 +131,7 @@ import { RequestMethod } from '@nestjs/common';
       }),
     }),
     DatabaseModule,
+    DataVersionModule,
     // ─── Платформенное ядро ───────────────────────────────────────────
     CounterModule,
     PermissionsModule,
