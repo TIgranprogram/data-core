@@ -74,14 +74,15 @@ export class ProductPassportController {
   /** «Шаблон паспорта» — типовые разделы 3–7 и таблицы (действующая версия). */
   @Get('passports/template')
   @Roles(...VIEW)
-  template() {
-    return this.service.template();
+  @ApiQuery({ name: 'category', required: false, enum: ['ALL', 'DIO', 'DSP', 'TRN', 'WRK', 'MAF'], description: 'Категория блока текста; нет версии категории — «Для всех»' })
+  template(@Query('category') category?: string) {
+    return this.service.template(category);
   }
 
   @Put('passports/template')
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
-  saveTemplate(@Body() body: Partial<PassportTemplateContent>, @CurrentUser() user?: AuthenticatedUser) {
+  saveTemplate(@Body() body: Partial<PassportTemplateContent> & { category?: string }, @CurrentUser() user?: AuthenticatedUser) {
     return this.service.saveTemplate(body, user?.id);
   }
 

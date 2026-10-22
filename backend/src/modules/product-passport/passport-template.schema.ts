@@ -22,6 +22,10 @@ export class PassportTemplate {
   @Prop({ type: Array, default: [] })
   tables!: TemplateTable[];
 
+  /** Категория блока текста (ALL/DIO/DSP/TRN/WRK/MAF); нет поля = «Для всех» (БЗ-6 Э2b). */
+  @Prop({ type: String })
+  category?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User' })
   updatedBy?: Types.ObjectId;
 }

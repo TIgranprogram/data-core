@@ -111,6 +111,18 @@ describe('Паспорта изделий', () => {
     await http().put('/api/passports/template').set(as(manager)).send({ sections }).expect(403);
   });
 
+  it('шаблон: версия категории TRN хранится отдельно, без параметра — «Для всех»', async () => {
+    const all = (await http().get('/api/passports/template').set(as(manager)).expect(200)).body;
+    const sections = all.sections.map((s: { title: string }, i: number) => (i === 0 ? { ...s, title: '3 Монтаж TRN' } : s));
+    const t = (await http().put('/api/passports/template').set(as(admin.access)).send({ category: 'TRN', sections }).expect(200)).body;
+    expect(t.category).toBe('TRN');
+    expect(t.version).toBe(1);
+    expect((await http().get('/api/passports/template').query({ category: 'TRN' }).set(as(manager)).expect(200)).body.sections[0].title).toBe('3 Монтаж TRN');
+    expect((await http().get('/api/passports/template').query({ category: 'DIO' }).set(as(manager)).expect(200)).body.sections[0].title).toBe(all.sections[0].title);
+    expect((await http().get('/api/passports/template').set(as(manager)).expect(200)).body.version).toBe(all.version);
+    await http().put('/api/passports/template').set(as(admin.access)).send({ category: 'XXX', sections }).expect(400);
+  });
+
   it('PDF: application/pdf, постранично и «в печать», отметка выдачи', async () => {
     const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
     expect(r.headers['content-type']).toContain('application/pdf');
