@@ -9,6 +9,7 @@ import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passp
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import { DEFAULT_BOM, buildDescription, dayUtc, missingFields, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
+import { standardsDict, type StandardDoc } from './passport-compose';
 
 type Doc = Record<string, unknown>;
 const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt'];
@@ -269,6 +270,12 @@ export class ProductPassportService {
     const t = (await this.ownDoc(cat)) ?? (cat === 'ALL' ? null : await this.ownDoc('ALL'));
     if (!t) return { version: 0, category: 'ALL', ...DEFAULT_PASSPORT_TEMPLATE };
     return { version: t.version, category: normalizeCategory(t.category), id: String(t._id), sections: t.sections, tables: t.tables, updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt };
+  }
+
+  /** Нормативы для {std:КОД} (справочник «Паспорта → Нормативы», dict_values) — словарь и записи для предупреждений. */
+  async standards() {
+    const docs = (await this.connection.collection('dict_values').find({ dict: 'passportStandards', deletedAt: null }, { projection: { code: 1, name: 1, status: 1, checkedAt: 1 } }).toArray()) as StandardDoc[];
+    return { dict: standardsDict(docs), docs };
   }
 
   /** Для сборщика текста: версия «Для всех» и версия категории (null, если своей нет). */

@@ -1,5 +1,5 @@
 import {
-  compose, evalCondition, legacyTemplateToBlocks, legacyStartNumber,
+  compose, evalCondition, legacyTemplateToBlocks, legacyStartNumber, standardsDict, usedStandards, standardWarnings,
   type PassportTextBlock, type PassportCondition,
 } from './passport-compose';
 import { DEFAULT_PASSPORT_TEMPLATE } from './passport-template.default';
@@ -154,5 +154,28 @@ describe('адаптер старого шаблона', () => {
   });
   it('число пунктов (нумерованных + маркеров) сохраняется', () => {
     r.sections.forEach((s, i) => expect(s.items).toHaveLength(tpl.sections[i].paragraphs.length));
+  });
+});
+
+describe('нормативы из справочника (БЗ-6 Э1c)', () => {
+  const docs = [
+    { code: 'GOST_R_57538', name: 'ГОСТ Р 57538–2017', status: 'действует', checkedAt: '2026-10-22' },
+    { code: 'GOST_R_55679', name: 'ГОСТ Р 55679–2013', status: 'проверить', checkedAt: '2026-10-22' },
+    { code: 'GOST_15150', name: 'ГОСТ 15150–69', status: 'действует', checkedAt: '2024-01-10' },
+    { code: 'NO_NAME' },
+  ];
+  it('словарь для {std:КОД} и подстановка через compose', () => {
+    const dict = standardsDict(docs);
+    expect(dict).toEqual({ GOST_R_57538: 'ГОСТ Р 57538–2017', GOST_R_55679: 'ГОСТ Р 55679–2013', GOST_15150: 'ГОСТ 15150–69' });
+    const r = compose([blk({ key: 'a', text: 'Обслуживание — по {std:GOST_R_57538}.' })], {}, 'TRN', { standards: dict });
+    expect(r.sections[0].items[0].text).toBe('Обслуживание — по ГОСТ Р 57538–2017.');
+    expect(r.missing).toEqual([]);
+  });
+  it('какие нормативы использованы и предупреждения по статусу и дате проверки', () => {
+    const used = usedStandards([blk({ key: 'a', text: '{std:GOST_R_57538} и {std:GOST_R_55679}' }), blk({ key: 'b', text: 'хранение по {std:GOST_15150}; {std:GOST_R_57538}' })]);
+    expect(used.sort()).toEqual(['GOST_15150', 'GOST_R_55679', 'GOST_R_57538']);
+    const w = standardWarnings(used, docs, new Date('2026-10-22T00:00:00Z'));
+    expect(w).toEqual(expect.arrayContaining([expect.stringContaining('ГОСТ Р 55679–2013: статус «проверить»'), expect.stringContaining('ГОСТ 15150–69: проверяли больше года назад')]));
+    expect(w.some((x) => x.includes('57538'))).toBe(false);
   });
 });

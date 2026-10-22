@@ -203,3 +203,38 @@ export function legacyStartNumber(tpl: LegacyTemplateLike): number {
   const m = /^\s*(\d+)\b/.exec(tpl.sections[0]?.title || '');
   return m ? Number(m[1]) : 1;
 }
+
+/** Запись справочника «Нормативы» (dict_values, dict: passportStandards) — нужные сборщику поля. */
+export interface StandardDoc { code?: string; name?: string; status?: string; checkedAt?: string }
+
+/** Справочник нормативов → словарь для {std:КОД} (код → обозначение). Записи без кода или названия пропускаются. */
+export function standardsDict(docs: StandardDoc[]): StandardsDict {
+  return Object.fromEntries(docs.filter((d) => d.code && d.name).map((d) => [String(d.code), String(d.name)]));
+}
+
+/** Коды нормативов, на которые ссылаются блоки ({std:КОД}). */
+export function usedStandards(blocks: Array<{ text: string; sectionTitle?: string }>): string[] {
+  const out = new Set<string>();
+  for (const b of blocks) for (const m of `${b.sectionTitle ?? ''} ${b.text}`.matchAll(/\{std:([A-Za-z0-9_]+)\}/g)) out.add(m[1]);
+  return [...out];
+}
+
+/**
+ * Предупреждения по нормативам (§2): ссылка на документ со статусом не «действует» или проверенный больше 12 мес. назад.
+ * Возвращает строки для показа человеку; неизвестный код сюда не попадает — он уже в compose().missing.
+ */
+export function standardWarnings(codes: string[], docs: StandardDoc[], now = new Date()): string[] {
+  const byCode = new Map(docs.filter((d) => d.code).map((d) => [String(d.code), d]));
+  const out: string[] = [];
+  const yearAgo = new Date(now); yearAgo.setUTCFullYear(yearAgo.getUTCFullYear() - 1);
+  for (const c of codes) {
+    const d = byCode.get(c);
+    if (!d) continue;
+    const name = d.name || c;
+    if (d.status && d.status !== 'действует') out.push(`${name}: статус «${d.status}»`);
+    const checked = d.checkedAt ? new Date(d.checkedAt) : null;
+    if (!checked || Number.isNaN(checked.getTime())) out.push(`${name}: не указано, когда проверяли`);
+    else if (checked < yearAgo) out.push(`${name}: проверяли больше года назад (${d.checkedAt})`);
+  }
+  return out;
+}
