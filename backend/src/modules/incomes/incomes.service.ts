@@ -6,11 +6,12 @@ import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { normText } from '../supply/org-resolver';
+import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { Income, IncomeDocument, incomeDerived } from './income.schema';
 
 const INCOME_SORT = ['lineNo', 'orderNo', 'customer', 'title', 'qty', 'unitPrice', 'amount', 'shipDate', 'paidDate', 'reportDate', 'createdAt', 'updatedAt', 'deletedAt'];
-const TEXT = ['orderNo', 'customer', 'paymentForm', 'title', 'unit', 'kind', 'color', 'notes'] as const;
+const TEXT = ['orderNo', 'customer', 'paymentForm', 'title', 'unit', 'kind', 'color', 'size', 'notes'] as const;
 const NUM = ['qty', 'unitPrice', 'amountManual'] as const;
 /** Поля шапки заказа, продублированные в позиции (кэш; истина — salesorders). */
 const HEADER_CACHE = ['orderNo', 'customer', 'companyId', 'paymentForm', 'shipDate'] as const;
@@ -44,11 +45,16 @@ export class IncomesService {
     ]) : [[], []];
     const url = new Map(orig.map((p) => [String(p._id), String(p.storageUrl)]));
     const thumb = new Map(th.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
+    // название изделия из «Продукции» — для ссылки в карточке позиции (БЗ-5)
+    const pids = [...new Set(docs.map((d) => d.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
+    const prods = pids.length ? await this.connection.db!.collection('products').find({ _id: { $in: pids } }, { projection: { name: 1, sku: 1 } }).toArray() : [];
+    const prod = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: String(p.name ?? p.sku ?? ''), sku: (p.sku as string) ?? null }]));
     return docs.map((d) => ({
       ...d,
       photos: ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => url.has(String(p))).map((p) => ({ id: String(p), url: url.get(String(p)), thumb: thumb.get(String(p)) ?? url.get(String(p)) })),
       id: String(d._id), _id: String(d._id),
       companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
+      product: d.productId ? prod.get(String(d.productId)) ?? null : null,
       /** paid — оплачено; awaiting — отгружено, ждём оплату; draft — ещё не отгружено. */
       status: d.paidDate ? 'paid' : d.shipDate ? (Number(d.amount) > 0 ? 'awaiting' : 'noamount') : 'draft',
     }));
@@ -103,6 +109,7 @@ export class IncomesService {
     }
     if (dto.lineNo !== undefined) f.lineNo = dto.lineNo === null ? undefined : Number(dto.lineNo);
     if (dto.orderId !== undefined) f.orderId = dto.orderId ? oid(dto.orderId, 'заказа') : undefined;
+    if (dto.productId !== undefined) f.productId = dto.productId ? oid(dto.productId, 'изделия') : undefined;
     if (dto.companyId) f.companyId = new Types.ObjectId(dto.companyId);
     else if (dto.companyName !== undefined) {
       const name = normText(dto.companyName);
@@ -127,6 +134,14 @@ export class IncomesService {
     for (const k of HEADER_CACHE) f[k] = h[k] ?? undefined;
   }
 
+  /** Изделие «Продукции» с тем же коротким названием (как «Из заказов») — привязать новую позицию сразу. */
+  private async productByTitle(title: string): Promise<Types.ObjectId | undefined> {
+    const key = productNameKey(shortProductName(title));
+    if (!key) return undefined;
+    const prods = await this.connection.db!.collection('products').find({ deletedAt: null }, { projection: { name: 1 } }).toArray();
+    return prods.find((p) => productNameKey(String(p.name ?? '')) === key)?._id as Types.ObjectId | undefined;
+  }
+
   /** Пересчитать amount/reportDate по итоговому состоянию записи. */
   private derive(cur: Record<string, unknown>, f: Record<string, unknown>) {
     const pick = <T>(k: string) => (k in f ? f[k] : cur[k]) as T;
@@ -140,6 +155,7 @@ export class IncomesService {
     }
     const f = await this.toFields(dto);
     if (!f.title) throw new BadRequestException('Укажите наименование');
+    if (dto.productId === undefined) f.productId = await this.productByTitle(String(f.title));
     if (f.orderId) {
       await this.applyHeader(f, f.orderId);
       if (f.lineNo === undefined) {

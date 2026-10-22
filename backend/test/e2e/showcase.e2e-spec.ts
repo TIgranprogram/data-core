@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
@@ -52,5 +53,39 @@ describe('Showcase', () => {
     expect((await http().get('/api/showcase').query({ deleted: 1 }).set(auth())).body.items.map((x: { id: string }) => x.id)).toContain(a.id);
     await http().post(`/api/showcase/${a.id}/restore`).set(auth()).expect(200);
     expect((await http().get('/api/showcase').query({ search: '1001' }).set(auth())).body.total).toBe(1);
+  });
+
+  it('БЗ-5: варианты, себестоимость по последней закупке, паспорта изделия; позиция заказа привязывается по названию', async () => {
+    const db = ctx!.connection.db!;
+    const [p] = (await http().get('/api/showcase').query({ search: '1002' }).set(auth())).body.items;
+    const ed = (await http().patch(`/api/showcase/${p.id}`).set(auth()).send({ colors: 'графит, зелёный, графит', sizes: '3×2 м' }).expect(200)).body;
+    expect(ed).toMatchObject({ colors: ['графит', 'зелёный'], sizes: ['3×2 м'] });
+
+    // себестоимость: труба — последняя закупка (старая дешевле не берётся), болт — цена справочника, краска — без цены
+    const { insertedIds: m } = await db.collection('materials').insertMany([
+      { name: 'Труба 40×40', unit: 'м', deletedAt: null }, { name: 'Болт M10', unit: 'шт', pricePerUnit: 12, deletedAt: null }, { name: 'Краска', unit: 'кг', deletedAt: null }]);
+    await db.collection('supplyrequests').insertMany([
+      { title: 'Труба', materialId: m[0], qty: 10, priceHint: 100, status: 'received', requestDate: new Date('2026-01-10'), deletedAt: null },
+      { title: 'Труба', materialId: m[0], qty: 4, lineTotal: 600, status: 'received', requestDate: new Date('2026-03-10'), deletedAt: null },
+      { title: 'Труба', materialId: m[0], qty: 1, priceHint: 999, status: 'cancelled', requestDate: new Date('2026-04-10'), deletedAt: null }]);
+    const c = (await http().put(`/api/showcase/${p.id}/composition`).set(auth()).send({ lines: [{ materialId: String(m[0]), quantity: 2 }, { materialId: String(m[1]), quantity: 8 }, { materialId: String(m[2]), quantity: 1 }] }).expect(200)).body;
+    expect(c.cost).toMatchObject({ total: 2 * 150 + 8 * 12, missing: 1 });
+    expect(c.cost.lines.map((x: { source: string | null }) => x.source)).toEqual(['purchase', 'reference', null]);
+
+    // паспорта: по ссылке и по названию
+    await db.collection('productpassports').insertMany([
+      { passportNumber: 'П-1', productId: new Types.ObjectId(p.id), name: 'другое', deletedAt: null },
+      { passportNumber: 'П-2', name: 'Качели двойные', deletedAt: null }, { passportNumber: 'П-3', name: 'Качели двойные', deletedAt: new Date() }]);
+    const card = (await http().get(`/api/showcase/${p.id}`).set(auth()).expect(200)).body;
+    expect(card.passports.total).toBe(2);
+
+    // позиция заказа: без productId — подбор по короткому названию; явный null — отвязать; размер сохраняется
+    const inc = (await http().post('/api/incomes').set(auth()).send({ title: 'Качели двойные. Цвет: зелёный, оцинковка', size: '3×2 м' }).expect(201)).body;
+    expect(inc).toMatchObject({ size: '3×2 м', product: { id: p.id, name: 'Качели двойные' } });
+    const off = (await http().patch(`/api/incomes/${inc.id}`).set(auth()).send({ productId: null }).expect(200)).body;
+    expect(off.product).toBeNull();
+    const none = (await http().post('/api/incomes').set(auth()).send({ title: 'Неизвестное изделие' }).expect(201)).body;
+    expect(none.product).toBeNull();
+    expect((await http().get(`/api/showcase/${p.id}`).set(auth())).body.orderLines).toEqual([]); // позиции без заказа в «В заказах» не входят
   });
 });

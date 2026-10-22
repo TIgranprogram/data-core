@@ -11,6 +11,8 @@ export class IncomeDto {
   @ApiPropertyOptional({ description: 'Наша компания по названию: СИЮ / ССЮ' }) @IsOptional() @IsString() @Length(0, 200) companyName?: string;
   @ApiPropertyOptional({ description: 'Форма оплаты: б/р, нал…' }) @IsOptional() @IsString() @Length(0, 50) paymentForm?: string;
   @ApiPropertyOptional({ description: 'Наименование (обязательно при создании)' }) @IsOptional() @IsString() @Length(1, 500) title?: string;
+  @ApiPropertyOptional({ description: 'Изделие из «Продукции» (products); не указано при создании — подбирается по названию; null — отвязать', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsMongoId() productId?: string | null;
+  @ApiPropertyOptional({ description: 'Размер (вариант изделия)' }) @IsOptional() @IsString() @Length(0, 100) size?: string;
   @ApiPropertyOptional() @IsOptional() @ValidateIf((_, v) => v !== null) @IsNumber() @Min(0) qty?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 30) unit?: string;
   @ApiPropertyOptional({ description: 'Вид' }) @IsOptional() @IsString() @Length(0, 100) kind?: string;

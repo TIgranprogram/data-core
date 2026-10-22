@@ -698,7 +698,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 | title | string, обяз. | наименование |
 | qty, unit, unitPrice | number, string, number | |
 | amountManual | number | «доход вручную» — важнее qty × unitPrice |
+| productId | ObjectId → products | изделие «Продукции» (БЗ-5); при создании без него — подбор по короткому названию |
 | kind, color | string | «Вид», «Цвет» листа |
+| size | string | размер — вариант изделия (БЗ-5) |
 | shipDate, paidDate | Date | отгрузка, оплата |
 | notes | string | |
 | **amount** | number | вычисляется сервисом: amountManual ?? qty × unitPrice |

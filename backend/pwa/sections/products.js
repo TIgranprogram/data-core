@@ -17,12 +17,34 @@ import { issuePassport, passports } from './passports.js';
 const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy' }) : null);
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 
-// «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели
+// «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
+// Себестоимость материалов (тем, кто видит деньги): цена — последняя закупка, иначе справочник материалов
 function compositionBlock(r) {
   const items = r.composition || [];
+  const cost = session.canMoney ? r.cost : null;
+  const price = new Map((cost?.lines || []).map((x) => [x.materialId, x]));
+  const priceText = (l) => {
+    const p = price.get(l.materialId);
+    if (!cost) return '';
+    if (!p || p.price == null) return ' · цены нет';
+    return ` · ${money(p.price)}/${l.unit} = ${money(p.sum)}${p.source === 'reference' ? ' (справочник)' : p.date ? ` (закупка ${date(p.date)})` : ''}`;
+  };
   return h('div', null, h('div', { class: 'section-title' }, `Состав${items.length ? ` (${items.length})` : ''}`),
-    items.length ? h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null, l.name, h('span', { class: 'muted' }, ` · ${qty(l.quantity)} ${l.unit}${l.article ? ' · ' + l.article : ''}`))))
-      : h('p', { class: 'muted' }, 'Состав не заполнен — «Изменить состав» в действиях карточки'));
+    items.length ? h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null, l.name, h('span', { class: 'muted' }, ` · ${qty(l.quantity)} ${l.unit}${l.article ? ' · ' + l.article : ''}${priceText(l)}`))))
+      : h('p', { class: 'muted' }, 'Состав не заполнен — «Изменить состав» в действиях карточки'),
+    cost ? h('p', null, h('b', null, `Себестоимость материалов ≈ ${money(cost.total)}`),
+      h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · по последним закупкам')) : null);
+}
+
+// «Паспорта» (БЗ-5): выпущенные паспорта этого изделия — по ссылке или по названию
+function passportsBlock(r) {
+  const p = r.passports;
+  if (!p?.total) return h('p', { class: 'muted' }, 'Паспортов пока нет — «Выпустить паспорт» в действиях карточки');
+  return h('div', null, h('div', { class: 'section-title' }, `Паспорта (${p.total})`),
+    h('ul', { class: 'timeline' }, ...p.items.map((x) => h('li', null,
+      h('a', { href: '#passports?open=' + x.id }, `№ ${x.passportNumber || '—'}`),
+      h('span', { class: 'muted clip' }, [date(x.date), x.customer, x.orderNo ? 'заказ ' + x.orderNo : ''].filter(Boolean).join(' · '))))),
+    p.total > p.items.length ? h('p', { class: 'muted' }, `показаны последние ${p.items.length}`) : null);
 }
 
 // «Где в заказах» (БЗ-5): позиции заказов с этим изделием (по ссылке или по совпадению названия) — только просмотр
@@ -32,7 +54,7 @@ function inOrders(r) {
   return h('div', null, h('div', { class: 'section-title' }, `В заказах (${items.length})`),
     h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null,
       h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`),
-      h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · '))))));
+      h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.size, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · '))))));
 }
 
 export const products = {
@@ -80,13 +102,14 @@ export const products = {
     heading: (r) => r.name,
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
-    extra: (r) => h('div', null, compositionBlock(r), inOrders(r)),
+    extra: (r) => h('div', null, compositionBlock(r), inOrders(r), passportsBlock(r)),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r) => [
       ['Артикул', r.sku], ['Раздел', r.type], ['Группа', r.group], ['Серия', r.series],
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
+      ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
       ['Описание', r.description],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
@@ -106,10 +129,12 @@ export const products = {
       { key: 'group', label: 'Группа', max: 100, hint: 'Например: Качели' },
       { key: 'series', label: 'Серия', max: 100 },
       { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
+      { key: 'colors', label: 'Цвета (варианты)', max: 500, hint: 'Через запятую: графит, зелёный' },
+      { key: 'sizes', label: 'Размеры (варианты)', max: 500, hint: 'Через запятую: 3×2 м, 4×2 м' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true },
     ],
-    toInitial: (r) => ({ ...r }),
-    toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, description: v.description || '' }),
+    toInitial: (r) => ({ ...r, colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', ') }),
+    toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '' }),
     create: (b) => api('/showcase', { method: 'POST', body: b }),
     update: (id, b) => api(`/showcase/${id}`, { method: 'PATCH', body: b }),
   },

@@ -32,6 +32,8 @@ export class Income {
   /** «Вид» и «Цвет» с листа «Заказы». */
   @Prop({ trim: true }) kind?: string;
   @Prop({ trim: true }) color?: string;
+  /** Размер — вариант изделия (БЗ-5: варианты по цвету и размеру), рядом с цветом. */
+  @Prop({ trim: true }) size?: string;
   @Prop({ min: 0 }) unitPrice?: number;
   /** Доход вручную — важнее qty × unitPrice. */
   @Prop({ min: 0 }) amountManual?: number;

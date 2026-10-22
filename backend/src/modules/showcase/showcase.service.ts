@@ -13,6 +13,10 @@ import { productNameKey, shortProductName } from './order-product-name';
 type Doc = Record<string, unknown> & { _id: Types.ObjectId };
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const LIVE = { deletedAt: null };
+/** Варианты изделия (цвета, размеры): список или строка «через запятую / с новой строки» → уникальные непустые, до 50. */
+const variants = (v: unknown) => [...new Set((Array.isArray(v) ? v : String(v ?? '').split(/[,;\n]/)).map(clean).filter(Boolean))].slice(0, 50);
+/** Точное совпадение названия без регистра и лишних пробелов. */
+const sameName = (name: string) => new RegExp('^\\s*' + escapeRe(name).replace(/\s+/g, '\\s+') + '\\s*$', 'i');
 
 /**
  * «Продукция» — витрина изделий компании и КП (TASKS БЗ-4) поверх общей коллекции CRM `products` (kind good, unit шт):
@@ -47,7 +51,7 @@ export class ShowcaseService {
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
       return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, description: (d.description as string) ?? null,
         price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c ? String(c.name) : null,
-        type: c?.parentId ? par.get(String(c.parentId)) ?? null : null, photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null };
+        type: c?.parentId ? par.get(String(c.parentId)) ?? null : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null };
     });
   }
 
@@ -84,7 +88,9 @@ export class ShowcaseService {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
-    return { ...item, orderLines: await this.orderLines(d as Doc), composition: await this.composition(d as Doc), passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
+    const composition = await this.composition(d as Doc);
+    return { ...item, orderLines: await this.orderLines(d as Doc), composition, cost: await this.cost(composition), passports: await this.passports(d as Doc),
+      passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
   }
 
   /** Значения паспорта по умолчанию (БЗ-6 Э4b): заменяются целиком; пустое тело — очистить. */
@@ -132,13 +138,53 @@ export class ShowcaseService {
     return this.get(id);
   }
 
+  /**
+   * Себестоимость материалов (БЗ-5): количество × цена за единицу. Цена — последняя закупка материала (заявка снабжения,
+   * не отменённая: сумма строки / количество; сумма — priceHint «Сумма с НДС» или lineTotal), иначе — цена из справочника
+   * материалов (pricePerUnit). Количество закупки — полученное, если есть (receivedQty), иначе заказанное. Только расчёт,
+   * в изделие не пишется (costPrice — поле CRM). Строки без цены в сумму не входят, их число — missing.
+   */
+  private async cost(lines: Array<{ materialId: string; quantity: number }>) {
+    if (!lines.length) return null;
+    const ids = lines.map((l) => new Types.ObjectId(l.materialId));
+    const [last, mats] = await Promise.all([
+      this.db.collection('supplyrequests').aggregate([
+        { $match: { deletedAt: null, materialId: { $in: ids }, status: { $ne: 'cancelled' }, qty: { $gt: 0 }, $or: [{ priceHint: { $gt: 0 } }, { lineTotal: { $gt: 0 } }] } },
+        { $sort: { requestDate: -1, createdAt: -1 } },
+        { $group: { _id: '$materialId', priceHint: { $first: '$priceHint' }, lineTotal: { $first: '$lineTotal' }, qty: { $first: '$qty' }, receivedQty: { $first: '$receivedQty' }, date: { $first: { $ifNull: ['$requestDate', '$createdAt'] } } } },
+      ]).toArray(),
+      this.db.collection('materials').find({ _id: { $in: ids } }, { projection: { pricePerUnit: 1 } }).toArray(),
+    ]);
+    const unitPrice = (x: Record<string, unknown>) => (Number(x.priceHint) > 0 ? Number(x.priceHint) : Number(x.lineTotal)) / (Number(x.receivedQty) > 0 ? Number(x.receivedQty) : Number(x.qty));
+    const buy = new Map(last.map((x) => [String(x._id), { price: unitPrice(x), date: (x.date as Date) ?? null }]));
+    const ref = new Map(mats.map((m) => [String(m._id), Number(m.pricePerUnit) > 0 ? Number(m.pricePerUnit) : null]));
+    const rows = lines.map((l) => {
+      const b = buy.get(l.materialId); const r = ref.get(l.materialId) ?? null;
+      const price = b ? Math.round(b.price * 100) / 100 : r;
+      return { materialId: l.materialId, price, source: b ? 'purchase' : r != null ? 'reference' : null, date: b?.date ?? null, sum: price != null ? Math.round(price * l.quantity * 100) / 100 : null };
+    });
+    return { total: Math.round(rows.reduce((s, x) => s + (x.sum ?? 0), 0) * 100) / 100, missing: rows.filter((x) => x.price == null).length, lines: rows };
+  }
+
+  /** Паспорта изделия (БЗ-5): по ссылке productId или с тем же названием; последние 30 и общее число. */
+  private async passports(d: Doc) {
+    const name = clean(d.name);
+    const filter = { deletedAt: null, $or: [{ productId: d._id }, ...(name ? [{ name: sameName(name) }] : [])] };
+    const coll = this.db.collection('productpassports');
+    const [docs, total] = await Promise.all([
+      coll.find(filter, { projection: { passportNumber: 1, date: 1, customerName: 1, objectName: 1, orderNo: 1 } }).sort({ date: -1, _id: -1 }).limit(30).toArray(),
+      coll.countDocuments(filter),
+    ]);
+    return { total, items: docs.map((x) => ({ id: String(x._id), passportNumber: x.passportNumber ?? null, date: x.date ?? null, customer: x.customerName || x.objectName || null, orderNo: x.orderNo ?? null })) };
+  }
+
   /** Где изделие в заказах: позиции со ссылкой productId или с тем же названием (без регистра), до 30 штук (БЗ-5). */
   private async orderLines(d: Doc) {
     const name = clean(d.name);
     const or: Record<string, unknown>[] = [{ productId: d._id }];
-    if (name) or.push({ title: new RegExp('^\\s*' + escapeRe(name).replace(/\s+/g, '\\s+') + '\\s*$', 'i') });
+    if (name) or.push({ title: sameName(name) });
     const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, $or: or }).sort({ shipDate: -1 }).limit(30).toArray();
-    return lines.map((l) => ({ id: String(l._id), orderId: String(l.orderId), orderNo: l.orderNo ?? null, customer: l.customer ?? null, qty: l.qty ?? null, color: l.color ?? null, shipDate: l.shipDate ?? null, linked: !!l.productId }));
+    return lines.map((l) => ({ id: String(l._id), orderId: String(l.orderId), orderNo: l.orderNo ?? null, customer: l.customer ?? null, qty: l.qty ?? null, color: l.color ?? null, size: l.size ?? null, shipDate: l.shipDate ?? null, linked: !!l.productId }));
   }
 
   /** Категория type product по названию (с родителем) — найти или завести (slug и skuPrefix уникальны в общей схеме). */
@@ -159,6 +205,7 @@ export class ShowcaseService {
     if (dto.description !== undefined) set.description = String(dto.description ?? '').trim() || null;
     if (dto.price !== undefined) { const p = dto.price === null || dto.price === '' ? 0 : Number(String(dto.price).replace(/\s/g, '').replace(',', '.')); if (!Number.isFinite(p) || p < 0) throw new BadRequestException('Цена — число'); set.listPrice = p; if (p > 0) set.status = 'active'; }
     if (dto.group !== undefined || dto.type !== undefined) set.categoryId = await this.category(dto.group as string, await this.category(dto.type as string, null));
+    for (const k of ['colors', 'sizes'] as const) if (dto[k] !== undefined) set[k] = variants(dto[k]);
     if (Array.isArray(dto.photoIds)) set.photoIds = (dto.photoIds as string[]).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     return set;
   }

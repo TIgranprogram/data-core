@@ -29,6 +29,9 @@ const STATUS_HINT = {
 };
 
 let lk = null;
+/** Изделия «Продукции» для выбора в позиции (БЗ-5): наименование · артикул. */
+const productOptions = () => api('/showcase', { query: { limit: 500, sort: 'name' } })
+  .then((r) => r.items.map((x) => ({ value: x.id, label: x.sku ? `${x.name} · арт. ${x.sku}` : x.name }))).catch(() => []);
 const m2 = (o) => `№ ${o.orderNo || '—'} · ${o.customer || ''}`;
 export const incomeLookups = () => (lk ??= api('/incomes/lookups').catch((e) => { lk = null; throw e; }));
 incomeLookups.reset = () => { lk = null; };
@@ -74,7 +77,7 @@ export async function priceDialog(r) {
 }
 
 const toInitial = (r) => ({
-  ...r, companyName: r.companyName || '',
+  ...r, companyName: r.companyName || '', productId: r.product?.id || '',
   shipDate: r.shipDate ? String(r.shipDate).slice(0, 10) : '', paidDate: r.paidDate ? String(r.paidDate).slice(0, 10) : '',
 });
 
@@ -140,6 +143,8 @@ export const orders = {
       ['Доход вручную', r.amountManual != null ? money(r.amountManual) : ''],
       ['Вид', r.kind],
       ['Цвет', r.color],
+      ['Размер', r.size],
+      ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
       ['Примечание', r.notes],
       ['В календаре', r.reportDate ? `${date(r.reportDate)} (${r.paidDate ? 'по дате оплаты' : 'по дате отгрузки'})` : h('span', { class: 'muted' }, 'не попадает — нет даты отгрузки или оплаты')],
       ['Весь заказ', r.orderNo ? h('a', { href: '#orders?orderNo=' + encodeURIComponent(r.orderNo) }, `все строки заказа ${r.orderNo} →`) : ''],
@@ -165,6 +170,8 @@ export const orders = {
         { key: 'orderNo', label: '№ заказа (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
+        { key: 'productId', label: 'Изделие из «Продукции»', type: 'select', wide: true, options: await productOptions(),
+          hint: 'Для паспорта и карточки изделия. Не выбрано — подберётся по названию, если такое изделие уже есть; нет в «Продукции» — «Из заказов» там' },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(await lookups().catch(() => null)), max: 30 },
         { section: 'Деньги', tone: 'money', money: true },
@@ -175,9 +182,10 @@ export const orders = {
         { section: 'Отгрузка и оплата', tone: 'info' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
         { key: 'paidDate', label: 'Дата оплаты', type: 'date' },
-        { section: 'Вид, цвет, примечание', tone: 'who', collapsed: true },
+        { section: 'Вид, цвет, размер, примечание', tone: 'who', collapsed: true },
         { key: 'kind', label: 'Вид', max: 100 },
         { key: 'color', label: 'Цвет', max: 100 },
+        { key: 'size', label: 'Размер', max: 100 },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
     },
@@ -187,11 +195,12 @@ export const orders = {
       const s = (x) => (x === null ? '' : String(x));
       return {
         orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), unit: s(v.unit), companyName: s(v.companyName), paymentForm: s(v.paymentForm),
-        kind: s(v.kind), color: s(v.color), notes: s(v.notes), shipDate: v.shipDate || '', paidDate: v.paidDate || '',
+        kind: s(v.kind), color: s(v.color), size: s(v.size), notes: s(v.notes), shipDate: v.shipDate || '', paidDate: v.paidDate || '',
         qty: v.qty, unitPrice: v.unitPrice, amountManual: v.amountManual, orderId: v.orderId || null,
+        productId: v.productId || null, // «—» в правке — отвязать; при создании пустое не шлём (сервер подберёт по названию)
       };
     },
-    create: async (body) => { const r = await api('/incomes', { method: 'POST', body }); incomeLookups.reset(); return r; },
+    create: async (body) => { if (!body.productId) delete body.productId; const r = await api('/incomes', { method: 'POST', body }); incomeLookups.reset(); return r; },
     update: async (id, body) => { const r = await api(`/incomes/${id}`, { method: 'PATCH', body }); incomeLookups.reset(); return r; },
   },
 
