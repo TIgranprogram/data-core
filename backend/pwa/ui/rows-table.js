@@ -24,7 +24,12 @@ export function rowsTable({ columns, rows, file = 'Шаблон', example = [] }
     renum();
     return tr;
   }
-  const renum = () => [...body.children].forEach((tr, i) => { tr.firstChild.textContent = String(i + 1); });
+  // номер строки — в подписях полей и кнопки «×» (читалка различает строки)
+  const renum = () => [...body.children].forEach((tr, i) => {
+    tr.firstChild.textContent = String(i + 1);
+    cellsOf(tr).forEach((inp, k) => inp.setAttribute('aria-label', `${columns[k].label}, строка ${i + 1}`));
+    const x = tr.querySelector('button'); if (x) { x.setAttribute('aria-label', `Убрать строку ${i + 1}`); x.title = `Убрать строку ${i + 1}`; }
+  });
   const changed = () => el.dispatchEvent(new Event('input', { bubbles: true }));
   const read = () => [...body.children].map((tr) => Object.fromEntries(cellsOf(tr).map((i) => [i.dataset.k, i.value.trim()])))
     .filter((r) => Object.values(r).some(Boolean));

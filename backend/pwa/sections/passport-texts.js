@@ -67,17 +67,18 @@ function newSectionPlace(t) {
 
 // ─── экран (в «Справочниках» вместо таблицы) ──────────────────────────────────────────────────────
 export function mountTexts() {
-  const chips = h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Категория паспорта' });
+  const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Категория паспорта' });
   const info = h('p', { class: 'hint pt-info' });
   const edit = canEditTexts();
   const addSec = h('button', { type: 'button', class: 'btn btn-primary', hidden: !edit, onclick: () => patch({ of: 'ptext', open: `${textsCat()}.s`, new: undefined }) }, '+ Раздел');
   const prev = h('button', { type: 'button', class: 'btn', title: 'Собранный текст категории — как в паспорте (переменные — метками «не заполнено»)', onclick: () => patch({ of: 'ptextview', open: `${textsCat()}.p`, new: undefined }) }, 'Предпросмотр');
   const tree = h('div', { class: 'pt-tree' }, h('div', { class: 'state' }, 'Загрузка…'));
-  const el = h('div', { class: 'pt' }, chips, h('div', { class: 'pt-bar' }, info, h('div', { class: 'dict-tools' }, prev, addSec)), tree);
+  const el = h('div', { class: 'pt' }, chips, h('div', { class: 'pt-bar' }, info, h('div', { class: 'dict-tools' }, prev, addSec)),
+    edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), tree);
 
   const open = (of, id) => patch({ of, open: id, new: undefined });
   function renderChips(cat) {
-    chips.replaceChildren(...CATS.map((c) => h('button', { type: 'button', role: 'tab', class: 'chip' + (c.code === cat ? ' active' : ''), 'aria-selected': String(c.code === cat), title: c.name,
+    chips.replaceChildren(...CATS.map((c) => h('button', { type: 'button', class: 'chip' + (c.code === cat ? ' active' : ''), 'aria-pressed': String(c.code === cat), title: c.name,
       onclick: () => patch({ cat: c.code, of: undefined, open: undefined }) }, c.code, h('span', { class: 'md-hide' }, ' · ' + c.name))));
   }
   function renderTree(cat, t) {
@@ -110,7 +111,7 @@ export function mountTexts() {
     if (shown !== cat) tree.replaceChildren(h('div', { class: 'state' }, 'Загрузка…'));
     shown = cat;
     try { renderTree(cat, await loadTexts(cat, true)); }
-    catch (e) { tree.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + e.message)); }
+    catch (e) { tree.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Не загрузилось: ' + e.message), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => reload() }, 'Повторить'))); }
   }
   // смена категории — загрузить; открыли/закрыли пункт — только перерисовать выделение из кэша
   function update() {
@@ -166,7 +167,7 @@ function textForm(r) {
     h('p', { class: 'hint wide' }, `«${catName(r.cat)}» · ${where} Сохранение — новая версия текстов категории; выданные паспорта не меняются.`),
     r.kind === 's' ? h('label', { class: 'field wide' }, h('span', null, 'Название раздела', h('span', { class: 'req' }, ' *')), title) : null,
     h('label', { class: 'field wide' }, h('span', null, r.kind === 's' ? 'Первый пункт' : 'Текст пункта', h('span', { class: 'req' }, ' *')), ta, err),
-    h('div', { class: 'field wide' }, h('span', null, 'Переменные — клик вставляет в текст'), vars,
+    h('details', { class: 'month-group wide' }, h('summary', null, `Переменные (${VARS.length}) — клик вставляет в текст`), vars,
       h('div', { class: 'hint' }, 'Пустая переменная в паспорте видна как «[{имя} не заполнено]». Пункт с «— » в начале — маркированный, без номера.')),
     r.allText !== undefined ? h('details', { class: 'month-group wide' }, h('summary', null, 'Общий текст, который заменяется'), h('p', { class: 'muted' }, r.allText)) : null,
     del ? h('div', { class: 'wide' }, del) : null);

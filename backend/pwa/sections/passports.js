@@ -16,6 +16,8 @@ import { confirmDlg } from '../ui/dialog.js';
  * Новый паспорт: начните печатать наименование — выберите модель, подставится всё, кроме заказчика и даты.
  * Смотреть — менеджер и выше, создавать и менять — директор и админ (как на сервере).
  */
+/** 1 паспорт, 2 паспорта, 5 паспортов. */
+const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
 const KINDS = [
   ['overview', 'Общий вид', 'на титуле'],
   ['dimensions', 'Габариты', 'приложение «Габариты изделия»'],
@@ -75,7 +77,7 @@ async function models() {
   modelsCache = items.map((r) => ({
     productId: r.productId || null,
     label: r.name, cat: r.category || '', pic: r.thumb ? PREFIX + r.thumb : null,
-    sub: [r.passportCategory && (V2_CATS.find((c) => c.value === r.passportCategory)?.label || r.passportCategory), r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${r.n % 10 === 1 && r.n % 100 !== 11 ? 'паспорт' : 'паспорт.'}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
+    sub: [r.passportCategory && (V2_CATS.find((c) => c.value === r.passportCategory)?.label || r.passportCategory), r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${plural(r.n, 'паспорт', 'паспорта', 'паспортов')}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
     // поиск модели (Э5a5): название, артикул, категория каталога, категория паспорта v2
     search: normSearch([r.name, r.article, r.category, r.passportCategory, V2_CATS.find((c) => c.value === r.passportCategory)?.label].filter(Boolean).join(' ')),
     values: { _copyFrom: r.id, name: r.name, category: r.category || '', article: r.article || '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight),
@@ -158,7 +160,7 @@ function imagesBlock(r, ctx) {
       return h('div', { class: 'pp-kind', 'data-kind': kind },
         h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
-          i.url ? h('img', { src: PREFIX + i.url, alt: '', title: i.caption || 'Открыть', onclick: () => window.open(PREFIX + i.url, '_blank') }) : h('span', { class: 'muted' }, 'нет файла'),
+          i.url ? h('a', { href: PREFIX + i.url, target: '_blank', rel: 'noopener', title: i.caption || 'Открыть', 'aria-label': `${label}: открыть картинку` }, h('img', { src: PREFIX + i.url, alt: i.caption || label })) : h('span', { class: 'muted' }, 'нет файла'),
           canEdit() ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
         // Э9.5: своих нет — стандартная схема способа установки (в паспорт попадёт она; своя загруженная её заменит)
         !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт; загрузите свою, чтобы заменить'),
@@ -200,18 +202,18 @@ function periodBlock(m) {
 function snapItem(r, ctx, s, i) {
   const view = h('p', { class: 'pp-snap-item' }, i.number ? h('b', null, i.number + ' ') : '— ', i.text,
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
-    canEdit() ? h('button', { type: 'button', class: 'link-btn', onclick: () => view.replaceWith(editor()) }, ' Изменить') : null,
-    canEdit() && i.edited ? h('button', { type: 'button', class: 'link-btn', title: 'Этот текст пункта получат новые паспорта той же категории', onclick: async () => {
+    canEdit() ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => view.replaceWith(editor()) }, 'Править пункт') : null,
+    canEdit() && i.edited ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Этот текст пункта получат новые паспорта той же категории', onclick: async () => {
       if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов категории. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
       try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон категории, версия ${v.version}`); } catch (e) { toastError(e); }
-    } }, ' В справочник категории') : null);
+    } }, 'Сделать общим для категории') : null);
   const editor = () => {
     const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
     const save = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: async () => {
       save.disabled = true; save.textContent = 'Сохранение…';
       try { await api(`/passports/${r.id}/snapshot-item`, { method: 'PATCH', body: { sectionKey: s.key, itemKey: i.key, text: ta.value } }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Пункт изменён для этого паспорта'); } catch (e) { toastError(e); save.disabled = false; save.textContent = 'Сохранить'; }
     } }, 'Сохранить');
-    const box = h('div', { class: 'field wide' }, ta, h('div', { class: 'hint' }, 'Меняется только этот паспорт; справочник и другие паспорта — нет'),
+    const box = h('div', { class: 'field wide' }, ta, h('div', { class: 'hint' }, 'Правка только для этого паспорта'),
       h('div', { class: 'rt-acts' }, save, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => box.replaceWith(view) }, 'Отмена')));
     setTimeout(() => ta.focus(), 0);
     return box;
@@ -228,7 +230,7 @@ function previewBlock(r, ctx) {
     e.target.disabled = true; e.target.textContent = 'Собираю…';
     try { await api(`/passports/${r.id}/snapshot`, { method: 'POST' }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Текст паспорта собран заново'); } catch (err) { toastError(err); e.target.disabled = false; e.target.textContent = 'Обновить текст по справочникам'; }
   } }, 'Обновить текст по справочникам') : null;
-  if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран. '), refresh);
+  if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран.'), refresh);
   const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
   return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),
     h('p', { class: 'muted' }, `Собран ${t.at ? date(t.at) : ''} · шаблон v${t.templateVersion ?? 0}${t.ownVersion != null ? ' + версия категории v' + t.ownVersion : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.join(', ') : ''}`),
@@ -241,9 +243,10 @@ function previewBlock(r, ctx) {
 }
 
 function bomBlock(r) {
-  const rows = r.bom?.length ? r.bom : [{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }];
+  if (!r.bom?.length) return h('div', null, h('div', { class: 'section-title' }, 'Комплектность (приложение)'), h('p', { class: 'muted' }, 'Не заполнена — в PDF будет «И-1 · Изделие в сборе · 1 шт.»'));
+  const rows = r.bom;
   return h('div', null, h('div', { class: 'section-title' }, 'Комплектность (приложение)'),
-    h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, ...['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед.', 'Примечание'].map((x) => h('th', null, x)))),
+    h('table', { class: 'so-lines static' }, h('thead', null, h('tr', null, ...['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед.', 'Примечание'].map((x) => h('th', null, x)))),
       h('tbody', null, ...rows.map((b) => h('tr', null, h('td', null, b.pos ?? ''), h('td', null, b.code ?? ''), h('td', null, b.name ?? ''), h('td', { class: 'num' }, b.qty ?? ''), h('td', null, b.unit ?? ''), h('td', { class: 'muted' }, b.note ?? ''))))));
 }
 
@@ -329,7 +332,7 @@ export const passports = {
     },
     tiles: { key: 'category', load: async () => (await facets()).categories.map((c) => ({ value: c.value, label: c.value, n: c.n })) },
     hints: {
-      '': 'Паспорт — на каждое выданное изделие: свой номер, талон и номер изделия (их выдаёт система). Клик — карточка: картинки, «Скачать PDF», «Копия на ту же модель».',
+      '': 'Паспорт — на каждое выданное изделие: свой номер, талон и номер изделия (их выдаёт система). Клик — карточка: картинки, «⇩ PDF с печатью», «Создать копию».',
       incomplete: 'Не хватает данных для выдачи: в строке видно, чего именно. Откройте и заполните — PDF соберётся полным.',
       noImages: 'Паспорта без картинок: перетащите или вставьте (Ctrl+V) общий вид в карточке.',
     },
@@ -385,7 +388,7 @@ export const passports = {
       V2 && r.textSnapshot && { label: '⇩ В печать ч/б (буклет A4)', run: (row) => download(row, { stamp: 1, mode: 'print', bw: 1 }, 'ч/б буклет для печати') },
       // v2 (БЗ-6 Э6d): лист правил для информационного стенда — одна страница A3
       V2 && r.textSnapshot && { label: '⇩ Лист для стенда (A3)', run: (row) => download(row, { mode: 'stand' }, 'лист для стенда') },
-      canEdit() && { label: 'Копия на ту же модель', run: async (row, ctx) => {
+      canEdit() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
     ],
@@ -401,12 +404,12 @@ export const passports = {
       V2 = v2;
       const [els, mats, inst] = v2 ? await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall')]) : [[], [], []];
       const v2Fields = !v2 ? [] : [
-        { section: 'Паспорт v2: категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
+        { section: 'Категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
         // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
         { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => !LATER_CATS.includes(c.value) || r?.passportCategory === c.value), wide: true,
           hint: 'От категории зависят разделы, нормативы и обязательные рисунки. Детские (игровое, спортивное) — позже' },
-        { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => tagPick({ options: els, value: v }) },
-        { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v }) },
+        { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => tagPick({ options: els, value: v, label: 'Функциональные элементы' }) },
+        { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v, label: 'Материалы' }) },
         { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
         { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
         { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
