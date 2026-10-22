@@ -33,6 +33,8 @@ const KINDS_V2 = [
 let V2 = false;
 flag('passports.v2').then((v) => { V2 = v; });
 const kinds = () => (V2 ? [...KINDS, ...KINDS_V2] : KINDS);
+/** Категории, отложенные пользователем (2026-10-22: «детские пока не делаем») — в выборе не предлагаются. */
+const LATER_CATS = ['DIO', 'DSP'];
 /** Категории паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
 const V2_CATS = [
   { value: '', label: 'Без категории (как раньше)' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
@@ -268,6 +270,7 @@ function v2Initial(r) {
     passportCategory: r.passportCategory || '', elements: (r.elements || []).map(String), materialIds: (r.materialIds || []).map(String),
     installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no',
     ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])),
+    certNumber: r.certificate?.number || '', certUntil: r.certificate?.until ? String(r.certificate.until).slice(0, 10) : '', certEac: r.certificate?.hasEac ? 'yes' : 'no',
   };
 }
 function v2Body(v) {
@@ -278,6 +281,8 @@ function v2Body(v) {
   };
   if (v.passportCategory) b.passportCategory = v.passportCategory;
   if (v.installationTypeId) b.installationTypeId = v.installationTypeId;
+  // сертификат (Э9): без номера — пусто (ЕАС без номера не ставим)
+  b.certificate = v.certNumber ? { number: String(v.certNumber).trim(), ...(v.certUntil ? { until: v.certUntil } : {}), hasEac: v.certEac === 'yes' } : {};
   return b;
 }
 
@@ -392,13 +397,19 @@ export const passports = {
       const [els, mats, inst] = v2 ? await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall')]) : [[], [], []];
       const v2Fields = !v2 ? [] : [
         { section: 'Паспорт v2: категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
-        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS, wide: true, hint: 'От категории зависят разделы, нормативы и обязательные рисунки' },
+        // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
+        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => !LATER_CATS.includes(c.value) || r?.passportCategory === c.value), wide: true,
+          hint: 'От категории зависят разделы, нормативы и обязательные рисунки. Детские (игровое, спортивное) — позже' },
         { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => tagPick({ options: els, value: v }) },
         { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v }) },
         { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
         { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
         { section: 'Ограничения и техданные', tone: 'info', collapsed: !!r && !r.passportCategory },
         ...V2_NUMS.map(([key, label, hint]) => ({ key, label, type: 'number', min: 0, span: 1, hint: hint || undefined })),
+        { section: 'Сертификат / декларация', tone: 'info', collapsed: !r?.certificate?.number },
+        { key: 'certNumber', label: 'Номер сертификата или декларации', max: 100, hint: 'Пусто — раздел «Идентификационные сведения» и знак ЕАС не печатаются' },
+        { key: 'certUntil', label: 'Действует до', type: 'date' },
+        { key: 'certEac', label: 'Знак ЕАС', type: 'segment', options: [{ value: 'no', label: 'Не ставить' }, { value: 'yes', label: 'Ставить' }] },
       ];
       return [
         { section: 'Изделие (модель)', tone: 'main', fixed: true },
