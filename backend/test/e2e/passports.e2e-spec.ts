@@ -197,6 +197,13 @@ describe('Паспорта изделий', () => {
     expect(JSON.stringify(re.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');
     // паспорт v1 (без категории) — снимок не нужен
     await http().post(`/api/passports/${first}/snapshot`).set(as(admin.access)).expect(400);
+    // БЗ-7: паспорту без категории выбрали категорию правкой — текст собирается сразу; повторная правка готовый текст не пересобирает
+    const old = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Старый тренажёр' }).expect(201)).body;
+    expect(old.textSnapshot ?? null).toBeNull();
+    const conv = (await http().patch(`/api/passports/${old.id}`).set(as(admin.access)).send({ passportCategory: 'TRN' }).expect(200)).body;
+    expect(conv.textSnapshot?.category).toBe('TRN');
+    const again = (await http().patch(`/api/passports/${old.id}`).set(as(admin.access)).send({ note: 'заметка' }).expect(200)).body;
+    expect(again.textSnapshot.at).toBe(conv.textSnapshot.at);
     await http().post(`/api/passports/${created.id}/snapshot`).set(as(manager)).expect(403);
   });
 });

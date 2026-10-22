@@ -265,8 +265,12 @@ export class ProductPassportService {
       throw new ConflictException(`Номер, талон и дата выданного паспорта меняются только с подтверждением (confirmNumbers): ${touched.join(', ')}`);
     }
     await this.assertFree(set, doc._id);
+    const hadText = !!((doc.toObject() as unknown as Doc).textSnapshot as { sections?: unknown[] } | undefined)?.sections?.length;
     doc.set(set);
-    return doc.save();
+    const saved = await doc.save();
+    // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
+    if (set.passportCategory && !hadText) return (await this.snapshot(String(saved._id))) ?? saved;
+    return saved;
   }
 
   async markIssued(id: Types.ObjectId | string) {

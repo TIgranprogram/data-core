@@ -33,7 +33,7 @@ const isRequired = (r, kind) => (r?.requiredImages || []).includes(kind);
 const LATER_CATS = ['DIO', 'DSP'];
 /** Категории паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
 const V2_CATS = [
-  { value: '', label: 'Без категории (как раньше)' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
+  { value: '', label: 'Без категории' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
   { value: 'DSP', label: 'Детское спортивное' }, { value: 'DIO', label: 'Детское игровое' }, { value: 'MAF', label: 'МАФ' },
 ];
 const V2_NUMS = [
@@ -166,7 +166,7 @@ async function printDialog(r) {
     h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
     h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, opts),
     v2 ? h('div', { class: 'pf-checks' }, mono.el) : null,
-    v2 ? null : h('p', { class: 'hint' }, 'Паспорт старого образца — PDF в старом виде. Новый вид (тексты по справочникам, цвет категории) — «Перевести на новый вид» в действиях карточки.'));
+    v2 ? null : h('p', { class: 'hint' }, 'У паспорта не выбрана категория — PDF упрощённый: без текстов по справочникам и цвета категории. «Выбрать категорию» в действиях карточки.'));
   pick(mode);
   await modal({
     title: `Паспорт № ${r.passportNumber || '—'} — PDF`, okText: 'Скачать PDF', wide: true, body,
@@ -184,16 +184,16 @@ async function printDialog(r) {
   });
 }
 
-/** Старый паспорт → новый вид: выбрать категорию (подсказка — по старой категории); сервер соберёт текст по справочникам. */
+/** Паспорт без категории → выбрать категорию (подсказка — по старой категории); сервер соберёт текст по справочникам. */
 const OLD_TO_V2 = { 'уличный тренажёр': 'TRN', 'воркаут': 'WRK', 'спортивное оборудование': 'WRK', 'благоустройство': 'MAF', 'маф': 'MAF' };
 async function convertDialog(r, ctx) {
   const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
   const sel = h('select', { 'aria-label': 'Категория паспорта' }, h('option', { value: '' }, '— выберите —'), cats.map((c) => h('option', { value: c.value }, c.label)));
   sel.value = OLD_TO_V2[String(r.category || '').trim().toLowerCase()] || '';
   const res = await modal({
-    title: 'Перевести на новый вид', okText: 'Перевести',
+    title: 'Категория паспорта', okText: 'Сохранить',
     body: h('div', null,
-      h('p', null, 'Паспорт получит категорию, текст соберётся по справочникам «Паспорта» — PDF будет в новом виде (как у новых паспортов). Номера, даты, заказчик, картинки не меняются.'),
+      h('p', null, 'Текст паспорта соберётся по справочникам «Паспорта» для этой категории — PDF будет полным, с цветом категории. Номера, даты, заказчик, картинки не меняются.'),
       h('label', { class: 'field wide' }, h('span', null, 'Категория', r.category ? h('span', { class: 'muted' }, ` (была: ${r.category})`) : null), sel),
       h('p', { class: 'hint' }, 'Потом проверьте блок «Проверка» в карточке — чего не хватает для полного текста.')),
     onOk: async () => {
@@ -201,7 +201,7 @@ async function convertDialog(r, ctx) {
       return api(`/passports/${r.id}`, { method: 'PATCH', body: { passportCategory: sel.value } });
     },
   });
-  if (res) { toast('Паспорт переведён на новый вид'); ctx.setRow(await api(`/passports/${r.id}`)); }
+  if (res) { toast('Категория выбрана, текст паспорта собран'); ctx.setRow(await api(`/passports/${r.id}`)); }
 }
 
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
@@ -447,7 +447,7 @@ export const passports = {
     actions: (r) => [
       // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
       { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
-      V2 && !r.passportCategory && canEdit() && { label: 'Перевести на новый вид', title: 'Старый паспорт: выбрать категорию — PDF будет в новом виде', run: (row, ctx) => convertDialog(row, ctx) },
+      V2 && !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       canEdit() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
