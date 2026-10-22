@@ -8,7 +8,7 @@ import { normalizeCategory, type PassportCategory } from './passport-template-se
 import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passport-template.default';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
-import { DEFAULT_BOM, buildDescription, dayUtc, missingFields, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
+import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
 import { standardsDict, type StandardDoc } from './passport-compose';
 
 type Doc = Record<string, unknown>;
@@ -36,7 +36,8 @@ export class ProductPassportService {
     if (p.search) filter.$or = ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier'].map((f) => ({ [f]: p.search }));
     const docs = await this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
     // «неполные» считаются правилами, а не запросом — паспортов сотни, это дёшево
-    const all: Array<Doc & { missing: string[] }> = docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFields(d as never) }));
+    const cats = await this.categoryRules();
+    const all: Array<Doc & { missing: string[] }> = docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(d as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
     const rows = q.incomplete === '1' || q.incomplete === 'true' ? all.filter((d) => d.missing.length) : all;
     const items = rows.slice(p.skip, p.skip + p.limit);
     await this.attachThumbs(items);
@@ -147,7 +148,8 @@ export class ProductPassportService {
     const url = new Map(photos.map((p) => [String(p._id), p.storageUrl as string]));
     const images = ((doc.images as Array<Doc>) || []).map((i) => ({ ...i, url: url.get(String(i.photoId)) ?? null }));
     const supplierOrg = doc.supplierOrgId ? await this.connection.collection('organizations').findOne({ _id: doc.supplierOrgId as Types.ObjectId }, { projection: { name: 1, shortName: 1, assets: 1 } }) : null;
-    return { ...doc, images, missing: missingFields(doc as never), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    const cat = doc.passportCategory ? (await this.categoryRules()).get(String(doc.passportCategory)) : null;
+    return { ...doc, images, missing: missingFieldsV2(doc as never, cat), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
@@ -271,6 +273,12 @@ export class ProductPassportService {
     const t = (await this.ownDoc(cat)) ?? (cat === 'ALL' ? null : await this.ownDoc('ALL'));
     if (!t) return { version: 0, category: 'ALL', ...DEFAULT_PASSPORT_TEMPLATE };
     return { version: t.version, category: normalizeCategory(t.category), id: String(t._id), sections: t.sections, tables: t.tables, updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt };
+  }
+
+  /** Справочник категорий паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */
+  async categoryRules() {
+    const docs = await this.connection.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, requiredImages: 1, serviceLifeYears: 1, warrantyMonths: 1, standards: 1 } }).toArray();
+    return new Map(docs.map((d) => [String(d.code), d as { requiredImages?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string }]));
   }
 
   /** Нормативы для {std:КОД} (справочник «Паспорта → Нормативы», dict_values) — словарь и записи для предупреждений. */

@@ -144,5 +144,46 @@ export function missingFields(p: PassportLike): string[] {
   return m;
 }
 
+/**
+ * Паспорт v2 (БЗ-6 Э4a2): что обязательно по категории — сверх общего списка `missingFields()`.
+ * Поля — по категории (решение «по умолчанию», TASKS БЗ-6); рисунки — из справочника категорий (`requiredImages`,
+ * по строке вид картинки; «(если разборное)» — только при isKit). Без категории — как v1.
+ */
+export const V2_REQUIRED_FIELDS: Record<string, Array<[string, string]>> = {
+  DIO: [['ageFrom', 'Возраст от'], ['ageTo', 'Возраст до'], ['maxUsers', 'Пользователей одновременно'], ['fallHeight', 'Высота свободного падения'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
+  DSP: [['ageFrom', 'Возраст от'], ['maxUsers', 'Пользователей одновременно'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
+  TRN: [['heightMin', 'Рост пользователя от'], ['weightMax', 'Вес пользователя до'], ['maxUsers', 'Пользователей одновременно'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
+  WRK: [['maxUsers', 'Пользователей одновременно'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
+  MAF: [['serviceLifeYears', 'Срок службы']],
+};
+export const IMAGE_KIND_LABELS: Record<string, string> = {
+  overview: 'Общий вид', dimensions: 'Габариты', safety: 'Зона безопасности', mounting: 'Монтаж', overview_callouts: 'Общий вид с выносками',
+  nameplate: 'Табличка', safety_zone: 'Зона безопасности', foundation: 'Схема фундамента', holes: 'Схема скважин', assembly: 'Схема сборки', bom_item: 'Деталь комплектности',
+};
+
+export interface PassportV2Like extends PassportLike {
+  passportCategory?: string; isKit?: boolean; elements?: unknown[]; installationTypeId?: unknown;
+  [k: string]: unknown;
+}
+
+export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string } | null): string[] {
+  const m = missingFields(p);
+  const code = String(p.passportCategory || '');
+  if (!code) return m;
+  const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'number' && !Number.isFinite(v));
+  if (empty(p.elements) && code !== 'MAF') m.push('Элементы');
+  if (empty(p.installationTypeId)) m.push('Способ установки');
+  for (const [k, label] of V2_REQUIRED_FIELDS[code] ?? []) if (empty(p[k])) m.push(label);
+  // «safety» (v1) и «safety_zone» (v2) — одно и то же требование
+  const has = new Set((p.images || []).map((i) => (i.kind === 'safety' ? 'safety_zone' : i.kind)));
+  for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {
+    const kind = line.trim().split(/\s+/)[0];
+    if (!kind || (/если разборн/i.test(line) && !p.isKit)) continue;
+    const k = kind === 'safety' ? 'safety_zone' : kind;
+    if (!has.has(k)) { const label = `Рисунок: ${IMAGE_KIND_LABELS[k] ?? k}`; if (!m.includes(label) && !(k === 'overview' && m.includes('Общий вид'))) m.push(label); }
+  }
+  return m;
+}
+
 /** Комплектность по умолчанию (Приложение 3). */
 export const DEFAULT_BOM = [{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }];
