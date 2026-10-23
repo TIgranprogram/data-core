@@ -8,6 +8,7 @@ import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 import { issuePassport, passports } from './passports.js';
+import { openBulk } from './bulk-edit.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -37,6 +38,29 @@ const costInfo = (r) => {
       : r.composition?.length ? 'У материалов состава нет цен закупки — сумма не считается' : 'Состав не заполнен — «Изменить состав» в карточке';
   return { el: h('p', { class: 'muted' }, text), value: '' };
 };
+/** БЗ-9: поля массового изменения изделий — общие для всех выбранных. */
+async function productBulkFields() {
+  const fv = await formValues();
+  const staff = await api('/dicts/persons').then((x) => (x.items || []).filter((p) => p.status !== 'fired').map((p) => ({ id: p.id, label: [p.lastName, p.firstName, p.patronymic].filter(Boolean).join(' ') || p.name, sub: p.position || '' }))).catch(() => []);
+  const ids = new Map(staff.map((p) => [p.label, p.id]));
+  const cats = await api('/dicts/passportCategories').then((x) => (x.items || []).map((c) => ({ value: c.code, label: c.name }))).catch(() => []);
+  const n = (v) => (v === '' ? null : v);
+  return [
+    { key: 'type', label: 'Раздел', type: 'combo', options: fv.sections.map((x) => x.value), hint: 'Группа у каждого изделия останется своя' },
+    { key: 'group', label: 'Группа', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Раздел у каждого изделия останется свой' },
+    { key: 'series', label: 'Серия', type: 'combo', options: fv.series.map((x) => x.value) },
+    { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже' }, { value: 'archived', label: 'Архив' }] },
+    { key: 'price', label: 'Цена, ₽ — одна для всех', type: 'number', map: n },
+    { key: 'designerId', label: 'Кто проектировал', type: 'combo', options: staff.map((p) => ({ value: p.id, label: p.label, sub: p.sub })), map: (v) => (v ? ids.get(v) || '' : ''), hint: 'Пусто — снять' },
+    { key: 'unit', label: 'Ед. изм.', type: 'combo', options: (fv.units || []).map((x) => x.value) },
+    { key: 'ralCode', label: 'RAL', type: 'combo', options: (fv.ral || []).map((x) => x.value) },
+    { key: 'colors', label: 'Цвета (варианты)', type: 'list', modes: true, map: (v) => v },
+    { key: 'sizes', label: 'Размеры (варианты)', type: 'list', modes: true, map: (v) => v },
+    { key: 'pd.passportCategory', label: 'Паспорт по умолчанию: категория', type: 'select', options: cats.filter((c) => c.value !== 'ALL') },
+    { key: 'pd.serviceLifeYears', label: 'Паспорт по умолчанию: срок службы, лет', type: 'number', map: n },
+    { key: 'pd.warrantyMonths', label: 'Паспорт по умолчанию: гарантия, мес.', type: 'number', map: n },
+  ];
+}
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
@@ -109,6 +133,15 @@ export const products = {
     path: '/showcase',
     sortDefault: 'name',
     createLabel: 'Изделие',
+    // БЗ-9: отметить изделия → «Изменить выбранные» (артикул, наименование, фото, состав — по одному)
+    bulk: { open: (ids, { done }) => openBulk({ ids, done, fields: productBulkFields,
+      // «pd.*» — значения паспорта по умолчанию: собираем в один объект (сервер дополняет, не заменяет)
+      apply: (set, arrays) => {
+        const pd = Object.fromEntries(Object.entries(set).filter(([k]) => k.startsWith('pd.')).map(([k, v]) => [k.slice(3), v]));
+        const rest = Object.fromEntries(Object.entries(set).filter(([k]) => !k.startsWith('pd.')));
+        return api('/showcase/bulk', { method: 'POST', body: { ids, set: { ...rest, ...(Object.keys(pd).length ? { passportDefaults: pd } : {}) }, arrays } });
+      },
+      restore: (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } }) }) }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
     emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
     filters: [{ key: 'groupId', label: 'Раздел', type: 'hidden' }],

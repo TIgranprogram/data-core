@@ -34,11 +34,12 @@ import { passports } from './sections/passports.js';
 import { ptext, ptextview } from './sections/passport-texts.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
+import { bulkEdit } from './sections/bulk-edit.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
 // ОШ: любая необработанная ошибка — понятным русским текстом (детали — в консоль), без повторов
 installGlobalErrors(toastError);
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, ptext, ptextview };
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, ptext, ptextview };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');

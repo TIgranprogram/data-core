@@ -4197,6 +4197,34 @@
         ]
       }
     },
+    "/showcase/bulk": {
+      "post": {
+        "operationId": "ShowcaseController_bulk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/bulk/restore": {
+      "post": {
+        "operationId": "ShowcaseController_bulkRestore",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/import": {
       "post": {
         "operationId": "ShowcaseController_import",
@@ -8380,6 +8408,34 @@
       },
       "put": {
         "operationId": "ProductPassportController_saveTexts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/bulk": {
+      "post": {
+        "operationId": "ProductPassportController_bulk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/bulk/restore": {
+      "post": {
+        "operationId": "ProductPassportController_bulkRestore",
         "parameters": [],
         "responses": {
           "200": {

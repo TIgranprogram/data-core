@@ -225,4 +225,23 @@ describe('Паспорта изделий', () => {
     expect(again.textSnapshot.at).toBe(conv.textSnapshot.at);
     await http().post(`/api/passports/${created.id}/snapshot`).set(as(manager)).expect(403);
   });
+  it('БЗ-9: массовое изменение выбранных — общие поля, элементы «добавить», отмена; номера не меняются', async () => {
+    const a = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Массово 1', passportCategory: 'WRK', warrantyMonths: 12 }).expect(201)).body;
+    const b = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Массово 2' }).expect(201)).body;
+    const el = String(new Types.ObjectId());
+    const r = (await http().post('/api/passports/bulk').set(as(admin.access)).send({ ids: [a.id, b.id], set: { passportCategory: 'TRN', warrantyMonths: '24', elements: [el], customerName: 'ГБУ', passportNumber: '999', name: 'нельзя' }, arrays: { elements: 'add' } }).expect(200)).body;
+    expect(r).toMatchObject({ updated: 2, failed: [] });
+    const a2 = (await http().get(`/api/passports/${a.id}`).set(as(admin.access)).expect(200)).body;
+    expect(a2).toMatchObject({ passportCategory: 'TRN', warrantyMonths: 24, customerName: 'ГБУ', name: 'Массово 1', passportNumber: a.passportNumber });
+    expect(a2.elements.map(String)).toEqual([el]);
+    expect(a2.textSnapshot?.category).toBe('TRN'); // текст пересобран по новой категории
+    // отмена — как было
+    await http().post('/api/passports/bulk/restore').set(as(admin.access)).send({ items: r.before }).expect(200);
+    const a3 = (await http().get(`/api/passports/${a.id}`).set(as(admin.access)).expect(200)).body;
+    expect(a3).toMatchObject({ passportCategory: 'WRK', warrantyMonths: 12 });
+    expect(a3.customerName ?? '').toBe('');
+    expect(a3.textSnapshot?.category).toBe('WRK');
+    await http().post('/api/passports/bulk').set(as(admin.access)).send({ ids: [a.id], set: { name: 'x' } }).expect(400); // только не-массовые — «отметьте, что изменить»
+    await http().post('/api/passports/bulk').set(as(manager)).send({ ids: [a.id], set: { warrantyMonths: 1 } }).expect(403);
+  });
 });

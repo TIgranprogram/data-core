@@ -25,6 +25,20 @@ export class ShowcaseController {
   @Roles('admin', 'director', 'manager', 'user')
   formValues() { return this.s.formValues(); }
 
+  /** Массовое изменение выбранных изделий (БЗ-9): { ids, set, arrays?: { colors|sizes: add|replace } } → { updated, failed, before }. */
+  @Post('bulk')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.bulk', entityType: 'Product', details: (d) => ({ updated: (d as { updated?: number }).updated }) })
+  bulk(@Body() b: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string> }) { return this.s.bulk(b ?? {}); }
+
+  /** «Отменить» массовое изменение изделий: { items: [{ id, set }] }. */
+  @Post('bulk/restore')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.bulk.restore', entityType: 'Product' })
+  bulkRestore(@Body() b: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) { return this.s.bulkRestore(b ?? {}); }
+
   /** Каталог: text — колонки через Tab (вставка / прочитанный Excel), apply — записать (иначе только отчёт). */
   @Post('import')
   @HttpCode(200)

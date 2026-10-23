@@ -24,6 +24,8 @@ import { errText } from './errors.js';
  *   footer?(resp), query?(params),
  *   board?: см. ui/board.js — вид «Доска», ?view=board,
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
+ *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
+ *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
  *   tiles?: { key, load: async () => [{ value, label, n, sub }] } — плитки-фильтр над списком,
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
@@ -130,7 +132,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const theadRow = h('tr');
   function renderHead() {
     const { sort } = st();
-    theadRow.replaceChildren(...[...L.columns.map((c) => {
+    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } syncPicks(); paintBulk(); } });
+    theadRow.replaceChildren(...[bulkOn ? h('th', { class: 'pick' }, headCb) : null, ...L.columns.map((c) => {
       const field = c.sort;
       const isSorted = field && sort.replace(/^-/, '') === field;
       const desc = sort.startsWith('-');
@@ -147,7 +150,24 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const tableBox = h('div', null, h('div', { class: 'table-wrap' }, h('table', { class: 'list' }, h('thead', null, theadRow), tbody)), cards);
   const foot = h('div', { class: 'list-foot' });
   const quickBox = quick && canCreate ? quick : null;
-  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length ? chipsBox : null, hintBox, toolbar, quickBox, tableBox, galleryBox, foot);
+  // БЗ-9: отметка записей и «Изменить выбранные» — только где раздел объявил L.bulk и есть право правки
+  const bulkOn = !!L.bulk && canEditSection(section);
+  const picked = new Set();
+  const bulkBar = bulkOn ? h('div', { class: 'bulk-bar', hidden: true, role: 'region', 'aria-label': 'Выбранные записи' }) : null;
+  const paintBulk = () => {
+    if (!bulkBar) return;
+    bulkBar.hidden = !picked.size;
+    bulkBar.replaceChildren(h('b', null, `Выбрано: ${qty(picked.size)}`),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { picked.clear(); paintBulk(); load(); } }) }, L.bulk.label || 'Изменить выбранные'),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { picked.clear(); paintBulk(); syncPicks(); } }, 'Снять выбор'));
+    const all = headPick(); if (all) { const ids = rows.map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
+  };
+  const pickBox = (row) => h('input', { type: 'checkbox', class: 'pick-cb', checked: picked.has(row.id), dataset: { id: row.id }, 'aria-label': 'Отметить запись',
+    onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) picked.add(row.id); else picked.delete(row.id); syncPicks(); paintBulk(); } });
+  const syncPicks = () => panel.querySelectorAll('.pick-cb').forEach((cb) => { cb.checked = picked.has(cb.dataset.id); });
+  let headCb = null;
+  const headPick = () => headCb;
+  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length ? chipsBox : null, hintBox, toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
 
@@ -199,7 +219,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
 
   function stateRow(make) {
-    tbody.replaceChildren(h('tr', { class: 'state-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) }, make())));
+    tbody.replaceChildren(h('tr', { class: 'state-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) + (bulkOn ? 1 : 0) }, make())));
     cards.replaceChildren(h('li', { class: 'state-row' }, make()));
     // галерея («Продукция», «Паспорта»): таблица скрыта — то же состояние («ничего не найдено», загрузка, ошибка) здесь
     galleryBox.replaceChildren(make());
@@ -246,6 +266,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     countEl.textContent = qty(resp.total);
     renderChips();
     rows = resp.items;
+    if (bulkOn) queueMicrotask(paintBulk); // «все на странице» — по новой странице
     const active = (L.filters || []).some((f) => P[f.key]) || P.q;
     if (!rows.length) {
       if (page > 1 && resp.total > 0) { patch({ page: Math.ceil(resp.total / limit) }); return; }
@@ -268,16 +289,18 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
           if (g !== group) {
             group = g;
             const same = rows.filter((r) => L.groupBy(r) === g);
-            trs.push(h('tr', { class: 'group-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) }, h('span', null, g), L.groupTotal ? L.groupTotal(same) : null)));
+            trs.push(h('tr', { class: 'group-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) + (bulkOn ? 1 : 0) }, h('span', null, g), L.groupTotal ? L.groupTotal(same) : null)));
           }
         }
         const tr = h('tr', { onclick: () => onOpen(row), dataset: { i: String(i) } },
+          bulkOn ? h('td', { class: 'pick' }, pickBox(row)) : null,
           L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
         if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
         trs.push(tr);
       });
       tbody.replaceChildren(...trs);
       cards.replaceChildren(...rows.map((row) => h('li', { onclick: () => onOpen(row) },
+        bulkOn ? pickBox(row) : null,
         L.card.thumb ? L.card.thumb(row) : null,
         h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
         h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null))));
@@ -301,9 +324,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       g ? h('h3', { class: 'gal-head' }, g, h('span', { class: 'gal-n' }, qty(items.length))) : null,
       h('div', { class: 'gal' }, ...items.map((row) => {
         const v = L.gallery.card(row);
-        return h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id }, onclick: () => onOpen(row), title: v.title },
+        const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id }, onclick: () => onOpen(row), title: v.title },
           v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
           h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.badge || null);
+        return bulkOn ? h('div', { class: 'gcard-wrap' }, card, h('label', { class: 'gc-pick', title: 'Отметить' }, pickBox(row))) : card;
       })))));
   }
 

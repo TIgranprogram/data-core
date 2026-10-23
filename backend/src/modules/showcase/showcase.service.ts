@@ -426,6 +426,63 @@ export class ShowcaseService {
     return this.get(id);
   }
 
+  /**
+   * Массовое изменение выбранных изделий (БЗ-9): раздел / группа (меняется одно — второе у каждого своё), серия, статус, цена,
+   * «Кто проектировал», ед. изм., RAL, цвета / размеры (arrays: add | replace), значения паспорта по умолчанию (дополняются).
+   * Артикул, наименование, фото, состав — только по одному. before — прежние значения для «Отменить» (bulkRestore).
+   */
+  async bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string> }) {
+    const ids = Array.isArray(dto.ids) ? [...new Set(dto.ids.map(String))] : [];
+    if (!ids.length) throw new BadRequestException('Отметьте изделия');
+    if (ids.length > 500) throw new BadRequestException('За один раз — не больше 500 изделий');
+    const FIELDS = ['type', 'group', 'series', 'status', 'price', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'];
+    const set = Object.fromEntries(Object.entries(dto.set ?? {}).filter(([k]) => FIELDS.includes(k)));
+    if (!Object.keys(set).length) throw new BadRequestException('Отметьте, что изменить');
+    const before: Array<{ id: string; set: Record<string, unknown> }> = [];
+    const failed: Array<{ id: string; message: string }> = [];
+    let updated = 0;
+    for (const id of ids) {
+      try {
+        const raw = await this.db.collection('products').findOne({ _id: oid(id, 'изделия'), deletedAt: null });
+        if (!raw) throw new NotFoundException('Изделие не найдено');
+        const cur = (await this.present([raw as Doc]))[0];
+        const patch: Record<string, unknown> = { ...set };
+        delete patch.passportDefaults;
+        if ('type' in set || 'group' in set) { patch.type = 'type' in set ? set.type : cur.type ?? ''; patch.group = 'group' in set ? set.group : cur.group ?? ''; }
+        for (const k of ['colors', 'sizes'] as const) if (k in set && dto.arrays?.[k] === 'add') patch[k] = [...((raw[k] as string[]) ?? []), ...variants(set[k])];
+        const prev: Record<string, unknown> = {};
+        for (const k of ['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults']) prev[k] = raw[k] ?? null;
+        if (Object.keys(patch).length) await this.update(id, patch);
+        if (set.passportDefaults && typeof set.passportDefaults === 'object') {
+          const merged = { ...(presentPassportDefaults(raw.passportDefaults as PassportDefaults) ?? {}), ...(set.passportDefaults as Record<string, unknown>) };
+          await this.setPassportDefaults(id, merged);
+        }
+        before.push({ id, set: prev });
+        updated++;
+      } catch (e) { failed.push({ id, message: e instanceof Error ? e.message : String(e) }); }
+    }
+    return { updated, failed, before };
+  }
+
+  /** «Отменить» массовое изменение изделий (БЗ-9): прежние значения полей — как были. */
+  async bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
+    let restored = 0;
+    for (const it of Array.isArray(dto.items) ? dto.items : []) {
+      if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
+      const $set: Record<string, unknown> = { updatedAt: new Date() }; const $unset: Record<string, ''> = {};
+      for (const [k, v] of Object.entries(it.set ?? {})) {
+        if (!['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'].includes(k)) continue;
+        if (v === null || v === undefined) { if (k === 'categoryId' || k === 'designerId' || k === 'passportDefaults' || k === 'series' || k === 'ralCode') $unset[k] = ''; continue; }
+        if (k === 'categoryId' || k === 'designerId') $set[k] = new Types.ObjectId(String(v));
+        else if (k === 'passportDefaults') $set[k] = normalizePassportDefaults(v as Record<string, unknown>);
+        else $set[k] = v;
+      }
+      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id) }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) });
+      restored += r.modifiedCount;
+    }
+    return { restored };
+  }
+
   /** В корзину: изделие из заказов CRM / КП не удаляется (ссылки) — проверяем составы и заказы CRM. */
   async remove(id: string) {
     const _id = oid(id, 'изделия');

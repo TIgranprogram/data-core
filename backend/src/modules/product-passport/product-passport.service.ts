@@ -30,6 +30,10 @@ export const MODEL_FIELDS = ['productId', 'name', 'category', 'article', 'height
   // v2 (БЗ-6): поля модели — копия на ту же модель и выбор модели переносят их
   'passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears'] as const;
 /** Выданные номера: без `confirmNumbers: true` не меняются (ПС, «не менять молча»). */
+/** Массовое изменение (БЗ-9): общие поля паспортов; номера, талон, наименование, артикул, картинки — только по одному. */
+export const BULK_PASSPORT_FIELDS = ['passportCategory', 'category', 'installationTypeId', 'elements', 'materialIds', 'isKit', 'serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth',
+  'supplierOrgId', 'customerName', 'orderNo', 'objectName', 'installedBy', 'saleDate', 'installedAt'] as const;
+const BULK_NUMBER_FIELDS = ['serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth'] as const;
 const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
 const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -293,6 +297,63 @@ export class ProductPassportService {
     // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
     if (set.passportCategory && !hadText) return (await this.snapshot(String(saved._id))) ?? saved;
     return saved;
+  }
+
+  /**
+   * Массовое изменение выбранных паспортов (БЗ-9): только общие поля (белый список), номера / талоны / названия — нет.
+   * arrays: elements / materialIds — 'add' (добавить к своим) или 'replace'. Смена категории — текст паспорта пересобирается
+   * по новой категории (rebuildText, по умолчанию да). Возвращает before — прежние значения для «Отменить» (bulkRestore).
+   */
+  async bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string>; rebuildText?: boolean }) {
+    const ids = Array.isArray(dto.ids) ? [...new Set(dto.ids.map(String))] : [];
+    if (!ids.length) throw new BadRequestException('Отметьте паспорта');
+    if (ids.length > 500) throw new BadRequestException('За один раз — не больше 500 паспортов');
+    const set = Object.fromEntries(Object.entries(dto.set ?? {}).filter(([k]) => (BULK_PASSPORT_FIELDS as readonly string[]).includes(k)));
+    if (!Object.keys(set).length) throw new BadRequestException('Отметьте, что изменить');
+    if (set.passportCategory !== undefined && set.passportCategory !== '' && !['DIO', 'DSP', 'TRN', 'WRK', 'MAF'].includes(String(set.passportCategory))) throw new BadRequestException('Неизвестная категория паспорта');
+    for (const k of BULK_NUMBER_FIELDS) if (k in set && set[k] !== null && set[k] !== '') { const n = Number(String(set[k]).replace(',', '.')); if (!Number.isFinite(n) || n < 0) throw new BadRequestException('Числа — не меньше нуля'); set[k] = n; }
+    for (const k of ['elements', 'materialIds'] as const) if (k in set && !Array.isArray(set[k])) throw new BadRequestException('Элементы и материалы — список');
+    const rebuild = dto.rebuildText !== false && 'passportCategory' in set;
+    const before: Array<{ id: string; set: Record<string, unknown> }> = [];
+    const failed: Array<{ id: string; message: string }> = [];
+    let updated = 0;
+    for (const id of ids) {
+      try {
+        const doc = (await this.findById(id)).toObject() as unknown as Doc;
+        const patch: Record<string, unknown> = { ...set };
+        for (const k of ['elements', 'materialIds'] as const) {
+          if (k in patch && dto.arrays?.[k] === 'add') patch[k] = [...new Set([...((doc[k] as unknown[]) ?? []).map(String), ...(patch[k] as unknown[]).map(String)])];
+        }
+        const prev: Record<string, unknown> = Object.fromEntries(Object.keys(patch).map((k) => [k, doc[k] ?? null]));
+        if (rebuild) prev.textSnapshot = doc.textSnapshot ?? null;
+        await this.update(id, patch as never);
+        if (rebuild) await this.snapshot(id);
+        before.push({ id, set: prev });
+        updated++;
+      } catch (e) { failed.push({ id, message: e instanceof Error ? e.message : String(e) }); }
+    }
+    return { updated, failed, before };
+  }
+
+  /** «Отменить» массовое изменение (БЗ-9): вернуть прежние значения полей (в т. ч. текст паспорта) как были. */
+  async bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
+    const items = Array.isArray(dto.items) ? dto.items : [];
+    let restored = 0;
+    for (const it of items) {
+      if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
+      const raw = Object.fromEntries(Object.entries(it.set ?? {}).filter(([k]) => (BULK_PASSPORT_FIELDS as readonly string[]).includes(k) || k === 'textSnapshot'));
+      const $set: Record<string, unknown> = {}; const $unset: Record<string, ''> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if (v === null || v === undefined) { $unset[k] = ''; continue; }
+        if ((OID_FIELDS as readonly string[]).includes(k)) $set[k] = this.oid(v);
+        else if (k === 'elements' || k === 'materialIds') $set[k] = (v as unknown[]).map((x) => this.oid(x));
+        else if (k === 'saleDate' || k === 'installedAt') $set[k] = new Date(String(v));
+        else $set[k] = v;
+      }
+      const r = await this.model.updateOne({ _id: this.oid(it.id) }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }).exec();
+      restored += r.modifiedCount;
+    }
+    return { restored };
   }
 
   async markIssued(id: Types.ObjectId | string) {

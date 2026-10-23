@@ -98,6 +98,24 @@ export class ProductPassportController {
     return this.service.texts(category);
   }
 
+  /** Массовое изменение выбранных паспортов (БЗ-9): { ids, set, arrays?: { elements|materialIds: add|replace }, rebuildText? } → { updated, failed, before }. */
+  @Post('passports/bulk')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.bulk', entityType: 'ProductPassport', details: (d) => ({ updated: (d as { updated?: number }).updated }) })
+  bulk(@Body() body: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string>; rebuildText?: boolean }) {
+    return this.service.bulk(body ?? {});
+  }
+
+  /** «Отменить» массовое изменение: { items: [{ id, set }] } (before из ответа bulk). */
+  @Post('passports/bulk/restore')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.bulk.restore', entityType: 'ProductPassport' })
+  bulkRestore(@Body() body: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
+    return this.service.bulkRestore(body ?? {});
+  }
+
   /** Черновик формы: чего не хватает для выпуска ({missing:[{label,key}], requiredImages}) — ничего не пишет (ФП). */
   @Post('passports/check')
   @HttpCode(200)

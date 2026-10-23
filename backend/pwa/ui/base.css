@@ -316,6 +316,19 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 /* ПП: над кнопками — что ещё нужно для выпуска (одной строкой); к кому идти — «Кто проектировал» */
 .pp-need-foot { flex-basis: 100%; font-size: var(--fs-sm); }
 .pp-designer { margin-top: var(--s1); font-weight: 600; }
+/* БЗ-9: отметка записей и «Изменить выбранные» */
+.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); background: var(--gold-soft, var(--surface-2)); border-bottom: 1px solid var(--border); }
+th.pick, td.pick { width: 36px; text-align: center; }
+.pick-cb, .pick-all { width: 18px; height: 18px; cursor: pointer; }
+.cards li > .pick-cb { flex: none; align-self: center; margin-right: var(--s2); }
+.gcard-wrap { position: relative; display: flex; }
+.gcard-wrap > .gcard { flex: 1; }
+.gc-pick { position: absolute; top: 6px; left: 6px; padding: 6px; background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.15)); line-height: 0; }
+.bulk-row { padding: var(--s2) 0; border-bottom: 1px solid var(--border); }
+.bulk-row .bulk-ctl { margin-top: var(--s1); opacity: .45; }
+.bulk-row.on .bulk-ctl { opacity: 1; }
+.bulk-row.on .bulk-use span { font-weight: 600; }
+@media (max-width: 719px) { .pick-cb, .pick-all { width: 24px; height: 24px; } .gc-pick { padding: 10px; } }
 /* «Состав изделия» (СИ): строки по разделам — название · количество со степпером · цена/сумма · «×»; итог; на телефоне название — отдельной строкой */
 .pick-list .pick-head { padding: 8px 12px; font-weight: 650; color: var(--heading); background: var(--surface); border-bottom: 1px solid var(--border); }
 .comp-group { margin-top: var(--s3); }
