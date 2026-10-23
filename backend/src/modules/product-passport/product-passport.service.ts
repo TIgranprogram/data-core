@@ -94,15 +94,15 @@ export class ProductPassportService {
    * с числом паспортов и категориями (в форме сначала — для выбранной категории). Новый текст, сохранённый в паспорте,
    * сам попадает в варианты.
    */
-  async phrases(): Promise<Record<string, Array<{ text: string; n: number; categories: string[] }>>> {
-    const out: Record<string, Array<{ text: string; n: number; categories: string[] }>> = {};
+  async phrases(): Promise<Record<string, Array<{ text: string; n: number; categories: string[]; passportCategories: string[] }>>> {
+    const out: Record<string, Array<{ text: string; n: number; categories: string[]; passportCategories: string[] }>> = {};
     for (const f of ['materials', 'installationMethod', 'purpose'] as const) {
       const rows = await this.model.aggregate([
         { $match: { deletedAt: null, [f]: { $nin: [null, ''] } } },
-        { $group: { _id: `$${f}`, n: { $sum: 1 }, categories: { $addToSet: '$category' } } },
+        { $group: { _id: `$${f}`, n: { $sum: 1 }, categories: { $addToSet: '$category' }, passportCategories: { $addToSet: '$passportCategory' } } }, // ПК: и коды категорий паспорта
         { $sort: { n: -1, _id: 1 } },
       ]).exec();
-      out[f] = rows.map((r) => ({ text: String(r._id), n: r.n, categories: (r.categories as unknown[]).filter(Boolean).map(String) }));
+      out[f] = rows.map((r) => ({ text: String(r._id), n: r.n, categories: (r.categories as unknown[]).filter(Boolean).map(String), passportCategories: ((r.passportCategories as unknown[]) ?? []).filter(Boolean).map(String) }));
     }
     return out;
   }

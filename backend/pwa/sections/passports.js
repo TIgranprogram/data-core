@@ -38,11 +38,11 @@ const V2_CATS = [
   { value: 'DSP', label: 'Детское спортивное' }, { value: 'DIO', label: 'Детское игровое' }, { value: 'MAF', label: 'Благоустройство' },
 ];
 const V2_NUMS = [
-  ['ageFrom', 'Возраст от, лет', 'Детское: от 3 (игровое), от 7 (спортивное)'], ['ageTo', 'Возраст до, лет', ''],
-  ['heightMin', 'Рост пользователя от, мм', 'Тренажёр: обычно от 1400'], ['heightMax', 'Рост до, мм', ''],
-  ['weightMax', 'Вес пользователя до, кг', 'Тренажёр: обычно до 120–150'], ['maxUsers', 'Пользователей одновременно', ''],
-  ['fallHeight', 'Высота свободного падения, мм', 'Детское игровое'], ['siteLength', 'Площадка: длина, мм', 'С зоной безопасности'],
-  ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', 'По умолчанию: 10, благоустройство — 5'],
+  ['ageFrom', 'Возраст от, лет', ''], ['ageTo', 'Возраст до, лет', ''],
+  ['heightMin', 'Рост пользователя от, мм', ''], ['heightMax', 'Рост до, мм', ''],
+  ['weightMax', 'Вес пользователя до, кг', ''], ['maxUsers', 'Пользователей одновременно', ''],
+  ['fallHeight', 'Высота свободного падения, мм', ''], ['siteLength', 'Площадка: длина, мм', 'С зоной безопасности'],
+  ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', ''],
 ];
 const dictRows = async (key) => (await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || [];
 const codeList = (s) => String(s || '').split(/[,;\s]+/).filter(Boolean);
@@ -57,12 +57,11 @@ const reqKinds = (cat, isKit) => {
   }
   return out;
 };
-/** Умолчания категории, которых нет в справочнике (подсказки V2_NUMS) — серым «по умолчанию», правятся (ФП). */
-const CAT_DEFAULTS = { TRN: { heightMin: 1400, weightMax: 120 }, DIO: { ageFrom: 3 }, DSP: { ageFrom: 7 } };
+/** ПК: настройки полей категории из справочника «Категории паспортов» — строки «ключ — текст» / «ключ». */
+const keyLines = (s) => String(s || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => l.split(/\s+[—-]\s+/)[0].trim());
+const kvLines = (s) => Object.fromEntries(String(s || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => { const [k, ...v] = l.split(/\s+[—-]\s+/); return [k.trim(), v.join(' - ').trim()]; }).filter(([k, v]) => k && v));
 /** Категория нового паспорта (из черновика «Выпустить паспорт») — форма строится до того, как видны значения. */
 let newCat = '';
-/** Единый список категорий (решение 2026-10-21: без дублей и грамотно) — дополняется тем, что уже есть в паспортах. */
-const CATEGORIES = ['Уличный тренажёр', 'Спортивное оборудование', 'Воркаут', 'Благоустройство', 'Качели', 'Карусель', 'Детский игровой комплекс'];
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 const canEdit = () => ['admin', 'director'].includes(session.user?.role) || session.user?.isOwner === true;
 const num = (v) => (v === undefined || v === null || v === '' ? '' : String(v).replace('.', ','));
@@ -78,7 +77,8 @@ const facets = async () => {
 };
 let oursCache = null;
 const ourCompanies = async () => (oursCache ??= await api('/partners', { query: { type: 'our' } }).then((r) => r.items).catch(() => []));
-const categories = async () => [...new Set([...CATEGORIES, ...(await facets()).categories.map((c) => c.value)])];
+// ПК: категории каталога — из «Категорий каталога» справочника категорий паспортов и встречавшихся в паспортах (вшитого списка нет)
+const categories = async () => { const [rows, f] = await Promise.all([dictRows('passportCategories'), facets()]); return [...new Set([...rows.flatMap((c) => String(c.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)), ...f.categories.map((c) => c.value)])]; };
 
 /** Модели для «выберите модель» (GET /passports/models: артикул + наименование, поля и фото последнего паспорта), кэш на минуту. */
 let modelsCache = null; let modelsAt = 0;
@@ -105,8 +105,11 @@ async function models() {
 let phrasesP = null; let phrasesAt = 0;
 const phrases = (field) => async () => {
   if (!phrasesP || Date.now() - phrasesAt > 60000) { phrasesP = api('/passports/phrases'); phrasesAt = Date.now(); }
-  return (await phrasesP)[field] || [];
+  // ПК: варианты — по категории паспорта; фраза про детское у недетских категорий не предлагается
+  return ((await phrasesP)[field] || []).map((x) => ({ ...x, categories: CHILD_TEXT.test(x.text) ? (x.passportCategories || []).filter((c) => CHILD_CATS.includes(c)) : x.passportCategories || [] }));
 };
+const CHILD_TEXT = /детск|ребён|игров/i;
+const CHILD_CATS = ['DIO', 'DSP'];
 
 /** Заказы для «№ заказа»: выбор подставляет и заказчика. */
 async function orders() {
@@ -205,8 +208,9 @@ function productBlock(api, { r, catBy }) {
         patch({ of: 'passports', new: '1', open: undefined });
       });
     };
+    const noProduct = h('button', { type: 'button', class: 'link-btn', onclick: () => { lock(false); box.replaceChildren(h('p', { class: 'muted' }, 'Без изделия: начните печатать наименование — возьмите данные из прошлого паспорта.')); setTimeout(() => api.input('name')?.focus?.()); } }, 'Изделия нет в «Продукции» — взять данные из прошлого паспорта');
     box.replaceChildren(h('p', { class: 'hint' }, 'Сначала изделие: выберите — паспорт заполнится из него (серым — подставленное, можно поправить).'),
-      seg, h('div', { class: 'pp-prod-tools' }, input, add), list);
+      seg, h('div', { class: 'pp-prod-tools' }, input, add), list, noProduct);
     fill();
   }
 
@@ -284,7 +288,7 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
   // умолчания категории: только в пустые поля или в то, что подставлено нами и не правилось руками
   const defaults = () => {
     const code = api.get('passportCategory'); const c = catBy.get(code);
-    const vals = { serviceLifeYears: c?.serviceLifeYears, warrantyMonths: c?.warrantyMonths, ...(CAT_DEFAULTS[code] || {}) };
+    const vals = { serviceLifeYears: c?.serviceLifeYears, warrantyMonths: c?.warrantyMonths, ...kvLines(c?.fieldDefaults) };
     for (const [k, v] of Object.entries(vals)) {
       const inp = api.input(k); if (!inp || v === undefined || v === null || v === '') continue;
       if (api.manual(k) || (String(inp.value).trim() && !inp.classList.contains('is-default'))) continue;
@@ -300,10 +304,36 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
       if (rq.includes(k)) api.open('img_' + k);
     }
   };
+  // ПК: «Ограничения и техданные» — только поля категории (справочник: «Поля категории», обязательные — *);
+  // неприменимое скрыто, уже заполненное — видно с пометкой; подсказки — свои для категории
+  const numsByCat = () => {
+    const c = catBy.get(api.get('passportCategory'));
+    const allowed = keyLines(c?.allowedFields); const req = keyLines(c?.requiredFields); const hints = kvLines(c?.fieldHints);
+    for (const [k, label, base] of V2_NUMS) {
+      const fld = api.field(k); if (!fld) continue;
+      const own = !c || !allowed.length || allowed.includes(k) || req.includes(k);
+      const filled = String(api.get(k) ?? '').trim() !== '';
+      fld.hidden = !own && !filled;
+      const sp = fld.querySelector(':scope > span');
+      if (sp) { sp.textContent = label + (req.includes(k) ? ' *' : ''); if (!own && filled) sp.append(h('span', { class: 'muted' }, ' · не для этой категории')); }
+      let hn = fld.querySelector(':scope > .hint');
+      const text = hints[k] || base || '';
+      if (!hn && text) { hn = h('div', { class: 'hint' }); fld.querySelector(':scope > .err')?.before(hn); }
+      if (hn) { hn.textContent = text; hn.hidden = !text; }
+    }
+  };
+  // ПК: категория каталога — по категории паспорта (первое из «Категорий каталога»), если не задана изделием или руками
+  const catalogByCat = () => {
+    if (api.manual('category')) return;
+    const cur = api.get('category'); const auto = api.input('category')?.classList?.contains('is-default');
+    if (cur && !auto) return;
+    const first = String(catBy.get(api.get('passportCategory'))?.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)[0];
+    if (first) api.set('category', first, { auto: true, src: 'по категории паспорта' });
+  };
   api.on('passportCategory', () => {
     const code = api.get('passportCategory');
     if (code === lastCat) return;
-    lastCat = code; scope(true); defaults(); markReq(); check();
+    lastCat = code; scope(true); defaults(); markReq(); numsByCat(); catalogByCat(); check();
   });
   api.on('isKit', markReq);
 
@@ -360,8 +390,8 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
   const showRemember = () => { if (rememberField) rememberField.hidden = !(api.get('productId') && DEFAULT_KEYS.some((k) => api.manual(k))); };
   api.root.addEventListener('input', showRemember); api.root.addEventListener('click', () => setTimeout(showRemember));
   showRemember();
-  scope(false); markReq();
-  if (!r && api.get('passportCategory')) defaults();
+  scope(false); markReq(); numsByCat();
+  if (!r && api.get('passportCategory')) { defaults(); catalogByCat(); }
   check();
 }
 const api_get = (p) => api(p);
@@ -798,7 +828,7 @@ export const passports = {
         { section: 'Категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
         // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
         { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && newCat === c.value)), wide: true,
-          hint: 'От категории зависят разделы, нормативы, обязательные рисунки и что показывать ниже. Детские (игровое, спортивное) — позже',
+          hint: 'От категории зависят разделы, нормативы, обязательные рисунки и поля ниже',
           mount: (api) => wireForm(api, { r, w, catBy, stdName, inst }) },
         { key: '_std', label: 'Нормативы категории', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
         { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => (w.el = tagPick({ options: els, value: v, label: 'Функциональные элементы' })) },
@@ -829,9 +859,9 @@ export const passports = {
         { section: 'Данные изделия', tone: 'main', fixed: true },
         { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
         { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
-          hint: r ? undefined : 'Начните печатать и выберите модель — подставятся габариты, материалы, описание и картинки (серым — по умолчанию, можно поправить)',
-          suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Модели: выберите — подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
-        { key: 'category', label: 'Категория', type: 'select', options: cats },
+          hint: r ? undefined : 'Заполнено из изделия. Запасной путь — начните печатать и возьмите данные из прошлого паспорта с таким наименованием',
+          suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Взять из прошлого паспорта (запасной путь): подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
+        { key: 'category', label: 'Категория каталога', type: 'combo', options: cats, max: 200, hint: 'Подставляется из изделия или по категории паспорта; можно выбрать другую' },
         { key: 'article', label: 'Артикул', max: 50 },
         { key: 'height', label: 'Высота, мм', type: 'number', min: 0, span: 1 },
         { key: 'length', label: 'Длина, мм', type: 'number', min: 0, span: 1 },
@@ -844,9 +874,9 @@ export const passports = {
         { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })), hint: 'Реквизиты, печать и подпись в PDF — из карточки компании' },
         { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
         { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
-        { key: 'materials', label: 'Материалы («изготовленное из …»)', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'category', title: 'Варианты' } },
-        { key: 'installationMethod', label: 'Установка', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'category', title: 'Варианты' } },
-        { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'category', title: 'Варианты' } },
+        { key: 'materials', label: 'Материалы («изготовленное из …»)', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
+        { key: 'installationMethod', label: 'Установка', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
+        { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
         { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
           hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
         // ФП: обязательные для категории (*) и «Общий вид» — сразу; остальные — в свёрнутом «Ещё картинки»; вставка Ctrl+V — в вид под курсором

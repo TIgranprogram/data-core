@@ -436,6 +436,10 @@ export const DICTS: DictDef[] = [
         { key: 'requiredFields', label: 'Обязательные поля', type: 'textarea', wide: true, hint: 'По строке ключ поля паспорта: ageFrom, ageTo, heightMin, heightMax, weightMax, maxUsers, fallHeight, siteLength, siteWidth, serviceLifeYears (можно «ключ — подпись»). Пусто — как в программе по умолчанию' },
         { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: overview, dimensions, safety_zone, foundation… (виды картинок паспорта)' },
         { key: 'extraSections', label: 'Разделы сверх общего', type: 'textarea', wide: true },
+        // ПК (2026-10-23): что видно в форме паспорта «Ограничения и техданные» — только своё для категории
+        { key: 'allowedFields', label: 'Поля категории', type: 'textarea', wide: true, hint: 'По строке ключ поля, которое бывает у этой категории (ageFrom, heightMin, maxUsers…). Пусто — все. Обязательные добавятся сами' },
+        { key: 'fieldHints', label: 'Подсказки полей', type: 'textarea', wide: true, hint: 'По строке «ключ — подсказка»: heightMin — обычно от 1400 мм. Только про эту категорию' },
+        { key: 'fieldDefaults', label: 'Значения по умолчанию', type: 'textarea', wide: true, hint: 'По строке «ключ — значение»: heightMin — 1400. Подставляются серым в пустые поля, можно поправить' },
       ]),
     ...ppUsage({ pp: 'passportCategory', dicts: [{ dict: 'passportElements', field: 'categories', title: 'Элемент' }, { dict: 'passportStyle', field: 'category', title: 'Оформление' }] }),
     editRoles: ['director'],

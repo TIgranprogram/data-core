@@ -8,7 +8,7 @@ import { highlight, placeList } from './popup.js';
  * печатаешь — список сужается; выбор вставляет текст целиком. Свой текст просто вписать: после сохранения он появится в вариантах.
  *   attachPhrases(textarea, { load: async () => [{ text, n, categories }], context: () => 'Категория', title })
  */
-export function attachPhrases(input, { load, context = () => '', title = 'Варианты' }) {
+export function attachPhrases(input, { load, context = () => '', title = 'Варианты', label = (c) => c }) {
   let all = null; let scope = 'cat'; let active = 0; let shown = [];
   const box = h('div', { class: 'suggest phrase-list', hidden: true, role: 'listbox' });
   const count = h('span', { class: 'ph-n' });
@@ -23,7 +23,7 @@ export function attachPhrases(input, { load, context = () => '', title = 'Вар
   function updateCount() {
     if (!all) return;
     const n = all.filter(inCat).length;
-    count.textContent = all.length ? `(${context() && n ? n + ' для «' + context() + '»' : all.length})` : '';
+    count.textContent = all.length ? `(${context() && n ? n + ' для «' + label(context()) + '»' : all.length})` : ''; // label — название вместо кода (ПК)
     btn.hidden = !all.length;
   }
   async function open(fromButton = false) {
@@ -45,7 +45,7 @@ export function attachPhrases(input, { load, context = () => '', title = 'Вар
           h('button', { type: 'button', class: 'tag' + ((useCat ? 'cat' : 'all') === k ? ' active' : ''), onmousedown: (e) => { e.preventDefault(); scope = k; open(fromButton); } }, l))) : null),
       ...shown.map((x, i) => h('div', { class: 'sg-row' + (i === active ? ' active' : ''), role: 'option', onmousedown: (e) => { e.preventDefault(); pick(x); } },
         h('div', { class: 'opt-l ph-text' }, highlight(x.text, tokens.length ? typed : '')),
-        h('small', null, `в ${x.n} паспорт${x.n % 10 === 1 && x.n % 100 !== 11 ? 'е' : 'ах'}${x.categories?.length ? ' · ' + x.categories.join(', ') : ''}`))),
+        h('small', null, `в ${x.n} паспорт${x.n % 10 === 1 && x.n % 100 !== 11 ? 'е' : 'ах'}${x.categories?.length ? ' · ' + x.categories.map(label).join(', ') : ''}`))),
       h('div', { class: 'sg-row muted ph-hint' }, 'Нет подходящего — впишите свой текст: после сохранения он появится в вариантах.'));
     box.hidden = false;
     btn.setAttribute('aria-expanded', 'true');

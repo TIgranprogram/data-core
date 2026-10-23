@@ -27,7 +27,8 @@ export function tagPick({ options, value, label }) {
       const on = cur.has(b.dataset.v); const own = mine(o);
       b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on));
       b.classList.toggle('foreign', !own);
-      note.textContent = !own && on ? 'не для этой категории' : o.sub || '';
+      // категория выбрана — перечень категорий значения не нужен (ПК: в форме только своё); без категории — как раньше
+      note.textContent = !own && on ? 'не для этой категории' : scope ? '' : o.sub || '';
       b.hidden = !own && !on && !showAll;
       if (!own && !on) hidden++;
     }

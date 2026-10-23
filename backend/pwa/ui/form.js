@@ -181,7 +181,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       input.addEventListener('input', check);
     }
     if (f.phrases) {
-      const ph = attachPhrases(input, { load: f.phrases.load, title: f.phrases.title, context: () => (f.phrases.by ? inputs.get(f.phrases.by)?.input.value || '' : '') });
+      const ph = attachPhrases(input, { load: f.phrases.load, title: f.phrases.title, label: f.phrases.label, context: () => (f.phrases.by ? inputs.get(f.phrases.by)?.input.value || '' : '') });
       if (f.phrases.by) setTimeout(() => inputs.get(f.phrases.by)?.input.addEventListener('change', ph.refresh));
     }
     if (f.suggest) {
