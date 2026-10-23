@@ -32,7 +32,10 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) 
 /** Форма счёта для правой панели (card.js: section.form.build): { el, read, dirty, focus }. */
 /** opts.paste — режим «из таблицы» (TASKS В.8): поле вставки строк сверху, по умолчанию «Заказано», № счёта необязателен. */
 async function buildInvoiceForm(opts = {}) {
-  const [lk, items] = await Promise.all([lookups(), pastItems().catch(() => [])]);
+  const lk = await lookups();
+  // позиции склада и прошлых заявок — по действию (выбрали категорию, вставили строки), не при открытии формы; один общий кэш склада
+  const items = []; let itemsP = null;
+  const loadItems = () => (itemsP ||= pastItems().catch(() => []).then((r) => { items.push(...r); }));
   const field = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
   const no = h('input', { maxlength: 100, placeholder: 'например: 01097' });
   const date = h('input', { type: 'date', value: isoDay() });
@@ -85,6 +88,7 @@ async function buildInvoiceForm(opts = {}) {
     let catSel = '';
     const setCat = (name) => {
       catSel = name;
+      if (name) loadItems();
       title.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию';
     };
     attachCombo(cat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })), onPick: (o) => { setCat(o.label); title.value = ''; row.extra = {}; title.focus(); } });
@@ -158,6 +162,7 @@ async function buildInvoiceForm(opts = {}) {
     if (!parsed.length) { pasteInfo.textContent = 'Не нашёл строк с товарами. Скопируйте строки таблицы целиком (с количеством и суммой).'; return; }
     for (const rw of [...rows]) if (!rw.title.value.trim() && !rw.saved) { rows.splice(rows.indexOf(rw), 1); rw.el.remove(); }
     pasteInfo.textContent = 'Ищу в базе…';
+    await loadItems();
     const res = await matchLines(parsed, items, { supplierName: sup.value.trim() });
     const HOW = { alias: 'нашлась: так называется у этого поставщика', article: 'нашлась по артикулу', name: 'нашлась по названию', similar: 'нашлась (очень похожа)' };
     let found = 0;

@@ -43,7 +43,7 @@ export function facetFilter({ categoryKey = 'categoryId' } = {}) {
       const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key);
       if (!vals.length) return null;
       return h('div', { class: 'ops-facet' }, h('span', { class: 'ops-facet-l' }, label),
-        h('div', { class: 'ops-facet-v ff-vals' }, ...vals.slice(0, key === 'type' ? 30 : 40).map(([v, n]) => h('button', { type: 'button', class: 'tag' + (sel[key] === v ? ' active' : ''), onclick: () => set(key, v) }, v, h('small', null, n)))));
+        h('div', { class: 'ops-facet-v ff-vals' }, ...vals.slice(0, key === 'type' ? 30 : 40).map(([v]) => h('button', { type: 'button', class: 'tag' + (sel[key] === v ? ' active' : ''), onclick: () => set(key, v) }, v))));
     }).filter(Boolean);
     pop.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted' }, 'В этой категории признаков нет')]),
       h('div', { class: 'ff-foot' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ ft: undefined, page: undefined }) }, 'Сбросить признаки'), h('button', { type: 'button', class: 'btn btn-sm', onclick: close }, 'Готово')));

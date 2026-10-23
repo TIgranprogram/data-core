@@ -130,8 +130,8 @@ export function mountOps(params) {
       const narrowed = st.q.trim() || Object.values(st.sel).some(Boolean);
       if (!narrowed && (key === 'length' || key === 'std') && !st.sel[key]) return null;
       return h('div', { class: 'ops-facet' }, h('span', { class: 'ops-facet-l' }, label),
-        h('div', { class: 'ops-facet-v' }, ...vals.slice(0, key === 'type' ? 14 : 24).map(([v, n]) =>
-          h('button', { type: 'button', class: 'tag' + (st.sel[key] === v ? ' active' : ''), onclick: () => { st.sel = { ...st.sel, [key]: st.sel[key] === v ? undefined : v }; renderPicker(); } }, v, h('small', null, n)))));
+        h('div', { class: 'ops-facet-v' }, ...vals.slice(0, key === 'type' ? 14 : 24).map(([v]) =>
+          h('button', { type: 'button', class: 'tag' + (st.sel[key] === v ? ' active' : ''), onclick: () => { st.sel = { ...st.sel, [key]: st.sel[key] === v ? undefined : v }; renderPicker(); } }, v))));
     }).filter(Boolean));
     renderResults();
   }
