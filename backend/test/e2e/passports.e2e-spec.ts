@@ -2,6 +2,7 @@ import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
+import { Types } from 'mongoose';
 
 /**
  * Паспорта изделий (TASKS ПС): паспорт = экземпляр, номера выдаёт сервер (счётчики после максимума),
@@ -155,6 +156,12 @@ describe('Паспорта изделий', () => {
     // один вид PDF (БЗ-7 шаг 1б): без категории — понятная ошибка; категорию выбрали — текст собирается, PDF есть
     await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).expect(400);
     await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ passportCategory: 'MAF' }).expect(200);
+    // ПП: новый паспорт — строгий: пока не хватает обязательного, PDF нельзя (400 со списком полей, и пакетом тоже)
+    const blocked = (await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).expect(400)).body;
+    expect(blocked.message).toMatch(/не готов к выпуску/);
+    expect(blocked.missing).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'installationTypeId' })]));
+    // старый паспорт (до ПП, без флага strict) — печатается как раньше
+    await db().collection('productpassports').updateOne({ _id: new Types.ObjectId(first) }, { $unset: { strict: '' } });
     const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
     expect(r.headers['content-type']).toContain('application/pdf');
     expect(String(r.headers['content-disposition'])).toContain('filename*=UTF-8');

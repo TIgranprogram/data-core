@@ -16,7 +16,10 @@ export interface PdfImage { buf: Buffer; caption?: string }
 export interface PdfPassport {
   passportNumber?: string; warrantyCode?: string; productCode?: string; date?: Date | string | null; name?: string;
   description?: string; height?: number | null; length?: number | null; width?: number | null; weight?: number | null;
-  warrantyMonths?: number; note?: string; bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string }>;
+  warrantyMonths?: number; note?: string;
+  /** ПП: заполняется после печати — пусто → линия для ручки */
+  customerName?: string; orderNo?: string; objectName?: string; saleDate?: Date | string | null; installedBy?: string; installedAt?: Date | string | null;
+  bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string }>;
 }
 export interface PdfInput {
   passport: PdfPassport;
@@ -54,6 +57,24 @@ export function saleDateLine(d: PdfPassport['date']): string {
   const dt = d ? new Date(d) : new Date();
   return `«____» ${MONTHS_GEN[dt.getUTCMonth()]} ${dt.getUTCFullYear()} г.`;
 }
+/** ПП: дата полностью — «23» октября 2026 г. */
+export function fullDateLine(d: Date | string): string {
+  const dt = new Date(d);
+  return `«${String(dt.getUTCDate()).padStart(2, '0')}» ${MONTHS_GEN[dt.getUTCMonth()]} ${dt.getUTCFullYear()} г.`;
+}
+/** ПП: строки талона «после печати» — заполнено → значение, пусто → линия для ручки (одинаково во всех категориях). */
+export function afterPrintLines(p: PdfPassport): Array<{ label: string; text: string; blank: boolean }> {
+  const v = (x: unknown) => String(x ?? '').replace(/\s+/g, ' ').trim();
+  const row = (label: string, value: string, blank: string) => ({ label, text: value || blank, blank: !value });
+  return [
+    row('Дата продажи:', p.saleDate ? fullDateLine(p.saleDate) : '', saleDateLine(p.date)),
+    row('Покупатель:', v(p.customerName), '______________________________________'),
+    row('№ заказа:', v(p.orderNo), '____________________'),
+    row('Адрес установки:', v(p.objectName), '__________________________________'),
+    row('Монтаж выполнил:', v(p.installedBy), '__________________________________'),
+    row('Дата монтажа:', p.installedAt ? fullDateLine(p.installedAt) : '', '«____» ________________ 20____ г.'),
+  ];
+}
 
 export interface Page { kind: 'cover' | 'body' | 'warranty'; draws: Array<{ y: number; draw: (doc: PDFKit.PDFDocument, y: number) => void }>; no?: number }
 
@@ -68,20 +89,22 @@ export function warranty(input: Pick<PdfInput, 'passport' | 'org' | 'withStamp' 
   const { passport: p, org, withStamp, seal, signature } = input;
   const seller = `${org?.signerPosition || 'Генеральный директор'} ${docName(org)} ${shortFio(org?.directorName || org?.signerName)}`.replace(/\s+/g, ' ').trim();
   const draws: Page['draws'] = [{ y: 0, draw: (d) => {
-    const line = (label: string, yy: number, tail = '') => { d.font('gost-i').fontSize(11).fillColor('#000').text(`${label}`, M.l, yy, { continued: true }).text(`______________________________${tail}`); };
     d.font('gost').fontSize(14).fillColor('#000').text(`ГАРАНТИЙНЫЙ ТАЛОН № ${p.warrantyCode ?? ''}`, M.l, M.t, { width: CW, align: 'center' });
     d.font('gost-i').fontSize(12).text(p.name ?? '', M.l, d.y + 4, { width: CW, align: 'center' });
     d.font('gost-i').fontSize(13).text(`Номер изделия: ${p.productCode ?? ''}`, M.l, d.y + 14, { width: CW, align: 'center' });
-    d.font('gost-i').fontSize(11).fillColor('#000').text(`Дата продажи: ${saleDateLine(p.date)}`, M.l, 230);
-    line('Покупатель: ', 278);
-    const sy = 330;
+    // ПП: «после печати» — значение или линия; адрес — одной строкой (длинный — с многоточием)
+    const ap = afterPrintLines(p);
+    const put = (i: number, yy: number) => d.font('gost-i').fontSize(11).fillColor('#000').text(`${ap[i].label} ${ap[i].text}`, M.l, yy, { width: CW, height: 14, ellipsis: true, lineBreak: false });
+    put(0, 214); put(1, 236); put(2, 258); put(3, 280);
+    const sy = 318;
     d.font('gost-i').fontSize(11).text('Продавец: ______________', M.l, sy, { continued: false });
     d.font('gost-i').fontSize(10).text(seller, M.l + 128, sy + 1, { width: CW - 128 });
     d.font('gost-i').fontSize(11).text('М.П.', M.l + 120, sy + 34);
     if (withStamp && signature) { try { d.image(signature, M.l + 46, sy - 22, { fit: [80, 40] }); } catch { /* без подписи */ } }
     if (withStamp && seal) { try { d.image(seal, M.l + 84, sy - 16, { fit: [104, 104] }); } catch { /* без печати */ } }
-    d.font('gost-i').fontSize(10.5).text('Покупатель с условиями гарантийного обслуживания ознакомлен, претензий по виду и комплектации не имеет.', M.l, 450, { width: CW });
-    d.font('gost-i').fontSize(11).text('Подпись покупателя ____________________', M.l, 488);
+    d.font('gost-i').fontSize(10.5).text('Покупатель с условиями гарантийного обслуживания ознакомлен, претензий по виду и комплектации не имеет.', M.l, 418, { width: CW });
+    d.font('gost-i').fontSize(11).text('Подпись покупателя ____________________', M.l, 456);
+    put(4, 488); put(5, 510);
     d.font('gost-i').fontSize(11).text('Страна происхождения: Россия', M.l, BOTTOM - 14, { width: CW, align: 'center' });
   } }];
   return { kind: 'warranty', draws };

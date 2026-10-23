@@ -87,7 +87,7 @@ export class ShowcaseService {
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
-        passportsCount: ppN.get(String(d._id)) ?? 0,
+        passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
         ppCategory: ((d.passportDefaults as PassportDefaults | undefined)?.passportCategory as string | undefined)
           || passportCategoryFor({ group: c?.parentId ? String(c.name) : null, type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null }, ppCats)?.code || null };
     });
@@ -161,7 +161,16 @@ export class ShowcaseService {
     const ppCats = (await this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray()) as unknown as PpCat[];
     return { ...item, orderLines: await this.orderLines(d as Doc), composition, cost: await this.cost(composition), passports: await this.passports(d as Doc),
       passportCategory: passportCategoryFor(item, ppCats),
+      designer: await this.designer(d.designerId as Types.ObjectId | undefined),
       passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
+  }
+
+  /** ПП: «Кто проектировал» — { id, name } (ФИО из «Сотрудников») или null. */
+  private async designer(id?: Types.ObjectId | null) {
+    if (!id) return null;
+    const p = await this.db.collection('persons').findOne({ _id: id }, { projection: { lastName: 1, firstName: 1, patronymic: 1, position: 1 } });
+    if (!p) return null;
+    return { id: String(id), name: [p.lastName, p.firstName, p.patronymic].map((x) => clean(x)).filter(Boolean).join(' '), position: clean(p.position) || null };
   }
 
   /** Значения паспорта по умолчанию (БЗ-6 Э4b): заменяются целиком; пустое тело — очистить. */
@@ -373,6 +382,15 @@ export class ShowcaseService {
       if (!['draft', 'active', 'archived'].includes(st)) throw new BadRequestException('Статус: черновик, в продаже или архив');
       // черновик = «нет цены»: с ценой изделие в продаже, если не отправлено в архив
       if (!(st === 'draft' && Number(set.listPrice) > 0)) set.status = st;
+    }
+    // ПП: «Кто проектировал» — сотрудник (справочник «Сотрудники», persons); новое поле data-core, CRM его не читает; в паспорт не входит
+    if (dto.designerId !== undefined) {
+      if (!dto.designerId) set.designerId = null;
+      else {
+        const pid = oid(String(dto.designerId), 'сотрудника');
+        if (!(await this.db.collection('persons').findOne({ _id: pid, deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException('Сотрудник не найден — выберите из справочника «Сотрудники»');
+        set.designerId = pid;
+      }
     }
     if (Array.isArray(dto.photoIds)) set.photoIds = (dto.photoIds as string[]).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     return set;

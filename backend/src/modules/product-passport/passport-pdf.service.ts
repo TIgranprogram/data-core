@@ -60,8 +60,17 @@ export class PassportPdfService {
     });
   }
 
+  /** ПП: строгий паспорт (создан после ПП) без обязательного — PDF нельзя: 400 { message, missing:[{label,key}] }. Старые — как раньше. */
+  private async assertReady(raw: Doc) {
+    if (!raw.strict) return;
+    const missing = await this.passports.readiness(raw);
+    if (missing.length) throw new BadRequestException({ message: `Паспорт не готов к выпуску — не хватает: ${missing.map((m) => m.label).join(', ')}. Заполните и повторите`, missing });
+  }
+
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
-    const p = await this.withText((await this.passports.findById(id)).toObject() as unknown as Doc);
+    const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
+    await this.assertReady(raw);
+    const p = await this.withText(raw);
     const buf = await this.render(p, opts);
     await this.passports.markIssued(p._id as Types.ObjectId);
     return { buf, filename: fileName(p, opts.stamp) };
@@ -71,7 +80,9 @@ export class PassportPdfService {
    * Лист для информационного стенда A3 (БЗ-6 Э6d). Паспорт выданным не отмечается.
    */
   async stand(id: string) {
-    const p = await this.withText((await this.passports.findById(id)).toObject() as unknown as Doc);
+    const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
+    await this.assertReady(raw);
+    const p = await this.withText(raw);
     const { orgIn, asset } = await this.orgOf(p);
     const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: p.textSnapshot as PdfV2Text, style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
     return { buf, filename: standFileName(p) };
@@ -82,6 +93,7 @@ export class PassportPdfService {
     const { items } = await this.passports.list({ ...q, page: 1, limit: 200 }, { full: true });
     const files: Array<{ name: string; data: Buffer }> = [];
     for (const raw of items as Doc[]) {
+      if (raw.strict && (await this.passports.readiness(raw)).length) continue; // ПП: неготовый строгий паспорт в пакет не попадает
       const it = await this.withText(raw).catch(() => null);
       if (!it) continue; // без категории PDF не собирается — в архив не попадает
       files.push({ name: fileName(it, opts.stamp), data: await this.render(it, opts) });

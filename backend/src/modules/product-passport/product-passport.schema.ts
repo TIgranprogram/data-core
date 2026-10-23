@@ -159,6 +159,13 @@ export class ProductPassport {
   @Prop({ trim: true })
   note?: string;
 
+  // ───── ПП (2026-10-23): «заполняется после печати» — в PDF значение или линия для ручки; выпуск не блокируют ─────
+  @Prop() saleDate?: Date;
+  @Prop({ trim: true }) installedBy?: string;
+  @Prop() installedAt?: Date;
+  /** Строгий выпуск: паспорт создан после ПП — PDF только когда заполнено обязательное (старые паспорта — без флага, как раньше). */
+  @Prop() strict?: boolean;
+
   // ───── Паспорт v2 (БЗ-6, docs/PASSPORTS-V2.md §3.4) — только новые необязательные поля; kppdf их не читает ─────
   /** Код категории паспорта (справочник `passportCategories`): DIO, DSP, TRN, WRK, MAF. Пусто — паспорт v1. */
   @Prop() passportCategory?: string;

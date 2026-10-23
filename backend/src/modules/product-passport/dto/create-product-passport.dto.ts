@@ -60,6 +60,10 @@ export class CreateProductPassportDto {
   @IsOptional() @IsObjectId() manufacturerOrgId?: string;
   /** Заметки — лист «Для заметок» в PDF (нет заметки — нет листа). */
   @IsOptional() @IsString() @MaxLength(4000) note?: string;
+  // ПП: заполняется после печати (можно от руки) — пусто допустимо
+  @IsOptional() @IsDateString() saleDate?: string;
+  @IsOptional() @IsString() @MaxLength(300) installedBy?: string;
+  @IsOptional() @IsDateString() installedAt?: string;
   @IsOptional() @IsString() @IsIn(['app', 'sheet:Pasports', 'kppdf']) source?: string;
 
   /** Подтверждение смены выданных номера / талона / даты (иначе 409). */

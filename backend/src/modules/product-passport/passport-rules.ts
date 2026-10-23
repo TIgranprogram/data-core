@@ -126,6 +126,7 @@ export interface PassportLike {
 }
 
 /** Чего не хватает до выдачи (подписи полей — для «Требуют заполнения» и проверки перед PDF). */
+/** Обязательное для выпуска. «После печати» (заказчик, объект, № заказа, дата продажи, монтаж, заметки) сюда не входит — ПП. */
 export function missingFields(p: PassportLike): string[] {
   const m: string[] = [];
   const empty = (v: unknown) => v === undefined || v === null || (typeof v === 'string' && !v.trim()) || (typeof v === 'number' && !Number.isFinite(v));
@@ -139,7 +140,6 @@ export function missingFields(p: PassportLike): string[] {
   if (empty(p.installationMethod)) m.push('Установка');
   if (empty(p.purpose)) m.push('Назначение');
   if (empty(p.description)) m.push('Описание');
-  if (empty(p.customerName) && empty(p.objectName)) m.push('Заказчик / объект');
   if (!(p.images || []).some((i) => i.kind === 'overview')) m.push('Фото изделия');
   return m;
 }
@@ -216,7 +216,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
 const V1_FIELD_KEYS: Record<string, string> = {
   'Наименование': 'name', 'Категория': 'category', 'Дата': 'date', 'Поставщик': 'supplierOrgId', 'Габариты': 'height', 'Вес': 'weight',
   'Материалы': 'materials', 'Установка': 'installationMethod', 'Назначение': 'purpose', 'Описание': 'description',
-  'Заказчик / объект': 'customerName', 'Фото изделия': 'img_overview', 'Элементы': 'elements', 'Способ установки': 'installationTypeId',
+  'Фото изделия': 'img_overview', 'Элементы': 'elements', 'Способ установки': 'installationTypeId',
 };
 /**
  * То же, что `missingFieldsV2`, но с ключом поля формы паспорта (ФП: список «не хватает для выпуска» со ссылкой на поле).

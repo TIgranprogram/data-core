@@ -90,6 +90,8 @@ function inOrders(r) {
  * после «Создать» — then(изделие) (паспорт открывается снова с выбранным изделием). Запрос живёт 15 минут.
  */
 let pendingCreate = null;
+/** ПП: ФИО → id сотрудника для поля «Кто проектировал» (заполняется при сборке формы). */
+let designerIds = new Map();
 export function createProductFor(initial, then) {
   pendingCreate = { initial, then, at: Date.now() };
   patch({ of: 'products', new: '1', open: undefined });
@@ -168,6 +170,7 @@ export const products = {
       ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
         : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
       ['Статус', STATUS[r.status] || r.status],
+      ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
       ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
       ['Габариты', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
@@ -187,6 +190,10 @@ export const products = {
     // ФИ: раздел, группа, серия, цвета, размеры — списки из того, что уже есть (одно написание); своё вписать можно
     fields: async (r) => {
       const fv = await formValues();
+      // ПП: «Кто проектировал» — из «Сотрудников», выбор с поиском; пусто — можно
+      const staff = await api('/dicts/persons').then((x) => (x.items || []).map((p) => ({ value: p.id, label: [p.lastName, p.firstName, p.patronymic].filter(Boolean).join(' ') || p.name, sub: p.position || '', fired: p.status === 'fired' }))).catch(() => []);
+      const people = staff.filter((p) => !p.fired); // в выборе — работающие; уже указанный уволенный остаётся (сопоставление — по всем)
+      designerIds = new Map(staff.map((p) => [p.label, p.value]));
       const opt = (x) => ({ value: x.value, label: x.value, sub: [x.n ? `${qty(x.n)} изд.` : '', x.sub].filter(Boolean).join(' · ') });
       const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
       // группы выбранного раздела — сверху, остальные — «Все» (с разделом в подписи); одно название — один раз
@@ -218,6 +225,7 @@ export const products = {
       { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
         hint: 'С ценой черновик сам становится «в продаже»' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Фото и состав — в карточке сразу после «Создать»' },
+      { key: 'designerName', label: 'Кто проектировал', type: 'combo', options: people, strict: true, strictText: 'Выберите сотрудника из списка или оставьте пустым', hint: 'К кому идти, если в паспорте не хватает данных. В паспорт не входит' },
       { section: 'Характеристики', tone: 'info' },
       { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
       { key: 'dimW', label: 'Ширина', type: 'number', min: 0, span: 1 },
@@ -237,10 +245,11 @@ export const products = {
       ];
     },
     initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pending()?.initial || {}) }),
-    toInitial: (r) => ({ ...r, colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
+    toInitial: (r) => ({ ...r, designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
     toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
+      designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' } }),
     create: async (b) => {

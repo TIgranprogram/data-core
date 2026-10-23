@@ -337,13 +337,21 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
     let res; try { res = await api_post('/passports/check', body); } catch { return; }
     if (my !== seq) return;
     const miss = res.missing || [];
+    const who = miss.length ? await designerLine(api.get('productId')) : null;
     w.need.className = miss.length ? 'fill-note' : 'muted';
     w.need.replaceChildren(...(miss.length
       ? [h('b', null, `Не хватает для выпуска: ${miss.length}`), h('ul', { class: 'pp-need' }, ...miss.map((m) => h('li', null, m.key ? h('button', { type: 'button', class: 'link-btn', onclick: () => goTo(m.key) }, m.label) : m.label))),
-        h('div', { class: 'hint' }, 'Можно сохранить и дополнить позже — PDF покажет пустые места')]
+        who, h('div', { class: 'hint' }, 'Черновик сохранить можно; выпустить (скачать PDF) — когда заполните всё отмеченное')]
       : [h('span', null, '✓ Всё есть — паспорт можно выпускать')]));
     const b = saveBtn();
-    if (b && !b.disabled && !r) b.textContent = miss.length ? 'Сохранить, дополнить позже' : 'Выпустить';
+    if (b && !b.disabled && !r) b.textContent = miss.length ? 'Сохранить черновик' : 'Выпустить';
+    // над кнопками — то же коротко: что ещё нужно для выпуска (ПП)
+    if (b?.parentElement) {
+      let foot = b.parentElement.querySelector('.pp-need-foot');
+      if (!foot) { foot = h('div', { class: 'pp-need-foot' }); b.parentElement.prepend(foot); }
+      foot.replaceChildren(...(miss.length ? [h('span', { class: 'muted' }, `Не хватает для выпуска: ${miss.slice(0, 4).map((m) => m.label).join(', ')}${miss.length > 4 ? ` и ещё ${miss.length - 4}` : ''}`)] : []));
+      foot.hidden = !miss.length;
+    }
   }, 500); };
   api.root.addEventListener('input', check); api.root.addEventListener('change', check);
   // ПИ.4: «Запомнить» — только если есть изделие и поправлены поля, которые изделие помнит
@@ -356,6 +364,16 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
   check();
 }
 const api_get = (p) => api(p);
+/** ПП: к кому идти, если не хватает данных, — «Кто проектировал» изделие (в паспорт и PDF не входит). */
+const designerCache = new Map();
+async function designerLine(productId) {
+  if (!productId) return null;
+  if (!designerCache.has(productId)) designerCache.set(productId, api(`/showcase/${productId}`).then((p) => p.designer || null).catch(() => undefined));
+  const d = await designerCache.get(productId);
+  if (d === undefined) return null;
+  return h('div', { class: 'pp-designer' }, d ? `Спросить: ${d.name}${d.position ? ', ' + d.position : ''} (проектировал изделие)` : 'Проектировщик не указан — ',
+    d ? null : h('a', { href: `#products?open=${productId}` }, 'указать в изделии'));
+}
 /** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
 async function saveDefaults({ productId, defaults }) {
   try { await api(`/showcase/${productId}/passport-defaults`, { method: 'PUT', body: defaults }); toast('Запомнено для следующих паспортов изделия'); }
@@ -505,7 +523,8 @@ function checkBlock(r) {
     zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     zone.classList.add('fill-here'); setTimeout(() => zone.classList.remove('fill-here'), 2500);
   };
-  return h('div', null, h('div', { class: 'section-title' }, miss.length ? `Проверка — не хватает: ${miss.length}` : 'Проверка'),
+  return h('div', null, h('div', { class: 'section-title' }, miss.length ? (r.strict ? `Не готов к выпуску — не хватает: ${miss.length}` : `Проверка — не хватает: ${miss.length}`) : 'Проверка'),
+    r.strict && miss.length ? h('p', { class: 'hint' }, 'PDF и печать станут доступны, когда заполните отмеченное. «Заполняется после печати» (покупатель, адрес, монтаж) выпуск не задерживает.') : null,
     h('ul', { class: 'timeline pp-check' }, ...miss.map((m) => {
       const img = m.startsWith('Рисунок: ') || m === 'Фото изделия' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
       // не картинка — «Заполнить»: открыть правку паспорта (та же кнопка «Изменить» карточки)
@@ -714,7 +733,9 @@ export const passports = {
     ],
     actions: (r) => [
       // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
-      { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
+      // ПП: строгий паспорт (новый) — PDF, только когда заполнено обязательное; старые — как раньше
+      { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row),
+        ...(r.strict && r.missing?.length ? { disabled: true, title: `Паспорт не готов к выпуску — не хватает: ${r.missing.join(', ')}` } : {}) },
       !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
       !r.productId && canEdit() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
@@ -788,11 +809,9 @@ export const passports = {
         { key: 'width', label: 'Ширина, мм', type: 'number', min: 0, span: 1 },
         { key: 'weight', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
         ...v2Fields, remember,
-        { section: 'Кому и когда', tone: 'who' },
-        { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
-        { key: 'orderNo', label: '№ заказа', max: 50, suggest: orders, suggestTitle: 'Заказы — выбор подставит заказчика', hint: 'Начните печатать номер или заказчика' },
-        { key: 'objectName', label: 'Объект / адрес', wide: true, max: 500 },
-        ...(r ? [] : [{ key: 'date', label: 'Дата', type: 'date', required: true, hint: 'По дате и номеру строится гарантийный талон' }]),
+        // ПП: выпуск — дата (номер талона), поставщик, гарантия; кому и куда — в «после печати» (можно от руки)
+        { section: 'Выпуск', tone: 'who' },
+        ...(r ? [] : [{ key: 'date', label: 'Дата выпуска', type: 'date', required: true, hint: 'По дате и номеру строится гарантийный талон' }]),
         { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })), hint: 'Реквизиты, печать и подпись в PDF — из карточки компании' },
         { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
         { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
@@ -806,10 +825,19 @@ export const passports = {
         ...kinds({ requiredImages: req }).filter(([k]) => mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label}${req.includes(kind) ? ' *' : ''}`, type: 'photos', hint: `${where}${req.includes(kind) ? ' · обязательно для категории' : ''}` })),
         { section: 'Ещё картинки', tone: 'info', collapsed: true },
         ...kinds({ requiredImages: req }).filter(([k]) => !mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label, type: 'photos', hint: where })),
-        { section: 'Комплектность и заметки', tone: 'who', collapsed: true },
+        { section: 'Комплектность', tone: 'who', collapsed: true },
         { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
           widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] }),
           hint: 'Пусто — «И-1 · Изделие в сборе · 1 шт.». Можно вставить строки из Excel (Ctrl+V в ячейку) или загрузить заполненный шаблон' },
+        // ПП: заполняется после печати — пусто → в PDF линия для ручки, заполнено → значение; выпуск не блокирует
+        { section: 'Заполняется после печати — можно от руки', tone: 'info', collapsed: !(r && (r.saleDate || r.customerName || r.orderNo || r.objectName || r.installedBy || r.installedAt || r.note)) },
+        { key: '_afterHint', type: 'widget', wide: true, label: '', widget: () => ({ el: h('p', { class: 'hint' }, 'Если заполнить — подставится в паспорт. Пусто — в PDF будет линия, впишут ручкой при продаже и монтаже. Выпуск не задерживает.'), value: '' }), summary: () => '' },
+        { key: 'saleDate', label: 'Дата продажи', type: 'date', span: 1 },
+        { key: 'customerName', label: 'Покупатель (заказчик)', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
+        { key: 'orderNo', label: '№ заказа', max: 50, span: 1, suggest: orders, suggestTitle: 'Заказы — выбор подставит покупателя', hint: 'Начните печатать номер или заказчика' },
+        { key: 'objectName', label: 'Адрес установки', wide: true, max: 500 },
+        { key: 'installedBy', label: 'Монтаж выполнил', max: 300 },
+        { key: 'installedAt', label: 'Дата монтажа', type: 'date', span: 1 },
         { key: 'note', label: 'Заметки', type: 'textarea', wide: true, rows: 3, max: 4000, hint: 'Попадут в паспорт на лист «Для заметок»; пусто — листа не будет' },
       ];
     },
@@ -821,7 +849,7 @@ export const passports = {
       return { date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
         ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
     },
-    toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
+    toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
       ...v2Initial(r),
       ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
     // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
@@ -830,6 +858,7 @@ export const passports = {
       const body = {
         name: s(v.name), category: s(v.category), article: s(v.article), materials: s(v.materials), installationMethod: s(v.installationMethod), purpose: s(v.purpose),
         customerName: s(v.customerName), orderNo: s(v.orderNo), objectName: s(v.objectName), note: s(v.note),
+        saleDate: v.saleDate || null, installedBy: s(v.installedBy), installedAt: v.installedAt || null, // ПП: после печати
         ...(v.supplierOrgId ? { supplierOrgId: v.supplierOrgId } : {}),
         ...Object.fromEntries(['height', 'length', 'width', 'weight', 'warrantyMonths'].filter((k) => v[k] !== null && v[k] !== undefined).map((k) => [k, v[k]])),
       };
@@ -861,7 +890,9 @@ export const passports = {
     create: async (body) => {
       const { _copyFrom, _imagesFinal, _remember, ...rest } = body;
       if (_remember) await saveDefaults(_remember);
-      if (!_copyFrom) return api('/passports', { method: 'POST', body: rest });
+      // ПП: карточке после сохранения — полный паспорт («не хватает», строгий выпуск), а не голый ответ создания
+      const full = async (doc) => (doc?.id || doc?._id ? api(`/passports/${doc.id || doc._id}`) : doc);
+      if (!_copyFrom) return full(await api('/passports', { method: 'POST', body: rest }));
       // модель выбрана: сервер берёт её поля; картинки модели уже разложены по видам в форме (_imagesFinal) — их и шлём;
       // не успели загрузиться — свои добавляются к картинкам модели (каждая в своём виде, без дублей)
       if (!_imagesFinal && rest.images?.length) {
@@ -871,9 +902,9 @@ export const passports = {
         for (const i of [...imagesBody(m.images || []).map((x) => ({ ...x, kind: kindOf(x) })), ...rest.images]) (vals['img_' + i.kind] ||= []).push(i.photoId);
         rest.images = formImages(vals, ks);
       }
-      return api(`/passports/${_copyFrom}/copy`, { method: 'POST', body: rest });
+      return full(await api(`/passports/${_copyFrom}/copy`, { method: 'POST', body: rest }));
     },
-    update: async (id, body) => { const { _remember, ...rest } = body; if (_remember) await saveDefaults(_remember); return api(`/passports/${id}`, { method: 'PATCH', body: rest }); },
+    update: async (id, body) => { const { _remember, ...rest } = body; if (_remember) await saveDefaults(_remember); await api(`/passports/${id}`, { method: 'PATCH', body: rest }); return api(`/passports/${id}`); },
   },
 
   remove: {

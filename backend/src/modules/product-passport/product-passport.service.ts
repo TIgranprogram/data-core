@@ -239,6 +239,7 @@ export class ProductPassportService {
     delete set.confirmNumbers;
     for (const f of OID_FIELDS) if (f in set) set[f] = set[f] ? this.oid(set[f]) : null;
     if ('date' in set) set.date = set.date ? new Date(String(set.date)) : null;
+    for (const k of ['saleDate', 'installedAt'] as const) if (k in set) set[k] = set[k] ? new Date(String(set[k])) : null;
     // картинка без вида — только «Фото изделия» (ФП: раньше без вида не попадала никуда)
     if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
     for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
@@ -255,6 +256,7 @@ export class ProductPassportService {
     if (!set.description) set.description = buildDescription(set as never) || undefined;
     if (!set.bom) set.bom = DEFAULT_BOM;
     set.source = set.source || 'app';
+    set.strict = true; // ПП: новые паспорта — строгий выпуск (PDF, когда заполнено обязательное)
     await this.assertFree(set);
     try {
       const doc = await this.model.create(set);
@@ -384,6 +386,12 @@ export class ProductPassportService {
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(p, inst);
     return { missing: missingKeyed(full as never, cat), requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
+  }
+
+  /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
+  async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
+    const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
+    return missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null);
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */

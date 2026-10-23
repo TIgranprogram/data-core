@@ -57,6 +57,14 @@ describe('Showcase', () => {
     // загрузка каталога: «kc-01» — то же изделие (обновление), а не новое с падением на 409
     const cat = 'Тип\tГруппа\tАртикул\tНаименование\nМАФ\tСкамьи\tkc-01\tСкамья парковая';
     expect((await http().post('/api/showcase/import').set(auth()).send({ text: cat, apply: true }).expect(200)).body).toMatchObject({ new: 0, update: 1, applied: true });
+    // ПП: «Кто проектировал» — сотрудник; в паспорт не попадает
+    const { insertedId: designerPid } = await ctx!.connection.db!.collection('persons').insertOne({ lastName: 'Петров', firstName: 'Пётр', patronymic: 'Петрович', position: 'конструктор', deletedAt: null });
+    const kc = (await http().get('/api/showcase').query({ search: 'KC-01' }).set(auth()).expect(200)).body.items[0];
+    expect((await http().patch(`/api/showcase/${kc.id}`).set(auth()).send({ designerId: String(designerPid) }).expect(200)).body.designer).toEqual({ id: String(designerPid), name: 'Петров Пётр Петрович', position: 'конструктор' });
+    await http().patch(`/api/showcase/${kc.id}`).set(auth()).send({ designerId: String(new Types.ObjectId()) }).expect(400);
+    const ppFromProduct = (await http().post('/api/passports').set(auth()).send({ name: 'Скамья парковая', productId: kc.id }).expect(201)).body;
+    expect(JSON.stringify(ppFromProduct)).not.toMatch(/designer|Петров/);
+    expect((await http().patch(`/api/showcase/${kc.id}`).set(auth()).send({ designerId: '' }).expect(200)).body.designer).toBeNull();
     // поиск: слова в любом порядке
     expect((await http().get('/api/showcase').query({ search: 'парковая скам' }).set(auth()).expect(200)).body.items.map((x: { sku: string }) => x.sku)).toEqual(['KC-01']);
     const kp1 = (await http().post('/api/showcase/kp').set(auth()).send({ items: [{ id: a.id, qty: 2 }], customer: 'ГБУ Жилищник' }).expect(200)).body;

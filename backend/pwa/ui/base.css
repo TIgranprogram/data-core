@@ -313,6 +313,9 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .pp-prod-sel .sg-pic { flex: 0 0 72px; width: 72px; height: 54px; }
 /* пока изделие не выбрано — остальные блоки паспорта скрыты */
 .form-blocks.pp-locked > .form-block:not(.pp-first) { display: none; }
+/* ПП: над кнопками — что ещё нужно для выпуска (одной строкой); к кому идти — «Кто проектировал» */
+.pp-need-foot { flex-basis: 100%; font-size: var(--fs-sm); }
+.pp-designer { margin-top: var(--s1); font-weight: 600; }
 /* «Состав изделия» (СИ): строки по разделам — название · количество со степпером · цена/сумма · «×»; итог; на телефоне название — отдельной строкой */
 .pick-list .pick-head { padding: 8px 12px; font-weight: 650; color: var(--heading); background: var(--surface); border-bottom: 1px solid var(--border); }
 .comp-group { margin-top: var(--s3); }

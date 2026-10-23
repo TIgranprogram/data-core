@@ -274,6 +274,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     ) {
       errorResponse.code = (payload as { code: string }).code;
     }
+    // ПП / ОШ: список полей, которых не хватает ([{ label, key }]) — форма подсветит
+    if (typeof payload === 'object' && payload !== null && Array.isArray((payload as { missing?: unknown }).missing)) {
+      errorResponse.missing = (payload as { missing: unknown[] }).missing;
+    }
 
     if (status >= 500) {
       this.logger.error(
