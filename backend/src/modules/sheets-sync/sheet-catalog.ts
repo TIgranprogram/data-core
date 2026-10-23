@@ -3,7 +3,8 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { Types, type Connection } from 'mongoose';
 import type { PhotosService } from '../photos/photos.service';
-import { OrgResolver, normText } from '../supply/org-resolver';
+import { OrgResolver } from '../supply/org-resolver';
+import { normText } from '../../common/text/norm-text';
 
 /**
  * Лист «Справочник» (2026-10-19): фото товаров и списки для подсказок.

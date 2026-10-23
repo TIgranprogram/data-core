@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
-import { MaterialDocument } from '../material/material.schema';
-import { ProductModuleDocument } from '../product-module/product-module.schema';
-import { ProductDocument } from '../product/product.schema';
+import { MaterialDocument } from '../../modules/material/material.schema';
+import { ProductModuleDocument } from './product-module.schema';
+import { ProductDocument } from './product.schema';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from './composition-line.dto';
 import { CompositionLine, CompositionLineDocumentShape } from './composition-line.schema';
 

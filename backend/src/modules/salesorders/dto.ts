@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsMongoId, IsOptional, IsString, Length } from 'class-validator';
-import { ORDER_STAGES, type OrderStage } from './order-key';
+import { ORDER_STAGES, type OrderStage } from '../../common/text/order-key';
 
 /** Шапка заказа заказчика. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить; текст '' — очистить. */
 export class SalesOrderDto {

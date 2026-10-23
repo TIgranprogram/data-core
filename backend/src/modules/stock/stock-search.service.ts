@@ -5,13 +5,13 @@ import { Types } from 'mongoose';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { escapeRe, oid, oids, parseList } from '../../common/list-query';
 import { Material, MaterialDocument } from '../material/material.schema';
-import { normText } from '../supply/org-resolver';
+import { normText } from '../../common/text/norm-text';
 import { articleView } from './article';
 import { dimsOf, metalKind } from './metal';
 import { StockCoreService } from './stock-core.service';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { ITEM_SORT } from './stock.types';
-import { matchesAll, searchTokens } from './search-norm';
+import { matchesAll, searchTokens } from '../../common/text/search-norm';
 import { weightGOf } from './weight';
 
 /** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */

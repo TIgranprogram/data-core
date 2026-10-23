@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { CompositionLine, CompositionLineSchema } from '../catalog/composition-line.schema';
+import { CompositionLine, CompositionLineSchema } from './composition-line.schema';
 
 @Schema({ _id: false })
 class ModuleDimensionsSchema {

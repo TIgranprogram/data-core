@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import { WorkType, WorkTypeDocument } from './work-type.schema';
 import { CreateWorkTypeDto } from './dto/create-work-type.dto';
 import { UpdateWorkTypeDto } from './dto/update-work-type.dto';
-import { isUsedByCrm } from '../catalog/catalog-references';
+import { isUsedByCrm } from '../../common/catalog/catalog-references';
 
 @Injectable()
 export class WorkTypeService implements OnModuleInit {

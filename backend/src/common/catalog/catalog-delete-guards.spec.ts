@@ -1,9 +1,9 @@
 import { ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { MaterialService } from '../material/material.service';
-import { ProductService } from '../product/product.service';
-import { ProductModuleService } from '../product-module/product-module.service';
-import { WorkTypeService } from '../work-type/work-type.service';
+import { MaterialService } from '../../modules/material/material.service';
+import { ProductService } from '../../modules/product/product.service';
+import { ProductModuleService } from '../../modules/product-module/product-module.service';
+import { WorkTypeService } from '../../modules/work-type/work-type.service';
 
 /**
  * Защита удаления справочников: действующий каталог (products / productmodules)

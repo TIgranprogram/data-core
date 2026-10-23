@@ -10,7 +10,7 @@
  * Round-2 round-3 (PASS-WITH-MINOR): migration has no transaction wrapper.
  * That's documented in TZ-240.A follow-up scope (deferred to next session).
  */
-import { ProductSchema } from './product.schema';
+import { ProductSchema } from '../../common/catalog/product.schema';
 import { MaterialSchema } from '../material/material.schema';
 import { CategorySchema } from '../category/category.schema';
 

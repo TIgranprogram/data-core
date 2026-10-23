@@ -6,7 +6,7 @@
  *   MONGO_URI='mongodb://user:pw@host:port/db?authSource=admin&directConnection=true' \
  *   [MONGO_DB=datacoreqa] node scripts/import-orders-xlsx.js "<папка с .xlsx>" [--apply]
  *
- * Правила (менять синхронно с src/modules/salesorders/order-key.ts):
+ * Правила (менять синхронно с src/common/text/order-key.ts):
  *  - ключ заказа «компания|номер»: номер без «№», пробелы схлопнуты, верхний регистр («СИЮ|110-П»);
  *    два файла с одним ключом — один заказ (позиции складываются);
  *  - ключ позиции «ключ заказа|наименование|ед.» (регистр/пробелы не важны), повтор в заказе — «#2», «#3»;

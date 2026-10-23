@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Material, MaterialSchema } from '../material/material.schema';
-import { Photo, PhotoSchema } from '../photos/photo.schema';
-import { Product, ProductSchema } from '../product/product.schema';
-import { ProductModule, ProductModuleSchema } from '../product-module/product-module.schema';
+import { Material, MaterialSchema } from '../../modules/material/material.schema';
+import { Photo, PhotoSchema } from '../../modules/photos/photo.schema';
+import { Product, ProductSchema } from './product.schema';
+import { ProductModule, ProductModuleSchema } from './product-module.schema';
 import { CatalogGraphService } from './catalog-graph.service';
 
 @Module({

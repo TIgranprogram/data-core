@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Product, ProductSchema } from './product.schema';
+import { Product, ProductSchema } from '../../common/catalog/product.schema';
 import { ProductService } from './product.service';
 import { ProductController } from './product.controller';
 import { ProductSubroutesController } from './product-subroutes.controller';
 import { Category, CategorySchema } from '../category/category.schema';
-import { ProductModule as ProductModuleEntity, ProductModuleSchema } from '../product-module/product-module.schema';
+import { ProductModule as ProductModuleEntity, ProductModuleSchema } from '../../common/catalog/product-module.schema';
 import { Material, MaterialSchema } from '../material/material.schema';
 import { CounterModule } from '../counter/counter.module';
-import { CompositionLineService } from '../catalog/composition-line.service';
-import { CatalogGraphModule } from '../catalog-graph/catalog-graph.module';
+import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
 
 @Module({
   imports: [

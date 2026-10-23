@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { ORDER_STAGES, type OrderStage } from './order-key';
+import { ORDER_STAGES, type OrderStage } from '../../common/text/order-key';
 
 export type SalesOrderDocument = HydratedDocument<SalesOrder>;
 

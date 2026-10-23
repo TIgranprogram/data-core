@@ -6,11 +6,11 @@ import { UpdateMaterialDto } from './dto/update-material.dto';
 import { Material, MaterialDocument } from './material.schema';
 import { CounterService } from '../counter/counter.service';
 import { Category, CategoryDocument } from '../category/category.schema';
-import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
-import { CompositionLineService } from '../catalog/composition-line.service';
-import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
-import { CompositionLineDocumentShape } from '../catalog/composition-line.schema';
-import { isUsedByCrm, isUsedInComposition } from '../catalog/catalog-references';
+import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
+import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
+import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
+import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()

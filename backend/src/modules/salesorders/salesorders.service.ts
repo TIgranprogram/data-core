@@ -5,9 +5,9 @@ import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { ourCompanies } from '../incomes/incomes.service';
-import { normText } from '../supply/org-resolver';
+import { normText } from '../../common/text/norm-text';
 import type { SalesOrderDto } from './dto';
-import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from './order-key';
+import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
 import { ORDER_CACHE_FIELDS } from './order-link';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 

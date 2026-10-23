@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { WorkType, WorkTypeSchema } from './work-type.schema';
 import { WorkTypeService } from './work-type.service';
 import { WorkTypeController } from './work-type.controller';
-import { CatalogGraphModule } from '../catalog-graph/catalog-graph.module';
+import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
 
 @Module({
   imports: [

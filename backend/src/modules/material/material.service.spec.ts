@@ -5,7 +5,7 @@ import { Types } from 'mongoose';
 import { MaterialService } from './material.service';
 import type { CreateMaterialDto } from './dto/create-material.dto';
 import type { UpdateMaterialDto } from './dto/update-material.dto';
-import type { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
+import type { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
 
 const CATEGORY_ID = new Types.ObjectId().toString();
 

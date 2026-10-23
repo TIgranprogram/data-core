@@ -1,15 +1,15 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ProductModule, ProductModuleDocument } from './product-module.schema';
-import { Product, ProductDocument } from '../product/product.schema';
+import { ProductModule, ProductModuleDocument } from '../../common/catalog/product-module.schema';
+import { Product, ProductDocument } from '../../common/catalog/product.schema';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Category, CategoryDocument } from '../category/category.schema';
-import { CompositionLineDocumentShape } from '../catalog/composition-line.schema';
-import { CompositionLineService } from '../catalog/composition-line.service';
-import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
-import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
-import { isUsedByCrm, isUsedInComposition } from '../catalog/catalog-references';
+import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
+import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
+import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
+import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 export interface MaterialInModuleDto { materialId: string; quantity?: number; unit?: string; isPurchased?: boolean; overrideDimensions?: { length?: number; width?: number; height?: number; unit?: string }; sortOrder?: number; }

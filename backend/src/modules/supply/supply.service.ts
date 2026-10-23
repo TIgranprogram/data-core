@@ -1,13 +1,13 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
-import { searchTokens, tokenRegex } from '../stock/search-norm';
+import { searchTokens, tokenRegex } from '../../common/text/search-norm';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
-import { CategoryResolver } from '../stock/category-resolver';
+import { CategoryResolver } from '../../common/catalog/category-resolver';
 import { StockService } from '../stock/stock.service';
 import { OrgResolver } from './org-resolver';
 import { SupplierAliases } from './supplier-aliases';

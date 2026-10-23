@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ProductModulePhoto, ProductModulePhotoDocument } from './product-module-photo.schema';
-import { ProductModule, ProductModuleDocument } from '../product-module/product-module.schema';
+import { ProductModule, ProductModuleDocument } from '../../common/catalog/product-module.schema';
 
 export interface UpsertProductModulePhotoDto { productModuleId: string; photoId?: string; url?: string; caption?: string; isMain?: boolean; sortOrder?: number; }
 

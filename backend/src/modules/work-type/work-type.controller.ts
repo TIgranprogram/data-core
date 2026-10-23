@@ -7,7 +7,7 @@ import { CreateWorkTypeDto } from './dto/create-work-type.dto';
 import { UpdateWorkTypeDto } from './dto/update-work-type.dto';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
+import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
 
 @ApiTags('Справочники — Виды работ')
 @Controller('work-types')

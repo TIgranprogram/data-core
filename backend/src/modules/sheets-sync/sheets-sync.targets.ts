@@ -1,13 +1,14 @@
 import { Types, type Connection } from 'mongoose';
 import { gramsToKg } from '../stock/weight';
 import { parseSheetDate } from '../../common/date-parse';
-import { CategoryResolver } from '../stock/category-resolver';
+import { CategoryResolver } from '../../common/catalog/category-resolver';
 import type { StockService } from '../stock/stock.service';
 import { incomeDerived } from '../incomes/income.schema';
 import { ourCompanies } from '../incomes/incomes.service';
-import { normTitle, orderKey } from '../salesorders/order-key';
+import { normTitle, orderKey } from '../../common/text/order-key';
 import { ORDER_CACHE_FIELDS, findOrCreateOrder } from '../salesorders/order-link';
-import { OrgResolver, normText } from '../supply/org-resolver';
+import { OrgResolver } from '../supply/org-resolver';
+import { normText } from '../../common/text/norm-text';
 import { priorityFromLabel, statusFromLabel } from '../supply/supply-labels';
 import type { SheetTarget } from './sheets-sync.mapping';
 

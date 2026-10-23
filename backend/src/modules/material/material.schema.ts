@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { optimisticLockPlugin } from '../../common/mongoose';
-import { CompositionLine, CompositionLineSchema } from '../catalog/composition-line.schema';
+import { CompositionLine, CompositionLineSchema } from '../../common/catalog/composition-line.schema';
 
 export type MaterialDocument = HydratedDocument<Material>;
 

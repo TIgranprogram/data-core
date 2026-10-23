@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { Types, type Connection } from 'mongoose';
+import { normText } from '../../common/text/norm-text';
 
-export const normText = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**

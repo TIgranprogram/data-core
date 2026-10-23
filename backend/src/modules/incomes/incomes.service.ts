@@ -5,7 +5,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
-import { normText } from '../supply/org-resolver';
+import { normText } from '../../common/text/norm-text';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { Income, IncomeDocument, incomeDerived } from './income.schema';

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Types } from 'mongoose';
 import type { ArticleDecision } from './article';
-import { normText } from '../supply/org-resolver';
+import { normText } from '../../common/text/norm-text';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';

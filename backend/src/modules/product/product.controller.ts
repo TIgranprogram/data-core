@@ -6,8 +6,8 @@ import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { DuplicateProductDto } from './dto/duplicate-product.dto';
-import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
-import { CatalogGraphService, MAX_DEPTH } from '../catalog-graph/catalog-graph.service';
+import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
+import { CatalogGraphService, MAX_DEPTH } from '../../common/catalog/catalog-graph.service';
 import { ProductService } from './product.service';
 
 @ApiTags('Справочники — Продукты')

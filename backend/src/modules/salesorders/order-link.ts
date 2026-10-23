@@ -1,5 +1,5 @@
 import { Types, type Connection } from 'mongoose';
-import { orderKey } from './order-key';
+import { orderKey } from '../../common/text/order-key';
 
 type Doc = Record<string, unknown>;
 

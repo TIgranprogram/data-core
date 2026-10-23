@@ -7,15 +7,15 @@ import { InjectModel as InjectCategoryModel } from '@nestjs/mongoose';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { DuplicateProductDto } from './dto/duplicate-product.dto';
-import { Product, ProductDocument } from './product.schema';
-import { ProductModule as ProductModuleEntity, ProductModuleDocument } from '../product-module/product-module.schema';
+import { Product, ProductDocument } from '../../common/catalog/product.schema';
+import { ProductModule as ProductModuleEntity, ProductModuleDocument } from '../../common/catalog/product-module.schema';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { EavService } from '../../common/eav/eav.service';
-import { CompositionLineDocumentShape } from '../catalog/composition-line.schema';
-import { CompositionLineService } from '../catalog/composition-line.service';
-import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../catalog/composition-line.dto';
-import { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
-import { isUsedByCrm, isUsedInComposition } from '../catalog/catalog-references';
+import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
+import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
+import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
+import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()

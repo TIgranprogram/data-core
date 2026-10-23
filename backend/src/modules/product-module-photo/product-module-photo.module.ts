@@ -6,7 +6,7 @@ import {
 } from './product-module-photo.schema';
 import { ProductModulePhotoService } from './product-module-photo.service';
 import { ProductModulePhotoController } from './product-module-photo.controller';
-import { ProductModule, ProductModuleSchema } from '../product-module/product-module.schema';
+import { ProductModule, ProductModuleSchema } from '../../common/catalog/product-module.schema';
 
 @Module({
   imports: [

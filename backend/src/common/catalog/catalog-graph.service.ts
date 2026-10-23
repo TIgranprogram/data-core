@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Material, MaterialDocument } from '../material/material.schema';
-import { Photo, PhotoDocument } from '../photos/photo.schema';
-import { Product, ProductDocument } from '../product/product.schema';
-import { ProductModule, ProductModuleDocument } from '../product-module/product-module.schema';
+import { Material, MaterialDocument } from '../../modules/material/material.schema';
+import { Photo, PhotoDocument } from '../../modules/photos/photo.schema';
+import { Product, ProductDocument } from './product.schema';
+import { ProductModule, ProductModuleDocument } from './product-module.schema';
 
 export const MAX_DEPTH = 8;
 export type ParentKind = 'product' | 'module';

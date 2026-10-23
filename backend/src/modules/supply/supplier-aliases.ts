@@ -1,5 +1,5 @@
 import type { Connection } from 'mongoose';
-import { normSearch } from '../stock/search-norm';
+import { normSearch } from '../../common/text/search-norm';
 
 /**
  * «Как называется у поставщика» (TASKS МВ.2, решение 2026-10-21): пара «поставщик + его название / артикул → наша позиция».

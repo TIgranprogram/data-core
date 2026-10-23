@@ -2,7 +2,7 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { MaterialService } from './material.service';
 import { CreateMaterialDto } from './dto/create-material.dto';
-import type { CatalogGraphService } from '../catalog-graph/catalog-graph.service';
+import type { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
 
 function buildService() {
   const materialModel = {

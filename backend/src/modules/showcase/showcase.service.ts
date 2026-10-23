@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
-import { isUsedByCrm } from '../catalog/catalog-references';
+import { isUsedByCrm } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
 import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
