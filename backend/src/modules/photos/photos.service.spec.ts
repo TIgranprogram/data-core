@@ -178,3 +178,25 @@ describe('PhotosService frame (TZ-PHOTO-304)', () => {
     });
   });
 });
+
+describe('PhotosService remove — файлы фото и его вариантов (М9), без выхода за папку (М1)', () => {
+  let dir: string; let prev: string | undefined;
+  beforeEach(async () => { prev = process.env.UPLOAD_DIR; dir = await mkdtemp(join(tmpdir(), 'kppdf-photo-rm-')); process.env.UPLOAD_DIR = dir; });
+  afterEach(async () => { if (prev === undefined) delete process.env.UPLOAD_DIR; else process.env.UPLOAD_DIR = prev; await rm(dir, { recursive: true, force: true }); });
+
+  it('удаляет запись, варианты и их файлы; чужой путь в ссылке не трогает', async () => {
+    for (const f of ['o.png', 't.webp', 'f-full.png']) await writeFile(join(dir, f), 'x');
+    const outside = join(dir, '..', `outside-${process.pid}.txt`);
+    await writeFile(outside, 'не трогать');
+    const del = jest.fn();
+    const doc = { _id: new Types.ObjectId(), storageUrl: '/uploads/o.png', deleteOne: del };
+    const variants = [{ storageUrl: '/uploads/t.webp', deleteOne: del }, { storageUrl: '/uploads/f-full.png', deleteOne: del }, { storageUrl: `/uploads/../${basename(outside)}`, deleteOne: del }];
+    const model = { findById: () => ({ exec: async () => doc }), find: () => ({ exec: async () => variants }) };
+    const service = new PhotosService(model as never);
+    await service.remove(String(doc._id));
+    expect(del).toHaveBeenCalledTimes(4);
+    for (const f of ['o.png', 't.webp', 'f-full.png']) await expect(readFile(join(dir, f))).rejects.toThrow();
+    expect(await readFile(outside, 'utf8')).toBe('не трогать');
+    await rm(outside, { force: true });
+  });
+});

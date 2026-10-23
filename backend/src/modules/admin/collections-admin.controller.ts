@@ -82,7 +82,8 @@ const CATEGORIES: CategoryDef[] = [
  *   app    — данные приложения из /api/apps (P1): коллекции app_<app>_<collection>
  *            создаются клиентами на лету, в реестре не описываются
  */
-export type CollectionKind = 'core' | 'link' | 'crm' | 'app';
+/** shared — общая с CRM kppdf: схема в обоих репо, пишут оба (склад, снабжение; М5). Удаляется только kind app. */
+export type CollectionKind = 'core' | 'link' | 'crm' | 'shared' | 'app';
 
 export interface CollectionMeta {
   category: string;
@@ -135,7 +136,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   attributedefinitions: { category: 'classifiers', kind: 'core', doc: 'Определения атрибутов: структура дополнительных полей сущностей.' },
 
   // ================= Каталог: материалы и изделия =================
-  materials: { category: 'catalog', kind: 'core', doc: 'Материалы: номенклатура, свойства, единицы измерения.' },
+  materials: { category: 'catalog', kind: 'shared', doc: 'Материалы: номенклатура, свойства, единицы измерения. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
   products: { category: 'catalog', kind: 'core', doc: 'Продукция: карточки изделий каталога.' },
   productmodules: { category: 'catalog', kind: 'core', doc: 'Модули / комплектующие продукции (состав изделия).' },
   productpassports: { category: 'catalog', kind: 'core', doc: 'Паспорта изделий (технические характеристики в паспорте).' },
@@ -173,7 +174,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   rpps: { category: 'crm-sales', kind: 'crm', doc: 'Реестры РПП. Таблица CRM kppdf.' },
   purchaseorders: { category: 'crm-sales', kind: 'crm', doc: 'Закупочные заказы (PO). Таблица CRM kppdf.' },
   purchaserequests: { category: 'crm-sales', kind: 'crm', doc: 'Запросы на закупку (PR). Таблица CRM kppdf.' },
-  supplyrequests: { category: 'crm-sales', kind: 'crm', doc: 'Запросы снабжения. Таблица CRM kppdf.' },
+  supplyrequests: { category: 'crm-sales', kind: 'shared', doc: 'Заявки снабжения. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
   incomes: { category: 'money', kind: 'core', doc: 'Доходы — строки заказов (лист «Заказы»): заказчик, наша компания, сумма, даты отгрузки и оплаты. Раздел «Заказы» и «Деньги» приложения.' },
   salesorders: { category: 'money', kind: 'core', doc: 'Заказы заказчиков — шапки: номер, наша компания, заказчик, контракт, сроки, этап. Позиции — incomes (orderId). Раздел «Заказы» приложения.' },
   supplytasks: { category: 'crm-sales', kind: 'crm', doc: 'Задачи снабжения. Таблица CRM kppdf.' },
@@ -196,10 +197,10 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   orderclosings: { category: 'crm-prod', kind: 'crm', doc: 'Закрытия заказов / периодов. Таблица CRM kppdf.' },
 
   // ================= Остатки: склад и инвентарь (код удалён) =================
-  warehouses: { category: 'crm-wh', kind: 'crm', doc: 'Склады. Таблица CRM kppdf.' },
-  storageitems: { category: 'crm-wh', kind: 'crm', doc: 'Позиции хранения на складе. Таблица CRM kppdf.' },
-  stockmovements: { category: 'crm-wh', kind: 'crm', doc: 'Движения запасов (приход / расход). Таблица CRM kppdf.' },
-  reservations: { category: 'crm-wh', kind: 'crm', doc: 'Резервы запасов. Таблица CRM kppdf.' },
+  warehouses: { category: 'crm-wh', kind: 'shared', doc: 'Склады. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
+  storageitems: { category: 'crm-wh', kind: 'shared', doc: 'Позиции хранения на складе. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
+  stockmovements: { category: 'crm-wh', kind: 'shared', doc: 'Движения запасов (приход / расход). Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
+  reservations: { category: 'crm-wh', kind: 'shared', doc: 'Резервы запасов. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
   boms: { category: 'crm-wh', kind: 'crm', doc: 'Ведомость материалов (BOM). Таблица CRM kppdf.' },
 
   // ================= Остатки: прочее (код удалён) =================

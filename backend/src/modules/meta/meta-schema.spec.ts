@@ -44,7 +44,7 @@ describe('meta-schema — самоописание базы', () => {
     conn.model('Material', new Schema({ name: String }), 'materials');
     const out = describeModels(conn);
     expect(out).toEqual([
-      expect.objectContaining({ model: 'Material', collection: 'materials', kind: 'core' }),
+      expect.objectContaining({ model: 'Material', collection: 'materials', kind: 'shared' }),
     ]);
     expect(out[0].description.length).toBeGreaterThan(0);
     await conn.close();

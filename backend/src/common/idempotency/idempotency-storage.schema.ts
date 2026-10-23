@@ -13,7 +13,7 @@ import { HydratedDocument } from 'mongoose';
  *     middleware writes cachedResponse keyed by idempotencyKey + requestFingerprint.
  *   - On replay with same key + same fingerprint: return cached response (200/201).
  *   - On replay with same key + DIFFERENT fingerprint: 409 conflict.
- *   - TTL index on storedAt expires records after `IDEMPOTENCY_TTL_HOURS`.
+ *   - TTL index on storedAt expires records after 24 h (жёстко в коде; переменной окружения нет — М3).
  */
 export type IdempotencyDocument = HydratedDocument<Idempotency>;
 
@@ -40,7 +40,7 @@ export class Idempotency {
 
 export const IdempotencySchema = SchemaFactory.createForClass(Idempotency);
 
-// TTL index — automatically purge records after `IDEMPOTENCY_TTL_HOURS` hours
+// TTL index — automatically purge records after 24 h (жёстко: TTL-индекс на проде сам не пересоздаётся — М3)
 // (default 24h). Mongoose TTL runs every 60s — expire granularity is per-minute.
 // Index using `storedAt` + Mongo `expireAfterSeconds`. Note: TTL is best-effort
 // (background sweeper); records can live up to ~60s past expiration.

@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import {
   Body,
   Controller,
@@ -51,6 +52,8 @@ export class PhotosController {
    */
   @Post('upload')
   @Roles('admin', 'manager')
+  // М8: не больше 60 загрузок в минуту с одного адреса (человек столько не грузит; защита от залива диска)
+  @Throttle({ short: { ttl: 60_000, limit: 60 } })
   @UseInterceptors(FileInterceptor('file'))
   @AuditAction({ action: 'create', entityType: 'Photo' })
   async upload(@UploadedFile() file: UploadedPhotoFile) {

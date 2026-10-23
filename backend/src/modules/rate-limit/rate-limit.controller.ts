@@ -8,6 +8,7 @@ export class RateLimitController {
   constructor(private readonly service: RateLimitService) {}
 
   @Get()
+  @Roles('admin', 'manager') // М2: список ограничений — не любому вошедшему
   findAll() {
     return this.service.findAll();
   }

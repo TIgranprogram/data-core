@@ -1,5 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
+import { SAFE_UPLOAD_URL_RE } from '../../common/uploads/safe-path';
 
 /** Strip TipTap tags inside `{{…}}` tokens (legacy templates). TZ-KP-BIND-513 */
 export function normalizeSubstitutionHtml(html: string): string {
@@ -45,7 +46,6 @@ export function resolveUploadsRoot(): string {
   return resolve(process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads'));
 }
 
-const SAFE_UPLOAD_URL_RE = /^\/uploads\/[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
 
 /**
  * TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG — public single source of truth

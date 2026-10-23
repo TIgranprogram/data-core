@@ -1,16 +1,15 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
-import { join } from 'path';
 import { Types, type Connection } from 'mongoose';
 import sharp from 'sharp';
 import { ProductPassportService } from './product-passport.service';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
+import { safeUploadPath } from '../../common/uploads/safe-path';
 import { standardSchemes } from './passport-schemes';
 import { renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 
-const uploadDir = () => process.env.UPLOAD_DIR ?? './uploads';
 type Doc = Record<string, unknown>;
 
 /** Сборка PDF паспорта и пакета ZIP: читает паспорт, организацию-поставщика, картинки (TASKS ПС.6). */
@@ -39,10 +38,11 @@ export class PassportPdfService {
 
   /** Файл картинки → JPEG для pdfkit (webp и прочее — через sharp, большие — уменьшаем; JPEG легче и быстрее PNG). */
   private async file(storageUrl?: string): Promise<Buffer | undefined> {
-    if (!storageUrl?.startsWith('/uploads/')) return undefined;
+    const path = safeUploadPath(storageUrl);
+    if (!path) return undefined; // ссылка не в папку загрузок — картинку пропускаем (М1)
     return this.cached('f:' + storageUrl, async () => {
       try {
-        const raw = await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)));
+        const raw = await fs.readFile(path);
         return await sharp(raw).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).jpeg({ quality: 85 }).toBuffer();
       } catch (e) {
         this.log.warn(`картинка ${storageUrl}: ${(e as Error).message}`);
@@ -53,9 +53,10 @@ export class PassportPdfService {
 
   /** Печать/подпись/логотип — PNG с прозрачностью (без flatten), не больше 800 px: в PDF они ~3–5 см. */
   private async asset(storageUrl?: string): Promise<Buffer | undefined> {
-    if (!storageUrl?.startsWith('/uploads/')) return undefined;
+    const path = safeUploadPath(storageUrl);
+    if (!path) return undefined;
     return this.cached('a:' + storageUrl, async () => {
-      try { return await sharp(await fs.readFile(join(uploadDir(), storageUrl.slice('/uploads/'.length)))).resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true }).png().toBuffer(); } catch { return undefined; }
+      try { return await sharp(await fs.readFile(path)).resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true }).png().toBuffer(); } catch { return undefined; }
     });
   }
 

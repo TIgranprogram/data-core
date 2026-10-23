@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
+import { safeUploadPath } from '../../common/uploads/safe-path';
 import sharp from 'sharp';
 import { shrinkInPlace } from './image-shrink';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
@@ -195,14 +196,15 @@ export class PhotosService {
 
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
+    // варианты фото (миниатюра, повёрнутая копия) — отдельные записи со ссылкой parentPhotoId: удаляются вместе (М9)
+    const variants = await this.model.find({ parentPhotoId: doc._id }).exec();
+    for (const v of variants) await v.deleteOne();
     await doc.deleteOne();
-    // Best-effort cleanup of the physical file. If the file is missing or
-    // we lack permission, log a warning but don't fail the request — DB
-    // record is the source of truth. Physical-file leaks are bounded by
-    // a follow-up `scripts/cleanup-orphan-uploads.ts` (TODO).
-    if (doc.storageUrl?.startsWith('/uploads/')) {
-      const filename = doc.storageUrl.slice('/uploads/'.length);
-      const filePath = join(uploadDir(), filename);
+    // Файлы — по возможности: нет файла или прав — предупреждение, запрос не падает (истина — запись в базе).
+    // Ссылка не в папку загрузок — файл не трогаем (М1). Остатки без ссылок покажет scripts/orphan-uploads.js.
+    for (const url of [doc.storageUrl, ...variants.map((v) => v.storageUrl)]) {
+      const filePath = safeUploadPath(url, resolve(uploadDir()));
+      if (!filePath) continue;
       try {
         await fs.unlink(filePath);
       } catch (err) {

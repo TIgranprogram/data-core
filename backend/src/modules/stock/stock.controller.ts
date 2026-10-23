@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -107,6 +108,7 @@ export class StockController {
   /** Бронь по списку (спецификация): бронирует сколько свободно, нехватку возвращает в short. */
   @Post('reserve-list')
   @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
   @AuditAction({ action: 'stock.reserve.list', entityType: 'StockMovement' })
   reserveList(@Body() dto: StockReserveListDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.stock.reserveList(dto, user?.id);
@@ -154,6 +156,7 @@ export class StockController {
   /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */
   @Post('batch')
   @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
   @AuditAction({ action: 'stock.batch', entityType: 'StockMovement' })
   batch(@Body() dto: StockBatchDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.stock.batch(dto, user?.id);

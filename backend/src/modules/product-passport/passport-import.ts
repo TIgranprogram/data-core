@@ -1,3 +1,4 @@
+// Не рантайм: используется scripts/import-passports.js (через dist). Не удалять как неиспользуемый (ARCH-PLAN М4).
 import { SUGGESTED_TYPOS, applyDict, cleanText, parseDecimal, parseRuDate, splitObject, warrantyCodeFor } from './passport-rules';
 import { serialDate, type SheetData } from './xlsx-read';
 

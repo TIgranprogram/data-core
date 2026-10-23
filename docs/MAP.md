@@ -80,4 +80,4 @@
 
 ## Таблицы CRM kppdf
 
-В базе `datacore` живут и коллекции CRM kppdf (заказы, КП, склад, производство, документы…): модулей в data-core для них нет, пишет kppdf (`D:\kppdf-8.0`). В реестре — `kind:'crm'`. Проверки удаления справочников учитывают ссылки из них (`modules/catalog/catalog-references.ts` → `isUsedByCrm`).
+В базе `datacore` живут и коллекции CRM kppdf (заказы, КП, склад, производство, документы…): модулей в data-core для них нет, пишет kppdf (`D:\kppdf-8.0`). В реестре — `kind:'crm'`; шесть общих (склад и снабжение, пишут оба кода) — `kind:'shared'` (М5). Проверки удаления справочников учитывают ссылки из них (`modules/catalog/catalog-references.ts` → `isUsedByCrm`).
