@@ -6,6 +6,7 @@
  *
  * По умолчанию — справочники «Паспорта»: категория MAF (название, «Категории каталога»), оформление COLOR_MAF.
  * --passports — паспорта: категория каталога «МАФ» → «Благоустройство» (текст паспорта не трогаем — в нём слова «МАФ» нет).
+ * --drop-old  — убрать «МАФ» из «Категорий каталога» категории (когда в паспортах и «Продукции» его уже нет).
  * --catalog   — раздел «Продукции» «МАФ» → «Благоустройство» (categories type product — ОБЩАЯ с CRM kppdf, там тоже переименуется).
  * Откат: до записи сохраняется JSON прежних значений рядом со скриптом (rename-maf-before-<время>.json).
  */
@@ -16,6 +17,7 @@ const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cw
 const APPLY = process.argv.includes('--apply');
 const WITH_PASSPORTS = process.argv.includes('--passports');
 const WITH_CATALOG = process.argv.includes('--catalog');
+const DROP_OLD = process.argv.includes('--drop-old');
 const NEW = 'Благоустройство';
 const isMaf = (s) => /^\s*маф\s*$/i.test(String(s ?? ''));
 
@@ -27,7 +29,7 @@ const isMaf = (s) => /^\s*маф\s*$/i.test(String(s ?? ''));
   const cat = await dv.findOne({ dict: 'passportCategories', code: 'MAF', deletedAt: null });
   if (cat) {
     const names = String(cat.catalogNames || '').split(/[,;]/).map((x) => x.trim()).filter(Boolean);
-    const catalogNames = [...new Set([NEW, ...names])].join(', '); // «МАФ» остаётся — старое название в каталоге и паспортах
+    const catalogNames = [...new Set([NEW, ...names])].filter((n) => !(DROP_OLD && isMaf(n))).join(', '); // «МАФ» — старое название, пока оно есть в данных
     if (cat.name !== NEW || cat.catalogNames !== catalogNames) plan.push({ coll: 'dict_values', _id: cat._id, set: { name: NEW, catalogNames }, before: { name: cat.name, catalogNames: cat.catalogNames } });
   }
   const style = await dv.findOne({ dict: 'passportStyle', code: 'COLOR_MAF', deletedAt: null });
