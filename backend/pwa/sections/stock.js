@@ -4,11 +4,11 @@ import { date, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
 import { cancelMovement, moveLabel } from './movements.js';
-import { issueToFields } from './issue.js';
+import { issueDialog, issueToFields, withOrders } from './issue.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
 import { orderedBlock, orderItem, receiveField } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
@@ -23,13 +23,37 @@ const photoThumb = (r) => {
   return p ? h('img', { class: 'thumb', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy' }) : null;
 };
 
+/**
+ * «Выдать из брони» (замечание 2026-10-23: «списываю — опять спрашивает количество, хотя в брони оно есть»): брони позиции;
+ * одна — сразу окно выдачи с количеством и объектом из брони; несколько — сначала выбрать, какую.
+ */
+async function issueFromReserve(r, ctx) {
+  try {
+    const res = await api('/stock/reservations');
+    const lines = res.items.flatMap((g) => g.lines.filter((l) => l.materialId === r.id && l.qty > 0).map((l) => ({ id: l.id, name: l.name, unit: l.unit, qty: l.qty, group: g.name })));
+    if (!lines.length) { toast('Активной брони у позиции нет'); return; }
+    let line = lines[0];
+    if (lines.length > 1) {
+      const sel = h('select', { 'aria-label': 'Какая бронь' }, lines.map((l, i) => h('option', { value: String(i) }, `${l.group} — ${qty(l.qty)} ${l.unit}`)));
+      const k = await modal({ title: `Из какой брони: ${r.name}`, okText: 'Дальше', body: h('label', { class: 'field wide' }, h('span', null, 'Бронь'), sel), onOk: async () => sel.value });
+      if (k === null) return;
+      line = lines[Number(k)];
+    }
+    const out = await issueDialog(`Выдать из брони: ${r.name}`, [line], { issuedTo: line.group && line.group !== 'Бронь' ? line.group : '' });
+    if (!out) return;
+    toast('Выдано из брони');
+    ctx.setRow(await api(`/stock/items/${r.id}`));
+    window.dispatchEvent(new CustomEvent('data-changed'));
+  } catch (e) { toastError(e); }
+}
+
 /** Приход / списание / бронь / снятие брони / инвентаризация. */
 async function move(r, type, ctx) {
   const inv = type === 'adjust';
   const titles = { in: 'Приход', out: 'Списание', reserve: 'Бронь', unreserve: 'Снять бронь', adjust: 'Инвентаризация' };
   const hints = {
     in: 'Поступление на склад. Остаток увеличится.',
-    out: `Выдача в производство / расход. Свободно сейчас: ${qty(r.free)} ${unit(r)}.`,
+    out: `Выдача в производство / расход — из свободного остатка: ${qty(r.free)} ${unit(r)}.${r.reservedQty ? ` Забронированное (${qty(r.reservedQty)}) выдаётся кнопкой «Выдать из брони».` : ''}`,
     reserve: `Резерв под заказ: остаток не меняется, «свободно» уменьшается. Свободно сейчас: ${qty(r.free)} ${unit(r)}.`,
     unreserve: `Вернуть забронированное в свободный остаток. В брони: ${qty(r.reservedQty)} ${unit(r)}.`,
     adjust: `По учёту ${qty(r.quantity)} ${unit(r)} · в брони ${qty(r.reservedQty)} · свободно ${qty(r.free)}. Бронь физически лежит на складе — считайте её вместе со всем.`,
@@ -56,7 +80,10 @@ async function move(r, type, ctx) {
     if (b) b.disabled = d === 0;
   };
   if (inv) { qIn.addEventListener('input', showPreview); setTimeout(showPreview, 0); }
-  const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Под какой заказ' : type === 'out' ? 'Куда / на какой заказ' : 'Основание' });
+  const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Заказ из списка или своё' : type === 'out' ? 'Необязательно' : 'Основание' });
+  // бронь — «под какой заказ» выпадающим списком заказов в работе (замечание 2026-10-23); при выдаче объект — в «Кому выдано»
+  const noteBox = h('label', { class: 'field' }, h('span', null, type === 'reserve' ? 'Под какой заказ' : 'Примечание'), note);
+  if (type === 'reserve') withOrders(note);
   const to = type === 'out' ? issueToFields() : null; // кому выдано (TASKS Л.3)
   const recv = type === 'in' ? receiveField(r) : null; // приход закрывает открытую заявку (ЗП.4)
   // НО.2: приход и пересчёт — штуками или по весу (один компонент); пересчёт по весу — тоже «всего, вместе с бронью» (ФИ)
@@ -70,7 +97,7 @@ async function move(r, type, ctx) {
         preview,
         type === 'in' ? pipeInHelper(r, qIn) : null, // труба: «10 хлыстов по 6 м» = 60 м (СМ.2)
         recv?.el,
-        h('label', { class: 'field' }, h('span', null, 'Примечание'), note), to?.el)),
+        noteBox, to?.el)),
     onOk: async () => {
       if (wc?.mode() === 'w' && wc.get().errors?.length) throw new Error(wc.get().errors[0]);
       const n = parseNum(qIn.value);
@@ -141,7 +168,7 @@ export const stock = {
       '': 'Все позиции склада. В строке: «+ Приход», «− Списать»; если не хватает — «Заказать». Несколько позиций разом и пересчёт полки — раздел «Операции».',
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
-      reserved: 'Часть остатка забронирована под заказы: «свободно» меньше остатка.',
+      reserved: 'Отложено под заказы. Выдать — «Из брони» в строке.',
       ok: 'Хватает. Делать ничего не нужно.',
     },
     rowAction: (r) => {
@@ -149,7 +176,9 @@ export const stock = {
       const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { orderItem(row); return false; } };
       const inc = { label: '+ Приход', title: 'Поступление на склад', run: (row) => move(row, 'in', silent) };
       const out = { label: '− Списать', title: 'Выдача / расход', run: (row) => move(row, 'out', silent) };
-      return r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
+      const fromRes = { label: 'Из брони', title: 'Выдать забронированное: количество и объект — из брони', run: (row) => issueFromReserve(row, silent) };
+      const base = r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
+      return r.reservedQty > 0 ? [fromRes, ...base.filter((a) => a !== out || r.free > 0)] : base;
     },
     tiles: {
       key: 'categoryId',
@@ -168,7 +197,7 @@ export const stock = {
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
-      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap' }, badge(STOCK_STATUS, r.status), r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  заказано ${qty(r.ordered)}`) : null) },
+      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap st-cell' }, badge(STOCK_STATUS, r.status), r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы — «Из брони» в строке' }, `бронь ${qty(r.reservedQty)}`) : null, r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  заказано ${qty(r.ordered)}`) : null) },
     ],
     card: {
       thumb: photoThumb,
@@ -199,7 +228,8 @@ export const stock = {
       ['Примечание', r.notes],
     ],
     actions: (r) => [
-      { label: '+ Приход', primary: true, run: (row, ctx) => move(row, 'in', ctx) },
+      r.reservedQty > 0 && { label: 'Выдать из брони', primary: true, title: 'Количество и объект — из брони', run: (row, ctx) => issueFromReserve(row, ctx) },
+      { label: '+ Приход', primary: !(r.reservedQty > 0), run: (row, ctx) => move(row, 'in', ctx) },
       { label: '− Списание', run: (row, ctx) => move(row, 'out', ctx) },
       { label: 'Забронировать под заказ', run: (row, ctx) => move(row, 'reserve', ctx) },
       r.reservedQty > 0 && { label: 'Снять бронь', run: (row, ctx) => move(row, 'unreserve', ctx) },

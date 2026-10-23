@@ -1063,3 +1063,6 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 /* «Изделия из паспортов» (БЗ-8): группа похожих — список с галочками и кружком «главный», название, кнопки */
 .fp-group { padding: var(--s2) 0 var(--s3); border-bottom: 1px solid var(--border); }
 .fp-group .dict-cand-list input[type=radio] { height: auto; }
+
+/* Склад, колонка «Состояние»: состояние и бронь — раздельно (метка «бронь N» отдельно от «В норме / К закупке»), 2026-10-23 */
+.st-cell { display: inline-flex; align-items: center; gap: 6px; }

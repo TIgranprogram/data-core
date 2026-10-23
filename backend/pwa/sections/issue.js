@@ -2,6 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
+import { attachCombo } from '../ui/combo.js';
 import { enhanceSelect } from '../ui/select.js';
 
 /*
@@ -29,16 +30,34 @@ export async function peopleByWork() {
   return cache;
 }
 
-/** Поля «Кому выдано»: { el, value() → { personId?, issuedTo? } }. */
-export function issueToFields() {
+/**
+ * Заказы в работе — для «на объект / под какой заказ» (замечание 2026-10-23: «на объект не даёт выпадающий список»):
+ * [{ label: «№ 12 · Заказчик», sub: предмет }]. Список грузится один раз; можно вписать и своё.
+ */
+let ordersCache = null;
+export const orderOptions = () => (ordersCache ??= api('/salesorders', { query: { filter: 'active', limit: 500, sort: 'orderNo' } })
+  .then((r) => r.items.map((o) => ({ label: [`№ ${o.orderNo || '—'}`, o.customer].filter(Boolean).join(' · '), sub: o.title || '' })))
+  .catch(() => { ordersCache = null; return []; }));
+
+/** Поле текста с выпадающим списком заказов в работе (вписать своё тоже можно). */
+export function withOrders(input) {
+  let opts = [];
+  orderOptions().then((x) => { opts = x; });
+  attachCombo(input, { options: () => opts });
+  return input;
+}
+
+/** Поля «Кому выдано»: { el, value() → { personId?, issuedTo? } }; issuedTo — подставить (объект брони). */
+export function issueToFields(issuedTo = '') {
   const sel = h('select', { 'aria-label': 'Кому выдано — сотрудник' }, h('option', { value: '' }, '— сотрудник —'));
-  const txt = h('input', { maxlength: 200, placeholder: 'или: на объект, бригада', 'aria-label': 'Кому / куда выдано' });
+  const txt = h('input', { maxlength: 200, value: issuedTo, placeholder: 'или: объект / заказ — из списка или своё', 'aria-label': 'Кому / куда выдано' });
   peopleByWork().then((groups) => {
     if (!groups.length) { sel.firstChild.textContent = '— сотрудников нет в «Справочниках» —'; return; }
     for (const g of groups) sel.append(h('optgroup', { label: g.group }, ...g.people.map((p) => h('option', { value: p.id }, p.name))));
     enhanceSelect(sel); // много людей — поиск по списку, ФИО целиком (ВС.6)
   }).catch(() => { sel.firstChild.textContent = '— список не загрузился —'; });
-  const el = h('label', { class: 'field wide' }, h('span', null, 'Кому выдано'), h('div', { class: 'issue-to' }, sel, txt));
+  const el = h('label', { class: 'field wide' }, h('span', null, 'Кому выдано'), h('div', { class: 'issue-to' }, sel, h('div', null, txt)));
+  withOrders(txt);
   return {
     el,
     value: () => ({ ...(sel.value ? { personId: sel.value } : {}), ...(txt.value.trim() ? { issuedTo: txt.value.trim() } : {}) }),
@@ -50,10 +69,10 @@ export function issueToFields() {
  * Окно «Выдать по брони»: lines — [{ id, name, unit, qty }] (строки брони с остатком). Одна строка — можно выдать часть
  * (поле «Сколько»), несколько — выдаются целиком. Возвращает ответ сервера или null (отмена).
  */
-export async function issueDialog(title, lines) {
+export async function issueDialog(title, lines, { issuedTo = '' } = {}) {
   const one = lines.length === 1 ? lines[0] : null;
   const n = one ? h('input', { inputmode: 'decimal', value: String(one.qty) }) : null;
-  const to = issueToFields();
+  const to = issueToFields(issuedTo); // объект — из брони («под какой заказ»), можно поменять
   return modal({
     title, okText: 'Выдать',
     body: h('div', null,
