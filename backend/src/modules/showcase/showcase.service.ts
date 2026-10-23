@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
+import { skuKey, skuRegex, tokensFilter } from '../../common/text/search-norm';
 import { isUsedByCrm } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
@@ -85,7 +86,9 @@ export class ShowcaseService {
   async list(q: Record<string, unknown>) {
     const page = Math.max(1, Number(q.page) || 1), limit = Math.min(500, Math.max(1, Number(q.limit) || 50));
     const filter: Record<string, unknown> = { deletedAt: String(q.deleted) === '1' ? { $ne: null } : null };
-    if (q.search) { const re = new RegExp(String(q.search).trim().split(/\s+/).map(escapeRe).join('.*'), 'i'); filter.$or = [{ name: re }, { sku: re }, { series: re }]; }
+    // поиск «как на складе»: слова в любом порядке, ё = е, M10 = М10
+    const sf = tokensFilter(q.search, ['name', 'sku', 'series']);
+    if (sf) filter.$and = sf.$and;
     if (q.groupId) {
       const g = oid(String(q.groupId), 'группы');
       const kids = await this.db.collection('categories').find({ parentId: g }, { projection: { _id: 1 } }).toArray();
@@ -284,7 +287,9 @@ export class ShowcaseService {
   async create(dto: Record<string, unknown>, opts: { requireType?: boolean } = {}) {
     const sku = clean(dto.sku);
     if (!sku) throw new BadRequestException('Укажите артикул');
-    if (await this.db.collection('products').findOne({ sku: new RegExp(`^\\s*${escapeRe(sku)}\\s*$`, 'i') })) throw new ConflictException(`Изделие с артикулом ${sku} уже есть`);
+    // дубль — и с другим регистром, похожими буквами (KC-01 = КС-01), лишними пробелами; в т. ч. в корзине и у изделий CRM
+    const dup = await this.db.collection('products').findOne({ sku: skuRegex(sku) }, { projection: { sku: 1, name: 1, deletedAt: 1 } });
+    if (dup) throw new ConflictException(`Изделие с артикулом ${dup.sku} уже есть: «${dup.name ?? ''}»${dup.deletedAt ? ' (в корзине — восстановите его)' : ''}`);
     if (opts.requireType && !clean(dto.type)) throw new BadRequestException('Укажите раздел изделия');
     const set = await this.fields({ ...dto, name: dto.name ?? sku });
     const now = new Date();
@@ -298,7 +303,8 @@ export class ShowcaseService {
     const set = await this.fields(dto);
     if (dto.sku !== undefined) {
       const sku = clean(dto.sku); if (!sku) throw new BadRequestException('Артикул не может быть пустым');
-      if (await this.db.collection('products').findOne({ _id: { $ne: _id }, sku: new RegExp(`^\\s*${escapeRe(sku)}\\s*$`, 'i') })) throw new ConflictException(`Артикул ${sku} уже у другого изделия`);
+      const dup = await this.db.collection('products').findOne({ _id: { $ne: _id }, sku: skuRegex(sku) }, { projection: { sku: 1, name: 1 } });
+      if (dup) throw new ConflictException(`Артикул ${dup.sku} уже у другого изделия: «${dup.name ?? ''}»`);
       set.sku = sku;
     }
     if (set.photoIds) set.mainPhotoId = (set.photoIds as Types.ObjectId[])[0] ?? null;
@@ -329,10 +335,11 @@ export class ShowcaseService {
    */
   async import(text: string, apply: boolean) {
     const { rows, errors } = parseCatalog(text);
-    const existing = await this.db.collection('products').find({ sku: { $in: rows.map((r) => r.sku) } }, { projection: { sku: 1, name: 1, series: 1, listPrice: 1, deletedAt: 1 } }).toArray();
-    const by = new Map(existing.map((e) => [String(e.sku).toLowerCase(), e]));
+    // сверка по тому же правилу, что и проверка дубля (регистр, похожие буквы): иначе «ab-1» при «AB-1» в базе шёл как новый и загрузка падала на 409
+    const existing = rows.length ? await this.db.collection('products').find({ sku: { $in: rows.map((r) => skuRegex(r.sku)) } }, { projection: { sku: 1, name: 1, series: 1, listPrice: 1, deletedAt: 1 } }).toArray() : [];
+    const by = new Map(existing.map((e) => [skuKey(e.sku), e]));
     const plan = rows.map((r) => {
-      const e = by.get(r.sku.toLowerCase());
+      const e = by.get(skuKey(r.sku));
       const action = !e ? 'new' : e.deletedAt ? 'deleted' : (clean(e.name) !== r.name || (e.series ?? null) !== r.series || (r.price && !(Number(e.listPrice) > 0))) ? 'update' : 'same';
       return { ...r, action };
     });
@@ -342,7 +349,7 @@ export class ShowcaseService {
     for (const p of plan) {
       if (p.action === 'new') await this.create({ sku: p.sku, name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price ? { price: p.price } : {}) });
       else if (p.action === 'update') {
-        const e = by.get(p.sku.toLowerCase())!;
+        const e = by.get(skuKey(p.sku))!;
         await this.update(String(e._id), { name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price && !(Number(e.listPrice) > 0) ? { price: p.price } : {}) });
       }
     }

@@ -9,6 +9,7 @@ import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
+import { normSearch, searchTokens } from '../core/facets.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы, справа компактная таблица выбранного
@@ -68,7 +69,9 @@ export function mountDicts(params) {
     const { dict } = data;
     const cols = dict.columns.filter((c) => !(c.key === 'salaryRate' && !session.canMoney));
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
-    const rows = data.items.filter((x) => !q || Object.values(x).join(' ').toLowerCase().includes(q));
+    // слова в любом порядке, ё = е, M10 = М10 (как поиск на складе)
+    const tk = searchTokens(q);
+    const rows = data.items.filter((x) => !tk.length || ((s) => tk.every((w) => s.includes(w)))(normSearch(Object.values(x).filter((v) => typeof v !== 'object').join(' '))));
     if (!data.items.length) {
       body.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Справочник пуст.'), session.canEdit ? h('p', { class: 'muted' }, '«+ Добавить» — вписать вручную, «Найти в данных…» — взять то, что уже встречается в заявках и таблице.') : null));
       return;

@@ -9,6 +9,9 @@ export function normSearch(s) {
     .replace(/[abcehkmoptxy]/g, (ch) => LOOKALIKE[ch]).replace(/(\d),(\d)/g, '$1.$2')
     .replace(/[«»"'(),;]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
+/** Артикул — тот же, если отличается регистром, «ё», похожими буквами (KC-01 = КС-01), пробелами по краям; как skuKey на сервере. */
+export const skuKey = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[×*]/g, 'х')
+  .replace(/[abcehkmoptxy]/g, (ch) => LOOKALIKE[ch]).replace(/\s+/g, ' ').trim();
 export const searchTokens = (q) => normSearch(q).replace(/(^|\s)м\s+(\d)/g, '$1м$2').split(' ').filter(Boolean);
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);

@@ -3,6 +3,7 @@ import { DataVersionService } from '../../common/data-version/data-version.servi
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { parseList } from '../../common/list-query';
+import { tokensFilter } from '../../common/text/search-norm';
 import { ProductPassport, ProductPassportDocument } from './product-passport.schema';
 import { PassportTemplate, PassportTemplateDocument } from './passport-template.schema';
 import { normalizeCategory, type PassportCategory } from './passport-template-select';
@@ -51,7 +52,9 @@ export class ProductPassportService {
     const p = parseList(q, { sortable: SORT, defaultSort: '-passportNo', defaultLimit: 25 });
     const make = async () => {
       const filter = this.filterOf(q, p.deleted);
-      if (p.search) filter.$or = ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier'].map((f) => ({ [f]: p.search }));
+      // поиск «как на складе»: «качели двойные» = «двойные качели», ё = е
+      const sf = tokensFilter(q.search, ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier']);
+      if (sf) filter.$and = sf.$and;
       const docs = await this.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
       // «неполные» считаются правилами, а не запросом — паспортов сотни
       const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);

@@ -4,6 +4,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { DICT, DICTS, type DictDef, type Doc, norm } from './dicts.defs';
+import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 /** Сходство названий (биграммы, коэффициент Дайса) — «похоже на …» при переносе значений. */
 function similarity(a: string, b: string) {
@@ -69,13 +70,13 @@ export class DictsService {
     const d = this.def(key);
     const docs = await this.docs(d);
     const used = await d.usage(this.db, docs);
-    const s = norm(search);
+    const tk = searchTokens(search); // слова в любом порядке, ё = е, M10 = М10
     // справочник для ссылок «Вид работ» / «График выплат» в форме
     const refs: Record<string, { value: string; label: string }[]> = {};
     for (const f of d.fields) if (f.ref) { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
     const items = docs.map((x) => this.item(d, x, used.get(String(x._id)) ?? 0) as Record<string, unknown>)
       .map((x) => ({ ...x, ...(x.workTypeId !== undefined ? { workTypeName: refs.worktypes?.find((r) => r.value === String(x.workTypeId))?.label ?? '' } : {}) }))
-      .filter((x) => !s || norm(Object.values(x).join(' ')).includes(s))
+      .filter((x) => matchesAll(tk, ...Object.values(x).filter((v) => typeof v === 'string' || typeof v === 'number')))
       .sort((a, b) => String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru'));
     await this.attachPhotos(d, items);
     return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, group: d.group, hint: d.hint, columns: d.columns, fields: d.fields, refs } };

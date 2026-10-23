@@ -279,9 +279,12 @@ describe('IncomesService', () => {
       expect(f.reportDate.$lt).toEqual(new Date(Date.UTC(2026, 1, 1)));
     });
 
-    it('list: поиск превращается в $or по текстовым полям', async () => {
-      await service.list({ search: 'скам' });
-      expect(model.find.mock.calls[0][0].$or).toHaveLength(6);
+    it('list: поиск — каждое слово ($and) в одном из 6 текстовых полей ($or); статус «Без суммы» его не затирает', async () => {
+      await service.list({ search: 'скам двойн', status: 'noamount' });
+      const f = model.find.mock.calls[0][0];
+      expect(f.$and).toHaveLength(2);
+      expect(f.$and[0].$or).toHaveLength(6);
+      expect(f.$or).toHaveLength(2); // свой $or статуса «Без суммы»
     });
 
     it('list: нельзя сортировать по постороннему полю', async () => {

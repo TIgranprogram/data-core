@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { toast } from '../ui/toast.js';
+import { skuKey } from '../core/facets.js';
 import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
@@ -180,10 +181,15 @@ export const products = {
           .map((g) => ({ ...opt(g), sub: [opt(g).sub, g.section].filter(Boolean).join(' · '), group: mine.length ? 'Все' : undefined }));
         return [...mine, ...rest];
       };
+      // дубль артикула — по тому же правилу, что на сервере (регистр, KC-01 = КС-01), и в корзине тоже
       const skuTaken = async (v) => {
-        const res = await api(`/showcase?search=${encodeURIComponent(v)}&limit=20`);
-        const hit = (res.items || []).find((x) => same(x.sku, v) && x.id !== r?.id);
-        return hit ? `Такой артикул уже есть: «${hit.name}» — сохранить с ним не получится` : null;
+        const q = `search=${encodeURIComponent(v)}&limit=20`;
+        const [live, trash] = await Promise.all([api(`/showcase?${q}`), api(`/showcase?${q}&deleted=1`).catch(() => ({ items: [] }))]);
+        const hit = (x) => skuKey(x.sku) === skuKey(v) && x.id !== r?.id;
+        const a = (live.items || []).find(hit); const b = (trash.items || []).find(hit);
+        if (a) return `Такой артикул уже есть: «${a.name}» (арт. ${a.sku}) — сохранить с ним не получится`;
+        if (b) return `Такой артикул у изделия в корзине: «${b.name}» — восстановите его вместо нового`;
+        return null;
       };
       return [
       { section: 'Изделие', tone: 'main', fixed: true },

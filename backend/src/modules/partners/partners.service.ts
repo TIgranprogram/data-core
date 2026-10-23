@@ -4,6 +4,7 @@ import type { Connection } from 'mongoose';
 import { createHash } from 'crypto';
 import { Types } from 'mongoose';
 import { escapeRe } from '../../common/list-query';
+import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 type Doc = Record<string, unknown>;
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -42,9 +43,9 @@ export class PartnersService {
   async list(q: Record<string, unknown> = {}) {
     const type = String(q.type || 'supplier');
     if (String(q.deleted) === '1') return this.trash();
-    const s = norm(q.search);
+    const tk = searchTokens(q.search); // слова в любом порядке, ё = е, ООО «Ромашка» = ромашка ооо
     const items = type === 'customer' ? await this.customers() : await this.suppliers(type === 'our');
-    const filtered = s ? items.filter((x) => norm([x.name, x.inn, x.email, x.phone].filter(Boolean).join(' ')).includes(s)) : items;
+    const filtered = tk.length ? items.filter((x) => matchesAll(tk, x.name, x.inn, x.email, x.phone)) : items;
     const [sup, cust, our] = await Promise.all([
       this.db.collection('organizations').countDocuments({ deletedAt: null, isOurCompany: { $ne: true }, ...NOT_CUSTOMER_ONLY }),
       this.customers().then((c) => c.length),

@@ -5,6 +5,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
+import { tokensFilter } from '../../common/text/search-norm';
 import { normText } from '../../common/text/norm-text';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
@@ -68,7 +69,9 @@ export class IncomesService {
     if (q.orderId) filter.orderId = { $in: oids(q.orderId) };
     const range = dateRange(q.from, q.to);
     if (range) filter.reportDate = range;
-    if (p.search) filter.$or = ['orderNo', 'customer', 'title', 'notes', 'kind', 'color'].map((f) => ({ [f]: p.search }));
+    // поиск «как на складе»; в $and — чтобы статус «Без суммы» (свой $or) не затирал поиск
+    const sf = tokensFilter(q.search, ['orderNo', 'customer', 'title', 'notes', 'kind', 'color']);
+    if (sf) filter.$and = sf.$and;
     const statusCond: Record<string, Record<string, unknown>> = {
       paid: { paidDate: { $ne: null } },
       // «Ждём оплату» — только с суммой; отгружено без суммы (позиции из Excel без цен) — «Без суммы», в оплату не просится

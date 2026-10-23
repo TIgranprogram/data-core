@@ -30,3 +30,24 @@ describe('поиск по складу (search-norm)', () => {
     expect(matchesAll(searchTokens('  '), nut)).toBe(true);
   });
 });
+
+import { skuKey, skuRegex, tokensFilter } from './search-norm';
+describe('артикул и поиск в списках', () => {
+  it('skuKey: регистр, похожие буквы, пробелы по краям — тот же; дефис значим', () => {
+    expect(skuKey(' KC-01 ')).toBe(skuKey('кс-01'));
+    expect(skuKey('А-1')).not.toBe(skuKey('А1'));
+  });
+  it('skuRegex находит тот же артикул в БД и не находит похожий', () => {
+    const re = skuRegex('KC-01');
+    expect(re.test('КС-01')).toBe(true);
+    expect(re.test(' кс-01 ')).toBe(true);
+    expect(re.test('КС-011')).toBe(false);
+    expect(skuRegex('a.b(1)').test('А.В(1)')).toBe(true);
+  });
+  it('tokensFilter: слова в любом порядке, каждое — в одном из полей', () => {
+    const f = tokensFilter('двойные качели', ['name', 'sku'])!;
+    expect(f.$and).toHaveLength(2);
+    expect(((f.$and[0].$or as Record<string, RegExp>[])[0].name).test('Качели ДВОЙНЫЕ')).toBe(true);
+    expect(tokensFilter('  ', ['name'])).toBeNull();
+  });
+});

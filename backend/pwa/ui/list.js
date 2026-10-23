@@ -200,6 +200,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   function stateRow(make) {
     tbody.replaceChildren(h('tr', { class: 'state-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) }, make())));
     cards.replaceChildren(h('li', { class: 'state-row' }, make()));
+    // галерея («Продукция», «Паспорта»): таблица скрыта — то же состояние («ничего не найдено», загрузка, ошибка) здесь
+    galleryBox.replaceChildren(make());
   }
 
   // ---------- Загрузка ----------

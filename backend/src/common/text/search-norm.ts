@@ -39,3 +39,29 @@ export function tokenRegex(token: string): RegExp {
   }).join('');
   return new RegExp(src, 'i');
 }
+
+/** Фильтр Mongo «как на складе» для списков: каждое слово запроса (И) — в любом из полей (ИЛИ); пусто — null. */
+export function tokensFilter(search: unknown, fields: string[]): { $and: Record<string, unknown>[] } | null {
+  const tokens = searchTokens(search);
+  if (!tokens.length) return null;
+  return { $and: tokens.map((tk) => ({ $or: fields.map((f) => ({ [f]: tokenRegex(tk) })) })) };
+}
+
+/**
+ * Артикул — один и тот же, если отличается только регистром, «ё», похожими буквами кириллицы/латиницы
+ * (KC-01 = КС-01) и пробелами по краям / двойными пробелами. Дефисы и пробелы внутри — значимы (А-1 ≠ А1).
+ */
+export function skuKey(sku: unknown): string {
+  return String(sku ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[×*]/g, 'х')
+    .replace(/[abcehkmoptxy]/g, (ch) => LOOKALIKE[ch]).replace(/\s+/g, ' ').trim();
+}
+/** Регулярка «этот же артикул» для поиска дубля в БД (см. skuKey). */
+export function skuRegex(sku: unknown): RegExp {
+  const k = skuKey(sku);
+  const body = [...k].map((ch) => {
+    if (ch === ' ') return '\\s+';
+    const set = PAIRS[ch];
+    return set ? `[${set.replace(/[\]\\^*-]/g, '\\$&')}]` : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('');
+  return new RegExp(`^\\s*${body}\\s*$`, 'i');
+}

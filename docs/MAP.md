@@ -57,6 +57,8 @@
 | `attribute-definition` | `/attribute-definitions` | `attributedefinitions` | EAV: определения |
 | `entity-attribute-value` | `/:entityType/:entityId/attributes[/:attributeId]` | `entityattributevalues` | EAV: значения; логика в `common/eav/eav.service.ts` |
 
+**Поиск в списках (ПС2, 2026-10-23):** `common/text/search-norm.ts` — `tokensFilter(search, fields)` (каждое слово — И, в любом из полей — ИЛИ, ё = е, M10 = М10) в `showcase`, `salesorders`, `incomes`, `product-passport`; `matchesAll` — `partners`, `dicts`; склад и заявки — как было. Артикул изделия: `skuKey` / `skuRegex` — дубль, если отличается регистром, похожими буквами (KC-01 = КС-01), пробелами по краям; проверка при создании, правке и загрузке каталога (и в корзине).
+
 **Общие хелперы (АБЗ-1, 2026-10-23 — модули без циклов, проверка `node backend/scripts/audit-cycles.js`):** `common/catalog/` — состав (composition-line), граф каталога (catalog-graph), ссылки CRM (catalog-references), category-resolver, схемы product и product-module; `common/text/` — normText, search-norm, order-key. **Вспомогательные (без контроллеров, исторически):** `catalog` — composition-line (DTO/схема/сервис состава), `catalog-references.ts` — защита удаления «используется в составе» (products/productmodules), `catalog-graph` — обход дерева состава / where-used (используют material, product, product-module, work-type), `document-render` — утилиты форматирования.
 
 ## common/ и прочее

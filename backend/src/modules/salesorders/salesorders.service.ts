@@ -4,6 +4,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
+import { tokensFilter } from '../../common/text/search-norm';
 import { ourCompanies } from '../incomes/incomes.service';
 import { normText } from '../../common/text/norm-text';
 import type { SalesOrderDto } from './dto';
@@ -60,7 +61,9 @@ export class SalesOrdersService {
     // dueTo=ГГГГ-ММ-ДД — срок (отгрузка, иначе изготовление, иначе окончание поставки) не позже даты: очередь «Сроки по заказам»
     const due = q.dueTo ? dateRange(undefined, q.dueTo) : null;
     if (due) filter.$and = [{ $or: [{ shipDate: due }, { shipDate: null, productionDeadline: due }, { shipDate: null, productionDeadline: null, deliveryDeadline: due }] }];
-    if (p.search) filter.$or = ['orderNo', 'customer', 'title', 'contractNo', 'notes'].map((f) => ({ [f]: p.search }));
+    // поиск «как на складе»: каждое слово — в одном из полей (И), ё = е, M10 = М10
+    const sf = tokensFilter(q.search, ['orderNo', 'customer', 'title', 'contractNo', 'notes']);
+    if (sf) filter.$and = [...((filter.$and as unknown[]) ?? []), ...sf.$and];
     // этапы: filter=active|done|all или явный список stage=new,production
     let stages: string[] | undefined;
     if (q.filter === 'active') stages = ACTIVE_STAGES;

@@ -1,3 +1,4 @@
+import { skuKey } from '../../common/text/search-norm';
 /**
  * Разбор каталога изделий (TASKS БЗ-4): строки таблицы в любом порядке колонок, как лист «Перечень изделий 2026»
  * (Тип · Группа · Артикул · Наименование · Серия; цена — необязательно). Чистая функция — юнит-тесты catalog-rows.spec.ts.
@@ -28,7 +29,7 @@ export function parseCatalog(text: string) {
     if (!r.sku && !r.name) return;
     if (!r.sku) { errors.push(`Строка ${line}: нет артикула («${r.name}»)`); return; }
     if (!r.name) { errors.push(`Строка ${line}: нет наименования (арт. ${r.sku})`); return; }
-    const k = r.sku.toLowerCase();
+    const k = skuKey(r.sku); // тот же артикул, что и при проверке дубля
     if (seen.has(k)) { errors.push(`Строка ${line}: артикул ${r.sku} уже был в строке ${seen.get(k)} — взята первая`); return; }
     seen.set(k, line);
     rows.push({ type, group, sku: r.sku, name: r.name, series: r.series || null, price: num(r.price), line });

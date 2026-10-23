@@ -24,20 +24,27 @@ export function mountSearch(params) {
   const el = h('div', null, h('div', { class: 'page-head' }, h('h1', null, q ? `Поиск: «${q}»` : 'Поиск')));
   if (!q) { el.append(h('div', { class: 'panel state' }, 'Введите номер заявки, название, поставщика или заказ в строке поиска сверху.')); return { el }; }
   const box = h('div', { class: 'results' });
-  el.append(box);
+  const none = h('div', { class: 'panel state', hidden: true },
+    h('div', null, `По «${q}» ничего не найдено ни в одном разделе.`),
+    h('p', { class: 'muted' }, 'Проверьте написание или введите часть слова: «двойн кач» найдёт «Качели двойные»; номер — цифрами.'));
+  el.append(none, box);
+  let pending = SOURCES.length; let found = 0;
+  const done = () => { if (--pending === 0 && !found) { none.hidden = false; box.hidden = true; } };
   for (const src of SOURCES) {
     const list = h('ul', { class: 'cards', style: { display: 'block' } }, h('li', { class: 'muted' }, 'Ищу…'));
     const more = h('div', { class: 'list-foot' });
     const panel = h('div', { class: 'panel' }, h('h3', null, src.title), list, more);
     box.append(panel);
     api(src.path, { query: { search: q, limit: 10 } }).then((r) => {
-      if (!r.items.length) { list.replaceChildren(h('li', { class: 'muted', style: { cursor: 'default' } }, 'Ничего не найдено')); return; }
+      // пустой раздел не показываем; если пусто везде — одна строка сверху
+      if (!r.items.length) { panel.remove(); return; }
+      found++;
       list.replaceChildren(...r.items.map((row) => {
         const v = src.section.searchRow(row);
         return h('li', { onclick: () => src.section.open(row.id) }, h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, v.title), h('div', { class: 'c-sub' }, v.sub)), h('div', { class: 'c-side' }, v.side));
       }));
       if (r.total > r.items.length) more.append(h('a', { href: `#${src.section.id}?q=${encodeURIComponent(q)}` }, `Все результаты в разделе «${src.title}» (${r.total}) →`));
-    }).catch((e) => (e.status === 403 ? panel.remove() : list.replaceChildren(h('li', null, 'Не удалось выполнить поиск: ' + e.message))));
+    }).catch((e) => { found += e.status === 403 ? 0 : 1; e.status === 403 ? panel.remove() : list.replaceChildren(h('li', null, 'Не удалось выполнить поиск: ' + e.message)); }).finally(done);
   }
   return { el };
 }

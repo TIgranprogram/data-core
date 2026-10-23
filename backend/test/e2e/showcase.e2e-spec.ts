@@ -50,6 +50,15 @@ describe('Showcase', () => {
     expect((await http().patch(`/api/showcase/${f.id}`).set(auth()).send({ status: 'archived', dimensions: {} }).expect(200)).body).toMatchObject({ status: 'archived', dimensions: null });
     await http().patch(`/api/showcase/${f.id}`).set(auth()).send({ status: 'sold' }).expect(400);
     await http().delete(`/api/showcase/${f.id}`).set(auth()).expect(200);
+    // дубли артикула: регистр, похожие буквы (KC-01 латиницей = КС-01 кириллицей), пробелы; в т. ч. изделие в корзине
+    await http().post('/api/showcase').set(auth()).send({ sku: ' f-1 ', name: 'Дубль из корзины', type: 'Спорт' }).expect(409);
+    await http().post('/api/showcase').set(auth()).send({ sku: 'KC-01', name: 'Скамья', type: 'МАФ' }).expect(201);
+    await http().post('/api/showcase').set(auth()).send({ sku: 'кс-01', name: 'Скамья 2', type: 'МАФ' }).expect(409);
+    // загрузка каталога: «kc-01» — то же изделие (обновление), а не новое с падением на 409
+    const cat = 'Тип\tГруппа\tАртикул\tНаименование\nМАФ\tСкамьи\tkc-01\tСкамья парковая';
+    expect((await http().post('/api/showcase/import').set(auth()).send({ text: cat, apply: true }).expect(200)).body).toMatchObject({ new: 0, update: 1, applied: true });
+    // поиск: слова в любом порядке
+    expect((await http().get('/api/showcase').query({ search: 'парковая скам' }).set(auth()).expect(200)).body.items.map((x: { sku: string }) => x.sku)).toEqual(['KC-01']);
     const kp1 = (await http().post('/api/showcase/kp').set(auth()).send({ items: [{ id: a.id, qty: 2 }], customer: 'ГБУ Жилищник' }).expect(200)).body;
     expect(kp1).toMatchObject({ customer: 'ГБУ Жилищник', total: 250000, noPrice: 0, company: { shortName: 'СИЮ', inn: '2300000001' } });
     expect(kp1.number).toMatch(/КП/);
