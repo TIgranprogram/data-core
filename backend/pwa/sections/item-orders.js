@@ -2,6 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
+import { resetStock, stockList } from '../core/stock-list.js';
 import { modal } from '../ui/dialog.js';
 import { enhanceSelect } from '../ui/select.js';
 
@@ -58,15 +59,13 @@ export function receiveField(r) {
  * Строка счёта / «Вставить список» (ЗП.3): выбранная позиция уже заказана — предупреждение в строке со ссылкой на заявку.
  * const w = orderedNote(); row.append(w.el); w.check('Болт М8') — после выбора позиции.
  */
-let stockCache = null;
 export function orderedNote() {
   const el = h('div', { class: 'inv-badge warn-note', hidden: true });
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
   async function check(name) {
     el.hidden = true;
     if (!name) return;
-    stockCache ??= api('/stock/items', { query: { limit: 10000 } }).then((r) => r.items).catch(() => { stockCache = null; return []; });
-    const it = (await stockCache).find((x) => norm(x.name) === norm(name));
+    const it = (await stockList().catch(() => [])).find((x) => norm(x.name) === norm(name));
     if (!(it?.ordered > 0)) return;
     const d = await ordered(it.id).catch(() => null);
     if (!d?.open.length) return;
@@ -74,5 +73,5 @@ export function orderedNote() {
     el.replaceChildren(`⚠ Уже заказано ${qty(d.inTransit)} ${it.unit || ''}: `, ...d.open.slice(0, 3).flatMap((x, i) => [i ? ', ' : '', h('a', { href: '#requests?open=' + x.id, target: '_blank', rel: 'noopener' }, `№${x.num ?? '—'} (${x.statusLabel})`)]),
       h('span', { class: 'muted' }, ' — проверьте, не дубль ли это'));
   }
-  return { el, check, reset: () => { stockCache = null; } };
+  return { el, check, reset: () => resetStock() };
 }

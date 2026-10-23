@@ -2,8 +2,6 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types, type ClientSession } from 'mongoose';
-import { parseList } from '../../common/list-query';
-import { tokensFilter } from '../../common/text/search-norm';
 import { ProductPassport, ProductPassportDocument } from './product-passport.schema';
 import { PassportTemplate, PassportTemplateDocument } from './passport-template.schema';
 import { normalizeCategory, type PassportCategory } from './passport-template-select';
@@ -18,35 +16,11 @@ import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit
 import { promoteToOwn } from './passport-promote';
 import { standardSchemes } from './passport-schemes';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
-
-/** Общая часть «Для всех» паспорта v2 в passporttemplates (отдельно от шаблона «Для всех» PDF v1). */
-const ALL_V2 = 'ALL_V2';
 import { textsTree } from './passport-texts-tree';
-
-type Doc = Record<string, unknown>;
-const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt'];
-/** Поля модели — переходят в копию паспорта и подставляются из выбранной модели (ПС.5). */
-export const MODEL_FIELDS = ['productId', 'name', 'category', 'article', 'height', 'length', 'width', 'weight', 'materials', 'purpose', 'installationMethod', 'description', 'supplierOrgId', 'supplier', 'warrantyMonths', 'bom',
-  // v2 (БЗ-6): поля модели — копия на ту же модель и выбор модели переносят их
-  'passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears'] as const;
-/** Выданные номера: без `confirmNumbers: true` не меняются (ПС, «не менять молча»). */
-/** Массовое изменение (БЗ-9): общие поля паспортов; номера, талон, наименование, артикул, картинки — только по одному. */
-export const BULK_PASSPORT_FIELDS = ['passportCategory', 'category', 'installationTypeId', 'elements', 'materialIds', 'isKit', 'serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth',
-  'supplierOrgId', 'customerName', 'orderNo', 'objectName', 'installedBy', 'saleDate', 'installedAt'] as const;
-const BULK_NUMBER_FIELDS = ['serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth'] as const;
-/** НМ-1: у выпущенного паспорта свободно меняются только эти поля (заполняются после печати). */
-export const AFTER_PRINT_FIELDS = ['saleDate', 'customerName', 'customerOrgId', 'orderNo', 'salesOrderId', 'objectName', 'installedBy', 'installedAt', 'note'] as const;
-/** НМ: выпущен ли паспорт (нет статуса и есть номер — старый, выпущенный до НМ). */
-export const isIssued = (d: { status?: unknown; passportNumber?: unknown }) => d.status === 'issued' || (!d.status && !!d.passportNumber && !isDraftNumber(d.passportNumber));
-/**
- * НМ: у черновика вместо номера — служебная метка `draft-<id>`: уникальный индекс passportNumber в общей с CRM базе
- * не допускает двух пустых номеров, а у CRM kppdf номер обязателен. Человеку метка не показывается (список «—», PDF без номера).
- */
-export const DRAFT_PREFIX = 'draft-';
-export const isDraftNumber = (n: unknown) => String(n ?? '').startsWith(DRAFT_PREFIX);
-const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
-const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
+import { PassportBulk } from './passport-bulk';
+import { PassportIssue } from './passport-issue';
+import { PassportQueries } from './passport-queries';
 
 @Injectable()
 export class ProductPassportService {
@@ -55,131 +29,31 @@ export class ProductPassportService {
     @InjectModel(PassportTemplate.name) private readonly templates: Model<PassportTemplateDocument>,
     @InjectConnection() private readonly connection: Connection,
     @Optional() private readonly versions?: DataVersionService,
-  ) {}
-
-  // ─── список ──────────────────────────────────────────────────────────────────────────────────────
-  /**
-   * Список: поиск, фильтры (год, месяц, категория, поставщик, заказчик, без картинок, неполные), {items,total,page,limit}.
-   * Текст паспорта (`textSnapshot`, ~30 КБ на паспорт) в список не берётся — он нужен карточке и PDF; `full` — с ним (пакет PDF).
-   */
-  async list(q: Record<string, unknown> = {}, { full = false } = {}): Promise<{ items: Doc[]; total: number; page: number; limit: number; incomplete: number }> {
-    const p = parseList(q, { sortable: SORT, defaultSort: '-passportNo', defaultLimit: 25 });
-    const make = async () => {
-      const filter = this.filterOf(q, p.deleted);
-      // поиск «как на складе»: «качели двойные» = «двойные качели», ё = е
-      const sf = tokensFilter(q.search, ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier']);
-      if (sf) filter.$and = sf.$and;
-      const docs = await this.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
-      // «неполные» считаются правилами, а не запросом — паспортов сотни
-      const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
-      return docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(this.withSchemes(d as unknown as Doc, inst) as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
-    };
-    // скорость С9: расчёт по всем паспортам — один раз, пока паспорта и справочники не менялись; строки общие — копируем
-    const rest = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page' && k !== 'limit'));
-    const all: Array<Doc & { missing: string[] }> = this.versions && !full
-      ? await this.versions.cached('passports.list', ['productpassports', 'dict_values'], JSON.stringify(rest), make) : await make();
-    const rows = q.incomplete === '1' || q.incomplete === 'true' ? all.filter((d) => d.missing.length) : all;
-    const items = rows.slice(p.skip, p.skip + p.limit).map((d) => ({ ...d }));
-    await this.attachThumbs(items);
-    return { items, total: rows.length, page: p.page, limit: p.limit, incomplete: all.filter((d) => d.missing.length).length };
+  ) {
+    // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
+    this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v) });
+    this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
+    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), snapshot: (id) => this.snapshot(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
   }
+  private readonly queries: PassportQueries;
+  private readonly bulkOps: PassportBulk;
+  private readonly issueOps: PassportIssue;
 
-  /** Миниатюра общего вида (галерея, строка списка): `thumb` — маленькая, `photoUrl` — оригинал. */
-  private async attachThumbs(items: Doc[]) {
-    const first = (d: Doc) => ((d.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number }>) || []).filter((i) => i.kind === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0]?.photoId;
-    const ids = items.map(first).filter(Boolean) as Types.ObjectId[];
-    if (!ids.length) return;
-    const photos = this.connection.collection('photos');
-    const [orig, thumbs] = await Promise.all([
-      photos.find({ _id: { $in: ids } }, { projection: { storageUrl: 1 } }).toArray(),
-      photos.find({ parentPhotoId: { $in: ids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
-    ]);
-    const url = new Map(orig.map((x) => [String(x._id), x.storageUrl as string]));
-    const th = new Map(thumbs.map((x) => [String(x.parentPhotoId), x.storageUrl as string]));
-    for (const d of items) { const id = first(d); if (!id) continue; d.photoUrl = url.get(String(id)) ?? null; d.thumb = th.get(String(id)) ?? d.photoUrl; }
-  }
-
-  /**
-   * Готовые тексты для «Описания» (ПС.5): материалы, установка, назначение — все разные варианты из паспортов,
-   * с числом паспортов и категориями (в форме сначала — для выбранной категории). Новый текст, сохранённый в паспорте,
-   * сам попадает в варианты.
-   */
-  async phrases(): Promise<Record<string, Array<{ text: string; n: number; categories: string[]; passportCategories: string[] }>>> {
-    const out: Record<string, Array<{ text: string; n: number; categories: string[]; passportCategories: string[] }>> = {};
-    for (const f of ['materials', 'installationMethod', 'purpose'] as const) {
-      const rows = await this.model.aggregate([
-        { $match: { deletedAt: null, [f]: { $nin: [null, ''] } } },
-        { $group: { _id: `$${f}`, n: { $sum: 1 }, categories: { $addToSet: '$category' }, passportCategories: { $addToSet: '$passportCategory' } } }, // ПК: и коды категорий паспорта
-        { $sort: { n: -1, _id: 1 } },
-      ]).exec();
-      out[f] = rows.map((r) => ({ text: String(r._id), n: r.n, categories: (r.categories as unknown[]).filter(Boolean).map(String), passportCategories: ((r.passportCategories as unknown[]) ?? []).filter(Boolean).map(String) }));
-    }
-    return out;
-  }
-
-  /**
-   * Модели (артикул + наименование) — для «Новый паспорт → выберите модель» (ПС.5): поля и картинки берутся
-   * из последнего паспорта модели; `n` — сколько паспортов выдано.
-   */
-  async models(): Promise<Doc[]> {
-    // скорость С9: один расчёт, пока не менялись паспорта и фото; результат общий — не менять
-    return this.versions ? this.versions.cached('passports.models', ['productpassports', 'photos'], '', () => this.buildModels()) : this.buildModels();
-  }
-
-  private async buildModels(): Promise<Doc[]> {
-    const groups = await this.model.aggregate([
-      { $match: { deletedAt: null, name: { $nin: [null, ''] } } },
-      { $project: { textSnapshot: 0 } }, // текст паспорта модели не нужен — без него группировка в разы легче
-      { $sort: { passportNo: -1 } },
-      { $group: { _id: { a: { $ifNull: ['$article', ''] }, n: '$name' }, n: { $sum: 1 }, doc: { $first: '$$ROOT' } } },
-      { $sort: { 'doc.category': 1, 'doc.name': 1 } },
-    ]).exec();
-    const items: Doc[] = groups.map((g) => {
-      const d = g.doc as Doc;
-      return { id: String(d._id), passportNumber: d.passportNumber, n: g.n, name: d.name, article: d.article ?? '', category: d.category ?? '', productId: d.productId ? String(d.productId) : null,
-        ...Object.fromEntries(MODEL_FIELDS.filter((f) => !['productId', 'name', 'category', 'article'].includes(f)).map((f) => [f, d[f] ?? null])),
-        images: d.images ?? [] };
-    });
-    await this.attachThumbs(items);
-    return items;
-  }
-
-  private filterOf(q: Record<string, unknown>, deleted = false): Doc {
-    const f: Doc = { deletedAt: deleted ? { $ne: null } : null };
-    // НМ: статус — черновик / выпущен (в т. ч. старые без статуса) / аннулирован
-    if (q.status === 'draft' || q.status === 'annulled') f.status = q.status;
-    else if (q.status === 'issued') f.$or = [{ status: 'issued' }, { status: { $exists: false }, passportNumber: { $nin: [null, ''] } }];
-    const year = Number(q.year), month = Number(q.month);
-    if (year) {
-      const from = new Date(Date.UTC(year, month ? month - 1 : 0, 1));
-      const to = new Date(Date.UTC(month ? year : year + 1, month ? month : 0, 1));
-      f.date = { $gte: from, $lt: to };
-    }
-    if (q.category) f.category = String(q.category);
-    if (q.supplierOrgId) f.supplierOrgId = this.oid(q.supplierOrgId);
-    if (q.customer) f.customerName = new RegExp(`^${escapeRe(String(q.customer))}$`, 'i');
-    if (q.productId) f.productId = this.oid(q.productId);
-    if (q.noImages === '1' || q.noImages === 'true') f['images.0'] = { $exists: false };
-    return f;
-  }
-
-  /** Значения для фильтров: годы, категории, поставщики, заказчики. */
-  async facets() {
-    const [years, categories, customers, suppliers] = await Promise.all([
-      this.model.aggregate([{ $match: { deletedAt: null, date: { $type: 'date' } } }, { $group: { _id: { $year: '$date' }, n: { $sum: 1 } } }, { $sort: { _id: -1 } }]).exec(),
-      this.model.aggregate([{ $match: { deletedAt: null, category: { $nin: [null, ''] } } }, { $group: { _id: '$category', n: { $sum: 1 } } }, { $sort: { n: -1 } }]).exec(),
-      this.model.aggregate([{ $match: { deletedAt: null, customerName: { $nin: [null, ''] } } }, { $group: { _id: '$customerName', n: { $sum: 1 } } }, { $sort: { _id: 1 } }]).exec(),
-      this.model.aggregate([{ $match: { deletedAt: null } }, { $group: { _id: '$supplierOrgId', name: { $first: '$supplier' }, n: { $sum: 1 } } }, { $sort: { n: -1 } }]).exec(),
-    ]);
-    const orgs = await this.connection.collection('organizations').find({ _id: { $in: suppliers.map((s) => s._id).filter(Boolean) } }, { projection: { name: 1, shortName: 1 } }).toArray();
-    const orgName = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
-    return {
-      years: years.map((y) => ({ value: y._id, n: y.n })),
-      categories: categories.map((c) => ({ value: c._id, n: c.n })),
-      customers: customers.map((c) => ({ value: c._id, n: c.n })),
-      suppliers: suppliers.filter((s) => s._id).map((s) => ({ value: String(s._id), label: orgName.get(String(s._id)) || s.name || '—', n: s.n })),
-    };
-  }
+  // ─── список, подсказки, выпуск, массовые действия — passport-queries.ts / passport-issue.ts / passport-bulk.ts ───
+  list(q: Record<string, unknown> = {}, opts: { full?: boolean } = {}) { return this.queries.list(q, opts); }
+  phrases() { return this.queries.phrases(); }
+  models() { return this.queries.models(); }
+  facets() { return this.queries.facets(); }
+  /** Массовое изменение выбранных паспортов (БЗ-9) → { updated, failed, before }. */
+  bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string>; rebuildText?: boolean }) { return this.bulkOps.run(dto); }
+  /** «Отменить» массовое изменение (БЗ-9). */
+  bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) { return this.bulkOps.restore(dto); }
+  /** НМ: выпуск — последний шаг (проверка, текст, номера в одной транзакции). */
+  issue(id: string) { return this.issueOps.issue(id); }
+  /** НМ: аннулирование выпущенного — причина обязательна. */
+  annul(id: string, reason: unknown) { return this.issueOps.annul(id, reason); }
+  /** НМ-2: похожие паспорта той же модели (черновик, тот же заказ / покупатель / адрес). */
+  duplicates(q: Record<string, unknown>) { return this.issueOps.duplicates(q); }
 
   // ─── карточка ────────────────────────────────────────────────────────────────────────────────────
   async findById(id: string): Promise<ProductPassportDocument> {
@@ -333,72 +207,9 @@ export class ProductPassportService {
     return saved;
   }
 
-  /**
-   * Массовое изменение выбранных паспортов (БЗ-9): только общие поля (белый список), номера / талоны / названия — нет.
-   * arrays: elements / materialIds — 'add' (добавить к своим) или 'replace'. Смена категории — текст паспорта пересобирается
-   * по новой категории (rebuildText, по умолчанию да). Возвращает before — прежние значения для «Отменить» (bulkRestore).
-   */
-  async bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string>; rebuildText?: boolean }) {
-    const ids = Array.isArray(dto.ids) ? [...new Set(dto.ids.map(String))] : [];
-    if (!ids.length) throw new BadRequestException('Отметьте паспорта');
-    if (ids.length > 500) throw new BadRequestException('За один раз — не больше 500 паспортов');
-    const set = Object.fromEntries(Object.entries(dto.set ?? {}).filter(([k]) => (BULK_PASSPORT_FIELDS as readonly string[]).includes(k)));
-    if (!Object.keys(set).length) throw new BadRequestException('Отметьте, что изменить');
-    if (set.passportCategory !== undefined && set.passportCategory !== '' && !['DIO', 'DSP', 'TRN', 'WRK', 'MAF'].includes(String(set.passportCategory))) throw new BadRequestException('Неизвестная категория паспорта');
-    for (const k of BULK_NUMBER_FIELDS) if (k in set && set[k] !== null && set[k] !== '') { const n = Number(String(set[k]).replace(',', '.')); if (!Number.isFinite(n) || n < 0) throw new BadRequestException('Числа — не меньше нуля'); set[k] = n; }
-    for (const k of ['elements', 'materialIds'] as const) if (k in set && !Array.isArray(set[k])) throw new BadRequestException('Элементы и материалы — список');
-    const rebuild = dto.rebuildText !== false && 'passportCategory' in set;
-    const before: Array<{ id: string; set: Record<string, unknown> }> = [];
-    const failed: Array<{ id: string; message: string }> = [];
-    let updated = 0;
-    for (const id of ids) {
-      try {
-        const doc = (await this.findById(id)).toObject() as unknown as Doc;
-        const patch: Record<string, unknown> = { ...set };
-        // НМ: выпущенный паспорт массово меняется только в полях «после печати»; аннулированный — никак
-        if (doc.status === 'annulled') throw new ConflictException(`№ ${doc.passportNumber}: аннулирован`);
-        const lockedKeys = Object.keys(patch).filter((k) => !(AFTER_PRINT_FIELDS as readonly string[]).includes(k));
-        if (isIssued(doc) && lockedKeys.length) throw new ConflictException(`№ ${doc.passportNumber}: выпущен — массово меняются только поля «после печати»`);
-        for (const k of ['elements', 'materialIds'] as const) {
-          if (k in patch && dto.arrays?.[k] === 'add') patch[k] = [...new Set([...((doc[k] as unknown[]) ?? []).map(String), ...(patch[k] as unknown[]).map(String)])];
-        }
-        const prev: Record<string, unknown> = Object.fromEntries(Object.keys(patch).map((k) => [k, doc[k] ?? null]));
-        if (rebuild) prev.textSnapshot = doc.textSnapshot ?? null;
-        await this.update(id, patch as never);
-        if (rebuild) await this.snapshot(id);
-        before.push({ id, set: prev });
-        updated++;
-      } catch (e) { failed.push({ id, message: e instanceof Error ? e.message : String(e) }); }
-    }
-    return { updated, failed, before };
-  }
-
-  /** «Отменить» массовое изменение (БЗ-9): вернуть прежние значения полей (в т. ч. текст паспорта) как были. */
   /** Черновик, который не удалось выпустить сразу (паспорт для CRM — только с номером): убрать, чтобы не копились. Только status draft. */
   async discardDraft(id: string) {
     await this.model.deleteOne({ _id: this.oid(id), status: 'draft' }).setOptions({ includeSoftDeleted: true }).exec();
-  }
-
-  async bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
-    const items = Array.isArray(dto.items) ? dto.items : [];
-    if (items.length > 500) throw new BadRequestException('За раз — не больше 500 паспортов'); // как у bulk (проверка архитектора 2026-10-23)
-    let restored = 0;
-    for (const it of items) {
-      if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
-      const raw = Object.fromEntries(Object.entries(it.set ?? {}).filter(([k]) => (BULK_PASSPORT_FIELDS as readonly string[]).includes(k) || k === 'textSnapshot'));
-      const $set: Record<string, unknown> = {}; const $unset: Record<string, ''> = {};
-      for (const [k, v] of Object.entries(raw)) {
-        if (v === null || v === undefined) { $unset[k] = ''; continue; }
-        if ((OID_FIELDS as readonly string[]).includes(k)) $set[k] = this.oid(v);
-        else if (k === 'elements' || k === 'materialIds') $set[k] = (v as unknown[]).map((x) => this.oid(x));
-        else if (k === 'saleDate' || k === 'installedAt') $set[k] = new Date(String(v));
-        else $set[k] = v;
-      }
-      // аннулированный не возвращаем — его не меняют (как в update и bulk)
-      const r = await this.model.updateOne({ _id: this.oid(it.id), status: { $ne: 'annulled' } }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }).exec();
-      restored += r.modifiedCount;
-    }
-    return { restored };
   }
 
   async markIssued(id: Types.ObjectId | string) {
@@ -493,58 +304,6 @@ export class ProductPassportService {
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(p, inst);
     return { missing: missingKeyed(full as never, cat), requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
-  }
-
-  /**
-   * НМ: выпуск — последний шаг. Проверка обязательного; текст собирается по справочникам и замораживается; номер паспорта,
-   * номер изделия и талон — из счётчиков в ОДНОЙ транзакции со сменой статуса: повтор / двойной клик — тот же номер.
-   */
-  async issue(id: string) {
-    const first = (await this.findById(id)).toObject() as unknown as Doc;
-    if (isIssued(first)) return this.findById(id);
-    if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
-    const missing = await this.readiness(first);
-    if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
-    if (first.passportCategory) await this.snapshot(id); // текст по справочникам на момент выпуска
-    const _id = new Types.ObjectId(id);
-    const session = await this.connection.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const draft = await this.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
-        if (!draft) return; // уже выпущен параллельным запросом
-        const set: Doc = {};
-        await this.allocate(set, (draft.date as Date) || dayUtc(), session);
-        await this.assertFree(set, _id, session);
-        await this.model.updateOne({ _id, status: 'draft' }, { $set: { ...set, status: 'issued', issuedAt: new Date(), revision: 1 } }, { session }).exec();
-      });
-    } finally { await session.endSession(); }
-    return this.findById(id);
-  }
-
-  /** НМ: аннулирование выпущенного — причина обязательна; номер остаётся занятым, повторно не выдаётся. */
-  async annul(id: string, reason: unknown) {
-    const r = String(reason ?? '').trim();
-    if (!r) throw new BadRequestException('Укажите причину аннулирования');
-    const doc = (await this.findById(id)).toObject() as unknown as Doc;
-    if (!isIssued(doc)) throw new ConflictException(doc.status === 'annulled' ? 'Паспорт уже аннулирован' : 'Черновик не аннулируют — его можно удалить');
-    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'annulled', annulledAt: new Date(), annulReason: r } }).exec();
-    return this.findById(id);
-  }
-
-  /**
-   * НМ-2: «тот же изделие» — та же запись «Продукции»; дубль — её черновик, или выпущенный на тот же заказ / покупателя / адрес.
-   */
-  async duplicates(q: Record<string, unknown>) {
-    if (!q.productId || !Types.ObjectId.isValid(String(q.productId))) return { items: [] };
-    const productId = new Types.ObjectId(String(q.productId));
-    const same: Doc[] = [];
-    const s = (v: unknown) => String(v ?? '').trim();
-    if (s(q.orderNo)) same.push({ orderNo: s(q.orderNo) });
-    if (s(q.customer)) same.push({ customerName: new RegExp(`^\\s*${escapeRe(s(q.customer))}\\s*$`, 'i') });
-    if (s(q.objectName)) same.push({ objectName: new RegExp(`^\\s*${escapeRe(s(q.objectName))}\\s*$`, 'i') });
-    const docs = await this.model.find({ productId, deletedAt: null, ...(q.exceptId && Types.ObjectId.isValid(String(q.exceptId)) ? { _id: { $ne: new Types.ObjectId(String(q.exceptId)) } } : {}),
-      $or: [{ status: 'draft' }, ...(same.length ? [{ status: { $ne: 'draft' }, $or: same }] : [])] }, { passportNumber: 1, status: 1, name: 1, customerName: 1, orderNo: 1, objectName: 1, date: 1 }).sort({ createdAt: -1 }).limit(10).lean().exec();
-    return { items: docs.map((d) => ({ id: String(d._id), passportNumber: d.passportNumber && !isDraftNumber(d.passportNumber) ? d.passportNumber : null, status: d.status ?? 'issued', name: d.name, customerName: d.customerName ?? null, orderNo: d.orderNo ?? null, objectName: d.objectName ?? null, date: d.date ?? null })) };
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */

@@ -2,6 +2,7 @@ import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { money, parseNum, qty } from '../core/format.js';
+import { stockList } from '../core/stock-list.js';
 
 /*
  * «Состав изделия» (TASKS БЗ-5, СИ) — правая панель: из чего состоит изделие — материалы склада и другие изделия
@@ -20,8 +21,7 @@ const keyOf = (l) => `${l.lineType}:${l.refId}`;
 async function buildCompositionForm() {
   if (!target) throw new Error('Откройте изделие и нажмите «Изменить состав»');
   const prod = target;
-  const [stock, products, similar] = await Promise.all([
-    api('/stock/items', { query: { limit: 10000 } }).then((r) => r.items || []).catch(() => []),
+  const [products, similar] = await Promise.all([
     api('/showcase', { query: { limit: 500 } }).then((r) => r.items || []).catch(() => []),
     api(`/showcase/${prod.id}/composition/similar`).then((r) => r.items || []).catch(() => []),
   ]);
@@ -80,7 +80,14 @@ async function buildCompositionForm() {
   const chips = h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Что добавить' });
   const input = h('input', { type: 'text', placeholder: 'Найти: название или артикул (м10 = M10, слова в любом порядке)', 'aria-label': 'Найти, что добавить', autocomplete: 'off' });
   const pick = h('ul', { class: 'pick-list', role: 'listbox', 'aria-label': 'Материалы и изделия' });
-  const mats = stock.map((s) => ({ id: s.materialId || s.id, name: s.name, article: s.article, unit: s.unit, group: s.categoryName || 'Без категории', sub: [s.article && 'арт. ' + s.article, `на складе: ${qty(s.free ?? s.quantity ?? 0)} ${s.unit || ''}`].filter(Boolean).join(' · '), lineType: 'material' }));
+  // склад целиком — по действию (фокус поиска / чип «Материалы»), а не при открытии формы (ПР-1); один общий список на приложение
+  let mats = []; let stockState = 0; let stockFailed = false; // 0 — не просили, 1 — грузится, 2 — готов
+  const matOf = (s) => ({ id: s.materialId || s.id, name: s.name, article: s.article, unit: s.unit, group: s.categoryName || 'Без категории', sub: [s.article && 'арт. ' + s.article, `на складе: ${qty(s.free ?? s.quantity ?? 0)} ${s.unit || ''}`].filter(Boolean).join(' · '), lineType: 'material' });
+  const ensureStock = () => {
+    if (stockState) return;
+    stockState = 1; drawPick();
+    stockList().then((list) => { mats = list.map(matOf); stockState = 2; }, () => { stockState = 0; stockFailed = true; }).then(drawPick);
+  };
   const prods = products.filter((p) => p.id !== prod.id) // само в себя — нельзя (глубже проверит сервер)
     .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: [p.sku && 'арт. ' + p.sku, p.price ? money(p.price) : ''].filter(Boolean).join(' · '), lineType: 'product' }));
   const drawChips = () => chips.replaceChildren(...[['all', 'Все'], ['material', 'Материалы'], ['product', 'Изделия']].map(([v, l]) => h('button', { type: 'button', role: 'tab', class: 'chip' + (kind === v ? ' active' : ''), 'aria-selected': String(kind === v), onclick: () => { kind = v; drawChips(); drawPick(); } }, l)));
@@ -91,6 +98,7 @@ async function buildCompositionForm() {
     if (kind !== 'product') sections.push([GROUPS.material, take(mats)]);
     if (kind !== 'material') sections.push([GROUPS.product, take(prods)]);
     const out = []; let shown = 0;
+    if (kind !== 'product' && stockState !== 2) out.push(h('li', { class: 'sg-row muted static' }, stockState === 1 ? 'Загружаю материалы со склада…' : stockFailed ? 'Не удалось загрузить склад — нажмите на поиск ещё раз' : 'Материалы со склада подгрузятся, когда нажмёте на поиск'));
     for (const [title, list] of sections) {
       if (!list.length) continue;
       out.push(h('li', { class: 'pick-head' }, `${title} · ${qty(list.length)}`));
@@ -111,6 +119,7 @@ async function buildCompositionForm() {
     if (total > shown) out.push(h('li', { class: 'sg-row muted static' }, `ещё ${qty(total - shown)} — уточните поиск`));
     pick.replaceChildren(...(out.length ? out : [h('li', { class: 'sg-row muted static' }, query ? `По «${query}» ничего не найдено` : 'Список пуст')]));
   }
+  input.addEventListener('focus', ensureStock);
   let tm; input.addEventListener('input', () => { query = input.value; clearTimeout(tm); tm = setTimeout(drawPick, 150); });
   // «Часто в похожих изделиях» — метками, клик добавляет
   const often = similar.length ? h('div', null, h('div', { class: 'hint' }, 'Часто в похожих изделиях этой группы:'),

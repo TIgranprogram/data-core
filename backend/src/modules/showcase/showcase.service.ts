@@ -11,15 +11,12 @@ import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
 import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { productNameKey, shortProductName } from './order-product-name';
-import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
-import { wouldCycle } from './composition-cycle';
+import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
+import { ShowcaseBulk } from './showcase-bulk';
+import { ShowcaseComposition } from './showcase-composition';
+import { ShowcaseFromPassports } from './showcase-from-passports';
 import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
 
-type Doc = Record<string, unknown> & { _id: Types.ObjectId };
-const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
-const LIVE = { deletedAt: null };
-/** Варианты изделия (цвета, размеры): список или строка «через запятую / с новой строки» → уникальные непустые, до 50. */
-const variants = (v: unknown) => [...new Set((Array.isArray(v) ? v : String(v ?? '').split(/[,;\n]/)).map(clean).filter(Boolean))].slice(0, 50);
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
 const num = (v: unknown, what: string) => {
   if (v === null || v === undefined || String(v).trim() === '') return null;
@@ -54,25 +51,18 @@ const sameName = (name: string) => new RegExp('^\\s*' + escapeRe(name).replace(/
 export class ShowcaseService {
   constructor(@InjectConnection() private readonly connection: Connection, private readonly counter: CounterService, @Optional() private readonly versions?: DataVersionService) {}
   private get db() { return this.connection.db!; }
+  // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
+  private readonly comp = new ShowcaseComposition(() => this.db, this.versions);
+  private readonly bulkOps = new ShowcaseBulk({ db: () => this.db, present: (d) => this.present(d), update: (id, p) => this.update(id, p), setPassportDefaults: (id, v) => this.setPassportDefaults(id, v) });
+  private readonly fromPp = new ShowcaseFromPassports(() => this.db, (dto) => this.create(dto));
 
-  private async photos(ids: Types.ObjectId[]) {
-    const map = new Map<string, { id: string; url: string; thumb: string }>();
-    if (!ids.length) return map;
-    const [orig, thumbs] = await Promise.all([
-      this.db.collection('photos').find({ _id: { $in: ids } }, { projection: { storageUrl: 1 } }).toArray(),
-      this.db.collection('photos').find({ parentPhotoId: { $in: ids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
-    ]);
-    const th = new Map(thumbs.map((t) => [String(t.parentPhotoId), String(t.storageUrl)]));
-    for (const p of orig) map.set(String(p._id), { id: String(p._id), url: String(p.storageUrl), thumb: th.get(String(p._id)) ?? String(p.storageUrl) });
-    return map;
-  }
 
   private async present(docs: Doc[]) {
     const catIds = [...new Set(docs.map((d) => d.categoryId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
     const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1 } }).toArray() : [];
     const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1 } }).toArray();
     const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)]));
-    const ph = await this.photos(docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? [])));
+    const ph = await loadPhotos(this.db, docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? [])));
     // ПИ: категория паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
     const [ppCats, ppCounts] = await Promise.all([
       this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
@@ -164,9 +154,9 @@ export class ShowcaseService {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
-    const composition = await this.composition(d as Doc);
+    const composition = await this.comp.composition(d as Doc);
     const ppCats = (await this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray()) as unknown as PpCat[];
-    return { ...item, orderLines: await this.orderLines(d as Doc), composition, cost: await this.cost(composition), passports: await this.passports(d as Doc),
+    return { ...item, orderLines: await this.orderLines(d as Doc), composition, cost: await this.comp.cost(composition), passports: await this.passports(d as Doc),
       passportCategory: passportCategoryFor(item, ppCats),
       designer: await this.designer(d.designerId as Types.ObjectId | undefined),
       passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
@@ -189,154 +179,7 @@ export class ShowcaseService {
     return this.get(id);
   }
 
-  /**
-   * Состав изделия (БЗ-5, СИ): все строки products.composition — материалы склада, изделия «Продукции», модули (CRM).
-   * У вложенного изделия — его состав на 1 уровень (children) для показа в карточке. Неизвестные типы строк — как есть (raw).
-   */
-  private async composition(d: Doc) {
-    const lines = (d.composition as Record<string, unknown>[] | undefined) ?? [];
-    if (!lines.length) return [];
-    const ids = (t: string) => lines.filter((l) => l.lineType === t).map((l) => l.refId as Types.ObjectId);
-    const [mats, prods, mods] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: ids('material') } }, { projection: { name: 1, article: 1, unit: 1, deletedAt: 1 } }).toArray(),
-      this.db.collection('products').find({ _id: { $in: ids('product') } }, { projection: { name: 1, sku: 1, unit: 1, photoIds: 1, composition: 1, deletedAt: 1 } }).toArray(),
-      this.db.collection('productmodules').find({ _id: { $in: ids('module') } }, { projection: { name: 1, sku: 1, unit: 1 } }).toArray(),
-    ]);
-    const mBy = new Map(mats.map((m) => [String(m._id), m])); const pBy = new Map(prods.map((p) => [String(p._id), p])); const modBy = new Map(mods.map((m) => [String(m._id), m]));
-    // состав вложенных изделий — названия материалов / изделий их строк (1 уровень)
-    const inner = prods.flatMap((p) => ((p.composition as Record<string, unknown>[]) ?? []));
-    const [im, ip] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: inner.filter((l) => l.lineType === 'material').map((l) => l.refId as Types.ObjectId) } }, { projection: { name: 1, unit: 1 } }).toArray(),
-      this.db.collection('products').find({ _id: { $in: inner.filter((l) => l.lineType === 'product').map((l) => l.refId as Types.ObjectId) } }, { projection: { name: 1 } }).toArray(),
-    ]);
-    const innerName = new Map([...im, ...ip].map((x) => [String(x._id), x]));
-    const ph = await this.photos(prods.flatMap((p) => ((p.photoIds as Types.ObjectId[]) ?? []).slice(0, 1)));
-    return lines.map((l) => {
-      const base = { id: String(l._id ?? ''), lineType: String(l.lineType ?? ''), refId: String(l.refId ?? ''), quantity: Number(l.quantity) || 0, notes: (l.notes as string) ?? null };
-      if (l.lineType === 'material') {
-        const m = mBy.get(base.refId);
-        return { ...base, materialId: base.refId, name: String(m?.name ?? '(материал удалён)'), article: (m?.article as string) ?? null, unit: String(l.unit ?? m?.unit ?? 'шт'), missing: !m || !!m.deletedAt };
-      }
-      if (l.lineType === 'product') {
-        const p = pBy.get(base.refId);
-        const first = ((p?.photoIds as Types.ObjectId[]) ?? [])[0];
-        const children = ((p?.composition as Record<string, unknown>[]) ?? []).filter((x) => x.lineType === 'material' || x.lineType === 'product')
-          .map((x) => { const n = innerName.get(String(x.refId)); return { lineType: String(x.lineType), name: String(n?.name ?? '(удалено)'), quantity: Number(x.quantity) || 0, unit: String(x.unit ?? n?.unit ?? 'шт') }; });
-        return { ...base, productId: base.refId, name: String(p?.name ?? '(изделие удалено)'), article: (p?.sku as string) ?? null, unit: String(l.unit ?? 'шт'), photo: first ? ph.get(String(first)) ?? null : null, children, missing: !p || !!p.deletedAt };
-      }
-      if (l.lineType === 'module') {
-        const m = modBy.get(base.refId);
-        return { ...base, moduleId: base.refId, name: String(m?.name ?? '(модуль удалён)'), article: (m?.sku as string) ?? null, unit: String(l.unit ?? m?.unit ?? 'шт'), missing: !m };
-      }
-      return { ...base, name: '(строка CRM)', article: null, unit: String(l.unit ?? ''), raw: true };
-    });
-  }
 
-  /**
-   * Заменить строки состава (СИ). lines: [{ lineType?: material|product|module (по умолчанию material), materialId | productId |
-   * moduleId | refId, quantity, notes? }]; types — какие типы строк заменяются (по умолчанию — те, что пришли, иначе только
-   * material: старое тело с одними материалами работает как раньше). Строки остальных типов (и неизвестные) — как есть.
-   * Изделие не может входить само в себя (на любой глубине) — 400.
-   */
-  async setComposition(id: string, lines: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; refId?: string; quantity?: number | string; notes?: string }>, types?: string[]) {
-    const _id = oid(id, 'изделия');
-    const d = await this.db.collection('products').findOne({ _id, deletedAt: null });
-    if (!d) throw new NotFoundException('Изделие не найдено');
-    if (!Array.isArray(lines) || lines.length > 300) throw new BadRequestException('Некорректный состав');
-    const KNOWN = ['material', 'product', 'module'] as const;
-    const typeOf = (l: { lineType?: string }) => String(l.lineType || 'material');
-    for (const l of lines) if (!(KNOWN as readonly string[]).includes(typeOf(l))) throw new BadRequestException(`Неизвестный тип строки: ${typeOf(l)}`);
-    const replace = new Set((Array.isArray(types) && types.length ? types : lines.length ? lines.map(typeOf) : ['material']).filter((t) => (KNOWN as readonly string[]).includes(t)));
-    const refOf = (l: (typeof lines)[number]) => String((typeOf(l) === 'material' ? l.materialId : typeOf(l) === 'product' ? l.productId : l.moduleId) ?? l.refId ?? '');
-    const refs = lines.map((l) => oid(refOf(l), typeOf(l) === 'material' ? 'материала' : typeOf(l) === 'product' ? 'изделия' : 'модуля'));
-    const pick = (t: string) => refs.filter((_, i) => typeOf(lines[i]) === t);
-    const [mats, prods, mods] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: pick('material') } }, { projection: { unit: 1 } }).toArray(),
-      this.db.collection('products').find({ _id: { $in: pick('product') }, deletedAt: null }, { projection: { unit: 1 } }).toArray(),
-      this.db.collection('productmodules').find({ _id: { $in: pick('module') } }, { projection: { unit: 1 } }).toArray(),
-    ]);
-    const found = { material: new Map(mats.map((m) => [String(m._id), m])), product: new Map(prods.map((m) => [String(m._id), m])), module: new Map(mods.map((m) => [String(m._id), m])) };
-    // изделие внутри самого себя — по всей глубине (граф: изделие → изделия его состава)
-    const childProducts = pick('product').map(String);
-    if (childProducts.length) {
-      const all = await this.db.collection('products').find({ 'composition.lineType': 'product' }, { projection: { composition: 1 } }).toArray();
-      const graph = new Map(all.map((p) => [String(p._id), ((p.composition as Record<string, unknown>[]) ?? []).filter((x) => x.lineType === 'product').map((x) => String(x.refId))]));
-      graph.delete(String(_id)); // свой состав заменяем — старые строки не в счёт
-      const bad = wouldCycle(String(_id), childProducts, graph);
-      if (bad) throw new BadRequestException(bad === String(_id) ? 'Изделие не может входить само в себя' : 'Изделие не может входить само в себя: выбранное изделие уже содержит это (через свой состав)');
-    }
-    const seen = new Set<string>();
-    const next = lines.map((l, i) => {
-      const t = typeOf(l) as (typeof KNOWN)[number]; const key = `${t}:${String(refs[i])}`;
-      const ref = found[t].get(String(refs[i]));
-      if (!ref) throw new BadRequestException(t === 'material' ? 'Материал не найден в справочнике' : t === 'product' ? 'Изделие не найдено (или в корзине)' : 'Модуль не найден');
-      if (seen.has(key)) throw new BadRequestException('Одна позиция указана дважды — сложите количество в одну строку');
-      seen.add(key);
-      const q = Number(String(l.quantity ?? '').replace(',', '.'));
-      if (!Number.isFinite(q) || q <= 0) throw new BadRequestException('Количество должно быть больше нуля');
-      return { _id: new Types.ObjectId(), lineType: t, refId: refs[i], quantity: q, sortOrder: i, unit: String(ref.unit ?? 'шт'), notes: clean(l.notes) || undefined };
-    });
-    const others = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => !replace.has(String(l.lineType)));
-    await this.db.collection('products').updateOne({ _id }, { $set: { composition: [...next, ...others], updatedAt: new Date() } });
-    return this.get(id);
-  }
-
-  /** «Часто в похожих изделиях» (СИ): строки составов изделий той же группы, по частоте; без своих. */
-  async compositionSimilar(id: string) {
-    const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') }, { projection: { categoryId: 1, composition: 1 } });
-    if (!d?.categoryId) return { items: [] };
-    const own = new Set(((d.composition as Record<string, unknown>[]) ?? []).map((l) => `${l.lineType}:${l.refId}`));
-    const peers = await this.db.collection('products').find({ ...LIVE, categoryId: d.categoryId, _id: { $ne: d._id }, 'composition.0': { $exists: true } }, { projection: { composition: 1 } }).toArray();
-    const n = new Map<string, { lineType: string; refId: string; n: number }>();
-    for (const p of peers) for (const l of (p.composition as Record<string, unknown>[]) ?? []) {
-      if (l.lineType !== 'material' && l.lineType !== 'product') continue;
-      const k = `${l.lineType}:${l.refId}`; if (own.has(k)) continue;
-      n.set(k, { lineType: String(l.lineType), refId: String(l.refId), n: (n.get(k)?.n ?? 0) + 1 });
-    }
-    const top = [...n.values()].sort((a, b) => b.n - a.n).slice(0, 8);
-    const names = new Map([...(await this.db.collection('materials').find({ _id: { $in: top.filter((x) => x.lineType === 'material').map((x) => new Types.ObjectId(x.refId)) } }, { projection: { name: 1, unit: 1 } }).toArray()),
-      ...(await this.db.collection('products').find({ _id: { $in: top.filter((x) => x.lineType === 'product').map((x) => new Types.ObjectId(x.refId)) } }, { projection: { name: 1, unit: 1 } }).toArray())].map((x) => [String(x._id), x]));
-    return { items: top.map((x) => ({ ...x, name: String(names.get(x.refId)?.name ?? ''), unit: String(names.get(x.refId)?.unit ?? 'шт') })).filter((x) => x.name) };
-  }
-
-  /**
-   * Себестоимость (БЗ-5, СИ): количество × цена за единицу. Материал — последняя закупка (заявка снабжения, не отменённая:
-   * сумма строки / количество; сумма — priceHint «Сумма с НДС» или lineTotal), иначе цена справочника (pricePerUnit).
-   * Вложенное изделие — себестоимость его состава (рекурсивно, без циклов). Модуль — без цены. Только расчёт, в изделие
-   * не пишется (costPrice — поле CRM). Строки без цены в сумму не входят, их число — missing.
-   */
-  private async cost(lines: Array<{ lineType?: string; refId?: string; materialId?: string; quantity: number }>, depth = 0, path: string[] = []): Promise<{ total: number; missing: number; lines: Array<Record<string, unknown>> } | null> {
-    if (!lines.length) return null;
-    const norm = lines.map((l) => ({ lineType: l.lineType || 'material', refId: String(l.refId || l.materialId || ''), quantity: l.quantity }));
-    const matIds = norm.filter((l) => l.lineType === 'material' && Types.ObjectId.isValid(l.refId)).map((l) => new Types.ObjectId(l.refId));
-    const [last, mats] = await Promise.all([
-      matIds.length ? this.db.collection('supplyrequests').aggregate([
-        { $match: { deletedAt: null, materialId: { $in: matIds }, status: { $ne: 'cancelled' }, qty: { $gt: 0 }, $or: [{ priceHint: { $gt: 0 } }, { lineTotal: { $gt: 0 } }] } },
-        { $sort: { requestDate: -1, createdAt: -1 } },
-        { $group: { _id: '$materialId', priceHint: { $first: '$priceHint' }, lineTotal: { $first: '$lineTotal' }, qty: { $first: '$qty' }, receivedQty: { $first: '$receivedQty' }, date: { $first: { $ifNull: ['$requestDate', '$createdAt'] } } } },
-      ]).toArray() : Promise.resolve([]),
-      matIds.length ? this.db.collection('materials').find({ _id: { $in: matIds } }, { projection: { pricePerUnit: 1 } }).toArray() : Promise.resolve([]),
-    ]);
-    const unitPrice = (x: Record<string, unknown>) => (Number(x.priceHint) > 0 ? Number(x.priceHint) : Number(x.lineTotal)) / (Number(x.receivedQty) > 0 ? Number(x.receivedQty) : Number(x.qty));
-    const buy = new Map(last.map((x) => [String(x._id), { price: unitPrice(x), date: (x.date as Date) ?? null }]));
-    const ref = new Map(mats.map((m) => [String(m._id), Number(m.pricePerUnit) > 0 ? Number(m.pricePerUnit) : null]));
-    let innerMissing = 0;
-    const rows: Array<Record<string, unknown> & { price: number | null; sum: number | null }> = [];
-    for (const l of norm) {
-      if (l.lineType === 'material') {
-        const b = buy.get(l.refId); const r = ref.get(l.refId) ?? null;
-        const price = b ? Math.round(b.price * 100) / 100 : r;
-        rows.push({ lineType: 'material', refId: l.refId, materialId: l.refId, price, source: b ? 'purchase' : r != null ? 'reference' : null, date: b?.date ?? null, sum: price != null ? Math.round(price * l.quantity * 100) / 100 : null });
-      } else if (l.lineType === 'product' && depth < 6 && !path.includes(l.refId) && Types.ObjectId.isValid(l.refId)) {
-        const p = await this.db.collection('products').findOne({ _id: new Types.ObjectId(l.refId) }, { projection: { composition: 1 } });
-        const sub = await this.cost(((p?.composition as Array<{ lineType?: string; refId?: unknown; quantity?: number }>) ?? []).map((x) => ({ lineType: x.lineType, refId: String(x.refId), quantity: Number(x.quantity) || 0 })), depth + 1, [...path, l.refId]);
-        const price = sub && sub.total > 0 ? sub.total : null;
-        if (sub?.missing) innerMissing += sub.missing;
-        rows.push({ lineType: 'product', refId: l.refId, price, source: price != null ? 'composition' : null, partial: !!sub?.missing, sum: price != null ? Math.round(price * l.quantity * 100) / 100 : null });
-      } else rows.push({ lineType: l.lineType, refId: l.refId, price: null, source: null, sum: null });
-    }
-    return { total: Math.round(rows.reduce((s, x) => s + (x.sum ?? 0), 0) * 100) / 100, missing: rows.filter((x) => x.price == null).length + innerMissing, lines: rows };
-  }
 
   /** Паспорта изделия (БЗ-5): по ссылке productId или с тем же названием; последние 30 и общее число. */
   private async passports(d: Doc) {
@@ -433,63 +276,6 @@ export class ShowcaseService {
     return this.get(id);
   }
 
-  /**
-   * Массовое изменение выбранных изделий (БЗ-9): раздел / группа (меняется одно — второе у каждого своё), серия, статус, цена,
-   * «Кто проектировал», ед. изм., RAL, цвета / размеры (arrays: add | replace), значения паспорта по умолчанию (дополняются).
-   * Артикул, наименование, фото, состав — только по одному. before — прежние значения для «Отменить» (bulkRestore).
-   */
-  async bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string> }) {
-    const ids = Array.isArray(dto.ids) ? [...new Set(dto.ids.map(String))] : [];
-    if (!ids.length) throw new BadRequestException('Отметьте изделия');
-    if (ids.length > 500) throw new BadRequestException('За один раз — не больше 500 изделий');
-    const FIELDS = ['type', 'group', 'series', 'status', 'price', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'];
-    const set = Object.fromEntries(Object.entries(dto.set ?? {}).filter(([k]) => FIELDS.includes(k)));
-    if (!Object.keys(set).length) throw new BadRequestException('Отметьте, что изменить');
-    const before: Array<{ id: string; set: Record<string, unknown> }> = [];
-    const failed: Array<{ id: string; message: string }> = [];
-    let updated = 0;
-    for (const id of ids) {
-      try {
-        const raw = await this.db.collection('products').findOne({ _id: oid(id, 'изделия'), deletedAt: null });
-        if (!raw) throw new NotFoundException('Изделие не найдено');
-        const cur = (await this.present([raw as Doc]))[0];
-        const patch: Record<string, unknown> = { ...set };
-        delete patch.passportDefaults;
-        if ('type' in set || 'group' in set) { patch.type = 'type' in set ? set.type : cur.type ?? ''; patch.group = 'group' in set ? set.group : cur.group ?? ''; }
-        for (const k of ['colors', 'sizes'] as const) if (k in set && dto.arrays?.[k] === 'add') patch[k] = [...((raw[k] as string[]) ?? []), ...variants(set[k])];
-        const prev: Record<string, unknown> = {};
-        for (const k of ['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults']) prev[k] = raw[k] ?? null;
-        if (Object.keys(patch).length) await this.update(id, patch);
-        if (set.passportDefaults && typeof set.passportDefaults === 'object') {
-          const merged = { ...(presentPassportDefaults(raw.passportDefaults as PassportDefaults) ?? {}), ...(set.passportDefaults as Record<string, unknown>) };
-          await this.setPassportDefaults(id, merged);
-        }
-        before.push({ id, set: prev });
-        updated++;
-      } catch (e) { failed.push({ id, message: e instanceof Error ? e.message : String(e) }); }
-    }
-    return { updated, failed, before };
-  }
-
-  /** «Отменить» массовое изменение изделий (БЗ-9): прежние значения полей — как были. */
-  async bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
-    if (Array.isArray(dto.items) && dto.items.length > 500) throw new BadRequestException('За раз — не больше 500 изделий');
-    let restored = 0;
-    for (const it of Array.isArray(dto.items) ? dto.items : []) {
-      if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
-      const $set: Record<string, unknown> = { updatedAt: new Date() }; const $unset: Record<string, ''> = {};
-      for (const [k, v] of Object.entries(it.set ?? {})) {
-        if (!['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'].includes(k)) continue;
-        if (v === null || v === undefined) { if (k === 'categoryId' || k === 'designerId' || k === 'passportDefaults' || k === 'series' || k === 'ralCode') $unset[k] = ''; continue; }
-        if (k === 'categoryId' || k === 'designerId') $set[k] = new Types.ObjectId(String(v));
-        else if (k === 'passportDefaults') $set[k] = normalizePassportDefaults(v as Record<string, unknown>);
-        else $set[k] = v;
-      }
-      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id) }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) });
-      restored += r.modifiedCount;
-    }
-    return { restored };
-  }
 
   /** В корзину: изделие из заказов CRM / КП не удаляется (ссылки) — проверяем составы и заказы CRM. */
   async remove(id: string) {
@@ -581,102 +367,23 @@ export class ShowcaseService {
     return { ...report, applied: true, created };
   }
 
-  // ─── БЗ-8: изделия из паспортов без дублей ───────────────────────────────────────────────────────
-  /** Модели паспортов без изделия («наименование + артикул», лучший паспорт по полноте) и группы-кандидаты на объединение. */
-  async passportGroups() {
-    const pp = this.db.collection('productpassports');
-    const docs = await pp.find({ deletedAt: null, productId: null }, { projection: { textSnapshot: 0, bom: 0 } }).toArray();
-    const by = new Map<string, PassportModel>();
-    let noName = 0;
-    for (const d of docs) {
-      const name = clean(d.name), article = clean(d.article);
-      if (!name) { noName++; continue; }
-      const k = modelKey(name, article), score = passportScore(d);
-      const m = by.get(k);
-      if (!m) by.set(k, { key: k, name, article, n: 1, score, bestId: String(d._id) });
-      else { m.n++; if (score > m.score) { m.score = score; m.bestId = String(d._id); } }
-    }
-    const models = [...by.values()];
-    const groups = candidateGroups(models);
-    const inGroup = new Set(groups.flat().map((m) => m.key));
-    const singles = models.filter((m) => !inGroup.has(m.key)).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-    return { groups, singles: singles.length, singlesPreview: singles.slice(0, 30).map((m) => ({ name: m.name, article: m.article, n: m.n })), noName,
-      linked: await pp.countDocuments({ deletedAt: null, productId: { $ne: null } }) };
+  /** Заменить строки состава (СИ) — подробности в showcase-composition.ts. */
+  async setComposition(id: string, lines: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; refId?: string; quantity?: number | string; notes?: string }>, types?: string[]) {
+    await this.comp.set(id, lines, types);
+    return this.get(id);
   }
 
-  /**
-   * Объединить в изделия «Продукции»: группа → одно изделие с данными лучшего паспорта (main) и ссылка productId у всех
-   * паспортов группы. Выданные паспорта (номера, текст, PDF) не меняются. rest — изделие на каждую оставшуюся одиночную модель.
-   */
-  async fromPassports(dto: { groups?: { keys?: string[]; main?: string; name?: string }[]; rest?: boolean }) {
-    let created = 0, linked = 0;
-    const link = async (keys: string[], productId: Types.ObjectId) => {
-      const or = keys.map((k) => { const [name, article] = k.split('\u0000'); return { name, ...(article ? { article } : { article: { $in: [null, ''] } }) }; });
-      linked += (await this.db.collection('productpassports').updateMany({ deletedAt: null, productId: null, $or: or }, { $set: { productId } })).modifiedCount;
-    };
-    const fromBest = async (key: string, name?: string) => {
-      const state = await this.passportGroups();
-      const m = [...state.groups.flat(), ...(await this.singleModels())].find((x) => x.key === key);
-      if (!m) throw new NotFoundException('Модель не найдена — обновите список (её могли уже объединить)');
-      const best = await this.db.collection('productpassports').findOne({ _id: new Types.ObjectId(m.bestId) });
-      return this.productFromPassport(best as Doc, clean(name) || m.name, m.article);
-    };
-    for (const g of dto.groups ?? []) {
-      const keys = (g.keys ?? []).filter(Boolean);
-      if (!keys.length || !g.main || !keys.includes(g.main)) throw new BadRequestException('Выберите паспорта группы и главный вариант');
-      const id = await fromBest(g.main, g.name);
-      created++;
-      await link(keys, id);
-    }
-    if (dto.rest) {
-      for (const m of await this.singleModels()) {
-        const best = await this.db.collection('productpassports').findOne({ _id: new Types.ObjectId(m.bestId) });
-        await link([m.key], await this.productFromPassport(best as Doc, m.name, m.article));
-        created++;
-      }
-    }
-    return { created, linked };
-  }
+  compositionSimilar(id: string) { return this.comp.similar(id); }
 
-  private async singleModels() {
-    const s = await this.passportGroups();
-    const inGroup = new Set(s.groups.flat().map((m) => m.key));
-    const docs = await this.db.collection('productpassports').find({ deletedAt: null, productId: null, name: { $nin: [null, ''] } }, { projection: { textSnapshot: 0, bom: 0 } }).toArray();
-    const by = new Map<string, PassportModel>();
-    for (const d of docs) {
-      const name = clean(d.name), article = clean(d.article), k = modelKey(name, article), score = passportScore(d);
-      if (inGroup.has(k)) continue;
-      const m = by.get(k);
-      if (!m) by.set(k, { key: k, name, article, n: 1, score, bestId: String(d._id) });
-      else { m.n++; if (score > m.score) { m.score = score; m.bestId = String(d._id); } }
-    }
-    return [...by.values()];
-  }
+  /** Массовое изменение выбранных изделий (БЗ-9) — подробности в showcase-bulk.ts. */
+  bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string> }) { return this.bulkOps.run(dto); }
 
-  /** Изделие из паспорта: артикул — из паспорта (занят другим изделием — с суффиксом -2, -3…), без артикула — ПС-<код>; значения паспорта по умолчанию. */
-  private async productFromPassport(p: Doc, name: string, article: string): Promise<Types.ObjectId> {
-    const base = article || 'ПС-' + createHash('md5').update(name.toLowerCase()).digest('hex').slice(0, 6).toUpperCase();
-    let created: { id: string } | null = null;
-    for (let i = 1; i <= 20 && !created; i++) {
-      const sku = i === 1 ? base : `${base}-${i}`;
-      const overview = ((p.images as Array<{ kind?: string; photoId?: unknown; order?: number }>) ?? []).filter((i) => (i.kind || 'overview') === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((i) => String(i.photoId));
-      try {
-        created = await this.create({ sku, name, group: p.category ?? '', description: p.description ?? '',
-          dimensions: { length: p.length, width: p.width, height: p.height, unit: 'мм' }, weightKg: p.weight ?? null,
-          purpose: p.purpose ?? '', installation: p.installationMethod ?? '', ...(overview.length ? { photoIds: overview } : {}) });
-      }
-      catch (e) { if (!(e instanceof ConflictException)) throw e; }
-    }
-    if (!created) throw new ConflictException(`Не удалось подобрать свободный артикул для «${name}»`);
-    const id = new Types.ObjectId(created.id);
-    const pick = Object.fromEntries(['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'warrantyMonths']
-      .filter((k) => p[k] !== undefined && p[k] !== null && p[k] !== '').map((k) => [k, p[k]]));
-    try {
-      const defaults = normalizePassportDefaults(pick);
-      if (Object.keys(defaults).length) await this.db.collection('products').updateOne({ _id: id }, { $set: { passportDefaults: defaults, source: 'passports' } });
-    } catch { /* неверные значения в старом паспорте — изделие без значений по умолчанию */ }
-    return id;
-  }
+  bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) { return this.bulkOps.restore(dto); }
+
+  // БЗ-8: изделия из паспортов без дублей — showcase-from-passports.ts
+  passportGroups() { return this.fromPp.passportGroups(); }
+
+  fromPassports(dto: { groups?: { keys?: string[]; main?: string; name?: string }[]; rest?: boolean }) { return this.fromPp.fromPassports(dto); }
 
   /** Данные коммерческого предложения: номер КП, реквизиты нашей компании, заказчик, строки с фото и суммами. */
   async kp(dto: { items?: { id: string; qty?: number; price?: number }[]; companyId?: string; customer?: string; note?: string }) {

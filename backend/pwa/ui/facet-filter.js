@@ -1,4 +1,4 @@
-import { api } from '../core/api.js';
+import { stockList } from '../core/stock-list.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
@@ -25,12 +25,12 @@ export function ftParams(s) {
 }
 
 export function facetFilter({ categoryKey = 'categoryId' } = {}) {
-  let items = null; let P = {};
+  let items = null; let src = null; let P = {};
   const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, 'Тип, резьба, размер, марка ▾');
   const tags = h('span', { class: 'ff-tags' });
   const pop = h('div', { class: 'ff-pop', hidden: true, role: 'dialog', 'aria-label': 'Фильтры по признакам' });
   const el = h('div', { class: 'ff' }, btn, tags, pop);
-  const load = async () => { items ??= index((await api('/stock/items', { query: { limit: 10000 } })).items); return items; };
+  const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
   const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside, true); };
   const outside = (e) => { if (!el.contains(e.target)) close(); };
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };

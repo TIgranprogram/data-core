@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
 import { date, parseNum, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
+import { stockList } from '../core/stock-list.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { bulkPaste } from '../ui/bulk.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -35,6 +36,7 @@ export function mountOps(params) {
   let P = { ...params };
   const mode = () => (MODES[P.mode] ? P.mode : 'out');
   let items = [];
+  let loaded = false; let loading = false; // склад целиком грузится по действию (фокус поиска), а не при открытии экрана (ПР-1)
   let byId = new Map();
   let cats = [];
   const st = { q: '', cat: '', sel: {}, active: 0 };
@@ -137,6 +139,7 @@ export function mountOps(params) {
   // обрезки с остатком — первыми (СМ.2: «сначала брать обрезки»)
   function shown() { const l = pick(items, { q: st.q, cat: st.cat, sel: st.sel }); return mode() === 'out' ? [...l.filter((x) => x.offcutOf && x.quantity > 0), ...l.filter((x) => !(x.offcutOf && x.quantity > 0))] : l; }
   function renderResults() {
+    if (!loaded) { found.replaceChildren(); results.replaceChildren(h('div', { class: 'ops-empty muted' }, loading ? 'Загружаю…' : 'Коснитесь строки поиска — склад загрузится')); return; }
     const list = shown();
     const inCart = new Map(cart().map((l) => [l.id, l]));
     const anyFilter = st.q || st.cat || Object.values(st.sel).some(Boolean);
@@ -319,18 +322,27 @@ export function mountOps(params) {
   });
 
   async function reload() {
-    const [res, cs] = await Promise.all([
-      api('/stock/items', { query: { limit: 10000, sort: 'name' } }),
+    const [list, cs] = await Promise.all([
+      stockList(),
       api('/stock/categories').catch(() => ({ items: [] })),
     ]);
-    items = index(res.items);
+    items = index(list);
     byId = new Map(items.map((i) => [i.id, i]));
     cats = cs.items.filter((c) => c.id !== 'none').map((c) => ({ id: c.id, name: c.name }));
+    loaded = true;
     renderPicker(); renderCart();
   }
+  const desktop = window.matchMedia('(hover: hover) and (min-width: 720px)').matches; // на компьютере — автофокус и загрузка сразу; на телефоне — по касанию поиска
+  function ensureLoaded(fromSearch = false) {
+    if (loaded || loading) return;
+    loading = true; renderResults();
+    reload().then(() => { if (fromSearch === true || desktop) search.focus(); }).catch((e) => showFail(e)).finally(() => { loading = false; });
+  }
   renderChrome();
-  results.replaceChildren(h('div', { class: 'ops-empty muted' }, 'Загрузка…'));
-  reload().then(() => search.focus()).catch((e) => { results.replaceChildren(h('div', { class: 'ops-empty' }, h('p', null, 'Не удалось загрузить склад: ' + errText(e)), h('button', { class: 'btn', type: 'button', onclick: () => reload().catch(toastError) }, 'Повторить'))); });
+  search.addEventListener('focus', () => ensureLoaded(true));
+  bulk.el.addEventListener('click', () => ensureLoaded(false), true);
+  if (desktop) ensureLoaded(true); else if (cart().length) ensureLoaded(); else { renderPicker(); renderCart(); } // начатый список надо показать сразу; пустой экран склад не грузит
+  const showFail = ((e) => { results.replaceChildren(h('div', { class: 'ops-empty' }, h('p', null, 'Не удалось загрузить склад: ' + errText(e)), h('button', { class: 'btn', type: 'button', onclick: () => reload().catch(toastError) }, 'Повторить'))); });
   return {
     el,
     reload: () => reload().catch(() => {}),

@@ -300,7 +300,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       });
       tbody.replaceChildren(...trs);
       cards.replaceChildren(...rows.map((row) => h('li', { onclick: () => onOpen(row) },
-        bulkOn ? pickBox(row) : null,
+        bulkOn ? h('label', { class: 'pick-hit', title: 'Отметить', onclick: (e) => e.stopPropagation() }, pickBox(row)) : null,
         L.card.thumb ? L.card.thumb(row) : null,
         h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
         h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null))));

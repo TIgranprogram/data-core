@@ -31,6 +31,8 @@ export class AuthError extends ApiError {}
 
 /** Слушатели: потеря сессии (показать вход), связь (полоса «нет связи»). */
 export const events = { onAuthLost: () => {}, onNet: (_ok) => {} };
+/** Хуки после успешной записи (не GET): кэши данных сбрасываются сами (core/stock-list.js). */
+export const writeHooks = [];
 
 const HUMAN = {
   0: 'Нет связи с сервером. Проверьте интернет и повторите.',
@@ -113,7 +115,7 @@ export async function api(path, { method = 'GET', body, query } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   // одинаковые GET, пока первый ещё в пути (меню и «Сегодня» просят одни и те же счётчики), — один запрос к серверу;
   // разбор — у каждого свой, чтобы правка ответа одним местом не задела другое
-  if (method !== 'GET') return parse(await send(path + qs, method, body));
+  if (method !== 'GET') { const out = parse(await send(path + qs, method, body)); for (const f of writeHooks) f(path, method); return out; }
   const key = path + qs;
   let p = inflight.get(key);
   if (!p) { p = send(key, method).finally(() => inflight.delete(key)); inflight.set(key, p); }
