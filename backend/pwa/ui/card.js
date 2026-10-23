@@ -6,6 +6,7 @@ import { confirmDlg } from './dialog.js';
 import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
+import { errText } from './errors.js';
 
 /**
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
@@ -75,7 +76,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (!fresh && !row) { body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } })); }
     if (!fresh && row) drawer.classList.add('loading'); // соседняя запись: старое содержимое видно, пока грузится новое
     try { row = fresh || (await section.get(id)); }
-    catch (e) { drawer.classList.remove('loading'); body.replaceChildren(h('div', { class: 'state' }, e.message)); titleEl.textContent = section.title; return; }
+    catch (e) { drawer.classList.remove('loading'); body.replaceChildren(h('div', { class: 'state' }, errText(e))); titleEl.textContent = section.title; return; }
     drawer.classList.remove('loading');
     titleEl.textContent = section.card.heading(row);
     subEl.textContent = section.card.subheading ? section.card.subheading(row) : '';
@@ -173,7 +174,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     try {
       if (section.form.build) form = await section.form.build(base); // своя форма раздела (счёт с позициями)
       else { flds = await section.form.fields(isNew ? null : row); form = buildForm(flds, base); }
-    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + e.message)); return; }
+    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + errText(e))); return; }
     const err = h('div', { class: 'form-error', hidden: true });
     body.replaceChildren(...[err, revert ? h('div', { class: 'fill-note' }, revert.note) : null, form.el].filter(Boolean));
     const saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
@@ -191,7 +192,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         const bodyData = section.form.toBody(r.values, isNew ? null : row);
         saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
       } catch (e) {
-        err.textContent = 'Не сохранено: ' + e.message; err.hidden = false;
+        err.textContent = 'Не сохранено: ' + errText(e); err.hidden = false;
+        if (e?.fields) form.markErrors?.(e.fields);
         save.disabled = false; save.textContent = saveLabel;
         return;
       }

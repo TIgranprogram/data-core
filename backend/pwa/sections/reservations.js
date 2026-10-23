@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { date, plural, qty } from '../core/format.js';
 import { toast, toastError } from '../ui/toast.js';
 import { issueDialog } from './issue.js';
+import { errText } from '../ui/errors.js';
 
 /*
  * «Активные брони» в «Операциях → Бронь по списку» (TASKS МВ.4, Б.2, Б.3).
@@ -44,7 +45,7 @@ export function reservationsPanel({ onChange }) {
           h('ul', { class: 'timeline' }, ...d.issues.map((x) => h('li', null, h('span', { class: 'when' }, date(x.date)), `${x.name} — ${qty(x.qty)} ${x.unit}`, h('span', { class: 'muted' }, x.to ? ` · ${x.to}` : ' · кому — не указано'))))) : null,
         d.requests.length ? h('div', null, h('div', { class: 'section-title' }, 'Заказано недостающее'),
           h('ul', { class: 'timeline' }, ...d.requests.map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? ''} ${x.title}`), h('span', { class: 'muted' }, ` · ${qty(x.qty)} ${x.unit} · ${REQ[x.status] || x.status}`))))) : null].filter(Boolean));
-    }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + e.message)));
+    }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + errText(e))));
   }
 
   async function load() {

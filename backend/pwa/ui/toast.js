@@ -1,4 +1,5 @@
 import { h } from '../core/dom.js';
+import { errText } from './errors.js';
 
 /** Всплывающее сообщение. undo — кнопка «Отменить» (CANON §2 «Удаление»), 10 секунд. */
 export function toast(text, { error = false, undo, ms } = {}) {
@@ -14,4 +15,11 @@ export function toast(text, { error = false, undo, ms } = {}) {
   return close; // долгое действие: toast('Готовлю…', { ms: … }) — закрыть, когда готово
 }
 
-export const toastError = (e) => toast(e?.message || String(e), { error: true });
+// ОШ: текст — errText (по-русски, внутренние ошибки — общим текстом); одинаковая ошибка подряд (4 с) — один раз
+let lastErr = ''; let lastAt = 0;
+export const toastError = (e) => {
+  const t = errText(e);
+  if (t === lastErr && Date.now() - lastAt < 4000) return;
+  lastErr = t; lastAt = Date.now();
+  toast(t, { error: true });
+};

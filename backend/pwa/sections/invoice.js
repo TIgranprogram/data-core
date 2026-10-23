@@ -12,6 +12,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { pastItems } from './requests.js';
 import { orderedNote } from './item-orders.js';
+import { errText } from '../ui/errors.js';
 
 /**
  * «+ Счёт» (TASKS В.3): уже оплаченный / полученный счёт, которого не было в заявках — вносится одним окном.
@@ -114,7 +115,7 @@ async function buildInvoiceForm(opts = {}) {
         nBox.hidden = true;
         toast(`Позиция «${it.name}» добавлена в базу`);
         q.focus(); q.select();
-      } catch (e) { nErr.textContent = e.message; nErr.hidden = false; } finally { nSave.disabled = false; }
+      } catch (e) { nErr.textContent = errText(e); nErr.hidden = false; } finally { nSave.disabled = false; }
     });
     sum.addEventListener('input', recalc);
     sum.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); } });

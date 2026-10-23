@@ -74,11 +74,13 @@ async function refreshAccess() {
 
 async function errorOf(res) {
   let msg = '';
-  try { const j = await res.json(); msg = Array.isArray(j.message) ? j.message.join('; ') : j.message || ''; } catch { /* не JSON */ }
+  let fields = null;
+  try { const j = await res.json(); msg = Array.isArray(j.message) ? j.message.join('; ') : j.message || ''; fields = j.missing || j.fields || null; } catch { /* не JSON */ }
   // Сервер отдаёт русские сообщения для 400/409; для прочих — общий понятный текст
   const russian = /[а-яё]/i.test(msg);
-  if ([400, 409, 422].includes(res.status) && russian) return new ApiError(msg, res.status);
-  return new ApiError(russian ? msg : HUMAN[res.status] || HUMAN[500], res.status);
+  const err = [400, 409, 422].includes(res.status) && russian ? new ApiError(msg, res.status) : new ApiError(russian ? msg : HUMAN[res.status] || HUMAN[500], res.status);
+  if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
+  return err;
 }
 
 /** Скачать файл (PDF, ZIP) с сервера и сохранить: имя — из Content-Disposition (filename*). */

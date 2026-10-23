@@ -7,6 +7,7 @@ import { orders } from './orders.js';
 import { salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 import { partners } from './partners.js';
+import { errText } from '../ui/errors.js';
 
 /** Корзина (CANON §2 «Удаление»): всё удалённое, «Восстановить». */
 const SOURCES = [
@@ -42,7 +43,7 @@ export function mountTrash() {
         return h('tr', { style: { cursor: 'default' } }, h('td', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
           h('td', { class: 'num' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));
       }));
-    }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, 'Не удалось загрузить: ' + e.message))));
+    }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, 'Не удалось загрузить: ' + errText(e)))));
     return panel;
   }
 

@@ -65,7 +65,7 @@ export function parseDocsQuery(raw: { page?: string; limit?: string; deleted?: s
   if (!Number.isInteger(limit) || limit < 1) throw new BadRequestException('limit — целое число ≥ 1');
   const deleted = (raw.deleted ?? 'exclude') as DeletedMode;
   if (!['exclude', 'include', 'only'].includes(deleted)) {
-    throw new BadRequestException('deleted — exclude | include | only');
+    throw new BadRequestException('Параметр deleted: exclude (без удалённых), include (все) или only (только удалённые)');
   }
   const q = (raw.q ?? '').trim().slice(0, 100);
   return { page, limit: Math.min(limit, DOCS_LIMIT_MAX), deleted, q };

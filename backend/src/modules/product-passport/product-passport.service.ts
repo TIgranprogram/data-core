@@ -424,7 +424,7 @@ export class ProductPassportService {
     const base = await this.template(cat); // содержимое по умолчанию — действующее (для категории без версии — «Для всех»)
     const own = await this.ownDoc(cat);
     const sections = body.sections ?? base.sections, tables = body.tables ?? base.tables;
-    if (!Array.isArray(sections) || !sections.every((s) => s && typeof s.title === 'string' && Array.isArray(s.paragraphs))) throw new BadRequestException('sections: [{ key, title, paragraphs[] }]');
+    if (!Array.isArray(sections) || !sections.every((s) => s && typeof s.title === 'string' && Array.isArray(s.paragraphs))) throw new BadRequestException('Тексты: ожидается список разделов sections: [{ key, title, paragraphs[] }]');
     const same = cat === 'ALL' ? { category: { $in: [null, 'ALL'] } } : { category: cat };
     await this.templates.updateMany({ isActive: true, ...same }, { $set: { isActive: false } }).exec();
     await this.templates.create({ version: (own?.version ?? 0) + 1, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections, tables, ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
@@ -467,7 +467,7 @@ export class ProductPassportService {
   /** Предпросмотр без сохранения: сборка на пустом паспорте категории (незаполненные переменные — видимыми метками). */
   async textsPreview(body: { category?: string; own?: PassportTemplateContent['sections'] | null }) {
     const cat = normalizeCategory(body?.category);
-    if (body?.own != null && (!Array.isArray(body.own) || !body.own.every((s) => s && typeof s.key === 'string' && Array.isArray(s.paragraphs)))) throw new BadRequestException('own: [{ key, title, paragraphs[] }]');
+    if (body?.own != null && (!Array.isArray(body.own) || !body.own.every((s) => s && typeof s.key === 'string' && Array.isArray(s.paragraphs)))) throw new BadRequestException('Тексты: ожидается список разделов own: [{ key, title, paragraphs[] }]');
     const saved = (await this.v2Own(cat)).own;
     const own = cat === 'ALL' ? null : body?.own ? { version: saved?.version ?? 0, sections: body.own } : saved;
     const allV2 = await this.v2All();
@@ -480,7 +480,7 @@ export class ProductPassportService {
   /** Запись версии категории из редактора текстов. ALL — общая часть v2 (category ALL_V2); шаблон «Для всех» PDF v1 не трогается. */
   async saveTexts(body: { category?: string; sections?: PassportTemplateContent['sections'] }, userId?: string) {
     const cat = normalizeCategory(body?.category);
-    if (!Array.isArray(body.sections)) throw new BadRequestException('sections: [{ key, title, paragraphs[] }]');
+    if (!Array.isArray(body.sections)) throw new BadRequestException('Тексты: ожидается список разделов sections: [{ key, title, paragraphs[] }]');
     const sections = body.sections.map((s) => ({ key: String(s?.key || ''), title: String(s?.title ?? ''), paragraphs: Array.isArray(s?.paragraphs) ? s.paragraphs.map((p) => String(p ?? '').trim()).filter(Boolean) : [] }));
     if (sections.some((s) => !s.key)) throw new BadRequestException('У раздела нет ключа (key)');
     if (cat === 'ALL') {

@@ -25,7 +25,7 @@ export class CompositionLineService {
   toStoredLine(dto: CreateCompositionLineDto | UpdateCompositionLineDto, existing?: CompositionLineDocumentShape): CompositionLineDocumentShape {
     const lineType = dto.lineType ?? existing?.lineType;
     const refId = dto.refId ?? existing?.refId?.toString();
-    if (!lineType || !refId || !Types.ObjectId.isValid(refId)) throw new BadRequestException('lineType and valid refId are required');
+    if (!lineType || !refId || !Types.ObjectId.isValid(refId)) throw new BadRequestException('Строка состава: укажите тип (lineType) и ссылку на позицию (refId)');
     this.assertLineType(lineType);
     return {
       _id: existing?._id ?? new Types.ObjectId(),
@@ -46,7 +46,7 @@ export class CompositionLineService {
   async validateReference(parentKind: ParentKind, line: CompositionLineDocumentShape, models: CompositionModels): Promise<void> {
     // unitPriceOverride guard: only for product lines
     if (line.unitPriceOverride !== undefined && line.lineType !== 'product') {
-      throw new BadRequestException('unitPriceOverride is only allowed on product lines');
+      throw new BadRequestException('Свою цену (unitPriceOverride) можно указать только у строки-изделия');
     }
     // Деталь (materialKind='part') composition is a flat BOM of raw materials
     // only — no nested modules/products/parts, so no cycle is structurally
@@ -71,7 +71,7 @@ export class CompositionLineService {
       if (!product) throw new NotFoundException(`Product ${line.refId} not found`);
       // unitPriceOverride validation: only for product-lines, ≥0
       if (line.unitPriceOverride !== undefined && line.unitPriceOverride < 0) {
-        throw new BadRequestException('unitPriceOverride must be ≥ 0');
+        throw new BadRequestException('Своя цена (unitPriceOverride) — не меньше 0');
       }
       return;
     }

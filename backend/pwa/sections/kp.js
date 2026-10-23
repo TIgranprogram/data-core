@@ -7,6 +7,7 @@ import { attachCombo } from '../ui/combo.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';
+import { errText } from '../ui/errors.js';
 
 /*
  * Коммерческое предложение (TASKS БЗ-4) и загрузка каталога — свои формы в правой панели (как «+ Счёт»).
@@ -96,10 +97,10 @@ async function buildImportForm() {
       report.replaceChildren(...[h('p', null, h('b', null, `Строк: ${r.total}`), ` · новых ${r.new} · обновится ${r.update} · без изменений ${r.same}${r.deleted ? ` · в корзине ${r.deleted}` : ''}`),
         r.errors.length ? h('ul', { class: 'muted' }, ...r.errors.slice(0, 10).map((e) => h('li', null, e))) : null,
         h('ul', { class: 'timeline' }, ...r.preview.slice(0, 10).map((p) => h('li', null, h('span', { class: 'muted' }, ({ new: 'новое', update: 'обновится', same: 'как есть', deleted: 'в корзине' })[p.action]), ` ${p.sku} · ${p.name}`, h('span', { class: 'muted' }, [p.type, p.group, p.series].filter(Boolean).join(' · ')))))].filter(Boolean));
-    } catch (e) { report.replaceChildren(h('p', { class: 'err' }, e.message)); }
+    } catch (e) { report.replaceChildren(h('p', { class: 'err' }, errText(e))); }
   };
   area.addEventListener('input', () => { clearTimeout(area._t); area._t = setTimeout(check, 400); });
-  file.addEventListener('change', async () => { if (file.files[0]) { try { area.value = await readTableFile(file.files[0]); check(); } catch (e) { report.replaceChildren(h('p', { class: 'err' }, e.message)); } } });
+  file.addEventListener('change', async () => { if (file.files[0]) { try { area.value = await readTableFile(file.files[0]); check(); } catch (e) { report.replaceChildren(h('p', { class: 'err' }, errText(e))); } } });
   const el = h('div', null, h('p', { class: 'hint' }, 'Каталог изделий: по артикулу — новые добавятся, у существующих обновятся название, раздел, группа, серия (цена — только если её ещё нет). Ничего не удаляется. Изделия без цены — черновики.'),
     h('button', { class: 'btn', type: 'button', title: 'Пустая таблица с нужными колонками и примером', onclick: () => downloadXlsx('Шаблон каталога изделий.xlsx', [['Тип', 'Группа', 'Артикул', 'Наименование', 'Серия', 'Цена'], ['Детское игровое оборудование', 'Качели', 'КЧ-001', 'Качели двойные', 'Классик', 12500]], 'Каталог') }, '⇩ Скачать шаблон Excel'),
     h('label', { class: 'field wide' }, h('span', null, 'Файл Excel (.xlsx) или CSV'), file), h('label', { class: 'field wide' }, h('span', null, 'Или вставьте строки'), area), report);

@@ -498,7 +498,7 @@ export class CollectionsAdminController {
     if (sampleParam !== undefined) {
       const n = Number(sampleParam);
       if (!Number.isFinite(n) || n < 1) {
-        throw new BadRequestException('sample must be a positive number');
+        throw new BadRequestException('Параметр sample — положительное число');
       }
       sampleSize = Math.min(Math.floor(n), DETAIL_SAMPLE_MAX);
     }

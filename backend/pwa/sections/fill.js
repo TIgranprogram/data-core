@@ -2,6 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
+import { errText } from '../ui/errors.js';
 
 /**
  * «Требуют заполнения» по категориям (TASKS ТЗ.3–ТЗ.4). Данные — `/api/fill-audit`: группа = что не заполнено,
@@ -39,7 +40,7 @@ export function mountFill(params) {
   }
   async function reload() {
     try { data = await api('/fill-audit', { query: { limit: 50 } }); render(); }
-    catch (e) { box.replaceChildren(h('div', { class: 'panel state' }, 'Не загрузилось: ' + e.message)); }
+    catch (e) { box.replaceChildren(h('div', { class: 'panel state' }, 'Не загрузилось: ' + errText(e))); }
   }
   reload();
   return { el, reload, update: (p) => { if ((p.g || '') !== openKey) { openKey = p.g || ''; if (data) render(); } } };
@@ -60,6 +61,6 @@ export function fillToday() {
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, g.title), h('div', { class: 'q-sub' }, [g.area, g.why].join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num' }, qty(g.count))))),
     r.groups.length > top.length ? h('li', { class: 'q-empty' }, `ещё групп: ${r.groups.length - top.length} — «Все →»`) : '');
-  }).catch((e) => list.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + e.message)));
+  }).catch((e) => list.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e))));
   return { el, load };
 }

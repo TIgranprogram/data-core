@@ -7,6 +7,7 @@ import { stock } from './stock.js';
 import { passports } from './passports.js';
 import { partners } from './partners.js';
 import { products } from './products.js';
+import { errText } from '../ui/errors.js';
 
 /** Поиск по всему (PRODUCT §6): номер / название / поставщик → совпадения во всех разделах. Раздел без прав (403) не показывается. */
 const SOURCES = [
@@ -44,7 +45,7 @@ export function mountSearch(params) {
         return h('li', { onclick: () => src.section.open(row.id) }, h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, v.title), h('div', { class: 'c-sub' }, v.sub)), h('div', { class: 'c-side' }, v.side));
       }));
       if (r.total > r.items.length) more.append(h('a', { href: `#${src.section.id}?q=${encodeURIComponent(q)}` }, `Все результаты в разделе «${src.title}» (${r.total}) →`));
-    }).catch((e) => { found += e.status === 403 ? 0 : 1; e.status === 403 ? panel.remove() : list.replaceChildren(h('li', null, 'Не удалось выполнить поиск: ' + e.message)); }).finally(done);
+    }).catch((e) => { found += e.status === 403 ? 0 : 1; e.status === 403 ? panel.remove() : list.replaceChildren(h('li', null, 'Не удалось выполнить поиск: ' + errText(e))); }).finally(done);
   }
   return { el };
 }

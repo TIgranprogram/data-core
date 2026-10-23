@@ -6,6 +6,7 @@ import { badge } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
+import { errText } from '../ui/errors.js';
 
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
@@ -58,7 +59,7 @@ function addLineRow(r, after) {
       title.value = ''; q.value = '1';
       window.dispatchEvent(new CustomEvent('data-changed'));
       after(line);
-    } catch (e) { toast(e.message, { error: true }); } finally { btn.disabled = false; }
+    } catch (e) { toast(errText(e), { error: true }); } finally { btn.disabled = false; }
   };
   title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
   btn.addEventListener('click', go);
@@ -88,7 +89,7 @@ function details(r) {
       sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
         ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
         : h('p', { class: 'muted' }, 'Списаний под заказ нет. В «Операциях» → «Списание» выберите этот заказ.')));
-  }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не удалось загрузить: ' + e.message)));
+  }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не удалось загрузить: ' + errText(e))));
   load();
   return box;
 }

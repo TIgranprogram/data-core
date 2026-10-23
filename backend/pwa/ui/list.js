@@ -9,6 +9,7 @@ import { mountBoard } from './board.js';
 import { icon } from './icons.js';
 import { pager } from './pager.js';
 import { toastError } from './toast.js';
+import { errText } from './errors.js';
 
 /**
  * Экран-список (CANON §2) — один на все разделы. Состояние — в адресе: page, limit, q, sort, фильтры, view, open.
@@ -234,7 +235,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     } catch (e) {
       if (my !== seq) return;
       panel.classList.remove('loading');
-      stateRow(() => h('div', { class: 'state' }, h('div', null, 'Не удалось загрузить: ' + e.message), h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить')));
+      stateRow(() => h('div', { class: 'state' }, h('div', null, 'Не удалось загрузить: ' + errText(e)), h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить')));
       foot.replaceChildren();
       return;
     }

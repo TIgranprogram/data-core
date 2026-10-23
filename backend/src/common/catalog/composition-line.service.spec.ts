@@ -126,7 +126,7 @@ describe('CompositionLineService', () => {
     it('rejects unitPriceOverride on non-product line', async () => {
       const { models } = mockModels(true);
       const line = { _id: new Types.ObjectId(), lineType: 'material' as const, refId: new Types.ObjectId(), quantity: 1, sortOrder: 0, unitPriceOverride: 100 };
-      await expect(svc.validateReference('product', line, models)).rejects.toThrow(/unitPriceOverride is only allowed on product lines/i);
+      await expect(svc.validateReference('product', line, models)).rejects.toThrow(/только у строки-изделия/i);
     });
   });
 

@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
+import { errText } from '../ui/errors.js';
 
 /**
  * «Справочники → Паспорта → Разделы и тексты» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2). 
@@ -125,7 +126,7 @@ export function mountTexts() {
     if (shown !== cat) tree.replaceChildren(h('div', { class: 'state' }, 'Загрузка…'));
     shown = cat;
     try { renderTree(cat, await loadTexts(cat, true)); }
-    catch (e) { tree.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Не загрузилось: ' + e.message), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => reload() }, 'Повторить'))); }
+    catch (e) { tree.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Не загрузилось: ' + errText(e)), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => reload() }, 'Повторить'))); }
   }
   // смена категории — загрузить; открыли/закрыли пункт — только перерисовать выделение из кэша
   function update() {

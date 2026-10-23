@@ -292,9 +292,23 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     return { values };
   }
 
+  /** ОШ: поля из ответа сервера ([{ key, label? }]) — подсветить и раскрыть блок, фокус на первое. */
+  function markErrors(list) {
+    let first = null;
+    for (const f of list || []) {
+      const x = inputs.get(f.key); if (!x) continue;
+      x.err.textContent = f.message || 'Заполните поле'; x.err.hidden = false; x.label.classList.add('has-error');
+      if (x.blk) setOpen(x.blk, true, false);
+      first ??= x;
+    }
+    first?.input.focus?.();
+    return !!first;
+  }
+
   return {
     el: root || grid,
     read,
+    markErrors,
     dirty: () => snapshot() !== start,
     // фокус — на первое видимое поле ввода (ОШ.1: первым бывает виджет / фото / скрытое — у них нет focus(), форма падала)
     focus: () => {

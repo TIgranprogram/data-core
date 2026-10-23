@@ -6,6 +6,8 @@ import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core
 import { confirmDlg, modal } from './ui/dialog.js';
 import { searchBox } from './ui/searchbox.js';
 import { openCard } from './ui/card.js';
+import { installGlobalErrors } from './ui/errors.js';
+import { toastError } from './ui/toast.js';
 import { icon } from './ui/icons.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
@@ -33,6 +35,8 @@ import { ptext, ptextview } from './sections/passport-texts.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
+// ОШ: любая необработанная ошибка — понятным русским текстом (детали — в консоль), без повторов
+installGlobalErrors(toastError);
 
 const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, ptext, ptextview };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];

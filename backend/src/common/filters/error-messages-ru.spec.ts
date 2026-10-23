@@ -22,3 +22,22 @@ describe('Ошибки API по-русски (замечание пользов�
     for (const s of [400, 401, 403, 404, 409, 413, 429, 500, 418]) expect(hasCyrillic(russianFallback(s))).toBe(true);
   });
 });
+
+/** ОШ.4: страж — каждый английский текст ошибки в коде сервера переводится словарём или шаблоном (иначе человек видит лишь общий текст). */
+describe('английские тексты исключений — все с переводом', () => {
+  it('нет английских throw без перевода в src/', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs'); const path = require('path') as typeof import('path');
+    const root = path.join(__dirname, '..', '..');
+    const files: string[] = [];
+    const walk = (d: string) => { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else if (p.endsWith('.ts') && !p.endsWith('.spec.ts')) files.push(p); } };
+    walk(root);
+    const miss: string[] = [];
+    for (const f of files) for (const m of fs.readFileSync(f, 'utf8').matchAll(/Exception\(\s*'([^']*)'/g)) {
+      const s = m[1];
+      if (/[а-яё]/i.test(s) || !/^[A-Za-z]/.test(s)) continue;
+      if (!translateMessage(s)) miss.push(`${path.relative(root, f)}: ${s}`);
+    }
+    expect(miss).toEqual([]);
+  });
+});

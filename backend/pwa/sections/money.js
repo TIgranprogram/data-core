@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { forecastView } from './money-forecast.js';
+import { errText } from '../ui/errors.js';
 
 /**
  * «Деньги» (PRODUCT §5, TASKS Ф.6): платёжный календарь СИЮ/ССЮ по дням, сводка по месяцам, «требуют заполнения».
@@ -236,7 +237,7 @@ export function mountMoney(params) {
       if (my !== seq) return;
       body.replaceChildren(...content.filter(Boolean));
     } catch (e) {
-      if (my === seq) body.replaceChildren(h('div', { class: 'panel state' }, 'Не удалось загрузить: ' + e.message, h('div', null, h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить'))));
+      if (my === seq) body.replaceChildren(h('div', { class: 'panel state' }, 'Не удалось загрузить: ' + errText(e), h('div', null, h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить'))));
     } finally { if (my === seq) el.classList.remove('loading'); }
   }
   load();

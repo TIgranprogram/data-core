@@ -12,6 +12,7 @@ import { issueDialog, issueToFields, withOrders } from './issue.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
 import { orderedBlock, orderItem, receiveField } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
+import { errText } from '../ui/errors.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -283,11 +284,11 @@ export const stock = {
       // начальный остаток — штуками или по весу (НО.2): приход в штуках, расчёт — в примечании
       if (initial?.byWeight || initial?.qty > 0) {
         try { r = await api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'in', qty: initial.qty || 1, note: 'Ввод начального остатка', ...(initial.byWeight ? { byWeight: initial.byWeight } : {}) } }); }
-        catch (e) { toast(`Позиция создана, но начальный остаток не записан: ${e.message}. Сделайте «+ Приход» в карточке.`, { error: true }); }
+        catch (e) { toast(`Позиция создана, но начальный остаток не записан: ${errText(e)}. Сделайте «+ Приход» в карточке.`, { error: true }); }
       }
       for (const photoId of photoIds || []) {
         try { r = await api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); }
-        catch (e) { toast(`Позиция создана, но фото не прикрепилось: ${e.message}. Добавьте фото в карточке.`, { error: true }); break; }
+        catch (e) { toast(`Позиция создана, но фото не прикрепилось: ${errText(e)}. Добавьте фото в карточке.`, { error: true }); break; }
       }
       lookups.reset();
       return r;

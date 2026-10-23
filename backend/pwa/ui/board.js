@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { toastError } from './toast.js';
+import { errText } from './errors.js';
 
 /**
  * Доска — колонки слева направо (по статусу). Один компонент на все разделы с доской.
@@ -147,7 +148,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
       } catch (e) {
         if (my !== seq) return;
         n.textContent = '—';
-        body.replaceChildren(h('div', { class: 'col-more' }, 'Не загрузилось: ' + e.message));
+        body.replaceChildren(h('div', { class: 'col-more' }, 'Не загрузилось: ' + errText(e)));
       }
     }));
     if (my === seq) el.classList.remove('loading');

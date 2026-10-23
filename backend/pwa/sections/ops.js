@@ -14,6 +14,7 @@ import { reservationsPanel } from './reservations.js';
 import { enhanceSelect } from '../ui/select.js';
 import { searchBox } from '../ui/searchbox.js';
 import { weighButton } from './ops-weight.js';
+import { errText } from '../ui/errors.js';
 
 /* «Операции» склада (TASKS фаза С): как касса — слева подбор (поиск «м10 гайка» + кнопки-фильтры
  * тип → резьба → длина → стандарт), справа корзина; одна кнопка проводит всё разом (POST /stock/batch),
@@ -261,7 +262,7 @@ export function mountOps(params) {
     try {
       // ФИ.3/ФИ.4: пересчёт ниже брони — сервер спрашивает подтверждение (409), «Да» — повтор с force
       const r = await api('/stock/batch', { method: 'POST', body }).catch(async (e) => {
-        if (!(mode() === 'count' && e.status === 409 && /брон/i.test(e.message) && (await confirmDlg('Меньше, чем в брони', e.message, { okText: 'Да, сохранить', danger: true })))) throw e;
+        if (!(mode() === 'count' && e.status === 409 && /брон/i.test(e.message) && (await confirmDlg('Меньше, чем в брони', errText(e), { okText: 'Да, сохранить', danger: true })))) throw e;
         return api('/stock/batch', { method: 'POST', body: { ...body, force: true } });
       });
       const left = cart().filter((l) => !body.lines.some((x) => x.materialId === l.id));
@@ -329,7 +330,7 @@ export function mountOps(params) {
   }
   renderChrome();
   results.replaceChildren(h('div', { class: 'ops-empty muted' }, 'Загрузка…'));
-  reload().then(() => search.focus()).catch((e) => { results.replaceChildren(h('div', { class: 'ops-empty' }, h('p', null, 'Не удалось загрузить склад: ' + (e.message || e)), h('button', { class: 'btn', type: 'button', onclick: () => reload().catch(toastError) }, 'Повторить'))); });
+  reload().then(() => search.focus()).catch((e) => { results.replaceChildren(h('div', { class: 'ops-empty' }, h('p', null, 'Не удалось загрузить склад: ' + errText(e)), h('button', { class: 'btn', type: 'button', onclick: () => reload().catch(toastError) }, 'Повторить'))); });
   return {
     el,
     reload: () => reload().catch(() => {}),

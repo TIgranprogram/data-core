@@ -68,7 +68,7 @@ export class SalesOrdersService {
     let stages: string[] | undefined;
     if (q.filter === 'active') stages = ACTIVE_STAGES;
     else if (q.filter === 'done') stages = DONE_STAGES;
-    else if (q.filter && q.filter !== 'all') throw new BadRequestException('filter — active | done | all');
+    else if (q.filter && q.filter !== 'all') throw new BadRequestException('Параметр filter: active (в работе), done (завершённые) или all (все)');
     if (q.stage) {
       const want = String(q.stage).split(',').map((s) => s.trim()).filter(Boolean);
       const bad = want.find((s) => !(ORDER_STAGES as readonly string[]).includes(s));

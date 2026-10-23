@@ -10,6 +10,7 @@ import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { normSearch, searchTokens } from '../core/facets.js';
+import { errText } from '../ui/errors.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы, справа компактная таблица выбранного
@@ -108,7 +109,7 @@ export function mountDicts(params) {
     };
     const key = dictKey() + ':' + r.id;
     if (relCache.has(key)) fill(relCache.get(key));
-    else api(`/dicts/${dictKey()}/${r.id}`).then((res) => { relCache.set(key, res); fill(res); }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + e.message)));
+    else api(`/dicts/${dictKey()}/${r.id}`).then((res) => { relCache.set(key, res); fill(res); }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + errText(e))));
     return box;
   }
   function toggle(id) { if (openRows.has(id)) openRows.delete(id); else openRows.add(id); renderTable(); }
@@ -137,7 +138,7 @@ export function mountDicts(params) {
           h('span', { class: 'muted' }, [c.uses ? `встречается ${qty(c.uses)} раз` : '', c.source].filter(Boolean).join(' · ')),
           c.similar ? h('span', { class: 'tag' }, `похоже на «${c.similar.name}» ${Math.round(c.similar.score * 100)}%`) : null))),
         h('div', { class: 'bulk-foot' }, go2, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { cand.hidden = true; } }, 'Закрыть')));
-    } catch (e) { cand.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + e.message)); }
+    } catch (e) { cand.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + errText(e))); }
   }
 
   async function reloadTexts() {
@@ -150,7 +151,7 @@ export function mountDicts(params) {
       if (!texts) texts = mountTexts();
       if (!body.contains(texts.el)) body.replaceChildren(texts.el);
       await texts.reload();
-    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + e.message)); }
+    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + errText(e))); }
   }
 
   async function reload() {
@@ -165,7 +166,7 @@ export function mountDicts(params) {
       title.textContent = d.dict.title; hint.textContent = d.dict.hint;
       candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
       renderNav(); renderTable();
-    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + e.message)); }
+    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + errText(e))); }
   }
   let shown = params.d;
   reload();
