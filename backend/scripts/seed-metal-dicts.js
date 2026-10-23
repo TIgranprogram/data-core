@@ -7,6 +7,7 @@
  *
  *   План (ничего не меняет):  MONGO_URI=… [MONGO_DB=…] node scripts/seed-metal-dicts.js
  *   Записать:                 … --apply
+ *   Только часть справочников: … --only=paymentForms
  */
 const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
@@ -18,6 +19,7 @@ const DICTS = [
   ['paymentForms', [['incomes', 'paymentForm']]],
   ['colors', [['incomes', 'color'], ['supplyrequests', 'color']]],
 ];
+const DEFAULTS = { paymentForms: ['б/р', 'б/р 30%', 'б/р 50%', 'нал'] };
 const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 // ключ сравнения: регистр и ё не различаем, повторные пробелы схлопнуты
 const key = (v) => clean(v).toLowerCase().replace(/ё/g, 'е');
@@ -31,8 +33,13 @@ const translit = (t) => t.toLowerCase().replace(/[а-яё]/g, (c) => ({ а: 'a',
   const db = client.db(process.env.MONGO_DB || undefined);
   const apply = process.argv.includes('--apply');
   console.log(`База ${db.databaseName}${apply ? '' : ' (план)'}`);
+  // --only=paymentForms,steelGrades — только эти справочники (цвета в данных — длинные описания покраски, их в «Цвета» не класть)
+  const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
   for (const [dict, sources] of DICTS) {
+    if (only.length && !only.includes(dict)) continue;
     const groups = new Map(); // ключ → { total, best, bestN }
+    // обычные значения справочника (как PAYMENT_FORMS в dicts.defs.ts): без них непустой справочник «потеряет» их в списке заказа
+    for (const name of DEFAULTS[dict] || []) groups.set(key(name), { total: 0, best: name, bestN: 0 });
     for (const [coll, field] of sources) {
       // написание → сколько записей
       const rows = await db.collection(coll).aggregate([
