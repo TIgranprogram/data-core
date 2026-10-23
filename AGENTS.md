@@ -27,6 +27,7 @@
 | Точный контракт эндпоинта | `docs/openapi.json` — **только grep по пути**, файл 175 КБ | целиком |
 | Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог), [ROADMAP.md](ROADMAP.md) (план) | — |
 | Архитектура: циклы модулей, общие коллекции, DTO, рефакторинг | [docs/ARCH-PLAN.md](docs/ARCH-PLAN.md) — ТЗ и чек-листы (М — мелкие, АБЗ — большие) | — |
+| Команда агентов: роли, границы, ТЗ, поток задачи | [docs/roles/README.md](docs/roles/README.md), агенты — `.claude/agents/` | — |
 | Вопросы, ждущие решения пользователя | [docs/QUESTIONS.md](docs/QUESTIONS.md) — новые вопросы записывать туда; мёртвый код не оставлять | — |
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
