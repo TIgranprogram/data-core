@@ -61,11 +61,21 @@ export class ShowcaseController {
   @Roles('admin', 'director', 'manager', 'user')
   get(@Param('id') id: string) { return this.s.get(id); }
 
-  /** Состав-материалы изделия целиком (БЗ-5): { lines: [{ materialId, quantity, notes? }] }. */
+  /**
+   * Состав изделия (БЗ-5, СИ): { lines: [{ lineType?: material|product|module, materialId | productId | moduleId, quantity, notes? }], types?: [...] }.
+   * Старое тело (одни материалы) работает как раньше; строки других типов, которых нет в types, сохраняются. Цикл — 400.
+   */
   @Put(':id/composition')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.composition', entityType: 'Product', idParam: 'id' })
-  setComposition(@Param('id') id: string, @Body() b: { lines?: { materialId?: string; quantity?: number | string; notes?: string }[] }) { return this.s.setComposition(id, b?.lines ?? []); }
+  setComposition(@Param('id') id: string, @Body() b: { lines?: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; quantity?: number | string; notes?: string }>; types?: string[] }) {
+    return this.s.setComposition(id, b?.lines ?? [], b?.types);
+  }
+
+  /** «Часто в похожих изделиях» для состава (СИ): строки составов изделий той же группы. */
+  @Get(':id/composition/similar')
+  @Roles('admin', 'director', 'manager', 'user')
+  compositionSimilar(@Param('id') id: string) { return this.s.compositionSimilar(id); }
 
   /** Значения паспорта по умолчанию (БЗ-6 Э4b): { passportCategory, elements[], materialIds[], installationTypeId, isKit, ageFrom… }. Правят директор и админ (как паспорта). */
   @Put(':id/passport-defaults')

@@ -89,6 +89,21 @@ describe('Showcase', () => {
     expect(c.cost).toMatchObject({ total: 2 * 150 + 8 * 12, missing: 1 });
     expect(c.cost.lines.map((x: { source: string | null }) => x.source)).toEqual(['purchase', 'reference', null]);
 
+    // СИ: вложенное изделие — строка product, цена — по его составу; старые строки-материалы не трогаются (types)
+    const outer = (await http().post('/api/showcase').set(auth()).send({ sku: 'OUT-1', name: 'Комплекс', type: 'Спорт' }).expect(201)).body;
+    const o1 = (await http().put(`/api/showcase/${outer.id}/composition`).set(auth()).send({ lines: [{ materialId: String(m[1]), quantity: 2 }] }).expect(200)).body;
+    const o2 = (await http().put(`/api/showcase/${outer.id}/composition`).set(auth()).send({ lines: [{ lineType: 'product', productId: p.id, quantity: 2 }], types: ['product'] }).expect(200)).body;
+    expect(o2.composition.map((l: { lineType: string }) => l.lineType).sort()).toEqual(['material', 'product']);
+    expect(o2.cost.total).toBe(2 * 12 + 2 * (2 * 150 + 8 * 12));
+    expect(o2.composition.find((l: { lineType: string }) => l.lineType === 'product').children).toHaveLength(3);
+    expect(o1.composition).toHaveLength(1);
+    // цикл: само в себя и через вложенное — 400
+    await http().put(`/api/showcase/${outer.id}/composition`).set(auth()).send({ lines: [{ lineType: 'product', productId: outer.id, quantity: 1 }], types: ['product'] }).expect(400);
+    const cyc = await http().put(`/api/showcase/${p.id}/composition`).set(auth()).send({ lines: [{ lineType: 'product', productId: outer.id, quantity: 1 }], types: ['product'] }).expect(400);
+    expect(cyc.body.message).toMatch(/само в себя/);
+    // похожие: у изделия той же группы в составе болт — подсказка для «outer» (своё не предлагается)
+    expect((await http().get(`/api/showcase/${outer.id}/composition/similar`).set(auth()).expect(200)).body.items).toEqual(expect.any(Array));
+
     // паспорта: по ссылке и по названию
     await db.collection('productpassports').insertMany([
       { passportNumber: 'П-1', productId: new Types.ObjectId(p.id), name: 'другое', deletedAt: null },

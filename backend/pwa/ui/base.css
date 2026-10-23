@@ -304,7 +304,8 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 /* откуда подставлено («из изделия», «по умолчанию») — серым у подписи поля, пока не поправили руками (ПИ) */
 .field > span[data-src]::after { content: ' · ' attr(data-src); color: var(--muted); font-weight: 400; }
 /* «Новый паспорт» — сначала изделие (ПИ): список с миниатюрами прямо в панели (строки .sg-row, как подсказки), выбранное — золотая полоса */
-.pp-prod-list { list-style: none; margin: var(--s2) 0 0; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+/* список выбора в панели (не всплывающий): изделия в паспорте, «Добавить» в составе — строки .sg-row, группы .combo-group */
+.pick-list, .pp-prod-list { list-style: none; margin: var(--s2) 0 0; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 .pp-prod-list .sg-row.on { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--gold); }
 .pp-prod-tools { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-top: var(--s2); }
 .pp-prod-tools input { flex: 1 1 220px; }
@@ -312,6 +313,19 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .pp-prod-sel .sg-pic { flex: 0 0 72px; width: 72px; height: 54px; }
 /* пока изделие не выбрано — остальные блоки паспорта скрыты */
 .form-blocks.pp-locked > .form-block:not(.pp-first) { display: none; }
+/* «Состав изделия» (СИ): строки по разделам — название · количество со степпером · цена/сумма · «×»; итог; на телефоне название — отдельной строкой */
+.pick-list .pick-head { padding: 8px 12px; font-weight: 650; color: var(--heading); background: var(--surface); border-bottom: 1px solid var(--border); }
+.comp-group { margin-top: var(--s3); }
+.comp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(96px, auto) auto; gap: var(--s2); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--border); }
+.comp-row .c-name small { display: block; color: var(--muted); font-size: 12px; }
+.comp-row.comp-missing .c-name { color: var(--danger); }
+.comp-qty { display: inline-flex; align-items: center; gap: 4px; }
+.comp-qty input { width: 76px; text-align: right; }
+.comp-sum { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+.comp-total { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); padding: var(--s3) 0; font-weight: 600; }
+.comp-nested summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+.comp-nested ul { margin: 4px 0 0; padding-left: var(--s4, 20px); color: var(--muted); font-size: var(--fs-sm); }
+@media (max-width: 719px) { .comp-row { grid-template-columns: 1fr auto auto; } .comp-row .c-name { grid-column: 1 / -1; } }
 .form-error { background: var(--danger-soft); color: var(--danger); padding: var(--s2) var(--s3); border-radius: var(--radius-sm); margin-bottom: var(--s3); }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: var(--s2) 0; }
 

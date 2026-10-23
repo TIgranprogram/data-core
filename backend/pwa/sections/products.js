@@ -44,18 +44,24 @@ const STATUS = { draft: 'черновик · нет цены', active: 'в пр�
 function compositionBlock(r) {
   const items = r.composition || [];
   const cost = session.canMoney ? r.cost : null;
-  const price = new Map((cost?.lines || []).map((x) => [x.materialId, x]));
+  // СИ: строки трёх видов; цена — по виду и ссылке (материал — закупка/справочник, изделие — по его составу)
+  const price = new Map((cost?.lines || []).map((x) => [`${x.lineType || 'material'}:${x.refId || x.materialId}`, x]));
   const priceText = (l) => {
-    const p = price.get(l.materialId);
-    if (!cost) return '';
+    const p = price.get(`${l.lineType || 'material'}:${l.refId || l.materialId}`);
+    if (!cost || l.raw) return '';
     if (!p || p.price == null) return ' · цены нет';
-    return ` · ${money(p.price)}/${l.unit} = ${money(p.sum)}${p.source === 'reference' ? ' (справочник)' : p.date ? ` (закупка ${date(p.date)})` : ''}`;
+    const src = p.source === 'reference' ? ' (справочник)' : p.source === 'composition' ? ` (по составу${p.partial ? ', не всё с ценой' : ''})` : p.date ? ` (закупка ${date(p.date)})` : '';
+    return ` · ${money(p.price)}/${l.unit} = ${money(p.sum)}${src}`;
   };
+  const line = (l) => h('li', null, l.name, h('span', { class: 'muted' }, ` · ${qty(l.quantity)} ${l.unit}${l.article ? ' · ' + l.article : ''}${priceText(l)}`),
+    l.lineType === 'product' && l.children?.length ? h('details', { class: 'comp-nested' }, h('summary', null, `его состав: ${l.children.length}`),
+      h('ul', null, ...l.children.map((c) => h('li', null, `${c.name} · ${qty(c.quantity)} ${c.unit}`)))) : null);
+  const groups = [['material', 'Материалы'], ['product', 'Изделия'], ['module', 'Модули (CRM)']].map(([t, title]) => [title, items.filter((l) => (l.lineType || 'material') === t || (t === 'module' && l.raw))]).filter(([, l]) => l.length);
   return h('div', null, h('div', { class: 'section-title' }, `Состав${items.length ? ` (${items.length})` : ''}`),
-    items.length ? h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null, l.name, h('span', { class: 'muted' }, ` · ${qty(l.quantity)} ${l.unit}${l.article ? ' · ' + l.article : ''}${priceText(l)}`))))
+    items.length ? h('div', null, ...groups.map(([title, list]) => h('div', null, groups.length > 1 ? h('b', null, title) : null, h('ul', { class: 'timeline' }, ...list.map(line)))))
       : h('p', { class: 'muted' }, 'Состав не заполнен — «Изменить состав» в действиях карточки'),
-    cost ? h('p', null, h('b', null, `Себестоимость материалов ≈ ${money(cost.total)}`),
-      h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · по последним закупкам')) : null);
+    cost ? h('p', null, h('b', null, `Себестоимость ≈ ${money(cost.total)}`),
+      h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null);
 }
 
 // «Паспорта» (БЗ-5): выпущенные паспорта этого изделия — по ссылке или по названию

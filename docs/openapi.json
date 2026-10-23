@@ -4353,6 +4353,29 @@
         ]
       }
     },
+    "/showcase/{id}/composition/similar": {
+      "get": {
+        "operationId": "ShowcaseController_compositionSimilar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/{id}/passport-defaults": {
       "put": {
         "operationId": "ShowcaseController_setPassportDefaults",
