@@ -111,8 +111,8 @@
 **Чек-лист:**
 - [x] (2026-10-23: 60 тестов) `supply.service.spec.ts` — основные сценарии + граничные (пустые, чужая организация, удалённая запись).
 - [x] (2026-10-23: 42 теста) `incomes.service.spec.ts` — то же + суммы/оплаты.
-- [ ] `permissions`/`role` — по одному spec на правила доступа.
-- [ ] `npx jest src/modules/{supply,incomes,permissions,role}` зелёные; обновить норму в AGENTS.md («Команды»).
+- [x] (2026-10-23: roles-hierarchy, RolesGuard по иерархии — кто получает 403, role.controller/role.service, permissions.service — 63 теста) `permissions`/`role` — по одному spec на правила доступа.
+- [x] `npx jest src/modules/{supply,incomes,permissions,role}` зелёные; норма в AGENTS.md обновлена (115 / 1209).
 **Готово:** у `supply` и `incomes` есть spec, покрывающие все публичные методы сервиса.
 
 ### АБЗ-3. Единый слой доступа к общим коллекциям и сырым запросам
