@@ -152,6 +152,9 @@ describe('Паспорта изделий', () => {
   });
 
   it('PDF: application/pdf, постранично и «в печать», отметка выдачи', async () => {
+    // один вид PDF (БЗ-7 шаг 1б): без категории — понятная ошибка; категорию выбрали — текст собирается, PDF есть
+    await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).expect(400);
+    await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ passportCategory: 'MAF' }).expect(200);
     const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
     expect(r.headers['content-type']).toContain('application/pdf');
     expect(String(r.headers['content-disposition'])).toContain('filename*=UTF-8');
@@ -162,7 +165,8 @@ describe('Паспорта изделий', () => {
   });
 
   it('ZIP по фильтру', async () => {
-    const z = await http().get('/api/passports/zip').query({ search: 'урна' }).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
+    const no = (await http().get(`/api/passports/${first}`).set(as(admin.access)).expect(200)).body.passportNumber; // паспорт с категорией (PDF-тест выше)
+    const z = await http().get('/api/passports/zip').query({ search: no }).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
     expect(z.headers['content-type']).toContain('application/zip');
     expect((z.body as Buffer).readUInt32LE(0)).toBe(0x04034b50);
   });
@@ -196,7 +200,8 @@ describe('Паспорта изделий', () => {
     const re = (await http().post(`/api/passports/${created.id}/snapshot`).set(as(admin.access)).expect(200)).body;
     expect(JSON.stringify(re.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');
     // паспорт v1 (без категории) — снимок не нужен
-    await http().post(`/api/passports/${first}/snapshot`).set(as(admin.access)).expect(400);
+    const bare = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Паспорт без категории' }).expect(201)).body;
+    await http().post(`/api/passports/${bare.id}/snapshot`).set(as(admin.access)).expect(400);
     // БЗ-7: паспорту без категории выбрали категорию правкой — текст собирается сразу; повторная правка готовый текст не пересобирает
     const old = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Старый тренажёр' }).expect(201)).body;
     expect(old.textSnapshot ?? null).toBeNull();

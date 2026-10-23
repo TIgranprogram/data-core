@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
-import { maintenanceColumns, pickPdfVersion, planFigures, renderPassportPdfV2, renderStandPdf, resolveStyle, shortTiles, standRules, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
+import { maintenanceColumns, planFigures, renderPassportPdfV2, renderStandPdf, resolveStyle, shortTiles, standRules, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
 
 /** Образцы PDF для просмотра: PDFV2_OUT=<папка> npx jest passport-pdf-v2 */
 const OUT = process.env.PDFV2_OUT;
@@ -41,14 +41,6 @@ const BASE: PdfV2Input = {
 };
 
 describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
-  it('выбор v1/v2: v2 — только флаг включён и есть снимок разделов', () => {
-    const snap = { textSnapshot: { sections: [{ key: 'a' }] } };
-    expect(pickPdfVersion(false, snap)).toBe('v1');
-    expect(pickPdfVersion(true, snap)).toBe('v2');
-    expect(pickPdfVersion(true, {})).toBe('v1');
-    expect(pickPdfVersion(true, { textSnapshot: { sections: [] } })).toBe('v1');
-    expect(pickPdfVersion(true, null)).toBe('v1');
-  });
 
   it('{fig}/{tab}: номер подставлен, отсутствующая ссылка выпадает без «дыр»', () => {
     const fig = new Map([['dimensions', [2, 3, 4]], ['safety_zone', [1]]]);

@@ -5,8 +5,8 @@ import type { ComposedSection } from './passport-compose';
 import type { InstallParts, MaintenanceTable } from './passport-compose-parts';
 
 /**
- * PDF паспорта v2 (БЗ-6 Э6a, Э6b; docs/PASSPORTS-V2.md §3.6, §3.7) — только за флагом `passports.v2` и только для паспорта
- * со снимком текста (`textSnapshot.sections`). Размер и режимы — как v1: буклет A5 постранично или A4 «в печать» тем же спуском.
+ * PDF паспорта v2 (БЗ-6 Э6a, Э6b; docs/PASSPORTS-V2.md §3.6, §3.7) — единственный вид PDF (с 2026-10-23, БЗ-7 шаг 1б); для паспорта
+ * со снимком текста (`textSnapshot.sections`). Размер и режимы: буклет A5 постранично или A4 «в печать» тем же спуском.
  * Порядок: обложка → «Коротко» → [описание, правила — если номера 1…N-1 свободны] → разделы снимка → [описание, правила]
  * → ТО по периодам (чек-лист) → монтаж → комплектность → приложения с рисунками → [для заметок] → талон (как в v1).
  * Ссылки {fig:вид} → «рис. N», {tab:ключ} → «табл. N» (сквозная нумерация); нет рисунка/таблицы — ссылка выпадает.
@@ -47,12 +47,6 @@ export interface PdfV2Input {
 
 export const NEUTRAL_COLOR = '#546E7A';
 export const MONO_COLOR = '#000';
-
-/** Какой PDF печатать: v2 — только при включённом флаге и непустом снимке разделов; иначе v1 (как раньше). */
-export function pickPdfVersion(flagOn: boolean, p: { textSnapshot?: { sections?: unknown } | null } | null | undefined): 'v1' | 'v2' {
-  const s = p?.textSnapshot?.sections;
-  return flagOn && Array.isArray(s) && s.length > 0 ? 'v2' : 'v1';
-}
 
 type StyleRow = { kind?: unknown; category?: unknown; color?: unknown; use?: unknown; text?: unknown; code?: unknown };
 /** Оформление из справочника `passportStyle`: цвет категории (иначе нейтральный) и тексты пиктограмм правил ({maxUsers} подставлен). */

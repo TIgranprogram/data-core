@@ -6,7 +6,6 @@ import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
 import { rowsTable } from '../ui/rows-table.js';
 import { tagPick } from '../ui/tag-pick.js';
-import { flag } from '../core/flags.js';
 import { KINDS, KINDS_V2, catNames } from '../core/passport-kinds.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
@@ -20,8 +19,6 @@ import { icon } from '../ui/icons.js';
  */
 /** 1 паспорт, 2 паспорта, 5 паспортов. */
 const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
-let V2 = false;
-flag('passports.v2').then((v) => { V2 = v; });
 /** Виды картинок: обязательные для категории паспорта — первыми (порядок справочника), остальные — как были. */
 const kinds = (r) => {
   const all = V2 ? [...KINDS, ...KINDS_V2] : KINDS;
@@ -141,7 +138,7 @@ async function download(r, query, what) {
 const FORMATS = [
   { mode: 'pages', title: 'Файл A5', sub: 'книжный, постранично — отправить по почте', icon: 'sheetA5' },
   { mode: 'print', title: 'Буклет A4', sub: 'альбомный лист, сложить пополам — распечатать', icon: 'sheetBooklet' },
-  { mode: 'stand', title: 'Лист для стенда A3', sub: 'правила пользования, книжный, без печати', v2: true, icon: 'sheetA3' },
+  { mode: 'stand', title: 'Лист для стенда A3', sub: 'правила пользования, книжный, без печати', icon: 'sheetA3' },
 ];
 
 /**
@@ -149,14 +146,14 @@ const FORMATS = [
  * (значками: A5, буклет A4, стенд A3), ч/б — у паспорта нового образца. Окно не закрывается, пока PDF готовится.
  */
 async function printDialog(r) {
-  const v2 = V2 && !!r.textSnapshot;
+  const hasCat = !!r.passportCategory; // текст по справочникам сервер соберёт сам, если его ещё нет
   const o = r.supplierOrg;
   const chk = (label, on, note) => { const cb = h('input', { type: 'checkbox', checked: on }); return { cb, el: h('label', null, cb, label, note ? h('span', { class: 'muted small' }, ` (${note})`) : null) }; };
   const seal = chk('Печать', !!o?.hasSeal, !o ? 'поставщик не выбран' : o.hasSeal ? '' : 'не загружена');
   const sign = chk('Подпись', !!o?.hasSignature, !o ? '' : o.hasSignature ? '' : 'не загружена');
   const mono = chk('Чёрно-белый', false);
   let mode = 'print';
-  const opts = FORMATS.filter((f) => !f.v2 || v2).map((f) => {
+  const opts = FORMATS.map((f) => {
     const b = h('button', { type: 'button', class: 'pf-opt', role: 'radio', 'data-mode': f.mode, onclick: () => pick(f.mode) }, icon(f.icon, 'pf-ico'), h('b', null, f.title), h('small', null, f.sub));
     return b;
   });
@@ -165,18 +162,19 @@ async function printDialog(r) {
   const body = h('div', { class: 'pf' },
     h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
     h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, opts),
-    v2 ? h('div', { class: 'pf-checks' }, mono.el) : null,
-    v2 ? null : h('p', { class: 'hint' }, 'У паспорта не выбрана категория — PDF упрощённый: без текстов по справочникам и цвета категории. «Выбрать категорию» в действиях карточки.'));
+    h('div', { class: 'pf-checks' }, mono.el),
+    hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбрана категория — PDF собирается по ней. «Выбрать категорию» в действиях карточки.'));
   pick(mode);
   await modal({
     title: `Паспорт № ${r.passportNumber || '—'} — PDF`, okText: 'Скачать PDF', wide: true, body,
     onOk: async (form) => {
+      if (!hasCat) throw new Error('Сначала выберите категорию паспорта');
       const ok = form.querySelector('[type=submit]');
       ok.textContent = 'Готовлю PDF…'; ok.classList.add('is-busy');
       try {
         if (mode === 'stand') { await download(r, { mode: 'stand' }, 'лист для стенда'); return true; }
         const s = seal.cb.checked, g = sign.cb.checked;
-        const q = { ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(v2 && mono.cb.checked ? { bw: 1 } : {}) };
+        const q = { ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(mono.cb.checked ? { bw: 1 } : {}) };
         await download(r, q, mode === 'print' ? 'буклет A4' : 'PDF');
         return true;
       } finally { ok.textContent = 'Скачать PDF'; ok.classList.remove('is-busy'); }
@@ -447,26 +445,25 @@ export const passports = {
     actions: (r) => [
       // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
       { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
-      V2 && !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
+      !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       canEdit() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
     ],
     extra: (r, ctx) => h('div', null,
-      V2 && r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null),
+      r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null),
       imagesBlock(r, ctx), bomBlock(r),
-      V2 && r.passportCategory ? previewBlock(r, ctx) : null),
+      r.passportCategory ? previewBlock(r, ctx) : null),
   },
 
   form: {
     fields: async (r) => {
-      const [cats, ours, f, v2] = await Promise.all([categories(), ourCompanies(), facets(), flag('passports.v2')]);
-      V2 = v2;
-      const [els, mats, inst] = v2 ? await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall')]) : [[], [], []];
-      const v2Fields = !v2 ? [] : [
+      const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
+      const [els, mats, inst] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall')]);
+      const v2Fields = [
         { section: 'Категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
         // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
-        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => !LATER_CATS.includes(c.value) || r?.passportCategory === c.value), wide: true,
+        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value)), wide: true,
           hint: 'От категории зависят разделы, нормативы и обязательные рисунки. Детские (игровое, спортивное) — позже' },
         { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => tagPick({ options: els, value: v, label: 'Функциональные элементы' }) },
         { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v, label: 'Материалы' }) },
@@ -541,7 +538,7 @@ export const passports = {
       // виды, которых нет в форме (v2-картинки при выключенном флаге), сохраняются как были
       const kept = imagesBody((r?.images || []).filter((i) => !shown.has(i.kind)));
       const images = [...kinds().flatMap(([kind]) => (v['img_' + kind] || []).map((photoId, k) => ({ kind, photoId, order: k }))), ...kept];
-      if (V2) Object.assign(body, v2Body(v));
+      Object.assign(body, v2Body(v));
       if (images.length || r) body.images = images;
       if (!r && v.date) body.date = v.date;
       if (!r && v._copyFrom) body._copyFrom = v._copyFrom;

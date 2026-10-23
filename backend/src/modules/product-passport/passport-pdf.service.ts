@@ -5,11 +5,10 @@ import { join } from 'path';
 import { Types, type Connection } from 'mongoose';
 import sharp from 'sharp';
 import { ProductPassportService } from './product-passport.service';
-import { renderPassportPdf, type PdfImage, type PdfOrg } from './passport-pdf';
+import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
 import { standardSchemes } from './passport-schemes';
-import { pickPdfVersion, renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
-import { FeatureFlagService } from '../feature-flag/feature-flag.service';
+import { renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 
 const uploadDir = () => process.env.UPLOAD_DIR ?? './uploads';
 type Doc = Record<string, unknown>;
@@ -21,7 +20,6 @@ export class PassportPdfService {
   constructor(
     private readonly passports: ProductPassportService,
     @InjectConnection() private readonly connection: Connection,
-    private readonly flags: FeatureFlagService,
   ) {}
 
   /**
@@ -62,20 +60,17 @@ export class PassportPdfService {
   }
 
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
-    const p = (await this.passports.findById(id)).toObject() as unknown as Doc;
+    const p = await this.withText((await this.passports.findById(id)).toObject() as unknown as Doc);
     const buf = await this.render(p, opts);
     await this.passports.markIssued(p._id as Types.ObjectId);
     return { buf, filename: fileName(p, opts.stamp) };
   }
 
   /**
-   * Лист для информационного стенда A3 (БЗ-6 Э6d): только паспорт v2 при включённом флаге. Паспорт выданным не отмечается.
+   * Лист для информационного стенда A3 (БЗ-6 Э6d). Паспорт выданным не отмечается.
    */
   async stand(id: string) {
-    const p = (await this.passports.findById(id)).toObject() as unknown as Doc;
-    if (pickPdfVersion(await this.flags.isEnabled('passports.v2'), p as never) !== 'v2') {
-      throw new BadRequestException('Лист для стенда — только у паспорта с категорией: выберите категорию в «Изменить» и сохраните');
-    }
+    const p = await this.withText((await this.passports.findById(id)).toObject() as unknown as Doc);
     const { orgIn, asset } = await this.orgOf(p);
     const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: p.textSnapshot as PdfV2Text, style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
     return { buf, filename: standFileName(p) };
@@ -85,7 +80,9 @@ export class PassportPdfService {
   async zip(q: Record<string, unknown>, opts: { stamp?: boolean; mode?: 'pages' | 'print' }) {
     const { items } = await this.passports.list({ ...q, page: 1, limit: 200 }, { full: true });
     const files: Array<{ name: string; data: Buffer }> = [];
-    for (const it of items as Doc[]) {
+    for (const raw of items as Doc[]) {
+      const it = await this.withText(raw).catch(() => null);
+      if (!it) continue; // без категории PDF не собирается — в архив не попадает
       files.push({ name: fileName(it, opts.stamp), data: await this.render(it, opts) });
       await this.passports.markIssued(it._id as Types.ObjectId);
     }
@@ -96,15 +93,13 @@ export class PassportPdfService {
     const imgs = ((p.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
     const url = new Map(photos.map((x) => [String(x._id), x.storageUrl as string]));
-    const v2 = pickPdfVersion(await this.flags.isEnabled('passports.v2'), p as never) === 'v2';
     const byKind: Record<string, PdfImageV2[]> = { overview: [], dimensions: [], safety: [], mounting: [] };
     for (const i of imgs) {
-      if (!v2 && !byKind[i.kind]) continue; // v1 — только 4 старых вида (как раньше)
       const buf = await this.file(url.get(String(i.photoId)));
       if (buf) (byKind[i.kind] ||= []).push({ buf, caption: i.caption, refCode: i.refCode });
     }
-    // v2: стандартные схемы узлов способа установки — по видам, где своих нет (Э9.5)
-    if (v2) {
+    // стандартные схемы узлов способа установки — по видам, где своих нет (Э9.5)
+    {
       const std = standardSchemes(p as never, (await this.passports.installs()).get(String(p.installationTypeId ?? '')) ?? null);
       const sp = std.length ? await this.connection.collection('photos').find({ _id: { $in: std.map((x) => new Types.ObjectId(x.photoId)) } }, { projection: { storageUrl: 1 } }).toArray() : [];
       const su = new Map(sp.map((x) => [String(x._id), x.storageUrl as string]));
@@ -116,27 +111,29 @@ export class PassportPdfService {
     // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
     const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
-    if (v2) {
-      // PDF v2 (БЗ-6 Э6): флаг passports.v2 включён и у паспорта есть снимок текста
-      const text = p.textSnapshot as PdfV2Text;
-      return renderPassportPdfV2({
-        passport: p as never,
-        org: orgIn,
-        text,
-        images: byKind,
-        style: await this.styleOf(p),
-        logo: await this.asset(asset('logo')),
-        defectImages: await this.defectImages(text),
-        seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
-      });
-    }
-    return renderPassportPdf({
+    const text = p.textSnapshot as PdfV2Text;
+    return renderPassportPdfV2({
       passport: p as never,
       org: orgIn,
-      template: await this.passports.template(),
-      images: { overview: byKind.overview[0], dimensions: byKind.dimensions, safety: byKind.safety, mounting: byKind.mounting },
-      seal, signature, withStamp: stamp, mode,
+      text,
+      images: byKind,
+      style: await this.styleOf(p),
+      logo: await this.asset(asset('logo')),
+      defectImages: await this.defectImages(text),
+      seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
     });
+  }
+
+  /**
+   * Паспорт с текстом по справочникам (один вид PDF, БЗ-7 шаг 1б): текста нет, но категория есть — собрать сейчас;
+   * категории нет — 400 с подсказкой.
+   */
+  private async withText(p: Doc): Promise<Doc> {
+    if (((p.textSnapshot as { sections?: unknown[] } | undefined)?.sections ?? []).length) return p;
+    if (!p.passportCategory) throw new BadRequestException('У паспорта не выбрана категория — PDF собирается по ней. «Выбрать категорию» в карточке паспорта');
+    const doc = await this.passports.snapshot(String(p._id));
+    if (!doc) throw new BadRequestException('Текст паспорта не собрался — проверьте категорию');
+    return doc.toObject() as unknown as Doc;
   }
 
   /** Организация-поставщик (или имя поставщика строкой) и поиск её файлов (логотип, печать, подпись) по роли. */

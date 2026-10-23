@@ -6,7 +6,6 @@ import { current, go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
-import { flag } from '../core/flags.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
@@ -16,7 +15,7 @@ import { mountTexts, TEXTS_KEY } from './passport-texts.js';
  * справочника. Клик по строке — раскрывается: где используется (позиции, заявки, сотрудники). «Открыть» —
  * карточка справа (правка, объединить дубль, удалить, история). Все выпадающие списки приложения берутся отсюда.
  * Адрес: #dicts?d=<справочник>; карточка — of=dict&open=<id> (справочник — из d).
- * d=ptexts — не справочник, а редактор «Паспорта → Разделы и тексты» (sections/passport-texts.js, только при флаге passports.v2).
+ * d=ptexts — не справочник, а редактор «Паспорта → Разделы и тексты» (sections/passport-texts.js).
  */
 const dictKey = () => current().params.d || 'categories';
 const fmt = (f, v, refs) => {
@@ -58,7 +57,7 @@ export function mountDicts(params) {
       h('div', { class: 'dict-group' }, g.group),
       ...g.items.map((d) => h('a', { class: 'dict-link' + (d.key === cur ? ' active' : ''), href: '#dicts?d=' + d.key, onclick: (e) => { e.preventDefault(); go('dicts', { d: d.key }, { replace: true }); } },
         h('span', null, d.title), h('b', { class: 'num' }, qty(d.count)))),
-      // группа «Паспорта» есть только при флаге passports.v2 — в ней же редактор текстов (БЗ-6 Э2d)
+      // группа «Паспорта» — в ней же редактор текстов (БЗ-6 Э2d)
       g.group === 'Паспорта' ? h('a', { class: 'dict-link' + (cur === TEXTS_KEY ? ' active' : ''), href: '#dicts?d=' + TEXTS_KEY, onclick: (e) => { e.preventDefault(); go('dicts', { d: TEXTS_KEY }, { replace: true }); } },
         h('span', null, 'Разделы и тексты'), h('b', null, '→')) : null,
     ]).filter(Boolean), h('div', { class: 'dict-group' }, 'Контрагенты'), h('a', { class: 'dict-link', href: '#partners' }, h('span', null, 'Поставщики, заказчики, наши компании'), h('b', null, '→')));
@@ -140,12 +139,11 @@ export function mountDicts(params) {
 
   async function reloadTexts() {
     try {
-      const [g, v2] = await Promise.all([api('/dicts'), flag('passports.v2')]);
-      groups = v2 ? g.items : g.items.filter((x) => x.group !== 'Паспорта');
+      const g = await api('/dicts');
+      groups = g.items;
       title.textContent = 'Разделы и тексты'; hint.textContent = 'Тексты паспортов по категориям: что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
-      if (!v2) { body.replaceChildren(h('div', { class: 'state' }, 'Паспорта v2 выключены (флаг passports.v2) — редактор текстов недоступен.')); return; }
       if (!texts) texts = mountTexts();
       if (!body.contains(texts.el)) body.replaceChildren(texts.el);
       await texts.reload();
@@ -156,9 +154,8 @@ export function mountDicts(params) {
     if (dictKey() === TEXTS_KEY) return reloadTexts();
     searchWrap.hidden = false;
     try {
-      const [g, d, v2] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`), flag('passports.v2')]);
-      // группа «Паспорта» (БЗ-6) — только при включённом флаге passports.v2; по прямой ссылке открывается и без него
-      groups = v2 ? g.items : g.items.filter((x) => x.group !== 'Паспорта'); data = d;
+      const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
+      groups = g.items; data = d;
       editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
       addBtn.hidden = !canEditDict();
       relCache.clear();
