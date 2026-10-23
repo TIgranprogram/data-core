@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import type { ValidationError } from 'class-validator';
-import { hasCyrillic, localizeFieldPrefix, russianFallback, translateMessage } from './error-messages-ru';
+import { randomBytes } from 'crypto';
+import { fieldRu, hasCyrillic, localizeFieldPrefix, russianFallback, translateMessage } from './error-messages-ru';
 
 const VALIDATION_MESSAGES: Record<string, string> = {
   isString: 'Должно быть строкой',
@@ -197,6 +198,24 @@ function isCastError(exception: unknown): boolean {
   );
 }
 
+/**
+ * ЧН (2026-10-23): Mongoose ValidationError (значение не подошло под схему: «abc» в числовом поле, пустое обязательное)
+ * — ошибка данных запроса, не сервера: 400 с полем и тем, что не так, вместо голого 500.
+ */
+type MongooseFieldError = { path?: string; kind?: string; value?: unknown; name?: string };
+function mongooseFieldErrors(exception: unknown): MongooseFieldError[] | undefined {
+  if (!(exception instanceof Error) || exception.name !== 'ValidationError') return undefined;
+  const errors = (exception as { errors?: Record<string, MongooseFieldError> }).errors;
+  return errors && typeof errors === 'object' ? Object.values(errors) : undefined;
+}
+const KIND_RU: Record<string, string> = { Number: 'нужно число', Date: 'нужна дата', ObjectId: 'нужно выбрать из списка', Boolean: 'нужно «да» или «нет»', required: 'нужно заполнить', enum: 'значение не из списка' };
+const fieldErrorText = (e: MongooseFieldError) => {
+  const path = String(e.path ?? '');
+  const leaf = path.split('.').pop() || path;
+  const v = e.value === undefined || e.value === null ? '' : String(typeof e.value === 'object' ? JSON.stringify(e.value) : e.value).slice(0, 40);
+  return `Поле «${fieldRu(leaf)}»: ${KIND_RU[String(e.kind)] ?? 'неверное значение'}${v ? ` (сейчас «${v}»)` : ''}`;
+};
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -214,19 +233,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ? String((exception as { path?: unknown }).path ?? '_id')
       : undefined;
 
+    const fieldErrors = exception instanceof HttpException ? undefined : mongooseFieldErrors(exception);
+
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : castPath !== undefined
+        : castPath !== undefined || fieldErrors
           ? HttpStatus.BAD_REQUEST
           : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const payload =
       exception instanceof HttpException
         ? exception.getResponse()
-        : castPath !== undefined
-          ? `Некорректный идентификатор «${castPath}»: ожидается 24-символьный hex`
-          : 'Internal server error';
+        : fieldErrors
+          ? { message: fieldErrors.map(fieldErrorText), missing: fieldErrors.map((e) => ({ key: String(e.path ?? '').split('.')[0], label: fieldRu(String(e.path ?? '').split('.').pop() || '') })) }
+          : castPath !== undefined
+            ? `Некорректный идентификатор «${castPath}»: ожидается 24-символьный hex`
+            : 'Internal server error';
 
     let message: string | string[];
 
@@ -279,9 +302,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorResponse.missing = (payload as { missing: unknown[] }).missing;
     }
 
+    // ЧН: код сбоя — пользователь называет его, разработчик находит запись в журнале (docker logs … | grep код)
+    const errorId = status >= 500 ? randomBytes(3).toString('hex').toUpperCase() : undefined;
+    if (errorId) errorResponse.errorId = errorId;
+
     if (status >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} → ${status}`,
+        `${request.method} ${request.url} → ${status} [сбой ${errorId}]`,
         exception instanceof Error
           ? exception.stack
           : JSON.stringify(exception),

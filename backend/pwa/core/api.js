@@ -39,6 +39,10 @@ const HUMAN = {
   413: 'Файл слишком большой.',
   429: 'Слишком много запросов подряд. Подождите минуту.',
   500: 'Ошибка на сервере. Повторите позже; если не проходит — сообщите администратору.',
+  // ЧН (2026-10-23): сервер недоступен или перезапускается (обновление) — ответ не от приложения, а от шлюза
+  502: 'Сервер перезапускается или недоступен — подождите минуту и повторите. Введённое не потеряно.',
+  503: 'Сервер перезапускается или недоступен — подождите минуту и повторите. Введённое не потеряно.',
+  504: 'Сервер не ответил вовремя — подождите минуту и повторите. Введённое не потеряно.',
 };
 
 async function raw(path, opts = {}, token) {
@@ -75,10 +79,13 @@ async function refreshAccess() {
 async function errorOf(res) {
   let msg = '';
   let fields = null;
-  try { const j = await res.json(); msg = Array.isArray(j.message) ? j.message.join('; ') : j.message || ''; fields = j.missing || j.fields || null; } catch { /* не JSON */ }
+  let errorId = '';
+  try { const j = await res.json(); msg = Array.isArray(j.message) ? j.message.join('; ') : j.message || ''; fields = j.missing || j.fields || null; errorId = j.errorId || ''; } catch { /* не JSON */ }
   // Сервер отдаёт русские сообщения для 400/409; для прочих — общий понятный текст
   const russian = /[а-яё]/i.test(msg);
-  const err = [400, 409, 422].includes(res.status) && russian ? new ApiError(msg, res.status) : new ApiError(russian ? msg : HUMAN[res.status] || HUMAN[500], res.status);
+  // ЧН: сбой сервера — с кодом, по которому его найдут в журнале; ввод остаётся в форме
+  const crash = errorId ? `Сбой на сервере (код ${errorId}). Введённое не потеряно — повторите позже; если повторяется, сообщите код администратору.` : '';
+  const err = [400, 409, 422].includes(res.status) && russian ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;
 }

@@ -151,6 +151,22 @@ describe('HttpExceptionFilter', () => {
     expect(String(json.mock.calls[0][0].message)).toMatch(/_id/);
   });
 
+  it('ЧН: Mongoose ValidationError → 400 с полем, не 500', () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const host = { switchToHttp: () => ({ getResponse: () => ({ status }), getRequest: () => ({ url: '/api/passports', method: 'POST' }) }) } as unknown as ArgumentsHost;
+    const err = Object.assign(new Error('ProductPassport validation failed: maxUsers: Cast to Number failed'), {
+      name: 'ValidationError', errors: { maxUsers: { path: 'maxUsers', kind: 'Number', value: 'abc', name: 'CastError' } },
+    });
+    new HttpExceptionFilter().catch(err, host);
+    expect(status).toHaveBeenCalledWith(400);
+    const body = json.mock.calls[0][0];
+    expect(String(body.message)).toMatch(/нужно число/);
+    expect(String(body.message)).toMatch(/abc/);
+    expect(body.missing).toEqual([expect.objectContaining({ key: 'maxUsers' })]);
+    expect(body.errorId).toBeUndefined();
+  });
+
   it('still answers 500 for a genuinely unexpected error', () => {
     const json = jest.fn();
     const status = jest.fn().mockReturnValue({ json });
@@ -170,5 +186,6 @@ describe('HttpExceptionFilter', () => {
 
     expect(status).toHaveBeenCalledWith(500);
     expect(json.mock.calls[0][0].statusCode).toBe(500);
+    expect(json.mock.calls[0][0].errorId).toMatch(/^[0-9A-F]{6}$/); // ЧН: код сбоя для журнала
   });
 });
