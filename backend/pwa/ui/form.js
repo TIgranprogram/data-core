@@ -110,7 +110,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
           },
         });
       });
-      clear.addEventListener('click', () => { lock(false); item.value = ''; const tg = inputs.get(f.target || 'title'); tg?.input.focus(); });
+      clear.addEventListener('click', () => { lock(false); item.value = ''; const tg = inputs.get(f.target || 'title'); tg?.input.focus?.(); });
       continue;
     }
     if (f.type === 'widget') {
@@ -188,7 +188,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
         for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (f.suggestKeep && manual.has(k) && String(x?.input.value ?? '').trim()) continue; if (x && v != null && v !== '') { x.input.value = String(v); (x.input.el || x.input).dispatchEvent?.(new Event('change', { bubbles: true })); if (f.suggestKeep && x.input.classList && /^(INPUT|TEXTAREA)$/.test(x.input.tagName) && x.input.type !== 'hidden') x.input.classList.add('is-default'); if (x.input.tagName === 'SELECT') x.input.dispatchEvent(new Event('change', { bubbles: true })); } }
         summarize();
-        if (f.suggestFocus) setTimeout(() => inputs.get(f.suggestFocus)?.input.focus(), 0); // ПС.5: выбрали модель — дальше «Заказчик»
+        if (f.suggestFocus) setTimeout(() => inputs.get(f.suggestFocus)?.input.focus?.(), 0); // ПС.5: выбрали модель — дальше «Заказчик»
       } });
     }
   }
@@ -286,7 +286,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     if (Object.keys(errors).length) {
       for (const k of Object.keys(errors)) { const b = inputs.get(k).blk; if (b) setOpen(b, true, false); }
       const first = inputs.get(Object.keys(errors)[0]);
-      first.input.focus();
+      first.input.focus?.();
       return { errors };
     }
     return { values };
@@ -296,7 +296,12 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     el: root || grid,
     read,
     dirty: () => snapshot() !== start,
-    focus: () => [...inputs.values()][0]?.input.focus(),
+    // фокус — на первое видимое поле ввода (ОШ.1: первым бывает виджет / фото / скрытое — у них нет focus(), форма падала)
+    focus: () => {
+      const box = root || grid;
+      const el = [...box.querySelectorAll('input:not([type=hidden]):not([disabled]), textarea:not([disabled]), select:not([disabled])')].find((x) => x.offsetParent !== null && !x.closest('[hidden]'));
+      el?.focus?.();
+    },
   };
 }
 
