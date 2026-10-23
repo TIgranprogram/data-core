@@ -33,8 +33,17 @@ export class ProductPassportController {
   @Post('products/:productId/passport')
   @Roles(...EDIT)
   @AuditAction({ action: 'create', entityType: 'ProductPassport' })
-  createForProduct(@Param('productId') productId: string, @Body() dto: CreateProductPassportDto) {
-    return this.service.create({ ...dto, productId });
+  async createForProduct(@Param('productId') productId: string, @Body() dto: CreateProductPassportDto) {
+    // совместимость с CRM kppdf: паспорт для неё — сразу с номером (черновиков CRM не знает)
+    const doc = await this.service.create({ ...dto, productId });
+    return doc.status === 'draft' ? this.service.issue(String(doc._id)) : doc;
+  }
+
+  /** НМ-2: дубли перед созданием — ?productId&orderNo&customer&objectName&exceptId → { items } (черновики изделия и выпущенные на тот же заказ / покупателя / адрес). */
+  @Get('passports/duplicates')
+  @Roles(...VIEW)
+  duplicates(@Query() q: Record<string, string>) {
+    return this.service.duplicates(q);
   }
 
   @Get('passports')
@@ -208,6 +217,24 @@ export class ProductPassportController {
   }
 
   /** Копия на ту же модель: новые номера, дата — сегодня, заказчик — пустой. */
+  /** НМ: выпустить — номер, талон, номер изделия из счётчиков в одной транзакции; повтор — тот же номер; не хватает — 400 { missing }. */
+  @Post('passports/:id/issue')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.issued', entityType: 'ProductPassport', idParam: 'id' })
+  issue(@Param('id') id: string) {
+    return this.service.issue(id);
+  }
+
+  /** НМ: аннулировать выпущенный — { reason } обязателен; номер остаётся занятым. */
+  @Post('passports/:id/annul')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.annulled', entityType: 'ProductPassport', idParam: 'id' })
+  annul(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.service.annul(id, body?.reason);
+  }
+
   @Post('passports/:id/copy')
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.copied', entityType: 'ProductPassport', idParam: 'id' })
@@ -218,8 +245,9 @@ export class ProductPassportController {
   @Patch('passports/:id')
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id' })
-  update(@Param('id') id: string, @Body() dto: UpdateProductPassportDto) {
-    return this.service.update(id, dto);
+  @ApiQuery({ name: 'newRevision', required: false, description: '1 — новая редакция выпущенного паспорта (номер тот же, редакция +1)' })
+  update(@Param('id') id: string, @Body() dto: UpdateProductPassportDto, @Query('newRevision') newRevision?: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.update(id, dto, { newRevision: newRevision === '1' || newRevision === 'true', user: user as never });
   }
 
   @Delete('passports/:id')

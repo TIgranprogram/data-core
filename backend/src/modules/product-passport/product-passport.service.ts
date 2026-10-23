@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types } from 'mongoose';
+import { Connection, Model, Types, type ClientSession } from 'mongoose';
 import { parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import { ProductPassport, ProductPassportDocument } from './product-passport.schema';
@@ -34,6 +34,16 @@ export const MODEL_FIELDS = ['productId', 'name', 'category', 'article', 'height
 export const BULK_PASSPORT_FIELDS = ['passportCategory', 'category', 'installationTypeId', 'elements', 'materialIds', 'isKit', 'serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth',
   'supplierOrgId', 'customerName', 'orderNo', 'objectName', 'installedBy', 'saleDate', 'installedAt'] as const;
 const BULK_NUMBER_FIELDS = ['serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth'] as const;
+/** НМ-1: у выпущенного паспорта свободно меняются только эти поля (заполняются после печати). */
+export const AFTER_PRINT_FIELDS = ['saleDate', 'customerName', 'customerOrgId', 'orderNo', 'salesOrderId', 'objectName', 'installedBy', 'installedAt', 'note'] as const;
+/** НМ: выпущен ли паспорт (нет статуса и есть номер — старый, выпущенный до НМ). */
+export const isIssued = (d: { status?: unknown; passportNumber?: unknown }) => d.status === 'issued' || (!d.status && !!d.passportNumber && !isDraftNumber(d.passportNumber));
+/**
+ * НМ: у черновика вместо номера — служебная метка `draft-<id>`: уникальный индекс passportNumber в общей с CRM базе
+ * не допускает двух пустых номеров, а у CRM kppdf номер обязателен. Человеку метка не показывается (список «—», PDF без номера).
+ */
+export const DRAFT_PREFIX = 'draft-';
+export const isDraftNumber = (n: unknown) => String(n ?? '').startsWith(DRAFT_PREFIX);
 const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
 const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -136,6 +146,9 @@ export class ProductPassportService {
 
   private filterOf(q: Record<string, unknown>, deleted = false): Doc {
     const f: Doc = { deletedAt: deleted ? { $ne: null } : null };
+    // НМ: статус — черновик / выпущен (в т. ч. старые без статуса) / аннулирован
+    if (q.status === 'draft' || q.status === 'annulled') f.status = q.status;
+    else if (q.status === 'issued') f.$or = [{ status: 'issued' }, { status: { $exists: false }, passportNumber: { $nin: [null, ''] } }];
     const year = Number(q.year), month = Number(q.month);
     if (year) {
       const from = new Date(Date.UTC(year, month ? month - 1 : 0, 1));
@@ -210,30 +223,34 @@ export class ProductPassportService {
   }
 
   /** Максимум числового поля среди паспортов (включая удалённые — номер не переиспользуется). */
-  private async maxOf(field: 'passportNumber' | 'productCode'): Promise<number> {
-    const [r] = await this.model.aggregate([
+  private async maxOf(field: 'passportNumber' | 'productCode', session?: ClientSession): Promise<number> {
+    const agg = this.model.aggregate([
       { $project: { n: { $convert: { input: `$${field}`, to: 'int', onError: null, onNull: null } } } },
       { $group: { _id: null, max: { $max: '$n' } } },
-    ]).option({ includeSoftDeleted: true }).exec();
+    ]).option({ includeSoftDeleted: true });
+    if (session) agg.session(session);
+    const [r] = await agg.exec();
     return Number(r?.max) || 0;
   }
 
   /** Недостающие номера: № паспорта и номер изделия — из счётчиков (атомарно, после занятых), талон — из даты и №. */
-  async allocate(set: Doc, date: Date) {
+  async allocate(set: Doc, date: Date, session?: ClientSession) {
     if (!set.passportNumber) {
-      const no = await nextSeq(this.counters(), 'passportNumber', await this.maxOf('passportNumber'));
+      const no = await nextSeq(this.counters(), 'passportNumber', await this.maxOf('passportNumber', session), session);
       Object.assign(set, { passportNumber: String(no), passportNo: no });
     }
-    if (!set.productCode) set.productCode = String(await nextSeq(this.counters(), 'productCode', await this.maxOf('productCode')));
+    if (!set.productCode) set.productCode = String(await nextSeq(this.counters(), 'productCode', await this.maxOf('productCode', session), session));
     if (!set.warrantyCode) set.warrantyCode = warrantyCodeFor(date, String(set.passportNumber));
   }
 
-  private async assertFree(set: Doc, selfId?: Types.ObjectId) {
+  private async assertFree(set: Doc, selfId?: Types.ObjectId, session?: ClientSession) {
     const not = selfId ? { _id: { $ne: selfId } } : {};
     for (const [f, label] of [['passportNumber', 'Паспорт №'], ['productCode', 'Номер изделия'], ['warrantyCode', 'Гарантийный талон']] as const) {
       if (!set[f]) continue;
       const extra = f === 'productCode' ? { productCodeDuplicate: { $ne: true } } : {};
-      const twin = await this.model.findOne({ [f]: set[f], ...extra, ...not }).setOptions({ includeSoftDeleted: true }).select('passportNumber').lean().exec();
+      const q = this.model.findOne({ [f]: set[f], ...extra, ...not }).setOptions({ includeSoftDeleted: true }).select('passportNumber').lean();
+      if (session) q.session(session);
+      const twin = await q.exec();
       if (twin) throw new ConflictException(`${label} ${set[f]} уже занят (паспорт № ${twin.passportNumber})`);
     }
   }
@@ -256,11 +273,12 @@ export class ProductPassportService {
     const set = this.normalize(dto);
     const date = (set.date as Date) || dayUtc();
     set.date = date;
-    await this.allocate(set, date);
+    // НМ: новый паспорт — черновик без номера, талона и номера изделия; номер передан явно (перенос) — сразу выпущен
+    if (set.passportNumber) { await this.allocate(set, date); set.status = 'issued'; set.issuedAt = new Date(); set.revision = 1; }
+    else { for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft'; }
     if (!set.description) set.description = buildDescription(set as never) || undefined;
     if (!set.bom) set.bom = DEFAULT_BOM;
     set.source = set.source || 'app';
-    set.strict = true; // ПП: новые паспорта — строгий выпуск (PDF, когда заполнено обязательное)
     await this.assertFree(set);
     try {
       const doc = await this.model.create(set);
@@ -283,17 +301,33 @@ export class ProductPassportService {
     return this.create({ ...(dto as unknown as CreateProductPassportDto), ...over });
   }
 
-  async update(id: string, dto: UpdateProductPassportDto): Promise<ProductPassportDocument> {
+  async update(id: string, dto: UpdateProductPassportDto, opts: { newRevision?: boolean; user?: { id?: string; role?: string; isOwner?: boolean } } = {}): Promise<ProductPassportDocument> {
     const doc = await this.findById(id);
+    const cur = doc.toObject() as unknown as Doc;
+    if (cur.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
     const set = this.normalize(dto);
-    const touched = NUMBER_FIELDS.filter((f) => f in set && String(set[f] ?? '') !== String((doc as unknown as Doc)[f] ?? ''));
-    if (touched.length && !dto.confirmNumbers) {
-      throw new ConflictException(`Номер, талон и дата выданного паспорта меняются только с подтверждением (confirmNumbers): ${touched.join(', ')}`);
+    const issued = isIssued(cur);
+    if (!issued) { for (const f of ['passportNumber', 'passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; } // у черновика номеров нет
+    const touched = NUMBER_FIELDS.filter((f) => f in set && String(set[f] ?? '') !== String(cur[f] ?? ''));
+    if (issued && touched.length) {
+      if (!dto.confirmNumbers) throw new ConflictException(`Номер, талон и дата выданного паспорта меняются только с подтверждением (confirmNumbers): ${touched.join(', ')}`);
+      if (!(opts.user?.isOwner || opts.user?.role === 'admin')) throw new ForbiddenException('Номер выпущенного паспорта меняет только администратор');
+    }
+    // НМ-1: выпущенный — свободно только «после печати»; остальное — «Новая редакция» (номер тот же, редакция +1, прежняя — в истории)
+    const changed = Object.keys(set).filter((k) => k !== 'passportNo' && JSON.stringify(set[k] ?? null) !== JSON.stringify(cur[k] ?? null) && !(String(set[k] ?? '') === '' && (cur[k] === undefined || cur[k] === null)));
+    const locked = changed.filter((k) => !(AFTER_PRINT_FIELDS as readonly string[]).includes(k) && !(NUMBER_FIELDS as readonly string[]).includes(k) && k !== 'manualText');
+    if (issued && locked.length && !opts.newRevision) throw new ConflictException(`Паспорт выпущен: свободно меняются только поля «после печати». Чтобы изменить остальное (${locked.length}), используйте «Новая редакция»`);
+    if (issued && opts.newRevision && locked.length) {
+      const keep = Object.fromEntries([...locked, 'textSnapshot', 'images'].map((k) => [k, cur[k] ?? null]));
+      set.revisions = [...((cur.revisions as unknown[]) ?? []), { revision: cur.revision ?? 1, at: new Date(), by: opts.user?.id ?? null, data: keep }];
+      set.revision = Number(cur.revision ?? 1) + 1;
     }
     await this.assertFree(set, doc._id);
     const hadText = !!((doc.toObject() as unknown as Doc).textSnapshot as { sections?: unknown[] } | undefined)?.sections?.length;
     doc.set(set);
     const saved = await doc.save();
+    // НМ: новая редакция — текст заново по справочникам и снова заморожен; черновику с категорией текст собирается при выпуске
+    if (set.revision && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
     // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
     if (set.passportCategory && !hadText) return (await this.snapshot(String(saved._id))) ?? saved;
     return saved;
@@ -321,6 +355,10 @@ export class ProductPassportService {
       try {
         const doc = (await this.findById(id)).toObject() as unknown as Doc;
         const patch: Record<string, unknown> = { ...set };
+        // НМ: выпущенный паспорт массово меняется только в полях «после печати»; аннулированный — никак
+        if (doc.status === 'annulled') throw new ConflictException(`№ ${doc.passportNumber}: аннулирован`);
+        const lockedKeys = Object.keys(patch).filter((k) => !(AFTER_PRINT_FIELDS as readonly string[]).includes(k));
+        if (isIssued(doc) && lockedKeys.length) throw new ConflictException(`№ ${doc.passportNumber}: выпущен — массово меняются только поля «после печати»`);
         for (const k of ['elements', 'materialIds'] as const) {
           if (k in patch && dto.arrays?.[k] === 'add') patch[k] = [...new Set([...((doc[k] as unknown[]) ?? []).map(String), ...(patch[k] as unknown[]).map(String)])];
         }
@@ -362,6 +400,7 @@ export class ProductPassportService {
 
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
+    if (isIssued(doc.toObject() as unknown as Doc) || doc.status === 'annulled') throw new ConflictException('Выпущенный паспорт не удаляется — «Аннулировать» (номер останется занятым)');
     await this.model.updateOne({ _id: doc._id }, { $set: { deletedAt: new Date() } }).exec();
   }
 
@@ -447,6 +486,58 @@ export class ProductPassportService {
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(p, inst);
     return { missing: missingKeyed(full as never, cat), requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
+  }
+
+  /**
+   * НМ: выпуск — последний шаг. Проверка обязательного; текст собирается по справочникам и замораживается; номер паспорта,
+   * номер изделия и талон — из счётчиков в ОДНОЙ транзакции со сменой статуса: повтор / двойной клик — тот же номер.
+   */
+  async issue(id: string) {
+    const first = (await this.findById(id)).toObject() as unknown as Doc;
+    if (isIssued(first)) return this.findById(id);
+    if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
+    const missing = await this.readiness(first);
+    if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
+    if (first.passportCategory) await this.snapshot(id); // текст по справочникам на момент выпуска
+    const _id = new Types.ObjectId(id);
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const draft = await this.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
+        if (!draft) return; // уже выпущен параллельным запросом
+        const set: Doc = {};
+        await this.allocate(set, (draft.date as Date) || dayUtc(), session);
+        await this.assertFree(set, _id, session);
+        await this.model.updateOne({ _id, status: 'draft' }, { $set: { ...set, status: 'issued', issuedAt: new Date(), revision: 1 } }, { session }).exec();
+      });
+    } finally { await session.endSession(); }
+    return this.findById(id);
+  }
+
+  /** НМ: аннулирование выпущенного — причина обязательна; номер остаётся занятым, повторно не выдаётся. */
+  async annul(id: string, reason: unknown) {
+    const r = String(reason ?? '').trim();
+    if (!r) throw new BadRequestException('Укажите причину аннулирования');
+    const doc = (await this.findById(id)).toObject() as unknown as Doc;
+    if (!isIssued(doc)) throw new ConflictException(doc.status === 'annulled' ? 'Паспорт уже аннулирован' : 'Черновик не аннулируют — его можно удалить');
+    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'annulled', annulledAt: new Date(), annulReason: r } }).exec();
+    return this.findById(id);
+  }
+
+  /**
+   * НМ-2: «тот же изделие» — та же запись «Продукции»; дубль — её черновик, или выпущенный на тот же заказ / покупателя / адрес.
+   */
+  async duplicates(q: Record<string, unknown>) {
+    if (!q.productId || !Types.ObjectId.isValid(String(q.productId))) return { items: [] };
+    const productId = new Types.ObjectId(String(q.productId));
+    const same: Doc[] = [];
+    const s = (v: unknown) => String(v ?? '').trim();
+    if (s(q.orderNo)) same.push({ orderNo: s(q.orderNo) });
+    if (s(q.customer)) same.push({ customerName: new RegExp(`^\\s*${escapeRe(s(q.customer))}\\s*$`, 'i') });
+    if (s(q.objectName)) same.push({ objectName: new RegExp(`^\\s*${escapeRe(s(q.objectName))}\\s*$`, 'i') });
+    const docs = await this.model.find({ productId, deletedAt: null, ...(q.exceptId && Types.ObjectId.isValid(String(q.exceptId)) ? { _id: { $ne: new Types.ObjectId(String(q.exceptId)) } } : {}),
+      $or: [{ status: 'draft' }, ...(same.length ? [{ status: { $ne: 'draft' }, $or: same }] : [])] }, { passportNumber: 1, status: 1, name: 1, customerName: 1, orderNo: 1, objectName: 1, date: 1 }).sort({ createdAt: -1 }).limit(10).lean().exec();
+    return { items: docs.map((d) => ({ id: String(d._id), passportNumber: d.passportNumber && !isDraftNumber(d.passportNumber) ? d.passportNumber : null, status: d.status ?? 'issued', name: d.name, customerName: d.customerName ?? null, orderNo: d.orderNo ?? null, objectName: d.objectName ?? null, date: d.date ?? null })) };
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */

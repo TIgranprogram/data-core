@@ -24,11 +24,11 @@ export interface CounterColl {
  * обновлением (pipeline, Mongo 4.2+). floor — максимум, уже лежащий в паспортах (перенос из таблицы, ручной ввод),
  * так счётчик никогда не выдаст занятый номер. Два создателя одновременно получают разные значения.
  */
-export async function nextSeq(coll: CounterColl, key: string, floor: number): Promise<number> {
+export async function nextSeq(coll: CounterColl, key: string, floor: number, session?: unknown): Promise<number> {
   const r = await coll.findOneAndUpdate(
     { entity: 'passport', prefix: key, year: 0 },
     [{ $set: { seq: { $add: [{ $max: [{ $ifNull: ['$seq', 0] }, floor] }, 1] } } }],
-    { upsert: true, returnDocument: 'after' },
+    { upsert: true, returnDocument: 'after', ...(session ? { session } : {}) }, // НМ: в транзакции выпуска — откатится вместе с ней
   );
   const doc = (r && typeof r === 'object' && 'value' in (r as object) ? (r as { value: unknown }).value : r) as { seq?: number } | null;
   return Number(doc?.seq);

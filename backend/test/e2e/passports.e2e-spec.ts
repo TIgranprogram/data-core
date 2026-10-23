@@ -33,6 +33,7 @@ describe('Паспорта изделий', () => {
       { passportNumber: '548', passportNo: 548, productCode: '2576', warrantyCode: '202610-548', date: new Date('2026-10-13'), name: 'Стойки волейбольные', productCodeDuplicate: false, images: [], deletedAt: null, source: 'sheet:Pasports' },
       { passportNumber: '549', passportNo: 549, productCode: '2577', warrantyCode: '202610-549', date: new Date('2026-10-13'), name: 'Стойка баскетбольная', productCodeDuplicate: false, images: [], deletedAt: null, source: 'sheet:Pasports' },
     ]);
+    await db().collection('productpassports').createIndex({ passportNumber: 1 }, { unique: true, name: 'passportNumber_unique' }); // как на проде: черновиков много — у каждого своя служебная метка
   });
 
   afterAll(async () => {
@@ -40,47 +41,72 @@ describe('Паспорта изделий', () => {
   });
 
   let first = '';
-  it('создание: номера выдаёт сервер — № после максимума, талон ГГГГМ-№, номер изделия после 2577', async () => {
-    const r = await http().post('/api/passports').set(as(admin.access)).send({ name: 'Урна парковая', date: '2026-11-02', materials: 'листовой стали 2 мм', purpose: 'Предназначено для сбора мусора', installationMethod: 'Изделие устанавливается на ровное основание', supplierOrgId: orgId, height: 800, length: 400, width: 400, weight: 12.5 }).expect(201);
-    expect(r.body).toMatchObject({ passportNumber: '550', passportNo: 550, warrantyCode: '202611-550', productCode: '2578', warrantyMonths: 12, source: 'app' });
+  let copyId = '';
+  const photo = String(new Types.ObjectId());
+  // полный паспорт без категории (v1): всё обязательное для выпуска есть
+  const full = (over: Record<string, unknown> = {}) => ({ name: 'Урна парковая', date: '2026-11-02', materials: 'листовой стали 2 мм', purpose: 'Предназначено для сбора мусора', installationMethod: 'Изделие устанавливается на ровное основание',
+    category: 'Благоустройство', supplierOrgId: orgId, height: 800, length: 400, width: 400, weight: 12.5, images: [{ kind: 'overview', photoId: photo }], ...over });
+
+  it('НМ: новый паспорт — черновик без номера; номера — только при «Выпустить» (после максимума, талон ГГГГМ-№)', async () => {
+    const r = await http().post('/api/passports').set(as(admin.access)).send(full()).expect(201);
+    expect(r.body).toMatchObject({ status: 'draft', warrantyMonths: 12, source: 'app' });
+    expect(String(r.body.passportNumber)).toMatch(/^draft-/); // служебная метка черновика, не номер
+    expect(r.body.productCode ?? null).toBeNull();
     expect(r.body.description).toBe('Урна парковая (в дальнейшем именуемое «Изделие»), изготовленное из листовой стали 2 мм. Изделие устанавливается на ровное основание. Предназначено для сбора мусора.');
     expect(r.body.bom).toEqual([{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }]);
     first = r.body.id;
+    // черновик правится сколько угодно — номер не появляется
+    expect(String((await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ note: 'черновик', date: '2026-11-02' }).expect(200)).body.passportNumber)).toMatch(/^draft-/);
+    const i = (await http().post(`/api/passports/${first}/issue`).set(as(admin.access)).expect(200)).body;
+    expect(i).toMatchObject({ status: 'issued', passportNumber: '550', passportNo: 550, warrantyCode: '202611-550', productCode: '2578', revision: 1 });
+    // повторное нажатие — тот же номер
+    expect((await http().post(`/api/passports/${first}/issue`).set(as(admin.access)).expect(200)).body.passportNumber).toBe('550');
   });
 
-  it('гонка двух создателей — разные номера', async () => {
-    const [a, b] = await Promise.all([1, 2].map(() => http().post('/api/passports').set(as(admin.access)).send({ name: 'Скамья' })));
-    expect(a.status).toBe(201); expect(b.status).toBe(201);
-    expect(a.body.passportNumber).not.toBe(b.body.passportNumber);
-    expect(a.body.productCode).not.toBe(b.body.productCode);
+  it('НМ: неполный черновик не выпускается (400 со списком); двойной клик — один номер; два выпуска подряд — номера без пропусков', async () => {
+    const bare = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Скамья' }).expect(201)).body;
+    const no = (await http().post(`/api/passports/${bare.id}/issue`).set(as(admin.access)).expect(400)).body;
+    expect(no.missing).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'supplierOrgId' })]));
+    const [a, b] = await Promise.all([1, 2].map(() => http().post('/api/passports').set(as(admin.access)).send(full({ name: 'Скамья парковая' }))));
+    const twice = await Promise.all([a, a].map((x) => http().post(`/api/passports/${x.body.id}/issue`).set(as(admin.access))));
+    expect(twice.map((x) => x.status)).toEqual([200, 200]);
+    expect(twice[0].body.passportNumber).toBe(twice[1].body.passportNumber);
+    const other = (await http().post(`/api/passports/${b.body.id}/issue`).set(as(admin.access)).expect(200)).body;
+    expect(Number(other.passportNumber)).toBe(Number(twice[0].body.passportNumber) + 1);
+    await http().delete(`/api/passports/${bare.id}`).set(as(admin.access)).expect(200); // черновик удаляется свободно
   });
 
-  it('занятый номер — 409; выданный номер без подтверждения не меняется', async () => {
-    await http().post('/api/passports').set(as(admin.access)).send({ name: 'Дубль', passportNumber: '549' }).expect(409);
-    await http().post('/api/passports').set(as(admin.access)).send({ name: 'Дубль', productCode: '2577' }).expect(409);
+  it('НМ: выпущенный — свободно только «после печати», остальное — «Новая редакция»; номер — только админ, с проверкой', async () => {
+    await http().post('/api/passports').set(as(admin.access)).send({ name: 'Дубль', passportNumber: '549' }).expect(409); // перенос с занятым номером
     await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ date: '2026-12-01' }).expect(409);
     const ok = await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ customerName: 'ИП Азизова', objectName: 'парк «Победа»' }).expect(200);
     expect(ok.body.customerName).toBe('ИП Азизова');
-    await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ warrantyCode: '202610-549', confirmNumbers: true }).expect(409);
+    const locked = (await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ weight: 13 }).expect(409)).body;
+    expect(locked.message).toMatch(/Новая редакция/);
+    const rev = (await http().patch(`/api/passports/${first}`).query({ newRevision: 1 }).set(as(admin.access)).send({ weight: 13, passportCategory: 'MAF' }).expect(200)).body;
+    expect(rev).toMatchObject({ weight: 13, revision: 2, passportNumber: '550' });
+    expect(rev.revisions).toHaveLength(1);
+    expect(rev.revisions[0].data.weight).toBe(12.5);
+    await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ warrantyCode: '202610-549', confirmNumbers: true }).expect(409); // занят
   });
 
-  it('копия на ту же модель: поля модели — те же, номера — новые, заказчик — пустой', async () => {
+  it('копия — черновик без номера: поля модели те же, заказчик пустой', async () => {
     const r = await http().post(`/api/passports/${first}/copy`).set(as(admin.access)).send({}).expect(201);
-    expect(r.body).toMatchObject({ name: 'Урна парковая', height: 800, weight: 12.5, supplierOrgId: orgId });
-    expect(r.body.passportNumber).not.toBe('550');
+    expect(r.body).toMatchObject({ status: 'draft', name: 'Урна парковая', height: 800, weight: 13, supplierOrgId: orgId, passportCategory: 'MAF' });
+    expect(String(r.body.passportNumber)).toMatch(/^draft-/); // служебная метка черновика, не номер
     expect(r.body.customerName).toBeUndefined();
+    copyId = r.body.id;
   });
 
-  it('список: поиск, фильтры, неполные, {items,total,page,limit}', async () => {
+  it('список: статус-фильтр, поиск, фильтры, {items,total,page,limit}', async () => {
     const all = (await http().get('/api/passports').set(as(manager)).expect(200)).body;
     expect(all).toMatchObject({ total: 6, page: 1, limit: 25 });
-    expect(all.items[0].passportNo).toBeGreaterThan(all.items[1].passportNo);
+    expect((await http().get('/api/passports').query({ status: 'draft' }).set(as(manager)).expect(200)).body.total).toBe(1);
+    expect((await http().get('/api/passports').query({ status: 'issued' }).set(as(manager)).expect(200)).body.total).toBe(5); // в т. ч. 2 старых без статуса
     expect((await http().get('/api/passports').query({ search: 'урна' }).set(as(manager)).expect(200)).body.total).toBe(2);
-    expect((await http().get('/api/passports').query({ year: 2026, month: 11 }).set(as(manager)).expect(200)).body.total).toBe(1); // 2026-11-02 — только первый
     expect((await http().get('/api/passports').query({ customer: 'ип азизова' }).set(as(manager)).expect(200)).body.total).toBe(1);
     const inc = (await http().get('/api/passports').query({ incomplete: 1 }).set(as(manager)).expect(200)).body;
-    expect(inc.total).toBe(6); // у всех нет общего вида
-    expect(inc.items[0].missing).toContain('Фото изделия');
+    expect(inc.items.find((x: { passportNumber: string }) => x.passportNumber === '548').missing).toContain('Фото изделия');
     const f = (await http().get('/api/passports/facets').set(as(manager)).expect(200)).body;
     expect(f.years.map((y: { value: number }) => y.value)).toContain(2026);
     expect(f.suppliers[0]).toMatchObject({ value: orgId });
@@ -91,13 +117,14 @@ describe('Паспорта изделий', () => {
     const urn = models.find((m: { name: string }) => m.name === 'Урна парковая');
     expect(urn).toMatchObject({ n: 2, height: 800, materials: 'листовой стали 2 мм' });
     const ph = (await http().get('/api/passports/phrases').set(as(manager)).expect(200)).body;
-    expect(ph.purpose).toEqual(expect.arrayContaining([expect.objectContaining({ text: 'Предназначено для сбора мусора', n: 2 })]));
+    expect(ph.purpose).toEqual(expect.arrayContaining([expect.objectContaining({ text: 'Предназначено для сбора мусора', n: 4 })]));
     expect(Object.keys(ph)).toEqual(['materials', 'installationMethod', 'purpose']);
   });
 
-  it('права: менеджер смотрит, но не создаёт и не скачивает PDF', async () => {
+  it('права: менеджер смотрит, но не создаёт, не выпускает и не скачивает PDF', async () => {
     await http().get(`/api/passports/${first}`).set(as(manager)).expect(200);
     await http().post('/api/passports').set(as(manager)).send({ name: 'x' }).expect(403);
+    await http().post(`/api/passports/${copyId}/issue`).set(as(manager)).expect(403);
     await http().get(`/api/passports/${first}/pdf`).set(as(manager)).expect(403);
   });
 
@@ -152,36 +179,46 @@ describe('Паспорта изделий', () => {
     expect(JSON.stringify(saved.tree)).toContain('Проверка предпросмотра');
   });
 
-  it('PDF: application/pdf, постранично и «в печать», отметка выдачи', async () => {
-    // один вид PDF (БЗ-7 шаг 1б): без категории — понятная ошибка; категорию выбрали — текст собирается, PDF есть
-    await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).expect(400);
-    await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ passportCategory: 'MAF' }).expect(200);
-    // ПП: новый паспорт — строгий: пока не хватает обязательного, PDF нельзя (400 со списком полей, и пакетом тоже)
-    const blocked = (await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).expect(400)).body;
-    expect(blocked.message).toMatch(/не готов к выпуску/);
-    expect(blocked.missing).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'installationTypeId' })]));
-    // старый паспорт (до ПП, без флага strict) — печатается как раньше
-    await db().collection('productpassports').updateOne({ _id: new Types.ObjectId(first) }, { $unset: { strict: '' } });
-    const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
+  it('PDF: выпущенный — с номером и отметкой выдачи; черновик — тоже можно, с пометкой «ЧЕРНОВИК», без отметки выдачи', async () => {
+    const bin = (res: NodeJS.ReadableStream, cb: (e: Error | null, b: Buffer) => void) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); };
+    const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse(bin as never).expect(200);
     expect(r.headers['content-type']).toContain('application/pdf');
     expect(String(r.headers['content-disposition'])).toContain('filename*=UTF-8');
     expect((r.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
-    const p = await http().get(`/api/passports/${first}/pdf`).query({ mode: 'print', stamp: 1 }).set(as(admin.access)).expect(200);
-    expect(p.headers['content-type']).toContain('application/pdf');
+    await http().get(`/api/passports/${first}/pdf`).query({ mode: 'print', stamp: 1 }).set(as(admin.access)).expect(200);
     expect((await http().get(`/api/passports/${first}`).set(as(admin.access)).expect(200)).body.pdfIssuedAt).toBeTruthy();
+    await http().get(`/api/passports/${copyId}/pdf`).set(as(admin.access)).expect(200);
+    expect((await http().get(`/api/passports/${copyId}`).set(as(admin.access)).expect(200)).body.pdfIssuedAt ?? null).toBeNull();
   });
 
-  it('ZIP по фильтру', async () => {
-    const no = (await http().get(`/api/passports/${first}`).set(as(admin.access)).expect(200)).body.passportNumber; // паспорт с категорией (PDF-тест выше)
-    const z = await http().get('/api/passports/zip').query({ search: no }).set(as(admin.access)).buffer(true).parse((res, cb) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); }).expect(200);
+  it('ZIP по фильтру — только выпущенные', async () => {
+    const bin = (res: NodeJS.ReadableStream, cb: (e: Error | null, b: Buffer) => void) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); };
+    const z = await http().get('/api/passports/zip').query({ search: '550' }).set(as(admin.access)).buffer(true).parse(bin as never).expect(200);
     expect(z.headers['content-type']).toContain('application/zip');
     expect((z.body as Buffer).readUInt32LE(0)).toBe(0x04034b50);
   });
 
-  it('удаление в корзину и восстановление', async () => {
-    await http().delete(`/api/passports/${first}`).set(as(admin.access)).expect(200);
-    expect((await http().get('/api/passports').query({ deleted: 1 }).set(as(admin.access)).expect(200)).body.total).toBe(1);
-    await http().post(`/api/passports/${first}/restore`).set(as(admin.access)).expect(200);
+  it('НМ: дубли — черновик того же изделия; свой паспорт не считается', async () => {
+    const pid = String(new Types.ObjectId());
+    const d1 = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Турник', productId: pid, orderNo: '77' }).expect(201)).body;
+    const dup = (await http().get('/api/passports/duplicates').query({ productId: pid, orderNo: '77' }).set(as(admin.access)).expect(200)).body;
+    expect(dup.items.map((x: { id: string }) => x.id)).toEqual([d1.id]);
+    expect((await http().get('/api/passports/duplicates').query({ productId: pid, exceptId: d1.id }).set(as(admin.access)).expect(200)).body.items).toEqual([]);
+    await http().delete(`/api/passports/${d1.id}`).set(as(admin.access)).expect(200);
+  });
+
+  it('удаление: черновик — в корзину и обратно; выпущенный — нельзя, только «Аннулировать» с причиной; номер не выдаётся повторно', async () => {
+    await http().delete(`/api/passports/${copyId}`).set(as(admin.access)).expect(200);
+    expect((await http().get('/api/passports').query({ deleted: 1 }).set(as(admin.access)).expect(200)).body.items.map((x: { id: string }) => x.id)).toContain(copyId);
+    await http().post(`/api/passports/${copyId}/restore`).set(as(admin.access)).expect(200);
+    await http().delete(`/api/passports/${first}`).set(as(admin.access)).expect(409);
+    await http().post(`/api/passports/${first}/annul`).set(as(admin.access)).send({}).expect(400);
+    const an = (await http().post(`/api/passports/${first}/annul`).set(as(admin.access)).send({ reason: 'дубль' }).expect(200)).body;
+    expect(an).toMatchObject({ status: 'annulled', annulReason: 'дубль', passportNumber: '550' });
+    await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ note: 'x' }).expect(409);
+    await http().delete(`/api/passports/${first}`).set(as(admin.access)).expect(409);
+    const n = (await http().post('/api/passports').set(as(admin.access)).send(full({ name: 'После аннулирования' })).expect(201)).body;
+    expect(Number((await http().post(`/api/passports/${n.id}/issue`).set(as(admin.access)).expect(200)).body.passportNumber)).toBe(553);
   });
   it('v2: паспорт с категорией — снимок текста; правка шаблона не меняет выданный, «обновить текст» — меняет (БЗ-6 Э4c)', async () => {
     const dv = db().collection('dict_values');
@@ -232,7 +269,8 @@ describe('Паспорта изделий', () => {
     const r = (await http().post('/api/passports/bulk').set(as(admin.access)).send({ ids: [a.id, b.id], set: { passportCategory: 'TRN', warrantyMonths: '24', elements: [el], customerName: 'ГБУ', passportNumber: '999', name: 'нельзя' }, arrays: { elements: 'add' } }).expect(200)).body;
     expect(r).toMatchObject({ updated: 2, failed: [] });
     const a2 = (await http().get(`/api/passports/${a.id}`).set(as(admin.access)).expect(200)).body;
-    expect(a2).toMatchObject({ passportCategory: 'TRN', warrantyMonths: 24, customerName: 'ГБУ', name: 'Массово 1', passportNumber: a.passportNumber });
+    expect(a2).toMatchObject({ passportCategory: 'TRN', warrantyMonths: 24, customerName: 'ГБУ', name: 'Массово 1', status: 'draft' });
+    expect(String(a2.passportNumber)).toMatch(/^draft-/); // номер массово не появляется
     expect(a2.elements.map(String)).toEqual([el]);
     expect(a2.textSnapshot?.category).toBe('TRN'); // текст пересобран по новой категории
     // отмена — как было

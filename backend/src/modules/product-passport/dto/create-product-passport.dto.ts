@@ -68,4 +68,6 @@ export class CreateProductPassportDto {
 
   /** Подтверждение смены выданных номера / талона / даты (иначе 409). */
   @IsOptional() @IsBoolean() confirmNumbers?: boolean;
+  /** ТЭ: какие текстовые поля изменены вручную (purpose, installationMethod, description…). */
+  @IsOptional() @IsArray() @IsString({ each: true }) manualText?: string[];
 }

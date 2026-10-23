@@ -517,6 +517,29 @@ export const DICTS: DictDef[] = [
     editRoles: ['director'],
   },
   {
+    // ТЭ (2026-10-23): эталонные тексты разделов, которые раньше набирали в паспорте руками («Назначение», «Установка»);
+    // в форме паспорта — выбор только из них, по категории паспорта. Старые записи не удаляют — «в корзину» = в архив
+    ...simpleList('passportPhrases', 'Паспорта', 'Готовые тексты паспорта',
+      'Эталонные формулировки «Назначения» и «Установки» по категориям: в паспорте выбираются только отсюда. Новая формулировка — добавьте здесь, а не в паспорте. Ненужную — «в корзину» (выданные паспорта хранят свой текст).',
+      [
+        { key: 'section', label: 'Раздел', type: 'select', required: true, options: [{ value: 'purpose', label: 'Назначение' }, { value: 'installation', label: 'Установка' }] },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF (благоустройство), DIO, DSP' },
+        { key: 'text', label: 'Текст', type: 'textarea', required: true, wide: true },
+      ]),
+    usage: async (db, docs) => {
+      const field = (d: Doc) => (d.section === 'installation' ? 'installationMethod' : 'purpose');
+      return new Map(await Promise.all(docs.map(async (d) => [String(d._id), s(d.text) ? await db.collection('productpassports').countDocuments({ deletedAt: null, [field(d)]: s(d.text) }) : 0] as [string, number])));
+    },
+    related: async (db, d) => {
+      const f = d.section === 'installation' ? 'installationMethod' : 'purpose';
+      const q = { deletedAt: null, [f]: s(d.text) };
+      const [pp, total] = await Promise.all([db.collection('productpassports').find(q).sort({ _id: -1 }).limit(15).project({ passportNumber: 1, name: 1 }).toArray(), db.collection('productpassports').countDocuments(q)]);
+      return { title: 'Паспорта с этим текстом', total, items: pp.map((p) => ({ label: `Паспорт № ${s(p.passportNumber) || '— (черновик)'} ${s(p.name)}`, href: '#passports?of=passports&open=' + String(p._id) })) };
+    },
+    reassign: async () => 0, // выданные паспорта хранят свой текст — при объединении не переписываем
+    editRoles: ['director'],
+  },
+  {
     ...simpleList('passportStyle', 'Паспорта', 'Оформление',
       'Как выглядит PDF паспорта: цвет категории, фон обложки, рамка и пиктограммы правил. Запись с «Использовать = нет» в PDF не попадает.',
       [

@@ -3,7 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Types, type Connection } from 'mongoose';
 import sharp from 'sharp';
-import { ProductPassportService } from './product-passport.service';
+import { ProductPassportService, isDraftNumber, isIssued } from './product-passport.service';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
@@ -13,6 +13,9 @@ import { renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, typ
 type Doc = Record<string, unknown>;
 
 /** Сборка PDF паспорта и пакета ZIP: читает паспорт, организацию-поставщика, картинки (TASKS ПС.6). */
+/** НМ: служебная метка черновика вместо номера — в PDF не печатается (номера, талона, номера изделия у черновика нет). */
+const noDraftNumber = <T extends Record<string, unknown>>(p: T): T => (isDraftNumber(p.passportNumber) ? { ...p, passportNumber: '', warrantyCode: '', productCode: '' } : p);
+
 @Injectable()
 export class PassportPdfService {
   private readonly log = new Logger(PassportPdfService.name);
@@ -60,19 +63,14 @@ export class PassportPdfService {
     });
   }
 
-  /** ПП: строгий паспорт (создан после ПП) без обязательного — PDF нельзя: 400 { message, missing:[{label,key}] }. Старые — как раньше. */
-  private async assertReady(raw: Doc) {
-    if (!raw.strict) return;
-    const missing = await this.passports.readiness(raw);
-    if (missing.length) throw new BadRequestException({ message: `Паспорт не готов к выпуску — не хватает: ${missing.map((m) => m.label).join(', ')}. Заполните и повторите`, missing });
-  }
+  /** НМ: черновик — PDF с пометкой «ЧЕРНОВИК» и без номера; аннулированный — «АННУЛИРОВАН». Выпущенный — как есть. */
+  private watermark(raw: Doc): string | undefined { return raw.status === 'draft' ? 'ЧЕРНОВИК' : raw.status === 'annulled' ? 'АННУЛИРОВАН' : undefined; }
 
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
-    await this.assertReady(raw);
-    const p = await this.withText(raw);
+    const p = noDraftNumber(await this.withText(raw));
     const buf = await this.render(p, opts);
-    await this.passports.markIssued(p._id as Types.ObjectId);
+    if (isIssued(raw)) await this.passports.markIssued(p._id as Types.ObjectId); // «PDF скачан» — только у выпущенного
     return { buf, filename: fileName(p, opts.stamp) };
   }
 
@@ -81,8 +79,7 @@ export class PassportPdfService {
    */
   async stand(id: string) {
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
-    await this.assertReady(raw);
-    const p = await this.withText(raw);
+    const p = noDraftNumber(await this.withText(raw));
     const { orgIn, asset } = await this.orgOf(p);
     const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: p.textSnapshot as PdfV2Text, style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
     return { buf, filename: standFileName(p) };
@@ -93,7 +90,7 @@ export class PassportPdfService {
     const { items } = await this.passports.list({ ...q, page: 1, limit: 200 }, { full: true });
     const files: Array<{ name: string; data: Buffer }> = [];
     for (const raw of items as Doc[]) {
-      if (raw.strict && (await this.passports.readiness(raw)).length) continue; // ПП: неготовый строгий паспорт в пакет не попадает
+      if (!isIssued(raw)) continue; // НМ: в пакет — только выпущенные (черновики и аннулированные — нет)
       const it = await this.withText(raw).catch(() => null);
       if (!it) continue; // без категории PDF не собирается — в архив не попадает
       files.push({ name: fileName(it, opts.stamp), data: await this.render(it, opts) });
@@ -128,6 +125,7 @@ export class PassportPdfService {
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
     const text = p.textSnapshot as PdfV2Text;
     return renderPassportPdfV2({
+      watermark: this.watermark(p),
       passport: p as never,
       org: orgIn,
       text,
@@ -193,5 +191,5 @@ export function standFileName(p: Doc): string {
 /** «Паспорт_549_Стойка баскетбольная….pdf» (без запрещённых в именах файлов знаков). */
 export function fileName(p: Doc, stamp?: boolean): string {
   const name = String(p.name ?? '').replace(/[\\/:*?"<>|«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
-  return `Паспорт_${p.passportNumber ?? ''}${name ? `_${name}` : ''}${stamp ? '' : '_без печати'}.pdf`;
+  return `Паспорт_${p.passportNumber || 'черновик'}${name ? `_${name}` : ''}${stamp ? '' : '_без печати'}.pdf`;
 }

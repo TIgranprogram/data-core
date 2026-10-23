@@ -57,8 +57,21 @@ export class ProductPassport {
   @Prop({ type: Types.ObjectId, ref: 'Product', index: true })
   productId?: Types.ObjectId;
 
-  @Prop({ required: true })
-  passportNumber!: string;
+  /** Номер паспорта. НМ (2026-10-23): выдаётся только при выпуске — у черновика пусто. */
+  @Prop()
+  passportNumber?: string;
+
+  // ───── НМ: черновик → выпуск → (аннулирование); поля только data-core, kppdf их не читает ─────
+  /** draft — черновик без номера; issued — выпущен (номер, талон, текст заморожены); annulled — аннулирован (номер занят). Нет поля — старый паспорт = выпущен. */
+  @Prop() status?: string;
+  @Prop() issuedAt?: Date;
+  @Prop() annulledAt?: Date;
+  @Prop({ trim: true }) annulReason?: string;
+  /** Редакция выпущенного паспорта (1, 2…); прежние — в revisions. */
+  @Prop() revision?: number;
+  @Prop({ type: [Object], default: undefined }) revisions?: Array<Record<string, unknown>>;
+  /** ТЭ: поля текста, изменённые вручную для этого паспорта (не из справочника) — видно в списке. */
+  @Prop({ type: [String], default: undefined }) manualText?: string[];
 
   /** Числовой № паспорта — для сортировки и счётчика (`passportNumber` — строка, как у kppdf). */
   @Prop({ index: true })

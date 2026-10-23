@@ -47,7 +47,7 @@ const V2_NUMS = [
 const dictRows = async (key) => (await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || [];
 const codeList = (s) => String(s || '').split(/[,;\s]+/).filter(Boolean);
 /** Записи справочника для выбора: cats — к каким категориям паспорта относится (пусто — ко всем; ФП — фильтр по категории). */
-const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories) }));
+const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, code: d.code, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories) }));
 /** Обязательные виды картинок категории — как на сервере (requiredImageKinds): по строке, «(если разборное)» — только у разборных; safety_zone = safety. */
 const reqKinds = (cat, isKit) => {
   const out = [];
@@ -66,7 +66,18 @@ const MONTHS = ['январь', 'февраль', 'март', 'апрель', '�
 const canEdit = () => ['admin', 'director'].includes(session.user?.role) || session.user?.isOwner === true;
 const num = (v) => (v === undefined || v === null || v === '' ? '' : String(v).replace('.', ','));
 const dims = (r) => (r.height || r.length || r.width ? `${num(r.height) || '—'} × ${num(r.length) || '—'} × ${num(r.width) || '—'} мм` : '');
-const heading = (r) => `Паспорт № ${r.passportNumber || '—'}`;
+// НМ: статус паспорта — черновик (без номера) / выпущен / аннулирован; старый без статуса с номером — выпущен
+const statusOf = (r) => r?.status || (r?.passportNumber && !String(r.passportNumber).startsWith('draft-') ? 'issued' : 'draft');
+const isIssued = (r) => statusOf(r) === 'issued';
+const STATUS_LABEL = { draft: 'Черновик', issued: 'Выпущен', annulled: 'Аннулирован' };
+const statusBadge = (r) => h('span', { class: 'badge ' + ({ draft: 'warn', issued: 'ok', annulled: 'dim' }[statusOf(r)]) }, STATUS_LABEL[statusOf(r)]);
+/** НМ-1: у выпущенного без «Новой редакции» меняются только эти поля (как на сервере, AFTER_PRINT_FIELDS). */
+const AFTER_PRINT = ['saleDate', 'customerName', 'customerOrgId', 'orderNo', 'salesOrderId', 'objectName', 'installedBy', 'installedAt', 'note'];
+/** НМ: «Новая редакция» — форма правки открывается со всеми полями для этого паспорта. */
+let revisionFor = null;
+/** Номер для показа: у черновика — служебная метка draft-…, её не показываем. */
+const numberOf = (r) => (r?.passportNumber && !String(r.passportNumber).startsWith('draft-') ? r.passportNumber : '');
+const heading = (r) => (numberOf(r) ? `Паспорт № ${numberOf(r)}` : 'Паспорт — черновик');
 
 let facetsCache = null; let facetsAt = 0;
 const facets = async () => {
@@ -137,6 +148,15 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
   return !!pid;
 }
 
+/** ТЭ-6: категория по названию изделия — первое совпадение по порядку (правило из docs/PASSPORT-TEXTS-ETALON.xlsx, лист «Правило категорий»). */
+const NAME_RULES = [
+  ['DIO', /качел|карусел|горк|песочн|игров|домик|балансир|качалк|геопласт|детск|бизиборд|пузыр|муравейник|тоннел|пен[её]к|лабиринт/],
+  ['TRN', /тренаж/],
+  ['WRK', /воркаут|workout|турник|брусь|рукоход|шведск|стенк|скамья для пресса|скамья гимнаст|скамья горизонт|баскет|волейб|футбол|ворот|боксер|ринг|помост|препятств|элемент «|судейск|набивани|кольц/],
+  ['MAF', /скам(ья|ейк)|урн|навес|пергол|беседк|вазон|цветоч|огражд|оградит|стенд|стел|\bстол\b|диван|лавк|велопарк|фонар|флагшток|столб|клумб/],
+];
+const categoryByName = (name) => { const n = String(name || '').toLowerCase().replace(/ё/g, 'е'); return NAME_RULES.find(([, rx]) => rx.test(n))?.[0] || ''; };
+
 /** Изделия «Продукции» для выбора в паспорте (ПИ): категория паспорта, число паспортов, фото — один запрос в минуту. */
 let prodCache = null; let prodAt = 0;
 const productsAll = async () => {
@@ -162,6 +182,7 @@ function productBlock(api, { r, catBy }) {
   const sub = (p) => [p.sku && 'арт. ' + p.sku, [p.type, p.group].filter(Boolean).join(' › '), `паспортов: ${p.passportsCount || 0}`].filter(Boolean).join(' · ');
 
   async function pick(p, { apply = true } = {}) {
+    if (apply && !r && !(await duplicateCheck(p.id, api.get))) return; // НМ-2: дубль — открыть существующий
     chosen = p; api.set('productId', p.id); lock(false); render();
     if (apply) await applyProduct(api, p, catBy);
   }
@@ -187,7 +208,7 @@ function productBlock(api, { r, catBy }) {
       const all = await productsAll();
       const tk = searchTokens(q);
       let rows = tk.length ? all.filter((p) => { const s = normSearch([p.name, p.sku, p.type, p.group, p.series].filter(Boolean).join(' ')); return tk.every((t) => s.includes(t)); })
-        : all.filter((p) => !filterCat || p.ppCategory === filterCat);
+        : all.filter((p) => !filterCat || (p.ppCategory || categoryByName(p.name)) === filterCat);
       rows = rows.sort((a, b) => (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
       const shown = rows.slice(0, 60);
       list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row', role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
@@ -235,7 +256,7 @@ async function applyProduct(api, p, catBy) {
     if (onlyEmpty && String(cur ?? '').trim() && cur !== '[]' && !api.input(k)?.classList?.contains('is-default')) return;
     api.set(k, Array.isArray(v) ? JSON.stringify(v) : v, { auto: true, src });
   };
-  const ppCat = d.passportCategory || full.passportCategory?.code || p.ppCategory || '';
+  const ppCat = d.passportCategory || full.passportCategory?.code || p.ppCategory || categoryByName(full.name) || '';
   // 1. поля изделия
   for (const [k, v] of Object.entries({ name: full.name, article: full.sku, category: full.group || full.type, length: mmOf(full.dimensions?.length, u), width: mmOf(full.dimensions?.width, u),
     height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '', purpose: full.purpose, installationMethod: full.installation, description: full.description })) put(k, v, 'из изделия');
@@ -336,6 +357,16 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
     lastCat = code; scope(true); defaults(); markReq(); numsByCat(); catalogByCat(); check();
   });
   api.on('isKit', markReq);
+  // ТЭ: способ установки → эталонный текст «Установки» категории (вариант справочника с тем же способом)
+  const INSTALL_VARIANT = { CONCRETE_POSTS: 'Бетонирование опорных стоек', EMBEDDED: 'Закладные детали', ANCHORS: 'Анкерное крепление', FENCE_POSTS: 'Ограждение на опорных стойках', FREESTANDING: 'Свободная установка', ON_SURFACE: 'Свободная установка' };
+  api.on('installationTypeId', async () => {
+    if (api.manual('installationMethod')) return;
+    const code = inst.find((o) => o.value === api.get('installationTypeId'))?.code;
+    const variant = INSTALL_VARIANT[code]; if (!variant) return;
+    const rows = await dictRows('passportPhrases');
+    const hit = rows.find((x) => x.section === 'installation' && x.name === variant && codeList(x.categories).includes(api.get('passportCategory')));
+    if (hit) api.set('installationMethod', hit.text, { auto: true, src: 'по способу установки' });
+  });
 
   // модель выбрана → картинки модели по видам (только в пустые виды; своё не трогаем)
   api.on('_copyFrom', async () => {
@@ -375,7 +406,7 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
         who, h('div', { class: 'hint' }, 'Черновик сохранить можно; выпустить (скачать PDF) — когда заполните всё отмеченное')]
       : [h('span', null, '✓ Всё есть — паспорт можно выпускать')]));
     const b = saveBtn();
-    if (b && !b.disabled && !r) b.textContent = miss.length ? 'Сохранить черновик' : 'Выпустить';
+    if (b && !b.disabled && !r) b.textContent = 'Сохранить черновик'; // НМ: номер — потом, кнопкой «Выпустить» в карточке
     // над кнопками — то же коротко: что ещё нужно для выпуска (ПП)
     if (b?.parentElement) {
       let foot = b.parentElement.querySelector('.pp-need-foot');
@@ -384,6 +415,7 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
       foot.hidden = !miss.length;
     }
   }, 500); };
+  lockIssued(api, r);
   api.root.addEventListener('input', check); api.root.addEventListener('change', check);
   // ПИ.4: «Запомнить» — только если есть изделие и поправлены поля, которые изделие помнит
   const rememberField = api.field('_remember');
@@ -395,6 +427,50 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
   check();
 }
 const api_get = (p) => api(p);
+/** ТЭ: все тексты справочника «Готовые тексты паспорта» (для пометки «изменено вручную»); заполняется при сборке формы. */
+const PHRASE_TEXTS = new Set();
+/** НМ: «Выпустить» — номер, талон и номер изделия из счётчика (сервер, одна транзакция); повторное нажатие — тот же номер. */
+async function issueAction(row, ctx) {
+  if (!(await confirmDlg('Выпустить паспорт?', 'Паспорт получит номер и гарантийный талон, текст будет заморожен. После выпуска номер не меняется; правки — «Новой редакцией».', { okText: 'Выпустить' }))) return;
+  const r = await api(`/passports/${row.id}/issue`, { method: 'POST' });
+  toast(`Выпущен паспорт № ${r.passportNumber}`); ctx.changed(); ctx.setRow(await api(`/passports/${row.id}`));
+}
+/** НМ: аннулирование выпущенного — причина обязательна (окно: одно поле). */
+async function annulDialog(row, ctx) {
+  const ta = h('textarea', { rows: 3, 'aria-label': 'Причина', placeholder: 'Например: дубль паспорта № …' });
+  const res = await modal({ title: `Аннулировать паспорт № ${row.passportNumber}?`, okText: 'Аннулировать', danger: true,
+    body: h('div', null, h('p', null, 'Номер останется занятым и повторно не выдаётся. Паспорт останется в списке со статусом «Аннулирован».'), h('label', { class: 'field wide' }, h('span', null, 'Причина *'), ta)),
+    onOk: async () => { if (!ta.value.trim()) throw new Error('Укажите причину'); return api(`/passports/${row.id}/annul`, { method: 'POST', body: { reason: ta.value.trim() } }); } });
+  if (res) { toast('Паспорт аннулирован'); ctx.changed(); ctx.setRow(await api(`/passports/${row.id}`)); }
+}
+/** НМ-8: номер выпущенного — только администратор, с проверкой занятости; следующий выпуск всё равно получит max + 1. */
+async function numberDialog(row, ctx) {
+  const inp = h('input', { type: 'text', inputmode: 'numeric', value: row.passportNumber || '', 'aria-label': 'Номер паспорта' });
+  const res = await modal({ title: 'Изменить номер паспорта', okText: 'Сохранить',
+    body: h('div', null, h('p', { class: 'hint' }, 'Только для исправления ошибки. Номер проверяется на занятость (в т. ч. у аннулированных и удалённых). Следующий выпуск получит номер больше максимального.'), h('label', { class: 'field wide' }, h('span', null, 'Номер'), inp)),
+    onOk: async () => { const v = inp.value.trim(); if (!/^\d+$/.test(v)) throw new Error('Номер — число'); return api(`/passports/${row.id}`, { method: 'PATCH', body: { passportNumber: v, confirmNumbers: true } }); } });
+  if (res) { toast('Номер изменён'); ctx.changed(); ctx.setRow(await api(`/passports/${row.id}`)); }
+}
+/** НМ-2: перед созданием — черновики того же изделия и выпущенные на тот же заказ / покупателя / адрес. true — создавать дальше. */
+async function duplicateCheck(productId, get) {
+  if (!productId) return true;
+  const res = await api('/passports/duplicates', { query: { productId, orderNo: get('orderNo') || undefined, customer: get('customerName') || undefined, objectName: get('objectName') || undefined } }).catch(() => ({ items: [] }));
+  if (!res.items?.length) return true;
+  const list = h('ul', { class: 'timeline' }, ...res.items.map((x) => h('li', null, h('a', { href: `#passports?open=${x.id}` }, x.passportNumber ? `№ ${x.passportNumber}` : 'черновик'), h('span', { class: 'muted' }, ' · ' + [STATUS_LABEL[x.status] || '', x.name, x.customerName, x.orderNo && 'заказ ' + x.orderNo, date(x.date)].filter(Boolean).join(' · ')))));
+  const open = await modal({ title: 'На это изделие паспорт уже есть', okText: 'Открыть существующий', cancelText: 'Всё равно создать',
+    body: h('div', null, h('p', null, 'Возможно, это дубль:'), list), onOk: async () => res.items[0].id });
+  if (open) { patch({ of: undefined, new: undefined, open }); return false; }
+  return true;
+}
+/** НМ-1: выпущенный паспорт в форме — открыты только «после печати»; остальное — через «Новая редакция». */
+function lockIssued(api, r) {
+  if (!r || !isIssued(r) || revisionFor === r.id) return;
+  for (const blk of api.root.querySelectorAll('.form-block')) {
+    const after = /после печати/i.test(blk.textContent.split('\n')[0] || '') || blk.querySelector('[name="saleDate"]');
+    if (!after) { blk.inert = true; blk.classList.add('locked'); }
+  }
+  api.root.prepend(h('div', { class: 'fill-note' }, `Паспорт № ${r.passportNumber} выпущен: меняются только поля «после печати». Остальное — действие «Новая редакция» в карточке (номер тот же, редакция +1).`));
+}
 /** БЗ-9: поля массового изменения паспортов — общие для всех выбранных. */
 async function passportBulkFields() {
   const [els, mats, inst, ours, f, cats] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), ourCompanies(), facets(), categories()]);
@@ -472,7 +548,7 @@ const imgsOf = (r, kind) => (r.images || []).filter((i) => kindOf(i) === kind).s
 /** Скачать PDF: «Готовлю…» висит, пока сервер собирает файл (на сервере с одним ядром — секунды), потом «Скачан». */
 async function download(r, query, what) {
   const done = toast(`Готовлю ${what}… это может занять до минуты`, { ms: 180000 });
-  try { const name = await apiFile(`/passports/${r.id}/pdf`, { query, fallback: `Паспорт_${r.passportNumber}.pdf` }); done(); toast(`Скачан: ${name}`); }
+  try { const name = await apiFile(`/passports/${r.id}/pdf`, { query, fallback: `Паспорт_${numberOf(r) || 'черновик'}.pdf` }); done(); toast(`Скачан: ${name}`); }
   catch (e) { done(); throw e; }
 }
 
@@ -508,7 +584,7 @@ async function printDialog(r) {
     hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбрана категория — PDF собирается по ней. «Выбрать категорию» в действиях карточки.'));
   pick(mode);
   await modal({
-    title: `Паспорт № ${r.passportNumber || '—'} — PDF`, okText: 'Скачать PDF', wide: true, body,
+    title: `${heading(r)} — PDF`, okText: 'Скачать PDF', wide: true, body,
     onOk: async (form) => {
       if (!hasCat) throw new Error('Сначала выберите категорию паспорта');
       const ok = form.querySelector('[type=submit]');
@@ -720,6 +796,7 @@ export const passports = {
     emptyText: 'Паспортов пока нет.',
     query: (P) => ({ ...(P.state === 'incomplete' ? { incomplete: 1 } : {}), ...(P.state === 'noImages' ? { noImages: 1 } : {}) }),
     filters: [
+      { key: 'status', label: 'Статус', type: 'select', options: async () => [{ value: 'draft', label: 'Черновики' }, { value: 'issued', label: 'Выпущенные' }, { value: 'annulled', label: 'Аннулированные' }] },
       { key: 'state', label: 'Показать', type: 'chips', options: () => [{ value: 'incomplete', label: 'Неполные' }, { value: 'noImages', label: 'Без картинок' }],
         count: (resp, v) => (v === '' ? undefined : v === 'incomplete' ? resp.incomplete : undefined) },
       { key: 'category', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
@@ -735,8 +812,8 @@ export const passports = {
       card: (r) => ({
         pic: r.thumb ? PREFIX + r.thumb : null,
         title: r.name || 'без названия',
-        meta: [`№ ${r.passportNumber}`, date(r.date), r.customerName || r.objectName].filter(Boolean).join(' · '),
-        badge: r.missing?.length ? h('span', { class: 'badge warn gc-badge', title: 'Не хватает: ' + r.missing.join(', ') }, `не хватает ${r.missing.length}`) : null,
+        meta: [numberOf(r) ? `№ ${numberOf(r)}` : 'черновик', date(r.date), r.customerName || r.objectName].filter(Boolean).join(' · '),
+        badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
       }),
     },
     tiles: { key: 'category', load: async () => (await facets()).categories.map((c) => ({ value: c.value, label: c.value, n: c.n })) },
@@ -752,7 +829,8 @@ export const passports = {
     } }, '⇩ PDF пакетом')],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
-      { key: 'passportNumber', label: '№', sort: 'passportNo', cls: 'nowrap', render: (r) => h('b', null, r.passportNumber || '—') },
+      { key: 'passportNumber', label: '№', sort: 'passportNo', cls: 'nowrap', render: (r) => h('b', null, numberOf(r) || '—') },
+      { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => h('span', null, statusBadge(r), r.manualText?.length ? h('span', { class: 'badge info', title: 'Текст изменён вручную, не из справочника' }, ' изменено вручную') : null) },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
       { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name || '' }, r.name || h('span', { class: 'muted' }, 'без названия')) },
       { key: 'category', label: 'Категория', sort: 'category', cls: 'md-hide', render: (r) => r.category || h('span', { class: 'muted' }, '—') },
@@ -762,7 +840,7 @@ export const passports = {
     ],
     card: {
       thumb: (r) => (r.thumb ? h('img', { class: 'thumb', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null),
-      title: (r) => `№ ${r.passportNumber} · ${r.name || 'без названия'}`,
+      title: (r) => `${numberOf(r) ? '№ ' + numberOf(r) : 'Черновик'} · ${r.name || 'без названия'}`,
       sub: (r) => [date(r.date), r.customerName || r.objectName, r.missing?.length ? `не хватает: ${r.missing.length}` : ''].filter(Boolean).join(' · '),
       side: () => [],
     },
@@ -772,7 +850,7 @@ export const passports = {
     heading,
     editTop: true,
     subheading: (r) => [r.name, r.category].filter(Boolean).join(' · '),
-    stats: (r) => [['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
+    stats: (r) => [['Статус', STATUS_LABEL[statusOf(r)] + (r.revision > 1 ? `, редакция ${r.revision}` : '') + (r.annulReason ? ` — ${r.annulReason}` : '')], ['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
     view: (r) => [
       ['Наименование', r.name],
       ['Категория', r.category],
@@ -792,9 +870,13 @@ export const passports = {
     ],
     actions: (r) => [
       // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
-      // ПП: строгий паспорт (новый) — PDF, только когда заполнено обязательное; старые — как раньше
-      { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row),
-        ...(r.strict && r.missing?.length ? { disabled: true, title: `Паспорт не готов к выпуску — не хватает: ${r.missing.join(', ')}` } : {}) },
+      // НМ: черновик — «Выпустить» (номер — сейчас, последним шагом); PDF черновика — с пометкой «ЧЕРНОВИК»
+      statusOf(r) === 'draft' && canEdit() && { label: 'Выпустить', primary: true, run: (row, ctx) => issueAction(row, ctx),
+        ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },
+      { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
+      isIssued(r) && canEdit() && { label: 'Новая редакция', title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
+      isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
+      isIssued(r) && (session.user?.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
       !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
       !r.productId && canEdit() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
@@ -816,7 +898,10 @@ export const passports = {
   form: {
     fields: async (r) => {
       const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
-      const [els, mats, inst, catRows, stdRows] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards')]);
+      const [els, mats, inst, catRows, stdRows, phraseRows] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), dictRows('passportPhrases')]);
+      // ТЭ: «Назначение» и «Установка» — только эталонные тексты справочника для категории паспорта
+      PHRASE_TEXTS.clear(); for (const x of phraseRows) PHRASE_TEXTS.add(String(x.text || '').trim());
+      const phraseOpts = (section) => (get) => { const cat = get('passportCategory'); return phraseRows.filter((x) => x.section === section && (!cat || codeList(x.categories).includes(cat))).map((x) => ({ value: x.text, label: x.text, sub: x.name })); };
       const catBy = new Map(catRows.map((c) => [String(c.code), c]));
       const stdName = new Map(stdRows.map((s) => [String(s.code), s.name]));
       // ФП: виджеты, которые меняет выбор категории, и «готовность к выпуску»
@@ -875,8 +960,10 @@ export const passports = {
         { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
         { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
         { key: 'materials', label: 'Материалы («изготовленное из …»)', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
-        { key: 'installationMethod', label: 'Установка', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
-        { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
+        { key: '_manualText', label: 'Свой текст для этого паспорта', type: 'segment', options: [{ value: 'no', label: 'Нет — из справочника' }, { value: 'yes', label: 'Да — изменено вручную' }], wide: true,
+          hint: 'Только если готового текста нет: паспорт будет помечен «изменено вручную». Новую формулировку лучше добавить в «Справочники → Паспорта → Готовые тексты паспорта»' },
+        { key: 'installationMethod', label: 'Установка', type: 'combo', wide: true, max: 1000, options: phraseOpts('installation'), strict: (get) => get('_manualText') !== 'yes', strictText: 'Выберите текст из справочника или включите «Свой текст для этого паспорта»', hint: 'Подставляется по способу установки; список — только для категории паспорта' },
+        { key: 'purpose', label: 'Назначение', type: 'combo', wide: true, max: 1000, options: phraseOpts('purpose'), strict: (get) => get('_manualText') !== 'yes', strictText: 'Выберите текст из справочника или включите «Свой текст для этого паспорта»', hint: 'Список — только для категории паспорта' },
         { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
           hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
         // ФП: обязательные для категории (*) и «Общий вид» — сразу; остальные — в свёрнутом «Ещё картинки»; вставка Ctrl+V — в вид под курсором
@@ -905,11 +992,11 @@ export const passports = {
     initial: async () => {
       const d = draft; draft = null;
       newCat = d?.passportCategory || '';
-      return { date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
+      return { _manualText: 'no', date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
         ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
     },
     toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
-      ...v2Initial(r),
+      ...v2Initial(r), _manualText: r.manualText?.length ? 'yes' : 'no',
       ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
     // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
     toBody: (v, r) => {
@@ -922,6 +1009,8 @@ export const passports = {
         ...Object.fromEntries(['height', 'length', 'width', 'weight', 'warrantyMonths'].filter((k) => v[k] !== null && v[k] !== undefined).map((k) => [k, v[k]])),
       };
       body.description = s(v.description) || buildDescription(body);
+      // ТЭ-2: какие тексты не из справочника — видно в списке «изменено вручную»
+      body.manualText = [...(v._manualText === 'yes' ? ['purpose', 'installationMethod'].filter((k) => s(body[k]) && !PHRASE_TEXTS.has(s(body[k]))) : []), ...(s(v.description) && s(v.description) !== buildDescription(body) ? ['description'] : [])];
       const bom = parseBom(v.bom);
       if (bom.length || r) body.bom = bom;
       const shown = new Set(kinds().map(([k]) => k));
@@ -936,6 +1025,7 @@ export const passports = {
       if (!r && v._copyFrom) body._copyFrom = v._copyFrom;
       if (!r && v.productId) body.productId = v.productId;
       if (!r && v.salesOrderId) body.salesOrderId = v.salesOrderId;
+      if (r && isIssued(r)) body._issued = true;
       // ПИ.4: «Запомнить» — значения по умолчанию изделию (после сохранения паспорта)
       const pid = v.productId || r?.productId;
       if (v._remember === 'yes' && pid) {
@@ -963,11 +1053,20 @@ export const passports = {
       }
       return full(await api(`/passports/${_copyFrom}/copy`, { method: 'POST', body: rest }));
     },
-    update: async (id, body) => { const { _remember, ...rest } = body; if (_remember) await saveDefaults(_remember); await api(`/passports/${id}`, { method: 'PATCH', body: rest }); return api(`/passports/${id}`); },
+    update: async (id, body) => {
+      const { _remember, _issued, ...rest } = body; if (_remember) await saveDefaults(_remember);
+      const rev = revisionFor === id; revisionFor = null;
+      // НМ-1: выпущенный без «Новой редакции» — отправляем только «после печати» (остальное заблокировано в форме)
+      const send = _issued && !rev ? Object.fromEntries(Object.entries(rest).filter(([k]) => AFTER_PRINT.includes(k))) : rest;
+      await api(`/passports/${id}`, { method: 'PATCH', body: send, query: rev ? { newRevision: 1 } : undefined });
+      if (rev) toast('Новая редакция сохранена — номер тот же, прежняя редакция в истории');
+      return api(`/passports/${id}`);
+    },
   },
 
   remove: {
-    text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.name || 'без названия'}) в корзину? Номер не освободится — новый паспорт получит следующий.`,
+    text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.name || 'без названия'}) в корзину? На нумерацию это не влияет.`,
+    blocked: (r) => (statusOf(r) !== 'draft' ? 'Выпущенный паспорт не удаляется — «Аннулировать…» (номер останется занятым)' : null),
     run: (r) => api(`/passports/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/passports/${r.id}/restore`, { method: 'POST' }),
   },

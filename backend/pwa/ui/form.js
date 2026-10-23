@@ -22,6 +22,7 @@ import { enhanceSelect } from './select.js';
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
  *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
+ *   strict — у combo: только из списка (прежнее значение можно оставить); функция strict(get) — проверка включена, пока она true.
  *   suggestKeep — выбор подсказки не затирает то, что человек уже поправил руками (паспорт: смена модели).
  *   mount(api) — после сборки: поле следит за другими. api: get(k), set(k, v, { auto, src }), on(k, fn), input(k), field(k), open(k), manual(k), keys(), root.
  *     set с auto: true — значение «по умолчанию» (серое, `.is-default`), src — откуда («из изделия») серым у подписи; ручная правка снимает обе метки.
@@ -164,8 +165,9 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       if (f.strict) {
         const was = String(v ?? '');
         input.addEventListener('blur', () => setTimeout(() => {
+          if (typeof f.strict === 'function' && !f.strict(get)) { err.hidden = true; return; } // ТЭ: «свой текст» включён — проверка выключена
           const val = input.value.trim();
-          if (!val || val === was || opts.some((o) => String(o.label ?? o) === val)) { err.hidden = true; return; }
+          if (!val || val === was || list().some((o) => String(o.label ?? o) === val)) { err.hidden = true; return; }
           input.value = was; err.textContent = f.strictText || 'Выберите из списка'; err.hidden = false;
         }, 200));
       }

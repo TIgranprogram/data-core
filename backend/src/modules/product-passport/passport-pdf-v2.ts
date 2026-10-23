@@ -41,6 +41,8 @@ export interface PdfV2Input {
   defectImages?: Record<string, Buffer>;
   withStamp: boolean;
   mode: 'pages' | 'print';
+  /** НМ: надпись поперёк каждой страницы — «ЧЕРНОВИК» (без номера) / «АННУЛИРОВАН». */
+  watermark?: string;
   /** Чёрно-белый: без цвета категории и заливки шапки обложки — для печати на ч/б принтере (решение пользователя 2026-10-22). */
   mono?: boolean;
 }
@@ -216,12 +218,16 @@ export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
   const color = input.mono ? MONO_COLOR : input.style?.color || NEUTRAL_COLOR;
   const pages = layoutV2(doc, input, color);
   const total = pages.reduce((m, p) => Math.max(m, p.no ?? 0), 0);
-  const foot = `${input.org?.shortName || input.org?.name || ''}${input.org?.shortName || input.org?.name ? ' · ' : ''}Паспорт № ${input.passport.passportNumber ?? ''}`;
+  const foot = `${input.org?.shortName || input.org?.name || ''}${input.org?.shortName || input.org?.name ? ' · ' : ''}${input.passport.passportNumber ? `Паспорт № ${input.passport.passportNumber}` : 'Паспорт — черновик, без номера'}`;
   const drawPage = (p: V2Page, ox: number) => {
     doc.save();
     doc.translate(ox, 0);
     doc.rect(0, 0, A5.w, A5.h).clip();
     for (const d of p.draws) d.draw(doc, d.y);
+    if (input.watermark) {
+      doc.save().rotate(-35, { origin: [A5.w / 2, A5.h / 2] }).font('gost').fontSize(64).fillColor('#9a9a9a').fillOpacity(0.28)
+        .text(input.watermark, 0, A5.h / 2 - 34, { width: A5.w, align: 'center', lineBreak: false }).restore();
+    }
     if (p.no && p.footer) {
       const fy = A5.h - 30;
       doc.lineWidth(0.6).strokeColor(color).moveTo(M.l, fy).lineTo(A5.w - M.r, fy).stroke();

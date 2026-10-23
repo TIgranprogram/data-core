@@ -8170,6 +8170,20 @@
         ]
       }
     },
+    "/passports/duplicates": {
+      "get": {
+        "operationId": "ProductPassportController_duplicates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports": {
       "get": {
         "operationId": "ProductPassportController_list",
@@ -8521,6 +8535,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "newRevision",
+            "required": false,
+            "in": "query",
+            "description": "1 — новая редакция выпущенного паспорта (номер тот же, редакция +1)",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -8686,6 +8709,52 @@
     "/passports/{id}/snapshot": {
       "post": {
         "operationId": "ProductPassportController_snapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/issue": {
+      "post": {
+        "operationId": "ProductPassportController_issue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/annul": {
+      "post": {
+        "operationId": "ProductPassportController_annul",
         "parameters": [
           {
             "name": "id",
