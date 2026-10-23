@@ -71,6 +71,12 @@ export class ShowcaseService {
     const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1 } }).toArray();
     const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)]));
     const ph = await this.photos(docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? [])));
+    // ПИ: категория паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
+    const [ppCats, ppCounts] = await Promise.all([
+      this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
+      docs.length ? this.db.collection('productpassports').aggregate([{ $match: { deletedAt: null, productId: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$productId', n: { $sum: 1 } } }]).toArray() : Promise.resolve([]),
+    ]);
+    const ppN = new Map(ppCounts.map((x) => [String(x._id), x.n as number]));
     return docs.map((d) => {
       const c = d.categoryId ? cat.get(String(d.categoryId)) : undefined;
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
@@ -79,7 +85,10 @@ export class ShowcaseService {
         type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null,
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
-        ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null };
+        ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
+        passportsCount: ppN.get(String(d._id)) ?? 0,
+        ppCategory: ((d.passportDefaults as PassportDefaults | undefined)?.passportCategory as string | undefined)
+          || passportCategoryFor({ group: c?.parentId ? String(c.name) : null, type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null }, ppCats)?.code || null };
     });
   }
 
@@ -294,7 +303,7 @@ export class ShowcaseService {
     const set = await this.fields({ ...dto, name: dto.name ?? sku });
     const now = new Date();
     const { insertedId } = await this.db.collection('products').insertOne({ sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
-      photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, source: 'showcase', createdAt: now, updatedAt: now });
+      photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now });
     return this.get(String(insertedId));
   }
 
@@ -481,7 +490,12 @@ export class ShowcaseService {
     let created: { id: string } | null = null;
     for (let i = 1; i <= 20 && !created; i++) {
       const sku = i === 1 ? base : `${base}-${i}`;
-      try { created = await this.create({ sku, name, group: p.category ?? '', description: p.description ?? '' }); }
+      const overview = ((p.images as Array<{ kind?: string; photoId?: unknown; order?: number }>) ?? []).filter((i) => (i.kind || 'overview') === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((i) => String(i.photoId));
+      try {
+        created = await this.create({ sku, name, group: p.category ?? '', description: p.description ?? '',
+          dimensions: { length: p.length, width: p.width, height: p.height, unit: 'мм' }, weightKg: p.weight ?? null,
+          purpose: p.purpose ?? '', installation: p.installationMethod ?? '', ...(overview.length ? { photoIds: overview } : {}) });
+      }
       catch (e) { if (!(e instanceof ConflictException)) throw e; }
     }
     if (!created) throw new ConflictException(`Не удалось подобрать свободный артикул для «${name}»`);

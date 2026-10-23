@@ -79,6 +79,17 @@ function inOrders(r) {
       h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.size, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · '))))));
 }
 
+/**
+ * «+ Создать изделие» из «Нового паспорта» (ПИ): форма изделия в правой панели с готовыми разделом и названием;
+ * после «Создать» — then(изделие) (паспорт открывается снова с выбранным изделием). Запрос живёт 15 минут.
+ */
+let pendingCreate = null;
+export function createProductFor(initial, then) {
+  pendingCreate = { initial, then, at: Date.now() };
+  patch({ of: 'products', new: '1', open: undefined });
+}
+const pending = () => (pendingCreate && Date.now() - pendingCreate.at < 15 * 60000 ? pendingCreate : null);
+
 export const products = {
   id: 'products',
   title: 'Продукция',
@@ -219,14 +230,19 @@ export const products = {
       { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },
       ];
     },
-    initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм' }),
+    initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pending()?.initial || {}) }),
     toInitial: (r) => ({ ...r, colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
     toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' } }),
-    create: (b) => api('/showcase', { method: 'POST', body: b }),
+    create: async (b) => {
+      const res = await api('/showcase', { method: 'POST', body: b });
+      const p = pending(); pendingCreate = null;
+      if (p) setTimeout(() => p.then(res), 50); // вернуться в паспорт, из которого создавали
+      return res;
+    },
     update: (id, b) => api(`/showcase/${id}`, { method: 'PATCH', body: b }),
   },
 

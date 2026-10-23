@@ -301,6 +301,17 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .pp-need { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
 .pp-need button { color: var(--text); text-decoration: underline dotted; }
 .tag.foreign { border-style: dashed; }
+/* откуда подставлено («из изделия», «по умолчанию») — серым у подписи поля, пока не поправили руками (ПИ) */
+.field > span[data-src]::after { content: ' · ' attr(data-src); color: var(--muted); font-weight: 400; }
+/* «Новый паспорт» — сначала изделие (ПИ): список с миниатюрами прямо в панели (строки .sg-row, как подсказки), выбранное — золотая полоса */
+.pp-prod-list { list-style: none; margin: var(--s2) 0 0; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.pp-prod-list .sg-row.on { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--gold); }
+.pp-prod-tools { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-top: var(--s2); }
+.pp-prod-tools input { flex: 1 1 220px; }
+.pp-prod-sel { display: flex; align-items: center; gap: var(--s3); }
+.pp-prod-sel .sg-pic { flex: 0 0 72px; width: 72px; height: 54px; }
+/* пока изделие не выбрано — остальные блоки паспорта скрыты */
+.form-blocks.pp-locked > .form-block:not(.pp-first) { display: none; }
 .form-error { background: var(--danger-soft); color: var(--danger); padding: var(--s2) var(--s3); border-radius: var(--radius-sm); margin-bottom: var(--s3); }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: var(--s2) 0; }
 

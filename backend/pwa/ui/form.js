@@ -23,8 +23,8 @@ import { enhanceSelect } from './select.js';
  *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
  *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
  *   suggestKeep — выбор подсказки не затирает то, что человек уже поправил руками (паспорт: смена модели).
- *   mount(api) — после сборки: поле следит за другими. api: get(k), set(k, v, { auto }), on(k, fn), input(k), field(k), open(k), manual(k), root.
- *     set с auto: true — значение «по умолчанию» (серое, `.is-default`), ручная правка снимает метку; manual(k) — правили ли руками.
+ *   mount(api) — после сборки: поле следит за другими. api: get(k), set(k, v, { auto, src }), on(k, fn), input(k), field(k), open(k), manual(k), keys(), root.
+ *     set с auto: true — значение «по умолчанию» (серое, `.is-default`), src — откуда («из изделия») серым у подписи; ручная правка снимает обе метки.
  *   suggestFocus — ключ поля, куда перейти после выбора подсказки.
  *   compose — { from: [ключи], build(values) } — значение собирается из других полей на лету, пока его не поправили вручную.
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
@@ -239,24 +239,27 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
   const manual = new Set();
   for (const [k, x] of inputs) {
     const el = x.input.el || x.input;
-    const mark = (e) => { if (e.isTrusted) { manual.add(k); (x.input.classList || x.input.el?.classList)?.remove('is-default'); } };
+    const mark = (e) => { if (e.isTrusted) { manual.add(k); (x.input.classList || x.input.el?.classList)?.remove('is-default'); delete x.label?.querySelector?.(':scope > span')?.dataset.src; } };
     el.addEventListener?.('input', mark); el.addEventListener?.('click', (e) => { if (x.f.type === 'segment' || x.f.type === 'widget') mark(e); });
   }
   // f.mount(api) — поле следит за другими (паспорт: категория → списки, умолчания, «не хватает для выпуска»)
   const fapi = {
     get: (k) => inputs.get(k)?.input.value ?? '',
-    set: (k, v, { auto = false } = {}) => {
+    set: (k, v, { auto = false, src = '' } = {}) => {
       const x = inputs.get(k); if (!x) return;
       x.input.value = v ?? '';
       const el = x.input.el || x.input;
       el.dispatchEvent?.(new Event('input', { bubbles: true })); el.dispatchEvent?.(new Event('change', { bubbles: true }));
       (x.input.classList || el.classList)?.toggle('is-default', !!auto);
+      const sp = x.label?.querySelector?.(':scope > span');
+      if (sp) { if (auto && src) sp.dataset.src = src; else delete sp.dataset.src; }
     },
     on: (k, fn) => { const x = inputs.get(k); const el = x && (x.input.el || x.input); el?.addEventListener?.('input', fn); el?.addEventListener?.('change', fn); },
     input: (k) => inputs.get(k)?.input,
     field: (k) => inputs.get(k)?.label,
     open: (k) => { const b = inputs.get(k)?.blk; if (b) setOpen(b, true, false); },
     manual: (k) => manual.has(k),
+    keys: () => [...inputs.keys()],
     root: root || grid,
   };
   for (const [, x] of inputs) if (x.f.mount) setTimeout(() => x.f.mount(fapi));

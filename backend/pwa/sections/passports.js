@@ -1,6 +1,6 @@
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { normSearch } from '../core/facets.js';
+import { normSearch, searchTokens } from '../core/facets.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
@@ -8,6 +8,8 @@ import { rowsTable } from '../ui/rows-table.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { CAT_NAMES, KINDS, KINDS_V2, catNames } from '../core/passport-kinds.js';
 import { formImages, imagesBody, modelImagesToForm } from '../core/passport-images.js';
+import { createProductFor } from './products.js';
+import { attachCombo } from '../ui/combo.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { icon } from '../ui/icons.js';
@@ -119,25 +121,133 @@ async function orders() {
  */
 let draft = null;
 export async function issuePassport({ productId, name, article, orderNo, salesOrderId, customerName }) {
-  const all = await models().catch(() => []);
-  const n = (s) => normSearch(s || '');
-  const m = (productId && all.find((x) => x.productId === productId))
-    || (article && all.find((x) => x.values.article && n(x.values.article) === n(article)))
-    || (name && all.find((x) => n(x.values.name) === n(name)));
-  // значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b) — поверх полей модели; форма v1 берёт только свои поля
-  const prod = productId ? await api(`/showcase/${productId}`).catch(() => null) : null;
-  const defaults = prod?.passportDefaults || {};
-  // ФП: из изделия «Продукции» — то, чего нет у модели: размеры (в мм), вес, назначение, монтаж, описание, фото на обложку
-  const mm = (v) => { const u = prod?.dimensions?.unit || 'мм'; const n = Number(v); return n > 0 ? num(Math.round(n * (u === 'м' ? 1000 : u === 'см' ? 10 : 1))) : ''; };
-  const fromProd = prod ? Object.fromEntries(Object.entries({
-    name: prod.name, article: prod.sku, length: mm(prod.dimensions?.length), width: mm(prod.dimensions?.width), height: mm(prod.dimensions?.height),
-    weight: prod.weightKg ? num(prod.weightKg) : '', purpose: prod.purpose || '', installationMethod: prod.installation || '', description: prod.description || '',
-    img_overview: (prod.photos || []).length ? prod.photos.map((p) => ({ id: p.id, url: p.url, thumb: p.thumb })) : '',
-  }).filter(([, v]) => v)) : {};
-  const base = m ? m.values : { name: name || '', article: article || '' };
-  draft = { ...fromProd, ...Object.fromEntries(Object.entries(base).filter(([, v]) => v !== '' && v != null)), ...defaults, productId, salesOrderId, orderNo, customerName };
+  // ПИ: изделие — единый источник; форма сама подставит его поля, значения по умолчанию, категорию и прошлый паспорт
+  let pid = productId;
+  if (!pid && (article || name)) {
+    const n = (s) => normSearch(s || '');
+    const all = await productsAll();
+    pid = (article && all.find((p) => n(p.sku) === n(article)))?.id || (name && all.find((p) => n(p.name) === n(name)))?.id || null;
+  }
+  draft = { productId: pid || '', salesOrderId, orderNo, customerName, ...(pid ? {} : { _searchName: name || article || '' }) };
   patch({ of: 'passports', new: '1', open: undefined });
-  return !!m;
+  return !!pid;
+}
+
+/** Изделия «Продукции» для выбора в паспорте (ПИ): категория паспорта, число паспортов, фото — один запрос в минуту. */
+let prodCache = null; let prodAt = 0;
+const productsAll = async () => {
+  if (!prodCache || Date.now() - prodAt > 60000) { prodAt = Date.now(); prodCache = api('/showcase', { query: { limit: 500 } }).then((r) => r.items || []).catch(() => { prodCache = null; return []; }); }
+  return prodCache;
+};
+const mmOf = (v, unit) => { const n = Number(v); return n > 0 ? num(Math.round(n * (unit === 'м' ? 1000 : unit === 'см' ? 10 : 1))) : ''; };
+/** Поля паспорта, которые помнит изделие (passportDefaults) — флажок «Запомнить» (ПИ.4). */
+const DEFAULT_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', ...V2_NUMS.map(([k]) => k), 'warrantyMonths'];
+
+/**
+ * Блок «Изделие» нового паспорта (ПИ): категория → изделия категории (фото, артикул, «паспортов: N»), поиск — по всем;
+ * «+ Создать изделие»; выбор подставляет по порядку: поля изделия → его значения по умолчанию → умолчания категории
+ * (wireForm.defaults) → последний паспорт изделия (картинки по видам, тексты). Пока не выбрано — остальное скрыто.
+ */
+function productBlock(api, { r, catBy }) {
+  const box = api.input('_product')?.el; if (!box) return;
+  const formEl = api.root; const block = box.closest('.form-block'); block?.classList.add('pp-first');
+  const saveBtn = () => [...(api.root.closest('.drawer')?.querySelectorAll('button.btn-primary') || [])].find((b) => /^(Создать|Выпустить|Сохранить)/.test(b.textContent.trim()));
+  let chosen = null; let filterCat = api.get('passportCategory') || ''; let q = api.get('_searchName') || '';
+  const lock = (on) => { formEl.classList.toggle('pp-locked', on); const b = saveBtn(); if (b) b.disabled = on; };
+  const pic = (p) => (p?.photo ? h('img', { class: 'sg-pic', src: PREFIX + (p.photo.thumb || p.photo.url), alt: '' }) : h('div', { class: 'sg-pic sg-pic-none' }));
+  const sub = (p) => [p.sku && 'арт. ' + p.sku, [p.type, p.group].filter(Boolean).join(' › '), `паспортов: ${p.passportsCount || 0}`].filter(Boolean).join(' · ');
+
+  async function pick(p, { apply = true } = {}) {
+    chosen = p; api.set('productId', p.id); lock(false); render();
+    if (apply) await applyProduct(api, p, catBy);
+  }
+  function render() {
+    if (r) { // правка: изделие только показываем; без изделия — подсказка (привязать — в карточке)
+      box.replaceChildren(chosen ? h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', null, h('b', null, chosen.name), h('div', { class: 'muted' }, sub(chosen))))
+        : h('p', { class: 'muted' }, 'Паспорт без изделия — «Привязать к изделию» или «Создать изделие из паспорта» в карточке'));
+      return;
+    }
+    if (chosen) {
+      box.replaceChildren(h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', { style: { flex: '1' } }, h('b', null, chosen.name), h('div', { class: 'muted' }, sub(chosen))),
+        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { chosen = null; render(); } }, 'Сменить')));
+      return;
+    }
+    const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
+    const seg = h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Категория изделия' },
+      ...[{ value: '', label: 'Все' }, ...cats].map((c) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn' + (filterCat === c.value ? ' on' : ''), 'aria-checked': String(filterCat === c.value),
+        onclick: () => { filterCat = c.value; if (c.value) api.set('passportCategory', c.value); render(); } }, c.label)));
+    const input = h('input', { type: 'text', value: q, placeholder: 'Найти изделие: название или артикул — по всем категориям', 'aria-label': 'Найти изделие', autocomplete: 'off' });
+    const list = h('ul', { class: 'pp-prod-list', role: 'listbox', 'aria-label': 'Изделия' });
+    const add = h('button', { type: 'button', class: 'btn btn-sm' });
+    const fill = async () => {
+      const all = await productsAll();
+      const tk = searchTokens(q);
+      let rows = tk.length ? all.filter((p) => { const s = normSearch([p.name, p.sku, p.type, p.group, p.series].filter(Boolean).join(' ')); return tk.every((t) => s.includes(t)); })
+        : all.filter((p) => !filterCat || p.ppCategory === filterCat);
+      rows = rows.sort((a, b) => (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
+      const shown = rows.slice(0, 60);
+      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row', role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
+        pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)))))
+        : [h('li', { class: 'sg-row', style: { cursor: 'default' } }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
+        ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted', style: { cursor: 'default' } }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
+      add.textContent = q ? `+ Создать изделие «${q}»` : '+ Создать изделие';
+    };
+    let t; input.addEventListener('input', () => { q = input.value; clearTimeout(t); t = setTimeout(fill, 150); });
+    add.onclick = () => {
+      // форма изделия — в правой панели; после «Создать» вернёмся сюда с выбранным изделием и тем, что уже введено
+      const stash = Object.fromEntries(['passportCategory', 'orderNo', 'customerName', 'salesOrderId', 'objectName', 'date', 'supplierOrgId'].map((k) => [k, api.get(k)]).filter(([, v]) => v));
+      const code = filterCat || api.get('passportCategory');
+      const section = String(catBy.get(code)?.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)[0] || '';
+      createProductFor({ name: q, ...(section ? { type: section } : {}) }, (prod) => {
+        prodCache = null;
+        draft = { ...stash, productId: prod.id };
+        patch({ of: 'passports', new: '1', open: undefined });
+      });
+    };
+    box.replaceChildren(h('p', { class: 'hint' }, 'Сначала изделие: выберите — паспорт заполнится из него (серым — подставленное, можно поправить).'),
+      seg, h('div', { class: 'pp-prod-tools' }, input, add), list);
+    fill();
+  }
+
+  const pid = api.get('productId');
+  if (pid) {
+    productsAll().then(async (all) => {
+      const p = all.find((x) => x.id === pid) || await api_get(`/showcase/${pid}`).catch(() => null);
+      if (p) await pick(p, { apply: !r }); else { lock(!r); render(); }
+    });
+  } else { lock(!r); render(); }
+}
+
+/** Подстановка из изделия (ПИ.3): изделие → passportDefaults → (категория — wireForm) → прошлый паспорт изделия; ручное не трогаем. */
+async function applyProduct(api, p, catBy) {
+  const full = await api_get(`/showcase/${p.id}`).catch(() => p);
+  const d = full.passportDefaults || {};
+  const u = full.dimensions?.unit || 'мм';
+  const put = (k, v, src, { onlyEmpty = false } = {}) => {
+    if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) return;
+    const cur = api.get(k);
+    if (api.manual(k) && String(cur ?? '').trim() && cur !== '[]') return;
+    if (onlyEmpty && String(cur ?? '').trim() && cur !== '[]' && !api.input(k)?.classList?.contains('is-default')) return;
+    api.set(k, Array.isArray(v) ? JSON.stringify(v) : v, { auto: true, src });
+  };
+  const ppCat = d.passportCategory || full.passportCategory?.code || p.ppCategory || '';
+  // 1. поля изделия
+  for (const [k, v] of Object.entries({ name: full.name, article: full.sku, category: full.group || full.type, length: mmOf(full.dimensions?.length, u), width: mmOf(full.dimensions?.width, u),
+    height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '', purpose: full.purpose, installationMethod: full.installation, description: full.description })) put(k, v, 'из изделия');
+  if ((full.photos || []).length && !JSON.parse(api.get('img_overview') || '[]').length) api.set('img_overview', full.photos.map((x) => ({ id: x.id, url: x.url, thumb: x.thumb })), { auto: true, src: 'из изделия' });
+  // 2. значения паспорта по умолчанию у изделия; категория — первой (за ней wireForm подставит умолчания категории в пустое)
+  if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: 'из изделия' });
+  for (const k of ['elements', 'materialIds']) put(k, (d[k] || []).map(String), 'из изделия');
+  put('installationTypeId', d.installationTypeId ? String(d.installationTypeId) : '', 'из изделия');
+  if (typeof d.isKit === 'boolean') put('isKit', d.isKit ? 'yes' : 'no', 'из изделия');
+  for (const k of [...V2_NUMS.map(([x]) => x), 'warrantyMonths']) put(k, d[k] !== undefined ? num(d[k]) : '', 'из изделия');
+  // 4. последний паспорт этого изделия — запасной: только в пустое; картинки по видам — через _copyFrom (wireForm)
+  const last = (await models().catch(() => [])).find((m) => m.productId === p.id);
+  if (last) {
+    for (const [k, v] of Object.entries(last.values)) if (!['name', 'article', 'passportCategory', '_copyFrom', 'bom'].includes(k)) put(k, v, 'из прошлого паспорта', { onlyEmpty: true });
+    api.set('_copyFrom', last.values._copyFrom);
+  }
+  void catBy;
 }
 
 /**
@@ -236,11 +346,40 @@ function wireForm(api, { r, w, catBy, stdName, inst }) {
     if (b && !b.disabled && !r) b.textContent = miss.length ? 'Сохранить, дополнить позже' : 'Выпустить';
   }, 500); };
   api.root.addEventListener('input', check); api.root.addEventListener('change', check);
+  // ПИ.4: «Запомнить» — только если есть изделие и поправлены поля, которые изделие помнит
+  const rememberField = api.field('_remember');
+  const showRemember = () => { if (rememberField) rememberField.hidden = !(api.get('productId') && DEFAULT_KEYS.some((k) => api.manual(k))); };
+  api.root.addEventListener('input', showRemember); api.root.addEventListener('click', () => setTimeout(showRemember));
+  showRemember();
   scope(false); markReq();
   if (!r && api.get('passportCategory')) defaults();
   check();
 }
 const api_get = (p) => api(p);
+/** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
+async function saveDefaults({ productId, defaults }) {
+  try { await api(`/showcase/${productId}/passport-defaults`, { method: 'PUT', body: defaults }); toast('Запомнено для следующих паспортов изделия'); }
+  catch (e) { toastError(e); }
+}
+/** ПИ.5: привязать старый паспорт к изделию — выбор из «Продукции» (окно: одно поле). */
+async function linkDialog(r, ctx) {
+  const all = await productsAll();
+  const input = h('input', { type: 'text', 'aria-label': 'Изделие', placeholder: 'Название или артикул', value: r.name || '' });
+  const ids = new Map();
+  const field = h('label', { class: 'field wide' }, h('span', null, 'Изделие из «Продукции»'), input);
+  attachCombo(input, { options: () => all.map((p) => { const l = `${p.name}${p.sku ? ' · арт. ' + p.sku : ''}`; ids.set(l, p.id); return { label: l, value: p.id, sub: [p.type, p.group].filter(Boolean).join(' › ') }; }) });
+  const res = await modal({
+    title: 'Привязать к изделию', okText: 'Привязать',
+    body: h('div', null, field,
+      h('p', { class: 'hint' }, 'Паспорт будет брать данные из изделия; номера, дата и текст не меняются. Нужного нет — «Создать изделие из паспорта».')),
+    onOk: async () => {
+      const id = ids.get(input.value.trim());
+      if (!id) throw new Error('Выберите изделие из списка');
+      return api(`/passports/${r.id}`, { method: 'PATCH', body: { productId: id } });
+    },
+  });
+  if (res) { toast('Паспорт привязан к изделию'); ctx.setRow(await api(`/passports/${r.id}`)); }
+}
 const api_post = (p, body) => api(p, { method: 'POST', body });
 
 /** «<Наименование> (в дальнейшем именуемое «Изделие»), изготовленное из <материалы>. <Установка> <Назначение>» — как на сервере. */
@@ -577,6 +716,13 @@ export const passports = {
       // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
       { label: '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
       !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
+      // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
+      !r.productId && canEdit() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
+      !r.productId && canEdit() && r.name && { label: 'Создать изделие из паспорта', title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {
+        const key = `${String(row.name).replace(/\s+/g, ' ').trim()}\u0000${String(row.article || '').replace(/\s+/g, ' ').trim()}`;
+        if (!(await confirmDlg('Создать изделие?', `В «Продукции» появится «${row.name}» с размерами, текстами и фото этого паспорта. Паспорта той же модели (то же наименование и артикул) привяжутся к нему.`, { okText: 'Создать' }))) return;
+        try { const res = await api('/showcase/from-passports', { method: 'POST', body: { groups: [{ keys: [key], main: key }] } }); prodCache = null; toast(`Изделие создано, привязано паспортов: ${res.linked}`); ctx.setRow(await api(`/passports/${row.id}`)); } catch (e) { toastError(e); }
+      } },
       canEdit() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
@@ -618,10 +764,19 @@ export const passports = {
         { key: 'certUntil', label: 'Действует до', type: 'date' },
         { key: 'certEac', label: 'Знак ЕАС', type: 'segment', options: [{ value: 'no', label: 'Не ставить' }, { value: 'yes', label: 'Ставить' }] },
       ];
+      // ПИ.4: правили «умолчательные» поля паспорта с изделием — запомнить их у изделия для следующих паспортов
+      const remember = { key: '_remember', label: 'Запомнить для следующих паспортов этого изделия', type: 'segment', wide: true,
+        options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — категория, состав, ограничения, срок, гарантия' }],
+        hint: 'Появляется, если вы поправили подставленное. Запишется в изделие — следующий паспорт подставит это сам' };
       return [
         // ФП: что ещё нужно для выпуска — ссылки к полям; обновляется при каждом изменении формы
         { key: '_need', label: 'Готовность к выпуску', type: 'widget', wide: true, widget: () => ({ el: w.need, value: '' }), summary: () => '' },
-        { section: 'Изделие (модель)', tone: 'main', fixed: true },
+        // ПИ: сначала изделие — из него заполняется паспорт
+        { section: 'Изделие', tone: 'main', fixed: true },
+        { key: '_product', label: r ? 'Изделие' : 'Изделие из «Продукции»', type: 'widget', wide: true, widget: () => ({ el: h('div', { class: 'pp-prod' }), value: '' }), summary: () => '',
+          mount: (api) => productBlock(api, { r, catBy }) },
+        { key: '_searchName', type: 'hidden' },
+        { section: 'Данные изделия', tone: 'main', fixed: true },
         { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
         { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
           hint: r ? undefined : 'Начните печатать и выберите модель — подставятся габариты, материалы, описание и картинки (серым — по умолчанию, можно поправить)',
@@ -632,7 +787,7 @@ export const passports = {
         { key: 'length', label: 'Длина, мм', type: 'number', min: 0, span: 1 },
         { key: 'width', label: 'Ширина, мм', type: 'number', min: 0, span: 1 },
         { key: 'weight', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
-        ...v2Fields,
+        ...v2Fields, remember,
         { section: 'Кому и когда', tone: 'who' },
         { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
         { key: 'orderNo', label: '№ заказа', max: 50, suggest: orders, suggestTitle: 'Заказы — выбор подставит заказчика', hint: 'Начните печатать номер или заказчика' },
@@ -693,10 +848,19 @@ export const passports = {
       if (!r && v._copyFrom) body._copyFrom = v._copyFrom;
       if (!r && v.productId) body.productId = v.productId;
       if (!r && v.salesOrderId) body.salesOrderId = v.salesOrderId;
+      // ПИ.4: «Запомнить» — значения по умолчанию изделию (после сохранения паспорта)
+      const pid = v.productId || r?.productId;
+      if (v._remember === 'yes' && pid) {
+        const b2 = v2Body(v);
+        body._remember = { productId: String(pid), defaults: { ...(b2.passportCategory ? { passportCategory: b2.passportCategory } : {}), elements: b2.elements, materialIds: b2.materialIds,
+          ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), isKit: b2.isKit, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
+          ...(v.warrantyMonths !== null && v.warrantyMonths !== undefined ? { warrantyMonths: v.warrantyMonths } : {}) } };
+      }
       return body;
     },
     create: async (body) => {
-      const { _copyFrom, _imagesFinal, ...rest } = body;
+      const { _copyFrom, _imagesFinal, _remember, ...rest } = body;
+      if (_remember) await saveDefaults(_remember);
       if (!_copyFrom) return api('/passports', { method: 'POST', body: rest });
       // модель выбрана: сервер берёт её поля; картинки модели уже разложены по видам в форме (_imagesFinal) — их и шлём;
       // не успели загрузиться — свои добавляются к картинкам модели (каждая в своём виде, без дублей)
@@ -709,7 +873,7 @@ export const passports = {
       }
       return api(`/passports/${_copyFrom}/copy`, { method: 'POST', body: rest });
     },
-    update: (id, body) => api(`/passports/${id}`, { method: 'PATCH', body }),
+    update: async (id, body) => { const { _remember, ...rest } = body; if (_remember) await saveDefaults(_remember); return api(`/passports/${id}`, { method: 'PATCH', body: rest }); },
   },
 
   remove: {
