@@ -121,10 +121,18 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       const r = await api('/audit-logs/record', { query: { entityType: section.entityType, entityId: row.id } });
       const label = section.historyLabels || {};
       // подписи полей — из формы раздела (И.1: «Поле: было → стало»)
-      let names = {};
-      try { names = Object.fromEntries((section.form ? await section.form.fields(row) : []).filter((f) => f.key).map((f) => [f.key, f.label])); } catch { /* без подписей */ }
+      let names = {}; let flds = [];
+      try { flds = (section.form?.fields ? await section.form.fields(row) : []).filter((f) => f.key); names = Object.fromEntries(flds.map((f) => [f.key, f.label])); } catch { /* без подписей */ }
+      // И.3 «Вернуть как было»: поля этого изменения, которые есть в форме, — прежние значения в форму правки; сохраняет человек
+      const byKey = new Map(flds.map((f) => [f.key, f]));
+      const revertOf = (x) => (x.first || !canEditSection(section) || section.form?.build ? [] : (x.changes || []).filter((c) => byKey.has(c.field) && byKey.get(c.field).type !== 'widget' && byKey.get(c.field).type !== 'photos'));
       ul.replaceChildren(...(r.items.length ? r.items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
-        changeList(x.changes, names, x.first)))
+        changeList(x.changes, names, x.first),
+        revertOf(x).length ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Открыть правку с прежними значениями этих полей — проверьте и сохраните', onclick: () => {
+          const back = revertOf(x);
+          const values = Object.fromEntries(back.map((c) => [c.field, byKey.get(c.field).type === 'date' && c.from ? String(c.from).slice(0, 10) : c.from ?? '']));
+          showForm('edit', null, { values, note: `Как было до изменения от ${dateTime(x.createdAt)}: ${back.map((c) => names[c.field] || c.field).join(', ')}. Проверьте и нажмите «Сохранить».` });
+        } }, 'Вернуть как было') : null))
         : [h('li', { class: 'muted' }, row.source === 'google-sheets' || row.sheetSource ? 'Запись пришла из Google-таблицы; изменений в приложении пока не было.' : 'Изменений в приложении пока не было.')]));
     } catch { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); }
   }
@@ -152,9 +160,10 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
 
   // ---------- Правка / создание ----------
-  async function showForm(m, init) {
+  async function showForm(m, init, revert) {
     const isNew = m === 'create';
-    const base = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
+    const base0 = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
+    const base = revert ? { ...base0, ...revert.values } : base0; // И.3: прежние значения поверх текущих
     menuBox.replaceChildren();
     titleEl.textContent = isNew ? section.newTitle || 'Новая запись' : 'Изменить';
     subEl.textContent = isNew ? '' : section.card.heading(row);
@@ -166,7 +175,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       else { flds = await section.form.fields(isNew ? null : row); form = buildForm(flds, base); }
     } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + e.message)); return; }
     const err = h('div', { class: 'form-error', hidden: true });
-    body.replaceChildren(err, form.el);
+    body.replaceChildren(...[err, revert ? h('div', { class: 'fill-note' }, revert.note) : null, form.el].filter(Boolean));
     const saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
     const save = h('button', { class: 'btn btn-primary', type: 'button' }, saveLabel);
     const cancel = h('button', { class: 'btn', type: 'button', onclick: async () => {
