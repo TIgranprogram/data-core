@@ -27,7 +27,8 @@ const ROWS = [
     requiredImages: 'overview\ndimensions\nsafety_zone\nfoundation', extraSections: 'Ограничения (рост пользователя), правила пользования и упражнения, ТО подвижных узлов' },
   { code: 'WRK', name: 'Воркаут и спортивное оборудование', catalogNames: 'Воркаут, Спортивное оборудование', standards: 'GOST_R_55678, GOST_R_55677', serviceLifeYears: '10', warrantyMonths: '12',
     requiredImages: 'overview\ndimensions\nsafety_zone\nfoundation', extraSections: 'Элементы, правила пользования, ТО' },
-  { code: 'MAF', name: 'МАФ и благоустройство', catalogNames: 'МАФ, Благоустройство', standards: 'GOST_R_2_610', serviceLifeYears: '5', warrantyMonths: '12',
+  { code: 'MAF', name: 'Благоустройство', catalogNames: 'Благоустройство, МАФ', // МАФ — прежнее название в каталоге (решение 2026-10-23: МАФ = благоустройство)
+    standards: 'GOST_R_2_610', serviceLifeYears: '5', warrantyMonths: '12',
     requiredImages: 'overview\ndimensions', extraSections: 'Короткий: описание, монтаж, уход, гарантия' },
 ];
 

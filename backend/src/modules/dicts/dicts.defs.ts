@@ -428,7 +428,7 @@ export const DICTS: DictDef[] = [
     ...simpleList('passportCategories', 'Паспорта', 'Категории паспортов',
       'Вид изделия для паспорта: какие разделы, нормативы, обязательные рисунки и значения по умолчанию. ALL — «Для всех»: его тексты получают все категории. Не путать с категориями каталога — связь в поле «Категории каталога».',
       [
-        { key: 'code', label: 'Код', required: true, hint: 'ALL, DIO, DSP, TRN, WRK, MAF — латиницей; по нему тексты и шаблоны' },
+        { key: 'code', label: 'Код', required: true, hint: 'ALL, DIO, DSP, TRN, WRK, MAF (благоустройство) — латиницей; по нему тексты и шаблоны' },
         { key: 'catalogNames', label: 'Категории каталога', wide: true, hint: 'Через запятую, как в паспортах и каталоге: «Уличный тренажёр, Тренажёр уличный»' },
         { key: 'standards', label: 'Нормативы (коды)', wide: true, hint: 'Коды из «Нормативов» через запятую: GOST_R_57538' },
         { key: 'serviceLifeYears', label: 'Срок службы, лет' },
@@ -458,7 +458,7 @@ export const DICTS: DictDef[] = [
       'Из чего состоит изделие по назначению (турник, брусья, горка…): фраза для описания, правила пользования и что проверять при ТО. Подставляются в текст паспорта по составу изделия.',
       [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: HORIZONTAL_BAR' },
-        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: DIO, DSP, TRN, WRK, MAF' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: DIO, DSP, TRN, WRK, MAF (благоустройство)' },
         { key: 'inDescription', label: 'В описании', wide: true, hint: 'Фраза для раздела «Описание», напр. «горизонтальная перекладина для подтягиваний»' },
         { key: 'purpose', label: 'Назначение', wide: true },
         { key: 'usageRules', label: 'Правила пользования', type: 'textarea', wide: true, hint: 'По строке на шаг' },
@@ -473,7 +473,7 @@ export const DICTS: DictDef[] = [
       'Материалы изделий: фраза «изготовлено из…», уход и ремонт, типичные дефекты. Подставляются в паспорт по материалам изделия.',
       [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: STEEL_POWDER' },
-        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF; пусто — для всех' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF (благоустройство); пусто — для всех' },
         { key: 'madeOf', label: 'Изготовлено из…', wide: true, hint: 'В родительном падеже: «стальной трубы с порошковым покрытием»' },
         { key: 'care', label: 'Уход и ремонт', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'defects', label: 'Типичные дефекты (коды)', wide: true, hint: 'Коды из «Дефектов» через запятую' },
@@ -500,7 +500,7 @@ export const DICTS: DictDef[] = [
       'Как изделие крепится на месте: текст монтажа, требования к основанию и какие рисунки обязательны.',
       [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: CONCRETE_POSTS' },
-        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF; пусто — для всех' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF (благоустройство); пусто — для всех' },
         { key: 'montage', label: 'Текст монтажа', type: 'textarea', wide: true, hint: 'По строке на шаг' },
         { key: 'baseRequirements', label: 'Требования к основанию', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: foundation, holes…' },
@@ -518,7 +518,7 @@ export const DICTS: DictDef[] = [
       [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: COVER_TRN, FRAME_ALL, ICON_NO_CLIMB' },
         { key: 'kind', label: 'Вид', type: 'select', options: ['цвет категории', 'фон обложки', 'рамка', 'пиктограмма правил'].map((v) => ({ value: v, label: v })) },
-        { key: 'category', label: 'Категория (код)', hint: 'ALL, DIO, DSP, TRN, WRK, MAF или пусто' },
+        { key: 'category', label: 'Категория (код)', hint: 'ALL, DIO, DSP, TRN, WRK, MAF (благоустройство) или пусто' },
         { key: 'color', label: 'Цвет', type: 'color' },
         { key: 'photoId', label: 'Картинка', type: 'photo', hint: 'Пиктограмма или фон; перетащите файл, вставьте Ctrl+V или выберите' },
         { key: 'use', label: 'Использовать', type: 'select', options: ['да', 'нет'].map((v) => ({ value: v, label: v })) },

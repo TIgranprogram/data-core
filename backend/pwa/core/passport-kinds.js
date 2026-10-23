@@ -19,6 +19,6 @@ export const KINDS_V2 = [
 /** Название вида по коду (safety_zone — то же, что safety). */
 export const kindName = (k) => [...KINDS, ...KINDS_V2].find(([x]) => x === (k === 'safety_zone' ? 'safety' : k))?.[1] || k;
 /** Названия категорий паспорта по коду. */
-export const CAT_NAMES = { ALL: 'Для всех', TRN: 'Тренажёр', WRK: 'Воркаут', MAF: 'МАФ', DIO: 'Детское игровое', DSP: 'Детское спортивное' };
+export const CAT_NAMES = { ALL: 'Для всех', TRN: 'Тренажёр', WRK: 'Воркаут', MAF: 'Благоустройство', DIO: 'Детское игровое', DSP: 'Детское спортивное' };
 /** «TRN, WRK» → «Тренажёр, Воркаут». */
 export const catNames = (codes) => String(codes || '').split(/[,;\s]+/).filter(Boolean).map((c) => CAT_NAMES[c] || c).join(', ');
