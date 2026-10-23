@@ -7,6 +7,11 @@ import { StockMovement, StockMovementSchema } from './schemas/stock-movement.sch
 import { StorageItem, StorageItemSchema } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseSchema } from './schemas/warehouse.schema';
 import { StockController } from './stock.controller';
+import { StockCatalogService } from './stock-catalog.service';
+import { StockCoreService } from './stock-core.service';
+import { StockMovementsService } from './stock-movements.service';
+import { StockReservationsService } from './stock-reservations.service';
+import { StockSearchService } from './stock-search.service';
 import { StockService } from './stock.service';
 
 /** /api/stock — склад на общих коллекциях CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md). */
@@ -22,7 +27,7 @@ import { StockService } from './stock.service';
     ]),
   ],
   controllers: [StockController],
-  providers: [StockService],
+  providers: [StockCoreService, StockSearchService, StockCatalogService, StockMovementsService, StockReservationsService, StockService],
   exports: [StockService],
 })
 export class StockModule {}
