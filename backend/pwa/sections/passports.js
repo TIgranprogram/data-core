@@ -21,7 +21,7 @@ import { icon } from '../ui/icons.js';
 const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
 /** Виды картинок: обязательные для категории паспорта — первыми (порядок справочника), остальные — как были. */
 const kinds = (r) => {
-  const all = V2 ? [...KINDS, ...KINDS_V2] : KINDS;
+  const all = [...KINDS, ...KINDS_V2];
   const req = (r?.requiredImages || []).filter((k) => all.some(([x]) => x === k));
   return [...req.map((k) => all.find(([x]) => x === k)), ...all.filter(([x]) => !req.includes(x))];
 };
