@@ -64,8 +64,9 @@ const fieldValue = (f: Field, v: unknown) => {
 const oidOrNull = (v: unknown) => (v && Types.ObjectId.isValid(String(v)) ? new Types.ObjectId(String(v)) : null);
 const count = async (db: Db, coll: string, q: Document) => db.collection(coll).countDocuments({ deletedAt: null, ...q });
 /** Сколько раз встречается каждое строковое значение поля (нормализовано). */
+// $unwind: у поля-массива (materials.colors) каждое значение считается отдельно; у строки — как было
 async function tally(db: Db, coll: string, field: string, extra: Document = {}) {
-  const rows = await db.collection(coll).aggregate([{ $match: { deletedAt: null, ...extra, [field]: { $nin: [null, ''] } } }, { $group: { _id: '$' + field, n: { $sum: 1 } } }]).toArray();
+  const rows = await db.collection(coll).aggregate([{ $match: { deletedAt: null, ...extra, [field]: { $nin: [null, ''] } } }, { $unwind: '$' + field }, { $match: { [field]: { $nin: [null, ''] } } }, { $group: { _id: '$' + field, n: { $sum: 1 } } }]).toArray();
   const m = new Map<string, number>();
   for (const r of rows) { const k = norm(r._id); m.set(k, (m.get(k) ?? 0) + (r.n as number)); }
   return m;
