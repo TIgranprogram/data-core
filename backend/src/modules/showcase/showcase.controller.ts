@@ -20,6 +20,11 @@ export class ShowcaseController {
   @Roles('admin', 'director', 'manager', 'user')
   groups() { return this.s.groups(); }
 
+  /** Подсказки формы изделия: разделы, группы, серии, цвета, размеры (ФИ). */
+  @Get('form-values')
+  @Roles('admin', 'director', 'manager', 'user')
+  formValues() { return this.s.formValues(); }
+
   /** Каталог: text — колонки через Tab (вставка / прочитанный Excel), apply — записать (иначе только отчёт). */
   @Post('import')
   @HttpCode(200)

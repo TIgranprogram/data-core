@@ -10,6 +10,7 @@ import { parseCatalog } from './catalog-rows';
 import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { productNameKey, shortProductName } from './order-product-name';
 import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
+import { tallyValues, withDict } from './form-values';
 
 type Doc = Record<string, unknown> & { _id: Types.ObjectId };
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -83,6 +84,29 @@ export class ShowcaseService {
     for (const c of cats) if (c.parentId) byParent.set(String(c.parentId), (byParent.get(String(c.parentId)) ?? 0) + (n.get(String(c._id)) ?? 0));
     return cats.map((c) => ({ id: String(c._id), name: String(c.name), parentId: c.parentId ? String(c.parentId) : null, count: (n.get(String(c._id)) ?? 0) + (byParent.get(String(c._id)) ?? 0) }))
       .filter((c) => c.count > 0);
+  }
+
+  /**
+   * Подсказки формы изделия (ФИ): разделы и группы с числом изделий, названия «Категорий каталога» из категорий паспортов
+   * (раздел изделия связан с категорией паспорта по названию), серии, цвета (+ справочник «Цвета») и размеры, что уже встречались.
+   */
+  async formValues() {
+    const [groups, products, colorDict, ppCats] = await Promise.all([
+      this.groups(),
+      this.db.collection('products').find(LIVE, { projection: { series: 1, colors: 1, sizes: 1 } }).toArray(),
+      this.db.collection('color_references').find({ deletedAt: null }, { projection: { name: 1, description: 1 } }).toArray(),
+      this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, catalogNames: 1 } }).toArray(),
+    ]);
+    const roots = groups.filter((g) => !g.parentId);
+    const rootName = new Map(roots.map((g) => [g.id, g.name]));
+    const catalog = ppCats.flatMap((c) => String(c.catalogNames ?? '').split(/[,;\n]/).map(clean).filter(Boolean).map((value) => ({ value, sub: `категория паспорта ${clean(c.code)}` })));
+    return {
+      sections: withDict(roots.map((g) => ({ value: g.name, n: g.count })), catalog),
+      groups: groups.filter((g) => g.parentId).map((g) => ({ value: g.name, n: g.count, section: rootName.get(String(g.parentId)) ?? '' })),
+      series: tallyValues(products.map((p) => p.series)),
+      colors: withDict(tallyValues(products.flatMap((p) => (Array.isArray(p.colors) ? p.colors : []))), colorDict.filter((c) => !/^не выбран/i.test(clean(c.name))).map((c) => ({ value: clean(c.name), sub: 'справочник «Цвета»' }))),
+      sizes: tallyValues(products.flatMap((p) => (Array.isArray(p.sizes) ? p.sizes : []))),
+    };
   }
 
   async get(id: string) {

@@ -293,6 +293,8 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .field input, .field select, .field textarea { width: 100%; }
 .field.has-error input, .field.has-error select, .field.has-error textarea { border-color: var(--danger); }
 .field .err { color: var(--danger); font-size: 12px; }
+/* предупреждение под полем (не ошибка, сохранить можно): «такой артикул уже есть» — ФИ */
+.field .warn { color: var(--warn); font-size: 12px; }
 .form-error { background: var(--danger-soft); color: var(--danger); padding: var(--s2) var(--s3); border-radius: var(--radius-sm); margin-bottom: var(--s3); }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: var(--s2) 0; }
 

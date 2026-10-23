@@ -11,7 +11,8 @@ import { enhanceSelect } from './select.js';
  * Форма из описания полей (CANON §2 «Карточка»). Поле:
  *   { key, label, type: text|number|money|date|select|combo|textarea|photos, required, wide, options, hint, min, placeholder }
  *   photos — значение [{ id, url, thumb }], в values — список id.
- *   options — массив строк или { value, label } (для select/combo); у combo можно вводить своё значение.
+ *   options — массив строк или { value, label } (для select/combo); у combo можно вводить своё значение;
+ *     у combo ещё { sub, group } и функция options(get) — список по значениям других полей; multi — несколько через запятую.
  *   { section: 'Название', tone: main|info|money|who, collapsed?, fixed? } — начинает цветной блок полей (сетка 4 колонки).
  *     Блок сворачивается кликом по заголовку (fixed — нельзя), состояние помнится; свёрнутый показывает, что в нём заполнено.
  *   type: 'pick' — «Категория → Позиция из базы» (TASKS В.1): { key: '_pick', type: 'pick', load: async () => [{ label, cat, sub, values }], target: 'title' };
@@ -20,6 +21,7 @@ import { enhanceSelect } from './select.js';
  *   type: 'segment' — кнопки-переключатель для 2–4 вариантов (options: { value, label, tone? }).
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
+ *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
  *   suggestFocus — ключ поля, куда перейти после выбора подсказки.
  *   compose — { from: [ключи], build(values) } — значение собирается из других полей на лету, пока его не поправили вручную.
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
@@ -56,7 +58,7 @@ export function buildForm(fields, initial = {}) {
     const id = 'f-' + f.key + '-' + Math.random().toString(36).slice(2, 7);
     const v = initial[f.key];
     let input;
-    const opts = (f.options || []).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+    const opts = (typeof f.options === 'function' ? [] : f.options || []).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
     if (f.type === 'hidden') {
       // скрытое значение (ПС.5: паспорт-образец модели) — заполняют подсказки других полей (suggest)
       input = h('input', { type: 'hidden', name: f.key });
@@ -141,15 +143,20 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       input.value = v ?? '';
     }
     const err = h('div', { class: 'err', hidden: true });
+    // f.warn(value) → текст или null: предупреждение под полем при вводе (не мешает сохранить) — «такой артикул уже есть» (ФИ)
+    const warn = f.warn ? h('div', { class: 'warn', hidden: true, role: 'status' }) : null;
     const label = h(input.el ? 'div' : 'label', { class: 'field' + (f.wide ? ' wide' : '') + (f.span ? ' span-' + f.span : '') + (f.type === 'segment' ? ' is-seg' : ''), for: input.el ? undefined : id },
-      h('span', null, f.label, f.required ? h('span', { class: 'req' }, ' *') : null), input.el || input, f.hint ? h('div', { class: 'hint' }, f.hint) : null, err);
+      h('span', null, f.label, f.required ? h('span', { class: 'req' }, ' *') : null), input.el || input, f.hint ? h('div', { class: 'hint' }, f.hint) : null, warn, err);
     grid.append(label);
     inputs.set(f.key, { f, input, err, label, blk });
     blk?.keys.push(f.key);
     if (f.type === 'combo') {
       // f.extra — явные действия под списком; f.strict — только из списка (или через действие), прежнее значение можно оставить (ЗЧ.2)
       const set = (k, val) => { const x = inputs.get(k); if (x) { x.input.value = val; x.input.dispatchEvent(new Event('input', { bubbles: true })); } };
-      attachCombo(input, { options: () => opts.map((o) => ({ label: String(o.label), value: o.value })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined });
+      // f.options(get) — список зависит от других полей (группа — от раздела); sub — серая строка, group — заголовок; f.multi — через запятую
+      const get = (k) => inputs.get(k)?.input.value ?? '';
+      const list = () => (typeof f.options === 'function' ? f.options(get) || [] : opts).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+      attachCombo(input, { multi: !!f.multi, options: () => list().map((o) => ({ label: String(o.label), value: o.value, sub: o.sub, group: o.group })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined });
       if (f.strict) {
         const was = String(v ?? '');
         input.addEventListener('blur', () => setTimeout(() => {
@@ -158,6 +165,16 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
           input.value = was; err.textContent = f.strictText || 'Выберите из списка'; err.hidden = false;
         }, 200));
       }
+    }
+    if (warn) {
+      let timer; let seq = 0;
+      const check = () => { clearTimeout(timer); timer = setTimeout(async () => {
+        const my = ++seq; const val = String(input.value ?? '').trim();
+        let text = null; try { text = val ? await f.warn(val) : null; } catch { text = null; }
+        if (my !== seq) return;
+        warn.textContent = text || ''; warn.hidden = !text;
+      }, 400); };
+      input.addEventListener('input', check);
     }
     if (f.phrases) {
       const ph = attachPhrases(input, { load: f.phrases.load, title: f.phrases.title, context: () => (f.phrases.by ? inputs.get(f.phrases.by)?.input.value || '' : '') });

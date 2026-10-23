@@ -4183,6 +4183,20 @@
         ]
       }
     },
+    "/showcase/form-values": {
+      "get": {
+        "operationId": "ShowcaseController_formValues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/import": {
       "post": {
         "operationId": "ShowcaseController_import",
@@ -4200,6 +4214,32 @@
     "/showcase/from-orders": {
       "post": {
         "operationId": "ShowcaseController_fromOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/from-passports": {
+      "get": {
+        "operationId": "ShowcaseController_passportGroups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "post": {
+        "operationId": "ShowcaseController_fromPassports",
         "parameters": [],
         "responses": {
           "200": {
@@ -5269,7 +5309,7 @@
       "put": {
         "operationId": "OrganizationController_putAsset",
         "summary": "Загрузить логотип / печать / подпись организации",
-        "description": "Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, старая картинка удаляется. Печать (`seal`) меняет только admin. Файл нормализуется: EXIF-поворот, ≤ 1200 px, PNG; `?clearWhite=1` — светлый фон становится прозрачным.",
+        "description": "Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, старая картинка удаляется. Печать (`seal`) меняет только admin. Файл нормализуется: EXIF-поворот, ≤ 800 px, PNG с палитрой; `?clearWhite=1` — светлый фон становится прозрачным.",
         "parameters": [
           {
             "name": "id",
@@ -8474,6 +8514,24 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "seal",
+            "required": false,
+            "in": "query",
+            "description": "при stamp=1: 0 — без печати (только подпись)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sign",
+            "required": false,
+            "in": "query",
+            "description": "при stamp=1: 0 — без подписи (только печать)",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9719,6 +9777,15 @@
           "title": {
             "type": "string",
             "description": "Наименование (обязательно при создании)"
+          },
+          "productId": {
+            "type": "object",
+            "description": "Изделие из «Продукции» (products); не указано при создании — подбирается по названию; null — отвязать",
+            "nullable": true
+          },
+          "size": {
+            "type": "string",
+            "description": "Размер (вариант изделия)"
           },
           "qty": {
             "type": "object"

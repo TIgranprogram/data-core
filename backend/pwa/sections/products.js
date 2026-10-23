@@ -15,6 +15,12 @@ import { issuePassport, passports } from './passports.js';
  * Сервер — /api/showcase (поверх общей коллекции CRM products).
  */
 const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy' }) : null);
+// подсказки формы (ФИ): один запрос на 30 с — карточка зовёт fields() и ради подписей истории
+let fvCache = null; let fvAt = 0;
+const formValues = () => {
+  if (!fvCache || Date.now() - fvAt > 30000) { fvAt = Date.now(); fvCache = api('/showcase/form-values').catch(() => { fvCache = null; return { sections: [], groups: [], series: [], colors: [], sizes: [] }; }); }
+  return fvCache;
+};
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
@@ -122,18 +128,38 @@ export const products = {
   },
 
   form: {
-    fields: async () => [
+    // ФИ: раздел, группа, серия, цвета, размеры — списки из того, что уже есть (одно написание); своё вписать можно
+    fields: async (r) => {
+      const fv = await formValues();
+      const opt = (x) => ({ value: x.value, label: x.value, sub: [x.n ? `${qty(x.n)} изд.` : '', x.sub].filter(Boolean).join(' · ') });
+      const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+      // группы выбранного раздела — сверху, остальные — «Все» (с разделом в подписи); одно название — один раз
+      const groups = (get) => {
+        const sec = get('type').trim(); const seen = new Set();
+        const mine = sec ? fv.groups.filter((g) => same(g.section, sec)).map((g) => ({ ...opt(g), group: `Раздел «${sec}»` })) : [];
+        mine.forEach((g) => seen.add(g.value.toLowerCase()));
+        const rest = fv.groups.filter((g) => !seen.has(g.value.toLowerCase()) && (seen.add(g.value.toLowerCase()), true))
+          .map((g) => ({ ...opt(g), sub: [opt(g).sub, g.section].filter(Boolean).join(' · '), group: mine.length ? 'Все' : undefined }));
+        return [...mine, ...rest];
+      };
+      const skuTaken = async (v) => {
+        const res = await api(`/showcase?search=${encodeURIComponent(v)}&limit=20`);
+        const hit = (res.items || []).find((x) => same(x.sku, v) && x.id !== r?.id);
+        return hit ? `Такой артикул уже есть: «${hit.name}» — сохранить с ним не получится` : null;
+      };
+      return [
       { section: 'Изделие', tone: 'main', fixed: true },
-      { key: 'sku', label: 'Артикул', required: true, max: 64, span: 1 },
+      { key: 'sku', label: 'Артикул', required: true, max: 64, span: 1, warn: skuTaken },
       { key: 'name', label: 'Наименование', required: true, max: 256, span: 3 },
-      { key: 'type', label: 'Раздел', max: 100, hint: 'Например: Детское игровое оборудование' },
-      { key: 'group', label: 'Группа', max: 100, hint: 'Например: Качели' },
-      { key: 'series', label: 'Серия', max: 100 },
+      { key: 'type', label: 'Раздел', type: 'combo', max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
+      { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного раздела' },
+      { key: 'series', label: 'Серия', type: 'combo', max: 100, options: fv.series.map(opt) },
       { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
-      { key: 'colors', label: 'Цвета (варианты)', max: 500, hint: 'Через запятую: графит, зелёный' },
-      { key: 'sizes', label: 'Размеры (варианты)', max: 500, hint: 'Через запятую: 3×2 м, 4×2 м' },
+      { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), hint: 'Выберите несколько или впишите через запятую' },
+      { key: 'sizes', label: 'Размеры (варианты)', type: 'combo', multi: true, max: 500, options: fv.sizes.map(opt), hint: 'Выберите несколько или впишите через запятую: 3×2 м, 4×2 м' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true },
-    ],
+      ];
+    },
     toInitial: (r) => ({ ...r, colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', ') }),
     toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '' }),
     create: (b) => api('/showcase', { method: 'POST', body: b }),
