@@ -129,6 +129,67 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
   };
 }
 
+/**
+ * «Паспорта» (БЗ-6): где используется запись — паспорта (по коду категории или по id записи) и другие справочники
+ * группы, которые ссылаются на её код списком через запятую. Без этого «Используется: —» и удаление нужного.
+ */
+type PpRef = { pp?: 'passportCategory' | 'elements' | 'materialIds' | 'installationTypeId'; dicts?: { dict: string; field: string; title: string }[] };
+export const codeList = (v: unknown) => s(v).split(/[,;\n]/).map(s).filter(Boolean);
+function ppUsage(ref: PpRef): Pick<DictDef, 'usage' | 'related' | 'reassign'> {
+  // ALL («Для всех») — его тексты получают все паспорта с категорией
+  const ppQuery = (d: Doc): Document | null => {
+    if (!ref.pp) return null;
+    if (ref.pp !== 'passportCategory') return { deletedAt: null, [ref.pp]: d._id };
+    const code = s(d.code);
+    return code === 'ALL' ? { deletedAt: null, passportCategory: { $nin: [null, ''] } } : code ? { deletedAt: null, passportCategory: code } : null;
+  };
+  const refRows = async (db: Db, d: Doc) => {
+    const code = s(d.code);
+    if (!code || !ref.dicts?.length) return [];
+    const out: { row: Doc; dict: string; field: string; title: string }[] = [];
+    for (const r of ref.dicts) for (const row of (await db.collection('dict_values').find({ dict: r.dict, deletedAt: null }).toArray()) as Doc[]) if (codeList(row[r.field]).includes(code)) out.push({ row, ...r });
+    return out;
+  };
+  return {
+    usage: async (db, docs) => new Map(await Promise.all(docs.map(async (d) => {
+      const q = ppQuery(d);
+      return [String(d._id), (q ? await db.collection('productpassports').countDocuments(q) : 0) + (await refRows(db, d)).length] as [string, number];
+    }))),
+    related: async (db, d) => {
+      const q = ppQuery(d);
+      const [pp, total, refs] = await Promise.all([
+        q ? db.collection('productpassports').find(q).sort({ _id: -1 }).limit(15).project({ passportNumber: 1, name: 1, customerName: 1 }).toArray() : [],
+        q ? db.collection('productpassports').countDocuments(q) : 0,
+        refRows(db, d)]);
+      return {
+        title: ref.pp ? 'Паспорта и справочники' : 'Справочники', total: total + refs.length,
+        items: [
+          ...refs.map((x) => ({ label: `${x.title}: ${s(x.row.name)}`, sub: s(x.row.code), href: `#dicts?d=${x.dict}&of=dict&open=${String(x.row._id)}` })),
+          ...pp.map((p) => ({ label: `Паспорт № ${s(p.passportNumber)} ${s(p.name)}`, sub: s(p.customerName), href: '#passports?of=passports&open=' + String(p._id) })),
+        ],
+      };
+    },
+    // объединение: паспорта и ссылки по коду переходят к записи, с которой объединяют
+    reassign: async (db, from, to) => {
+      let n = 0;
+      if (ref.pp === 'passportCategory') {
+        if (s(from.code) && s(to.code)) n += (await db.collection('productpassports').updateMany({ passportCategory: s(from.code) }, { $set: { passportCategory: s(to.code) } })).modifiedCount;
+      } else if (ref.pp === 'installationTypeId') {
+        n += (await db.collection('productpassports').updateMany({ installationTypeId: from._id }, { $set: { installationTypeId: to._id } })).modifiedCount;
+      } else if (ref.pp) {
+        const f = ref.pp;
+        await db.collection('productpassports').updateMany({ $and: [{ [f]: from._id }, { [f]: { $ne: to._id } }] },{ $push: { [f]: to._id } } as Document);
+        n += (await db.collection('productpassports').updateMany({ [f]: from._id }, { $pull: { [f]: from._id } } as Document)).modifiedCount;
+      }
+      if (s(from.code) && s(to.code)) for (const x of await refRows(db, from)) {
+        const v = [...new Set(codeList(x.row[x.field]).map((c) => (c === s(from.code) ? s(to.code) : c)))].join(', ');
+        n += (await db.collection('dict_values').updateOne({ _id: x.row._id }, { $set: { [x.field]: v, updatedAt: new Date() } })).modifiedCount;
+      }
+      return n;
+    },
+  };
+}
+
 export const DICTS: DictDef[] = [
   // ───────── Склад и позиции ─────────
   {
@@ -376,6 +437,7 @@ export const DICTS: DictDef[] = [
         { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: overview, dimensions, safety_zone, foundation… (виды картинок паспорта)' },
         { key: 'extraSections', label: 'Разделы сверх общего', type: 'textarea', wide: true },
       ]),
+    ...ppUsage({ pp: 'passportCategory', dicts: [{ dict: 'passportElements', field: 'categories', title: 'Элемент' }, { dict: 'passportStyle', field: 'category', title: 'Оформление' }] }),
     editRoles: ['director'],
   },
   {
@@ -388,6 +450,7 @@ export const DICTS: DictDef[] = [
       { key: 'checkedAt', label: 'Проверено (дата)', hint: 'ГГГГ-ММ-ДД — когда сверяли по официальной базе' },
       { key: 'applies', label: 'Где применяем', wide: true },
     ]),
+    ...ppUsage({ dicts: [{ dict: 'passportCategories', field: 'standards', title: 'Категория' }, { dict: 'passportElements', field: 'standard', title: 'Элемент' }] }),
     editRoles: ['director'],
   },
   {
@@ -402,6 +465,7 @@ export const DICTS: DictDef[] = [
         { key: 'inspect', label: 'Что проверять при ТО', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'standard', label: 'Норматив (код)', hint: 'Код из «Нормативов»' },
       ]),
+    ...ppUsage({ pp: 'elements', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
   },
   {
@@ -413,6 +477,7 @@ export const DICTS: DictDef[] = [
         { key: 'care', label: 'Уход и ремонт', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'defects', label: 'Типичные дефекты (коды)', wide: true, hint: 'Коды из «Дефектов» через запятую' },
       ]),
+    ...ppUsage({ pp: 'materialIds', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
   },
   {
@@ -426,6 +491,7 @@ export const DICTS: DictDef[] = [
         { key: 'tolerance', label: 'Допуск', wide: true, hint: 'Что считается допустимым; число — только если оно общепринятое' },
         { key: 'photoId', label: 'Картинка', type: 'photo', hint: 'Миниатюра дефекта в таблице ТО паспорта; перетащите файл, вставьте Ctrl+V или выберите' },
       ]),
+    ...ppUsage({ dicts: [{ dict: 'passportMaterials', field: 'defects', title: 'Материал' }] }),
     editRoles: ['director'],
   },
   {
@@ -441,6 +507,7 @@ export const DICTS: DictDef[] = [
         { key: 'schemesHoles', label: 'Стандартные схемы: скважины / разметка', type: 'photos', wide: true, hint: 'План с расстояниями между опорами' },
         { key: 'schemesMounting', label: 'Стандартные схемы: монтаж', type: 'photos', wide: true },
       ]),
+    ...ppUsage({ pp: 'installationTypeId', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
   },
   {
