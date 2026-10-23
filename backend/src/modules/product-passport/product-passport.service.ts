@@ -374,8 +374,14 @@ export class ProductPassportService {
   }
 
   /** «Отменить» массовое изменение (БЗ-9): вернуть прежние значения полей (в т. ч. текст паспорта) как были. */
+  /** Черновик, который не удалось выпустить сразу (паспорт для CRM — только с номером): убрать, чтобы не копились. Только status draft. */
+  async discardDraft(id: string) {
+    await this.model.deleteOne({ _id: this.oid(id), status: 'draft' }).setOptions({ includeSoftDeleted: true }).exec();
+  }
+
   async bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
     const items = Array.isArray(dto.items) ? dto.items : [];
+    if (items.length > 500) throw new BadRequestException('За раз — не больше 500 паспортов'); // как у bulk (проверка архитектора 2026-10-23)
     let restored = 0;
     for (const it of items) {
       if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
@@ -388,7 +394,8 @@ export class ProductPassportService {
         else if (k === 'saleDate' || k === 'installedAt') $set[k] = new Date(String(v));
         else $set[k] = v;
       }
-      const r = await this.model.updateOne({ _id: this.oid(it.id) }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }).exec();
+      // аннулированный не возвращаем — его не меняют (как в update и bulk)
+      const r = await this.model.updateOne({ _id: this.oid(it.id), status: { $ne: 'annulled' } }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }).exec();
       restored += r.modifiedCount;
     }
     return { restored };

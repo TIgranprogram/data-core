@@ -26,6 +26,7 @@
   --radius: 10px;
   --radius-sm: 7px;
   --shadow: 0 1px 2px rgba(20, 26, 38, .05), 0 2px 8px rgba(20, 26, 38, .05);
+  --shadow-sm: 0 1px 2px rgba(20, 26, 38, .08);
   --shadow-lg: 0 12px 40px rgba(20, 26, 38, .16), 0 0 0 1px rgba(210, 170, 60, .14);
   --gutter: 32px;
   --sidebar-w: 248px;
@@ -120,6 +121,7 @@
   --violet-soft: rgba(166, 143, 242, .15);
   --neutral-soft: #252c39;
   --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 2px 8px rgba(0, 0, 0, .25);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(227, 183, 74, .12);
   --topbar-bg: rgba(15, 19, 26, .86);
   --row-hover: #1d2430;

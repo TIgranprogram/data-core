@@ -213,8 +213,8 @@ function productBlock(api, { r, catBy }) {
       const shown = rows.slice(0, 60);
       list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row', role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
         pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)))))
-        : [h('li', { class: 'sg-row', style: { cursor: 'default' } }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
-        ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted', style: { cursor: 'default' } }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
+        : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
+        ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted static' }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
       add.textContent = q ? `+ Создать изделие «${q}»` : '+ Создать изделие';
     };
     let t; input.addEventListener('input', () => { q = input.value; clearTimeout(t); t = setTimeout(fill, 150); });

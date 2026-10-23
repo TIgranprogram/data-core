@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection } from '@nestjs/mongoose';
 import { createHash } from 'crypto';
 import type { Connection } from 'mongoose';
@@ -51,7 +52,7 @@ const sameName = (name: string) => new RegExp('^\\s*' + escapeRe(name).replace(/
  */
 @Injectable()
 export class ShowcaseService {
-  constructor(@InjectConnection() private readonly connection: Connection, private readonly counter: CounterService) {}
+  constructor(@InjectConnection() private readonly connection: Connection, private readonly counter: CounterService, @Optional() private readonly versions?: DataVersionService) {}
   private get db() { return this.connection.db!; }
 
   private async photos(ids: Types.ObjectId[]) {
@@ -130,7 +131,13 @@ export class ShowcaseService {
    * Подсказки формы изделия (ФИ): разделы и группы с числом изделий, названия «Категорий каталога» из категорий паспортов
    * (раздел изделия связан с категорией паспорта по названию), серии, цвета (+ справочник «Цвета») и размеры, что уже встречались.
    */
+  /** Значения для формы изделия — кэш по версиям данных (С9; проверка архитектора 2026-10-23: читалось при каждом открытии формы). */
   async formValues() {
+    const run = () => this.buildFormValues();
+    return this.versions ? this.versions.cached('showcase.formValues', ['products', 'categories', 'color_references', 'dict_values', 'units'], '', run) : run();
+  }
+
+  private async buildFormValues() {
     const [groups, products, colorDict, ppCats, units] = await Promise.all([
       this.groups(),
       this.db.collection('products').find(LIVE, { projection: { series: 1, colors: 1, sizes: 1, ralCode: 1, unit: 1 } }).toArray(),
@@ -466,6 +473,7 @@ export class ShowcaseService {
 
   /** «Отменить» массовое изменение изделий (БЗ-9): прежние значения полей — как были. */
   async bulkRestore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
+    if (Array.isArray(dto.items) && dto.items.length > 500) throw new BadRequestException('За раз — не больше 500 изделий');
     let restored = 0;
     for (const it of Array.isArray(dto.items) ? dto.items : []) {
       if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;

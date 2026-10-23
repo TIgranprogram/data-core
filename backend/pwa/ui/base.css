@@ -1129,3 +1129,7 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 
 /* НМ: выпущенный паспорт в форме — заблокированные блоки (правка через «Новая редакция») */
 .form-block.locked { opacity: .55; }
+
+/* Проверка дизайнера 2026-10-23: строка-пояснение в списке выбора («ещё N — уточните поиск») без «руки»; кнопки-иконки на телефоне — 44 px и в ширину */
+.sg-row.static, tr.static { cursor: default; }
+@media (max-width: 720px) { .btn-icon { min-width: 44px; } }

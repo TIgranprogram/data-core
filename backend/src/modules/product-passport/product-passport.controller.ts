@@ -36,7 +36,9 @@ export class ProductPassportController {
   async createForProduct(@Param('productId') productId: string, @Body() dto: CreateProductPassportDto) {
     // совместимость с CRM kppdf: паспорт для неё — сразу с номером (черновиков CRM не знает)
     const doc = await this.service.create({ ...dto, productId });
-    return doc.status === 'draft' ? this.service.issue(String(doc._id)) : doc;
+    if (doc.status !== 'draft') return doc;
+    // не хватило полей для выпуска — черновик не оставляем (проверка архитектора 2026-10-23)
+    try { return await this.service.issue(String(doc._id)); } catch (e) { await this.service.discardDraft(String(doc._id)); throw e; }
   }
 
   /** НМ-2: дубли перед созданием — ?productId&orderNo&customer&objectName&exceptId → { items } (черновики изделия и выпущенные на тот же заказ / покупателя / адрес). */

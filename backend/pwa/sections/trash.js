@@ -40,7 +40,7 @@ export function mountTrash() {
           e.currentTarget.disabled = true;
           try { await src.section.remove.restore(row); toast('Восстановлено'); load(); } catch (ex) { toastError(ex); e.target.disabled = false; }
         } }, 'Восстановить') : null;
-        return h('tr', { style: { cursor: 'default' } }, h('td', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
+        return h('tr', { class: 'static' }, h('td', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
           h('td', { class: 'num' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));
       }));
     }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, 'Не удалось загрузить: ' + errText(e)))));

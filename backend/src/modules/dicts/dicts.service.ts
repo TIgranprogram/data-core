@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { effectiveRoles } from '../../common/roles-hierarchy';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
@@ -21,7 +22,7 @@ function similarity(a: string, b: string) {
  */
 @Injectable()
 export class DictsService {
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService) {}
   private get db() { return this.connection.db!; }
 
   /** Правка справочника с `editRoles` (группа «Паспорта» — директор и админ); остальные — как раньше (менеджер+ по @Roles). */
@@ -69,7 +70,10 @@ export class DictsService {
   async list(key: string, search?: string) {
     const d = this.def(key);
     const docs = await this.docs(d);
-    const used = await d.usage(this.db, docs);
+    // справочники «Паспорта»: «где используется» считается по справочникам и паспортам — кэш по версиям (С9), без пересчёта при каждом открытии
+    const used = this.versions && key.startsWith('passport')
+      ? await this.versions.cached('dicts.usage', ['dict_values', 'productpassports'], key, () => d.usage(this.db, docs))
+      : await d.usage(this.db, docs);
     const tk = searchTokens(search); // слова в любом порядке, ё = е, M10 = М10
     // справочник для ссылок «Вид работ» / «График выплат» в форме
     const refs: Record<string, { value: string; label: string }[]> = {};

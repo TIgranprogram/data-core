@@ -108,8 +108,8 @@ async function buildCompositionForm() {
       }
     }
     const total = sections.reduce((s, [, l]) => s + l.length, 0);
-    if (total > shown) out.push(h('li', { class: 'sg-row muted', style: { cursor: 'default' } }, `ещё ${qty(total - shown)} — уточните поиск`));
-    pick.replaceChildren(...(out.length ? out : [h('li', { class: 'sg-row muted', style: { cursor: 'default' } }, query ? `По «${query}» ничего не найдено` : 'Список пуст')]));
+    if (total > shown) out.push(h('li', { class: 'sg-row muted static' }, `ещё ${qty(total - shown)} — уточните поиск`));
+    pick.replaceChildren(...(out.length ? out : [h('li', { class: 'sg-row muted static' }, query ? `По «${query}» ничего не найдено` : 'Список пуст')]));
   }
   let tm; input.addEventListener('input', () => { query = input.value; clearTimeout(tm); tm = setTimeout(drawPick, 150); });
   // «Часто в похожих изделиях» — метками, клик добавляет
