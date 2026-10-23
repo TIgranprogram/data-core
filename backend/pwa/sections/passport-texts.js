@@ -82,9 +82,13 @@ export function mountTexts() {
   const edit = canEditTexts();
   const addSec = h('button', { type: 'button', class: 'btn btn-primary', hidden: !edit, onclick: () => patch({ of: 'ptext', open: `${textsCat()}.s`, new: undefined }) }, '+ Раздел');
   const prev = h('button', { type: 'button', class: 'btn', title: 'Собранный текст категории — как в паспорте (переменные — метками «не заполнено»)', onclick: () => patch({ of: 'ptextview', open: `${textsCat()}.p`, new: undefined }) }, 'Предпросмотр');
-  const tree = h('div', { class: 'pt-tree' }, h('div', { class: 'state' }, 'Загрузка…'));
+  // образец паспорта (БЗ-7 шаг 2): разделы и пункты по порядку, как в PDF; клик по пункту — правка справа
+  const tree = h('div', { class: 'pt-tree pt-sheet' }, h('div', { class: 'state' }, 'Загрузка…'));
+  const DICTS = [['passportElements', 'Элементы'], ['passportMaterials', 'Материалы'], ['passportDefects', 'Дефекты'], ['passportInstall', 'Способы установки'], ['passportStandards', 'Нормативы']];
+  const srcBar = h('p', { class: 'hint pt-src' }, 'Нажмите на пункт — правка откроется справа. Описание, материалы, монтаж и дефекты собираются из справочников: ',
+    ...DICTS.flatMap(([k, t], i) => [i ? ' · ' : '', h('a', { href: '#dicts?d=' + k }, t)]));
   const el = h('div', { class: 'pt' }, chips, h('div', { class: 'pt-bar' }, info, h('div', { class: 'dict-tools' }, prev, addSec)),
-    edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), tree);
+    edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), srcBar, tree);
 
   const open = (of, id) => patch({ of, open: id, new: undefined });
   function renderChips(cat) {
@@ -259,7 +263,19 @@ async function viewRow(id) {
   if (text === undefined) throw new Error('Пункт не найден');
   // заменить можно только следующий по порядку общий пункт (ключ пункта = номер по порядку в разделе)
   const canReplace = (node?.ownCount ?? 0) === Number(idx);
-  return { id, cat, kind, key, text, number: item?.number || '', secTitle: node?.title || '', canReplace };
+  return { id, cat, kind, key, idx, text, number: item?.number || '', secTitle: node?.title || '', canReplace };
+}
+
+/** Общий пункт № idx раздела key — открыть в «Для всех» (там он свой и правится в панели). */
+async function openInAll(key, idx) {
+  try {
+    const t = await loadTexts('ALL');
+    const node = t.tree.find((x) => x.key === key);
+    const it = node?.items.find((x) => (x.origin === 'all' ? x.allIndex : x.ownIndex) === idx) ?? node?.items[idx];
+    if (!it) { patch({ cat: 'ALL', of: undefined, open: undefined }); return; }
+    const id = it.origin === 'all' ? `ALL.a.${key}.${it.allIndex}` : `ALL.i.${node.ownSection}.${it.ownIndex}`;
+    patch({ cat: 'ALL', of: it.origin === 'all' ? 'ptextview' : 'ptext', open: id, new: undefined });
+  } catch (e) { toastError(e); }
 }
 
 function previewBox(p) {
@@ -280,7 +296,11 @@ export const ptextview = {
     subheading: (r) => `${catName(r.cat)}${r.secTitle ? ' · ' + r.secTitle : ''}`,
     noHistory: true,
     view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, r.text)], ['Где', 'Общая часть «Для всех» — правится на чипе «Для всех»']]),
-    actions: (r) => (r.kind === 'a' && r.canReplace ? [{ label: 'Заменить для категории', run: () => patch({ of: 'ptext', open: `${r.cat}.n.${r.key}.copy` }) }] : []),
+    actions: (r) => (r.kind !== 'a' ? [] : [
+      r.canReplace && { label: 'Заменить для категории', run: () => patch({ of: 'ptext', open: `${r.cat}.n.${r.key}.copy` }) },
+      // общий пункт — править прямо отсюда: переход на «Для всех» с этим же пунктом (БЗ-7 шаг 2)
+      canEditTexts() && { label: 'Изменить для всех категорий', run: () => openInAll(r.key, Number(r.idx)) },
+    ].filter(Boolean)),
     extra: (r) => (r.kind === 'p' ? previewBox(r.p) : r.canReplace || !canEditTexts() ? null : h('p', { class: 'hint' }, 'Заменить можно только следующий по порядку общий пункт раздела — сначала замените предыдущие.')),
   },
 };

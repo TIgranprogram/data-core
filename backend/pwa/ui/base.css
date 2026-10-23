@@ -1071,3 +1071,9 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .combo-list.floating, .suggest.floating { position: fixed; right: auto; z-index: 70; }
 /* В окне «Кому выдано»: сотрудник и объект — друг под другом (в 560 px два поля рядом тесно) */
 .modal .issue-to { grid-template-columns: 1fr; }
+
+/* «Разделы и тексты» как образец паспорта (БЗ-7 шаг 2): лист с разделами по порядку; пункт — наведение подсвечивает, клик — правка справа */
+.pt-sheet { max-width: 860px; margin: var(--s2) var(--s4) var(--s4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--s4) var(--s5); }
+.pt-sheet .pt-item { cursor: pointer; }
+.pt-src { margin: var(--s2) var(--s4) 0; }
+@media (max-width: 720px) { .pt-sheet { margin: var(--s2) 0; padding: var(--s3); border-radius: 0; border-left: 0; border-right: 0; } }
