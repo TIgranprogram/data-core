@@ -10,13 +10,35 @@ import { parseCatalog } from './catalog-rows';
 import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { productNameKey, shortProductName } from './order-product-name';
 import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
-import { tallyValues, withDict } from './form-values';
+import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
 
 type Doc = Record<string, unknown> & { _id: Types.ObjectId };
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const LIVE = { deletedAt: null };
 /** Варианты изделия (цвета, размеры): список или строка «через запятую / с новой строки» → уникальные непустые, до 50. */
 const variants = (v: unknown) => [...new Set((Array.isArray(v) ? v : String(v ?? '').split(/[,;\n]/)).map(clean).filter(Boolean))].slice(0, 50);
+/** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
+const num = (v: unknown, what: string) => {
+  if (v === null || v === undefined || String(v).trim() === '') return null;
+  const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) throw new BadRequestException(`${what} — число`);
+  return n;
+};
+/** Габариты Д×Ш×В + единица (CRM `dimensions`); все пустые — null. */
+const parseDimensions = (v: unknown) => {
+  const d = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, l] of [['length', 'Длина'], ['width', 'Ширина'], ['height', 'Высота']] as const) { const n = num(d[k], l); if (n) out[k] = n; }
+  if (!Object.keys(out).length) return null;
+  out.unit = clean(d.unit) || 'мм';
+  return out;
+};
+const presentDimensions = (v: unknown) => {
+  const d = (v && typeof v === 'object' ? v : null) as Record<string, unknown> | null;
+  if (!d || !['length', 'width', 'height'].some((k) => Number(d[k]) > 0)) return null;
+  const n = (k: string) => (Number(d[k]) > 0 ? Number(d[k]) : null);
+  return { length: n('length'), width: n('width'), height: n('height'), unit: String(d.unit || 'мм') };
+};
 /** Точное совпадение названия без регистра и лишних пробелов. */
 const sameName = (name: string) => new RegExp('^\\s*' + escapeRe(name).replace(/\s+/g, '\\s+') + '\\s*$', 'i');
 
@@ -52,8 +74,11 @@ export class ShowcaseService {
       const c = d.categoryId ? cat.get(String(d.categoryId)) : undefined;
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
       return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, description: (d.description as string) ?? null,
-        price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c ? String(c.name) : null,
-        type: c?.parentId ? par.get(String(c.parentId)) ?? null : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null };
+        price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c?.parentId ? String(c.name) : null, // категория без родителя — сам раздел (группа не выбрана)
+        type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null,
+        // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
+        unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
+        ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null };
     });
   }
 
@@ -67,9 +92,11 @@ export class ShowcaseService {
       filter.categoryId = { $in: [g, ...kids.map((k) => k._id)] };
     }
     const sortKey = String(q.sort || 'name').replace(/^-/, ''); const dir = String(q.sort || '').startsWith('-') ? -1 : 1;
-    const sortField = ({ name: 'name', sku: 'sku', price: 'listPrice', series: 'series', deletedAt: 'deletedAt' } as Record<string, string>)[sortKey] ?? 'name';
+    const sortField = ({ name: 'name', sku: 'sku', price: 'listPrice', series: 'series', deletedAt: 'deletedAt', category: 'categoryId' } as Record<string, string>)[sortKey] ?? 'name';
+    // category — галерея по разделам (ФИ2): изделия одной группы подряд, внутри — по названию
+    const order: Record<string, 1 | -1> = sortField === 'categoryId' ? { categoryId: dir, name: 1, _id: 1 } : { [sortField]: dir, _id: 1 };
     const [docs, total] = await Promise.all([
-      this.db.collection('products').find(filter).sort({ [sortField]: dir, _id: 1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      this.db.collection('products').find(filter).sort(order).skip((page - 1) * limit).limit(limit).toArray(),
       this.db.collection('products').countDocuments(filter),
     ]);
     return { items: await this.present(docs as Doc[]), total, page, limit };
@@ -91,11 +118,12 @@ export class ShowcaseService {
    * (раздел изделия связан с категорией паспорта по названию), серии, цвета (+ справочник «Цвета») и размеры, что уже встречались.
    */
   async formValues() {
-    const [groups, products, colorDict, ppCats] = await Promise.all([
+    const [groups, products, colorDict, ppCats, units] = await Promise.all([
       this.groups(),
-      this.db.collection('products').find(LIVE, { projection: { series: 1, colors: 1, sizes: 1 } }).toArray(),
+      this.db.collection('products').find(LIVE, { projection: { series: 1, colors: 1, sizes: 1, ralCode: 1, unit: 1 } }).toArray(),
       this.db.collection('color_references').find({ deletedAt: null }, { projection: { name: 1, description: 1 } }).toArray(),
       this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, catalogNames: 1 } }).toArray(),
+      this.db.collection('units').find({ isActive: { $ne: false }, deletedAt: null }, { projection: { symbol: 1, key: 1, label: 1 } }).toArray(),
     ]);
     const roots = groups.filter((g) => !g.parentId);
     const rootName = new Map(roots.map((g) => [g.id, g.name]));
@@ -106,6 +134,9 @@ export class ShowcaseService {
       series: tallyValues(products.map((p) => p.series)),
       colors: withDict(tallyValues(products.flatMap((p) => (Array.isArray(p.colors) ? p.colors : []))), colorDict.filter((c) => !/^не выбран/i.test(clean(c.name))).map((c) => ({ value: clean(c.name), sub: 'справочник «Цвета»' }))),
       sizes: tallyValues(products.flatMap((p) => (Array.isArray(p.sizes) ? p.sizes : []))),
+      // ФИ2: RAL — встречавшиеся + названия справочника «Цвета» с RAL; единицы — встречавшиеся + справочник «Единицы»
+      ral: withDict(tallyValues(products.map((p) => p.ralCode)), colorDict.filter((c) => /ral/i.test(clean(c.name))).map((c) => ({ value: clean(c.name), sub: 'справочник «Цвета»' }))),
+      units: withDict(tallyValues(products.map((p) => p.unit)), units.map((u) => ({ value: clean(u.symbol || u.key), sub: clean(u.label) || undefined }))),
     };
   }
 
@@ -114,7 +145,9 @@ export class ShowcaseService {
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
     const composition = await this.composition(d as Doc);
+    const ppCats = (await this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray()) as unknown as PpCat[];
     return { ...item, orderLines: await this.orderLines(d as Doc), composition, cost: await this.cost(composition), passports: await this.passports(d as Doc),
+      passportCategory: passportCategoryFor(item, ppCats),
       passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
   }
 
@@ -231,14 +264,28 @@ export class ShowcaseService {
     if (dto.price !== undefined) { const p = dto.price === null || dto.price === '' ? 0 : Number(String(dto.price).replace(/\s/g, '').replace(',', '.')); if (!Number.isFinite(p) || p < 0) throw new BadRequestException('Цена — число'); set.listPrice = p; if (p > 0) set.status = 'active'; }
     if (dto.group !== undefined || dto.type !== undefined) set.categoryId = await this.category(dto.group as string, await this.category(dto.type as string, null));
     for (const k of ['colors', 'sizes'] as const) if (dto[k] !== undefined) set[k] = variants(dto[k]);
+    // ФИ2: характеристики, тексты для паспорта, статус (поля схемы CRM — только существующие)
+    if (dto.dimensions !== undefined) set.dimensions = parseDimensions(dto.dimensions);
+    if (dto.weightKg !== undefined) set.weightKg = num(dto.weightKg, 'Вес') ?? 0;
+    if (dto.ralCode !== undefined) set.ralCode = clean(dto.ralCode) || null;
+    if (dto.unit !== undefined) set.unit = clean(dto.unit) || 'шт';
+    for (const k of ['purpose', 'installation'] as const) if (dto[k] !== undefined) set[k] = String(dto[k] ?? '').trim() || null;
+    if (dto.status !== undefined && dto.status !== null && dto.status !== '') {
+      const st = String(dto.status);
+      if (!['draft', 'active', 'archived'].includes(st)) throw new BadRequestException('Статус: черновик, в продаже или архив');
+      // черновик = «нет цены»: с ценой изделие в продаже, если не отправлено в архив
+      if (!(st === 'draft' && Number(set.listPrice) > 0)) set.status = st;
+    }
     if (Array.isArray(dto.photoIds)) set.photoIds = (dto.photoIds as string[]).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     return set;
   }
 
-  async create(dto: Record<string, unknown>) {
+  /** requireType — ручное создание из формы (ФИ2): раздел обязателен; загрузка каталога / из заказов / из паспортов — без него. */
+  async create(dto: Record<string, unknown>, opts: { requireType?: boolean } = {}) {
     const sku = clean(dto.sku);
     if (!sku) throw new BadRequestException('Укажите артикул');
     if (await this.db.collection('products').findOne({ sku: new RegExp(`^\\s*${escapeRe(sku)}\\s*$`, 'i') })) throw new ConflictException(`Изделие с артикулом ${sku} уже есть`);
+    if (opts.requireType && !clean(dto.type)) throw new BadRequestException('Укажите раздел изделия');
     const set = await this.fields({ ...dto, name: dto.name ?? sku });
     const now = new Date();
     const { insertedId } = await this.db.collection('products').insertOne({ sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,

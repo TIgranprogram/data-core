@@ -10,3 +10,13 @@ describe('подсказки формы изделия (ФИ)', () => {
       { value: 'Графит', n: 2, sub: 'RAL 7024' }, { value: 'RAL 6005 зелёный мох', n: 0 }]);
   });
 });
+
+import { passportCategoryFor } from './form-values';
+describe('изделие → категория паспорта (ФИ2)', () => {
+  const cats = [{ code: 'TRN', name: 'Уличный тренажёр', catalogNames: 'Уличный тренажёр, Тренажёр уличный' }, { code: 'DIO', name: 'Детское', catalogNames: 'Качели' }];
+  it('сначала группа, потом раздел; без регистра и «ё»', () => {
+    expect(passportCategoryFor({ type: 'уличный тренажер', group: 'Качели' }, cats)).toEqual({ code: 'DIO', name: 'Детское', via: 'группа «Качели»' });
+    expect(passportCategoryFor({ type: 'уличный тренажер', group: 'Прочее' }, cats)?.code).toBe('TRN');
+  });
+  it('не нашли — null', () => expect(passportCategoryFor({ type: 'МАФ', group: null }, cats)).toBeNull());
+});

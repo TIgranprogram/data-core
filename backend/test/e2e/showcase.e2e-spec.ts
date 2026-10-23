@@ -42,6 +42,14 @@ describe('Showcase', () => {
     const ed = (await http().patch(`/api/showcase/${a.id}`).set(auth()).send({ price: '125 000' }).expect(200)).body;
     expect(ed).toMatchObject({ price: 125000, status: 'active' });
     await http().post('/api/showcase').set(auth()).send({ sku: '1001', name: 'Дубль' }).expect(409);
+    // ФИ2: в форме раздел обязателен; характеристики, тексты для паспорта, статус; черновик с ценой — «в продаже»
+    await http().post('/api/showcase').set(auth()).send({ sku: 'F-1', name: 'Без раздела' }).expect(400);
+    const f = (await http().post('/api/showcase').set(auth()).send({ sku: 'F-1', name: 'Турник', type: 'Спорт', status: 'draft', price: 1000, unit: '', weightKg: '12,5', ralCode: 'RAL 6005',
+      dimensions: { length: '2000', width: '', height: 2500, unit: 'мм' }, purpose: 'Для подтягиваний' }).expect(201)).body;
+    expect(f).toMatchObject({ type: 'Спорт', status: 'active', unit: 'шт', weightKg: 12.5, ralCode: 'RAL 6005', dimensions: { length: 2000, width: null, height: 2500, unit: 'мм' }, purpose: 'Для подтягиваний', passportCategory: null });
+    expect((await http().patch(`/api/showcase/${f.id}`).set(auth()).send({ status: 'archived', dimensions: {} }).expect(200)).body).toMatchObject({ status: 'archived', dimensions: null });
+    await http().patch(`/api/showcase/${f.id}`).set(auth()).send({ status: 'sold' }).expect(400);
+    await http().delete(`/api/showcase/${f.id}`).set(auth()).expect(200);
     const kp1 = (await http().post('/api/showcase/kp').set(auth()).send({ items: [{ id: a.id, qty: 2 }], customer: 'ГБУ Жилищник' }).expect(200)).body;
     expect(kp1).toMatchObject({ customer: 'ГБУ Жилищник', total: 250000, noPrice: 0, company: { shortName: 'СИЮ', inn: '2300000001' } });
     expect(kp1.number).toMatch(/КП/);

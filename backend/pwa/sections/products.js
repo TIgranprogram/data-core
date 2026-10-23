@@ -21,6 +21,21 @@ const formValues = () => {
   if (!fvCache || Date.now() - fvAt > 30000) { fvAt = Date.now(); fvCache = api('/showcase/form-values').catch(() => { fvCache = null; return { sections: [], groups: [], series: [], colors: [], sizes: [] }; }); }
   return fvCache;
 };
+const dims = (d) => (d ? `${['length', 'width', 'height'].map((k) => (d[k] ? qty(d[k]) : '—')).join(' × ')} ${d.unit || 'мм'}` : null);
+// ФИ2: «Назначение» и «Монтаж» — готовые тексты паспортов (GET /passports/phrases), один запрос в минуту
+let phrasesP = null; let phrasesAt = 0;
+const phrases = (field) => async () => {
+  if (!phrasesP || Date.now() - phrasesAt > 60000) { phrasesAt = Date.now(); phrasesP = api('/passports/phrases').catch(() => { phrasesP = null; return {}; }); }
+  return (await phrasesP)[field] || [];
+};
+// «Цена и себестоимость» в форме: себестоимость — только показ расчёта по составу (поле CRM costPrice не пишем)
+const costInfo = (r) => {
+  const c = r?.cost;
+  const text = !r ? 'Посчитается по составу — состав добавляется в карточке после «Создать»'
+    : c?.total ? `≈ ${money(c.total)} по составу${c.missing ? ` · без цены: ${c.missing}` : ''}`
+      : r.composition?.length ? 'У материалов состава нет цен закупки — сумма не считается' : 'Состав не заполнен — «Изменить состав» в карточке';
+  return { el: h('p', { class: 'muted' }, text), value: '' };
+};
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
@@ -77,9 +92,25 @@ export const products = {
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
     emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
     filters: [{ key: 'groupId', label: 'Раздел', type: 'hidden' }],
+    // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
+    gallery: {
+      default: true, limit: 100, sort: 'category', lastGroup: 'Без раздела',
+      groupBy: (r) => [r.type, r.group].filter(Boolean).join(' › ') || 'Без раздела',
+      card: (r) => ({
+        pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,
+        title: r.name,
+        meta: [r.sku && `арт. ${r.sku}`, r.series, r.price ? money(r.price) : ''].filter(Boolean).join(' · '),
+        badge: r.status === 'archived' ? h('span', { class: 'badge dim gc-badge' }, 'архив') : !r.price ? h('span', { class: 'badge warn gc-badge', title: 'Нет цены — изделие в черновиках' }, 'черновик') : null,
+      }),
+    },
     tiles: {
       key: 'groupId',
-      load: async () => (await api('/showcase/groups')).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: g.parentId ? 'группа' : 'раздел' })),
+      // разделы — первыми, затем их группы (подпись — раздел), как категории у «Паспортов»
+      load: async () => {
+        const all = await api('/showcase/groups'); const name = new Map(all.map((g) => [g.id, g.name]));
+        return [...all.filter((g) => !g.parentId), ...all.filter((g) => g.parentId)]
+          .map((g) => ({ value: g.id, label: g.name, n: g.count, sub: g.parentId ? name.get(g.parentId) || 'группа' : 'раздел' }));
+      },
     },
     headActions: () => [
       h('button', { class: 'btn', type: 'button', title: 'Excel или вставка из таблицы', onclick: () => patch({ of: 'catalogimport', new: '1', open: undefined }) }, '⇩ Загрузить каталог'),
@@ -115,8 +146,15 @@ export const products = {
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r) => [
       ['Артикул', r.sku], ['Раздел', r.type], ['Группа', r.group], ['Серия', r.series],
+      // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
+      ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
+        : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
+      ['Статус', STATUS[r.status] || r.status],
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
+      ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
+      ['Габариты', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
       ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
+      ['Назначение', r.purpose], ['Монтаж', r.installation],
       ['Описание', r.description],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
@@ -151,17 +189,37 @@ export const products = {
       { section: 'Изделие', tone: 'main', fixed: true },
       { key: 'sku', label: 'Артикул', required: true, max: 64, span: 1, warn: skuTaken },
       { key: 'name', label: 'Наименование', required: true, max: 256, span: 3 },
-      { key: 'type', label: 'Раздел', type: 'combo', max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
+      { key: 'type', label: 'Раздел', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
       { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного раздела' },
       { key: 'series', label: 'Серия', type: 'combo', max: 100, options: fv.series.map(opt) },
-      { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
+      { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
+        hint: 'С ценой черновик сам становится «в продаже»' },
+      { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Фото и состав — в карточке сразу после «Создать»' },
+      { section: 'Характеристики', tone: 'info' },
+      { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
+      { key: 'dimW', label: 'Ширина', type: 'number', min: 0, span: 1 },
+      { key: 'dimH', label: 'Высота', type: 'number', min: 0, span: 1 },
+      { key: 'dimUnit', label: 'Ед. габаритов', type: 'combo', max: 10, span: 1, options: ['мм', 'см', 'м'] },
+      { key: 'weightKg', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
+      { key: 'unit', label: 'Ед. изм.', type: 'combo', max: 20, span: 1, options: (fv.units || []).map(opt) },
+      { key: 'ralCode', label: 'RAL', type: 'combo', max: 100, options: (fv.ral || []).map(opt), hint: 'Основной цвет покрытия: RAL 6005' },
       { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), hint: 'Выберите несколько или впишите через запятую' },
       { key: 'sizes', label: 'Размеры (варианты)', type: 'combo', multi: true, max: 500, options: fv.sizes.map(opt), hint: 'Выберите несколько или впишите через запятую: 3×2 м, 4×2 м' },
-      { key: 'description', label: 'Описание', type: 'textarea', wide: true },
+      { section: 'Цена и себестоимость', tone: 'money' },
+      { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
+      ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: 'Себестоимость материалов', wide: true, widget: () => costInfo(r), summary: () => '' }] : []),
+      { section: 'Для паспорта', tone: 'info', collapsed: !(r?.purpose || r?.installation) },
+      { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },
+      { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },
       ];
     },
-    toInitial: (r) => ({ ...r, colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', ') }),
-    toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '' }),
+    initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм' }),
+    toInitial: (r) => ({ ...r, colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
+      status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
+      dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
+    toBody: (v) => ({ sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
+      status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
+      dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' } }),
     create: (b) => api('/showcase', { method: 'POST', body: b }),
     update: (id, b) => api(`/showcase/${id}`, { method: 'PATCH', body: b }),
   },

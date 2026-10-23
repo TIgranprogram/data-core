@@ -30,3 +30,17 @@ export function withDict(list: Tally[], dict: { value: string; sub?: string }[])
   for (const d of dict) { const v = clean(d.value); if (v && !have.has(key(v))) { have.add(key(v)); out.push({ value: v, n: 0, ...(d.sub ? { sub: d.sub } : {}) }); } }
   return out;
 }
+
+/**
+ * Раздел / группа изделия → категория паспорта (ФИ2): по полю «Категории каталога» справочника `passportCategories`.
+ * Сначала группа (точнее), потом раздел. Не нашли — null (в карточке подсказка, куда добавить название).
+ */
+export type PpCat = { code: string; name: string; catalogNames: string };
+export function passportCategoryFor(item: { group?: string | null; type?: string | null }, cats: PpCat[]): { code: string; name: string; via: string } | null {
+  for (const [name, via] of [[item.group, 'группа'], [item.type, 'раздел']] as const) {
+    if (!clean(name)) continue;
+    const c = cats.find((x) => clean(x.catalogNames).split(/[,;\n]/).some((n) => clean(n) && key(n) === key(String(name))));
+    if (c) return { code: clean(c.code), name: clean(c.name), via: `${via} «${clean(name)}»` };
+  }
+  return null;
+}

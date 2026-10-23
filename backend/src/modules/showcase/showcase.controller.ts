@@ -76,7 +76,7 @@ export class ShowcaseController {
   @Post()
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.created', entityType: 'Product' })
-  create(@Body() b: Record<string, unknown>) { return this.s.create(b ?? {}); }
+  create(@Body() b: Record<string, unknown>) { return this.s.create(b ?? {}, { requireType: true }); }
 
   @Patch(':id')
   @Roles('admin', 'manager')
