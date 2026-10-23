@@ -1,5 +1,6 @@
 import type { mongo } from 'mongoose';
 import { Types } from 'mongoose';
+import { sameRe } from '../../common/text/same-text';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -134,7 +135,7 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
  * «Используется» — число позиций; материалы общие с CRM, поэтому при объединении только правим строку (без пометок приложения).
  */
 function metalList(key: string, title: string, hint: string, field: 'assortment' | 'materialGrade'): DictDef {
-  const rx = (name: unknown) => new RegExp(`^\\s*${s(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
+  const rx = sameRe;
   return {
     ...simpleList(key, 'Склад и позиции', title, hint, [], { coll: 'materials', field }),
     related: async (db, d) => {
@@ -147,6 +148,33 @@ function metalList(key: string, title: string, hint: string, field: 'assortment'
       const found = new Map<string, { name: string; uses: number; source: string }>();
       for (const [k, n] of await tally(db, 'materials', field)) add(found, k, n, 'склад');
       const docs = await db.collection('dict_values').find({ dict: key, deletedAt: null }).toArray();
+      return missing(docs.map((d) => s(d.name)), found);
+    },
+  };
+}
+
+/**
+ * «Формы оплаты» (SPR-2): значение в позиции заказа (`incomes.paymentForm`) остаётся строкой, справочник даёт список для выбора.
+ * Доходы общие с CRM: при объединении правим только строку; позиции показываем со ссылкой на заказ.
+ */
+const PAYMENT_FORMS = ['б/р', 'б/р 30%', 'б/р 50%', 'нал'];
+function paymentFormsList(): DictDef {
+  const base = simpleList('paymentForms', 'Заявки и счета', 'Формы оплаты',
+    'б/р, б/р 30 %, нал — как в позициях заказов; от неё считается прогноз денег. Выбирается в заказе из списка — одно написание.', [],
+    { coll: 'incomes', field: 'paymentForm' }, PAYMENT_FORMS);
+  return {
+    ...base,
+    related: async (db, d) => {
+      const q = { deletedAt: null, paymentForm: sameRe(d.name) };
+      const [rows, total] = await Promise.all([db.collection('incomes').find(q).sort({ _id: -1 }).limit(15).project({ orderNo: 1, title: 1, orderId: 1 }).toArray(), db.collection('incomes').countDocuments(q)]);
+      return { title: 'Позиции заказов', total, items: rows.map((r) => ({ label: `${s(r.orderNo)} ${s(r.title)}`.trim(), href: '#orders?open=' + String(r.orderId ?? r._id) })) };
+    },
+    reassign: async (db, from, to) => (await db.collection('incomes').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), updatedAt: new Date() } })).modifiedCount,
+    candidates: async (db) => {
+      const found = new Map<string, { name: string; uses: number; source: string }>();
+      for (const v of PAYMENT_FORMS) add(found, v, 0, 'обычные');
+      for (const [k, n] of await tally(db, 'incomes', 'paymentForm')) add(found, k, n, 'заказы');
+      const docs = await db.collection('dict_values').find({ dict: 'paymentForms', deletedAt: null }).toArray();
       return missing(docs.map((d) => s(d.name)), found);
     },
   };
@@ -321,15 +349,33 @@ export const DICTS: DictDef[] = [
     row: (d) => ({ name: s(d.name), hex: s(d.hex), description: s(d.description) }),
     toDoc: async (b, isNew) => ({ name: s(b.name), hex: opt(b.hex), description: opt(b.description), updatedAt: new Date(), ...(isNew ? { slug: `${translit(s(b.name)) || 'color'}-${Date.now().toString(36)}`, isActive: true, isSystem: false, deletedAt: null, createdAt: new Date() } : {}) }),
     usage: async (db, docs) => {
-      const t = await tally(db, 'materials', 'colors');
-      return new Map(docs.map((d) => [String(d._id), t.get(norm(d.name)) ?? 0]));
+      // склад + позиции заказов + заявки: цвет, которого нет на складе, не выглядит неиспользуемым
+      const [m, i, r] = await Promise.all([tally(db, 'materials', 'colors'), tally(db, 'incomes', 'color'), tally(db, 'supplyrequests', 'color')]);
+      return new Map(docs.map((d) => { const k = norm(d.name); return [String(d._id), (m.get(k) ?? 0) + (i.get(k) ?? 0) + (r.get(k) ?? 0)]; }));
     },
     related: async (db, d) => {
       const q = { deletedAt: null, colors: s(d.name) };
       const [rows, total] = await Promise.all([db.collection('materials').find(q).limit(15).project({ name: 1 }).toArray(), db.collection('materials').countDocuments(q)]);
-      return { title: 'Позиции этого цвета', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
+      const qi = { deletedAt: null, color: sameRe(d.name) };
+      const [inc, incTotal] = await Promise.all([db.collection('incomes').find(qi).sort({ _id: -1 }).limit(15).project({ orderNo: 1, title: 1, orderId: 1 }).toArray(), db.collection('incomes').countDocuments(qi)]);
+      const qr = { deletedAt: null, color: sameRe(d.name) };
+      const [req, reqTotal] = await Promise.all([db.collection('supplyrequests').find(qr).sort({ _id: -1 }).limit(15).project({ num: 1, title: 1 }).toArray(), db.collection('supplyrequests').countDocuments(qr)]);
+      return {
+        title: 'Позиции этого цвета', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })),
+        more: [
+          { title: 'Позиции заказов', total: incTotal, items: inc.map((r) => ({ label: `${s(r.orderNo)} ${s(r.title)}`.trim(), href: '#orders?open=' + String(r.orderId ?? r._id) })) },
+          { title: 'Заявки', total: reqTotal, items: req.map((r) => ({ label: `№${r.num ?? ''} ${s(r.title)}`, href: '#requests?open=' + String(r._id) })) },
+        ],
+      };
     },
-    reassign: async (db, from, to) => (await db.collection('materials').updateMany({ colors: s(from.name) }, { $set: { 'colors.$': s(to.name) } })).modifiedCount,
+    reassign: async (db, from, to) => {
+      const [a, b, c] = await Promise.all([
+        db.collection('materials').updateMany({ colors: s(from.name) }, { $set: { 'colors.$': s(to.name) } }),
+        db.collection('incomes').updateMany({ color: sameRe(from.name) }, { $set: { color: s(to.name), updatedAt: new Date() } }),
+        db.collection('supplyrequests').updateMany({ color: sameRe(from.name) }, { $set: { color: s(to.name), editedInApp: true } }),
+      ]);
+      return a.modifiedCount + b.modifiedCount + c.modifiedCount;
+    },
     options: (docs) => docs.map((d) => s(d.name)),
   },
   metalList('metalAssortments', 'Сортамент / сечение', 'Сечение металла в позиции склада: «Труба 40×20×2», «Лист 2 мм», «Уголок 50×50×5». Выбирается из списка — одно написание для фильтров и отчётов.', 'assortment'),
@@ -446,6 +492,7 @@ export const DICTS: DictDef[] = [
   // ───────── Заявки и счета ─────────
   simpleList('invoiceTypes', 'Заявки и счета', 'Типы счетов', 'Поле «Тип счёта» в заявке и счёте: счёт на оплату, счёт-договор, УПД…', [],
     { coll: 'supplyrequests', field: 'sheetExtra.invoiceType' }, ['Счет на оплату', 'Счет-договор', 'Счет', 'УПД'], 'invoiceTypes'),
+  paymentFormsList(),
   simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в счетах: доставка, погрузка, аренда техники…', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
 
   // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.2, §3.3): правят директор и админ ─────────

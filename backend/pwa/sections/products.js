@@ -9,6 +9,7 @@ import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 import { issuePassport, passports } from './passports.js';
 import { openBulk } from './bulk-edit.js';
+import { dictNames } from '../ui/dict-options.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -266,8 +267,8 @@ export const products = {
       { key: 'dimUnit', label: 'Ед. габаритов', type: 'combo', max: 10, span: 1, options: ['мм', 'см', 'м'] },
       { key: 'weightKg', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
       { key: 'unit', label: 'Ед. изм.', type: 'combo', max: 20, span: 1, options: (fv.units || []).map(opt) },
-      { key: 'ralCode', label: 'RAL', type: 'combo', max: 100, options: (fv.ral || []).map(opt), hint: 'Основной цвет покрытия: RAL 6005' },
-      { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), hint: 'Выберите несколько или впишите через запятую' },
+      { key: 'ralCode', label: 'RAL', type: 'combo', max: 100, options: (fv.ral || []).map(opt), load: dictNames('colors'), hint: 'Основной цвет покрытия: RAL 6005' },
+      { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), load: dictNames('colors'), hint: 'Выберите несколько или впишите через запятую' },
       { key: 'sizes', label: 'Размеры (варианты)', type: 'combo', multi: true, max: 500, options: fv.sizes.map(opt), hint: 'Выберите несколько или впишите через запятую: 3×2 м, 4×2 м' },
       { section: 'Цена и себестоимость', tone: 'money' },
       { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },

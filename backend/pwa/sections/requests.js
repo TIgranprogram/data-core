@@ -9,6 +9,7 @@ import { quickAdd } from '../ui/quick.js';
 import { toast } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { pic } from './stock.js';
+import { dictNames } from '../ui/dict-options.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
@@ -137,7 +138,7 @@ const fields = async (r) => {
     { key: 'priority', label: 'Приоритет', type: 'segment', required: true, options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
     { section: 'Детали товара', tone: 'info', collapsed: true },
     { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
-    { key: 'color', label: 'Цвет', max: 100 },
+    { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
     { key: 'productUrl', label: 'Ссылка на товар', max: 1000, placeholder: 'https://…', wide: true },
     { key: 'deliveryNote', label: 'Доставка', max: 300, wide: true },
     { key: 'photos', label: 'Фото', type: 'photos', hint: 'Своё фото заявки показывается вместо фото позиции склада' },

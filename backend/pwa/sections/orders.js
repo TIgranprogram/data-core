@@ -7,6 +7,7 @@ import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { UNITS, unitList, lookups } from './lookups.js';
 import { pic } from './stock.js';
+import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
 import { issuePassport, passports } from './passports.js';
 
@@ -184,7 +185,7 @@ export const orders = {
         { key: 'paidDate', label: 'Дата оплаты', type: 'date' },
         { section: 'Вид, цвет, размер, примечание', tone: 'who', collapsed: true },
         { key: 'kind', label: 'Вид', max: 100 },
-        { key: 'color', label: 'Цвет', max: 100 },
+        { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
         { key: 'size', label: 'Размер', max: 100 },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];

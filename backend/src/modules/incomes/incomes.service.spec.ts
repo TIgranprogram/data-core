@@ -318,12 +318,19 @@ describe('IncomesService', () => {
   });
 
   describe('lookups', () => {
-    it('формы оплаты: «б/р», «нал» и встреченные — без дублей', async () => {
+    it('формы оплаты: обычные (б/р, 30 %, 50 %, нал) и встреченные — без дублей', async () => {
       model.distinct.mockReturnValue(chain(['нал', 'карта', '']));
       colls.organizations = [{ _id: new Types.ObjectId(), name: 'ООО Наша', isOurCompany: true }];
       const r = await service.lookups();
-      expect(r.paymentForms).toEqual(['б/р', 'карта', 'нал']);
+      expect(r.paymentForms).toEqual(['б/р', 'б/р 30%', 'б/р 50%', 'карта', 'нал']);
       expect(r.companies).toHaveLength(1);
+    });
+
+    it('справочник «Формы оплаты» + данные: дубли разного написания схлопываются, написание справочника главнее', async () => {
+      colls.dict_values = [{ name: 'б/р 30%' }, { name: 'Нал' }];
+      model.distinct.mockReturnValue(chain(['б/р  30%', 'НАЛ', 'карта']));
+      const r = await service.lookups();
+      expect(r.paymentForms).toEqual(['б/р 30%', 'карта', 'Нал']);
     });
   });
 });

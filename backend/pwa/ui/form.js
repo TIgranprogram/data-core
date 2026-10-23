@@ -22,7 +22,7 @@ import { enhanceSelect } from './select.js';
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
  *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
- *   load — у combo: async () => варианты (строки или { value, label }); грузятся при первом фокусе, кэшируются.
+ *   load — у combo: async () => варианты (строки или { value, label }); грузятся при первом фокусе, кэшируются; если есть и options — дополняют их (без повторов).
  *   note — вместо поля: { note: 'текст' } — общая серая строка-подсказка на всю ширину.
  *   strict — у combo: только из списка (прежнее значение можно оставить); функция strict(get) — проверка включена, пока она true.
  *   suggestKeep — выбор подсказки не затирает то, что человек уже поправил руками (паспорт: смена модели).
@@ -170,7 +170,14 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
         loading = Promise.resolve().then(f.load).then((r) => { loaded = Array.isArray(r) ? r : []; }).catch(() => { loaded = []; }).then(() => { done = true; cb?.refresh(); });
       };
       if (f.load) input.addEventListener('focus', lazy);
-      const list = () => (f.load ? loaded : typeof f.options === 'function' ? f.options(get) || [] : opts).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+      // load вместе с options: загруженное дополняет заданное, повторы по значению убираются
+      const norm = (a) => a.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+      const list = () => {
+        if (!f.load) return norm(typeof f.options === 'function' ? f.options(get) || [] : opts);
+        const base = f.options ? norm(typeof f.options === 'function' ? f.options(get) || [] : opts) : [];
+        const seen = new Set(base.map((o) => String(o.value).trim().toLowerCase()));
+        return [...base, ...norm(loaded).filter((o) => !seen.has(String(o.value).trim().toLowerCase()))];
+      };
       cb = attachCombo(input, { multi: !!f.multi, options: () => list().map((o) => ({ label: String(o.label), value: o.value, sub: o.sub, group: o.group })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined,
         empty: f.load ? () => (loading && !done ? 'Загружаю…' : undefined) : undefined }); // признак загрузки, а не «список пуст»
       if (f.strict) {

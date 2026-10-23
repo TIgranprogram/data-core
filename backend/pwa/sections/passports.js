@@ -13,6 +13,7 @@ import { attachCombo } from '../ui/combo.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { icon } from '../ui/icons.js';
+import { personNames } from '../ui/dict-options.js';
 import { openBulk } from './bulk-edit.js';
 
 /**
@@ -982,7 +983,7 @@ export const passports = {
         { key: 'customerName', label: 'Покупатель (заказчик)', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
         { key: 'orderNo', label: '№ заказа', max: 50, span: 1, suggest: orders, suggestTitle: 'Заказы — выбор подставит покупателя', hint: 'Начните печатать номер или заказчика' },
         { key: 'objectName', label: 'Адрес установки', wide: true, max: 500 },
-        { key: 'installedBy', label: 'Монтаж выполнил', max: 300 },
+        { key: 'installedBy', label: 'Монтаж выполнил', type: 'combo', max: 300, load: personNames, hint: 'Сотрудник из списка или свой вариант (подрядчик)' },
         { key: 'installedAt', label: 'Дата монтажа', type: 'date', span: 1 },
         { key: 'note', label: 'Заметки', type: 'textarea', wide: true, rows: 3, max: 4000, hint: 'Попадут в паспорт на лист «Для заметок»; пусто — листа не будет' },
       ];

@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
+import { dictNames } from '../ui/dict-options.js';
 
 /*
  * Металл на складе (TASKS СМ.1–СМ.2): сортамент, марка, размеры у труб и листов; обрезки, которые ещё пригодятся.
@@ -26,9 +27,6 @@ export function metalView(r) {
   ];
 }
 
-/** Варианты из справочника группы склада; вызывается при первом открытии поля. Нет справочника на сервере — список пуст. */
-const dictCache = {};
-const dictNames = (key) => () => (dictCache[key] ||= api('/dicts/' + key).then((r) => (r.items || []).map((x) => x.name).filter(Boolean).sort((p, q) => p.localeCompare(q, 'ru', { numeric: true }))).catch(() => { delete dictCache[key]; return []; })); // сбой сети — не закреплять пустой список: следующий фокус повторит
 
 /** Поля формы позиции — блок «Металл» (свёрнут; для труб и листов). */
 export const metalFields = () => [

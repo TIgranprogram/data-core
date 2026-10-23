@@ -4,6 +4,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { escapeRe, oid, oids, parseList } from '../../common/list-query';
+import { sameRe } from '../../common/text/same-text';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { normText } from '../../common/text/norm-text';
 import { articleView } from './article';
@@ -86,9 +87,8 @@ export class StockSearchService {
 
     // металл (СМ.1): марка, сечение, толщина — фильтры «Остатков»
     // без учёта регистра и лишних пробелов: в фильтре одно написание, в позициях бывают разные (SPR-1)
-    const same = (v: unknown) => new RegExp(`^\\s*${String(v).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+').replace(/[её]/gi, '[её]')}\\s*$`, 'i');
-    if (q.grade) filter.materialGrade = same(q.grade);
-    if (q.section) filter.assortment = same(q.section);
+    if (q.grade) filter.materialGrade = sameRe(q.grade);
+    if (q.section) filter.assortment = sameRe(q.section);
     if (q.thickness && Number(q.thickness) > 0) filter.dimensions = { $elemMatch: { type: 'thickness', value: Number(q.thickness) } };
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
       .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));

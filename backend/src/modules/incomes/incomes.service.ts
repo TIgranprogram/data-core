@@ -7,6 +7,7 @@ import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import { normText } from '../../common/text/norm-text';
+import { sameKey } from '../../common/text/same-text';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { Income, IncomeDocument, incomeDerived } from './income.schema';
@@ -221,12 +222,17 @@ export class IncomesService {
 
   /** Подсказки формы: наши компании, заказчики и формы оплаты, которые уже встречались. */
   async lookups() {
-    const [companies, customers, forms] = await Promise.all([
+    const [companies, customers, forms, dict] = await Promise.all([
       ourCompanies(this.connection),
       customerNames(this.connection.db!), // ЗЧ.1: один источник «Заказчики»
       this.model.distinct('paymentForm', { deletedAt: null }).exec(),
+      this.connection.db!.collection('dict_values').find({ dict: 'paymentForms', deletedAt: null }, { projection: { name: 1 } }).toArray(), // SPR-2: справочник «Формы оплаты»
     ]);
-    const sort = (a: unknown[]) => a.filter(Boolean).map(String).sort((x, y) => x.localeCompare(y, 'ru'));
-    return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers, paymentForms: sort(['б/р', 'нал', ...forms]).filter((v, i, a) => a.indexOf(v) === i) };
+    // справочник первым (его написание главнее), затем встреченные в данных; «б/р», «нал» — пока справочник пуст; дубли разного написания схлопываются
+    const seen = new Set<string>();
+    const paymentForms = [...dict.map((d) => d.name), ...(dict.length ? [] : ['б/р', 'б/р 30%', 'б/р 50%', 'нал']), ...forms]
+      .map((v) => String(v ?? '').replace(/\s+/g, ' ').trim()).filter((v) => v && !seen.has(sameKey(v)) && seen.add(sameKey(v)))
+      .sort((x, y) => x.localeCompare(y, 'ru'));
+    return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers, paymentForms };
   }
 }

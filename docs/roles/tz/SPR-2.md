@@ -11,6 +11,7 @@
 2. `incomes.service.ts` (~стр. 227, `lookups`): `paymentForms` = значения справочника (если он не пуст) + значения из данных, **без дублей разного написания** (регистр, пробелы); форма ответа та же (массив строк). Прогноз (`forecast`) не трогать — он разбирает строку.
 3. `colors` (справочник уже есть): «Используется» дополнить счётом по `incomes.color` и `supplyrequests.color` (если поле так называется — проверь схему), чтобы пустые-на-складе цвета не выглядели неиспользуемыми. Схемы не менять.
 4. `scripts/seed-metal-dicts.js` → обобщить список: добавить `['paymentForms', 'paymentForm', 'incomes']` и `['colors', 'color', 'incomes']`, `['colors', 'color', 'supplyrequests']` (коллекция третьим элементом; для металла — `materials`). Поведение то же: план по умолчанию, `--apply` — только добавить недостающие.
+6. Замечание архитектора по SPR-1: одна общая функция «совпадает без учёта регистра, лишних пробелов и ё/е» (в `common/`, с `escapeRe`, если он уже есть в коде — Grep) — использовать в `metalList.related/reassign` (`dicts.defs.ts`), в фильтре `grade/section` (`stock/stock-search.service.ts`, функция `same`) и в новом `paymentForms`.
 5. Тест: `dicts.metal.spec.ts` (или рядом) — `paymentForms` usage/candidates; `incomes` lookups без дублей. `tsc`, `npx jest src/modules/dicts src/modules/incomes`.
 
 ## Часть Б — frontend
