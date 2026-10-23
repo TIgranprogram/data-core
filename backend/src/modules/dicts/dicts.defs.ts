@@ -130,6 +130,29 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
 }
 
 /**
+ * Справочники металла склада: значение в позиции (`materials.<field>`) остаётся строкой, справочник даёт список для выбора и фильтров.
+ * «Используется» — число позиций; материалы общие с CRM, поэтому при объединении только правим строку (без пометок приложения).
+ */
+function metalList(key: string, title: string, hint: string, field: 'assortment' | 'materialGrade'): DictDef {
+  const rx = (name: unknown) => new RegExp(`^\\s*${s(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
+  return {
+    ...simpleList(key, 'Склад и позиции', title, hint, [], { coll: 'materials', field }),
+    related: async (db, d) => {
+      const q = { deletedAt: null, [field]: rx(d.name) };
+      const [rows, total] = await Promise.all([db.collection('materials').find(q).sort({ _id: -1 }).limit(15).project({ name: 1 }).toArray(), db.collection('materials').countDocuments(q)]);
+      return { title: 'Позиции склада', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
+    },
+    reassign: async (db, from, to) => (await db.collection('materials').updateMany({ [field]: rx(from.name) }, { $set: { [field]: s(to.name) } })).modifiedCount,
+    candidates: async (db) => {
+      const found = new Map<string, { name: string; uses: number; source: string }>();
+      for (const [k, n] of await tally(db, 'materials', field)) add(found, k, n, 'склад');
+      const docs = await db.collection('dict_values').find({ dict: key, deletedAt: null }).toArray();
+      return missing(docs.map((d) => s(d.name)), found);
+    },
+  };
+}
+
+/**
  * «Паспорта» (БЗ-6): где используется запись — паспорта (по коду категории или по id записи) и другие справочники
  * группы, которые ссылаются на её код списком через запятую. Без этого «Используется: —» и удаление нужного.
  */
@@ -309,6 +332,8 @@ export const DICTS: DictDef[] = [
     reassign: async (db, from, to) => (await db.collection('materials').updateMany({ colors: s(from.name) }, { $set: { 'colors.$': s(to.name) } })).modifiedCount,
     options: (docs) => docs.map((d) => s(d.name)),
   },
+  metalList('metalAssortments', 'Сортамент / сечение', 'Сечение металла в позиции склада: «Труба 40×20×2», «Лист 2 мм», «Уголок 50×50×5». Выбирается из списка — одно написание для фильтров и отчётов.', 'assortment'),
+  metalList('steelGrades', 'Марки стали', 'Марка металла в позиции склада: Ст3, 09Г2С, AISI 304. Выбирается из списка — одно написание для фильтров и отчётов.', 'materialGrade'),
 
   // ───────── Люди и ФОТ ─────────
   {

@@ -22,6 +22,8 @@ import { enhanceSelect } from './select.js';
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
  *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
+ *   load — у combo: async () => варианты (строки или { value, label }); грузятся при первом фокусе, кэшируются.
+ *   note — вместо поля: { note: 'текст' } — общая серая строка-подсказка на всю ширину.
  *   strict — у combo: только из списка (прежнее значение можно оставить); функция strict(get) — проверка включена, пока она true.
  *   suggestKeep — выбор подсказки не затирает то, что человек уже поправил руками (паспорт: смена модели).
  *   mount(api) — после сборки: поле следит за другими. api: get(k), set(k, v, { auto, src }), on(k, fn), input(k), field(k), open(k), manual(k), keys(), root.
@@ -59,6 +61,7 @@ export function buildForm(fields, initial = {}) {
       root.append(block);
       continue;
     }
+    if (f.note) { grid.append(h('div', { class: 'hint wide' }, f.note)); continue; } // общая строка-подсказка под рядом полей
     const id = 'f-' + f.key + '-' + Math.random().toString(36).slice(2, 7);
     const v = initial[f.key];
     let input;
@@ -160,8 +163,15 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       const set = (k, val) => { const x = inputs.get(k); if (x) { x.input.value = val; x.input.dispatchEvent(new Event('input', { bubbles: true })); } };
       // f.options(get) — список зависит от других полей (группа — от раздела); sub — серая строка, group — заголовок; f.multi — через запятую
       const get = (k) => inputs.get(k)?.input.value ?? '';
-      const list = () => (typeof f.options === 'function' ? f.options(get) || [] : opts).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
-      attachCombo(input, { multi: !!f.multi, options: () => list().map((o) => ({ label: String(o.label), value: o.value, sub: o.sub, group: o.group })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined });
+      // f.load — async () => массив строк/{value,label}: варианты грузятся при первом фокусе поля, результат в кэше; ошибка — список пуст
+      let loaded = []; let loading = null; let cb = null;
+      const lazy = () => {
+        if (!f.load || loading) return;
+        loading = Promise.resolve().then(f.load).then((r) => { loaded = Array.isArray(r) ? r : []; }).catch(() => { loaded = []; }).then(() => cb?.refresh());
+      };
+      if (f.load) input.addEventListener('focus', lazy);
+      const list = () => (f.load ? loaded : typeof f.options === 'function' ? f.options(get) || [] : opts).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+      cb = attachCombo(input, { multi: !!f.multi, options: () => list().map((o) => ({ label: String(o.label), value: o.value, sub: o.sub, group: o.group })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined });
       if (f.strict) {
         const was = String(v ?? '');
         input.addEventListener('blur', () => setTimeout(() => {

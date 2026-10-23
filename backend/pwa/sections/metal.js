@@ -26,14 +26,19 @@ export function metalView(r) {
   ];
 }
 
+/** Варианты из справочника группы склада; вызывается при первом открытии поля. Нет справочника на сервере — список пуст. */
+const dictCache = {};
+const dictNames = (key) => () => (dictCache[key] ||= api('/dicts/' + key).then((r) => (r.items || []).map((x) => x.name).filter(Boolean).sort((p, q) => p.localeCompare(q, 'ru', { numeric: true }))).catch(() => []));
+
 /** Поля формы позиции — блок «Металл» (свёрнут; для труб и листов). */
 export const metalFields = () => [
   { section: 'Металл: труба, лист', tone: 'info', collapsed: true },
-  { key: 'assortment', label: 'Сортамент / сечение', max: 200, hint: 'Труба: «40×20×2»; лист: «2 мм»' },
-  { key: 'materialGrade', label: 'Марка стали', max: 100, hint: 'Ст3, 09Г2С, AISI 304 (нержавейка)' },
-  { key: 'thickness', label: 'Толщина / стенка, мм', type: 'number', min: 0 },
-  { key: 'lengthM', label: 'Длина хлыста / листа, м', type: 'number', min: 0, hint: 'Труба обычно 6 м; лист — например 2' },
-  { key: 'widthM', label: 'Ширина листа, м', type: 'number', min: 0, hint: 'Только для листа, например 1 или 1,25' },
+  { key: 'assortment', label: 'Сортамент / сечение', type: 'combo', max: 200, span: 2, load: dictNames('metalAssortments'), placeholder: 'Труба 40×20×2, лист 2 мм' },
+  { key: 'materialGrade', label: 'Марка стали', type: 'combo', max: 100, span: 2, load: dictNames('steelGrades'), placeholder: 'Ст3, 09Г2С, AISI 304' },
+  { key: 'thickness', label: 'Толщина, мм', type: 'number', min: 0, span: 1 },
+  { key: 'lengthM', label: 'Длина, м', type: 'number', min: 0, span: 1 },
+  { key: 'widthM', label: 'Ширина, м', type: 'number', min: 0, span: 1 },
+  { note: 'Толщина — стенка трубы или лист. Длина: труба обычно 6 м, лист — например 2. Ширина — только для листа (1 или 1,25).' },
 ];
 export const metalInitial = (r) => ({ thickness: r.dims?.thickness ?? null, lengthM: r.dims?.length ? r.dims.length / 1000 : null, widthM: r.dims?.width ? r.dims.width / 1000 : null });
 /** В тело запроса: метры → мм; пусто — стереть. */
