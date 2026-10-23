@@ -97,7 +97,9 @@ export class PassportPdfService {
     const byKind: Record<string, PdfImageV2[]> = { overview: [], dimensions: [], safety: [], mounting: [] };
     for (const i of imgs) {
       const buf = await this.file(url.get(String(i.photoId)));
-      if (buf) (byKind[i.kind] ||= []).push({ buf, caption: i.caption, refCode: i.refCode });
+      // safety (форма, v1) = safety_zone (v2): иначе зона безопасности печаталась в «Инструкции по монтажу»; без вида — общий вид
+      const k = i.kind === 'safety' ? 'safety_zone' : i.kind || 'overview';
+      if (buf) (byKind[k] ||= []).push({ buf, caption: i.caption, refCode: i.refCode });
     }
     // стандартные схемы узлов способа установки — по видам, где своих нет (Э9.5)
     {

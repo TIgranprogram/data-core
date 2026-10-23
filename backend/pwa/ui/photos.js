@@ -45,13 +45,20 @@ export function photoDrop({ attach, done }) {
   const onPaste = (e) => {
     if (!document.contains(zone)) { document.removeEventListener('paste', onPaste); return; }
     if (!zone.offsetParent) return; // зона скрыта (свёрнутый блок, «ещё» в строке счёта)
-    const host = zone.closest('.inv-row, .pp-kind, .field, .drawer') || zone.parentElement;
-    const a = document.activeElement;
-    // в счёте у каждой строки своя зона, в паспорте — у каждого вида картинок: вставляем только туда, где курсор (фокус или мышь)
-    if (zone.closest('.inv-row') && !(a && host.contains(a))) return;
-    if (zone.closest('.pp-kind') && !((a && host.contains(a)) || host.matches(':hover'))) return;
     const files = [...(e.clipboardData?.items || [])].filter((it) => it.kind === 'file' && /^image\//.test(it.type)).map((it) => it.getAsFile()).filter(Boolean);
     if (!files.length) return; // обычный текст — пусть вставляется как обычно
+    // зон на экране несколько (строки счёта, виды картинок паспорта — в карточке и в форме): вставляем только туда,
+    // где курсор (фокус или мышь); раньше в форме паспорта одна вставка уходила во все виды сразу
+    const visible = [...document.querySelectorAll('.photo-drop')].filter((z) => z.offsetParent);
+    if (visible.length > 1) {
+      const a = document.activeElement;
+      const hostOf = (z) => z.closest('.inv-row, .pp-kind, .field') || z.parentElement;
+      const aimed = (z) => { const hs = hostOf(z); return (a && hs.contains(a)) || hs.matches(':hover'); };
+      if (!aimed(zone)) {
+        if (zone === visible[0] && !visible.some(aimed)) toastError(new Error('Куда вставить? Наведите курсор на нужный вид картинки (или щёлкните по нему) и нажмите Ctrl+V ещё раз'));
+        return;
+      }
+    }
     e.preventDefault();
     upload(files);
   };
@@ -62,7 +69,7 @@ export function photoDrop({ attach, done }) {
 /**
  * Фото внутри формы (новая запись / правка): миниатюры с «×» + зона добавления.
  * Файлы загружаются сразу, к записи привязываются при сохранении формы.
- *   const p = photoField([{ id, url, thumb }]);  p.el, p.ids() → ['…'], p.focus()
+ *   const p = photoField([{ id, url, thumb }]);  p.el, p.ids() → ['…'], p.set([{ id, url, thumb }]) — заменить (картинки модели), p.focus()
  */
 export function photoField(initial = []) {
   let pics = [...initial];
@@ -72,5 +79,5 @@ export function photoField(initial = []) {
     h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: () => { pics.splice(i, 1); render(); } }, '×'))));
   const drop = photoDrop({ attach: async (id, p) => { pics.push({ id, ...p }); return pics; }, done: render });
   render();
-  return { el: h('div', { class: 'photo-field' }, strip, drop), ids: () => pics.map((p) => p.id), focus: () => drop.focus() };
+  return { el: h('div', { class: 'photo-field' }, strip, drop), ids: () => pics.map((p) => p.id), set: (list) => { pics = [...(list || [])]; render(); }, focus: () => drop.focus() };
 }

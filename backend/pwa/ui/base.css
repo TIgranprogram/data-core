@@ -295,6 +295,12 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .field .err { color: var(--danger); font-size: 12px; }
 /* предупреждение под полем (не ошибка, сохранить можно): «такой артикул уже есть» — ФИ */
 .field .warn { color: var(--warn); font-size: 12px; }
+/* подставлено «по умолчанию» (из категории / модели) — серым, пока не поправили руками (ФП) */
+.field input.is-default, .field textarea.is-default { color: var(--muted); }
+/* «Не хватает для выпуска» в форме паспорта: пункт — ссылка к полю (ФП) */
+.pp-need { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
+.pp-need button { color: var(--text); text-decoration: underline dotted; }
+.tag.foreign { border-style: dashed; }
 .form-error { background: var(--danger-soft); color: var(--danger); padding: var(--s2) var(--s3); border-radius: var(--radius-sm); margin-bottom: var(--s3); }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: var(--s2) 0; }
 

@@ -98,6 +98,14 @@ export class ProductPassportController {
     return this.service.texts(category);
   }
 
+  /** Черновик формы: чего не хватает для выпуска ({missing:[{label,key}], requiredImages}) — ничего не пишет (ФП). */
+  @Post('passports/check')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  check(@Body() body: Record<string, unknown>) {
+    return this.service.check(body ?? {});
+  }
+
   /** Предпросмотр собранного текста категории без сохранения: { category, own?: sections } (own нет — сохранённая версия). */
   @Post('passports/texts/preview')
   @HttpCode(200)

@@ -8368,6 +8368,20 @@
         ]
       }
     },
+    "/passports/check": {
+      "post": {
+        "operationId": "ProductPassportController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/texts/preview": {
       "post": {
         "operationId": "ProductPassportController_textsPreview",

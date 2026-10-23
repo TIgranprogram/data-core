@@ -190,6 +190,13 @@ describe('Паспорта изделий', () => {
     const before = JSON.stringify(created.textSnapshot.sections);
     const card = (await http().get(`/api/passports/${created.id}`).set(as(admin.access)).expect(200)).body;
     expect(card.missing).toEqual(expect.arrayContaining(['Способ установки', 'Рост пользователя от', 'Рисунок: Схема фундамента']));
+    // ФП: проверка черновика формы — те же правила, с ключом поля; ничего не пишет; менеджеру — 403
+    const chk = (await http().post('/api/passports/check').set(as(admin.access)).send({ name: 'Черновик', passportCategory: 'TRN', heightMin: '1400', images: [{ kind: 'safety', photoId: 'x' }] }).expect(200)).body;
+    const keyOf = Object.fromEntries(chk.missing.map((m: { label: string; key: string }) => [m.label, m.key]));
+    expect(keyOf['Способ установки']).toBe('installationTypeId');
+    expect(keyOf['Рост пользователя от']).toBeUndefined();
+    expect(keyOf['Рисунок: Зона безопасности']).toBeUndefined(); // safety из формы = safety_zone категории
+    expect(chk.requiredImages).toEqual(expect.arrayContaining(['overview']));
     // правка шаблона категории — выданный паспорт не меняется
     const tpl = (await http().get('/api/passports/template').query({ category: 'TRN' }).set(as(admin.access)).expect(200)).body;
     const sections = tpl.sections.map((x: { paragraphs: string[] }, i: number) => (i === 0 ? { ...x, paragraphs: [...x.paragraphs, 'Новый пункт для проверки снимка.'] } : x));

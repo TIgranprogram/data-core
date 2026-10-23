@@ -6,7 +6,8 @@ import { current, go, patch } from '../core/router.js';
 import { photoDrop } from '../ui/photos.js';
 import { rowsTable } from '../ui/rows-table.js';
 import { tagPick } from '../ui/tag-pick.js';
-import { KINDS, KINDS_V2, catNames } from '../core/passport-kinds.js';
+import { CAT_NAMES, KINDS, KINDS_V2, catNames } from '../core/passport-kinds.js';
+import { formImages, imagesBody, modelImagesToForm } from '../core/passport-images.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { icon } from '../ui/icons.js';
@@ -40,7 +41,23 @@ const V2_NUMS = [
   ['fallHeight', 'Высота свободного падения, мм', 'Детское игровое'], ['siteLength', 'Площадка: длина, мм', 'С зоной безопасности'],
   ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', 'По умолчанию: 10, МАФ — 5'],
 ];
-const dictOpts = async (key) => ((await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || []).map((d) => ({ value: d.id, label: d.name, sub: catNames(d.categories) }));
+const dictRows = async (key) => (await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || [];
+const codeList = (s) => String(s || '').split(/[,;\s]+/).filter(Boolean);
+/** Записи справочника для выбора: cats — к каким категориям паспорта относится (пусто — ко всем; ФП — фильтр по категории). */
+const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories) }));
+/** Обязательные виды картинок категории — как на сервере (requiredImageKinds): по строке, «(если разборное)» — только у разборных; safety_zone = safety. */
+const reqKinds = (cat, isKit) => {
+  const out = [];
+  for (const line of String(cat?.requiredImages || '').split(/\r?\n/)) {
+    if (/если разборн/i.test(line) && !isKit) continue;
+    for (const k of line.replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x))) { const kk = k === 'safety_zone' ? 'safety' : k; if (!out.includes(kk)) out.push(kk); }
+  }
+  return out;
+};
+/** Умолчания категории, которых нет в справочнике (подсказки V2_NUMS) — серым «по умолчанию», правятся (ФП). */
+const CAT_DEFAULTS = { TRN: { heightMin: 1400, weightMax: 120 }, DIO: { ageFrom: 3 }, DSP: { ageFrom: 7 } };
+/** Категория нового паспорта (из черновика «Выпустить паспорт») — форма строится до того, как видны значения. */
+let newCat = '';
 /** Единый список категорий (решение 2026-10-21: без дублей и грамотно) — дополняется тем, что уже есть в паспортах. */
 const CATEGORIES = ['Уличный тренажёр', 'Спортивное оборудование', 'Воркаут', 'Благоустройство', 'МАФ', 'Качели', 'Карусель', 'Детский игровой комплекс'];
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
@@ -108,11 +125,123 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
     || (article && all.find((x) => x.values.article && n(x.values.article) === n(article)))
     || (name && all.find((x) => n(x.values.name) === n(name)));
   // значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b) — поверх полей модели; форма v1 берёт только свои поля
-  const defaults = productId ? (await api(`/showcase/${productId}`).catch(() => null))?.passportDefaults || {} : {};
-  draft = { ...(m ? m.values : { name: name || '', article: article || '' }), ...defaults, productId, salesOrderId, orderNo, customerName };
+  const prod = productId ? await api(`/showcase/${productId}`).catch(() => null) : null;
+  const defaults = prod?.passportDefaults || {};
+  // ФП: из изделия «Продукции» — то, чего нет у модели: размеры (в мм), вес, назначение, монтаж, описание, фото на обложку
+  const mm = (v) => { const u = prod?.dimensions?.unit || 'мм'; const n = Number(v); return n > 0 ? num(Math.round(n * (u === 'м' ? 1000 : u === 'см' ? 10 : 1))) : ''; };
+  const fromProd = prod ? Object.fromEntries(Object.entries({
+    name: prod.name, article: prod.sku, length: mm(prod.dimensions?.length), width: mm(prod.dimensions?.width), height: mm(prod.dimensions?.height),
+    weight: prod.weightKg ? num(prod.weightKg) : '', purpose: prod.purpose || '', installationMethod: prod.installation || '', description: prod.description || '',
+    img_overview: (prod.photos || []).length ? prod.photos.map((p) => ({ id: p.id, url: p.url, thumb: p.thumb })) : '',
+  }).filter(([, v]) => v)) : {};
+  const base = m ? m.values : { name: name || '', article: article || '' };
+  draft = { ...fromProd, ...Object.fromEntries(Object.entries(base).filter(([, v]) => v !== '' && v != null)), ...defaults, productId, salesOrderId, orderNo, customerName };
   patch({ of: 'passports', new: '1', open: undefined });
   return !!m;
 }
+
+/**
+ * Связи формы паспорта (ФП), через form mount(api):
+ * - категория → элементы / материалы / способы установки только своей категории (чужие выбранные — с пометкой, предупреждение),
+ *   нормативы категории, умолчания (срок службы, гарантия, типовые ограничения) — серым, ручное не трогаем;
+ * - выбрана модель → её картинки по видам в форму (видно до сохранения, без дублей);
+ * - любое изменение → «Готовность к выпуску»: чего не хватает (POST /passports/check), ссылки к полям; кнопка «Выпустить».
+ */
+function wireForm(api, { r, w, catBy, stdName, inst }) {
+  const sel = api.input('installationTypeId');
+  const drawer = api.root.closest('.drawer');
+  const saveBtn = () => [...(drawer?.querySelectorAll('button.btn-primary') || [])].find((b) => /^(Создать|Выпустить|Сохранить)/.test(b.textContent.trim()));
+  let lastCat = api.get('passportCategory');
+
+  const scope = (warn) => {
+    const code = api.get('passportCategory');
+    const foreign = [...(w.el?.setScope(code) || []), ...(w.mat?.setScope(code) || [])];
+    // способ установки: свои + уже выбранный (с пометкой)
+    if (sel) {
+      const cur = sel.value;
+      const own = (o) => !code || !o.cats.length || o.cats.includes(code);
+      const list = inst.filter((o) => own(o) || o.value === cur);
+      sel.replaceChildren(h('option', { value: '' }, '—'), ...list.map((o) => h('option', { value: o.value }, own(o) ? o.label : `${o.label} — не для этой категории`)));
+      sel.value = cur;
+      const o = inst.find((x) => x.value === cur); if (o && !own(o)) foreign.push(o.label);
+    }
+    const c = catBy.get(code);
+    const stds = codeList(c?.standards);
+    w.std.textContent = !code ? 'Выберите категорию — здесь появятся её нормативы' : stds.length ? stds.map((s) => stdName.get(s) || s).join('; ') : 'У категории не указаны нормативы — «Справочники → Паспорта → Категории паспортов»';
+    if (warn && foreign.length) toast(`Не для категории «${CAT_NAMES[code] || code}»: ${foreign.join(', ')}. Оставлено — уберите, если не нужно`, { ms: 8000 });
+  };
+  // умолчания категории: только в пустые поля или в то, что подставлено нами и не правилось руками
+  const defaults = () => {
+    const code = api.get('passportCategory'); const c = catBy.get(code);
+    const vals = { serviceLifeYears: c?.serviceLifeYears, warrantyMonths: c?.warrantyMonths, ...(CAT_DEFAULTS[code] || {}) };
+    for (const [k, v] of Object.entries(vals)) {
+      const inp = api.input(k); if (!inp || v === undefined || v === null || v === '') continue;
+      if (api.manual(k) || (String(inp.value).trim() && !inp.classList.contains('is-default'))) continue;
+      api.set(k, num(v), { auto: true });
+    }
+  };
+  // обязательные картинки категории: «*» в подписи и раскрыть блок, где они лежат (блоки строятся до выбора категории)
+  const markReq = () => {
+    const rq = reqKinds(catBy.get(api.get('passportCategory')), api.get('isKit') === 'yes');
+    for (const [k, label] of kinds()) {
+      const sp = api.field('img_' + k)?.querySelector(':scope > span'); if (!sp) continue;
+      sp.textContent = label + (rq.includes(k) ? ' *' : '');
+      if (rq.includes(k)) api.open('img_' + k);
+    }
+  };
+  api.on('passportCategory', () => {
+    const code = api.get('passportCategory');
+    if (code === lastCat) return;
+    lastCat = code; scope(true); defaults(); markReq(); check();
+  });
+  api.on('isKit', markReq);
+
+  // модель выбрана → картинки модели по видам (только в пустые виды; своё не трогаем)
+  api.on('_copyFrom', async () => {
+    const id = api.get('_copyFrom'); if (!id) return;
+    try {
+      const m = await api_get(`/passports/${id}`);
+      const by = modelImagesToForm(m.images || [], kinds().map(([k]) => k));
+      for (const [k, list] of Object.entries(by)) { if (!list.length) continue; const cur = JSON.parse(api.get('img_' + k) || '[]'); if (!cur.length) api.set('img_' + k, JSON.stringify(list)); }
+      api.set('_imgsFrom', id);
+      check();
+    } catch { /* картинки добавит сервер при сохранении */ }
+  });
+
+  // «Готовность к выпуску»
+  let timer; let seq = 0;
+  const json = (k) => { try { return JSON.parse(api.get(k) || '[]') || []; } catch { return []; } };
+  const goTo = (key) => {
+    api.open(key);
+    const fld = api.field(key); if (!fld) return;
+    fld.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    fld.classList.add('fill-here'); setTimeout(() => fld.classList.remove('fill-here'), 2500);
+    (api.input(key)?.focus || (() => {})).call(api.input(key));
+  };
+  const KEYS = ['name', 'category', 'date', 'supplierOrgId', 'height', 'length', 'width', 'weight', 'materials', 'installationMethod', 'purpose', 'description', 'customerName', 'objectName',
+    'passportCategory', 'installationTypeId', 'isKit', ...V2_NUMS.map(([k]) => k)];
+  const check = () => { clearTimeout(timer); timer = setTimeout(async () => {
+    const my = ++seq;
+    const body = { ...(r ? { date: r.date } : {}), ...Object.fromEntries(KEYS.map((k) => [k, api.get(k)]).filter(([, v]) => v !== '' && v != null)),
+      elements: json('elements'), materialIds: json('materialIds'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)) };
+    let res; try { res = await api_post('/passports/check', body); } catch { return; }
+    if (my !== seq) return;
+    const miss = res.missing || [];
+    w.need.className = miss.length ? 'fill-note' : 'muted';
+    w.need.replaceChildren(...(miss.length
+      ? [h('b', null, `Не хватает для выпуска: ${miss.length}`), h('ul', { class: 'pp-need' }, ...miss.map((m) => h('li', null, m.key ? h('button', { type: 'button', class: 'link-btn', onclick: () => goTo(m.key) }, m.label) : m.label))),
+        h('div', { class: 'hint' }, 'Можно сохранить и дополнить позже — PDF покажет пустые места')]
+      : [h('span', null, '✓ Всё есть — паспорт можно выпускать')]));
+    const b = saveBtn();
+    if (b && !b.disabled && !r) b.textContent = miss.length ? 'Сохранить, дополнить позже' : 'Выпустить';
+  }, 500); };
+  api.root.addEventListener('input', check); api.root.addEventListener('change', check);
+  scope(false); markReq();
+  if (!r && api.get('passportCategory')) defaults();
+  check();
+}
+const api_get = (p) => api(p);
+const api_post = (p, body) => api(p, { method: 'POST', body });
 
 /** «<Наименование> (в дальнейшем именуемое «Изделие»), изготовленное из <материалы>. <Установка> <Назначение>» — как на сервере. */
 function buildDescription(v) {
@@ -124,8 +253,9 @@ function buildDescription(v) {
   return [`${name} (в дальнейшем именуемое «Изделие»)${mat ? ', изготовленное из ' + sentence(mat) : '.'}`, sentence(v.installationMethod), sentence(v.purpose)].filter(Boolean).join(' ');
 }
 
-const imgsOf = (r, kind) => (r.images || []).filter((i) => i.kind === kind).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-const imagesBody = (list) => list.map((i, k) => ({ kind: i.kind, photoId: String(i.photoId), order: k, ...(i.caption ? { caption: i.caption } : {}) }));
+// safety_zone (v2) показываем в «Зоне безопасности» (safety); без вида — в «Общем виде»
+const kindOf = (i) => (i.kind === 'safety_zone' ? 'safety' : i.kind || 'overview');
+const imgsOf = (r, kind) => (r.images || []).filter((i) => kindOf(i) === kind).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
 /** Скачать PDF: «Готовлю…» висит, пока сервер собирает файл (на сервере с одним ядром — секунды), потом «Скачан». */
 async function download(r, query, what) {
@@ -224,6 +354,7 @@ function imagesBlock(r, ctx) {
 }
 
 /** Паспорт v2 (БЗ-6 Э5a2): «Проверка» — чего не хватает; у рисунка — «Загрузить» (переход к его зоне загрузки ниже). */
+// подписи «не хватает» с сервера (passport-rules IMAGE_KIND_LABELS) → вид картинки
 const IMG_BY_LABEL = { 'Фото изделия': 'overview', 'Чертёж с размерами': 'dimensions', 'Зона безопасности': 'safety', 'Схема монтажа': 'mounting', 'Схема фундамента': 'foundation', 'Разметка ям под опоры': 'holes', 'Сборка по шагам': 'assembly', 'Фото с подписями частей': 'overview_callouts', 'Где табличка с номером': 'nameplate' };
 function checkBlock(r) {
   const miss = r.missing || [];
@@ -459,14 +590,23 @@ export const passports = {
   form: {
     fields: async (r) => {
       const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
-      const [els, mats, inst] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall')]);
+      const [els, mats, inst, catRows, stdRows] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards')]);
+      const catBy = new Map(catRows.map((c) => [String(c.code), c]));
+      const stdName = new Map(stdRows.map((s) => [String(s.code), s.name]));
+      // ФП: виджеты, которые меняет выбор категории, и «готовность к выпуску»
+      const w = { el: null, mat: null, std: h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся её нормативы'), need: h('div', { class: 'muted' }, 'Проверяю…') };
+      const startCat = r ? r.passportCategory || '' : newCat;
+      const req = reqKinds(catBy.get(startCat), r?.isKit);
+      const mainKinds = new Set(['overview', ...req]);
       const v2Fields = [
         { section: 'Категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
         // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
-        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value)), wide: true,
-          hint: 'От категории зависят разделы, нормативы и обязательные рисунки. Детские (игровое, спортивное) — позже' },
-        { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => tagPick({ options: els, value: v, label: 'Функциональные элементы' }) },
-        { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => tagPick({ options: mats, value: v, label: 'Материалы' }) },
+        { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && newCat === c.value)), wide: true,
+          hint: 'От категории зависят разделы, нормативы, обязательные рисунки и что показывать ниже. Детские (игровое, спортивное) — позже',
+          mount: (api) => wireForm(api, { r, w, catBy, stdName, inst }) },
+        { key: '_std', label: 'Нормативы категории', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
+        { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => (w.el = tagPick({ options: els, value: v, label: 'Функциональные элементы' })) },
+        { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => (w.mat = tagPick({ options: mats, value: v, label: 'Материалы' })) },
         { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
         { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
         { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
@@ -479,11 +619,13 @@ export const passports = {
         { key: 'certEac', label: 'Знак ЕАС', type: 'segment', options: [{ value: 'no', label: 'Не ставить' }, { value: 'yes', label: 'Ставить' }] },
       ];
       return [
+        // ФП: что ещё нужно для выпуска — ссылки к полям; обновляется при каждом изменении формы
+        { key: '_need', label: 'Готовность к выпуску', type: 'widget', wide: true, widget: () => ({ el: w.need, value: '' }), summary: () => '' },
         { section: 'Изделие (модель)', tone: 'main', fixed: true },
-        { key: '_copyFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
+        { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
         { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
-          hint: r ? undefined : 'Начните печатать и выберите модель — подставятся габариты, материалы, описание и картинки',
-          suggest: r ? undefined : models, suggestTitle: 'Модели: выберите — подставится всё, кроме заказчика и даты', suggestFocus: 'customerName' },
+          hint: r ? undefined : 'Начните печатать и выберите модель — подставятся габариты, материалы, описание и картинки (серым — по умолчанию, можно поправить)',
+          suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Модели: выберите — подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
         { key: 'category', label: 'Категория', type: 'select', options: cats },
         { key: 'article', label: 'Артикул', max: 50 },
         { key: 'height', label: 'Высота, мм', type: 'number', min: 0, span: 1 },
@@ -504,8 +646,11 @@ export const passports = {
         { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'category', title: 'Варианты' } },
         { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
           hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
+        // ФП: обязательные для категории (*) и «Общий вид» — сразу; остальные — в свёрнутом «Ещё картинки»; вставка Ctrl+V — в вид под курсором
         { section: 'Картинки', tone: 'info', collapsed: !!r },
-        ...kinds(r).map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label}${isRequired(r, kind) ? ' — обязательно' : ''}`, type: 'photos', hint: r || kind !== 'overview' ? where : `${where}. У выбранной модели картинки подставятся сами; свои — добавятся к ним` })),
+        ...kinds({ requiredImages: req }).filter(([k]) => mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label}${req.includes(kind) ? ' *' : ''}`, type: 'photos', hint: `${where}${req.includes(kind) ? ' · обязательно для категории' : ''}` })),
+        { section: 'Ещё картинки', tone: 'info', collapsed: true },
+        ...kinds({ requiredImages: req }).filter(([k]) => !mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label, type: 'photos', hint: where })),
         { section: 'Комплектность и заметки', tone: 'who', collapsed: true },
         { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
           widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] }),
@@ -517,12 +662,14 @@ export const passports = {
     // черновик «Выпустить паспорт» (issuePassport) — поверх, пустые значения не затирают умолчания
     initial: async () => {
       const d = draft; draft = null;
+      newCat = d?.passportCategory || '';
       return { date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
         ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
     },
     toInitial: (r) => ({ ...r, height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
       ...v2Initial(r),
       ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
+    // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
     toBody: (v, r) => {
       const s = (x) => (x === null || x === undefined ? '' : String(x));
       const body = {
@@ -535,11 +682,13 @@ export const passports = {
       const bom = parseBom(v.bom);
       if (bom.length || r) body.bom = bom;
       const shown = new Set(kinds().map(([k]) => k));
-      // виды, которых нет в форме (v2-картинки при выключенном флаге), сохраняются как были
-      const kept = imagesBody((r?.images || []).filter((i) => !shown.has(i.kind)));
-      const images = [...kinds().flatMap(([kind]) => (v['img_' + kind] || []).map((photoId, k) => ({ kind, photoId, order: k }))), ...kept];
+      // виды, которых нет в форме, сохраняются как были (safety_zone показан в «Зоне безопасности» — не «чужой»)
+      const kept = imagesBody((r?.images || []).filter((i) => !shown.has(kindOf(i))));
+      const images = [...formImages(v, kinds().map(([k]) => k)), ...kept];
       Object.assign(body, v2Body(v));
-      if (images.length || r) body.images = images;
+      const fromModel = !r && v._copyFrom && v._imgsFrom === v._copyFrom; // картинки модели уже в форме — список окончательный
+      if (images.length || r || fromModel) body.images = images;
+      if (fromModel) body._imagesFinal = true;
       if (!r && v.date) body.date = v.date;
       if (!r && v._copyFrom) body._copyFrom = v._copyFrom;
       if (!r && v.productId) body.productId = v.productId;
@@ -547,10 +696,17 @@ export const passports = {
       return body;
     },
     create: async (body) => {
-      const { _copyFrom, ...rest } = body;
+      const { _copyFrom, _imagesFinal, ...rest } = body;
       if (!_copyFrom) return api('/passports', { method: 'POST', body: rest });
-      // модель выбрана: сервер берёт её поля и картинки; свои картинки добавляются к картинкам модели
-      if (rest.images?.length) { const m = await api(`/passports/${_copyFrom}`); rest.images = [...imagesBody(m.images || []), ...rest.images]; }
+      // модель выбрана: сервер берёт её поля; картинки модели уже разложены по видам в форме (_imagesFinal) — их и шлём;
+      // не успели загрузиться — свои добавляются к картинкам модели (каждая в своём виде, без дублей)
+      if (!_imagesFinal && rest.images?.length) {
+        const m = await api(`/passports/${_copyFrom}`);
+        const ks = [...new Set([...(m.images || []).map(kindOf), ...rest.images.map((i) => i.kind)])];
+        const vals = {};
+        for (const i of [...imagesBody(m.images || []).map((x) => ({ ...x, kind: kindOf(x) })), ...rest.images]) (vals['img_' + i.kind] ||= []).push(i.photoId);
+        rest.images = formImages(vals, ks);
+      }
       return api(`/passports/${_copyFrom}/copy`, { method: 'POST', body: rest });
     },
     update: (id, body) => api(`/passports/${id}`, { method: 'PATCH', body }),

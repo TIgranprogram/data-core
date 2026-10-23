@@ -22,6 +22,9 @@ import { enhanceSelect } from './select.js';
  *   span: 1|3 — ширина поля в блоке (из 4 колонок; по умолчанию 2, wide — вся строка).
  *   phrases — { load: async () => [{ text, n, categories }], by: 'category', title } — «▾ Варианты» готовых текстов под полем (ui/phrases.js), сначала для значения поля by.
  *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
+ *   suggestKeep — выбор подсказки не затирает то, что человек уже поправил руками (паспорт: смена модели).
+ *   mount(api) — после сборки: поле следит за другими. api: get(k), set(k, v, { auto }), on(k, fn), input(k), field(k), open(k), manual(k), root.
+ *     set с auto: true — значение «по умолчанию» (серое, `.is-default`), ручная правка снимает метку; manual(k) — правили ли руками.
  *   suggestFocus — ключ поля, куда перейти после выбора подсказки.
  *   compose — { from: [ключи], build(values) } — значение собирается из других полей на лету, пока его не поправили вручную.
  *   suggest — async () => [{ label, sub, cat, search, values }]: подсказки под полем, выбор заполняет несколько полей (ui/suggest.js).
@@ -70,7 +73,8 @@ export function buildForm(fields, initial = {}) {
     if (f.type === 'photos') {
       // Фото: значение — список id; файлы грузятся сразу, привязка — при сохранении
       const pf = photoField(Array.isArray(v) ? v : []);
-      input = { el: pf.el, get value() { return JSON.stringify(pf.ids()); }, focus: pf.focus };
+      // value = JSON id; присвоить можно список [{ id, url, thumb }] (или его JSON) — картинки модели в паспорте (ФП)
+      input = { el: pf.el, get value() { return JSON.stringify(pf.ids()); }, set value(x) { let l = x; try { if (typeof x === 'string') l = JSON.parse(x || '[]'); } catch { l = []; } pf.set((Array.isArray(l) ? l : []).filter((p) => p && typeof p === 'object' && p.id)); }, focus: pf.focus };
       const err = h('div', { class: 'err', hidden: true });
       const label = h('div', { class: 'field wide' }, h('span', null, f.label), pf.el, f.hint ? h('div', { class: 'hint' }, f.hint) : null, err);
       grid.append(label);
@@ -182,7 +186,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     }
     if (f.suggest) {
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
-        for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (x && v != null && v !== '') { x.input.value = String(v); if (x.input.tagName === 'SELECT') x.input.dispatchEvent(new Event('change', { bubbles: true })); } }
+        for (const [k, v] of Object.entries(vals)) { const x = inputs.get(k); if (f.suggestKeep && manual.has(k) && String(x?.input.value ?? '').trim()) continue; if (x && v != null && v !== '') { x.input.value = String(v); (x.input.el || x.input).dispatchEvent?.(new Event('change', { bubbles: true })); if (f.suggestKeep && x.input.classList && /^(INPUT|TEXTAREA)$/.test(x.input.tagName) && x.input.type !== 'hidden') x.input.classList.add('is-default'); if (x.input.tagName === 'SELECT') x.input.dispatchEvent(new Event('change', { bubbles: true })); } }
         summarize();
         if (f.suggestFocus) setTimeout(() => inputs.get(f.suggestFocus)?.input.focus(), 0); // ПС.5: выбрали модель — дальше «Заказчик»
       } });
@@ -230,6 +234,32 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     }
   }
   if (root) { root.addEventListener('input', summarize); root.addEventListener('change', summarize); summarize(); }
+
+  // ручные правки (событие от человека, не от программы) — для suggestKeep и mount().manual
+  const manual = new Set();
+  for (const [k, x] of inputs) {
+    const el = x.input.el || x.input;
+    const mark = (e) => { if (e.isTrusted) { manual.add(k); (x.input.classList || x.input.el?.classList)?.remove('is-default'); } };
+    el.addEventListener?.('input', mark); el.addEventListener?.('click', (e) => { if (x.f.type === 'segment' || x.f.type === 'widget') mark(e); });
+  }
+  // f.mount(api) — поле следит за другими (паспорт: категория → списки, умолчания, «не хватает для выпуска»)
+  const fapi = {
+    get: (k) => inputs.get(k)?.input.value ?? '',
+    set: (k, v, { auto = false } = {}) => {
+      const x = inputs.get(k); if (!x) return;
+      x.input.value = v ?? '';
+      const el = x.input.el || x.input;
+      el.dispatchEvent?.(new Event('input', { bubbles: true })); el.dispatchEvent?.(new Event('change', { bubbles: true }));
+      (x.input.classList || el.classList)?.toggle('is-default', !!auto);
+    },
+    on: (k, fn) => { const x = inputs.get(k); const el = x && (x.input.el || x.input); el?.addEventListener?.('input', fn); el?.addEventListener?.('change', fn); },
+    input: (k) => inputs.get(k)?.input,
+    field: (k) => inputs.get(k)?.label,
+    open: (k) => { const b = inputs.get(k)?.blk; if (b) setOpen(b, true, false); },
+    manual: (k) => manual.has(k),
+    root: root || grid,
+  };
+  for (const [, x] of inputs) if (x.f.mount) setTimeout(() => x.f.mount(fapi));
 
   const snapshot = () => JSON.stringify([...inputs.values()].map(({ input }) => input.value));
   const start = snapshot();

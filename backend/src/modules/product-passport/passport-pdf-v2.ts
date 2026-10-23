@@ -94,7 +94,7 @@ export const APPENDIX_GROUPS: Array<{ key: string; title: string; kinds: string[
   { key: 'dimensions', title: 'Габариты и зона безопасности', kinds: ['dimensions', 'safety_zone'], perPage: 2 },
   { key: 'foundation', title: 'Схемы установки опор', kinds: ['foundation'], perPage: 1 },
   { key: 'holes', title: 'Схема скважин и разметки', kinds: ['holes'], perPage: 1 },
-  { key: 'mounting', title: 'Инструкция по монтажу', kinds: ['safety', 'mounting'], perPage: 1 },
+  { key: 'mounting', title: 'Инструкция по монтажу', kinds: ['mounting'], perPage: 1 },
   { key: 'assembly', title: 'Инструкция по сборке', kinds: ['assembly'], perPage: 2 },
 ];
 const KIND_TITLE: Record<string, string> = {

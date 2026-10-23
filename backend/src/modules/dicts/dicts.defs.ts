@@ -473,6 +473,7 @@ export const DICTS: DictDef[] = [
       'Материалы изделий: фраза «изготовлено из…», уход и ремонт, типичные дефекты. Подставляются в паспорт по материалам изделия.',
       [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: STEEL_POWDER' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF; пусто — для всех' },
         { key: 'madeOf', label: 'Изготовлено из…', wide: true, hint: 'В родительном падеже: «стальной трубы с порошковым покрытием»' },
         { key: 'care', label: 'Уход и ремонт', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'defects', label: 'Типичные дефекты (коды)', wide: true, hint: 'Коды из «Дефектов» через запятую' },
@@ -499,6 +500,7 @@ export const DICTS: DictDef[] = [
       'Как изделие крепится на месте: текст монтажа, требования к основанию и какие рисунки обязательны.',
       [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: CONCRETE_POSTS' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF; пусто — для всех' },
         { key: 'montage', label: 'Текст монтажа', type: 'textarea', wide: true, hint: 'По строке на шаг' },
         { key: 'baseRequirements', label: 'Требования к основанию', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'requiredImages', label: 'Обязательные рисунки', type: 'textarea', wide: true, hint: 'По строке: foundation, holes…' },

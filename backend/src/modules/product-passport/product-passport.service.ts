@@ -10,7 +10,7 @@ import { normalizeCategory, type PassportCategory } from './passport-template-se
 import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passport-template.default';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
-import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, requiredImageKinds, nextSeq, warrantyCodeFor, type CounterColl } from './passport-rules';
+import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, requiredImageKinds, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
@@ -239,7 +239,8 @@ export class ProductPassportService {
     delete set.confirmNumbers;
     for (const f of OID_FIELDS) if (f in set) set[f] = set[f] ? this.oid(set[f]) : null;
     if ('date' in set) set.date = set.date ? new Date(String(set.date)) : null;
-    if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind, photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
+    // картинка без вида — только «Фото изделия» (ФП: раньше без вида не попадала никуда)
+    if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
     for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
     if (set.passportNumber !== undefined) set.passportNo = Number(set.passportNumber) || undefined;
     return set;
@@ -271,7 +272,7 @@ export class ProductPassportService {
     const src = (await this.findById(id)).toObject() as unknown as Doc;
     const dto: Doc = {};
     for (const f of MODEL_FIELDS) if (src[f] !== undefined && src[f] !== null) dto[f] = src[f];
-    dto.images = ((src.images as Array<Doc>) || []).map((i) => ({ kind: i.kind, photoId: String(i.photoId), order: i.order, caption: i.caption }));
+    dto.images = ((src.images as Array<Doc>) || []).map((i) => ({ kind: i.kind || 'overview', photoId: String(i.photoId), order: i.order, caption: i.caption }));
     for (const f of OID_FIELDS) if (dto[f]) dto[f] = String(dto[f]);
     return this.create({ ...(dto as unknown as CreateProductPassportDto), ...over });
   }
@@ -367,6 +368,22 @@ export class ProductPassportService {
     const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install } });
     doc.set('textSnapshot', { ...text, at: new Date() });
     return doc.save();
+  }
+
+  /**
+   * Проверка черновика формы (ФП): чего не хватает для выпуска — те же правила, что у сохранённого паспорта
+   * (категория, справочник, стандартные схемы способа установки). Ничего не пишет.
+   */
+  async check(body: Record<string, unknown>) {
+    const numOr = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number(String(v).replace(',', '.')));
+    const p: Doc = { ...body };
+    for (const k of ['height', 'length', 'width', 'weight', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears']) p[k] = numOr(p[k]);
+    p.images = ((p.images as Array<Doc>) || []).map((i) => ({ kind: i.kind || 'overview', photoId: String(i.photoId ?? '') }));
+    p.isKit = p.isKit === true || p.isKit === 'yes';
+    const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
+    const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
+    const full = this.withSchemes(p, inst);
+    return { missing: missingKeyed(full as never, cat), requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */

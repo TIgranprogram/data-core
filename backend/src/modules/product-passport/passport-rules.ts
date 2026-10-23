@@ -212,5 +212,22 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   return m;
 }
 
+/** Подпись «не хватает» v1 → поле формы (для ссылки «перейти к полю»). */
+const V1_FIELD_KEYS: Record<string, string> = {
+  'Наименование': 'name', 'Категория': 'category', 'Дата': 'date', 'Поставщик': 'supplierOrgId', 'Габариты': 'height', 'Вес': 'weight',
+  'Материалы': 'materials', 'Установка': 'installationMethod', 'Назначение': 'purpose', 'Описание': 'description',
+  'Заказчик / объект': 'customerName', 'Фото изделия': 'img_overview', 'Элементы': 'elements', 'Способ установки': 'installationTypeId',
+};
+/**
+ * То же, что `missingFieldsV2`, но с ключом поля формы паспорта (ФП: список «не хватает для выпуска» со ссылкой на поле).
+ * Рисунок → `img_<вид>` (safety_zone в форме — safety).
+ */
+export function missingKeyed(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null): Array<{ label: string; key: string }> {
+  const byLabel = new Map<string, string>(Object.entries(V1_FIELD_KEYS));
+  for (const [k, l] of requiredFieldsOf(String(p.passportCategory || ''), cat)) byLabel.set(l, k);
+  for (const [k, l] of Object.entries(IMAGE_KIND_LABELS)) byLabel.set(`Рисунок: ${l}`, 'img_' + (k === 'safety_zone' ? 'safety' : k));
+  return missingFieldsV2(p, cat).map((label) => ({ label, key: byLabel.get(label) ?? '' }));
+}
+
 /** Комплектность по умолчанию (Приложение 3). */
 export const DEFAULT_BOM = [{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }];
