@@ -28,7 +28,7 @@ export function metalView(r) {
 
 /** Варианты из справочника группы склада; вызывается при первом открытии поля. Нет справочника на сервере — список пуст. */
 const dictCache = {};
-const dictNames = (key) => () => (dictCache[key] ||= api('/dicts/' + key).then((r) => (r.items || []).map((x) => x.name).filter(Boolean).sort((p, q) => p.localeCompare(q, 'ru', { numeric: true }))).catch(() => []));
+const dictNames = (key) => () => (dictCache[key] ||= api('/dicts/' + key).then((r) => (r.items || []).map((x) => x.name).filter(Boolean).sort((p, q) => p.localeCompare(q, 'ru', { numeric: true }))).catch(() => { delete dictCache[key]; return []; })); // сбой сети — не закреплять пустой список: следующий фокус повторит
 
 /** Поля формы позиции — блок «Металл» (свёрнут; для труб и листов). */
 export const metalFields = () => [
@@ -38,7 +38,7 @@ export const metalFields = () => [
   { key: 'thickness', label: 'Толщина, мм', type: 'number', min: 0, span: 1 },
   { key: 'lengthM', label: 'Длина, м', type: 'number', min: 0, span: 1 },
   { key: 'widthM', label: 'Ширина, м', type: 'number', min: 0, span: 1 },
-  { note: 'Толщина — стенка трубы или лист. Длина: труба обычно 6 м, лист — например 2. Ширина — только для листа (1 или 1,25).' },
+  { note: 'Толщина — стенка трубы или лист. Труба обычно 6 м; ширина — только для листа.' },
 ];
 export const metalInitial = (r) => ({ thickness: r.dims?.thickness ?? null, lengthM: r.dims?.length ? r.dims.length / 1000 : null, widthM: r.dims?.width ? r.dims.width / 1000 : null });
 /** В тело запроса: метры → мм; пусто — стереть. */

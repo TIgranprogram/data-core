@@ -14,6 +14,6 @@ describe('справочники металла', () => {
     expect((await d.usage(db, [doc])).get(String(doc._id))).toBe(4);
     expect(aggregate.mock.calls[0][0][0].$match).toHaveProperty(field);
     expect(await d.reassign(db, doc, { _id: new Types.ObjectId(), name: 'Ст3сп' })).toBe(2);
-    expect(updateMany.mock.calls[0][1]).toEqual({ $set: { [field]: 'Ст3сп' } });
+    expect(updateMany.mock.calls[0][1]).toEqual({ $set: { [field]: 'Ст3сп', updatedAt: expect.any(Date) } });
   });
 });

@@ -286,6 +286,7 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
   .form-blocks .form-grid { grid-template-columns: 1fr 1fr; }
   .form-blocks .form-grid > * { grid-column: span 1; }
   .form-blocks .form-grid > .span-3, .form-blocks .form-grid > .span-3 + .span-1, .form-blocks .form-grid > .is-seg { grid-column: 1 / -1; }
+  .form-blocks .form-grid > .span-2 { grid-column: 1 / -1; } /* сортамент, марка — на телефоне во всю строку (проверка дизайнера SPR-1) */
 }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field > span { font-size: var(--fs-sm); color: var(--muted); font-weight: 500; }

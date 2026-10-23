@@ -142,7 +142,7 @@ function metalList(key: string, title: string, hint: string, field: 'assortment'
       const [rows, total] = await Promise.all([db.collection('materials').find(q).sort({ _id: -1 }).limit(15).project({ name: 1 }).toArray(), db.collection('materials').countDocuments(q)]);
       return { title: 'Позиции склада', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
     },
-    reassign: async (db, from, to) => (await db.collection('materials').updateMany({ [field]: rx(from.name) }, { $set: { [field]: s(to.name) } })).modifiedCount,
+    reassign: async (db, from, to) => (await db.collection('materials').updateMany({ [field]: rx(from.name) }, { $set: { [field]: s(to.name), updatedAt: new Date() } })).modifiedCount,
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
       for (const [k, n] of await tally(db, 'materials', field)) add(found, k, n, 'склад');

@@ -39,8 +39,18 @@ export const METAL_FACETS = new Set(['section', 'grade', 'thick']);
 
 /** Подготовить позиции: признаки + строка для поиска (один раз после загрузки). */
 export function index(items) {
+  // марка и сечение — одно написание на вариант (регистр, ё, лишние пробелы не различаем; берём самое частое), иначе в фильтре дубли (SPR-1)
+  const one = (field) => {
+    const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
+    const k = (v) => clean(v).toLowerCase().replace(/ё/g, 'е');
+    const n = new Map(), best = new Map();
+    for (const it of items) { const v = clean(it[field]); if (v) n.set(v, (n.get(v) || 0) + 1); }
+    for (const [v, c] of n) { const b = best.get(k(v)); if (!b || c > n.get(b)) best.set(k(v), v); }
+    return (v) => (clean(v) ? best.get(k(v)) : null);
+  };
+  const section = one('assortment'), grade = one('materialGrade');
   for (const it of items) {
-    it._f = { ...facetsOf(it.name), section: it.assortment || null, grade: it.materialGrade || null, thick: it.dims?.thickness ? String(it.dims.thickness) : null };
+    it._f = { ...facetsOf(it.name), section: section(it.assortment), grade: grade(it.materialGrade), thick: it.dims?.thickness ? String(it.dims.thickness) : null };
     it._s = normSearch([it.name, it.article, it.sku, it.categoryName].filter(Boolean).join(' '));
   }
   return items;

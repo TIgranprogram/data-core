@@ -85,8 +85,10 @@ export class StockSearchService {
     if (q.materialIds) filter._id = { $in: q.materialIds };
 
     // металл (СМ.1): марка, сечение, толщина — фильтры «Остатков»
-    if (q.grade) filter.materialGrade = String(q.grade);
-    if (q.section) filter.assortment = String(q.section);
+    // без учёта регистра и лишних пробелов: в фильтре одно написание, в позициях бывают разные (SPR-1)
+    const same = (v: unknown) => new RegExp(`^\\s*${String(v).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+').replace(/[её]/gi, '[её]')}\\s*$`, 'i');
+    if (q.grade) filter.materialGrade = same(q.grade);
+    if (q.section) filter.assortment = same(q.section);
     if (q.thickness && Number(q.thickness) > 0) filter.dimensions = { $elemMatch: { type: 'thickness', value: Number(q.thickness) } };
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
       .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));

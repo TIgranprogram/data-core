@@ -164,14 +164,15 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       // f.options(get) — список зависит от других полей (группа — от раздела); sub — серая строка, group — заголовок; f.multi — через запятую
       const get = (k) => inputs.get(k)?.input.value ?? '';
       // f.load — async () => массив строк/{value,label}: варианты грузятся при первом фокусе поля, результат в кэше; ошибка — список пуст
-      let loaded = []; let loading = null; let cb = null;
+      let loaded = []; let loading = null; let cb = null; let done = false;
       const lazy = () => {
         if (!f.load || loading) return;
-        loading = Promise.resolve().then(f.load).then((r) => { loaded = Array.isArray(r) ? r : []; }).catch(() => { loaded = []; }).then(() => cb?.refresh());
+        loading = Promise.resolve().then(f.load).then((r) => { loaded = Array.isArray(r) ? r : []; }).catch(() => { loaded = []; }).then(() => { done = true; cb?.refresh(); });
       };
       if (f.load) input.addEventListener('focus', lazy);
       const list = () => (f.load ? loaded : typeof f.options === 'function' ? f.options(get) || [] : opts).map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
-      cb = attachCombo(input, { multi: !!f.multi, options: () => list().map((o) => ({ label: String(o.label), value: o.value, sub: o.sub, group: o.group })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined });
+      cb = attachCombo(input, { multi: !!f.multi, options: () => list().map((o) => ({ label: String(o.label), value: o.value, sub: o.sub, group: o.group })), extra: f.extra ? (t, shown) => f.extra(t, shown, { set, add: (l) => opts.push({ value: l, label: l }) }) : undefined,
+        empty: f.load ? () => (loading && !done ? 'Загружаю…' : undefined) : undefined }); // признак загрузки, а не «список пуст»
       if (f.strict) {
         const was = String(v ?? '');
         input.addEventListener('blur', () => setTimeout(() => {
