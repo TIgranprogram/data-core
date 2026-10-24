@@ -6,6 +6,7 @@ import { confirmDlg } from '../ui/dialog.js';
 import { errText } from '../ui/errors.js';
 import { targetPicker } from '../ui/target-picker.js';
 import { toast } from '../ui/toast.js';
+import { buildIssueOrder } from './order-issue.js';
 
 /*
  * Правка брони в правой панели (SK-6b): сколько в брони, под какой заказ и позицию, примечание.
@@ -13,6 +14,7 @@ import { toast } from '../ui/toast.js';
  * «Снять бронь» — кнопка в панели (с подтверждением и «Отменить» не нужна: бронь можно поставить заново).
  */
 async function build() {
+  if (current().params.op === 'issueorder') return buildIssueOrder(); // «Выдать по заказу» (SK-6c) — та же панель «Бронь»
   const rid = current().params.rid;
   const res = await api('/stock/reservations');
   let group = null; let line = null;
@@ -56,6 +58,6 @@ async function build() {
 }
 
 export const resEdit = {
-  id: 'resedit', title: 'Бронь', newTitle: 'Изменить бронь', card: { heading: () => 'Бронь' }, get: async () => ({}),
-  form: { build, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Сохранить', closeAfterCreate: true },
+  id: 'resedit', title: 'Бронь', get newTitle() { return current().params.op === 'issueorder' ? 'Выдать по заказу' : 'Изменить бронь'; }, card: { heading: () => 'Бронь' }, get: async () => ({}),
+  form: { build, toBody: (v) => v, create: (v) => v.save(), get saveLabel() { return current().params.op === 'issueorder' ? 'Выдать' : 'Сохранить'; }, closeAfterCreate: true },
 };

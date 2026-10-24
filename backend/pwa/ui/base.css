@@ -1210,3 +1210,9 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .spec-prev legend { padding: 0 var(--s2); font-weight: 600; color: var(--heading); }
 .tag-lite { margin-left: var(--s2); padding: 0 6px; border: 1px solid var(--border); border-radius: 10px; font-size: var(--fs-label); color: var(--muted); }
 @media (max-width: 720px) { .spec-row { grid-template-columns: 22px minmax(0, 1fr) auto; } .spec-row > :nth-child(n+4), .spec-row .res-acts { grid-column: 2 / -1; justify-content: flex-start; } .res-acts { gap: var(--s3); } .toast button { min-height: 44px; padding: 0 var(--s3); } .tp-sel { flex-wrap: wrap; } .timeline li:has(> .tl-line), .timeline li.tl-cont { flex-wrap: wrap; } .timeline li.tl-cont > :first-child { margin-left: 0; } .timeline li .tl-line { flex: 1 1 100%; overflow: visible; text-overflow: clip; white-space: normal; } }
+/* «Выдать по заказу» в правой панели (SK-6c): строка брони — галочка · название · узкое «сколько» + «из N ед.» */
+.oi-n { display: flex; align-items: center; gap: var(--s2); }
+.oi-qty { width: 84px; text-align: right; font-variant-numeric: tabular-nums; }
+.oi-qty.invalid { border-color: var(--danger); }
+.oi-msg:empty { display: none; }
+.oi-sum { margin: var(--s3) 0; font-weight: 600; color: var(--heading); }

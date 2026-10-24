@@ -177,14 +177,17 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + errText(e))); return; }
     const err = h('div', { class: 'form-error', hidden: true });
     body.replaceChildren(...[err, revert ? h('div', { class: 'fill-note' }, revert.note) : null, form.el].filter(Boolean));
-    const saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
+    let saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
     const save = h('button', { class: 'btn btn-primary', type: 'button' }, saveLabel);
+    // форма сама управляет кнопкой: неактивна, пока нечего сохранять; подпись по выбору («Выдать 3 позиции») — SK-6c
+    form.bindSave?.((enabled, label) => { save.disabled = !enabled; if (label) { saveLabel = label; save.textContent = label; } });
     const cancel = h('button', { class: 'btn', type: 'button', onclick: async () => {
       if (form.dirty() && !(await confirmDlg('Отменить изменения?', 'Введённые данные не сохранятся.', { okText: 'Да, отменить' }))) return;
       if (isNew && !row) { destroy(); ctx.close(); } else showView(row);
     } }, 'Отмена');
     save.onclick = async () => {
       let saved;
+      if (save.disabled) return;
       const r = form.read();
       if (r.errors) return;
       save.disabled = true; save.textContent = 'Сохранение…'; err.hidden = true;
