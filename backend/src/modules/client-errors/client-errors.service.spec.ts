@@ -105,7 +105,8 @@ describe('очистка на сервере: без параметров адр
 
   it('stripQuery: query и hash-параметры в каждом адресе; номер строки стека остаётся', () => {
     expect(stripQuery('#stock?search=Иванов')).toBe('#stock');
-    expect(stripQuery('GET /api/materials?search=секрет&page=2 упал')).toBe('GET /api/materials упал');
+    expect(stripQuery('GET /api/materials?search=секрет&page=2 упал')).toBe('GET /api/materials'); // параметры — до конца строки: незакодированный пробел не оставляет хвост поиска
+    expect(stripQuery('GET /api/x?search=мой секрет')).not.toMatch(/секрет/);
     expect(stripQuery('at load (https://h/db/app/core/api.js?v=12:10:5)')).toBe('at load (https://h/db/app/core/api.js:10:5)');
     expect(stripQuery('Что случилось? Ничего')).toBe('Что случилось? Ничего');
   });
@@ -129,7 +130,7 @@ describe('очистка на сервере: без параметров адр
       kind: 'action',
     } as CreateClientErrorDto;
     const clean = sanitizeClientError(dirty);
-    expect(clean.message).toBe('fetch /api/x failed, Bearer ***');
+    expect(clean.message).toBe('fetch /api/x');
     expect(clean.section).toBe('#stock');
     expect(clean.stack).toBe('Error\n at a (https://h/app.js:1:2)');
 

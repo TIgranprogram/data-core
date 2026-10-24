@@ -24,6 +24,7 @@ const scrub = (s) => String(s)
   .replace(/Bearer\s+[\w\-.~+/=]+/gi, 'Bearer ***')
   .replace(/kppd_[\w-]+/g, 'kppd_***')
   .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]*/g, '***')
+  .replace(/\?[^\s'"?]*=[^\n'"]*?((?::\d+){1,2}\)?)?(?=['"\n]|$)/g, '$1') // ?search=мой секрет — до конца строки, номер строки стека — оставить
   .replace(/\?[^\s'"<>()]*/g, (q) => (q.includes('=') ? '' : q)); // ?a=1&b=2 — прочь; одиночный «?» в тексте — оставить
 
 export function reportError(err, { kind = 'action', action, status, url } = {}) {

@@ -25,16 +25,19 @@ export function normalizeForSig(s: string | undefined): string {
  * «api.js?v=3:10:5» → «api.js:10:5» (номер строки стека сохраняется). «?» без продолжения (конец фразы) не трогаем.
  */
 export function stripQuery(s: string): string {
+  // параметры (есть «=») — до конца строки/кавычки, иначе незакодированный пробел оставил бы хвост поиска («?search=мой секрет»);
+  // номер строки стека в конце сохраняем
+  s = s.replace(/\?[^\s'"?]*=[^\n'"]*?((?::\d+){1,2}\)?)?(?=['"\n]|$)/g, '$1');
   return s.replace(/\?(?=[^\s)'"])[^\s)'"]*?((?::\d+){1,2})?(?=[\s)'"]|$)/g, '$1');
 }
 
-/** Похожее на секрет → «***»: Bearer …, kppd_…, JWT (a.b.c), длинные hex/base64 (> 32 символов, буквы и цифры). */
+/** Похожее на секрет → «***»: Bearer …, kppd_…, JWT (a.b.c), длинные hex/base64 (от 32 символов, буквы и цифры). */
 export function maskSecrets(s: string): string {
   return s
     .replace(/Bearer\s+[^\s'",;)]+/gi, 'Bearer ***')
     .replace(/kppd_[A-Za-z0-9_-]+/g, '***')
     .replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, '***')
-    .replace(/[A-Za-z0-9+/_=-]{33,}/g, (m) => (/\d/.test(m) && /[A-Za-z]/.test(m) && !m.includes('//') ? '***' : m));
+    .replace(/[A-Za-z0-9+/_=-]{32,}/g, (m) => (/\d/.test(m) && /[A-Za-z]/.test(m) && !m.includes('//') ? '***' : m));
 }
 
 /**
