@@ -101,6 +101,7 @@ export class StockReservationUpdateDto {
 export class StockIssueOrderDto {
   @ApiProperty({ description: 'Заказ (salesorders.id)' }) @IsMongoId() salesOrderId!: string;
   @ApiPropertyOptional({ type: [String], description: 'Выбранные брони (reservations.id); нет — все активные брони заказа' }) @IsOptional() @IsArray() @ArrayMaxSize(500) @IsMongoId({ each: true }) reservationIds?: string[];
+  @ApiPropertyOptional({ type: [StockIssueLineDto], description: 'Выбранные брони с количеством (SK-6c); qty нет — вся бронь. Есть lines — reservationIds не нужен' }) @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockIssueLineDto) lines?: StockIssueLineDto[];
   @ApiPropertyOptional({ description: 'Кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
   @ApiPropertyOptional({ description: 'Кому / куда выдано текстом' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) note?: string;

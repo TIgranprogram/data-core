@@ -278,17 +278,19 @@ export class StockReservationsService {
   /**
    * «Выдать по заказу» (SK-6): все активные брони заказа или выбранные — одной операцией (пачка, общий batchId, всё или ничего).
    * Выдача по брони с позицией пишет `salesOrderLineId` в движение. Повтор с тем же clientUid ничего не меняет.
+   * `lines` (SK-6c) — выбранные брони с количеством (меньше брони — частичная выдача, остаток брони активен).
    */
-  async issueOrder(dto: { salesOrderId: string; reservationIds?: string[]; personId?: string; issuedTo?: string; note?: string; clientUid?: string }, userId?: string) {
+  async issueOrder(dto: { salesOrderId: string; reservationIds?: string[]; lines?: { reservationId: string; qty?: number }[]; personId?: string; issuedTo?: string; note?: string; clientUid?: string }, userId?: string) {
     const rest = { personId: dto.personId, issuedTo: dto.issuedTo, note: dto.note, clientUid: dto.clientUid };
     if (dto.clientUid && (await this.movements.exists({ clientUid: dto.clientUid, batchId: { $ne: null } }))) return this.issueReservations({ lines: [], ...rest }, userId);
-    const ids = dto.reservationIds;
+    const qty = new Map((dto.lines ?? []).map((l) => [l.reservationId, l.qty]));
+    const ids = dto.lines ? [...qty.keys()] : dto.reservationIds;
     if (ids && !ids.length) throw new BadRequestException('Выберите, что выдать');
     const list = await this.reservations.find({ salesOrderId: oid(dto.salesOrderId, 'заказа'), status: 'active', deletedAt: null, ...(ids ? { _id: { $in: ids.map((i) => oid(i, 'брони')) } } : {}) }, { _id: 1 }).lean().exec();
     if (ids && list.length !== new Set(ids).size) throw new ConflictException('Часть броней уже выдана или снята — обновите страницу');
     if (!list.length) throw new BadRequestException('По заказу нет активных броней');
     if (list.length > 500) throw new BadRequestException('За один раз — не больше 500 броней: выберите часть');
-    return { ...(await this.issueReservations({ lines: list.map((r) => ({ reservationId: String(r._id) })), ...rest }, userId)), salesOrderId: dto.salesOrderId };
+    return { ...(await this.issueReservations({ lines: list.map((r) => ({ reservationId: String(r._id), qty: qty.get(String(r._id)) })), ...rest }, userId)), salesOrderId: dto.salesOrderId };
   }
 
   /**

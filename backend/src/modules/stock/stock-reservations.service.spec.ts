@@ -74,6 +74,12 @@ describe('StockReservationsService.issueOrder', () => {
     await t.svc.issueOrder({ salesOrderId: String(t.order._id), clientUid: 'k' });
     expect((spy.mock.calls[0][0] as { lines: unknown[] }).lines).toEqual([]);
   });
+  it('lines с количеством — выдаётся указанное, а не вся бронь (SK-6c)', async () => {
+    const t = setup();
+    const spy = jest.spyOn(t.svc, 'issueReservations').mockResolvedValue({ issued: 1 } as never);
+    await t.svc.issueOrder({ salesOrderId: String(t.order._id), lines: [{ reservationId: String(t.res._id), qty: 3 }] });
+    expect((spy.mock.calls[0][0] as { lines: unknown[] }).lines).toEqual([{ reservationId: String(t.res._id), qty: 3 }]);
+  });
   it('часть выбранных броней уже выдана или снята — 409', async () => {
     const t = setup();
     await expect(t.svc.issueOrder({ salesOrderId: String(t.order._id), reservationIds: [String(t.res._id), String(id())] })).rejects.toBeInstanceOf(ConflictException);
