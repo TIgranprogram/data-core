@@ -1299,3 +1299,5 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .rz-left::before { left: 2px; }
 .resizer:hover::before, .resizer.is-active::before { background: var(--gold); opacity: 1; }
 .sidebar { overflow-y: auto; overscroll-behavior: contain; }
+
+.side-ver-foot { padding: 6px 12px 0; font-size: 10.5px; color: var(--side-text); opacity: .45; font-variant-numeric: tabular-nums; } /* номер версии внизу меню (2026-10-24) */

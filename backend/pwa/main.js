@@ -38,7 +38,7 @@ import { ptext, ptextview } from './sections/passport-texts.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
 import { bulkEdit } from './sections/bulk-edit.js';
-import { hasNewer, onVersion, reloadApp, versionLabel, watchUpdates } from './core/update-check.js';
+import { versionLabel, watchUpdates } from './core/update-check.js';
 import { bellButton } from './ui/notices.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
@@ -87,19 +87,11 @@ function showLogin(message) {
 events.onAuthLost = () => { session.clear(); showLogin('Сессия истекла — войдите снова.'); };
 
 // ---------- «Обновить приложение» (2026-10-22): у установленного приложения нет кнопки браузера «обновить» ----------
-// 2026-10-24: без новой версии — просто подпись «Версия от … · последняя»; есть новее — «Обновить приложение» с точкой
-function updateLink() {
-  const ver = h('small', { class: 'side-ver' });
-  versionLabel(ver);
-  const lbl = h('span', { class: 'lbl' });
-  const a = h('a', { class: 'side-link', href: '#', onclick: (e) => { e.preventDefault(); if (hasNewer()) reloadApp(); } }, icon('refresh'), lbl);
-  onVersion(() => {
-    const newer = hasNewer();
-    a.classList.toggle('side-update', newer); a.classList.toggle('side-static', !newer);
-    a.title = newer ? 'Загрузить новую версию приложения (данные не теряются)' : 'Открыта последняя версия';
-    lbl.replaceChildren(newer ? 'Обновить приложение' : 'Приложение', ver);
-  });
-  return a;
+// 2026-10-24: пункта «Обновить приложение» нет — новая версия приходит в колокольчик; внизу меню — тихий номер «v1.245»
+function appVersion() {
+  const el = h('div', { class: 'side-ver-foot' });
+  versionLabel(el);
+  return el;
 }
 
 // ---------- «Установить на телефон» (TASKS МП.2–МП.3) ----------
@@ -171,10 +163,10 @@ function shell() {
       // CRM живёт на том же домене в корне (https://kppdf-crm.ru/), приложение — под /db/; локально CRM нет
       PREFIX ? h('a', { class: 'side-link', href: '/', title: 'CRM' }, icon('crm'), h('span', { class: 'lbl' }, 'CRM')) : null,
       themeButton(),
-      updateLink(),
       h('div', { class: 'side-user' }, h('span', { class: 'avatar' }, initials),
         h('div', { class: 'who' }, h('b', null, session.name), h('span', null, session.user?.roleLabel || roleName(session.user?.role)))),
-      h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти'))));
+      h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти')),
+      appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)
   const backBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Назад', onclick: () => window.history.back() }, '‹');

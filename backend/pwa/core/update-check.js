@@ -68,12 +68,12 @@ function showBar(r) {
   addNotice({ id: 'app-update', text: 'Вышла новая версия приложения', sub: fmt(r.date) ? 'от ' + fmt(r.date) + ' · данные не теряются' : 'данные не теряются', action: { label: 'Обновить', run: reloadApp } });
 }
 
-/** Подпись в меню: «Версия от 22.10.2026 09:01 · последняя» (открытая версия) или «· есть новее». */
+/** Номер версии внизу меню (2026-10-24): «v1.245» — тихо, без дат и призывов; обновление — через колокольчик. */
 export function versionLabel(el) {
   const render = () => {
     if (!loaded) { el.textContent = ''; return; }
-    const newer = latest?.v && loaded.v && latest.v !== loaded.v;
-    el.textContent = `Версия${fmt(loaded.date) ? ' от ' + fmt(loaded.date) : ''} · ${newer ? 'есть новее' : 'последняя'}`;
+    el.textContent = loaded.n ? `v1.${loaded.n}` : `v${String(loaded.v).slice(0, 7)}`;
+    el.title = fmt(loaded.date) ? 'Версия приложения от ' + fmt(loaded.date) : 'Версия приложения';
   };
   subs.add(render); render();
 }

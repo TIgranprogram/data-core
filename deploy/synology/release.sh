@@ -32,7 +32,9 @@ echo "== 1. Бэкап базы на VM"
 echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
 TMP="$(mktemp -d)"
 # версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
-PWA_VER="$(git log -1 --format='{"v":"%h","date":"%cI"}' -- backend/pwa)"
+# n — номер версии: число коммитов, менявших приложение (растёт с каждым обновлением; показ «v1.n»)
+PWA_N="$(git rev-list --count HEAD -- backend/pwa)"
+PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"date":"%cI"}' -- backend/pwa)"
 git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend docker-compose.prod.yml deploy
 scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
 "${SSH[@]}" 'set -e; TS=$(date +%Y%m%d%H%M); R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
