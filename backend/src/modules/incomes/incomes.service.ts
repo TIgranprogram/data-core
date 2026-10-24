@@ -80,7 +80,9 @@ export class IncomesService {
       noamount: { paidDate: null, shipDate: { $ne: null }, $or: [{ amount: null }, { amount: { $lte: 0 } }] },
       draft: { paidDate: null, shipDate: null },
     };
-    const full = { ...filter, ...(q.status && statusCond[String(q.status)] ? statusCond[String(q.status)] : {}) };
+    // «отгружено» без деталей оплаты — для ролей без денег (MoneyMask заменяет paid/awaiting/noamount); в счётчики не входит
+    const shippedCond = { shipDate: { $ne: null } };
+    const full = { ...filter, ...(q.status === 'shipped' ? shippedCond : q.status && statusCond[String(q.status)] ? statusCond[String(q.status)] : {}) };
     const [docs, total, agg, counts] = await Promise.all([
       this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, orderNo: -1, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(full).setOptions({ includeSoftDeleted: true }).exec(),

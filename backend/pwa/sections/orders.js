@@ -20,6 +20,7 @@ export const INCOME_STATUS = {
   awaiting: { label: 'Ждём оплату', tone: 'warn' },
   noamount: { label: 'Без суммы', tone: 'dim' },
   paid: { label: 'Оплачено', tone: 'ok' },
+  shipped: { label: 'Отгружено', tone: 'dim' }, // роль без прав на деньги: оплату не видно (сервер, MoneyMask)
 };
 const STATUS_HINT = {
   '': 'Строки заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено». Сумма и даты нужны для платёжного календаря.',
@@ -27,6 +28,7 @@ const STATUS_HINT = {
   awaiting: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено».',
   noamount: 'Отгружено, но сумма не указана (в Excel-заказах цен нет). Кнопка «Вписать сумму» в строке — и строка попадёт в «Ждём оплату» и в календарь.',
   paid: 'Деньги получены — доход в платёжном календаре на дату оплаты.',
+  shipped: 'Отгружено.',
 };
 
 let lk = null;
@@ -98,7 +100,7 @@ export const orders = {
     emptyText: 'Заказов пока нет. Они появятся из листа «Заказы» Google-таблицы или добавьте вручную.',
     hints: STATUS_HINT,
     filters: [
-      { key: 'status', label: 'Статус', type: 'chips', options: () => Object.entries(INCOME_STATUS).map(([value, s]) => ({ value, label: s.label })), count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
+      { key: 'status', label: 'Статус', type: 'chips', options: () => Object.entries(INCOME_STATUS).filter(([v]) => (session.canMoney ? v !== 'shipped' : v === 'draft' || v === 'shipped')).map(([value, s]) => ({ value, label: s.label })), count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
       { key: 'companyId', label: 'Все компании', type: 'select', options: async () => (await incomeLookups()).companies.map((c) => ({ value: c.id, label: c.name })) },
       { key: 'from', label: 'С даты', short: 'с', type: 'date' },
       { key: 'to', label: 'По дату', short: 'по', type: 'date' },
