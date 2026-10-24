@@ -5,10 +5,10 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
 import type { AuditQueryRaw } from './audit-query';
 import { withChanges } from './record-history';
+import { canSeeMoney } from '../../common/roles-hierarchy';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
 export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem', 'Product'];
-const canMoney = (u?: AuthenticatedUser) => u?.isOwner === true || ['admin', 'director', 'accountant'].includes(u?.role ?? '');
 
 /**
  * Журнал аудита (только admin). Пишут оба приложения единой базы — data-core и kppdf.
@@ -49,7 +49,7 @@ export class AuditController {
     if (!RECORD_HISTORY_TYPES.includes(entityType)) throw new BadRequestException('История для этого типа записей недоступна');
     if (!entityId?.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
     // «было → стало» по полям (И.1) — из соседних снимков; деньги — только деньги-ролям; сами снимки наружу не отдаём
-    const items = withChanges(await this.service.recordLogs(entityType, entityId.trim()) as Array<Record<string, unknown>>, canMoney(user));
+    const items = withChanges(await this.service.recordLogs(entityType, entityId.trim()) as Array<Record<string, unknown>>, canSeeMoney(user));
     return {
       items: items.map((d) => ({ action: d.action, userName: d.userName ?? null, createdAt: d.createdAt, changes: d.changes, first: d.first })),
       total: items.length,

@@ -42,13 +42,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }
-    const role = await this.roles.findByName(user.role);
+    // SK-8c: у своей роли права (permissions) — от её baseRole.
+    const { access } = await this.roles.resolveForAuth(user.role);
     return {
       id: user.id,
       username: user.username,
       role: user.role,
       permissions: user.permissions ?? [],
-      rolePermissions: role?.permissions ?? [],
+      rolePermissions: access?.permissions ?? [],
       organizationId: user.organizationId?.toString() ?? null,
       // TZ-AUTH-306: owner flag hydrated from DB (not trusted from the JWT
       // claim) so guards can grant owner-only bypass without a second query.

@@ -16,6 +16,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { effectivePermissions } from '../../common/contracts/rbac-contract';
 import { appSectionsFor } from '../../common/app-sections';
+import { roleLabelOf } from '../../common/roles-hierarchy';
 
 /**
  * Single-source-of-truth generic login error.
@@ -194,8 +195,7 @@ export class AuthService {
    */
   async getMe(userId: string): Promise<AuthUserPayload> {
     const user = await this.findActiveUserOrThrow(userId);
-    const role = await this.roles.findByName(user.role);
-    return this.toAuthUser(user, role?.pages ?? [], role);
+    return this.toAuthUser(user, await this.roles.resolveForAuth(user.role));
   }
 
   async logout(userId: string): Promise<void> {
@@ -229,13 +229,13 @@ export class AuthService {
     const [access, refresh, role] = await Promise.all([
       this.signAccess(user),
       this.signRefresh(user),
-      this.roles.findByName(user.role),
+      this.roles.resolveForAuth(user.role),
     ]);
     this.setRefreshCookie(res, refresh);
     return {
       access,
       refresh,
-      user: this.toAuthUser(user, role?.pages ?? [], role),
+      user: this.toAuthUser(user, role),
     };
   }
 
@@ -277,11 +277,21 @@ export class AuthService {
     );
   }
 
+  /**
+   * SK-8c: `resolved.role` — роль пользователя (название, разделы меню),
+   * `resolved.access` — откуда права и pages (у своей роли — её baseRole).
+   */
   private toAuthUser(
     user: UserDocument,
-    pages: string[] = [],
-    roleDoc?: { name: string; permissions?: string[] | null; appSections?: string[] | null } | null,
+    resolved?: {
+      role: { name: string; label?: string | null; appSections?: string[] | null } | null;
+      access: { name: string; permissions?: string[] | null; pages?: string[] | null } | null;
+      baseRole: string;
+    } | null,
   ): AuthUserPayload {
+    const roleDoc = resolved?.role ?? null;
+    const accessDoc = resolved?.access ?? null;
+    const pages = accessDoc?.pages ?? [];
     const isOwner = user.isOwner === true;
     // TZ-AUTH-306 — owner-only pages are stripped for everyone but the
     // owner, so the role editor surface is hidden from ordinary admins via
@@ -295,7 +305,10 @@ export class AuthService {
       email: user.email ?? '',
       displayName: user.displayName,
       role: user.role,
-      permissions: Array.from(effectivePermissions(user, roleDoc)),
+      // SK-8c: права приложения — по baseRole (у встроенной — она сама); roleLabel — название для людей.
+      baseRole: resolved?.baseRole ?? user.role,
+      roleLabel: roleLabelOf(user.role, roleDoc?.label),
+      permissions: Array.from(effectivePermissions(user, accessDoc)),
       // TZ-ACCESS-301: page ACL delivered via /auth/me.
       pages: visiblePages,
       // SK-8a: разделы «Рабочего места» по роли; null — как раньше (по иерархии), у admin всегда null.

@@ -238,7 +238,7 @@ export function mountHome(deps) {
     h('div', { class: 'lane-head' }, icon(ico), h('h2', null, title), h('a', { class: 'lane-link', href }, linkText)), ...kids.filter(Boolean));
   // место на диске сервера (TASKS ДИ.2): админу — плашка, только когда занято больше 80%
   const diskNote = h('p', { class: 'hint disk-note', hidden: true });
-  if (session.user?.role === 'admin' || session.user?.isOwner) {
+  if (session.role === 'admin' || session.user?.isOwner) {
     api('/health/disk').then((d) => {
       if (d.level === 'ok') return;
       diskNote.hidden = false;

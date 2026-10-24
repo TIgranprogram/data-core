@@ -239,8 +239,7 @@ export class StockController {
   @Get('items/:id/ordered')
   @Roles('admin', 'director', 'manager', 'user')
   ordered(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
-    const money = user?.isOwner === true || ['admin', 'director', 'accountant'].includes(user?.role ?? '');
-    return this.stock.itemOrdered(id, money);
+    return this.stock.itemOrdered(id, canSeeMoney(user));
   }
 
   /** Обрезок трубы / листа: своя позиция «… — обрезок 1,2 м» + приход; труба — метры уходят из позиции (СМ.2). */

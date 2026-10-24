@@ -13,19 +13,26 @@ import {
   Min,
 } from 'class-validator';
 import { APP_SECTION_IDS } from '../../../common/app-sections';
+import { BASE_ROLES } from '../../../common/roles-hierarchy';
 
 export class CreateRoleDto {
-  @ApiProperty({ example: 'manager', description: 'Системное имя роли (строчные, a-z, 0-9, _, -)' })
+  /**
+   * Код роли. SK-8c: через POST /api/roles не передаётся — код своей роли
+   * (`r-…`) задаёт сервер; менять код нельзя. Поле осталось для сидов и
+   * /api/admin/roles (владелец).
+   */
+  @ApiPropertyOptional({ example: 'r-1a2b3c', description: 'Код роли: задаёт сервер при создании, менять нельзя' })
+  @IsOptional()
   @IsString()
   @Length(2, 64)
   @Matches(/^[a-z][a-z0-9_-]*$/, {
     message: 'name must be lowercase, start with a letter, and use only a-z, 0-9, _, -',
   })
-  name!: string;
+  name?: string;
 
   @ApiProperty({ example: 'Менеджер', description: 'Отображаемое название роли' })
-  @IsString()
-  @Length(2, 128)
+  @IsString({ message: 'Название роли — текст' })
+  @Length(2, 128, { message: 'Название роли: от 2 до 128 символов' })
   label!: string;
 
   @ApiPropertyOptional({ description: 'Описание роли' })
@@ -34,11 +41,18 @@ export class CreateRoleDto {
   @Length(0, 512)
   description?: string;
 
-  @ApiProperty({ type: [String], description: 'Список разрешений (например orders.create)' })
+  @ApiPropertyOptional({ type: [String], description: 'Список разрешений (например orders.create); у своей роли права берутся от baseRole' })
+  @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })
-  permissions!: string[];
+  permissions?: string[];
+
+  /** SK-8c: «права как у» — встроенная роль, на которую опирается своя (не admin). */
+  @ApiPropertyOptional({ enum: BASE_ROLES, description: 'Права как у: user | manager | accountant | director (только у своей роли)' })
+  @IsOptional()
+  @IsIn(BASE_ROLES as unknown as string[], { message: '«Права как у»: выберите наблюдателя, менеджера, бухгалтера или директора' })
+  baseRole?: string;
 
   @ApiPropertyOptional({ description: 'Порядок сортировки' })
   @IsOptional()

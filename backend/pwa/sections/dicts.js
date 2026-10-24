@@ -200,7 +200,7 @@ let editRoles = null;
 function canEditDict() {
   if (!session.canEdit) return false;
   if (!editRoles || session.user?.isOwner === true) return true;
-  return editRoles.some((r) => (r === 'director' ? ['admin', 'director'] : [r]).includes(session.user?.role));
+  return editRoles.some((r) => (r === 'director' ? ['admin', 'director'] : [r]).includes(session.role));
 }
 
 /** Поля-картинки справочника (photo — одна, photos — несколько; БЗ-6 Э9.7). */

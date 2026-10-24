@@ -61,17 +61,12 @@
         <h2>Пользователи</h2>
         <button id="user-create-btn" class="btn btn-accent">+ Создать</button>
       </div>
-      <p class="panel-note">Роли по старшинству — каждая видит всё, что младшие: <b>наблюдатель</b> — только просмотр, без денег · <b>менеджер</b> — заявки, склад, заказы, без денег · <b>бухгалтер</b> — плюс деньги (суммы, оплаты, платёжный календарь) · <b>директор</b> — всё, кроме управления пользователями · <b>администратор</b> — всё и пользователи (администраторов может быть несколько; владельца удалить нельзя).</p>
+      <p class="panel-note">Роли по старшинству — каждая видит всё, что младшие: <b>наблюдатель</b> — только просмотр, без денег · <b>менеджер</b> — заявки, склад, заказы, без денег · <b>бухгалтер</b> — плюс деньги (суммы, оплаты, платёжный календарь) · <b>директор</b> — всё, кроме управления пользователями · <b>администратор</b> — всё и пользователи (администраторов может быть несколько; владельца удалить нельзя). <b>Свои роли</b> (вкладка «Роли») — с правами одной из встроенных и своими разделами меню.</p>
 
       <form id="user-search-form" class="filters">
         <input id="user-search" placeholder="Поиск: логин, email, имя" />
         <select id="user-role-filter">
           <option value="">Все роли</option>
-          <option value="admin">администратор</option>
-          <option value="director">директор</option>
-          <option value="manager">менеджер</option>
-          <option value="accountant">бухгалтер</option>
-          <option value="user">наблюдатель</option>
         </select>
         <button class="btn btn-primary" type="submit">Найти</button>
       </form>
@@ -101,13 +96,7 @@
           <label>Отображаемое имя <input id="f-displayName" /></label>
           <label>Email <input id="f-email" type="email" /></label>
           <label>Роль
-            <select id="f-role">
-              <option value="user">Наблюдатель — только просмотр</option>
-              <option value="manager">Менеджер — заявки, склад, заказы (без денег)</option>
-              <option value="accountant">Бухгалтер — всё, что у менеджера, плюс деньги</option>
-              <option value="director">Директор — всё, кроме управления пользователями</option>
-              <option value="admin">Администратор — полный доступ</option>
-            </select>
+            <select id="f-role"></select>
           </label>
           <label id="f-password-wrap">Пароль <input id="f-password" type="password" autocomplete="new-password" /></label>
           <p class="muted small">Пароль задаётся только при создании. Для смены — кнопка «Сброс пароля» в списке.</p>
@@ -124,11 +113,12 @@
     <main id="tab-roles" class="tab-panel" hidden>
       <div class="panel-head">
         <h2>Роли</h2>
+        <button id="role-create-btn" class="btn btn-accent" type="button">+ Новая роль</button>
       </div>
-      <p class="panel-note">Какие разделы «Рабочего места» видит роль в меню. Нажмите на роль и отметьте разделы. Ничего не отмечено — как раньше: роль видит разделы по старшинству. <b>Администратор</b> видит всё всегда. Это только меню — права на действия (деньги, запись) не меняются.</p>
+      <p class="panel-note"><b>Новая роль</b> — название, «права как у» одной из встроенных (что можно делать и видны ли деньги) и разделы меню; потом назначьте её сотруднику во вкладке «Пользователи». Нажмите на роль, чтобы переименовать её или отметить разделы. Ничего не отмечено — как раньше: разделы по старшинству. <b>Администратор</b> видит всё всегда. Галочки — только меню, права задаёт «права как у».</p>
       <div class="table-wrap">
         <table class="table" id="roles-table">
-          <thead><tr><th></th><th>Роль</th><th>Разделы в меню</th></tr></thead>
+          <thead><tr><th></th><th>Роль</th><th>Права как у</th><th>Разделы в меню</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

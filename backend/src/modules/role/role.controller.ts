@@ -51,13 +51,13 @@ export class RoleController {
 
   @Post()
   @Roles('admin')
-  @ApiOperation({ summary: 'Create a new role (admin only)' })
+  @ApiOperation({ summary: 'Новая своя роль (SK-8c): название, «права как у» (baseRole), разделы; код r-… задаёт сервер' })
   @ApiResponse({ status: 201, description: 'Role created' })
+  @ApiResponse({ status: 400, description: 'Нет baseRole или передан name' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 409, description: 'Role name already exists' })
   create(@Body() dto: CreateRoleDto) {
-    return this.service.create(dto);
+    return this.service.createCustom(dto);
   }
 
   @Patch(':id')
@@ -66,6 +66,7 @@ export class RoleController {
   @ApiResponse({ status: 200, description: 'Role updated' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 400, description: 'Код роли или «права как у» встроенной роли менять нельзя' })
   @ApiResponse({ status: 404, description: 'Role not found' })
   update(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
     return this.service.update(id, dto);
@@ -79,6 +80,7 @@ export class RoleController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Role not found' })
+  @ApiResponse({ status: 409, description: 'Встроенная роль или роль назначена сотрудникам' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }

@@ -39,7 +39,7 @@ const catName = (c) => CATS.find((x) => x.code === c)?.name || c;
 export const textsCat = () => catOf(current().params.cat);
 export function canEditTexts() {
   if (!session.canEdit) return false;
-  return session.user?.isOwner === true || ['admin', 'director'].includes(session.user?.role);
+  return session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
 }
 
 // ─── данные: кэш ответа GET /passports/texts по категории (экран и панель читают одно) ────────────

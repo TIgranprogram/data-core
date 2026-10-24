@@ -72,3 +72,41 @@ describe('UserService.adminResetPassword (TZ-257.A.1 §2)', () => {
     invalidateSpy.mockRestore();
   });
 });
+
+/** SK-8c: роль сотрудника — встроенная или существующая активная своя роль. */
+describe('UserService — проверка роли (SK-8c)', () => {
+  const ID = new Types.ObjectId().toString();
+  function svc(roleDoc: Record<string, unknown> | null) {
+    const rolesFind = jest.fn().mockResolvedValue(roleDoc);
+    const target = { _id: ID, username: 'bob', role: 'manager', save: jest.fn() };
+    const exec = { exec: jest.fn().mockResolvedValue(target) };
+    const model = {
+      db: { collection: jest.fn().mockReturnValue({ findOne: rolesFind }) },
+      findById: jest.fn().mockReturnValue({ ...exec, select: jest.fn().mockReturnValue(exec) }),
+      findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    } as unknown as Model<UserDocument>;
+    return { service: new UserService(model), rolesFind, target };
+  }
+
+  it('неизвестная роль -> 400 по-русски', async () => {
+    const { service } = svc(null);
+    await expect(service.update(ID, { role: 'r-nope00' })).rejects.toThrow(/Такой роли нет/);
+  });
+
+  it('выключенная своя роль или своя без baseRole -> 400', async () => {
+    await expect(svc({ isActive: false, baseRole: 'manager' }).service.update(ID, { role: 'r-x00001' })).rejects.toThrow(/Такой роли нет/);
+    await expect(svc({ isActive: true }).service.update(ID, { role: 'warehouse' })).rejects.toThrow(/Такой роли нет/);
+  });
+
+  it('активная своя роль с baseRole — назначается', async () => {
+    const { service, target } = svc({ isActive: true, baseRole: 'manager' });
+    await service.update(ID, { role: 'r-sklad1' });
+    expect(target.role).toBe('r-sklad1');
+  });
+
+  it('встроенная роль — без запроса к roles', async () => {
+    const { service, rolesFind } = svc(null);
+    await service.update(ID, { role: 'director' });
+    expect(rolesFind).not.toHaveBeenCalled();
+  });
+});

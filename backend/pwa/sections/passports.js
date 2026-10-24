@@ -131,7 +131,7 @@ export const passports = {
       { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
       isIssued(r) && canEdit() && { label: 'Новая редакция', title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { st.revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
       isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
-      isIssued(r) && (session.user?.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
+      isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
       !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
       !r.productId && canEdit() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },

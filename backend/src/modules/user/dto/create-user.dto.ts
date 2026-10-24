@@ -4,7 +4,6 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
-  IsIn,
   IsOptional,
   IsString,
   Length,
@@ -54,8 +53,13 @@ export class CreateUserDto {
   @Length(8, 128, { message: 'Пароль должен быть не короче 8 символов' })
   password!: string;
 
-  @ApiProperty({ enum: ['user', 'manager', 'accountant', 'director', 'admin'], description: 'Роль: наблюдатель < менеджер < бухгалтер < директор; администратор — всё и пользователи' })
-  @IsIn(['user', 'manager', 'accountant', 'director', 'admin'], { message: 'Недопустимая роль: выберите наблюдателя, менеджера, бухгалтера, директора или администратора' })
+  /**
+   * Встроенная роль или код своей роли (`r-…`, SK-8c). Существование и
+   * активность своей роли проверяет UserService (400 по-русски).
+   */
+  @ApiProperty({ example: 'manager', description: 'Роль: встроенная (user < manager < accountant < director; admin — всё и пользователи) или код своей роли из GET /api/roles' })
+  @IsString({ message: 'Выберите роль' })
+  @Length(1, 64, { message: 'Выберите роль' })
   role!: string;
 
   @ApiPropertyOptional({ type: [String], description: 'Разрешения' })

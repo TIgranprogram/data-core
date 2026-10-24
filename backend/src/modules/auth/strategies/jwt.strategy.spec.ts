@@ -17,6 +17,10 @@ describe('JwtStrategy', () => {
     mockRoleService = {
       findByName: jest.fn().mockResolvedValue(null),
     };
+    // SK-8c: настоящий resolveForAuth поверх замоканного findByName.
+    Object.assign(mockRoleService, {
+      resolveForAuth: (n: string) => RoleService.prototype.resolveForAuth.call(mockRoleService as never, n),
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

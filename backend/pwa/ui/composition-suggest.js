@@ -11,7 +11,7 @@ import { toast } from './toast.js';
  * Ничего не удаляется, повторное «Добавить» количество не удваивает (сервер заменяет, а не прибавляет).
  * Цены показываются только если сервер их прислал (деньговые роли). Без права записи — просмотр без кнопки.
  */
-const canAccept = () => ['admin', 'manager'].includes(session.user?.role) || session.user?.isOwner === true;
+const canAccept = () => ['admin', 'manager'].includes(session.role) || session.user?.isOwner === true;
 
 /** Открыть панель по позиции заказа (шагом: «назад» вернёт на карточку). */
 export const openCompositionSuggest = (lineId) => patch({ of: 'compsug', new: '1', lid: lineId, open: undefined }, { replace: false });

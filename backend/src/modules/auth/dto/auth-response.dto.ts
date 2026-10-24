@@ -22,6 +22,13 @@ export interface AuthUserPayload {
   email: string;
   displayName: string;
   role: string;
+  /**
+   * SK-8c — роль, по которой приложение решает права: встроенная — она сама
+   * (`admin` тоже); своя (`r-…`) — её «права как у» (user|manager|accountant|director).
+   */
+  baseRole: string;
+  /** SK-8c — название роли для людей («Кладовщик», «Менеджер»). */
+  roleLabel: string;
   permissions: string[];
   phone?: string | null;
   fullName?: string | null;

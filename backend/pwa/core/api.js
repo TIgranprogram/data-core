@@ -13,17 +13,19 @@ export const session = {
   get user() { try { return JSON.parse(store.get('dca_user') || 'null'); } catch { return null; } },
   set user(v) { store.set('dca_user', v ? JSON.stringify(v) : ''); },
   clear() { this.access = ''; this.refresh = ''; this.user = null; },
+  /** SK-8c: роль для прав — у своей роли («Кладовщик») это её «права как у» (baseRole), у встроенной — она сама. */
+  get role() { const u = this.user; return u?.baseRole || u?.role; },
   /** Может ли менять данные (как на сервере: admin, manager). */
   // Иерархия ролей (backend common/roles-hierarchy.ts): директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель
-  get canEdit() { return ['admin', 'director', 'accountant', 'manager'].includes(this.user?.role) || this.user?.isOwner === true; },
+  get canEdit() { return ['admin', 'director', 'accountant', 'manager'].includes(this.role) || this.user?.isOwner === true; },
   /** Суммы, доходы, платёжный календарь — только админ / директор / бухгалтер (сервер всё равно скрывает). */
-  get canMoney() { return ['admin', 'director', 'accountant'].includes(this.user?.role) || this.user?.isOwner === true; },
+  get canMoney() { return ['admin', 'director', 'accountant'].includes(this.role) || this.user?.isOwner === true; },
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
   /** SK-8b: виден ли раздел меню по галочкам роли (user.sections; нет списка — всё как раньше; «Сегодня» и админ — всегда).
    *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */
   sees(id) {
     const u = this.user, s = u?.sections;
-    return id === 'home' || !Array.isArray(s) || u?.role === 'admin' || s.includes(id);
+    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id);
   },
 };
 

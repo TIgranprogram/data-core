@@ -123,7 +123,7 @@ function shell() {
   navLinks.trash = link('trash', 'Корзина', 'trash');
   navLinks.dicts = link('dicts', 'Справочники', 'dicts');
   navLinks.history = link('history', 'История', 'history'); // И.2 — директор и администратор
-  const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.user?.role);
+  const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
   let gsb;
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
   // ПО.1: стёрли строку — назад на экран, с которого начали искать (без новой записи истории); 1 знак — не ищем
@@ -154,13 +154,13 @@ function shell() {
       navLinks.dicts,
       seesHistory ? navLinks.history : null,
       navLinks.trash,
-      session.user?.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,
+      session.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,
       // CRM живёт на том же домене в корне (https://kppdf-crm.ru/), приложение — под /db/; локально CRM нет
       PREFIX ? h('a', { class: 'side-link', href: '/', title: 'CRM' }, icon('crm'), h('span', { class: 'lbl' }, 'CRM')) : null,
       themeButton(),
       updateLink(),
       h('div', { class: 'side-user' }, h('span', { class: 'avatar' }, initials),
-        h('div', { class: 'who' }, h('b', null, session.name), h('span', null, roleName(session.user?.role)))),
+        h('div', { class: 'who' }, h('b', null, session.name), h('span', null, session.user?.roleLabel || roleName(session.user?.role)))),
       h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти'))));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)

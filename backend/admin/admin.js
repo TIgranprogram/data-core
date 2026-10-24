@@ -69,12 +69,59 @@
     $('#login-view').hidden = true;
     $('#app-view').hidden = false;
     const u = store.user;
-    $('#whoami').textContent = u ? `${u.username} · ${ROLE_RU[u.role] || u.role}${u.isOwner ? ' · владелец' : ''}` : '';
+    $('#whoami').textContent = u ? `${u.username} · ${u.roleLabel || ROLE_RU[u.role] || u.role}${u.isOwner ? ' · владелец' : ''}` : '';
     // Переходы: CRM живёт на корне домена только в публичном контуре (/db/…)
     $('#crm-link').hidden = !PREFIX;
-    loadUsers(); refreshHealth();
+    loadRoleList().then(() => loadUsers()); refreshHealth();
   }
   const ROLE_RU = { admin: 'администратор', director: 'директор', accountant: 'бухгалтер', manager: 'менеджер', user: 'наблюдатель' };
+
+  // ---- Список ролей для форм (SK-8c): встроенные + свои из GET /roles ----
+  // Своя роль (код r-…) — название и «права как у» встроенной (не администратора).
+  const ROLE_HINT = {
+    user: 'Наблюдатель — только просмотр', manager: 'Менеджер — заявки, склад, заказы (без денег)',
+    accountant: 'Бухгалтер — всё, что у менеджера, плюс деньги', director: 'Директор — всё, кроме управления пользователями',
+    admin: 'Администратор — полный доступ',
+  };
+  const FORM_ORDER = ['user', 'manager', 'accountant', 'director', 'admin'];
+  const BASE_ROLES = ['user', 'manager', 'accountant', 'director'];
+  const roleList = { items: [], loaded: false };
+  const isBuiltinRole = (name) => Object.prototype.hasOwnProperty.call(ROLE_RU, name);
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  /** Название роли для людей: своё по-русски; английское из сида — русское. */
+  const roleTitle = (r) => (r.label && /[а-яё]/i.test(r.label)) ? r.label : (ROLE_RU[r.name] ? cap(ROLE_RU[r.name]) : (r.label || r.name));
+  function roleNameRu(name) {
+    const r = roleList.items.find((x) => x.name === name);
+    return r ? roleTitle(r) : (ROLE_RU[name] ? cap(ROLE_RU[name]) : name);
+  }
+  const customRoles = () => roleList.items.filter((r) => !isBuiltinRole(r.name) && r.baseRole)
+    .sort((a, b) => roleTitle(a).localeCompare(roleTitle(b), 'ru'));
+  async function loadRoleList(force) {
+    if (!roleList.loaded || force) {
+      try { const r = await api('/roles'); roleList.items = Array.isArray(r) ? r : (r.items || []); roleList.loaded = true; }
+      catch (e) { toast('Роли не загрузились: ' + e.message); }
+    }
+    fillRoleSelects();
+    return roleList.items;
+  }
+  /** Выпадающие «Роль» (форма сотрудника) и фильтр списка — из GET /roles, а не зашитые варианты. */
+  function fillRoleSelects() {
+    const f = $('#f-role'), flt = $('#user-role-filter');
+    const keepF = f.value, keepFlt = flt.value;
+    f.replaceChildren(...FORM_ORDER.map((n) => new Option(ROLE_HINT[n], n)));
+    flt.replaceChildren(new Option('Все роли', ''), ...FORM_ORDER.slice().reverse().map((n) => new Option(roleNameRu(n), n)));
+    const own = customRoles();
+    if (own.length) {
+      const g = el('optgroup'); g.label = 'Свои роли';
+      own.filter((r) => r.isActive !== false).forEach((r) => g.append(new Option(`${roleTitle(r)} — права как у: ${ROLE_RU[r.baseRole]}`, r.name)));
+      f.append(g);
+      const g2 = el('optgroup'); g2.label = 'Свои роли';
+      own.forEach((r) => g2.append(new Option(roleTitle(r), r.name)));
+      flt.append(g2);
+    }
+    if (keepF) f.value = keepF;
+    flt.value = keepFlt;
+  }
   function initTheme() {
     const b = $('#theme-btn'); if (!b || !window.dcTheme) { if (b) b.hidden = true; return; }
     $('#theme-name').textContent = window.dcTheme.name();
@@ -132,7 +179,7 @@
   function userRow(u) {
     const tr = el('tr');
     tr.append(el('td', '', u.username), el('td', '', u.displayName || '—'), el('td', '', u.email || '—'),
-      el('td', '', ROLE_RU[u.role] || u.role), el('td', '', u.isActive ? 'да' : 'нет'), el('td', '', fmtDate(u.createdAt)));
+      el('td', '', roleNameRu(u.role)), el('td', '', u.isActive ? 'да' : 'нет'), el('td', '', fmtDate(u.createdAt)));
     const td = el('td');
     const edit = el('button', 'btn btn-sm', 'Изменить'); edit.onclick = () => openUserDialog(u);
     const reset = el('button', 'btn btn-sm', 'Сброс пароля'); reset.onclick = () => resetPassword(u);
@@ -146,7 +193,10 @@
     $('#f-username').value = u?.username || '';
     $('#f-displayName').value = u?.displayName || '';
     $('#f-email').value = u?.email || '';
-    $('#f-role').value = u?.role || 'manager';
+    const fr = $('#f-role');
+    // Роль сотрудника, которой нет в списке (выключена/удалена), — показать как есть, чтобы не подменить молча.
+    if (u?.role && ![...fr.options].some((o) => o.value === u.role)) fr.append(new Option(roleNameRu(u.role) + ' (нет в списке)', u.role));
+    fr.value = u?.role || 'manager';
 
     $('#f-password').value = '';
     $('#f-password-wrap').hidden = !!u; // пароль только при создании
@@ -587,30 +637,33 @@
     loadSheets();
   });
 
-  // ---- Роли: какие разделы «Рабочего места» видит роль (SK-8a) ----
-  // Пусто — как раньше (по старшинству роли); admin видит всё, галочек у него нет.
+  // ---- Роли (SK-8a, SK-8c): название, «права как у» у своих ролей, разделы «Рабочего места» в меню ----
+  // Разделы пусто — как раньше (по старшинству роли); admin видит всё, галочек у него нет.
+  // Ввод — в раскрывающейся строке (как «Таблицы»), без окна: в админке нет правой панели.
   const roleState = { sections: [] };
+  const ROLE_COLS = 4;
   async function loadRoles() {
     const tbody = $('#roles-table tbody');
-    const ph = el('tr'); const ptd = el('td', 'muted', 'Загрузка…'); ptd.colSpan = 3; ph.append(ptd);
+    const ph = el('tr'); const ptd = el('td', 'muted', 'Загрузка…'); ptd.colSpan = ROLE_COLS; ph.append(ptd);
     tbody.replaceChildren(ph);
     try {
-      const [secs, roles] = await Promise.all([
+      const [secs] = await Promise.all([
         roleState.sections.length ? { items: roleState.sections } : api('/roles/app-sections'),
-        api('/roles'),
+        loadRoleList(true),
       ]);
       roleState.sections = secs.items || [];
       tbody.replaceChildren();
-      const list = Array.isArray(roles) ? roles : (roles.items || []);
-      if (!list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ролей нет'); td.colSpan = 3; tr.append(td); tbody.append(tr); return; }
-      list.forEach((r) => {
-        const main = roleRow(r), detail = el('tr', 'col-detail');
-        detail.hidden = true;
-        const td = el('td', 'col-detail-cell'); td.colSpan = 3; detail.append(td);
-        main.addEventListener('click', () => toggleRole(r, main, detail));
-        tbody.append(main, detail);
-      });
+      const list = roleList.items;
+      if (!list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ролей нет'); td.colSpan = ROLE_COLS; tr.append(td); tbody.append(tr); return; }
+      list.forEach((r) => tbody.append(...roleRows(r)));
     } catch (e) { tbody.replaceChildren(); toast(e.message); }
+  }
+  function roleRows(r) {
+    const main = roleRow(r), detail = el('tr', 'col-detail');
+    detail.hidden = true;
+    const td = el('td', 'col-detail-cell'); td.colSpan = ROLE_COLS; detail.append(td);
+    main.addEventListener('click', () => toggleRole(r, main, detail));
+    return [main, detail];
   }
   const secLabel = (id) => roleState.sections.find((s) => s.id === id)?.label || id;
   function roleSummary(r) {
@@ -620,46 +673,123 @@
   }
   function roleRow(r) {
     const tr = el('tr', 'col-row');
-    tr.append(el('td', 'col-caret', r.name === 'admin' ? '' : '▸'));
-    const name = el('td'); name.append(el('span', 'col-name', r.label || ROLE_RU[r.name] || r.name));
+    tr.append(el('td', 'col-caret', '▸'));
+    const name = el('td'); name.append(el('span', 'col-name', roleTitle(r)));
     tr.append(name);
+    const own = !isBuiltinRole(r.name) && r.baseRole;
+    tr.append(el('td', own ? '' : 'muted', own ? cap(ROLE_RU[r.baseRole] || r.baseRole) : 'встроенная'));
     const sum = el('td', 'col-doc', roleSummary(r));
     if (!(r.appSections || []).length || r.name === 'admin') sum.classList.add('muted');
     tr.append(sum);
     return tr;
   }
+  /** Поля роли: название (у всех), «права как у» (у своей и новой), галочки разделов (кроме admin). */
+  function roleForm(r, isNew) {
+    const own = isNew || (!isBuiltinRole(r.name) && !!r.baseRole);
+    const wrap = el('div');
+    const fields = el('div', 'role-fields');
+    const lName = el('label', '', 'Название');
+    const name = el('input'); name.maxLength = 128; name.placeholder = 'Например, Кладовщик'; name.value = isNew ? '' : roleTitle(r);
+    lName.append(name); fields.append(lName);
+    let base = null;
+    if (own) {
+      const lBase = el('label', '', 'Права как у');
+      base = el('select');
+      BASE_ROLES.forEach((n) => base.append(new Option(ROLE_HINT[n], n)));
+      base.value = r.baseRole || 'manager';
+      lBase.append(base); fields.append(lBase);
+    }
+    wrap.append(fields);
+    let box = null;
+    if (r.name !== 'admin') {
+      wrap.append(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству («права как у»).'));
+      box = el('div', 'sec-checks');
+      const on = new Set(r.appSections || []);
+      roleState.sections.forEach((s) => {
+        const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = s.id; cb.checked = on.has(s.id);
+        lb.append(cb, el('span', '', s.label)); box.append(lb);
+      });
+      wrap.append(box);
+    }
+    return { wrap, name, base, box, own };
+  }
+  function roleBody(f) {
+    const body = { label: f.name.value.trim() };
+    if (f.box) body.appSections = [...f.box.querySelectorAll('input:checked')].map((c) => c.value);
+    if (f.base) body.baseRole = f.base.value;
+    return body;
+  }
   function toggleRole(r, main, detail) {
-    if (r.name === 'admin') return;
     const caret = main.querySelector('.col-caret');
     if (!detail.hidden) { detail.hidden = true; main.classList.remove('open'); caret.textContent = '▸'; return; }
     main.classList.add('open'); caret.textContent = '▾'; detail.hidden = false;
     const td = detail.querySelector('.col-detail-cell');
-    td.replaceChildren(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству роли.'));
-    const box = el('div', 'sec-checks');
-    const on = new Set(r.appSections || []);
-    roleState.sections.forEach((s) => {
-      const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = s.id; cb.checked = on.has(s.id);
-      lb.append(cb, el('span', '', s.label)); box.append(lb);
-    });
+    const f = roleForm(r, false);
     const acts = el('div', 'sec-acts');
     const save = el('button', 'btn btn-primary', 'Сохранить'); save.type = 'button';
-    const clear = el('button', 'btn', 'Снять все'); clear.type = 'button';
-    clear.onclick = () => box.querySelectorAll('input').forEach((c) => { c.checked = false; });
+    acts.append(save);
+    if (f.box) {
+      const clear = el('button', 'btn', 'Снять все'); clear.type = 'button';
+      clear.onclick = () => f.box.querySelectorAll('input').forEach((c) => { c.checked = false; });
+      acts.append(clear);
+    }
+    if (f.own) {
+      const del = el('button', 'btn btn-danger push', 'Удалить роль'); del.type = 'button';
+      del.onclick = () => deleteRole(r, del);
+      acts.append(del);
+    }
     save.onclick = async () => {
-      const appSections = [...box.querySelectorAll('input:checked')].map((c) => c.value);
+      const body = roleBody(f);
+      if (body.label.length < 2) { toast('Введите название роли — не короче 2 букв'); f.name.focus(); return; }
+      if (!f.own) delete body.baseRole;
       save.disabled = true; save.textContent = 'Сохранение…';
       try {
-        const upd = await api('/roles/' + encodeURIComponent(r.id || r._id), { method: 'PATCH', body: JSON.stringify({ appSections }) });
-        r.appSections = upd?.appSections || appSections;
-        const sum = main.querySelector('.col-doc');
-        sum.textContent = roleSummary(r); sum.classList.toggle('muted', !r.appSections.length);
-        toast(appSections.length ? `Сохранено: ${r.label || r.name} — разделов в меню: ${appSections.length}` : `Сохранено: ${r.label || r.name} — как раньше, по старшинству`);
-      } catch (e) { toast('Не сохранилось: ' + e.message); }
-      finally { save.disabled = false; save.textContent = 'Сохранить'; }
+        const upd = await api('/roles/' + encodeURIComponent(r.id || r._id), { method: 'PATCH', body: JSON.stringify(body) });
+        Object.assign(r, upd || body);
+        loadRoles();
+        toast(`Сохранено: ${roleTitle(r)}` + (body.appSections ? ` — разделов в меню: ${body.appSections.length || 'как раньше'}` : ''));
+      } catch (e) { toast('Не сохранилось: ' + e.message); save.disabled = false; save.textContent = 'Сохранить'; }
     };
-    acts.append(save, clear);
-    td.append(box, acts);
+    td.replaceChildren(f.wrap, acts);
+    f.name.focus();
   }
+  /** «+ Новая роль»: строка-форма сверху таблицы; код роли задаёт сервер. */
+  function newRole() {
+    const tbody = $('#roles-table tbody');
+    const open = tbody.querySelector('tr.role-new');
+    if (open) { open.querySelector('input')?.focus(); return; }
+    const tr = el('tr', 'col-detail role-new');
+    const td = el('td', 'col-detail-cell'); td.colSpan = ROLE_COLS; tr.append(td);
+    const f = roleForm({ name: '', appSections: [], baseRole: 'manager' }, true);
+    const acts = el('div', 'sec-acts');
+    const save = el('button', 'btn btn-primary', 'Создать роль'); save.type = 'button';
+    const cancel = el('button', 'btn', 'Отмена'); cancel.type = 'button';
+    cancel.onclick = () => tr.remove();
+    save.onclick = async () => {
+      const body = roleBody(f);
+      if (body.label.length < 2) { toast('Введите название роли — не короче 2 букв'); f.name.focus(); return; }
+      save.disabled = true; save.textContent = 'Создание…';
+      try {
+        await api('/roles', { method: 'POST', body: JSON.stringify(body) });
+        toast(`Роль «${body.label}» создана — теперь её можно выбрать у сотрудника`);
+        tr.remove(); loadRoles();
+      } catch (e) { toast('Не создалась: ' + e.message); save.disabled = false; save.textContent = 'Создать роль'; }
+    };
+    acts.append(save, cancel);
+    td.append(el('h3', '', 'Новая роль'), f.wrap, acts);
+    tbody.prepend(tr);
+    f.name.focus();
+  }
+  async function deleteRole(r, btn) {
+    if (!confirm(`Удалить роль «${roleTitle(r)}»? Если она назначена сотрудникам — сначала смените им роль.`)) return;
+    btn.disabled = true; btn.textContent = 'Удаление…';
+    try {
+      await api('/roles/' + encodeURIComponent(r.id || r._id), { method: 'DELETE' });
+      toast(`Роль «${roleTitle(r)}» удалена`);
+      loadRoles();
+    } catch (e) { toast('Не удалилась: ' + e.message); btn.disabled = false; btn.textContent = 'Удалить роль'; }
+  }
+  $('#role-create-btn')?.addEventListener('click', newRole);
 
   let toastTimer;
   function toast(msg) {

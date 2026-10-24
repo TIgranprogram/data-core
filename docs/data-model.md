@@ -98,6 +98,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `sortOrder` | `number` | — |
 | `sectionIds` | `string[]` | Связь с секциями UI |
 | `appSections` | `string[]?` | SK-8a: разделы «Рабочего места», видимые роли (ид из `common/app-sections.ts`); нет / пусто — по иерархии роли; только видимость, не права |
+| `baseRole` | `string?` | SK-8c: только у своей роли (код `r-…`, задаёт сервер, неизменяем) — «права как у»: `user`/`manager`/`accountant`/`director` (не `admin`); права, деньги, permissions и pages — от неё. У встроенных и старых ролей поля нет |
 | `isActive` | `boolean` | — |
 | `createdAt` | `Date` | — |
 | `updatedAt` | `Date` | — |

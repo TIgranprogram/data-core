@@ -376,7 +376,7 @@
       },
       "post": {
         "operationId": "RoleController_create",
-        "summary": "Create a new role (admin only)",
+        "summary": "Новая своя роль (SK-8c): название, «права как у» (baseRole), разделы; код r-… задаёт сервер",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -398,8 +398,8 @@
           "403": {
             "description": "Forbidden"
           },
-          "409": {
-            "description": "Role name already exists"
+          "400": {
+            "description": "Нет baseRole или передан name"
           }
         },
         "tags": [
@@ -486,6 +486,9 @@
           },
           "404": {
             "description": "Role not found"
+          },
+          "400": {
+            "description": "Код роли или «права как у» встроенной роли менять нельзя"
           }
         },
         "tags": [
@@ -517,6 +520,9 @@
           },
           "404": {
             "description": "Role not found"
+          },
+          "409": {
+            "description": "Встроенная роль или роль назначена сотрудникам"
           }
         },
         "tags": [
@@ -9347,8 +9353,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "example": "manager",
-            "description": "Системное имя роли (строчные, a-z, 0-9, _, -)"
+            "example": "r-1a2b3c",
+            "description": "Код роли: задаёт сервер при создании, менять нельзя"
           },
           "label": {
             "type": "string",
@@ -9360,11 +9366,21 @@
             "description": "Описание роли"
           },
           "permissions": {
-            "description": "Список разрешений (например orders.create)",
+            "description": "Список разрешений (например orders.create); у своей роли права берутся от baseRole",
             "type": "array",
             "items": {
               "type": "string"
             }
+          },
+          "baseRole": {
+            "type": "string",
+            "enum": [
+              "user",
+              "manager",
+              "accountant",
+              "director"
+            ],
+            "description": "Права как у: user | manager | accountant | director (только у своей роли)"
           },
           "sortOrder": {
             "type": "number",
@@ -9411,9 +9427,7 @@
           }
         },
         "required": [
-          "name",
-          "label",
-          "permissions"
+          "label"
         ]
       },
       "UpdateRoleDto": {
@@ -9421,8 +9435,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "example": "manager",
-            "description": "Системное имя роли (строчные, a-z, 0-9, _, -)"
+            "example": "r-1a2b3c",
+            "description": "Код роли: задаёт сервер при создании, менять нельзя"
           },
           "label": {
             "type": "string",
@@ -9434,11 +9448,21 @@
             "description": "Описание роли"
           },
           "permissions": {
-            "description": "Список разрешений (например orders.create)",
+            "description": "Список разрешений (например orders.create); у своей роли права берутся от baseRole",
             "type": "array",
             "items": {
               "type": "string"
             }
+          },
+          "baseRole": {
+            "type": "string",
+            "enum": [
+              "user",
+              "manager",
+              "accountant",
+              "director"
+            ],
+            "description": "Права как у: user | manager | accountant | director (только у своей роли)"
           },
           "sortOrder": {
             "type": "number",
@@ -9509,14 +9533,8 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "user",
-              "manager",
-              "accountant",
-              "director",
-              "admin"
-            ],
-            "description": "Роль: наблюдатель < менеджер < бухгалтер < директор; администратор — всё и пользователи"
+            "example": "manager",
+            "description": "Роль: встроенная (user < manager < accountant < director; admin — всё и пользователи) или код своей роли из GET /api/roles"
           },
           "permissions": {
             "description": "Разрешения",
@@ -9568,14 +9586,8 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "user",
-              "manager",
-              "accountant",
-              "director",
-              "admin"
-            ],
-            "description": "Роль: наблюдатель < менеджер < бухгалтер < директор; администратор — всё и пользователи"
+            "example": "manager",
+            "description": "Роль: встроенная (user < manager < accountant < director; admin — всё и пользователи) или код своей роли из GET /api/roles"
           },
           "permissions": {
             "description": "Разрешения",

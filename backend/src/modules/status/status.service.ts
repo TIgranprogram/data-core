@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { baseRoleOf } from '../../common/roles-hierarchy';
 import { EntityStatus, EntityStatusDocument } from './entity-status.schema';
 import { StatusWorkflow, StatusWorkflowDocument, Transition } from './status-workflow.schema';
 
@@ -85,7 +86,8 @@ export class StatusService {
         (x) => x.fromStatus === fromStatus && x.toStatus === toStatus,
       );
       if (!t) continue;
-      if (t.roles.length === 0 || t.roles.includes(userRole)) {
+      // SK-8c: своя роль проходит переходы своей baseRole (встроенные — как раньше, без иерархии).
+      if (t.roles.length === 0 || t.roles.includes(userRole) || t.roles.includes(baseRoleOf(userRole) ?? '')) {
         return t;
       }
     }

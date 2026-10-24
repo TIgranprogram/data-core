@@ -4,6 +4,11 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginSoftlockService } from '../../common/login-softlock/login-softlock.service';
 import { UserService } from '../user/user.service';
+import { RoleService } from '../role/role.service';
+
+/** SK-8c: моки RoleService — resolveForAuth настоящий, поверх замоканного findByName. */
+const withResolve = <T extends { findByName: jest.Mock }>(m: T) =>
+  Object.assign(m, { resolveForAuth: (n: string) => RoleService.prototype.resolveForAuth.call(m as never, n) });
 
 /**
  * TZ-249 unit tests for AuthService.
@@ -107,7 +112,7 @@ function buildAuthService(opts: BuildOpts = {}): {
     jwt,
     config,
     softlock,
-    rolesMock as any,
+    withResolve(rolesMock) as any,
   );
   return { svc, users, softlock };
 }
@@ -251,7 +256,7 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
         jwt,
         config,
         softlock,
-        rolesMock as any,
+        withResolve(rolesMock) as any,
       );
       const before = softlock['entries'].size;
       await expect(
@@ -402,7 +407,7 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
         jwt,
         config,
         softlock,
-        rolesMock as any,
+        withResolve(rolesMock) as any,
       );
 
       const me = await svc.getMe('u-me');
@@ -440,7 +445,7 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
         jwt,
         config,
         softlock,
-        rolesMock as any,
+        withResolve(rolesMock) as any,
       );
 
       const me = await svc.getMe('u-me-2');
@@ -463,7 +468,7 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
         { signAsync: async () => 't' } as unknown as JwtService,
         { get: () => undefined } as unknown as ConfigService,
         softlock,
-        { findByName: jest.fn().mockResolvedValue(roleDoc) } as any,
+        withResolve({ findByName: jest.fn().mockResolvedValue(roleDoc) }) as any,
       );
     };
 
@@ -481,6 +486,42 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
     it('admin — всегда null (видит всё)', async () => {
       const me = await make('admin', { name: 'admin', appSections: ['stock'] }).getMe('u-s');
       expect(me.sections).toBeNull();
+    });
+  });
+
+  describe('getMe() — baseRole / roleLabel (SK-8c)', () => {
+    const make = (role: string, docs: Record<string, unknown>) => {
+      const users = new FakeUserService();
+      users.findById = async () =>
+        ({
+          id: 'u-c', username: 'c', email: '', displayName: 'C', role,
+          permissions: [], isActive: true, refreshTokenVersion: 0,
+        }) as never;
+      const softlock = new LoginSoftlockService();
+      softlock.__resetForTests();
+      return new AuthService(
+        users as unknown as UserService,
+        { signAsync: async () => 't' } as unknown as JwtService,
+        { get: () => undefined } as unknown as ConfigService,
+        softlock,
+        withResolve({ findByName: jest.fn().mockImplementation(async (n: string) => docs[n] ?? null) }) as any,
+      );
+    };
+    const docs = {
+      'r-sklad1': { name: 'r-sklad1', label: 'Кладовщик', baseRole: 'manager', permissions: [], pages: [], appSections: ['stock', 'requests'] },
+      manager: { name: 'manager', label: 'Manager', permissions: ['app-data:read'], pages: ['products'] },
+    };
+
+    it('своя роль: baseRole от «права как у», своё название и разделы, права и pages — от baseRole', async () => {
+      const me = await make('r-sklad1', docs).getMe('u-c');
+      expect(me).toMatchObject({ role: 'r-sklad1', baseRole: 'manager', roleLabel: 'Кладовщик', sections: ['stock', 'requests'], pages: ['products'] });
+      expect(me.permissions).toEqual(['app-data:read']);
+    });
+
+    it('встроенная роль: baseRole — она сама, название по-русски', async () => {
+      const me = await make('manager', docs).getMe('u-c');
+      expect(me).toMatchObject({ role: 'manager', baseRole: 'manager', roleLabel: 'Менеджер' });
+      expect((await make('admin', docs).getMe('u-c'))).toMatchObject({ baseRole: 'admin', roleLabel: 'Администратор' });
     });
   });
 
@@ -502,7 +543,7 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
         jwt,
         config,
         softlock,
-        rolesMock as any,
+        withResolve(rolesMock) as any,
       );
     }
 

@@ -38,6 +38,14 @@ export class Role {
   @Prop({ type: [String], default: undefined })
   appSections?: string[];
 
+  /**
+   * SK-8c: своя роль — «права как у» встроенной (user|manager|accountant|director,
+   * не admin). У встроенных и старых ролей поля нет. Права = права baseRole
+   * (common/roles-hierarchy.ts), своя роль даёт только название и разделы меню.
+   */
+  @Prop({ type: String, default: undefined })
+  baseRole?: string;
+
   @Prop({ default: true })
   isActive!: boolean;
 }

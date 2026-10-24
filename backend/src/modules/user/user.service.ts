@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -13,6 +14,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { User, UserDocument } from './user.schema';
 import { userActivityCache } from '../../common/guards/user-activity-cache';
+import { isBaseRole, isBuiltinRole } from '../../common/roles-hierarchy';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -37,7 +39,25 @@ export class UserService {
     @InjectModel(User.name) private readonly model: Model<UserDocument>,
   ) {}
 
+  /**
+   * SK-8c: роль сотрудника — встроенная или код существующей активной своей
+   * роли (с допустимым baseRole). Коллекцию `roles` читаем напрямую, чтобы
+   * user не импортировал role (циклы модулей).
+   */
+  private async assertRoleAllowed(role: string): Promise<void> {
+    if (isBuiltinRole(role)) return;
+    const doc = await this.model.db
+      .collection('roles')
+      .findOne({ name: role }, { projection: { baseRole: 1, isActive: 1 } });
+    if (!doc || doc.isActive === false || !isBaseRole(doc.baseRole as string)) {
+      throw new BadRequestException(
+        'Такой роли нет или она выключена — выберите роль из списка (вкладка «Роли»)',
+      );
+    }
+  }
+
   async create(dto: CreateUserDto): Promise<UserDocument> {
+    await this.assertRoleAllowed(dto.role);
     const username = dto.username.trim().toLowerCase();
     const email = dto.email?.trim().toLowerCase() || undefined;
     const displayName = dto.displayName?.trim() || username;
@@ -121,6 +141,7 @@ export class UserService {
 
   async update(id: string, dto: UpdateUserDto): Promise<UserDocument> {
     const doc = await this.findById(id);
+    if (dto.role !== undefined && dto.role !== doc.role) await this.assertRoleAllowed(dto.role);
 
     if (dto.username !== undefined) {
       const username = dto.username.trim().toLowerCase();
