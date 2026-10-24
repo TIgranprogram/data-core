@@ -3,8 +3,9 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } fr
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockBatchDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
+import { StockBatchDto, StockCompositionAcceptDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
 import { StockService } from './stock.service';
 
 /**
@@ -214,6 +215,23 @@ export class StockController {
   @AuditAction({ action: 'stock.batch.cancelled', entityType: 'StockMovement' })
   cancelBatch(@Param('batchId') batchId: string, @CurrentUser() user?: AuthenticatedUser) {
     return this.stock.cancelBatch(batchId, user?.id);
+  }
+
+  /** Состав изделия из выдач (SK-7): нетто выдач под позицию ÷ число изделий, разница с составом; цены — только деньговым ролям. Ничего не хранит. */
+  @Get('composition-suggest')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'salesOrderLineId', required: true, description: 'позиция заказа (incomes.id)' })
+  compositionSuggest(@Query('salesOrderLineId') salesOrderLineId: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.compositionSuggest(salesOrderLineId, canSeeMoney(user));
+  }
+
+  /** Принять предложение в состав изделия (как «Изменить состав»); повтор не удваивает, строки не удаляются. */
+  @Post('composition-suggest/accept')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.composition.accepted', entityType: 'Product' })
+  compositionAccept(@Body() dto: StockCompositionAcceptDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.compositionAccept(dto, canSeeMoney(user));
   }
 
   /** Приход / списание / корректировка / бронь / снятие брони. */

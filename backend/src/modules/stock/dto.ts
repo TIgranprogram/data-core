@@ -137,6 +137,11 @@ export class StockSpecApplyDto {
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор не создаёт дублей' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
+export class StockCompositionAcceptDto {
+  @ApiProperty({ description: 'Позиция заказа (incomes.id) с изделием' }) @IsMongoId() salesOrderLineId!: string;
+  @ApiPropertyOptional({ type: [String], description: 'Какие материалы принять; пусто — все, что отличаются от состава' }) @IsOptional() @IsArray() @ArrayMaxSize(300) @IsMongoId({ each: true }) materialIds?: string[];
+}
+
 export class StockPhotoDto {
   @ApiProperty({ description: 'id фото из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
 }

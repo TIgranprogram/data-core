@@ -3,6 +3,7 @@ import type { Types } from 'mongoose';
 import type { ArticleDecision } from './article';
 import { normText } from '../../common/text/norm-text';
 import { StockCatalogService } from './stock-catalog.service';
+import { StockCompositionService } from './stock-composition.service';
 import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';
 import { StockReservationsService } from './stock-reservations.service';
@@ -27,6 +28,7 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  * | move, batch, cancelBatch, cancelMovement, listMovements, history, offcut                | stock-movements.service.ts    |
  * | reserveList, listReservations, releaseReservation, releaseGroup, issueReservations, reservationDetail, updateReservation, reservationsByOrder, issueOrder | stock-reservations.service.ts |
  * | specPreview, specApply (спецификация Excel → брони, SK-6)                               | stock-spec.service.ts         |
+ * | compositionSuggest, compositionAccept (состав изделия из выдач, SK-7)                   | stock-composition.service.ts  |
  *
  * Зависимости слоями (без циклов): core ← search ← catalog ← movements ← reservations ← spec.
  * Типы (MoveInput, StockItemInput…) и countGuard — в stock.types.ts, реэкспортируются отсюда.
@@ -40,6 +42,7 @@ export class StockService {
     private readonly moves: StockMovementsService,
     private readonly resv: StockReservationsService,
     private readonly spec: StockSpecService,
+    private readonly composition: StockCompositionService,
   ) {}
 
   // --- склад
@@ -90,6 +93,10 @@ export class StockService {
   // --- спецификация Excel
   specPreview(dto: Parameters<StockSpecService['preview']>[0]) { return this.spec.preview(dto); }
   specApply(dto: Parameters<StockSpecService['apply']>[0], userId?: string) { return this.spec.apply(dto, userId); }
+
+  // --- состав изделия из выдач (SK-7)
+  compositionSuggest(salesOrderLineId: string, money: boolean) { return this.composition.suggest(salesOrderLineId, money); }
+  compositionAccept(dto: Parameters<StockCompositionService['accept']>[0], money: boolean) { return this.composition.accept(dto, money); }
 
   static norm = normText;
 }

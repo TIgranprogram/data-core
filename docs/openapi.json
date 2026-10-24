@@ -9258,6 +9258,56 @@
           }
         }
       }
+    },
+    "/stock/composition-suggest": {
+      "get": {
+        "operationId": "StockController_compositionSuggest",
+        "summary": "Состав изделия из выдач (SK-7): нетто выдач под позицию ÷ число изделий, разница с составом; цены — только деньговым ролям; ничего не хранит",
+        "parameters": [
+          {
+            "name": "salesOrderLineId",
+            "required": true,
+            "in": "query",
+            "description": "позиция заказа (incomes.id)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/composition-suggest/accept": {
+      "post": {
+        "operationId": "StockController_compositionAccept",
+        "summary": "Принять предложение в состав изделия (SK-7): повтор не удваивает, строки не удаляются",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockCompositionAcceptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
     }
   },
   "info": {
@@ -11659,6 +11709,25 @@
             "description": "Ключ операции клиента"
           }
         }
+      },
+      "StockCompositionAcceptDto": {
+        "type": "object",
+        "properties": {
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id) с изделием"
+          },
+          "materialIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Какие материалы принять; пусто — все, что отличаются от состава"
+          }
+        },
+        "required": [
+          "salesOrderLineId"
+        ]
       }
     }
   }

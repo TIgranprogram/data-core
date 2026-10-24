@@ -8,6 +8,7 @@ import { StorageItem, StorageItemSchema } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseSchema } from './schemas/warehouse.schema';
 import { StockController } from './stock.controller';
 import { StockCatalogService } from './stock-catalog.service';
+import { StockCompositionService } from './stock-composition.service';
 import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';
 import { StockReservationsService } from './stock-reservations.service';
@@ -28,7 +29,7 @@ import { StockService } from './stock.service';
     ]),
   ],
   controllers: [StockController],
-  providers: [StockCoreService, StockSearchService, StockCatalogService, StockMovementsService, StockReservationsService, StockSpecService, StockService],
+  providers: [StockCoreService, StockSearchService, StockCatalogService, StockMovementsService, StockReservationsService, StockSpecService, StockCompositionService, StockService],
   exports: [StockService],
 })
 export class StockModule {}
