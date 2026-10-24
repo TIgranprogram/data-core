@@ -116,6 +116,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   settings: { category: 'system', kind: 'core', doc: 'Служебные настройки системы (ключ → значение).' },
   counters: { category: 'system', kind: 'core', doc: 'Транзакционные счётчики порядковых номеров документов (rs0).' },
   auditlogs: { category: 'system', kind: 'core', doc: 'Журнал аудита: кто и что изменил (action, entityType, снапшот до/после).' },
+  clienterrors: { category: 'system', kind: 'core', doc: 'Ошибки приложения (ОШ2): что, в каком разделе, при каком действии; без данных форм, хранятся 30 дней.' },
   idempotency_records: { category: 'system', kind: 'core', doc: 'Записи идемпотентности: повторный запрос возвращает тот же ответ.' },
   entitystatuses: { category: 'system', kind: 'core', doc: 'Текущий статус каждой сущности (заказ, продукт, контрагент…).' },
   statusworkflows: { category: 'system', kind: 'core', doc: 'Граф переходов статусов: из какого статуса в какой можно перейти.' },

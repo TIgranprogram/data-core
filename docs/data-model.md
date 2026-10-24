@@ -154,6 +154,25 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `count` | `number` | Текущий счётчик |
 | `expiresAt` | `Date` | TTL |
 
+
+---
+
+### `ClientError` (Ошибка приложения, ОШ2.1)
+
+**Коллекция `clienterrors` (только data-core).** Журнал ошибок «Рабочего места»; без мягкого удаления, TTL 30 дней по `createdAt`. Данных форм, параметров адресов и токенов нет (сервер вырезает/маскирует).
+
+| Поле | Тип | Комментарий |
+|------|-----|-------------|
+| `sig` | `string` | Ключ группировки: sha1(name + message без чисел/id + section + url), 16 hex |
+| `message` | `string` | ≤ 500 |
+| `name` / `stack` | `string?` | ≤ 100 / ≤ 4000 |
+| `section` / `action` | `string?` | Раздел (`#раздел`, ≤ 60) / что делал человек (≤ 120) |
+| `kind` | `action \| background \| unhandled` | |
+| `status` | `number?` | HTTP-код, если ошибка запроса |
+| `url` | `string?` | Путь API без query, ≤ 200 |
+| `version` / `ua` | `string?` | ≤ 40 / ≤ 300 |
+| `userId` / `role` | `ObjectId` / `string` | Кто прислал |
+| `createdAt` | `Date` | TTL-индекс 30 дн.; индекс `{sig:1, createdAt:-1}` |
 ---
 
 ## 2. People & Contacts (Люди и контакты)

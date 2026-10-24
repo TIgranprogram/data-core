@@ -5316,6 +5316,72 @@
         ]
       }
     },
+    "/client-errors": {
+      "post": {
+        "operationId": "ClientErrorsController_create",
+        "summary": "Сообщить об ошибке в приложении (без данных форм)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientErrorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Принято (сверх лимита 20/мин — молча не записано)"
+          },
+          "400": {
+            "description": "Лишнее поле, нет message или неверный kind"
+          },
+          "403": {
+            "description": "Вход по ключу kppd_"
+          }
+        },
+        "tags": [
+          "Ошибки клиента"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/client-errors/top": {
+      "get": {
+        "operationId": "ClientErrorsController_top",
+        "summary": "Частые ошибки приложения за последние часы",
+        "parameters": [
+          {
+            "name": "hours",
+            "required": false,
+            "in": "query",
+            "description": "За сколько часов (по умолч. 24, макс. 720)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack }] } по убыванию count"
+          }
+        },
+        "tags": [
+          "Ошибки клиента"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/persons": {
       "get": {
         "operationId": "PersonController_list",
@@ -9728,6 +9794,71 @@
       "RefreshTokenDto": {
         "type": "object",
         "properties": {}
+      },
+      "CreateClientErrorDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Текст ошибки (длиннее — обрезается)"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "TypeError"
+          },
+          "stack": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 60,
+            "example": "#passports",
+            "description": "Раздел приложения"
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Сохранить паспорт",
+            "description": "Что делал человек"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "action",
+              "background",
+              "unhandled"
+            ],
+            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная"
+          },
+          "status": {
+            "type": "number",
+            "example": 500,
+            "description": "HTTP-код, если ошибка запроса"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 200,
+            "example": "/api/passports",
+            "description": "Путь API (query отрезается)"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Версия приложения"
+          },
+          "ua": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "User-Agent"
+          }
+        },
+        "required": [
+          "message",
+          "kind"
+        ]
       },
       "UiPrefsDto": {
         "type": "object",

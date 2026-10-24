@@ -37,6 +37,7 @@ import { SiteModule } from './modules/site/site.module';
 import { ColorReferenceModule } from './modules/color-reference/color-reference.module';
 import { DictionaryLabelModule } from './modules/dictionary-label/dictionary-label.module';
 import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
+import { ClientErrorsModule } from './modules/client-errors/client-errors.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerBehindAuthGuard } from './common/guards/throttler-behind-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -167,6 +168,7 @@ import { RequestMethod } from '@nestjs/common';
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
+    ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
     // ─── Канонические справочники (VISION #4) ─────────────────────────
     PersonModule,
