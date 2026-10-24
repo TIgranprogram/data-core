@@ -1166,3 +1166,9 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .sop-empty { padding: var(--s4); text-align: center; }
 .sop-foot { margin-top: var(--s2); }
 .drawer-body .ops-arrivals { margin-bottom: var(--s3); }
+@media (max-width: 720px) {
+  .sop-lines .ops-line { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name x" "qty qty" "diff diff"; }
+  .sop-lines .ops-qty { flex-wrap: wrap; }
+  .sop-lines .ops-diff { white-space: normal; text-align: left; }
+  .menu button { min-height: 44px; }
+}
