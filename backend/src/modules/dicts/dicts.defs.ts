@@ -340,6 +340,8 @@ export const DICTS: DictDef[] = [
     options: (docs) => docs.map((d) => s(d.symbol || d.key)),
     softDelete: { isActive: false },
   },
+  // Причины списания (SK-5): `stockmovements.reason` — название; значения по умолчанию добавляет WriteOffReasonsSeed
+  simpleList('writeOffReasons', 'Склад и позиции', 'Причины списания', 'Почему материал списан со склада без выдачи: брак, потеря, порча, прочее. Выбирается в окне «Списать».', []),
   {
     key: 'colors', group: 'Склад и позиции', title: 'Цвета',
     hint: 'Цвета покраски и материалов (RAL и свои). Позже — выбор цвета в позиции и заказе.',

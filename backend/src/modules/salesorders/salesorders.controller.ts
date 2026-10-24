@@ -38,6 +38,13 @@ export class SalesOrdersController {
     return this.orders.get(id);
   }
 
+  /** Позиции заказа для выдачи со склада: [{id, orderNo, lineNo, title, productId, photoId, qty}] — без цен, photoId: фото позиции → фото изделия → null. */
+  @Get(':id/lines-lookup')
+  @Roles('admin', 'director', 'manager', 'user')
+  linesLookup(@Param('id') id: string) {
+    return this.orders.linesLookup(id);
+  }
+
   @Post()
   @Roles('admin', 'manager')
   @AuditAction({ action: 'salesorder.created', entityType: 'SalesOrder' })

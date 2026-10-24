@@ -9,6 +9,7 @@ import { StockMovement, StockMovementDocument } from './schemas/stock-movement.s
 import { StorageItemDocument } from './schemas/storage-item.schema';
 import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';
+import { resolveTarget } from './stock-target';
 
 /** Брони: по списку, список, снятие, «выдать по брони», карточка брони. */
 @Injectable()
@@ -136,7 +137,7 @@ export class StockReservationsService {
       if (l.qty !== undefined && !(Number(l.qty) > 0)) throw new BadRequestException('Укажите, сколько выдать (больше нуля)');
       want.set(String(oid(l.reservationId, 'брони')), l.qty === undefined ? undefined : Number(l.qty));
     }
-    const target = await this.core.issueTarget(dto.personId, dto.issuedTo);
+    const target = await resolveTarget(this.connection.db!, { personId: dto.personId, issuedTo: dto.issuedTo });
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     const batchId = new Types.ObjectId();
     const now = new Date();

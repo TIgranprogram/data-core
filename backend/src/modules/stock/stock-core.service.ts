@@ -1,8 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
-import { oid } from '../../common/list-query';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
 import { gramsToKg } from './weight';
@@ -11,7 +10,7 @@ import { gramsToKg } from './weight';
 const personName = (p: { lastName?: unknown; firstName?: unknown; patronymic?: unknown }) =>
   [p.lastName, p.firstName, p.patronymic].map((x) => (x == null ? '' : String(x).trim())).filter(Boolean).join(' ');
 
-/** Общие операции склада: склад по умолчанию, строка остатка, пометка «изменено в приложении», «кому выдано». */
+/** Общие операции склада: склад по умолчанию, строка остатка, пометка «изменено в приложении», подписи «кому выдано». */
 @Injectable()
 export class StockCoreService {
   constructor(
@@ -46,19 +45,6 @@ export class StockCoreService {
     const set = kg === null ? { weightKg: null } : { weightKg: kg, weightUnit: 'kg' };
     await this.connection.db!.collection('materials').updateOne({ _id }, { $set: set });
     await this.connection.db!.collection('storageitems').updateMany({ materialId: _id }, { $set: set });
-  }
-
-  /** Кому выдано (TASKS Л.3): сотрудник из «Справочников» и/или текст («объект Парк», «бригада 2»). */
-  async issueTarget(personId?: string, issuedTo?: string): Promise<Record<string, unknown>> {
-    const out: Record<string, unknown> = {};
-    if (personId) {
-      const p = await this.connection.db!.collection('persons').findOne({ _id: oid(personId, 'сотрудника'), deletedAt: null }, { projection: { _id: 1 } });
-      if (!p) throw new BadRequestException('Сотрудник не найден — обновите страницу');
-      out.issuedToPersonId = p._id;
-    }
-    const t = issuedTo?.trim();
-    if (t) out.issuedTo = t.slice(0, 200);
-    return out;
   }
 
   /** «Кому выдано» для списка движений: ФИО сотрудника и/или текст. id движения → подпись. */

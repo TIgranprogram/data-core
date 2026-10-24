@@ -20,7 +20,7 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  *
  * | метод                                                                                   | файл                          |
  * |-----------------------------------------------------------------------------------------|-------------------------------|
- * | defaultWarehouse, listWarehouses, (loadStorage, markEdited, issueTarget, issuedNames)   | stock-core.service.ts         |
+ * | defaultWarehouse, listWarehouses, (loadStorage, markEdited, issuedNames)               | stock-core.service.ts         |
  * | listItems, getItem, openRequests, itemOrdered, categorySummary, totals                  | stock-search.service.ts       |
  * | createItem, updateItem, addPhoto, removePhoto, removeItem, restoreItem, findMaterialByName, autoArticle, skuFor, adoptArticle | stock-catalog.service.ts |
  * | move, batch, cancelBatch, cancelMovement, listMovements, history, offcut                | stock-movements.service.ts    |

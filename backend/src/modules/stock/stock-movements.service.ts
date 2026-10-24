@@ -11,6 +11,7 @@ import { StorageItemDocument } from './schemas/storage-item.schema';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCoreService } from './stock-core.service';
 import { StockSearchService } from './stock-search.service';
+import { prepareTarget } from './stock-target';
 import { type MoveInput, MOVE_LABEL, countGuard } from './stock.types';
 import { type ByWeight, weightCount, weightGOf, weightNote } from './weight';
 
@@ -47,7 +48,8 @@ export class StockMovementsService {
     const wh = await this.core.defaultWarehouse();
     const note = dto.note?.trim() || undefined;
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
-    const target = dto.type === 'out' ? await this.core.issueTarget(dto.personId, dto.issuedTo) : {};
+    // кому / под что, причина списания, возврат (SK-5): проверки до транзакции
+    const target = await prepareTarget(this.connection.db!, dto);
 
     const session = await this.connection.startSession();
     try {
@@ -57,7 +59,7 @@ export class StockMovementsService {
         // «было → стало» у каждого движения (ФИ.5)
         const movement = (type: 'in' | 'out' | 'adjust', q: number, ref: string | undefined, delta: number) =>
           this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy,
-            qtyBefore: before, qtyAfter: Math.round((before + delta) * 1000) / 1000, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' ? target : {}) }], { session });
+            qtyBefore: before, qtyAfter: Math.round((before + delta) * 1000) / 1000, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' || (type === 'in' && dto.isReturn) ? target : {}) }], { session });
 
         if (dto.type === 'in') {
           item.quantity = (item.quantity ?? 0) + qty;
@@ -128,7 +130,7 @@ export class StockMovementsService {
    * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
-  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number; note?: string }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; force?: boolean }, userId?: string) {
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number; note?: string }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; reason?: string; writeOff?: boolean; isReturn?: boolean; force?: boolean }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
@@ -152,14 +154,8 @@ export class StockMovementsService {
     const batchId = new Types.ObjectId();
     const now = new Date();
     let moved = 0;
-    // Под заказ: проверяем заказ; в CRM-поле orderId (строка) — тот же id, чтобы списание было видно и там
-    let soRef: Record<string, unknown> = {};
-    if (dto.salesOrderId) {
-      const so = await this.connection.db!.collection('salesorders').findOne({ _id: new Types.ObjectId(dto.salesOrderId), deletedAt: null });
-      if (!so) throw new BadRequestException('Заказ не найден');
-      soRef = { salesOrderId: so._id, orderId: String(so._id), ...(dto.salesOrderLineId ? { salesOrderLineId: new Types.ObjectId(dto.salesOrderLineId) } : {}) };
-    }
-    if (dto.type === 'out') soRef = { ...soRef, ...(await this.core.issueTarget(dto.personId, dto.issuedTo)) };
+    // Под заказ / позицию / сотрудник, причина списания, возврат (SK-5) — одной проверкой, как в одиночном движении
+    const soRef = await prepareTarget(this.connection.db!, dto);
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
@@ -188,7 +184,7 @@ export class StockMovementsService {
             const type = dto.type === 'count' ? 'adjust' : dto.type;
             const ref = dto.type === 'count' ? `ADJUST:${note ?? 'пересчёт'}` : dto.documentRef;
             await this.movements.create([{ type, date: now, materialId: new Types.ObjectId(id), warehouseId: wh._id, qty: Math.abs(delta), delta, documentRef: ref, qtyBefore: before, qtyAfter: item.quantity,
-              notes: [note, lineNote.get(id)].filter(Boolean).join('; ') || (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId, ...(dto.type === 'out' ? soRef : {}) }], { session });
+              notes: [note, lineNote.get(id)].filter(Boolean).join('; ') || (dto.type === 'count' ? 'пересчёт' : undefined), clientUid: moved === 0 ? dto.clientUid : undefined, createdBy, batchId, ...soRef }], { session });
             moved++;
           }
           if (dto.type === 'count') {
@@ -382,6 +378,9 @@ export class StockMovementsService {
         batchId: (m as { batchId?: Types.ObjectId }).batchId ? String((m as { batchId?: Types.ObjectId }).batchId) : null,
         salesOrderId: (m as { salesOrderId?: Types.ObjectId }).salesOrderId ? String((m as { salesOrderId?: Types.ObjectId }).salesOrderId) : null,
         issuedTo: issued.get(String(m._id)) ?? null,
+        // SK-5: под какую позицию заказа, причина списания, возврат
+        salesOrderLineId: (m as { salesOrderLineId?: Types.ObjectId }).salesOrderLineId ? String((m as { salesOrderLineId?: Types.ObjectId }).salesOrderLineId) : null,
+        reason: (m as { reason?: string }).reason ?? null, isReturn: (m as { isReturn?: boolean }).isReturn === true,
         reservationId: (m as { reservationId?: Types.ObjectId }).reservationId ? String((m as { reservationId?: Types.ObjectId }).reservationId) : null,
         canCancel: d.source !== 'google-sheets' && !d.cancelledAt && !d.cancelOf && m.type !== 'transfer' && d.delta !== undefined,
         qtyBefore: (m as { qtyBefore?: number }).qtyBefore ?? null, qtyAfter: (m as { qtyAfter?: number }).qtyAfter ?? null,

@@ -77,6 +77,7 @@ import { UnitsSeed } from './common/seed/units.seed';
 import { CategoriesSeed } from './common/seed/categories.seed';
 import { CurrenciesSeed } from './common/seed/currencies.seed';
 import { ColorReferencesSeed } from './common/seed/color-references.seed';
+import { WriteOffReasonsSeed } from './common/seed/write-off-reasons.seed';
 import { HealthController } from './health.controller';
 import { ApiRootController } from './api-root.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -230,6 +231,7 @@ import { RequestMethod } from '@nestjs/common';
     CurrenciesSeed,
     // TZ-PRODUCTS-301: системный default-цвет «Не выбран»
     ColorReferencesSeed,
+    WriteOffReasonsSeed, // SK-5: справочник «Причины списания»
   ],
 })
 export class AppModule implements NestModule {

@@ -36,6 +36,11 @@ export class StockMoveDto {
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор с тем же ключом ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
   @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
   @ApiPropertyOptional({ description: 'Списание: кому / куда выдано текстом (объект, бригада)' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
+  @ApiPropertyOptional({ description: 'Выдача под заказ заказчика (salesorders.id)' }) @IsOptional() @IsMongoId() salesOrderId?: string;
+  @ApiPropertyOptional({ description: 'Выдача / возврат под позицию заказа (incomes.id); заказ сервер берёт из позиции' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
+  @ApiPropertyOptional({ description: 'Списание: причина из справочника «Причины списания» (брак, потеря, порча, прочее)' }) @IsOptional() @IsString() @Length(0, 100) reason?: string;
+  @ApiPropertyOptional({ description: 'Это списание (out без заказа и сотрудника): причина обязательна' }) @IsOptional() @IsBoolean() writeOff?: boolean;
+  @ApiPropertyOptional({ description: 'Возврат со сборки: приход (in) под позицию заказа' }) @IsOptional() @IsBoolean() isReturn?: boolean;
 }
 
 export class StockBatchLineDto {
@@ -55,6 +60,9 @@ export class StockBatchDto {
   @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
   @ApiPropertyOptional({ description: 'Списание: кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
   @ApiPropertyOptional({ description: 'Списание: кому / куда выдано текстом (объект, бригада)' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
+  @ApiPropertyOptional({ description: 'Списание: причина из справочника «Причины списания»' }) @IsOptional() @IsString() @Length(0, 100) reason?: string;
+  @ApiPropertyOptional({ description: 'Это списание (out без заказа и сотрудника): причина обязательна' }) @IsOptional() @IsBoolean() writeOff?: boolean;
+  @ApiPropertyOptional({ description: 'Возврат со сборки: приход (in) под позицию заказа' }) @IsOptional() @IsBoolean() isReturn?: boolean;
   @ApiPropertyOptional({ description: 'Пересчёт ниже брони — подтверждено' }) @IsOptional() @IsBoolean() force?: boolean;
 }
 

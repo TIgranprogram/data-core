@@ -4689,6 +4689,30 @@
         ]
       }
     },
+    "/salesorders/{id}/lines-lookup": {
+      "get": {
+        "operationId": "SalesOrdersController_linesLookup",
+        "summary": "Позиции заказа для выдачи со склада: [{id, orderNo, lineNo, title, productId, photoId, qty}] — без цен; photoId: фото позиции, иначе фото изделия, иначе null",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
     "/salesorders/{id}/restore": {
       "post": {
         "operationId": "SalesOrdersController_restore",
@@ -9680,6 +9704,18 @@
             "type": "string",
             "description": "Списание: кому / куда выдано текстом (объект, бригада)"
           },
+          "reason": {
+            "type": "string",
+            "description": "Списание: причина из справочника «Причины списания» (брак, потеря, порча, прочее)"
+          },
+          "writeOff": {
+            "type": "boolean",
+            "description": "Это списание (out без заказа и сотрудника): причина обязательна"
+          },
+          "isReturn": {
+            "type": "boolean",
+            "description": "Возврат со сборки: приход (in) под позицию заказа"
+          },
           "force": {
             "type": "boolean",
             "description": "Пересчёт ниже брони — подтверждено"
@@ -9759,6 +9795,26 @@
           "issuedTo": {
             "type": "string",
             "description": "Списание: кому / куда выдано текстом (объект, бригада)"
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Выдача под заказ заказчика (salesorders.id)"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Выдача / возврат под позицию заказа (incomes.id); заказ сервер берёт из позиции"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Списание: причина из справочника «Причины списания» (брак, потеря, порча, прочее)"
+          },
+          "writeOff": {
+            "type": "boolean",
+            "description": "Это списание (out без заказа и сотрудника): причина обязательна"
+          },
+          "isReturn": {
+            "type": "boolean",
+            "description": "Возврат со сборки: приход (in) под позицию заказа"
           }
         },
         "required": [

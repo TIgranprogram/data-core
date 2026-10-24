@@ -9,6 +9,7 @@ import { ourCompanies } from '../incomes/incomes.service';
 import { normText } from '../../common/text/norm-text';
 import type { SalesOrderDto } from './dto';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
+import { netIssuedByLine } from '../../common/issued-net';
 import { ORDER_CACHE_FIELDS } from './order-link';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
@@ -105,7 +106,7 @@ export class SalesOrdersService {
     const [lines, supplyRequests, stockMovements, reservations] = await Promise.all([
       this.incomes().find({ orderId: _id, deletedAt: null }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray(),
       db.collection('supplyrequests').find({ salesOrderId: _id, deletedAt: null }, { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, salesOrderLineId: 1, supplierId: 1 } }).sort({ requestDate: -1 }).toArray(),
-      db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1 } }).sort({ date: -1 }).toArray(),
+      db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1, reason: 1, isReturn: 1, cancelOf: 1 } }).sort({ date: -1 }).toArray(),
       // брони под заказ (TASKS Б.3): активные и выданные, снятые — нет
       db.collection('reservations').find({ salesOrderId: _id, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, materialId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1 } }).sort({ createdAt: -1 }).toArray(),
     ]);
@@ -119,6 +120,8 @@ export class SalesOrdersService {
       const x = matName.get(String(m.materialId)); m.materialName = x?.name ?? null; m.unit = x?.unit ?? null;
       m.issuedToLabel = [m.issuedToPersonId ? pName.get(String(m.issuedToPersonId)) : null, m.issuedTo].filter(Boolean).join(' · ') || null;
     }
+    // «Выдано под позицию» (SK-5): нетто = выдано − возвращено, по позиции заказа и материалу
+    const issuedByLine = netIssuedByLine(stockMovements as never).map((r) => ({ ...r, materialName: (matName.get(r.materialId)?.name as string | undefined) ?? null, unit: (matName.get(r.materialId)?.unit as string | undefined) ?? null }));
     const resGroups = new Map<string, { key: string; name: string; createdAt: unknown; lines: number; left: number; issued: number }>();
     for (const r of reservations) {
       const key = String(r.batchId ?? r._id);
@@ -142,9 +145,31 @@ export class SalesOrdersService {
     return {
       ...header,
       lines: fix(lines.map((l) => ({ ...l, status: l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft' }))),
-      supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements),
+      supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements), issuedByLine,
       reservations: [...resGroups.values()].map((g) => ({ ...g, left: Math.round(g.left * 1000) / 1000, issued: Math.round(g.issued * 1000) / 1000 })),
     };
+  }
+
+  /**
+   * Позиции заказа для выбора при выдаче со склада (SK-5): без цен, с картинкой.
+   * photoId — первое фото позиции, иначе главное фото изделия, иначе null.
+   */
+  async linesLookup(id: string) {
+    const order = await this.findRaw(id);
+    const db = this.connection.db!;
+    const lines = await this.incomes().find({ orderId: order._id, deletedAt: null }, { projection: { lineNo: 1, title: 1, productId: 1, photoIds: 1, qty: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+    const need = lines.filter((l) => !(l.photoIds as unknown[] | undefined)?.length && l.productId).map((l) => l.productId as Types.ObjectId);
+    const byProduct = new Map<string, Types.ObjectId>();
+    if (need.length) {
+      const pp = await db.collection('productphotos').find({ productId: { $in: need }, photoId: { $ne: null }, deletedAt: null }, { projection: { productId: 1, photoId: 1 } }).sort({ isMain: -1, sortOrder: 1 }).toArray();
+      for (const x of pp) if (!byProduct.has(String(x.productId))) byProduct.set(String(x.productId), x.photoId as Types.ObjectId);
+    }
+    return lines.map((l) => ({
+      id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
+      productId: l.productId ? String(l.productId) : null,
+      photoId: String(((l.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ?? (l.productId ? byProduct.get(String(l.productId)) : undefined) ?? '') || null,
+      qty: (l.qty as number | undefined) ?? null,
+    }));
   }
 
   /** Поля формы → поля схемы; undefined = очистить. companyShort: undefined — компанию не меняли, null — убрали. */

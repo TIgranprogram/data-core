@@ -97,6 +97,14 @@ export class StockMovement {
   @Prop({ trim: true })
   issuedTo?: string;
 
+  /** Причина списания (SK-5): название из справочника «Причины списания» — только у списания, без enum. */
+  @Prop({ trim: true })
+  reason?: string;
+
+  /** Возврат со сборки (SK-5): приход под позицию заказа (`salesOrderLineId`); в нетто «выдано под позицию» вычитается. */
+  @Prop()
+  isReturn?: boolean;
+
   /** Остаток до и после движения (ФИ.5: в журнале «931 → 0», а не только «−931»). */
   @Prop()
   qtyBefore?: number;
