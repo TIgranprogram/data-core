@@ -133,7 +133,7 @@ export class StockMovementsService {
    * фактически: проводит корректировку на разницу и ставит дату пересчёта (`lastCountedAt`, поле вне схемы CRM).
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
-  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number; note?: string }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; reason?: string; writeOff?: boolean; isReturn?: boolean; force?: boolean }, userId?: string) {
+  async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number; note?: string; expected?: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; reason?: string; writeOff?: boolean; isReturn?: boolean; force?: boolean }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
@@ -169,6 +169,12 @@ export class StockMovementsService {
           const short = [...merged].filter(([id, n]) => (items.get(id)!.quantity ?? 0) < n)
             .map(([id, n]) => `«${nameOf.get(id)}»: есть ${items.get(id)!.quantity ?? 0}, нужно ${n}`);
           if (short.length) throw new BadRequestException(`Недостаточно на складе — ${short.join('; ')}`);
+        }
+        if (dto.type === 'count') {
+          // остаток изменился, пока человек считал (expected — что он видел) — как у одиночного пересчёта
+          const moved2 = dto.lines.filter((l) => l.expected !== undefined && Math.abs(Number(l.expected) - (items.get(l.materialId)?.quantity ?? 0)) > 1e-9)
+            .map((l) => `«${nameOf.get(l.materialId)}»: было ${l.expected}, сейчас ${items.get(l.materialId)?.quantity ?? 0}`);
+          if (moved2.length) throw new ConflictException(`Остаток изменился, пока шёл пересчёт — ${moved2.join('; ')}. Обновите и посчитайте заново`);
         }
         if (dto.type === 'count' && !dto.force) {
           // ФИ.4: пересчёт ниже брони — только с подтверждением

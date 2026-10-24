@@ -1,15 +1,13 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, parseNum, qty } from '../core/format.js';
+import { date, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
-import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
-import { issueDialog, issueToFields, withOrders } from './issue.js';
-import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
-import { orderedBlock, orderItem, receiveField } from './item-orders.js';
+import { metalBody, metalFields, metalInitial, metalView, offcutDialog } from './metal.js';
+import { orderedBlock, orderItem } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/errors.js';
 import { openStockOp } from './stock-ops.js';
@@ -24,110 +22,6 @@ const photoThumb = (r) => {
   const p = (r.photos || [])[0];
   return p ? h('img', { class: 'thumb', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy' }) : null;
 };
-
-/**
- * «Выдать из брони» (замечание 2026-10-23: «списываю — опять спрашивает количество, хотя в брони оно есть»): брони позиции;
- * одна — сразу окно выдачи с количеством и объектом из брони; несколько — сначала выбрать, какую.
- */
-async function issueFromReserve(r, ctx) {
-  try {
-    const res = await api('/stock/reservations');
-    const lines = res.items.flatMap((g) => g.lines.filter((l) => l.materialId === r.id && l.qty > 0).map((l) => ({ id: l.id, name: l.name, unit: l.unit, qty: l.qty, group: g.name })));
-    if (!lines.length) { toast('Активной брони у позиции нет'); return; }
-    let line = lines[0];
-    if (lines.length > 1) {
-      const sel = h('select', { 'aria-label': 'Какая бронь' }, lines.map((l, i) => h('option', { value: String(i) }, `${l.group} — ${qty(l.qty)} ${l.unit}`)));
-      const k = await modal({ title: `Из какой брони: ${r.name}`, okText: 'Дальше', body: h('label', { class: 'field wide' }, h('span', null, 'Бронь'), sel), onOk: async () => sel.value });
-      if (k === null) return;
-      line = lines[Number(k)];
-    }
-    const out = await issueDialog(`Выдать из брони: ${r.name}`, [line], { issuedTo: line.group && line.group !== 'Бронь' ? line.group : '' });
-    if (!out) return;
-    toast('Выдано из брони');
-    ctx.setRow(await api(`/stock/items/${r.id}`));
-    window.dispatchEvent(new CustomEvent('data-changed'));
-  } catch (e) { toastError(e); }
-}
-
-/** Приход / списание / бронь / снятие брони / инвентаризация. */
-async function move(r, type, ctx) {
-  const inv = type === 'adjust';
-  const titles = { in: 'Приход', out: 'Списание', reserve: 'Бронь', unreserve: 'Снять бронь', adjust: 'Инвентаризация' };
-  const hints = {
-    in: 'Поступление на склад. Остаток увеличится.',
-    out: `Выдача в производство / расход — из свободного остатка: ${qty(r.free)} ${unit(r)}.${r.reservedQty ? ` Забронированное (${qty(r.reservedQty)}) выдаётся кнопкой «Выдать из брони».` : ''}`,
-    reserve: `Резерв под заказ: остаток не меняется, «свободно» уменьшается. Свободно сейчас: ${qty(r.free)} ${unit(r)}.`,
-    unreserve: `Вернуть забронированное в свободный остаток. В брони: ${qty(r.reservedQty)} ${unit(r)}.`,
-    adjust: `По учёту ${qty(r.quantity)} ${unit(r)} · в брони ${qty(r.reservedQty)} · свободно ${qty(r.free)}. Бронь физически лежит на складе — считайте её вместе со всем.`,
-  };
-  const qIn = h('input', { name: 'qty', inputmode: 'decimal', value: type === 'unreserve' ? String(r.reservedQty) : inv ? String(r.quantity) : '' });
-  // ФИ.3: значение выделяется при фокусе — дописанные цифры не дают «931931»
-  qIn.addEventListener('focus', () => qIn.select());
-  // ФИ.2: предпросмотр до сохранения; «Сохранить» неактивна, пока изменений нет
-  const preview = inv ? h('p', { class: 'count-preview' }) : null;
-  let armed = false; // ФИ.3: опасное (меньше брони, сильно меньше, ноль) — второе нажатие подтверждает
-  const okBtn = () => qIn.closest('form')?.querySelector('button[type=submit]');
-  const showPreview = () => {
-    if (!inv) return;
-    armed = false;
-    const n = parseNum(qIn.value);
-    const b = okBtn(); if (b) b.textContent = 'Сохранить остаток';
-    if (n === undefined || Number.isNaN(n)) { preview.className = 'count-preview'; preview.textContent = 'Введите число — сколько лежит всего'; if (b) b.disabled = true; return; }
-    const d = Math.round((n - r.quantity) * 1000) / 1000, free = Math.round((n - r.reservedQty) * 1000) / 1000;
-    const below = n < r.reservedQty;
-    preview.className = 'count-preview' + (below ? ' danger' : d ? ' change' : '');
-    preview.textContent = d === 0 ? `По учёту ${qty(r.quantity)} → станет ${qty(n)} (изменений нет)`
-      : `Будет корректировка ${d > 0 ? '+' : '−'}${qty(Math.abs(d))}: остаток ${qty(r.quantity)} → ${qty(n)}, свободно станет ${qty(free)}`
-        + (below ? `. Меньше, чем в брони (${qty(r.reservedQty)}) — сначала снимите или выдайте бронь` : '');
-    if (b) b.disabled = d === 0;
-  };
-  if (inv) { qIn.addEventListener('input', showPreview); setTimeout(showPreview, 0); }
-  const note = h('input', { name: 'note', maxlength: 300, placeholder: type === 'reserve' ? 'Заказ из списка или своё' : type === 'out' ? 'Необязательно' : 'Основание' });
-  // бронь — «под какой заказ» выпадающим списком заказов в работе (замечание 2026-10-23); при выдаче объект — в «Кому выдано»
-  const noteBox = h('label', { class: 'field' }, h('span', null, type === 'reserve' ? 'Под какой заказ' : 'Примечание'), note);
-  if (type === 'reserve') withOrders(note);
-  const to = type === 'out' ? issueToFields() : null; // кому выдано (TASKS Л.3)
-  const recv = type === 'in' ? receiveField(r) : null; // приход закрывает открытую заявку (ЗП.4)
-  // НО.2: приход и пересчёт — штуками или по весу (один компонент); пересчёт по весу — тоже «всего, вместе с бронью» (ФИ)
-  const wc = (type === 'in' || inv) && !r.offcutOf ? weightCount({ qtyInput: qIn, unit: unit(r) || 'шт', unitWeightG: r.weightG, label: inv ? 'Сколько лежит на полке всего (вместе с забронированным)' : 'Количество', expectQty: inv ? r.quantity : null }) : null;
-  const byW = () => (wc?.mode() === 'w' ? { byWeight: wc.get().byWeight } : {});
-  const done = await modal({
-    title: `${titles[type]}: ${r.name}`, okText: inv ? 'Сохранить остаток' : 'Провести',
-    body: h('div', null, h('p', { class: 'hint' }, hints[type]),
-      h('div', { class: 'form-grid' },
-        wc ? wc.el : h('label', { class: 'field' + (inv ? ' wide' : '') }, h('span', null, (inv ? 'Сколько лежит на полке всего (вместе с забронированным)' : 'Количество') + (unit(r) ? ', ' + unit(r) : '')), qIn),
-        preview,
-        type === 'in' ? pipeInHelper(r, qIn) : null, // труба: «10 хлыстов по 6 м» = 60 м (СМ.2)
-        recv?.el,
-        noteBox, to?.el)),
-    onOk: async () => {
-      if (wc?.mode() === 'w' && wc.get().errors?.length) throw new Error(wc.get().errors[0]);
-      const n = parseNum(qIn.value);
-      if (n === undefined || Number.isNaN(n) || n < 0 || (!inv && n === 0)) throw new Error(inv ? 'Введите число не меньше 0' : 'Введите количество больше нуля');
-      if (inv) {
-        // ФИ.4: на сервер — «сколько лежит», разницу считает сервер; expected — что видел человек (разошлось — 409)
-        const delta = Math.round((n - r.quantity) * 1000) / 1000;
-        if (delta === 0) return r;
-        const below = n < r.reservedQty, drastic = r.quantity > 0 && (n === 0 || Math.abs(delta) / r.quantity > 0.5);
-        if ((below || drastic) && !armed) {
-          armed = true;
-          const b = okBtn(); if (b) b.textContent = below ? 'Да, меньше брони — сохранить' : 'Да, уверен — сохранить';
-          throw new Error(below ? `Вы ввели ${qty(n)} — это меньше брони (${qty(r.reservedQty)}): свободно станет ${qty(n - r.reservedQty)}. Проверьте число. Если всё верно — нажмите ещё раз.`
-            : `Остаток изменится сильно: ${qty(r.quantity)} → ${qty(n)}. Уверены? Если да — нажмите ещё раз.`);
-        }
-        return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'count', qty: n, expected: r.quantity, force: below || undefined, note: note.value.trim() || 'инвентаризация', ...byW() } });
-      }
-      const req = recv?.value();
-      if (req) {
-        // пришло меньше заказанного — заявка остаётся открытой на остаток
-        await api(`/supply/requests/${req.id}/receive`, { method: 'POST', body: { qty: n, partial: n < req.qty } });
-        return api(`/stock/items/${r.id}`);
-      }
-      return api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type, qty: n, note: note.value.trim() || undefined, ...(to ? to.value() : {}), ...(type === 'in' ? byW() : {}) } });
-    },
-  });
-  if (done) { toast(`${titles[type]}: проведено`); ctx.setRow(done); }
-}
 
 const HIST = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', count: 'Пересчёт', transfer: 'Перемещение', reserve: 'Бронь', unreserve: 'Снятие брони' };
 /** Последние 5 записей истории позиции (GET /stock/items/:id/history?limit=5) и «Вся история» — без ограничения. */
@@ -199,18 +93,17 @@ export const stock = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
     ],
     hints: {
-      '': 'Все позиции склада. В строке: «+ Приход», «− Списать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
+      '': 'Все позиции склада. В строке: «+ Приход», «− Выдать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
       reserved: 'Отложено под заказы. Выдать — «Из брони» в строке.',
       ok: 'Хватает. Делать ничего не нужно.',
     },
     rowAction: (r) => {
-      const silent = { setRow: () => {} };
       const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { orderItem(row); return false; } };
-      const inc = { label: '+ Приход', title: 'Поступление на склад', run: (row) => move(row, 'in', silent) };
-      const out = { label: '− Списать', title: 'Выдача / расход', run: (row) => move(row, 'out', silent) };
-      const fromRes = { label: 'Из брони', title: 'Выдать забронированное: количество и объект — из брони', run: (row) => issueFromReserve(row, silent) };
+      const inc = { label: '+ Приход', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
+      const out = { label: '− Выдать', title: 'Выдача / расход: кому и под что — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } };
+      const fromRes = { label: 'Из брони', title: 'Выдать забронированное: количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } };
       const base = r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
       return r.reservedQty > 0 ? [fromRes, ...base.filter((a) => a !== out || r.free > 0)] : base;
     },
@@ -262,12 +155,14 @@ export const stock = {
       ['Примечание', r.notes],
     ],
     actions: (r) => [
-      r.reservedQty > 0 && { label: 'Выдать из брони', primary: true, title: 'Количество и объект — из брони', run: (row, ctx) => issueFromReserve(row, ctx) },
-      { label: '+ Приход', primary: !(r.reservedQty > 0), run: (row, ctx) => move(row, 'in', ctx) },
-      { label: '− Списание', run: (row, ctx) => move(row, 'out', ctx) },
-      { label: 'Забронировать под заказ', run: (row, ctx) => move(row, 'reserve', ctx) },
-      r.reservedQty > 0 && { label: 'Снять бронь', run: (row, ctx) => move(row, 'unreserve', ctx) },
-      { label: 'Пересчитать (сколько лежит)', run: (row, ctx) => move(row, 'adjust', ctx) },
+      r.reservedQty > 0 && { label: 'Выдать из брони', primary: true, title: 'Количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } },
+      // все действия — в правой панели «Склад» (SK-9): закрыли панель — вернулись к этой позиции
+      { label: '+ Приход', primary: !(r.reservedQty > 0), run: (row) => { openStockOp('in', row.id); return false; } },
+      { label: '− Выдать', title: 'Кому и под что выдано — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } },
+      { label: 'Списать (брак, потеря)', title: 'Причина из списка', run: (row) => { openStockOp('writeoff', row.id); return false; } },
+      { label: 'Забронировать под заказ', run: (row) => { openStockOp('reserve', row.id); return false; } },
+      r.reservedQty > 0 && { label: 'Снять бронь', run: (row) => { openStockOp('unreserve', row.id); return false; } },
+      { label: 'Пересчитать (сколько лежит)', run: (row) => { openStockOp('count', row.id); return false; } },
       r.metal && !r.offcutOf && { label: 'Отложить обрезок…', run: (row, ctx) => offcutDialog(row, ctx) },
       { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
     ],

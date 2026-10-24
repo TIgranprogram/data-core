@@ -7,6 +7,7 @@ import { skuKey } from '../core/facets.js';
 import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
+import { suggestLink } from '../ui/composition-suggest.js';
 import { issuePassport, passports } from './passports.js';
 import { openBulk } from './bulk-edit.js';
 import { dictNames } from '../ui/dict-options.js';
@@ -107,7 +108,8 @@ function inOrders(r) {
   return h('div', null, h('div', { class: 'section-title' }, `В заказах (${items.length})`),
     h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null,
       h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`),
-      h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.size, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · '))))));
+      h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.size, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · ')),
+      l.linked ? suggestLink(l.id) : null))));
 }
 
 /**

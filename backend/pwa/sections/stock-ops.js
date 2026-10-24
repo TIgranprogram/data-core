@@ -9,16 +9,20 @@ import { errText } from '../ui/errors.js';
 import { enhanceSelect } from '../ui/select.js';
 import { toast } from '../ui/toast.js';
 import { ftParams, ftQuery } from '../ui/facet-filter.js';
+import { offerAfterIssue } from '../ui/composition-suggest.js';
 import { lineCode, targetPicker } from '../ui/target-picker.js';
 import { withOrders } from './issue.js';
 import { receiveField } from './item-orders.js';
+import { pipeInHelper } from './metal.js';
 import { lookups } from './lookups.js';
 import { arrivalsBlock } from './ops.js';
 import { weighButton } from './ops-weight.js';
+import { buildFromReserve, buildUnreserve } from './stock-ops-res.js';
 import { reservationsPanel } from './reservations.js';
 
 /*
- * Действия склада в правой панели (SK-4b): «Принять», «Выдать», «Забронировать», «Списать», «Пересчитать».
+ * Действия склада в правой панели (SK-4b, SK-9): «Принять», «Выдать», «Забронировать», «Списать», «Пересчитать»; по одной позиции из её карточки — ещё
+ * «Выдать из брони» и «Снять бронь» (stock-ops-res.js).
  * Одна панель на все пять: выбрать одну позицию или несколько — одной пачкой (POST /stock/batch), «Отменить» во всплывашке
  * отменяет пачку целиком. Склад целиком не грузится при открытии: варианты позиций — по первому нажатию в поле «Позиция»,
  * заказы и сотрудники — при открытии панели «Выдать» / «Забронировать». Панель открывается адресом ?of=stockop&new=1&op=<вид>&materialId=<id>.
@@ -28,6 +32,8 @@ const OPS = {
   out: { title: 'Выдать со склада', verb: 'Выдать', done: 'Выдано', note: 'Примечание', hint: 'Впишите количество и выберите, кому или под какую позицию выдано' },
   reserve: { title: 'Забронировать', verb: 'Забронировать', done: 'Забронировано', note: 'Для чего бронь (конструкция, изделие)', hint: 'Остаток не меняется, «свободно» уменьшается. Выберите заказ и позицию — или впишите, для чего бронь. Поставленные брони — ниже.' },
   writeoff: { title: 'Списать', verb: 'Списать', done: 'Списано', note: 'Комментарий (необязательно)', hint: 'Брак, потеря, порча: выберите причину. Заказ и сотрудник не указываются.' },
+  fromres: { title: 'Выдать из брони', verb: 'Выдать', done: 'Выдано' },
+  unreserve: { title: 'Снять бронь', verb: 'Снять бронь', done: 'Снято' },
   count: { title: 'Пересчитать', verb: 'Сохранить пересчёт', done: 'Пересчёт сохранён', note: 'Примечание', hint: 'Впишите, сколько лежит всего (с забронированным). Пустое поле — не пересчитано.' },
 };
 export const STOCK_OPS = Object.keys(OPS);
@@ -36,13 +42,16 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) 
 
 /** Открыть панель действия: op — in | out | reserve | writeoff | count, materialId — сразу с этой позицией. */
 export function openStockOp(op, materialId) {
-  patch({ of: 'stockop', new: '1', op: OPS[op] ? op : 'in', materialId: materialId || undefined, open: undefined });
+  // из карточки / строки позиции — шагом: закрыли панель, вернулись к позиции
+  patch({ of: 'stockop', new: '1', op: OPS[op] ? op : 'in', materialId: materialId || undefined, open: undefined }, { replace: !materialId });
 }
 
 async function build() {
   const P = current().params;
   const op = OPS[P.op] ? P.op : 'in';
   const cfg = OPS[op];
+  if (op === 'fromres') return buildFromReserve(P.materialId);
+  if (op === 'unreserve') return buildUnreserve(P.materialId);
   const clientUid = uid(); // одна на панель: повторное «Принять» после сбоя связи не задвоит движение
   let lines = []; // [{ it, qty, note }]
   let touched = false;
@@ -57,6 +66,8 @@ async function build() {
     if (recv) recv.el.style.gridColumn = '1 / -1';
     return { it, qty: q ?? (op === 'count' ? '' : '1'), note: nt || '', recv };
   };
+  let resCache = null; // брони — один запрос, только когда понадобились (пересчёт ниже брони)
+  const ordersOf = async (materialId) => { resCache ??= api('/stock/reservations').then((r) => r.items || []).catch(() => []); return (await resCache).filter((g) => g.lines.some((l) => l.materialId === materialId)).map((g) => (g.salesOrder && !String(g.name).includes(g.salesOrder) ? `${g.name} (заказ ${g.salesOrder})` : g.name)); };
   let all = null; let loading = false; // склад целиком — по первому нажатию в поле «Позиция»
 
   // ---------- Выбор позиции ----------
@@ -104,17 +115,25 @@ async function build() {
       const it = l.it;
       const inp = h('input', { inputmode: 'decimal', value: l.qty, placeholder: op === 'count' ? 'факт' : '0', 'aria-label': 'Количество' });
       const diff = h('span', { class: 'ops-diff num' });
+      const warn = h('div', { class: 'ops-warn neg', role: 'note', hidden: true });
       const showDiff = () => {
         const n = parseNum(inp.value);
         if (op === 'count') {
           const d = n === undefined || Number.isNaN(n) ? null : Math.round((n - it.quantity) * 1000) / 1000;
-          diff.textContent = d === null ? 'не пересчитано' : d === 0 ? 'сходится' : (d > 0 ? '+' : '') + qty(d);
-          diff.className = 'ops-diff num ' + (d === null ? 'muted' : d === 0 ? 'pos' : 'neg');
+          const below = d !== null && n < (it.reservedQty || 0);
+          diff.textContent = d === null ? 'не пересчитано' : d === 0 ? `сходится: ${qty(it.quantity)}` : `было ${qty(it.quantity)} → станет ${qty(n)} (${d > 0 ? '+' : '−'}${qty(Math.abs(d))}), свободно станет ${qty(n - (it.reservedQty || 0))}`;
+          diff.className = 'ops-diff num wide ' + (d === null ? 'muted' : below ? 'neg' : d === 0 ? 'pos' : '');
+          warn.hidden = !below;
+          if (below) ordersOf(it.id).then((names) => { warn.textContent = `Меньше, чем в брони (${qty(it.reservedQty)}): ${names.length ? names.join('; ') : 'бронь есть'}. Сначала снимите или выдайте бронь — иначе при сохранении будет вопрос.`; });
         } else if (op === 'reserve') {
           const free = it.free ?? it.quantity; const ok = !(n > free);
           diff.textContent = n ? (ok ? 'хватает' : `не хватает ${qty(n - free)} (свободно ${qty(free)})`) : '';
           diff.className = 'ops-diff num ' + (ok ? 'pos' : 'neg');
-        } else if (op === 'out' || op === 'writeoff') {
+        } else if (op === 'writeoff') {
+          const free = it.free ?? it.quantity;
+          diff.textContent = n > it.quantity ? `на складе только ${qty(it.quantity)}` : n > free ? `в брони ${qty(it.reservedQty)} — спишется и забронированное` : '';
+          diff.className = 'ops-diff num neg';
+        } else if (op === 'out') {
           const free = it.free ?? it.quantity;
           diff.textContent = n > free ? `свободно только ${qty(free)}` : '';
           diff.className = 'ops-diff num neg';
@@ -123,6 +142,8 @@ async function build() {
       inp.addEventListener('input', () => { l.qty = inp.value; touched = true; saveDraft(); showDiff(); });
       inp.addEventListener('focus', () => inp.select());
       const step = (d) => { inp.value = String(Math.max(0, (parseNum(inp.value) || 0) + d)); inp.dispatchEvent(new Event('input')); };
+      const ph = op === 'in' ? pipeInHelper(it, inp) : null; // труба: «10 хлыстов по 6 м» = 60 м
+      if (ph) { ph.style.gridColumn = '1 / -1'; ph.addEventListener('input', () => inp.dispatchEvent(new Event('input'))); }
       showDiff();
       const info = op === 'count' ? `по учёту ${qty(it.quantity)} ${it.unit || ''}` : `на складе ${qty(it.quantity)} ${it.unit || ''}${it.reservedQty ? `, в брони ${qty(it.reservedQty)}` : ''}`;
       return h('div', { class: 'ops-line', 'data-id': it.id },
@@ -134,8 +155,9 @@ async function build() {
           h('span', { class: 'ops-unit' }, it.unit || ''),
           weighButton(it, op, (q, nt) => { l.note = nt; inp.value = String(q); inp.dispatchEvent(new Event('input')); })),
         diff,
+        warn,
         h('button', { class: 'btn btn-ghost btn-icon btn-sm ops-x', type: 'button', title: 'Убрать из списка', 'aria-label': 'Убрать из списка', onclick: () => { lines = lines.filter((x) => x !== l); touched = true; saveDraft(); render(); } }, '×'),
-        l.recv?.el);
+        l.recv?.el, ph);
     }));
   }
 
@@ -203,7 +225,8 @@ async function build() {
   const draft = readDraft();
   if (draft.length) stockList().then((all2) => { for (const d of draft) { const it = all2.find((x) => x.id === d.id); if (it && !lines.some((l) => l.it.id === it.id)) lines.push(newLine(it, d.qty, d.note)); } render(); }).catch(() => {});
 
-  const ready = () => lines.map((l) => ({ materialId: l.it.id, qty: parseNum(l.qty), ...(l.note ? { note: l.note } : {}) }))
+  // пересчёт: expected — остаток, который видел человек (изменился на сервере — 409, не перетираем чужое)
+  const ready = () => lines.map((l) => ({ materialId: l.it.id, qty: parseNum(l.qty), ...(l.note ? { note: l.note } : {}), ...(op === 'count' && Number.isFinite(l.it.quantity) ? { expected: l.it.quantity } : {}) }))
     .filter((l) => l.qty !== undefined && !Number.isNaN(l.qty) && (op === 'count' ? l.qty >= 0 : l.qty > 0));
 
   // выдача больше, чем свободно, забирает материал из чужой брони: спросить, назвав заказ-владельца (SK-5b)
@@ -232,6 +255,14 @@ async function build() {
     const text = note.value.trim();
     if (op === 'reserve') { const why = resTp.check(); if (why) throw new Error(why); if (!text && !resTp.orderId()) throw new Error('Выберите заказ или впишите, для чего бронь (конструкция, изделие)'); }
     if (op === 'writeoff' && !reasonSel.value) throw new Error('Выберите причину списания');
+    if (op === 'writeoff') {
+      const over = ls.map((x) => ({ x, it: lines.find((l) => l.it.id === x.materialId)?.it })).find(({ x, it }) => it && x.qty > it.quantity);
+      if (over) throw new Error(`«${over.it.name}»: нельзя списать больше, чем на складе (${qty(over.it.quantity)} ${over.it.unit || ''})`);
+    }
+    if (op === 'count') { // сильное изменение остатка — спросить один раз (ФИ.3)
+      const big = ls.map((x) => ({ x, it: lines.find((l) => l.it.id === x.materialId)?.it })).filter(({ x, it }) => it && it.quantity > 0 && (x.qty === 0 || Math.abs(x.qty - it.quantity) / it.quantity > 0.5));
+      if (big.length && !(await confirmDlg('Остаток изменится сильно', big.map(({ x, it }) => `${it.name}: ${qty(it.quantity)} → ${qty(x.qty)} ${it.unit || ''}`).join('\n') + '\n\nЧисла верны? Сохранить пересчёт?', { okText: 'Да, сохранить', danger: true }))) throw new Error('Пересчёт не сохранён: проверьте числа');
+    }
     if (op === 'out') { const why = issueTo.check(); if (why) throw new Error(why); }
     const isReturn = op === 'in' && retOn.checked;
     if (isReturn) { const why = retTp.check(); if (why) throw new Error(why); }
@@ -278,6 +309,7 @@ async function build() {
       return api('/stock/batch', { method: 'POST', body: { ...body, force: true } });
     });
     clearDraft();
+    if (op === 'out' && body.salesOrderLineId) offerAfterIssue(body.salesOrderLineId); // изделие у позиции — предложить пополнить состав (SK-7b)
     const extra = op === 'count' ? ` · изменилось ${r.moved}` : '';
     toast(`${cfg.done}: ${r.lines} ${plural(r.lines, 'позиция', 'позиции', 'позиций')}${extra}`, {
       undo: async () => { await api(`/stock/batch/${r.batchId}/cancel`, { method: 'POST' }); changed(); toast('Операция отменена'); },

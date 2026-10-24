@@ -357,6 +357,7 @@ th.pick, td.pick { width: 36px; text-align: center; }
 .toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: center; width: max-content; max-width: calc(100% - 24px); }
 .toast { background: var(--side); color: #fff; padding: 10px 16px; border-radius: var(--radius); box-shadow: var(--shadow-lg); display: flex; gap: var(--s3); align-items: center; }
 .toast.error { background: var(--danger); }
+.toast { flex-wrap: wrap; }
 .toast button { background: none; border: 0; color: var(--gold); font: inherit; font-weight: 650; cursor: pointer; padding: 0; }
 
 /* ---------- Вход ---------- */
@@ -1166,6 +1167,10 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .sop-lines { border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 0; margin-bottom: var(--s3); }
 .sop-empty { padding: var(--s4); text-align: center; }
 .sop-foot { margin-top: var(--s2); }
+.sop-lines .ops-diff.wide { grid-area: auto; grid-column: 1 / -1; white-space: normal; text-align: left; }
+.ops-warn { grid-column: 1 / -1; padding: var(--s2) var(--s3); border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: var(--radius-sm); background: var(--danger-soft); font-size: var(--fs-sm); }
+.rs-qty { width: 96px; }
+/* SK-7b / SK-9: плашка-предложение со вторым действием, панели «Выдать из брони» и «Снять бронь» — на тех же компонентах (spec-list, ops-line) */
 .drawer-body .ops-arrivals { margin-bottom: var(--s3); }
 @media (max-width: 720px) {
   .sop-lines .ops-line { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name x" "qty qty" "diff diff"; }

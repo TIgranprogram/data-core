@@ -212,7 +212,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       if (isNew) ctx.opened?.(saved.id);
       showView(saved);
     };
-    foot.replaceChildren(save, cancel);
+    // form.readonly — только просмотр (нет права записи): одна кнопка «Закрыть»
+    if (form.readonly) { cancel.textContent = 'Закрыть'; foot.replaceChildren(cancel); } else foot.replaceChildren(save, cancel);
     form.focus();
   }
 

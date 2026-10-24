@@ -47,6 +47,7 @@ export class StockBatchLineDto {
   @ApiProperty() @IsMongoId() materialId!: string;
   @ApiProperty({ description: 'Количество > 0; для count — фактический остаток (≥ 0)' }) @IsNumber() @Min(0) qty!: number;
   @ApiPropertyOptional({ description: 'Примечание строки (расчёт по весу, НО)' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
+  @ApiPropertyOptional({ description: 'count: остаток, который видел человек; не совпал с сервером — 409' }) @IsOptional() @IsNumber() expected?: number;
 }
 
 export class StockBatchDto {
