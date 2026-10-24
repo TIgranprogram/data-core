@@ -63,6 +63,13 @@ if [[ "$RETENTION_DAYS" -gt 0 ]]; then
     DELETED=$((DELETED + 1))
   done < <(find "$BACKUP_ROOT" -maxdepth 1 -type d \( -name 'mongo-*' -o -name 'uploads-*' \) -mtime "+${RETENTION_DAYS}")
   echo "  removed ${DELETED} old backup(s)"
+  # 2026-10-24: не больше BACKUP_KEEP последних копий каждого вида (выкладка тоже делает бэкап — копии копились десятками)
+  KEEP="${BACKUP_KEEP:-10}"
+  for kind in mongo uploads; do
+    ls -1dt "$BACKUP_ROOT"/${kind}-20* 2>/dev/null | tail -n +$((KEEP + 1)) | while IFS= read -r dir; do
+      echo "  removing (сверх ${KEEP}): $(basename "$dir")"; rm -rf "$dir"
+    done
+  done
 else
   echo "=== Rotation disabled (BACKUP_RETENTION_DAYS=0) ==="
 fi
