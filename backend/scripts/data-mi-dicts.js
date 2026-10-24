@@ -9,11 +9,19 @@
  *
  *   План (ничего не пишет):   MONGO_URI=… [MONGO_DB=…] node scripts/data-mi-dicts.js
  *   Таблицы для DB-AUDIT:     … --md
- *   Записать:                 … --apply   (только добавление; повтор ничего не дублирует; существующее не меняет и не удаляет)
+ *   Записать:                 … --apply   (добавляет новые записи и дописывает ПУСТЫЕ поля существующих — ответ 1;
+ *                                          заполненное не меняет, ничего не удаляет и не переименовывает; повтор ничего не дублирует)
  *
- * НА ПРОДЕ — только координатор, после «да» пользователя и бэкапа. Ключи новых справочников (passportSortament,
- * passportParts) и новые поля записей (kind, genSingular, genPlural, sizeTemplate, phrase, material) должен
- * поддержать backend (МИ.1b, dicts.defs.ts). */
+ * Решения пользователя 2026-10-24 (docs/QUESTIONS.md «МИ.1 спорные 1–15») зашиты в каноне и разборе; то, что скрипт
+ * не вправе угадывать, он не пишет, а печатает блоком «ПРОВЕРИТЬ».
+ * Поля — по backend/src/modules/dicts/dicts.defs.ts (bb91517): passportMaterials: kind, genSingular, genPlural,
+ * sizeTemplate, phrase, madeOf, hideInNew; passportSortament: name, material, incomplete; passportParts: name, genSingular, genPlural.
+ *
+ * Запуск на VM (контейнер с mongoose; скрипт скопировать и выполнить из /app):
+ *   docker cp backend/scripts/data-mi-dicts.js datacore-backend:/app/scripts/
+ *   docker exec -e MONGO_URI="$MONGO_URI" -e MONGO_DB=datacore datacore-backend node scripts/data-mi-dicts.js [--md|--apply]
+ * (MONGO_URI — как у бэкенда, из его окружения; `docker exec datacore-backend printenv MONGO_URI` не печатать в чат.)
+ * НА ПРОДЕ — только координатор, после «да» пользователя и бэкапа: бэкап → план на копии прода → запись → отчёт. */
 const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
 
@@ -22,29 +30,28 @@ const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cw
 const MATERIALS = [
   { code: 'PIPE_STEEL', name: 'Труба стальная', genSingular: 'стальной трубы', genPlural: 'стальных труб', sizeTemplate: '{sizes} мм' },
   { code: 'PIPE_STEEL_PROFILE', name: 'Труба стальная профильная', genSingular: 'стальной профильной трубы', genPlural: 'стальных профильных труб', sizeTemplate: '{sizes} мм' },
-  { code: 'PIPE_STEEL_VGP', name: 'Труба стальная водогазопроводная (ВГП)', genSingular: 'стальной водогазопроводной трубы', genPlural: 'стальных водогазопроводных труб', sizeTemplate: '{sizes} мм' },
   { code: 'SHEET_STEEL', name: 'Лист стальной', genSingular: 'стального листа', genPlural: 'стальных листов', sizeTemplate: 'толщиной {sizes} мм' },
-  { code: 'BEAM_STEEL', name: 'Двутавр стальной', genSingular: 'стального двутавра', genPlural: 'стальных двутавров', sizeTemplate: '{sizes} мм' },
+  { code: 'BEAM_STEEL', name: 'Двутавр стальной', genSingular: 'стального двутавра', genPlural: 'стальных двутавров', sizeTemplate: '{sizes}' },
   { code: 'ROD_STEEL', name: 'Круг стальной', genSingular: 'стального круга', genPlural: 'стальных кругов', sizeTemplate: '{sizes} мм' },
   { code: 'PIPE_STAINLESS', name: 'Труба нержавеющая', genSingular: 'нержавеющей трубы', genPlural: 'нержавеющих труб', sizeTemplate: '{sizes} мм' },
   { code: 'SHEET_STAINLESS', name: 'Лист нержавеющий', genSingular: 'листа нержавеющей стали', genPlural: 'листов нержавеющей стали', sizeTemplate: 'толщиной {sizes} мм' },
   { code: 'CHAIN_STAINLESS', name: 'Цепь нержавеющая', genSingular: 'нержавеющей цепи', genPlural: 'нержавеющих цепей', sizeTemplate: 'со звеном {sizes} мм' },
   { code: 'CHAIN_STEEL', name: 'Цепь стальная сварная', genSingular: 'стальной сварной цепи', genPlural: 'стальных сварных цепей', sizeTemplate: 'со звеном {sizes} мм' },
   { code: 'CABLE_STEEL', name: 'Трос стальной', genSingular: 'стального троса', genPlural: 'стальных тросов', sizeTemplate: '{sizes} мм' },
-  { code: 'ROPE_REINFORCED', existing: true, name: 'Канат армированный', genSingular: 'армированного каната', genPlural: 'армированных канатов', sizeTemplate: '{sizes} мм' },
+  { code: 'ROPE_REINFORCED', name: 'Канат армированный', genSingular: 'армированного каната', genPlural: 'армированных канатов', sizeTemplate: '{sizes} мм' },
   { code: 'WOOD_SOFT', name: 'Древесина хвойных пород', genSingular: 'древесины хвойных пород', genPlural: 'древесины хвойных пород', sizeTemplate: 'сечением {sizes} мм' },
-  { code: 'WOOD_BEAM', name: 'Брус хвойных пород', genSingular: 'бруса хвойных пород', genPlural: 'брусьев хвойных пород', sizeTemplate: '{sizes} мм' },
-  { code: 'WOOD_BOARD', name: 'Доска хвойных пород', genSingular: 'доски хвойных пород', genPlural: 'досок хвойных пород', sizeTemplate: '{sizes} мм' },
-  { code: 'WOOD_LOG', name: 'Бревно оцилиндрованное', genSingular: 'оцилиндрованного бревна', genPlural: 'оцилиндрованных брёвен', sizeTemplate: '{sizes} мм' },
-  { code: 'WOOD_GLUED', existing: true, name: 'Клеёная древесина', genSingular: 'клеёного бруса', genPlural: 'клеёных брусьев', sizeTemplate: '{sizes} мм' },
+  { code: 'WOOD_LARCH', name: 'Древесина лиственницы', genSingular: 'древесины лиственницы', genPlural: 'древесины лиственницы', sizeTemplate: 'сечением {sizes} мм' }, // ответ 7: материал = порода
+  { code: 'WOOD_LOG', name: 'Бревно оцилиндрованное', genSingular: 'оцилиндрованного бревна', genPlural: 'оцилиндрованных брёвен', sizeTemplate: 'диаметром {sizes} мм' },
+  { code: 'WOOD_GLUED', name: 'Клеёная древесина', genSingular: 'клеёного бруса', genPlural: 'клеёных брусьев', sizeTemplate: '{sizes} мм' },
   { code: 'PLYWOOD', name: 'Фанера', genSingular: 'фанеры', genPlural: 'фанеры', sizeTemplate: 'толщиной {sizes} мм' },
   { code: 'PLYWOOD_FSF', name: 'Фанера ФСФ влагостойкая', genSingular: 'влагостойкой фанеры ФСФ', genPlural: 'влагостойкой фанеры ФСФ', sizeTemplate: 'толщиной {sizes} мм' },
-  { code: 'PLYWOOD_LAM', existing: true, name: 'Фанера ламинированная', genSingular: 'влагостойкой ламинированной фанеры', genPlural: 'влагостойкой ламинированной фанеры', sizeTemplate: 'толщиной {sizes} мм' },
+  { code: 'PLYWOOD_LAM', name: 'Фанера ламинированная', genSingular: 'влагостойкой ламинированной фанеры', genPlural: 'влагостойкой ламинированной фанеры', sizeTemplate: 'толщиной {sizes} мм' },
   { code: 'POLYCARBONATE', name: 'Поликарбонат монолитный', genSingular: 'монолитного поликарбоната', genPlural: 'монолитного поликарбоната', sizeTemplate: 'толщиной {sizes} мм' },
   { code: 'ACP', name: 'Панель алюминиевая композитная', genSingular: 'алюминиевой композитной панели', genPlural: 'алюминиевых композитных панелей', sizeTemplate: 'толщиной {sizes} мм' },
-  { code: 'PE_HD', name: 'Полиэтилен низкого давления', genSingular: 'полиэтилена низкого давления', genPlural: 'полиэтилена низкого давления', sizeTemplate: 'толщиной {sizes} мм' },
+  { code: 'PE_HD', name: 'Полиэтилен низкого давления (HDPE)', genSingular: 'полиэтилена низкого давления (HDPE)', genPlural: 'полиэтилена низкого давления (HDPE)', sizeTemplate: 'толщиной {sizes} мм' },
   { code: 'PLASTIC', name: 'Пластик', genSingular: 'пластика', genPlural: 'пластика', sizeTemplate: '' },
-  { code: 'CONCRETE', name: 'Бетон', genSingular: 'бетона', genPlural: 'бетона', sizeTemplate: '' },
+  { code: 'STEEL', always: true, name: 'Сталь', genSingular: 'стали', genPlural: 'стали', sizeTemplate: '' }, // ответ 14
+  { code: 'CONCRETE', always: true, name: 'Бетон', genSingular: 'бетона', genPlural: 'бетона', sizeTemplate: '' }, // ответ 14
   { code: 'REED', name: 'Камыш кровельный', genSingular: 'кровельного камыша', genPlural: 'кровельного камыша', sizeTemplate: '' },
 ].map((m) => ({ kind: 'material', ...m }));
 
@@ -58,8 +65,7 @@ const COATINGS = [
 
 // ───────── Канон: части изделия (имя — им. п. ед. ч.; формы — род. п. для «Состоит из …») ─────────
 const PARTS = [
-  ['Стойка', 'стойки', 'стоек', /^стоек|^стойк/],
-  ['Столб', 'столба', 'столбов', /ст[о]?лб/],
+  ['Стойка', 'стойки', 'стоек', /^стоек|^стойк|ст[о]?лб/], // ответ 6: «столб» = «стойка»
   ['Перекладина', 'перекладины', 'перекладин', /перекладин/],
   ['Хомут', 'хомута', 'хомутов', /х[ао]мут/],
   ['Несущая рама', 'несущей рамы', 'несущих рам', /несущ\S* рам/],
@@ -100,7 +106,7 @@ const CTX = [
   [/^канат/, 'ROPE_REINFORCED'], [/^цеп/, 'CHAIN'], [/^трос/, 'CABLE_STEEL'], [/^звено/, 'KEEP'],
   [/^бревн|^дерево$/, 'WOOD_LOG'], [/^брус/, 'WOOD_BEAM'], [/^доск|^досок/, 'WOOD_BOARD'], [/^лиственниц/, 'WOOD_LARCH'],
   [/^древесин/, 'WOOD_SOFT'], [/^ламинирован/, 'KEEP'], [/^клеен|^клеён/, 'WOOD_GLUED'],
-  [/^фан[ае]?ер/, 'PLYWOOD'], [/^фсф/, 'PLYWOOD_FSF'], [/^поликарбонат/, 'POLYCARBONATE'], [/^акп/, 'ACP'], [/^hdpe/, 'PE_HD'],
+  [/^фан[ае]?ер/, 'PLYWOOD'], [/^фсф/, 'PLYWOOD_FSF'], [/^поликарбонат/, 'POLYCARBONATE'], [/^акп/, 'ACP'], [/^hdpe|^пнд/, 'PE_HD'],
   [/^пол[иеe]карбонат/, 'POLYCARBONATE'], [/^пластик/, 'PLASTIC'], [/^бетон(?!ир)/, 'CONCRETE'], [/^камыш/, 'REED'],
   [/^лист|^металлопрокат$|^листов|^листа$/, 'SHEET_STEEL'], [/^профил|^профильн|^прямоугольн|^квадратн|^металлопроката$/, 'PIPE_STEEL_PROFILE'],
   [/^труб|^круглог|^круглой|^круглых|^диамет/, 'PIPE'],
@@ -116,15 +122,21 @@ function parseMaterials(text) {
   // диапазоны («лист 2–8мм», «Ø33–48мм», «от 300 до 380мм», «6+8мм») — не размер сортамента: человеку
   t = t.replace(/(?:[∅Ø⌀]\s*)?\d+(?:[.,]\d+)?\s*(?:[–+-]|до)\s*\d+(?:[.,]\d+)?\s*мм|от\s+\d+\s+до\s+\d+\s*мм/gi, (r) => { left.push({ raw: r.trim(), why: 'диапазон или сумма вместо размера' }); return ' '; });
   for (const sentence of t.split(/\.(?!\d)|\n/)) {
-    let ctx = null; let pipeHint = false; let dia = false; let lastWord = ''; let chainSS = false; let stopped = false;
+    let ctx = null; let pipeHint = false; let dia = false; let lastWord = ''; let chainSS = false; let stopped = false; let larch = false;
     const seen = new Set();
-    const add = (code, size, raw) => { const k = code + '|' + size; if (!seen.has(k)) { seen.add(k); out.push({ code, size, raw: raw.trim(), word: lastWord }); } };
+    const chainSteel = /(сварн|стальн)\S*\s+цеп|цеп\S*\s+(сварн|стальн)/i.test(sentence);
+    const add = (code, size, raw) => {
+      if (code === 'PIPE_STEEL_VGP') code = 'PIPE_STEEL'; // ответ 10: ВГП — не отдельный материал
+      if (/^WOOD_(SOFT|BEAM|BOARD)$/.test(code)) code = larch ? 'WOOD_LARCH' : 'WOOD_SOFT'; // ответ 7: материал = порода
+      if (code === 'CHAIN_UNKNOWN') { left.push({ raw: `цепь ${size.replace('∅', '')} мм: «${raw.trim()}»`, why: 'цепь без «нерж.» — стальная сварная или нержавеющая?', chk: true }); return; } // ответ 11
+      const k = code + '|' + size; if (!seen.has(k)) { seen.add(k); out.push({ code, size, raw: raw.trim(), word: lastWord }); } };
     // события по порядку: слово или размер
     const re = new RegExp(`([∅Ø⌀]\\s*${N}(?:${X}${N})?(?:\\s*мм)?)|(${N}${X}${N}(?:${X}${N})?(?:\\s*мм)?)|(${N}(?:\\s*(?:,|и)\\s*${N})*(?:\\s*,)?\\s*мм)|(${N}(?:\\s*,\\s*${N})+)|([A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё-]*)`, 'g');
     let m;
     while ((m = re.exec(sentence))) {
       if (m[14]) { // слово
         const w = m[14]; const c = ctxOf(w);
+        if (/^лиственниц/i.test(w)) larch = true;
         if (/^диамет/i.test(w)) dia = true;
         else if (c.hit && c.v !== 'PIPE' && c.v !== 'KEEP' && c.v !== 'STAINLESS') { dia = false; pipeHint = false; }
         if (/^кругл/i.test(w)) pipeHint = true;
@@ -150,9 +162,9 @@ function parseMaterials(text) {
       const raw = m[0];
       const code = (base) => {
         if (ctx === 'STAINLESS') return base === 'thick' ? 'SHEET_STAINLESS' : 'PIPE_STAINLESS';
-        if (ctx === 'CHAIN') return chainSS ? 'CHAIN_STAINLESS' : 'CHAIN_STEEL';
+        if (ctx === 'CHAIN') return chainSS ? 'CHAIN_STAINLESS' : chainSteel ? 'CHAIN_STEEL' : 'CHAIN_UNKNOWN';
         if (ctx === 'PLYWOOD' && /^\s*ламинир/i.test(sentence.slice(re.lastIndex, re.lastIndex + 20))) return 'PLYWOOD_LAM';
-        if (ctx === 'WOOD_LARCH') return base === 'rect2' ? 'WOOD_BOARD' : null;
+        if (ctx === 'WOOD_LARCH') return base === 'rect2' ? 'WOOD_LARCH' : null;
         return ctx;
       };
       if (m[1]) { // ∅d[×s]
@@ -162,7 +174,7 @@ function parseMaterials(text) {
         if (!c || c === 'PIPE' || c === 'PIPE_STEEL_PROFILE' || c === 'SHEET_STEEL') c = 'PIPE_STEEL';
         if (c === 'WOOD_BEAM' || c === 'WOOD_SOFT') c = 'WOOD_LOG';
         const size = c.startsWith('WOOD') || c.startsWith('CHAIN') || c === 'ROPE_REINFORCED' ? '∅' + d : '∅' + d + (w ? '×' + w : '');
-        add(c, size, raw); if (c.startsWith('WOOD') && w) left.push({ raw: sentence.trim().slice(0, 80), why: `«${raw.trim()}» у дерева — лишнее «×${w}»?` });
+        add(c, size, raw); if (c.startsWith('WOOD') && w) left.push({ raw: sentence.trim().slice(0, 80), why: `«${raw.trim()}» у дерева/бревна — «×${w}» не берём (длина/стенка?)`, chk: true });
         continue;
       }
       if (m[4]) { // a×b[×c]
@@ -171,8 +183,8 @@ function parseMaterials(text) {
         let c = code(c3 ? 'rect3' : 'rect2');
         if (c3 && parseFloat(c3.replace(',', '.')) > 20) { left.push({ raw: raw.trim(), why: 'третий размер — не толщина стенки' }); continue; }
         if (c3) { const [p, q] = big(a, b); if (c === 'BEAM_STEEL') add(c, `${a}×${b}×${c3}`, raw); else add('PIPE_STEEL_PROFILE', `${p}×${q}×${c3}`, raw); continue; }
-        if (c === 'BEAM_STEEL') { add(c, `${a}×${b}`, raw); continue; }
-        if (c === 'PIPE_STEEL_VGP') { add(c, `${a}×${b}`, raw); continue; }
+        if (c === 'BEAM_STEEL') { const h = Math.max(parseFloat(a.replace(',', '.')), parseFloat(b.replace(',', '.'))); if (h % 10 === 0) add(c, `№ ${h / 10}`, raw); else left.push({ raw: raw.trim(), why: 'двутавр: номер по высоте не определить', chk: true }); continue; } // ответ 11
+        if (c === 'PIPE_STEEL_VGP') { const k = b === '2,8' ? { 20: '∅26,8×2,8', 25: '∅33,5×2,8' }[a] : null; add('PIPE_STEEL', k || `∅${a}×${b}`, raw); continue; } // ответ 10
         if (c && c.startsWith('WOOD')) { const [p, q] = big(a, b); add(c === 'WOOD_LOG' ? 'WOOD_BEAM' : c, `${q}×${p}`, raw); continue; }
         if (parseFloat(b.replace(',', '.')) <= 6 && c !== 'PIPE_STEEL_PROFILE') { add(c === 'STAINLESS' || c === 'PIPE_STAINLESS' ? 'PIPE_STAINLESS' : 'PIPE_STEEL', `∅${a}×${b}`, raw); continue; }
         const [p, q] = big(a, b);
@@ -193,7 +205,7 @@ function parseMaterials(text) {
       for (const v of vals) {
         if (c === 'PIPE' && !dia && !pipeHint && parseFloat(v.replace(',', '.')) < 10) { left.push({ raw: raw.trim(), why: 'у трубы — одно число меньше 10 мм (стенка?)' }); continue; }
         if (isDia) { const cc = c && c !== 'PIPE' && c !== 'PIPE_STEEL_PROFILE' && c !== 'SHEET_STEEL' ? c : 'PIPE_STEEL'; add(cc === 'WOOD_BEAM' || cc === 'WOOD_SOFT' ? 'WOOD_LOG' : cc, '∅' + v, raw); continue; }
-        if (c === 'CHAIN_STAINLESS' || c === 'CHAIN_STEEL' || c === 'ROPE_REINFORCED' || c === 'ROD_STEEL' || c === 'CABLE_STEEL' || c === 'WOOD_LOG') { add(c, '∅' + v, raw); continue; }
+        if (c === 'CHAIN_STAINLESS' || c === 'CHAIN_STEEL' || c === 'CHAIN_UNKNOWN' || c === 'ROPE_REINFORCED' || c === 'ROD_STEEL' || c === 'CABLE_STEEL' || c === 'WOOD_LOG') { add(c, '∅' + v, raw); continue; }
         if (['SHEET_STEEL', 'SHEET_STAINLESS', 'PLYWOOD', 'PLYWOOD_FSF', 'PLYWOOD_LAM', 'POLYCARBONATE', 'ACP'].includes(c)) { add(c, v, raw); continue; }
         if (c === 'WOOD_BOARD') { add(c, v, raw); continue; }
         left.push({ raw: raw.trim(), why: `размер без материала (рядом «${lastWord || '—'}»)` });
@@ -249,7 +261,7 @@ const parseCoatings = (text) => COATINGS.filter((c) => c.re.test(s(text)) && (c.
   const totalPp = groups.reduce((a, g) => a + g.n, 0);
 
   const mat = new Map(); // code → { n, sizes: Map(size → { n, raw: Map }) , words: Map }
-  const parts = new Map(); const coats = new Map(); const leftSizes = new Map(); const leftParts = new Map();
+  const parts = new Map(); const coats = new Map(); const leftSizes = new Map(); const leftParts = new Map(); const check = new Map();
   const bump = (map, k, n) => map.set(k, (map.get(k) || 0) + n);
   let withText = 0;
   for (const g of groups) {
@@ -259,6 +271,11 @@ const parseCoatings = (text) => COATINGS.filter((c) => c.re.test(s(text)) && (c.
     if (!text.trim()) continue;
     withText += g.n;
     const pm = parseMaterials(text);
+    // ответ 5: ∅33,7×2,8 в том же паспорте, где есть ∅33,5×2,8 — это она; иначе не угадываем
+    if (pm.items.some((i) => i.code === 'PIPE_STEEL' && i.size === '∅33,7×2,8')) {
+      if (!pm.items.some((i) => i.code === 'PIPE_STEEL' && i.size === '∅33,5×2,8')) bump(check, 'труба ∅33,7×2,8 без ∅33,5×2,8 в том же паспорте — проверить по чертежу (в сортамент не добавляется)', g.n);
+      pm.items = pm.items.filter((i) => !(i.code === 'PIPE_STEEL' && i.size === '∅33,7×2,8'));
+    }
     for (const it of pm.items) {
       const e = mat.get(it.code) || { n: 0, sizes: new Map(), words: new Map() }; mat.set(it.code, e);
       if (!it.size) { bump(e.words, it.raw.toLowerCase(), g.n); continue; }
@@ -266,34 +283,62 @@ const parseCoatings = (text) => COATINGS.filter((c) => c.re.test(s(text)) && (c.
       z.n += g.n; bump(z.raw, it.raw.replace(/\s+/g, ' ').replace(/[,\s]+$/, ''), g.n);
     }
     for (const code of new Set(pm.items.map((i) => i.code))) mat.get(code).n += g.n;
-    for (const l of pm.left) bump(leftSizes, `${l.why} · «${l.raw}»`, g.n);
+    for (const l of pm.left) bump(l.chk ? check : leftSizes, `${l.why} · «${l.raw}»`, g.n);
     const pp = parseParts(own);
-    for (const it of pp.items) { const e = parts.get(it.name) || { n: 0, raw: new Map() }; parts.set(it.name, e); e.n += g.n; bump(e.raw, it.raw.toLowerCase(), g.n); }
+    const seenP = new Set();
+    for (const it of pp.items) { const e = parts.get(it.name) || { n: 0, raw: new Map() }; parts.set(it.name, e); if (!seenP.has(it.name)) e.n += g.n; seenP.add(it.name); bump(e.raw, it.raw.toLowerCase(), g.n); }
     for (const l of pp.left) bump(leftParts, l, g.n);
     for (const c of parseCoatings(own)) { const e = coats.get(c.code) || { n: 0, raw: new Map() }; coats.set(c.code, e); e.n += g.n; bump(e.raw, c.raw.toLowerCase(), g.n); }
   }
 
   // что уже есть в базе (в т. ч. в корзине — не дублируем и их)
-  const have = async (dict) => dv.find({ dict }).project({ code: 1, name: 1, material: 1, deletedAt: 1 }).toArray();
+  const have = async (dict) => dv.find({ dict }).project({ code: 1, name: 1, material: 1, deletedAt: 1, kind: 1, genSingular: 1, genPlural: 1, sizeTemplate: 1, phrase: 1, madeOf: 1, hideInNew: 1, incomplete: 1 }).toArray();
   const exM = await have('passportMaterials'); const exS = await have('passportSortament'); const exP = await have('passportParts');
   const exMCodes = new Set(exM.map((d) => s(d.code))); const exMNames = new Set(exM.map((d) => norm(d.name)));
   const exSKeys = new Set(exS.map((d) => s(d.material) + '|' + norm(d.name))); const exPNames = new Set(exP.map((d) => norm(d.name)));
 
-  const usedM = [...MATERIALS, ...COATINGS].filter((m) => mat.has(m.code) || coats.has(m.code));
-  const addM = usedM.filter((m) => !m.existing && !exMCodes.has(m.code) && !exMNames.has(norm(m.name)));
+  const usedM = [...MATERIALS, ...COATINGS].filter((m) => mat.has(m.code) || coats.has(m.code) || m.always);
+  const addM = usedM.filter((m) => !exMCodes.has(m.code) && !exMNames.has(norm(m.name)));
+  // ответ 4: размер без стенки — «неполный», в выборе ниже полных; с полными не склеиваем
+  const isIncomplete = (material, name) => (['PIPE_STEEL', 'PIPE_STAINLESS'].includes(material) && /^∅[\d,]+$/.test(name)) || (material === 'PIPE_STEEL_PROFILE' && /^[\d,]+×[\d,]+$/.test(name));
   const sortament = [];
-  for (const m of MATERIALS) for (const [size, z] of [...(mat.get(m.code)?.sizes || new Map())].sort((a, b) => b[1].n - a[1].n)) sortament.push({ material: m.code, name: size, n: z.n, raw: z.raw });
+  for (const m of MATERIALS) for (const [size, z] of [...(mat.get(m.code)?.sizes || new Map())].sort((a, b) => (isIncomplete(m.code, a[0]) - isIncomplete(m.code, b[0])) || b[1].n - a[1].n)) sortament.push({ material: m.code, name: size, n: z.n, raw: z.raw, incomplete: isIncomplete(m.code, size) });
   const addS = sortament.filter((r) => !exSKeys.has(r.material + '|' + norm(r.name)));
   const addP = PARTS.filter((p) => parts.has(p.name) && !exPNames.has(norm(p.name)));
+  // ответ 1: у существующих записей дописываем только ПУСТЫЕ поля; ответ 2: STEEL_POWDER не предлагать в новых
+  const empty = (v) => v == null || v === '';
+  const canon = [...MATERIALS, ...COATINGS];
+  const patches = []; // { dict, _id, label, set }
+  for (const d of exM) {
+    if (d.deletedAt) continue;
+    if (s(d.code).toUpperCase() === 'STEEL_POWDER') { if (empty(d.hideInNew)) patches.push({ dict: 'passportMaterials', _id: d._id, label: d.name, set: { hideInNew: true } }); continue; }
+    const c = canon.find((m) => s(d.code) === m.code || norm(d.name) === norm(m.name));
+    if (!c) { bump(check, `существующий материал «${d.name}» [${s(d.code)}] — нет в каноне скрипта, поля не дописаны`, 1); continue; }
+    const set = {};
+    for (const [k, v] of [['kind', c.kind], ['genSingular', c.genSingular], ['genPlural', c.genPlural], ['sizeTemplate', c.sizeTemplate], ['phrase', c.phrase], ['madeOf', c.genSingular]]) if (v && empty(d[k])) set[k] = v;
+    if (Object.keys(set).length) patches.push({ dict: 'passportMaterials', _id: d._id, label: `${d.name} [${s(d.code)}]`, set });
+  }
+  for (const d of exS) if (!d.deletedAt && empty(d.incomplete) && isIncomplete(s(d.material), s(d.name))) patches.push({ dict: 'passportSortament', _id: d._id, label: `${d.material} ${d.name}`, set: { incomplete: true } });
+  for (const d of exP) {
+    if (d.deletedAt) continue;
+    if (norm(d.name) === 'столб') bump(check, 'в «Частях изделия» уже есть «Столб» — по ответу 6 это «Стойка»: объединить в админке (кнопка объединения), скрипт не трогает', 1);
+    const p = PARTS.find((x) => norm(x.name) === norm(d.name)); if (!p) continue;
+    const set = {}; if (empty(d.genSingular)) set.genSingular = p.genSingular; if (empty(d.genPlural)) set.genPlural = p.genPlural;
+    if (Object.keys(set).length) patches.push({ dict: 'passportParts', _id: d._id, label: d.name, set });
+  }
+  const nFields = (dict) => patches.filter((x) => x.dict === dict).reduce((a, x) => a + Object.keys(x.set).length, 0);
+  // ответ 7: форма по ГОСТ 18288 — по сечению (справочно; хранить форму пока негде)
+  const woodForm = (size) => { const m = /^([\d,]+)×([\d,]+)$/.exec(size); if (!m) return ''; const [t, w] = [m[1], m[2]].map((x) => parseFloat(x.replace(',', '.'))).sort((a, b) => a - b); return t > 100 && w > 100 ? 'брус' : w > 2 * t ? 'доска' : 'брусок'; };
   const nameOf = (code) => [...MATERIALS, ...COATINGS].find((m) => m.code === code)?.name || code;
 
   const top = (map, k = 6) => [...map].sort((a, b) => b[1] - a[1]).slice(0, k).map(([r, n]) => `«${r}» ${n}`).join(', ');
   if (!md) {
     console.log(`База ${db.databaseName}: паспортов ${totalPp}, с текстом материалов ${withText}`);
     console.log(`\n1) Материалы и покрытия — добавить ${addM.length} (есть в справочнике: ${exM.length}):`);
-    for (const m of usedM) console.log(`  ${addM.includes(m) ? '+' : '='} ${m.kind === 'coating' ? 'покрытие' : 'материал'} · ${m.name} [${m.code}] · ${m.genSingular || ''} / ${m.genPlural || ''} · ${m.sizeTemplate || m.phrase || ''} · паспортов ${(mat.get(m.code) || coats.get(m.code)).n}`);
+    for (const m of usedM) console.log(`  ${addM.includes(m) ? '+' : '='} ${m.kind === 'coating' ? 'покрытие' : 'материал'} · ${m.name} [${m.code}] · ${m.genSingular || ''} / ${m.genPlural || ''} · ${m.sizeTemplate || m.phrase || ''} · паспортов ${(mat.get(m.code) || coats.get(m.code) || { n: 0 }).n}`);
     console.log(`\n2) Сортамент — добавить ${addS.length}:`);
-    for (const m of MATERIALS) { const r = sortament.filter((x) => x.material === m.code); if (r.length) console.log(`  ${m.name}: ${r.map((x) => `${x.name} (${x.n})`).join(', ')}`); }
+    for (const m of MATERIALS) { const r = sortament.filter((x) => x.material === m.code); if (r.length) console.log(`  ${m.name}: ${r.map((x) => `${x.name}${x.incomplete ? '*' : ''} (${x.n})`).join(', ')}`); }
+    console.log('  * — неполный размер (без стенки): incomplete=true, в выборе ниже полных');
     console.log(`\n3) Части изделия — добавить ${addP.length}: ${PARTS.filter((p) => parts.has(p.name)).map((p) => `${p.name} (${parts.get(p.name).n})`).join(', ')}`);
     console.log(`\n4) Склейки написаний (размер ← написания, раз):`);
     for (const r of sortament) if (r.raw.size > 1 || [...r.raw.keys()][0] !== r.name) console.log(`  ${nameOf(r.material)} ${r.name} ← ${top(r.raw)}`);
@@ -302,10 +347,14 @@ const parseCoatings = (text) => COATINGS.filter((c) => c.re.test(s(text)) && (c.
     console.log(`\n5) Не распознано (решает человек): размеры ${leftSizes.size}, части ${leftParts.size}`);
     for (const [k, n] of [...leftSizes].sort((a, b) => b[1] - a[1])) console.log(`  ${n}× ${k}`);
     for (const [k, n] of [...leftParts].sort((a, b) => b[1] - a[1])) console.log(`  ${n}× часть «${k}»`);
+    console.log(`\n6) Дописать пустые поля у существующих (ответы 1, 2): записей ${patches.length}`);
+    for (const x of patches) console.log(`  ${x.dict} · ${x.label} ← ${Object.entries(x.set).map(([k, v]) => k + '=' + v).join('; ')}`);
+    console.log('\n7) Форма дерева по ГОСТ 18288 (справочно, в базу не пишется — поля формы нет):');
+    for (const m of MATERIALS.filter((x) => x.code.startsWith('WOOD_') && x.code !== 'WOOD_LOG' && x.code !== 'WOOD_GLUED')) { const r = sortament.filter((x) => x.material === m.code); if (r.length) console.log(`  ${m.name}: ${r.map((x) => `${x.name} — ${woodForm(x.name) || '?'}`).join(', ')}`); }
   } else {
     const esc = (v) => s(v).replace(/\|/g, '\\|');
     console.log('| | Тип | Название | Код | Род. п. ед. | Род. п. мн. | Шаблон размера / фраза | Паспортов |\n|--|--|--|--|--|--|--|--|');
-    for (const m of usedM) console.log(`| ${addM.includes(m) ? '+' : '= есть'} | ${m.kind === 'coating' ? 'покрытие' : 'материал'} | ${m.name} | ${m.code} | ${m.genSingular || ''} | ${m.genPlural || ''} | ${esc(m.sizeTemplate || m.phrase)} | ${(mat.get(m.code) || coats.get(m.code)).n} |`);
+    for (const m of usedM) console.log(`| ${addM.includes(m) ? '+' : '= есть'} | ${m.kind === 'coating' ? 'покрытие' : 'материал'} | ${m.name} | ${m.code} | ${m.genSingular || ''} | ${m.genPlural || ''} | ${esc(m.sizeTemplate || m.phrase)} | ${(mat.get(m.code) || coats.get(m.code) || { n: 0 }).n} |`);
     console.log('\n| Материал | Размеры (паспортов) |\n|--|--|');
     for (const m of MATERIALS) { const r = sortament.filter((x) => x.material === m.code); if (r.length) console.log(`| ${m.name} | ${r.map((x) => `${x.name} (${x.n})`).join(', ')} |`); }
     console.log('\n| Часть (им. п.) | Род. п. ед. | Род. п. мн. | Паспортов |\n|--|--|--|--|');
@@ -319,14 +368,26 @@ const parseCoatings = (text) => COATINGS.filter((c) => c.re.test(s(text)) && (c.
     for (const [k, n] of [...leftSizes].sort((a, b) => b[1] - a[1])) console.log(`- ${n}× ${esc(k)}`);
     for (const [k, n] of [...leftParts].sort((a, b) => b[1] - a[1])) console.log(`- ${n}× часть «${esc(k)}»`);
   }
+  // «проверить» — решает человек, скрипт не угадывает (выводится всегда)
+  console.log(`\nПРОВЕРИТЬ (${check.size}) — скрипт ничего не угадывал и не записывает:`);
+  for (const [k, n] of [...check].sort((a, b) => b[1] - a[1])) console.log(`  ${n}× ${k}`);
 
   if (apply) {
     const now = new Date(); const base = { deletedAt: null, createdAt: now, updatedAt: now };
-    const strip = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 're' && k !== 'existing'));
+    const strip = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 're' && k !== 'always'));
     if (addM.length) console.log(`\n+ Материалы и покрытия: ${(await dv.insertMany(addM.map((m) => ({ dict: 'passportMaterials', ...strip(m), madeOf: m.genSingular || '', ...base })))).insertedCount}`);
-    if (addS.length) console.log(`+ Сортамент: ${(await dv.insertMany(addS.map((r) => ({ dict: 'passportSortament', name: r.name, material: r.material, ...base })))).insertedCount}`);
+    if (addS.length) console.log(`+ Сортамент: ${(await dv.insertMany(addS.map((r) => ({ dict: 'passportSortament', name: r.name, material: r.material, ...(r.incomplete ? { incomplete: true } : {}), ...base })))).insertedCount}`);
     if (addP.length) console.log(`+ Части изделия: ${(await dv.insertMany(addP.map((p) => ({ dict: 'passportParts', name: p.name, genSingular: p.genSingular, genPlural: p.genPlural, ...base })))).insertedCount}`);
-    if (!addM.length && !addS.length && !addP.length) console.log('\nДобавлять нечего — всё уже есть.');
-  } else console.log(`\nИтог плана: материалы/покрытия +${addM.length}, сортамент +${addS.length}, части +${addP.length}. Ничего не записано. Записать: --apply`);
+    for (const x of patches) await dv.updateOne({ _id: x._id }, { $set: { ...x.set, updatedAt: now } }); // только пустые поля (проверено выше)
+    if (patches.length) console.log(`~ Дописано пустых полей у существующих: записей ${patches.length}`);
+    if (!addM.length && !addS.length && !addP.length && !patches.length) console.log('\nДобавлять и дописывать нечего — всё уже есть.');
+  } else {
+    console.log('\n════ ОТЧЁТ ПЛАНА ════');
+    console.log(`Материалы и покрытия: добавится ${addM.length}, дописывается пустых полей ${nFields('passportMaterials')} (в ${patches.filter((x) => x.dict === 'passportMaterials').length} записях)`);
+    console.log(`Сортамент:            добавится ${addS.length} (из них неполных ${addS.filter((x) => x.incomplete).length}), дописывается пустых полей ${nFields('passportSortament')}`);
+    console.log(`Части изделия:        добавится ${addP.length}, дописывается пустых полей ${nFields('passportParts')}`);
+    console.log(`Проверить (решает человек): ${check.size} пунктов — см. блок ПРОВЕРИТЬ выше`);
+    console.log('Ничего не записано. Записать: --apply');
+  }
   await client.close();
 })().catch((e) => { console.error(e.message); process.exit(1); });
