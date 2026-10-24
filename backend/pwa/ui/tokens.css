@@ -45,6 +45,7 @@
   --border-strong: #cad4cf;
   /* меню */
   --side: #171c26;
+  --side-head: #d4ae4f; /* заголовки групп меню: золото на тёмном меню, контраст ≈ 8:1 */
   --side-2: #222938;
   --side-text: #aeb5c2;
   --side-text-hi: #ffffff;
@@ -98,6 +99,7 @@
   --border: #2a3140;
   --border-strong: #3b4557;
   --side: #0b0e14;
+  --side-head: #c9ab5c; /* тёмная тема: приглушённое золото к зелёному, контраст ≈ 8.5:1 */
   --side-2: #1b2130;
   --side-text: #a3b8ae;
   --side-text-hi: #6fe0b0;

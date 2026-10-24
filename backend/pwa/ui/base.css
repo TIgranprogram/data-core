@@ -25,7 +25,8 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); margin: 0
 .brand:hover { text-decoration: none; }
 .brand img { width: 30px; height: 30px; }
 .brand small { display: block; font-size: 11px; font-weight: 500; color: var(--gold); letter-spacing: .02em; }
-.side-group { margin: 14px 10px 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #6f7889; }
+.side-group { display: flex; align-items: center; gap: 8px; margin: 16px 10px 6px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--side-head); }
+.side-group::before { content: ''; width: 14px; height: 2px; border-radius: 1px; background: currentColor; opacity: .8; flex: none; } /* короткая полоска перед названием группы (2026-10-24) */
 .side-link { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 8px; color: var(--side-text); font-weight: 500; position: relative; }
 .side-link:hover { background: var(--side-2); color: #fff; text-decoration: none; }
 .side-link.active { background: var(--side-2); color: var(--side-text-hi); }
@@ -1292,3 +1293,9 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .side-link.side-static:hover { background: none; }
 .side-link.side-update { color: var(--gold); font-weight: 650; }
 .side-link.side-update::after { content: ''; position: absolute; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+/* 2026-10-24 (замечание пользователя): ручку ширины видно — «таблетка» посередине края; меню прокручивается по высоте */
+.resizer::before { content: ''; position: absolute; top: 50%; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: var(--border-strong, var(--border)); opacity: .9; }
+.rz-right::before { right: 2px; }
+.rz-left::before { left: 2px; }
+.resizer:hover::before, .resizer.is-active::before { background: var(--gold); opacity: 1; }
+.sidebar { overflow-y: auto; overscroll-behavior: contain; }
