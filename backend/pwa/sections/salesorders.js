@@ -7,6 +7,7 @@ import { toast } from '../ui/toast.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
 import { errText } from '../ui/errors.js';
+import { orderReservations } from './order-reservations.js';
 
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
@@ -74,8 +75,8 @@ function issuedBlock(d, sec) {
   const groups = new Map();
   for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
   const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `${d.orderNo || ''}-${lines[i].lineNo || i + 1} · ${lines[i].title}`; };
-  return sec(`Выдано со склада по позициям (${groups.size})`, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', null,
-    h('span', { class: 'tl-line', title: title(k) }, i === 0 ? title(k) : ''), h('span', null, x.materialName || 'позиция'),
+  return sec(`Выдано со склада по позициям (${groups.size})`, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', i ? { class: 'tl-cont' } : null,
+    i === 0 ? h('span', { class: 'tl-line', title: title(k) }, title(k)) : null, h('span', null, x.materialName || 'позиция'),
     h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || '')),
     h('span', { class: 'muted' }, `выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`))))));
 }
@@ -96,10 +97,8 @@ function details(r) {
       sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
         ? h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`))))
         : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')),
-      // брони под заказ (TASKS Б.3): сколько ещё в брони и сколько выдано; открыть — «Операции → Бронь по списку»
-      (d.reservations || []).length ? sec(`Брони на складе (${d.reservations.length})`,
-        h('ul', { class: 'timeline' }, ...d.reservations.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
-          ` · ${g.lines} поз. · ${g.left ? 'в брони ' + qty(g.left) : 'всё выдано'}${g.issued ? ' · выдано ' + qty(g.issued) : ''}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`))))) : '',
+      // брони заказа по позициям, «Выдать по заказу» (SK-6b); грузится отдельным запросом
+      orderReservations({ id: r.id, orderNo: r.orderNo }, load),
       issuedBlock(d, sec),
       sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
         ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
@@ -174,6 +173,7 @@ export const salesorders = {
     actions: (r) => [
       NEXT[r.stage] && { label: NEXT_LABEL[r.stage], primary: true, run: async (row, ctx) => ctx.setRow(await setStage(row, NEXT[row.stage])) },
       r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => ctx.setRow(await setStage(row, 'cancelled')) },
+      !['closed', 'cancelled'].includes(r.stage) && session.canEdit && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
       { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
     extra: (r) => details(r),

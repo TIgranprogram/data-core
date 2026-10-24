@@ -14,8 +14,9 @@ import { enhanceSelect } from './select.js';
  *   const tp = targetPicker({ mode: 'out' | 'return' })
  *   tp.el, tp.value() → { salesOrderId?, salesOrderLineId?, personId?, issuedTo? }, tp.check() → текст ошибки или '',
  *   tp.orderId() → id выбранного заказа или '', tp.dirty() → что-то выбрано/вписано, tp.reset()
- * mode 'out': «Под заказ» (заказ → позиция с картинкой / весь заказ, плюс необязательно сотрудник) · «Сотруднику» · «Просто выдано» (текст по желанию).
+ * mode 'out': «Под заказ» (заказ → позиция с картинкой / весь заказ, плюс необязательно сотрудник) · «Сотруднику» · «Без заказа» (текст по желанию).
  * mode 'return': только заказ → позиция (возврат со сборки).
+ * mode 'reserve': заказ → позиция или «Весь заказ», заказ необязателен (бронь под позицию, SK-6b); tp.preset(order, lineId) — подставить уже выбранное (правка брони).
  */
 
 // ---------- позиции заказа и картинки (общий кэш; запросы по очереди — лимит сервера 10/с) ----------
@@ -66,7 +67,9 @@ export const targetShort = (m) => (m.reason && !m.isReturn ? `Списано: ${
 
 export function targetPicker({ mode = 'out' } = {}) {
   const ret = mode === 'return';
-  let kind = ret ? 'order' : 'free';
+  const res = mode === 'reserve';
+  const noSeg = ret || res;
+  let kind = noSeg ? 'order' : 'free';
   let orders = null; let loadingOrders = false;
   let order = null; // { id, label, orderNo }
   let lines = null; let linesErr = ''; // позиции выбранного заказа
@@ -77,8 +80,8 @@ export function targetPicker({ mode = 'out' } = {}) {
   const el = h('div', { class: 'tp wide' });
 
   // ---------- переключатель ----------
-  const KINDS = [['order', 'Под заказ'], ['person', 'Сотруднику'], ['free', 'Просто выдано']];
-  const seg = ret ? null : h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Кому / под что выдаём' },
+  const KINDS = [['order', 'Под заказ'], ['person', 'Сотруднику'], ['free', 'Без заказа']];
+  const seg = noSeg ? null : h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Кому / под что выдаём' },
     ...KINDS.map(([k, label]) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', 'data-k': k, onclick: () => setKind(k) }, label)));
   function setKind(k) {
     kind = k;
@@ -111,18 +114,20 @@ export function targetPicker({ mode = 'out' } = {}) {
   });
 
   let wantLineNo = null;
-  async function chooseOrder(o, lineNo) {
-    order = { id: o.id, label: orderLabel(o), orderNo: o.orderNo }; lines = null; linesErr = ''; line = null; whole = false; q = ''; wantLineNo = lineNo || null;
+  async function chooseOrder(o, lineNo, lineId) {
+    order = { id: o.id, label: o.label || orderLabel(o), orderNo: o.orderNo }; lines = null; linesErr = ''; line = null; whole = false; q = ''; wantLineNo = lineNo || null;
     renderOrder();
     try {
       lines = await orderLines(o.id);
-      if (wantLineNo) { const l = lines.find((x) => String(x.lineNo) === String(wantLineNo)); if (l) line = l; }
+      if (lineId) { const l = lines.find((x) => String(x.id) === String(lineId)); if (l) line = l; }
+      else if (lineId === null) whole = true;
+      else if (wantLineNo) { const l = lines.find((x) => String(x.lineNo) === String(wantLineNo)); if (l) line = l; }
     } catch (e) { linesErr = errText(e); }
     if (order?.id === o.id) renderOrder();
   }
 
   function renderOrder() {
-    if (!order) { orderBox.replaceChildren(h('label', { class: 'field wide' }, h('span', null, ret ? 'Заказ, из которого вернули' : 'Заказ'), orderIn)); return; }
+    if (!order) { orderBox.replaceChildren(h('label', { class: 'field wide' }, h('span', null, ret ? 'Заказ, из которого вернули' : res ? 'Под заказ (необязательно)' : 'Заказ'), orderIn)); return; }
     const head = h('div', { class: 'tp-sel' }, h('b', { class: 'clip' }, order.label),
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { order = null; lines = null; line = null; whole = false; renderOrder(); requestAnimationFrame(() => orderIn.focus()); } }, 'Сменить заказ'));
     if (linesErr) { orderBox.replaceChildren(head, h('p', { class: 'muted' }, 'Позиции не загрузились: ' + linesErr)); return; }
@@ -177,7 +182,7 @@ export function targetPicker({ mode = 'out' } = {}) {
     el.append(orderPanel);
   }
   // сотрудник «под заказ» не прячем: человек получил материал под позицию — это два разных сведения
-  const personWithOrder = ret ? null : h('label', { class: 'field wide tp-who' }, h('span', null, 'Получил сотрудник (необязательно)'));
+  const personWithOrder = noSeg ? null : h('label', { class: 'field wide tp-who' }, h('span', null, 'Получил сотрудник (необязательно)'));
   let personSel2 = null;
   if (personWithOrder) {
     personSel2 = h('select', { 'aria-label': 'Получил сотрудник' }, h('option', { value: '' }, '— не указан —'));
@@ -199,8 +204,8 @@ export function targetPicker({ mode = 'out' } = {}) {
     /** Выбранная позиция заказа (для подтверждений). */
     line: () => (kind === 'order' ? line : null),
     check: () => {
-      if (kind !== 'order') return kind === 'person' && !personSel.value ? 'Выберите сотрудника или переключите на «Просто выдано»' : '';
-      if (!order) return ret ? 'Выберите заказ, из которого вернули' : 'Выберите заказ или переключите на «Просто выдано»';
+      if (kind !== 'order') return kind === 'person' && !personSel.value ? 'Выберите сотрудника или переключите на «Без заказа»' : '';
+      if (!order) return res ? '' : ret ? 'Выберите заказ, из которого вернули' : 'Выберите заказ или переключите на «Без заказа»';
       if (!lines && !linesErr) return 'Позиции заказа ещё загружаются — подождите секунду';
       if (ret && !line) return 'Выберите позицию заказа, с которой вернули';
       if (!line && !whole && lines?.length) return 'Выберите позицию заказа или «Весь заказ»';
@@ -213,6 +218,8 @@ export function targetPicker({ mode = 'out' } = {}) {
       return {};
     },
     dirty: () => !!(order || personSel.value || freeIn.value.trim()),
+    /** Подставить заказ и позицию (правка брони): позиции берутся с сервера. */
+    preset: (o, lineId) => { if (!o?.id) return; chooseOrder({ id: o.id, label: o.label, orderNo: o.orderNo, customer: o.customer }, null, lineId || null); },
     reset: () => { order = null; lines = null; line = null; whole = false; personSel.value = ''; if (personSel2) personSel2.value = ''; freeIn.value = ''; renderOrder(); },
   };
 }

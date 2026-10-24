@@ -9,14 +9,13 @@ import { errText } from '../ui/errors.js';
 import { enhanceSelect } from '../ui/select.js';
 import { toast } from '../ui/toast.js';
 import { ftParams, ftQuery } from '../ui/facet-filter.js';
-import { targetPicker } from '../ui/target-picker.js';
+import { lineCode, targetPicker } from '../ui/target-picker.js';
 import { withOrders } from './issue.js';
 import { receiveField } from './item-orders.js';
 import { lookups } from './lookups.js';
 import { arrivalsBlock } from './ops.js';
 import { weighButton } from './ops-weight.js';
 import { reservationsPanel } from './reservations.js';
-import { orderOptions, splitRef } from './salesorders.js';
 
 /*
  * Действия склада в правой панели (SK-4b): «Принять», «Выдать», «Забронировать», «Списать», «Пересчитать».
@@ -26,8 +25,8 @@ import { orderOptions, splitRef } from './salesorders.js';
  */
 const OPS = {
   in: { title: 'Принять на склад', verb: 'Принять', done: 'Принято', note: 'От кого / основание', hint: 'Приехала машина — выберите счёт в «Ждём поставку». Без заявки — найдите позицию ниже.' },
-  out: { title: 'Выдать со склада', verb: 'Выдать', done: 'Выдано', note: 'Примечание', hint: 'Найдите позицию (одну или несколько), впишите количество и выберите, кому или под какую позицию заказа выдано.' },
-  reserve: { title: 'Забронировать', verb: 'Забронировать', done: 'Забронировано', note: 'Для чего бронь (конструкция, изделие) *', hint: 'Остаток не меняется, «свободно» уменьшается. Поставленные брони — ниже.' },
+  out: { title: 'Выдать со склада', verb: 'Выдать', done: 'Выдано', note: 'Примечание', hint: 'Впишите количество и выберите, кому или под какую позицию выдано' },
+  reserve: { title: 'Забронировать', verb: 'Забронировать', done: 'Забронировано', note: 'Для чего бронь (конструкция, изделие)', hint: 'Остаток не меняется, «свободно» уменьшается. Выберите заказ и позицию — или впишите, для чего бронь. Поставленные брони — ниже.' },
   writeoff: { title: 'Списать', verb: 'Списать', done: 'Списано', note: 'Комментарий (необязательно)', hint: 'Брак, потеря, порча: выберите причину. Заказ и сотрудник не указываются.' },
   count: { title: 'Пересчитать', verb: 'Сохранить пересчёт', done: 'Пересчёт сохранён', note: 'Примечание', hint: 'Впишите, сколько лежит всего (с забронированным). Пустое поле — не пересчитано.' },
 };
@@ -157,8 +156,7 @@ async function build() {
   const retOn = op === 'in' ? h('input', { type: 'checkbox', id: 'sop-ret' }) : null;
   const retBox = retTp ? h('div', { class: 'tp-ret', hidden: true }, retTp.el) : null;
   if (retOn) retOn.addEventListener('change', () => { retBox.hidden = !retOn.checked; touched = true; });
-  const soSel = op === 'reserve' ? h('select', { 'aria-label': 'Под заказ' }, h('option', { value: '' }, '— не под заказ —')) : null;
-  if (soSel) orderOptions().then((os) => { for (const o of os) soSel.append(h('option', { value: o.value }, o.label)); enhanceSelect(soSel); }).catch(() => { /* без списка заказов — можно вписать объект текстом */ });
+  const resTp = op === 'reserve' ? targetPicker({ mode: 'reserve' }) : null; // заказ → позиция; заказы грузятся по первому нажатию
 
   const arrivals = op === 'in' ? arrivalsBlock(() => { window.dispatchEvent(new CustomEvent('data-changed')); }) : null;
   arrivals?.load();
@@ -193,7 +191,7 @@ async function build() {
     h('div', { class: 'form-grid sop-foot' },
       issueTo?.el,
       retOn ? h('div', { class: 'field wide' }, h('label', { class: 'check' }, retOn, h('span', null, 'Возврат под позицию (вернули со сборки)')), retBox) : null,
-      soSel ? h('label', { class: 'field wide' }, h('span', null, 'Под заказ (позиция)'), soSel) : null,
+      resTp?.el,
       reasonSel ? h('label', { class: 'field wide' }, h('span', null, 'Причина списания *'), reasonSel) : null,
       noteBox,
       op === 'in' ? h('label', { class: 'field wide' }, h('span', null, 'Документ'), doc) : null),
@@ -232,7 +230,7 @@ async function build() {
     const ls = ready();
     if (!ls.length) throw new Error(op === 'count' ? 'Впишите, сколько лежит, хотя бы у одной позиции' : 'Добавьте позицию и впишите количество больше нуля');
     const text = note.value.trim();
-    if (op === 'reserve' && !text) throw new Error('Впишите, для чего бронь (конструкция, изделие)');
+    if (op === 'reserve') { const why = resTp.check(); if (why) throw new Error(why); if (!text && !resTp.orderId()) throw new Error('Выберите заказ или впишите, для чего бронь (конструкция, изделие)'); }
     if (op === 'writeoff' && !reasonSel.value) throw new Error('Выберите причину списания');
     if (op === 'out') { const why = issueTo.check(); if (why) throw new Error(why); }
     const isReturn = op === 'in' && retOn.checked;
@@ -241,15 +239,16 @@ async function build() {
     const names = new Map(lines.map((l) => [l.it.id, l.it]));
     const changed = () => window.dispatchEvent(new CustomEvent('data-changed'));
     if (op === 'reserve') {
-      const so = soSel.value ? splitRef(soSel.value) : null;
-      const r = await api('/stock/reserve-list', { method: 'POST', body: { groupName: text, lines: ls, clientUid, ...(so?.salesOrderId ? { salesOrderId: so.salesOrderId } : {}) } });
-      toast(`Забронировано под «${text}»: ${r.lines.length} ${plural(r.lines.length, 'позиция', 'позиции', 'позиций')}`, { undo: async () => { await api(`/stock/reservations/group/${r.batchId}/release`, { method: 'POST' }); changed(); toast('Бронь снята'); } });
+      const to = resTp.value(); const ln = resTp.line();
+      const groupName = text || (ln ? `${lineCode(ln)} ${ln.title}` : resTp.orderLabel());
+      const r = await api('/stock/reserve-list', { method: 'POST', body: { groupName, lines: ls, clientUid, ...to } });
+      toast(`Забронировано под «${groupName}»: ${r.lines.length} ${plural(r.lines.length, 'позиция', 'позиции', 'позиций')}`, { undo: async () => { await api(`/stock/reservations/group/${r.batchId}/release`, { method: 'POST' }); changed(); toast('Бронь снята'); } });
       clearDraft(); changed();
       if (r.short?.length) {
         const sh = r.short.map((s) => ({ ...s, it: names.get(s.materialId) }));
         const list = sh.map((s) => `${s.it?.name || 'позиция'}: не хватает ${qty(s.need - s.reserved)} ${s.it?.unit || ''}`).join('\n');
         if (await confirmDlg('Не хватило на складе', `${list}\n\nЗаказать недостающее — создать заявки?`, { okText: 'Заказать недостающее' })) {
-          for (const s of sh) await api('/supply/requests', { method: 'POST', body: { title: s.it?.name, qty: s.need - s.reserved, unit: s.it?.unit || 'шт', categoryName: s.it?.categoryName || '', statusLabel: 'Заказать', notes: `Не хватило для брони «${text}»`, clientUid: `short-${r.batchId}-${s.materialId}` } });
+          for (const s of sh) await api('/supply/requests', { method: 'POST', body: { title: s.it?.name, qty: s.need - s.reserved, unit: s.it?.unit || 'шт', categoryName: s.it?.categoryName || '', statusLabel: 'Заказать', notes: `Не хватило для брони «${groupName}»`, clientUid: `short-${r.batchId}-${s.materialId}` } });
           toast(`Заявки на недостающее: ${sh.length}`); changed();
         }
       }
@@ -288,7 +287,7 @@ async function build() {
 
   return {
     el,
-    dirty: () => touched || !!issueTo?.dirty() || !!retTp?.dirty(),
+    dirty: () => touched || !!issueTo?.dirty() || !!retTp?.dirty() || !!resTp?.dirty(),
     focus: () => pickIn.focus(),
     read: () => ({ values: { save } }),
   };

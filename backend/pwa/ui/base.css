@@ -955,6 +955,7 @@ html { scrollbar-gutter: stable; }
 @media (max-width: 720px) {
   .btn, .seg button, .chip, input, select, textarea, .side-link, .q-row .btn, .row-act, .tag, .link-btn, .form-sec, .fseg-btn, .pt-item, details.month-group > summary { min-height: 44px; }
   input, select, textarea { font-size: 16px; }
+  .fseg { height: auto; min-height: 44px; }
   .tag { min-height: 44px; padding-left: var(--s3); padding-right: var(--s3); }
   .go-tiles { display: grid; gap: var(--s3); margin: 0 0 var(--s4); }
   .go-tile { display: flex; flex-direction: column; gap: 2px; min-height: 72px; justify-content: center; padding: var(--s3) var(--s4); border-radius: var(--radius);
@@ -1184,4 +1185,23 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .tp-ret { margin-top: var(--s2); }
 .tn { color: var(--text); }
 .timeline li .tl-line { flex: 0 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--heading); }
-@media (max-width: 720px) { .tp-sel { flex-wrap: wrap; } }
+.timeline li.tl-cont > :first-child { margin-left: calc(240px + var(--s2)); }
+/* Брони под позицию, спецификация, «висящие» брони (SK-6b): ui/spec-import.js, sections/order-reservations.js, sections/reservation-edit.js */
+.res-hang { margin: var(--s2) 0; padding: var(--s2) var(--s3); border: 1px solid var(--border); border-left: 3px solid var(--warn); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: var(--fs-sm); }
+.tag.tag-hang { border-color: var(--warn); cursor: default; }
+.res-edit-foot { margin-top: var(--s4); }
+.spec-order { margin-bottom: var(--s3); }
+.spec-status { min-height: 18px; margin: var(--s2) 0; }
+.spec-counts { margin: var(--s3) 0; }
+.spec-group { margin-top: var(--s3); }
+.spec-list { list-style: none; margin: 0; padding: 0; }
+.spec-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; gap: var(--s2); align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--border); }
+.spec-row input[type='checkbox'] { width: 18px; height: 18px; margin: 0; }
+.spec-main { min-width: 0; }
+.spec-main small { display: block; }
+.spec-pick { margin-top: var(--s1); }
+.spec-acts { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.spec-prev { margin: var(--s3) 0; padding: var(--s2) var(--s3); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.spec-prev legend { padding: 0 var(--s2); font-weight: 600; color: var(--heading); }
+.tag-lite { margin-left: var(--s2); padding: 0 6px; border: 1px solid var(--border); border-radius: 10px; font-size: var(--fs-label); color: var(--muted); }
+@media (max-width: 720px) { .spec-row { grid-template-columns: 22px minmax(0, 1fr) auto; } .spec-row .res-acts { grid-column: 2 / -1; justify-content: flex-start; } .tp-sel { flex-wrap: wrap; } .timeline li:has(> .tl-line), .timeline li.tl-cont { flex-wrap: wrap; } .timeline li.tl-cont > :first-child { margin-left: 0; } .timeline li .tl-line { flex: 1 1 100%; overflow: visible; text-overflow: clip; white-space: normal; } }

@@ -231,7 +231,7 @@ export const stock = {
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
-      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap st-cell' }, badge(STOCK_STATUS, r.status), r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы — «Из брони» в строке' }, `бронь ${qty(r.reservedQty)}`) : null, r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  заказано ${qty(r.ordered)}`) : null) },
+      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap st-cell' }, badge(STOCK_STATUS, r.status), r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы — «Из брони» в строке' }, `бронь ${qty(r.reservedQty)}`) : null, r.hangingQty ? h('span', { class: 'tag tag-hang', title: 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Снимите бронь в «Забронировать» → «Активные брони»' }, `висит ${qty(r.hangingQty)}`) : null, r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  заказано ${qty(r.ordered)}`) : null) },
     ],
     card: {
       thumb: photoThumb,

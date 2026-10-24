@@ -27,5 +27,5 @@ export function modal({ title, body, okText = 'OK', cancelText = 'Отмена',
 
 /** Подтверждение: true/false. */
 export async function confirmDlg(title, text, { okText = 'Да', danger = false } = {}) {
-  return !!(await modal({ title, body: h('p', null, text), okText, danger }));
+  return !!(await modal({ title, body: h('p', { style: { whiteSpace: 'pre-line' } }, text), okText, danger }));
 }

@@ -26,6 +26,8 @@ import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { stockOp } from './sections/stock-ops.js';
+import { resEdit } from './sections/reservation-edit.js';
+import { specImport } from './ui/spec-import.js';
 import { mountTrash } from './sections/trash.js';
 // раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
 import { history as historySection } from './sections/history.js';
@@ -39,7 +41,7 @@ import { versionLabel, watchUpdates } from './core/update-check.js';
 // ОШ: любая необработанная ошибка — понятным русским текстом (детали — в консоль), без повторов
 installGlobalErrors(toastError);
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, ptext, ptextview };
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, ptext, ptextview };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
@@ -276,7 +278,7 @@ function syncCard(section, params) {
   const sec = SECTIONS[ofName];
   const want = sec && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
   if (!want) { closeCard(); return; }
-  const key = ofName + want + (params.fill ? '~' + params.fill : '') + (ofName === 'stockop' ? '@' + (params.op || '') + (params.materialId || '') : '');
+  const key = ofName + want + (params.fill ? '~' + params.fill : '') + (['stockop', 'resedit', 'specimport'].includes(ofName) ? '@' + (params.op || '') + (params.materialId || '') + (params.rid || '') + (params.orderId || '') : '');
   if (card?.key === key) return;
   // Та же панель, другая запись (стрелки, клик по соседней строке) — меняем содержимое, без закрытия
   if (card && card.of === ofName && !params.fill && want.startsWith('open:') && card.key.includes('open:') && !card.key.includes('~') && !card.handle.editing) {
@@ -285,7 +287,7 @@ function syncCard(section, params) {
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     changed: () => { mounted?.list?.reload?.(); refreshCounts(); },

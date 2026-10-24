@@ -199,6 +199,12 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       }
       // после успешного сохранения — вне try: сбой показа не выдаётся за «Не сохранено» (и повтор не создаст дубль)
       form = null;
+      // панель осталась открытой (отчёт внутри формы: спецификация) — только «Закрыть»
+      if (saved && saved.stay) {
+        ctx.changed(); window.dispatchEvent(new CustomEvent('data-changed'));
+        foot.replaceChildren(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => { destroy(); ctx.close(); } }, 'Закрыть'));
+        return;
+      }
       if (section.form.closeAfterCreate) { ctx.changed(); window.dispatchEvent(new CustomEvent('data-changed')); destroy(); ctx.close(); return; }
       toast(isNew ? 'Создано' : 'Сохранено');
       ctx.changed();
