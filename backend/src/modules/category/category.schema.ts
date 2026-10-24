@@ -28,6 +28,10 @@ export class Category {
   @Prop({ default: 0 })
   sortOrder!: number;
 
+  /** Номер группы изделий ('10'…'61'), только у групп-детей type product; поле data-core, CRM его не читает. Уникален среди живых групп (проверяет сервис). */
+  @Prop({ type: String, default: null })
+  groupNo?: string | null;
+
   @Prop({ default: true })
   isActive!: boolean;
 

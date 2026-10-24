@@ -56,7 +56,7 @@ export class ShowcaseController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.from-orders', entityType: 'Product', details: (d) => ({ new: (d as { new?: number }).new, created: (d as { created?: number }).created }) })
-  fromOrders(@Body() b: { apply?: boolean; picks?: { key?: string; name?: string }[] }) { return this.s.fromOrders(!!b?.apply, b?.picks); }
+  fromOrders(@Body() b: { apply?: boolean; picks?: { key?: string; name?: string; group?: string }[] }) { return this.s.fromOrders(!!b?.apply, b?.picks); }
 
   /** Изделия из паспортов (БЗ-8): модели без изделия — группы-кандидаты на объединение и число одиночных. */
   @AppSection('products', 'passports')
@@ -136,6 +136,13 @@ export class ShowcaseController {
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.deleted', entityType: 'Product', idParam: 'id' })
   remove(@Param('id') id: string) { return this.s.remove(id); }
+
+  /** Присвоить артикул группы: без confirm — отчёт (сколько паспортов), с confirm — присвоить. */
+  @Post(':id/assign-sku')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.sku-assigned', entityType: 'Product', idParam: 'id' })
+  assignSku(@Param('id') id: string, @Body() b: { confirm?: boolean }) { return this.s.assignSku(id, !!b?.confirm); }
 
   @Post(':id/restore')
   @HttpCode(200)

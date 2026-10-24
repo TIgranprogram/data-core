@@ -17,6 +17,7 @@ import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { ShowcaseMaterials } from './showcase-materials';
+import { groupNoOf, nextSku } from './showcase-sku';
 import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
@@ -111,12 +112,12 @@ export class ShowcaseService {
 
   /** Разделы и группы с числом изделий — плитки витрины. */
   async groups() {
-    const cats = await this.db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { name: 1, parentId: 1 } }).sort({ name: 1 }).toArray();
+    const cats = await this.db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { name: 1, parentId: 1, groupNo: 1 } }).sort({ name: 1 }).toArray();
     const counts = await this.db.collection('products').aggregate([{ $match: LIVE }, { $group: { _id: '$categoryId', n: { $sum: 1 } } }]).toArray();
     const n = new Map(counts.map((c) => [String(c._id), c.n as number]));
     const byParent = new Map<string, number>();
     for (const c of cats) if (c.parentId) byParent.set(String(c.parentId), (byParent.get(String(c.parentId)) ?? 0) + (n.get(String(c._id)) ?? 0));
-    return cats.map((c) => ({ id: String(c._id), name: String(c.name), parentId: c.parentId ? String(c.parentId) : null, count: (n.get(String(c._id)) ?? 0) + (byParent.get(String(c._id)) ?? 0) }))
+    return cats.map((c) => ({ id: String(c._id), name: String(c.name), parentId: c.parentId ? String(c.parentId) : null, groupNo: c.groupNo ? String(c.groupNo) : null, count: (n.get(String(c._id)) ?? 0) + (byParent.get(String(c._id)) ?? 0) }))
       .filter((c) => c.count > 0);
   }
 
@@ -256,8 +257,15 @@ export class ShowcaseService {
 
   /** requireType — ручное создание из формы (ФИ2): раздел обязателен; загрузка каталога / из заказов / из паспортов — без него. */
   async create(dto: Record<string, unknown>, opts: { requireType?: boolean } = {}) {
-    const sku = clean(dto.sku);
-    if (!sku) throw new BadRequestException('Укажите артикул');
+    let sku = clean(dto.sku);
+    let skuWarning: string | undefined;
+    if (!sku) {
+      // без артикула: группа с номером (categories.groupNo) → автоартикул; иначе обязателен ручной
+      const gid = dto.group ? await this.category(dto.group as string, await this.category(dto.type as string, null)) : null;
+      const auto = await nextSku(this.db, this.counter, gid);
+      if (!auto) throw new BadRequestException('Укажите артикул (у выбранной группы нет номера для автоартикула)');
+      sku = auto.sku; skuWarning = auto.warning;
+    }
     // дубль — и с другим регистром, похожими буквами (KC-01 = КС-01), лишними пробелами; в т. ч. в корзине и у изделий CRM
     const dup = await this.db.collection('products').findOne({ sku: skuRegex(sku) }, { projection: { sku: 1, name: 1, deletedAt: 1 } });
     if (dup) throw new ConflictException(`Изделие с артикулом ${dup.sku} уже есть: «${dup.name ?? ''}»${dup.deletedAt ? ' (в корзине — восстановите его)' : ''}`);
@@ -266,7 +274,26 @@ export class ShowcaseService {
     const now = new Date();
     const { insertedId } = await this.db.collection('products').insertOne({ sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
       photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now });
-    return this.get(String(insertedId));
+    const created = await this.get(String(insertedId));
+    return skuWarning ? { ...created, skuWarning } : created;
+  }
+
+  /**
+   * Присвоить изделию артикул его группы (смена группы артикул не меняет). Без confirm — только отчёт: новый артикул не выдаётся,
+   * показано, что изменится и сколько паспортов выпущено под старым.
+   */
+  async assignSku(id: string, confirm: boolean) {
+    const _id = oid(id, 'изделия');
+    const d = await this.db.collection('products').findOne({ _id, deletedAt: null }, { projection: { sku: 1, categoryId: 1 } });
+    if (!d) throw new NotFoundException('Изделие не найдено');
+    const g = await groupNoOf(this.db, (d.categoryId as Types.ObjectId | null) ?? null);
+    if (!g) throw new BadRequestException('У группы изделия нет номера — задайте его в справочнике групп');
+    if (new RegExp('^' + g.groupNo + '\d{2}$').test(clean(d.sku))) return { id, sku: String(d.sku), changed: false, passports: 0 };
+    const passports = await this.db.collection('productpassports').countDocuments({ deletedAt: null, productId: _id });
+    if (!confirm) return { id, sku: String(d.sku), changed: false, passports, confirmRequired: true, warning: passports ? `Артикул изменится у изделия, выпущено паспортов: ${passports}` : 'Артикул изменится' };
+    const auto = (await nextSku(this.db, this.counter, d.categoryId as Types.ObjectId))!;
+    await this.db.collection('products').updateOne({ _id }, { $set: { sku: auto.sku, updatedAt: new Date() } });
+    return { id, sku: auto.sku, oldSku: String(d.sku), changed: true, passports, ...(auto.warning ? { skuWarning: auto.warning } : {}) };
   }
 
   async update(id: string, dto: Record<string, unknown>) {
@@ -333,7 +360,7 @@ export class ShowcaseService {
    * apply=false — только отчёт. При apply: создаём изделие (status draft, без цены, полное описание из заказа) и ставим
    * позициям productId (только где его не было). Текст и суммы позиций не трогаем — договор.
    */
-  async fromOrders(apply: boolean, picks?: { key?: string; name?: string }[]) {
+  async fromOrders(apply: boolean, picks?: { key?: string; name?: string; group?: string }[]) {
     const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, productId: null }, { projection: { title: 1, orderNo: 1 } }).toArray();
     const have = new Map<string, Types.ObjectId>();
     for (const p of await this.db.collection('products').find({ deletedAt: null }, { projection: { name: 1 } }).toArray()) { const k = productNameKey(String(p.name ?? '')); if (!have.has(k)) have.set(k, p._id as Types.ObjectId); }
@@ -352,9 +379,11 @@ export class ShowcaseService {
     if (!apply) return { ...report, applied: false };
     // выбор (галочки в панели): создаём только отмеченные, с поправленным названием; без picks — все, как раньше
     let chosen: Map<string, string> | null = null;
+    const groupOf = new Map<string, string>();
     if (picks !== undefined) {
       if (!Array.isArray(picks) || picks.length > 2000) throw new BadRequestException('Некорректный выбор изделий');
       chosen = new Map(picks.filter((x) => x?.key).map((x) => [String(x.key), clean(x.name).slice(0, 256)]));
+      for (const x of picks) if (x?.key && x.group) groupOf.set(String(x.key), clean(x.group));
       if (!chosen.size) throw new BadRequestException('Отметьте изделия, которые создать');
     }
     let created = 0;
@@ -363,8 +392,15 @@ export class ShowcaseService {
       if (p.action === 'new') {
         if (chosen && !chosen.has(p.key)) continue; // не отмечено — позиции заказов остаются без изделия
         const name = chosen?.get(p.key) || p.name;
-        const sku = 'ЗК-' + createHash('md5').update(p.key).digest('hex').slice(0, 6).toUpperCase();
-        try { productId = new Types.ObjectId((await this.create({ sku, name, description: p.description.length > name.length ? p.description : '' })).id); created++; } catch { continue; }
+        const description = p.description.length > name.length ? p.description : '';
+        const group = groupOf.get(p.key) ?? '';
+        try {
+          // группа известна и с номером — автоартикул, иначе прежний ЗК-<код>
+          let made: { id: string } | null = null;
+          if (group) { try { made = await this.create({ name, group, description }); } catch (e) { if (!(e instanceof BadRequestException)) throw e; } }
+          made ??= await this.create({ sku: 'ЗК-' + createHash('md5').update(p.key).digest('hex').slice(0, 6).toUpperCase(), name, description });
+          productId = new Types.ObjectId(made.id); created++;
+        } catch { continue; }
       } else {
         const e = have.get(p.key);
         if (!e) continue;

@@ -59,7 +59,8 @@ export class CategoryService {
       if (isDescendant) throw new BadRequestException('Cannot move category under its own descendant (would create a cycle)');
     }
     const newFullPath = await this.buildFullPath(newName, newParentId, organizationId, id);
-    Object.assign(doc, { ...dto, fullPath: newFullPath });
+    const groupNo = await this.checkGroupNo(dto.groupNo, doc.type, newParentId, id);
+    Object.assign(doc, { ...dto, ...(groupNo !== undefined ? { groupNo } : {}), fullPath: newFullPath });
     try {
       await doc.save();
     } catch (err) {
@@ -208,6 +209,17 @@ export class CategoryService {
    * `ProductService`/`MaterialService` already guard against for their own
    * unique fields.
    */
+  /** Номер группы изделий: undefined — не меняем, null — снят; только у группы-ребёнка type product; уникален среди живых групп. */
+  private async checkGroupNo(raw: string | undefined, type: string, parentId: string | null | undefined, selfId?: string): Promise<string | null | undefined> {
+    if (raw === undefined) return undefined;
+    const no = String(raw).trim();
+    if (!no) return null;
+    if (type !== 'product' || !parentId) throw new BadRequestException('Номер группы задаётся только у группы изделий (внутри раздела)');
+    const dup = await this.model.findOne({ type: 'product', deletedAt: null, groupNo: no, ...(selfId ? { _id: { $ne: new Types.ObjectId(selfId) } } : {}) }).select('name').lean();
+    if (dup) throw new ConflictException(`Номер группы ${no} уже занят группой «${dup.name}»`);
+    return no;
+  }
+
   private rethrowDuplicate(err: unknown): never {
     if ((err as { code?: number })?.code === 11000) {
       const keyPattern = (err as { keyPattern?: Record<string, unknown> }).keyPattern ?? {};

@@ -85,14 +85,15 @@ export class ShowcaseFromPassports {
   private async productFromPassport(p: Doc, name: string, article: string): Promise<Types.ObjectId> {
     const base = article || 'ПС-' + createHash('md5').update(name.toLowerCase()).digest('hex').slice(0, 6).toUpperCase();
     let created: { id: string } | null = null;
+    const overview = ((p.images as Array<{ kind?: string; photoId?: unknown; order?: number }>) ?? []).filter((i) => (i.kind || 'overview') === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((i) => String(i.photoId));
+    const dto = { name, group: p.category ?? '', description: p.description ?? '',
+      dimensions: { length: p.length, width: p.width, height: p.height, unit: 'мм' }, weightKg: p.weight ?? null,
+      purpose: p.purpose ?? '', installation: p.installationMethod ?? '', ...(overview.length ? { photoIds: overview } : {}) };
+    // без артикула в паспорте: группа с номером (categories.groupNo) → автоартикул; нет номера — ПС-<код>
+    if (!article) { try { created = await this.create(dto); } catch (e) { if (!(e instanceof BadRequestException)) throw e; } }
     for (let i = 1; i <= 20 && !created; i++) {
       const sku = i === 1 ? base : `${base}-${i}`;
-      const overview = ((p.images as Array<{ kind?: string; photoId?: unknown; order?: number }>) ?? []).filter((i) => (i.kind || 'overview') === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((i) => String(i.photoId));
-      try {
-        created = await this.create({ sku, name, group: p.category ?? '', description: p.description ?? '',
-          dimensions: { length: p.length, width: p.width, height: p.height, unit: 'мм' }, weightKg: p.weight ?? null,
-          purpose: p.purpose ?? '', installation: p.installationMethod ?? '', ...(overview.length ? { photoIds: overview } : {}) });
-      }
+      try { created = await this.create({ ...dto, sku }); }
       catch (e) { if (!(e instanceof ConflictException)) throw e; }
     }
     if (!created) throw new ConflictException(`Не удалось подобрать свободный артикул для «${name}»`);

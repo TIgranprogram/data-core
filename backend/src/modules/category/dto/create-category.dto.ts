@@ -38,6 +38,8 @@ export class CreateCategoryDto {
 
   @ApiPropertyOptional({ description: 'Описание категории' })
   @IsOptional() @IsString() @Length(0, 512) description?: string;
+  @ApiPropertyOptional({ example: '12', description: 'Номер группы изделий (две цифры; пусто — снять). Только у группы-ребёнка type product' })
+  @IsOptional() @Matches(/^(d{2})?$/, { message: 'Номер группы — две цифры' }) groupNo?: string;
   @ApiPropertyOptional({ description: 'Активна ли категория' })
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
