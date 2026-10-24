@@ -109,15 +109,19 @@ describe('Auth (e2e)', () => {
       expect(login.body.user.uiPrefs).toMatchObject({ detailW: 700, sidebarW: 300 });
     });
 
-    it('вне пределов, лишний ключ, строка → 400', async () => {
+    it('вне пределов, не целое, строка → 400; лишний ключ не записывается', async () => {
       const { access } = await loginAsAdmin(app);
-      for (const body of [{ detailW: 5000 }, { foo: 1 }, { detailW: '700' }]) {
+      for (const body of [{ detailW: 5000 }, { sidebarW: 199 }, { filterW: 701 }, { detailW: 700.5 }, { detailW: '700' }]) {
         const r = await request(app.getHttpServer())
           .patch('/api/auth/me/prefs')
           .set(authHeader(access))
           .send(body);
         expect(r.status).toBe(400);
       }
+      // Харнесс (test/setup/test-db.ts) ставит ValidationPipe без forbidNonWhitelisted, в отличие от main.ts:
+      // здесь лишний ключ просто отбрасывается; 400 на него в проде — юнит ui-prefs.spec.ts (тот же pipe, что в main.ts).
+      const r = await request(app.getHttpServer()).patch('/api/auth/me/prefs').set(authHeader(access)).send({ foo: 1 });
+      expect(r.body.uiPrefs?.foo).toBeUndefined();
     });
 
     it('через kppd_-ключ → 403', async () => {

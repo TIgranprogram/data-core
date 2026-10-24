@@ -5,6 +5,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { canSeeMoney } from '../../common/roles-hierarchy';
 import { IncomeDto } from './dto';
 import { IncomesService } from './incomes.service';
 
@@ -26,8 +27,8 @@ export class IncomesController {
   @ApiQuery({ name: 'orderId', required: false, description: 'позиции заказа (salesorders), id через запятую' })
   @ApiQuery({ name: 'from', required: false, description: 'по дате в отчёт (оплаты, иначе отгрузки), ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
-  list(@Query() q: Record<string, string>) {
-    return this.incomes.list(q);
+  list(@Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.list(q, canSeeMoney(user));
   }
 
   /** Подсказки формы: наши компании, заказчики, формы оплаты. */

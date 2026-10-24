@@ -62,14 +62,15 @@ export class IncomesService {
     }));
   }
 
-  async list(q: Record<string, unknown> = {}) {
-    const p = parseList(q, { sortable: INCOME_SORT, defaultSort: '-reportDate', defaultLimit: 25 });
+  /** money=false (роль без прав на деньги): период и порядок по умолчанию — по дате отгрузки, не по «дате в отчёт» (= дате оплаты). */
+  async list(q: Record<string, unknown> = {}, money = true) {
+    const p = parseList(q, { sortable: INCOME_SORT, defaultSort: money ? '-reportDate' : '-shipDate', defaultLimit: 25 });
     const filter: Record<string, unknown> = { deletedAt: p.deleted ? { $ne: null } : null };
     if (q.companyId) filter.companyId = { $in: oids(q.companyId) };
     if (q.orderNo) filter.orderNo = String(q.orderNo);
     if (q.orderId) filter.orderId = { $in: oids(q.orderId) };
     const range = dateRange(q.from, q.to);
-    if (range) filter.reportDate = range;
+    if (range) filter[money ? 'reportDate' : 'shipDate'] = range;
     // поиск «как на складе»; в $and — чтобы статус «Без суммы» (свой $or) не затирал поиск
     const sf = tokensFilter(q.search, ['orderNo', 'customer', 'title', 'notes', 'kind', 'color']);
     if (sf) filter.$and = sf.$and;

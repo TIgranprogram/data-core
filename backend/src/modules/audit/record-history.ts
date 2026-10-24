@@ -10,7 +10,9 @@ const IGNORE = new Set(['_id', 'id', '__v', 'updatedAt', 'updatedBy', 'createdAt
   'photos', 'photoIds', 'photo', 'materialPhoto', 'lines', 'related', 'items', 'counts', 'stockMovements', 'supplyRequests', 'reservations', 'issues',
   'dictInfo', 'typeLabel', 'canCancel', 'deletedWithOrder', 'version', 'clientUid']);
 /** Денежные поля — только деньги-ролям (как MoneyMaskInterceptor). */
-export const MONEY_FIELDS = new Set(['priceHint', 'amount', 'amountManual', 'unitPrice', 'paidAmount', 'sum', 'salaryRate', 'price', 'total']);
+export const MONEY_FIELDS = new Set(['priceHint', 'amount', 'amountManual', 'unitPrice', 'paidAmount', 'sum', 'salaryRate', 'price', 'total', 'paidDate', 'reportDate']);
+/** Статусы позиций заказа, по которым видно оплату — в истории тоже только деньги-ролям (как MoneyMaskInterceptor). */
+const PAY_STATUS = new Set(['paid', 'awaiting', 'noamount']);
 
 /** Значение для показа: примитив, дата строкой, у объекта — его name/title; списки и прочие объекты — не сравниваем. */
 export function simple(v: unknown): string | number | boolean | null | undefined {
@@ -36,6 +38,7 @@ export function diffSnapshots(prev: Record<string, unknown> | null | undefined, 
     if (IGNORE.has(k) || (!canMoney && MONEY_FIELDS.has(k))) continue;
     const a = prev ? simple(prev[k]) : null, b = simple(next[k]);
     if (a === undefined || b === undefined) continue;
+    if (!canMoney && k === 'status' && (PAY_STATUS.has(String(a)) || PAY_STATUS.has(String(b)))) continue;
     if (prev ? a !== b : b !== null && b !== false) out.push({ field: k, from: prev ? a : null, to: b });
   }
   return out;
