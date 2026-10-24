@@ -94,7 +94,7 @@ export const movements = {
       ['По брони', m.reservationId ? h('a', { href: '#ops?mode=reserve' }, 'выдано по брони — брони →') : ''],
       ['Под заказ', m.salesOrderId ? h('a', { href: '#salesorders?open=' + m.salesOrderId }, 'открыть заказ →') : ''],
       ['Все движения позиции', h('a', { href: '#movements?materialId=' + m.materialId }, 'показать →')],
-      ['Операция', m.batchId ? 'часть операции из «Операций» (несколько позиций разом)' : ''],
+      ['Операция', m.batchId ? 'часть операции склада (несколько позиций разом)' : ''],
       ['Примечание', m.note],
       ['Кто провёл', m.createdBy],
       ['Источник', m.fromSheet ? 'Google-таблица (история; остаток по ней не менялся)' : ''],

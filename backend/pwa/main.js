@@ -13,7 +13,6 @@ import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
 import { movements } from './sections/movements.js';
 import { mountMoney } from './sections/money.js';
-import { mountOps } from './sections/ops.js';
 import { mountPayroll } from './sections/payroll.js';
 /** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
 const FEATURES = { payroll: true };
@@ -26,6 +25,7 @@ import { invoice, pasteOrder } from './sections/invoice.js';
 import { requests } from './sections/requests.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
+import { stockOp } from './sections/stock-ops.js';
 import { mountTrash } from './sections/trash.js';
 // раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
 import { history as historySection } from './sections/history.js';
@@ -39,8 +39,8 @@ import { versionLabel, watchUpdates } from './core/update-check.js';
 // ОШ: любая необработанная ошибка — понятным русским текстом (детали — в консоль), без повторов
 installGlobalErrors(toastError);
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, ptext, ptextview };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['ops', 'Операции', 'ops'], ['stock', 'Остатки', 'stock'], ['movements', 'Движения', 'moves'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, ptext, ptextview };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 const root = $('#root');
 
@@ -135,7 +135,7 @@ function shell() {
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
-    h('div', { class: 'side-group' }, 'Склад'), navLinks.ops, navLinks.stock, navLinks.movements,
+    h('div', { class: 'side-group' }, 'Склад'), navLinks.stock,
     h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners,
     session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
     h('div', { class: 'side-foot' },
@@ -207,7 +207,9 @@ const screenKey = (section, params) => section + (section === 'search' ? '?' + (
 
 function render({ section, params }) {
   if (!section) { go(DEFAULT, {}, { replace: true }); return; }
-  for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === section);
+  // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
+  if (section === 'ops') { go('stock', { of: 'stockop', new: '1', op: { in: 'in', reserve: 'reserve', count: 'count' }[params.mode] || 'out' }, { replace: true }); return; }
+  for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === (section === 'movements' ? 'stock' : section));
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
 
   const key = screenKey(section, params);
@@ -224,7 +226,6 @@ function render({ section, params }) {
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = mountMoney(params);
-    else if (section === 'ops') list = mountOps(params);
     else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = mountPayroll();
     else if (section === 'trash') list = mountTrash();
     else if (section === 'dicts') list = mountDicts(params);
@@ -247,7 +248,7 @@ function openRecord(section, id) {
 }
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
-const NAMES = { home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', ops: 'Операции', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
+const NAMES = { home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
 function screenTitle(url) {
   const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
   const name = SECTIONS[sec]?.title || NAMES[sec] || 'Сегодня';
@@ -275,7 +276,7 @@ function syncCard(section, params) {
   const sec = SECTIONS[ofName];
   const want = sec && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
   if (!want) { closeCard(); return; }
-  const key = ofName + want + (params.fill ? '~' + params.fill : '');
+  const key = ofName + want + (params.fill ? '~' + params.fill : '') + (ofName === 'stockop' ? '@' + (params.op || '') + (params.materialId || '') : '');
   if (card?.key === key) return;
   // Та же панель, другая запись (стрелки, клик по соседней строке) — меняем содержимое, без закрытия
   if (card && card.of === ofName && !params.fill && want.startsWith('open:') && card.key.includes('open:') && !card.key.includes('~') && !card.handle.editing) {
@@ -284,7 +285,7 @@ function syncCard(section, params) {
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     changed: () => { mounted?.list?.reload?.(); refreshCounts(); },

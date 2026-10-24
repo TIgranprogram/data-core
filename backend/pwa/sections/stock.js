@@ -7,12 +7,12 @@ import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
-import { cancelMovement, moveLabel } from './movements.js';
 import { issueDialog, issueToFields, withOrders } from './issue.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog, pipeInHelper } from './metal.js';
 import { orderedBlock, orderItem, receiveField } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/errors.js';
+import { openStockOp } from './stock-ops.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -128,19 +128,41 @@ async function move(r, type, ctx) {
   if (done) { toast(`${titles[type]}: проведено`); ctx.setRow(done); }
 }
 
-function recentMoves(r, ctx) {
+const HIST = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', count: 'Пересчёт', transfer: 'Перемещение', reserve: 'Бронь', unreserve: 'Снятие брони' };
+/** Последние 5 записей истории позиции (GET /stock/items/:id/history?limit=5) и «Вся история» — без ограничения. */
+function recentMoves(r) {
   const ul = h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…'));
-  api('/stock/movements', { query: { materialId: r.id, limit: 10 } }).then((res) => {
-    if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений пока нет')); return; }
+  const more = h('div', { class: 'actions' });
+  const show = (res, full) => {
+    if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений пока нет')); more.replaceChildren(); return; }
     ul.replaceChildren(...res.items.map((m) => h('li', null,
-      h('span', { class: 'when' }, date(m.date)), h('span', null, moveLabel(m)),
-      h('span', { class: 'num ' + (m.delta > 0 ? 'pos' : m.delta < 0 ? 'neg' : '') }, (m.delta > 0 ? '+' : '') + qty(m.delta)),
-      m.qtyBefore != null && m.type === 'adjust' ? h('span', { class: 'num muted', title: 'Остаток было → стало' }, `${qty(m.qtyBefore)} → ${qty(m.qtyAfter)}`) : null, // ФИ.5
-      h('span', { class: 'muted', style: { flex: '1' } }, m.note || ''),
-      m.canCancel ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { const it = await cancelMovement(m); if (it) ctx.setRow(it); } }, 'Отменить') : null)));
-    if (res.total > res.items.length) ul.append(h('li', null, h('a', { href: '#movements?materialId=' + r.id }, `Все движения (${res.total}) →`)));
-  }).catch(() => ul.replaceChildren(h('li', { class: 'muted' }, 'Не удалось загрузить движения')));
-  return h('div', null, h('div', { class: 'section-title' }, 'Последние движения'), ul);
+      h('span', { class: 'when' }, date(m.date)), h('span', null, HIST[m.type] || m.type),
+      h('span', { class: 'num ' + (m.type === 'in' ? 'pos' : m.type === 'out' ? 'neg' : '') }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
+      h('span', { class: 'muted', style: { flex: '1' } }, m.note || ''))));
+    more.replaceChildren(...[
+      !full && res.total > res.items.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async (e) => {
+        const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
+        try { show(await api(`/stock/items/${r.id}/history`), true); } catch (err) { b.disabled = false; b.classList.remove('is-busy'); toastError(err); }
+      } }, `Вся история (${res.total})`) : null,
+      h('a', { class: 'btn btn-ghost btn-sm', href: '#movements?materialId=' + r.id, title: 'Журнал движений позиции — там можно отменить ошибочное' }, 'Журнал движений →')].filter(Boolean));
+  };
+  api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch(() => ul.replaceChildren(h('li', { class: 'muted' }, 'Не удалось загрузить историю')));
+  return h('div', null, h('div', { class: 'section-title' }, 'Последние записи'), ul, more);
+}
+
+/** Кнопки над списком остатков: «Принять», «Выдать», «Забронировать», «ещё ▾» (Списать, Пересчитать) — всё в правой панели; «Вся история» — журнал. */
+function stockActions() {
+  const menu = h('div', { class: 'menu', hidden: true },
+    h('button', { type: 'button', onclick: () => { menu.hidden = true; openStockOp('writeoff'); } }, 'Списать'),
+    h('button', { type: 'button', onclick: () => { menu.hidden = true; openStockOp('count'); } }, 'Пересчитать'));
+  const more = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'true', onclick: (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; } }, 'ещё ▾');
+  document.addEventListener('click', () => { menu.hidden = true; });
+  return h('div', { class: 'stock-acts' },
+    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять'),
+    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('out') }, 'Выдать'),
+    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('reserve') }, 'Забронировать'),
+    h('div', { class: 'rel' }, more, menu),
+    h('a', { class: 'btn btn-ghost', href: '#movements', title: 'Журнал всех приходов, списаний и корректировок' }, 'Вся история'));
 }
 
 export const stock = {
@@ -156,7 +178,9 @@ export const stock = {
     // фильтры «тип / резьба / длина / стандарт» — выпадающая панель поверх таблицы; выбранное уходит словами поиска
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId' }),
     extraKeys: ['ft'],
-    query: (P) => (P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}),
+    // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
+    query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
+    headActions: () => [stockActions()],
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Поиск: наименование, артикул…',
@@ -166,7 +190,7 @@ export const stock = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
     ],
     hints: {
-      '': 'Все позиции склада. В строке: «+ Приход», «− Списать»; если не хватает — «Заказать». Несколько позиций разом и пересчёт полки — раздел «Операции».',
+      '': 'Все позиции склада. В строке: «+ Приход», «− Списать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
       reserved: 'Отложено под заказы. Выдать — «Из брони» в строке.',
@@ -194,7 +218,7 @@ export const stock = {
       { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
       { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => h('b', null, qty(r.quantity)) },
       { key: 'unit', label: 'Ед.', render: unit },
-      { key: 'reservedQty', label: 'Бронь', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
+      { key: 'reservedQty', label: 'В брони', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
@@ -239,7 +263,7 @@ export const stock = {
       { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
     ],
     // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
-    extra: (r, ctx) => h('div', null, orderedBlock(r), recentMoves(r, ctx)),
+    extra: (r) => h('div', null, orderedBlock(r), recentMoves(r)),
   },
 
   form: {

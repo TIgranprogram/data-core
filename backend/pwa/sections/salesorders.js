@@ -88,7 +88,7 @@ function details(r) {
           ` · ${g.lines} поз. · ${g.left ? 'в брони ' + qty(g.left) : 'всё выдано'}${g.issued ? ' · выдано ' + qty(g.issued) : ''}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`))))) : '',
       sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
         ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
-        : h('p', { class: 'muted' }, 'Списаний под заказ нет. В «Операциях» → «Списание» выберите этот заказ.')));
+        : h('p', { class: 'muted' }, 'Списаний под заказ нет. На «Складе» → «Выдать» выберите этот заказ.')));
   }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не удалось загрузить: ' + errText(e))));
   load();
   return box;

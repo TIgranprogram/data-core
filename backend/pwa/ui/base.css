@@ -1155,3 +1155,14 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 /* Проверка дизайнера 2026-10-23: строка-пояснение в списке выбора («ещё N — уточните поиск») без «руки»; кнопки-иконки на телефоне — 44 px и в ширину */
 .sg-row.static, tr.static { cursor: default; }
 @media (max-width: 720px) { .btn-icon { min-width: 44px; } }
+
+/* Склад одной страницей (SK-4b): крупные кнопки действий над остатками и панель действия справа */
+.stock-acts { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.stock-acts .btn { height: 42px; padding: 0 20px; font-size: var(--fs-md, 15px); font-weight: 600; }
+.stock-acts .btn-ghost { font-weight: 500; padding: 0 12px; }
+.stock-acts .menu { right: auto; left: 0; }
+.sop-head { display: flex; align-items: baseline; gap: var(--s3); justify-content: space-between; margin-top: var(--s3); }
+.sop-lines { border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 0; margin-bottom: var(--s3); }
+.sop-empty { padding: var(--s4); text-align: center; }
+.sop-foot { margin-top: var(--s2); }
+.drawer-body .ops-arrivals { margin-bottom: var(--s3); }
