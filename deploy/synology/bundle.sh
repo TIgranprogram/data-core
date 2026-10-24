@@ -166,6 +166,20 @@ cat > "$W/MIGRATE.md" <<'MIG'
 Целевая система: Ubuntu + Docker + docker compose. CPU без AVX -> Mongo остаётся 4.4 (`mongo:4.4`).
 Всё, что ниже, выполняется ПОСЛЕ «да» пользователя. На живую базу ничего не восстанавливать без явного «да».
 
+## Что это
+data-core — личное ядро данных: MongoDB 4.4 (replica set rs0, --auth) + REST API на NestJS (контейнер `datacore-backend`,
+порт 3001 на 127.0.0.1) + приложение «Рабочее место» (`/db/app/`) и админка (`/db/admin/`). Рядом — CRM kppdf
+(`/opt/kppdf-8.0`, порт 3000) на ТОЙ ЖЕ базе `datacore`. Снаружи: домен `https://kppdf-crm.ru` → nginx на VPS →
+обратный SSH-туннель с этой VM (порт на VPS) → :3001 / :3000. На самой VM nginx не нужен.
+
+## Шаг 0 — совсем пустая VM (Ubuntu 22.04/24.04)
+- `apt update && apt install -y ca-certificates curl git autossh cron ufw` ; Docker: `curl -fsSL https://get.docker.com | sh`,
+  пользователь в группе `docker`; плагин `docker compose` (идёт с get.docker.com).
+- CPU без AVX → только `mongo:4.4` (так и записано в compose). Проверить: `grep -c avx /proc/cpuinfo`.
+- ufw: снаружи открыт только 22; 3000/3001/27017 — только 127.0.0.1 (так в compose).
+- swap 2 ГБ, если ОЗУ < 4 ГБ. Часовой пояс — Europe/Moscow.
+- SSH-ключ VM для туннеля к VPS — НОВЫЙ (старый из пакета не переиспользовать), добавить на VPS в authorized_keys пользователя туннеля.
+
 1. Проверить пакет: `sha256sum -c` по `manifest.json` (поле `files`) — скрипт `bundle-pc.sh` (пункт 2) делает это сам.
 2. Подготовить каталоги: `/opt/data-core`, `/opt/kppdf-8.0`, `/var/lib/datacore/{mongodb,uploads,backups}`.
 3. Код: `tar -xzf code/data-core.tar.gz -C /opt/` (папка внутри — `data-core` или корень архива; смотреть `tar -tzf | head`), то же `code/kppdf.tar.gz` в `/opt/`.
@@ -180,6 +194,17 @@ cat > "$W/MIGRATE.md" <<'MIG'
 10. Публичный доступ (`https://kppdf-crm.ru/db/`): nginx живёт на VPS. Блок для `/db/` — `config/nginx/nginx-datacore-db.conf`; `config/nginx/kppdf-proxy` есть, только если файл читался с VM. Туннели: `config/crontab-*.txt` (строки `datacore-tunnel`, `datacore-ssh-tunnel`), `config/systemd/kppdf-tunnel.service`. Адрес VPS, ключи и порты 4200/4201/4222 переносить осознанно; на VPS при смене VM поменять только вход туннеля.
 11. Cron бэкапов: `config/cron.d/datacore` или строка из crontab (`backup.sh` ежедневно в 03:00).
 12. Проверка: `curl -s http://127.0.0.1:3001/api/health`, вход в админку, открыть заказ с фото.
+
+## Переключение домена без доступа к старой VM (решение 2026-10-24)
+Новая VM — СВОЙ порт туннеля на VPS (не тот, что у старой; старая — см. `config/crontab-*.txt`). Оба туннеля работают
+одновременно. Переключение — на VPS: в блоке nginx `/db/` (и kppdf) поменять порт на новый → `nginx -t && systemctl reload nginx`.
+Откат — вернуть старый порт. Перед переключением — свежий пакет со старой VM (данные за минуты переключения иначе потеряются).
+
+## Что сделать лучше при переезде (если не мешает запуску)
+- Бэкапы и пакеты — на общую папку Synology (NFS/SMB), не только внутри VM.
+- `BACKUP_KEEP=10` (уже в backup.sh); выкладка сама чистит кэш сборки Docker.
+- Сразу проверить восстановление: `deploy/synology/verify-restore.js` на копии.
+- Не переносить старые `*.prev-*` и бэкапы — их в пакете и так нет.
 
 Чего в пакете НЕТ: образов Docker (собираются из кода), `node_modules`, старых бэкапов, ключей SSH рабочего ПК (`remote-access/secret/`).
 MIG
