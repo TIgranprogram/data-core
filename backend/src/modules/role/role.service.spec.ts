@@ -124,6 +124,18 @@ describe('RoleService', () => {
       setCustomRoleBases([]);
     });
 
+    it('встроенную роль нельзя выключить и нельзя менять её права -> 400; название и разделы — можно', async () => {
+      const { model, service } = make();
+      const doc = roleDoc({ name: 'admin', isSystem: true, permissions: ['*'] });
+      model.findById.mockReturnValue(chain(doc));
+      await expect(service.update('1', { isActive: false } as never)).rejects.toThrow(BadRequestException);
+      await expect(service.update('1', { permissions: [] } as never)).rejects.toThrow(BadRequestException);
+      await expect(service.update('1', { isSystem: false } as never)).rejects.toThrow(BadRequestException);
+      expect(doc.save).not.toHaveBeenCalled();
+      await service.update('1', { label: 'Админ', appSections: ['stock'], permissions: ['*'] } as never);
+      expect(doc.save).toHaveBeenCalled();
+    });
+
     it('SK-8c: «права как у» встроенной роли менять нельзя -> 400, название — можно', async () => {
       const { model, service } = make();
       const doc = roleDoc({ name: 'manager', isSystem: true });

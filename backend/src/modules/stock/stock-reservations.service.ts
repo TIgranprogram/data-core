@@ -162,14 +162,19 @@ export class StockReservationsService {
         const mats = await this.materials.find({ _id: { $in: list.map((r) => r.materialId) } }, { name: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
         const nameOf = new Map(mats.map((m) => [String(m._id), String(m.name)]));
         const plan: { r: ReservationDocument; n: number; item: StorageItemDocument }[] = [];
-        const short: string[] = [];
+        // Одна строка склада на пару «склад + материал»: несколько броней одного материала (разные позиции заказа)
+        // списываются с одной копии, а нехватка считается по сумме выдачи на пару — иначе остаток перезаписывался.
+        const items = new Map<string, { item: StorageItemDocument; need: number; name: string }>();
         for (const r of list) {
           const n = want.get(String(r._id)) ?? r.qty;
           if (n > r.qty) throw new BadRequestException(`«${nameOf.get(String(r.materialId))}»: в брони ${r.qty}, выдать ${n} нельзя`);
-          const item = await this.core.loadStorage(r.warehouseId, r.materialId as Types.ObjectId, session);
-          if ((item.quantity ?? 0) < n) short.push(`«${nameOf.get(String(r.materialId))}»: есть ${item.quantity ?? 0}, нужно ${n}`);
-          plan.push({ r, n, item });
+          const key = `${String(r.warehouseId ?? '')}:${String(r.materialId)}`;
+          let slot = items.get(key);
+          if (!slot) { slot = { item: await this.core.loadStorage(r.warehouseId, r.materialId as Types.ObjectId, session), need: 0, name: String(nameOf.get(String(r.materialId))) }; items.set(key, slot); }
+          slot.need = Math.round((slot.need + n) * 1000) / 1000;
+          plan.push({ r, n, item: slot.item });
         }
+        const short = [...items.values()].filter((x) => (x.item.quantity ?? 0) < x.need).map((x) => `«${x.name}»: есть ${x.item.quantity ?? 0}, нужно ${x.need}`);
         if (short.length) throw new BadRequestException(`Недостаточно на складе — ${short.join('; ')}`);
         let first = true;
         for (const { r, n, item } of plan) {

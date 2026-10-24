@@ -309,6 +309,19 @@ describe('Stock & supply on shared CRM collections', () => {
     expect((await http().get('/api/stock/movements?limit=1').set(auth())).body.items[0].issuedTo).toBe('бригада 2');
   });
 
+  it('SK-6c: две брони одного материала выдаются одной операцией — остаток и бронь считаются по сумме; отмена возвращает обе', async () => {
+    const a = (await http().post('/api/stock/items').set(auth()).send({ name: 'Болт М8×40', unit: 'шт', categoryName: 'Крепёж' }).expect(201)).body;
+    await http().post('/api/stock/batch').set(auth()).send({ type: 'in', lines: [{ materialId: a.id, qty: 10 }] }).expect(201);
+    const r1 = (await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Позиция 1', lines: [{ materialId: a.id, qty: 3 }] }).expect(201)).body;
+    const r2 = (await http().post('/api/stock/reserve-list').set(auth()).send({ groupName: 'Позиция 2', lines: [{ materialId: a.id, qty: 3 }] }).expect(201)).body;
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ quantity: 10, reservedQty: 6 });
+    // 3 (вся первая) + 2 (часть второй) с одной строки склада: 10 − 5 = 5, бронь 6 − 5 = 1
+    const out = (await http().post('/api/stock/reservations/issue').set(auth()).send({ lines: [{ reservationId: r1.lines[0].id }, { reservationId: r2.lines[0].id, qty: 2 }] }).expect(200)).body;
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ quantity: 5, reservedQty: 1 });
+    await http().post(`/api/stock/batch/${out.batchId}/cancel`).set(auth()).expect(201);
+    expect((await http().get(`/api/stock/items/${a.id}`).set(auth())).body).toMatchObject({ quantity: 10, reservedQty: 6 });
+  });
+
   it('СМ.1/СМ.2: труба — сортамент, марка, размеры, фильтры; обрезок отделяет метры; лист — обрезок без списания', async () => {
     const pipe = (await http().post('/api/stock/items').set(auth()).send({ name: 'Труба профильная 40×20×2', unit: 'м', categoryName: 'Профильная труба', assortment: '40×20×2', materialGrade: 'Ст3', dims: { thickness: 2, length: 6000 } }).expect(201)).body;
     expect(pipe).toMatchObject({ metal: 'pipe', assortment: '40×20×2', materialGrade: 'Ст3', dims: { thickness: 2, length: 6000 } });

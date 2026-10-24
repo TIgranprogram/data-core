@@ -19,6 +19,8 @@ const RAW = [
   ['photos', { parentPhotoId: 1, variant: 1 }],
   ['dict_values', { dict: 1, deletedAt: 1 }],
   ['reservations', { salesOrderId: 1 }, { sparse: true }], // SK-6: брони заказа
+  ['stockmovements', { salesOrderId: 1 }, { sparse: true }], // SK-5: выдано по заказу (lines-lookup)
+  ['stockmovements', { salesOrderLineId: 1 }, { sparse: true }], // SK-7: состав изделия из выдач под позицию
 ];
 
 (async () => {

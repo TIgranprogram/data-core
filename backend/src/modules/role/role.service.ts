@@ -130,6 +130,13 @@ export class RoleService implements OnModuleInit {
     if (dto.baseRole !== undefined && builtin && dto.baseRole !== doc.baseRole) {
       throw new BadRequestException('У встроенной роли «Права как у» не меняется');
     }
+    // Встроенную роль нельзя выключить и нельзя менять её права/системность: иначе один запрос оставит без входа всех админов
+    // или выдаст менеджеру всё (замечание архитектора 2026-10-24). Название и разделы — можно.
+    const d = dto as UpdateRoleDto & { isActive?: boolean; isSystem?: boolean; permissions?: string[] };
+    const samePerms = (a?: string[], b?: string[]) => JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
+    if (builtin && (d.isActive === false || (d.isSystem !== undefined && d.isSystem !== doc.isSystem) || (d.permissions !== undefined && !samePerms(d.permissions, doc.permissions)))) {
+      throw new BadRequestException('У встроенной роли можно менять только название и разделы');
+    }
     if (!builtin && doc.baseRole && 'baseRole' in dto && !dto.baseRole) {
       throw new BadRequestException('У своей роли «Права как у» обязательно');
     }

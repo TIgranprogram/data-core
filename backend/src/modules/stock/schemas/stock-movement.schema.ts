@@ -121,3 +121,4 @@ export const StockMovementSchema = SchemaFactory.createForClass(StockMovement);
 StockMovementSchema.index({ warehouseId: 1, date: -1 });
 StockMovementSchema.index({ productId: 1, date: -1 });
 StockMovementSchema.index({ materialId: 1, date: -1 });
+StockMovementSchema.index({ salesOrderLineId: 1 }, { sparse: true });
