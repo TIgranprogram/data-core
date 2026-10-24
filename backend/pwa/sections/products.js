@@ -230,7 +230,7 @@ export const products = {
       ['Габариты', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
       ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
       ['Назначение', r.purpose], ['Монтаж', r.installation],
-      ['Материалы', r.materialsText || (r.materialsSpec ? null : h('span', { class: 'muted' }, 'таблица не заполнена — «Изменить» → «Для паспорта»'))],
+      ['Материалы', r.materialsText || (r.materialsSpec ? null : h('span', { class: 'muted' }, 'таблица не заполнена — «Изменить» → «Описание и материалы»'))],
       ['Описание', r.description],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
@@ -294,7 +294,7 @@ export const products = {
       { section: 'Цена и себестоимость', tone: 'money' },
       { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
       ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: 'Себестоимость материалов', wide: true, widget: () => costInfo(r), summary: () => '' }] : []),
-      { section: 'Для паспорта', tone: 'info', collapsed: !(r?.purpose || r?.installation || r?.materialsSpec) },
+      { section: 'Описание и материалы', tone: 'info', collapsed: !(r?.purpose || r?.installation || r?.materialsSpec) },
       // МИ.2: материалы таблицей — текст «Изготовлено из…» собирается сам (сервер), паспорт берёт его из изделия
       { key: 'materialsSpec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
         widget: (v) => materialsSpec({ value: v, dicts: md, text: r?.materialsText || '', scope: () => r?.passportCategory?.code || '', actions: r ? [fromComposition(r)] : [] }),
