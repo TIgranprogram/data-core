@@ -1,12 +1,13 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBtn } from './busy.js';
 import { date, parseNum, plural, qty } from '../core/format.js';
 import { current } from '../core/router.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { errText } from './errors.js';
 import { enhanceSelect } from './select.js';
-import { toast } from './toast.js';
+import { toast, toastError } from './toast.js';
 
 /*
  * Спецификация из Excel → брони под заказ (SK-6b), правая панель: ?of=specimport&new=1&orderId=<заказ>.
@@ -193,7 +194,7 @@ async function build() {
   async function takeFree(btn) {
     const lines = report.skipped.filter((x) => x.free > 0 && !x.reserved).map((x) => ({ row: (x.rows || [])[0], materialId: x.materialId, qty: x.need, ...(x.salesOrderLineId ? { salesOrderLineId: x.salesOrderLineId } : {}) }));
     if (!lines.length) return;
-    btn.disabled = true; btn.classList.add('is-busy');
+    const free = busyBtn(btn, 'Бронирую…');
     try {
       const r = await api('/stock/spec/apply', { method: 'POST', body: { salesOrderId: orderId, lines, takeFree: true, clientUid: uid() } });
       const retried = new Set(lines.map((l) => l.materialId + '|' + (l.salesOrderLineId || '')));
@@ -202,7 +203,7 @@ async function build() {
       renderReport();
       toast(`Забронировано сколько свободно: ${(r.reserved || []).length} ${plural((r.reserved || []).length, 'позиция', 'позиции', 'позиций')}`);
       window.dispatchEvent(new CustomEvent('data-changed'));
-    } catch (e) { toast(errText(e), { error: true }); btn.disabled = false; btn.classList.remove('is-busy'); }
+    } catch (e) { toastError(e, 'забронировать'); free(); }
   }
 
   function renderReport(repeated) {

@@ -1,9 +1,9 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { forecastView } from './money-forecast.js';
-import { errText } from '../ui/errors.js';
 
 /**
  * «Деньги» (PRODUCT §5, TASKS Ф.6): платёжный календарь СИЮ/ССЮ по дням, сводка по месяцам, «требуют заполнения».
@@ -237,7 +237,7 @@ export function mountMoney(params) {
       if (my !== seq) return;
       body.replaceChildren(...content.filter(Boolean));
     } catch (e) {
-      if (my === seq) body.replaceChildren(h('div', { class: 'panel state' }, 'Не удалось загрузить: ' + errText(e), h('div', null, h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить'))));
+      if (my === seq) body.replaceChildren(failBlock(e, load, { cls: 'panel state' }));
     } finally { if (my === seq) el.classList.remove('loading'); }
   }
   load();

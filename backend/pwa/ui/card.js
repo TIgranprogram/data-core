@@ -6,7 +6,8 @@ import { confirmDlg } from './dialog.js';
 import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
-import { errText } from './errors.js';
+import { actionText, errText, isFailure } from './errors.js';
+import { busyBlock, busyBtn, failBlock } from './busy.js';
 import { makeResizable } from './resizer.js';
 import { DOCK_MIN } from '../core/prefs.js';
 
@@ -78,7 +79,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (!fresh && !row) { body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } })); }
     if (!fresh && row) drawer.classList.add('loading'); // соседняя запись: старое содержимое видно, пока грузится новое
     try { row = fresh || (await section.get(id)); }
-    catch (e) { drawer.classList.remove('loading'); body.replaceChildren(h('div', { class: 'state' }, errText(e))); titleEl.textContent = section.title; return; }
+    catch (e) { drawer.classList.remove('loading'); body.replaceChildren(failBlock(e, () => showView(), { text: 'Запись не открылась' })); titleEl.textContent = section.title; return; }
     drawer.classList.remove('loading');
     titleEl.textContent = section.card.heading(row);
     subEl.textContent = section.card.subheading ? section.card.subheading(row) : '';
@@ -99,7 +100,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     content.push(h('dl', { class: 'fields' }, section.card.view(row).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
     if (section.card.extra) content.push(section.card.extra(row, actx()));
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
-    const hist = section.card.noHistory ? null : h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…'));
+    const hist = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
     if (hist) content.push(h('div', { class: 'section-title' }, 'История изменений'), hist);
     body.replaceChildren(...content);
     if (hist) loadHistory(hist);
@@ -144,10 +145,9 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     return { reload: () => showView(), setRow: (r) => { showView(r); ctx.changed(); }, changed: ctx.changed, close: () => { destroy(); ctx.close(); } };
   }
   async function runAction(a, btn) {
-    btn.disabled = true;
-    // дольше четверти секунды — крутилка на кнопке: видно, что дело идёт (замечание 2026-10-22 «тишина»)
-    const t = setTimeout(() => btn.classList.add('is-busy'), 250);
-    try { await a.run(row, actx()); } catch (e) { toastError(e); } finally { clearTimeout(t); btn.classList.remove('is-busy'); btn.disabled = false; }
+    // дольше четверти секунды — крутилка на кнопке: видно, что дело идёт (замечание 2026-10-22 «тишина»); ОШ2.5 — ui/busy.js
+    const done = busyBtn(btn, null, { delay: 250 });
+    try { await a.run(row, actx()); } catch (e) { toastError(e, typeof a.label === 'string' ? a.label : ''); } finally { done(); }
   }
 
   async function doRemove() {
@@ -176,7 +176,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     try {
       if (section.form.build) form = await section.form.build(base); // своя форма раздела (счёт с позициями)
       else { flds = await section.form.fields(isNew ? null : row); form = buildForm(flds, base); }
-    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не удалось открыть форму: ' + errText(e))); return; }
+    } catch (e) { body.replaceChildren(failBlock(e, () => showForm(m, init, revert), { text: 'Форма не открылась' })); return; }
     const err = h('div', { class: 'form-error', hidden: true });
     body.replaceChildren(...[err, revert ? h('div', { class: 'fill-note' }, revert.note) : null, form.el].filter(Boolean));
     let saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
@@ -192,14 +192,15 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       if (save.disabled) return;
       const r = form.read();
       if (r.errors) return;
-      save.disabled = true; save.textContent = 'Сохранение…'; err.hidden = true;
+      const done = busyBtn(save, 'Сохраняю…'); err.hidden = true;
       try {
         const bodyData = section.form.toBody(r.values, isNew ? null : row);
         saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
       } catch (e) {
-        err.textContent = 'Не сохранено: ' + errText(e); err.hidden = false;
+        // ОШ2.4: сбой — «Не удалось сохранить: нет связи… Проверьте интернет…»; ответ сервера — «Не сохранено: Укажите…»
+        err.textContent = isFailure(e) ? actionText(isNew ? 'создать запись' : 'сохранить', e) : 'Не сохранено: ' + errText(e); err.hidden = false;
         if (e?.fields) form.markErrors?.(e.fields);
-        save.disabled = false; save.textContent = saveLabel;
+        done(); save.textContent = saveLabel;
         return;
       }
       // после успешного сохранения — вне try: сбой показа не выдаётся за «Не сохранено» (и повтор не создаст дубль)

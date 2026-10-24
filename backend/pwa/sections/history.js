@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
 import { actionLabel, changeList } from '../ui/history.js';
@@ -20,7 +21,7 @@ const openRecord = (r) => { const of = T[r.entityType]?.of; if (of && r.entityId
 
 /** Изменения этой записи журнала — из истории самой записи (там посчитано «было → стало»). */
 function changesOf(r) {
-  const box = h('div', null, h('p', { class: 'muted' }, 'Загрузка…'));
+  const box = h('div', null, busyBlock('подробности', { tag: 'p', cls: 'muted' }));
   if (!r.entityId) { box.replaceChildren(); return box; }
   api('/audit-logs/record', { query: { entityType: r.entityType, entityId: r.entityId } }).then((res) => {
     const x = res.items.find((i) => i.createdAt === r.createdAt);

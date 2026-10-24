@@ -22,6 +22,8 @@ const fmt = (date) => {
 let loaded = null; let latest = null; let shown = false;
 const subs = new Set();
 const notify = () => subs.forEach((fn) => fn());
+/** Открытая версия (для сборщика ошибок, ОШ2): коммит выкладки или ETag main.js; не узнали — ''. */
+export const currentVersion = () => String(loaded?.v || '');
 
 export function watchUpdates() {
   probe().then((r) => {
@@ -40,6 +42,13 @@ export function watchUpdates() {
     latest = r; notify();
     if (r.v !== loaded.v && !shown) { shown = true; showBar(r); }
   };
+  // ОШ2.4: service worker нашёл новую оболочку (уже работал до этого — не первая установка) — та же полоса, без перезагрузки
+  navigator.serviceWorker?.getRegistration?.().then((reg) => reg?.addEventListener('updatefound', () => {
+    const w = reg.installing;
+    w?.addEventListener('statechange', () => {
+      if (w.state === 'activated' && navigator.serviceWorker.controller && !shown) { shown = true; showBar(latest || {}); }
+    });
+  })).catch(() => {});
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
   window.addEventListener('focus', check);
   setInterval(check, 10 * 60 * 1000);

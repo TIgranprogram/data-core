@@ -1,5 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBtn } from '../ui/busy.js';
 import { date, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
@@ -36,8 +37,8 @@ function recentMoves(r) {
       h('span', { class: 'muted', style: { flex: '1' } }, targetNote(m), targetNote(m) && m.note ? ' · ' : '', m.note || ''))));
     more.replaceChildren(...[
       !full && res.total > res.items.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async (e) => {
-        const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
-        try { show(await api(`/stock/items/${r.id}/history`), true); } catch (err) { b.disabled = false; b.classList.remove('is-busy'); toastError(err); }
+        const free = busyBtn(e.currentTarget, null);
+        try { show(await api(`/stock/items/${r.id}/history`), true); } catch (err) { free(); toastError(err, 'загрузить историю'); }
       } }, `Вся история (${res.total})`) : null,
       h('a', { class: 'btn btn-ghost btn-sm', href: '#movements?materialId=' + r.id, title: 'Журнал движений позиции — там можно отменить ошибочное' }, 'Журнал движений →')].filter(Boolean));
   };

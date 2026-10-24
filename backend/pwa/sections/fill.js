@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { failBlock } from '../ui/busy.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { errText } from '../ui/errors.js';
@@ -40,7 +41,7 @@ export function mountFill(params) {
   }
   async function reload() {
     try { data = await api('/fill-audit', { query: { limit: 50 } }); render(); }
-    catch (e) { box.replaceChildren(h('div', { class: 'panel state' }, 'Не загрузилось: ' + errText(e))); }
+    catch (e) { box.replaceChildren(failBlock(e, () => reload(), { cls: 'panel state' })); }
   }
   reload();
   return { el, reload, update: (p) => { if ((p.g || '') !== openKey) { openKey = p.g || ''; if (data) render(); } } };

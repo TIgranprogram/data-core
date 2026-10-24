@@ -1,9 +1,9 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
-import { errText } from '../ui/errors.js';
 
 /**
  * «Справочники → Паспорта → Разделы и тексты» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2). 
@@ -84,7 +84,7 @@ export function mountTexts() {
   const addSec = h('button', { type: 'button', class: 'btn btn-primary', hidden: !edit, onclick: () => patch({ of: 'ptext', open: `${textsCat()}.s`, new: undefined }) }, '+ Раздел');
   const prev = h('button', { type: 'button', class: 'btn', title: 'Собранный текст категории — как в паспорте (переменные — метками «не заполнено»)', onclick: () => patch({ of: 'ptextview', open: `${textsCat()}.p`, new: undefined }) }, 'Предпросмотр');
   // образец паспорта (БЗ-7 шаг 2): разделы и пункты по порядку, как в PDF; клик по пункту — правка справа
-  const tree = h('div', { class: 'pt-tree pt-sheet' }, h('div', { class: 'state' }, 'Загрузка…'));
+  const tree = h('div', { class: 'pt-tree pt-sheet' }, busyBlock('тексты'));
   const DICTS = [['passportElements', 'Элементы'], ['passportMaterials', 'Материалы'], ['passportDefects', 'Дефекты'], ['passportInstall', 'Способы установки'], ['passportStandards', 'Нормативы']];
   const srcBar = h('p', { class: 'hint pt-src' }, 'Нажмите на пункт — правка откроется справа. Описание, материалы, монтаж и дефекты собираются из справочников: ',
     ...DICTS.flatMap(([k, t], i) => [i ? ' · ' : '', h('a', { href: '#dicts?d=' + k }, t)]));
@@ -123,10 +123,10 @@ export function mountTexts() {
   async function reload() {
     const cat = textsCat();
     renderChips(cat);
-    if (shown !== cat) tree.replaceChildren(h('div', { class: 'state' }, 'Загрузка…'));
+    if (shown !== cat) tree.replaceChildren(busyBlock('тексты', { retry: () => reload() }));
     shown = cat;
     try { renderTree(cat, await loadTexts(cat, true)); }
-    catch (e) { tree.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Не загрузилось: ' + errText(e)), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => reload() }, 'Повторить'))); }
+    catch (e) { tree.replaceChildren(failBlock(e, () => reload())); }
   }
   // смена категории — загрузить; открыли/закрыли пункт — только перерисовать выделение из кэша
   function update() {

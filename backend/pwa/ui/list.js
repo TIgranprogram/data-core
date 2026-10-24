@@ -3,13 +3,13 @@ import { searchBox } from './searchbox.js';
 import { enhanceSelect } from './select.js';
 import { api, canEditSection, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { failBlock } from './busy.js';
 import { qty, plural } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { mountBoard } from './board.js';
 import { icon } from './icons.js';
 import { pager } from './pager.js';
 import { toastError } from './toast.js';
-import { errText } from './errors.js';
 
 /**
  * Экран-список (CANON §2) — один на все разделы. Состояние — в адресе: page, limit, q, sort, фильтры, view, open.
@@ -255,7 +255,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     } catch (e) {
       if (my !== seq) return;
       panel.classList.remove('loading');
-      stateRow(() => h('div', { class: 'state' }, h('div', null, 'Не удалось загрузить: ' + errText(e)), h('button', { class: 'btn', type: 'button', onclick: load }, 'Повторить')));
+      stateRow(() => failBlock(e, load));
       foot.replaceChildren();
       return;
     }

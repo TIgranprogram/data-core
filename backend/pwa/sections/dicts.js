@@ -1,6 +1,7 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { searchBox } from '../ui/searchbox.js';
 import { h } from '../core/dom.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
@@ -151,7 +152,7 @@ export function mountDicts(params) {
       if (!texts) texts = mountTexts();
       if (!body.contains(texts.el)) body.replaceChildren(texts.el);
       await texts.reload();
-    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + errText(e))); }
+    } catch (e) { body.replaceChildren(failBlock(e, () => reloadTexts())); }
   }
 
   async function reload() {
@@ -166,13 +167,13 @@ export function mountDicts(params) {
       title.textContent = d.dict.title; hint.textContent = d.dict.hint;
       candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
       renderNav(); renderTable();
-    } catch (e) { body.replaceChildren(h('div', { class: 'state' }, 'Не загрузилось: ' + errText(e))); }
+    } catch (e) { body.replaceChildren(failBlock(e, () => reload())); }
   }
   let shown = params.d;
   reload();
   return {
     el, reload,
-    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(h('div', { class: 'state' }, 'Загрузка…')); reload(); } },
+    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
   };
 }
 

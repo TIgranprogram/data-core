@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBtn } from '../ui/busy.js';
 import { parseNum, plural, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { stockList } from '../core/stock-list.js';
@@ -7,7 +8,7 @@ import { attachCombo } from '../ui/combo.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { errText } from '../ui/errors.js';
 import { enhanceSelect } from '../ui/select.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { ftParams, ftQuery } from '../ui/facet-filter.js';
 import { offerAfterIssue } from '../ui/composition-suggest.js';
 import { lineCode, targetPicker } from '../ui/target-picker.js';
@@ -187,7 +188,7 @@ async function build() {
 
   // пересчёт: все позиции текущего фильтра списка (поиск, состояние, категория, признаки) — в строки разом
   const takeAllBtn = op === 'count' ? h('button', { class: 'btn btn-sm', type: 'button', style: { marginBottom: 'var(--s2)' }, title: 'Берёт все позиции, которые сейчас видны в списке с учётом поиска и фильтров', onclick: async (e) => {
-    const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
+    const free = busyBtn(e.currentTarget, 'Загружаю…');
     try {
       const q = { limit: 10000, sort: 'name' };
       const search = [P.q, P.ft ? ftQuery(P.ft) : ''].filter(Boolean).join(' ');
@@ -200,7 +201,7 @@ async function build() {
       for (const it of r.items || []) if (!have.has(it.id)) lines.push(newLine(it));
       touched = true; saveDraft(); render();
       toast(`В пересчёте позиций: ${lines.length}`);
-    } catch (err) { toast(errText(err), { error: true }); } finally { b.disabled = false; b.classList.remove('is-busy'); }
+    } catch (err) { toastError(err, 'взять позиции в пересчёт'); } finally { free(); }
   } }, 'Взять всё из списка в пересчёт') : null;
 
   const el = h('div', { class: 'sop' },

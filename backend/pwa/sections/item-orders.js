@@ -1,5 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBlock } from '../ui/busy.js';
 import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
@@ -14,7 +15,7 @@ export const ordered = (id) => api(`/stock/items/${id}/ordered`);
 
 /** Блоки карточки: «Заказано (в пути N)» и «Поставщики и цены». */
 export function orderedBlock(r) {
-  const box = h('div', null, h('div', { class: 'section-title' }, 'Заказано'), h('p', { class: 'muted' }, 'Загрузка…'));
+  const box = h('div', null, h('div', { class: 'section-title' }, 'Заказано'), busyBlock('', { tag: 'p', cls: 'muted' }));
   ordered(r.id).then((d) => {
     box.replaceChildren(...[
       h('div', { class: 'section-title' }, d.open.length ? `Заказано — в пути ${qty(d.inTransit)} ${r.unit || ''}` : 'Заказано'),

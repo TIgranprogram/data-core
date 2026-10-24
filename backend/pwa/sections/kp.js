@@ -1,5 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBtn } from '../ui/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
@@ -149,9 +150,9 @@ async function buildFromPassportsForm() {
   const r = await api('/showcase/from-passports');
   const art = (m) => [m.article ? `арт. ${m.article}` : 'без артикула', `${m.n} ${plural(m.n, 'паспорт', 'паспорта', 'паспортов')}`, `заполнено ${m.score}`].join(' · ');
   const run = async (btn, body, done) => {
-    btn.disabled = true; btn.classList.add('is-busy');
+    const free = busyBtn(btn, 'Создаю…');
     try { const res = await api('/showcase/from-passports', { method: 'POST', body }); toast(`Изделий создано: ${res.created}, паспортов связано: ${res.linked}`); done(); }
-    catch (e) { toastError(e); btn.disabled = false; btn.classList.remove('is-busy'); }
+    catch (e) { toastError(e, 'создать изделия'); free(); }
   };
   const groupEl = (g, i) => {
     const rows = g.map((m, k) => ({ m,

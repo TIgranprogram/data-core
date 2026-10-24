@@ -1,5 +1,6 @@
 import { stockList } from '../core/stock-list.js';
 import { h } from '../core/dom.js';
+import { busyBlock } from './busy.js';
 import { patch } from '../core/router.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
 import { searchBox } from './searchbox.js';
@@ -52,7 +53,7 @@ export function facetFilter({ categoryKey = 'categoryId' } = {}) {
   function close(refocus = true) { watch?.disconnect(); watch = null; pop.hidden = true; shade.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('keydown', onKey); if (refocus) btn.focus(); }
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function renderPop() {
-    if (!body.children.length) body.replaceChildren(h('div', { class: 'muted small' }, 'Загрузка…'));
+    if (!body.children.length) body.replaceChildren(busyBlock('', { cls: 'muted small' }));
     await load();
     const keep = body.scrollTop;
     const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке

@@ -37,8 +37,13 @@ export class ApiError extends Error {
 }
 export class AuthError extends ApiError {}
 
-/** Слушатели: потеря сессии (показать вход), связь (полоса «нет связи»). */
-export const events = { onAuthLost: () => {}, onNet: (_ok) => {} };
+/** Слушатели: потеря сессии (показать вход), связь (полоса «нет связи»), сбой запроса (ОШ2: core/errors.js → /client-errors). */
+export const events = { onAuthLost: () => {}, onNet: (_ok) => {}, onFail: (_err, _ctx) => {} };
+/** Сбой (сеть, 5xx, ответ не разобрался) — сообщить сборщику; ответы 4xx — не сбой. Ошибку бросить дальше как есть. */
+function failed(e, url, method) {
+  if (!(e instanceof ApiError) || e.status === 0 || e.status >= 500) { try { events.onFail(e, { url, method }); } catch { /* сборщик не мешает */ } }
+  throw e;
+}
 /** Хуки после успешной записи (не GET): кэши данных сбрасываются сами (core/stock-list.js). */
 export const writeHooks = [];
 
@@ -48,7 +53,7 @@ const HUMAN = {
   404: 'Запись не найдена — возможно, её уже удалили.',
   413: 'Файл слишком большой.',
   429: 'Слишком много запросов подряд. Подождите минуту.',
-  500: 'Ошибка на сервере. Повторите позже; если не проходит — сообщите администратору.',
+  500: 'Сбой на сервере — мы уже знаем, попробуйте ещё раз. Введённое не потеряно.',
   // ЧН (2026-10-23): сервер недоступен или перезапускается (обновление) — ответ не от приложения, а от шлюза
   502: 'Сервер перезапускается или недоступен — подождите минуту и повторите. Введённое не потеряно.',
   503: 'Сервер перезапускается или недоступен — подождите минуту и повторите. Введённое не потеряно.',
@@ -94,7 +99,8 @@ async function errorOf(res) {
   // Сервер отдаёт русские сообщения для 400/409; для прочих — общий понятный текст
   const russian = /[а-яё]/i.test(msg);
   // ЧН: сбой сервера — с кодом, по которому его найдут в журнале; ввод остаётся в форме
-  const crash = errorId ? `Сбой на сервере (код ${errorId}). Введённое не потеряно — повторите позже; если повторяется, сообщите код администратору.` : '';
+  // ОШ2.4: сервер записал сбой в журнал под этим кодом — человеку «мы знаем», а не «сообщите»
+  const crash = errorId ? `Сбой на сервере (код ${errorId}) — мы уже знаем, попробуйте ещё раз. Введённое не потеряно.` : '';
   // SK-8d: раздел снят с роли — сервер отвечает 403 «Раздел «…» для вашей роли закрыт»: показать его текст, не общий
   const closed = res.status === 403 && russian && /раздел/i.test(msg) && /закрыт/i.test(msg);
   const err = ([400, 409, 422].includes(res.status) && russian) || closed ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
@@ -104,7 +110,10 @@ async function errorOf(res) {
 }
 
 /** Скачать файл (PDF, ZIP) с сервера и сохранить: имя — из Content-Disposition (filename*). */
-export async function apiFile(path, { query, fallback = 'file', timeout = 180000 } = {}) {
+export async function apiFile(path, opts = {}) {
+  return fileGet(path, opts).catch((e) => failed(e, path, 'GET'));
+}
+async function fileGet(path, { query, fallback = 'file', timeout = 180000 } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   let res = await raw(path + qs, { timeout }, session.access);
   if (res.status === 401 && session.refresh) {
@@ -122,7 +131,10 @@ export async function apiFile(path, { query, fallback = 'file', timeout = 180000
 }
 
 /** Запрос к API. path — без /api. body — объект (JSON) или FormData. */
-export async function api(path, { method = 'GET', body, query } = {}) {
+export async function api(path, opts = {}) {
+  return call(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
+}
+async function call(path, { method = 'GET', body, query } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   // одинаковые GET, пока первый ещё в пути (меню и «Сегодня» просят одни и те же счётчики), — один запрос к серверу;
   // разбор — у каждого свой, чтобы правка ответа одним местом не задела другое
@@ -158,6 +170,12 @@ async function send(url, method, body) {
   // пустой ответ (204 или 200 без тела — например, удаление паспорта) — null, а не ошибка разбора JSON
   if (res.status === 204) return null;
   return res.text();
+}
+
+/** Тихая запись без продления входа, хуков и сборщика (ОШ2: отправка ошибки не должна сама порождать ошибки). → HTTP-код. */
+export async function apiQuiet(path, body) {
+  const res = await raw(path, { method: 'POST', body, timeout: 10000 }, session.access);
+  return res.status;
 }
 
 export async function login(username, password) {

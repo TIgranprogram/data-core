@@ -1,5 +1,5 @@
 import { h } from '../core/dom.js';
-import { errText } from './errors.js';
+import { actionText, isFailure } from './errors.js';
 
 /** Всплывающее сообщение. undo — кнопка «Отменить» (CANON §2 «Удаление»), 10 секунд. */
 export function toast(text, { error = false, undo, ms, actions } = {}) {
@@ -17,11 +17,13 @@ export function toast(text, { error = false, undo, ms, actions } = {}) {
   return close; // долгое действие: toast('Готовлю…', { ms: … }) — закрыть, когда готово
 }
 
-// ОШ: текст — errText (по-русски, внутренние ошибки — общим текстом); одинаковая ошибка подряд (4 с) — один раз
-let lastErr = ''; let lastAt = 0;
-export const toastError = (e) => {
-  const t = errText(e);
-  if (t === lastErr && Date.now() - lastAt < 4000) return;
-  lastErr = t; lastAt = Date.now();
+// ОШ: текст — по-русски (внутренние ошибки — общим текстом); action — «Не удалось <действие>: …» (ОШ2.4).
+// Одинаковые подряд: сбой (сеть, 5xx, код) — один раз в 30 с; ответ сервера («Укажите…») — в 4 с, чтобы повторное нажатие не было «тишиной».
+const lastShown = new Map();
+export const toastError = (e, action) => {
+  const t = actionText(typeof action === 'string' ? action : '', e);
+  const gap = isFailure(e) ? 30000 : 4000;
+  if (Date.now() - (lastShown.get(t) || 0) < gap) return;
+  lastShown.set(t, Date.now());
   toast(t, { error: true });
 };

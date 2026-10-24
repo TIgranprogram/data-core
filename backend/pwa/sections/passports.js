@@ -1,5 +1,6 @@
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBtn } from '../ui/busy.js';
 import { date } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -79,8 +80,8 @@ export const passports = {
     },
     hintKey: 'state',
     headActions: () => [h('button', { class: 'btn btn-ghost', type: 'button', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onclick: async (e) => {
-      const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 }); const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
-      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er); } finally { done(); b.disabled = false; b.classList.remove('is-busy'); }
+      const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 }); const free = busyBtn(e.currentTarget, null);
+      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); free(); }
     } }, '⇩ PDF пакетом')],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },

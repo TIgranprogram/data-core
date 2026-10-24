@@ -41,8 +41,13 @@ import { bulkEdit } from './sections/bulk-edit.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
-// ОШ: любая необработанная ошибка — понятным русским текстом (детали — в консоль), без повторов
-installGlobalErrors(toastError);
+import { reportError } from './core/errors.js';
+import { failBlock } from './ui/busy.js';
+// ОШ2: сбой запроса (сеть, 5xx, ответ не разобрался) — в сборщик; GET — фоновая загрузка, запись — действие человека
+events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: method === 'GET' ? 'загрузка' : 'запись', url });
+// ОШ: любая необработанная ошибка — в сборщик и понятным русским текстом (детали — в консоль), без повторов;
+// нет связи — уже видна полоса «нет связи», всплывашка не нужна
+installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
 const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
@@ -237,6 +242,8 @@ function render({ section, params }) {
   if (!mounted || mounted.key !== key) {
     mounted?.list?.destroy?.();
     let list = null;
+    // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
+    try {
     if (sec) {
       list = mountList(sec, params, {
         onOpen: (row) => openRecord(section, row.id),
@@ -252,6 +259,12 @@ function render({ section, params }) {
     else if (section === 'fill') list = mountFill(params);
     else if (section === 'search') list = mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
+    } catch (e) {
+      reportError(e, { kind: 'unhandled', action: 'открыть раздел' });
+      ui.main.replaceChildren(failBlock(e, () => { mounted = null; render(current()); }, { cls: 'panel state', text: 'Раздел не открылся' }));
+      mounted = null;
+      return;
+    }
     ui.main.replaceChildren(list.el);
     mounted = { key, section, list };
     document.title = screenTitle('#' + section) + ' · Рабочее место';

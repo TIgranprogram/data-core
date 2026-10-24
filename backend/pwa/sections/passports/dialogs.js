@@ -1,5 +1,6 @@
 import { api, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
+import { busyBtn } from '../../ui/busy.js';
 import { attachCombo } from '../../ui/combo.js';
 import { toast } from '../../ui/toast.js';
 import { confirmDlg, modal } from '../../ui/dialog.js';
@@ -92,14 +93,14 @@ export async function printDialog(r) {
     onOk: async (form) => {
       if (!hasCat) throw new Error('Сначала выберите категорию паспорта');
       const ok = form.querySelector('[type=submit]');
-      ok.textContent = 'Готовлю PDF…'; ok.classList.add('is-busy');
+      const free = busyBtn(ok, 'Готовлю PDF…');
       try {
         if (mode === 'stand') { await download(r, { mode: 'stand' }, 'лист для стенда'); return true; }
         const s = seal.cb.checked, g = sign.cb.checked;
         const q = { ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(mono.cb.checked ? { bw: 1 } : {}) };
         await download(r, q, mode === 'print' ? 'буклет A4' : 'PDF');
         return true;
-      } finally { ok.textContent = 'Скачать PDF'; ok.classList.remove('is-busy'); }
+      } finally { free(); }
     },
   });
 }

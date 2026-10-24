@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBlock } from '../ui/busy.js';
 import { money, qty } from '../core/format.js';
 
 /**
@@ -37,7 +38,7 @@ function realView(people, refs) {
 }
 
 export function mountPayroll() {
-  const box = h('div', null, h('div', { class: 'panel state' }, 'Загрузка…'));
+  const box = h('div', null, busyBlock('сотрудников', { cls: 'panel state' }));
   api('/dicts/persons').then((r) => {
     const people = r.items.filter((p) => p.status !== 'fired' && Number(p.salaryRate) > 0);
     box.replaceChildren(people.length ? realView(people, r.dict.refs || {}) : demoView());

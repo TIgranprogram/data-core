@@ -5,6 +5,7 @@ import { lookups } from './lookups.js';
 import { quickOrder } from '../ui/quick-order.js';
 import { icon } from '../ui/icons.js';
 import { h } from '../core/dom.js';
+import { failBlock } from '../ui/busy.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { status, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
@@ -88,7 +89,7 @@ export function mountHome(deps) {
         }));
         more.hidden = r.total <= r.items.length;
         more.textContent = r.total - r.items.length > 20 ? `Показать ещё 20 из ${qty(r.total - r.items.length)}` : `Показать ещё ${qty(r.total - r.items.length)}`;
-      } catch (e) { list.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e))); }
+      } catch (e) { list.replaceChildren(failBlock(e, () => load(), { tag: 'li', cls: 'q-empty' })); }
     }
     queues.push(load);
     return panel;
@@ -182,7 +183,7 @@ export function mountHome(deps) {
     feed.replaceChildren(...r.items.map((m) => h('li', { class: 'q-row', tabindex: '0', onclick: () => deps.open('stock', m.materialId) },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, m.materialName), h('div', { class: 'q-sub' }, [moveLabel(m), m.note, m.createdBy].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num ' + (m.delta > 0 ? 'pos' : m.delta < 0 ? 'neg' : '') }, `${m.delta > 0 ? '+' : ''}${qty(m.delta)} ${m.unit || ''}`.trim()), h('span', { class: 'q-date' }, date(m.date))))));
-  }).catch((e) => feed.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e)))));
+  }).catch((e) => feed.replaceChildren(failBlock(e, () => loadFeed(), { tag: 'li', cls: 'q-empty' }))));
   const qFeed = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Последние движения склада'), h('div', { class: 'q-hint' }, 'Приходы, списания, корректировки')), h('a', { href: '#movements', class: 'q-link' }, 'Все →')), feed);
 
   // Брони на складе (TASKS Б.1): что отложено, под что, кем; открыть — «Операции» → «Бронь по списку»
@@ -193,7 +194,7 @@ export function mountHome(deps) {
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, g.name),
         h('div', { class: 'q-sub' }, [`позиций: ${g.lines.length}`, g.salesOrder ? 'заказ ' + g.salesOrder : '', g.createdBy].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, g.createdAt ? h('span', { class: 'q-date' }, date(g.createdAt)) : null))));
-  }).catch((e) => resList.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e)))));
+  }).catch((e) => resList.replaceChildren(failBlock(e, () => loadRes(), { tag: 'li', cls: 'q-empty' }))));
   const qRes = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Брони на складе'), h('div', { class: 'q-hint' }, 'Отложено под заказ / изделие — не трогать')), h('a', { href: '#ops?mode=reserve', class: 'q-link' }, 'Все →')), resList);
 
   // ---------- Сводка (цифры — переход к очереди на этой же странице) ----------

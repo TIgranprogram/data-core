@@ -1,5 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { busyBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { toast, toastError } from '../ui/toast.js';
 import { requests } from './requests.js';
@@ -29,7 +30,7 @@ export function mountTrash() {
   }
 
   function block(src) {
-    const body = h('tbody', null, h('tr', null, h('td', { class: 'muted' }, 'Загрузка…')));
+    const body = h('tbody', null, h('tr', null, busyBlock('', { tag: 'td', cls: 'muted' })));
     const panel = h('div', { class: 'panel' }, h('h3', null, src.title),
       h('div', { class: 'table-wrap', style: { display: 'block' } }, h('table', { class: 'list' },
         h('thead', null, h('tr', null, h('th', null, 'Запись'), h('th', null, 'Удалено'), h('th', null, ''))), body)));
