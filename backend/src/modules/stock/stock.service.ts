@@ -69,7 +69,7 @@ export class StockService {
   batch(dto: Parameters<StockMovementsService['batch']>[0], userId?: string) { return this.moves.batch(dto, userId); }
   cancelBatch(batchId: string, userId?: string) { return this.moves.cancelBatch(batchId, userId); }
   offcut(materialId: string, dto: Parameters<StockMovementsService['offcut']>[1], userId?: string) { return this.moves.offcut(materialId, dto, userId); }
-  history(materialId: string) { return this.moves.history(materialId); }
+  history(materialId: string, limit?: number) { return this.moves.history(materialId, limit); }
   listMovements(q: Record<string, unknown> = {}) { return this.moves.listMovements(q); }
   cancelMovement(id: string, userId?: string) { return this.moves.cancelMovement(id, userId); }
 

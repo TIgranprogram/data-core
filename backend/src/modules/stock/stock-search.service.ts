@@ -14,6 +14,7 @@ import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema'
 import { ITEM_SORT } from './stock.types';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 import { weightGOf } from './weight';
+import { attentionRank, freeQty } from './stock-rank';
 
 /** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */
 const STOCK_COLLS = ['materials', 'storageitems', 'supplyrequests', 'categories', 'warehouses'] as const;
@@ -72,6 +73,8 @@ export class StockSearchService {
           : String(x ?? '').localeCompare(String(y ?? ''), 'ru');
       return c * dir || String(a.name).localeCompare(String(b.name), 'ru');
     });
+    // priority=1 (SK-4a): «заканчивается» и «в брони» — сверху; внутри групп порядок выбранной сортировки (sort стабилен)
+    if (String(q.priority) === '1') rows.sort((a, b) => attentionRank(a) - attentionRank(b));
     const page = rows.slice(p.skip, p.skip + p.limit);
     const photos = await this.photoMap(page.flatMap((r) => r.photoIds));
     const items = page.map(({ photoIds, ...r }) => ({ ...r, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
@@ -130,7 +133,7 @@ export class StockSearchService {
         // АР.1: артикул поставщика и внутренний код (СКЛ-… / sku) — раздельно; откуда взят артикул
         ...articleView(m as { article?: unknown; sku?: unknown; internalArticle?: unknown }), articleSource: (m as { articleSource?: string }).articleSource ?? null,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
-        notes: m.notes, quantity, reservedQty, free: quantity - reservedQty, minQuantity,
+        notes: m.notes, quantity, reservedQty, free: freeQty(quantity, reservedQty), minQuantity,
         ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
         assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, dims: dimsOf(m.dimensions),
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),

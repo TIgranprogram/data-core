@@ -29,6 +29,7 @@ export class StockController {
   @ApiQuery({ name: 'search', required: false, description: 'наименование, артикул, код, примечание' })
   @ApiQuery({ name: 'sort', required: false, description: 'name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt; «-» — по убыванию' })
   @ApiQuery({ name: 'status', required: false, description: 'через запятую: ok, low, none, reserved' })
+  @ApiQuery({ name: 'priority', required: false, description: '1 — «заканчивается» и «в брони» сверху' })
   @ApiQuery({ name: 'grade', required: false, description: 'марка стали' }) @ApiQuery({ name: 'section', required: false, description: 'сортамент / сечение' }) @ApiQuery({ name: 'thickness', required: false, description: 'толщина, мм' })
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>) {
@@ -72,8 +73,9 @@ export class StockController {
 
   @Get('items/:id/history')
   @Roles('admin', 'director', 'manager', 'user')
-  history(@Param('id') id: string) {
-    return this.stock.history(id);
+  @ApiQuery({ name: 'limit', required: false, description: 'только последние N записей (1–200); total — всего записей' })
+  history(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.stock.history(id, limit ? Number(limit) : undefined);
   }
 
   /** Новая позиция (материал + строка остатка). Такое же наименование — вернётся существующая. */

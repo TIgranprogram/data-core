@@ -322,7 +322,7 @@ export class StockMovementsService {
     return { ...dto, qty: r.count!, note, byWeight: undefined };
   }
   /** История позиции: движения склада и брони, новые сверху. */
-  async history(materialId: string) {
+  async history(materialId: string, limit?: number) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
     const matId = new Types.ObjectId(materialId);
     const [mv, rs] = await Promise.all([
@@ -333,7 +333,9 @@ export class StockMovementsService {
       ...mv.map((m) => ({ kind: 'movement', type: m.type, qty: m.qty, date: m.date, note: m.notes ?? (m.documentRef?.startsWith('ADJUST:') ? m.documentRef.slice(7) : m.documentRef), source: (m as { source?: string }).source })),
       ...rs.map((r) => ({ kind: 'reservation', type: r.status === 'released' && r.isActive === false && /снят/i.test(r.notes ?? r.orderId) ? 'unreserve' : 'reserve', status: r.status, qty: r.qty, date: (r as { createdAt?: Date }).createdAt, note: r.notes ?? r.orderId })),
     ].sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime());
-    return { items, total: items.length };
+    // limit (1–200) — только последние N записей (карточка позиции: 5); total — всего
+    const n = Math.floor(Number(limit));
+    return { items: n > 0 ? items.slice(0, Math.min(n, 200)) : items, total: items.length };
   }
   /**
    * Журнал движений по всем позициям (раздел «Движения»): страницы, тип, период, позиция, поиск по наименованию.

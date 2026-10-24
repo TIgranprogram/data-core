@@ -2421,6 +2421,13 @@
             "schema": {}
           },
           {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "description": "1 — «заканчивается» и «в брони» сверху",
+            "schema": {}
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -2691,6 +2698,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "только последние N записей (1–200); total — всего записей",
+            "schema": {}
           }
         ],
         "responses": {
