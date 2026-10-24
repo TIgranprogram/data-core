@@ -392,14 +392,14 @@
           "201": {
             "description": "Role created"
           },
+          "400": {
+            "description": "Нет baseRole или передан name"
+          },
           "401": {
             "description": "Unauthorized"
           },
           "403": {
             "description": "Forbidden"
-          },
-          "400": {
-            "description": "Нет baseRole или передан name"
           }
         },
         "tags": [
@@ -478,6 +478,9 @@
           "200": {
             "description": "Role updated"
           },
+          "400": {
+            "description": "Код роли или «права как у» встроенной роли менять нельзя"
+          },
           "401": {
             "description": "Unauthorized"
           },
@@ -486,9 +489,6 @@
           },
           "404": {
             "description": "Role not found"
-          },
-          "400": {
-            "description": "Код роли или «права как у» встроенной роли менять нельзя"
           }
         },
         "tags": [
@@ -2434,21 +2434,6 @@
         ]
       }
     },
-    "/stock/lookup": {
-      "get": {
-        "operationId": "StockController_lookup",
-        "summary": "SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — {items:[{id, materialId, name, article, unit, categoryName, quantity, free}]}",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Склад"
-        ]
-      }
-    },
     "/stock/items": {
       "get": {
         "operationId": "StockController_list",
@@ -2553,6 +2538,20 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/lookup": {
+      "get": {
+        "operationId": "StockController_lookup",
+        "parameters": [],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -2771,7 +2770,9 @@
             "required": false,
             "in": "query",
             "description": "только последние N записей (1–200); total — всего записей",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2936,7 +2937,6 @@
     "/stock/reservations/order/{salesOrderId}": {
       "get": {
         "operationId": "StockController_reservationsByOrder",
-        "summary": "Брони заказа для «Выдать по заказу» (SK-6): items[{id, materialId, name, unit, qty, issued, onHand, canIssue, groupName, batchId, salesOrderLineId, lineNo, lineTitle}], order, hanging",
         "parameters": [
           {
             "name": "salesOrderId",
@@ -2960,7 +2960,6 @@
     "/stock/reservations/issue-order": {
       "post": {
         "operationId": "StockController_issueOrder",
-        "summary": "«Выдать по заказу» (SK-6): все активные брони заказа или выбранные — одной пачкой (batchId); отмена — /stock/batch/{batchId}/cancel",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -2985,7 +2984,6 @@
     "/stock/reservations/{id}": {
       "patch": {
         "operationId": "StockController_updateReservation",
-        "summary": "Правка брони (SK-6): количество, заказ, позиция заказа (null — снять), примечание",
         "parameters": [
           {
             "name": "id",
@@ -3062,34 +3060,9 @@
         ]
       }
     },
-    "/stock/batch": {
-      "post": {
-        "operationId": "StockController_batch",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StockBatchDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Склад"
-        ]
-      }
-    },
     "/stock/spec/preview": {
       "post": {
         "operationId": "StockController_specPreview",
-        "summary": "Спецификация Excel, просмотр (SK-6): matched / short / notMatched / previous; ничего не пишет",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3114,7 +3087,6 @@
     "/stock/spec/apply": {
       "post": {
         "operationId": "StockController_specApply",
-        "summary": "Спецификация Excel, запись (SK-6): брони одной пачкой; replace, takeFree, clientUid",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3128,6 +3100,30 @@
         },
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/batch": {
+      "post": {
+        "operationId": "StockController_batch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -3151,6 +3147,54 @@
         ],
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/composition-suggest": {
+      "get": {
+        "operationId": "StockController_compositionSuggest",
+        "parameters": [
+          {
+            "name": "salesOrderLineId",
+            "required": true,
+            "in": "query",
+            "description": "позиция заказа (incomes.id)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/composition-suggest/accept": {
+      "post": {
+        "operationId": "StockController_compositionAccept",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockCompositionAcceptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -4854,20 +4898,19 @@
     "/salesorders/lookup": {
       "get": {
         "operationId": "SalesOrdersController_lookup",
-        "summary": "SK-8d: короткий список заказов без денег для «Склада», «Заявок», «Паспортов», «Проектирования» — {items:[{id, orderNo, customer, title, stage, shipDate, lines?:[{id, lineNo, title, qty, productId}]}]}",
         "parameters": [
-          {
-            "name": "filter",
-            "required": false,
-            "in": "query",
-            "description": "active (по умолч.: новый / в производстве / готов) | all",
-            "schema": {}
-          },
           {
             "name": "lines",
             "required": false,
             "in": "query",
             "description": "1 — с позициями [{id, lineNo, title, qty, productId}]",
+            "schema": {}
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "active (по умолч.: новый / в производстве / готов) | all",
             "schema": {}
           }
         ],
@@ -4959,7 +5002,6 @@
     "/salesorders/{id}/lines-lookup": {
       "get": {
         "operationId": "SalesOrdersController_linesLookup",
-        "summary": "Позиции заказа для выдачи со склада: [{id, orderNo, lineNo, title, productId, photoId, qty}] — без цен; photoId: фото позиции, иначе фото изделия, иначе null",
         "parameters": [
           {
             "name": "id",
@@ -5293,6 +5335,62 @@
         }
       }
     },
+    "/client-errors": {
+      "post": {
+        "operationId": "ClientErrorsController_create",
+        "summary": "Сообщить об ошибке в приложении (без данных форм)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientErrorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Принято (сверх лимита 20/мин — молча не записано)"
+          },
+          "400": {
+            "description": "Лишнее поле, нет message или неверный kind"
+          },
+          "403": {
+            "description": "Вход по ключу kppd_"
+          }
+        },
+        "tags": [
+          "Ошибки клиента"
+        ]
+      }
+    },
+    "/client-errors/top": {
+      "get": {
+        "operationId": "ClientErrorsController_top",
+        "summary": "Частые ошибки приложения за последние часы",
+        "parameters": [
+          {
+            "name": "hours",
+            "required": false,
+            "in": "query",
+            "description": "За сколько часов (по умолч. 24, макс. 720)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack }] } по убыванию count"
+          }
+        },
+        "tags": [
+          "Ошибки клиента"
+        ]
+      }
+    },
     "/meta/schema": {
       "get": {
         "operationId": "MetaController_schema",
@@ -5345,72 +5443,6 @@
         },
         "tags": [
           "meta"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/client-errors": {
-      "post": {
-        "operationId": "ClientErrorsController_create",
-        "summary": "Сообщить об ошибке в приложении (без данных форм)",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateClientErrorDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Принято (сверх лимита 20/мин — молча не записано)"
-          },
-          "400": {
-            "description": "Лишнее поле, нет message или неверный kind"
-          },
-          "403": {
-            "description": "Вход по ключу kppd_"
-          }
-        },
-        "tags": [
-          "Ошибки клиента"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/client-errors/top": {
-      "get": {
-        "operationId": "ClientErrorsController_top",
-        "summary": "Частые ошибки приложения за последние часы",
-        "parameters": [
-          {
-            "name": "hours",
-            "required": false,
-            "in": "query",
-            "description": "За сколько часов (по умолч. 24, макс. 720)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack }] } по убыванию count"
-          }
-        },
-        "tags": [
-          "Ошибки клиента"
         ],
         "security": [
           {
@@ -9458,56 +9490,6 @@
           }
         }
       }
-    },
-    "/stock/composition-suggest": {
-      "get": {
-        "operationId": "StockController_compositionSuggest",
-        "summary": "Состав изделия из выдач (SK-7): нетто выдач под позицию ÷ число изделий, разница с составом; цены — только деньговым ролям; ничего не хранит",
-        "parameters": [
-          {
-            "name": "salesOrderLineId",
-            "required": true,
-            "in": "query",
-            "description": "позиция заказа (incomes.id)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Склад"
-        ]
-      }
-    },
-    "/stock/composition-suggest/accept": {
-      "post": {
-        "operationId": "StockController_compositionAccept",
-        "summary": "Принять предложение в состав изделия (SK-7): повтор не удваивает, строки не удаляются",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StockCompositionAcceptDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Склад"
-        ]
-      }
     }
   },
   "info": {
@@ -9580,8 +9562,8 @@
             }
           },
           "appSections": {
-            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
             "type": "array",
+            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
             "items": {
               "type": "string",
               "enum": [
@@ -9594,11 +9576,10 @@
                 "passports",
                 "orders",
                 "money",
-                "payroll"
+                "payroll",
+                "design"
               ]
-            },
-            "maxItems": 30,
-            "uniqueItems": true
+            }
           },
           "isSystem": {
             "type": "boolean",
@@ -9662,8 +9643,8 @@
             }
           },
           "appSections": {
-            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
             "type": "array",
+            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
             "items": {
               "type": "string",
               "enum": [
@@ -9676,11 +9657,10 @@
                 "passports",
                 "orders",
                 "money",
-                "payroll"
+                "payroll",
+                "design"
               ]
-            },
-            "maxItems": 30,
-            "uniqueItems": true
+            }
           },
           "isSystem": {
             "type": "boolean",
@@ -9831,71 +9811,6 @@
       "RefreshTokenDto": {
         "type": "object",
         "properties": {}
-      },
-      "CreateClientErrorDto": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "maxLength": 500,
-            "description": "Текст ошибки (длиннее — обрезается)"
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 100,
-            "example": "TypeError"
-          },
-          "stack": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "section": {
-            "type": "string",
-            "maxLength": 60,
-            "example": "#passports",
-            "description": "Раздел приложения"
-          },
-          "action": {
-            "type": "string",
-            "maxLength": 120,
-            "example": "Сохранить паспорт",
-            "description": "Что делал человек"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "action",
-              "background",
-              "unhandled"
-            ],
-            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная"
-          },
-          "status": {
-            "type": "number",
-            "example": 500,
-            "description": "HTTP-код, если ошибка запроса"
-          },
-          "url": {
-            "type": "string",
-            "maxLength": 200,
-            "example": "/api/passports",
-            "description": "Путь API (query отрезается)"
-          },
-          "version": {
-            "type": "string",
-            "maxLength": 40,
-            "description": "Версия приложения"
-          },
-          "ua": {
-            "type": "string",
-            "maxLength": 300,
-            "description": "User-Agent"
-          }
-        },
-        "required": [
-          "message",
-          "kind"
-        ]
       },
       "UiPrefsDto": {
         "type": "object",
@@ -10103,6 +10018,10 @@
           "note": {
             "type": "string",
             "description": "Примечание строки (расчёт по весу, НО)"
+          },
+          "expected": {
+            "type": "number",
+            "description": "count: остаток, который видел человек; не совпал с сервером — 409"
           }
         },
         "required": [
@@ -10127,12 +10046,12 @@
             "type": "string",
             "description": "Под заказ (salesorders.id)"
           },
-          "clientUid": {
-            "type": "string"
-          },
           "salesOrderLineId": {
             "type": "string",
-            "description": "Под позицию заказа (SK-6)"
+            "description": "Под позицию заказа (incomes.id) — для всех строк списка; заказ сервер берёт из позиции (SK-6)"
+          },
+          "clientUid": {
+            "type": "string"
           }
         },
         "required": [
@@ -10184,6 +10103,179 @@
           "lines"
         ]
       },
+      "StockIssueOrderDto": {
+        "type": "object",
+        "properties": {
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ (salesorders.id)"
+          },
+          "reservationIds": {
+            "description": "Выбранные брони (reservations.id); нет — все активные брони заказа",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lines": {
+            "description": "Выбранные брони с количеством (SK-6c); qty нет — вся бронь. Есть lines — reservationIds не нужен",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIssueLineDto"
+            }
+          },
+          "personId": {
+            "type": "string",
+            "description": "Кому выдано — сотрудник (persons.id)"
+          },
+          "issuedTo": {
+            "type": "string",
+            "description": "Кому / куда выдано текстом"
+          },
+          "note": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ операции клиента — повтор ничего не меняет"
+          }
+        },
+        "required": [
+          "salesOrderId"
+        ]
+      },
+      "StockReservationUpdateDto": {
+        "type": "object",
+        "properties": {
+          "qty": {
+            "type": "number",
+            "description": "Новое количество в брони (> 0); больше прежнего — только в пределах свободного"
+          },
+          "salesOrderId": {
+            "type": "object",
+            "description": "Заказ (salesorders.id); null — снять привязку к заказу (и к позиции)",
+            "nullable": true
+          },
+          "salesOrderLineId": {
+            "type": "object",
+            "description": "Позиция заказа (incomes.id); null — снять позицию",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание"
+          }
+        }
+      },
+      "StockSpecLineDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Код / артикул позиции склада"
+          },
+          "name": {
+            "type": "string",
+            "description": "Наименование как на складе"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество > 0"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Единица измерения; указана и не совпала со складом — строка не сопоставляется"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id)"
+          }
+        },
+        "required": [
+          "name",
+          "qty"
+        ]
+      },
+      "StockSpecPreviewDto": {
+        "type": "object",
+        "properties": {
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ, под который бронируем (salesorders.id)"
+          },
+          "lines": {
+            "description": "До 500 строк",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockSpecLineDto"
+            }
+          }
+        },
+        "required": [
+          "salesOrderId",
+          "lines"
+        ]
+      },
+      "StockSpecApplyLineDto": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "number",
+            "description": "Номер строки в файле — для отчёта"
+          },
+          "materialId": {
+            "type": "string",
+            "description": "Позиция склада (materials.id)"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество > 0"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id)"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "materialId",
+          "qty"
+        ]
+      },
+      "StockSpecApplyDto": {
+        "type": "object",
+        "properties": {
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ (salesorders.id)"
+          },
+          "lines": {
+            "description": "До 500 строк",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockSpecApplyLineDto"
+            }
+          },
+          "replace": {
+            "type": "boolean",
+            "description": "true — сначала снять активные брони прежней загрузки спецификации этого заказа"
+          },
+          "takeFree": {
+            "type": "boolean",
+            "description": "true — где не хватает, бронировать сколько свободно (по умолчанию такие строки пропускаются)"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ операции клиента — повтор не создаёт дублей"
+          }
+        },
+        "required": [
+          "salesOrderId",
+          "lines"
+        ]
+      },
       "StockBatchDto": {
         "type": "object",
         "properties": {
@@ -10232,7 +10324,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "Списание: причина из справочника «Причины списания» (брак, потеря, порча, прочее)"
+            "description": "Списание: причина из справочника «Причины списания»"
           },
           "writeOff": {
             "type": "boolean",
@@ -10250,6 +10342,25 @@
         "required": [
           "type",
           "lines"
+        ]
+      },
+      "StockCompositionAcceptDto": {
+        "type": "object",
+        "properties": {
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id) с изделием"
+          },
+          "materialIds": {
+            "description": "Какие материалы принять; пусто — все, что отличаются от состава",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "salesOrderLineId"
         ]
       },
       "StockOffcutDto": {
@@ -10661,6 +10772,71 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "CreateClientErrorDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Текст ошибки (длиннее — обрезается)"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "TypeError"
+          },
+          "stack": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 60,
+            "example": "#passports",
+            "description": "Раздел приложения"
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Сохранить паспорт",
+            "description": "Что делал человек"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "action",
+              "background",
+              "unhandled"
+            ],
+            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная"
+          },
+          "status": {
+            "type": "number",
+            "example": 500,
+            "description": "HTTP-код, если ошибка запроса"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 200,
+            "example": "/api/passports",
+            "description": "Путь API (query отрезается)"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Версия приложения"
+          },
+          "ua": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "User-Agent"
+          }
+        },
+        "required": [
+          "message",
+          "kind"
         ]
       },
       "CreatePersonDto": {
@@ -11882,191 +12058,6 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
-      },
-      "StockReservationUpdateDto": {
-        "type": "object",
-        "properties": {
-          "qty": {
-            "type": "number",
-            "description": "Новое количество в брони (> 0)"
-          },
-          "salesOrderId": {
-            "type": "string",
-            "description": "Заказ; null — снять"
-          },
-          "salesOrderLineId": {
-            "type": "string",
-            "description": "Позиция заказа; null — снять"
-          },
-          "note": {
-            "type": "string",
-            "description": "Примечание"
-          }
-        }
-      },
-      "StockIssueOrderDto": {
-        "type": "object",
-        "required": [
-          "salesOrderId"
-        ],
-        "properties": {
-          "salesOrderId": {
-            "type": "string",
-            "description": "Заказ"
-          },
-          "reservationIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Выбранные брони; нет — все активные"
-          },
-          "personId": {
-            "type": "string",
-            "description": "Сотрудник"
-          },
-          "issuedTo": {
-            "type": "string",
-            "description": "Кому / куда текстом"
-          },
-          "note": {
-            "type": "string",
-            "description": "Примечание"
-          },
-          "clientUid": {
-            "type": "string",
-            "description": "Ключ операции клиента"
-          }
-        }
-      },
-      "StockSpecLineDto": {
-        "type": "object",
-        "required": [
-          "name",
-          "qty"
-        ],
-        "properties": {
-          "code": {
-            "type": "string",
-            "description": "Код / артикул"
-          },
-          "name": {
-            "type": "string",
-            "description": "Наименование"
-          },
-          "qty": {
-            "type": "number",
-            "description": "Количество > 0"
-          },
-          "unit": {
-            "type": "string",
-            "description": "Единица"
-          },
-          "salesOrderLineId": {
-            "type": "string",
-            "description": "Позиция заказа"
-          }
-        }
-      },
-      "StockSpecPreviewDto": {
-        "type": "object",
-        "required": [
-          "salesOrderId",
-          "lines"
-        ],
-        "properties": {
-          "salesOrderId": {
-            "type": "string",
-            "description": "Заказ"
-          },
-          "lines": {
-            "type": "array",
-            "maxItems": 500,
-            "items": {
-              "$ref": "#/components/schemas/StockSpecLineDto"
-            }
-          }
-        }
-      },
-      "StockSpecApplyLineDto": {
-        "type": "object",
-        "required": [
-          "materialId",
-          "qty"
-        ],
-        "properties": {
-          "row": {
-            "type": "number",
-            "description": "Номер строки в файле"
-          },
-          "materialId": {
-            "type": "string",
-            "description": "Позиция склада"
-          },
-          "qty": {
-            "type": "number",
-            "description": "Количество > 0"
-          },
-          "salesOrderLineId": {
-            "type": "string",
-            "description": "Позиция заказа"
-          },
-          "note": {
-            "type": "string",
-            "description": "Примечание"
-          }
-        }
-      },
-      "StockSpecApplyDto": {
-        "type": "object",
-        "required": [
-          "salesOrderId",
-          "lines"
-        ],
-        "properties": {
-          "salesOrderId": {
-            "type": "string",
-            "description": "Заказ"
-          },
-          "lines": {
-            "type": "array",
-            "maxItems": 500,
-            "items": {
-              "$ref": "#/components/schemas/StockSpecApplyLineDto"
-            }
-          },
-          "replace": {
-            "type": "boolean",
-            "description": "Снять прежнюю загрузку спецификации этого заказа"
-          },
-          "takeFree": {
-            "type": "boolean",
-            "description": "Бронировать сколько свободно"
-          },
-          "clientUid": {
-            "type": "string",
-            "description": "Ключ операции клиента"
-          }
-        }
-      },
-      "StockCompositionAcceptDto": {
-        "type": "object",
-        "properties": {
-          "salesOrderLineId": {
-            "type": "string",
-            "description": "Позиция заказа (incomes.id) с изделием"
-          },
-          "materialIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Какие материалы принять; пусто — все, что отличаются от состава"
-          }
-        },
-        "required": [
-          "salesOrderLineId"
-        ]
       }
     }
   }
