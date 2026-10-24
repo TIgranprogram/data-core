@@ -18,6 +18,7 @@ const MODELS = ['Income', 'SalesOrder', 'ProductPassport', 'Photo', 'AuditLog'];
 const RAW = [
   ['photos', { parentPhotoId: 1, variant: 1 }],
   ['dict_values', { dict: 1, deletedAt: 1 }],
+  ['reservations', { salesOrderId: 1 }, { sparse: true }], // SK-6: брони заказа
 ];
 
 (async () => {
@@ -34,10 +35,10 @@ const RAW = [
       console.log(`  ${m.collection.name}: недостаёт ${toCreate.length}${toCreate.length ? ' — ' + toCreate.map((x) => JSON.stringify(x)).join(', ') : ''}`);
       if (apply && toCreate.length) await m.createIndexes().catch((e) => console.log(`    ошибка: ${e.message}`));
     }
-    for (const [coll, key] of RAW) {
+    for (const [coll, key, opts] of RAW) {
       const have = (await conn.collection(coll).indexes()).some((i) => JSON.stringify(i.key) === JSON.stringify(key));
       console.log(`  ${coll} ${JSON.stringify(key)}: ${have ? 'есть' : 'недостаёт'}`);
-      if (apply && !have) await conn.collection(coll).createIndex(key).catch((e) => console.log(`    ошибка: ${e.message}`));
+      if (apply && !have) await conn.collection(coll).createIndex(key, opts || {}).catch((e) => console.log(`    ошибка: ${e.message}`));
     }
   } finally { await app.close(); }
 })().catch((e) => { console.error(e.message); process.exit(1); });

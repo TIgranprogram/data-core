@@ -4,7 +4,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockBatchDto, StockIssueDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReserveListDto } from './dto';
+import { StockBatchDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
 import { StockService } from './stock.service';
 
 /**
@@ -139,6 +139,31 @@ export class StockController {
     return this.stock.issueReservations(dto, user?.id);
   }
 
+  /** Брони заказа для «Выдать по заказу» (SK-6): активные брони, остаток на складе, «висящий» ли заказ. */
+  @Get('reservations/order/:salesOrderId')
+  @Roles('admin', 'director', 'manager', 'user')
+  reservationsByOrder(@Param('salesOrderId') salesOrderId: string) {
+    return this.stock.reservationsByOrder(salesOrderId);
+  }
+
+  /** «Выдать по заказу» (SK-6): все активные брони заказа или выбранные — одной пачкой; отмена — `batch/:batchId/cancel`. */
+  @Post('reservations/issue-order')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 30 } })
+  @AuditAction({ action: 'stock.reserve.issued.order', entityType: 'StockMovement' })
+  issueOrder(@Body() dto: StockIssueOrderDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.issueOrder(dto, user?.id);
+  }
+
+  /** Правка брони (SK-6): количество, заказ, позиция заказа, примечание — права как у создания брони. */
+  @Patch('reservations/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.reserve.updated', entityType: 'Reservation', idParam: 'id' })
+  updateReservation(@Param('id') id: string, @Body() dto: StockReservationUpdateDto) {
+    return this.stock.updateReservation(id, dto);
+  }
+
   @Post('reservations/:id/release')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -153,6 +178,25 @@ export class StockController {
   @AuditAction({ action: 'stock.reserve.group.released', entityType: 'StockMovement' })
   releaseGroup(@Param('batchId') batchId: string) {
     return this.stock.releaseGroup(batchId);
+  }
+
+  /** Спецификация из Excel, просмотр (SK-6): строки файла → позиции склада, хватает ли свободного. Ничего не пишет. */
+  @Post('spec/preview')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 30 } })
+  specPreview(@Body() dto: StockSpecPreviewDto) {
+    return this.stock.specPreview(dto);
+  }
+
+  /** Спецификация из Excel, запись (SK-6): подтверждённые строки → брони одной пачкой; replace — снять прежнюю загрузку. */
+  @Post('spec/apply')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 30 } })
+  @AuditAction({ action: 'stock.spec.applied', entityType: 'StockMovement' })
+  specApply(@Body() dto: StockSpecApplyDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.specApply(dto, user?.id);
   }
 
   /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */

@@ -104,3 +104,15 @@ export async function prepareTarget(db: Db, m: FlagsInput): Promise<Record<strin
   if (m.type === 'in' && m.isReturn) target.isReturn = true;
   return target;
 }
+
+/**
+ * Позиции заказа одним запросом (спецификация): id позиции → её `lineNo`/название, если она принадлежит заказу.
+ * Чужая или несуществующая позиция — в `bad` (не ошибка: строку спецификации пропускают с причиной).
+ */
+export async function lookupOrderLines(db: Db, orderId: Types.ObjectId, lineIds: string[]) {
+  const ids = [...new Set(lineIds.filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
+  const docs = ids.length ? await db.collection('incomes').find({ _id: { $in: ids }, deletedAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1 } }).toArray() : [];
+  const ok = new Map<string, { lineNo: number | null; title: string }>();
+  for (const d of docs) if (d.orderId && orderId.equals(d.orderId as Types.ObjectId)) ok.set(String(d._id), { lineNo: (d.lineNo as number) ?? null, title: String(d.title ?? '') });
+  return ok;
+}

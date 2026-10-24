@@ -11,7 +11,7 @@ import { StorageItemDocument } from './schemas/storage-item.schema';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCoreService } from './stock-core.service';
 import { StockSearchService } from './stock-search.service';
-import { prepareTarget } from './stock-target';
+import { prepareTarget, resolveTarget } from './stock-target';
 import { type MoveInput, MOVE_LABEL, countGuard } from './stock.types';
 import { type ByWeight, weightCount, weightGOf, weightNote } from './weight';
 
@@ -50,6 +50,8 @@ export class StockMovementsService {
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     // кому / под что, причина списания, возврат (SK-5): проверки до транзакции
     const target = await prepareTarget(this.connection.db!, dto);
+    // бронь под заказ / позицию заказа (SK-6): позиция без заказа — заказ берёт сервер; чужая позиция — 400
+    const resTarget = dto.type === 'reserve' && (dto.salesOrderId || dto.salesOrderLineId) ? await resolveTarget(this.connection.db!, dto) : {};
 
     const session = await this.connection.startSession();
     try {
@@ -98,7 +100,8 @@ export class StockMovementsService {
           if (free < qty) throw new BadRequestException(`Недостаточно свободного остатка: ${free}, нужно ${qty}`);
           item.reservedQty = (item.reservedQty ?? 0) + qty;
           await item.save({ session });
-          await this.reservations.create([{ orderId: note ?? 'Бронь', materialId: matId, warehouseId: wh._id, qty, isActive: true, status: 'active', notes: note, clientUid: dto.clientUid }], { session });
+          await this.reservations.create([{ orderId: note ?? 'Бронь', materialId: matId, warehouseId: wh._id, qty, isActive: true, status: 'active', notes: note, clientUid: dto.clientUid,
+            ...(resTarget.salesOrderId ? { salesOrderId: resTarget.salesOrderId } : {}), ...(resTarget.salesOrderLineId ? { salesOrderLineId: resTarget.salesOrderLineId } : {}) }], { session });
         } else if (dto.type === 'unreserve') {
           let left = Math.min(qty, item.reservedQty ?? 0);
           if (left <= 0) throw new BadRequestException('Брони по позиции нет');

@@ -2866,6 +2866,89 @@
         ]
       }
     },
+    "/stock/reservations/order/{salesOrderId}": {
+      "get": {
+        "operationId": "StockController_reservationsByOrder",
+        "summary": "Брони заказа для «Выдать по заказу» (SK-6): items[{id, materialId, name, unit, qty, issued, onHand, canIssue, groupName, batchId, salesOrderLineId, lineNo, lineTitle}], order, hanging",
+        "parameters": [
+          {
+            "name": "salesOrderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations/issue-order": {
+      "post": {
+        "operationId": "StockController_issueOrder",
+        "summary": "«Выдать по заказу» (SK-6): все активные брони заказа или выбранные — одной пачкой (batchId); отмена — /stock/batch/{batchId}/cancel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIssueOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/reservations/{id}": {
+      "patch": {
+        "operationId": "StockController_updateReservation",
+        "summary": "Правка брони (SK-6): количество, заказ, позиция заказа (null — снять), примечание",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockReservationUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/reservations/{id}/release": {
       "post": {
         "operationId": "StockController_releaseReservation",
@@ -2928,6 +3011,56 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/spec/preview": {
+      "post": {
+        "operationId": "StockController_specPreview",
+        "summary": "Спецификация Excel, просмотр (SK-6): matched / short / notMatched / previous; ничего не пишет",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockSpecPreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/spec/apply": {
+      "post": {
+        "operationId": "StockController_specApply",
+        "summary": "Спецификация Excel, запись (SK-6): брони одной пачкой; replace, takeFree, clientUid",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockSpecApplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -9607,6 +9740,10 @@
           },
           "clientUid": {
             "type": "string"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Под позицию заказа (SK-6)"
           }
         },
         "required": [
@@ -11356,6 +11493,172 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
+      },
+      "StockReservationUpdateDto": {
+        "type": "object",
+        "properties": {
+          "qty": {
+            "type": "number",
+            "description": "Новое количество в брони (> 0)"
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ; null — снять"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа; null — снять"
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание"
+          }
+        }
+      },
+      "StockIssueOrderDto": {
+        "type": "object",
+        "required": [
+          "salesOrderId"
+        ],
+        "properties": {
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ"
+          },
+          "reservationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Выбранные брони; нет — все активные"
+          },
+          "personId": {
+            "type": "string",
+            "description": "Сотрудник"
+          },
+          "issuedTo": {
+            "type": "string",
+            "description": "Кому / куда текстом"
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ операции клиента"
+          }
+        }
+      },
+      "StockSpecLineDto": {
+        "type": "object",
+        "required": [
+          "name",
+          "qty"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Код / артикул"
+          },
+          "name": {
+            "type": "string",
+            "description": "Наименование"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество > 0"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Единица"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа"
+          }
+        }
+      },
+      "StockSpecPreviewDto": {
+        "type": "object",
+        "required": [
+          "salesOrderId",
+          "lines"
+        ],
+        "properties": {
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ"
+          },
+          "lines": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/StockSpecLineDto"
+            }
+          }
+        }
+      },
+      "StockSpecApplyLineDto": {
+        "type": "object",
+        "required": [
+          "materialId",
+          "qty"
+        ],
+        "properties": {
+          "row": {
+            "type": "number",
+            "description": "Номер строки в файле"
+          },
+          "materialId": {
+            "type": "string",
+            "description": "Позиция склада"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество > 0"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа"
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание"
+          }
+        }
+      },
+      "StockSpecApplyDto": {
+        "type": "object",
+        "required": [
+          "salesOrderId",
+          "lines"
+        ],
+        "properties": {
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ"
+          },
+          "lines": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/StockSpecApplyLineDto"
+            }
+          },
+          "replace": {
+            "type": "boolean",
+            "description": "Снять прежнюю загрузку спецификации этого заказа"
+          },
+          "takeFree": {
+            "type": "boolean",
+            "description": "Бронировать сколько свободно"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ операции клиента"
+          }
+        }
       }
     }
   }

@@ -7,6 +7,7 @@ import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';
 import { StockReservationsService } from './stock-reservations.service';
 import { StockSearchService } from './stock-search.service';
+import { StockSpecService } from './stock-spec.service';
 import type { MoveInput, StockItemInput } from './stock.types';
 
 export { countGuard } from './stock.types';
@@ -24,9 +25,10 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  * | listItems, getItem, openRequests, itemOrdered, categorySummary, totals                  | stock-search.service.ts       |
  * | createItem, updateItem, addPhoto, removePhoto, removeItem, restoreItem, findMaterialByName, autoArticle, skuFor, adoptArticle | stock-catalog.service.ts |
  * | move, batch, cancelBatch, cancelMovement, listMovements, history, offcut                | stock-movements.service.ts    |
- * | reserveList, listReservations, releaseReservation, releaseGroup, issueReservations, reservationDetail | stock-reservations.service.ts |
+ * | reserveList, listReservations, releaseReservation, releaseGroup, issueReservations, reservationDetail, updateReservation, reservationsByOrder, issueOrder | stock-reservations.service.ts |
+ * | specPreview, specApply (спецификация Excel → брони, SK-6)                               | stock-spec.service.ts         |
  *
- * Зависимости слоями (без циклов): core ← search ← catalog ← movements ← reservations.
+ * Зависимости слоями (без циклов): core ← search ← catalog ← movements ← reservations ← spec.
  * Типы (MoveInput, StockItemInput…) и countGuard — в stock.types.ts, реэкспортируются отсюда.
  */
 @Injectable()
@@ -37,6 +39,7 @@ export class StockService {
     private readonly catalog: StockCatalogService,
     private readonly moves: StockMovementsService,
     private readonly resv: StockReservationsService,
+    private readonly spec: StockSpecService,
   ) {}
 
   // --- склад
@@ -80,6 +83,13 @@ export class StockService {
   releaseGroup(batchId: string) { return this.resv.releaseGroup(batchId); }
   issueReservations(dto: Parameters<StockReservationsService['issueReservations']>[0], userId?: string) { return this.resv.issueReservations(dto, userId); }
   reservationDetail(key: string) { return this.resv.reservationDetail(key); }
+  updateReservation(id: string, dto: Parameters<StockReservationsService['updateReservation']>[1]) { return this.resv.updateReservation(id, dto); }
+  reservationsByOrder(salesOrderId: string) { return this.resv.reservationsByOrder(salesOrderId); }
+  issueOrder(dto: Parameters<StockReservationsService['issueOrder']>[0], userId?: string) { return this.resv.issueOrder(dto, userId); }
+
+  // --- спецификация Excel
+  specPreview(dto: Parameters<StockSpecService['preview']>[0]) { return this.spec.preview(dto); }
+  specApply(dto: Parameters<StockSpecService['apply']>[0], userId?: string) { return this.spec.apply(dto, userId); }
 
   static norm = normText;
 }

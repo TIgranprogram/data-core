@@ -15,6 +15,7 @@ import { ITEM_SORT } from './stock.types';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 import { weightGOf } from './weight';
 import { attentionRank, freeQty } from './stock-rank';
+import { hangingQtyByMaterial } from './stock-hanging';
 
 /** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */
 const STOCK_COLLS = ['materials', 'storageitems', 'supplyrequests', 'categories', 'warehouses'] as const;
@@ -77,7 +78,9 @@ export class StockSearchService {
     if (String(q.priority) === '1') rows.sort((a, b) => attentionRank(a) - attentionRank(b));
     const page = rows.slice(p.skip, p.skip + p.limit);
     const photos = await this.photoMap(page.flatMap((r) => r.photoIds));
-    const items = page.map(({ photoIds, ...r }) => ({ ...r, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
+    // «висящая» бронь (СК-6): сколько в брони под отгруженный / аннулированный заказ — считаем только для строк страницы с бронью
+    const hang = await hangingQtyByMaterial(this.connection.db!, page.filter((r) => r.reservedQty > 0).map((r) => new Types.ObjectId(r.materialId)));
+    const items = page.map(({ photoIds, ...r }) => ({ ...r, hangingQty: hang.get(r.materialId) ?? 0, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
     return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
   }
 

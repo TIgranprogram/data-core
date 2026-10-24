@@ -84,7 +84,57 @@ export class StockReserveListDto {
   @ApiProperty({ description: 'Для чего бронь: конструкция / изделие' }) @IsString() @Length(1, 200) groupName!: string;
   @ApiProperty({ type: [StockBatchLineDto] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockBatchLineDto) lines!: StockBatchLineDto[];
   @ApiPropertyOptional({ description: 'Под заказ (salesorders.id)' }) @IsOptional() @IsMongoId() salesOrderId?: string;
+  @ApiPropertyOptional({ description: 'Под позицию заказа (incomes.id) — для всех строк списка; заказ сервер берёт из позиции (SK-6)' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+}
+
+/** Правка брони (SK-6): количество (остаток брони), заказ, позиция заказа, примечание. null — убрать привязку. */
+export class StockReservationUpdateDto {
+  @ApiPropertyOptional({ description: 'Новое количество в брони (> 0); больше прежнего — только в пределах свободного' }) @IsOptional() @IsNumber() @Min(0) qty?: number;
+  @ApiPropertyOptional({ description: 'Заказ (salesorders.id); null — снять привязку к заказу (и к позиции)', nullable: true }) @IsOptional() @IsMongoId() salesOrderId?: string | null;
+  @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id); null — снять позицию', nullable: true }) @IsOptional() @IsMongoId() salesOrderLineId?: string | null;
+  @ApiPropertyOptional({ description: 'Примечание' }) @IsOptional() @IsString() @Length(0, 500) note?: string;
+}
+
+/** «Выдать по заказу» (SK-6): все активные брони заказа или выбранные — одной операцией. */
+export class StockIssueOrderDto {
+  @ApiProperty({ description: 'Заказ (salesorders.id)' }) @IsMongoId() salesOrderId!: string;
+  @ApiPropertyOptional({ type: [String], description: 'Выбранные брони (reservations.id); нет — все активные брони заказа' }) @IsOptional() @IsArray() @ArrayMaxSize(500) @IsMongoId({ each: true }) reservationIds?: string[];
+  @ApiPropertyOptional({ description: 'Кому выдано — сотрудник (persons.id)' }) @IsOptional() @IsMongoId() personId?: string;
+  @ApiPropertyOptional({ description: 'Кому / куда выдано текстом' }) @IsOptional() @IsString() @Length(0, 200) issuedTo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) note?: string;
+  @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор ничего не меняет' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+}
+
+/** Строка спецификации из файла (файл разбирает клиент). */
+export class StockSpecLineDto {
+  @ApiPropertyOptional({ description: 'Код / артикул позиции склада' }) @IsOptional() @IsString() @Length(0, 100) code?: string;
+  @ApiProperty({ description: 'Наименование как на складе' }) @IsString() @Length(1, 300) name!: string;
+  @ApiProperty({ description: 'Количество > 0' }) @IsNumber() @Min(0) qty!: number;
+  @ApiPropertyOptional({ description: 'Единица измерения; указана и не совпала со складом — строка не сопоставляется' }) @IsOptional() @IsString() @Length(0, 30) unit?: string;
+  @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id)' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
+}
+
+export class StockSpecPreviewDto {
+  @ApiProperty({ description: 'Заказ, под который бронируем (salesorders.id)' }) @IsMongoId() salesOrderId!: string;
+  @ApiProperty({ type: [StockSpecLineDto], description: 'До 500 строк' }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockSpecLineDto) lines!: StockSpecLineDto[];
+}
+
+/** Подтверждённая строка спецификации: позиция склада уже выбрана (в просмотре). */
+export class StockSpecApplyLineDto {
+  @ApiPropertyOptional({ description: 'Номер строки в файле — для отчёта' }) @IsOptional() @IsNumber() @Min(0) row?: number;
+  @ApiProperty({ description: 'Позиция склада (materials.id)' }) @IsMongoId() materialId!: string;
+  @ApiProperty({ description: 'Количество > 0' }) @IsNumber() @Min(0) qty!: number;
+  @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id)' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) note?: string;
+}
+
+export class StockSpecApplyDto {
+  @ApiProperty({ description: 'Заказ (salesorders.id)' }) @IsMongoId() salesOrderId!: string;
+  @ApiProperty({ type: [StockSpecApplyLineDto], description: 'До 500 строк' }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockSpecApplyLineDto) lines!: StockSpecApplyLineDto[];
+  @ApiPropertyOptional({ description: 'true — сначала снять активные брони прежней загрузки спецификации этого заказа' }) @IsOptional() @IsBoolean() replace?: boolean;
+  @ApiPropertyOptional({ description: 'true — где не хватает, бронировать сколько свободно (по умолчанию такие строки пропускаются)' }) @IsOptional() @IsBoolean() takeFree?: boolean;
+  @ApiPropertyOptional({ description: 'Ключ операции клиента — повтор не создаёт дублей' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
 export class StockPhotoDto {

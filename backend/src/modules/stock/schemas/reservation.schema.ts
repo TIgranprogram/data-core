@@ -78,6 +78,10 @@ export class Reservation {
   @Prop({ type: Types.ObjectId })
   salesOrderId?: Types.ObjectId;
 
+  /** Под позицию заказа (SK-6, incomes) — поле только data-core; `orderItemIndex` CRM не трогаем. */
+  @Prop({ type: Types.ObjectId })
+  salesOrderLineId?: Types.ObjectId;
+
   /** Кто поставил бронь (users). */
   @Prop({ type: Types.ObjectId })
   createdBy?: Types.ObjectId;
@@ -89,3 +93,4 @@ export class Reservation {
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);
 ReservationSchema.index({ orderId: 1, status: 1 });
+ReservationSchema.index({ salesOrderId: 1 }, { sparse: true }); // SK-6: брони заказа («Выдать по заказу», спецификация); создать — scripts/ensure-indexes.js

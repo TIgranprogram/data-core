@@ -12,6 +12,7 @@ import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';
 import { StockReservationsService } from './stock-reservations.service';
 import { StockSearchService } from './stock-search.service';
+import { StockSpecService } from './stock-spec.service';
 import { StockService } from './stock.service';
 
 /** /api/stock — склад на общих коллекциях CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md). */
@@ -27,7 +28,7 @@ import { StockService } from './stock.service';
     ]),
   ],
   controllers: [StockController],
-  providers: [StockCoreService, StockSearchService, StockCatalogService, StockMovementsService, StockReservationsService, StockService],
+  providers: [StockCoreService, StockSearchService, StockCatalogService, StockMovementsService, StockReservationsService, StockSpecService, StockService],
   exports: [StockService],
 })
 export class StockModule {}
