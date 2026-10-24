@@ -4493,6 +4493,20 @@
         ]
       }
     },
+    "/showcase/materials-text": {
+      "post": {
+        "operationId": "ShowcaseController_materialsText",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/kp": {
       "post": {
         "operationId": "ShowcaseController_kp",
@@ -4575,6 +4589,29 @@
     "/showcase/{id}/composition": {
       "put": {
         "operationId": "ShowcaseController_setComposition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/materials-spec/from-composition": {
+      "get": {
+        "operationId": "ShowcaseController_materialsFromComposition",
         "parameters": [
           {
             "name": "id",

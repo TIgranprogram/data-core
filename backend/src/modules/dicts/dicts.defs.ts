@@ -1,6 +1,8 @@
 import type { mongo } from 'mongoose';
+import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { sameRe } from '../../common/text/same-text';
+import { normSize } from '../../common/catalog/materials-text';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -50,6 +52,8 @@ export interface DictDef {
   softDelete?: Document;
   /** Кто правит (роль и старше); по умолчанию — менеджер и старше. «Паспорта» — директор (и админ). */
   editRoles?: string[];
+  /** Ключ дубля (по умолчанию — название): у «Сортамента» размер повторяется у разных материалов. */
+  dupKey?(d: Doc): string;
 }
 
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -241,6 +245,34 @@ function ppUsage(ref: PpRef): Pick<DictDef, 'usage' | 'related' | 'reassign'> {
     },
   };
 }
+
+/**
+ * МИ: «где используется» ещё и в изделиях — `products.materialsSpec` (материалы изделия таблицей). `q` — условие на
+ * изделия для записи (null — нет), `move` — перевести изделия с `from` на `to` при объединении.
+ */
+type UsageParts = Pick<DictDef, 'usage' | 'related' | 'reassign'>;
+function withProducts(base: UsageParts, q: (db: Db, d: Doc) => Promise<Document | null>, move: (db: Db, from: Doc, to: Doc) => Promise<number>): UsageParts {
+  const prodQ = async (db: Db, d: Doc) => { const x = await q(db, d); return x ? { deletedAt: null, ...x } : null; };
+  return {
+    usage: async (db, docs) => {
+      const m = await base.usage(db, docs);
+      for (const d of docs) { const x = await prodQ(db, d); if (x) m.set(String(d._id), (m.get(String(d._id)) ?? 0) + (await db.collection('products').countDocuments(x))); }
+      return m;
+    },
+    related: async (db, d) => {
+      const r = await base.related(db, d);
+      const x = await prodQ(db, d);
+      if (!x) return r;
+      const [rows, total] = await Promise.all([db.collection('products').find(x).sort({ _id: -1 }).limit(15).project({ name: 1, sku: 1 }).toArray(), db.collection('products').countDocuments(x)]);
+      return { title: r.total ? `${r.title}, изделия` : 'Изделия', total: r.total + total,
+        items: [...r.items, ...rows.map((p) => ({ label: `Изделие ${s(p.name)}`, sub: s(p.sku), href: '#products?open=' + String(p._id) }))] };
+    },
+    reassign: async (db, from, to) => (await base.reassign(db, from, to)) + (await move(db, from, to)),
+  };
+}
+const noUsage: UsageParts = { usage: async () => new Map(), related: async () => ({ title: '', items: [], total: 0 }), reassign: async () => 0 };
+/** id записей «Материалов и покрытий» с кодом («Сортамент» привязан к коду материала, таблица изделия — к id). */
+const matIdsByCode = async (db: Db, code: string) => (code ? (await db.collection('dict_values').find({ dict: 'passportMaterials', code }).project({ _id: 1 }).toArray()).map((x) => x._id) : []);
 
 export const DICTS: DictDef[] = [
   // ───────── Склад и позиции ─────────
@@ -556,8 +588,61 @@ export const DICTS: DictDef[] = [
         { key: 'madeOf', label: 'Изготовлено из…', wide: true, hint: 'В родительном падеже: «стальной трубы с порошковым покрытием»' },
         { key: 'care', label: 'Уход и ремонт', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'defects', label: 'Типичные дефекты (коды)', wide: true, hint: 'Коды из «Дефектов» через запятую' },
+        // МИ: материалы изделия таблицей — текст «Изготовлено из…» собирается из этих полей (common/catalog/materials-text.ts)
+        { key: 'kind', label: 'Тип', type: 'select', options: [{ value: 'material', label: 'материал' }, { value: 'coating', label: 'покрытие' }], hint: 'Пусто — материал' },
+        { key: 'genSingular', label: 'Из чего — один размер', hint: 'Родительный падеж, ед. ч.: «стальной трубы»' },
+        { key: 'genPlural', label: 'Из чего — несколько размеров', hint: 'Родительный падеж, мн. ч.: «стальных труб»' },
+        { key: 'sizeTemplate', label: 'Шаблон размера', hint: '{sizes} — размеры через «и» / запятую, «мм» — один раз: «{sizes} мм», «толщиной {sizes} мм»' },
+        { key: 'phrase', label: 'Фраза покрытия', wide: true, hint: 'Только у покрытия, целым предложением: «Окрашено порошковой краской методом запекания в заводских условиях.»' },
       ]),
-    ...ppUsage({ pp: 'materialIds', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
+    ...withProducts(
+      ppUsage({ pp: 'materialIds', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }, { dict: 'passportSortament', field: 'material', title: 'Сортамент' }] }),
+      async (_db, d) => ({ $or: [{ 'materialsSpec.rows.materialId': d._id }, { 'materialsSpec.coatingIds': d._id }] }),
+      async (db, from, to) => {
+        const p = db.collection('products');
+        let n = (await p.updateMany({ 'materialsSpec.rows.materialId': from._id }, { $set: { 'materialsSpec.rows.$[r].materialId': to._id } }, { arrayFilters: [{ 'r.materialId': from._id }] })).modifiedCount;
+        await p.updateMany({ $and: [{ 'materialsSpec.coatingIds': from._id }, { 'materialsSpec.coatingIds': { $ne: to._id } }] }, { $push: { 'materialsSpec.coatingIds': to._id } } as Document);
+        n += (await p.updateMany({ 'materialsSpec.coatingIds': from._id }, { $pull: { 'materialsSpec.coatingIds': from._id } } as Document)).modifiedCount;
+        return n;
+      }),
+    editRoles: ['director'],
+  },
+  {
+    // МИ: размеры по материалу (∅89×3, лист 2) — выбор в таблице «Материалы изделия»; размер без «мм», единица — в шаблоне материала
+    ...simpleList('passportSortament', 'Паспорта', 'Сортамент',
+      'Размеры по материалу: ∅89×3, ∅33,5×2,8 у трубы, 2 и 6 у листа (без «мм» — единица в шаблоне материала). Выбираются в таблице материалов изделия; один размер у разных материалов — разные записи.',
+      [{ key: 'material', label: 'Материал (код)', required: true, hint: 'Код из «Материалов и покрытий»: PIPE_STEEL, SHEET_STEEL' }]),
+    toDoc: async (b, isNew, db) => {
+      const material = s(b.material).toUpperCase();
+      if (!material) throw new BadRequestException('Укажите код материала из «Материалов и покрытий»');
+      if (!(await db.collection('dict_values').findOne({ dict: 'passportMaterials', code: material, deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException(`Нет материала с кодом ${material} в «Материалах и покрытиях»`);
+      return { ...(isNew ? { dict: 'passportSortament', deletedAt: null, createdAt: new Date() } : {}), name: normSize(b.name), material, updatedAt: new Date() };
+    },
+    dupKey: (d) => `${s(d.material).toUpperCase()}|${norm(normSize(d.name))}`,
+    ...withProducts(noUsage,
+      async (db, d) => { const m = await matIdsByCode(db, s(d.material)); return m.length && s(d.name) ? { 'materialsSpec.rows': { $elemMatch: { materialId: { $in: m }, sizes: s(d.name) } } } : null; },
+      async (db, from, to) => {
+        if (s(from.material) !== s(to.material)) throw new BadRequestException('Объединять можно размеры одного материала');
+        const m = await matIdsByCode(db, s(from.material));
+        if (!m.length) return 0;
+        return (await db.collection('products').updateMany({ 'materialsSpec.rows': { $elemMatch: { materialId: { $in: m }, sizes: s(from.name) } } },
+          { $set: { 'materialsSpec.rows.$[r].sizes.$[z]': s(to.name) } }, { arrayFilters: [{ 'r.materialId': { $in: m } }, { z: s(from.name) }] })).modifiedCount;
+      }),
+    editRoles: ['director'],
+  },
+  {
+    // МИ: «Состоит из стоек, перекладин и хомутов» — части в таблице материалов изделия
+    ...simpleList('passportParts', 'Паспорта', 'Части изделия',
+      'Из чего состоит изделие по деталям: стойка, перекладина, хомут… В тексте паспорта — «Состоит из стоек, перекладин и хомутов».',
+      [
+        { key: 'genSingular', label: 'Родительный падеж, ед. ч.', hint: '«стойки»' },
+        { key: 'genPlural', label: 'Родительный падеж, мн. ч.', hint: '«стоек» — так в тексте «Состоит из…»' },
+        { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF (благоустройство); пусто — для всех' },
+      ]),
+    ...withProducts(noUsage,
+      async (_db, d) => ({ 'materialsSpec.rows.partIds': d._id }),
+      async (db, from, to) => (await db.collection('products').updateMany({ 'materialsSpec.rows.partIds': from._id },
+        { $set: { 'materialsSpec.rows.$[].partIds.$[p]': to._id } }, { arrayFilters: [{ p: from._id }] })).modifiedCount),
     editRoles: ['director'],
   },
   {

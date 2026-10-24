@@ -72,7 +72,7 @@ export class DictsService {
     const docs = await this.docs(d);
     // справочники «Паспорта»: «где используется» считается по справочникам и паспортам — кэш по версиям (С9), без пересчёта при каждом открытии
     const used = this.versions && key.startsWith('passport')
-      ? await this.versions.cached('dicts.usage', ['dict_values', 'productpassports'], key, () => d.usage(this.db, docs))
+      ? await this.versions.cached('dicts.usage', ['dict_values', 'productpassports', 'products'], key, () => d.usage(this.db, docs))
       : await d.usage(this.db, docs);
     const tk = searchTokens(search); // слова в любом порядке, ё = е, M10 = М10
     // справочник для ссылок «Вид работ» / «График выплат» в форме
@@ -112,17 +112,18 @@ export class DictsService {
     for (const r of rows) r.photos = map;
   }
 
-  private async checkDuplicate(d: DictDef, name: string, exceptId?: string) {
-    const n = norm(name);
-    if (!n) throw new BadRequestException('Укажите название');
-    const dup = (await this.docs(d)).find((x) => norm(d.name(x)) === n && String(x._id) !== exceptId);
+  private async checkDuplicate(d: DictDef, doc: Doc, exceptId?: string) {
+    if (!norm(d.name(doc))) throw new BadRequestException('Укажите название');
+    const key = (x: Doc) => (d.dupKey ? d.dupKey(x) : norm(d.name(x)));
+    const n = key(doc);
+    const dup = (await this.docs(d)).find((x) => key(x) === n && String(x._id) !== exceptId);
     if (dup) throw new ConflictException(`«${d.name(dup)}» уже есть в справочнике «${d.title}»`);
   }
 
   async create(key: string, body: Record<string, unknown>) {
     const d = this.def(key);
     const doc = await d.toDoc(body ?? {}, true, this.db);
-    await this.checkDuplicate(d, d.name(doc as Doc));
+    await this.checkDuplicate(d, doc as Doc);
     const r = await this.db.collection(d.coll).insertOne(doc);
     return this.get(key, String(r.insertedId));
   }
@@ -131,7 +132,7 @@ export class DictsService {
     const d = this.def(key);
     const cur = await this.one(d, id);
     const set = await d.toDoc(body ?? {}, false, this.db);
-    await this.checkDuplicate(d, d.name({ ...cur, ...set } as Doc), id);
+    await this.checkDuplicate(d, { ...cur, ...set } as Doc, id);
     await this.db.collection(d.coll).updateOne({ _id: cur._id }, { $set: set });
     return this.get(key, id);
   }

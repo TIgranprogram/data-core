@@ -15,6 +15,7 @@ import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
 import { ShowcaseBulk } from './showcase-bulk';
 import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
+import { parseMaterialsSpec, presentMaterialsSpec, ShowcaseMaterials } from './showcase-materials';
 import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
@@ -55,6 +56,7 @@ export class ShowcaseService {
   private readonly comp = new ShowcaseComposition(() => this.db, this.versions);
   private readonly bulkOps = new ShowcaseBulk({ db: () => this.db, present: (d) => this.present(d), update: (id, p) => this.update(id, p), setPassportDefaults: (id, v) => this.setPassportDefaults(id, v) });
   private readonly fromPp = new ShowcaseFromPassports(() => this.db, (dto) => this.create(dto));
+  private readonly mi = new ShowcaseMaterials(() => this.db);
 
 
   private async present(docs: Doc[]) {
@@ -157,7 +159,8 @@ export class ShowcaseService {
     const item = (await this.present([d as Doc]))[0];
     const composition = await this.comp.composition(d as Doc);
     const ppCats = (await this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray()) as unknown as PpCat[];
-    return { ...item, orderLines: see.salesorders === false ? [] : await this.orderLines(d as Doc), composition, cost: await this.comp.cost(composition),
+    const materialsSpec = presentMaterialsSpec(d.materialsSpec);
+    return { ...item, materialsSpec, materialsText: await this.mi.text(materialsSpec), orderLines: see.salesorders === false ? [] : await this.orderLines(d as Doc), composition, cost: await this.comp.cost(composition),
       passports: see.passports === false ? { total: 0, items: [] } : await this.passports(d as Doc),
       passportCategory: passportCategoryFor(item, ppCats),
       designer: await this.designer(d.designerId as Types.ObjectId | undefined),
@@ -244,6 +247,8 @@ export class ShowcaseService {
         set.designerId = pid;
       }
     }
+    // МИ.2: материалы изделия таблицей — новое поле data-core (CRM не читает); ссылки только на справочники; пусто — null
+    if (dto.materialsSpec !== undefined) { const sp = parseMaterialsSpec(dto.materialsSpec); await this.mi.check(sp); set.materialsSpec = sp; }
     if (Array.isArray(dto.photoIds)) set.photoIds = (dto.photoIds as string[]).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     return set;
   }
@@ -376,6 +381,12 @@ export class ShowcaseService {
   }
 
   compositionSimilar(id: string) { return this.comp.similar(id); }
+
+  /** «Взять из состава» (МИ.2): предложение таблицы материалов по «Составу изделия» — showcase-materials.ts. */
+  materialsFromComposition(id: string) { return this.mi.fromComposition(id); }
+
+  /** Предпросмотр текста «Изготовлено из…» по таблице (МИ.3), без записи. */
+  async materialsText(spec: unknown) { return { materialsText: await this.mi.text(presentMaterialsSpec(parseMaterialsSpec(spec))) }; }
 
   /** Массовое изменение выбранных изделий (БЗ-9) — подробности в showcase-bulk.ts. */
   bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string> }) { return this.bulkOps.run(dto); }

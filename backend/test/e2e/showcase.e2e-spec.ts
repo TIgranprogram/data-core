@@ -160,4 +160,32 @@ describe('Showcase', () => {
     expect(x3).toMatchObject({ type: 'Старый', group: 'Скамьи', colors: ['зелёный'], status: 'draft' });
     expect(x3.passportDefaults).toBeNull();
   });
+
+  it('МИ.2/МИ.3: materialsSpec — запись, собранный текст, предпросмотр, «Взять из состава», ссылки только на справочники', async () => {
+    const db = ctx!.connection.db!;
+    const base = { deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
+    const { insertedIds: m } = await db.collection('dict_values').insertMany([
+      { dict: 'passportMaterials', code: 'PIPE_STEEL', name: 'Труба стальная', kind: 'material', genSingular: 'стальной трубы', genPlural: 'стальных труб', sizeTemplate: '{sizes} мм', ...base },
+      { dict: 'passportMaterials', code: 'COAT_POWDER', name: 'Порошковая окраска', kind: 'coating', phrase: 'Окрашено порошковой краской.', ...base },
+      { dict: 'passportParts', name: 'Стойка', genSingular: 'стойки', genPlural: 'стоек', ...base },
+    ]);
+    const x = (await http().post('/api/showcase').set(auth()).send({ sku: 'MI-1', name: 'Турник МИ', type: 'Спорт',
+      materialsSpec: { rows: [{ materialId: String(m[0]), sizes: ['Ø89x3', '33.5x2.8'], partIds: [String(m[2])] }], coatingIds: [String(m[1])] } }).expect(201)).body;
+    expect(x.materialsSpec).toEqual({ rows: [{ materialId: String(m[0]), sizes: ['∅89×3', '33,5×2,8'], partIds: [String(m[2])] }], coatingIds: [String(m[1])] });
+    expect(x.materialsText).toBe('Изготовлено из стальных труб ∅89×3 и 33,5×2,8 мм. Состоит из стоек. Окрашено порошковой краской.');
+    // справочник: используется в изделии — удалить нельзя
+    const used = (await http().get('/api/dicts/passportParts').set(auth()).expect(200)).body.items.find((i: { id: string }) => i.id === String(m[2]));
+    expect(used.used).toBe(1);
+    await http().patch(`/api/showcase/${x.id}`).set(auth()).send({ materialsSpec: { rows: [{ materialId: String(new Types.ObjectId()) }] } }).expect(400);
+    await http().patch(`/api/showcase/${x.id}`).set(auth()).send({ materialsSpec: { rows: [{ sizes: ['2'] }] } }).expect(400);
+    const pv = (await http().post('/api/showcase/materials-text').set(auth()).send({ materialsSpec: { rows: [{ materialId: String(m[0]), sizes: ['∅57×3'] }] } }).expect(200)).body;
+    expect(pv).toEqual({ materialsText: 'Изготовлено из стальной трубы ∅57×3 мм.' });
+    // «Взять из состава»: позиция склада «Труба 89х3» → строка «Труба стальная ∅89×3»; ничего не записывает
+    const { insertedId: st } = await db.collection('materials').insertOne({ name: 'Труба 89х3', article: 'T-89', unit: 'м', dimensions: [], photoIds: [], ...base });
+    await http().put(`/api/showcase/${x.id}/composition`).set(auth()).send({ lines: [{ materialId: String(st), quantity: 2 }] }).expect(200);
+    const fc = (await http().get(`/api/showcase/${x.id}/materials-spec/from-composition`).set(auth()).expect(200)).body;
+    expect(fc).toMatchObject({ materialsSpec: { rows: [{ materialId: String(m[0]), sizes: ['∅89×3'], partIds: [] }], coatingIds: [] }, unmatched: [] });
+    const cleared = (await http().patch(`/api/showcase/${x.id}`).set(auth()).send({ materialsSpec: null }).expect(200)).body;
+    expect(cleared).toMatchObject({ materialsSpec: null, materialsText: '' });
+  });
 });

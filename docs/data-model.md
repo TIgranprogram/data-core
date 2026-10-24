@@ -783,3 +783,11 @@ Write-paths, которые должны быть all-or-nothing, использ
 | `dict_values` (`passportInstall`) | `schemesFoundation`, `schemesHoles`, `schemesMounting` | id фото стандартных схем узлов |
 | `dict_values` (`passportDefects`, `passportStyle`) | `photoId` | id фото (в приложении — загрузка) |
 | `passporttemplates` | `category = ALL_V2` | общая часть «Для всех» паспорта v2 (отдельно от шаблона PDF v1) |
+### Дополнения 2026-10-24 (Фаза МИ — материалы изделия таблицей)
+
+| Где | Поле | Смысл |
+|--|--|--|
+| `products` | `materialsSpec` | только data-core (CRM не читает): `{ rows: [{ materialId: ObjectId → passportMaterials, sizes: string[] (без «мм», одно написание: ∅89×3, 2), partIds: ObjectId[] → passportParts }], coatingIds: ObjectId[] → passportMaterials (kind coating) }`; пусто — `null`. Текст «Изготовлено из… Состоит из… <фраза покрытия>» собирается `common/catalog/materials-text.ts` |
+| `dict_values` (`passportMaterials`) | `kind`, `genSingular`, `genPlural`, `sizeTemplate`, `phrase` | material / coating (пусто — material); род. п. ед. / мн. ч. (по числу размеров); шаблон размера с `{sizes}` («толщиной {sizes} мм»); фраза покрытия |
+| `dict_values` (`passportSortament`) | `name`, `material` | размер без «мм» + код материала (`passportMaterials.code`); дубль — пара «материал + размер» |
+| `dict_values` (`passportParts`) | `name`, `genSingular`, `genPlural`, `categories` | часть изделия; в тексте — род. п. мн. ч. («Состоит из стоек…») |

@@ -72,6 +72,13 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.from-passports', entityType: 'Product', details: (d) => ({ created: (d as { created?: number }).created, linked: (d as { linked?: number }).linked }) })
   fromPassports(@Body() b: { groups?: { keys?: string[]; main?: string; name?: string }[]; rest?: boolean }) { return this.s.fromPassports(b ?? {}); }
 
+  /** Предпросмотр текста материалов (МИ.3): { materialsSpec } → { materialsText }; ничего не записывает. */
+  @AppSection('products', 'passports')
+  @Post('materials-text')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user')
+  materialsText(@Body() b: { materialsSpec?: unknown }) { return this.s.materialsText(b?.materialsSpec); }
+
   @Post('kp')
   @HttpCode(200)
   @Roles('admin', 'director', 'manager')
@@ -96,6 +103,12 @@ export class ShowcaseController {
   setComposition(@Param('id') id: string, @Body() b: { lines?: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; quantity?: number | string; notes?: string }>; types?: string[] }) {
     return this.s.setComposition(id, b?.lines ?? [], b?.types);
   }
+
+  /** «Взять из состава» (МИ.2): { materialsSpec, materialsText, unmatched[] } — предложение по «Составу изделия», не записывается. */
+  @AppSection('products', 'passports')
+  @Get(':id/materials-spec/from-composition')
+  @Roles('admin', 'director', 'manager', 'user')
+  materialsFromComposition(@Param('id') id: string) { return this.s.materialsFromComposition(id); }
 
   /** «Часто в похожих изделиях» для состава (СИ): строки составов изделий той же группы. */
   @Get(':id/composition/similar')
