@@ -2,12 +2,13 @@ import { stockList } from '../core/stock-list.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
-import { placeList } from './popup.js';
+import { searchBox } from './searchbox.js';
 
 /**
  * «Фильтры» по признакам из названий (тип / резьба / длина / стандарт) — как в «Операциях», для списка «Остатки».
- * Кнопка в панели инструментов открывает выпадающую панель ПОВЕРХ таблицы (таблица не сдвигается, ничего не дёргается);
- * выбранное — метками с «×» рядом с кнопкой. Состояние — в адресе: ?ft=type:Болт мебельный|thread:M8.
+ * Как в магазине (SK-1): крупная кнопка «Поиск и фильтры» → панель слева (на телефоне выезжает слева с затемнением):
+ * строка поиска + группы признаков, значения — радио-кружками (выбор в группе один); группы длиннее 6 значений свёрнуты, короткие раскрыты.
+ * Панель поверх содержимого (таблица не сдвигается); выбранное — метками с «×» рядом с кнопкой. Состояние — в адресе: ?ft=type:Болт мебельный|thread:M8.
  * В запрос списка выбранное уходит словами поиска (сервер ищет все слова — search-norm).
  *   const ff = facetFilter({ categoryKey: 'categoryId' });  ff.el, ff.update(P), ff.query(P) → строка для search
  */
@@ -24,34 +25,56 @@ export function ftParams(s) {
   return { ...(sel.grade ? { grade: sel.grade } : {}), ...(sel.section ? { section: sel.section } : {}), ...(sel.thick ? { thickness: sel.thick } : {}) };
 }
 
+const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
+
 export function facetFilter({ categoryKey = 'categoryId' } = {}) {
   let items = null; let src = null; let P = {};
-  const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, 'Тип, резьба, размер, марка ▾');
+  const folded = new Map(); // key → открыто/свёрнуто, если пользователь сам нажал (иначе — по числу значений)
+  const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, h('span', { class: 'ff-ico', 'aria-hidden': 'true' }, '⌕'), ' Поиск и фильтры');
   const tags = h('span', { class: 'ff-tags' });
-  const pop = h('div', { class: 'ff-pop', hidden: true, role: 'dialog', 'aria-label': 'Фильтры по признакам' });
-  const el = h('div', { class: 'ff' }, btn, tags, pop);
+  const sb = searchBox({ value: '', placeholder: 'Название, размер, стандарт…', className: 'ff-search', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
+  const body = h('div', { class: 'ff-body' });
+  const pop = h('aside', { class: 'ff-pop', hidden: true, role: 'dialog', 'aria-label': 'Поиск и фильтры' },
+    h('div', { class: 'ff-head', tabindex: '-1' }, h('b', {}, 'Поиск и фильтры'), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'Закрыть', onclick: () => close() }, '×')),
+    h('div', { class: 'ff-find' }, sb.el), body,
+    h('div', { class: 'ff-foot' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ ft: undefined, page: undefined }) }, 'Сбросить признаки'), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => close() }, 'Готово')));
+  const shade = h('div', { class: 'ff-shade', hidden: true, onclick: () => close() });
+  const el = h('div', { class: 'ff' }, btn, tags, shade, pop);
   const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
-  const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside, true); };
-  const outside = (e) => { if (!el.contains(e.target)) close(); };
+  const onKey = (e) => { if (e.key === 'Escape' && !pop.hidden) close(); }; // с непустым поиском Esc сначала очищает его (searchBox гасит событие)
+  let watch = null; // следит: открылась правая панель или экран ушёл — фильтр закрываем, слушатель снимаем
+  const watchStart = () => {
+    watch = new MutationObserver(() => { if (!el.isConnected || document.querySelector('.drawer')) close(el.isConnected); });
+    watch.observe(document.body, { childList: true, subtree: true });
+  };
+  function close(refocus = true) { watch?.disconnect(); watch = null; pop.hidden = true; shade.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('keydown', onKey); if (refocus) btn.focus(); }
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function renderPop() {
-    pop.replaceChildren(h('div', { class: 'muted small' }, 'Загрузка…'));
+    if (!body.children.length) body.replaceChildren(h('div', { class: 'muted small' }, 'Загрузка…'));
     await load();
+    const keep = body.scrollTop;
+    const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
     const sel = parseFt(P.ft);
     const groups = FACETS.map(([key, label]) => {
       const others = { ...sel }; delete others[key];
-      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key);
+      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key).slice(0, key === 'type' ? 30 : 40);
       if (!vals.length) return null;
-      return h('div', { class: 'ops-facet' }, h('span', { class: 'ops-facet-l' }, label),
-        h('div', { class: 'ops-facet-v ff-vals' }, ...vals.slice(0, key === 'type' ? 30 : 40).map(([v]) => h('button', { type: 'button', class: 'tag' + (sel[key] === v ? ' active' : ''), onclick: () => set(key, v) }, v))));
+      const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
+      return h('div', { class: 'ff-group' + (open ? ' open' : '') },
+        h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); renderPop(); } },
+          h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
+        open ? h('div', { class: 'ff-checks', role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
+          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, v)))) : null);
     }).filter(Boolean);
-    pop.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted' }, 'В этой категории признаков нет')]),
-      h('div', { class: 'ff-foot' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ ft: undefined, page: undefined }) }, 'Сбросить признаки'), h('button', { type: 'button', class: 'btn btn-sm', onclick: close }, 'Готово')));
+    body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted' }, 'В этой категории признаков нет')]));
+    body.scrollTop = keep;
+    if (fk) [...body.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });
   }
   btn.addEventListener('click', () => {
     if (!pop.hidden) { close(); return; }
-    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); renderPop(); placeList(pop); // у края — влево, на телефоне — лист снизу (ВС)
-    document.addEventListener('mousedown', outside, true);
+    pop.hidden = false; shade.hidden = false; btn.setAttribute('aria-expanded', 'true'); sb.set(P.q || '', true); renderPop();
+    document.addEventListener('keydown', onKey); watchStart();
+    if (matchMedia('(max-width: 720px), (pointer: coarse)').matches) pop.firstElementChild.focus(); else sb.focus(); // на телефоне клавиатура закрыла бы фильтры
   });
   function update(next) {
     P = { ...next };
@@ -59,6 +82,7 @@ export function facetFilter({ categoryKey = 'categoryId' } = {}) {
     const names = Object.fromEntries(FACETS);
     tags.replaceChildren(...Object.entries(sel).filter(([, v]) => v).map(([k, v]) => h('button', { type: 'button', class: 'tag active ff-tag', title: 'Убрать: ' + names[k], onclick: () => set(k, v) }, v, ' ×')));
     btn.classList.toggle('on', Object.values(sel).some(Boolean));
+    sb.set(P.q || '');
     if (!pop.hidden) renderPop();
   }
   return { el, update, reset: () => items && (items = null) };

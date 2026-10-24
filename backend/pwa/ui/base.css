@@ -779,9 +779,32 @@ html { scrollbar-gutter: stable; }
 .ff-btn.on { border-color: var(--primary); color: var(--link); }
 .ff-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .ff-tag { height: 28px; }
-.ff-pop { position: absolute; z-index: 45; top: calc(100% + 6px); left: 0; width: min(760px, 92vw); max-height: 60vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.ff-vals { flex-wrap: wrap; }
-.ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+.ff-btn { height: 44px; padding: 0 20px; font-size: 15px; font-weight: 600; gap: 8px; }
+.ff-pop { position: fixed; z-index: 39; top: 0; bottom: 0; left: var(--sidebar-w); width: 340px; max-width: 100vw; background: var(--surface); border-right: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+.ff-pop[hidden], .ff-shade[hidden] { display: none; }
+.ff-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.ff-find { padding: 12px 16px 4px; }
+.ff-body { flex: 1; overflow-y: auto; padding: 4px 16px 12px; }
+.ff-group { border-bottom: 1px solid var(--border); }
+.ff-gh { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
+.ff-gl { flex: none; }
+.ff-gsel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: var(--link); font-size: var(--fs-sm); }
+.ff-chev { margin-left: auto; color: var(--muted); transition: transform .15s; transform: rotate(-90deg); }
+.ff-group.open .ff-chev { transform: none; }
+.ff-checks { display: flex; flex-direction: column; padding-bottom: 8px; }
+.ff-check { display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 6px 0; cursor: pointer; overflow-wrap: anywhere; }
+.ff-check input { margin-top: 2px; flex: none; width: 18px; height: 18px; accent-color: var(--primary); }
+.ff-head:focus { outline: none; }
+.ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding: 10px 16px; }
+.ff-shade { position: fixed; inset: 0; z-index: 38; background: transparent; } /* компьютер: прозрачный — клик мимо закрывает */
+@media (max-width: 1100px) { .ff-pop { left: 72px; } }
+@media (max-width: 720px) {
+  .ff-pop { left: 0; width: min(340px, 88vw); animation: ff-in .18s ease; }
+  .ff-shade { background: rgba(16, 20, 28, .4); }
+  .ff-btn { flex: 1; justify-content: center; }
+  .ff-check { min-height: 44px; }
+}
+@keyframes ff-in { from { transform: translateX(-100%); } to { transform: none; } }
 
 /* Назад / вперёд в верхней панели; пометка особой выборки над списком */
 .histnav { display: flex; gap: 2px; }
@@ -963,14 +986,12 @@ html { scrollbar-gutter: stable; }
 .field .sel-wrap, .form-grid .sel-wrap { display: block; width: 100%; }
 .sel-input { width: 100%; text-overflow: ellipsis; }
 .toolbar .sel-wrap { width: 240px; max-width: 100%; }
-.ff-vals .tag, .ops-facet-v .tag { white-space: normal; height: auto; min-height: 28px; text-align: left; overflow-wrap: anywhere; }
+.ops-facet-v .tag { white-space: normal; height: auto; min-height: 28px; text-align: left; overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   .combo-list.sheet, .suggest.sheet { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; max-height: 60vh; border-radius: var(--radius) var(--radius) 0 0; z-index: 60; }
   .combo-opt, .sg-row { min-height: 44px; }
   .toolbar .sel-wrap { width: 100%; }
-  .ff-pop.sheet { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 70vh; border-radius: var(--radius) var(--radius) 0 0; z-index: 60; }
 }
-.ff-pop.align-right { left: auto; right: 0; }
 
 /* «Количество: штуками / по весу» (TASKS НО, ui/weight-count.js) */
 .wc { display: flex; flex-direction: column; gap: var(--s3); }
