@@ -2,7 +2,7 @@ import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { money, parseNum, qty } from '../core/format.js';
-import { stockList } from '../core/stock-list.js';
+import { stockLookup } from '../core/stock-list.js';
 
 /*
  * «Состав изделия» (TASKS БЗ-5, СИ) — правая панель: из чего состоит изделие — материалы склада и другие изделия
@@ -86,7 +86,7 @@ async function buildCompositionForm() {
   const ensureStock = () => {
     if (stockState) return;
     stockState = 1; drawPick();
-    stockList().then((list) => { mats = list.map(matOf); stockState = 2; }, () => { stockState = 0; stockFailed = true; }).then(drawPick);
+    stockLookup().then((list) => { mats = list.map(matOf); stockState = 2; }, () => { stockState = 0; stockFailed = true; }).then(drawPick);
   };
   const prods = products.filter((p) => p.id !== prod.id) // само в себя — нельзя (глубже проверит сервер)
     .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: [p.sku && 'арт. ' + p.sku, p.price ? money(p.price) : ''].filter(Boolean).join(' · '), lineType: 'product' }));

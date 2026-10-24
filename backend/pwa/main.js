@@ -197,13 +197,14 @@ function themeButton() {
 /** Счётчики в меню: активные заявки; позиции к закупке и без остатка. */
 async function refreshCounts() {
   const set = (id, n) => { const c = navLinks[id]?.querySelector('.cnt'); if (c) { c.textContent = String(n); c.hidden = !n; } };
+  // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
+  const get = (id, path) => (session.sees(id) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
   try {
-    const [r, s, o, so] = await Promise.all([api('/supply/requests', { query: { limit: 1 } }), api('/stock/items', { query: { limit: 1 } }), api('/incomes', { query: { limit: 1 } }).catch(() => null), api('/salesorders', { query: { limit: 1 } }).catch(() => null)]);
+    const [r, s, o, so] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders')]);
     if (o) set('orders', o.counts?.awaiting || 0);
     if (so) set('salesorders', so.counts?.active || 0);
-    const c = r.counts || {};
-    set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0));
-    set('stock', (s.counts?.low || 0) + (s.counts?.none || 0));
+    if (r) { const c = r.counts || {}; set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0)); }
+    if (s) set('stock', (s.counts?.low || 0) + (s.counts?.none || 0));
   } catch { /* счётчики не критичны */ }
 }
 

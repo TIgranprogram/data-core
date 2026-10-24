@@ -1,4 +1,4 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
@@ -11,13 +11,13 @@ import { errText } from '../ui/errors.js';
 
 /** Поиск по всему (PRODUCT §6): номер / название / поставщик → совпадения во всех разделах. Раздел без прав (403) не показывается. */
 const SOURCES = [
-  { section: requests, title: 'Заявки', path: '/supply/requests' },
-  { section: stock, title: 'Склад', path: '/stock/items' },
-  { section: salesorders, title: 'Заказы', path: '/salesorders' },
-  { section: orders, title: 'Позиции заказов', path: '/incomes' },
-  { section: passports, title: 'Паспорта', path: '/passports' },
-  { section: partners, title: 'Контрагенты', path: '/partners' },
-  { section: products, title: 'Каталог', path: '/showcase' },
+  { id: 'requests', section: requests, title: 'Заявки', path: '/supply/requests' },
+  { id: 'stock', section: stock, title: 'Склад', path: '/stock/items' },
+  { id: 'salesorders', section: salesorders, title: 'Заказы', path: '/salesorders' },
+  { id: 'orders', section: orders, title: 'Позиции заказов', path: '/incomes' },
+  { id: 'passports', section: passports, title: 'Паспорта', path: '/passports' },
+  { id: 'partners', section: partners, title: 'Контрагенты', path: '/partners' },
+  { id: 'products', section: products, title: 'Каталог', path: '/showcase' },
 ];
 
 export function mountSearch(params) {
@@ -29,9 +29,12 @@ export function mountSearch(params) {
     h('div', null, `По «${q}» ничего не найдено ни в одном разделе.`),
     h('p', { class: 'muted' }, 'Проверьте написание или введите часть слова: «двойн кач» найдёт «Качели двойные»; номер — цифрами.'));
   el.append(none, box);
-  let pending = SOURCES.length; let found = 0;
+  // SK-8d: только разделы, открытые роли (закрытые сервер отдаёт 403 — не спрашиваем)
+  const sources = SOURCES.filter((s) => session.sees(s.id));
+  let pending = sources.length; let found = 0;
   const done = () => { if (--pending === 0 && !found) { none.hidden = false; box.hidden = true; } };
-  for (const src of SOURCES) {
+  if (!pending) { none.hidden = false; box.hidden = true; }
+  for (const src of sources) {
     const list = h('ul', { class: 'cards', style: { display: 'block' } }, h('li', { class: 'muted' }, 'Ищу…'));
     const more = h('div', { class: 'list-foot' });
     const panel = h('div', { class: 'panel' }, h('h3', null, src.title), list, more);

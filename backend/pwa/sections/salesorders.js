@@ -1,4 +1,5 @@
 import { api, PREFIX, session } from '../core/api.js';
+import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -88,6 +89,8 @@ function details(r) {
   const load = () => api(`/salesorders/${r.id}`).then((d) => {
     const lines = d.lines || [];
     const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
+    // SK-8d: блоки соседних разделов — только если раздел открыт роли (сервер закрытые и так отдаёт пустыми)
+    const seeReq = session.sees('requests'), seeStock = session.sees('stock');
     box.replaceChildren(
       sec(`Позиции (${lines.length})`, lines.length
         ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
@@ -96,15 +99,15 @@ function details(r) {
             h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
         session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
-      sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
+      seeReq ? sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
         ? h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`))))
-        : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')),
+        : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')) : null,
       // брони заказа по позициям, «Выдать по заказу» (SK-6b); грузится отдельным запросом
-      orderReservations({ id: r.id, orderNo: r.orderNo }, load),
-      issuedBlock(d, sec),
-      sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
+      seeStock ? orderReservations({ id: r.id, orderNo: r.orderNo }, load) : null,
+      seeStock ? issuedBlock(d, sec) : null,
+      seeStock ? sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
         ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
-        : h('p', { class: 'muted' }, 'Списаний под заказ нет. На «Складе» → «Выдать» выберите этот заказ.')));
+        : h('p', { class: 'muted' }, 'Списаний под заказ нет. На «Складе» → «Выдать» выберите этот заказ.')) : null);
   }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не удалось загрузить: ' + errText(e))));
   load();
   return box;
@@ -175,8 +178,8 @@ export const salesorders = {
     actions: (r) => [
       NEXT[r.stage] && { label: NEXT_LABEL[r.stage], primary: true, run: async (row, ctx) => ctx.setRow(await setStage(row, NEXT[row.stage])) },
       r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => ctx.setRow(await setStage(row, 'cancelled')) },
-      !['closed', 'cancelled'].includes(r.stage) && session.canEdit && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
-      { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
+      !['closed', 'cancelled'].includes(r.stage) && session.canEdit && session.sees('stock') && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
+      session.sees('orders') && { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
     extra: (r) => details(r),
   },
@@ -223,25 +226,19 @@ export const salesorders = {
   open: (id) => go('salesorders', { open: id }),
 };
 
-/** Выбор заказа и позиции (для заявок и списаний, З.6): заказы в работе. Кэш на 1 минуту. */
-let cache = null; let cacheAt = 0;
-export async function activeOrders() {
-  if (cache && Date.now() - cacheAt < 60000) return cache;
-  const r = await api('/salesorders', { query: { filter: 'active', limit: 500, sort: 'orderNo' } });
-  cache = r.items; cacheAt = Date.now();
-  return cache;
-}
+/** Выбор заказа и позиции (для заявок и списаний, З.6): заказы в работе. Кэш на 1 минуту (core/orders-lookup.js). */
+// SK-8d: короткий список (/salesorders/lookup) — открыт и для «Склада», «Заявок»; кэш — в core/orders-lookup.js
+export const activeOrders = () => ordersLookup({ filter: 'active' });
 export const orderLabel = (o) => `№ ${o.orderNo || '—'} · ${o.customer || ''}`.trim();
 
 /** Варианты «Заказ / позиция» для выпадающего списка (З.6): «id» — весь заказ, «id:lineId» — позиция. */
 export async function orderOptions(keep) {
-  const [orders, lines] = await Promise.all([activeOrders(), api('/incomes', { query: { limit: 3000, sort: 'lineNo' } }).then((r) => r.items).catch(() => [])]);
-  const byOrder = new Map();
-  for (const l of lines) if (l.orderId) { const k = String(l.orderId); if (!byOrder.has(k)) byOrder.set(k, []); byOrder.get(k).push(l); }
+  // SK-8d: заказы в работе сразу с позициями — без /incomes?limit=3000 (раздел «Позиции и оплаты» может быть закрыт)
+  const orders = await ordersLookup({ filter: 'active', lines: true });
   const opts = [];
   for (const o of orders) {
     opts.push({ value: o.id, label: orderLabel(o) + ' — весь заказ' });
-    for (const l of byOrder.get(o.id) || []) opts.push({ value: o.id + ':' + l.id, label: `   └ ${l.lineNo ? l.lineNo + '. ' : ''}${String(l.title || '').slice(0, 70)}` });
+    for (const l of o.lines || []) opts.push({ value: o.id + ':' + l.id, label: `   └ ${l.lineNo ? l.lineNo + '. ' : ''}${String(l.title || '').slice(0, 70)}` });
   }
   if (keep && !opts.some((x) => x.value === keep)) opts.unshift({ value: keep, label: 'Заказ (выполнен или удалён)' });
   return opts;

@@ -1,4 +1,5 @@
 import { api } from '../core/api.js';
+import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
@@ -35,8 +36,8 @@ export async function peopleByWork() {
  * [{ label: «№ 12 · Заказчик», sub: предмет }]. Список грузится один раз; можно вписать и своё.
  */
 let ordersCache = null;
-export const orderOptions = () => (ordersCache ??= api('/salesorders', { query: { filter: 'active', limit: 500, sort: 'orderNo' } })
-  .then((r) => r.items.map((o) => ({ label: [`№ ${o.orderNo || '—'}`, o.customer].filter(Boolean).join(' · '), sub: o.title || '' })))
+export const orderOptions = () => (ordersCache ??= ordersLookup({ filter: 'active' })
+  .then((items) => items.map((o) => ({ label: [`№ ${o.orderNo || '—'}`, o.customer].filter(Boolean).join(' · '), sub: o.title || '' })))
   .catch(() => { ordersCache = null; return []; }));
 
 /** Поле текста с выпадающим списком заказов в работе (вписать своё тоже можно). */

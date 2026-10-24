@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { resetStock, stockList } from '../core/stock-list.js';
+import { resetStock, stockLookup } from '../core/stock-list.js';
 import { modal } from '../ui/dialog.js';
 import { enhanceSelect } from '../ui/select.js';
 
@@ -65,8 +65,9 @@ export function orderedNote() {
   async function check(name) {
     el.hidden = true;
     if (!name) return;
-    const it = (await stockList().catch(() => [])).find((x) => norm(x.name) === norm(name));
-    if (!(it?.ordered > 0)) return;
+    const it = (await stockLookup().catch(() => [])).find((x) => norm(x.name) === norm(name));
+    // короткий список склада (/stock/lookup) поля ordered не несёт — тогда спросить «уже заказано» по позиции
+    if (!it || (it.ordered !== undefined && !(it.ordered > 0))) return;
     const d = await ordered(it.id).catch(() => null);
     if (!d?.open.length) return;
     el.hidden = false;

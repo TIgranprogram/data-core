@@ -11,11 +11,11 @@ import { errText } from '../ui/errors.js';
 
 /** Корзина (CANON §2 «Удаление»): всё удалённое, «Восстановить». */
 const SOURCES = [
-  { section: requests, title: 'Заявки', path: '/supply/requests' },
-  { section: stock, title: 'Позиции склада', path: '/stock/items' },
-  { section: salesorders, title: 'Заказы', path: '/salesorders' },
-  { section: orders, title: 'Строки заказов', path: '/incomes' },
-  { section: partners, title: 'Контрагенты', path: '/partners' },
+  { id: 'requests', section: requests, title: 'Заявки', path: '/supply/requests' },
+  { id: 'stock', section: stock, title: 'Позиции склада', path: '/stock/items' },
+  { id: 'salesorders', section: salesorders, title: 'Заказы', path: '/salesorders' },
+  { id: 'orders', section: orders, title: 'Строки заказов', path: '/incomes' },
+  { id: 'partners', section: partners, title: 'Контрагенты', path: '/partners' },
 ];
 
 export function mountTrash() {
@@ -24,7 +24,8 @@ export function mountTrash() {
   el.append(box);
 
   async function load() {
-    box.replaceChildren(...SOURCES.map((s) => block(s)));
+    // SK-8d: только разделы, открытые роли
+    box.replaceChildren(...SOURCES.filter((s) => session.sees(s.id)).map((s) => block(s)));
   }
 
   function block(src) {

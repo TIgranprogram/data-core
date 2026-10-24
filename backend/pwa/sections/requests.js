@@ -3,7 +3,7 @@ import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { stockList } from '../core/stock-list.js';
+import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
@@ -100,7 +100,7 @@ async function changeStatus(r, ctx) {
 export async function pastItems() {
   const [reqs, stockRes] = await Promise.all([
     api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch(() => ({ items: [] })),
-    stockList().catch(() => []), // склад целиком — один общий кэш (core/stock-list.js); pastItems зовут по действию
+    stockLookup().catch(() => []), // короткий список склада (/stock/lookup, SK-8d) — общий кэш (core/stock-list.js); pastItems зовут по действию
   ]);
   const by = new Map();
   const key = (s) => normSearch(s);

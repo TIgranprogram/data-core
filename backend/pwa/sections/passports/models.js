@@ -1,5 +1,6 @@
 import { api, PREFIX } from '../../core/api.js';
 import { normSearch } from '../../core/facets.js';
+import { ordersLookup } from '../../core/orders-lookup.js';
 import { date } from '../../core/format.js';
 import { patch } from '../../core/router.js';
 import { V2_CATS, V2_NUMS, bomRows, dims, num, plural, st } from './common.js';
@@ -38,7 +39,7 @@ export const CHILD_CATS = ['DIO', 'DSP'];
 
 /** Заказы для «№ заказа»: выбор подставляет и заказчика. */
 export async function orders() {
-  const items = (await api('/salesorders', { query: { limit: 500, sort: '-createdAt' } }).catch(() => ({ items: [] }))).items;
+  const items = await ordersLookup({ filter: 'all' }).catch(() => []); // SK-8d: короткий список, открыт и для «Паспортов»
   return items.filter((o) => o.orderNo).map((o) => ({ label: `№ ${o.orderNo}${o.customer ? ' · ' + o.customer : ''}`, sub: [o.title, o.shipDate && 'отгрузка ' + date(o.shipDate)].filter(Boolean).join(' · '),
     cat: '', search: normSearch([o.orderNo, o.customer, o.title].filter(Boolean).join(' ')), values: { orderNo: o.orderNo, customerName: o.customer || '', salesOrderId: o.id } }));
 }

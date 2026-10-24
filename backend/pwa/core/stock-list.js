@@ -18,8 +18,24 @@ export function stockList() {
   return cached;
 }
 
+/**
+ * SK-8d: короткий список склада для поиска позиции из других разделов (заявка, состав изделия, «уже заказано»):
+ * GET /stock/lookup — только id, materialId, name, article, unit, categoryName, quantity, free; открыт и для «Заявок», «Каталога».
+ * Полный /stock/items — только в разделе «Склад» (stockList). Сервер ещё без lookup (404) — прежний полный запрос.
+ */
+let cachedLookup = null; let atLookup = 0;
+export function stockLookup() {
+  if (!cachedLookup || Date.now() - atLookup > TTL) {
+    atLookup = Date.now();
+    const p = api('/stock/lookup').then((r) => r.items || [], (e) => { if (e?.status === 404) return stockList(); throw e; });
+    cachedLookup = p;
+    p.catch(() => { if (cachedLookup === p) cachedLookup = null; });
+  }
+  return cachedLookup;
+}
+
 /** Сбросить кэш (после правок склада из других мест). */
-export const resetStock = () => { cached = null; };
+export const resetStock = () => { cached = null; cachedLookup = null; };
 
 writeHooks.push((path) => { if (/^\/(stock|supply)\//.test(path)) resetStock(); });
 window.addEventListener('data-changed', resetStock); // изменение из другого экрана — следующий вызов возьмёт свежий склад

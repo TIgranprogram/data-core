@@ -95,7 +95,10 @@ async function errorOf(res) {
   const russian = /[а-яё]/i.test(msg);
   // ЧН: сбой сервера — с кодом, по которому его найдут в журнале; ввод остаётся в форме
   const crash = errorId ? `Сбой на сервере (код ${errorId}). Введённое не потеряно — повторите позже; если повторяется, сообщите код администратору.` : '';
-  const err = [400, 409, 422].includes(res.status) && russian ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
+  // SK-8d: раздел снят с роли — сервер отвечает 403 «Раздел «…» для вашей роли закрыт»: показать его текст, не общий
+  const closed = res.status === 403 && russian && /раздел/i.test(msg) && /закрыт/i.test(msg);
+  const err = ([400, 409, 422].includes(res.status) && russian) || closed ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
+  if (closed) err.sectionClosed = true;
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;
 }

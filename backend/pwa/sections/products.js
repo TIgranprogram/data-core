@@ -196,7 +196,8 @@ export const products = {
     heading: (r) => r.name,
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
-    extra: (r) => h('div', null, compositionBlock(r), inOrders(r), passportsBlock(r)),
+    // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
+    extra: (r) => h('div', null, compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.sees('passports') ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
@@ -215,7 +216,7 @@ export const products = {
       ['Описание', r.description],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
-      ...(passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
+      ...(session.sees('passports') && passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } }] : []),
       { label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },

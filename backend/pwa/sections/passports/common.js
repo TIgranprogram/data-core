@@ -64,7 +64,9 @@ export const facets = async () => {
   return facetsCache;
 };
 let oursCache = null;
-export const ourCompanies = async () => (oursCache ??= await api('/partners', { query: { type: 'our' } }).then((r) => r.items).catch(() => []));
+// SK-8d: наши компании — из /incomes/lookups (открыт всем); «Контрагенты» могут быть закрыты роли. Сбой — прежний /partners
+export const ourCompanies = async () => (oursCache ??= await api('/incomes/lookups').then((r) => r.companies || [])
+  .catch(() => api('/partners', { query: { type: 'our' } }).then((r) => r.items)).catch(() => []));
 // ПК: категории каталога — из «Категорий каталога» справочника категорий паспортов и встречавшихся в паспортах (вшитого списка нет)
 export const categories = async () => { const [rows, f] = await Promise.all([dictRows('passportCategories'), facets()]); return [...new Set([...rows.flatMap((c) => String(c.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)), ...f.categories.map((c) => c.value)])]; };
 export const api_get = (p) => api(p);
