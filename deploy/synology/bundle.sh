@@ -162,6 +162,10 @@ find "$CF" -type f -exec chmod 600 {} + 2>/dev/null || true
 cat > "$W/MIGRATE.md" <<'MIG'
 # Как развернуть этот пакет на новой VM (инструкция для агента)
 
+**Быстро:** распаковать пакет и запустить `sudo bash install.sh` — он сам поставит Docker и всё нужное на пустую Ubuntu,
+поднимет базу, перенесёт данные (только в ПУСТУЮ базу), поднимет data-core и kppdf, бэкап по расписанию и проверит.
+Туннель к VPS — только с `TUNNEL_PORT=<свой порт> sudo -E bash install.sh`. Ниже — то же по шагам (если что-то пошло не так).
+
 Пакет содержит СЕКРЕТЫ (`config/**/.env`, пароли Mongo, ключи). Не коммитить, не выводить в чат.
 Целевая система: Ubuntu + Docker + docker compose. CPU без AVX -> Mongo остаётся 4.4 (`mongo:4.4`).
 Всё, что ниже, выполняется ПОСЛЕ «да» пользователя. На живую базу ничего не восстанавливать без явного «да».
@@ -208,6 +212,9 @@ data-core — личное ядро данных: MongoDB 4.4 (replica set rs0, 
 
 Чего в пакете НЕТ: образов Docker (собираются из кода), `node_modules`, старых бэкапов, ключей SSH рабочего ПК (`remote-access/secret/`).
 MIG
+
+# автоустановка на любой (в т. ч. пустой) Ubuntu — install.sh в корне пакета
+[[ -f "$SCRIPT_DIR/bundle-install.sh" ]] && install -m 700 "$SCRIPT_DIR/bundle-install.sh" "$W/install.sh"
 
 # --- 7. manifest.json ---
 echo "--- manifest"
