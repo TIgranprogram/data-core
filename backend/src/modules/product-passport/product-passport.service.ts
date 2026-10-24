@@ -21,6 +21,7 @@ import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, 
 import { PassportBulk } from './passport-bulk';
 import { PassportIssue } from './passport-issue';
 import { PassportQueries } from './passport-queries';
+import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
 
 @Injectable()
 export class ProductPassportService {
@@ -38,6 +39,8 @@ export class ProductPassportService {
   private readonly queries: PassportQueries;
   private readonly bulkOps: PassportBulk;
   private readonly issueOps: PassportIssue;
+  /** МИ: ссылки таблицы «Материалы изделия» паспорта на справочники — та же проверка, что у изделия. */
+  private readonly mi = new MaterialsSpecRefs(() => this.connection.db!);
 
   // ─── список, подсказки, выпуск, массовые действия — passport-queries.ts / passport-issue.ts / passport-bulk.ts ───
   list(q: Record<string, unknown> = {}, opts: { full?: boolean } = {}) { return this.queries.list(q, opts); }
@@ -138,6 +141,7 @@ export class ProductPassportService {
     // картинка без вида — только «Фото изделия» (ФП: раньше без вида не попадала никуда)
     if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
     for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
+    if ('materialsSpec' in set) set.materialsSpec = parseMaterialsSpec(set.materialsSpec); // МИ: тот же разбор, что у изделия; пусто — null
     if (set.passportNumber !== undefined) set.passportNo = Number(set.passportNumber) || undefined;
     return set;
   }
@@ -145,6 +149,7 @@ export class ProductPassportService {
   /** Новый паспорт: номера выдаёт сервер (если не заданы явно), описание собирается из частей, комплектность по умолчанию. */
   async create(dto: CreateProductPassportDto): Promise<ProductPassportDocument> {
     const set = this.normalize(dto);
+    await this.mi.check((set.materialsSpec as StoredSpec | null | undefined) ?? null);
     const date = (set.date as Date) || dayUtc();
     set.date = date;
     // НМ: новый паспорт — черновик без номера, талона и номера изделия; номер передан явно (перенос) — сразу выпущен
@@ -196,6 +201,8 @@ export class ProductPassportService {
       set.revisions = [...((cur.revisions as unknown[]) ?? []), { revision: cur.revision ?? 1, at: new Date(), by: opts.user?.id ?? null, data: keep }];
       set.revision = Number(cur.revision ?? 1) + 1;
     }
+    // МИ: ссылки на справочники проверяются, только если таблицу меняли (прежняя может ссылаться на запись из корзины)
+    if (changed.includes('materialsSpec')) await this.mi.check((set.materialsSpec as StoredSpec | null) ?? null);
     await this.assertFree(set, doc._id);
     const hadText = !!((doc.toObject() as unknown as Doc).textSnapshot as { sections?: unknown[] } | undefined)?.sections?.length;
     doc.set(set);

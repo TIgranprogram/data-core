@@ -15,7 +15,8 @@ import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
 import { ShowcaseBulk } from './showcase-bulk';
 import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
-import { parseMaterialsSpec, presentMaterialsSpec, ShowcaseMaterials } from './showcase-materials';
+import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
+import { ShowcaseMaterials } from './showcase-materials';
 import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */

@@ -8,13 +8,25 @@ import { materialsSpec, specSummary } from '../../ui/materials-spec.js';
  * МИ.4: материалы в форме паспорта (невыпущенного) — таблица вместо меток «Материалы» и свободного текста.
  * Метки materialIds — из таблицы (материалы строк + покрытия); текст «Материалы» — собранный (серым «собрано автоматически»),
  * ручная правка таблицей не перетирается, «↻ Собрать заново»; «Подставить из изделия» — таблица изделия (поток ПИ).
- * Таблица в паспорте не хранится (сервер паспорта её не принимает): паспорт хранит снимок — текст и метки.
+ * Паспорт хранит свою таблицу (`materialsSpec` — снимок изделия с правкой) и при открытии черновика показывает её;
+ * своей нет — таблица пуста, «Подставить из изделия». Уходит на сервер, только если таблицу меняли (как у изделия).
  */
+/**
+ * materialsSpec паспорта: у нового — если таблица заполнена (пустую не шлём: копия прошлого паспорта сохранит его таблицу,
+ * как его текст и метки), у сохранённого — только если таблицу меняли (null — снять).
+ */
+export function specBody(v, r) {
+  if (v._mspec === undefined) return {}; // старый вид формы (метки без таблицы)
+  const next = v._mspec ?? null;
+  if (!r) return next ? { materialsSpec: next } : {};
+  return JSON.stringify(next) !== JSON.stringify(r.materialsSpec ?? null) ? { materialsSpec: next } : {};
+}
+
 export function materialsFields({ r, md, ctx }) {
   return [
     { key: 'materialIds', type: 'widget', label: '', widget: (v) => hiddenList(v), summary: () => '' },
     { key: '_mspec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
-      widget: () => (ctx.ms = materialsSpec({ value: null, dicts: md, preview: false, scope: () => ctx.cat(), actions: [{ label: 'Подставить из изделия', busy: 'Загружаю…', title: 'Таблица материалов из карточки изделия', run: (w) => fromProduct(w, ctx) }] })),
+      widget: (v) => (ctx.ms = materialsSpec({ value: v, dicts: md, preview: false, scope: () => ctx.cat(), actions: [{ label: 'Подставить из изделия', busy: 'Загружаю…', title: 'Таблица материалов из карточки изделия', run: (w) => fromProduct(w, ctx) }] })),
       hint: 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). Метки материалов паспорта заполняются из таблицы',
       mount: (api) => wireMaterials(api, { r, md, ctx }) },
   ];

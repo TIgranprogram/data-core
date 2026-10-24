@@ -42,9 +42,12 @@ const parseSpec = (v) => {
 export function materialsSpec({ value, dicts, text = '', scope = () => '', actions = [], preview: showPreview = true, onText }) {
   const d = { mats: dicts?.mats || [], sortament: dicts?.sortament || [], parts: dicts?.parts || [] };
   const isCoat = (m) => m.kind === 'coating';
+  // МИ: «Не предлагать в новых» — нет в выборе; где уже выбрано — показывается как есть. «Неполный размер» — ниже полных
+  const yes = (v) => v === true || v === 'true';
+  const offered = (m, keep = []) => !yes(m.hideInNew) || keep.includes(String(m.id));
   const matBy = () => new Map(d.mats.map((m) => [String(m.id), m]));
   const partBy = () => new Map(d.parts.map((p) => [String(p.id), p]));
-  const findMat = (t) => { const k = normSearch(t); return k ? d.mats.find((m) => !isCoat(m) && normSearch(m.name) === k) : null; };
+  const findMat = (t, keep) => { const k = normSearch(t); return k ? d.mats.find((m) => !isCoat(m) && offered(m, [keep]) && normSearch(m.name) === k) : null; };
   const findSize = (code, t) => d.sortament.find((x) => String(x.material || '').toUpperCase() === code && sizeKey(x.name) === sizeKey(t));
   const partKeys = (p) => [p.name, p.genSingular, p.genPlural].map(normSearch).filter(Boolean);
   const findPart = (t) => { const k = normSearch(t); return k ? d.parts.find((p) => partKeys(p).includes(k)) : null; };
@@ -89,11 +92,11 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     const matIn = h('input', { value: data.matText ?? (row.materialId ? matBy().get(row.materialId)?.name || '' : ''), placeholder: row.materialId && !matBy().get(row.materialId) ? 'запись удалена — выберите заново' : 'Материал', 'aria-label': 'Материал' });
     const matWrap = h('span', { class: 'ms-add-wrap' }, matIn);
     attachCombo(matIn, {
-      options: () => sorted(d.mats.filter((m) => !isCoat(m))).map((m) => ({ value: String(m.id), label: m.name, group: groupOf(m) })),
+      options: () => sorted(d.mats.filter((m) => !isCoat(m) && offered(m))).map((m) => ({ value: String(m.id), label: m.name, group: groupOf(m) })),
       empty: () => (matIn.value.trim() ? 'Нет в справочнике — выберите из списка (новый материал добавляют в «Справочники → Паспорта → Материалы и покрытия»)' : 'В справочнике «Материалы и покрытия» нет материалов'),
     });
     const resolveMat = () => {
-      const t = matIn.value.trim(); const hit = findMat(t);
+      const t = matIn.value.trim(); const hit = findMat(t, row.materialId);
       if (hit) { row.materialId = String(hit.id); matIn.value = hit.name; } else row.materialId = '';
       matIn.classList.toggle('ms-bad', !!t && !hit);
       matIn.title = t && !hit ? 'Только из справочника «Материалы и покрытия»' : matIn.value;
@@ -104,7 +107,10 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
 
     const sizes = chipCell({
       label: 'Размеры', placeholder: '+ размер',
-      options: () => d.sortament.filter((x) => code() && String(x.material || '').toUpperCase() === code() && !row.sizes.some((z) => sizeKey(z) === sizeKey(x.name))).map((x) => ({ value: x.name, label: x.name })),
+      options: () => {
+        const list = d.sortament.filter((x) => code() && String(x.material || '').toUpperCase() === code() && !row.sizes.some((z) => sizeKey(z) === sizeKey(x.name)));
+        return [...list.filter((x) => !yes(x.incomplete)), ...list.filter((x) => yes(x.incomplete))].map((x) => ({ value: x.name, label: x.name, ...(yes(x.incomplete) ? { sub: 'неполный размер' } : {}) }));
+      },
       empty: (t) => (t ? 'Нет в «Сортаменте» — Enter добавит как написали' : !row.materialId ? 'Сначала выберите материал' : 'У материала нет размеров в «Сортаменте» — впишите свой и нажмите Enter'),
       chips: () => row.sizes.map((z) => { const known = !!findSize(code(), z); return { text: z, foreign: !known, title: known ? '' : 'Нет в справочнике «Сортамент» — останется значением этой строки' }; }),
       onAdd: (t) => {
@@ -200,7 +206,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   }
 
   // покрытия — метками (обычно одно-два)
-  const coatOpts = d.mats.filter(isCoat).map((m) => ({ value: String(m.id), label: m.name, cats: codes(m.categories) }));
+  const coatOpts = d.mats.filter((m) => isCoat(m) && offered(m, parseSpec(value).coatingIds)).map((m) => ({ value: String(m.id), label: m.name, cats: codes(m.categories) }));
   const coat = tagPick({ options: coatOpts, value: [], label: 'Покрытие' });
   coat.el.addEventListener('change', (e) => { e.stopPropagation(); changed(); });
   const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие'),

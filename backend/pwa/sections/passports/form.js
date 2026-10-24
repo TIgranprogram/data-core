@@ -11,7 +11,7 @@ import { AFTER_PRINT, BOM_COLS, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDesc
 import { models, orders, phrases } from './models.js';
 import { productBlock } from './product-block.js';
 import { wireForm } from './wire-form.js';
-import { materialsFields } from './materials.js';
+import { materialsFields, specBody } from './materials.js';
 import { loadMaterialDicts } from '../../ui/materials-spec.js';
 
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
@@ -151,7 +151,7 @@ export const passportForm = {
       ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
   },
   toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
-    ...v2Initial(r), _manualText: r.manualText?.length ? 'yes' : 'no',
+    ...v2Initial(r), _manualText: r.manualText?.length ? 'yes' : 'no', _mspec: r.materialsSpec || '',
     ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
   // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
   toBody: (v, r) => {
@@ -172,7 +172,7 @@ export const passportForm = {
     // виды, которых нет в форме, сохраняются как были (safety_zone показан в «Зоне безопасности» — не «чужой»)
     const kept = imagesBody((r?.images || []).filter((i) => !shown.has(kindOf(i))));
     const images = [...formImages(v, kinds().map(([k]) => k)), ...kept];
-    Object.assign(body, v2Body(v));
+    Object.assign(body, v2Body(v), specBody(v, r));
     const fromModel = !r && v._copyFrom && v._imgsFrom === v._copyFrom; // картинки модели уже в форме — список окончательный
     if (images.length || r || fromModel) body.images = images;
     if (fromModel) body._imagesFinal = true;

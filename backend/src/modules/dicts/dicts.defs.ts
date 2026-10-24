@@ -17,7 +17,9 @@ type ObjectId = mongo.ObjectId;
  */
 export type Doc = Document & { _id: ObjectId };
 /** photo — одна картинка (id фото строкой), photos — несколько (список id); в приложении — загрузка, а не ввод id (БЗ-6 Э9.7). */
-export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos'; required?: boolean; options?: { value: string; label: string }[]; ref?: string; hint?: string; wide?: boolean };
+export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos'; required?: boolean; options?: { value: string; label: string }[]; ref?: string; hint?: string; wide?: boolean;
+  /** Флажок «да / нет» (select с вариантом «да»): в базе — true, иначе null. */
+  bool?: boolean };
 /** more — дополнительные блоки «связанного» (у сотрудника: заявки + что выдано со склада). */
 export type Related = { title: string; items: { label: string; sub?: string; href?: string }[]; total: number; more?: Related[] };
 
@@ -60,7 +62,10 @@ const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const opt = (v: unknown) => s(v) || null;
 /** Значение поля из тела запроса по типу: картинки — только валидные id фото. */
 const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(v).length === 24;
+/** Поле-флажок справочника: «да» — true в базе (fieldValue), пусто — null. */
+const YES_NO = (key: string, label: string, hint: string): Field => ({ key, label, hint, type: 'select', bool: true, options: [{ value: 'true', label: 'да' }] });
 const fieldValue = (f: Field, v: unknown) => {
+  if (f.bool) return v === true || v === 'true' ? true : null;
   if (f.type === 'photos') return (Array.isArray(v) ? v : []).map(String).filter(isOid);
   if (f.type === 'photo') { const x = Array.isArray(v) ? v[0] : v; return isOid(x) ? String(x) : null; }
   return opt(v);
@@ -594,6 +599,8 @@ export const DICTS: DictDef[] = [
         { key: 'genPlural', label: 'Из чего — несколько размеров', hint: 'Родительный падеж, мн. ч.: «стальных труб»' },
         { key: 'sizeTemplate', label: 'Шаблон размера', hint: '{sizes} — размеры через «и» / запятую, «мм» — один раз: «{sizes} мм», «толщиной {sizes} мм»' },
         { key: 'phrase', label: 'Фраза покрытия', wide: true, hint: 'Только у покрытия, целым предложением: «Окрашено порошковой краской методом запекания в заводских условиях.»' },
+        // МИ: устаревшая запись — на неё ссылаются выпущенные паспорта, удалять нельзя; в новых таблицах не предлагается
+        YES_NO('hideInNew', 'Не предлагать в новых', 'Да — нет в выборе таблицы материалов новых изделий и паспортов; где уже выбрана — остаётся как есть'),
       ]),
     ...withProducts(
       ppUsage({ pp: 'materialIds', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }, { dict: 'passportSortament', field: 'material', title: 'Сортамент' }] }),
@@ -611,12 +618,13 @@ export const DICTS: DictDef[] = [
     // МИ: размеры по материалу (∅89×3, лист 2) — выбор в таблице «Материалы изделия»; размер без «мм», единица — в шаблоне материала
     ...simpleList('passportSortament', 'Паспорта', 'Сортамент',
       'Размеры по материалу: ∅89×3, ∅33,5×2,8 у трубы, 2 и 6 у листа (без «мм» — единица в шаблоне материала). Выбираются в таблице материалов изделия; один размер у разных материалов — разные записи.',
-      [{ key: 'material', label: 'Материал (код)', required: true, hint: 'Код из «Материалов и покрытий»: PIPE_STEEL, SHEET_STEEL' }]),
+      [{ key: 'material', label: 'Материал (код)', required: true, hint: 'Код из «Материалов и покрытий»: PIPE_STEEL, SHEET_STEEL' },
+        YES_NO('incomplete', 'Неполный размер', 'Да — размер без стенки (∅33,5 у трубы, профиль без стенки): в выборе — ниже полных, с пометкой')]),
     toDoc: async (b, isNew, db) => {
       const material = s(b.material).toUpperCase();
       if (!material) throw new BadRequestException('Укажите код материала из «Материалов и покрытий»');
       if (!(await db.collection('dict_values').findOne({ dict: 'passportMaterials', code: material, deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException(`Нет материала с кодом ${material} в «Материалах и покрытиях»`);
-      return { ...(isNew ? { dict: 'passportSortament', deletedAt: null, createdAt: new Date() } : {}), name: normSize(b.name), material, updatedAt: new Date() };
+      return { ...(isNew ? { dict: 'passportSortament', deletedAt: null, createdAt: new Date() } : {}), name: normSize(b.name), material, incomplete: b.incomplete === true || b.incomplete === 'true' ? true : null, updatedAt: new Date() };
     },
     dupKey: (d) => `${s(d.material).toUpperCase()}|${norm(normSize(d.name))}`,
     ...withProducts(noUsage,

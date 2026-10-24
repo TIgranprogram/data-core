@@ -788,6 +788,7 @@ Write-paths, которые должны быть all-or-nothing, использ
 | Где | Поле | Смысл |
 |--|--|--|
 | `products` | `materialsSpec` | только data-core (CRM не читает): `{ rows: [{ materialId: ObjectId → passportMaterials, sizes: string[] (без «мм», одно написание: ∅89×3, 2), partIds: ObjectId[] → passportParts }], coatingIds: ObjectId[] → passportMaterials (kind coating) }`; пусто — `null`. Текст «Изготовлено из… Состоит из… <фраза покрытия>» собирается `common/catalog/materials-text.ts` |
+| `productpassports` | `materialsSpec` | только data-core: та же форма, что у `products.materialsSpec`; снимок таблицы изделия с правкой (форма паспорта, «Подставить из изделия»); нет — у паспорта своей таблицы нет. У выпущенного меняется только «Новой редакцией» (прежняя — в `revisions[].data`) |
 | `dict_values` (`passportMaterials`) | `kind`, `genSingular`, `genPlural`, `sizeTemplate`, `phrase` | material / coating (пусто — material); род. п. ед. / мн. ч. (по числу размеров); шаблон размера с `{sizes}` («толщиной {sizes} мм»); фраза покрытия |
 | `dict_values` (`passportSortament`) | `name`, `material` | размер без «мм» + код материала (`passportMaterials.code`); дубль — пара «материал + размер» |
 | `dict_values` (`passportParts`) | `name`, `genSingular`, `genPlural`, `categories` | часть изделия; в тексте — род. п. мн. ч. («Состоит из стоек…») |

@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import type { StoredSpec } from '../../common/catalog/materials-table';
 
 export type ProductPassportDocument = HydratedDocument<ProductPassport>;
 
@@ -185,6 +186,8 @@ export class ProductPassport {
   /** Функциональные элементы, материалы — id записей справочников (`dict_values`). Строковое `materials` (v1) не трогаем. */
   @Prop({ type: [Types.ObjectId], default: undefined }) elements?: Types.ObjectId[];
   @Prop({ type: [Types.ObjectId], default: undefined }) materialIds?: Types.ObjectId[];
+  /** МИ: таблица «Материалы изделия» { rows: [{ materialId, sizes[], partIds[] }], coatingIds[] } — снимок `products.materialsSpec` с правкой (common/catalog/materials-table.ts). */
+  @Prop({ type: Object, default: undefined }) materialsSpec?: StoredSpec | null;
   @Prop({ type: Types.ObjectId }) installationTypeId?: Types.ObjectId;
   /** Разборное — поставляется на сборку (тогда нужна схема сборки). */
   @Prop() isKit?: boolean;
