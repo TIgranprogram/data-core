@@ -73,6 +73,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
 
   // ---------- Просмотр ----------
   async function showView(fresh) {
+    // панель-форма без карточки просмотра (состав, «изменить выбранные», бронь…): после «Сохранить»/«Отмена» — закрыть
+    if (typeof section.card?.view !== 'function') { destroy(); ctx.close(); return; }
     form = null;
     menuBox.replaceChildren();
     foot.replaceChildren();
