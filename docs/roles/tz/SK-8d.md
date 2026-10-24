@@ -42,5 +42,59 @@ Guard + декораторы по таблице, кэш разделов рол
 ## Нельзя
 - Менять права на изменение; трогать `docs/roles/tz/PRJ.md`; данные прода; коммитить (кроме координатора).
 
-## Решение архитектора
-(вписывает координатор после шага 1)
+## Решение архитектора (2026-10-24, принято координатором)
+
+Сводок «Сегодня» и общего поиска на сервере нет — `home.js`, `search.js`, `trash.js` опрашивают списки разделов; их закрывает guard. Серверный фильтр нужен только для fill-audit, истории, `/dicts/persons` (зарплата) и карточек «всё о …».
+
+### Маршрут → раздел (пометка на класс, метод может переопределить; несколько = открыт, если открыт любой)
+| Маршрут | Раздел(ы) | Зачем соседям |
+|--|--|--|
+| `/supply/requests*` | requests | — |
+| `GET /supply/requests`, `POST /supply/requests`, `POST /supply/requests/:id/receive` | requests, stock | «Приход» (`ops.js`), заявка на нехватку (`stock-ops.js`) |
+| `/supply/aliases*` | requests, stock | bulk-match |
+| `GET /supply/lookups` | всегда | справочные списки |
+| `/stock/*` | stock | — |
+| `POST /stock/items`, `POST /stock/items/:id/photos`, `GET /stock/items/:id/ordered` | stock, requests | новая позиция из счёта, item-orders |
+| `GET /stock/reservations/order/:id`, `POST /stock/reservations/:id/release` | stock, salesorders | «Брони» в заказе |
+| `POST /stock/spec/preview`, `/apply` | stock, salesorders | спецификация из заказа |
+| `GET /stock/composition-suggest`, `POST …/accept` | stock, products, salesorders | «Предложено из выдач» |
+| **новый** `GET /stock/lookup` → `{items:[{id, materialId, name, article, unit, categoryName, quantity, free}]}` | stock, requests, products | вместо `/stock/items?limit=10000` в `core/stock-list.js` |
+| `/salesorders*` | salesorders | — |
+| `GET /salesorders/:id/lines-lookup` | salesorders, stock, requests, design | target-picker |
+| **новый** `GET /salesorders/lookup?filter=active\|all&lines=1` → `{items:[{id, orderNo, customer, title, stage, shipDate, lines?:[{id, lineNo, title, qty, productId}]}]}`, без денег; объявить до `:id` | salesorders, stock, requests, passports, design | `issue.js orderOptions`, заявка «под заказ» (убирает `/incomes?limit=3000`), `passports/models.js orders()` |
+| `/incomes*` | orders, salesorders | строки заказа |
+| `GET /incomes/lookups` | всегда | компании, заказчики, формы оплаты |
+| `/partners*`, `/organizations/:id/assets/:role` | partners | — |
+| `POST /partners` | partners, requests | новый поставщик из заявки |
+| `/passports*`, `/products/:productId/passport` | passports | — |
+| `GET /passports/phrases` | passports, products | — |
+| `/showcase*` | products | — |
+| `GET /showcase`, `GET /showcase/:id`, `PUT /showcase/:id/passport-defaults`, `GET/POST /showcase/from-passports` | products, passports (+ orders, salesorders только `GET /showcase`) | паспорт ↔ изделие, выбор изделия в позиции |
+| `/finance/*` | money | — |
+| `/dicts/persons` | всегда, но **без `salaryKind/salaryRate`, если payroll закрыт** | ФОТ |
+| `/design-tasks*` (будущее, PRJ.md) | design | — |
+| `/dicts*`, `/photos*`, `/auth/*`, `/meta/*`, `/health/*`, `/desktop`, `/device`, `/apps`, `/settings`, `/feature-flags`, `/version`, `/admin/*` | всегда (без пометки) | — |
+| `/audit-logs/record` | по `entityType`: SupplyRequest→requests; Material, StockMovement→stock; Counterparty, Partner→partners; Order, Income→orders, salesorders; SalesOrder→salesorders; Product→products; DictItem→всегда | 403 если закрыт |
+| `/audit-logs/app`, `/app/users` | всегда, типы записей — только открытых разделов | — |
+| `/fill-audit` | всегда, группы — только открытых разделов | — |
+| старые `/materials`; `/products*`, `/modules`, `/product-module-photos`; `/counterparties`, `/organizations` (список); `/persons` | stock; products; partners; payroll | закрыть обход |
+
+### Механизм
+- `common/decorators/app-section.decorator.ts`: `@AppSection(...ids)` (класс/метод), `@AppSectionFree()` = `[]` снимает пометку класса.
+- `common/guards/app-section.guard.ts` — глобальный `APP_GUARD` **после RolesGuard** (JWT → Permissions → Roles → AppSection). Нет пометки / `[]` / нет `req.user` / `openSectionsFor(user) === null` → пропуск; иначе нужен хотя бы один открытый; нет → 403 «Раздел «<название>» для вашей роли закрыт». Только `Reflector`.
+- Кэш в `common/app-sections.ts`: `setRoleSectionsAll`, `setRoleSections`, `deleteRoleSections`, `openSectionsFor(user) → Set|null` (null: isOwner, admin, роль без галочек, роль не в кэше). `RoleService.onModuleInit` грузит все роли `{name, appSections}`; обновлять в create, createCustom, update, remove, resolveForAuth.
+- `kppd_`: ключ ограничен разделами роли пользователя-владельца ключа (подтверждено). Внешние скрипты на ключе ограниченной роли получат 403 — так задумано.
+
+### Фильтры
+- fill-audit: кэш не трогать; после него копия `groups.filter(g => !open || open.has(g.section))`, пересчёт total; `only=<закрытый>` → `{total:0, groups:[]}`.
+- `audit.controller.ts`: record — по entityType; app/app-users — сузить `RECORD_HISTORY_TYPES`.
+- Карточки: `salesorders.service.get` → `supplyRequests` (requests), `stockMovements` (stock); карточка partners → заказы/суммы (salesorders), заявки (requests), выдачи (stock); `showcase.service.get` → `orderLines` (salesorders), `passports` (passports). Закрыт — `[]`/`null`; флаги из контроллера (`@CurrentUser`).
+
+### Принятые оговорки
+- `/incomes` открыт и для «Заказов»: закрытие «Позиций и оплат» не прячет строки заказов от того, у кого открыты «Заказы» (деньги и так режет MoneyMask).
+- Галочки действуют на сервере сразу; меню у клиента обновится после `/auth/me` — до этого закрытый раздел даст спокойную подсказку 403.
+
+### Разбивка (без пересечений)
+- **backend** (`backend/src/**`, `docs/MAP.md`, `docs/openapi.json`): app-sections (+ `design` «Проектирование»), декоратор, guard + spec, app.module, role.service (кэш + юнит), пометки на контроллерах по таблице, два lookup, фильтры fill-audit / audit / dicts persons / карточек.
+- **frontend** (`backend/pwa/**`): `main.js refreshCounts` только по `sees()` (и `.catch`); `core/api.js` — русский текст 403 сервера; `search.js`, `trash.js` — SOURCES по `sees()`; `core/stock-list.js` → `/stock/lookup` (если нет stock — всегда? см. ниже); `issue.js`, `salesorders.js` (orderOptions, activeOrders), `passports/models.js` → `/salesorders/lookup`; `passports/common.js ourCompanies` → `/incomes/lookups`; прятать кнопки соседних разделов (в заказе «Брони», «Спецификация», «Выпустить паспорт», «В проектирование»; в изделии — паспорта); `home.js` быстрая заявка только при `sees('requests')`.
+- `core/stock-list.js`: использовать `/stock/lookup` всегда, где нужен только поиск позиции (он легче), полный `/stock/items` — только в разделе «Склад».
