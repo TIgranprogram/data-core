@@ -56,7 +56,9 @@ export class StockSearchService {
     // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
     const make = () => this.itemRows(q, p.deleted, tokens);
     const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens]);
-    const { wh, rows: all } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
+    // Выборка по id (карточка позиции, ответ после записи) — без кэша: версия коллекции растёт по потоку изменений
+    // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
+    const { wh, rows: all } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
     const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0 };
     for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; }
