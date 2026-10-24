@@ -45,6 +45,9 @@ scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
 echo "== 3. Сборка и перезапуск backend (mongo не трогаем)"
 "${SSH[@]}" 'cd /opt/data-core && docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1 && tail -2 /tmp/dc-build.log && docker compose -f docker-compose.prod.yml up -d --no-deps backend'
 
+# 2026-10-24: кэш сборки Docker копился с каждой выкладкой (42 ГБ) — держим только последние 3 суток
+"${SSH[@]}" 'docker builder prune -f --filter until=72h >/dev/null 2>&1; docker image prune -f >/dev/null 2>&1' || true
+
 echo "== 4. Проверка"
 "${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health/ready); [ "$s" = 200 ] && break; sleep 3; done
   echo "data-core /api/health/ready: $s"; echo "/app/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/app/)"; echo "/admin/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/admin/)"
