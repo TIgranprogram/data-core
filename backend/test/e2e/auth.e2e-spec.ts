@@ -90,4 +90,48 @@ describe('Auth (e2e)', () => {
       .send({});
     expect(res.status).toBe(401);
   });
+
+  describe('PATCH /auth/me/prefs (ШП-1)', () => {
+    it('запись по ключам: detailW, затем sidebarW не стирает detailW; /auth/me и вход отдают uiPrefs', async () => {
+      const { access } = await loginAsAdmin(app);
+      const http = () => request(app.getHttpServer());
+      const a = await http().patch('/api/auth/me/prefs').set(authHeader(access)).send({ detailW: 700 });
+      expect(a.status).toBe(200);
+      expect(a.body.uiPrefs.detailW).toBe(700);
+      const b = await http().patch('/api/auth/me/prefs').set(authHeader(access)).send({ sidebarW: 300 });
+      expect(b.status).toBe(200);
+      expect(b.body.uiPrefs).toMatchObject({ detailW: 700, sidebarW: 300 });
+      const me = await http().get('/api/auth/me').set(authHeader(access));
+      expect(me.body.uiPrefs).toMatchObject({ detailW: 700, sidebarW: 300 });
+      const login = await http()
+        .post('/api/auth/login')
+        .send({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD });
+      expect(login.body.user.uiPrefs).toMatchObject({ detailW: 700, sidebarW: 300 });
+    });
+
+    it('вне пределов, лишний ключ, строка → 400', async () => {
+      const { access } = await loginAsAdmin(app);
+      for (const body of [{ detailW: 5000 }, { foo: 1 }, { detailW: '700' }]) {
+        const r = await request(app.getHttpServer())
+          .patch('/api/auth/me/prefs')
+          .set(authHeader(access))
+          .send(body);
+        expect(r.status).toBe(400);
+      }
+    });
+
+    it('через kppd_-ключ → 403', async () => {
+      const { access } = await loginAsAdmin(app);
+      const k = await request(app.getHttpServer())
+        .post('/api/desktop/pairing-keys')
+        .set(authHeader(access))
+        .send({ apiBaseUrl: 'http://localhost:3001', label: 'e2e-uiprefs' });
+      expect(k.status).toBe(201);
+      const r = await request(app.getHttpServer())
+        .patch('/api/auth/me/prefs')
+        .set(authHeader(k.body.apiKey))
+        .send({ detailW: 700 });
+      expect(r.status).toBe(403);
+    });
+  });
 });

@@ -12,7 +12,7 @@ import { Model, Types } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { User, UserDocument } from './user.schema';
+import { UI_PREF_KEYS, UiPrefs, User, UserDocument } from './user.schema';
 import { userActivityCache } from '../../common/guards/user-activity-cache';
 import { isBaseRole, isBuiltinRole } from '../../common/roles-hierarchy';
 
@@ -236,6 +236,25 @@ export class UserService {
     await this.model
       .updateOne({ _id: id }, { $inc: { refreshTokenVersion: 1 } })
       .exec();
+  }
+
+  /**
+   * ШП-1 — записать свои настройки интерфейса. `$set` по отдельным ключам
+   * `uiPrefs.<ключ>` (не целым объектом): запись с одного ПК не стирает ключи,
+   * сохранённые с другого. Пустой набор — ничего не пишет. Возвращает итоговые uiPrefs.
+   */
+  async setUiPrefs(id: string, prefs: UiPrefs): Promise<UiPrefs> {
+    const $set: Record<string, number> = {};
+    for (const key of UI_PREF_KEYS) {
+      const v = prefs[key];
+      if (typeof v === 'number') $set[`uiPrefs.${key}`] = v;
+    }
+    const q = Object.keys($set).length
+      ? this.model.findOneAndUpdate({ _id: id }, { $set }, { new: true })
+      : this.model.findById(id);
+    const doc = await q.select('uiPrefs').lean<{ uiPrefs?: UiPrefs } | null>().exec();
+    if (!doc) throw new NotFoundException(`User ${id} not found`);
+    return doc.uiPrefs ?? {};
   }
 
   async verifyPassword(user: UserDocument, plain: string): Promise<boolean> {

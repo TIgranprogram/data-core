@@ -3,6 +3,14 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type UserDocument = HydratedDocument<User>;
 
+/** ШП-1 — ширины панелей приложения, px. Любой ключ может отсутствовать. */
+export interface UiPrefs {
+  sidebarW?: number;
+  detailW?: number;
+  filterW?: number;
+}
+export const UI_PREF_KEYS = ['sidebarW', 'detailW', 'filterW'] as const;
+
 @Schema({ softDelete: false,  collection: 'users', timestamps: true })
 export class User {
   @Prop({ required: true, unique: true, index: true })
@@ -69,6 +77,14 @@ export class User {
    */
   @Prop({ default: 'person', index: true })
   accountType!: 'person' | 'device';
+
+  /**
+   * ШП-1 — настройки интерфейса «Рабочего места» (ширины панелей:
+   * `sidebarW`, `detailW`, `filterW`). Без default: у старых записей поля нет.
+   * Пишет только PATCH /api/auth/me/prefs по отдельным ключам; CRM kppdf не читает.
+   */
+  @Prop({ type: Object })
+  uiPrefs?: UiPrefs;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

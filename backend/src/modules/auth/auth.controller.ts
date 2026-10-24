@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   GoneException,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   UseGuards,
   Get,
@@ -24,6 +26,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { UiPrefsDto } from './dto/ui-prefs.dto';
 import { UserService } from '../user/user.service';
 
 interface RefreshPayload {
@@ -100,5 +103,24 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async me(@CurrentUser() me: AuthenticatedUser) {
     return this.auth.getMe(me.id);
+  }
+
+  /**
+   * ШП-1 — свои настройки интерфейса (ширины панелей). id — только из входа.
+   * Любая роль: @Roles('user') по иерархии пропускает все встроенные и свои
+   * роли (r-…). Раздела (@AppSection) нет — AppSectionGuard не ограничивает.
+   * Ключ kppd_ (у него JwtAuthGuard кладёт keyScope) → 403.
+   */
+  @Patch('me/prefs')
+  @Roles('admin', 'manager', 'user')
+  @ApiOperation({ summary: 'Сохранить свои настройки интерфейса (ширины панелей)' })
+  @ApiResponse({ status: 200, description: '{ uiPrefs } — итоговые настройки' })
+  @ApiResponse({ status: 400, description: 'Значение вне пределов, не целое или лишний ключ' })
+  @ApiResponse({ status: 403, description: 'Вход по ключу kppd_' })
+  async updatePrefs(@CurrentUser() me: AuthenticatedUser, @Body() dto: UiPrefsDto) {
+    if (me.keyScope) {
+      throw new ForbiddenException('Настройки интерфейса меняются только из входа в приложение');
+    }
+    return this.auth.updateUiPrefs(me.id, dto);
   }
 }

@@ -1,3 +1,5 @@
+import type { UiPrefs } from '../../user/user.schema';
+
 /**
  * AuthUserPayload — the canonical "safe" projection of a user record.
  * Returned by `register`, `login`, and `getMe` (TZ-92 §1). Strips the
@@ -49,6 +51,11 @@ export interface AuthUserPayload {
    * owner-only UI (e.g. «Добавить мой компьютер» in TZ-AUTH-304).
    */
   isOwner?: boolean;
+  /**
+   * ШП-1 — настройки интерфейса пользователя (ширины панелей, px).
+   * Всегда объект: нет сохранённых — `{}`.
+   */
+  uiPrefs: UiPrefs;
 }
 
 export interface AuthResponse {

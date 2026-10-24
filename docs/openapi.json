@@ -868,6 +868,37 @@
         ]
       }
     },
+    "/auth/me/prefs": {
+      "patch": {
+        "operationId": "AuthController_updatePrefs",
+        "summary": "Сохранить свои настройки интерфейса (ширины панелей)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UiPrefsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ uiPrefs } — итоговые настройки"
+          },
+          "400": {
+            "description": "Значение вне пределов, не целое или лишний ключ"
+          },
+          "403": {
+            "description": "Вход по ключу kppd_"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/settings": {
       "get": {
         "operationId": "SettingController_findAll",
@@ -9697,6 +9728,32 @@
       "RefreshTokenDto": {
         "type": "object",
         "properties": {}
+      },
+      "UiPrefsDto": {
+        "type": "object",
+        "properties": {
+          "sidebarW": {
+            "type": "number",
+            "minimum": 200,
+            "maximum": 360,
+            "example": 248,
+            "description": "Ширина левого меню"
+          },
+          "detailW": {
+            "type": "number",
+            "minimum": 360,
+            "maximum": 1100,
+            "example": 700,
+            "description": "Ширина правой панели ввода"
+          },
+          "filterW": {
+            "type": "number",
+            "minimum": 280,
+            "maximum": 700,
+            "example": 340,
+            "description": "Ширина панели фильтров"
+          }
+        }
       },
       "UpsertCatalogAppearanceDto": {
         "type": "object",

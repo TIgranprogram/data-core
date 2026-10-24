@@ -7,7 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import * as bcrypt from 'bcryptjs';
-import { UserDocument } from '../user/user.schema';
+import { UiPrefs, UserDocument } from '../user/user.schema';
 import { UserService } from '../user/user.service';
 import { RoleService } from '../role/role.service';
 import { LoginSoftlockService } from '../../common/login-softlock/login-softlock.service';
@@ -198,6 +198,12 @@ export class AuthService {
     return this.toAuthUser(user, await this.roles.resolveForAuth(user.role));
   }
 
+  /** ШП-1 — свои настройки интерфейса: только активный пользователь, запись по ключам. */
+  async updateUiPrefs(userId: string, prefs: UiPrefs): Promise<{ uiPrefs: UiPrefs }> {
+    await this.findActiveUserOrThrow(userId);
+    return { uiPrefs: await this.users.setUiPrefs(userId, prefs) };
+  }
+
   async logout(userId: string): Promise<void> {
     await this.users.incrementRefreshVersion(userId);
     this.logger.log(`User logged out (id=${userId})`);
@@ -318,6 +324,8 @@ export class AuthService {
       // were added to RegisterDto.
       phone: user.phone ?? null,
       fullName: user.fullName ?? null,
+      // ШП-1: ширины панелей; у старых записей поля нет → {}.
+      uiPrefs: user.uiPrefs ?? {},
       organizationId: user.organizationId?.toString() ?? null,
       // TZ-AUTH-306: exposed only to the owner; false for everyone else.
       isOwner,
