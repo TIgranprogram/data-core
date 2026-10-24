@@ -38,7 +38,8 @@ import { ptext, ptextview } from './sections/passport-texts.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
 import { bulkEdit } from './sections/bulk-edit.js';
-import { versionLabel, watchUpdates } from './core/update-check.js';
+import { hasNewer, onVersion, reloadApp, versionLabel, watchUpdates } from './core/update-check.js';
+import { bellButton } from './ui/notices.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
@@ -86,14 +87,19 @@ function showLogin(message) {
 events.onAuthLost = () => { session.clear(); showLogin('Сессия истекла — войдите снова.'); };
 
 // ---------- «Обновить приложение» (2026-10-22): у установленного приложения нет кнопки браузера «обновить» ----------
+// 2026-10-24: без новой версии — просто подпись «Версия от … · последняя»; есть новее — «Обновить приложение» с точкой
 function updateLink() {
   const ver = h('small', { class: 'side-ver' });
   versionLabel(ver);
-  return h('a', { class: 'side-link', href: '#', title: 'Загрузить последнюю версию приложения (данные не теряются)', onclick: async (e) => {
-    e.preventDefault();
-    try { const reg = await navigator.serviceWorker?.getRegistration?.(); await reg?.update(); } catch { /* без service worker */ }
-    location.reload();
-  } }, icon('refresh'), h('span', { class: 'lbl' }, 'Обновить приложение', ver));
+  const lbl = h('span', { class: 'lbl' });
+  const a = h('a', { class: 'side-link', href: '#', onclick: (e) => { e.preventDefault(); if (hasNewer()) reloadApp(); } }, icon('refresh'), lbl);
+  onVersion(() => {
+    const newer = hasNewer();
+    a.classList.toggle('side-update', newer); a.classList.toggle('side-static', !newer);
+    a.title = newer ? 'Загрузить новую версию приложения (данные не теряются)' : 'Открыта последняя версия';
+    lbl.replaceChildren(newer ? 'Обновить приложение' : 'Приложение', ver);
+  });
+  return a;
 }
 
 // ---------- «Установить на телефон» (TASKS МП.2–МП.3) ----------
@@ -183,7 +189,8 @@ function shell() {
     // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
     h('div', { class: 'histnav' },
       backBtn, fwdBtn),
-    h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')));
+    h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
+    bellButton());
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
