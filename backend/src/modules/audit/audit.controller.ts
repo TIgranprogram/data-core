@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, ForbiddenException, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -6,9 +6,24 @@ import { AuditService } from './audit.service';
 import type { AuditQueryRaw } from './audit-query';
 import { withChanges } from './record-history';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { appSectionLabel, openSectionsFor } from '../../common/app-sections';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
 export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem', 'Product'];
+
+/** SK-8d: тип записи → разделы «Рабочего места» (открыт любой — история видна); [] — всегда (справочники). */
+export const RECORD_TYPE_SECTIONS: Record<string, string[]> = {
+  SupplyRequest: ['requests'], Material: ['stock'], StockMovement: ['stock'],
+  Counterparty: ['partners'], Partner: ['partners'], Order: ['orders', 'salesorders'], Income: ['orders', 'salesorders'],
+  SalesOrder: ['salesorders'], Product: ['products'], DictItem: [],
+};
+
+/** Типы истории, чьи разделы открыты пользователю (без ограничений — все). */
+export function historyTypesFor(user: { role?: string | null; isOwner?: boolean } | undefined | null): string[] {
+  const open = openSectionsFor(user);
+  if (!open) return RECORD_HISTORY_TYPES;
+  return RECORD_HISTORY_TYPES.filter((t) => { const ss = RECORD_TYPE_SECTIONS[t] ?? []; return !ss.length || ss.some((x) => open.has(x)); });
+}
 
 /**
  * Журнал аудита (только admin). Пишут оба приложения единой базы — data-core и kppdf.
@@ -48,6 +63,7 @@ export class AuditController {
   async record(@Query('entityType') entityType: string, @Query('entityId') entityId: string, @CurrentUser() user?: AuthenticatedUser) {
     if (!RECORD_HISTORY_TYPES.includes(entityType)) throw new BadRequestException('История для этого типа записей недоступна');
     if (!entityId?.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
+    if (!historyTypesFor(user).includes(entityType)) throw new ForbiddenException(`Раздел «${appSectionLabel(RECORD_TYPE_SECTIONS[entityType][0])}» для вашей роли закрыт`);
     // «было → стало» по полям (И.1) — из соседних снимков; деньги — только деньги-ролям; сами снимки наружу не отдаём
     const items = withChanges(await this.service.recordLogs(entityType, entityId.trim()) as Array<Record<string, unknown>>, canSeeMoney(user));
     return {
@@ -63,14 +79,15 @@ export class AuditController {
   @ApiQuery({ name: 'entityType', required: false, description: RECORD_HISTORY_TYPES.join(' | ') })
   @ApiQuery({ name: 'userId', required: false }) @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤ 200, по умолчанию 50' })
-  appHistory(@Query() raw: AuditQueryRaw) {
-    return this.service.appLogs({ ...raw, action: undefined, entityId: undefined }, RECORD_HISTORY_TYPES);
+  appHistory(@Query() raw: AuditQueryRaw, @CurrentUser() user?: AuthenticatedUser) {
+    // SK-8d: только записи открытых разделов роли (закрытый тип в фильтре — 400 «нет в истории»)
+    return this.service.appLogs({ ...raw, action: undefined, entityId: undefined }, historyTypesFor(user));
   }
 
   @Get('app/users')
   @Roles('admin', 'director')
-  appUsers() {
-    return this.service.appUsers(RECORD_HISTORY_TYPES);
+  appUsers(@CurrentUser() user?: AuthenticatedUser) {
+    return this.service.appUsers(historyTypesFor(user));
   }
 
   @Get('facets')

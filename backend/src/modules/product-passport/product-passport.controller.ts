@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -19,6 +20,7 @@ const attachment = (name: string) => `attachment; filename="passport.${name.ends
  * Смотреть — менеджер и выше; создавать и менять — директор и админ. Номера выдаёт сервер.
  */
 @ApiTags('Паспорта изделий')
+@AppSection('passports')
 @Controller()
 export class ProductPassportController {
   constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService) {}
@@ -69,6 +71,7 @@ export class ProductPassportController {
   }
 
   /** Готовые тексты для «Описания»: материалы, установка, назначение — варианты с категориями (ПС.5). */
+  @AppSection('passports', 'products')
   @Get('passports/phrases')
   @Roles(...VIEW)
   phrases() {

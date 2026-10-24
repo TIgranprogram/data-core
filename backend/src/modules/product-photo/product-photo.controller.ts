@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import {
   Body,
   Controller,
@@ -12,6 +13,7 @@ import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ProductPhotoService, UpsertProductPhotoDto } from './product-photo.service';
 
+@AppSection('products')
 @Controller('products/:productId/photos')
 export class ProductPhotoController {
   constructor(private readonly service: ProductPhotoService) {}

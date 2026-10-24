@@ -4,6 +4,7 @@ import { decideArticle } from '../stock/article';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { openSectionsFor } from '../../common/app-sections';
 
 type Q = Record<string, unknown>;
 type Item = { id: string; title: string; sub?: string };
@@ -25,6 +26,16 @@ const dmy = (d: unknown) => iso(d).split('-').reverse().join('.');
 /** Коллекции, которые читает «Требуют заполнения» (кэш С9). */
 const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems'] as const;
 
+/**
+ * SK-8d: только группы открытых разделов роли (open = null — все). Кэш общий для всех ролей —
+ * его не меняем, отдаём копию с пересчитанным total; only=<группа закрытого раздела> → пусто.
+ */
+export function onlyOpenGroups(res: { total: number; groups: FillGroup[] }, open: Set<string> | null) {
+  if (!open) return res;
+  const groups = res.groups.filter((g) => open.has(g.section));
+  return { total: groups.reduce((s, g) => s + g.count, 0), groups };
+}
+
 @Injectable()
 export class FillAuditService {
   constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService) {}
@@ -34,7 +45,8 @@ export class FillAuditService {
   async report(user: { role?: string | null; isOwner?: boolean } | undefined, opts: { limit?: number; only?: string } = {}) {
     const money = canSeeMoney(user);
     const run = () => this.build(money, opts);
-    return this.versions ? this.versions.cached('fill-audit', FILL_COLLS, JSON.stringify([money, opts.limit ?? null, opts.only ?? null]), run) : run();
+    const res = this.versions ? await this.versions.cached('fill-audit', FILL_COLLS, JSON.stringify([money, opts.limit ?? null, opts.only ?? null]), run) : await run();
+    return onlyOpenGroups(res, openSectionsFor(user));
   }
 
   private async build(money: boolean, opts: { limit?: number; only?: string }) {

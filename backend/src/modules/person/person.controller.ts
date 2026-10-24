@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import {
   Body,
   Controller,
@@ -16,6 +17,7 @@ import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PersonService } from './person.service';
 
+@AppSection('payroll')
 @Controller('persons')
 export class PersonController {
   constructor(private readonly service: PersonService) {}

@@ -19,6 +19,7 @@ import {
   setCustomRoleBase,
   setCustomRoleBases,
 } from '../../common/roles-hierarchy';
+import { deleteRoleSections, setRoleSections, setRoleSectionsAll } from '../../common/app-sections';
 
 /** «1 сотруднику», «2 сотрудникам», «11 сотрудникам». */
 const employeesDative = (n: number) =>
@@ -32,9 +33,18 @@ export class RoleService implements OnModuleInit {
     @InjectModel(Role.name) private readonly model: Model<RoleDocument>,
   ) {}
 
-  /** SK-8c: кэш «своя роль → baseRole» (common/roles-hierarchy.ts) — при старте. */
+  /**
+   * SK-8c: кэш «своя роль → baseRole» (common/roles-hierarchy.ts) — при старте.
+   * SK-8d: кэш «роль → открытые разделы» (common/app-sections.ts) — тоже.
+   */
   async onModuleInit(): Promise<void> {
     await this.reloadRoleBases();
+    await this.reloadRoleSections();
+  }
+
+  async reloadRoleSections(): Promise<void> {
+    const list = await this.model.find({}, { name: 1, appSections: 1 }).lean().exec();
+    setRoleSectionsAll(list as Array<{ name: string; appSections?: string[] }>);
   }
 
   async reloadRoleBases(): Promise<void> {
@@ -62,6 +72,7 @@ export class RoleService implements OnModuleInit {
       isActive: dto.isActive ?? true,
     });
     setCustomRoleBase(doc.name, doc.baseRole);
+    setRoleSections(doc.name, doc.appSections);
     this.logger.log(`Role created: ${doc.name}`);
     return doc;
   }
@@ -116,7 +127,10 @@ export class RoleService implements OnModuleInit {
   ): Promise<{ role: RoleDocument | null; access: RoleDocument | null; baseRole: string }> {
     const role = await this.findByName(name);
     const base = role?.baseRole && !isBuiltinRole(name) && isBaseRole(role.baseRole) ? role.baseRole : null;
-    if (role) setCustomRoleBase(role.name, base);
+    if (role) {
+      setCustomRoleBase(role.name, base);
+      setRoleSections(role.name, role.appSections);
+    }
     if (!base) return { role, access: role, baseRole: name };
     return { role, access: await this.findByName(base), baseRole: base };
   }
@@ -144,6 +158,7 @@ export class RoleService implements OnModuleInit {
     if (typeof dto.label === 'string') doc.label = dto.label.trim();
     await doc.save();
     setCustomRoleBase(doc.name, doc.baseRole);
+    setRoleSections(doc.name, doc.appSections);
     userActivityCache.invalidateAll();
     this.logger.log(`Role updated: ${doc.name}`);
     return doc;
@@ -162,6 +177,7 @@ export class RoleService implements OnModuleInit {
     }
     await doc.deleteOne();
     setCustomRoleBase(doc.name, null);
+    deleteRoleSections(doc.name);
     userActivityCache.invalidateAll();
     this.logger.log(`Role deleted: ${doc.name}`);
   }

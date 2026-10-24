@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { userActivityCache } from '../../common/guards/user-activity-cache';
 import { baseRoleOf, canSeeMoney, effectiveRoles, setCustomRoleBases } from '../../common/roles-hierarchy';
+import { openSectionsFor, setRoleSectionsAll } from '../../common/app-sections';
 import { RoleService } from './role.service';
 
 /** RoleService: уникальность имени, защита системных ролей, переименование. */
@@ -234,6 +235,45 @@ describe('RoleService', () => {
       expect(await service.resolveForAuth('r-abc123')).toEqual({ role: own, access: mgr, baseRole: 'manager' });
       expect(await service.resolveForAuth('manager')).toEqual({ role: mgr, access: mgr, baseRole: 'manager' });
       setCustomRoleBases([]);
+    });
+  });
+
+  describe('SK-8d: кэш разделов роли', () => {
+    afterEach(() => setRoleSectionsAll([]));
+
+    it('onModuleInit грузит все роли: с галочками — ограничены, без — null', async () => {
+      const { model, service } = make();
+      const lean = (v: unknown) => ({ lean: () => ({ exec: jest.fn().mockResolvedValue(v) }) });
+      model.find
+        .mockReturnValueOnce(lean([]))
+        .mockReturnValueOnce(lean([
+          { name: 'r-kl', appSections: ['stock', 'requests'] },
+          { name: 'manager', appSections: [] },
+        ]));
+      await service.onModuleInit();
+      expect([...(openSectionsFor({ role: 'r-kl' }) ?? [])].sort()).toEqual(['requests', 'stock']);
+      expect(openSectionsFor({ role: 'manager' })).toBeNull();
+      expect(openSectionsFor({ role: 'r-kl', isOwner: true })).toBeNull();
+    });
+
+    it('update меняет разделы сразу (без перевхода), remove — убирает', async () => {
+      const { model, service } = make();
+      const doc = roleDoc({ name: 'r-kl', baseRole: 'user', appSections: ['stock'] });
+      model.findById.mockReturnValue(chain(doc));
+      await service.update('id1', { appSections: ['stock', 'salesorders'] } as never);
+      expect(openSectionsFor({ role: 'r-kl' })?.has('salesorders')).toBe(true);
+      await service.update('id1', { appSections: [] } as never);
+      expect(openSectionsFor({ role: 'r-kl' })).toBeNull();
+      await service.update('id1', { appSections: ['stock'] } as never);
+      await service.remove('id1');
+      expect(openSectionsFor({ role: 'r-kl' })).toBeNull();
+    });
+
+    it('resolveForAuth обновляет кэш из базы', async () => {
+      const { model, service } = make();
+      model.findOne.mockReturnValue(chain({ name: 'r-kl', baseRole: 'user', appSections: ['requests'] }));
+      await service.resolveForAuth('r-kl');
+      expect([...(openSectionsFor({ role: 'r-kl' }) ?? [])]).toEqual(['requests']);
     });
   });
 });

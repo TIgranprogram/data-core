@@ -5,6 +5,12 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { DictsService } from './dicts.service';
+import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { hidePayroll } from './dicts.payroll';
+
+/** SK-8d: «Сотрудники» без оплаты, если раздел «ФОТ» для роли закрыт. */
+const payrollMask = <T>(key: string, user: AuthenticatedUser | undefined, res: T): T =>
+  key === 'persons' && !sectionOpen(openSectionsFor(user), 'payroll') ? hidePayroll(res) : res;
 
 /**
  * «Справочники» приложения (TASKS СП.4–СП.8): категории, единицы, цвета, сотрудники, виды работ, графики выплат,
@@ -26,8 +32,8 @@ export class DictsController {
   @Get(':key')
   @Roles('user')
   @ApiQuery({ name: 'search', required: false })
-  list(@Param('key') key: string, @Query('search') search?: string) {
-    return this.dicts.list(key, search);
+  async list(@Param('key') key: string, @Query('search') search?: string, @CurrentUser() user?: AuthenticatedUser) {
+    return payrollMask(key, user, await this.dicts.list(key, search));
   }
 
   @Get(':key/candidates')
@@ -47,24 +53,24 @@ export class DictsController {
 
   @Get(':key/:id')
   @Roles('user')
-  get(@Param('key') key: string, @Param('id') id: string) {
-    return this.dicts.get(key, id);
+  async get(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    return payrollMask(key, user, await this.dicts.get(key, id));
   }
 
   @Post(':key')
   @Roles('manager')
   @AuditAction({ action: 'dict.created', entityType: 'DictItem' })
-  create(@Param('key') key: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
+  async create(@Param('key') key: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return this.dicts.create(key, body);
+    return payrollMask(key, user, await this.dicts.create(key, body));
   }
 
   @Patch(':key/:id')
   @Roles('manager')
   @AuditAction({ action: 'dict.updated', entityType: 'DictItem', idParam: 'id' })
-  update(@Param('key') key: string, @Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
+  async update(@Param('key') key: string, @Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return this.dicts.update(key, id, body);
+    return payrollMask(key, user, await this.dicts.update(key, id, body));
   }
 
   @Delete(':key/:id')
@@ -79,9 +85,9 @@ export class DictsController {
   @HttpCode(200)
   @Roles('manager')
   @AuditAction({ action: 'dict.restored', entityType: 'DictItem', idParam: 'id', details: (_d, p) => ({ meta: { dict: p.key } }) })
-  restore(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+  async restore(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return this.dicts.restore(key, id);
+    return payrollMask(key, user, await this.dicts.restore(key, id));
   }
 
   @Post(':key/:id/merge')

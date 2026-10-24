@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
@@ -11,6 +12,7 @@ import { CatalogGraphService, MAX_DEPTH } from '../../common/catalog/catalog-gra
 import { ProductService } from './product.service';
 
 @ApiTags('Справочники — Продукты')
+@AppSection('products')
 @Controller('products')
 export class ProductController {
   constructor(private readonly service: ProductService, private readonly catalogGraph: CatalogGraphService) {}

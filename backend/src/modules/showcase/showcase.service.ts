@@ -150,13 +150,15 @@ export class ShowcaseService {
     };
   }
 
-  async get(id: string) {
+  /** Карточка изделия. SK-8d: see.* = false (раздел закрыт для роли) — «в заказах» (salesorders) и паспорта (passports) пустые. */
+  async get(id: string, see: { salesorders?: boolean; passports?: boolean } = {}) {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
     const composition = await this.comp.composition(d as Doc);
     const ppCats = (await this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray()) as unknown as PpCat[];
-    return { ...item, orderLines: await this.orderLines(d as Doc), composition, cost: await this.comp.cost(composition), passports: await this.passports(d as Doc),
+    return { ...item, orderLines: see.salesorders === false ? [] : await this.orderLines(d as Doc), composition, cost: await this.comp.cost(composition),
+      passports: see.passports === false ? { total: 0, items: [] } : await this.passports(d as Doc),
       passportCategory: passportCategoryFor(item, ppCats),
       designer: await this.designer(d.designerId as Types.ObjectId | undefined),
       passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };

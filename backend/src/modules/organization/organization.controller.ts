@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import {
   BadRequestException,
   Body,
@@ -32,6 +33,7 @@ import type { OrganizationAssetRole } from './organization.schema';
 export class OrganizationController {
   constructor(private readonly service: OrganizationService) {}
 
+  @AppSection('partners')
   @Get()
   @Roles('admin', 'director', 'manager')
   @ApiOperation({ summary: 'List all organizations with pagination and filters' })
@@ -119,6 +121,7 @@ export class OrganizationController {
    * TZ-ORG-ASSETS-301 — положить файл в слот `logo` / `seal` / `signature`.
    * PUT, а не POST: слот один, повторная загрузка заменяет содержимое.
    */
+  @AppSection('partners')
   @Put(':id/assets/:role')
   @Roles('admin', 'manager')
   @UseInterceptors(FileInterceptor('file'))
@@ -156,6 +159,7 @@ export class OrganizationController {
     );
   }
 
+  @AppSection('partners')
   @Delete(':id/assets/:role')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'remove_asset', entityType: 'Organization', idParam: 'id' })

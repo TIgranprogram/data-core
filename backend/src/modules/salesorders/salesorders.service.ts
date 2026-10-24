@@ -97,16 +97,20 @@ export class SalesOrdersService {
     return doc as Doc;
   }
 
-  /** Карточка: шапка + позиции + заявки снабжения и движения склада под этот заказ. */
-  async get(id: string) {
+  /**
+   * Карточка: шапка + позиции + заявки снабжения и движения склада под этот заказ.
+   * SK-8d: see.requests / see.stock = false (раздел закрыт для роли) — заявки / движения и «выдано под позицию» пустые.
+   */
+  async get(id: string, see: { requests?: boolean; stock?: boolean } = {}) {
+    const seeReq = see.requests !== false, seeStock = see.stock !== false;
     const doc = await this.findRaw(id);
     const _id = doc._id as Types.ObjectId;
     // Привязка — поля data-core salesOrderId (orderId в заявках занят CRM-заказами)
     const db = this.connection.db!;
     const [lines, supplyRequests, stockMovements, reservations] = await Promise.all([
       this.incomes().find({ orderId: _id, deletedAt: null }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray(),
-      db.collection('supplyrequests').find({ salesOrderId: _id, deletedAt: null }, { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, salesOrderLineId: 1, supplierId: 1 } }).sort({ requestDate: -1 }).toArray(),
-      db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1, reason: 1, isReturn: 1, cancelOf: 1 } }).sort({ date: -1 }).toArray(),
+      seeReq ? db.collection('supplyrequests').find({ salesOrderId: _id, deletedAt: null }, { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, salesOrderLineId: 1, supplierId: 1 } }).sort({ requestDate: -1 }).toArray() : Promise.resolve([] as Doc[]),
+      seeStock ? db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1, reason: 1, isReturn: 1, cancelOf: 1 } }).sort({ date: -1 }).toArray() : Promise.resolve([] as Doc[]),
       // брони под заказ (TASKS Б.3): активные и выданные, снятые — нет
       db.collection('reservations').find({ salesOrderId: _id, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, materialId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1 } }).sort({ createdAt: -1 }).toArray(),
     ]);
@@ -147,6 +151,34 @@ export class SalesOrdersService {
       lines: fix(lines.map((l) => ({ ...l, status: l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft' }))),
       supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements), issuedByLine,
       reservations: [...resGroups.values()].map((g) => ({ ...g, left: Math.round(g.left * 1000) / 1000, issued: Math.round(g.issued * 1000) / 1000 })),
+    };
+  }
+
+  /**
+   * SK-8d: короткий список заказов для выбора из соседних разделов (выдача на складе, заявка «под заказ», паспорт) —
+   * без денег. filter: active (по умолч.) | all; lines=1 — с позициями (id, lineNo, title, qty, productId).
+   */
+  async lookup(q: Record<string, unknown> = {}) {
+    const f = q.filter ?? 'active';
+    if (f !== 'active' && f !== 'all') throw new BadRequestException('Параметр filter: active (в работе) или all (все)');
+    const filter: Doc = { deletedAt: null, ...(f === 'active' ? { stage: { $in: ACTIVE_STAGES } } : {}) };
+    const docs = await this.model.find(filter, { orderNo: 1, customer: 1, title: 1, stage: 1, shipDate: 1 }).sort({ createdAt: -1, _id: -1 }).lean().exec();
+    const withLines = String(q.lines) === '1';
+    const byOrder = new Map<string, Doc[]>();
+    if (withLines && docs.length) {
+      const lines = await this.incomes().find({ orderId: { $in: docs.map((d) => d._id) }, deletedAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+      for (const l of lines) {
+        const list = byOrder.get(String(l.orderId)) ?? [];
+        list.push({ id: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '', qty: (l.qty as number | undefined) ?? null, productId: l.productId ? String(l.productId) : null });
+        byOrder.set(String(l.orderId), list);
+      }
+    }
+    return {
+      items: (docs as Doc[]).map((d) => ({
+        id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? null, customer: (d.customer as string | undefined) ?? null,
+        title: (d.title as string | undefined) ?? null, stage: (d.stage as string | undefined) || 'new', shipDate: (d.shipDate as Date | undefined) ?? null,
+        ...(withLines ? { lines: byOrder.get(String(d._id)) ?? [] } : {}),
+      })),
     };
   }
 

@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, Param, Post } from '@nestjs/common';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -7,6 +8,7 @@ interface AttachPhotoDto {
   photoId: string;
 }
 
+@AppSection('products')
 @Controller('products/:id')
 export class ProductSubroutesController {
   constructor(private readonly productService: ProductService) {}

@@ -96,11 +96,16 @@ export class PartnersService {
     return rows.sort((x, y) => y.orders - x.orders || x.name.localeCompare(y.name, 'ru'));
   }
 
-  async get(id: string) {
+  /**
+   * Карточка контрагента. SK-8d: see.* = false (раздел закрыт для роли) — заказы с суммами (salesorders),
+   * заявки (requests), брони и выдачи (stock) в карточке пустые.
+   */
+  async get(id: string, see: { salesorders?: boolean; requests?: boolean; stock?: boolean } = {}) {
     if (id.startsWith(CUST)) {
       const name = id.slice(CUST.length);
       const c = (await this.customers()).find((x) => x.name === name);
       if (!c) throw new NotFoundException('Заказчик не найден');
+      if (see.salesorders === false) return { ...c, related: [], reservations: [], issues: [] };
       const orders = await this.db.collection('salesorders').find({ customer: name, deletedAt: null }).sort({ shipDate: -1 }).limit(100)
         .project({ orderNo: 1, stage: 1, shipDate: 1, title: 1 }).toArray();
       // по каждому заказу — позиций, сумма и оплачено (как в «Заказах»); деньги скрывает MoneyMaskInterceptor
@@ -110,13 +115,14 @@ export class PartnersService {
       ]).toArray() : [];
       const s = new Map(agg.map((a) => [String(a._id), a]));
       return { ...c, related: orders.map((o) => { const a = s.get(String(o._id)); return { ...o, id: String(o._id), _id: String(o._id), lineCount: a?.lines ?? 0, amount: a?.amount ?? 0, paidAmount: a?.paid ?? 0 }; }),
-        ...(await this.stockByOrders(orders)) };
+        ...(see.stock === false ? { reservations: [], issues: [] } : await this.stockByOrders(orders)) };
     }
     const _id = this.oid(id);
     const o = await this.db.collection('organizations').findOne({ _id, deletedAt: null });
     if (!o) throw new NotFoundException('Контрагент не найден');
     const our = o.isOurCompany === true;
     const row = (await this.suppliers(our)).find((x) => x.id === id)!;
+    if (see.requests === false) return { ...row, related: [] };
     const reqs = await this.db.collection('supplyrequests').find({ [our ? 'companyId' : 'supplierId']: _id, deletedAt: null }).sort({ requestDate: -1 }).limit(3000) // все заявки — в карточке сгруппированы по месяцам
       .project({ num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, priceHint: 1 }).toArray();
     return { ...row, related: reqs.map((r) => ({ ...r, id: String(r._id), _id: String(r._id) })) };

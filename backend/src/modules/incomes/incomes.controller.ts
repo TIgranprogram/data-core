@@ -1,3 +1,4 @@
+import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -10,6 +11,7 @@ import { IncomesService } from './incomes.service';
 /** Доходы — строки заказов (лист «Заказы»). Смотреть — все роли, менять — admin и manager (как снабжение). */
 @ApiTags('Доходы (заказы)')
 @UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
+@AppSection('orders', 'salesorders')
 @Controller('incomes')
 export class IncomesController {
   constructor(private readonly incomes: IncomesService) {}
@@ -29,6 +31,7 @@ export class IncomesController {
   }
 
   /** Подсказки формы: наши компании, заказчики, формы оплаты. */
+  @AppSectionFree()
   @Get('lookups')
   @Roles('admin', 'director', 'manager', 'user')
   lookups() {

@@ -1,3 +1,6 @@
+import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -7,10 +10,12 @@ import { ShowcaseService } from './showcase.service';
 
 /** «Продукция»: витрина изделий, загрузка каталога, данные КП (TASKS БЗ-4). Смотреть — все, менять — менеджер+. */
 @ApiTags('Продукция')
+@AppSection('products')
 @Controller('showcase')
 export class ShowcaseController {
   constructor(private readonly s: ShowcaseService) {}
 
+  @AppSection('products', 'passports', 'orders', 'salesorders')
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'groupId', required: false }) @ApiQuery({ name: 'deleted', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
@@ -54,11 +59,13 @@ export class ShowcaseController {
   fromOrders(@Body() b: { apply?: boolean; picks?: { key?: string; name?: string }[] }) { return this.s.fromOrders(!!b?.apply, b?.picks); }
 
   /** Изделия из паспортов (БЗ-8): модели без изделия — группы-кандидаты на объединение и число одиночных. */
+  @AppSection('products', 'passports')
   @Get('from-passports')
   @Roles('admin', 'manager')
   passportGroups() { return this.s.passportGroups(); }
 
   /** Объединить группы в изделия { groups: [{ keys, main, name? }] } и/или изделия для остальных { rest: true }; паспорта получают productId. */
+  @AppSection('products', 'passports')
   @Post('from-passports')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -71,9 +78,13 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.kp', entityType: 'Product', details: (d) => ({ number: (d as { number?: string }).number, total: (d as { total?: number }).total }) })
   kp(@Body() b: { items?: { id: string; qty?: number; price?: number }[]; companyId?: string; customer?: string; note?: string }) { return this.s.kp(b ?? {}); }
 
+  @AppSection('products', 'passports')
   @Get(':id')
   @Roles('admin', 'director', 'manager', 'user')
-  get(@Param('id') id: string) { return this.s.get(id); }
+  get(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    const open = openSectionsFor(user);
+    return this.s.get(id, { salesorders: sectionOpen(open, 'salesorders'), passports: sectionOpen(open, 'passports') });
+  }
 
   /**
    * Состав изделия (БЗ-5, СИ): { lines: [{ lineType?: material|product|module, materialId | productId | moduleId, quantity, notes? }], types?: [...] }.
@@ -92,6 +103,7 @@ export class ShowcaseController {
   compositionSimilar(@Param('id') id: string) { return this.s.compositionSimilar(id); }
 
   /** Значения паспорта по умолчанию (БЗ-6 Э4b): { passportCategory, elements[], materialIds[], installationTypeId, isKit, ageFrom… }. Правят директор и админ (как паспорта). */
+  @AppSection('products', 'passports')
   @Put(':id/passport-defaults')
   @Roles('admin', 'director')
   @AuditAction({ action: 'showcase.passportDefaults', entityType: 'Product', idParam: 'id' })

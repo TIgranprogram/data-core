@@ -1,3 +1,6 @@
+import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -8,6 +11,7 @@ import { PartnersService, type PartnerInput } from './partners.service';
 /** «Контрагенты» приложения: поставщики / заказчики / наши компании, всё связанное, правка, объединение дублей. */
 @ApiTags('Контрагенты')
 @UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
+@AppSection('partners')
 @Controller('partners')
 export class PartnersController {
   constructor(private readonly partners: PartnersService) {}
@@ -22,6 +26,7 @@ export class PartnersController {
   }
 
   /** «+ Новый контрагент»: kind supplier | customer | our, название, ИНН, КПП, адрес, телефон, почта, сайт, банк, контакт. */
+  @AppSection('partners', 'requests')
   @Post()
   @Roles('manager')
   @AuditAction({ action: 'partner.created', entityType: 'Partner' })
@@ -32,8 +37,9 @@ export class PartnersController {
   /** id — организация (ObjectId) или заказчик `c:<название>` (encodeURIComponent). */
   @Get(':id')
   @Roles('user')
-  get(@Param('id') id: string) {
-    return this.partners.get(id);
+  get(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    const open = openSectionsFor(user);
+    return this.partners.get(id, { salesorders: sectionOpen(open, 'salesorders'), requests: sectionOpen(open, 'requests'), stock: sectionOpen(open, 'stock') });
   }
 
   @Patch(':id')

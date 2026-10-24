@@ -1,3 +1,4 @@
+import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -10,10 +11,12 @@ import { SupplyService } from './supply.service';
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
 @ApiTags('Снабжение')
 @UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
+@AppSection('requests')
 @Controller('supply')
 export class SupplyController {
   constructor(private readonly supply: SupplyService) {}
 
+  @AppSection('requests', 'stock')
   @Get('requests')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤1000, по умолчанию 1000' })
@@ -29,6 +32,7 @@ export class SupplyController {
   }
 
   /** «Как называется у поставщика» (МВ.2): найти наши позиции для строк из таблицы поставщика. */
+  @AppSection('requests', 'stock')
   @Post('aliases/match')
   @HttpCode(200)
   @Roles('admin', 'director', 'manager', 'user')
@@ -37,6 +41,7 @@ export class SupplyController {
   }
 
   /** Запомнить пары «строка поставщика → наша позиция» (после внесения заявок из таблицы). */
+  @AppSection('requests', 'stock')
   @Post('aliases')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -45,6 +50,7 @@ export class SupplyController {
   }
 
   /** Подсказки для формы и фильтров: поставщики, наши компании, категории, «кто подал». */
+  @AppSectionFree()
   @Get('lookups')
   @Roles('admin', 'director', 'manager', 'user')
   lookups() {
@@ -57,6 +63,7 @@ export class SupplyController {
     return this.supply.get(id);
   }
 
+  @AppSection('requests', 'stock')
   @Post('requests')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
@@ -106,6 +113,7 @@ export class SupplyController {
   }
 
   /** Оприходовать на склад: приход + статус «Получено». */
+  @AppSection('requests', 'stock')
   @Post('requests/:id/receive')
   @HttpCode(200)
   @Roles('admin', 'manager')

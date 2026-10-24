@@ -2403,6 +2403,21 @@
         ]
       }
     },
+    "/stock/lookup": {
+      "get": {
+        "operationId": "StockController_lookup",
+        "summary": "SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — {items:[{id, materialId, name, article, unit, categoryName, quantity, free}]}",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/items": {
       "get": {
         "operationId": "StockController_list",
@@ -4760,6 +4775,36 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/lookup": {
+      "get": {
+        "operationId": "SalesOrdersController_lookup",
+        "summary": "SK-8d: короткий список заказов без денег для «Склада», «Заявок», «Паспортов», «Проектирования» — {items:[{id, orderNo, customer, title, stage, shipDate, lines?:[{id, lineNo, title, qty, productId}]}]}",
+        "parameters": [
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "active (по умолч.: новый / в производстве / готов) | all",
+            "schema": {}
+          },
+          {
+            "name": "lines",
+            "required": false,
+            "in": "query",
+            "description": "1 — с позициями [{id, lineNo, title, qty, productId}]",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },

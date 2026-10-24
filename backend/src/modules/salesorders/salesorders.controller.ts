@@ -4,6 +4,8 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AppSection } from '../../common/decorators/app-section.decorator';
+import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { SalesOrderDto } from './dto';
 import { SalesOrdersService } from './salesorders.service';
 
@@ -13,6 +15,7 @@ import { SalesOrdersService } from './salesorders.service';
  */
 @ApiTags('Заказы заказчиков')
 @UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
+@AppSection('salesorders')
 @Controller('salesorders')
 export class SalesOrdersController {
   constructor(private readonly orders: SalesOrdersService) {}
@@ -31,14 +34,29 @@ export class SalesOrdersController {
     return this.orders.list(q);
   }
 
-  /** Карточка: шапка + позиции (lines) + заявки снабжения (supplyRequests) + движения склада (stockMovements). */
+  /** SK-8d: короткий список заказов без денег для «Склада», «Заявок», «Паспортов», «Проектирования» — объявлен до `:id`. */
+  @AppSection('salesorders', 'stock', 'requests', 'passports', 'design')
+  @Get('lookup')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'filter', required: false, description: 'active (по умолч.: новый / в производстве / готов) | all' })
+  @ApiQuery({ name: 'lines', required: false, description: '1 — с позициями [{id, lineNo, title, qty, productId}]' })
+  lookup(@Query() q: Record<string, string>) {
+    return this.orders.lookup(q);
+  }
+
+  /**
+   * Карточка: шапка + позиции (lines) + заявки снабжения (supplyRequests) + движения склада (stockMovements).
+   * SK-8d: закрыты «Заявки» — supplyRequests пустой; закрыт «Склад» — stockMovements и issuedByLine пустые.
+   */
   @Get(':id')
   @Roles('admin', 'director', 'manager', 'user')
-  get(@Param('id') id: string) {
-    return this.orders.get(id);
+  get(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    const open = openSectionsFor(user);
+    return this.orders.get(id, { requests: sectionOpen(open, 'requests'), stock: sectionOpen(open, 'stock') });
   }
 
   /** Позиции заказа для выдачи со склада: [{id, orderNo, lineNo, title, productId, photoId, qty}] — без цен, photoId: фото позиции → фото изделия → null. */
+  @AppSection('salesorders', 'stock', 'requests', 'design')
   @Get(':id/lines-lookup')
   @Roles('admin', 'director', 'manager', 'user')
   linesLookup(@Param('id') id: string) {

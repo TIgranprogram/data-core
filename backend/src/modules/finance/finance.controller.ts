@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -5,6 +6,7 @@ import { FinanceService } from './finance.service';
 
 /** Деньги: платёжный календарь (ОДР) и сводка по СИЮ / ССЮ. Только чтение, все роли. */
 @ApiTags('Деньги')
+@AppSection('money')
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}

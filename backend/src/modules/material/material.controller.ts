@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
@@ -10,6 +11,7 @@ import { UpdateMaterialDto } from './dto/update-material.dto';
 import { MaterialService } from './material.service';
 
 @ApiTags('Справочники — Материалы')
+@AppSection('stock')
 @Controller('materials')
 export class MaterialController {
   constructor(

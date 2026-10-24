@@ -86,6 +86,20 @@ export class StockSearchService {
     return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
   }
 
+  /**
+   * SK-8d: короткий список позиций для поиска из соседних разделов (заявка, состав изделия) — GET /stock/lookup.
+   * Только поля для выбора, без фото, бронирований, заявок; строки — тот же кэш, что у полного списка без фильтров.
+   */
+  async lookup() {
+    const key = JSON.stringify([false, null, [], null, null, null, []]); // = ключ listItems({}) — общий кэш
+    const make = () => this.itemRows({}, false, []);
+    const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
+    const items = rows
+      .map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free }))
+      .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ru'));
+    return { items };
+  }
+
   /** Строки «Остатков» до фильтра по состоянию, сортировки и страниц: позиции, остатки, «уже заказано», обрезки. */
   private async itemRows(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] }, deleted: boolean, tokens: string[]) {
     const wh = await this.core.defaultWarehouse();

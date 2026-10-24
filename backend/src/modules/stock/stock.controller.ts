@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -13,6 +14,7 @@ import { StockService } from './stock.service';
  * Роли — как в CRM kppdf: читать могут все, менять — admin и manager.
  */
 @ApiTags('Склад')
+@AppSection('stock')
 @Controller('stock')
 export class StockController {
   constructor(private readonly stock: StockService) {}
@@ -35,6 +37,14 @@ export class StockController {
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>) {
     return this.stock.listItems(q);
+  }
+
+  /** SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — `{items}`. */
+  @AppSection('stock', 'requests', 'products')
+  @Get('lookup')
+  @Roles('admin', 'director', 'manager', 'user')
+  lookup() {
+    return this.stock.lookup();
   }
 
   /** Сводка по категориям: позиций всего / к закупке / нет на складе. */
@@ -80,6 +90,7 @@ export class StockController {
   }
 
   /** Новая позиция (материал + строка остатка). Такое же наименование — вернётся существующая. */
+  @AppSection('stock', 'requests')
   @Post('items')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.created', entityType: 'Material' })
@@ -94,6 +105,7 @@ export class StockController {
     return this.stock.updateItem(id, dto);
   }
 
+  @AppSection('stock', 'requests')
   @Post('items/:id/photos')
   @Roles('admin', 'manager')
   photo(@Param('id') id: string, @Body() dto: StockPhotoDto) {
@@ -141,6 +153,7 @@ export class StockController {
   }
 
   /** Брони заказа для «Выдать по заказу» (SK-6): активные брони, остаток на складе, «висящий» ли заказ. */
+  @AppSection('stock', 'salesorders')
   @Get('reservations/order/:salesOrderId')
   @Roles('admin', 'director', 'manager', 'user')
   reservationsByOrder(@Param('salesOrderId') salesOrderId: string) {
@@ -165,6 +178,7 @@ export class StockController {
     return this.stock.updateReservation(id, dto);
   }
 
+  @AppSection('stock', 'salesorders')
   @Post('reservations/:id/release')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -182,6 +196,7 @@ export class StockController {
   }
 
   /** Спецификация из Excel, просмотр (SK-6): строки файла → позиции склада, хватает ли свободного. Ничего не пишет. */
+  @AppSection('stock', 'salesorders')
   @Post('spec/preview')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -191,6 +206,7 @@ export class StockController {
   }
 
   /** Спецификация из Excel, запись (SK-6): подтверждённые строки → брони одной пачкой; replace — снять прежнюю загрузку. */
+  @AppSection('stock', 'salesorders')
   @Post('spec/apply')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -218,6 +234,7 @@ export class StockController {
   }
 
   /** Состав изделия из выдач (SK-7): нетто выдач под позицию ÷ число изделий, разница с составом; цены — только деньговым ролям. Ничего не хранит. */
+  @AppSection('stock', 'products', 'salesorders')
   @Get('composition-suggest')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'salesOrderLineId', required: true, description: 'позиция заказа (incomes.id)' })
@@ -226,6 +243,7 @@ export class StockController {
   }
 
   /** Принять предложение в состав изделия (как «Изменить состав»); повтор не удваивает, строки не удаляются. */
+  @AppSection('stock', 'products', 'salesorders')
   @Post('composition-suggest/accept')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -236,6 +254,7 @@ export class StockController {
 
   /** Приход / списание / корректировка / бронь / снятие брони. */
   /** «Заказано» и «Поставщики / цены» позиции (ЗП.1, ЗП.5); цены — только деньги-ролям. */
+  @AppSection('stock', 'requests')
   @Get('items/:id/ordered')
   @Roles('admin', 'director', 'manager', 'user')
   ordered(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {

@@ -63,6 +63,7 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { AppSectionGuard } from './common/guards/app-section.guard';
 import { UserContextInterceptor } from './common/interceptors/user-context.interceptor';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { IdNormalizeInterceptor } from './common/interceptors/id-normalize.interceptor';
@@ -214,6 +215,8 @@ import { RequestMethod } from '@nestjs/common';
     // order and the returned messages determine what users see.
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // SK-8d: последним — раздел «Рабочего места» закрыт для роли → 403 (@AppSection).
+    { provide: APP_GUARD, useClass: AppSectionGuard },
     { provide: APP_INTERCEPTOR, useClass: UserContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     // T18: аддитивно добавляет `id` рядом с `_id` во все ответы.

@@ -53,6 +53,7 @@ export class StockService {
 
   // --- чтение позиций
   listItems(q: Parameters<StockSearchService['listItems']>[0] = {}) { return this.search.listItems(q); }
+  lookup() { return this.search.lookup(); }
   openRequests(mats: { _id: Types.ObjectId; name?: string }[]) { return this.search.openRequests(mats); }
   itemOrdered(materialId: string, canMoney: boolean) { return this.search.itemOrdered(materialId, canMoney); }
   categorySummary() { return this.search.categorySummary(); }

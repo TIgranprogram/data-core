@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import {
   Body,
   Controller,
@@ -19,6 +20,7 @@ import { QuickCreatePartyDto } from './dto/quick-create-party.dto';
 import { CounterpartyService } from './counterparty.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
+@AppSection('partners')
 @Controller('counterparties')
 export class CounterpartyController {
   constructor(private readonly service: CounterpartyService) {}

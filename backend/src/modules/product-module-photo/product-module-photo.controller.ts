@@ -1,3 +1,4 @@
+import { AppSection } from '../../common/decorators/app-section.decorator';
 import {
   Body,
   Controller,
@@ -17,6 +18,7 @@ import {
   UpsertProductModulePhotoDto,
 } from './product-module-photo.service';
 
+@AppSection('products')
 @Controller('product-module-photos')
 export class ProductModulePhotoController {
   constructor(private readonly service: ProductModulePhotoService) {}
