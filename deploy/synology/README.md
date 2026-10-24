@@ -121,3 +121,6 @@ curl -sf http://localhost:3001/api/health/ready
 - Запуск с ПК: `deploy\synology\bundle.cmd` (или `bash deploy/synology/bundle-pc.sh`; без меню: `build`, `verify [файл]`, `steps [файл]`). Вход на VM — как в `release.sh`: `VM`, `KEY` (с работы `VM=datacore-vm`).
 - Проверка: пункт 2 меню — «ПАКЕТ В ПОРЯДКЕ» = архив читается, все sha256 по `manifest.json` совпали, дамп не пустой. Проверка восстановимости — restore-дрилл во временную базу (см. «Бэкапы на VM»); `mongorestore --drop` скрипты не используют.
 - Ограничения: nginx живёт на VPS — копия попадает в пакет, только если файл читается с VM (блок `/db/` лежит в коде всегда); образы Docker не включены (собираются из кода).
+
+## Инцидент 2026-10-24: сайт 504 после смены внешнего адреса дома
+После переподключения роутера на VPS остались висеть старые туннели (порты 4200/4201/4222 заняты), новые не поднимались: «remote port forwarding failed». Решение: на VPS `fuser -k` портов + `/etc/ssh/sshd_config.d/alive.conf` (`ClientAliveInterval 15`, `ClientAliveCountMax 3`) — мёртвые туннели теперь сбрасываются за ~45 с сами. У пользователя `tiit` на VM нет sudo — службу `kppdf-tunnel` перезапускает только root; autossh после многих неудач ждёт до 10 мин.
