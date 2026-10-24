@@ -107,3 +107,17 @@ sudo docker compose -f docker-compose.prod.yml logs --tail 100 backend
 curl -sf http://localhost:3001/api/health/ready
 ```
 Правка `.env` на VM вручную перезапишется следующим деплоем — меняй `config.env` локально. Применить без пересборки: `deploy.py --skip-build`.
+
+## Переносной пакет (БЗ-13, шаг 1: скрипты)
+
+Всё приложение одним архивом — чтобы пережить потерю VM и переехать на новую. **В пакете секреты** (`.env`, пароли Mongo): права 600, не класть в репозиторий, не пересылать открыто.
+
+| Файл | Где | Что делает |
+|--|--|--|
+| `bundle.sh` | на VM | Собирает `datacore-bundle-<дата>.tar.gz`: код data-core и kppdf, `mongodump --archive --gzip` всей `datacore` (внутри `datacore-mongo`, пароль root из `.env` как в `backup.sh`, передаётся через окружение контейнера), `uploads/` обоих, конфиги (compose, `.env`, nginx, crontab, systemd), `MIGRATE.md`, `manifest.json` (дата, коммиты, число документов по коллекциям, sha256 файлов). Рядом `.sha256`. Ничего не останавливает, в базу только читает. |
+| `bundle-pc.sh` / `bundle.cmd` | ПК (Git Bash) | Меню: 1) собрать на VM и скачать в `C:\datacore-bundles\<дата>.tar.gz` (докачка при обрыве, сверка sha256); 2) проверить пакет (распаковка + сверка manifest); 3) напечатать шаги переезда из `MIGRATE.md` (автоматического восстановления нет). |
+
+- Запуск на VM: `cd /opt/data-core && bash deploy/synology/bundle.sh`. Куда: `BUNDLE_DIR` (по умолчанию смонтированная общая папка Synology, иначе `/opt/datacore-bundles`); хранится последних `BUNDLE_KEEP` (3). Пути меняются через `DC_DIR`, `KPPDF_DIR`, `DATA_DIR`, `KPPDF_UPLOADS`.
+- Запуск с ПК: `deploy\synology\bundle.cmd` (или `bash deploy/synology/bundle-pc.sh`; без меню: `build`, `verify [файл]`, `steps [файл]`). Вход на VM — как в `release.sh`: `VM`, `KEY` (с работы `VM=datacore-vm`).
+- Проверка: пункт 2 меню — «ПАКЕТ В ПОРЯДКЕ» = архив читается, все sha256 по `manifest.json` совпали, дамп не пустой. Проверка восстановимости — restore-дрилл во временную базу (см. «Бэкапы на VM»); `mongorestore --drop` скрипты не используют.
+- Ограничения: nginx живёт на VPS — копия попадает в пакет, только если файл читается с VM (блок `/db/` лежит в коде всегда); образы Docker не включены (собираются из кода).
