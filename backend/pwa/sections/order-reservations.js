@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { plural, qty } from '../core/format.js';
-import { modal } from '../ui/dialog.js';
+import { confirmDlg, modal } from '../ui/dialog.js';
 import { errText } from '../ui/errors.js';
 import { toast, toastError } from '../ui/toast.js';
 import { issueToFields } from './issue.js';
@@ -38,7 +38,7 @@ export function orderReservations(order, onChanged) {
         h('span', { class: 'num nowrap' }, `${qty(x.qty)} ${x.unit}`),
         session.canEdit ? h('span', { class: 'res-acts' },
           h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(x.id) }, 'изменить'),
-          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => { e.currentTarget.disabled = true; try { await api(`/stock/reservations/${x.id}/release`, { method: 'POST' }); toast('Бронь снята'); await refresh(); } catch (er) { toastError(er); e.target.disabled = false; } } }, 'снять')) : null);
+          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => { const btn = e.currentTarget; if (!(await confirmDlg('Снять бронь?', `«${x.name}» — ${qty(x.qty)} ${x.unit || ''} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return; btn.disabled = true; try { await api(`/stock/reservations/${x.id}/release`, { method: 'POST' }); toast('Бронь снята'); await refresh(); } catch (er) { toastError(er); btn.disabled = false; } } }, 'снять')) : null);
     });
     act.onclick = () => issue(items.filter((x) => chosen.has(x.id)));
     sync();

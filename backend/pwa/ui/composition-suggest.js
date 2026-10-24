@@ -55,7 +55,7 @@ async function build() {
       x.sum != null ? h('span', { class: 'num nowrap muted' }, money(x.sum)) : h('span'));
   });
   const el = h('div', null,
-    h('p', { class: 'hint' }, `Позиция ${s.position || ''} · ${s.title || ''}. Изделие «${s.productName}», в позиции ${qty(s.qty)} шт. Количество на одно изделие = выдано под позицию (минус возвращённое) ÷ число изделий. «Добавить» заменяет количество в составе, ничего не удаляется.`),
+    h('p', { class: 'hint', title: 'На одно изделие = выдано под позицию (минус возвращённое) ÷ число изделий. «Добавить» заменяет количество в составе, ничего не удаляется.' }, `${s.position || ''} · «${s.productName}», в позиции ${qty(s.qty)} шт. — на одно изделие.`),
     h('ul', { class: 'spec-list' }, ...rows),
     s.total != null ? h('p', { class: 'spec-counts' }, h('b', null, `Материалы на одно изделие ≈ ${money(s.total)}`), s.missing ? h('span', { class: 'muted' }, ` · без цены: ${s.missing}`) : null) : null,
     !write ? h('p', { class: 'muted' }, 'Добавлять в состав могут администратор и менеджер.') : !act ? h('p', { class: 'muted' }, 'Всё уже в составе — менять нечего.') : null);

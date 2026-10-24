@@ -75,7 +75,7 @@ async function build() {
   const result = h('div', { class: 'spec-result' });
   const fileBox = h('div', { class: 'field wide' }, h('span', null, 'Файл спецификации'), fileIn);
   const el = h('div', { class: 'spec' },
-    h('p', { class: 'hint' }, 'Колонки: Заказ, Позиция, Код, Наименование, Кол-во, Ед., Примечание. Заказ выбран выше — в файле «Заказ» и «Позиция» нужны, только если позиции разные. Новые позиции склада не создаются.'),
+    h('p', { class: 'hint' }, { title: 'Заказ выбран выше — «Заказ» и «Позиция» в файле нужны, только если позиции разные. Новые позиции склада не создаются.' }, 'Колонки: Заказ, Позиция, Код, Наименование, Кол-во, Ед., Примечание.'),
     h('div', { class: 'tp-sel spec-order' }, h('b', { class: 'clip' }, `Заказ № ${orderNo || '—'}${order.customer ? ' · ' + order.customer : ''}`),
       h('button', { type: 'button', class: 'btn btn-sm', onclick: downloadSpecTemplate }, 'Скачать шаблон')),
     fileBox, status, result);
@@ -97,7 +97,7 @@ async function build() {
         const whole = norm(r.order) === norm(orderNo); // номер заказа сам с тире («К-12»)
         const ono = ref && !whole ? ref[1] : r.order; const lno = r.line || (ref && !whole ? ref[2] : '');
         if (ono && norm(ono) !== norm(orderNo)) { skipped0.push({ r, message: `В файле заказ «${ono}», а выбран № ${orderNo}` }); continue; }
-        if (lno) { const l = lineByNo.get(/^d+$/.test(lno) ? String(Number(lno)) : lno); if (!l) { skipped0.push({ r, message: `В заказе нет позиции ${lno}` }); continue; } r.lineId = l.id; }
+        if (lno) { const l = lineByNo.get(/^\d+$/.test(lno) ? String(Number(lno)) : lno); if (!l) { skipped0.push({ r, message: `В заказе нет позиции ${lno}` }); continue; } r.lineId = l.id; }
         sent.push(r);
       }
       if (!sent.length) throw new Error('Ни одна строка не относится к этому заказу — проверьте колонки «Заказ» и «Позиция».');
