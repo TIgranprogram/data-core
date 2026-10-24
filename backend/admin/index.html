@@ -35,6 +35,7 @@
       <nav class="tabs">
         <div class="side-group">Доступ</div>
         <button class="tab active" data-tab="users"><span class="ico" aria-hidden="true">👥</span><span class="lbl">Пользователи</span></button>
+        <button class="tab" data-tab="roles"><span class="ico" aria-hidden="true">🎭</span><span class="lbl">Роли</span></button>
         <button class="tab" data-tab="keys"><span class="ico" aria-hidden="true">🔑</span><span class="lbl">API-ключи</span></button>
         <div class="side-group">База</div>
         <button class="tab" data-tab="tables"><span class="ico" aria-hidden="true">🗂</span><span class="lbl">Таблицы</span></button>
@@ -117,6 +118,20 @@
           <p id="user-form-error" class="error" hidden></p>
         </form>
       </dialog>
+    </main>
+
+    <!-- ---------- Roles tab (SK-8a) ---------- -->
+    <main id="tab-roles" class="tab-panel" hidden>
+      <div class="panel-head">
+        <h2>Роли</h2>
+      </div>
+      <p class="panel-note">Какие разделы «Рабочего места» видит роль в меню. Нажмите на роль и отметьте разделы. Ничего не отмечено — как раньше: роль видит разделы по старшинству. <b>Администратор</b> видит всё всегда. Это только меню — права на действия (деньги, запись) не меняются.</p>
+      <div class="table-wrap">
+        <table class="table" id="roles-table">
+          <thead><tr><th></th><th>Роль</th><th>Разделы в меню</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </main>
 
     <!-- ---------- API keys tab ---------- -->

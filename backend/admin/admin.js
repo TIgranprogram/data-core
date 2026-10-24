@@ -97,6 +97,7 @@
     document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
     document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.id !== `tab-${t.dataset.tab}`; });
     if (t.dataset.tab === 'keys') loadKeys();
+    if (t.dataset.tab === 'roles') loadRoles();
     if (t.dataset.tab === 'tables') loadCollections();
     if (t.dataset.tab === 'connect') loadConnect();
     if (t.dataset.tab === 'sheets') loadSheets();
@@ -585,6 +586,80 @@
     b.disabled = false; b.textContent = '🔄 Синхронизировать сейчас';
     loadSheets();
   });
+
+  // ---- Роли: какие разделы «Рабочего места» видит роль (SK-8a) ----
+  // Пусто — как раньше (по старшинству роли); admin видит всё, галочек у него нет.
+  const roleState = { sections: [] };
+  async function loadRoles() {
+    const tbody = $('#roles-table tbody');
+    const ph = el('tr'); const ptd = el('td', 'muted', 'Загрузка…'); ptd.colSpan = 3; ph.append(ptd);
+    tbody.replaceChildren(ph);
+    try {
+      const [secs, roles] = await Promise.all([
+        roleState.sections.length ? { items: roleState.sections } : api('/roles/app-sections'),
+        api('/roles'),
+      ]);
+      roleState.sections = secs.items || [];
+      tbody.replaceChildren();
+      const list = Array.isArray(roles) ? roles : (roles.items || []);
+      if (!list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ролей нет'); td.colSpan = 3; tr.append(td); tbody.append(tr); return; }
+      list.forEach((r) => {
+        const main = roleRow(r), detail = el('tr', 'col-detail');
+        detail.hidden = true;
+        const td = el('td', 'col-detail-cell'); td.colSpan = 3; detail.append(td);
+        main.addEventListener('click', () => toggleRole(r, main, detail));
+        tbody.append(main, detail);
+      });
+    } catch (e) { tbody.replaceChildren(); toast(e.message); }
+  }
+  const secLabel = (id) => roleState.sections.find((s) => s.id === id)?.label || id;
+  function roleSummary(r) {
+    if (r.name === 'admin') return 'все разделы (всегда)';
+    const ids = (r.appSections || []).filter((id) => roleState.sections.some((s) => s.id === id));
+    return ids.length ? ids.map(secLabel).join(', ') : 'как раньше — по старшинству роли';
+  }
+  function roleRow(r) {
+    const tr = el('tr', 'col-row');
+    tr.append(el('td', 'col-caret', r.name === 'admin' ? '' : '▸'));
+    const name = el('td'); name.append(el('span', 'col-name', r.label || ROLE_RU[r.name] || r.name));
+    tr.append(name);
+    const sum = el('td', 'col-doc', roleSummary(r));
+    if (!(r.appSections || []).length || r.name === 'admin') sum.classList.add('muted');
+    tr.append(sum);
+    return tr;
+  }
+  function toggleRole(r, main, detail) {
+    if (r.name === 'admin') return;
+    const caret = main.querySelector('.col-caret');
+    if (!detail.hidden) { detail.hidden = true; main.classList.remove('open'); caret.textContent = '▸'; return; }
+    main.classList.add('open'); caret.textContent = '▾'; detail.hidden = false;
+    const td = detail.querySelector('.col-detail-cell');
+    td.replaceChildren(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству роли.'));
+    const box = el('div', 'sec-checks');
+    const on = new Set(r.appSections || []);
+    roleState.sections.forEach((s) => {
+      const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = s.id; cb.checked = on.has(s.id);
+      lb.append(cb, el('span', '', s.label)); box.append(lb);
+    });
+    const acts = el('div', 'sec-acts');
+    const save = el('button', 'btn btn-primary', 'Сохранить'); save.type = 'button';
+    const clear = el('button', 'btn', 'Снять все'); clear.type = 'button';
+    clear.onclick = () => box.querySelectorAll('input').forEach((c) => { c.checked = false; });
+    save.onclick = async () => {
+      const appSections = [...box.querySelectorAll('input:checked')].map((c) => c.value);
+      save.disabled = true; save.textContent = 'Сохранение…';
+      try {
+        const upd = await api('/roles/' + encodeURIComponent(r.id || r._id), { method: 'PATCH', body: JSON.stringify({ appSections }) });
+        r.appSections = upd?.appSections || appSections;
+        const sum = main.querySelector('.col-doc');
+        sum.textContent = roleSummary(r); sum.classList.toggle('muted', !r.appSections.length);
+        toast(appSections.length ? `Сохранено: ${r.label || r.name} — разделов в меню: ${appSections.length}` : `Сохранено: ${r.label || r.name} — как раньше, по старшинству`);
+      } catch (e) { toast('Не сохранилось: ' + e.message); }
+      finally { save.disabled = false; save.textContent = 'Сохранить'; }
+    };
+    acts.append(save, clear);
+    td.append(box, acts);
+  }
 
   let toastTimer;
   function toast(msg) {

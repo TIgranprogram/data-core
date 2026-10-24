@@ -448,6 +448,42 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
     });
   });
 
+  describe('getMe() — sections (SK-8a)', () => {
+    const make = (role: string, roleDoc: unknown) => {
+      const users = new FakeUserService();
+      users.findById = async () =>
+        ({
+          id: 'u-s', username: 's', email: '', displayName: 'S', role,
+          permissions: [], isActive: true, refreshTokenVersion: 0,
+        }) as never;
+      const softlock = new LoginSoftlockService();
+      softlock.__resetForTests();
+      return new AuthService(
+        users as unknown as UserService,
+        { signAsync: async () => 't' } as unknown as JwtService,
+        { get: () => undefined } as unknown as ConfigService,
+        softlock,
+        { findByName: jest.fn().mockResolvedValue(roleDoc) } as any,
+      );
+    };
+
+    it('null, если у роли разделы не отмечены (как раньше)', async () => {
+      expect((await make('manager', { name: 'manager' }).getMe('u-s')).sections).toBeNull();
+      expect((await make('manager', { name: 'manager', appSections: [] }).getMe('u-s')).sections).toBeNull();
+      expect((await make('manager', null).getMe('u-s')).sections).toBeNull();
+    });
+
+    it('список, если отмечены; неизвестные отбрасываются', async () => {
+      const me = await make('manager', { name: 'manager', appSections: ['stock', 'requests', 'старое'] }).getMe('u-s');
+      expect(me.sections).toEqual(['stock', 'requests']);
+    });
+
+    it('admin — всегда null (видит всё)', async () => {
+      const me = await make('admin', { name: 'admin', appSections: ['stock'] }).getMe('u-s');
+      expect(me.sections).toBeNull();
+    });
+  });
+
   describe('getMe() — owner surface (TZ-AUTH-306)', () => {
     function buildGetMeSvc(userDoc: Record<string, unknown>, rolePages: string[]) {
       const users = new FakeUserService();

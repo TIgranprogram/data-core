@@ -14,6 +14,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleService } from './role.service';
+import { APP_SECTIONS } from '../../common/app-sections';
 
 @ApiTags('Управление — Роли')
 @Controller('roles')
@@ -27,6 +28,15 @@ export class RoleController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll() {
     return this.service.findAll();
+  }
+
+  /** SK-8a: список разделов «Рабочего места» для галочек у роли. */
+  @Get('app-sections')
+  @Roles('admin', 'manager')
+  @ApiOperation({ summary: 'Разделы «Рабочего места», которые можно включить роли' })
+  @ApiResponse({ status: 200, description: '{ items: [{ id, label }] }' })
+  appSections() {
+    return { items: APP_SECTIONS.map((s) => ({ ...s })) };
   }
 
   @Get(':id')

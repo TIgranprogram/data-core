@@ -54,6 +54,13 @@ describe('RoleController — права доступа', () => {
     expect(run(m, 'admin')).toBe(true);
   });
 
+  it('app-sections: admin и manager, отдаёт разделы с названиями (SK-8a)', () => {
+    expect(metaOf('appSections')).toEqual(['admin', 'manager']);
+    const r = new RoleController({} as never).appSections();
+    expect(r.items.map((s) => s.id)).toContain('stock');
+    expect(r.items.every((s) => s.id && s.label)).toBe(true);
+  });
+
   it('без пользователя -> 403', () => {
     expect(() => run('findAll', undefined)).toThrow(ForbiddenException);
   });

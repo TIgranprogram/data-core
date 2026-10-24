@@ -407,6 +407,21 @@
         ]
       }
     },
+    "/roles/app-sections": {
+      "get": {
+        "operationId": "RoleController_appSections",
+        "summary": "Разделы «Рабочего места», которые можно включить роли",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items: [{ id, label }] }"
+          }
+        },
+        "tags": [
+          "Управление — Роли"
+        ]
+      }
+    },
     "/roles/{id}": {
       "get": {
         "operationId": "RoleController_findOne",
@@ -9369,6 +9384,27 @@
               "type": "string"
             }
           },
+          "appSections": {
+            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "home",
+                "requests",
+                "stock",
+                "salesorders",
+                "partners",
+                "products",
+                "passports",
+                "orders",
+                "money",
+                "payroll"
+              ]
+            },
+            "maxItems": 30,
+            "uniqueItems": true
+          },
           "isSystem": {
             "type": "boolean",
             "description": "Системная роль (нельзя удалить)"
@@ -9421,6 +9457,27 @@
             "items": {
               "type": "string"
             }
+          },
+          "appSections": {
+            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "home",
+                "requests",
+                "stock",
+                "salesorders",
+                "partners",
+                "products",
+                "passports",
+                "orders",
+                "money",
+                "payroll"
+              ]
+            },
+            "maxItems": 30,
+            "uniqueItems": true
           },
           "isSystem": {
             "type": "boolean",

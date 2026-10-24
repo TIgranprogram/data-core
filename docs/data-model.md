@@ -97,6 +97,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `isSystem` | `boolean` | Системная (нельзя удалить) |
 | `sortOrder` | `number` | — |
 | `sectionIds` | `string[]` | Связь с секциями UI |
+| `appSections` | `string[]?` | SK-8a: разделы «Рабочего места», видимые роли (ид из `common/app-sections.ts`); нет / пусто — по иерархии роли; только видимость, не права |
 | `isActive` | `boolean` | — |
 | `createdAt` | `Date` | — |
 | `updatedAt` | `Date` | — |

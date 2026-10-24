@@ -30,6 +30,12 @@ export interface AuthUserPayload {
   /** TZ-ACCESS-301: page ACL — visible nav pages from role. */
   pages?: string[];
   /**
+   * SK-8a — разделы «Рабочего места», которые видит роль (ид из
+   * common/app-sections.ts). `null` — как раньше: видимость по иерархии
+   * роли (у admin всегда null). Только видимость меню, не права.
+   */
+  sections?: string[] | null;
+  /**
    * TZ-AUTH-306 — `true` only for the single hidden owner; `false` for
    * everyone else. Owner-only pages (e.g. `admin-roles`) are already
    * stripped from `pages` for non-owners, so the flag only drives

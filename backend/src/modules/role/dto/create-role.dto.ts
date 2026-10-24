@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +12,7 @@ import {
   Matches,
   Min,
 } from 'class-validator';
+import { APP_SECTION_IDS } from '../../../common/app-sections';
 
 export class CreateRoleDto {
   @ApiProperty({ example: 'manager', description: 'Системное имя роли (строчные, a-z, 0-9, _, -)' })
@@ -56,6 +59,15 @@ export class CreateRoleDto {
   @IsArray()
   @IsString({ each: true })
   pages?: string[];
+
+  /** SK-8a: разделы «Рабочего места», видимые роли; пусто — как раньше (по иерархии). */
+  @ApiPropertyOptional({ type: [String], enum: APP_SECTION_IDS, description: 'Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30, { message: 'Разделов не больше 30' })
+  @ArrayUnique({ message: 'Раздел указан дважды' })
+  @IsIn(APP_SECTION_IDS, { each: true, message: `Неизвестный раздел. Допустимо: ${APP_SECTION_IDS.join(', ')}` })
+  appSections?: string[];
 
   @IsOptional()
   @IsBoolean()

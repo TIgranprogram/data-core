@@ -15,6 +15,7 @@ import { AuthResponse, AccessTokenResponse, AuthUserPayload } from './dto/auth-r
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { effectivePermissions } from '../../common/contracts/rbac-contract';
+import { appSectionsFor } from '../../common/app-sections';
 
 /**
  * Single-source-of-truth generic login error.
@@ -279,7 +280,7 @@ export class AuthService {
   private toAuthUser(
     user: UserDocument,
     pages: string[] = [],
-    roleDoc?: { name: string; permissions?: string[] | null } | null,
+    roleDoc?: { name: string; permissions?: string[] | null; appSections?: string[] | null } | null,
   ): AuthUserPayload {
     const isOwner = user.isOwner === true;
     // TZ-AUTH-306 — owner-only pages are stripped for everyone but the
@@ -297,6 +298,8 @@ export class AuthService {
       permissions: Array.from(effectivePermissions(user, roleDoc)),
       // TZ-ACCESS-301: page ACL delivered via /auth/me.
       pages: visiblePages,
+      // SK-8a: разделы «Рабочего места» по роли; null — как раньше (по иерархии), у admin всегда null.
+      sections: appSectionsFor(user.role, roleDoc?.appSections),
       // TZ-92.1: optional fields preserved from UserDocument. Null is the
       // pre-TZ-92.1 default for users created before phone/fullName fields
       // were added to RegisterDto.

@@ -7,9 +7,9 @@
 
 | Модуль | Маршруты | Коллекции | Заметки |
 |--|--|--|--|
-| `auth` | `/auth/login` `refresh` `logout` `me` `register`(→410) | — | JWT access 15м; refresh через strategy `jwt-refresh`; login-softlock в `common/login-softlock` |
+| `auth` | `/auth/login` `refresh` `logout` `me` `register`(→410) | — | JWT access 15м; refresh через strategy `jwt-refresh`; login-softlock в `common/login-softlock`; в `user` ответа входа и `/auth/me` — `sections: string[] \| null` (SK-8a: разделы «Рабочего места» по `roles.appSections`; null — по иерархии роли, у admin всегда null; только видимость) |
 | `user` | `/users`, `/users/:id`, `/users/me/profile`, `change-password` | `users` | `refreshTokenVersion` инвалидирует refresh-токены |
-| `role` | `/roles` | `roles` | системные роли admin/manager/user (сид) |
+| `role` | `/roles`, `GET /roles/app-sections` (SK-8a: `{items:[{id,label}]}` — разделы для галочек; admin/manager) | `roles` | системные роли admin/manager/user (сид); `appSections?` — разделы «Рабочего места» роли (`common/app-sections.ts`, чужой — 400); админка — вкладка «Роли» |
 | `permissions` | — (сервис) | `permissions` | каталог прав: `common/seed/permissions.constants.ts` |
 | `admin` | `/admin/users` `/admin/roles` `/admin/permissions` `/admin/collections[/:name]`, `/admin/collections/:name/docs` (записи постранично, секреты `***` — `collection-docs.ts`) | — | бэкенд админки; `collections-admin.controller.ts` = реестр всех коллекций (`COLLECTIONS`, `kind`: `core` / `link` / `crm` — таблицы CRM kppdf на общей базе, не удаляются / `app` — `app_*`, единственное, что можно удалить из админки) |
 | `desktop` | `/desktop/pairing-keys` (выдать/список/revoke), `/desktop/pairing`, `/desktop/compat` | `desktop_pairing_keys` | **машинные ключи `kppd_`**; проверка ключа — `desktop-pairing-key.service.ts` `authenticateBearer`; scope ключа (P2) — `common/guards/key-scope.ts` |

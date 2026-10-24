@@ -26,9 +26,17 @@ export class Role {
   @Prop({ type: [String], default: [] })
   sectionIds!: string[];
 
-  /** TZ-ACCESS-301: page ACL � visible nav pages for this role. */
+  /** TZ-ACCESS-301: page ACL — visible nav pages for this role. */
   @Prop({ type: [String], default: [] })
   pages!: string[];
+
+  /**
+   * SK-8a: разделы «Рабочего места», которые видит роль (ид из
+   * common/app-sections.ts). Нет поля / пусто — как раньше, по иерархии роли.
+   * Без default: старые документы поле не получают.
+   */
+  @Prop({ type: [String], default: undefined })
+  appSections?: string[];
 
   @Prop({ default: true })
   isActive!: boolean;
