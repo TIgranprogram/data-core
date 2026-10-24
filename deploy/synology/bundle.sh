@@ -36,15 +36,11 @@ DOCKER="${DOCKER_CMD:-docker}"
 KEEP="${BUNDLE_KEEP:-3}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# --- пароль root Mongo из .env (в вывод не попадает) ---
-ENV_FILE="${SCRIPT_DIR}/.env"
-[[ -f "$ENV_FILE" ]] || ENV_FILE="${DC_DIR}/.env"
-[[ -f "$ENV_FILE" ]] && { set -a; source "$ENV_FILE"; set +a; }
-MONGO_ROOT_USER="${MONGO_ROOT_USER:-root}"
-if [[ -z "${MONGO_ROOT_PASSWORD:-}" ]]; then
-  echo "ERROR: MONGO_ROOT_PASSWORD не задан (deploy/synology/.env или ${DC_DIR}/.env)" >&2
-  exit 1
-fi
+# --- вход в Mongo: логин и пароль root берутся из окружения самого контейнера
+# (MONGO_INITDB_ROOT_*), на хосте пароль не читается и в списке процессов не виден ---
+MONGO_AUTH='-u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin'
+$DOCKER exec "$MONGO_CONTAINER" sh -c "mongo --quiet $MONGO_AUTH --eval 'db.adminCommand(\"ping\").ok'" >/dev/null 2>&1 \
+  || { echo "ERROR: нет входа в Mongo в контейнере $MONGO_CONTAINER" >&2; exit 1; }
 
 # --- куда класть ---
 if [[ -z "${BUNDLE_DIR:-}" ]]; then
@@ -52,15 +48,19 @@ if [[ -z "${BUNDLE_DIR:-}" ]]; then
     if [[ -d "$c" && -w "$c" ]] && mountpoint -q "$c" 2>/dev/null; then BUNDLE_DIR="$c/datacore-bundles"; break; fi
     if [[ "$c" == /volume1/* && -d "$c" && -w "$c" ]]; then BUNDLE_DIR="$c"; break; fi
   done
-  BUNDLE_DIR="${BUNDLE_DIR:-/opt/datacore-bundles}"
+  if [[ -z "${BUNDLE_DIR:-}" ]]; then
+    BUNDLE_DIR=/opt/datacore-bundles
+    # без sudo в /opt не создать — тогда домашняя папка
+    mkdir -p "$BUNDLE_DIR" 2>/dev/null || sudo -n mkdir -p "$BUNDLE_DIR" 2>/dev/null || BUNDLE_DIR="$HOME/datacore-bundles"
+  fi
 fi
 mkdir -p "$BUNDLE_DIR" 2>/dev/null || sudo -n mkdir -p "$BUNDLE_DIR" || { echo "ERROR: нельзя создать $BUNDLE_DIR (задайте BUNDLE_DIR)" >&2; exit 1; }
 [[ -w "$BUNDLE_DIR" ]] || { echo "ERROR: нет записи в $BUNDLE_DIR (задайте BUNDLE_DIR или sudo chown)" >&2; exit 1; }
 chmod 700 "$BUNDLE_DIR" 2>/dev/null || true
 
-# --- место: нужно примерно размер данных + код ---
+# --- место: пакет собирается во временной папке и упаковывается ещё раз → ~2× (фото + 1 ГБ на дамп и код) ---
 need_kb=$(du -sk "${DATA_DIR}/uploads" 2>/dev/null | awk '{print $1}')
-need_kb=$(( ${need_kb:-0} + 1048576 ))
+need_kb=$(( (${need_kb:-0} + 1048576) * 2 ))
 free_kb=$(df -Pk "$BUNDLE_DIR" | tail -1 | awk '{print $4}')
 if [[ "$free_kb" -lt "$need_kb" ]]; then
   echo "СТОП: в $BUNDLE_DIR свободно ${free_kb} КБ, нужно не меньше ~${need_kb} КБ" >&2
@@ -104,14 +104,14 @@ echo "    data-core: ${DC_COMMIT}; kppdf: ${KP_COMMIT}"
 # --- 2. счётчики документов (до дампа) ---
 echo "--- счётчики коллекций"
 COUNTS_JS='var o=[];db.getCollectionNames().forEach(function(n){o.push(JSON.stringify(n)+":"+db.getCollection(n).countDocuments({}))});print("{"+o.join(",")+"}")'
-COUNTS_JSON="$($DOCKER exec -e MP="$MONGO_ROOT_PASSWORD" "$MONGO_CONTAINER" sh -c \
-  "mongo --quiet -u '$MONGO_ROOT_USER' -p \"\$MP\" --authenticationDatabase admin '$MONGO_DB' --eval '$COUNTS_JS'" 2>/dev/null | tail -1)" || COUNTS_JSON="{}"
+COUNTS_JSON="$($DOCKER exec "$MONGO_CONTAINER" sh -c \
+  "mongo --quiet $MONGO_AUTH '$MONGO_DB' --eval '$COUNTS_JS'" 2>/dev/null | tail -1)" || COUNTS_JSON="{}"
 [[ "$COUNTS_JSON" == "{"* ]] || COUNTS_JSON="{}"
 
 # --- 3. mongodump (пароль — через переменную окружения контейнера, не в списке процессов хоста) ---
 echo "--- mongodump ${MONGO_DB}"
-$DOCKER exec -e MP="$MONGO_ROOT_PASSWORD" "$MONGO_CONTAINER" sh -c \
-  "mongodump --username '$MONGO_ROOT_USER' --password \"\$MP\" --authenticationDatabase admin --db '$MONGO_DB' --archive --gzip" \
+$DOCKER exec "$MONGO_CONTAINER" sh -c \
+  "mongodump $MONGO_AUTH --db '$MONGO_DB' --archive --gzip" \
   > "$W/mongo/datacore.archive.gz"
 [[ -s "$W/mongo/datacore.archive.gz" ]] || { echo "ERROR: дамп пустой" >&2; exit 1; }
 
@@ -173,8 +173,8 @@ cat > "$W/MIGRATE.md" <<'MIG'
 5. Фото: `tar -xzf uploads/data-core-uploads.tar.gz -C /var/lib/datacore/`; `uploads/kppdf-uploads-sources.txt` — откуда какой архив `kppdf-uploads-N.tar.gz`, распаковать в родительскую папку источника.
 6. Поднять ТОЛЬКО Mongo: `cd /opt/data-core && docker compose -f docker-compose.prod.yml up -d mongo` (с первым запуском пройдут инит rs0 и пользователи — как делает `deploy.py`; при сомнении запустить обычный `deploy.py` без `--wipe`). Порядок: сначала контур data-core, потом kppdf.
 7. Данные в ПУСТУЮ базу (новая VM):
-   `docker exec -i datacore-mongo sh -c 'mongorestore --username root --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --gzip --archive' < mongo/datacore.archive.gz`
-   (пароль передать через `-e MONGO_ROOT_PASSWORD=...`). Без `--drop`. Если база не пуста — остановиться и спросить пользователя.
+   `docker exec -i datacore-mongo sh -c 'mongorestore -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --gzip --archive' < mongo/datacore.archive.gz`
+   (пароль — из окружения контейнера, на хосте не нужен). Без `--drop`. Если база не пуста — остановиться и спросить пользователя.
 8. Сверка: число документов по коллекциям из `manifest.json` (`collections`) против `db.<имя>.countDocuments({})`.
 9. Поднять backend data-core, затем kppdf (`/opt/kppdf-8.0`, сеть `data-core_default`).
 10. Публичный доступ (`https://kppdf-crm.ru/db/`): nginx живёт на VPS. Блок для `/db/` — `config/nginx/nginx-datacore-db.conf`; `config/nginx/kppdf-proxy` есть, только если файл читался с VM. Туннели: `config/crontab-*.txt` (строки `datacore-tunnel`, `datacore-ssh-tunnel`), `config/systemd/kppdf-tunnel.service`. Адрес VPS, ключи и порты 4200/4201/4222 переносить осознанно; на VPS при смене VM поменять только вход туннеля.
