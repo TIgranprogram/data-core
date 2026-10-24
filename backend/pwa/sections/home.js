@@ -28,6 +28,9 @@ export function mountHome(deps) {
   const first = (session.name || '').split(' ')[0];
   const day = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const monthStart = isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
+  // SK-8b: блоки разделов, снятых с роли, не показываем и не загружаем
+  const seeReq = session.sees('requests'), seeStock = session.sees('stock'), seeSo = session.sees('salesorders');
+  const seePay = session.canMoney && session.sees('orders');
 
   const summary = h('div', { class: 'summary' });
   // Быстро заказать — «Категория → Позиция из базы» (TASKS С2.1); категории — из подсказок формы заявки.
@@ -37,20 +40,23 @@ export function mountHome(deps) {
     pastItems(),
     lookups().then((lk) => { cats = (lk.categories || []).map((x) => x.name); }).catch(() => {}),
   ]).then(([x]) => x);
-  const quick = session.canEdit ? quickOrder({ load: loadQuick, categories: () => cats, done: () => reloadAll() }) : null;
+  const quick = session.canEdit && seeReq ? quickOrder({ load: loadQuick, categories: () => cats, done: () => reloadAll() }) : null;
   // Быстрые действия (TASKS С2.2): всё ежедневное — в один клик, туда, где делается
   const act = (label, title, onclick) => h('button', { type: 'button', class: 'btn', title, onclick }, label);
-  const actions = session.canEdit ? h('div', { class: 'today-actions' },
-    act('+ Заявка', 'Полная форма новой заявки справа', () => patch({ of: 'requests', new: '1', open: undefined })),
-    act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
-    act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined })),
-    act('Принять машину', 'Приход по счёту: «Склад» → «Принять»', () => go('ops', { mode: 'in' })),
-    act('− Списать', 'Выдача со склада: «Склад» → «Выдать»', () => go('ops', {})),
-    act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))) : null;
+  const actions = session.canEdit && (seeReq || seeStock) ? h('div', { class: 'today-actions' },
+    seeReq ? [
+      act('+ Заявка', 'Полная форма новой заявки справа', () => patch({ of: 'requests', new: '1', open: undefined })),
+      act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
+      act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined }))] : null,
+    seeStock ? [
+      act('Принять машину', 'Приход по счёту: «Склад» → «Принять»', () => go('ops', { mode: 'in' })),
+      act('− Списать', 'Выдача со склада: «Склад» → «Выдать»', () => go('ops', {})),
+      act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))] : null) : null;
 
   // ---------- Очереди ----------
   const queues = [];
-  function queue({ id, title, hint, path, query, row, actions, empty, link }) {
+  function queue({ id, title, hint, path, query, row, actions, empty, link, show = true }) {
+    if (!show) return null;
     const list = h('ul', { class: 'q-list' }, h('li', { class: 'q-empty' }, h('span', { class: 'skel', style: { width: '70%' } })));
     const n = h('span', { class: 'q-n' }, '');
     const more = h('button', { class: 'q-more', type: 'button', hidden: true });
@@ -103,13 +109,13 @@ export function mountHome(deps) {
   };
 
   const qOrder = queue({
-    id: 'order', title: 'Нужно заказать', hint: 'Оформите заказ у поставщика и отметьте «Заказано»',
+    id: 'order', show: seeReq, title: 'Нужно заказать', hint: 'Оформите заказ у поставщика и отметьте «Заказано»',
     path: '/supply/requests', query: { status: 'requested', sort: '-requestDate' }, link: '#requests?status=requested',
     row: reqRow, empty: 'Всё заказано 👍',
     actions: () => [{ label: 'Заказано', primary: true, title: 'Статус → «В работе»', run: step('ordered', 'В работе') }],
   });
   const qWait = queue({
-    id: 'wait', title: 'Ждём поставку', hint: 'Заказано, ещё не пришло. Пришло — «Принять» на склад',
+    id: 'wait', show: seeReq, title: 'Ждём поставку', hint: 'Заказано, ещё не пришло. Пришло — «Принять» на склад',
     path: '/supply/requests', query: { status: 'ordered,paid', sort: 'requestDate' }, link: '#requests?view=board',
     row: { ...reqRow, side: (x) => status(SUPPLY_STATUS, supplyKey(x)) }, empty: 'Ничего не ждём',
     actions: (x) => [
@@ -118,7 +124,7 @@ export function mountHome(deps) {
     ],
   });
   const qDecide = queue({
-    id: 'decide', title: 'Ждут решения', hint: 'Заявки «Ожидает»: заказывать или отменить',
+    id: 'decide', show: seeReq, title: 'Ждут решения', hint: 'Заявки «Ожидает»: заказывать или отменить',
     path: '/supply/requests', query: { status: 'in_progress', sort: 'requestDate' }, link: '#requests?status=in_progress',
     row: reqRow, empty: 'Нерешённых заявок нет',
     actions: () => [
@@ -127,7 +133,7 @@ export function mountHome(deps) {
     ],
   });
   const qStock = queue({
-    id: 'stock', title: 'Закончилось на складе', hint: 'Нет в наличии или ниже минимума — закажите',
+    id: 'stock', show: seeStock, title: 'Закончилось на складе', hint: 'Нет в наличии или ниже минимума — закажите',
     path: '/stock/items', query: { status: 'none,low', sort: 'free' }, link: '#stock?status=none',
     row: {
       title: (x) => x.name,
@@ -144,7 +150,7 @@ export function mountHome(deps) {
 
   const week = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
   const qDue = queue({
-    id: 'due', title: 'Сроки по заказам', hint: 'Отгрузка просрочена или в ближайшие 7 дней',
+    id: 'due', show: seeSo, title: 'Сроки по заказам', hint: 'Отгрузка просрочена или в ближайшие 7 дней',
     path: '/salesorders', query: { filter: 'active', sort: 'shipDate', dueTo: week }, link: '#salesorders?filter=active',
     row: {
       title: (x) => `Заказ № ${x.orderNo || '—'} · ${x.customer || ''}`,
@@ -157,7 +163,7 @@ export function mountHome(deps) {
   });
 
   const qPay = queue({
-    id: 'pay', title: 'Ждём оплату от заказчиков', hint: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено»',
+    id: 'pay', show: seePay, title: 'Ждём оплату от заказчиков', hint: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено»',
     path: '/incomes', query: { status: 'awaiting', sort: 'reportDate' }, link: '#orders?status=awaiting',
     row: {
       title: (x) => (x.orderNo ? `Заказ ${x.orderNo} · ` : '') + x.title,
@@ -171,23 +177,23 @@ export function mountHome(deps) {
 
   // Лента движений склада
   const feed = h('ul', { class: 'q-list' }, h('li', { class: 'q-empty' }, h('span', { class: 'skel', style: { width: '60%' } })));
-  const loadFeed = () => api('/stock/movements', { query: { limit: 8 } }).then((r) => {
+  const loadFeed = () => (!seeStock ? null : api('/stock/movements', { query: { limit: 8 } }).then((r) => {
     if (!r.items.length) { feed.replaceChildren(h('li', { class: 'q-empty' }, 'Движений пока нет')); return; }
     feed.replaceChildren(...r.items.map((m) => h('li', { class: 'q-row', tabindex: '0', onclick: () => deps.open('stock', m.materialId) },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, m.materialName), h('div', { class: 'q-sub' }, [moveLabel(m), m.note, m.createdBy].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num ' + (m.delta > 0 ? 'pos' : m.delta < 0 ? 'neg' : '') }, `${m.delta > 0 ? '+' : ''}${qty(m.delta)} ${m.unit || ''}`.trim()), h('span', { class: 'q-date' }, date(m.date))))));
-  }).catch((e) => feed.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e))));
+  }).catch((e) => feed.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e)))));
   const qFeed = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Последние движения склада'), h('div', { class: 'q-hint' }, 'Приходы, списания, корректировки')), h('a', { href: '#movements', class: 'q-link' }, 'Все →')), feed);
 
   // Брони на складе (TASKS Б.1): что отложено, под что, кем; открыть — «Операции» → «Бронь по списку»
   const resList = h('ul', { class: 'q-list' }, h('li', { class: 'q-empty' }, h('span', { class: 'skel', style: { width: '50%' } })));
-  const loadRes = () => api('/stock/reservations').then((r) => {
+  const loadRes = () => (!seeStock ? null : api('/stock/reservations').then((r) => {
     if (!r.items.length) { resList.replaceChildren(h('li', { class: 'q-empty' }, 'Броней нет. Отложить позиции под заказ — «Бронь по списку»')); return; }
     resList.replaceChildren(...r.items.slice(0, 6).map((g) => h('li', { class: 'q-row', tabindex: '0', onclick: () => go('ops', { mode: 'reserve' }) },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, g.name),
         h('div', { class: 'q-sub' }, [`позиций: ${g.lines.length}`, g.salesOrder ? 'заказ ' + g.salesOrder : '', g.createdBy].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, g.createdAt ? h('span', { class: 'q-date' }, date(g.createdAt)) : null))));
-  }).catch((e) => resList.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e))));
+  }).catch((e) => resList.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e)))));
   const qRes = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Брони на складе'), h('div', { class: 'q-hint' }, 'Отложено под заказ / изделие — не трогать')), h('a', { href: '#ops?mode=reserve', class: 'q-link' }, 'Все →')), resList);
 
   // ---------- Сводка (цифры — переход к очереди на этой же странице) ----------
@@ -195,21 +201,21 @@ export function mountHome(deps) {
   async function loadSummary() {
     try {
       const [all, month, stock, inc] = await Promise.all([
-        api('/supply/requests', { query: { limit: 1 } }),
-        api('/supply/requests', { query: { limit: 1, from: monthStart } }),
-        api('/stock/items', { query: { limit: 1 } }),
-        api('/incomes', { query: { limit: 1 } }).catch(() => null),
+        seeReq ? api('/supply/requests', { query: { limit: 1 } }) : {},
+        seeReq ? api('/supply/requests', { query: { limit: 1, from: monthStart } }) : null,
+        seeStock ? api('/stock/items', { query: { limit: 1 } }) : {},
+        seePay ? api('/incomes', { query: { limit: 1 } }).catch(() => null) : null,
       ]);
       const c = all.counts || {}, s = stock.counts || {};
       const item = (label, value, target, tone) => h('button', { type: 'button', class: 'sum-item' + (tone ? ' ' + tone : ''), onclick: () => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
         h('span', { class: 'sum-v' }, value), h('span', { class: 'sum-l' }, label));
       summary.replaceChildren(...[
-        item('нужно заказать', qty(c.requested || 0), 'q-order', c.requested ? 'attn' : ''),
-        item('ждём поставку', qty((c.ordered || 0) + (c.paid || 0)), 'q-wait'),
-        item('ждут решения', qty(c.in_progress || 0), 'q-decide'),
-        item('закончилось на складе', qty((s.none || 0) + (s.low || 0)), 'q-stock', s.none || s.low ? 'attn' : ''),
+        seeReq ? item('нужно заказать', qty(c.requested || 0), 'q-order', c.requested ? 'attn' : '') : null,
+        seeReq ? item('ждём поставку', qty((c.ordered || 0) + (c.paid || 0)), 'q-wait') : null,
+        seeReq ? item('ждут решения', qty(c.in_progress || 0), 'q-decide') : null,
+        seeStock ? item('закончилось на складе', qty((s.none || 0) + (s.low || 0)), 'q-stock', s.none || s.low ? 'attn' : '') : null,
         inc && session.canMoney ? item('ждём оплату', qty(inc.counts?.awaiting || 0), 'q-pay', inc.counts?.awaiting ? 'attn' : '') : null,
-        session.canMoney ? h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, money(month.sum || 0)), h('span', { class: 'sum-l' }, `заявки за месяц · ${qty(month.total)} шт.`))
+        !month ? null : session.canMoney ? h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, money(month.sum || 0)), h('span', { class: 'sum-l' }, `заявки за месяц · ${qty(month.total)} шт.`))
           : h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, qty(month.total)), h('span', { class: 'sum-l' }, 'заявок за месяц'))].filter(Boolean));
     } catch (e) {
       // Разовый сбой (напр. в момент продления входа) — одна повторная попытка
@@ -223,7 +229,7 @@ export function mountHome(deps) {
 
   // «Требуют заполнения» — самый тяжёлый подсчёт на сервере: после очередей, чтобы не задерживал их
   function reloadAll() {
-    const first = [...queues.map((q) => q()), loadFeed(), loadRes()];
+    const first = [...queues.map((q) => q()), loadFeed(), loadRes()].filter(Boolean);
     deps.refreshCounts?.();
     Promise.allSettled(first).then(() => fill.load());
   }
@@ -245,20 +251,21 @@ export function mountHome(deps) {
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),
     diskNote,
     // МП.1: на телефоне — три задачи «на ходу» крупно (на компьютере блок скрыт, там — строка действий)
-    session.canEdit ? h('div', { class: 'go-tiles' },
+    session.canEdit && (seeReq || seeStock) ? h('div', { class: 'go-tiles' },
+      seeReq ? 
       h('button', { type: 'button', class: 'go-tile', onclick: () => { const q = el.querySelector('.quick-panel'); q?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => q?.querySelector('input, select')?.focus(), 400); } },
-        h('b', null, '+ Быстрая заявка'), h('span', null, '«закончилось» — категория, позиция, сколько')),
-      h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
-      h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))) : null,
+        h('b', null, '+ Быстрая заявка'), h('span', null, '«закончилось» — категория, позиция, сколько')) : null,
+      seeStock ? [h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
+        h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null,
     actions,
     // По разделам (TASKS В.4): колонка = раздел приложения, крупный заголовок, очереди друг под другом — без пустот.
-    h('div', { class: 'lanes' + (session.canMoney ? ' with-money' : '') },
-      lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, h('div', { class: 'section-title' }, 'Быстро заказать'), quick) : null, qOrder, qWait, qDecide),
-      lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qRes, qFeed),
+    h('div', { class: 'lanes' + (seePay ? ' with-money' : '') },
+      seeReq ? lane('Снабжение', 'requests', '#requests', 'Все заявки →', quick ? h('div', { class: 'panel quick-panel' }, h('div', { class: 'section-title' }, 'Быстро заказать'), quick) : null, qOrder, qWait, qDecide) : null,
+      seeStock ? lane('Склад', 'stock', '#stock', 'Остатки →', qStock, qRes, qFeed) : null,
       h('div', { class: 'lane-stack' },
         lane('Заполнить', 'table', '#fill', 'Все группы →', fill.el),
-        lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue),
-        session.canMoney ? lane('Деньги', 'money', '#money', 'Календарь →', qPay) : null)));
+        seeSo ? lane('Заказы', 'orders', '#salesorders?filter=active', 'Все заказы →', qDue) : null,
+        seePay ? lane('Деньги', 'money', session.sees('money') ? '#money' : '#orders', session.sees('money') ? 'Календарь →' : 'Все →', qPay) : null)));
 
   reloadAll();
   return { el, reload: reloadAll, update: () => {} };

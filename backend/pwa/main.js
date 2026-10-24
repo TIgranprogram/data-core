@@ -7,7 +7,7 @@ import { confirmDlg, modal } from './ui/dialog.js';
 import { searchBox } from './ui/searchbox.js';
 import { openCard } from './ui/card.js';
 import { installGlobalErrors } from './ui/errors.js';
-import { toastError } from './ui/toast.js';
+import { toast, toastError } from './ui/toast.js';
 import { icon } from './ui/icons.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
@@ -45,6 +45,12 @@ installGlobalErrors(toastError);
 const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
+// SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
+const OWNER = { movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
+  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'passports', ptextview: 'passports' };
+const NAV_IDS = new Set(NAV.map(([id]) => id));
+/** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
+const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
 const root = $('#root');
 
 // ---------- Вход ----------
@@ -111,7 +117,9 @@ let shellEl;
 function shell() {
   const link = (id, label, ico) => h('a', { class: 'side-link', href: '#' + id, title: label, onclick: () => shellEl.classList.remove('nav-open') },
     icon(ico), h('span', { class: 'lbl' }, label), h('span', { class: 'cnt', hidden: true }));
-  navLinks = Object.fromEntries(NAV.map(([id, label, ico]) => [id, link(id, label, ico)]));
+  // SK-8b: только разделы, отмеченные у роли (нет отметок — все, как раньше)
+  navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, label, ico)]));
+  const group = (title, ...links) => (links.some(Boolean) ? [h('div', { class: 'side-group' }, title), ...links] : null);
   navLinks.trash = link('trash', 'Корзина', 'trash');
   navLinks.dicts = link('dicts', 'Справочники', 'dicts');
   navLinks.history = link('history', 'История', 'history'); // И.2 — директор и администратор
@@ -137,10 +145,10 @@ function shell() {
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
-    h('div', { class: 'side-group' }, 'Снабжение'), navLinks.requests,
-    h('div', { class: 'side-group' }, 'Склад'), navLinks.stock,
-    h('div', { class: 'side-group' }, 'Заказы'), navLinks.salesorders, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners,
-    session.canMoney ? [h('div', { class: 'side-group' }, 'Деньги'), navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null] : null,
+    group('Снабжение', navLinks.requests),
+    group('Склад', navLinks.stock),
+    group('Заказы', navLinks.salesorders, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners),
+    session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' },
       installLink(),
       navLinks.dicts,
@@ -211,6 +219,11 @@ const screenKey = (section, params) => section + (section === 'search' ? '?' + (
 function render({ section, params }) {
   if (!section) { go(DEFAULT, {}, { replace: true }); return; }
   // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
+  // SK-8b: раздел снят с роли — прямой адрес ведёт на «Сегодня» с подсказкой, без ошибки
+  if (!allowed(section)) {
+    toast(`Раздел «${SECTIONS[OWNER[section] || section]?.title || NAMES[OWNER[section] || section] || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
+    go(DEFAULT, {}, { replace: true }); return;
+  }
   if (section === 'ops') { go('stock', { of: 'stockop', new: '1', op: { in: 'in', reserve: 'reserve', count: 'count' }[params.mode] || 'out' }, { replace: true }); return; }
   for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === (section === 'movements' ? 'stock' : section));
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
@@ -313,7 +326,13 @@ async function showApp() {
   mounted = null; card = null;
   render(current());
   // Свежие данные о пользователе (роль могла измениться)
-  api('/auth/me').then((me) => { if (me?.id || me?.username) session.user = { ...session.user, ...me }; }).catch(() => {});
+  // SK-8b: изменились разделы роли — перестроить меню и проверить текущий экран
+  api('/auth/me').then((me) => {
+    if (!(me?.id || me?.username)) return;
+    const was = JSON.stringify(session.user?.sections ?? null);
+    session.user = { ...session.user, ...me };
+    if (JSON.stringify(session.user?.sections ?? null) !== was) { closeCard(); ui = shell(); mounted = null; render(current()); }
+  }).catch(() => {});
 }
 onChange((c) => { if (ui && session.refresh) render(c); });
 // «Отменить» во всплывающем сообщении и другие изменения вне списка — обновить текущий экран и счётчики меню

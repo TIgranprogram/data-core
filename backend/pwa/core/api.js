@@ -19,6 +19,12 @@ export const session = {
   /** Суммы, доходы, платёжный календарь — только админ / директор / бухгалтер (сервер всё равно скрывает). */
   get canMoney() { return ['admin', 'director', 'accountant'].includes(this.user?.role) || this.user?.isOwner === true; },
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
+  /** SK-8b: виден ли раздел меню по галочкам роли (user.sections; нет списка — всё как раньше; «Сегодня» и админ — всегда).
+   *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */
+  sees(id) {
+    const u = this.user, s = u?.sections;
+    return id === 'home' || !Array.isArray(s) || u?.role === 'admin' || s.includes(id);
+  },
 };
 
 /** Может ли менять записи раздела: свои права раздела (section.canEdit, напр. паспорта — директор/админ) или общее правило. */
