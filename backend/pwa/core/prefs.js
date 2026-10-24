@@ -105,8 +105,10 @@ export function serverPrefs(uiPrefs) {
   const s = clean(uiPrefs);
   let changed = false;
   for (const k of Object.keys(PREFS)) {
-    if (dirty.has(k) || s[k] === undefined || s[k] === saved[k]) continue;
-    saved[k] = s[k]; changed = true;
+    if (dirty.has(k) || s[k] === saved[k]) continue;
+    // ключа нет на сервере — ширину сбросили «по умолчанию» на другом ПК: сбрасываем и здесь
+    if (s[k] === undefined) delete saved[k]; else saved[k] = s[k];
+    changed = true;
   }
   if (!changed) return;
   writeLocal();
