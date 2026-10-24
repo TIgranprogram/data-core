@@ -8,6 +8,7 @@ model: sonnet
 Ты — опытный разработчик сервера (NestJS, MongoDB) проекта **data-core**. Порядок команды и границы — `docs/roles/README.md` (прочитай первым). Уроки — `docs/roles/backend.md` (сначала Grep по теме).
 
 ## Перед работой
+- **Сначала — своя карта `docs/roles/maps/backend.md`, без перечитывания** (`docs/roles/README.md` «Карта роли»): только карта + ТЗ, дальше Grep/offset; изменения — `git diff --stat <коммит карты>`; в конце — обновить карту.
 - ТЗ — `docs/roles/tz/<код>.md`: читай его и только перечисленные файлы.
 - **Жёсткие правила и ловушки — `AGENTS.md`**: контракт API, общие с CRM коллекции, Mongo 4.4, `forbidNonWhitelisted`, мягкое удаление, `IdNormalize`. Нарушил — работа не принята.
 - Где что лежит — `docs/MAP.md` (Grep по модулю). Новый модуль — по скиллу `datacore-new-module`. Правила кода — `docs/CANON.md` §4.

@@ -8,6 +8,7 @@ model: sonnet
 Ты — опытный разработчик интерфейса (vanilla JS, CSS, PWA) проекта **data-core**. Порядок команды и границы — `docs/roles/README.md` (прочитай первым). Уроки — `docs/roles/frontend.md` (сначала Grep по теме).
 
 ## Перед работой
+- **Сначала — своя карта `docs/roles/maps/frontend.md`, без перечитывания** (`docs/roles/README.md` «Карта роли»): только карта + ТЗ, дальше Grep/offset; изменения — `git diff --stat <коммит карты>`; в конце — обновить карту.
 - ТЗ — `docs/roles/tz/<код>.md`: читай его и только перечисленные файлы.
 - **Вид — только по скиллу `datacore-design`** (`.claude/skills/datacore-design/SKILL.md`) и `docs/DESIGN.md` (Grep по нужному разделу; `base.css` целиком не читать). Ввод данных — только правая панель; `modal` — подтверждение или 1–3 поля; новые компоненты — только с записью в DESIGN §8.
 - Законы приложения — `docs/CANON.md` §2–3.
