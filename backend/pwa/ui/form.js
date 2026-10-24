@@ -202,7 +202,12 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     }
     if (f.phrases) {
       const ph = attachPhrases(input, { load: f.phrases.load, title: f.phrases.title, label: f.phrases.label, context: () => (f.phrases.by ? inputs.get(f.phrases.by)?.input.value || '' : '') });
-      if (f.phrases.by) setTimeout(() => inputs.get(f.phrases.by)?.input.addEventListener('change', ph.refresh));
+      // поле-источник бывает составным (выбор из списка: { el, value }) — тогда слушаем его обёртку, change всплывает
+      if (f.phrases.by) setTimeout(() => {
+        const src = inputs.get(f.phrases.by);
+        const t = typeof src?.input?.addEventListener === 'function' ? src.input : src?.input?.el || src?.label;
+        t?.addEventListener?.('change', ph.refresh);
+      });
     }
     if (f.suggest) {
       attachSuggest(input, { load: f.suggest, title: f.suggestTitle, onPick: (vals) => {
@@ -225,7 +230,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     again.hidden = !manual();
     if (!x.input.value.trim()) x.input.value = auto;
     const update = () => { const next = c.build(vals()); if (!manual()) { x.input.value = next; auto = next; } again.hidden = !manual(); };
-    for (const k of c.from) { const src = inputs.get(k)?.input; src?.addEventListener('input', update); src?.addEventListener('change', update); }
+    for (const k of c.from) { const i = inputs.get(k)?.input; const src = typeof i?.addEventListener === 'function' ? i : i?.el; src?.addEventListener?.('input', update); src?.addEventListener?.('change', update); }
     x.input.addEventListener('input', () => { again.hidden = !manual(); });
   }
 
