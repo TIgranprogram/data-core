@@ -9,7 +9,8 @@ import { errText } from '../ui/errors.js';
 import { enhanceSelect } from '../ui/select.js';
 import { toast } from '../ui/toast.js';
 import { ftParams, ftQuery } from '../ui/facet-filter.js';
-import { issueToFields, withOrders } from './issue.js';
+import { targetPicker } from '../ui/target-picker.js';
+import { withOrders } from './issue.js';
 import { receiveField } from './item-orders.js';
 import { lookups } from './lookups.js';
 import { arrivalsBlock } from './ops.js';
@@ -25,7 +26,7 @@ import { orderOptions, splitRef } from './salesorders.js';
  */
 const OPS = {
   in: { title: 'Принять на склад', verb: 'Принять', done: 'Принято', note: 'От кого / основание', hint: 'Приехала машина — выберите счёт в «Ждём поставку». Без заявки — найдите позицию ниже.' },
-  out: { title: 'Выдать со склада', verb: 'Выдать', done: 'Выдано', note: 'Примечание', hint: 'Найдите позицию (одну или несколько), впишите количество и кому выдано.' },
+  out: { title: 'Выдать со склада', verb: 'Выдать', done: 'Выдано', note: 'Примечание', hint: 'Найдите позицию (одну или несколько), впишите количество и выберите, кому или под какую позицию заказа выдано.' },
   reserve: { title: 'Забронировать', verb: 'Забронировать', done: 'Забронировано', note: 'Для чего бронь (конструкция, изделие) *', hint: 'Остаток не меняется, «свободно» уменьшается. Поставленные брони — ниже.' },
   writeoff: { title: 'Списать', verb: 'Списать', done: 'Списано', note: 'Комментарий (необязательно)', hint: 'Брак, потеря, порча: выберите причину. Заказ и сотрудник не указываются.' },
   count: { title: 'Пересчитать', verb: 'Сохранить пересчёт', done: 'Пересчёт сохранён', note: 'Примечание', hint: 'Впишите, сколько лежит всего (с забронированным). Пустое поле — не пересчитано.' },
@@ -58,7 +59,6 @@ async function build() {
     return { it, qty: q ?? (op === 'count' ? '' : '1'), note: nt || '', recv };
   };
   let all = null; let loading = false; // склад целиком — по первому нажатию в поле «Позиция»
-  const needOrders = op === 'out' || op === 'reserve';
 
   // ---------- Выбор позиции ----------
   const pickIn = h('input', { placeholder: 'Например: м10 гайка · din 933 · подшипник', 'aria-label': 'Найти позицию' });
@@ -151,8 +151,13 @@ async function build() {
       .catch(() => { reasonSel.firstChild.textContent = '— список не загрузился, закройте и откройте панель —'; });
   }
   const doc = h('input', { maxlength: 200, placeholder: 'накладная, счёт' });
-  const issueTo = op === 'out' ? issueToFields() : null;
-  const soSel = needOrders ? h('select', { 'aria-label': 'Под заказ' }, h('option', { value: '' }, '— не под заказ —')) : null;
+  const issueTo = op === 'out' ? targetPicker({ mode: 'out' }) : null; // заказы и позиции — при выборе, не при открытии панели
+  // возврат со сборки (только «Принять»): переключатель → выбор позиции заказа, с которой вернули
+  const retTp = op === 'in' ? targetPicker({ mode: 'return' }) : null;
+  const retOn = op === 'in' ? h('input', { type: 'checkbox', id: 'sop-ret' }) : null;
+  const retBox = retTp ? h('div', { class: 'tp-ret', hidden: true }, retTp.el) : null;
+  if (retOn) retOn.addEventListener('change', () => { retBox.hidden = !retOn.checked; touched = true; });
+  const soSel = op === 'reserve' ? h('select', { 'aria-label': 'Под заказ' }, h('option', { value: '' }, '— не под заказ —')) : null;
   if (soSel) orderOptions().then((os) => { for (const o of os) soSel.append(h('option', { value: o.value }, o.label)); enhanceSelect(soSel); }).catch(() => { /* без списка заказов — можно вписать объект текстом */ });
 
   const arrivals = op === 'in' ? arrivalsBlock(() => { window.dispatchEvent(new CustomEvent('data-changed')); }) : null;
@@ -187,6 +192,7 @@ async function build() {
     linesBox,
     h('div', { class: 'form-grid sop-foot' },
       issueTo?.el,
+      retOn ? h('div', { class: 'field wide' }, h('label', { class: 'check' }, retOn, h('span', null, 'Возврат под позицию (вернули со сборки)')), retBox) : null,
       soSel ? h('label', { class: 'field wide' }, h('span', null, 'Под заказ (позиция)'), soSel) : null,
       reasonSel ? h('label', { class: 'field wide' }, h('span', null, 'Причина списания *'), reasonSel) : null,
       noteBox,
@@ -202,12 +208,36 @@ async function build() {
   const ready = () => lines.map((l) => ({ materialId: l.it.id, qty: parseNum(l.qty), ...(l.note ? { note: l.note } : {}) }))
     .filter((l) => l.qty !== undefined && !Number.isNaN(l.qty) && (op === 'count' ? l.qty >= 0 : l.qty > 0));
 
+  // выдача больше, чем свободно, забирает материал из чужой брони: спросить, назвав заказ-владельца (SK-5b)
+  async function confirmForeign(ls) {
+    const over = ls.filter((x) => { const it = lines.find((l) => l.it.id === x.materialId)?.it; return it && x.qty > (it.free ?? it.quantity); });
+    if (!over.length) return true;
+    let groups = [];
+    try { groups = (await api('/stock/reservations')).items || []; } catch { return true; } // список броней не открылся — сервер сам не даст выдать лишнее
+    const mine = issueTo.orderId();
+    const rows = [];
+    for (const x of over) {
+      const it = lines.find((l) => l.it.id === x.materialId).it;
+      for (const g of groups) {
+        const l = g.lines.find((y) => y.materialId === x.materialId);
+        if (!l || (mine && g.salesOrderId === mine)) continue;
+        rows.push(`${it.name}: бронь «${g.name}»${g.salesOrder ? ' (заказ ' + g.salesOrder + ')' : ''} — ${qty(l.qty - (l.issued || 0))} ${it.unit || ''}`);
+      }
+    }
+    if (!rows.length) return true;
+    return confirmDlg('Это материал из чужой брони', 'Выдаётся больше, чем свободно, — забирается из брони другого заказа:\n' + rows.join('\n') + '\n\nВыдать всё равно?', { okText: 'Да, выдать', danger: true });
+  }
+
   async function save() {
     const ls = ready();
     if (!ls.length) throw new Error(op === 'count' ? 'Впишите, сколько лежит, хотя бы у одной позиции' : 'Добавьте позицию и впишите количество больше нуля');
     const text = note.value.trim();
     if (op === 'reserve' && !text) throw new Error('Впишите, для чего бронь (конструкция, изделие)');
     if (op === 'writeoff' && !reasonSel.value) throw new Error('Выберите причину списания');
+    if (op === 'out') { const why = issueTo.check(); if (why) throw new Error(why); }
+    const isReturn = op === 'in' && retOn.checked;
+    if (isReturn) { const why = retTp.check(); if (why) throw new Error(why); }
+    if (op === 'out' && !(await confirmForeign(ls))) throw new Error('Выдача не проведена: без подтверждения материал из чужой брони не выдаётся');
     const names = new Map(lines.map((l) => [l.it.id, l.it]));
     const changed = () => window.dispatchEvent(new CustomEvent('data-changed'));
     if (op === 'reserve') {
@@ -227,7 +257,7 @@ async function build() {
     }
     // приход по заявке: позиции с выбранной заявкой принимаются через заявку (она закрывается), остальное — пачкой
     let rest = ls;
-    if (op === 'in') {
+    if (op === 'in' && !isReturn) { // возврат со сборки не закрывает заявки на поставку
       const withReq = lines.filter((l) => l.recv?.value() && ls.some((x) => x.materialId === l.it.id));
       for (const l of withReq) {
         const req = l.recv.value(); const n = ls.find((x) => x.materialId === l.it.id).qty;
@@ -241,10 +271,8 @@ async function build() {
     const body = { type: op === 'writeoff' ? 'out' : op, lines: rest, note: text || undefined, clientUid };
     if (op === 'writeoff') { body.writeOff = true; body.reason = reasonSel.value; }
     if (op === 'in') body.documentRef = doc.value.trim() || undefined;
-    if (op === 'out') {
-      Object.assign(body, issueTo.value());
-      if (soSel.value) { const so = splitRef(soSel.value); body.salesOrderId = so.salesOrderId; if (so.salesOrderLineId) body.salesOrderLineId = so.salesOrderLineId; }
-    }
+    if (isReturn) Object.assign(body, retTp.value(), { isReturn: true });
+    if (op === 'out') Object.assign(body, issueTo.value());
     // пересчёт ниже брони — сервер просит подтверждения (409), «Да» — повтор с force
     const r = await api('/stock/batch', { method: 'POST', body }).catch(async (e) => {
       if (!(op === 'count' && e.status === 409 && /брон/i.test(e.message) && (await confirmDlg('Меньше, чем в брони', errText(e), { okText: 'Да, сохранить', danger: true })))) throw e;
@@ -260,7 +288,7 @@ async function build() {
 
   return {
     el,
-    dirty: () => touched,
+    dirty: () => touched || !!issueTo?.dirty() || !!retTp?.dirty(),
     focus: () => pickIn.focus(),
     read: () => ({ values: { save } }),
   };

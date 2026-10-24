@@ -164,12 +164,24 @@ export class SalesOrdersService {
       const pp = await db.collection('productphotos').find({ productId: { $in: need }, photoId: { $ne: null }, deletedAt: null }, { projection: { productId: 1, photoId: 1 } }).sort({ isMain: -1, sortOrder: 1 }).toArray();
       for (const x of pp) if (!byProduct.has(String(x.productId))) byProduct.set(String(x.productId), x.photoId as Types.ObjectId);
     }
-    return lines.map((l) => ({
-      id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
-      productId: l.productId ? String(l.productId) : null,
-      photoId: String(((l.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ?? (l.productId ? byProduct.get(String(l.productId)) : undefined) ?? '') || null,
-      qty: (l.qty as number | undefined) ?? null,
-    }));
+    const photoOf = (l: Doc) => String(((l.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ?? (l.productId ? byProduct.get(String(l.productId)) : undefined) ?? '') || null;
+    // Превью (thumb) — двумя запросами на весь заказ; нет превью — оригинал
+    const pIds = [...new Set(lines.map(photoOf).filter(Boolean) as string[])].map((s) => new Types.ObjectId(s));
+    const [ph, th] = pIds.length ? await Promise.all([
+      db.collection('photos').find({ _id: { $in: pIds } }, { projection: { storageUrl: 1 } }).toArray(),
+      db.collection('photos').find({ parentPhotoId: { $in: pIds }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
+    ]) : [[], []];
+    const url = new Map(ph.map((p) => [String(p._id), String(p.storageUrl)]));
+    for (const p of th) url.set(String(p.parentPhotoId), String(p.storageUrl));
+    return lines.map((l) => {
+      const photoId = photoOf(l);
+      return {
+        id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
+        productId: l.productId ? String(l.productId) : null,
+        photoId, photoThumb: (photoId && url.get(photoId)) || null,
+        qty: (l.qty as number | undefined) ?? null,
+      };
+    });
   }
 
   /** Поля формы → поля схемы; undefined = очистить. companyShort: undefined — компанию не меняли, null — убрали. */

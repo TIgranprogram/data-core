@@ -66,6 +66,20 @@ function addLineRow(r, after) {
   return h('div', { class: 'so-add' }, title, q, unit, btn);
 }
 
+/** «Выдано со склада» по позициям заказа (SK-5b): нетто = выдано − возвращено; позиция — «552-2 · название». */
+function issuedBlock(d, sec) {
+  const by = d.issuedByLine || [];
+  if (!by.length) return '';
+  const lines = d.lines || [];
+  const groups = new Map();
+  for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
+  const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `${d.orderNo || ''}-${lines[i].lineNo || i + 1} · ${lines[i].title}`; };
+  return sec(`Выдано со склада по позициям (${groups.size})`, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', null,
+    h('span', { class: 'tl-line', title: title(k) }, i === 0 ? title(k) : ''), h('span', null, x.materialName || 'позиция'),
+    h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || '')),
+    h('span', { class: 'muted' }, `выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`))))));
+}
+
 function details(r) {
   const box = h('div', null, h('div', { class: 'muted' }, 'Загрузка позиций…'));
   const load = () => api(`/salesorders/${r.id}`).then((d) => {
@@ -86,6 +100,7 @@ function details(r) {
       (d.reservations || []).length ? sec(`Брони на складе (${d.reservations.length})`,
         h('ul', { class: 'timeline' }, ...d.reservations.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
           ` · ${g.lines} поз. · ${g.left ? 'в брони ' + qty(g.left) : 'всё выдано'}${g.issued ? ' · выдано ' + qty(g.issued) : ''}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`))))) : '',
+      issuedBlock(d, sec),
       sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
         ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
         : h('p', { class: 'muted' }, 'Списаний под заказ нет. На «Складе» → «Выдать» выберите этот заказ.')));

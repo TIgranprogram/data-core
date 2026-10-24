@@ -13,6 +13,7 @@ import { orderedBlock, orderItem, receiveField } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/errors.js';
 import { openStockOp } from './stock-ops.js';
+import { targetNote } from '../ui/target-picker.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -138,7 +139,7 @@ function recentMoves(r) {
     ul.replaceChildren(...res.items.map((m) => h('li', null,
       h('span', { class: 'when' }, date(m.date)), h('span', null, HIST[m.type] || m.type),
       h('span', { class: 'num ' + (m.type === 'in' ? 'pos' : m.type === 'out' ? 'neg' : '') }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
-      h('span', { class: 'muted', style: { flex: '1' } }, m.note || ''))));
+      h('span', { class: 'muted', style: { flex: '1' } }, targetNote(m), targetNote(m) && m.note ? ' · ' : '', m.note || ''))));
     more.replaceChildren(...[
       !full && res.total > res.items.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async (e) => {
         const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');

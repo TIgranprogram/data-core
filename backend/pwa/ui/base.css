@@ -1172,3 +1172,16 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
   .sop-lines .ops-diff { white-space: normal; text-align: left; }
   .menu button { min-height: 44px; }
 }
+
+/* «Кому / под что» при выдаче (SK-5b, ui/target-picker.js): сегменты .fseg → заказ (.pp-prod-list с картинками) / сотрудник / текст */
+.tp { display: grid; gap: var(--s2); min-width: 0; }
+.tp-label { display: block; margin-bottom: 4px; font-size: var(--fs-sm); color: var(--muted); }
+.tp-panel { display: grid; gap: var(--s2); min-width: 0; }
+.tp-panel[hidden], .tp-ret[hidden] { display: none; }
+.tp-sel { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-width: 0; }
+.tp-line-sel { margin-top: var(--s2); padding: var(--s2) var(--s3); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: var(--radius-sm); background: var(--surface); }
+.tp-who { margin-top: var(--s2); }
+.tp-ret { margin-top: var(--s2); }
+.tn { color: var(--text); }
+.timeline li .tl-line { flex: 0 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--heading); }
+@media (max-width: 720px) { .tp-sel { flex-wrap: wrap; } }

@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { date, dateTime, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
+import { targetNote, targetShort } from '../ui/target-picker.js';
 import { toast, toastError } from '../ui/toast.js';
 
 /** Раздел «Движения» (PRODUCT §2): журнал приходов/списаний по всем позициям, отмена ошибочного движения. */
@@ -71,13 +72,13 @@ export const movements = {
       { key: 'materialName', label: 'Позиция', cls: 'clip', render: (m) => h('span', { title: m.materialName }, m.materialName) },
       { key: 'type', label: 'Операция', sort: 'type', cls: 'nowrap', render: (m) => h('span', null, typeBadge(m), m.cancelledAt ? h('span', { class: 'badge dim', style: { marginLeft: '4px' } }, 'отменено') : null) },
       { key: 'delta', label: 'Кол-во', cls: 'right', render: deltaCell },
-      { key: 'issuedTo', label: 'Кому выдано', cls: 'clip md-hide', render: (m) => h('span', { title: m.issuedTo || '' }, m.issuedTo || '') },
+      { key: 'issuedTo', label: 'Кому / под что', cls: 'clip md-hide', render: (m) => { const tn = targetNote(m); return h('span', { title: m.issuedTo || '' }, tn, tn && m.issuedTo ? ' · ' : '', m.issuedTo || ''); } },
       { key: 'note', label: 'Примечание', cls: 'clip md-hide', render: (m) => h('span', { title: m.note || '' }, m.note || '') },
       { key: 'createdBy', label: 'Кто', cls: 'nowrap', render: (m) => m.createdBy || (m.fromSheet ? 'из таблицы' : '') },
     ],
     card: {
       title: (m) => m.materialName,
-      sub: (m) => [date(m.date), moveLabel(m), m.issuedTo && 'кому: ' + m.issuedTo, m.note].filter(Boolean).join(' · '),
+      sub: (m) => [date(m.date), moveLabel(m), targetShort(m), m.issuedTo && 'кому: ' + m.issuedTo, m.note].filter(Boolean).join(' · '),
       side: (m) => [deltaCell(m), m.cancelledAt ? h('span', { class: 'badge dim' }, 'отменено') : null],
     },
   },
@@ -90,6 +91,7 @@ export const movements = {
       ['Количество', deltaCell(m)],
       ['Остаток', m.qtyBefore != null ? `${qty(m.qtyBefore)} → ${qty(m.qtyAfter)}` : ''], // ФИ.5: было → стало
       ['Позиция', h('a', { href: '#stock?open=' + m.materialId, title: 'Открыть позицию склада' }, m.materialName + ' →')],
+      ['Под что', targetNote(m)],
       ['Кому выдано', m.issuedTo],
       ['По брони', m.reservationId ? h('a', { href: '#ops?mode=reserve' }, 'выдано по брони — брони →') : ''],
       ['Под заказ', m.salesOrderId ? h('a', { href: '#salesorders?open=' + m.salesOrderId }, 'открыть заказ →') : ''],

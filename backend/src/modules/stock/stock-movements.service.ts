@@ -329,7 +329,10 @@ export class StockMovementsService {
       this.reservations.find({ materialId: matId, deletedAt: null }).sort({ createdAt: -1 }).limit(200).lean().exec(),
     ]);
     const items = [
-      ...mv.map((m) => ({ kind: 'movement', type: m.type, qty: m.qty, date: m.date, note: m.notes ?? (m.documentRef?.startsWith('ADJUST:') ? m.documentRef.slice(7) : m.documentRef), source: (m as { source?: string }).source })),
+      ...mv.map((m) => ({ kind: 'movement', type: m.type, qty: m.qty, date: m.date, note: m.notes ?? (m.documentRef?.startsWith('ADJUST:') ? m.documentRef.slice(7) : m.documentRef), source: (m as { source?: string }).source,
+        // «под что» для подписи в карточке позиции (SK-5): как в журнале движений
+        salesOrderId: m.salesOrderId ? String(m.salesOrderId) : null, salesOrderLineId: m.salesOrderLineId ? String(m.salesOrderLineId) : null,
+        isReturn: !!(m as { isReturn?: boolean }).isReturn, reason: (m as { reason?: string }).reason ?? null, issuedTo: m.issuedTo ?? null })),
       ...rs.map((r) => ({ kind: 'reservation', type: r.status === 'released' && r.isActive === false && /снят/i.test(r.notes ?? r.orderId) ? 'unreserve' : 'reserve', status: r.status, qty: r.qty, date: (r as { createdAt?: Date }).createdAt, note: r.notes ?? r.orderId })),
     ].sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime());
     // limit (1–200) — только последние N записей (карточка позиции: 5); total — всего
