@@ -114,7 +114,8 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   // «Готовность к выпуску»
   let timer; let seq = 0;
   const json = (k) => { try { return JSON.parse(api.get(k) || '[]') || []; } catch { return []; } };
-  const goTo = (key) => {
+  const goTo = (key0) => {
+    const key = key0 === 'materialIds' && api.field('_mspec') ? '_mspec' : key0; // МИ.4: метки материалов — из таблицы
     api.open(key);
     const fld = api.field(key); if (!fld) return;
     fld.scrollIntoView({ behavior: 'smooth', block: 'center' });

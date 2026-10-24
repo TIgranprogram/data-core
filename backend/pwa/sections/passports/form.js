@@ -11,6 +11,8 @@ import { AFTER_PRINT, BOM_COLS, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDesc
 import { models, orders, phrases } from './models.js';
 import { productBlock } from './product-block.js';
 import { wireForm } from './wire-form.js';
+import { materialsFields } from './materials.js';
+import { loadMaterialDicts } from '../../ui/materials-spec.js';
 
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
 /** ТЭ: все тексты справочника «Готовые тексты паспорта» (для пометки «изменено вручную»); заполняется при сборке формы. */
@@ -45,7 +47,12 @@ export function v2Body(v) {
 export const passportForm = {
   fields: async (r) => {
     const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
-    const [els, mats, inst, catRows, stdRows, phraseRows] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), dictRows('passportPhrases')]);
+    const [els, mats, inst, catRows, stdRows, phraseRows, md] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), dictRows('passportPhrases'), loadMaterialDicts()]);
+    // МИ.4: выпущенный (без «Новой редакции») — как был: метки и свободный текст; невыпущенный — таблица и собранный текст
+    const legacy = !!r && isIssued(r) && st.revisionFor !== r.id;
+    const ctx = { cat: () => '', ms: null, api: null };
+    const materialsText = { key: 'materials', label: legacy ? 'Материалы («изготовленное из …»)' : 'Материалы — текст «изготовлено из…»', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' },
+      hint: legacy ? undefined : 'Собирается из таблицы выше; можно поправить вручную — таблица правку не перетрёт' };
     // ТЭ: «Назначение» и «Установка» — только эталонные тексты справочника для категории паспорта
     PHRASE_TEXTS.clear(); for (const x of phraseRows) PHRASE_TEXTS.add(String(x.text || '').trim());
     const phraseOpts = (section) => (get) => { const cat = get('passportCategory'); return phraseRows.filter((x) => x.section === section && (!cat || codeList(x.categories).includes(cat))).map((x) => ({ value: x.text, label: x.text, sub: x.name })); };
@@ -64,7 +71,8 @@ export const passportForm = {
         mount: (api) => wireForm(api, { r, w, catBy, stdName, inst }) },
       { key: '_std', label: 'Нормативы категории', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
       { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => (w.el = tagPick({ options: els, value: v, label: 'Функциональные элементы' })) },
-      { key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => (w.mat = tagPick({ options: mats, value: v, label: 'Материалы' })) },
+      ...(legacy ? [{ key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => (w.mat = tagPick({ options: mats, value: v, label: 'Материалы' })) }]
+        : [...materialsFields({ r, md, ctx }), materialsText]),
       { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
       { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
@@ -106,7 +114,7 @@ export const passportForm = {
       { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })), hint: 'Реквизиты, печать и подпись в PDF — из карточки компании' },
       { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
       { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
-      { key: 'materials', label: 'Материалы («изготовленное из …»)', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' } },
+      ...(legacy ? [materialsText] : []),
       { key: '_manualText', label: 'Свой текст для этого паспорта', type: 'segment', options: [{ value: 'no', label: 'Нет — из справочника' }, { value: 'yes', label: 'Да — изменено вручную' }], wide: true,
         hint: 'Только если готового текста нет: паспорт будет помечен «изменено вручную». Новую формулировку лучше добавить в «Справочники → Паспорта → Готовые тексты паспорта»' },
       { key: 'installationMethod', label: 'Установка', type: 'combo', wide: true, max: 1000, options: phraseOpts('installation'), strict: (get) => get('_manualText') !== 'yes', strictText: 'Выберите текст из справочника или включите «Свой текст для этого паспорта»', hint: 'Подставляется по способу установки; список — только для категории паспорта' },

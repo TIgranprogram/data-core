@@ -107,12 +107,16 @@ export async function applyProduct(api, p, catBy) {
   if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: 'из изделия' });
   for (const k of ['elements', 'materialIds']) put(k, (d[k] || []).map(String), 'из изделия');
   put('installationTypeId', d.installationTypeId ? String(d.installationTypeId) : '', 'из изделия');
+  // МИ.4: таблица материалов изделия → таблица паспорта (метки и текст соберутся из неё); правленную вручную не трогаем
+  const ms = api.input('_mspec');
+  const spec = full.materialsSpec && (full.materialsSpec.rows?.length || full.materialsSpec.coatingIds?.length) ? full.materialsSpec : null;
+  if (ms && spec && (ms.isEmpty() || !api.manual('_mspec'))) api.set('_mspec', JSON.stringify(spec), { auto: true, src: 'из изделия' });
   if (typeof d.isKit === 'boolean') put('isKit', d.isKit ? 'yes' : 'no', 'из изделия');
   for (const k of [...V2_NUMS.map(([x]) => x), 'warrantyMonths']) put(k, d[k] !== undefined ? num(d[k]) : '', 'из изделия');
   // 4. последний паспорт этого изделия — запасной: только в пустое; картинки по видам — через _copyFrom (wireForm)
   const last = (await models().catch(() => [])).find((m) => m.productId === p.id);
   if (last) {
-    for (const [k, v] of Object.entries(last.values)) if (!['name', 'article', 'passportCategory', '_copyFrom', 'bom'].includes(k)) put(k, v, 'из прошлого паспорта', { onlyEmpty: true });
+    for (const [k, v] of Object.entries(last.values)) if (!['name', 'article', 'passportCategory', '_copyFrom', 'bom', ...(ms && spec ? ['materials', 'materialIds'] : [])].includes(k)) put(k, v, 'из прошлого паспорта', { onlyEmpty: true });
     api.set('_copyFrom', last.values._copyFrom);
   }
   void catBy;
