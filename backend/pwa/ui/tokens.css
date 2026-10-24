@@ -29,7 +29,8 @@
   --shadow-sm: 0 1px 2px rgba(20, 26, 38, .08);
   --shadow-lg: 0 12px 40px rgba(20, 26, 38, .16), 0 0 0 1px rgba(210, 170, 60, .14);
   --gutter: 32px;
-  --sidebar-w: 248px;
+  --sidebar-w: 248px; /* ШП: ширина пользователя — на <html> из core/prefs.js */
+  --sidebar-icons-w: 72px; /* меню иконками, 721–1100 px */
   --topbar-h: 64px;
 
   /* бумага */

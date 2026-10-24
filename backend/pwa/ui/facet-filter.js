@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { facetValues, FACETS, index, pick } from '../core/facets.js';
 import { searchBox } from './searchbox.js';
+import { makeResizable } from './resizer.js';
 
 /**
  * «Фильтры» по признакам из названий (тип / резьба / длина / стандарт) — как в «Операциях», для списка «Остатки».
@@ -38,6 +39,7 @@ export function facetFilter({ categoryKey = 'categoryId' } = {}) {
     h('div', { class: 'ff-head', tabindex: '-1' }, h('b', {}, 'Поиск и фильтры'), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'Закрыть', onclick: () => close() }, '×')),
     h('div', { class: 'ff-find' }, sb.el), body,
     h('div', { class: 'ff-foot' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ ft: undefined, page: undefined }) }, 'Сбросить признаки'), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => close() }, 'Готово')));
+  makeResizable(pop, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' }); // ШП
   const shade = h('div', { class: 'ff-shade', hidden: true, onclick: () => close() });
   const el = h('div', { class: 'ff' }, btn, tags, shade, pop);
   const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };

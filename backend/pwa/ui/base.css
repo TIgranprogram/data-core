@@ -50,7 +50,7 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); margin: 0
 .side-back { display: none; }
 
 @media (max-width: 1100px) {
-  .shell { grid-template-columns: 72px minmax(0, 1fr); }
+  .shell { grid-template-columns: var(--sidebar-icons-w) minmax(0, 1fr); }
   .sidebar { padding: 16px 10px; }
   .brand span, .side-group, .side-link .lbl, .side-link .cnt, .side-user .who { display: none; }
   .brand { justify-content: center; padding: 6px 0 18px; }
@@ -214,7 +214,7 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 
 /* ---------- Карточка (боковая панель) ---------- */
 .drawer-back { position: fixed; inset: 0; background: rgba(16, 20, 28, .32); z-index: 40; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--surface); z-index: 41; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: var(--detail-over, min(760px, 100%)); background: var(--surface); z-index: 41; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
 .drawer-head { display: flex; align-items: flex-start; gap: var(--s2); padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
 .drawer-head .t { flex: 1; min-width: 0; }
 .drawer-head h2 { overflow-wrap: anywhere; }
@@ -781,7 +781,7 @@ html { scrollbar-gutter: stable; }
 .ff-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .ff-tag { height: 28px; }
 .ff-btn { height: 44px; padding: 0 20px; font-size: 15px; font-weight: 600; gap: 8px; }
-.ff-pop { position: fixed; z-index: 39; top: 0; bottom: 0; left: var(--sidebar-w); width: 340px; max-width: 100vw; background: var(--surface); border-right: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+.ff-pop { position: fixed; z-index: 39; top: 0; bottom: 0; left: var(--sidebar-w); width: var(--filter-w, 340px); max-width: 100vw; background: var(--surface); border-right: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
 .ff-pop[hidden], .ff-shade[hidden] { display: none; }
 .ff-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .ff-find { padding: 12px 16px 4px; }
@@ -798,7 +798,7 @@ html { scrollbar-gutter: stable; }
 .ff-head:focus { outline: none; }
 .ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding: 10px 16px; }
 .ff-shade { position: fixed; inset: 0; z-index: 38; background: transparent; } /* компьютер: прозрачный — клик мимо закрывает */
-@media (max-width: 1100px) { .ff-pop { left: 72px; } }
+@media (max-width: 1100px) { .ff-pop { left: var(--sidebar-icons-w); } }
 @media (max-width: 720px) {
   .ff-pop { left: 0; width: min(340px, 88vw); animation: ff-in .18s ease; }
   .ff-shade { background: rgba(16, 20, 28, .4); }
@@ -1216,3 +1216,20 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .oi-qty.invalid { border-color: var(--danger); }
 .oi-msg:empty { display: none; }
 .oi-sum { margin: var(--s3) 0; font-weight: 600; color: var(--heading); }
+
+/* ШП (2026-10-24): ручка ширины боковой панели (ui/resizer.js) — меню, правая панель, фильтры.
+ * Ширины пользователя — CSS-переменные на <html> (core/prefs.js): --sidebar-w, --detail-w (пристыкована), --detail-over (поверх), --filter-w. */
+.resizer { position: absolute; top: 0; bottom: 0; width: 8px; z-index: 5; cursor: col-resize; touch-action: none; }
+.resizer.rz-right { right: 0; }
+.resizer.rz-left { left: 0; }
+.resizer::after { content: ''; position: absolute; top: 0; bottom: 0; width: 1px; background: transparent; }
+.rz-right::after { right: 0; }
+.rz-left::after { left: 0; }
+.sidebar > .resizer::after { background: var(--border); } /* у правой панели и фильтров линия — их собственная граница */
+.resizer:hover::after, .resizer.is-active::after, .resizer:focus-visible::after { width: 2px; background: var(--primary); }
+.sidebar > .resizer:hover::after, .sidebar > .resizer.is-active::after, .sidebar > .resizer:focus-visible::after { background: var(--gold); }
+.resizer:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+body.is-resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+body.is-resizing * { transition: none !important; cursor: col-resize !important; }
+@media (max-width: 1100px) { .sidebar > .resizer { display: none; } }
+@media (max-width: 720px) { .resizer { display: none; } }

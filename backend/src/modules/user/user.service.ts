@@ -243,14 +243,17 @@ export class UserService {
    * `uiPrefs.<ключ>` (не целым объектом): запись с одного ПК не стирает ключи,
    * сохранённые с другого. Пустой набор — ничего не пишет. Возвращает итоговые uiPrefs.
    */
-  async setUiPrefs(id: string, prefs: UiPrefs): Promise<UiPrefs> {
+  async setUiPrefs(id: string, prefs: { [K in keyof UiPrefs]?: number | null }): Promise<UiPrefs> {
     const $set: Record<string, number> = {};
+    const $unset: Record<string, ''> = {};
     for (const key of UI_PREF_KEYS) {
       const v = prefs[key];
       if (typeof v === 'number') $set[`uiPrefs.${key}`] = v;
+      else if (v === null) $unset[`uiPrefs.${key}`] = ''; // сброс к стандарту (двойной щелчок по ручке)
     }
-    const q = Object.keys($set).length
-      ? this.model.findOneAndUpdate({ _id: id }, { $set }, { new: true })
+    const update = { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) };
+    const q = Object.keys(update).length
+      ? this.model.findOneAndUpdate({ _id: id }, update, { new: true })
       : this.model.findById(id);
     const doc = await q.select('uiPrefs').lean<{ uiPrefs?: UiPrefs } | null>().exec();
     if (!doc) throw new NotFoundException(`User ${id} not found`);

@@ -105,13 +105,17 @@ function fakeUserModel(initial: Record<string, unknown>) {
   return {
     doc,
     updates,
-    findOneAndUpdate: (_f: unknown, update: { $set: Record<string, unknown> }) => {
+    findOneAndUpdate: (_f: unknown, update: { $set?: Record<string, unknown>; $unset?: Record<string, unknown> }) => {
       updates.push(update);
-      for (const [path, v] of Object.entries(update.$set)) {
+      for (const [path, v] of Object.entries(update.$set ?? {})) {
         const [head, key] = path.split('.');
         const sub = (doc[head] as Record<string, unknown> | undefined) ?? {};
         sub[key] = v;
         doc[head] = sub;
+      }
+      for (const path of Object.keys(update.$unset ?? {})) {
+        const [head, key] = path.split('.');
+        delete ((doc[head] as Record<string, unknown> | undefined) ?? {})[key];
       }
       return chain();
     },
@@ -134,6 +138,12 @@ describe('UserService.setUiPrefs (ШП-1)', () => {
     const svc = svcWith(model);
     expect(await svc.setUiPrefs('u1', { detailW: 700 })).toEqual({ detailW: 700 });
     expect(await svc.setUiPrefs('u1', { sidebarW: 300 })).toEqual({ detailW: 700, sidebarW: 300 });
+  });
+
+  it('null — сброс ключа ($unset), другие ключи остаются', async () => {
+    const model = fakeUserModel({ uiPrefs: { detailW: 700, sidebarW: 300 } });
+    expect(await svcWith(model).setUiPrefs('u1', { detailW: null })).toEqual({ sidebarW: 300 });
+    expect(model.updates).toEqual([{ $unset: { 'uiPrefs.detailW': '' } }]);
   });
 
   it('пустое тело — без записи, отдаёт текущие (нет поля → {})', async () => {

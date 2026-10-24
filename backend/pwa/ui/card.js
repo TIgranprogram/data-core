@@ -7,6 +7,8 @@ import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
 import { errText } from './errors.js';
+import { makeResizable } from './resizer.js';
+import { DOCK_MIN } from '../core/prefs.js';
 
 /**
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
@@ -23,7 +25,6 @@ import { errText } from './errors.js';
  * На широком экране (≥ DOCK_MIN) карточка «пристыкована» справа рядом со списком: без затемнения, список виден и кликается.
  * load(id) — показать другую запись в той же панели (стрелки ↑/↓ в списке), без закрытия-открытия.
  */
-export const DOCK_MIN = 1400;
 
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
 function gallery(pics, onRemove) {
@@ -54,6 +55,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     h('div', { class: 'drawer-head' }, h('div', { class: 't' }, titleEl, subEl), menuBox,
       h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot);
+  makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
   const back = h('div', { class: 'drawer-back', onclick: () => tryClose() });
   const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-back')) tryClose(); };
   const applyDock = () => { const d = docked(); drawer.classList.toggle('docked', d); back.hidden = d; drawer.setAttribute('aria-modal', d ? 'false' : 'true'); document.body.classList.toggle('detail-open', d); };

@@ -39,6 +39,8 @@ import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
 import { bulkEdit } from './sections/bulk-edit.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
+import { serverPrefs, startPrefs } from './core/prefs.js';
+import { makeResizable } from './ui/resizer.js';
 // ОШ: любая необработанная ошибка — понятным русским текстом (детали — в консоль), без повторов
 installGlobalErrors(toastError);
 
@@ -66,7 +68,7 @@ function showLogin(message) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     btn.disabled = true; btn.textContent = 'Вход…'; err.hidden = true;
-    try { await login(user.value.trim(), pass.value); showApp(); }
+    try { await login(user.value.trim(), pass.value); showApp(); serverPrefs(session.user?.uiPrefs); }
     catch (ex) { err.textContent = ex.message; err.hidden = false; btn.disabled = false; btn.textContent = 'Войти'; pass.select(); }
   });
   root.replaceChildren(h('div', { class: 'login' },
@@ -178,6 +180,7 @@ function shell() {
       backBtn, fwdBtn),
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')));
   const main = h('main', { class: 'page', id: 'page' });
+  makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
     h('div', { class: 'main' }, topbar, netBar, main));
   root.replaceChildren(shellEl);
@@ -323,6 +326,7 @@ function syncCard(section, params) {
 }
 
 async function showApp() {
+  startPrefs(session.user); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
   ui = shell();
   mounted = null; card = null;
   render(current());
@@ -332,6 +336,7 @@ async function showApp() {
     if (!(me?.id || me?.username)) return;
     const was = JSON.stringify(session.user?.sections ?? null);
     session.user = { ...session.user, ...me };
+    serverPrefs(me.uiPrefs); // ШП: с сервера перекрывают локальные (с другого ПК)
     if (JSON.stringify(session.user?.sections ?? null) !== was) { closeCard(); ui = shell(); mounted = null; render(current()); }
   }).catch(() => {});
 }
