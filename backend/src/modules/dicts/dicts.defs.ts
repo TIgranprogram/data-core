@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
 import { passportPhrasesDef } from './dicts.passport-phrases';
+import { productGroupDefs } from './dicts.product-groups';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -348,6 +349,7 @@ export const DICTS: DictDef[] = [
     fromName: async (name, db) => (DICTS[0].toDoc({ name }, true, db)),
     options: (docs) => docs.map((d) => s(d.name)),
   },
+  ...productGroupDefs({ translit }),
   {
     key: 'units', group: 'Склад и позиции', title: 'Единицы измерения',
     hint: 'Единицы в заявках, на складе и в заказах: «шт», «м», «лист»… Сокращение — то, что видно в строках.',
@@ -753,6 +755,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
+  productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
   passportStyle: { newTitle: 'Новый элемент оформления' },
 };
 /** Поля справочника с подписью «Название» из DICT_UI. */

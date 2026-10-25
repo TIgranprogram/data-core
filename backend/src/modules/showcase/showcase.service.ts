@@ -19,7 +19,7 @@ import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { ShowcaseMaterials } from './showcase-materials';
-import { groupNoOf, nextSku } from './showcase-sku';
+import { groupNoOf, nextSku, skuOfGroup, skuPrefixError } from './showcase-sku';
 import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
@@ -269,7 +269,7 @@ export class ShowcaseService {
       // без артикула: группа с номером (categories.groupNo) → автоартикул; иначе обязателен ручной
       const gid = dto.group ? await this.category(dto.group as string, await this.category(dto.type as string, null)) : null;
       const auto = await nextSku(this.db, this.counter, gid);
-      if (!auto) throw new BadRequestException('Укажите артикул (у выбранной группы нет номера для автоартикула)');
+      if (!auto) throw new BadRequestException('Укажите артикул или задайте группе номер: Справочники → Группы изделий');
       sku = auto.sku; skuWarning = auto.warning;
     }
     // дубль — и с другим регистром, похожими буквами (KC-01 = КС-01), лишними пробелами; в т. ч. в корзине и у изделий CRM
@@ -294,7 +294,7 @@ export class ShowcaseService {
     if (!d) throw new NotFoundException('Изделие не найдено');
     const g = await groupNoOf(this.db, (d.categoryId as Types.ObjectId | null) ?? null);
     if (!g) throw new BadRequestException('У группы изделия нет номера — задайте его в справочнике групп');
-    if (new RegExp('^' + g.groupNo + '\d{2}$').test(clean(d.sku))) return { id, sku: String(d.sku), changed: false, passports: 0 };
+    if (skuOfGroup(g.groupNo).test(clean(d.sku))) return { id, sku: String(d.sku), changed: false, passports: 0 };
     const passports = await this.db.collection('productpassports').countDocuments({ deletedAt: null, productId: _id });
     if (!confirm) return { id, sku: String(d.sku), changed: false, passports, confirmRequired: true, warning: passports ? `Артикул изменится у изделия, выпущено паспортов: ${passports}` : 'Артикул изменится' };
     const auto = (await nextSku(this.db, this.counter, d.categoryId as Types.ObjectId))!;
@@ -326,6 +326,13 @@ export class ShowcaseService {
     const set = await this.fields(dto);
     if (dto.sku !== undefined) {
       const sku = clean(dto.sku); if (!sku) throw new BadRequestException('Артикул не может быть пустым');
+      // замок префикса: у группы есть номер — меняется только хвост из двух цифр (тот же артикул, что уже у изделия, не трогаем: форма шлёт его целиком)
+      const cur = await this.db.collection('products').findOne({ _id }, { projection: { sku: 1, categoryId: 1 } });
+      if (cur && skuKey(cur.sku) !== skuKey(sku)) {
+        const g = await groupNoOf(this.db, ((set.categoryId ?? cur.categoryId) as Types.ObjectId | null) ?? null);
+        const bad = g && skuPrefixError(g.groupNo, sku);
+        if (bad) throw new BadRequestException(bad);
+      }
       const dup = await this.db.collection('products').findOne({ _id: { $ne: _id }, sku: skuRegex(sku) }, { projection: { sku: 1, name: 1 } });
       if (dup) throw new ConflictException(`Артикул ${dup.sku} уже у другого изделия: «${dup.name ?? ''}»`);
       set.sku = sku;

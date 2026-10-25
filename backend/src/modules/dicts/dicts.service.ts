@@ -56,6 +56,13 @@ export class DictsService {
     return { ...d.row(doc), id, _id: id, dict: d.key, used, updatedAt: doc.updatedAt ?? null };
   }
 
+  /** Для полей-ссылок (select + ref): рядом с id — название (workTypeId → workTypeName, parentId → parentName). */
+  private refNames<T extends Record<string, unknown>>(d: DictDef, row: T, refs: Record<string, { value: string; label: string }[]>): T {
+    const out: Record<string, unknown> = { ...row };
+    for (const f of d.fields) if (typeof f.ref === 'string' && row[f.key] !== undefined) out[f.key.replace(/Id$/, '') + 'Name'] = refs[f.ref]?.find((r) => r.value === String(row[f.key]))?.label ?? '';
+    return out as T;
+  }
+
   /** Группы и справочники со счётчиками — левая колонка экрана. */
   async groups() {
     const out: { group: string; items: { key: string; title: string; hint: string; count: number }[] }[] = [];
@@ -81,7 +88,7 @@ export class DictsService {
     const refs: Record<string, { value: string; label: string }[]> = {};
     for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
     const items = docs.map((x) => this.item(d, x, used.get(String(x._id)) ?? 0) as Record<string, unknown>)
-      .map((x) => ({ ...x, ...(x.workTypeId !== undefined ? { workTypeName: refs.worktypes?.find((r) => r.value === String(x.workTypeId))?.label ?? '' } : {}) }))
+      .map((x) => this.refNames(d, x, refs))
       .filter((x) => matchesAll(tk, ...Object.values(x).filter((v) => typeof v === 'string' || typeof v === 'number')))
       .sort((a, b) => String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru'));
     await this.attachPhotos(d, items);
@@ -95,8 +102,7 @@ export class DictsService {
     const related = await d.related(this.db, doc);
     const base = (await this.list(key)).dict;
     const row = this.item(d, doc, used) as Record<string, unknown>;
-    if (row.workTypeId !== undefined) row.workTypeName = base.refs.worktypes?.find((r) => r.value === row.workTypeId)?.label ?? '';
-    if (row.payoutScheduleId !== undefined) row.payoutScheduleName = base.refs.payoutSchedules?.find((r) => r.value === row.payoutScheduleId)?.label ?? '';
+    Object.assign(row, this.refNames(d, row, base.refs));
     await this.attachPhotos(d, [row]);
     return { ...row, related, dictInfo: { title: d.title, fields: uiFields(d), refs: base.refs } };
   }

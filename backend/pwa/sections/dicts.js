@@ -292,10 +292,10 @@ export const dict = {
         widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }
         : f.ref?.dict ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '',
           widget: (v) => refChipsField(refOpts[f.key] || [], { label: f.label, value: v, multiple: f.ref.multiple !== false }) }
-        : f.lockAfterCreate && !isNew ? { key: f.key, label: f.label, type: 'widget', hint: 'Не меняется: на него ссылаются тексты и изделия', summary: () => '',
+        : f.lockAfterCreate && !isNew && (f.key === 'code' || r[f.key]) ? { key: f.key, label: f.label, type: 'widget', hint: f.key === 'code' ? 'Не меняется: на него ссылаются тексты и изделия' : 'Не меняется: ' + (f.hint || 'на него ссылаются изделия'), summary: () => '',
           widget: (v) => ({ el: h('span', { class: 'muted' }, String(v ?? '')), get value() { return JSON.stringify(String(v ?? '')); }, set value(x) { void x; }, focus() {} }) }
         : {
-        key: f.key, label: f.label, required: !!f.required && !(f.lockAfterCreate && isNew), wide: !!f.wide, hint: f.lockAfterCreate && isNew ? 'Заполнится само из названия' : f.hint, max: 300,
+        key: f.key, label: f.label, required: !!f.required && !(f.key === 'code' && f.lockAfterCreate && isNew), wide: !!f.wide, hint: f.key === 'code' && f.lockAfterCreate && isNew ? 'Заполнится само из названия' : f.hint, max: 300,
         ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этой категории не выдаётся' } : {}),
         type: f.key === 'requiredImages' ? 'widget' : isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
         money: f.type === 'money',

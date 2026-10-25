@@ -36,3 +36,11 @@ export async function nextSku(db: Db, counter: CounterService, groupId: Types.Ob
   }
   throw full();
 }
+
+/** Артикул группы с номером: ровно номер группы + две цифры (1280). */
+export const skuOfGroup = (groupNo: string) => new RegExp(`^${groupNo}[0-9]{2}$`);
+
+/** Замок префикса: у группы есть номер — вручную правятся только две последние цифры. Текст ошибки или null. */
+export function skuPrefixError(groupNo: string, sku: string): string | null {
+  return skuOfGroup(groupNo).test(sku) ? null : `Номер группы ${groupNo} менять нельзя — правьте только последние две цифры артикула (${groupNo}__)`;
+}
