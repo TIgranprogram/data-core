@@ -1172,7 +1172,8 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
         idle: '',
       };
       const line = el('p', st.state === 'failed' ? 'error' : 'muted', MSG[st.state] || '');
-      const parts = [el('div', 'srv-btns', btn), line];
+      const wrap = el('div', 'srv-btns'); wrap.append(btn);
+      const parts = [wrap, line];
       if (st.state === 'failed' && st.error) parts.push(el('pre', 'mono small', st.error));
       parts.push(el('p', 'muted', 'Сборка занимает несколько минут; кнопка «Собрать» просит хост, поэтому после нажатия подождите до минуты.'));
       if (d.items.length) {
