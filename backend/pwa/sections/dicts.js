@@ -361,10 +361,13 @@ export const dict = {
         placeholder: f.type === 'color' ? '#2e7d32' : undefined,
         options: f.type === 'select' ? (f.options || info.refs?.[f.ref] || []) : undefined,
       });
+      // поля, которые после создания не меняются (код элемента и т. п.), — не поля формы: тихой строкой внизу, текстом
+      const isFixed = (f) => f.lockAfterCreate && !isNew && (f.key === 'code' || r[f.key]);
+      const fixedLine = info.fields.filter(isFixed).map((f) => ({ note: `${f.key === 'code' ? 'Код элемента' : f.label}: ${String(r[f.key] ?? '')}` }));
       // служебные поля (tech) — внизу, в свёрнутом блоке; остальные — сверху в порядке описания
-      const main = [...(usageField ? [usageField] : []), ...info.fields.filter((f) => !f.tech).map(one)];
-      const tech = info.fields.filter((f) => f.tech).map(one);
-      return tech.length ? [...main, { section: 'Для настройки (менять редко)', tone: 'info', collapsed: true }, { note: 'Коды связывают записи между собой — меняйте, только если понимаете, на что они ссылаются' }, ...tech] : main;
+      const main = [...(usageField ? [usageField] : []), ...info.fields.filter((f) => !f.tech && !isFixed(f)).map(one)];
+      const tech = info.fields.filter((f) => f.tech && !isFixed(f)).map(one);
+      return [...main, ...(tech.length ? [{ section: 'Дополнительно', tone: 'info', collapsed: true }, { note: 'Меняется редко — только если точно знаете, зачем. Пояснение — под полем.' }, ...tech] : []), ...fixedLine];
     },
     initial: () => (dictKey() === 'persons' ? { status: 'active' } : {}),
     // картинки (БЗ-6 Э9.7): в форме — загрузка/вставка как везде; в базе — id фото (photo — один, photos — список)
