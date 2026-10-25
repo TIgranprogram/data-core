@@ -14,6 +14,13 @@ import { SupplierCatalogService } from './supplier-catalog.service';
 export class SupplierCatalogController {
   constructor(private readonly service: SupplierCatalogService) {}
 
+  @Get('suppliers')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiOperation({ summary: 'Поставщики с позициями в каталоге' })
+  async getSuppliers() {
+    return this.service.getSuppliers();
+  }
+
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
   @ApiOperation({ summary: 'Список позиций поставщика' })

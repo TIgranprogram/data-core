@@ -38,7 +38,7 @@ export const supplierCatalog = {
       key: 'supplierId',
       title: 'Поставщики',
       load: async () => {
-        const resp = await api('/partners', { query: { type: 'supplier', limit: 100 } });
+        const resp = await api('/supplier-catalog/suppliers');
         for (const s of resp.items || []) _supplierNames.set(String(s.id), s.name);
         return (resp.items || []).map((s) => ({ value: s.id, label: s.name }));
       },

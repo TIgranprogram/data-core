@@ -249,7 +249,7 @@ export const partners = {
       { key: 'phone', label: 'Телефон', max: 50 },
       { key: 'email', label: 'Почта', max: 200 },
       { key: 'website', label: 'Сайт', max: 300 },
-      ...(r?.kind === 'supplier' ? [{ key: 'catalogUrl', label: 'URL каталога для синхронизации', max: 500, wide: true, placeholder: 'https://zaglushka.ru/opora', hint: 'Адрес страницы категории или каталога поставщика' }] : []),
+      ...(r?.kind === 'supplier' ? [{ key: 'catalogUrl', label: 'URL каталога для синхронизации', max: 500, wide: true, placeholder: 'https://zaglushka.ru/opora', hint: 'Поддерживаемые сайты: zaglushka.ru. Другие — ошибка при синхронизации.' }] : []),
       { key: 'contactName', label: 'Контактное лицо', max: 200 },
       { key: 'contactPhone', label: 'Телефон контакта', max: 50 },
       { section: 'Банк и примечание', tone: 'money', collapsed: true },

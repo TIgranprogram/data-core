@@ -119,6 +119,20 @@ export class SupplierCatalogService {
     };
   }
 
+  async getSuppliers(): Promise<{ items: { id: string; name: string }[] }> {
+    const ids = await this.itemModel.distinct('supplierId', { active: true }).exec();
+    if (!ids.length) return { items: [] };
+    const orgs = await this.orgModel
+      .find({ _id: { $in: ids } }, { name: 1 })
+      .lean()
+      .exec();
+    const items = orgs.map((o) => {
+      const org = o as Record<string, unknown>;
+      return { id: String(org['_id']), name: (org['name'] as string) || '' };
+    });
+    return { items };
+  }
+
   async listItems(opts: {
     supplierId: string;
     q?: string;
