@@ -68,7 +68,9 @@ if [[ "$free_kb" -lt "$need_kb" ]]; then
 fi
 
 DATE="$(date +%Y-%m-%d_%H%M%S)"
-NAME="datacore-bundle-${DATE}"
+_VER_JSON="${DC_DIR:-/opt/data-core}/backend/pwa/version.json"
+_APP_VER="$(python3 -c "import json,sys; d=json.load(open('$_VER_JSON')); print('v1.'+str(d['n']))" 2>/dev/null || echo "")"
+NAME="datacore-bundle-${_APP_VER:+${_APP_VER}-}${DATE}"
 STAGE="$(mktemp -d "${BUNDLE_DIR}/.stage-${DATE}.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/$NAME"/{code,mongo,uploads,config}
