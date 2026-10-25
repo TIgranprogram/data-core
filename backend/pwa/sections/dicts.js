@@ -123,7 +123,7 @@ export function mountDicts(params) {
         acts.push(lock ? h('span', { class: 'dict-lock muted', title: 'Это значение нужно программе — удалить нельзя' }, '🔒 Встроено в программу')
           : h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: (e) => removeItem(r, e.currentTarget) }, 'Удалить'));
       } else if (lock) acts.push(h('span', { class: 'dict-lock muted' }, '🔒 Встроено в программу'));
-      list.append(h('li', { class: 'dict-item' },
+      list.append(h('li', { class: 'dict-item' + (canEditDict() ? ' clickable' : ''), onclick: canEditDict() ? (e) => { if (!e.target.closest('button')) patch({ of: 'dict', open: r.id, new: undefined }); } : null },
         h('div', { class: 'dict-name' }, h('b', { title: r.name }, r.name), ...qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' })),
         h('div', { class: 'dict-desc muted md-hide' }, ...descOf(r)),
         h('div', { class: 'dict-acts' }, ...acts)));
@@ -149,33 +149,10 @@ export function mountDicts(params) {
       return;
     }
     const where = (u.sections || []).length ? u.sections.join(', ') : 'других разделах';
-    const admin = isAdmin();
-    const others = (data?.items || []).filter((x) => x.id !== r.id);
-    const pick = h('select', { 'aria-label': 'Заменить на' }, h('option', { value: '' }, '— выберите значение —'), ...others.map((x) => h('option', { value: x.id }, x.name)));
-    let rename = false;
-    const renBtn = h('button', { type: 'button', class: 'btn', onclick: (e) => { rename = true; e.currentTarget.form.requestSubmit(); } }, 'Только переименовать');
-    const res = modal({
-      title: `«${r.name}» используется`,
-      okText: 'Заменить и удалить',
-      body: h('div', null,
-        h('p', null, `Используется в: ${where}.` + (admin ? ` Чтобы удалить, выберите, чем заменить: везде, где стоит «${r.name}», появится новое значение.` : '')),
-        admin ? h('label', { class: 'field' }, h('span', null, 'Заменить на'), pick, h('div', { class: 'warn' }, 'Это нельзя отменить кнопкой')) : h('p', { class: 'muted' }, 'Удаление занятого значения доступно администратору'),
-        h('div', null, renBtn)),
-      onOk: async () => {
-        if (rename) return { rename: true };
-        if (!pick.value) throw new Error('Выберите, чем заменить');
-        return api(`/dicts/${key}/${r.id}/merge`, { method: 'POST', body: { intoId: pick.value } });
-      },
-    });
-    const okB = [...document.querySelectorAll('.modal-foot .btn-primary')].pop();
-    if (okB) { okB.hidden = !admin; okB.disabled = true; pick.addEventListener('change', () => { okB.disabled = !pick.value; }); }
-    const done = await res;
-    if (!done) return;
-    if (done.rename) { patch({ of: 'dict', open: r.id, new: undefined }); return; }
-    lookups.reset?.();
-    toast(`Заменено: обновлено записей — ${qty(done.moved || 0)}`);
-    window.dispatchEvent(new CustomEvent('data-changed'));
-    await reload();
+    // занятое значение удалить нельзя никому (иначе сломаются записи): предлагаем переименовать
+    const go = await confirmDlg(`«${r.name}» используется — удалить нельзя`, `Используется в: ${where}. Если название не подходит, переименуйте — оно изменится везде.`, { okText: 'Переименовать', cancelText: 'Закрыть' });
+    if (go) patch({ of: 'dict', open: r.id, new: undefined });
+    return;
   }
 
   // «Найти в данных…» (СП.6): значения из заявок / склада / Google-таблицы, которых нет в справочнике — отметить и добавить

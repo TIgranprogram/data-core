@@ -249,6 +249,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       if (form && form.dirty() && !(await confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' }))) return false;
       id = nextId; menuBox.replaceChildren();
       await showView();
+      // панель-правка (справочники): другая запись открывается сразу правкой, как первая
+      if (section.card.startEdit && section.form && canEditSection(section) && row && section.card.startEdit(row)) showForm('edit');
       body.scrollTop = 0;
       return true;
     },

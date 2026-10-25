@@ -149,7 +149,7 @@
     if (t.dataset.tab === 'connect') loadConnect();
     if (t.dataset.tab === 'sheets') loadSheets();
     if (t.dataset.tab === 'audit') { auditState.page = 1; loadAudit(); }
-    if (t.dataset.tab === 'server') loadServer();
+    if (t.dataset.tab === 'server') serverIdle();
   }));
 
   // ---- Users ----
@@ -1058,7 +1058,6 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       const dl = el('dl', 'srv-parts'); rows.forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, v)));
       box.replaceChildren(head, bar, el('p', 'panel-note', forecast), dl, el('p', 'muted', 'Проверено: ' + new Date(d.checkedAt).toLocaleString('ru-RU')));
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось узнать место на диске: ' + e.message)); }
-    loadBackups();
   }
   // ---- Сервер: резервные копии (список + скачивание ZIP) ----
   const PART_RU = { all: 'Всё', mongo: 'База', uploads: 'Фото' };
@@ -1199,7 +1198,19 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       }
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось получить состояние пакета: ' + e.message)); }
   }
-  $('#server-refresh').addEventListener('click', loadServer);
+  // Вкладка «Сервер» ничего не грузит сама: каждый блок — по кнопке, с подсказкой, сколько ждать
+  function idleBox(sel, text, label, fn) {
+    const box = $(sel); if (!box) return;
+    const b = el('button', 'btn', label); b.type = 'button';
+    b.addEventListener('click', () => { b.disabled = true; box.replaceChildren(el('p', 'muted', 'Загружаю… ' + text.wait)); fn(); });
+    box.replaceChildren(el('p', 'muted', text.what), el('div', 'srv-btns', b));
+  }
+  function serverIdle() {
+    idleBox('#server-box', { what: 'Сколько места занято на диске сервера.', wait: 'Обычно до 10 секунд.' }, 'Проверить место на диске', loadServer);
+    idleBox('#backups-box', { what: 'Список ночных копий базы и фото — для скачивания.', wait: 'Обычно до 10 секунд.' }, 'Показать копии', loadBackups);
+    idleBox('#bundle-box', { what: 'Один файл для переезда на другой сервер. Сборка — по кнопке, занимает 5–10 минут.', wait: 'Читаю состояние, до 10 секунд.' }, 'Показать пакеты', () => loadBundle());
+  }
+  $('#server-refresh').addEventListener('click', serverIdle);
 
   async function loadConnect() {
     $('#cx-base').textContent = BASE_URL;
