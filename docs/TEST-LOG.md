@@ -53,3 +53,4 @@
 | 2026-10-24 | bb91517 (перед выкладкой МИ: materialsSpec в паспорте, пометки справочников) | 0 | 142 / 1452 | 35 / 276 | координатор; e2e на временном Mongo 4.4 rs0 (27099, datacore-test), тестовые JWT/ADMIN_PASSWORD через env |
 | 2026-10-25 | HEAD 1cab104 + не закоммичено (ПВ: паспорт воронкой) | 0 | 148 / 1500 | не запускались (нет Docker) | тест скрипта passport-funnel-migrate node --test 3/3; --input-type=module --check 13 файлов pwa — чисто; стык сервер↔экран сверен по коду; замечания: purpose у passportElements ещё в форме (dicts.defs.ts:582), список /passports без choice-подписей (passport-queries.ts:38) |
 | 2026-10-25 | d9f66d0 (слияние ПВ + ПРЖ-3/5) | tsc 0; юнит 151/1517 ✅; pwa --check ✅; e2e не запускались (нет Docker) |
+| 2026-10-25 | 6a9730e (HEAD после 0bd528f; ПВ, клон изделия, designtasks, MAF→BLG) | e2e 36 suites / 282 tests ✅ (Docker Mongo 27018, БД datacore-test, правок тестов не потребовалось) |
