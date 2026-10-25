@@ -63,7 +63,8 @@ export class FillAuditService {
     const incItem = (r: Q): Item => ({ id: String(r._id), title: String(r.title ?? ''), sub: [r.orderNo ? `заказ ${r.orderNo}` : '', r.customer].filter(Boolean).join(' · ') });
 
     type Def = Omit<FillGroup, 'count' | 'items'> & { coll: string; q: Q; item: (r: Q) => Item; sort: Record<string, 1 | -1> };
-    const ppLive = { deletedAt: null };
+    // только черновики: у выпущенного/аннулированного эти поля не меняются (AFTER_PRINT_FIELDS) — в «Заполнить» им не место
+    const ppLive = { deletedAt: null, $and: [{ $or: [{ status: 'draft' }, { status: { $exists: false }, passportNumber: { $in: [null, ''] } }, { status: { $exists: false }, passportNumber: /^draft-/ }] }] };
     const ppItem = (r: Q): Item => ({ id: String(r._id), title: `№${r.passportNumber ?? ''} · ${String(r.name ?? '') || 'без названия'}`, sub: [r.date ? dmy(r.date) : '', r.customerName || r.objectName].filter(Boolean).join(' · ') });
     const defs: Def[] = [
       // ── Паспорта изделий (ПС.4): без этого паспорт нельзя выдать (PDF неполный) ──
