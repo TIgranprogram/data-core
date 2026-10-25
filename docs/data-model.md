@@ -762,6 +762,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 | openIncomeId | ObjectId | замок «одна открытая задача на позицию» (= incomeId, пока не done и не удалена), unique sparse |
 | deletedAt | Date | корзина |
 
+### `DesignOrder` (заказ на доске проектирования) — коллекция `designorders`, только data-core
+Метка «заказ взят на доску»: `orderId` (unique, индекс без `deletedAt`), `addedBy`, `addedAt`, `deletedAt` («убрано»; повторное добавление снимает). В `salesorders` поля нет.
+
 ### `SupplyRequest.invoiceDate` (общая с kppdf `supplyrequests`)
 Необязательное `Date` — дата счёта поставщика; расход в платёжном календаре ложится на неё. Раньше лежала строкой в `sheetExtra.invoiceDate`.
 

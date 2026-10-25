@@ -12,7 +12,11 @@
 - Маршрут `GET /passports/funnel` — `product-passport.controller.ts` (до `:id`).
 - e2e добавлены: passports.e2e-spec (ПВ воронка), showcase.e2e-spec (клон, textChoices) — не запускались.
 
+## Доска проектирования (DESIGN-BOARD, 2026-10-25, не закоммичено)
+- `modules/design/design-board.service.ts` (`board`:~38, `lines`, `addOrder`, `removeOrder`), `design-board.controller.ts`, `design-order.schema.ts` (`designorders`, unique orderId); `design.service.ts` `markOrder`/`markQuiet` (upsert метки в `insert()`/`fromOrder()`, `insert(f,userId,mark)`), запрет `create` сразу `done` по позиции. Тесты — в `design.service.spec.ts` (fake `Coll` умеет upsert/aggregate); e2e добавлен, НЕ запускался. openapi правлен вручную. Индекс — `ensure-indexes.js` MODELS.
+
 ## Ловушки
+- Bash-инструмент ломается на длинных heredoc с кавычками — файлы писать Write-ом.
 - Файлы в репо с CRLF: многострочные replace через node — сначала `\r\n`→`\n`.
 - `dicts.service.remove` не ставит `updatedAt` — «справочник новее снимка» считается по max(updatedAt, deletedAt).
 - openapi.json перегенерируется только в Docker (нужен Mongo).

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -6,6 +6,7 @@ import { parseSheetDate } from '../../common/date-parse';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
 import type { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
+import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
 import { DESIGN_STATUSES, DesignTask, type DesignStatus, type DesignTaskDocument } from './design-task.schema';
 import { presentTasks } from './design-present';
 
@@ -23,7 +24,10 @@ export class DesignService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(DesignTask.name) private readonly model: Model<DesignTaskDocument>,
     private readonly counters: CounterService,
+    @InjectModel(DesignOrder.name) private readonly designOrders: Model<DesignOrderDocument>,
   ) {}
+
+  private readonly log = new Logger(DesignService.name);
 
   private db() { return this.connection.db!; }
   private userOid(userId?: string) { return userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined; }
@@ -115,8 +119,25 @@ export class DesignService {
     return incomeId ? this.db().collection('incomes').findOne({ _id: incomeId as Types.ObjectId, deletedAt: null }, { projection: { orderId: 1, productId: 1 } }) : null;
   }
 
+  /** Метка «заказ на доске»: upsert по orderId, снимает «убрано» (deletedAt). Мягко удалённую запись находит includeSoftDeleted. */
+  async markOrder(orderId: Types.ObjectId, userId?: string) {
+    const by = this.userOid(userId);
+    const run = () => this.designOrders.updateOne(
+      { orderId },
+      { $set: { deletedAt: null }, $setOnInsert: { addedAt: new Date(), ...(by ? { addedBy: by } : {}) } },
+      { upsert: true },
+    ).setOptions({ includeSoftDeleted: true }).exec();
+    try { await run(); } catch (e) { if (!isDup(e)) throw e; await run(); } // две вставки подряд: вторая уже находит запись
+  }
+
+  /** Метка — необязательный шаг после создания задачи: сбой не даёт 500, только запись в лог. */
+  private async markQuiet(orderId: unknown, userId?: string) {
+    if (!orderId) return;
+    try { await this.markOrder(orderId as Types.ObjectId, userId); } catch (e) { this.log.warn(`Метка заказа на доске не поставлена: ${(e as Error).message}`); }
+  }
+
   /** Вставка с номером D-N; гонка за позицию (уникальный замок) → 409. */
-  private async insert(f: Doc, userId?: string) {
+  private async insert(f: Doc, userId?: string, mark = true) {
     const status = (f.status as DesignStatus) ?? 'queue';
     const seq = await this.counters.nextSeq('DesignTask', 'D');
     try {
@@ -126,6 +147,7 @@ export class DesignService {
         ...(status === 'done' ? { completedAt: new Date(), completedBy: this.userOid(userId) } : {}),
       });
       if (status === 'done') await this.fillDesigner(f.productId, f.assigneeId);
+      if (mark) await this.markQuiet(f.orderId, userId);
       return doc.toObject() as unknown as Doc;
     } catch (e) {
       if (isDup(e)) throw new ConflictException('На эту позицию уже есть открытая задача');
@@ -136,6 +158,7 @@ export class DesignService {
   async create(dto: DesignTaskDto, userId?: string) {
     const status = dto.status ?? 'queue';
     this.checkState(status, dto.assigneeId, dto.pauseReason);
+    if (dto.incomeId && status === 'done') throw new BadRequestException('Нельзя создать задачу сразу завершённой — сначала возьмите её в работу');
     const f: Doc = { status };
     if (dto.incomeId) {
       const line = await this.lineOf(dto.incomeId ? oid(dto.incomeId, 'позиции') : null);
@@ -172,12 +195,13 @@ export class DesignService {
     for (const l of lines) {
       if (taken.has(String(l._id))) { skipped++; continue; }
       try {
-        created.push(await this.insert({ status: 'queue', incomeId: l._id, orderId, ...(l.productId ? { productId: l.productId } : {}) }, userId));
+        created.push(await this.insert({ status: 'queue', incomeId: l._id, orderId, ...(l.productId ? { productId: l.productId } : {}) }, userId, false));
       } catch (e) {
         if (!(e instanceof ConflictException)) throw e;
         skipped++; // параллельный запрос успел раньше
       }
     }
+    await this.markQuiet(orderId, userId);
     return { created: created.length, skipped, items: await presentTasks(this.connection, created) };
   }
 

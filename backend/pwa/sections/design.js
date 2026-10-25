@@ -3,25 +3,26 @@ import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
-import { modal } from '../ui/dialog.js';
+import { mountBoard } from '../ui/board.js';
+import { askAssignee, askReason, mountDesignBoard } from '../ui/design-board.js';
 import { toast } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
-import { activeOrders, orderLabel } from './salesorders.js';
+import { activeOrders, orderLabel, STAGE } from './salesorders.js';
 
 /**
  * Раздел «Проектирование» (ПРЖ-5): задачи чертёжного отдела по позициям заказов.
- * Доска по стадиям (перенос мышью, долгим нажатием и кнопками в карточке) и таблица (?view=table).
+ * Доска заказов (ui/design-board.js: заказы слева, статусы справа; вид по умолчанию), таблица (?view=table) и прежняя плоская доска (?view=flat, запасной путь).
  * Двигает задачи менеджер (права записи — как везде); исполнитель — сотрудник из «Справочников».
  * Срок и приоритет по умолчанию берутся из заказа (серым «из заказа»), их можно заменить своими.
  */
 export const STATUS = DESIGN_STATUS;
-const ORDER = ['queue', 'work', 'done', 'paused'];
+const ORDER = ['queue', 'work', 'paused', 'done'];
 const PRIO_OPTS = Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label }));
 const STATUS_OPTS = ORDER.map((value) => ({ value, label: STATUS[value].label }));
 
 // ---------- сотрудники (исполнители) ----------
 let peopleP = null;
-const people = () => (peopleP ||= api('/dicts/persons').then((r) => (r.items || []).filter((p) => p.status !== 'fired')
+export const people = () => (peopleP ||= api('/dicts/persons').then((r) => (r.items || []).filter((p) => p.status !== 'fired')
   .map((p) => ({ value: p.id, label: p.name })).sort((a, b) => a.label.localeCompare(b.label, 'ru'))).catch(() => { peopleP = null; return []; }));
 
 // ---------- мелкие элементы ----------
@@ -55,17 +56,12 @@ function boardBody(r, c) {
 }
 
 // ---------- перенос между стадиями ----------
-const askReason = () => {
-  const inp = h('input', { maxlength: 500, placeholder: 'Например: ждём размеры от заказчика', 'aria-label': 'Причина паузы' });
-  return modal({ title: 'Приостановить задачу', body: h('label', { class: 'field' }, h('span', null, 'Причина паузы'), inp), okText: 'Приостановить',
-    onOk: () => { const v = inp.value.trim(); if (!v) throw new Error('Впишите причину паузы.'); return v; } });
-};
 /** Сменить стадию. Возвращает обновлённую задачу или null (отказались в окне причины). Ошибка — как есть (покажет вызывающий). */
 export async function moveTask(r, to) {
   if (r.status === to) return r;
   const body = { status: to };
   if (to === 'paused') { const why = await askReason(); if (!why) return null; body.pauseReason = why; }
-  if (to === 'work' && !r.assigneeId) throw new Error('Сначала назначьте исполнителя: откройте задачу → «Изменить» → «Исполнитель».');
+  if (to === 'work' && !r.assigneeId) { const who = await askAssignee(await people()); if (!who) return null; body.assigneeId = who; } // окно «Кто проектирует?» вместо ошибки
   const saved = await api(`/design-tasks/${r.id}`, { method: 'PATCH', body });
   toast(`${r.code} → ${STATUS[to].label}`, { undo: async () => {
     await api(`/design-tasks/${r.id}`, { method: 'PATCH', body: { status: r.status, ...(r.status === 'paused' ? { pauseReason: r.pauseReason || 'Возврат после отмены' } : {}) } });
@@ -107,10 +103,10 @@ export const design = {
     createLabel: 'Задача',
     export: false,
     searchPlaceholder: 'Поиск: D-12, название, № заказа, заказчик, артикул…',
-    emptyText: 'Задач проектирования пока нет. В карточке заказа есть кнопка «Передать в проектирование».',
+    emptyText: 'Задач проектирования пока нет. Добавьте заказ на доске или нажмите «Передать в проектирование» в карточке заказа.',
     query: (P) => ({ status: P.status || 'queue,work' }),
     filters: [
-      { key: 'status', label: 'Стадия', type: 'chips', noAll: true, defaultValue: 'queue,work',
+      { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'queue,work',
         options: () => [{ value: 'queue,work', label: 'Открытые' }, ...STATUS_OPTS.map((o) => ({ value: o.value, label: o.label })), { value: 'queue,work,done,paused', label: 'Все' }],
         count: (resp, v) => (v === 'queue,work' ? (resp.counts?.queue || 0) + (resp.counts?.work || 0) : v === 'queue,work,done,paused' ? resp.counts?.all : resp.counts?.[v]) },
       { key: 'assigneeId', label: 'Все исполнители', type: 'select', options: () => people() },
@@ -119,11 +115,11 @@ export const design = {
     columns: [
       { key: 'code', label: 'Код', sort: 'seq', cls: 'nowrap', render: (r) => h('b', null, r.code) },
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.photo ? h('img', { class: 'pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
-      { key: 'title', label: 'Что проектируем', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), h('small', { class: 'muted' }, ' ' + subLine(r, false))) },
+      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), h('small', { class: 'muted' }, ' ' + subLine(r, false))) },
       { key: 'due', label: 'Срок', cls: 'nowrap', render: dueNode },
       { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prioBadge(r) || '' },
       { key: 'assignee', label: 'Исполнитель', cls: 'nowrap md-hide', render: (r) => (r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')) },
-      { key: 'status', label: 'Стадия', cls: 'nowrap', render: (r) => badge(STATUS, r.status) },
+      { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(STATUS, r.status) },
     ],
     card: {
       title: (r) => `${r.code} · ${title(r)}`,
@@ -133,13 +129,16 @@ export const design = {
     },
     board: {
       default: true,
+      alt: 'flat', // ?view=flat — прежняя плоская доска (запасной путь на время приёмки)
+      mount: (b, path, q, o) => (current().params.view === 'flat' ? mountBoard : mountDesignBoard)(b, path, q, o),
+      env: { people, moveTask: (r, to) => moveTask(r, to), dueNode, activeOrders, stageLabel: (s) => STAGE[s]?.label || s },
       headCount: true,
       cls: 'board-pics',
       columns: [
         { key: 'queue', label: STATUS.queue.label, tone: 'dim', emptyText: 'Пусто. Задачи приходят из заказов: кнопка «Передать в проектирование»', query: { status: 'queue', sort: 'seq' } },
         { key: 'work', label: STATUS.work.label, tone: 'info', query: { status: 'work', sort: 'seq' } },
-        { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
         { key: 'paused', label: STATUS.paused.label, tone: 'warn', compact: true, portion: true, per: 20, query: { status: 'paused', sort: 'seq' } },
+        { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
       ],
       card: (r, c) => ({ body: boardBody(r, c) }),
       move: async (r, to) => !!(await moveTask(r, to)),
@@ -152,7 +151,7 @@ export const design = {
     heading: (r) => `${r.code} · ${title(r)}`,
     subheading: (r) => STATUS[r.status]?.label || '',
     gallery: (r) => (r.photo ? [{ id: 'p', url: r.photo, thumb: r.photo }] : []),
-    stats: (r) => [['Стадия', STATUS[r.status]?.label || r.status], ['Приоритет', ORDER_PRIORITY[r.priority]?.label || r.priority], ['Срок', r.deadline ? date(r.deadline) : '—']],
+    stats: (r) => [['Статус', STATUS[r.status]?.label || r.status], ['Приоритет', ORDER_PRIORITY[r.priority]?.label || r.priority], ['Срок', r.deadline ? date(r.deadline) : '—']],
     view: (r) => [
       ['Заказ', r.orderId ? h('a', { href: '#salesorders?open=' + r.orderId }, 'ЗНП ' + (r.orderNo || '—')) : null],
       ['Позиция', [r.lineNo != null && 'поз. ' + r.lineNo, r.customerTitle].filter(Boolean).join(' · ')],
@@ -188,7 +187,7 @@ export const design = {
         { section: 'Задача', tone: row ? 'main' : 'info', fixed: true },
         { key: 'title', label: 'Название', wide: true, max: 300, hint: row ? undefined : 'Можно оставить пустым, если выбрана позиция: «Чертежи 3410 ЗНП 20-26 поз 7».' },
         { key: 'assigneeId', label: 'Исполнитель', type: 'select', options: ppl },
-        { key: 'status', label: 'Стадия', type: 'select', required: true, options: STATUS_OPTS },
+        { key: 'status', label: 'Статус', type: 'select', required: true, options: STATUS_OPTS },
         { key: 'pauseReason', label: 'Причина паузы', wide: true, max: 500,
           mount: (fa) => { const sync = () => { const f = fa.field('pauseReason'); if (f) f.hidden = fa.input('status')?.value !== 'paused'; }; fa.on('status', sync); sync(); } },
         { section: 'Срок и приоритет', tone: 'info' },
@@ -203,7 +202,7 @@ export const design = {
     toInitial,
     toBody: (v, row) => {
       const needs = () => {
-        if (v.status === 'work' && !v.assigneeId) throw new Error('Для стадии «В работе» выберите исполнителя.');
+        if (v.status === 'work' && !v.assigneeId) throw new Error('Для статуса «В работе» выберите исполнителя.');
         if (v.status === 'paused' && !v.pauseReason) throw new Error('Для паузы впишите причину.');
       };
       needs();

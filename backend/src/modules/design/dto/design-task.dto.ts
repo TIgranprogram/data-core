@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsIn, IsMongoId, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsMongoId, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../../common/text/order-key';
 import { DESIGN_STATUSES, type DesignStatus } from '../design-task.schema';
 
@@ -19,4 +19,9 @@ export class DesignTaskDto {
 export class FromOrderDto {
   @ApiProperty({ description: 'Заказ (salesorders)' }) @IsMongoId() orderId!: string;
   @ApiPropertyOptional({ type: [String], description: 'Только эти позиции; пусто — все позиции заказа' }) @IsOptional() @IsArray() @ArrayMaxSize(500) @IsMongoId({ each: true }) lineIds?: string[];
+}
+
+export class AddDesignOrderDto {
+  @ApiProperty({ description: 'Заказ (salesorders), который берём на доску проектирования' }) @IsMongoId() orderId!: string;
+  @ApiPropertyOptional({ description: 'true — сразу создать задачи «Распределение» на все позиции без открытой задачи' }) @IsOptional() @IsBoolean() distribute?: boolean;
 }

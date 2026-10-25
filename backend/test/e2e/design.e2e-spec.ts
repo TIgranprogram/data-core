@@ -21,7 +21,7 @@ describe('Design tasks (Проектирование)', () => {
     ctx = await createTestApp();
     app = ctx.app;
     token = await loginAsAdmin(app);
-    for (const c of ['salesorders', 'incomes', 'designtasks', 'persons', 'products']) await db().collection(c).deleteMany({});
+    for (const c of ['salesorders', 'incomes', 'designtasks', 'designorders', 'persons', 'products']) await db().collection(c).deleteMany({});
     const p = await db().collection('persons').insertOne({ lastName: 'Иванов', firstName: 'Пётр', deletedAt: null });
     personId = String(p.insertedId);
     const pr = await db().collection('products').insertOne({ name: 'Скамья', sku: '3410', photoIds: [], deletedAt: null });
@@ -78,5 +78,19 @@ describe('Design tasks (Проектирование)', () => {
     await http().post(`/api/design-tasks/${free.id}/restore`).set(auth()).expect(200);
     const next = (await http().post('/api/design-tasks').set(auth()).send({ title: 'Ещё' }).expect(201)).body;
     expect(Number(next.code.slice(2))).toBeGreaterThan(Number(free.code.slice(2)));
+  });
+
+  it('доска заказов: GET без записи в базу, POST повторно безопасен, /lines, DELETE 409 при открытых задачах', async () => {
+    const b = (await http().get('/api/design-board').set(auth()).expect(200)).body;
+    expect(b.orders.map((o: { orderId: string }) => o.orderId)).toContain(orderId);
+    expect(b.orders[0]).toMatchObject({ orderNo: '20-26', customer: 'ООО Парк', linesCount: 2 });
+    expect(JSON.stringify(b)).not.toMatch(/unitPrice|amount/);
+    const add = () => http().post('/api/design-board').set(auth()).send({ orderId, distribute: true }).expect(200);
+    expect((await add()).body).toMatchObject({ orderId, created: 0 });
+    expect(await db().collection('designorders').countDocuments({})).toBe(1);
+    const l = (await http().get(`/api/design-board/${orderId}/lines`).set(auth()).expect(200)).body;
+    expect(l.lines).toHaveLength(2);
+    await http().post('/api/design-tasks').set(auth()).send({ incomeId: lineId, status: 'done' }).expect(400);
+    await http().delete(`/api/design-board/${orderId}`).set(auth()).expect(409);
   });
 });

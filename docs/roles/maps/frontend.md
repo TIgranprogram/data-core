@@ -53,3 +53,10 @@
 - `sections/docs.js` — `mountDocs(params)` (вкладки `.seg`, `?tab=archive`), секции `doctpl` (шаблон паспорта изделия: список /showcase, форма `build` = категория + `funnelBox`, `savePd` из products.js) и `passarchive` (копия `passports` без form/remove/bulk, действия `archiveActions`: печать, «Дописать и выпустить» → `of=passports`, «Привязать»). Внутренний список получает params без `tab/of` (`listParams`).
 - `main.js` — NAV: docs вместо passports, группа «Продажи и выпуск»; `OWNER.passports/passarchive/doctpl/ptext*='docs'`; `#passports` → редирект в `#docs?tab=archive&of=passarchive&open=`; `core/api.js session.sees('docs')` = docs или passports, `session.seesDocs()`.
 - `products.js` — `PD_KEYS`/`savePd` экспортируются; «Печать паспорта» (последний из `r.passports.items[0]`) + «Выпустить паспорт» по `seesDocs()`.
+
+## Доска заказов «Проектирование» (2026-10-25, не закоммичено)
+коммит: (после коммита координатора)
+- `ui/design-board.js` — `mountDesignBoard` (state S, `load/paintLeft/paintRight`, `moveItem/createTask`, `statusSheet`, `addPicker`), `askAssignee/askReason`, `normBoard/normLine/normTask`, `distributeOrder/dropOrder`, `fetchBoardOrder/loadLines`. Подключено: `sections/design.js` `list.board.mount/alt/env` → `ui/list.js` (`L.board.mount`, `board.alt` = ?view=flat).
+- `ui/drag.js` (`draggable`, `dragStep`, `afterDrag`), `core/order-color.js` (`orderColorIndex`, `paintOrder`); тесты `*.test.mjs` рядом.
+- `sections/design-order.js` — панель заказа `of=designorder&open=<orderId>` (регистрация в `main.js` SECTIONS/OWNER). Токены `--oc-N` — `ui/tokens.css`; стили `.db*` — конец `ui/base.css`.
+- Правка CRLF-файлов (design.js, list.js, main.js, tokens.css, order-design.js) — скриптом node. Heredoc с апострофами в bash-инструменте падает — файлы писать через Write.

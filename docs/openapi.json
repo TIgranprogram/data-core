@@ -5435,6 +5435,88 @@
         ]
       }
     },
+    "/design-board": {
+      "get": {
+        "operationId": "DesignBoardController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "post": {
+        "operationId": "DesignBoardController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddDesignOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-board/{orderId}/lines": {
+      "get": {
+        "operationId": "DesignBoardController_lines",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-board/{orderId}": {
+      "delete": {
+        "operationId": "DesignBoardController_remove",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
     "/finance/cashflow": {
       "get": {
         "operationId": "FinanceController_cashflow",
@@ -12570,6 +12652,22 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
+      },
+      "AddDesignOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Заказ (salesorders), который берём на доску проектирования"
+          },
+          "distribute": {
+            "type": "boolean",
+            "description": "true — сразу создать задачи «Распределение» на все позиции без открытой задачи"
+          }
+        },
+        "required": [
+          "orderId"
+        ]
       }
     }
   }

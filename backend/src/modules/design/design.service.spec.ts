@@ -1,6 +1,10 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { DesignBoardController } from './design-board.controller';
+import { DesignBoardService } from './design-board.service';
 import { DesignService } from './design.service';
+import { APP_SECTION_KEY } from '../../common/decorators/app-section.decorator';
+import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const same = (a: unknown, b: unknown) => String(a) === String(b);
@@ -35,7 +39,24 @@ class Coll {
   find = (f: Row = {}) => this.chain(() => this.rows.filter((d) => match(d, f)));
   findOne = (f: Row = {}) => this.chain(() => this.rows.find((d) => match(d, f)) ?? null);
   countDocuments = (f: Row = {}) => this.chain(() => this.rows.filter((d) => match(d, f)).length);
-  aggregate = () => this.chain(() => {
+  aggregate = (pipe: Row[] = []) => this.chain(() => {
+    const grp = pipe.find((x) => x.$group)?.$group as Row | undefined;
+    const idKey = grp?._id;
+    if (typeof idKey === 'string' && idKey !== '$status') { // incomes: число строк по полю
+      const k = idKey.slice(1), g = new Map<string, number>();
+      for (const r of this.rows.filter((x) => x.deletedAt == null)) g.set(String(r[k]), (g.get(String(r[k])) ?? 0) + 1);
+      return [...g].map(([_id, n]) => ({ _id: this.rows.find((r) => String(r[k]) === _id)![k], n }));
+    }
+    if (idKey && typeof idKey === 'object') { // задачи: по заказу и статусу + затронутые позиции
+      const g = new Map<string, Row>();
+      for (const r of this.rows.filter((x) => x.deletedAt == null && x.orderId != null)) {
+        const key = String(r.orderId) + '|' + r.status;
+        const e = g.get(key) ?? { _id: { orderId: r.orderId, status: r.status }, n: 0, lines: [] };
+        e.n++; if (r.incomeId && !e.lines.some((l: unknown) => same(l, r.incomeId))) e.lines.push(r.incomeId);
+        g.set(key, e);
+      }
+      return [...g.values()];
+    }
     const g: Record<string, number> = {};
     for (const r of this.rows.filter((x) => x.deletedAt == null)) g[r.status] = (g[r.status] ?? 0) + 1;
     return Object.entries(g).map(([_id, n]) => ({ _id, n }));
@@ -47,8 +68,11 @@ class Coll {
     this.rows.push(row);
     return { ...row, toObject: () => row };
   }
-  updateOne = (f: Row, u: Row) => this.chain(() => {
+  failUpdate = false;
+  updateOne = (f: Row, u: Row, o: Row = {}) => this.chain(() => {
+    if (this.failUpdate) throw new Error('mongo недоступен');
     const row = this.rows.find((d) => match(d, f));
+    if (!row && o.upsert) { this.rows.push({ _id: new Types.ObjectId(), ...f, ...(u.$setOnInsert ?? {}), ...(u.$set ?? {}) }); return { upsertedCount: 1 }; }
     if (!row) return { matchedCount: 0 };
     for (const [k, v] of Object.entries(u.$set ?? {})) {
       if (k.includes('.')) { const [a, b] = k.split('.'); row[a] = { ...(row[a] ?? {}), [b]: v }; } else row[k] = v;
@@ -61,20 +85,21 @@ class Coll {
 }
 
 describe('DesignService', () => {
-  let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, photos: Coll;
-  let service: DesignService;
+  let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, photos: Coll, marks: Coll;
+  let service: DesignService, board: DesignBoardService;
   let seq: number;
   const id = () => new Types.ObjectId();
   let orderId: Types.ObjectId, prodId: Types.ObjectId, personId: Types.ObjectId, line1: Types.ObjectId, line2: Types.ObjectId;
 
   beforeEach(() => {
-    [tasks, orders, incomes, persons, products, photos] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
+    [tasks, orders, incomes, persons, products, photos, marks] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
     tasks.uniqueSparse = 'openIncomeId';
     seq = 0;
     const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos };
     const connection = { db: { collection: (n: string) => by[n] } };
     const counters = { nextSeq: jest.fn(async () => ++seq) };
-    service = new DesignService(connection as never, tasks as never, counters as never);
+    service = new DesignService(connection as never, tasks as never, counters as never, marks as never);
+    board = new DesignBoardService(connection as never, tasks as never, marks as never, service);
     orderId = id(); prodId = id(); personId = id(); line1 = id(); line2 = id();
     orders.rows.push({ _id: orderId, orderNo: '20-26', deletedAt: null, shipDate: new Date('2026-12-20'), productionDeadline: new Date('2026-12-01'), priority: 'urgent' });
     products.rows.push({ _id: prodId, name: 'Скамья', sku: '3410', photoIds: [], deletedAt: null });
@@ -166,5 +191,108 @@ describe('DesignService', () => {
     expect(all.counts).toEqual({ queue: 1, work: 0, done: 1, paused: 0, all: 2 });
     expect((await service.list({ status: 'queue' })).items.map((i) => i.title)).toEqual(['Два']);
     await expect(service.list({ status: 'xx' })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  describe('доска заказов (designorders)', () => {
+    const order2 = () => {
+      const o2 = id(); orders.rows.push({ _id: o2, orderNo: '21-26', customer: 'ООО Ромашка', deletedAt: null, stage: 'new' });
+      const l = id(); incomes.rows.push({ _id: l, orderId: o2, lineNo: 1, title: 'Лавка', deletedAt: null });
+      return { o2, l };
+    };
+
+    it('создание задачи по позиции ставит метку заказа; повтор метку не дублирует', async () => {
+      await service.create({ incomeId: String(line1) });
+      await service.create({ incomeId: String(line2) });
+      expect(marks.rows).toHaveLength(1);
+      expect(marks.rows[0]).toMatchObject({ deletedAt: null });
+      expect(String(marks.rows[0].orderId)).toBe(String(orderId));
+    });
+
+    it('сбой метки не ломает создание задачи (необязательный шаг)', async () => {
+      marks.failUpdate = true;
+      const t = await service.create({ incomeId: String(line1) });
+      expect(t.code).toBe('D-1');
+      expect(marks.rows).toHaveLength(0);
+    });
+
+    it('гонка за позицию: из двух параллельных созданий одно проходит, второе — 409', async () => {
+      const r = await Promise.allSettled([service.create({ incomeId: String(line1) }), service.create({ incomeId: String(line1) })]);
+      expect(r.filter((x) => x.status === 'fulfilled')).toHaveLength(1);
+      const bad = r.find((x) => x.status === 'rejected') as PromiseRejectedResult;
+      expect(bad.reason).toBeInstanceOf(ConflictException);
+    });
+
+    it('создать сразу «завершённой» по позиции нельзя — 400', async () => {
+      await expect(service.create({ incomeId: String(line1), status: 'done' })).rejects.toThrow('сразу завершённой');
+    });
+
+    it('POST: повтор безопасен; distribute создаёт задачи один раз; неизвестный заказ — 404', async () => {
+      expect(await board.addOrder({ orderId: String(orderId) })).toEqual({ orderId: String(orderId), created: 0, skipped: 0 });
+      await board.addOrder({ orderId: String(orderId) });
+      expect(marks.rows).toHaveLength(1);
+      expect(await board.addOrder({ orderId: String(orderId), distribute: true })).toEqual({ orderId: String(orderId), created: 2, skipped: 0 });
+      expect(await board.addOrder({ orderId: String(orderId), distribute: true })).toEqual({ orderId: String(orderId), created: 0, skipped: 2 });
+      expect(tasks.rows).toHaveLength(2);
+      expect(marks.rows).toHaveLength(1);
+      await expect(board.addOrder({ orderId: String(id()) })).rejects.toThrow('Заказ не найден');
+    });
+
+    it('DELETE: с открытыми задачами — 409; без них — метка гаснет, задачи остаются; добавление после этого — та же запись', async () => {
+      await board.addOrder({ orderId: String(orderId), distribute: true });
+      await expect(board.removeOrder(String(orderId))).rejects.toBeInstanceOf(ConflictException);
+      await expect(board.removeOrder(String(orderId))).rejects.toThrow('открытых задач: 2');
+      for (const t of tasks.rows) await service.update(String(t._id), { status: 'done' });
+      expect(await board.removeOrder(String(orderId))).toEqual({ orderId: String(orderId), removed: true });
+      expect(marks.rows[0].deletedAt).toBeInstanceOf(Date);
+      expect(tasks.rows).toHaveLength(2);
+      expect((await board.board()).orders).toHaveLength(0);
+      const addedAt = marks.rows[0].addedAt;
+      await board.addOrder({ orderId: String(orderId) }); // upsert после мягкого удаления: без дубля и без 11000
+      expect(marks.rows).toHaveLength(1);
+      expect(marks.rows[0]).toMatchObject({ deletedAt: null, addedAt });
+    });
+
+    it('GET: метки ∪ заказы с открытыми задачами; завершённые без метки и заказы, удалённые в CRM, не показываются; в базу не пишет', async () => {
+      const { o2, l } = order2();
+      const o3 = id(); orders.rows.push({ _id: o3, orderNo: '22-26', deletedAt: new Date() }); // удалён в CRM
+      await board.addOrder({ orderId: String(orderId) });
+      // открытая задача в заказе без метки: «подхват»
+      tasks.rows.push({ _id: id(), seq: 50, status: 'queue', orderId: o2, incomeId: l, deletedAt: null });
+      // открытая задача в удалённом заказе и завершённая в заказе без метки
+      tasks.rows.push({ _id: id(), seq: 51, status: 'queue', orderId: o3, incomeId: id(), deletedAt: null });
+      const o4 = id(); orders.rows.push({ _id: o4, orderNo: '23-26', deletedAt: null });
+      tasks.rows.push({ _id: id(), seq: 52, status: 'done', orderId: o4, incomeId: id(), deletedAt: null });
+      tasks.rows.push({ _id: id(), seq: 53, status: 'queue', title: 'Без заказа', deletedAt: null });
+      const before = [marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)];
+
+      const r = await board.board();
+      expect(r.orders.map((o) => o.orderNo)).toEqual(['20-26', '21-26']);
+      expect(r.ordersTotal).toBe(2);
+      expect(r.orders[0]).toMatchObject({ orderId: String(orderId), customer: null, priority: 'urgent', linesCount: 2, counts: { queue: 0, work: 0, paused: 0, done: 0, free: 2 } });
+      expect(r.orders[1]).toMatchObject({ orderNo: '21-26', customer: 'ООО Ромашка', addedAt: null, linesCount: 1, counts: { queue: 1, free: 0 } });
+      expect(r.tasks.map((t) => t.seq)).toEqual([50, 53]);
+      expect(r.tasksTotal).toBe(2);
+      expect([marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)]).toEqual(before); // GET ничего не пишет
+      expect(JSON.stringify(r)).not.toMatch(/amount|price|unitPrice|"sum"/i);
+    });
+
+    it('/lines: позиции с задачей и без; цен нет; чужой или удалённый заказ — 404', async () => {
+      const a = await service.create({ incomeId: String(line1), assigneeId: String(personId), status: 'work' });
+      const r = await board.lines(String(orderId));
+      expect(r.lines.map((x) => x.lineNo)).toEqual([7, 8]);
+      expect(r.lines[0]).toMatchObject({ incomeId: String(line1), sku: '3410', task: { id: a.id, code: 'D-1', status: 'work', assignee: { name: 'Иванов Пётр' } } });
+      expect(r.lines[1].task).toBeNull();
+      expect(JSON.stringify(r)).not.toMatch(/amount|price|5000/i);
+      await expect(board.lines(String(id()))).rejects.toThrow('Заказ не найден');
+    });
+
+    it('права: чтение — все четыре роли, запись — admin и manager; раздел «Проектирование»', () => {
+      const roles = (m: keyof DesignBoardController) => Reflect.getMetadata(ROLES_KEY, DesignBoardController.prototype[m]);
+      expect(Reflect.getMetadata(APP_SECTION_KEY, DesignBoardController)).toEqual(['design']);
+      expect(roles('get')).toEqual(['admin', 'director', 'manager', 'user']);
+      expect(roles('lines')).toEqual(['admin', 'director', 'manager', 'user']);
+      expect(roles('add')).toEqual(['admin', 'manager']);
+      expect(roles('remove')).toEqual(['admin', 'manager']);
+    });
   });
 });

@@ -22,7 +22,7 @@ import { toastError } from './toast.js';
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
  *   footer?(resp), query?(params),
- *   board?: см. ui/board.js — вид «Доска», ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
+ *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», ui/design-board.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
@@ -48,7 +48,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     limit: Number(P.limit) || 25,
     page: Math.max(1, Number(P.page) || 1),
     sort: P.sort || L.sortDefault,
-    board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view)),
+    board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view) || (!!L.board.alt && P.view === L.board.alt)),
     gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view)),
   });
   let rows = [];
@@ -285,7 +285,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isBoard) {
       countEl.textContent = '';
-      if (!board) { board = mountBoard(L.board, L.path, query, { onOpen, onChanged: () => board.reload(), onTotal: (n) => { if (st().board) countEl.textContent = qty(n); } }); boardBox.replaceChildren(board.el); }
+      if (!board) { board = (L.board.mount || mountBoard)(L.board, L.path, query, { onOpen, onChanged: () => board.reload(), onTotal: (n) => { if (st().board) countEl.textContent = qty(n); } }); boardBox.replaceChildren(board.el); }
       else board.setQuery(query);
       return;
     }
