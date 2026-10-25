@@ -41,3 +41,31 @@ export function catChipsField(options, { label = 'Категории', value, la
   const c = catChips({ options, value, label, later });
   return { el: c.el, get value() { return JSON.stringify(c.value); }, set value(v) { void v; }, focus: c.focus };
 }
+
+/**
+ * Выбор записей справочника по названию (вместо строки кодов): галочки-чипы, значение — коды через запятую.
+ *   refChips({ options: [{ code, name, group? }], value, multiple = true, label })
+ * Коды, которых нет в списке (старые), остаются отдельными чипами. Событие change всплывает от el.
+ */
+export function refChips({ options, value = '', multiple = true, label = 'Выбор' }) {
+  const cur = new Set(String(value || '').split(/[,;\s]+/).filter(Boolean));
+  const known = new Set(options.map((o) => String(o.code)));
+  const list = [...options, ...[...cur].filter((c) => !known.has(c)).map((c) => ({ code: c, name: c }))];
+  const box = h('div', { class: 'tag-pick cat-chips', role: 'group', 'aria-label': label });
+  const btns = list.map((o) => h('button', { type: 'button', class: 'tag', 'aria-pressed': 'false', 'data-code': String(o.code), title: o.group || '', onclick: () => {
+    const c = String(o.code);
+    if (cur.has(c)) cur.delete(c); else { if (!multiple) cur.clear(); cur.add(c); }
+    paint(); box.dispatchEvent(new Event('change', { bubbles: true }));
+  } }, o.group ? `${o.name} · ${o.group}` : o.name));
+  function paint() { for (const b of btns) { const on = cur.has(b.dataset.code); b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); } }
+  if (!list.length) box.append(h('span', { class: 'muted' }, 'Список пока пуст'));
+  box.append(...btns);
+  paint();
+  return { el: box, get value() { return [...cur].join(','); }, focus: () => btns[0]?.focus() };
+}
+
+/** Поле формы (type: 'widget') «выбор из справочника»: в read() — JSON-строка кодов через запятую. */
+export function refChipsField(options, { label, value, multiple = true } = {}) {
+  const c = refChips({ options, value, multiple, label });
+  return { el: c.el, get value() { return JSON.stringify(c.value); }, set value(v) { void v; }, focus: c.focus };
+}

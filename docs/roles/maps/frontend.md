@@ -39,3 +39,6 @@
 - `ui/badges.js` — `DESIGN_STATUS`, `ORDER_PRIORITY`; `sections/salesorders.js` — приоритет заказа (форма, список, доска), `orderDesign`.
 - Регистрация нового раздела: `main.js` (SECTIONS, NAV, group, refreshCounts, `clear` в syncCard) + `node backend/scripts/pwa-preload.mjs`. Jest в worktree не стоит (нет node_modules).
 - Правка CRLF-файлов: скриптом node (replace \r\n → \n → правка → обратно); python нет.
+
+## Уведомления (2026-10-25, не закоммичено)
+- `ui/notice-card.js` — `noticeCard`, `noticeTime`, `splitReason`; `ui/toast.js` (tone/sub/notice, пишет в историю), `ui/notices.js` (история, read, clear, once), `ui/busy.js failBlock`. CSS — блок «Уведомление» в конце base.css (.ntf*, .bell-head).

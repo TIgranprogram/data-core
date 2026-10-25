@@ -22,3 +22,8 @@
 
 ## Отчёты
 - `docs/DB-AUDIT.md` (§1–5 таблицы реестра, МИ.1, ПВ), `docs/roles/tz/PASSPORT-FUNNEL-data-steward.md`.
+
+## ПВ2 «Тексты» (2026-10-25)
+- `scripts/passport-texts-polish.js` — 32 правки по `_id` (CHANGES: dict,id,label,field,was,to,why); `buildPlan(db,{ObjectId})`, `applyPlan`, `printPlan`; `--apply`, `--out`. Отчёт — `docs/roles/tz/PP-TEXTS-POLISH.md`.
+- Выгрузка прода — одна JSON-строка в конце `для анализа/паспорта-2026-10-25/pp-dicts.json` (до неё — mongo-shell мусор). `{std:КОД}` в полях справочников НЕ подставляется (только блоки шаблона «Для всех»).
+- Проверка: scratchpad `t3.js` (fakemongo + дамп прода).

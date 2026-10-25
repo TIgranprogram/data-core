@@ -4,8 +4,10 @@ import { effectiveRoles } from '../../common/roles-hierarchy';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
-import { DICT, DICTS, type DictDef, type Doc, norm } from './dicts.defs';
+import { DICT, DICTS, type DictDef, type Doc, norm, translit } from './dicts.defs';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
+
+const s = (v: unknown) => String(v ?? '').trim();
 
 /** Сходство названий (биграммы, коэффициент Дайса) — «похоже на …» при переносе значений. */
 function similarity(a: string, b: string) {
@@ -77,7 +79,7 @@ export class DictsService {
     const tk = searchTokens(search); // слова в любом порядке, ё = е, M10 = М10
     // справочник для ссылок «Вид работ» / «График выплат» в форме
     const refs: Record<string, { value: string; label: string }[]> = {};
-    for (const f of d.fields) if (f.ref) { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
+    for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
     const items = docs.map((x) => this.item(d, x, used.get(String(x._id)) ?? 0) as Record<string, unknown>)
       .map((x) => ({ ...x, ...(x.workTypeId !== undefined ? { workTypeName: refs.worktypes?.find((r) => r.value === String(x.workTypeId))?.label ?? '' } : {}) }))
       .filter((x) => matchesAll(tk, ...Object.values(x).filter((v) => typeof v === 'string' || typeof v === 'number')))
@@ -120,9 +122,30 @@ export class DictsService {
     if (dup) throw new ConflictException(`«${d.name(dup)}» уже есть в справочнике «${d.title}»`);
   }
 
+  /** Новая запись без кода — код из названия: латиница, «_», верхний регистр, уникален в справочнике (CODE, CODE_2…). */
+  private async withCode(d: DictDef, body: Record<string, unknown>) {
+    if (!d.fields.some((f) => f.key === 'code' && f.lockAfterCreate) || s(body.code)) return body;
+    const base = translit(s(body.name)).replace(/-/g, '_').toUpperCase();
+    if (!base) throw new BadRequestException('Укажите название — код сделается из него');
+    const used = new Set((await this.docs(d)).map((x) => s(x.code).toUpperCase()));
+    let code = base;
+    for (let i = 2; used.has(code); i++) code = `${base}_${i}`;
+    return { ...body, code };
+  }
+
+  /** Код существующей записи не меняется: на него ссылаются тексты, изделия и паспорта. Не пришёл — остаётся прежний. */
+  private lockedCode(d: DictDef, cur: Doc, body: Record<string, unknown>) {
+    if (!d.fields.some((f) => f.key === 'code' && f.lockAfterCreate)) return body;
+    const old = s(cur.code);
+    if (!old || body.code === undefined) return old ? { ...body, code: old } : body;
+    if (s(body.code) !== old) throw new BadRequestException('Код нельзя менять: на него ссылаются тексты и изделия');
+    return body;
+  }
+
   async create(key: string, body: Record<string, unknown>) {
     const d = this.def(key);
-    const doc = await d.toDoc(body ?? {}, true, this.db);
+    body = await this.withCode(d, body ?? {});
+    const doc = await d.toDoc(body, true, this.db);
     await this.checkDuplicate(d, doc as Doc);
     const r = await this.db.collection(d.coll).insertOne(doc);
     return this.get(key, String(r.insertedId));
@@ -131,7 +154,8 @@ export class DictsService {
   async update(key: string, id: string, body: Record<string, unknown>) {
     const d = this.def(key);
     const cur = await this.one(d, id);
-    const set = await d.toDoc(body ?? {}, false, this.db, id);
+    body = this.lockedCode(d, cur, body ?? {});
+    const set = await d.toDoc(body, false, this.db, id);
     await this.checkDuplicate(d, { ...cur, ...set } as Doc, id);
     await this.db.collection(d.coll).updateOne({ _id: cur._id }, { $set: set });
     return this.get(key, id);

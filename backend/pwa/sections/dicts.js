@@ -11,7 +11,7 @@ import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
-import { catChipsField } from '../ui/cat-chips.js';
+import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { errText } from '../ui/errors.js';
@@ -79,7 +79,8 @@ export function mountDicts(params) {
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
     // слова в любом порядке, ё = е, M10 = М10 (как поиск на складе)
     const tk = searchTokens(q);
-    const dup = dupeCounts(data.items, (x) => x.name);
+    // дубль — то же название У ТОГО ЖЕ материала (сортамент: «2» у листа и «2» у трубы — разные записи; 2026-10-25)
+    const dup = dupeCounts(data.items, (x) => (x.material ? `${x.material}|${x.name}` : x.name));
     if (!dup.size) qf = 'all';
     const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || ((s) => tk.every((w) => s.includes(w)))(normSearch(Object.values(x).filter((v) => typeof v !== 'object').join(' ')))));
     if (!data.items.length) {
@@ -277,20 +278,36 @@ export const dict = {
       // «К каким категориям» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
       const catField = info.fields.find((f) => f.key === 'categories' && dictKey() !== 'passportCategories');
       const catOpts = catField ? (await api('/dicts/passportCategories').then((x) => x.items || []).catch(() => [])).filter((c) => c.code && c.code !== 'ALL').map((c) => ({ code: String(c.code), name: c.name })) : [];
-      return info.fields.map((f) => (f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
-        widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) } : {
-        key: f.key, label: f.label, required: !!f.required, wide: !!f.wide, hint: f.hint, max: 300,
+      // выбор из справочника вместо строки кодов (ref: { dict, multiple }) — списки грузим один раз на форму
+      const refOpts = {};
+      for (const f of info.fields.filter((x) => x.ref?.dict)) {
+        const dicts = String(f.ref.dict).split(',').map((x) => x.trim()).filter(Boolean);
+        refOpts[f.key] = (await Promise.all(dicts.map((d) => api('/dicts/' + d).catch(() => null).then((x) => (x?.items || []).filter((c) => c.code).map((c) => ({ code: String(c.code), name: c.name, group: dicts.length > 1 ? x?.dict?.title || d : '' })))))).flat();
+      }
+      const isNew = !r?.id;
+      const one = (f) => (f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
+        widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }
+        : f.ref?.dict ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '',
+          widget: (v) => refChipsField(refOpts[f.key] || [], { label: f.label, value: v, multiple: f.ref.multiple !== false }) }
+        : f.lockAfterCreate && !isNew ? { key: f.key, label: f.label, type: 'widget', hint: 'Не меняется: на него ссылаются тексты и изделия', summary: () => '',
+          widget: (v) => ({ el: h('span', { class: 'muted' }, String(v ?? '')), get value() { return JSON.stringify(String(v ?? '')); }, set value(x) { void x; }, focus() {} }) }
+        : {
+        key: f.key, label: f.label, required: !!f.required && !(f.lockAfterCreate && isNew), wide: !!f.wide, hint: f.lockAfterCreate && isNew ? 'Заполнится само из названия' : f.hint, max: 300,
         ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этой категории не выдаётся' } : {}),
         type: f.key === 'requiredImages' ? 'widget' : isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
         money: f.type === 'money',
         placeholder: f.type === 'color' ? '#2e7d32' : undefined,
         options: f.type === 'select' ? (f.options || info.refs?.[f.ref] || []) : undefined,
-      }));
+      });
+      // служебные поля (tech) — внизу, в свёрнутом блоке; остальные — сверху в порядке описания
+      const main = info.fields.filter((f) => !f.tech).map(one);
+      const tech = info.fields.filter((f) => f.tech).map(one);
+      return tech.length ? [...main, { section: 'Для настройки (менять редко)', tone: 'info', collapsed: true }, { note: 'Коды связывают записи между собой — меняйте, только если понимаете, на что они ссылаются' }, ...tech] : main;
     },
     initial: () => (dictKey() === 'persons' ? { status: 'active' } : {}),
     // картинки (БЗ-6 Э9.7): в форме — загрузка/вставка как везде; в базе — id фото (photo — один, photos — список)
     toInitial: (r) => ({ ...r, ...Object.fromEntries((r.dictInfo?.fields || []).filter(isPhoto).map((f) => [f.key, idsOf(r[f.key]).map((id) => ({ id, url: r.photos?.[id]?.url, thumb: r.photos?.[id]?.thumb || r.photos?.[id]?.url }))])) }),
-    toBody: (v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
+    toBody: (v) => Object.fromEntries(Object.entries(v).filter(([k, x]) => !(k === 'code' && (x === '' || x == null))).map(([k, x]) => [k, k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
     create: (b) => api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
     update: (id, b) => api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); return r; }),
   },
