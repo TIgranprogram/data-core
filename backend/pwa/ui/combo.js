@@ -14,8 +14,14 @@ import { highlight, placeList } from './popup.js';
  */
 export function attachCombo(input, { options, onPick, max = 60, empty, extra, multi = false }) {
   const box = h('div', { class: 'combo-list', hidden: true, role: 'listbox' });
-  input.parentElement.classList.add('has-combo');
-  input.insertAdjacentElement('afterend', box);
+  // поле ещё не в странице (форма собирается до вставки) — подключаемся, когда появится (ошибка с сайта «classList of null»)
+  let tries = 0;
+  const mount = () => {
+    if (!input.parentElement) { if (tries++ < 60) requestAnimationFrame(mount); return; }
+    input.parentElement.classList.add('has-combo');
+    input.insertAdjacentElement('afterend', box);
+  };
+  mount();
   input.setAttribute('autocomplete', 'off');
   input.classList.add('combo-input');
   let shown = []; let active = 0; let picking = false;
