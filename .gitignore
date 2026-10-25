@@ -35,3 +35,6 @@ secrets/
 
 # рабочие копии агентов Claude Code
 .claude/worktrees/
+
+# доступ агента datacore-access (локальный пароль, если сменён в админке)
+deploy/synology/access.env
