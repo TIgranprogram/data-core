@@ -130,8 +130,12 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
         if (st().board && f.key === 'status') return [];
         const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
-        const opts = [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => optBtn(o.label, f.count && lastResp ? f.count(lastResp, o.value) : undefined,
-          String(o.value) === cur, () => patch({ [f.key]: String(o.value) === cur ? undefined : o.value, page: undefined })));
+        const curIsAll = cur === '' || cur === 'all';
+        const opts = [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
+          const isAll = o.value === ''; const isAct = isAll ? curIsAll : String(o.value) === cur;
+          return optBtn(o.label, f.count && lastResp ? f.count(lastResp, o.value) : undefined, isAct,
+            () => patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }));
+        });
         return [h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), h('div', { class: 'ls-list' }, ...opts))];
       }));
       return;
@@ -139,11 +143,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
       if (st().board && f.key === 'status') return [];
       const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
+      const curIsAll = cur === '' || cur === 'all';
       return [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
+        const isAll = o.value === ''; const isAct = isAll ? curIsAll : String(o.value) === cur;
         const n = f.count && lastResp ? f.count(lastResp, o.value) : undefined;
         return h('button', {
-          type: 'button', class: 'chip' + (String(o.value) === cur ? ' active' : ''),
-          onclick: () => patch({ [f.key]: String(o.value) === cur ? undefined : o.value, page: undefined }),
+          type: 'button', class: 'chip' + (isAct ? ' active' : ''),
+          onclick: () => patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }),
         }, o.label, n !== undefined ? h('b', null, qty(n)) : null);
       });
     }));
@@ -174,13 +180,14 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // БЗ-9: отметка записей и «Изменить выбранные» — только где раздел объявил L.bulk и есть право правки
   const bulkOn = !!L.bulk && canEditSection(section);
   const picked = new Set();
+  let bulkMode = false;
   const bulkBar = bulkOn ? h('div', { class: 'bulk-bar', hidden: true, role: 'region', 'aria-label': 'Выбранные записи' }) : null;
   const paintBulk = () => {
     if (!bulkBar) return;
     bulkBar.hidden = !picked.size;
     bulkBar.replaceChildren(h('b', null, `Выбрано: ${qty(picked.size)}`),
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { picked.clear(); paintBulk(); load(); } }) }, L.bulk.label || 'Изменить выбранные'),
-      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { picked.clear(); paintBulk(); syncPicks(); } }, 'Снять выбор'));
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); } }) }, L.bulk.label || 'Изменить выбранные'),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, 'Снять выбор'));
     const all = headPick(); if (all) { const ids = rows.map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
   };
   const pickBox = (row) => h('input', { type: 'checkbox', class: 'pick-cb', checked: picked.has(row.id), dataset: { id: row.id }, 'aria-label': 'Отметить запись',
@@ -191,6 +198,15 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !side ? chipsBox : null, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
+  const enterBulkMode = (id) => { if (!bulkOn) return; bulkMode = true; panel.classList.add('bulk-mode'); if (id) { picked.add(id); syncPicks(); paintBulk(); } };
+  const exitBulkMode = () => { bulkMode = false; panel.classList.remove('bulk-mode'); picked.clear(); syncPicks(); paintBulk(); };
+  const bindLong = bulkOn ? (el, id) => {
+    let tmr = null; let suppress = false;
+    el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; suppress = false; tmr = setTimeout(() => { tmr = null; suppress = true; enterBulkMode(id); if (navigator.vibrate) navigator.vibrate(15); }, 350); });
+    const cancel = () => { clearTimeout(tmr); tmr = null; };
+    el.addEventListener('pointerup', cancel); el.addEventListener('pointercancel', () => { cancel(); suppress = false; });
+    el.addEventListener('click', (ev) => { if (suppress) { suppress = false; ev.stopImmediatePropagation(); } }, true);
+  } : null;
 
   // Плитки (категории склада)
   const tilesBox = L.tiles ? h('div', { class: side ? 'ls-list' : 'tiles' }) : null;
@@ -311,7 +327,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const query = { search: P.q, ...(L.query ? L.query(P) : {}) };
     for (const f of L.filters || []) {
       const v = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
-      if (v && !(isBoard && f.key === 'status')) query[f.key] = v;
+      if (v && v !== 'all' && !(isBoard && f.key === 'status')) query[f.key] = v;
     }
     return query;
   }
@@ -374,18 +390,22 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
           }
         }
         const trCls = L.rowClass ? L.rowClass(row) : '';
-        const tr = h('tr', { class: trCls || undefined, onclick: () => onOpen(row), dataset: { i: String(i) } },
+        const tr = h('tr', { class: trCls || undefined, onclick: (e) => { if (bulkOn && e.ctrlKey) { enterBulkMode(row.id); return; } onOpen(row); }, dataset: { i: String(i) } },
           bulkOn ? h('td', { class: 'pick' }, pickBox(row)) : null,
           L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
         if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
         trs.push(tr);
       });
       tbody.replaceChildren(...trs);
-      cards.replaceChildren(...rows.map((row) => h('li', { onclick: () => onOpen(row) },
-        bulkOn ? h('label', { class: 'pick-hit', title: 'Отметить', onclick: (e) => e.stopPropagation() }, pickBox(row)) : null,
-        L.card.thumb ? L.card.thumb(row) : null,
-        h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
-        h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null))));
+      cards.replaceChildren(...rows.map((row) => {
+        const li = h('li', { onclick: () => { if (bulkMode) { if (picked.has(row.id)) picked.delete(row.id); else picked.add(row.id); syncPicks(); paintBulk(); return; } onOpen(row); } },
+          bulkOn ? h('label', { class: 'pick-hit', title: 'Отметить', onclick: (e) => e.stopPropagation() }, pickBox(row)) : null,
+          L.card.thumb ? L.card.thumb(row) : null,
+          h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
+          h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null));
+        if (bindLong) bindLong(li, row.id);
+        return li;
+      }));
       markSelected();
     }
     if (per) { foot.replaceChildren(...[h('span', null, resp.total ? `${qty(resp.total)} ${plural(resp.total, 'запись', 'записи', 'записей')} по месяцам` : ''), L.footer ? L.footer(resp) : null].filter(Boolean)); return; }
@@ -406,9 +426,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       g ? h('h3', { class: 'gal-head' }, g, h('span', { class: 'gal-n' }, qty(items.length))) : null,
       h('div', { class: 'gal' }, ...items.map((row) => {
         const v = L.gallery.card(row);
-        const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id }, onclick: () => onOpen(row), title: v.title },
+        const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id },
+          onclick: () => { if (bulkMode) { if (picked.has(row.id)) picked.delete(row.id); else picked.add(row.id); syncPicks(); paintBulk(); return; } onOpen(row); }, title: v.title },
           v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
           h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.badge || null);
+        if (bindLong) bindLong(card, row.id);
         return bulkOn ? h('div', { class: 'gcard-wrap' }, card, h('label', { class: 'gc-pick', title: 'Отметить' }, pickBox(row))) : card;
       })))));
   }

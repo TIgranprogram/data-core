@@ -331,6 +331,19 @@ th.pick, td.pick { width: 36px; text-align: center; }
 .bulk-row.on .bulk-ctl { opacity: 1; }
 .bulk-row.on .bulk-use span { font-weight: 600; }
 @media (max-width: 719px) { .pick-cb, .pick-all { width: 24px; height: 24px; } .gc-pick { padding: 10px; } .cards li > .pick-hit { padding: 10px; margin: -10px 0 -10px -10px; } }
+/* Выбор множества: чекбоксы скрыты, пока нет bulk-mode */
+.list-panel:not(.bulk-mode) .pick-cb { opacity: 0; pointer-events: none; transition: opacity .15s; }
+.list-panel.bulk-mode .pick-cb { opacity: 1; pointer-events: auto; }
+.list-panel:not(.bulk-mode) td.pick, .list-panel:not(.bulk-mode) th.pick { width: 0; min-width: 0; padding: 0; overflow: hidden; }
+.list-panel:not(.bulk-mode) .pick-hit { display: none; }
+.list-panel.bulk-mode .pick-hit { display: flex; }
+.list-panel:not(.bulk-mode) .gc-pick { display: none; }
+.list-panel.bulk-mode .gc-pick { display: flex; }
+/* Шестерёнка-меню (каталог продукции) */
+.gear-wrap { position: relative; display: inline-flex; }
+.gear-drop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 190px; display: none; flex-direction: column; padding: 4px 0; }
+.gear-drop.open { display: flex; }
+.gear-drop .btn { justify-content: flex-start; border: none; border-radius: 0; white-space: nowrap; width: 100%; }
 /* «Состав изделия» (СИ): строки по разделам — название · количество со степпером · цена/сумма · «×»; итог; на телефоне название — отдельной строкой */
 .pick-list .pick-head { padding: 8px 12px; font-weight: 650; color: var(--heading); background: var(--surface); border-bottom: 1px solid var(--border); }
 .comp-group { margin-top: var(--s3); }

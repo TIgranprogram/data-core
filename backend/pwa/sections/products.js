@@ -205,13 +205,19 @@ export const products = {
           ...all.filter((g) => g.parentId && !known.has(g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: 'группа' }))];
       },
     },
-    headActions: () => [
-      h('button', { class: 'btn', type: 'button', title: 'Excel или вставка из таблицы', onclick: () => patch({ of: 'catalogimport', new: '1', open: undefined }) }, '⇩ Загрузить каталог'),
-      session.canEdit ? h('button', { class: 'btn', type: 'button', title: 'Создать изделия из позиций заказов', onclick: () => patch({ of: 'fromorders', new: '1', open: undefined }) }, 'Из заказов') : null,
-      session.canEdit ? h('button', { class: 'btn', type: 'button', title: 'Изделия из паспортов — похожие объединить без дублей', onclick: () => patch({ of: 'frompassports', new: '1', open: undefined }) }, 'Из паспортов') : null,
-      h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`),
-    ],
-    hints: { '': 'Изделия компании. «В КП» в строке — добавить в коммерческое предложение; кнопка «КП» сверху — открыть и напечатать.' },
+    headActions: () => {
+      const drop = h('div', { class: 'gear-drop' }, ...[
+        h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'catalogimport', new: '1', open: undefined }); } }, '⇩ Загрузить каталог'),
+        session.canEdit ? h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'fromorders', new: '1', open: undefined }); } }, 'Из заказов') : null,
+        session.canEdit ? h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'frompassports', new: '1', open: undefined }); } }, 'Из паспортов') : null,
+      ].filter(Boolean));
+      const gear = h('div', { class: 'gear-wrap' },
+        h('button', { class: 'btn btn-icon', type: 'button', title: 'Настройки каталога', onclick: (e) => { e.stopPropagation(); drop.classList.toggle('open'); } }, '⚙'),
+        drop);
+      document.addEventListener('click', () => { drop.classList.remove('open'); });
+      return [gear, h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`)];
+    },
+    hints: {},
     rowAction: (r) => ({ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`«${row.name}» в КП — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); return false; } }),
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => pic(r.photo) },
