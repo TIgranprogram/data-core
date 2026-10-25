@@ -1165,24 +1165,28 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
         loadBundle(Date.now());
       });
       const MSG = {
-        queued: 'Ждёт запуска на хосте (до минуты)…',
-        running: 'Собирается… это занимает несколько минут' + (st.startedAt ? ' (с ' + new Date(st.startedAt).toLocaleTimeString('ru-RU') + ')' : ''),
-        done: 'Готово' + (st.finishedAt ? ': ' + new Date(st.finishedAt).toLocaleString('ru-RU') : ''),
+        queued: '⏳ Ждёт запуска на хосте — это займёт до минуты…',
+        running: '⚙️ Собирается' + (st.startedAt ? ' с ' + new Date(st.startedAt).toLocaleTimeString('ru-RU') : '') + ' — обычно 5–10 минут, страница обновляется сама…',
+        done: '✅ Пакет собран' + (st.finishedAt ? ' в ' + new Date(st.finishedAt).toLocaleTimeString('ru-RU') : '') + ' — скачайте строку «Новый» ниже',
         failed: 'Ошибка сборки' + (st.finishedAt ? ' (' + new Date(st.finishedAt).toLocaleString('ru-RU') + ')' : ''),
         idle: '',
       };
-      const line = el('p', st.state === 'failed' ? 'error' : 'muted', MSG[st.state] || '');
+      const lineClass = st.state === 'failed' ? 'error' : st.state === 'done' ? 'ok' : 'muted';
+      const line = el('p', lineClass, MSG[st.state] || '');
       const wrap = el('div', 'srv-btns'); wrap.append(btn);
       const parts = [wrap, line];
       if (st.state === 'failed' && st.error) parts.push(el('pre', 'mono small', st.error));
-      parts.push(el('p', 'muted', 'Сборка занимает несколько минут; кнопка «Собрать» просит хост, поэтому после нажатия подождите до минуты.'));
+      if (st.state === 'idle' || st.state === 'done') parts.push(el('p', 'muted small', 'Хранятся последние 3 пакета; старые удаляются автоматически.'));
+      if (busy) parts.push(el('p', 'muted small', 'Закрывать вкладку можно — сборка идёт на сервере.'));
       if (d.items.length) {
         const prog = el('span', 'muted srv-prog');
         const table = el('table', 'srv-backups');
-        const hr = el('tr'); ['Дата', 'Размер', 'Скачать'].forEach((x) => hr.append(el('th', null, x)));
+        const hr = el('tr'); ['', 'Дата', 'Размер', 'Скачать'].forEach((x) => hr.append(el('th', null, x)));
         const th = el('thead'); th.append(hr); table.append(th);
         const tb = el('tbody');
+        const newest = d.items.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b, d.items[0]);
         d.items.forEach((it) => {
+          const isNew = it.name === newest.name;
           const b = el('button', 'btn small', 'Скачать'); b.type = 'button';
           b.addEventListener('click', async () => { table.querySelectorAll('button').forEach((x) => { x.disabled = true; }); await saveBundle(it.name, prog); table.querySelectorAll('button').forEach((x) => { x.disabled = false; }); });
           const del = el('button', 'btn small btn-danger', 'Удалить'); del.type = 'button';
@@ -1191,8 +1195,11 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
             del.disabled = true;
             try { await api('/health/bundle/' + encodeURIComponent(it.name), { method: 'DELETE' }); toast('Пакет удалён'); loadBundle(); } catch (e) { toast('Не удалось удалить: ' + e.message); del.disabled = false; }
           });
-          const tr = el('tr'); const td = el('td', 'srv-btns'); td.append(b, del);
-          tr.append(el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.bytes)), td);
+          const tr = el('tr'); if (isNew) tr.className = 'srv-new-row';
+          const td = el('td', 'srv-btns'); td.append(b, del);
+          const badge = isNew ? el('span', 'tag active', 'Новый') : el('span', null, '');
+          tr.append(el('td', null), el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.bytes)), td);
+          tr.firstElementChild.append(badge);
           tb.append(tr);
         });
         table.append(tb);
