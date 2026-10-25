@@ -1391,7 +1391,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .list-side { position: sticky; top: calc(var(--topbar-h) + var(--s3)); max-height: calc(100vh - var(--topbar-h) - 2 * var(--s3)); display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .ls-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s3); display: flex; flex-direction: column; gap: var(--s4); }
 .ls-head, .ls-foot, .ls-open-btn, .ls-shade { display: none; }
-.ls-h { margin-bottom: 4px; font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.ls-h { margin-bottom: 4px; font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--primary); }
 .ls-list { display: flex; flex-direction: column; gap: 1px; }
 .ls-opt { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
 .ls-opt:hover { background: var(--row-hover); }
@@ -1400,7 +1400,12 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .ls-opt .ls-sub { color: var(--muted); font-size: var(--fs-sm); font-weight: 400; }
 .ls-opt b { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ls-opt.head { font-weight: 600; margin-top: 6px; }
+.ls-opt.head::after { content: '▸'; margin-left: auto; font-size: 11px; color: var(--muted); }
+.ls-opt.head.open::after { content: '▾'; }
+.ls-subs { overflow: hidden; }
 .ls-opt.sub { padding-left: 22px; }
+/* ТИ-3: полоса слева у заказов в стадии «Проектирование» */
+.so-design-row > td:first-child { box-shadow: inset 4px 0 0 var(--primary); }
 .ls-reset { align-self: flex-start; }
 .list-side .sel-wrap, .list-side select, .list-side .date-f input { width: 100%; max-width: 100%; }
 .list-side .date-f { flex-direction: column; align-items: stretch; }

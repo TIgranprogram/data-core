@@ -85,13 +85,23 @@ export const stock = {
     extraKeys: ['ft'],
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
     query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
+    export: 'admin',
     headActions: () => [stockActions()],
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',
     emptyText: 'На складе пока нет позиций.',
     filters: [
-      { key: 'status', label: 'Состояние', type: 'chips', options: () => [{ value: 'low', label: 'К закупке' }, { value: 'none', label: 'Нет на складе' }, { value: 'reserved', label: 'В брони' }, { value: 'ok', label: 'В норме' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
+      { key: 'status', label: 'Состояние', type: 'chips',
+        options: () => [
+          { value: 'low,none', label: 'Требуют внимания' },
+          { value: 'low', label: 'Ниже минимума' },
+          { value: 'none', label: 'Нет на складе' },
+          { value: 'reserved', label: 'В брони' },
+          { value: 'ok', label: 'В норме' },
+        ],
+        count: (resp, v) => v === '' ? resp.counts?.all : v.includes(',') ? v.split(',').reduce((s, k) => s + (resp.counts?.[k] ?? 0), 0) : resp.counts?.[v],
+      },
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {

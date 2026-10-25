@@ -60,8 +60,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const btnGallery = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default ? undefined : 'gallery', page: undefined }) }, icon('gallery'), 'Галерея');
   const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
-  // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки
-  const exportBtn = L.export === false ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
+  // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin
+  const exportBtn = (L.export === false || (L.export === 'admin' && session.role !== 'admin')) ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
     onclick: (e) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, e.currentTarget); } }, '⇩ Excel');
   const head = h('div', { class: 'page-head' },
     h('h1', null, section.title, ' ', countEl),
@@ -201,9 +201,29 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (!tilesBox) return;
     const cur = P[L.tiles.key] || '';
     if (side) {
-      // категории списком с числом; x.head — заголовок-раздел, x.sub (строка) — подпись группы
-      tilesBox.replaceChildren(...tiles.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
-        () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }), x.head ? 'head' : x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' && !x.head ? x.sub : '')));
+      // ТИ-7: группы по заголовкам (head:true) — свёрнуты по умолчанию, кроме активной
+      const groups = [];
+      let grp = null;
+      for (const x of tiles) {
+        if (x.head) { grp = { tile: x, subs: [] }; groups.push(grp); }
+        else if (grp) grp.subs.push(x);
+        else { if (!groups.length || groups[0].tile !== null) groups.unshift({ tile: null, subs: [] }); groups[0].subs.push(x); }
+      }
+      const nodes = groups.flatMap(({ tile, subs }) => {
+        if (!tile) return subs.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
+          () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
+          x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' ? x.sub : ''));
+        const hasActive = String(tile.value) === cur || subs.some((x) => String(x.value) === cur);
+        const subsEl = h('div', { class: 'ls-subs', hidden: !hasActive },
+          ...subs.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
+            () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
+            'sub', typeof x.sub === 'string' ? x.sub : '')));
+        const headBtn = optBtn(tile.label, tile.n, hasActive,
+          () => { subsEl.hidden = !subsEl.hidden; headBtn.classList.toggle('open', !subsEl.hidden); },
+          'head' + (hasActive ? ' open' : ''), '');
+        return [headBtn, subsEl];
+      });
+      tilesBox.replaceChildren(...nodes);
       return;
     }
     tilesBox.replaceChildren(...tiles.map((x) => h('button', {
@@ -338,7 +358,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
             trs.push(h('tr', { class: 'group-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) + (bulkOn ? 1 : 0) }, h('span', null, g), L.groupTotal ? L.groupTotal(same) : null)));
           }
         }
-        const tr = h('tr', { onclick: () => onOpen(row), dataset: { i: String(i) } },
+        const trCls = L.rowClass ? L.rowClass(row) : '';
+        const tr = h('tr', { class: trCls || undefined, onclick: () => onOpen(row), dataset: { i: String(i) } },
           bulkOn ? h('td', { class: 'pick' }, pickBox(row)) : null,
           L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
         if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
@@ -403,7 +424,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     };
     const rowsOf = (items) => items.forEach((row) => {
       const i = rows.indexOf(row);
-      const tr = h('tr', { onclick: () => onOpen(row), dataset: { i: String(i) } }, L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
+      const trClsP = L.rowClass ? L.rowClass(row) : '';
+      const tr = h('tr', { class: trClsP || undefined, onclick: () => onOpen(row), dataset: { i: String(i) } }, L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
       if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
       trs.push(tr);
       lis.push(h('li', { onclick: () => onOpen(row) }, L.card.thumb ? L.card.thumb(row) : null,

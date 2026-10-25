@@ -157,7 +157,7 @@ function shell() {
     group('Снабжение', navLinks.requests),
     group('Склад', navLinks.stock),
     group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
-    group('Заказы', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
+    group('Производство', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' },
       installLink(),

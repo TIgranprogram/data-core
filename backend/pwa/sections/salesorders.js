@@ -19,18 +19,18 @@ import { orderDesign } from './order-design.js';
  * (заявки) и что отпущено со склада. Выполненные сворачиваются по месяцам отгрузки (фаза М).
  */
 export const STAGE = {
-  new: { label: 'Новый', tone: 'primary' },
-  production: { label: 'В производстве', tone: 'info' },
-  ready: { label: 'Готов к отгрузке', tone: 'warn' },
-  shipped: { label: 'Отгружен', tone: 'ok' },
+  new: { label: 'Проектирование', tone: 'primary' },
+  production: { label: 'Производство', tone: 'info' },
+  ready: { label: 'Готово к отгрузке', tone: 'warn' },
+  shipped: { label: 'Отгружена', tone: 'ok' },
   closed: { label: 'Закрыт', tone: 'dim' },
   cancelled: { label: 'Отменён', tone: 'danger' },
 };
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
-const NEXT_LABEL = { new: 'В производство', production: 'Готов', ready: 'Отгружен', shipped: 'Закрыть' };
+const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружена', shipped: 'Закрыть' };
 const HINT = {
-  '': 'Все заказы заказчиков. Кнопка в строке — следующий этап. Клик — позиции заказа, заявки и выдача со склада.',
-  active: 'Заказы в работе: новые, в производстве, готовые к отгрузке. Красный срок — просрочено.',
+  '': 'Все заказы. Кнопка в строке — следующий этап. Клик — позиции заказа, заявки и выдача со склада.',
+  active: 'Заказы в работе: проектирование, производство, готовые к отгрузке. Красный срок — просрочено.',
   done: 'Отгруженные и закрытые заказы — по месяцам отгрузки. Нажмите на месяц, чтобы раскрыть.',
 };
 
@@ -130,6 +130,7 @@ export const salesorders = {
     createLabel: 'Заказ',
     searchPlaceholder: 'Поиск: № заказа, заказчик, предмет, контракт…',
     emptyText: 'Заказов пока нет.',
+    rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
     filters: [
       { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', options: () => [{ value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
     ],

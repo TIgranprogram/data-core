@@ -1203,7 +1203,8 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     const box = $(sel); if (!box) return;
     const b = el('button', 'btn', label); b.type = 'button';
     b.addEventListener('click', () => { b.disabled = true; box.replaceChildren(el('p', 'muted', 'Загружаю… ' + text.wait)); fn(); });
-    box.replaceChildren(el('p', 'muted', text.what), el('div', 'srv-btns', b));
+    const wrap = el('div', 'srv-btns'); wrap.append(b);
+    box.replaceChildren(el('p', 'muted', text.what), wrap);
   }
   function serverIdle() {
     idleBox('#server-box', { what: 'Сколько места занято на диске сервера.', wait: 'Обычно до 10 секунд.' }, 'Проверить место на диске', loadServer);
