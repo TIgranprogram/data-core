@@ -9,6 +9,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { diskState, type DiskSnapshot } from './disk-usage';
 import { dirSize, exists } from './disk-fs';
 import { BackupsController } from './backups.controller';
+import { BundleController } from './bundle.controller';
 
 /**
  * Место на диске сервера (TASKS ДИ.1). Том с данными (`DATA_DIR` VM) смонтирован в контейнер только для чтения
@@ -65,5 +66,5 @@ export class DiskController {
   }
 }
 
-@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController], providers: [DiskService] })
+@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController], providers: [DiskService] })
 export class DiskModule {}

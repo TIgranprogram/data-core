@@ -4842,6 +4842,55 @@
         ]
       }
     },
+    "/health/bundle": {
+      "get": {
+        "operationId": "BundleController_state",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      },
+      "post": {
+        "operationId": "BundleController_request",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/bundle/{name}/download": {
+      "get": {
+        "operationId": "BundleController_download",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
     "/fill-audit": {
       "get": {
         "operationId": "FillAuditController_report",

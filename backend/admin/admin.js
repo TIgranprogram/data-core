@@ -1119,6 +1119,86 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       box.replaceChildren(table, prog, el('p', 'muted', 'Копию можно сохранить на любой диск — браузер спросит папку.'));
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось получить список копий: ' + e.message)); }
   }
+  // ---- Сервер: переносной пакет для переезда (кнопка → файл-запрос → cron хоста → скачивание) ----
+  let bundleTimer = null;
+  async function saveBundle(name, prog) {
+    const mb = (n) => (n / 1024 ** 2).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' МБ';
+    let file = null;
+    try {
+      if (window.showSaveFilePicker) file = await window.showSaveFilePicker({ suggestedName: name, startIn: 'documents', types: [{ description: 'Архив tar.gz', accept: { 'application/gzip': ['.gz'] } }] });
+    } catch (e) { if (e.name === 'AbortError') { toast('Скачивание отменено'); return; } file = null; }
+    let w = null;
+    try {
+      prog.textContent = 'Начинаем…';
+      const res = await authFetch('/health/bundle/' + encodeURIComponent(name) + '/download');
+      if (!res.ok) { let m = 'Не удалось скачать пакет'; try { m = (await res.json()).message || m; } catch { /* не JSON */ } throw new Error(m); }
+      let got = 0;
+      if (file) {
+        w = await file.createWritable();
+        const rd = res.body.getReader();
+        for (;;) { const { done, value } = await rd.read(); if (done) break; await w.write(value); got += value.length; prog.textContent = 'Скачано ' + mb(got); }
+        await w.close(); w = null;
+      } else {
+        const blob = await res.blob(); got = blob.size;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      }
+      prog.textContent = ''; toast('Пакет сохранён: ' + mb(got));
+    } catch (e) {
+      if (w) await w.abort().catch(() => {});
+      prog.textContent = ''; toast('Не удалось сохранить пакет: ' + (e.message || 'обрыв связи'));
+    }
+  }
+  async function loadBundle(since) {
+    clearTimeout(bundleTimer);
+    const box = $('#bundle-box');
+    if (!box) return;
+    try {
+      const d = await api('/health/bundle');
+      if (!d.mounted) { box.replaceChildren(el('p', 'muted', 'Недоступно на этом сервере.')); return; }
+      const st = d.status || { state: 'idle' };
+      const busy = st.state === 'queued' || st.state === 'running';
+      const started = since || Date.now();
+      const btn = el('button', 'btn', 'Собрать пакет'); btn.type = 'button'; btn.disabled = busy;
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try { await api('/health/bundle', { method: 'POST' }); toast('Запрос отправлен — сборка начнётся в течение минуты'); } catch (e) { toast(e.message); }
+        loadBundle(Date.now());
+      });
+      const MSG = {
+        queued: 'Ждёт запуска на хосте (до минуты)…',
+        running: 'Собирается… это занимает несколько минут' + (st.startedAt ? ' (с ' + new Date(st.startedAt).toLocaleTimeString('ru-RU') + ')' : ''),
+        done: 'Готово' + (st.finishedAt ? ': ' + new Date(st.finishedAt).toLocaleString('ru-RU') : ''),
+        failed: 'Ошибка сборки' + (st.finishedAt ? ' (' + new Date(st.finishedAt).toLocaleString('ru-RU') + ')' : ''),
+        idle: '',
+      };
+      const line = el('p', st.state === 'failed' ? 'error' : 'muted', MSG[st.state] || '');
+      const parts = [el('div', 'srv-btns', btn), line];
+      if (st.state === 'failed' && st.error) parts.push(el('pre', 'mono small', st.error));
+      parts.push(el('p', 'muted', 'Сборка занимает несколько минут; кнопка «Собрать» просит хост, поэтому после нажатия подождите до минуты.'));
+      if (d.items.length) {
+        const prog = el('span', 'muted srv-prog');
+        const table = el('table', 'srv-backups');
+        const hr = el('tr'); ['Дата', 'Размер', 'Скачать'].forEach((x) => hr.append(el('th', null, x)));
+        const th = el('thead'); th.append(hr); table.append(th);
+        const tb = el('tbody');
+        d.items.forEach((it) => {
+          const b = el('button', 'btn small', 'Скачать'); b.type = 'button';
+          b.addEventListener('click', async () => { table.querySelectorAll('button').forEach((x) => { x.disabled = true; }); await saveBundle(it.name, prog); table.querySelectorAll('button').forEach((x) => { x.disabled = false; }); });
+          const tr = el('tr'); const td = el('td', 'srv-btns'); td.append(b);
+          tr.append(el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.bytes)), td);
+          tb.append(tr);
+        });
+        table.append(tb);
+        parts.push(table, prog, el('p', 'muted', 'Пакет можно сохранить на любой диск — браузер спросит папку.'));
+      } else if (!busy) parts.push(el('p', 'muted', 'Пакетов пока нет.'));
+      box.replaceChildren(...parts);
+      if (busy && !$('#tab-server').hidden) {
+        if (Date.now() - started > 40 * 60 * 1000) line.textContent = 'Сборка идёт дольше обычного — обновите вкладку позже или проверьте хост.';
+        else bundleTimer = setTimeout(() => loadBundle(started), 5000);
+      }
+    } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось получить состояние пакета: ' + e.message)); }
+  }
   $('#server-refresh').addEventListener('click', loadServer);
 
   async function loadConnect() {
