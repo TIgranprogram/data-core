@@ -174,8 +174,8 @@ export function targetPicker({ mode = 'out' } = {}) {
 
   // ---------- просто выдано ----------
   const freeIn = h('input', { maxlength: 200, placeholder: 'Объект, бригада, заказ — из списка или своё (необязательно)', 'aria-label': 'Куда / кому выдано' });
-  withOrders(freeIn);
   const freePanel = h('div', { class: 'tp-panel' }, h('label', { class: 'field wide' }, h('span', null, 'Куда выдано'), freeIn));
+  withOrders(freeIn); // после freePanel: freeIn должен иметь родителя до attachCombo
 
   if (seg) {
     el.append(h('div', { class: 'field wide' }, h('span', { class: 'tp-label' }, 'Кому / под что'), seg), orderPanel, personPanel, freePanel);
