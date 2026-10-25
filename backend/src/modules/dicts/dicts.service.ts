@@ -4,7 +4,7 @@ import { effectiveRoles } from '../../common/roles-hierarchy';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
-import { DICT, DICTS, type DictDef, type Doc, norm, translit } from './dicts.defs';
+import { DICT, DICTS, DICT_UI, type DictDef, type Doc, norm, translit, uiFields } from './dicts.defs';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -85,7 +85,7 @@ export class DictsService {
       .filter((x) => matchesAll(tk, ...Object.values(x).filter((v) => typeof v === 'string' || typeof v === 'number')))
       .sort((a, b) => String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru'));
     await this.attachPhotos(d, items);
-    return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, group: d.group, hint: d.hint, columns: d.columns, fields: d.fields, refs } };
+    return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, newTitle: DICT_UI[d.key]?.newTitle, group: d.group, hint: d.hint, columns: d.columns, fields: uiFields(d), refs } };
   }
 
   async get(key: string, id: string) {
@@ -98,7 +98,7 @@ export class DictsService {
     if (row.workTypeId !== undefined) row.workTypeName = base.refs.worktypes?.find((r) => r.value === row.workTypeId)?.label ?? '';
     if (row.payoutScheduleId !== undefined) row.payoutScheduleName = base.refs.payoutSchedules?.find((r) => r.value === row.payoutScheduleId)?.label ?? '';
     await this.attachPhotos(d, [row]);
-    return { ...row, related, dictInfo: { title: d.title, fields: d.fields, refs: base.refs } };
+    return { ...row, related, dictInfo: { title: d.title, fields: uiFields(d), refs: base.refs } };
   }
 
   /** Поля-картинки (photo/photos): к строке — `photos: { id: { url, thumb } }` для показа и формы. */

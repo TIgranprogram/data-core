@@ -636,7 +636,7 @@ export const DICTS: DictDef[] = [
   },
   {
     // МИ: размеры по материалу (∅89×3, лист 2) — выбор в таблице «Материалы изделия»; размер без «мм», единица — в шаблоне материала
-    ...simpleList('passportSortament', 'Паспорта', 'Сортамент',
+    ...simpleList('passportSortament', 'Паспорта', 'Размеры материалов',
       'Размеры по материалу: ∅89×3, ∅33,5×2,8 у трубы, 2 и 6 у листа (без «мм» — единица в шаблоне материала). Выбираются в таблице материалов изделия; один размер у разных материалов — разные записи.',
       [{ key: 'material', label: 'Материал', required: true, hint: 'К какому материалу относится размер — выберите из «Материалов и покрытий»', ref: { dict: 'passportMaterials', multiple: false } },
         YES_NO('incomplete', 'Неполный размер', 'Да — размер без стенки (∅33,5 у трубы, профиль без стенки): в выборе — ниже полных, с пометкой')]),
@@ -743,5 +743,19 @@ export const DICTS: DictDef[] = [
     editRoles: ['director'],
   },
 ];
+
+/** Подписи правой панели (2026-10-25, замечание пользователя: «новая запись чего?»): заголовок новой записи и подпись поля «Название». */
+export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> = {
+  categories: { newTitle: 'Новая категория' }, units: { newTitle: 'Новая единица измерения' }, colors: { newTitle: 'Новый цвет' },
+  persons: { newTitle: 'Новый сотрудник' }, worktypes: { newTitle: 'Новый вид работ' }, paymentForms: { newTitle: 'Новая форма оплаты' },
+  writeOffReasons: { newTitle: 'Новая причина списания' }, payoutSchedules: { newTitle: 'Новый график выплат' }, invoiceTypes: { newTitle: 'Новый тип счёта' },
+  services: { newTitle: 'Новая услуга' }, passportCategories: { newTitle: 'Новая категория паспорта' }, passportStandards: { newTitle: 'Новый норматив', nameLabel: 'Обозначение (коротко)' },
+  passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
+  passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
+  passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
+  passportStyle: { newTitle: 'Новый элемент оформления' },
+};
+/** Поля справочника с подписью «Название» из DICT_UI. */
+export const uiFields = (d: DictDef) => { const l = DICT_UI[d.key]?.nameLabel; return l ? d.fields.map((f) => (f.key === 'name' ? { ...f, label: l } : f)) : d.fields; };
 
 export const DICT = new Map(DICTS.map((d) => [d.key, d]));

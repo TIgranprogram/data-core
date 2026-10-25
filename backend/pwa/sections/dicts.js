@@ -183,7 +183,7 @@ export function mountDicts(params) {
     searchWrap.hidden = false;
     try {
       const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
-      groups = g.items; data = d;
+      groups = g.items; data = d; curNewTitle = d.dict.newTitle || null;
       editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
       addBtn.hidden = !canEditDict();
       relCache.clear();
@@ -245,10 +245,13 @@ function photoStrip(r, f) {
     h('img', { src: PREFIX + (r.photos[id].thumb || r.photos[id].url), alt: f.label }))));
 }
 
+let curNewTitle = null; // заголовок «Новый …» открытого справочника (из GET /dicts/:key)
 export const dict = {
   id: 'dict',
   canEdit: canEditDict,
   title: 'Справочники',
+  // заголовок правой панели новой записи — что именно добавляем (2026-10-25)
+  get newTitle() { return curNewTitle || 'Новая запись'; },
   entityType: 'DictItem',
   historyLabels: { 'dict.created': 'Добавлено', 'dict.updated': 'Изменено', 'dict.deleted': 'Удалено', 'dict.restored': 'Восстановлено', 'dict.merged': 'Объединено' },
   get: (id) => api(`/dicts/${dictKey()}/${id}`),
