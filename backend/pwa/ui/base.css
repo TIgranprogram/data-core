@@ -1301,3 +1301,21 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .sidebar { overflow-y: auto; overscroll-behavior: contain; }
 
 .side-ver-foot { padding: 6px 12px 0; font-size: 10.5px; color: var(--side-text); opacity: .45; font-variant-numeric: tabular-nums; } /* номер версии внизу меню (2026-10-24) */
+
+/* «Проектирование» (ПРЖ-5): доска с чертежами 4:3, срок, исполнитель */
+.board.board-pics .tcard .t-pic, .t-pic-none { width: 100%; aspect-ratio: 4 / 3; height: auto; border-radius: 6px; } /* чертёж — на белом, contain */
+.board.board-pics .tcard .t-pic { background: #fff; border: 1px solid var(--border); }
+.t-pic-none { display: grid; place-items: center; background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
+.tcard .t-sub { font-size: 12px; color: var(--muted); line-height: 1.3; overflow-wrap: anywhere; }
+.tcard .t-foot { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: var(--fs-sm); }
+.tcard .t-foot .avatar { margin-left: auto; }
+.due { font-variant-numeric: tabular-nums; }
+.due.none, .due.done { color: var(--muted); }
+.due.soon { color: var(--warn); font-weight: 600; }
+.due.over { color: var(--danger); font-weight: 600; }
+.avatar.sm { width: 24px; height: 24px; font-size: 11px; }
+.tcard.compact { flex-direction: row; align-items: center; gap: 8px; padding: 6px 8px; }
+.tcard.compact .t-pic, .tcard.compact .t-pic-none { width: 40px; height: 40px; aspect-ratio: auto; flex: none; object-fit: contain; font-size: 0; }
+.tcard.compact .t-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.tcard.compact .t-title { -webkit-line-clamp: 1; font-size: var(--fs-sm); }
+.col-add { display: block; margin: 2px auto 6px; padding: 6px 0; font-size: var(--fs-sm); }

@@ -3,13 +3,14 @@ import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { badge } from '../ui/badges.js';
+import { badge, ORDER_PRIORITY } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
 import { errText } from '../ui/errors.js';
 import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
+import { orderDesign } from './order-design.js';
 
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
@@ -32,6 +33,8 @@ const HINT = {
   done: 'Отгруженные и закрытые заказы — по месяцам отгрузки. Нажмите на месяц, чтобы раскрыть.',
 };
 
+/** Приоритет заказа: «обычный» не показываем. */
+const prio = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 const heading = (r) => `Заказ № ${r.orderNo || '—'}`;
 const deadline = (r) => r.shipDate || r.productionDeadline || r.deliveryDeadline;
 function due(r) {
@@ -99,6 +102,7 @@ function details(r) {
             h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
         session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
+      orderDesign({ id: r.id, orderNo: r.orderNo }, lines),
       seeReq ? sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
         ? h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`))))
         : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')) : null,
@@ -142,18 +146,19 @@ export const salesorders = {
       { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => qty(r.lineCount) },
       { key: 'shipDate', label: 'Срок', sort: 'shipDate', cls: 'nowrap', render: due },
       { key: 'amount', money: true, label: 'Сумма', cls: 'num right md-hide', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, '—')) },
+      { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prio(r) || '' },
       { key: 'stage', label: 'Этап', sort: 'stage', cls: 'nowrap', render: (r) => badge(STAGE, r.stage) },
     ],
     card: {
       title: (r) => `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
       sub: (r) => [r.title, `${r.lineCount} поз.`, deadline(r) ? 'срок ' + date(deadline(r)) : ''].filter(Boolean).join(' · '),
-      side: (r) => [badge(STAGE, r.stage)],
+      side: (r) => [badge(STAGE, r.stage), prio(r)],
     },
     board: {
       columns: ['new', 'production', 'ready', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-shipDate' : 'shipDate' } })),
       card: (r) => ({
         title: `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
-        meta: [r.title ? h('span', null, r.title.slice(0, 80)) : null, h('span', null, `${r.lineCount} поз.`), deadline(r) ? due(r) : null].filter(Boolean),
+        meta: [r.title ? h('span', null, r.title.slice(0, 80)) : null, h('span', null, `${r.lineCount} поз.`), deadline(r) ? due(r) : null, prio(r)].filter(Boolean),
         side: r.amount && session.canMoney ? money(r.amount) : '',
       }),
       move: async (r, to) => { await setStage(r, to); return true; },
@@ -168,6 +173,7 @@ export const salesorders = {
       ['Заказчик', customerLink(r.customer)],
       ['Предмет', r.title],
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
+      ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
       ['Форма оплаты', r.paymentForm],
       ['Контракт', [r.contractNo, r.contractDate && 'от ' + date(r.contractDate)].filter(Boolean).join(' ')],
       ['Срок изготовления', date(r.productionDeadline)],
@@ -195,6 +201,7 @@ export const salesorders = {
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { key: 'stage', label: 'Этап', type: 'select', required: true, options: Object.entries(STAGE).map(([value, s]) => ({ value, label: s.label })) },
+        { key: 'priority', label: 'Приоритет', type: 'select', required: true, options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
         { section: 'Сроки', tone: 'info' },
         { key: 'productionDeadline', label: 'Срок изготовления', type: 'date' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
@@ -205,11 +212,11 @@ export const salesorders = {
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
     },
-    initial: () => ({ stage: 'new', paymentForm: 'б/р' }),
-    toInitial: (r) => ({ ...r, ...Object.fromEntries(['shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate'].map((k) => [k, r[k] ? String(r[k]).slice(0, 10) : ''])) }),
+    initial: () => ({ stage: 'new', paymentForm: 'б/р', priority: 'normal' }),
+    toInitial: (r) => ({ ...r, priority: r.priority || 'normal', ...Object.fromEntries(['shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate'].map((k) => [k, r[k] ? String(r[k]).slice(0, 10) : ''])) }),
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
-      return { orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage,
+      return { orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage, priority: v.priority === 'normal' ? '' : v.priority || '',
         productionDeadline: v.productionDeadline || '', shipDate: v.shipDate || '', deliveryDeadline: v.deliveryDeadline || '', contractNo: s(v.contractNo), contractDate: v.contractDate || '', notes: s(v.notes) };
     },
     create: (body) => api('/salesorders', { method: 'POST', body: { ...body, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } }),

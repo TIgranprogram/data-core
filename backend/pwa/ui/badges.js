@@ -22,6 +22,11 @@ export const STOCK_STATUS = {
 export const COST_CENTER = { workshop: 'Цех', office: 'Офис', smr: 'СМР', order: 'Под заказ' };
 export const PRIORITY = { urgent: { label: 'Срочно', tone: 'danger' }, normal: { label: 'Обычный', tone: 'dim' }, low: { label: 'Низко', tone: 'dim' } };
 
+/** Стадии задачи проектирования (ПРЖ-5). */
+export const DESIGN_STATUS = { queue: { label: 'На распределении', tone: 'dim' }, work: { label: 'В работе', tone: 'info' }, done: { label: 'Завершены', tone: 'ok' }, paused: { label: 'Приостановлены', tone: 'warn' } };
+/** Приоритет заказа и задачи проектирования (ПРЖ): обычный на экране не показываем. */
+export const ORDER_PRIORITY = { urgent: { label: 'Срочно', tone: 'danger' }, high: { label: 'Высокий', tone: 'warn' }, normal: { label: 'Обычный', tone: 'dim' }, low: { label: 'Низкий', tone: 'dim' } };
+
 export function badge(map, key) {
   const s = map[key] || { label: key || '—', tone: 'dim' };
   return h('span', { class: 'badge ' + s.tone }, s.label);

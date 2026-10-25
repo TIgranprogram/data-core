@@ -10,12 +10,15 @@ import { normText } from '../../common/text/norm-text';
 import type { SalesOrderDto } from './dto';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
 import { netIssuedByLine } from '../../common/issued-net';
+import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-key';
 import { ORDER_CACHE_FIELDS } from './order-link';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
 type Doc = Record<string, unknown>;
-const SORT = ['orderNo', 'customer', 'stage', 'shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate', 'createdAt', 'updatedAt', 'deletedAt'];
+const SORT = ['orderNo', 'customer', 'stage', 'shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate', 'createdAt', 'updatedAt', 'deletedAt', 'priority'];
 const TEXT = ['orderNo', 'customer', 'title', 'paymentForm', 'contractNo', 'notes'] as const;
+/** Порядок «срочные сверху»: нет приоритета = обычный. */
+const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const DATES = [['contractDate', 'Дата контракта'], ['shipDate', 'Дата отгрузки'], ['productionDeadline', 'Срок изготовления'], ['deliveryDeadline', 'Окончание поставки']] as const;
 
 /**
@@ -76,9 +79,19 @@ export class SalesOrdersService {
       if (bad) throw new BadRequestException(`Неизвестный этап «${bad}»`);
       stages = stages ? stages.filter((s) => want.includes(s)) : want;
     }
+    // priority=urgent,high — приоритет заказа; «normal» включает заказы без приоритета
+    if (q.priority) {
+      const want = String(q.priority).split(',').map((x) => x.trim()).filter(Boolean);
+      const bad = want.find((x) => !(ORDER_PRIORITIES as readonly string[]).includes(x));
+      if (bad) throw new BadRequestException(`Неизвестный приоритет «${bad}»: urgent, high, normal или low`);
+      filter.$and = [...((filter.$and as unknown[]) ?? []), { $or: [{ priority: { $in: want } }, ...(want.includes('normal') ? [{ priority: null }] : [])] }];
+    }
     const full = { ...filter, ...(stages ? { stage: { $in: stages } } : {}) };
     const [docs, total, byStage] = await Promise.all([
-      this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
+      'priority' in p.sort
+        // срочность — не по алфавиту: ранг через $switch (Mongo 4.4)
+        ? this.model.aggregate([{ $match: full }, { $addFields: { _rank: { $switch: { branches: Object.entries(PRIORITY_RANK).map(([k, v]) => ({ case: { $eq: ['$priority', k] }, then: v })), default: PRIORITY_RANK.normal } } } }, { $sort: { _rank: p.sort.priority, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _rank: 0 } }]).exec()
+        : this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(full).setOptions({ includeSoftDeleted: true }).exec(),
       this.model.aggregate([{ $match: filter }, { $group: { _id: '$stage', n: { $sum: 1 } } }]).exec(),
     ]);
@@ -144,6 +157,11 @@ export class SalesOrdersService {
     const phUrl = new Map(ph.map((p) => [String(p._id), String(p.storageUrl)]));
     const thUrl = new Map(thumbs.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
     for (const l of lines as Doc[]) { const id = String(((l.photoIds as unknown[]) ?? [])[0] ?? ''); if (phUrl.has(id)) l.photo = { url: phUrl.get(id), thumb: thUrl.get(id) ?? phUrl.get(id) }; }
+    // Изделие каждой позиции одним $in (образец — incomes.present): {id, name, sku, photoId}; фото — products.photoIds[0], как в витрине
+    const prodIds = [...new Set(lines.map((l) => l.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
+    const prods = prodIds.length ? await db.collection('products').find({ _id: { $in: prodIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray() : [];
+    const prodOf = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: String(p.name ?? p.sku ?? ''), sku: (p.sku as string | undefined) ?? null, photoId: ((p.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ? String((p.photoIds as Types.ObjectId[])[0]) : null }]));
+    for (const l of lines as Doc[]) l.product = l.productId ? prodOf.get(String(l.productId)) ?? null : null;
     const header = (await this.present([doc]))[0];
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
@@ -193,8 +211,9 @@ export class SalesOrdersService {
     const need = lines.filter((l) => !(l.photoIds as unknown[] | undefined)?.length && l.productId).map((l) => l.productId as Types.ObjectId);
     const byProduct = new Map<string, Types.ObjectId>();
     if (need.length) {
-      const pp = await db.collection('productphotos').find({ productId: { $in: need }, photoId: { $ne: null }, deletedAt: null }, { projection: { productId: 1, photoId: 1 } }).sort({ isMain: -1, sortOrder: 1 }).toArray();
-      for (const x of pp) if (!byProduct.has(String(x.productId))) byProduct.set(String(x.productId), x.photoId as Types.ObjectId);
+      // один источник с витриной: products.photoIds[0]
+      const pp = await db.collection('products').find({ _id: { $in: need } }, { projection: { photoIds: 1 } }).toArray();
+      for (const x of pp) { const first = ((x.photoIds as Types.ObjectId[] | undefined) ?? [])[0]; if (first) byProduct.set(String(x._id), first); }
     }
     const photoOf = (l: Doc) => String(((l.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ?? (l.productId ? byProduct.get(String(l.productId)) : undefined) ?? '') || null;
     // Превью (thumb) — двумя запросами на весь заказ; нет превью — оригинал
@@ -227,6 +246,7 @@ export class SalesOrdersService {
       f[k] = d;
     }
     if (dto.stage !== undefined) f.stage = dto.stage;
+    if (dto.priority !== undefined) f.priority = (dto.priority as OrderPriority | '') || undefined;
     let companyShort: string | null | undefined;
     if (dto.companyId || dto.companyName !== undefined) {
       const ours = await ourCompanies(this.connection);

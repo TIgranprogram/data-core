@@ -7,6 +7,9 @@
 /** Этапы заказа: Новый → В производстве → Готов к отгрузке → Отгружен → Закрыт (+ Отменён). */
 export const ORDER_STAGES = ['new', 'production', 'ready', 'shipped', 'closed', 'cancelled'] as const;
 export type OrderStage = (typeof ORDER_STAGES)[number];
+/** Приоритет заказа (ПРЖ-3): нет значения = обычный. */
+export const ORDER_PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const;
+export type OrderPriority = (typeof ORDER_PRIORITIES)[number];
 export const STAGE_LABELS: Record<OrderStage, string> = {
   new: 'Новый', production: 'В производстве', ready: 'Готов к отгрузке', shipped: 'Отгружен', closed: 'Закрыт', cancelled: 'Отменён',
 };

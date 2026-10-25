@@ -22,7 +22,7 @@ import { toastError } from './toast.js';
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
  *   footer?(resp), query?(params),
- *   board?: см. ui/board.js — вид «Доска», ?view=board,
+ *   board?: см. ui/board.js — вид «Доска», ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
@@ -47,15 +47,15 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     limit: Number(P.limit) || 25,
     page: Math.max(1, Number(P.page) || 1),
     sort: P.sort || L.sortDefault,
-    board: !!L.board && P.view === 'board',
+    board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view)),
     gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view)),
   });
   let rows = [];
 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
-  const btnTable = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default ? 'table' : undefined, page: undefined }) }, icon('table'), 'Таблица');
-  const btnBoard = h('button', { type: 'button', onclick: () => patch({ view: 'board', page: undefined, status: undefined }) }, icon('board'), 'Доска');
+  const btnTable = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default || L.board?.default ? 'table' : undefined, page: undefined }) }, icon('table'), 'Таблица');
+  const btnBoard = h('button', { type: 'button', onclick: () => patch({ view: L.board?.default ? undefined : 'board', page: undefined, status: undefined }) }, icon('board'), 'Доска');
   const btnGallery = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default ? undefined : 'gallery', page: undefined }) }, icon('gallery'), 'Галерея');
   const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
@@ -242,7 +242,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isBoard) {
       countEl.textContent = '';
-      if (!board) { board = mountBoard(L.board, L.path, query, { onOpen, onChanged: () => board.reload() }); boardBox.replaceChildren(board.el); }
+      if (!board) { board = mountBoard(L.board, L.path, query, { onOpen, onChanged: () => board.reload(), onTotal: (n) => { if (st().board) countEl.textContent = qty(n); } }); boardBox.replaceChildren(board.el); }
       else board.setQuery(query);
       return;
     }

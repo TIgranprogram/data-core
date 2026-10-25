@@ -178,6 +178,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   supplyrequests: { category: 'crm-sales', kind: 'shared', doc: 'Заявки снабжения. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
   incomes: { category: 'money', kind: 'core', doc: 'Доходы — строки заказов (лист «Заказы»): заказчик, наша компания, сумма, даты отгрузки и оплаты. Раздел «Заказы» и «Деньги» приложения.' },
   salesorders: { category: 'money', kind: 'core', doc: 'Заказы заказчиков — шапки: номер, наша компания, заказчик, контракт, сроки, этап. Позиции — incomes (orderId). Раздел «Заказы» приложения.' },
+  designtasks: { category: 'money', kind: 'core', doc: 'Задачи «Проектирования» (D-N): чертежи под позицию заказа или свободная задача; статус, исполнитель, свои срок и приоритет (иначе из заказа). Раздел «Проектирование» приложения.' },
   supplytasks: { category: 'crm-sales', kind: 'crm', doc: 'Задачи снабжения. Таблица CRM kppdf.' },
   cart_items: { category: 'crm-sales', kind: 'crm', doc: 'Позиции корзины (e-commerce). Таблица CRM kppdf.' },
   cart_sessions: { category: 'crm-sales', kind: 'crm', doc: 'Сессии корзины. Таблица CRM kppdf.' },
