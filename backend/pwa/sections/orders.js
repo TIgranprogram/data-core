@@ -157,7 +157,7 @@ export const orders = {
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
       session.canMoney && !!r.paidDate && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгружено сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
-      session.sees('passports') && passports.canEdit() && { label: 'Выпустить паспорт', run: async (row) => {
+      session.seesDocs() && passports.canEdit() && { label: 'Выпустить паспорт', run: async (row) => {
         const found = await issuePassport({ productId: row.productId ? String(row.productId) : '', name: row.title, orderNo: row.orderNo || '', salesOrderId: row.orderId ? String(row.orderId) : '', customerName: row.customer || '' });
         if (!found) toast('Модель не найдена по названию — выберите её в поле «Наименование» или заполните паспорт');
       } },

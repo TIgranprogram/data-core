@@ -4399,6 +4399,13 @@
             "schema": {}
           },
           {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "draft | active | archived",
+            "schema": {}
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
@@ -8986,6 +8993,13 @@
             "required": false,
             "in": "query",
             "description": "1 — без картинок",
+            "schema": {}
+          },
+          {
+            "name": "legacy",
+            "required": false,
+            "in": "query",
+            "description": "1 — только старые (перенос: source не app)",
             "schema": {}
           },
           {

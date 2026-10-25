@@ -15,7 +15,7 @@ const MAIN_MIN = 480; // основной области всегда остаё
 const PREFS = {
   sidebarW: { css: '--sidebar-w', min: 200, max: 360, std: 248 },
   detailW: { css: '--detail-w', min: 420, max: 1400, std: null },
-  filterW: { css: '--filter-w', min: 280, max: 520, std: 340 },
+  filterW: { css: '--filter-w', min: 240, max: 520, std: 280 },
 };
 const OVER = '--detail-over'; // ширина правой панели в режиме «поверх» (< DOCK_MIN)
 

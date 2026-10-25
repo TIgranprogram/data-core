@@ -26,7 +26,8 @@ import { toastError } from './toast.js';
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
- *   tiles?: { key, load: async () => [{ value, label, n, sub }] } — плитки-фильтр над списком,
+ *   tiles?: { key, title?, load: async () => [{ value, label, n, sub, head? }] } — плитки-фильтр над списком; с sidebar — список «Категории» в левой панели (head — раздел-заголовок),
+ *   sidebar?: true — левая панель (280 px, всегда открыта): поиск, tiles, фильтры chips/select/date, toolbarExtra, «Сбросить всё»; на телефоне — лист по кнопке «Фильтры · N» (NAV F1),
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
  *   rowAction?(row) → { label, title, run(row) } | null — кнопка следующего шага в строке (как на «Сегодня»),
@@ -73,22 +74,26 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ---------- Поиск и фильтры (создаются один раз) ----------
   // общий поиск (ПО.3): пусто = весь список — q убирается из адреса и запроса, страница — на первую
   const sb = searchBox({ value: P.q || '', placeholder: L.searchPlaceholder || 'Поиск…', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
-  const toolbar = h('div', { class: 'toolbar' }, h('div', { class: 'search' }, sb.el));
+  // L.sidebar (NAV F1): поиск, категории, признаки и «Сбросить всё» — в левой панели; на телефоне она выезжает листом по кнопке «Фильтры · N»
+  const side = L.sidebar ? h('aside', { class: 'list-side', 'aria-label': 'Фильтры' }) : null;
+  const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
   const chipFilters = (L.filters || []).filter((f) => f.type === 'chips');
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
   const controls = {};
-  const filtersToggle = otherFilters.length ? h('button', { class: 'btn filters-toggle', type: 'button', onclick: () => toolbar.classList.toggle('open') }, 'Фильтры') : null;
+  const sideParts = []; // выпадающие списки/даты левой панели
+  const put = (n) => (side ? sideParts.push(n) : toolbar.append(n));
+  const filtersToggle = otherFilters.length && !side ? h('button', { class: 'btn filters-toggle', type: 'button', onclick: () => toolbar.classList.toggle('open') }, 'Фильтры') : null;
   if (filtersToggle) toolbar.append(filtersToggle);
   for (const f of otherFilters) {
     if (f.type === 'date') {
       const inp = h('input', { type: 'date', 'aria-label': f.label, onchange: (e) => patch({ [f.key]: e.target.value, page: undefined }) });
       controls[f.key] = inp;
-      toolbar.append(h('label', { class: 'date-f opt' }, h('span', null, f.short || f.label), inp));
+      put(h('label', { class: 'date-f opt' }, h('span', null, f.short || f.label), inp));
       continue;
     }
-    const sel = h('select', { class: 'opt', 'aria-label': f.label, onchange: (e) => patch({ [f.key]: e.target.value, page: undefined }) }, h('option', { value: '' }, f.label));
+    const sel = h('select', { class: 'opt', 'aria-label': f.label, onchange: (e) => patch({ [f.key]: e.target.value, page: undefined }) }, h('option', { value: '' }, side ? f.allLabel || f.label : f.label));
     controls[f.key] = sel;
-    toolbar.append(sel);
+    put(side ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), sel) : sel);
     Promise.resolve(f.options()).then((opts) => {
       for (const o of opts) sel.append(h('option', { value: String(o.value) }, o.label));
       sel.value = P[f.key] || '';
@@ -96,9 +101,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }).catch(() => { /* фильтр без вариантов — не критично */ });
   }
   const extra = L.toolbarExtra ? L.toolbarExtra() : null;
-  if (extra) { toolbar.append(extra.el); extra.update(P); }
-  const resetBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => resetFilters() }, 'Сбросить');
-  toolbar.append(resetBtn);
+  if (extra) { put(extra.el); extra.update(P); }
+  const resetBtn = h('button', { class: 'btn btn-ghost' + (side ? ' ls-reset' : ''), type: 'button', onclick: () => resetFilters() }, side ? 'Сбросить всё' : 'Сбросить');
+  if (!side) toolbar.append(resetBtn);
+  /** Сколько фильтров выбрано (для кнопки «Фильтры · N» на телефоне). */
+  const selCount = () => (L.filters || []).filter((f) => P[f.key]).length
+    + (L.extraKeys || []).reduce((n, k) => n + (P[k] ? String(P[k]).split('|').filter(Boolean).length : 0), 0);
+  const anyFilter = () => selCount() > 0;
   function resetFilters() {
     const clear = { q: undefined, page: undefined };
     for (const f of L.filters || []) clear[f.key] = undefined;
@@ -108,13 +117,25 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
 
   // Чипы: варианты загружаются один раз, счётчики — с каждым ответом
-  const chipsBox = h('div', { class: 'chips' });
+  const chipsBox = h('div', { class: side ? 'ls-chips' : 'chips' });
+  const optBtn = (label, n, active, onclick, cls = '', sub = '') => h('button', { type: 'button', class: 'ls-opt' + (active ? ' active' : '') + (cls ? ' ' + cls : ''), onclick },
+    h('span', { class: 'ls-t', title: label }, label), sub ? h('span', { class: 'ls-sub' }, sub) : null, n !== undefined && n !== null ? h('b', null, qty(n)) : null);
   const hintBox = h('div', { class: 'list-hint', hidden: true });
   let chipOpts = null;
   let lastResp = null;
   Promise.all(chipFilters.map((f) => Promise.resolve(f.options()))).then((o) => { chipOpts = o; renderChips(); });
   function renderChips() {
     if (!chipOpts) return;
+    if (side) {
+      chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
+        if (st().board && f.key === 'status') return [];
+        const cur = P[f.key] || f.defaultValue || '';
+        const opts = [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => optBtn(o.label, f.count && lastResp ? f.count(lastResp, o.value) : undefined,
+          String(o.value) === cur, () => patch({ [f.key]: String(o.value) === cur ? undefined : o.value, page: undefined })));
+        return [h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), h('div', { class: 'ls-list' }, ...opts))];
+      }));
+      return;
+    }
     chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
       if (st().board && f.key === 'status') return [];
       const cur = P[f.key] || f.defaultValue || '';
@@ -167,24 +188,45 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const syncPicks = () => panel.querySelectorAll('.pick-cb').forEach((cb) => { cb.checked = picked.has(cb.dataset.id); });
   let headCb = null;
   const headPick = () => headCb;
-  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length ? chipsBox : null, hintBox, toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
+  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !side ? chipsBox : null, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
 
   // Плитки (категории склада)
-  const tilesBox = L.tiles ? h('div', { class: 'tiles' }) : null;
+  const tilesBox = L.tiles ? h('div', { class: side ? 'ls-list' : 'tiles' }) : null;
+  const tilesGroup = tilesBox && side ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, L.tiles.title || 'Категории'), tilesBox) : null;
   let tiles = [];
-  if (tilesBox) Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => tilesBox.remove());
+  if (tilesBox) Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => (tilesGroup || tilesBox).remove());
   function renderTiles() {
     if (!tilesBox) return;
     const cur = P[L.tiles.key] || '';
+    if (side) {
+      // категории списком с числом; x.head — заголовок-раздел, x.sub (строка) — подпись группы
+      tilesBox.replaceChildren(...tiles.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
+        () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }), x.head ? 'head' : x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' && !x.head ? x.sub : '')));
+      return;
+    }
     tilesBox.replaceChildren(...tiles.map((x) => h('button', {
       type: 'button', class: 'tile' + (String(x.value) === cur ? ' active' : ''),
       onclick: () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
     }, h('b', { title: x.label }, x.label), h('span', { class: 'tl-n' }, qty(x.n)), x.sub ? h('span', { class: 'tl-sub' }, x.sub) : null)));
   }
 
-  const el = h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox);
+  // ---------- Левая панель: сборка, лист на телефоне ----------
+  const shade = side ? h('div', { class: 'ls-shade', hidden: true, onclick: () => closeSheet() }) : null;
+  const openBtn = side ? h('button', { class: 'btn ls-open-btn', type: 'button', 'aria-expanded': 'false', onclick: () => openSheet() }, 'Фильтры') : null;
+  if (side) {
+    side.append(
+      h('div', { class: 'ls-head' }, h('b', null, 'Фильтры'), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'Закрыть', onclick: () => closeSheet() }, '×')),
+      h('div', { class: 'ls-body' }, h('div', { class: 'ls-search' }, sb.el), tilesGroup, chipFilters.length ? chipsBox : null, ...sideParts, resetBtn),
+      h('div', { class: 'ls-foot' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => closeSheet() }, 'Показать')));
+    head.insertBefore(openBtn, head.querySelector('.spacer').nextSibling);
+  }
+  function openSheet() { side.classList.add('open'); shade.hidden = false; openBtn.setAttribute('aria-expanded', 'true'); }
+  function closeSheet() { side.classList.remove('open'); shade.hidden = true; openBtn.setAttribute('aria-expanded', 'false'); }
+  const el = side
+    ? h('div', { class: 'list-screen has-side' }, head, h('div', { class: 'ls-grid' }, side, h('div', { class: 'ls-main' }, panel, boardBox)), shade)
+    : h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox);
 
   // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
@@ -193,7 +235,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
     const nOpt = otherFilters.filter((f) => P[f.key]).length;
     if (filtersToggle) filtersToggle.textContent = 'Фильтры' + (nOpt ? ' · ' + nOpt : '');
-    resetBtn.hidden = !((L.filters || []).some((f) => P[f.key]) || P.q);
+    resetBtn.hidden = !(anyFilter() || P.q);
+    if (openBtn) openBtn.textContent = 'Фильтры' + (selCount() ? ' · ' + selCount() : '');
     btnTable.classList.toggle('active', !isBoard);
     btnBoard.classList.toggle('active', isBoard);
     btnGallery.classList.toggle('active', isGallery);
@@ -267,7 +310,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     renderChips();
     rows = resp.items;
     if (bulkOn) queueMicrotask(paintBulk); // «все на странице» — по новой странице
-    const active = (L.filters || []).some((f) => P[f.key]) || P.q;
+    const active = anyFilter() || P.q;
     if (!rows.length) {
       if (page > 1 && resp.total > 0) { patch({ page: Math.ceil(resp.total / limit) }); return; }
       stateRow(() => active
@@ -406,6 +449,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // ---------- Клавиатура: ↑/↓ — соседняя запись, N — новая ----------
   function onKey(e) {
+    if (e.key === 'Escape' && side?.classList.contains('open')) { closeSheet(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || document.querySelector('.modal-back')) return;
     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length && !st().board) {

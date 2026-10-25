@@ -138,6 +138,8 @@ export class PassportQueries {
     if (q.supplierOrgId) f.supplierOrgId = this.h.oid(q.supplierOrgId);
     if (q.customer) f.customerName = new RegExp(`^${escapeRe(String(q.customer))}$`, 'i');
     if (q.productId) f.productId = this.h.oid(q.productId);
+    // NAV B1: «Архив паспортов» — старые (перенос: source не 'app', в т. ч. без поля); только чтение
+    if (q.legacy === '1' || q.legacy === 'true') f.source = { $ne: 'app' };
     if (q.noImages === '1' || q.noImages === 'true') f['images.0'] = { $exists: false };
     return f;
   }

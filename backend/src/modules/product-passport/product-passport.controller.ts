@@ -57,6 +57,7 @@ export class ProductPassportController {
   @ApiQuery({ name: 'category', required: false }) @ApiQuery({ name: 'supplierOrgId', required: false }) @ApiQuery({ name: 'customer', required: false })
   @ApiQuery({ name: 'noImages', required: false, description: '1 — без картинок' }) @ApiQuery({ name: 'incomplete', required: false, description: '1 — не хватает данных для выдачи' })
   @ApiQuery({ name: 'productId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
+  @ApiQuery({ name: 'legacy', required: false, description: '1 — только старые (перенос: source не app)' })
   @ApiQuery({ name: 'sort', required: false, description: 'passportNo | date | name | category | customerName | createdAt | updatedAt; «-» — по убыванию (умолч. -passportNo)' })
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   list(@Query() q: Record<string, string>) {

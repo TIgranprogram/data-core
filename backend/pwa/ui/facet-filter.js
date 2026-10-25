@@ -29,9 +29,10 @@ export function ftParams(s) {
 
 const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
 
-export function facetFilter({ categoryKey = 'categoryId' } = {}) {
+export function facetFilter({ categoryKey = 'categoryId', inline = false } = {}) {
   let items = null; let src = null; let P = {};
   const folded = new Map(); // key → открыто/свёрнуто, если пользователь сам нажал (иначе — по числу значений)
+  if (inline) return inlineFilter(categoryKey);
   const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, h('span', { class: 'ff-ico', 'aria-hidden': 'true' }, '⌕'), ' Поиск и фильтры');
   const tags = h('span', { class: 'ff-tags' });
   const sb = searchBox({ value: '', placeholder: 'Название, размер, стандарт…', className: 'ff-search', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
@@ -89,4 +90,39 @@ export function facetFilter({ categoryKey = 'categoryId' } = {}) {
     if (!pop.hidden) renderPop();
   }
   return { el, update, reset: () => items && (items = null) };
+}
+
+/**
+ * Режим inline (NAV F2): те же группы признаков, но тело рисуется прямо в левой панели списка (L.sidebar):
+ * без кнопки, всплывающей панели и затемнения; поиск и «Сбросить всё» — у самой панели. Выбор в группе один, повторный клик снимает.
+ */
+function inlineFilter(categoryKey) {
+  let items = null; let src = null; let P = {}; let seq = 0;
+  const folded = new Map();
+  const body = h('div', { class: 'ff-body' });
+  const el = h('div', { class: 'ff ff-inline' }, body);
+  const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
+  const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
+  async function render() {
+    const my = ++seq;
+    if (!body.children.length) body.replaceChildren(busyBlock('', { cls: 'muted small' }));
+    await load();
+    if (my !== seq) return;
+    const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
+    const sel = parseFt(P.ft);
+    const groups = FACETS.map(([key, label]) => {
+      const others = { ...sel }; delete others[key];
+      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key).slice(0, key === 'type' ? 30 : 40);
+      if (!vals.length) return null;
+      const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
+      return h('div', { class: 'ff-group' + (open ? ' open' : '') },
+        h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
+          h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
+        open ? h('div', { class: 'ff-checks', role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
+          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, v)))) : null);
+    }).filter(Boolean);
+    body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, 'В этой категории признаков нет')]));
+    if (fk) [...body.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });
+  }
+  return { el, update: (next) => { P = { ...next }; render(); }, reset: () => items && (items = null) };
 }

@@ -80,6 +80,7 @@ export class ShowcaseService {
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
       return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, description: (d.description as string) ?? null,
         price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c?.parentId ? String(c.name) : null, // категория без родителя — сам раздел (группа не выбрана)
+        hasPassportDefaults: !!d.passportDefaults && Object.keys(d.passportDefaults as object).length > 0,
         type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null,
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
@@ -96,6 +97,10 @@ export class ShowcaseService {
     // поиск «как на складе»: слова в любом порядке, ё = е, M10 = М10
     const sf = tokensFilter(q.search, ['name', 'sku', 'series']);
     if (sf) filter.$and = sf.$and;
+    // NAV B2: состояние — draft (нет цены) / archived / active (в продаже: всё, кроме черновиков и архива)
+    if (q.status === 'draft' || q.status === 'archived') filter.status = q.status;
+    else if (q.status === 'active') filter.status = { $nin: ['draft', 'archived'] };
+    if (q.series) filter.series = String(q.series).trim();
     if (q.groupId) {
       const g = oid(String(q.groupId), 'группы');
       const kids = await this.db.collection('categories').find({ parentId: g }, { projection: { _id: 1 } }).toArray();

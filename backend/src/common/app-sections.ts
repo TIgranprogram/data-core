@@ -11,7 +11,9 @@ export const APP_SECTIONS = [
   { id: 'salesorders', label: 'Заказы' },
   { id: 'partners', label: 'Контрагенты' },
   { id: 'products', label: 'Продукция' },
-  { id: 'passports', label: 'Паспорта' },
+  // NAV: пункт «Документация»; старый id `passports` остаётся (его проверяют /passports*, /showcase*).
+  { id: 'docs', label: 'Документация' },
+  { id: 'passports', label: 'Документация (паспорта, шаблоны)' },
   { id: 'orders', label: 'Позиции и оплаты' },
   { id: 'money', label: 'Платёжный календарь' },
   { id: 'payroll', label: 'ФОТ' },

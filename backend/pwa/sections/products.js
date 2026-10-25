@@ -9,6 +9,7 @@ import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { issuePassport, passports } from './passports.js';
+import { printDialog } from './passports/dialogs.js';
 import { openBulk } from './bulk-edit.js';
 import { dictNames } from '../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-spec.js';
@@ -83,8 +84,8 @@ async function productBulkFields() {
   ];
 }
 /** Паспорт по умолчанию у изделия: категория и выбор текстов воронки (passportDefaults.textChoices). Заменяется целиком — берём известные поля. */
-const PD_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'warrantyMonths', ...V2_NUMS.map(([k]) => k)];
-async function savePd(id, pd) {
+export const PD_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'warrantyMonths', ...V2_NUMS.map(([k]) => k)];
+export async function savePd(id, pd) {
   const prev = pd.prev || {};
   const cat = pd.category && (pd.category !== pd.derived || prev.passportCategory) ? pd.category : prev.passportCategory || '';
   if (JSON.stringify(prev.textChoices || {}) === JSON.stringify(pd.choices) && cat === (prev.passportCategory || '')) return;
@@ -175,7 +176,15 @@ export const products = {
       restore: (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } }) }) }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
     emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
-    filters: [{ key: 'groupId', label: 'Раздел', type: 'hidden' }],
+    // левая панель (NAV F3): поиск → «Раздел / Группа» → «Серия» → «Состояние»; цену и габариты не фильтруем
+    sidebar: true,
+    filters: [
+      { key: 'groupId', label: 'Раздел', type: 'hidden' }, // выбирается списком «Раздел / Группа»
+      { key: 'series', label: 'Серия', allLabel: 'Все серии', type: 'select', options: async () => (await formValues()).series.map((x) => ({ value: x.value, label: x.value })) },
+      { key: 'status', label: 'Состояние', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
+    ],
+    // серия — точное совпадение на сервере (query series)
+    query: (P) => (P.series ? { series: P.series } : {}),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
       default: true, limit: 100, sort: 'category', lastGroup: 'Без раздела',
@@ -188,12 +197,12 @@ export const products = {
       }),
     },
     tiles: {
-      key: 'groupId',
-      // разделы — первыми, затем их группы (подпись — раздел), как категории у «Паспортов»
+      key: 'groupId', title: 'Раздел / Группа',
+      // раздел — заголовок, под ним его группы; группа без известного раздела — в конце с подписью
       load: async () => {
-        const all = await api('/showcase/groups'); const name = new Map(all.map((g) => [g.id, g.name]));
-        return [...all.filter((g) => !g.parentId), ...all.filter((g) => g.parentId)]
-          .map((g) => ({ value: g.id, label: g.name, n: g.count, sub: g.parentId ? name.get(g.parentId) || 'группа' : 'раздел' }));
+        const all = await api('/showcase/groups'); const tops = all.filter((g) => !g.parentId); const known = new Set(tops.map((g) => g.id));
+        return [...tops.flatMap((t) => [{ value: t.id, label: t.name, n: t.count, head: true }, ...all.filter((g) => g.parentId === t.id).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: ' ' }))]),
+          ...all.filter((g) => g.parentId && !known.has(g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: 'группа' }))];
       },
     },
     headActions: () => [
@@ -225,7 +234,7 @@ export const products = {
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => h('div', null, compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.sees('passports') ? passportsBlock(r) : null),
+    extra: (r) => h('div', null, compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
@@ -245,7 +254,10 @@ export const products = {
       ['Описание', r.description],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
-      ...(session.sees('passports') && passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
+      ...(session.seesDocs() && r.passports?.items?.[0] ? [{ label: 'Печать паспорта', title: 'Последний выпущенный паспорт этого изделия: PDF и печать', run: async (row) => {
+        printDialog(await api(`/passports/${row.passports.items[0].id}`));
+      } }] : []),
+      ...(session.seesDocs() && passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } }] : []),
       // копия изделия целиком (поля, фото, настройки паспорта) — быстрый способ сделать похожее; откроется копия

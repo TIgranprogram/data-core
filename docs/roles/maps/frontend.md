@@ -42,3 +42,14 @@
 
 ## Уведомления (2026-10-25, не закоммичено)
 - `ui/notice-card.js` — `noticeCard`, `noticeTime`, `splitReason`; `ui/toast.js` (tone/sub/notice, пишет в историю), `ui/notices.js` (история, read, clear, once), `ui/busy.js failBlock`. CSS — блок «Уведомление» в конце base.css (.ntf*, .bell-head).
+
+## Левая панель фильтров (NAV F1–F3, 2026-10-25, не закоммичено)
+- `ui/list.js` — опция `L.sidebar` (`side`, `sideParts`, `put`, `optBtn`, `selCount`, `openSheet/closeSheet`; поиск/tiles/chips/select/extra/reset собираются в `.ls-body`); `tiles.title`, `x.head`. CSS — блок «Левая панель фильтров» в конце `ui/base.css` (`.ls-*`).
+- `ui/facet-filter.js` — `facetFilter({inline:true})` → `inlineFilter()` (тело групп без кнопки/шторки). `sections/stock.js` и `sections/products.js` (list: sidebar, filters series/status, query, tiles) — потребители. `core/prefs.js` filterW std 280.
+- Серия в «Продукции» — словами поиска (сервер `series` в query не знает).
+коммит: (после коммита координатора)
+
+## Документация / меню (NAV F4–F5, 2026-10-25, не закоммичено)
+- `sections/docs.js` — `mountDocs(params)` (вкладки `.seg`, `?tab=archive`), секции `doctpl` (шаблон паспорта изделия: список /showcase, форма `build` = категория + `funnelBox`, `savePd` из products.js) и `passarchive` (копия `passports` без form/remove/bulk, действия `archiveActions`: печать, «Дописать и выпустить» → `of=passports`, «Привязать»). Внутренний список получает params без `tab/of` (`listParams`).
+- `main.js` — NAV: docs вместо passports, группа «Продажи и выпуск»; `OWNER.passports/passarchive/doctpl/ptext*='docs'`; `#passports` → редирект в `#docs?tab=archive&of=passarchive&open=`; `core/api.js session.sees('docs')` = docs или passports, `session.seesDocs()`.
+- `products.js` — `PD_KEYS`/`savePd` экспортируются; «Печать паспорта» (последний из `r.passports.items[0]`) + «Выпустить паспорт» по `seesDocs()`.

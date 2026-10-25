@@ -79,19 +79,20 @@ export const stock = {
 
   list: {
     path: '/stock/items',
-    // фильтры «тип / резьба / длина / стандарт» — выпадающая панель поверх таблицы; выбранное уходит словами поиска
-    toolbarExtra: () => facetFilter({ categoryKey: 'categoryId' }),
+    // левая панель (NAV F2): поиск → категории → состояние → признаки «тип / резьба / длина / стандарт»; выбранное уходит словами поиска
+    sidebar: true,
+    toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
     extraKeys: ['ft'],
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
     query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     headActions: () => [stockActions()],
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
-    searchPlaceholder: 'Поиск: наименование, артикул…',
+    searchPlaceholder: 'Название, размер, стандарт…',
     emptyText: 'На складе пока нет позиций.',
     filters: [
       { key: 'status', label: 'Состояние', type: 'chips', options: () => [{ value: 'low', label: 'К закупке' }, { value: 'none', label: 'Нет на складе' }, { value: 'reserved', label: 'В брони' }, { value: 'ok', label: 'В норме' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
-      { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
+      { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {
       '': 'Все позиции склада. В строке: «+ Приход», «− Выдать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
@@ -109,7 +110,7 @@ export const stock = {
       return r.reservedQty > 0 ? [fromRes, ...base.filter((a) => a !== out || r.free > 0)] : base;
     },
     tiles: {
-      key: 'categoryId',
+      key: 'categoryId', title: 'Категории',
       load: async () => (await api('/stock/categories')).items.filter((c) => c.id !== 'none').map((c) => ({
         value: c.id, label: c.name, n: c.total,
         sub: h('span', null, c.low || c.none ? [c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `нет ${c.none}` : null] : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),

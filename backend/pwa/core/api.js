@@ -25,8 +25,11 @@ export const session = {
    *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */
   sees(id) {
     const u = this.user, s = u?.sections;
-    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id);
+    // «Документация» (docs) видна и ролям со старой галочкой «паспорта» — миграция ролей не нужна
+    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports'));
   },
+  /** Раздел «Документация» (паспорта, шаблоны, архив) открыт этой роли. */
+  seesDocs() { return this.sees('docs'); },
 };
 
 /** Может ли менять записи раздела: свои права раздела (section.canEdit, напр. паспорта — директор/админ) или общее правило. */

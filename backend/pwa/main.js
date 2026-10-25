@@ -35,6 +35,7 @@ import { mountTrash } from './sections/trash.js';
 import { history as historySection } from './sections/history.js';
 import { products } from './sections/products.js';
 import { passports } from './sections/passports.js';
+import { doctpl, passarchive, mountDocs } from './sections/docs.js';
 import { ptext, ptextview } from './sections/passport-texts.js';
 import { ptnode } from './sections/passport-tree.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
@@ -52,12 +53,12 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, design, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, design, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
-  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'passports', ptextview: 'passports', ptnode: 'passports' };
+  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -154,7 +155,7 @@ function shell() {
     navLinks.home,
     group('Снабжение', navLinks.requests),
     group('Склад', navLinks.stock),
-    group('Заказы', navLinks.salesorders, navLinks.design, navLinks.products, session.canEdit ? navLinks.passports : null), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
+    group('Продажи и выпуск', navLinks.salesorders, navLinks.design, navLinks.products, session.canEdit ? navLinks.docs : null), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' },
       installLink(),
@@ -225,7 +226,7 @@ let card = null;          // { key, handle }
 
 function closeCard() { if (card) { card.handle.close(); card = null; } }
 /** Экран пересоздаётся только при смене раздела (и поиска по всему — у него свой запрос); остальное — update(). */
-const screenKey = (section, params) => section + (section === 'search' ? '?' + (params.q || '') : '');
+const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '');
 
 function render({ section, params }) {
   if (!section) { go(DEFAULT, {}, { replace: true }); return; }
@@ -235,6 +236,8 @@ function render({ section, params }) {
     toast(`Раздел «${SECTIONS[OWNER[section] || section]?.title || NAMES[OWNER[section] || section] || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
     go(DEFAULT, {}, { replace: true }); return;
   }
+  // старый адрес #passports (ссылки из изделия, заказа, истории): «Архив паспортов» в «Документации», карточка — только просмотр и печать
+  if (section === 'passports') { go('docs', { tab: 'archive', ...(params.open ? { of: 'passarchive', open: params.open } : {}) }, { replace: true }); return; }
   if (section === 'ops') { go('stock', { of: 'stockop', new: '1', op: { in: 'in', reserve: 'reserve', count: 'count' }[params.mode] || 'out' }, { replace: true }); return; }
   for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === (section === 'movements' ? 'stock' : section));
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
@@ -246,7 +249,8 @@ function render({ section, params }) {
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
-    if (sec) {
+    if (section === 'docs') list = mountDocs(params, { onChanged: () => refreshCounts() });
+    else if (sec) {
       list = mountList(sec, params, {
         onOpen: (row) => openRecord(section, row.id),
         onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
@@ -283,7 +287,7 @@ function openRecord(section, id) {
 }
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
-const NAMES = { home: 'Сегодня', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
+const NAMES = { home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
 function screenTitle(url) {
   const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
   const name = SECTIONS[sec]?.title || NAMES[sec] || 'Сегодня';
