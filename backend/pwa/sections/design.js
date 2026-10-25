@@ -37,7 +37,7 @@ export function dueNode(r) {
   return h('span', { class: 'due ' + cls, title: r.deadlineFromOrder ? 'Срок взят из заказа' : 'Свой срок задачи' }, text);
 }
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
-const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name }, r.assignee.initials) : null);
+const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
 const subLine = (r, withCode = true) => [r.sku && '№ ' + r.sku, r.lineNo != null && 'поз. ' + r.lineNo, r.orderNo && 'ЗНП ' + r.orderNo, withCode && r.code].filter(Boolean).join(' · ');
 const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) }) : h('div', { class: 't-pic-none' }, 'нет фото'));
 
@@ -136,7 +136,7 @@ export const design = {
       headCount: true,
       cls: 'board-pics',
       columns: [
-        { key: 'queue', label: STATUS.queue.label, tone: 'dim', query: { status: 'queue', sort: 'seq' } },
+        { key: 'queue', label: STATUS.queue.label, tone: 'dim', emptyText: 'Пусто. Задачи приходят из заказов: кнопка «Передать в проектирование»', query: { status: 'queue', sort: 'seq' } },
         { key: 'work', label: STATUS.work.label, tone: 'info', query: { status: 'work', sort: 'seq' } },
         { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
         { key: 'paused', label: STATUS.paused.label, tone: 'warn', compact: true, portion: true, per: 20, query: { status: 'paused', sort: 'seq' } },

@@ -14,6 +14,7 @@ import { errText } from './errors.js';
  *   perColumn: 30,
  *   columns[]: { compact — тонкие карточки, per — порция, portion — «ещё N →» дописывает порцию на месте }
  *   card(row, column) → ещё { body — свои узлы карточки вместо заголовка/мета, cls }; add(ключ колонки) + addLabel — «+ Добавить» в колонке;
+ *   columns[].emptyText — строка или функция: что написать в пустой колонке (по умолчанию «Пусто»)
  *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
  * }
  * Перетаскивание — своё, на pointer-событиях (CANON §2, замечание пользователя 2026-10-19): карточка «поднимается»
@@ -132,8 +133,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   };
   function cardEl(row, c) {
     const v = board.card(row, c);
-    const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0',
-      onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter') onOpen(row); } },
+    const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0', role: 'button',
+      onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(row); } } },
     ...(v.body ? [].concat(v.body) : [
       v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
       h('div', { class: 't-title', title: v.title }, v.title),
@@ -147,7 +148,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     col.more?.remove(); col.addLink?.remove();
     col.shown = (append ? col.shown : 0) + r.items.length;
     const cards = r.items.map((row) => cardEl(row, c));
-    if (!append) body.replaceChildren(...(cards.length ? cards : [h('div', { class: 'col-more muted' }, 'Пусто')]));
+    if (!append) body.replaceChildren(...(cards.length ? cards : [h('div', { class: 'col-more muted' }, typeof c.emptyText === 'function' ? c.emptyText() : c.emptyText || 'Пусто')]));
     else body.append(...cards);
     const rest = r.total - col.shown;
     col.more = null;

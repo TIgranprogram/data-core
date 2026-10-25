@@ -45,11 +45,12 @@ export function orderDesign(order, lines) {
     });
     const sendSel = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: (e) => send([...picked], e.currentTarget) }, 'Передать выбранные');
     const sendAll = h('button', { type: 'button', class: 'btn btn-sm', disabled: !free.length, onclick: (e) => send(null, e.currentTarget) }, free.length === lines.length ? 'Передать все позиции' : `Передать все без задач (${free.length})`);
-    const paint = () => { sendSel.disabled = !picked.size; sendSel.title = picked.size ? '' : 'Отметьте позиции галочками'; sendSel.textContent = picked.size ? `Передать выбранные (${picked.size})` : 'Передать выбранные'; };
+    const pickHint = h('span', { class: 'muted' }, 'Отметьте позиции галочками');
+    const paint = () => { sendSel.disabled = !picked.size; sendSel.title = picked.size ? '' : 'Отметьте позиции галочками'; pickHint.hidden = !!picked.size || !free.length; sendSel.textContent = picked.size ? `Передать выбранные (${picked.size})` : 'Передать выбранные'; };
     paint();
     box.replaceChildren(h('div', { class: 'section-title' }, `Проектирование (${byLine.size} из ${lines.length} поз.)`),
       h('ul', { class: 'spec-list' }, ...rows),
-      can ? h('div', { class: 'spec-acts' }, sendSel, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже переданы.')) : null);
+      can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже переданы.')) : null);
   }
   box.replaceChildren(h('div', { class: 'section-title' }, 'Проектирование'), h('div', { class: 'skel', style: { width: '50%' } }));
   load();

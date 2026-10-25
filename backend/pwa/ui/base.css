@@ -131,7 +131,8 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 .col-head .n { margin-left: auto; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
 .col-body { padding: 0 8px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .col-more { text-align: center; font-size: var(--fs-sm); padding: 4px 0 8px; }
-.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; cursor: pointer; box-shadow: 0 1px 1px rgba(20,26,38,.04); display: flex; flex-direction: column; gap: 6px; }
+.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; cursor: pointer; box-shadow: 0 1px 1px rgba(20,26,38,.04); display: flex; flex-direction: column; gap: 6px; }
+.tcard:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .tcard:hover { border-color: var(--border-strong); box-shadow: var(--shadow); }
 .tcard.dragging { opacity: .5; }
 .tcard .t-title { font-weight: 550; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -540,7 +541,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none 
 .pic { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--surface-3); display: block; }
 .pic.empty { display: grid; place-items: center; color: var(--muted); font-size: 15px; }
 table.list td.pic-cell { width: 44px; padding-right: 0; }
-.tcard .t-pic { width: 100%; height: 96px; object-fit: contain; background: var(--surface-2); border-radius: 6px; }
+.tcard .t-pic { width: 100%; height: 96px; object-fit: contain; background: var(--surface-2); border-radius: var(--radius-sm); }
 
 /* Переключатель темы в меню (кнопка вместо ссылки) */
 button.side-link { width: 100%; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
@@ -1327,17 +1328,18 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .pt-check { display: flex; align-items: center; gap: var(--s2); min-height: 36px; cursor: pointer; }
 .pt-check input { height: auto; width: auto; }
 /* «Проектирование» (ПРЖ-5): доска с чертежами 4:3, срок, исполнитель */
-.board.board-pics .tcard .t-pic, .t-pic-none { width: 100%; aspect-ratio: 4 / 3; height: auto; border-radius: 6px; } /* чертёж — на белом, contain */
-.board.board-pics .tcard .t-pic { background: #fff; border: 1px solid var(--border); }
+.board.board-pics .tcard .t-pic, .t-pic-none { width: 100%; aspect-ratio: 4 / 3; height: auto; border-radius: var(--radius-sm); } /* чертёж — на белом, contain */
+.board.board-pics .tcard .t-pic { background: var(--paper); border: 1px solid var(--border); }
 .t-pic-none { display: grid; place-items: center; background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
-.tcard .t-sub { font-size: 12px; color: var(--muted); line-height: 1.3; overflow-wrap: anywhere; }
+.tcard .t-sub { font-size: var(--fs-sm); color: var(--muted); line-height: 1.3; overflow-wrap: anywhere; }
 .tcard .t-foot { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: var(--fs-sm); }
 .tcard .t-foot .avatar { margin-left: auto; }
+.tcard .t-foot .t-none { margin-left: auto; color: var(--muted); }
 .due { font-variant-numeric: tabular-nums; }
 .due.none, .due.done { color: var(--muted); }
 .due.soon { color: var(--warn); font-weight: 600; }
 .due.over { color: var(--danger); font-weight: 600; }
-.avatar.sm { width: 24px; height: 24px; font-size: 11px; }
+.avatar.sm { width: 24px; height: 24px; font-size: var(--fs-label); }
 .tcard.compact { flex-direction: row; align-items: center; gap: 8px; padding: 6px 8px; }
 .tcard.compact .t-pic, .tcard.compact .t-pic-none { width: 40px; height: 40px; aspect-ratio: auto; flex: none; object-fit: contain; font-size: 0; }
 .tcard.compact .t-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }

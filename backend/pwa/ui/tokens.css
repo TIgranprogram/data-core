@@ -38,6 +38,7 @@
   --surface: #ffffff;
   --surface-2: #f6f9f8;
   --surface-3: #e9eeec;
+  --paper: #ffffff; /* чертёж и печать — всегда на белом, в обеих темах */
   /* чернила */
   --text: #17201c;
   --muted: #5d6964;
@@ -93,6 +94,7 @@
   --surface: #171c25;
   --surface-2: #1c222d;
   --surface-3: #252c39;
+  --paper: #ffffff;
   --text: #c9ddd4;
   --muted: #8ea89c;
   --heading: #6fe0b0;
