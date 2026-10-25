@@ -6,6 +6,7 @@ import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
 import { modal } from '../ui/dialog.js';
 import { enhanceSelect } from '../ui/select.js';
+import { toast } from '../ui/toast.js';
 
 /*
  * «Уже заказано» по позиции склада (TASKS ЗП): блок «Заказано» и «Поставщики и цены» в карточке (ЗП.1, ЗП.5),
@@ -16,17 +17,43 @@ export const ordered = (id) => api(`/stock/items/${id}/ordered`);
 /** Блоки карточки: «Заказано (в пути N)» и «Поставщики и цены». */
 export function orderedBlock(r) {
   const box = h('div', null, h('div', { class: 'section-title' }, 'Заказано'), busyBlock('', { tag: 'p', cls: 'muted' }));
-  ordered(r.id).then((d) => {
-    box.replaceChildren(...[
-      h('div', { class: 'section-title' }, d.open.length ? `Заказано — в пути ${qty(d.inTransit)} ${r.unit || ''}` : 'Заказано'),
-      d.open.length ? h('ul', { class: 'timeline' }, ...d.open.map((x) => h('li', null,
-        h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'}`), h('span', { class: 'num' }, `${qty(x.qty)} ${x.unit}`), h('span', null, x.statusLabel),
-        h('span', { class: 'muted' }, [x.invoiceDate ? 'счёт ' + date(x.invoiceDate) : x.requestDate ? 'заявка ' + date(x.requestDate) : '', x.supplier, x.requestedBy].filter(Boolean).join(' · ')))))
-        : h('p', { class: 'muted' }, 'Открытых заявок нет. ', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'Все заявки по позиции →')),
-      d.suppliers.length ? h('div', null, h('div', { class: 'section-title' }, 'Поставщики и цены'),
-        h('ul', { class: 'timeline' }, ...d.suppliers.map((s) => h('li', null, h('span', null, s.name), h('span', { class: 'muted' }, `брали ${s.count} раз${s.lastDate ? ' · последний ' + date(s.lastDate) : ''}`),
-          session.canMoney && s.lastPrice ? h('span', { class: 'num' }, money(s.lastPrice) + ' / ' + (r.unit || 'шт')) : null)))) : null].filter(Boolean));
-  }).catch(() => box.replaceChildren());
+
+  async function acceptReq(x) {
+    const qtyInp = h('input', { inputmode: 'decimal', value: String(x.qty || ''), class: 'field-inp' });
+    const saved = await modal({
+      title: `Принять на склад: №${x.num ?? '—'}`,
+      body: h('div', null,
+        h('label', { class: 'field' }, h('span', null, `Количество${x.unit ? ', ' + x.unit : ''}`), qtyInp),
+        h('p', { class: 'hint' }, 'Товар поступит на склад, заявка станет «Получено».')),
+      okText: 'Принять',
+      onOk: async () => {
+        const n = Number(String(qtyInp.value).replace(',', '.').replace(/\s/g, ''));
+        if (!(n > 0)) throw new Error('Укажите количество больше нуля');
+        return api(`/supply/requests/${x.id}/receive`, { method: 'POST', body: { qty: n, toStock: true, materialId: r.id, costCenter: 'workshop' } });
+      },
+    });
+    if (saved) { toast('Принято на склад'); window.dispatchEvent(new CustomEvent('data-changed')); load(); }
+  }
+
+  function load() {
+    ordered(r.id).then((d) => {
+      box.replaceChildren(...[
+        h('div', { class: 'section-title' }, d.open.length ? `Заказано — в пути ${qty(d.inTransit)} ${r.unit || ''}` : 'Заказано'),
+        d.open.length ? h('ul', { class: 'timeline' }, ...d.open.map((x) => {
+          const canAccept = x.status === 'ordered' || x.paid;
+          return h('li', null,
+            h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'}`), h('span', { class: 'num' }, `${qty(x.qty)} ${x.unit}`), h('span', null, x.statusLabel),
+            h('span', { class: 'muted' }, [x.invoiceDate ? 'счёт ' + date(x.invoiceDate) : x.requestDate ? 'заявка ' + date(x.requestDate) : '', x.supplier, x.requestedBy].filter(Boolean).join(' · ')),
+            canAccept ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => acceptReq(x) }, 'Принять') : null);
+        }))
+          : h('p', { class: 'muted' }, 'Открытых заявок нет. ', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'Все заявки по позиции →')),
+        d.suppliers.length ? h('div', null, h('div', { class: 'section-title' }, 'Поставщики и цены'),
+          h('ul', { class: 'timeline' }, ...d.suppliers.map((s) => h('li', null, h('span', null, s.name), h('span', { class: 'muted' }, `брали ${s.count} раз${s.lastDate ? ' · последний ' + date(s.lastDate) : ''}`),
+            session.canMoney && s.lastPrice ? h('span', { class: 'num' }, money(s.lastPrice) + ' / ' + (r.unit || 'шт')) : null)))) : null].filter(Boolean));
+    }).catch(() => box.replaceChildren());
+  }
+
+  load();
   return box;
 }
 

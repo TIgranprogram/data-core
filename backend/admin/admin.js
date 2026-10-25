@@ -1184,7 +1184,13 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
         d.items.forEach((it) => {
           const b = el('button', 'btn small', 'Скачать'); b.type = 'button';
           b.addEventListener('click', async () => { table.querySelectorAll('button').forEach((x) => { x.disabled = true; }); await saveBundle(it.name, prog); table.querySelectorAll('button').forEach((x) => { x.disabled = false; }); });
-          const tr = el('tr'); const td = el('td', 'srv-btns'); td.append(b);
+          const del = el('button', 'btn small btn-danger', 'Удалить'); del.type = 'button';
+          del.addEventListener('click', async () => {
+            if (!confirm(`Удалить пакет «${it.name}»? Восстановить будет нельзя.`)) return;
+            del.disabled = true;
+            try { await api('/health/bundle/' + encodeURIComponent(it.name), { method: 'DELETE' }); toast('Пакет удалён'); loadBundle(); } catch (e) { toast('Не удалось удалить: ' + e.message); del.disabled = false; }
+          });
+          const tr = el('tr'); const td = el('td', 'srv-btns'); td.append(b, del);
           tr.append(el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.bytes)), td);
           tb.append(tr);
         });

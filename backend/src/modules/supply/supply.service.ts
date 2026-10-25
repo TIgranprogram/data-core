@@ -347,7 +347,7 @@ export class SupplyService {
    * Оприходовать: приход на склад по умолчанию + статус «received» (как receive() в CRM).
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
    */
-  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean }, userId?: string) {
+  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
@@ -366,7 +366,7 @@ export class SupplyService {
       await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'direct', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
       return this.get(id);
     }
-    let materialId = doc.materialId ? String(doc.materialId) : '';
+    let materialId = (dto.materialId && Types.ObjectId.isValid(dto.materialId)) ? dto.materialId : (doc.materialId ? String(doc.materialId) : '');
     if (!materialId) {
       const name = doc.title?.trim();
       if (!name) throw new BadRequestException('У заявки нет наименования');

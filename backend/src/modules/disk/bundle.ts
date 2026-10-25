@@ -61,6 +61,16 @@ export async function bundleFile(root: string, name: string) {
   return st && st.isFile() ? { file, bytes: st.size } : null;
 }
 
+/** Удаляет пакет. false — не нашли. */
+export async function deleteBundle(root: string, name: string): Promise<boolean> {
+  if (!isBundleName(name)) return false;
+  const file = path.join(root, name);
+  const st = await fs.lstat(file).catch(() => null);
+  if (!st || !st.isFile()) return false;
+  await fs.unlink(file);
+  return true;
+}
+
 export type RequestResult = 'ok' | 'busy';
 
 /** Кладёт файл-запрос для bundle-watch.sh. busy — запрос уже есть или сборка идёт. */

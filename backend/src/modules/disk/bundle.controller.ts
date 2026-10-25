@@ -1,10 +1,10 @@
-import { ConflictException, Controller, Get, NotFoundException, Param, Post, Res, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
+import { ConflictException, Controller, Delete, Get, NotFoundException, Param, Post, Res, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { createReadStream } from 'fs';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from '../audit/audit.service';
-import { bundleFile, bundlesRoot, createBundleRequest, isBundleName, listBundles, readBundleStatus, requestsRoot } from './bundle';
+import { bundleFile, bundlesRoot, createBundleRequest, deleteBundle, isBundleName, listBundles, readBundleStatus, requestsRoot } from './bundle';
 
 /**
  * Переносной пакет для переезда на другой сервер (bundle.sh на хосте). Приложение само его не собирает:
@@ -53,5 +53,15 @@ export class BundleController {
     rs.on('error', () => res.destroy());
     res.on('close', () => rs.destroy());
     rs.pipe(res);
+  }
+
+  @Delete(':name')
+  @Roles('admin')
+  async remove(@Param('name') name: string) {
+    if (!isBundleName(name)) throw new BadRequestException('Неверное имя пакета');
+    const ok = await deleteBundle(bundlesRoot(), name);
+    if (!ok) throw new NotFoundException('Пакет не найден');
+    await this.audit.log({ action: 'bundle.delete', entityType: 'Bundle', details: { meta: { name } } });
+    return { ok: true };
   }
 }
