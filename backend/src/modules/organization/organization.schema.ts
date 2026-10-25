@@ -181,6 +181,19 @@ export class Organization {
    */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
+
+  // SC-1: каталог поставщика
+  @Prop()
+  catalogUrl?: string;
+
+  @Prop({ enum: ['idle', 'running', 'ok', 'error'], default: 'idle' })
+  catalogSyncStatus?: 'idle' | 'running' | 'ok' | 'error';
+
+  @Prop()
+  catalogSyncError?: string;
+
+  @Prop()
+  lastCatalogSyncAt?: Date;
 }
 
 export const OrganizationSchema = SchemaFactory.createForClass(Organization);

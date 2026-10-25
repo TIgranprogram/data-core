@@ -11,6 +11,7 @@ import {
   IsMongoId,
   IsOptional,
   IsString,
+  IsUrl,
   Length,
   Max,
   Min,
@@ -132,4 +133,10 @@ export class CreateOrganizationDto {
 
   @ApiPropertyOptional({ description: 'TZ-ORG-ASSETS-301 — юридический адрес для шапки документов' })
   @IsOptional() @IsString() @Length(0, 512) legalAddress?: string;
+
+  @ApiPropertyOptional({ description: 'SC-1: URL каталога поставщика для парсинга' })
+  @IsOptional() @IsUrl({ protocols: ['http', 'https'], require_protocol: true }) catalogUrl?: string;
+
+  @ApiPropertyOptional({ enum: ['idle', 'running', 'ok', 'error'], description: 'SC-1: статус синхронизации каталога' })
+  @IsOptional() @IsIn(['idle', 'running', 'ok', 'error']) catalogSyncStatus?: string;
 }
