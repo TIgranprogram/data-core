@@ -129,7 +129,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (side) {
       chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
         if (st().board && f.key === 'status') return [];
-        const cur = P[f.key] || f.defaultValue || '';
+        const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
         const opts = [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => optBtn(o.label, f.count && lastResp ? f.count(lastResp, o.value) : undefined,
           String(o.value) === cur, () => patch({ [f.key]: String(o.value) === cur ? undefined : o.value, page: undefined })));
         return [h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), h('div', { class: 'ls-list' }, ...opts))];
@@ -138,7 +138,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }
     chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
       if (st().board && f.key === 'status') return [];
-      const cur = P[f.key] || f.defaultValue || '';
+      const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
       return [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
         const n = f.count && lastResp ? f.count(lastResp, o.value) : undefined;
         return h('button', {
@@ -274,7 +274,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   /** Параметры запроса из адреса: поиск, свои параметры раздела, фильтры. */
   function currentQuery(isBoard = false) {
     const query = { search: P.q, ...(L.query ? L.query(P) : {}) };
-    for (const f of L.filters || []) if (P[f.key] && !(isBoard && f.key === 'status')) query[f.key] = P[f.key];
+    for (const f of L.filters || []) {
+      const v = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
+      if (v && !(isBoard && f.key === 'status')) query[f.key] = v;
+    }
     return query;
   }
   async function load() {

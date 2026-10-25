@@ -104,15 +104,13 @@ function details(r) {
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
         session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
       orderDesign({ id: r.id, orderNo: r.orderNo }, lines),
-      seeReq ? sec(`Заказано под заказ (${(d.supplyRequests || []).length})`, (d.supplyRequests || []).length
-        ? h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`))))
-        : h('p', { class: 'muted' }, 'Заявок под этот заказ нет. В заявке выберите «Заказ» — она появится здесь.')) : null,
+      seeReq && (d.supplyRequests || []).length ? sec(`Заказано под заказ (${d.supplyRequests.length})`,
+        h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`)))) ) : null,
       // брони заказа по позициям, «Выдать по заказу» (SK-6b); грузится отдельным запросом
       seeStock ? orderReservations({ id: r.id, orderNo: r.orderNo }, load) : null,
       seeStock ? issuedBlock(d, sec) : null,
-      seeStock ? sec(`Отпущено со склада (${(d.stockMovements || []).length})`, (d.stockMovements || []).length
-        ? h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))
-        : h('p', { class: 'muted' }, 'Списаний под заказ нет. На «Складе» → «Выдать» выберите этот заказ.')) : null);
+      seeStock && (d.stockMovements || []).length ? sec(`Отпущено со склада (${d.stockMovements.length})`,
+        h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))) : null);
   }).catch((e) => box.replaceChildren(failBlock(e)));
   load();
   return box;
@@ -133,7 +131,7 @@ export const salesorders = {
     searchPlaceholder: 'Поиск: № заказа, заказчик, предмет, контракт…',
     emptyText: 'Заказов пока нет.',
     filters: [
-      { key: 'filter', label: 'Состояние', type: 'chips', options: () => [{ value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
+      { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', options: () => [{ value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
     ],
     hints: HINT,
     hintKey: 'filter',

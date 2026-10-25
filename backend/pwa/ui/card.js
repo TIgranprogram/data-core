@@ -102,10 +102,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     content.push(h('dl', { class: 'fields' }, section.card.view(row).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
     if (section.card.extra) content.push(section.card.extra(row, actx()));
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
-    const hist = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
-    if (hist) content.push(h('div', { class: 'section-title' }, 'История изменений'), hist);
+    const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
+    const histWrap = histUl ? h('div', { hidden: true }, h('div', { class: 'section-title' }, 'История изменений'), histUl) : null;
+    if (histWrap) content.push(histWrap);
     body.replaceChildren(...content);
-    if (hist) loadHistory(hist);
+    if (histUl) loadHistory(histUl, histWrap);
 
     if (canEditSection(section)) {
       if (section.form) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, 'Изменить'));
@@ -121,10 +122,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
   const closeMenu = () => { const m = menuBox.querySelector('.menu'); if (m) m.hidden = true; };
 
-  async function loadHistory(ul) {
-    if (!section.entityType || !row?.id) { ul.replaceChildren(); return; }
+  async function loadHistory(ul, wrap) {
+    if (!section.entityType || !row?.id) { return; }
     try {
       const r = await api('/audit-logs/record', { query: { entityType: section.entityType, entityId: row.id } });
+      if (!r.items.length) return; // скрываем секцию если истории нет
       const label = section.historyLabels || {};
       // подписи полей — из формы раздела (И.1: «Поле: было → стало»)
       let names = {}; let flds = [];
@@ -132,15 +134,15 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       // И.3 «Вернуть как было»: поля этого изменения, которые есть в форме, — прежние значения в форму правки; сохраняет человек
       const byKey = new Map(flds.map((f) => [f.key, f]));
       const revertOf = (x) => (x.first || !canEditSection(section) || section.form?.build ? [] : (x.changes || []).filter((c) => byKey.has(c.field) && byKey.get(c.field).type !== 'widget' && byKey.get(c.field).type !== 'photos'));
-      ul.replaceChildren(...(r.items.length ? r.items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
+      ul.replaceChildren(...r.items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
         changeList(x.changes, names, x.first),
         revertOf(x).length ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Открыть правку с прежними значениями этих полей — проверьте и сохраните', onclick: () => {
           const back = revertOf(x);
           const values = Object.fromEntries(back.map((c) => [c.field, byKey.get(c.field).type === 'date' && c.from ? String(c.from).slice(0, 10) : c.from ?? '']));
           showForm('edit', null, { values, note: `Как было до изменения от ${dateTime(x.createdAt)}: ${back.map((c) => names[c.field] || c.field).join(', ')}. Проверьте и нажмите «Сохранить».` });
-        } }, 'Вернуть как было') : null))
-        : [h('li', { class: 'muted' }, row.source === 'google-sheets' || row.sheetSource ? 'Запись пришла из Google-таблицы; изменений в приложении пока не было.' : 'Изменений в приложении пока не было.')]));
-    } catch { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); }
+        } }, 'Вернуть как было') : null)));
+      if (wrap) wrap.hidden = false;
+    } catch { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); if (wrap) wrap.hidden = false; }
   }
 
   function actx() {
