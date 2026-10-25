@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyNode = any;
 import type { BaseAdapter, FetchFn, ParsedItem } from './base.adapter';
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -130,7 +132,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
 
   private extractItemLinks($: cheerio.CheerioAPI, origin: string): string[] {
     const links: string[] = [];
-    $('a[href]').each((_, el) => {
+    $('a[href]').each((_: number, el: AnyNode) => {
       const href = $(el).attr('href') ?? '';
       if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
       try {
@@ -148,7 +150,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
 
   private hasNextPage($: cheerio.CheerioAPI, currentPage: number): boolean {
     let found = false;
-    $('a[href]').each((_, el) => {
+    $('a[href]').each((_: number, el: AnyNode) => {
       const href = $(el).attr('href') ?? '';
       try {
         const url = new URL(href, 'https://zaglushka.ru');
@@ -172,7 +174,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
     }
 
     const breadcrumbs: string[] = [];
-    $('[class*="breadcrumb"] a, nav a, .breadcrumb li a').each((_, el) => {
+    $('[class*="breadcrumb"] a, nav a, .breadcrumb li a').each((_: number, el: AnyNode) => {
       const t = $(el).text().trim();
       if (t) breadcrumbs.push(t);
     });
@@ -180,7 +182,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
 
     // Фото: только https://zaglushka.ru/images/item/... (внешние URL — сервис их скачает)
     const photoUrls: string[] = [];
-    $('img[src]').each((_, el) => {
+    $('img[src]').each((_: number, el: AnyNode) => {
       const src = $(el).attr('src') ?? '';
       if (PHOTO_URL_PATTERN.test(src) && !photoUrls.includes(src)) {
         photoUrls.push(src);
@@ -190,8 +192,8 @@ export class ZaglushkaAdapter implements BaseAdapter {
     const prices: { minQty: number; price: number }[] = [];
     let priceRetail: number | undefined;
 
-    $('table tr').each((_, row) => {
-      const cells = $(row).find('td, th').map((_, td) => $(td).text().trim()).get();
+    $('table tr').each((_: number, row: AnyNode) => {
+      const cells = $(row).find('td, th').map((_: number, td: AnyNode) => $(td).text().trim()).get();
       if (cells.length < 2) return;
       const qtyCell = cells[0].toLowerCase();
       const priceCell = cells[1];
@@ -217,8 +219,8 @@ export class ZaglushkaAdapter implements BaseAdapter {
     let stockQty: number | undefined;
     let unit: string | undefined;
 
-    $('table tr').each((_, row) => {
-      const cells = $(row).find('td, th').map((_, td) => $(td).text().trim()).get();
+    $('table tr').each((_: number, row: AnyNode) => {
+      const cells = $(row).find('td, th').map((_: number, td: AnyNode) => $(td).text().trim()).get();
       if (cells.length < 2) return;
       const key = cells[0].trim();
       const val = cells[1].trim();
