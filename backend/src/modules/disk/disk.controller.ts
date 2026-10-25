@@ -4,30 +4,11 @@ import { ApiTags } from '@nestjs/swagger';
 import { promises as fs } from 'fs';
 import type { Connection } from 'mongoose';
 import path from 'path';
+import { AuditModule } from '../audit/audit.module';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { diskState, type DiskSnapshot } from './disk-usage';
-
-/** Сколько файлов обходить при подсчёте размера папки (фото — десятки тысяч, этого хватает). */
-const WALK_LIMIT = 300_000;
-
-/** Размер папки: обход без перехода по ссылкам; нечитаемое пропускается. partial — упёрлись в лимит. */
-async function dirSize(dir: string) {
-  let bytes = 0, files = 0, partial = false;
-  const stack = [dir];
-  while (stack.length) {
-    const d = stack.pop()!;
-    let list;
-    try { list = await fs.readdir(d, { withFileTypes: true }); } catch { continue; }
-    for (const e of list) {
-      if (files >= WALK_LIMIT) { partial = true; break; }
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) stack.push(p);
-      else if (e.isFile()) { try { bytes += (await fs.stat(p)).size; files++; } catch { /* удалён на ходу */ } }
-    }
-  }
-  return { bytes, files, partial };
-}
-const exists = (p: string) => fs.access(p).then(() => true, () => false);
+import { dirSize, exists } from './disk-fs';
+import { BackupsController } from './backups.controller';
 
 /**
  * Место на диске сервера (TASKS ДИ.1). Том с данными (`DATA_DIR` VM) смонтирован в контейнер только для чтения
@@ -84,5 +65,5 @@ export class DiskController {
   }
 }
 
-@Module({ controllers: [DiskController], providers: [DiskService] })
+@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController], providers: [DiskService] })
 export class DiskModule {}

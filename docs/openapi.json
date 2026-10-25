@@ -4722,6 +4722,52 @@
         ]
       }
     },
+    "/showcase/{id}/assign-sku": {
+      "post": {
+        "operationId": "ShowcaseController_assignSku",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/clone": {
+      "post": {
+        "operationId": "ShowcaseController_clone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/{id}/restore": {
       "post": {
         "operationId": "ShowcaseController_restore",
@@ -4749,6 +4795,43 @@
       "get": {
         "operationId": "DiskController_usage",
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/backups": {
+      "get": {
+        "operationId": "BackupsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/backups/{stamp}/download": {
+      "get": {
+        "operationId": "BackupsController_download",
+        "parameters": [
+          {
+            "name": "stamp",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -4817,6 +4900,13 @@
             "schema": {}
           },
           {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "description": "приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low",
+            "schema": {}
+          },
+          {
             "name": "companyId",
             "required": false,
             "in": "query",
@@ -4840,7 +4930,7 @@
             "name": "sort",
             "required": false,
             "in": "query",
-            "description": "orderNo | customer | stage | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)",
+            "description": "orderNo | customer | stage | priority | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)",
             "schema": {}
           },
           {
@@ -5042,6 +5132,218 @@
         },
         "tags": [
           "Заказы заказчиков"
+        ]
+      }
+    },
+    "/design-tasks": {
+      "get": {
+        "operationId": "DesignController_list",
+        "parameters": [
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "seq | completedAt | createdAt; «-» — по убыванию (умолч. seq; status=done — по completedAt убыв.)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "название, D-N, № заказа, заказчик, изделие, артикул",
+            "schema": {}
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "assigneeId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "queue | work | done | paused, через запятую",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "до 500 (умолч. 100)",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "post": {
+        "operationId": "DesignController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-tasks/from-order": {
+      "post": {
+        "operationId": "DesignController_fromOrder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FromOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-tasks/{id}": {
+      "get": {
+        "operationId": "DesignController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "patch": {
+        "operationId": "DesignController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "delete": {
+        "operationId": "DesignController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-tasks/{id}/restore": {
+      "post": {
+        "operationId": "DesignController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
         ]
       }
     },
@@ -8736,6 +9038,30 @@
         ]
       }
     },
+    "/passports/funnel": {
+      "get": {
+        "operationId": "ProductPassportController_funnel",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Код категории паспорта: TRN, WRK, BLG, DIO, DSP",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/models": {
       "get": {
         "operationId": "ProductPassportController_models",
@@ -8766,7 +9092,7 @@
                 "DSP",
                 "TRN",
                 "WRK",
-                "MAF"
+                "BLG"
               ],
               "type": "string"
             }
@@ -8808,7 +9134,7 @@
                 "DSP",
                 "TRN",
                 "WRK",
-                "MAF"
+                "BLG"
               ],
               "type": "string"
             }
@@ -10753,12 +11079,93 @@
             ],
             "description": "new | production | ready | shipped | closed | cancelled"
           },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "urgent",
+              "high",
+              "normal",
+              "low"
+            ],
+            "description": "urgent | high | normal | low; \"\" — снять (= обычный)"
+          },
           "notes": {
             "type": "string"
           },
           "clientUid": {
             "type": "string",
             "description": "Ключ клиента — повтор не создаёт дубль"
+          }
+        }
+      },
+      "FromOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Заказ (salesorders)"
+          },
+          "lineIds": {
+            "description": "Только эти позиции; пусто — все позиции заказа",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
+      "DesignTaskDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queue",
+              "work",
+              "done",
+              "paused"
+            ],
+            "description": "queue | work | done | paused"
+          },
+          "assigneeId": {
+            "type": "object",
+            "description": "Исполнитель — сотрудник (persons); null — снять"
+          },
+          "incomeId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes): заказ и изделие берутся из неё"
+          },
+          "productId": {
+            "type": "object",
+            "description": "Изделие (products); null — снять"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название; свободной задаче обязательно"
+          },
+          "deadline": {
+            "type": "object",
+            "description": "Свой срок ГГГГ-ММ-ДД / ДД.ММ.ГГГГ; \"\"/null — снова из заказа"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "urgent",
+              "high",
+              "normal",
+              "low"
+            ],
+            "description": "Свой приоритет; \"\"/null — снова из заказа"
+          },
+          "pauseReason": {
+            "type": "string",
+            "description": "Причина паузы (обязательна для paused)"
+          },
+          "note": {
+            "type": "string"
           }
         }
       },
@@ -11213,6 +11620,11 @@
             "type": "string",
             "description": "Описание категории"
           },
+          "groupNo": {
+            "type": "string",
+            "example": "12",
+            "description": "Номер группы изделий (две цифры; пусто — снять). Только у группы-ребёнка type product"
+          },
           "isActive": {
             "type": "boolean",
             "description": "Активна ли категория"
@@ -11260,6 +11672,11 @@
           "description": {
             "type": "string",
             "description": "Описание категории"
+          },
+          "groupNo": {
+            "type": "string",
+            "example": "12",
+            "description": "Номер группы изделий (две цифры; пусто — снять). Только у группы-ребёнка type product"
           },
           "isActive": {
             "type": "boolean",

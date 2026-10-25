@@ -1058,6 +1058,66 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       const dl = el('dl', 'srv-parts'); rows.forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, v)));
       box.replaceChildren(head, bar, el('p', 'panel-note', forecast), dl, el('p', 'muted', 'Проверено: ' + new Date(d.checkedAt).toLocaleString('ru-RU')));
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось узнать место на диске: ' + e.message)); }
+    loadBackups();
+  }
+  // ---- Сервер: резервные копии (список + скачивание ZIP) ----
+  const PART_RU = { all: 'Всё', mongo: 'База', uploads: 'Фото' };
+  async function saveBackup(stamp, part, prog) {
+    const name = `datacore-backup-${stamp}${part === 'all' ? '' : '-' + part}.zip`;
+    const mb = (n) => (n / 1024 ** 2).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' МБ';
+    let file = null;
+    try {
+      // окно выбора папки открываем сразу по клику — иначе браузер его не разрешит
+      if (window.showSaveFilePicker) file = await window.showSaveFilePicker({ suggestedName: name, startIn: 'documents', types: [{ description: 'ZIP-архив', accept: { 'application/zip': ['.zip'] } }] });
+    } catch (e) { if (e.name === 'AbortError') { toast('Скачивание отменено'); return; } file = null; }
+    let w = null;
+    try {
+      prog.textContent = 'Готовим архив…';
+      const res = await authFetch(`/health/backups/${stamp}/download?part=${part}`);
+      if (!res.ok) { let m = 'Не удалось скачать копию'; try { m = (await res.json()).message || m; } catch { /* не JSON */ } throw new Error(m); }
+      let got = 0;
+      if (file) {
+        w = await file.createWritable();
+        const rd = res.body.getReader();
+        for (;;) { const { done, value } = await rd.read(); if (done) break; await w.write(value); got += value.length; prog.textContent = 'Скачано ' + mb(got); }
+        await w.close(); w = null;
+      } else {
+        const blob = await res.blob(); got = blob.size;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      }
+      prog.textContent = ''; toast('Копия сохранена: ' + mb(got));
+    } catch (e) {
+      if (w) await w.abort().catch(() => {});
+      prog.textContent = ''; toast('Не удалось сохранить копию: ' + (e.message || 'обрыв связи'));
+    }
+  }
+  async function loadBackups() {
+    const box = $('#backups-box');
+    try {
+      const d = await api('/health/backups');
+      if (!d.mounted) { box.replaceChildren(el('p', 'muted', 'Папка копий не подключена к серверу — список недоступен.')); return; }
+      if (!d.items.length) { box.replaceChildren(el('p', 'muted', 'Копий пока нет — они создаются ночью автоматически.')); return; }
+      const prog = el('span', 'muted srv-prog');
+      const table = el('table', 'srv-backups');
+      const hr = el('tr'); ['Дата', 'База', 'Фото', 'Скачать'].forEach((h) => hr.append(el('th', null, h)));
+      const th = el('thead'); th.append(hr); table.append(th);
+      const tb = el('tbody');
+      d.items.forEach((it) => {
+        const tr = el('tr');
+        const btns = el('td', 'srv-btns');
+        ['all', 'mongo', 'uploads'].forEach((part) => {
+          const b = el('button', 'btn small', PART_RU[part]); b.type = 'button';
+          if (part === 'uploads' && it.uploadsBytes == null) b.disabled = true;
+          b.addEventListener('click', async () => { table.querySelectorAll('button').forEach((x) => { x.disabled = true; }); await saveBackup(it.stamp, part, prog); table.querySelectorAll('button').forEach((x) => { x.disabled = false; }); });
+          btns.append(b);
+        });
+        tr.append(el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.mongoBytes)), el('td', null, it.uploadsBytes == null ? 'нет' : gb(it.uploadsBytes)), btns);
+        tb.append(tr);
+      });
+      table.append(tb);
+      box.replaceChildren(table, prog, el('p', 'muted', 'Копию можно сохранить на любой диск — браузер спросит папку.'));
+    } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось получить список копий: ' + e.message)); }
   }
   $('#server-refresh').addEventListener('click', loadServer);
 
