@@ -81,6 +81,9 @@ async function bootstrap() {
   app.use(
     helmet({
       contentSecurityPolicy: {
+        // useDefaults:false — иначе helmet добавляет upgrade-insecure-requests по умолчанию,
+        // что ломает HTTP-стенды (браузер апгрейдит JS-модули до HTTPS → ERR_SSL_PROTOCOL_ERROR)
+        useDefaults: false,
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
@@ -92,10 +95,10 @@ async function bootstrap() {
           baseUri: ["'self'"],
           formAction: ["'self'"],
           frameAncestors: ["'self'"],
-          upgradeInsecureRequests: [],
         },
       },
-      hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+      // HSTS отключён: на HTTP-стендах заголовок бессмысленен и мешает тестированию
+      hsts: false,
     }),
   );
 
