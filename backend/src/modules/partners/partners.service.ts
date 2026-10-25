@@ -229,6 +229,8 @@ export class PartnersService {
     const _id = this.oid(id);
     const set = await this.cleanRequisites(dto, _id);
     if (dto.name !== undefined) { const n = clean(dto.name); if (!n) throw new BadRequestException('Название не может быть пустым'); set.name = n; }
+    const dtoAny = dto as Record<string, unknown>;
+    if (dtoAny['catalogUrl'] !== undefined) set['catalogUrl'] = clean(dtoAny['catalogUrl']) || null;
     const res = await this.db.collection('organizations').updateOne({ _id, deletedAt: null }, { $set: { ...set, updatedAt: new Date(), editedInApp: true } });
     if (!res.matchedCount) throw new NotFoundException('Контрагент не найден');
     return this.get(id);
