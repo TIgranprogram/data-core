@@ -7,22 +7,22 @@ description: Проверка изменений в data-core — typecheck, ю�
 
 Работай из `backend/`. pnpm может отсутствовать в PATH → `npx`. Долгие команды — в фоне.
 
-## 0. Сколько проверять — сначала это (экономия токенов, правило пользователя 2026-10-20)
+## 0. Уровень проверки — smoke или full (сначала это)
 
-| Что поменялось | Проверка |
-|--|--|
-| только `backend/pwa/**`, `backend/admin/**` | `node --check --input-type=module < файл` для изменённых; QA **не пересобирать** (pwa/admin смонтированы папками); снимок — **только по просьбе пользователя** (или спросить разрешения) |
-| `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent`; e2e — только своего файла |
-| перед выкладкой | полный юнит + e2e — **только если** с последней записи в `docs/TEST-LOG.md` менялся `backend/src` или `backend/test`; после прогона — строка в журнал |
-| только доки | ничего |
+| Уровень | Когда | Что |
+|--|--|--|
+| — | только доки | ничего |
+| smoke | только `backend/pwa/**`, `backend/admin/**` | `node --input-type=module --check < файл` изменённых + `npx jest src/pwa-guards --silent`; QA не пересобирать (pwa/admin смонтированы папками) |
+| smoke | `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent` + eslint модуля; e2e — только своего файла |
+| full | перед выкладкой L/XL; класс XL; если с последней строки `docs/TEST-LOG.md` менялся `backend/src`/`backend/test` | весь юнит + e2e (нужен Docker) → строка в TEST-LOG; без изменений с прошлой записи — не повторять |
 
-Пересборка QA — только при изменении `backend/src`. Длинные прогоны и разбор падений можно отдать агенту `model: "haiku"`.
+Снимки — только по просьбе пользователя (CLAUDE.md). Пересборка QA — только при изменении `backend/src`. Длинные прогоны и разбор падений — агенту qa (sonnet).
 
-## 1. Всегда (дёшево)
+## 1. Команды
 
 ```bash
 npx tsc --noEmit            # норма: exit 0
-npx jest --silent           # норма: все suites passed (база 70/748 на 2026-10-18)
+npx jest --silent           # норма: все suites passed (152/1524 на 2026-10-25)
 npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
 ```
 
@@ -36,7 +36,7 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
 ```
-Норма: все suites passed (база 23 suites / 173 tests на 2026-10-19).
+Норма: все suites passed (36 / 282 на 2026-10-25).
 Если в `backend/` нет `.env` (например, в git worktree), `ConfigModule` падает ещё при импорте `AppModule` — передай тестовые `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 символов) и `ADMIN_PASSWORD=admin123456` прямо в команде.
 
 ## 3. Live-smoke (если менял рантайм/админку)

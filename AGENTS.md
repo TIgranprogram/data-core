@@ -25,14 +25,14 @@
 | Поля сущностей | [docs/data-model.md](docs/data-model.md) (ориентир), истина — `*.schema.ts` | — |
 | Схема таблиц / контракт для клиента | живой API: `GET /api/meta/schema`, `/api/meta/openapi.json`, `/api/meta/guide` (модуль `modules/meta`); в админке — вкладка «Подключение» | — |
 | Точный контракт эндпоинта | `docs/openapi.json` — **только grep по пути**, файл 175 КБ | целиком |
-| Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог), [ROADMAP.md](ROADMAP.md) (план) | — |
+| Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог) — Grep по коду задачи или первый `[ ]`, не целиком; [ROADMAP.md](ROADMAP.md) (план) | TASKS целиком |
 | Архитектура: циклы модулей, общие коллекции, DTO, рефакторинг | [docs/ARCH-PLAN.md](docs/ARCH-PLAN.md) — ТЗ и чек-листы (М — мелкие, АБЗ — большие) | — |
 | Команда агентов: роли, границы, ТЗ, поток задачи | [docs/roles/README.md](docs/roles/README.md), агенты — `.claude/agents/` | — |
 | Вопросы, ждущие решения пользователя | [docs/QUESTIONS.md](docs/QUESTIONS.md) — новые вопросы записывать туда; мёртвый код не оставлять | — |
 | Подключение внешних клиентов | [docs/CONNECT.md](docs/CONNECT.md) | — |
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
 | Данные на проде (правит только пользователь) | [docs/DATA-FIX-USER.md](docs/DATA-FIX-USER.md) — дополнять, не исполнять | — |
-| Что уже сделано и как проверялось | [docs/HISTORY.md](docs/HISTORY.md) — журнал, только при расследовании | без нужды |
+| Что уже сделано и как проверялось | [docs/HISTORY.md](docs/HISTORY.md) — журнал: только Grep / хвост при расследовании | целиком |
 | Деплой на VM | skill `datacore-deploy`, [deploy/synology/README.md](deploy/synology/README.md) | — |
 
 ## Структура (только значимое)
@@ -63,7 +63,7 @@ pnpm в PATH может не быть → используй `npx`.
 | Что | Команда | Норма |
 |--|--|--|
 | Типы | `npx tsc --noEmit` | exit 0 |
-| Юнит-тесты | `npx jest --silent` | 122 suites / 1251 tests; e2e 32 / 238 (на 2026-10-23) |
+| Юнит-тесты | `npx jest --silent` | 152 suites / 1524 tests; e2e 36 / 282 (на 2026-10-25) |
 | e2e | `npx jest --config ./test/jest-e2e.json --runInBand --forceExit` | нужен Mongo; см. skill `datacore-verify` |
 | Сборка | `npx nest build` | exit 0 |
 | Стек целиком | из корня: `docker compose up -d --build` | API `:3001` локально (`HOST_PORT`) |
@@ -79,22 +79,14 @@ pnpm в PATH может не быть → используй `npx`.
 7. Mongo на VM — **4.4** (CPU без AVX). Не использовать фичи Mongo 5+.
 8. Метки `TZ-…` в комментариях — исторические ID задач kppdf, искать их файлы не нужно. Ссылки на несуществующие доки из кода вычищены (T14); если встретишь новую — исправь на существующий файл.
 9. После изменения кода: typecheck + юнит зелёные; обнови затронутые доки (skill `datacore-docs-sync`); задачу в `docs/TASKS.md` отметь `[x]`.
-10. Коммиты — на русском, conventional-префикс (`fix:`, `feat(admin):`, `docs:`, `refactor(backend):`). Коммитить/пушить — только когда просит пользователь.
+10. Коммиты — на русском, conventional-префикс (`fix:`, `feat(admin):`, `docs:`, `refactor(backend):`). Когда коммитить и строка-эстафета — `CLAUDE.md`.
 
-## Известные ловушки (сэкономят часы)
+## Известные ловушки (частые; редкие — [docs/traps.md](docs/traps.md))
 
 - В каждом объекте ответа есть строковый **`id`** (и `_id` там, где он был): это гарантирует глобальный `IdNormalizeInterceptor` (T18). Клиентам опираться на `id`.
-- Мусорный ObjectId → `CastError` → глобальный фильтр отдаёт **400** (не 500).
-- Mongoose `ValidationError` → тоже **400** с полем и `missing`; у ответа 500 есть `errorId` — тот же код в журнале: `docker logs datacore-backend | grep 'сбой КОД'` (журнал теряется при пересоздании контейнера выкладкой).
 - `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` (`main.ts`): любой новый DTO (в т. ч. для `@Query`) **сразу** даст 400 на поля, которых в нём нет, — клиенты их шлют сейчас. Перед DTO собрать реальные поля запросов (М10, АБЗ-6).
-- Rate-limit: глобально 10/с и 100/мин, `/auth/login` — 5/мин и 20/час. Серия запросов без пауз → 429, это не баг.
-- `GET /api/admin/users` через `kppd_`-ключ → `total:0`: owner-админ скрыт от не-owner актора (TZ-AUTH-306). Не баг.
 - Модели с soft-delete: обычные запросы скрывают `deletedAt != null`; админ-«Таблицы» читают сырые коллекции.
-- `AuditService.log` приводит `entityId` к ObjectId — не-hex строку туда не клади (пиши в `details`).
 - Склад и снабжение (`materials`, `storageitems`, `stockmovements`, `reservations`, `warehouses`, `supplyrequests`) — **общие с CRM**: модули `stock`/`supply` пишут их по правилам kppdf, схемы в `stock/schemas/` и `supply/` — копии kppdf (менять синхронно). См. `docs/UNIFY-SUPPLY-WAREHOUSE.md`.
-- В БД есть таблицы CRM kppdf (`kind:'crm'` в реестре `modules/admin/collections-admin.controller.ts`) — это **живые данные kppdf** на общей базе: не удалять, не менять их схему из data-core.
-- **Никогда не запускай `bash -x` / `set -x` на скриптах, которые читают `.env`** — трассировка печатает секреты (инцидент 2026-10-18, T22).
-- Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.
 - Проверка pwa/admin: `node --check файл.js` **молча пропускает** синтаксические ошибки ES-модулей — только `node --input-type=module --check < файл` (2026-10-22: так в приложение чуть не ушла ошибка, ломавшая весь экран).
 - Паспорта: один вид (с 2026-10-23, БЗ-7 шаг 1б) — PDF только по категории и тексту по справочникам (`textSnapshot`; нет — собирается при печати, нет категории — 400); флага `passports.v2` больше нет. ТЗ — `docs/PASSPORTS-V2.md`. Шаблоны категорий — `passporttemplates`, тексты «Для всех» — в коде (`scripts/passport-texts.v2.json`).
 - e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `datacore-test`). Никогда не направляй его на `datacore`.
