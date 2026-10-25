@@ -153,6 +153,8 @@ services:
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       SWAGGER_ENABLED: "${SWAGGER_ENABLED:-false}"
       TRUST_PROXY: "${TRUST_PROXY:-1}"
+      # 1 — только стенд без HTTPS (SRV-ERP): без upgrade-insecure-requests и HSTS; на проде пусто
+      HTTP_STAND: "${HTTP_STAND:-}"
     volumes:
       - ${DATA_DIR}/uploads:/app/uploads
       - ./secrets:/app/secrets:ro   # ключ сервисного аккаунта Google (google-sa.json) — чтение Google-таблиц

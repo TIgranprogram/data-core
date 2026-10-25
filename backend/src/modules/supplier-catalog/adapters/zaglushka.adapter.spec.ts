@@ -140,3 +140,74 @@ describe('ZaglushkaAdapter.fetchRaw — 429 handling', () => {
     expect(capturedHeaders['User-Agent']).toMatch(/Mozilla/);
   });
 });
+
+// ─── Обход с корня сайта ──────────────────────────────────────────────────────
+
+describe('ZaglushkaAdapter.fetchItems — старт с корня', () => {
+  const page = (body: string, og = 'website') =>
+    `<html><head><meta property="og:type" content="${og}"></head><body><h1>T</h1>${body}</body></html>`;
+  const ROOT = page('<a href="/plastikovye-opory">Опоры</a><a href="/about">О нас</a><a href="/en/x">en</a><a href="https://evil.com/x">x</a>');
+  const CAT = page('<a href="/opora-1">1</a><a href="/plastikovye-opory?page=2">2</a>');
+  const CAT2 = page('<a href="/opora-1">1</a><a href="/opora-2">2</a>');
+  const ITEM = (sku: string) =>
+    page(`<h2 class="x"></h2><script type="application/ld+json">{"sku": "${sku}",}</script><meta itemprop="price" content="12.5"/>`, 'product');
+  const buildPages = (): Record<string, string> => ({
+    'https://zaglushka.ru/': ROOT,
+    'https://zaglushka.ru/plastikovye-opory': CAT,
+    'https://zaglushka.ru/plastikovye-opory?page=2': CAT2,
+    'https://zaglushka.ru/opora-1': ITEM('А1'),
+    'https://zaglushka.ru/opora-2': ITEM('А2'),
+  });
+  const mkFetch = (pages: Record<string, string>) => jest.fn().mockImplementation((url: string) => {
+    const html = pages[url];
+    if (html === undefined) return Promise.resolve({ ok: false, status: 404, headers: new Headers() });
+    return Promise.resolve({ ok: true, status: 200, headers: new Headers(), arrayBuffer: () => Promise.resolve(makeArrayBuffer(html)) });
+  });
+  const drain = async (adapter: ZaglushkaAdapter, fetchFn: jest.Mock, out: string[] = []) => {
+    for await (const it of adapter.fetchItems('https://zaglushka.ru/', fetchFn as unknown as typeof fetch)) out.push(it.vendorArticle);
+  };
+
+  it('с корня находит разделы, пагинацию и товары; служебные и чужие ссылки не ходит', async () => {
+    jest.useFakeTimers();
+    const adapter = new ZaglushkaAdapter();
+    const fetchFn = mkFetch(buildPages());
+    const out: string[] = [];
+    const p = drain(adapter, fetchFn, out);
+    await jest.advanceTimersByTimeAsync(60_000);
+    await p;
+    expect(out.sort()).toEqual(['А1', 'А2']);
+    expect(adapter.complete).toBe(true);
+    const urls = fetchFn.mock.calls.map((c) => c[0] as string);
+    expect(urls.some((u) => /about|\/en\/|evil/.test(u))).toBe(false);
+    jest.useRealTimers();
+  });
+
+  it('первая страница не загрузилась → исключение', async () => {
+    const adapter = new ZaglushkaAdapter();
+    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 500, headers: new Headers() });
+    await expect(drain(adapter, fetchFn)).rejects.toThrow();
+    expect(adapter.complete).toBe(false);
+  });
+
+  it('чужой хост каталога отклоняется; fetchRaw не ходит на чужой хост', async () => {
+    const adapter = new ZaglushkaAdapter();
+    const fetchFn = jest.fn();
+    await expect(
+      (async () => { for await (const _ of adapter.fetchItems('https://zaglushka.ru.evil.com/', fetchFn as unknown as typeof fetch)) { void _; } })(),
+    ).rejects.toThrow();
+    expect(await adapter.fetchRaw('https://evil.com/a.jpg', fetchFn as unknown as typeof fetch)).toBeNull();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('товар не загрузился → complete=false', async () => {
+    jest.useFakeTimers();
+    const adapter = new ZaglushkaAdapter();
+    const pages = buildPages();
+    delete pages['https://zaglushka.ru/opora-2'];
+    const p = drain(adapter, mkFetch(pages));
+    await jest.advanceTimersByTimeAsync(60_000);
+    await p;
+    expect(adapter.complete).toBe(false);
+    jest.useRealTimers();
+  });
+});

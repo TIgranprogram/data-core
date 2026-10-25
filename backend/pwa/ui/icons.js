@@ -27,6 +27,8 @@ const PATHS = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8v.1"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
+  // каталог поставщиков: ценник
+  catalog: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
   table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>',
   // форматы PDF паспорта: книжный лист, альбомный буклет со сгибом, высокий лист стенда
   sheetA5: '<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 11.5h6M9 15h4"/>',

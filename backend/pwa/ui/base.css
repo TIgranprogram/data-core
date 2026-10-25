@@ -332,7 +332,7 @@ th.pick, td.pick { width: 36px; text-align: center; }
 .bulk-row.on .bulk-use span { font-weight: 600; }
 @media (max-width: 719px) { .pick-cb, .pick-all { width: 24px; height: 24px; } .gc-pick { padding: 10px; } .cards li > .pick-hit { padding: 10px; margin: -10px 0 -10px -10px; } }
 /* Выбор множества: чекбоксы скрыты, пока нет bulk-mode */
-.list-panel:not(.bulk-mode) .pick-cb { opacity: 0; pointer-events: none; transition: opacity .15s; }
+.list-panel:not(.bulk-mode) .pick-cb { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s; }
 .list-panel.bulk-mode .pick-cb { opacity: 1; pointer-events: auto; }
 .list-panel:not(.bulk-mode) td.pick, .list-panel:not(.bulk-mode) th.pick { width: 0; min-width: 0; padding: 0; overflow: hidden; }
 .list-panel:not(.bulk-mode) .pick-hit { display: none; }

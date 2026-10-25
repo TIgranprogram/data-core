@@ -27,7 +27,7 @@ if [[ -z "$FREE_KB" || "$FREE_KB" -lt 2097152 ]]; then
 fi
 
 echo "== 1. Бэкап базы на VM"
-"${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1 && tail -1 /tmp/dc-backup.log'
+"${SSH[@]}" 'cd /opt/data-core && if bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
 
 echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
 TMP="$(mktemp -d)"

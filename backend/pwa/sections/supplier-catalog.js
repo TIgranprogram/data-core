@@ -135,7 +135,10 @@ export const supplierCatalog = {
         const btn = h('button', {
           class: 'btn btn-primary',
           type: 'button',
-          onclick: async () => {
+          onclick: async (e) => {
+            const b = e.currentTarget;
+            if (b.disabled) return;
+            b.disabled = true; // двойной клик — не две заявки
             try {
               await api('/supply/requests', { method: 'POST', body: {
                 title: r.name,
@@ -146,8 +149,8 @@ export const supplierCatalog = {
                 ...(r.priceRetail && { priceHint: r.priceRetail }),
                 ...(r.sourceUrl && { productUrl: r.sourceUrl }),
               } });
-              toast('Заявка создана');
-            } catch (e) { toastError(e); }
+              toast('Заявка создана — количество и срок поправьте в «Заявках»');
+            } catch (err) { toastError(err); } finally { b.disabled = false; }
           },
         }, '+ В заявку');
         parts.push(h('div', { style: 'margin-top:var(--s4)' }, btn));

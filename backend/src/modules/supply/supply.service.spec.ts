@@ -425,6 +425,17 @@ describe('SupplyService', () => {
       expect(stock.adoptArticle).toHaveBeenCalled();
     });
 
+    it('dto.materialId (валидный) главнее материала заявки; мусорный — игнорируется', async () => {
+      const mid = new Types.ObjectId(), other = String(new Types.ObjectId());
+      current = reqDoc({ materialId: mid });
+      await service.receive(String(current._id), { materialId: other });
+      expect(stock.move).toHaveBeenLastCalledWith(other, expect.objectContaining({ type: 'in' }), undefined);
+      expect(setOf().materialId).toEqual(new Types.ObjectId(other));
+      current = reqDoc({ materialId: mid });
+      await service.receive(String(current._id), { materialId: 'мусор' });
+      expect(stock.move).toHaveBeenLastCalledWith(String(mid), expect.anything(), undefined);
+    });
+
     it('нет материала и нет наименования → BadRequest', async () => {
       current = reqDoc({ title: '  ' });
       await expect(service.receive(String(current._id), {})).rejects.toThrow('У заявки нет наименования');

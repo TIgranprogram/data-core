@@ -211,10 +211,13 @@ export const products = {
         session.canEdit ? h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'fromorders', new: '1', open: undefined }); } }, 'Из заказов') : null,
         session.canEdit ? h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'frompassports', new: '1', open: undefined }); } }, 'Из паспортов') : null,
       ].filter(Boolean));
-      const gear = h('div', { class: 'gear-wrap' },
-        h('button', { class: 'btn btn-icon', type: 'button', title: 'Настройки каталога', onclick: (e) => { e.stopPropagation(); drop.classList.toggle('open'); } }, '⚙'),
-        drop);
-      document.addEventListener('click', () => { drop.classList.remove('open'); });
+      // слушатели закрытия — только пока меню открыто (раньше копились при каждой перерисовке)
+      const close = () => { drop.classList.remove('open'); gearBtn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      const gearBtn = h('button', { class: 'btn btn-icon', type: 'button', title: 'Загрузка и импорт: каталог, из заказов, из паспортов', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+        onclick: (e) => { e.stopPropagation(); if (drop.classList.contains('open')) return close(); drop.classList.add('open'); gearBtn.setAttribute('aria-expanded', 'true'); document.addEventListener('click', close); document.addEventListener('keydown', onKey); } }, '⚙');
+      drop.setAttribute('role', 'menu');
+      const gear = h('div', { class: 'gear-wrap' }, gearBtn, drop);
       return [gear, h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`)];
     },
     hints: {},

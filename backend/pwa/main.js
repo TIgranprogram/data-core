@@ -56,7 +56,7 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
 const SECTIONS = { requests, stock, movements, orders, salesorders, design, designorder: designOrder, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, 'supplier-catalog': supplierCatalog };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['supplier-catalog', 'Каталог', 'orders'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['supplier-catalog', 'Каталог', 'catalog'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { designorder: 'design', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
@@ -161,7 +161,6 @@ function shell() {
     group('Производство', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' },
-      installLink(),
       navLinks.dicts,
       seesHistory ? navLinks.history : null,
       navLinks.trash,
@@ -172,6 +171,8 @@ function shell() {
       h('div', { class: 'side-user' }, h('span', { class: 'avatar' }, initials),
         h('div', { class: 'who' }, h('b', null, session.name), h('span', null, session.user?.roleLabel || roleName(session.user?.role)))),
       h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти')),
+      // «Установить на телефон» — внизу (пользователь 2026-10-26: первыми справочники, история, корзина)
+      installLink(),
       appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)

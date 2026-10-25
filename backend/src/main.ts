@@ -78,11 +78,12 @@ async function bootstrap() {
   app.useLogger(createQuietNestLogger(app.get(PinoLogger)));
 
   // Helmet with CSP and HSTS hardening.
+  // HTTP_STAND=1 — только для стендов без HTTPS (другой сервер, см. SRV-ERP/README.md): без upgrade-insecure-requests
+  // (иначе браузер тянет JS-модули по HTTPS → ERR_SSL_PROTOCOL_ERROR) и без HSTS. На проде переменной нет — полная защита.
+  const httpStand = process.env.HTTP_STAND === '1';
   app.use(
     helmet({
       contentSecurityPolicy: {
-        // useDefaults:false — иначе helmet добавляет upgrade-insecure-requests по умолчанию,
-        // что ломает HTTP-стенды (браузер апгрейдит JS-модули до HTTPS → ERR_SSL_PROTOCOL_ERROR)
         useDefaults: false,
         directives: {
           defaultSrc: ["'self'"],
@@ -95,10 +96,11 @@ async function bootstrap() {
           baseUri: ["'self'"],
           formAction: ["'self'"],
           frameAncestors: ["'self'"],
+          scriptSrcAttr: ["'none'"],
+          ...(httpStand ? {} : { upgradeInsecureRequests: [] }),
         },
       },
-      // HSTS отключён: на HTTP-стендах заголовок бессмысленен и мешает тестированию
-      hsts: false,
+      hsts: httpStand ? false : { maxAge: 31536000, includeSubDomains: true, preload: true },
     }),
   );
 

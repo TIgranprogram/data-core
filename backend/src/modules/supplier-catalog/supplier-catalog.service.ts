@@ -3,30 +3,23 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  OnModuleInit,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Connection, Model, Types } from 'mongoose';
+import { Connection, Model, Types, isValidObjectId } from 'mongoose';
 import { SupplierItem } from './schemas/supplier-item.schema';
 import type { SupplierItemDocument } from './schemas/supplier-item.schema';
 import { Organization } from '../organization/organization.schema';
 import type { OrganizationDocument } from '../organization/organization.schema';
 import { ZaglushkaAdapter } from './adapters/zaglushka.adapter';
-import type { FetchFn, ParsedItem } from './adapters/base.adapter';
+import type { BaseAdapter, FetchFn, ParsedItem } from './adapters/base.adapter';
+import { createSafeFetch, hostAllowed, isPrivateIp } from './safe-fetch';
+import { escapeRe } from '../../common/list-query';
 
-/** SSRF: запрещённые диапазоны и имена хостов */
-const BLOCKED_PATTERNS = [
-  /^localhost$/i,
-  /^127\./,
-  /^10\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^::1$/,
-  /^0\.0\.0\.0$/,
-];
-
+/** SSRF (синхронная часть): схема, localhost и IP-литералы приватных диапазонов. DNS и редиректы — в safe-fetch. */
 export function checkSsrf(rawUrl: string): URL {
   let parsed: URL;
   try {
@@ -38,20 +31,29 @@ export function checkSsrf(rawUrl: string): URL {
     throw new BadRequestException('URL должен быть http или https');
   }
   const hostname = parsed.hostname;
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(hostname)) {
-      throw new BadRequestException(`URL ведёт на запрещённый адрес: ${hostname}`);
-    }
+  if (/^localhost$/i.test(hostname) || isPrivateIp(hostname)) {
+    throw new BadRequestException(`URL ведёт на запрещённый адрес: ${hostname}`);
   }
   return parsed;
 }
 
 const BULK_BATCH_SIZE = 500;
+/** Деактивировать пропавшие, только если собрано не меньше этой доли прежних активных */
+const MIN_KEEP_RATIO = 0.5;
 const MAX_PHOTOS_PER_ITEM = 5;
 const PHOTO_DOWNLOAD_PAUSE_MS = 200;
 
 function sanitizeArticle(article: string): string {
   return article.replace(/[^a-zA-Z0-9-]/g, '_');
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.promises.access(p);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function extFromUrl(url: string): string {
@@ -65,7 +67,7 @@ function extFromUrl(url: string): string {
 }
 
 @Injectable()
-export class SupplierCatalogService {
+export class SupplierCatalogService implements OnModuleInit {
   private readonly logger = new Logger(SupplierCatalogService.name);
   /** orgId → true, пока идёт синхронизация */
   private readonly running = new Set<string>();
@@ -84,7 +86,20 @@ export class SupplierCatalogService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
+  /** Синхронизация, оборванная перезапуском, не должна висеть в статусе «running». */
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.orgModel.updateMany(
+        { catalogSyncStatus: 'running' },
+        { $set: { catalogSyncStatus: 'error', catalogSyncError: 'прервано перезапуском сервера' } },
+      );
+    } catch (e) {
+      this.logger.warn(`reset running status failed: ${(e as Error).message}`);
+    }
+  }
+
   async startSync(orgId: string): Promise<{ status: 'running' }> {
+    if (!isValidObjectId(orgId)) throw new BadRequestException('Некорректный id организации');
     if (this.running.has(orgId)) {
       throw new ConflictException('Синхронизация уже запущена');
     }
@@ -107,6 +122,7 @@ export class SupplierCatalogService {
     error?: string | null;
     total: number;
   }> {
+    if (!isValidObjectId(orgId)) throw new BadRequestException('Некорректный id организации');
     const org = await this.orgModel.findById(orgId).lean().exec();
     if (!org) throw new NotFoundException('Организация не найдена');
     const total = await this.itemModel.countDocuments({ supplierId: new Types.ObjectId(orgId), active: true });
@@ -119,16 +135,27 @@ export class SupplierCatalogService {
     };
   }
 
-  async getSuppliers(): Promise<{ items: { id: string; name: string }[] }> {
-    const ids = await this.itemModel.distinct('supplierId', { active: true }).exec();
-    if (!ids.length) return { items: [] };
+  /** Поставщики с позициями ИЛИ с заданной ссылкой каталога (новый поставщик виден до первой синхронизации). */
+  async getSuppliers(): Promise<{ items: { id: string; name: string; itemCount: number }[] }> {
+    const counts = (await this.itemModel.aggregate([
+      { $match: { active: true } },
+      { $group: { _id: '$supplierId', n: { $sum: 1 } } },
+    ])) as { _id: Types.ObjectId; n: number }[];
+    const countBy = new Map(counts.map((c) => [String(c._id), c.n]));
     const orgs = await this.orgModel
-      .find({ _id: { $in: ids } }, { name: 1 })
+      .find(
+        {
+          deletedAt: null,
+          $or: [{ _id: { $in: counts.map((c) => c._id) } }, { catalogUrl: { $type: 'string', $ne: '' } }],
+        },
+        { name: 1 },
+      )
       .lean()
       .exec();
     const items = orgs.map((o) => {
       const org = o as Record<string, unknown>;
-      return { id: String(org['_id']), name: (org['name'] as string) || '' };
+      const id = String(org['_id']);
+      return { id, name: (org['name'] as string) || '', itemCount: countBy.get(id) ?? 0 };
     });
     return { items };
   }
@@ -139,14 +166,20 @@ export class SupplierCatalogService {
     page?: number;
     limit?: number;
   }): Promise<{ items: SupplierItemDocument[]; total: number; page: number; limit: number }> {
-    const page = Math.max(1, opts.page ?? 1);
+    if (!opts.supplierId || !isValidObjectId(opts.supplierId)) {
+      throw new BadRequestException('Некорректный id поставщика');
+    }
+    if ((opts.page !== undefined && !Number.isInteger(opts.page)) || (opts.limit !== undefined && !Number.isInteger(opts.limit))) {
+      throw new BadRequestException('page и limit должны быть целыми числами');
+    }
+    const page = Math.min(100_000, Math.max(1, opts.page ?? 1));
     const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
     const filter: Record<string, unknown> = {
       supplierId: new Types.ObjectId(opts.supplierId),
       active: true,
     };
     if (opts.q) {
-      const re = new RegExp(opts.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const re = new RegExp(escapeRe(opts.q), 'i');
       filter['$or'] = [{ name: re }, { vendorArticle: re }];
     }
     const [items, total] = await Promise.all([
@@ -164,15 +197,18 @@ export class SupplierCatalogService {
     const runStart = new Date();
     const supplierId = new Types.ObjectId(orgId);
     const adapter = this.resolveAdapter(catalogUrl);
+    const safeFetch = createSafeFetch(this.fetchFn, adapter.hosts ?? []);
 
     // Папка для фото поставщика
     const supplierUploadsDir = path.join(this.uploadsDir, 'suppliers', orgId);
     fs.mkdirSync(supplierUploadsDir, { recursive: true });
 
     try {
+      const prevActive = await this.itemModel.countDocuments({ supplierId, active: true });
+      let collected = 0;
       const ops: Parameters<typeof this.itemModel.bulkWrite>[0] = [];
 
-      for await (const item of adapter.fetchItems(catalogUrl, this.fetchFn)) {
+      for await (const item of adapter.fetchItems(catalogUrl, safeFetch)) {
         if (item.sourceUrl) {
           try { checkSsrf(item.sourceUrl); } catch { /* пропускаем */ }
         }
@@ -182,7 +218,9 @@ export class SupplierCatalogService {
           supplierUploadsDir,
           orgId,
           adapter,
+          safeFetch,
         );
+        collected++;
 
         const doc = this.parsedToDoc(item, supplierId, localPhotoPaths, runStart);
         ops.push({
@@ -202,11 +240,17 @@ export class SupplierCatalogService {
         await this.itemModel.bulkWrite(ops, { ordered: false });
       }
 
-      // Помечаем пропавшие active:false
-      await this.itemModel.updateMany(
-        { supplierId, syncedAt: { $lt: runStart }, active: true },
-        { $set: { active: false } },
-      );
+      // Пропавшие → active:false, только если обход полный и собрано не меньше половины прежнего
+      if (adapter.complete && collected >= prevActive * MIN_KEEP_RATIO) {
+        await this.itemModel.updateMany(
+          { supplierId, syncedAt: { $lt: runStart }, active: true },
+          { $set: { active: false } },
+        );
+      } else {
+        this.logger.warn(
+          `sync orgId=${orgId}: обход неполный (complete=${adapter.complete}, собрано ${collected} из ${prevActive}) — деактивация пропущена`,
+        );
+      }
 
       await this.orgModel.updateOne(
         { _id: orgId },
@@ -229,7 +273,8 @@ export class SupplierCatalogService {
     item: ParsedItem,
     supplierUploadsDir: string,
     orgId: string,
-    adapter: ZaglushkaAdapter,
+    adapter: BaseAdapter & { fetchRaw(url: string, fetchFn: FetchFn): Promise<Buffer | null> },
+    fetchFn: FetchFn,
   ): Promise<string[]> {
     const externalUrls = (item.photoUrls ?? [])
       .filter((u) => u.startsWith('https://'))
@@ -241,12 +286,14 @@ export class SupplierCatalogService {
     for (let i = 0; i < externalUrls.length; i++) {
       const url = externalUrls[i];
       try {
-        const buf = await adapter.fetchRaw(url, this.fetchFn);
-        if (!buf) continue;
         const ext = extFromUrl(url);
         const filename = `${safeArticle}_${i + 1}${ext}`;
         const fullPath = path.join(supplierUploadsDir, filename);
-        fs.writeFileSync(fullPath, buf);
+        if (!(await fileExists(fullPath))) {
+          const buf = await adapter.fetchRaw(url, fetchFn);
+          if (!buf) continue;
+          await fs.promises.writeFile(fullPath, buf);
+        }
         localPaths.push(`/uploads/suppliers/${orgId}/${filename}`);
       } catch (err) {
         this.logger.warn(`photo download failed ${url}: ${(err as Error).message}`);
@@ -285,7 +332,7 @@ export class SupplierCatalogService {
 
   private resolveAdapter(catalogUrl: string): ZaglushkaAdapter {
     const host = new URL(catalogUrl).hostname;
-    if (host.includes('zaglushka.ru')) return new ZaglushkaAdapter();
+    if (hostAllowed(host, ['zaglushka.ru'])) return new ZaglushkaAdapter();
     throw new BadRequestException(`Адаптер для ${host} не поддерживается`);
   }
 }

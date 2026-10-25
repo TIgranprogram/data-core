@@ -67,6 +67,8 @@ export class PartnersService {
       const a = by.get(String(o._id));
       return {
         id: String(o._id), kind: our ? 'our' : 'supplier', name: String(o.name), inn: realInn(o.inn), ...requisites(o),
+        // ссылка каталога поставщика (SC-1): без неё форма «Изменить» пустая и нет кнопки «Синхронизировать прайс»
+        ...(our ? {} : { catalogUrl: (o.catalogUrl as string) || null }),
         requests: a?.n ?? 0, sum: a?.sum ?? 0, lastDate: a?.last ?? null,
         // печать / подпись / логотип нашей компании — для паспортов (ПС.6); загрузка — PUT /organizations/:id/assets/:role
         ...(our ? { assets: ((o.assets as Array<{ role: string; storageUrl: string }>) || []).map((x) => ({ role: x.role, url: x.storageUrl })) } : {}),
@@ -182,6 +184,12 @@ export class PartnersService {
       if (k === 'email' && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) throw new BadRequestException('Почта — в виде name@example.ru');
       set[k] = v || null;
     }
+    const url = (dto as Record<string, unknown>)['catalogUrl'];
+    if (url !== undefined) {
+      const v = clean(url as string);
+      if (v && !/^https?:\/\/[^\s/]+\.[^\s/]+/i.test(v)) throw new BadRequestException('Ссылка каталога — в виде https://сайт.ru/…');
+      set.catalogUrl = v || null;
+    }
     return set;
   }
 
@@ -229,8 +237,6 @@ export class PartnersService {
     const _id = this.oid(id);
     const set = await this.cleanRequisites(dto, _id);
     if (dto.name !== undefined) { const n = clean(dto.name); if (!n) throw new BadRequestException('Название не может быть пустым'); set.name = n; }
-    const dtoAny = dto as Record<string, unknown>;
-    if (dtoAny['catalogUrl'] !== undefined) set['catalogUrl'] = clean(dtoAny['catalogUrl']) || null;
     const res = await this.db.collection('organizations').updateOne({ _id, deletedAt: null }, { $set: { ...set, updatedAt: new Date(), editedInApp: true } });
     if (!res.matchedCount) throw new NotFoundException('Контрагент не найден');
     return this.get(id);

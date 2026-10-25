@@ -2,18 +2,22 @@ import { Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyNode = any;
+import { hostAllowed } from '../safe-fetch';
 import type { BaseAdapter, FetchFn, ParsedItem } from './base.adapter';
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
-const MAX_ITEMS = 2000;
-/** Пауза между страницами каталога: 1–2 с */
-const CATALOG_PAUSE_MIN_MS = 1_000;
-const CATALOG_PAUSE_MAX_MS = 2_000;
+const MAX_ITEMS = 5000;
+const MAX_PAGES = 6000;
+/** Служебные разделы сайта и языковые копии — не каталог */
+const SKIP_FIRST_SEGMENTS = new Set([
+  'about', 'cart', 'contacts', 'delivery', 'policy', 'job', 'booklet', 'search', 'specials', 'new-products',
+  'password', 'en', 'it', 'catalog', 'files', 'images', 'css', 'js', 'login', 'register', 'cached', 'api',
+]);
 /** Пауза между страницами товаров: 500–1500 мс */
 const ITEM_PAUSE_MIN_MS = 500;
 const ITEM_PAUSE_MAX_MS = 1_500;
-const PHOTO_URL_PATTERN = /^https:\/\/zaglushka\.ru\/images\/item\//;
+const PHOTO_URL_PATTERN = /^https:\/\/zaglushka\.ru\/(images\/item|cached)\//;
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const RETRY_429_WAIT_MS = 30_000;
@@ -25,67 +29,95 @@ function randMs(min: number, max: number): number {
 export class ZaglushkaAdapter implements BaseAdapter {
   private readonly logger = new Logger(ZaglushkaAdapter.name);
 
+  /** Белый список хостов каталога */
+  readonly hosts = ['zaglushka.ru'];
+  /** Обход дошёл до конца без пропусков */
+  complete = false;
+
+  /**
+   * Обход сайта от любой стартовой ссылки (корень, раздел): страницы с og:type=product — товары,
+   * остальные — разделы, из них берём ссылки дальше (ширина, без повторов, ≤ MAX_PAGES страниц).
+   * complete=true — очередь разобрана до конца без пропусков и без упора в лимиты.
+   */
   async *fetchItems(catalogUrl: string, fetchFn: FetchFn): AsyncGenerator<ParsedItem> {
+    this.complete = false;
     const baseUrl = new URL(catalogUrl);
-    let page = 1;
-    let totalYielded = 0;
+    if (!hostAllowed(baseUrl.hostname, this.hosts)) throw new Error('Хост каталога не разрешён');
+    const queue: string[] = [baseUrl.toString()];
+    const seen = new Set<string>(queue);
+    let visited = 0;
+    let yielded = 0;
+    let skipped = false;
 
-    while (totalYielded < MAX_ITEMS) {
-      const pageUrl = new URL(baseUrl.toString());
-      if (page > 1) pageUrl.searchParams.set('page', String(page));
+    while (queue.length > 0) {
+      if (visited >= MAX_PAGES || yielded >= MAX_ITEMS) return;
+      const url = queue.shift()!;
+      const first = visited === 0;
+      if (!first) await new Promise((r) => setTimeout(r, randMs(ITEM_PAUSE_MIN_MS, ITEM_PAUSE_MAX_MS)));
+      visited++;
 
-      const html = await this.fetchPage(pageUrl.toString(), fetchFn);
-      if (!html) break;
-
-      const $ = cheerio.load(html);
-      const itemLinks = this.extractItemLinks($, baseUrl.origin);
-      if (itemLinks.length === 0) break;
-
-      for (const link of itemLinks) {
-        if (totalYielded >= MAX_ITEMS) break;
-        await new Promise((r) => setTimeout(r, randMs(ITEM_PAUSE_MIN_MS, ITEM_PAUSE_MAX_MS)));
-        const itemHtml = await this.fetchPage(link, fetchFn);
-        if (!itemHtml) continue;
-        const item = this.parseItemPage(itemHtml, link);
-        if (!item) continue;
-        yield item;
-        totalYielded++;
+      const html = await this.fetchPage(url, fetchFn);
+      if (!html) {
+        if (first) throw new Error('Не удалось загрузить первую страницу каталога');
+        skipped = true;
+        continue;
       }
-
-      const hasNextPage = this.hasNextPage($, page);
-      if (!hasNextPage) break;
-      page++;
-      await new Promise((r) => setTimeout(r, randMs(CATALOG_PAUSE_MIN_MS, CATALOG_PAUSE_MAX_MS)));
+      const $ = cheerio.load(html);
+      const ogType = $('meta[property="og:type"]').attr('content');
+      const isProduct = ogType ? ogType === 'product' : false;
+      if (isProduct || (!ogType && !first && this.looksLikeLegacyItem($))) {
+        const item = this.parseItemPage(html, url);
+        if (item) { yield item; yielded++; } else skipped = true;
+        continue;
+      }
+      const links = this.extractLinks($, baseUrl.origin);
+      if (first && links.length === 0) throw new Error('На первой странице каталога нет ссылок на товары');
+      for (const l of links) {
+        if (!seen.has(l)) { seen.add(l); queue.push(l); }
+      }
     }
+    this.complete = !skipped;
+  }
+
+  /** Старая вёрстка без og:type: страница с таблицей цен и артикулом в h2. */
+  private looksLikeLegacyItem($: cheerio.CheerioAPI): boolean {
+    return $('h2').length > 0 && $('table').length > 0;
   }
 
   private async fetchPage(url: string, fetchFn: FetchFn): Promise<string | null> {
-    return this.fetchWithRetry(url, fetchFn, true);
+    const buf = await this.fetchRaw(url, fetchFn);
+    return buf ? buf.toString('utf8') : null;
   }
 
+  /** Скачивание с проверкой хоста, лимитом размера и одним повтором после 429. */
   async fetchRaw(url: string, fetchFn: FetchFn): Promise<Buffer | null> {
+    let host: string;
+    try { host = new URL(url).hostname; } catch { return null; }
+    if (!hostAllowed(host, this.hosts)) {
+      this.logger.warn(`zaglushka: хост вне белого списка, пропуск ${url}`);
+      return null;
+    }
+    const first = await this.attempt(url, fetchFn);
+    if (first !== 429) return first;
+    this.logger.warn(`zaglushka 429 at ${url}, waiting ${RETRY_429_WAIT_MS}ms`);
+    await new Promise((r) => setTimeout(r, RETRY_429_WAIT_MS));
+    const retry = await this.attempt(url, fetchFn);
+    return retry === 429 ? null : retry;
+  }
+
+  /** Одна попытка: свой таймаут/signal на запрос и чтение тела. 429 → число 429. */
+  private async attempt(url: string, fetchFn: FetchFn): Promise<Buffer | null | 429> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const res = await fetchFn(url, {
-        signal: controller.signal,
-        headers: { 'User-Agent': USER_AGENT },
-      });
-      if (res.status === 429) {
-        this.logger.warn(`zaglushka 429 at ${url}, waiting ${RETRY_429_WAIT_MS}ms`);
-        await new Promise((r) => setTimeout(r, RETRY_429_WAIT_MS));
-        const retry = await fetchFn(url, {
-          headers: { 'User-Agent': USER_AGENT },
-        });
-        if (!retry.ok) { this.logger.warn(`zaglushka retry failed ${retry.status} at ${url}`); return null; }
-        const buf = await retry.arrayBuffer();
-        if (buf.byteLength > MAX_RESPONSE_BYTES) return null;
-        return Buffer.from(buf);
-      }
+      const res = await fetchFn(url, { signal: controller.signal, headers: { 'User-Agent': USER_AGENT } });
+      if (res.status === 429) return 429;
       if (!res.ok) { this.logger.warn(`zaglushka fetch ${url} → ${res.status}`); return null; }
-      const buf = await res.arrayBuffer();
-      if (buf.byteLength > MAX_RESPONSE_BYTES) { this.logger.warn(`zaglushka: body too large at ${url}`); return null; }
-      return Buffer.from(buf);
+      const declared = Number(res.headers.get('content-length') ?? 0);
+      if (declared > MAX_RESPONSE_BYTES) { this.logger.warn(`zaglushka: content-length too large at ${url}`); return null; }
+      const body = await this.readLimited(res);
+      if (!body) this.logger.warn(`zaglushka: body too large at ${url}`);
+      return body;
     } catch (err) {
       this.logger.warn(`zaglushka fetch error at ${url}: ${(err as Error).message}`);
       return null;
@@ -94,71 +126,45 @@ export class ZaglushkaAdapter implements BaseAdapter {
     }
   }
 
-  private async fetchWithRetry(url: string, fetchFn: FetchFn, asText: true): Promise<string | null>;
-  private async fetchWithRetry(url: string, fetchFn: FetchFn, asText: false): Promise<Buffer | null>;
-  private async fetchWithRetry(url: string, fetchFn: FetchFn, asText: boolean): Promise<string | Buffer | null> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-      const res = await fetchFn(url, {
-        signal: controller.signal,
-        headers: { 'User-Agent': USER_AGENT },
-      });
-
-      if (res.status === 429) {
-        this.logger.warn(`zaglushka 429 at ${url}, waiting ${RETRY_429_WAIT_MS}ms`);
-        clearTimeout(timer);
-        await new Promise((r) => setTimeout(r, RETRY_429_WAIT_MS));
-        const retry = await fetchFn(url, { headers: { 'User-Agent': USER_AGENT } });
-        if (!retry.ok) { this.logger.warn(`zaglushka retry failed ${retry.status} at ${url}`); return null; }
-        const buf2 = await retry.arrayBuffer();
-        if (buf2.byteLength > MAX_RESPONSE_BYTES) return null;
-        return asText ? Buffer.from(buf2).toString('utf8') : Buffer.from(buf2);
-      }
-
-      if (!res.ok) { this.logger.warn(`zaglushka fetch ${url} → ${res.status}`); return null; }
-      const contentLength = Number(res.headers.get('content-length') ?? 0);
-      if (contentLength > MAX_RESPONSE_BYTES) { this.logger.warn(`zaglushka: content-length too large at ${url}`); return null; }
-      const buf = await res.arrayBuffer();
-      if (buf.byteLength > MAX_RESPONSE_BYTES) { this.logger.warn(`zaglushka: body too large at ${url}`); return null; }
-      return asText ? Buffer.from(buf).toString('utf8') : Buffer.from(buf);
-    } catch (err) {
-      this.logger.warn(`zaglushka fetch error at ${url}: ${(err as Error).message}`);
-      return null;
-    } finally {
-      clearTimeout(timer);
+  /** Чтение тела с жёстким лимитом байт (стрим обрывается при превышении). */
+  private async readLimited(res: Response): Promise<Buffer | null> {
+    if (!res.body || typeof res.body.getReader !== 'function') {
+      const ab = await res.arrayBuffer();
+      return ab.byteLength > MAX_RESPONSE_BYTES ? null : Buffer.from(ab);
     }
+    const reader = res.body.getReader();
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_RESPONSE_BYTES) { await reader.cancel().catch(() => undefined); return null; }
+      chunks.push(Buffer.from(value));
+    }
+    return Buffer.concat(chunks, total);
   }
 
-  private extractItemLinks($: cheerio.CheerioAPI, origin: string): string[] {
-    const links: string[] = [];
+  /** Ссылки того же сайта на разделы/товары: плоские slug-пути и ?page=N, без служебных страниц. */
+  private extractLinks($: cheerio.CheerioAPI, origin: string): string[] {
+    const out = new Set<string>();
     $('a[href]').each((_: number, el: AnyNode) => {
       const href = $(el).attr('href') ?? '';
-      if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
+      if (!href || href.startsWith('#') || /^(javascript|mailto|tel):/i.test(href)) return;
       try {
-        const abs = new URL(href, origin).toString();
-        if (abs.startsWith(origin) && !links.includes(abs)) {
-          const path = new URL(abs).pathname;
-          if (path.length > 1 && !path.startsWith('/catalog/') && path.split('/').length >= 2) {
-            links.push(abs);
-          }
-        }
+        const u = new URL(href, origin);
+        if (u.origin !== origin) return;
+        const keys = [...u.searchParams.keys()];
+        if (keys.some((k) => k !== 'page')) return;
+        const segs = u.pathname.split('/').filter(Boolean);
+        if (segs.length === 0 || segs.length > 4) return;
+        if (!segs.every((x) => /^[a-z0-9._-]+$/i.test(x)) || /\.[a-z0-9]{2,4}$/i.test(u.pathname)) return;
+        if (SKIP_FIRST_SEGMENTS.has(segs[0].toLowerCase())) return;
+        u.hash = '';
+        out.add(u.toString());
       } catch { /* ignore invalid hrefs */ }
     });
-    return links;
-  }
-
-  private hasNextPage($: cheerio.CheerioAPI, currentPage: number): boolean {
-    let found = false;
-    $('a[href]').each((_: number, el: AnyNode) => {
-      const href = $(el).attr('href') ?? '';
-      try {
-        const url = new URL(href, 'https://zaglushka.ru');
-        const p = Number(url.searchParams.get('page'));
-        if (p > currentPage) { found = true; return false; }
-      } catch { /* ignore */ }
-    });
-    return found;
+    return [...out];
   }
 
   parseItemPage(html: string, sourceUrl: string): ParsedItem | null {
@@ -167,7 +173,9 @@ export class ZaglushkaAdapter implements BaseAdapter {
     const name = $('h1').first().text().trim();
     if (!name) return null;
 
-    const vendorArticle = $('main h2, h2').first().text().trim();
+    const vendorArticle =
+      $('main h2, h2').first().text().trim() ||
+      (html.match(/"sku"\s*:\s*"([^"]+)"/)?.[1] ?? '').trim();
     if (!vendorArticle) {
       this.logger.warn(`zaglushka: no article at ${sourceUrl}, skipping`);
       return null;
@@ -210,6 +218,10 @@ export class ZaglushkaAdapter implements BaseAdapter {
       }
     });
 
+    if (priceRetail === undefined && prices.length === 0) {
+      const p = parseFloat($('[itemprop="price"]').first().attr('content') ?? '');
+      if (!isNaN(p)) priceRetail = p;
+    }
     if (priceRetail === undefined && prices.length > 0) {
       priceRetail = prices[prices.length - 1].price;
     }

@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import type { Types } from 'mongoose';
+import { escapeRe } from '../../common/list-query';
 import { skuRegex } from '../../common/text/search-norm';
 import type { CounterService } from '../counter/counter.service';
 import type { Db } from './showcase-common';
@@ -38,7 +39,7 @@ export async function nextSku(db: Db, counter: CounterService, groupId: Types.Ob
 }
 
 /** Артикул группы с номером: ровно номер группы + две цифры (1280). */
-export const skuOfGroup = (groupNo: string) => new RegExp(`^${groupNo}[0-9]{2}$`);
+export const skuOfGroup = (groupNo: string) => new RegExp(`^${escapeRe(groupNo)}[0-9]{2}$`);
 
 /** Замок префикса: у группы есть номер — вручную правятся только две последние цифры. Текст ошибки или null. */
 export function skuPrefixError(groupNo: string, sku: string): string | null {
