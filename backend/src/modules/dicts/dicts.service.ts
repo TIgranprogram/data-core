@@ -131,7 +131,7 @@ export class DictsService {
   async update(key: string, id: string, body: Record<string, unknown>) {
     const d = this.def(key);
     const cur = await this.one(d, id);
-    const set = await d.toDoc(body ?? {}, false, this.db);
+    const set = await d.toDoc(body ?? {}, false, this.db, id);
     await this.checkDuplicate(d, { ...cur, ...set } as Doc, id);
     await this.db.collection(d.coll).updateOne({ _id: cur._id }, { $set: set });
     return this.get(key, id);
@@ -141,6 +141,7 @@ export class DictsService {
   async remove(key: string, id: string) {
     const d = this.def(key);
     const doc = await this.one(d, id);
+    await d.beforeRemove?.(this.db, doc);
     const used = (await d.usage(this.db, [doc])).get(id) ?? 0;
     if (used > 0) throw new ConflictException(`«${d.name(doc)}» используется в записях: ${used}. Удалить нельзя — объедините с другим значением («Объединить с…»), записи перейдут к нему.`);
     await this.db.collection(d.coll).updateOne({ _id: doc._id }, { $set: { deletedAt: new Date(), ...(d.softDelete ?? {}) } });

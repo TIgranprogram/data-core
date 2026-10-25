@@ -300,8 +300,6 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 /* подставлено «по умолчанию» (из категории / модели) — серым, пока не поправили руками (ФП) */
 .field input.is-default, .field textarea.is-default { color: var(--muted); }
 /* «Не хватает для выпуска» в форме паспорта: пункт — ссылка к полю (ФП) */
-.pp-need { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
-.pp-need button { color: var(--text); text-decoration: underline dotted; }
 .tag.foreign { border-style: dashed; }
 /* откуда подставлено («из изделия», «по умолчанию») — серым у подписи поля, пока не поправили руками (ПИ) */
 .field > span[data-src]::after { content: ' · ' attr(data-src); color: var(--muted); font-weight: 400; }
@@ -315,8 +313,7 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .pp-prod-sel .sg-pic { flex: 0 0 72px; width: 72px; height: 54px; }
 /* пока изделие не выбрано — остальные блоки паспорта скрыты */
 .form-blocks.pp-locked > .form-block:not(.pp-first) { display: none; }
-/* ПП: над кнопками — что ещё нужно для выпуска (одной строкой); к кому идти — «Кто проектировал» */
-.pp-need-foot { flex-basis: 100%; font-size: var(--fs-sm); }
+/* ПП: к кому идти, если не хватает данных, — «Кто проектировал» */
 .pp-designer { margin-top: var(--s1); font-weight: 600; }
 /* БЗ-9: отметка записей и «Изменить выбранные» */
 .bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); background: var(--gold-soft, var(--surface-2)); border-bottom: 1px solid var(--border); }
@@ -1301,3 +1298,41 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .sidebar { overflow-y: auto; overscroll-behavior: contain; }
 
 .side-ver-foot { padding: 6px 12px 0; font-size: 10.5px; color: var(--side-text); opacity: .45; font-variant-numeric: tabular-nums; } /* номер версии внизу меню (2026-10-24) */
+
+/* Паспорт «воронкой» (ПВ, 2026-10-25): шаги выбора текстов, сводка из изделия, липкая плашка «Осталось сделать», галочки категорий, метки качества */
+.pp-funnel { display: grid; gap: var(--s3); }
+.pp-step { padding-bottom: var(--s3); border-bottom: 1px solid var(--border); }
+.pp-step:last-child { border-bottom: 0; padding-bottom: 0; }
+.pp-step.fill-here { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: var(--radius-sm); }
+.pp-step-h { margin: 0 0 var(--s1); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.pp-step-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s2); }
+.pp-opts { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.pp-opts .pf-opt { min-height: 44px; }
+.pp-opts + .pp-opts { margin-top: var(--s1); }
+.pp-ftext { margin: var(--s1) 0 0; color: var(--text); white-space: pre-wrap; }
+.pp-ftext.clamp { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+.pp-ftext-act { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.pp-fromprod { margin-top: var(--s1); font-size: var(--fs-sm); color: var(--muted); }
+.pp-need-sticky { position: sticky; top: 0; z-index: 4; max-height: 34vh; overflow: auto; margin-bottom: var(--s3); background: var(--surface); }
+.pp-need-note { margin-bottom: 0; }
+.pp-need-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.pp-ready { padding: var(--s1) 0; }
+.form-blocks.pp-locked > .pp-need-sticky { display: none; }
+.tag.dim { color: var(--muted); border-color: var(--border); }
+.cat-chips { align-items: center; }
+.q-filter { height: 36px; width: auto; }
+.pt-item { flex-wrap: wrap; }
+.pt-item[data-depth="1"] { padding-left: var(--s5); }
+.pt-item[data-depth="2"] { padding-left: calc(var(--s5) + var(--s4)); }
+.pt-item[data-depth="3"] { padding-left: calc(var(--s5) + var(--s5)); }
+.pt-name { flex: 0 1 auto; font-weight: 600; color: var(--heading); }
+.pt-item .badge { font-size: var(--fs-sm); }
+.pt-cats { flex: none; font-size: var(--fs-sm); color: var(--muted); }
+.pt-merge { display: grid; gap: var(--s2); }
+@media (max-width: 720px) {
+  .pp-opts { grid-template-columns: 1fr; }
+  .pp-need-sticky { max-height: 28vh; }
+  .q-filter { width: 100%; height: 44px; }
+}
+.pt-check { display: flex; align-items: center; gap: var(--s2); min-height: 36px; cursor: pointer; }
+.pt-check input { height: auto; width: auto; }

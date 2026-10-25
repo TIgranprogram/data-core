@@ -82,12 +82,6 @@ export function describeProduct(passport: PassportLike, elements: DictRec[], mat
   return `${head} ${clauses.join('; ')}.`;
 }
 
-/** «Предназначено для: …» из назначений элементов (без дублей). Пусто, если назначений нет. */
-export function purposeText(elements: DictRec[]): string {
-  const items = uniq((elements || []).map((e) => stripEnd(str(e?.purpose))).filter(Boolean));
-  return items.length ? `Предназначено для: ${items.join('; ')}.` : '';
-}
-
 /** Шаги раздела «Правила пользования»: уникальные строки из правил элементов. */
 export function usageRules(elements: DictRec[]): string[] {
   return uniq((elements || []).flatMap((e) => lines(e?.usageRules ?? e?.rules)));

@@ -6,7 +6,7 @@ import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 
 /**
- * «Справочники → Паспорта → Разделы и тексты» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2). 
+ * «Справочники → Паспорта → Общие разделы (шаблон)» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2); тексты ВАРИАНТОВ для воронки — в passport-tree.js. 
  * Экран: чипы категорий, дерево «раздел → пункты» собранного вида (как в паспорте): пункты «Для всех» — серые «общий»
  * (правятся на чипе «Для всех»), пункты категории — обычные, «заменяет общий» — пункт категории на месте общего.
  * Ввод — только в правой панели (DESIGN §5): ptext — пункт / новый пункт / новый раздел; ptextview — общий пункт и предпросмотр.
@@ -30,7 +30,7 @@ export const CATS = [
   { code: 'DIO', name: 'Детское игровое (позже)' }, { code: 'DSP', name: 'Детское спортивное (позже)' },
 ];
 /** Переменные (§3.3 п. 8) — подсказка; клик вставляет в текст. */
-const VARS = ['{name}', '{article}', '{code}', '{serialNo}', '{ageFrom}', '{ageTo}', '{heightMin}', '{heightMax}', '{weightMax}', '{maxUsers}', '{fallHeight}',
+export const VARS = ['{name}', '{article}', '{code}', '{serialNo}', '{ageFrom}', '{ageTo}', '{heightMin}', '{heightMax}', '{weightMax}', '{maxUsers}', '{fallHeight}',
   '{siteL}', '{siteW}', '{serviceLifeYears}', '{warrantyMonths}', '{tempMin}', '{tempMax}', '{manufacturer}', '{std:', '{fig:overview}', '{tab:defects-daily}'];
 const LEAD = /^\s*\d+(?:\.\d+)*\.?\s+/;
 

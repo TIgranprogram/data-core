@@ -13,6 +13,8 @@ import { openBulk } from './bulk-edit.js';
 import { dictNames } from '../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-spec.js';
 import { confirmDlg } from '../ui/dialog.js';
+import { funnelBox } from '../ui/funnel.js';
+import { V2_NUMS, canEdit as canEditPassportTexts } from './passports/common.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -79,6 +81,15 @@ async function productBulkFields() {
     { key: 'pd.serviceLifeYears', label: 'Паспорт по умолчанию: срок службы, лет', type: 'number', map: n },
     { key: 'pd.warrantyMonths', label: 'Паспорт по умолчанию: гарантия, мес.', type: 'number', map: n },
   ];
+}
+/** Паспорт по умолчанию у изделия: категория и выбор текстов воронки (passportDefaults.textChoices). Заменяется целиком — берём известные поля. */
+const PD_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'warrantyMonths', ...V2_NUMS.map(([k]) => k)];
+async function savePd(id, pd) {
+  const prev = pd.prev || {};
+  const cat = pd.category && (pd.category !== pd.derived || prev.passportCategory) ? pd.category : prev.passportCategory || '';
+  if (JSON.stringify(prev.textChoices || {}) === JSON.stringify(pd.choices) && cat === (prev.passportCategory || '')) return;
+  const body = { ...Object.fromEntries(PD_KEYS.filter((k) => prev[k] !== undefined && prev[k] !== null && prev[k] !== '').map((k) => [k, prev[k]])), ...(cat ? { passportCategory: cat } : {}), textChoices: pd.choices };
+  await api(`/showcase/${id}/passport-defaults`, { method: 'PUT', body });
 }
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 
@@ -237,6 +248,13 @@ export const products = {
       ...(session.sees('passports') && passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } }] : []),
+      // копия изделия целиком (поля, фото, настройки паспорта) — быстрый способ сделать похожее; откроется копия
+      ...(session.canEdit ? [{ label: 'Клонировать', title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
+        const c = await api(`/showcase/${row.id}/clone`, { method: 'POST' });
+        ctx.changed();
+        toast('Копия создана — проверьте название, размеры и артикул', { ms: 8000 });
+        patch({ open: c.id, of: undefined, new: undefined });
+      } }] : []),
       { label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { q: row.name }) }],
   },
@@ -270,6 +288,9 @@ export const products = {
         if (b) return `Такой артикул у изделия в корзине: «${b.name}» — восстановите его вместо нового`;
         return null;
       };
+      // «Паспорт»: категория и выбор текстов воронки — паспорт возьмёт их из изделия сам
+      const pdCats = (await api('/dicts/passportCategories').then((x) => x.items || []).catch(() => [])).filter((c) => c.code && c.code !== 'ALL').map((c) => ({ value: String(c.code), label: c.name }));
+      const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
       return [
       { section: 'Изделие', tone: 'main', fixed: true },
       { key: 'sku', label: 'Артикул', required: true, max: 64, span: 1, warn: skuTaken },
@@ -301,23 +322,36 @@ export const products = {
         hint: r ? 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — строки по материалам состава изделия' : 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — после «Создать», когда заполнен состав' },
       { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },
       { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },
+      { section: 'Паспорт', tone: 'info', collapsed: !(pd0.textChoices && Object.keys(pd0.textChoices).length) },
+      { key: 'pdCategory', label: 'Категория паспорта', type: 'select', options: pdCats, hint: 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже',
+        mount: (api) => api.on('pdCategory', () => pdFunnel?.setCategory(api.get('pdCategory'))) },
+      { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
+        widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })) },
       ];
     },
     initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pending()?.initial || {}) }),
-    toInitial: (r) => ({ ...r, designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
+    toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
     toBody: (v, r) => ({ ...specBody(v, r), sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
       designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
-      dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' } }),
-    create: async (b) => {
+      dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
+      _pd: { category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
+    create: async (b0) => {
+      const { _pd, ...b } = b0;
       const res = await api('/showcase', { method: 'POST', body: b });
+      if (_pd.category || Object.keys(_pd.choices).length) await savePd(res.id, { ..._pd, prev: {} });
       const p = pending(); pendingCreate = null;
       if (p) setTimeout(() => p.then(res), 50); // вернуться в паспорт, из которого создавали
       return res;
     },
-    update: (id, b) => api(`/showcase/${id}`, { method: 'PATCH', body: b }),
+    update: async (id, b0) => {
+      const { _pd, ...b } = b0;
+      const res = await api(`/showcase/${id}`, { method: 'PATCH', body: b });
+      await savePd(id, _pd);
+      return res;
+    },
   },
 
   remove: {

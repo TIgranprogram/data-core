@@ -188,4 +188,24 @@ describe('Showcase', () => {
     const cleared = (await http().patch(`/api/showcase/${x.id}`).set(auth()).send({ materialsSpec: null }).expect(200)).body;
     expect(cleared).toMatchObject({ materialsSpec: null, materialsText: '' });
   });
+
+  it('ПВ: клон изделия — копия с фото, составом и значениями паспорта; выбор текстов проверяется и мержится по разделам', async () => {
+    const dv = ctx!.connection.db!.collection('dict_values');
+    await dv.deleteMany({ dict: 'passportPhrases' });
+    const root = (await dv.insertOne({ dict: 'passportPhrases', name: 'Монтаж', section: 'mounting', parentId: null, deletedAt: null })).insertedId;
+    const leaf = (await dv.insertOne({ dict: 'passportPhrases', name: 'Анкер', section: 'mounting', parentId: root, text: 'Анкерами.', allCategories: true, deletedAt: null })).insertedId;
+    const src = (await http().post('/api/showcase').set(auth()).send({ sku: 'CL-1', name: 'Исходное', type: 'Тренажёры', group: 'Турники', price: 1000, colors: 'красный', description: 'Описание' }).expect(201)).body;
+    // выбор несуществующего варианта — 400, настоящий — сохраняется
+    await http().put(`/api/showcase/${src.id}/passport-defaults`).set(auth()).send({ passportCategory: 'TRN', textChoices: { [String(root)]: String(new Types.ObjectId()) } }).expect(400);
+    await http().put(`/api/showcase/${src.id}/passport-defaults`).set(auth()).send({ passportCategory: 'TRN', textChoices: { [String(root)]: String(leaf) } }).expect(200);
+    const copy = (await http().post(`/api/showcase/${src.id}/clone`).set(auth()).expect(201)).body;
+    expect(copy.id).not.toBe(src.id);
+    expect(copy).toMatchObject({ name: 'Исходное (копия)', type: 'Тренажёры', group: 'Турники', colors: ['красный'], description: 'Описание' });
+    expect(copy.sku).toBe('CL-1-копия'); // у группы нет номера — автоартикула нет
+    expect(copy.passportDefaults).toMatchObject({ passportCategory: 'TRN', textChoices: { [String(root)]: String(leaf) } });
+    await http().post(`/api/showcase/${new Types.ObjectId()}/clone`).set(auth()).expect(404);
+    // пакетная правка паспорта не стирает выбор текстов
+    await http().post('/api/showcase/bulk').set(auth()).send({ ids: [copy.id], set: { passportDefaults: { heightMin: 1400 } } }).expect(200);
+    expect((await http().get(`/api/showcase/${copy.id}`).set(auth()).expect(200)).body.passportDefaults).toMatchObject({ heightMin: 1400, textChoices: { [String(root)]: String(leaf) } });
+  });
 });

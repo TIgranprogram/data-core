@@ -35,6 +35,7 @@ import { history as historySection } from './sections/history.js';
 import { products } from './sections/products.js';
 import { passports } from './sections/passports.js';
 import { ptext, ptextview } from './sections/passport-texts.js';
+import { ptnode } from './sections/passport-tree.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
 import { composition } from './sections/composition.js';
 import { bulkEdit } from './sections/bulk-edit.js';
@@ -50,12 +51,12 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview };
+const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
-  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'passports', ptextview: 'passports' };
+  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'passports', ptextview: 'passports', ptnode: 'passports' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };

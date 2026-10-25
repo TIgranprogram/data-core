@@ -10,6 +10,9 @@ import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/tag-pick.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
+import { mountTree, TREE_KEY } from './passport-tree.js';
+import { catChipsField } from '../ui/cat-chips.js';
+import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { errText } from '../ui/errors.js';
 
@@ -18,7 +21,8 @@ import { errText } from '../ui/errors.js';
  * справочника. Клик по строке — раскрывается: где используется (позиции, заявки, сотрудники). «Открыть» —
  * карточка справа (правка, объединить дубль, удалить, история). Все выпадающие списки приложения берутся отсюда.
  * Адрес: #dicts?d=<справочник>; карточка — of=dict&open=<id> (справочник — из d).
- * d=ptexts — не справочник, а редактор «Паспорта → Разделы и тексты» (sections/passport-texts.js).
+ * d=ptexts — не справочник, а редактор «Паспорта → Общие разделы (шаблон)» (sections/passport-texts.js);
+ * d=passportPhrases — дерево «раздел → вариант» «Тексты паспорта» (sections/passport-tree.js).
  */
 const dictKey = () => current().params.d || 'categories';
 const fmt = (f, v, refs) => {
@@ -42,7 +46,9 @@ export function mountDicts(params) {
   const sbx = searchBox({ placeholder: 'Найти в справочнике…', label: 'Поиск в справочнике', delay: 150, onSearch: (v) => { q = v.toLowerCase(); renderTable(); } });
   const search = sbx.el;
   const searchWrap = h('div', { class: 'search' }, search);
-  let texts = null; // экран «Разделы и тексты» (создаётся при первом открытии)
+  let texts = null; // экран «Общие разделы» (создаётся при первом открытии)
+  let tree = null; // экран «Тексты паспорта» (дерево вариантов)
+  let qf = 'all'; // фильтр качества таблицы: все / дубли
   const addBtn = h('button', { type: 'button', class: 'btn btn-primary', hidden: !session.canEdit, onclick: () => patch({ of: 'dict', new: '1', open: undefined }) }, '+ Добавить');
   const candBtn = h('button', { type: 'button', class: 'btn', hidden: !session.canEdit, title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onclick: () => toggleCandidates() }, 'Найти в данных…');
   const cand = h('div', { class: 'dict-cand', hidden: true });
@@ -62,7 +68,7 @@ export function mountDicts(params) {
         h('span', null, d.title), h('b', { class: 'num' }, qty(d.count)))),
       // группа «Паспорта» — в ней же редактор текстов (БЗ-6 Э2d)
       g.group === 'Паспорта' ? h('a', { class: 'dict-link' + (cur === TEXTS_KEY ? ' active' : ''), href: '#dicts?d=' + TEXTS_KEY, onclick: (e) => { e.preventDefault(); go('dicts', { d: TEXTS_KEY }, { replace: true }); } },
-        h('span', null, 'Разделы и тексты'), h('b', null, '→')) : null,
+        h('span', null, 'Общие разделы (шаблон)'), h('b', null, '→')) : null,
     ]).filter(Boolean), h('div', { class: 'dict-group' }, 'Контрагенты'), h('a', { class: 'dict-link', href: '#partners' }, h('span', null, 'Поставщики, заказчики, наши компании'), h('b', null, '→')));
   }
 
@@ -73,7 +79,9 @@ export function mountDicts(params) {
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
     // слова в любом порядке, ё = е, M10 = М10 (как поиск на складе)
     const tk = searchTokens(q);
-    const rows = data.items.filter((x) => !tk.length || ((s) => tk.every((w) => s.includes(w)))(normSearch(Object.values(x).filter((v) => typeof v !== 'object').join(' '))));
+    const dup = dupeCounts(data.items, (x) => x.name);
+    if (!dup.size) qf = 'all';
+    const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || ((s) => tk.every((w) => s.includes(w)))(normSearch(Object.values(x).filter((v) => typeof v !== 'object').join(' ')))));
     if (!data.items.length) {
       body.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Справочник пуст.'), session.canEdit ? h('p', { class: 'muted' }, '«+ Добавить» — вписать вручную, «Найти в данных…» — взять то, что уже встречается в заявках и таблице.') : null));
       return;
@@ -84,14 +92,14 @@ export function mountDicts(params) {
       const isOpen = openRows.has(r.id);
       const tr = h('tr', { class: 'dict-row' + (isOpen ? ' open' : ''), tabindex: '0', onclick: (e) => { if (!e.target.closest('button')) toggle(r.id); }, onkeydown: (e) => { if (e.key === 'Enter') toggle(r.id); } },
         h('td', { class: 'dict-chev', 'aria-hidden': 'true' }, isOpen ? '▾' : '▸'),
-        h('td', { class: 'clip' }, h('b', { title: r.name }, r.name)),
+        h('td', { class: 'clip' }, h('b', { title: r.name }, r.name), ...qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' })),
         ...cols.map((c) => h('td', { class: 'clip md-hide' + (c.key === 'hex' ? ' dict-color' : '') }, c.key === 'hex' && r.hex ? [h('i', { class: 'swatch', style: { background: r.hex } }), r.hex] : fmt(fieldOf(c.key), r[c.key], dict.refs) || (c.key === 'workTypeName' ? r.workTypeName : ''))),
         h('td', { class: 'num right' }, r.used ? h('span', { title: 'Где используется — раскройте строку' }, qty(r.used)) : h('span', { class: 'muted' }, '—')),
         h('td', { class: 'right' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ of: 'dict', open: r.id, new: undefined }) }, 'Открыть')));
       tbody.append(tr);
       if (isOpen) tbody.append(h('tr', { class: 'dict-more' }, h('td'), h('td', { colspan: cols.length + 3 }, relatedBox(r))));
     }
-    body.replaceChildren(h('div', { class: 'table-wrap' }, h('table', { class: 'list dict-table' },
+    body.replaceChildren(...(dup.size ? [h('div', { class: 'pt-bar' }, qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } }))] : []), h('div', { class: 'table-wrap' }, h('table', { class: 'list dict-table' },
       h('thead', null, h('tr', null, h('th', { class: 'dict-chev' }), h('th', null, 'Название'), ...cols.map((c) => h('th', { class: 'md-hide' }, c.label)), h('th', { class: 'right' }, 'Используется'), h('th'))),
       tbody)));
   }
@@ -142,11 +150,24 @@ export function mountDicts(params) {
     } catch (e) { cand.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + errText(e))); }
   }
 
+  async function reloadTree() {
+    try {
+      const g = await api('/dicts');
+      groups = g.items;
+      title.textContent = 'Тексты паспорта'; hint.textContent = 'Что подставляется в паспорт: раздел → 2–3 варианта → текст. Менеджер выбирает вариант, а не пишет текст.';
+      searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      renderNav();
+      if (!tree) tree = mountTree();
+      if (!body.contains(tree.el)) body.replaceChildren(tree.el);
+      await tree.reload();
+    } catch (e) { body.replaceChildren(failBlock(e, () => reloadTree())); }
+  }
+
   async function reloadTexts() {
     try {
       const g = await api('/dicts');
       groups = g.items;
-      title.textContent = 'Разделы и тексты'; hint.textContent = 'Тексты паспортов по категориям: что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
+      title.textContent = 'Общие разделы паспорта'; hint.textContent = 'Шаблон разделов по категориям (общие указания, хранение, гарантия…): что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!texts) texts = mountTexts();
@@ -157,6 +178,7 @@ export function mountDicts(params) {
 
   async function reload() {
     if (dictKey() === TEXTS_KEY) return reloadTexts();
+    if (dictKey() === TREE_KEY) return reloadTree();
     searchWrap.hidden = false;
     try {
       const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
@@ -173,7 +195,7 @@ export function mountDicts(params) {
   reload();
   return {
     el, reload,
-    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
+    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d === TREE_KEY && shown === TREE_KEY) { tree?.update(); return; } if (p.d !== shown) { shown = p.d; openRows.clear(); q = ''; qf = 'all'; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
   };
 }
 
@@ -252,7 +274,11 @@ export const dict = {
     fields: async (r) => {
       const info = r?.dictInfo || (await api(`/dicts/${dictKey()}`)).dict;
       photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
-      return info.fields.map((f) => ({
+      // «К каким категориям» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
+      const catField = info.fields.find((f) => f.key === 'categories' && dictKey() !== 'passportCategories');
+      const catOpts = catField ? (await api('/dicts/passportCategories').then((x) => x.items || []).catch(() => [])).filter((c) => c.code && c.code !== 'ALL').map((c) => ({ code: String(c.code), name: c.name })) : [];
+      return info.fields.map((f) => (f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
+        widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) } : {
         key: f.key, label: f.label, required: !!f.required, wide: !!f.wide, hint: f.hint, max: 300,
         ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этой категории не выдаётся' } : {}),
         type: f.key === 'requiredImages' ? 'widget' : isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',

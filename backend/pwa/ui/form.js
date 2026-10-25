@@ -13,7 +13,7 @@ import { enhanceSelect } from './select.js';
  *   photos — значение [{ id, url, thumb }], в values — список id.
  *   options — массив строк или { value, label } (для select/combo); у combo можно вводить своё значение;
  *     у combo ещё { sub, group } и функция options(get) — список по значениям других полей; multi — несколько через запятую.
- *   { section: 'Название', tone: main|info|money|who, collapsed?, fixed? } — начинает цветной блок полей (сетка 4 колонки).
+ *   { section: 'Название', tone: main|info|money|who, collapsed?, fixed?, sumOf?(get) → «заполнено 4 из 6» } — начинает цветной блок полей (сетка 4 колонки).
  *     Блок сворачивается кликом по заголовку (fixed — нельзя), состояние помнится; свёрнутый показывает, что в нём заполнено.
  *   type: 'pick' — «Категория → Позиция из базы» (TASKS В.1): { key: '_pick', type: 'pick', load: async () => [{ label, cat, sub, values }], target: 'title' };
  *     выбор заполняет поля из values, поле target становится «из базы» (только чтение, «изменить» — вернуть ручной ввод). В read() не попадает.
@@ -55,7 +55,7 @@ export function buildForm(fields, initial = {}) {
         : h('button', { type: 'button', class: 'form-sec', onclick: () => setOpen(b, b.block.classList.contains('closed'), true) },
           title, sum, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
       block.append(head, grid);
-      const b = { block, head, sum, store, keys: [] };
+      const b = { block, head, sum, store, keys: [], sumOf: f.sumOf };
       blocks.push(b); blk = b;
       setOpen(b, !closed, false);
       root.append(block);
@@ -238,6 +238,8 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
   function summarize() {
     for (const b of blocks) {
       const parts = [];
+      // sumOf(get) — своя сводка блока («заполнено 4 из 6»); пусто — обычная
+      if (b.sumOf) { const t = b.sumOf((k) => inputs.get(k)?.input.value ?? ''); if (t) { b.sum.textContent = t; continue; } }
       for (const k of b.keys) {
         const { f, input } = inputs.get(k);
         const raw = String(input.value ?? '').trim();

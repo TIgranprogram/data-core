@@ -1,4 +1,4 @@
-import { describeProduct, purposeText, usageRules, maintenanceTables, installText } from './passport-compose-parts';
+import { describeProduct, usageRules, maintenanceTables, installText } from './passport-compose-parts';
 
 const els = [
   { id: 'e1', code: 'BAR', name: 'Турник', inDescription: 'перекладины для подтягиваний.', purpose: 'Подтягивания.', usageRules: 'Шаг А\nШаг Б', inspect: 'Крепление стоек\nКоррозия' },
@@ -26,11 +26,6 @@ describe('describeProduct', () => {
     expect(describeProduct({}, [], [])).toBe('');
     expect(describeProduct({ name: 'Х' }, undefined as any, undefined as any)).toBe('Х (далее — изделие).');
   });
-});
-
-describe('purposeText', () => {
-  it('без дублей', () => expect(purposeText(els)).toBe('Предназначено для: Подтягивания.'));
-  it('пусто', () => { expect(purposeText([])).toBe(''); expect(purposeText([{}])).toBe(''); });
 });
 
 describe('usageRules', () => {

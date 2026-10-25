@@ -7,16 +7,15 @@ import { formImages, imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/toast.js';
 import { personNames } from '../../ui/dict-options.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
-import { AFTER_PRINT, BOM_COLS, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, categories, codeList, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';
+import { AFTER_PRINT, BOM_COLS, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';
 import { models, orders, phrases } from './models.js';
 import { productBlock } from './product-block.js';
 import { wireForm } from './wire-form.js';
 import { materialsFields, specBody } from './materials.js';
 import { loadMaterialDicts } from '../../ui/materials-spec.js';
+import { funnelBox } from '../../ui/funnel.js';
 
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
-/** ТЭ: все тексты справочника «Готовые тексты паспорта» (для пометки «изменено вручную»); заполняется при сборке формы. */
-export const PHRASE_TEXTS = new Set();
 /** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
 export async function saveDefaults({ productId, defaults }) {
   try { await api(`/showcase/${productId}/passport-defaults`, { method: 'PUT', body: defaults }); toast('Запомнено для следующих паспортов изделия'); }
@@ -27,14 +26,14 @@ export function v2Initial(r) {
   return {
     passportCategory: r.passportCategory || '', elements: (r.elements || []).map(String), materialIds: (r.materialIds || []).map(String),
     installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no', schemeSource: r.schemeSource === 'own' ? 'own' : 'standard',
-    ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])),
+    ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])), textChoices: JSON.stringify(r.textChoices || {}),
     certNumber: r.certificate?.number || '', certUntil: r.certificate?.until ? String(r.certificate.until).slice(0, 10) : '', certEac: r.certificate?.hasEac ? 'yes' : 'no',
   };
 }
 export function v2Body(v) {
   const b = {
     elements: Array.isArray(v.elements) ? v.elements : [], materialIds: Array.isArray(v.materialIds) ? v.materialIds : [],
-    isKit: v.isKit === 'yes',
+    isKit: v.isKit === 'yes', textChoices: v.textChoices && typeof v.textChoices === 'object' ? v.textChoices : {},
     schemeSource: v.schemeSource === 'own' ? 'own' : 'standard',
     ...Object.fromEntries(V2_NUMS.filter(([k]) => v[k] !== null && v[k] !== undefined && v[k] !== '').map(([k]) => [k, v[k]])),
   };
@@ -47,29 +46,32 @@ export function v2Body(v) {
 export const passportForm = {
   fields: async (r) => {
     const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
-    const [els, mats, inst, catRows, stdRows, phraseRows, md] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), dictRows('passportPhrases'), loadMaterialDicts()]);
+    const [els, mats, inst, catRows, stdRows, md] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), loadMaterialDicts()]);
     // МИ.4: выпущенный (без «Новой редакции») — как был: метки и свободный текст; невыпущенный — таблица и собранный текст
     const legacy = !!r && isIssued(r) && st.revisionFor !== r.id;
     const ctx = { cat: () => '', ms: null, api: null };
     const materialsText = { key: 'materials', label: legacy ? 'Материалы («изготовленное из …»)' : 'Материалы — текст «изготовлено из…»', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' },
       hint: legacy ? undefined : 'Собирается из таблицы выше; можно поправить вручную — таблица правку не перетрёт' };
-    // ТЭ: «Назначение» и «Установка» — только эталонные тексты справочника для категории паспорта
-    PHRASE_TEXTS.clear(); for (const x of phraseRows) PHRASE_TEXTS.add(String(x.text || '').trim());
-    const phraseOpts = (section) => (get) => { const cat = get('passportCategory'); return phraseRows.filter((x) => x.section === section && (!cat || codeList(x.categories).includes(cat))).map((x) => ({ value: x.text, label: x.text, sub: x.name })); };
     const catBy = new Map(catRows.map((c) => [String(c.code), c]));
     const stdName = new Map(stdRows.map((s) => [String(s.code), s.name]));
     // ФП: виджеты, которые меняет выбор категории, и «готовность к выпуску»
-    const w = { el: null, mat: null, std: h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся её нормативы'), need: h('div', { class: 'muted' }, 'Проверяю…') };
+    const w = { el: null, mat: null, funnel: null, std: h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся её нормативы'), need: h('div', { class: 'muted' }, 'Проверяю…') };
     const startCat = r ? r.passportCategory || '' : st.newCat;
     const req = reqKinds(catBy.get(startCat), r?.isKit);
     const mainKinds = new Set(['overview', ...req]);
-    const v2Fields = [
-      { section: 'Категория и состав', tone: 'main', collapsed: !!r && !r.passportCategory },
+    // воронка: категория → шаги «выбрал 1 из 2–3» (ui/funnel.js); выбор пишется в textChoices
+    const funnelFields = [
+      { section: 'Паспорт: категория и тексты', tone: 'main', fixed: true },
       // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
       { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && st.newCat === c.value)), wide: true,
-        hint: 'От категории зависят разделы, нормативы, обязательные рисунки и поля ниже',
-        mount: (api) => wireForm(api, { r, w, catBy, stdName, inst }) },
+        hint: 'От неё зависят шаги ниже, нормативы, обязательные рисунки и поля',
+        mount: (api) => wireForm(api, { r, w, catBy, stdName, inst, cats }) },
+      { key: 'textChoices', label: 'Тексты паспорта — ваш выбор', type: 'widget', wide: true, summary: () => '',
+        widget: (v) => (w.funnel = funnelBox({ value: v, category: startCat, canEditText: canEdit() })) },
       { key: '_std', label: 'Нормативы категории', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
+    ];
+    const v2Fields = [
+      { section: 'Состав и материалы', tone: 'main', collapsed: true },
       { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => (w.el = tagPick({ options: els, value: v, label: 'Функциональные элементы' })) },
       ...(legacy ? [{ key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => (w.mat = tagPick({ options: mats, value: v, label: 'Материалы' })) }]
         : [...materialsFields({ r, md, ctx }), materialsText]),
@@ -77,7 +79,13 @@ export const passportForm = {
       { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
         hint: 'Стандартные схемы — в «Справочники → Паспорта → Способы установки»' },
-      { section: 'Ограничения и техданные', tone: 'info', collapsed: !!r && !r.passportCategory },
+      // «заполнено 4 из 6» — по полям категории (справочник «Категории паспортов → Поля категории»)
+      { section: 'Ограничения и техданные', tone: 'info', collapsed: true, sumOf: (get) => {
+        const c = catBy.get(get('passportCategory')); const allowed = keyLines(c?.allowedFields); const need = keyLines(c?.requiredFields);
+        const own = V2_NUMS.map(([k]) => k).filter((k) => !c || !allowed.length || allowed.includes(k) || need.includes(k));
+        const filled = own.filter((k) => String(get(k) ?? '').trim() !== '').length;
+        return own.length ? `заполнено ${filled} из ${own.length}` : '';
+      } },
       ...V2_NUMS.map(([key, label, hint]) => ({ key, label, type: 'number', min: 0, span: 1, hint: hint || undefined })),
       { section: 'Сертификат / декларация', tone: 'info', collapsed: !r?.certificate?.number },
       { key: 'certNumber', label: 'Номер сертификата или декларации', max: 100, hint: 'Пусто — раздел «Идентификационные сведения» и знак ЕАС не печатаются' },
@@ -96,12 +104,14 @@ export const passportForm = {
       { key: '_product', label: r ? 'Изделие' : 'Изделие из «Продукции»', type: 'widget', wide: true, widget: () => ({ el: h('div', { class: 'pp-prod' }), value: '' }), summary: () => '',
         mount: (api) => productBlock(api, { r, catBy }) },
       { key: '_searchName', type: 'hidden' },
-      { section: 'Данные изделия', tone: 'main', fixed: true },
+      ...funnelFields,
+      // изделие — главный источник: здесь сводка в одну строку (ниже в блоке «Изделие»), поля — свёрнуты «Править здесь»
+      { section: 'Данные изделия — править в изделии', tone: 'main', collapsed: true },
       { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
       { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
         hint: r ? undefined : 'Заполнено из изделия. Запасной путь — начните печатать и возьмите данные из прошлого паспорта с таким наименованием',
         suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Взять из прошлого паспорта (запасной путь): подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
-      { key: 'category', label: 'Категория каталога', type: 'combo', options: cats, max: 200, hint: 'Подставляется из изделия или по категории паспорта; можно выбрать другую' },
+      { key: 'category', label: 'Раздел каталога (как в «Продукции»)', type: 'combo', options: cats, max: 200, hint: 'Только для списков и поиска; на разделы паспорта не влияет' },
       { key: 'article', label: 'Артикул', max: 50 },
       { key: 'height', label: 'Высота, мм', type: 'number', min: 0, span: 1 },
       { key: 'length', label: 'Длина, мм', type: 'number', min: 0, span: 1 },
@@ -113,12 +123,14 @@ export const passportForm = {
       ...(r ? [] : [{ key: 'date', label: 'Дата выпуска', type: 'date', required: true, hint: 'По дате и номеру строится гарантийный талон' }]),
       { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })), hint: 'Реквизиты, печать и подпись в PDF — из карточки компании' },
       { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
+      // свой текст — запасной путь: обычно хватает выбора выше; паспорт будет помечен «изменено вручную»
+      { section: 'Свой текст вместо выбранного', tone: 'info', collapsed: !(r && r.manualText?.length) },
+      { key: '_manualText', label: 'Свой текст для этого паспорта', type: 'segment', options: [{ value: 'no', label: 'Нет — из выбранного выше' }, { value: 'yes', label: 'Да — изменено вручную' }], wide: true,
+        hint: 'Включается сам, когда начинаете печатать ниже. Новую формулировку лучше добавить в «Справочники → Тексты паспорта»' },
+      { key: 'installationMethod', label: 'Монтаж — свой текст', type: 'textarea', wide: true, rows: 3, max: 1000 },
+      { key: 'purpose', label: 'Назначение — свой текст', type: 'textarea', wide: true, rows: 3, max: 1000 },
       { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
       ...(legacy ? [materialsText] : []),
-      { key: '_manualText', label: 'Свой текст для этого паспорта', type: 'segment', options: [{ value: 'no', label: 'Нет — из справочника' }, { value: 'yes', label: 'Да — изменено вручную' }], wide: true,
-        hint: 'Только если готового текста нет: паспорт будет помечен «изменено вручную». Новую формулировку лучше добавить в «Справочники → Паспорта → Готовые тексты паспорта»' },
-      { key: 'installationMethod', label: 'Установка', type: 'combo', wide: true, max: 1000, options: phraseOpts('installation'), strict: (get) => get('_manualText') !== 'yes', strictText: 'Выберите текст из справочника или включите «Свой текст для этого паспорта»', hint: 'Подставляется по способу установки; список — только для категории паспорта' },
-      { key: 'purpose', label: 'Назначение', type: 'combo', wide: true, max: 1000, options: phraseOpts('purpose'), strict: (get) => get('_manualText') !== 'yes', strictText: 'Выберите текст из справочника или включите «Свой текст для этого паспорта»', hint: 'Список — только для категории паспорта' },
       { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
         hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
       // ФП: обязательные для категории (*) и «Общий вид» — сразу; остальные — в свёрнутом «Ещё картинки»; вставка Ctrl+V — в вид под курсором
@@ -157,15 +169,18 @@ export const passportForm = {
   toBody: (v, r) => {
     const s = (x) => (x === null || x === undefined ? '' : String(x));
     const body = {
-      name: s(v.name), category: s(v.category), article: s(v.article), materials: s(v.materials), installationMethod: s(v.installationMethod), purpose: s(v.purpose),
+      name: s(v.name), category: s(v.category), article: s(v.article), materials: s(v.materials),
+      // «Монтаж» и «Назначение» собирает сервер из выбора воронки (textChoices); свои слова уходят только при «Свой текст»
+      ...(v._manualText === 'yes' ? { installationMethod: s(v.installationMethod), purpose: s(v.purpose) } : {}),
       customerName: s(v.customerName), orderNo: s(v.orderNo), objectName: s(v.objectName), note: s(v.note),
       saleDate: v.saleDate || null, installedBy: s(v.installedBy), installedAt: v.installedAt || null, // ПП: после печати
       ...(v.supplierOrgId ? { supplierOrgId: v.supplierOrgId } : {}),
       ...Object.fromEntries(['height', 'length', 'width', 'weight', 'warrantyMonths'].filter((k) => v[k] !== null && v[k] !== undefined).map((k) => [k, v[k]])),
     };
-    body.description = s(v.description) || buildDescription(body);
+    const forDesc = { ...body, installationMethod: s(v.installationMethod), purpose: s(v.purpose) }; // описание собирается и из полей, которые сервер берёт из выбора
+    body.description = s(v.description) || buildDescription(forDesc);
     // ТЭ-2: какие тексты не из справочника — видно в списке «изменено вручную»
-    body.manualText = [...(v._manualText === 'yes' ? ['purpose', 'installationMethod'].filter((k) => s(body[k]) && !PHRASE_TEXTS.has(s(body[k]))) : []), ...(s(v.description) && s(v.description) !== buildDescription(body) ? ['description'] : [])];
+    body.manualText = [...(v._manualText === 'yes' ? ['purpose', 'installationMethod'].filter((k) => s(body[k])) : []), ...(s(v.description) && s(v.description) !== buildDescription(forDesc) ? ['description'] : [])];
     const bom = parseBom(v.bom);
     if (bom.length || r) body.bom = bom;
     const shown = new Set(kinds().map(([k]) => k));
@@ -186,7 +201,7 @@ export const passportForm = {
     if (v._remember === 'yes' && pid) {
       const b2 = v2Body(v);
       body._remember = { productId: String(pid), defaults: { ...(b2.passportCategory ? { passportCategory: b2.passportCategory } : {}), elements: b2.elements, materialIds: b2.materialIds,
-        ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), isKit: b2.isKit, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
+        ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), isKit: b2.isKit, textChoices: b2.textChoices, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
         ...(v.warrantyMonths !== null && v.warrantyMonths !== undefined ? { warrantyMonths: v.warrantyMonths } : {}) } };
     }
     return body;

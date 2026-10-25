@@ -78,6 +78,6 @@ export const productsAll = async () => {
 };
 export const mmOf = (v, unit) => { const n = Number(v); return n > 0 ? num(Math.round(n * (unit === 'м' ? 1000 : unit === 'см' ? 10 : 1))) : ''; };
 /** Поля паспорта, которые помнит изделие (passportDefaults) — флажок «Запомнить» (ПИ.4). */
-export const DEFAULT_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', ...V2_NUMS.map(([k]) => k), 'warrantyMonths'];
+export const DEFAULT_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'textChoices', ...V2_NUMS.map(([k]) => k), 'warrantyMonths'];
 
 export const resetProducts = () => { prodCache = null; };

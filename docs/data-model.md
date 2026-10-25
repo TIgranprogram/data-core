@@ -771,7 +771,7 @@ Write-paths, которые должны быть all-or-nothing, использ
 | `images[].kind` | += `overview_callouts`, `nameplate`, `safety_zone`, `foundation`, `holes`, `assembly`, `bom_item`; `images[].refCode` | |
 | `bom[]` | += `size`, `mass`, `photoId` | |
 
-Связанное: `products.passportDefaults` (значения по умолчанию у изделия каталога), `passporttemplates.category` (версия текста категории), справочники `dict_values` группы «Паспорта» (`passportCategories`, `passportStandards`, `passportElements`, `passportMaterials`, `passportDefects` (+`photoId`), `passportInstall`, `passportStyle`).
+Связанное: `productpassports.textChoices` и `products.passportDefaults.textChoices` ({id раздела: id конечного варианта} — выбор воронки по дереву `dict_values` dict `passportPhrases`: `parentId`, `section`, `text`, `categories`, `allCategories`, `order`, `required`, `isDefault`, `installTypeId`, `slot`, `funnelV`), `products.passportDefaults` (значения по умолчанию у изделия каталога), `passporttemplates.category` (версия текста категории), справочники `dict_values` группы «Паспорта» (`passportCategories`, `passportStandards`, `passportElements`, `passportMaterials`, `passportDefects` (+`photoId`), `passportInstall`, `passportStyle`).
 
 ### Дополнения 2026-10-22 (БЗ-6 Э9)
 

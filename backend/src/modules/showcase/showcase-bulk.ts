@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
-import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
+import { mergePassportDefaults, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { variants, type Db, type Doc } from './showcase-common';
 
 /** То, что массовым действиям нужно от витрины (одиночные операции — те же, что и в карточке). */
@@ -45,7 +45,7 @@ export class ShowcaseBulk {
         for (const k of ['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults']) prev[k] = raw[k] ?? null;
         if (Object.keys(patch).length) await this.h.update(id, patch);
         if (set.passportDefaults && typeof set.passportDefaults === 'object') {
-          const merged = { ...(presentPassportDefaults(raw.passportDefaults as PassportDefaults) ?? {}), ...(set.passportDefaults as Record<string, unknown>) };
+          const merged = mergePassportDefaults(presentPassportDefaults(raw.passportDefaults as PassportDefaults), set.passportDefaults as Record<string, unknown>);
           await this.h.setPassportDefaults(id, merged);
         }
         before.push({ id, set: prev });

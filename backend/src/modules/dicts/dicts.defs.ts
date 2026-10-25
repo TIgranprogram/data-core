@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
+import { passportPhrasesDef } from './dicts.passport-phrases';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -38,7 +39,9 @@ export interface DictDef {
   /** Плоская строка для таблицы и формы. */
   row(d: Doc): Record<string, unknown>;
   /** Документ для записи из тела запроса (только разрешённые поля). */
-  toDoc(body: Record<string, unknown>, isNew: boolean, db: Db): Promise<Document>;
+  toDoc(body: Record<string, unknown>, isNew: boolean, db: Db, id?: string): Promise<Document>;
+  /** Проверка перед «в корзину» (бросает ошибку по-русски): например, у узла дерева есть варианты. */
+  beforeRemove?(db: Db, d: Doc): Promise<void>;
   /** Сколько раз используется каждое значение (id → N). */
   usage(db: Db, docs: Doc[]): Promise<Map<string, number>>;
   related(db: Db, d: Doc): Promise<Related>;
@@ -576,7 +579,7 @@ export const DICTS: DictDef[] = [
         { key: 'code', label: 'Код', required: true, hint: 'Латиницей: HORIZONTAL_BAR' },
         { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: DIO, DSP, TRN, WRK, MAF (благоустройство)' },
         { key: 'inDescription', label: 'В описании', wide: true, hint: 'Фраза для раздела «Описание», напр. «горизонтальная перекладина для подтягиваний»' },
-        { key: 'purpose', label: 'Назначение', wide: true },
+        // ПВ (2026-10-25): «Назначение» паспорта — только из «Текстов паспорта»; старое поле элемента не показываем
         { key: 'usageRules', label: 'Правила пользования', type: 'textarea', wide: true, hint: 'По строке на шаг' },
         { key: 'inspect', label: 'Что проверять при ТО', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'standard', label: 'Норматив (код)', hint: 'Код из «Нормативов»' },
@@ -684,11 +687,11 @@ export const DICTS: DictDef[] = [
     ...ppUsage({ pp: 'installationTypeId', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
   },
-  {
-    // ТЭ (2026-10-23): эталонные тексты разделов, которые раньше набирали в паспорте руками («Назначение», «Установка»);
-    // в форме паспорта — выбор только из них, по категории паспорта. Старые записи не удаляют — «в корзину» = в архив
-    ...simpleList('passportPhrases', 'Паспорта', 'Готовые тексты паспорта',
-      'Эталонные формулировки «Назначения» и «Установки» по категориям: в паспорте выбираются только отсюда. Новая формулировка — добавьте здесь, а не в паспорте. Ненужную — «в корзину» (выданные паспорта хранят свой текст).',
+  passportPhrasesDef({
+    // ТЭ (2026-10-23) → ПВ (2026-10-25): тексты разделов паспорта деревом «раздел → варианты → подварианты» (passportPhrasesDef:
+    // поля, проверки, «Используется»). В паспорте и изделии выбирается из дерева воронкой; выданные паспорта хранят свой текст
+    ...simpleList('passportPhrases', 'Паспорта', 'Тексты паспорта',
+      'Тексты разделов паспорта (Назначение, Установка, Монтаж…): раздел → 2–3 варианта → при нужде подвариант → один текст. Галочки категорий и «Для всех» решают, кому вариант показывается. Если вариант один — он подставляется сам. Ненужное — «в корзину» (выданные паспорта хранят свой текст).',
       [
         { key: 'section', label: 'Раздел', type: 'select', required: true, options: [{ value: 'purpose', label: 'Назначение' }, { value: 'installation', label: 'Установка' }] },
         { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF (благоустройство), DIO, DSP' },
@@ -706,7 +709,7 @@ export const DICTS: DictDef[] = [
     },
     reassign: async () => 0, // выданные паспорта хранят свой текст — при объединении не переписываем
     editRoles: ['director'],
-  },
+  }),
   {
     ...simpleList('passportStyle', 'Паспорта', 'Оформление',
       'Как выглядит PDF паспорта: цвет категории, фон обложки, рамка и пиктограммы правил. Запись с «Использовать = нет» в PDF не попадает.',

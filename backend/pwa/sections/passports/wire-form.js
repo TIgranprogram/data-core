@@ -3,7 +3,7 @@ import { h } from '../../core/dom.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
 import { formImages, modelImagesToForm } from '../../core/passport-images.js';
 import { toast } from '../../ui/toast.js';
-import { V2_NUMS, api_get, api_post, codeList, dictRows, isIssued, keyLines, kinds, kvLines, num, reqKinds, st } from './common.js';
+import { V2_NUMS, api_get, api_post, codeList, isIssued, keyLines, kinds, kvLines, num, reqKinds, st } from './common.js';
 import { DEFAULT_KEYS } from './models.js';
 
 /** Связи формы паспорта (категория → состав, готовность к выпуску), замок выпущенного, «кто проектировал». */
@@ -85,19 +85,11 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   api.on('passportCategory', () => {
     const code = api.get('passportCategory');
     if (code === lastCat) return;
-    lastCat = code; scope(true); defaults(); markReq(); numsByCat(); catalogByCat(); check();
+    lastCat = code; w.funnel?.setCategory(code); scope(true); defaults(); markReq(); numsByCat(); catalogByCat(); check();
   });
   api.on('isKit', markReq);
-  // ТЭ: способ установки → эталонный текст «Установки» категории (вариант справочника с тем же способом)
-  const INSTALL_VARIANT = { CONCRETE_POSTS: 'Бетонирование опорных стоек', EMBEDDED: 'Закладные детали', ANCHORS: 'Анкерное крепление', FENCE_POSTS: 'Ограждение на опорных стойках', FREESTANDING: 'Свободная установка', ON_SURFACE: 'Свободная установка' };
-  api.on('installationTypeId', async () => {
-    if (api.manual('installationMethod')) return;
-    const code = inst.find((o) => o.value === api.get('installationTypeId'))?.code;
-    const variant = INSTALL_VARIANT[code]; if (!variant) return;
-    const rows = await dictRows('passportPhrases');
-    const hit = rows.find((x) => x.section === 'installation' && x.name === variant && codeList(x.categories).includes(api.get('passportCategory')));
-    if (hit) api.set('installationMethod', hit.text, { auto: true, src: 'по способу установки' });
-  });
+  // свой текст: начали печатать в «Монтаж / Назначение — свой текст» — включаем «Свой текст для этого паспорта»
+  for (const k of ['installationMethod', 'purpose']) api.input(k)?.addEventListener?.('input', (e) => { if (e.isTrusted && api.get('_manualText') !== 'yes') api.set('_manualText', 'yes'); });
 
   // модель выбрана → картинки модели по видам (только в пустые виды; своё не трогаем)
   api.on('_copyFrom', async () => {
@@ -115,6 +107,11 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   let timer; let seq = 0;
   const json = (k) => { try { return JSON.parse(api.get(k) || '[]') || []; } catch { return []; } };
   const goTo = (key0) => {
+    if (String(key0).startsWith('choice:')) { // шаг воронки: показать его и подсветить
+      const step = w.funnel?.stepEl(String(key0).slice(7)) || api.field('textChoices');
+      if (step) { step.scrollIntoView({ behavior: 'smooth', block: 'center' }); step.classList.add('fill-here'); setTimeout(() => step.classList.remove('fill-here'), 2500); step.querySelector('button')?.focus({ preventScroll: true }); }
+      return;
+    }
     const key = key0 === 'materialIds' && api.field('_mspec') ? '_mspec' : key0; // МИ.4: метки материалов — из таблицы
     api.open(key);
     const fld = api.field(key); if (!fld) return;
@@ -126,28 +123,25 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     'passportCategory', 'installationTypeId', 'isKit', ...V2_NUMS.map(([k]) => k)];
   const check = () => { clearTimeout(timer); timer = setTimeout(async () => {
     const my = ++seq;
-    const body = { ...(r ? { date: r.date } : {}), ...Object.fromEntries(KEYS.map((k) => [k, api.get(k)]).filter(([, v]) => v !== '' && v != null)),
-      elements: json('elements'), materialIds: json('materialIds'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)) };
+    const body = { ...(r ? { date: r.date } : {}), ...Object.fromEntries(KEYS.filter((k) => api.get('_manualText') === 'yes' || !['installationMethod', 'purpose'].includes(k)).map((k) => [k, api.get(k)]).filter(([, v]) => v !== '' && v != null)),
+      elements: json('elements'), materialIds: json('materialIds'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)),
+      textChoices: (() => { try { return JSON.parse(api.get('textChoices') || '{}') || {}; } catch { return {}; } })() };
     let res; try { res = await api_post('/passports/check', body); } catch { return; }
     if (my !== seq) return;
     const miss = res.missing || [];
     const who = miss.length ? await designerLine(api.get('productId')) : null;
-    w.need.className = miss.length ? 'fill-note' : 'muted';
+    // липкая плашка: только то, что ещё не заполнено; всё есть — одна зелёная строка
     w.need.replaceChildren(...(miss.length
-      ? [h('b', null, `Не хватает для выпуска: ${miss.length}`), h('ul', { class: 'pp-need' }, ...miss.map((m) => h('li', null, m.key ? h('button', { type: 'button', class: 'link-btn', onclick: () => goTo(m.key) }, m.label) : m.label))),
-        who, h('div', { class: 'hint' }, 'Черновик сохранить можно; выпустить (скачать PDF) — когда заполните всё отмеченное')]
-      : [h('span', null, '✓ Всё есть — паспорт можно выпускать')]));
+      ? [h('div', { class: 'fill-note pp-need-note' }, h('b', null, `Осталось сделать: ${miss.length}`),
+        h('div', { class: 'pp-need-chips' }, ...miss.map((m) => (m.key ? h('button', { type: 'button', class: 'tag', onclick: () => goTo(m.key) }, m.label) : h('span', { class: 'muted' }, m.label)))),
+        who)]
+      : [h('div', { class: 'pp-ready' }, h('span', { class: 'badge ok' }, 'Паспорт готов, можно выпускать'))]));
     const b = saveBtn();
     if (b && !b.disabled && !r) b.textContent = 'Сохранить черновик'; // НМ: номер — потом, кнопкой «Выпустить» в карточке
-    // над кнопками — то же коротко: что ещё нужно для выпуска (ПП)
-    if (b?.parentElement) {
-      let foot = b.parentElement.querySelector('.pp-need-foot');
-      if (!foot) { foot = h('div', { class: 'pp-need-foot' }); b.parentElement.prepend(foot); }
-      foot.replaceChildren(...(miss.length ? [h('span', { class: 'muted' }, `Не хватает для выпуска: ${miss.slice(0, 4).map((m) => m.label).join(', ')}${miss.length > 4 ? ` и ещё ${miss.length - 4}` : ''}`)] : []));
-      foot.hidden = !miss.length;
-    }
   }, 500); };
   lockIssued(api, r);
+  // плашка — первым элементом формы (липкой её делает общий родитель); пустую обёртку поля убираем
+  const needField = api.field('_need'); w.need.className = 'pp-need-sticky'; api.root.prepend(w.need); needField?.closest('.form-grid')?.remove();
   api.root.addEventListener('input', check); api.root.addEventListener('change', check);
   // ПИ.4: «Запомнить» — только если есть изделие и поправлены поля, которые изделие помнит
   const rememberField = api.field('_remember');

@@ -40,3 +40,39 @@ describe('buildV2Text', () => {
     expect(t.sections.length).toBeGreaterThan(0);
   });
 });
+
+/** Воронка (ПВ): выбор текстов идёт верхним слоем; «Назначение» — только из дерева. */
+describe('buildV2Text с воронкой', () => {
+  const hex = (n: number) => String(n).padStart(24, '0');
+  const mk = (o: Record<string, unknown>) => ({ id: hex(1), name: '', parentId: null, section: 'x', text: '', categories: '', allCategories: true, order: 0, required: false, isDefault: false, installTypeId: null, slot: 1, ...o });
+  const purposeRoot = mk({ id: hex(1), name: 'Назначение', section: 'purpose', children: [mk({ id: hex(2), name: 'Занятия', text: 'Для занятий спортом на {name}.', children: [] })] });
+  const mountRoot = mk({ id: hex(3), name: 'Монтаж', section: 'mounting', slot: 2, children: [mk({ id: hex(4), name: 'Анкер', text: 'Крепить анкерами по {std:GOST_X}.', children: [] }), mk({ id: hex(5), name: 'Бетон', text: 'Бетонировать.', children: [] })] });
+  const installRoot = mk({ id: hex(6), name: 'Установка', section: 'installation', children: [mk({ id: hex(7), name: 'Анкерная', text: 'Установка анкерная.', children: [] })] });
+  const forest = [purposeRoot, mountRoot, installRoot] as never;
+  const els = [{ _id: 'e1', code: 'BAR', name: 'Турник', purpose: 'подтягиваний' }];
+  const base = { passport: { name: 'Турник', passportCategory: 'TRN', elements: ['e1'] }, all: { ...DEFAULT_PASSPORT_TEMPLATE, version: 0 }, standards: { GOST_X: 'ГОСТ Х' }, dicts: { elements: els } };
+
+  it('«Назначение» — из дерева (единственный вариант сам), назначение элемента не подставляется', () => {
+    const t = buildV2Text({ ...base, funnel: { forest } });
+    expect(t.purpose).toBe('Для занятий спортом на Турник.');
+    expect(t.purpose).not.toContain('подтягиваний');
+    expect(t.choices[hex(1)]).toBe(hex(2));
+    expect(t.install.text).toBe('Установка анкерная.');
+  });
+  it('без дерева «Назначение» пусто, а не «Предназначено для: …» из элементов', () => {
+    expect(buildV2Text(base).purpose).toBe('');
+  });
+  it('выбор заменяет пункт №slot раздела шаблона, нумерация не ломается', () => {
+    const t = buildV2Text({ ...base, funnel: { forest, choices: { [hex(3)]: hex(4) } } });
+    const sec = t.sections.find((s) => s.key === 'mounting')!;
+    expect(sec.items[1].text).toBe('Крепить анкерами по ГОСТ Х.');
+    expect(sec.items).toHaveLength(DEFAULT_PASSPORT_TEMPLATE.sections.find((s) => s.key === 'mounting')!.paragraphs.length);
+    expect(t.standards).toContain('GOST_X');
+    expect(t.choices[hex(3)]).toBe(hex(4));
+  });
+  it('раздел без выбора из двух вариантов текст шаблона не меняет', () => {
+    const t = buildV2Text({ ...base, funnel: { forest } });
+    expect(t.choices[hex(3)]).toBeUndefined();
+    expect(JSON.stringify(t.sections)).not.toContain('Бетонировать.');
+  });
+});

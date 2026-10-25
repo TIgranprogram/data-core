@@ -6,7 +6,7 @@ export const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', '
 /** Поля модели — переходят в копию паспорта и подставляются из выбранной модели (ПС.5). */
 export const MODEL_FIELDS = ['productId', 'name', 'category', 'article', 'height', 'length', 'width', 'weight', 'materials', 'purpose', 'installationMethod', 'description', 'supplierOrgId', 'supplier', 'warrantyMonths', 'bom',
   // v2 (БЗ-6): поля модели — копия на ту же модель и выбор модели переносят их
-  'passportCategory', 'elements', 'materialIds', 'materialsSpec', 'installationTypeId', 'isKit', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears'] as const;
+  'passportCategory', 'elements', 'materialIds', 'materialsSpec', 'installationTypeId', 'isKit', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'textChoices'] as const;
 /** Массовое изменение (БЗ-9): общие поля паспортов; номера, талон, наименование, артикул, картинки — только по одному. */
 export const BULK_PASSPORT_FIELDS = ['passportCategory', 'category', 'installationTypeId', 'elements', 'materialIds', 'isKit', 'serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth',
   'supplierOrgId', 'customerName', 'orderNo', 'objectName', 'installedBy', 'saleDate', 'installedAt'] as const;

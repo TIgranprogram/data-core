@@ -20,7 +20,8 @@ import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
 import { PassportIssue } from './passport-issue';
-import { PassportQueries } from './passport-queries';
+import { PassportQueries, choiceMissingIn } from './passport-queries';
+import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
 
 @Injectable()
@@ -32,7 +33,7 @@ export class ProductPassportService {
     @Optional() private readonly versions?: DataVersionService,
   ) {
     // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
-    this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v) });
+    this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
     this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
     this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), snapshot: (id) => this.snapshot(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
   }
@@ -68,6 +69,7 @@ export class ProductPassportService {
 
   /** Карточка: паспорт + чего не хватает + поставщик (для печати/подписи) + картинки с адресами. */
   async get(id: string) {
+    await this.refreshDraft(id);
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
     const photoIds = ((doc.images as Array<{ photoId: Types.ObjectId }>) || []).map((i) => i.photoId);
     const photos = photoIds.length ? await this.connection.collection('photos').find({ _id: { $in: photoIds } }, { projection: { storageUrl: 1, thumbId: 1 } }).toArray() : [];
@@ -84,7 +86,8 @@ export class ProductPassportService {
     const standardImages = std.map((x) => ({ ...x, url: stdUrl.get(x.photoId) ?? null }));
     // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
     const requiredImages = requiredImageKinds(doc as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k));
-    return { ...doc, images, standardImages, requiredImages, missing: missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    const choiceMissing = await this.choiceMissing(doc);
+    return { ...doc, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
@@ -141,6 +144,7 @@ export class ProductPassportService {
     // картинка без вида — только «Фото изделия» (ФП: раньше без вида не попадала никуда)
     if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
     for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
+    if ('textChoices' in set) set.textChoices = parseChoices(set.textChoices); // ПВ: пусто — выбор снят
     if ('materialsSpec' in set) set.materialsSpec = parseMaterialsSpec(set.materialsSpec); // МИ: тот же разбор, что у изделия; пусто — null
     if (set.passportNumber !== undefined) set.passportNo = Number(set.passportNumber) || undefined;
     return set;
@@ -211,6 +215,8 @@ export class ProductPassportService {
     if (set.revision && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
     // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
     if (set.passportCategory && !hadText) return (await this.snapshot(String(saved._id))) ?? saved;
+    // ПВ: черновик — выбор текстов изменили, значит текст и производные поля (назначение, установка) собираются заново
+    if (changed.includes('textChoices') && !issued && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
     return saved;
   }
 
@@ -292,7 +298,17 @@ export class ProductPassportService {
     const dv = this.connection.collection('dict_values');
     const load = (d: string) => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>;
     const [elements, materials, defects, install] = await Promise.all([load('passportElements'), load('passportMaterials'), load('passportDefects'), load('passportInstall')]);
-    const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install } });
+    // воронка (ПВ): выбор по разделам; вариант раздела «Установка» сам ставит способ установки (схемы, рисунки, основание — в нём)
+    const forest = await this.forest(cat);
+    const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined);
+    const instRoot = forest.find((r) => r.section === 'installation');
+    const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
+    if (instLeaf?.installTypeId) { p.installationTypeId = new Types.ObjectId(instLeaf.installTypeId); doc.set('installationTypeId', p.installationTypeId); }
+    const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install }, funnel: { forest, choices: p.textChoices as Record<string, string> | undefined } });
+    // purpose / installationMethod — производные от выбора (их читают kppdf и PDF v1); набранные вручную («свой текст») не трогаем
+    const manual = (p.manualText as string[] | undefined) ?? [];
+    if (text.purpose && !manual.includes('purpose')) doc.set('purpose', text.purpose);
+    if (instLeaf && !manual.includes('installationMethod')) doc.set('installationMethod', text.install.text);
     doc.set('textSnapshot', { ...text, at: new Date() });
     return doc.save();
   }
@@ -310,13 +326,45 @@ export class ProductPassportService {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(p, inst);
-    return { missing: missingKeyed(full as never, cat), requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
+    const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), manualText: p.manualText });
+    return { missing: [...missingKeyed(full as never, cat), ...choices], requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
-    return missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null);
+    return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null), ...(await this.choiceMissing(doc))];
+  }
+
+  // ─── воронка текстов (ПВ 2026-10-25) ─────────────────────────────────────────────────────────────
+  /** Дерево текстов, видимое категории (без категории — всё): один расчёт, пока не менялся dict_values. Общий результат — не менять. */
+  async forest(category?: string): Promise<PhraseTreeNode[]> {
+    const cat = String(category ?? '').trim();
+    const make = async () => buildForest((await this.connection.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r)), cat || undefined);
+    return this.versions ? this.versions.cached('passports.funnel', ['dict_values'], cat, make) : make();
+  }
+
+  /** GET passports/funnel?category=TRN → { sections: [раздел → варианты → подварианты → текст] }. */
+  async funnel(category?: string) { return { sections: presentForest(await this.forest(category)) }; }
+
+  /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
+  private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {
+    if (!d.passportCategory) return [];
+    return choiceMissingIn(await this.forest(String(d.passportCategory)), d);
+  }
+
+  /** Черновик с собранным текстом пересобирается при открытии, если «Тексты паспорта» менялись позже снимка; правленный руками и выпущенный — нет. */
+  private async refreshDraft(id: string) {
+    if (!Types.ObjectId.isValid(id)) return;
+    const p = await this.model.findById(id, { status: 1, passportCategory: 1, 'textSnapshot.at': 1, 'textSnapshot.editedAt': 1 }).lean().exec() as { status?: string; passportCategory?: string; textSnapshot?: { at?: Date; editedAt?: Date } } | null;
+    if (!p || p.status !== 'draft' || !p.passportCategory || !p.textSnapshot?.at || p.textSnapshot.editedAt) return;
+    const dv = this.connection.collection('dict_values');
+    const [a, b] = await Promise.all([
+      dv.find({ dict: 'passportPhrases' }, { projection: { updatedAt: 1 } }).sort({ updatedAt: -1 }).limit(1).toArray(),
+      dv.find({ dict: 'passportPhrases', deletedAt: { $ne: null } }, { projection: { deletedAt: 1 } }).sort({ deletedAt: -1 }).limit(1).toArray(),
+    ]);
+    const last = Math.max(+(a[0]?.updatedAt ?? 0), +(b[0]?.deletedAt ?? 0));
+    if (last > +p.textSnapshot.at) await this.snapshot(id);
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */

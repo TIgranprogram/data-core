@@ -144,6 +144,12 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.sku-assigned', entityType: 'Product', idParam: 'id' })
   assignSku(@Param('id') id: string, @Body() b: { confirm?: boolean }) { return this.s.assignSku(id, !!b?.confirm); }
 
+  /** Клон изделия: копия со всеми полями, фото, составом и значениями паспорта; имя «… (копия)», артикул — автоартикул группы. Права как у создания. */
+  @Post(':id/clone')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'showcase.cloned', entityType: 'Product', idParam: 'id' })
+  clone(@Param('id') id: string) { return this.s.clone(id); }
+
   @Post(':id/restore')
   @HttpCode(200)
   @Roles('admin', 'manager')

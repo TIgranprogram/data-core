@@ -78,6 +78,15 @@ export class ProductPassportController {
     return this.service.phrases();
   }
 
+  /** Воронка текстов (ПВ): дерево «раздел → варианты → подварианты → текст», видимое категории (?category=TRN; без неё — всё). */
+  @AppSection('passports', 'products')
+  @Get('passports/funnel')
+  @Roles(...VIEW)
+  @ApiQuery({ name: 'category', required: false, description: 'Код категории паспорта: TRN, WRK, MAF, DIO, DSP' })
+  funnel(@Query('category') category?: string) {
+    return this.service.funnel(category);
+  }
+
   /** Модели (артикул + наименование) с фото и полями — выбор модели при создании паспорта. */
   @Get('passports/models')
   @Roles(...VIEW)

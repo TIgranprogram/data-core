@@ -4,6 +4,7 @@ import { parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import type { ProductPassportDocument } from './product-passport.schema';
 import { missingFieldsV2 } from './passport-rules';
+import { missingChoices, resolveChoices, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MODEL_FIELDS, SORT, escapeRe, type Doc } from './passport-consts';
 
 /** Что спискам и подсказкам нужно от сервиса паспортов. */
@@ -15,6 +16,13 @@ export interface QueriesHost {
   installs: () => Promise<Map<string, Record<string, unknown>>>;
   withSchemes: (d: Doc, inst: Map<string, Record<string, unknown>>) => unknown;
   oid: (v: unknown) => Types.ObjectId;
+  forest: (category?: string) => Promise<PhraseTreeNode[]>;
+}
+
+/** Обязательные разделы воронки без выбора (текст, набранный вручную, раздел закрывает) — одно правило для карточки и списка. */
+export function choiceMissingIn(forest: PhraseTreeNode[], d: Doc): Array<{ label: string; key: string }> {
+  const manual = (d.manualText as string[] | undefined) ?? [];
+  return missingChoices(resolveChoices(forest, d.textChoices as Record<string, string> | undefined), (r) => (r.section === 'purpose' && manual.includes('purpose')) || (r.section === 'installation' && manual.includes('installationMethod')));
 }
 
 /** Список, фильтры, модели и готовые тексты паспортов (чтение); вызывается из ProductPassportService. */
@@ -35,7 +43,15 @@ export class PassportQueries {
       const docs = await this.h.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
       // «неполные» считаются правилами, а не запросом — паспортов сотни
       const [cats, inst] = await Promise.all([this.h.categoryRules(), this.h.installs()]);
-      return docs.map((d) => ({ ...(d as unknown as Doc), missing: missingFieldsV2(this.h.withSchemes(d as unknown as Doc, inst) as never, cats.get(String((d as unknown as Doc).passportCategory ?? ''))) }));
+      // воронка: дерево — один раз на категорию черновиков, не на строку; выпущенные не считаем
+      const rowsDocs = docs as unknown as Doc[];
+      const forests = new Map<string, PhraseTreeNode[]>();
+      for (const c of new Set(rowsDocs.filter((x) => x.status === 'draft' && x.passportCategory).map((x) => String(x.passportCategory)))) forests.set(c, await this.h.forest(c));
+      return rowsDocs.map((x) => {
+        const forest = x.status === 'draft' && x.passportCategory ? forests.get(String(x.passportCategory)) : undefined;
+        const choices = forest ? choiceMissingIn(forest, x).map((m) => m.label) : [];
+        return { ...x, missing: [...missingFieldsV2(this.h.withSchemes(x, inst) as never, cats.get(String(x.passportCategory ?? ''))), ...choices] };
+      });
     };
     // скорость С9: расчёт по всем паспортам — один раз, пока паспорта и справочники не менялись; строки общие — копируем
     const rest = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page' && k !== 'limit'));

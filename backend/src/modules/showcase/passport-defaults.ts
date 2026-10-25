@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { parseChoices } from '../../common/passport/phrase-tree';
 
 /**
  * Значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b): `products.passportDefaults` — только новое поле
@@ -10,6 +11,8 @@ const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUse
 
 export interface PassportDefaults {
   passportCategory?: string; elements?: Types.ObjectId[]; materialIds?: Types.ObjectId[]; installationTypeId?: Types.ObjectId | null; isKit?: boolean;
+  /** ПВ: выбор текстов воронкой { id раздела: id конечного варианта } (справочник «Тексты паспорта»). */
+  textChoices?: Record<string, string>;
   [k: string]: unknown;
 }
 
@@ -34,6 +37,8 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
   }
   if (b.installationTypeId) out.installationTypeId = oidOf(b.installationTypeId, 'способ установки');
   if (typeof b.isKit === 'boolean') out.isKit = b.isKit;
+  const tc = parseChoices(b.textChoices);
+  if (tc) out.textChoices = tc;
   for (const k of NUMS) {
     const raw = b[k];
     if (raw === undefined || raw === null || raw === '') continue;
@@ -51,3 +56,16 @@ export const presentPassportDefaults = (d: PassportDefaults | null | undefined) 
   ...(d.materialIds ? { materialIds: d.materialIds.map(String) } : {}),
   ...(d.installationTypeId ? { installationTypeId: String(d.installationTypeId) } : {}),
 });
+
+/**
+ * Дополнение значений по умолчанию (массовая правка): поля заменяются, а выбор текстов `textChoices` сливается по разделам —
+ * иначе пакетная правка одного раздела стёрла бы чужие выборы. Пустое значение раздела снимает выбор.
+ */
+export function mergePassportDefaults(cur: Record<string, unknown> | null | undefined, inc: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...(cur ?? {}), ...inc };
+  if (cur?.textChoices || inc.textChoices) {
+    const tc = Object.fromEntries(Object.entries({ ...((cur?.textChoices as Record<string, unknown>) ?? {}), ...((inc.textChoices as Record<string, unknown>) ?? {}) }).filter(([, v]) => v));
+    if (Object.keys(tc).length) merged.textChoices = tc; else delete merged.textChoices;
+  }
+  return merged;
+}

@@ -73,6 +73,8 @@ export class ProductPassport {
   @Prop({ type: [Object], default: undefined }) revisions?: Array<Record<string, unknown>>;
   /** ТЭ: поля текста, изменённые вручную для этого паспорта (не из справочника) — видно в списке. */
   @Prop({ type: [String], default: undefined }) manualText?: string[];
+  /** Воронка текстов (ПВ 2026-10-25): выбор по разделам { id раздела: id конечного варианта } — справочник «Тексты паспорта». Из выбора сервер собирает `purpose` / `installationMethod` и пункты текста. */
+  @Prop({ type: Object, default: undefined }) textChoices?: Record<string, string> | null;
 
   /** Числовой № паспорта — для сортировки и счётчика (`passportNumber` — строка, как у kppdf). */
   @Prop({ index: true })

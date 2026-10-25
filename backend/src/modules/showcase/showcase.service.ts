@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
+import { checkChoices, toNode } from '../../common/passport/phrase-tree';
 import { skuKey, skuRegex, tokensFilter } from '../../common/text/search-norm';
 import { isUsedByCrm } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
@@ -13,6 +14,7 @@ import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaul
 import { productNameKey, shortProductName } from './order-product-name';
 import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
 import { ShowcaseBulk } from './showcase-bulk';
+import { cloneDoc } from './showcase-clone';
 import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
@@ -182,6 +184,10 @@ export class ShowcaseService {
     const _id = oid(id, 'изделия');
     if (!(await this.db.collection('products').findOne({ _id, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
     const v = normalizePassportDefaults(b ?? {});
+    if (v.textChoices) {
+      const err = checkChoices((await this.db.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r)), v.textChoices);
+      if (err) throw new BadRequestException(err);
+    }
     await this.db.collection('products').updateOne({ _id }, Object.keys(v).length ? { $set: { passportDefaults: v, updatedAt: new Date() } } : { $unset: { passportDefaults: '' }, $set: { updatedAt: new Date() } });
     return this.get(id);
   }
@@ -294,6 +300,25 @@ export class ShowcaseService {
     const auto = (await nextSku(this.db, this.counter, d.categoryId as Types.ObjectId))!;
     await this.db.collection('products').updateOne({ _id }, { $set: { sku: auto.sku, updatedAt: new Date() } });
     return { id, sku: auto.sku, oldSku: String(d.sku), changed: true, passports, ...(auto.warning ? { skuWarning: auto.warning } : {}) };
+  }
+
+  /**
+   * Клон изделия (ПВ): копия со всеми полями, фото, составом, материалами и значениями паспорта (с выбором текстов), наименование
+   * «… (копия)». Артикул — следующий автоартикул группы; у группы нет номера — «<артикул>-копия» (потом поправить в карточке).
+   */
+  async clone(id: string) {
+    const _id = oid(id, 'изделия');
+    const src = await this.db.collection('products').findOne({ _id, deletedAt: null });
+    if (!src) throw new NotFoundException('Изделие не найдено');
+    const auto = await nextSku(this.db, this.counter, (src.categoryId as Types.ObjectId | null) ?? null);
+    let sku = auto?.sku ?? '';
+    for (let i = 1; !sku; i++) {
+      const cand = `${clean(src.sku)}-копия${i > 1 ? '-' + i : ''}`;
+      if (!(await this.db.collection('products').findOne({ sku: skuRegex(cand) }, { projection: { _id: 1 } }))) sku = cand;
+    }
+    const { insertedId } = await this.db.collection('products').insertOne(cloneDoc(src as Doc, sku));
+    const created = await this.get(String(insertedId));
+    return auto?.warning ? { ...created, skuWarning: auto.warning } : created;
   }
 
   async update(id: string, dto: Record<string, unknown>) {

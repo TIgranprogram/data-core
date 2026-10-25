@@ -282,4 +282,49 @@ describe('Паспорта изделий', () => {
     await http().post('/api/passports/bulk').set(as(admin.access)).send({ ids: [a.id], set: { name: 'x' } }).expect(400); // только не-массовые — «отметьте, что изменить»
     await http().post('/api/passports/bulk').set(as(manager)).send({ ids: [a.id], set: { warrantyMonths: 1 } }).expect(403);
   });
+
+  it('ПВ: воронка — дерево по категории, выбор собирает назначение и установку, обязательный раздел блокирует выпуск, правка справочника пересобирает черновик', async () => {
+    const dv = db().collection('dict_values');
+    await dv.deleteMany({ dict: 'passportPhrases' });
+    const mk = async (b: Record<string, unknown>) => (await http().post('/api/dicts/passportPhrases').set(as(admin.access)).send(b).expect(201)).body.id as string;
+    const purposeRoot = await mk({ name: 'Назначение', section: 'purpose', order: 1 });
+    const purposeLeaf = await mk({ name: 'Занятия', parentId: purposeRoot, text: 'Для занятий спортом.', allCategories: 'true' });
+    const mountRoot = await mk({ name: 'Как крепится', section: 'installation', required: 'true', order: 2 });
+    const anchor = await mk({ name: 'Анкерное', parentId: mountRoot, text: 'Крепится анкерами.', categories: 'TRN' });
+    const concrete = await mk({ name: 'Бетонирование', parentId: mountRoot, text: 'Бетонируется.', categories: 'TRN,WRK' });
+    await mk({ name: 'Только дети', parentId: mountRoot, text: 'Для детских.', categories: 'DIO' });
+    // справочник: дерево защищено
+    await http().post('/api/dicts/passportPhrases').set(as(admin.access)).send({ name: 'Под листом', parentId: anchor, text: 'x' }).expect(400);
+    await http().delete(`/api/dicts/passportPhrases/${mountRoot}`).set(as(admin.access)).expect(409);
+    // воронка: категория видит своё и «Для всех»
+    const f = (await http().get('/api/passports/funnel').query({ category: 'TRN' }).set(as(manager)).expect(200)).body;
+    expect(f.sections.map((s: { section: string }) => s.section)).toEqual(['purpose', 'installation']);
+    expect(f.sections[1].children.map((c: { name: string }) => c.name)).toEqual(['Анкерное', 'Бетонирование']);
+    const dio = (await http().get('/api/passports/funnel').query({ category: 'DIO' }).set(as(manager)).expect(200)).body;
+    expect(dio.sections[1].children.map((c: { name: string }) => c.name)).toEqual(['Только дети']);
+    // паспорт: назначение — единственный вариант сам; установка не выбрана → «choice:» блокирует выпуск
+    const p = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Воронка', passportCategory: 'TRN', supplierOrgId: orgId }).expect(201)).body;
+    expect(p.purpose).toBe('Для занятий спортом.');
+    const card = (await http().get(`/api/passports/${p.id}`).set(as(admin.access)).expect(200)).body;
+    expect(card.missingChoices).toEqual([{ label: 'Выбор: Как крепится', key: `choice:${mountRoot}` }]);
+    const chk = (await http().post('/api/passports/check').set(as(admin.access)).send({ passportCategory: 'TRN' }).expect(200)).body;
+    expect(chk.missing.map((m: { key: string }) => m.key)).toContain(`choice:${mountRoot}`);
+    // выбор → текст, производное поле installationMethod и снимок
+    await http().patch(`/api/passports/${p.id}`).set(as(admin.access)).send({ textChoices: { [mountRoot]: anchor } }).expect(200);
+    const sel = (await http().get(`/api/passports/${p.id}`).set(as(admin.access)).expect(200)).body;
+    expect(sel.installationMethod).toBe('Крепится анкерами.');
+    expect(sel.textSnapshot.install.text).toBe('Крепится анкерами.');
+    expect(sel.textSnapshot.choices).toEqual({ [purposeRoot]: purposeLeaf, [mountRoot]: anchor });
+    expect(sel.missingChoices).toBeUndefined();
+    await http().patch(`/api/passports/${p.id}`).set(as(admin.access)).send({ textChoices: 'мусор' }).expect(400);
+    // правка текста в справочнике → черновик пересобирается при открытии
+    await http().patch(`/api/dicts/passportPhrases/${anchor}`).set(as(admin.access)).send({ name: 'Анкерное', text: 'Крепится анкерами М12.' }).expect(200);
+    const fresh = (await http().get(`/api/passports/${p.id}`).set(as(admin.access)).expect(200)).body;
+    expect(fresh.textSnapshot.install.text).toBe('Крепится анкерами М12.');
+    expect(fresh.installationMethod).toBe('Крепится анкерами М12.');
+    // «Используется» в справочнике считает выбор
+    const row = (await http().get(`/api/dicts/passportPhrases/${anchor}`).set(as(admin.access)).expect(200)).body;
+    expect(row.used).toBeGreaterThanOrEqual(1);
+    expect(concrete).toBeTruthy();
+  });
 });
