@@ -1120,6 +1120,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   }
   // ---- Сервер: переносной пакет для переезда (кнопка → файл-запрос → cron хоста → скачивание) ----
   let bundleTimer = null;
+  let bundlePosting = false;
   async function saveBundle(name, prog) {
     const mb = (n) => (n / 1024 ** 2).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' МБ';
     let file = null;
@@ -1157,17 +1158,22 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       if (!d.mounted) { box.replaceChildren(el('p', 'muted', 'Недоступно на этом сервере.')); return; }
       const st = d.status || { state: 'idle' };
       const busy = st.state === 'queued' || st.state === 'running';
+      if (st.state !== 'idle') bundlePosting = false;
       const started = since || Date.now();
-      const btn = el('button', 'btn', 'Собрать пакет'); btn.type = 'button'; btn.disabled = busy;
+      const buildDone = st.state === 'done';
+      const btn = el('button', 'btn', buildDone ? 'Пересобрать' : 'Собрать пакет');
+      btn.type = 'button';
+      btn.disabled = busy || bundlePosting;
       btn.addEventListener('click', async () => {
+        bundlePosting = true;
         btn.disabled = true;
-        try { await api('/health/bundle', { method: 'POST' }); toast('Запрос отправлен — сборка начнётся в течение минуты'); } catch (e) { toast(e.message); }
+        try { await api('/health/bundle', { method: 'POST' }); toast('Запрос отправлен — сборка начнётся в течение минуты'); } catch (e) { bundlePosting = false; toast(e.message); }
         loadBundle(Date.now());
       });
       const MSG = {
         queued: '⏳ Ждёт запуска на хосте — это займёт до минуты…',
         running: '⚙️ Собирается' + (st.startedAt ? ' с ' + new Date(st.startedAt).toLocaleTimeString('ru-RU') : '') + ' — обычно 5–10 минут, страница обновляется сама…',
-        done: '✅ Пакет собран' + (st.finishedAt ? ' в ' + new Date(st.finishedAt).toLocaleTimeString('ru-RU') : '') + ' — скачайте строку «Новый» ниже',
+        done: '✅ Пакет собран' + (st.finishedAt ? ' в ' + new Date(st.finishedAt).toLocaleTimeString('ru-RU') : '') + ' — скачайте «Новый» ниже. Нужна свежая сборка — нажмите «Пересобрать».',
         failed: 'Ошибка сборки' + (st.finishedAt ? ' (' + new Date(st.finishedAt).toLocaleString('ru-RU') + ')' : ''),
         idle: '',
       };
