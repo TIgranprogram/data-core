@@ -153,6 +153,23 @@ function requestsByMonth(items) {
   }));
 }
 
+async function syncCatalog(r) {
+  await api(`/supplier-catalog/sync/${r.id}`, { method: 'POST' });
+  toast('Синхронизация запущена');
+  const start = Date.now();
+  const tid = setInterval(async () => {
+    if (Date.now() - start > 120_000) { clearInterval(tid); return; }
+    try {
+      const st = await api(`/supplier-catalog/sync/${r.id}`);
+      if (st.status !== 'running') {
+        clearInterval(tid);
+        if (st.status === 'error') toast(`⚠ Ошибка синхронизации${st.error ? ': ' + st.error : ''}`);
+        else toast(`✓ Синхронизировано: ${st.total} поз.`);
+      }
+    } catch { clearInterval(tid); }
+  }, 3000);
+}
+
 export const partners = {
   id: 'partners',
   title: 'Контрагенты',
@@ -205,11 +222,13 @@ export const partners = {
     // «Изменить» — заметно сверху карточки (СП.1), не только внизу
     editTop: true,
     view: (r) => [['Полное наименование', r.fullName], ['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Телефон', r.phone], ['Почта', r.email], ['Сайт', r.website],
+      ['URL каталога', r.catalogUrl ? h('a', { href: r.catalogUrl, target: '_blank', rel: 'noopener' }, r.catalogUrl) : ''],
       ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
       ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')], ['Примечание', r.notes]],
     actions: (r) => [
       r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
       r.kind === 'supplier' && { label: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) },
+      r.kind === 'supplier' && !!r.catalogUrl && { label: 'Синхронизировать прайс', run: syncCatalog },
     ],
     extra: related,
   },
@@ -230,6 +249,7 @@ export const partners = {
       { key: 'phone', label: 'Телефон', max: 50 },
       { key: 'email', label: 'Почта', max: 200 },
       { key: 'website', label: 'Сайт', max: 300 },
+      ...(r?.kind === 'supplier' ? [{ key: 'catalogUrl', label: 'URL каталога для синхронизации', max: 500, wide: true, placeholder: 'https://zaglushka.ru/opora', hint: 'Адрес страницы категории или каталога поставщика' }] : []),
       { key: 'contactName', label: 'Контактное лицо', max: 200 },
       { key: 'contactPhone', label: 'Телефон контакта', max: 50 },
       { section: 'Банк и примечание', tone: 'money', collapsed: true },
