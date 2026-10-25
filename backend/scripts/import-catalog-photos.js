@@ -33,6 +33,7 @@ const catDoc = (name, parentId, groupNo) => {
 
 (async () => {
   const apply = process.argv.includes('--apply');
+  const existing = process.argv.includes('--existing');
   const dir = path.resolve(process.argv.slice(2).find((a) => !a.startsWith('--')) || path.join(root, '..', 'для анализа', 'каталог-2026-10-25'));
   const cat = JSON.parse(await fs.readFile(path.join(dir, 'catalog.json'), 'utf8'));
   const upDir = path.resolve(process.env.UPLOAD_DIR || path.join(root, 'uploads'));
@@ -79,7 +80,7 @@ const catDoc = (name, parentId, groupNo) => {
       if (!/^\d{4}$/.test(sku) || sku.slice(0, 2) !== String(i.groupNo)) problems.push(`Артикул ${sku} не по шаблону группы ${i.groupNo}`);
       if (seen.has(sku)) problems.push(`Артикул ${sku} в каталоге дважды`);
       seen.add(sku);
-      const dup = await db.collection('products').findOne({ sku: skuRegex(sku) }, { projection: { sku: 1, name: 1, deletedAt: 1 } });
+      const dup = await db.collection('products').findOne({ sku: skuRegex(sku) }, { projection: { sku: 1, name: 1, deletedAt: 1, photoIds: 1, source: 1 } });
       items.push({ ...i, sku, photoPath, dup, action: dup ? 'уже есть' : 'создать' });
     }
 
@@ -96,12 +97,14 @@ const catDoc = (name, parentId, groupNo) => {
     for (const g of gl.sort((a, b) => a.no.localeCompare(b.no))) console.log(`  ${g.no} · ${g.name} · ${g.type} · ${g.action} · счётчик ≥ ${maxSeq.get(g.no) ?? 0}`);
     console.log(`Изделия с фото: ${items.length} — создать ${cnt(items, 'создать')}, пропустить (артикул уже есть) ${cnt(items, 'уже есть')}`);
     for (const i of items.filter((x) => x.dup)) console.log(`  = ${i.sku} «${i.name}» ↔ в базе «${i.dup.name ?? ''}»${i.dup.deletedAt ? ' (в корзине)' : ''}`);
+    const toFix = existing ? items.filter((x) => x.dup && !x.dup.deletedAt && x.dup.source !== 'showcase') : [];
+    for (const i of toFix) console.log(`  → ${i.sku}: группа «${i.groupName}», фото ${(i.dup.photoIds || []).length ? 'уже есть — не трогаем' : 'добавить'}, название «${i.dup.name}»${/^\d{4}_/.test(clean(i.dup.name)) ? ' → «' + clean(i.dup.name).replace(/^\d{4}_\s*/, '') + '»' : ' — без изменений'}`);
     if (problems.length) { console.log('ПРОБЛЕМЫ (запись невозможна):'); problems.forEach((p) => console.log('  - ' + p)); }
     if (!apply) return;
     if (problems.length) throw new Error('Есть проблемы — запись отменена');
 
     // ── Запись
-    const rb = { db: db.databaseName, at: new Date().toISOString(), createdCategories: [], groupNoSet: [], createdProducts: [], createdPhotos: [], files: [], counters: [] };
+    const rb = { db: db.databaseName, at: new Date().toISOString(), createdCategories: [], groupNoSet: [], createdProducts: [], createdPhotos: [], fixedProducts: [], files: [], counters: [] };
     const rbFile = path.resolve(`import-catalog-photos-rollback-${Date.now()}.json`);
     const save = () => fs.writeFile(rbFile, JSON.stringify(rb, null, 1));
     try {
@@ -117,7 +120,7 @@ const catDoc = (name, parentId, groupNo) => {
         await col.updateOne(key, { $max: { seq: maxSeq.get(g.no) ?? 0 } }, { upsert: true });
         rb.counters.push({ prefix: g.no, prevSeq: prev ? prev.seq : null }); // null — документа не было (при откате удалить)
       }
-      for (const i of items.filter((x) => !x.dup)) {
+       const makePhoto = async (i) => {
         // фото — как POST /photos/upload: файл в UPLOAD_DIR, original + thumb 320 px webp
         const fname = `${randomUUID()}.png`; const dest = path.join(upDir, fname);
         await fs.copyFile(i.photoPath, dest); rb.files.push(dest);
@@ -131,11 +134,24 @@ const catDoc = (name, parentId, groupNo) => {
         rb.files.push(tpath);
         const thumb = (await db.collection('photos').insertOne({ storageUrl: `/uploads/${tname}`, originalFilename: i.photo, variant: 'thumb', mimeType: 'image/webp', sizeBytes: out.size, widthPx: out.width, heightPx: out.height, parentPhotoId: original, frame, createdAt: now, updatedAt: now })).insertedId;
         rb.createdPhotos.push(String(thumb));
+        return original;
+      };
+      for (const i of items.filter((x) => !x.dup)) {
+        const original = await makePhoto(i); const now = new Date();
         // поля — как ShowcaseService.create()
         const pid = (await db.collection('products').insertOne({ sku: i.sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
           photoIds: [original], mainPhotoId: original, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false,
           name: clean(i.name) || i.sku, series: clean(i.series) || null, categoryId: groups.get(i.groupNo).id, source: 'showcase', createdAt: now, updatedAt: now })).insertedId;
         rb.createdProducts.push(String(pid));
+        await save();
+      }
+      for (const i of toFix) {
+        const d = await db.collection('products').findOne({ _id: i.dup._id });
+        const set = { categoryId: groups.get(i.groupNo).id, updatedAt: new Date() };
+        const nm = clean(d.name).replace(/^\d{4}_\s*/, ''); if (nm && nm !== clean(d.name)) set.name = nm;
+        if (!(d.photoIds || []).length) { const ph = await makePhoto(i); set.photoIds = [ph]; set.mainPhotoId = ph; }
+        rb.fixedProducts.push({ id: String(d._id), sku: d.sku, prev: { categoryId: d.categoryId ?? null, name: d.name ?? null, photoIds: d.photoIds ?? [], mainPhotoId: d.mainPhotoId ?? null } });
+        await db.collection('products').updateOne({ _id: d._id }, { $set: set });
         await save();
       }
     } finally { await save(); }
