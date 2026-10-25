@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
-import type { DictDef } from './dicts.defs';
+import type { DictBase } from './dicts.defs';
 
 type Db = mongo.Db;
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -31,8 +31,8 @@ const countProducts = (db: Db, ids: unknown[]) => db.collection('products').aggr
  * (`showcase.ensureCategory`), но с номером группы `groupNo` — он даёт первые две цифры артикула. `groupNo` в схеме CRM нет —
  * пишется сырым `db.collection`. Номер уникален среди живых групп и после первой записи не меняется.
  */
-export function productGroupDefs({ translit }: Ctx): DictDef[] {
-  const groups: DictDef = {
+export function productGroupDefs({ translit }: Ctx): DictBase[] {
+  const groups: DictBase = {
     key: 'productGroups', group: 'Склад и позиции', title: 'Группы изделий',
     hint: 'Тренажёры, Воркаут, Скамьи… Номер группы — первые две цифры артикула изделия (группа 12 → артикулы 12…). Раздел собирает группы вместе.',
     coll: 'categories', match: GROUPS,
@@ -80,7 +80,7 @@ export function productGroupDefs({ translit }: Ctx): DictDef[] {
     reassign: async (db, from, to) => (await db.collection('products').updateMany({ categoryId: from._id }, { $set: { categoryId: to._id } })).modifiedCount,
   };
 
-  const sections: DictDef = {
+  const sections: DictBase = {
     key: 'productSections', group: 'Склад и позиции', title: 'Разделы изделий',
     hint: 'Крупные разделы продукции: в них собираются группы изделий («Спорт» → Тренажёры, Воркаут).',
     coll: 'categories', match: SECTIONS,

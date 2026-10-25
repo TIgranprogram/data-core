@@ -5,6 +5,7 @@ import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
 import { passportPhrasesDef } from './dicts.passport-phrases';
 import { productGroupDefs } from './dicts.product-groups';
+import { DICT_META } from './dicts.meta';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -67,7 +68,21 @@ export interface DictDef {
   editRoles?: string[];
   /** Ключ дубля (по умолчанию — название): у «Сортамента» размер повторяется у разных материалов. */
   dupKey?(d: Doc): string;
+  /** Разделы приложения, где применяется справочник (русские названия) — подпись «Применяется в: …». */
+  sections: string[];
+  /** Как значение лежит в данных: 'name' — строкой (переименование идёт каскадом), 'id' — ссылкой по id/коду (каскад запрещён). */
+  refBy: 'name' | 'id';
+  /** Связь с данными не ведётся (услуги, оформление): удаление свободно. */
+  untracked?: true;
+  /** Причина запрета удаления (встроено в программу); null — можно. */
+  locked?(d: Doc): string | null;
+  /** Занято ли значение — быстрая проверка без подсчёта (по умолчанию: `usage` для одной записи). */
+  busy?(db: Db, d: Doc): Promise<boolean>;
+  /** Что считать сменой названия для каскада (по умолчанию — `name`): у сотрудника — только имя и фамилия, не телефон и должность. */
+  renameKey?(d: Doc): string;
 }
+/** Описание без паспорта справочника (`sections`, `refBy` …) — их добавляет `DICT_META` в конце файла. */
+export type DictBase = Omit<DictDef, 'sections' | 'refBy' | 'untracked' | 'locked'>;
 
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const opt = (v: unknown) => s(v) || null;
@@ -115,14 +130,14 @@ const personName = (d: Doc) => [d.lastName, d.firstName, d.patronymic].map(s).fi
 const personKeys = (d: Doc) => [norm(`${s(d.firstName)} ${s(d.lastName)}`), norm(`${s(d.lastName)} ${s(d.firstName)}`), norm(d.firstName)].filter(Boolean);
 
 /** «Нормативы»: name — короткое обозначение, title — полное наименование (в карточке); столбцы таблицы — статус и «Проверено». */
-const standardsView = (d: DictDef): DictDef => ({
+const standardsView = (d: DictBase): DictBase => ({
   ...d,
   columns: d.columns.filter((c) => c.key === 'status' || c.key === 'checkedAt'),
   fields: d.fields.map((f) => (f.key === 'name' ? { ...f, label: 'Обозначение (коротко)', hint: 'Как в тексте паспорта: «ГОСТ Р 57538-2017»' } : f)),
 });
 
 /** Простые списки data-core: { dict, name, notes, days?, … } */
-function simpleList(key: string, group: string, title: string, hint: string, extra: Field[], usage?: { coll: string; field: string }, defaults: string[] = [], sheetKey?: string): DictDef {
+function simpleList(key: string, group: string, title: string, hint: string, extra: Field[], usage?: { coll: string; field: string }, defaults: string[] = [], sheetKey?: string): DictBase {
   return {
     key, group, title, hint, coll: 'dict_values', match: { dict: key, deletedAt: null },
     columns: extra.filter((f) => !f.tech).map((f) => ({ key: f.key, label: f.label })),
@@ -135,6 +150,7 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
       const t = await tally(db, usage.coll, usage.field);
       return new Map(docs.map((d) => [String(d._id), t.get(norm(d.name)) ?? 0]));
     },
+    busy: usage ? async (db, d) => (await db.collection(usage.coll).countDocuments({ deletedAt: null, [usage.field]: sameRe(d.name) }, { limit: 1 })) > 0 : undefined,
     related: async (db, d) => {
       if (!usage) return { title: '', items: [], total: 0 };
       const q = { deletedAt: null, [usage.field]: new RegExp(`^\\s*${s(d.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') };
@@ -144,7 +160,7 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
     reassign: async (db, from, to) => {
       if (!usage) return 0;
       const re = new RegExp(`^\\s*${s(from.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
-      return (await db.collection(usage.coll).updateMany({ [usage.field]: re }, { $set: { [usage.field]: s(to.name), editedInApp: true } })).modifiedCount;
+      return (await db.collection(usage.coll).updateMany({ [usage.field]: re }, { $set: { [usage.field]: s(to.name), ...(usage.coll === 'supplyrequests' ? { editedInApp: true } : {}) } })).modifiedCount;
     },
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
@@ -164,7 +180,7 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
  * Справочники металла склада: значение в позиции (`materials.<field>`) остаётся строкой, справочник даёт список для выбора и фильтров.
  * «Используется» — число позиций; материалы общие с CRM, поэтому при объединении только правим строку (без пометок приложения).
  */
-function metalList(key: string, title: string, hint: string, field: 'assortment' | 'materialGrade'): DictDef {
+function metalList(key: string, title: string, hint: string, field: 'assortment' | 'materialGrade'): DictBase {
   const rx = sameRe;
   return {
     ...simpleList(key, 'Склад и позиции', title, hint, [], { coll: 'materials', field }),
@@ -188,7 +204,7 @@ function metalList(key: string, title: string, hint: string, field: 'assortment'
  * Доходы общие с CRM: при объединении правим только строку; позиции показываем со ссылкой на заказ.
  */
 const PAYMENT_FORMS = ['б/р', 'б/р 30%', 'б/р 50%', 'нал'];
-function paymentFormsList(): DictDef {
+function paymentFormsList(): DictBase {
   const base = simpleList('paymentForms', 'Заявки и счета', 'Формы оплаты',
     'б/р, б/р 30 %, нал — как в позициях заказов; от неё считается прогноз денег. Выбирается в заказе из списка — одно написание.', [],
     { coll: 'incomes', field: 'paymentForm' }, PAYMENT_FORMS);
@@ -252,6 +268,8 @@ function ppUsage(ref: PpRef): Pick<DictDef, 'usage' | 'related' | 'reassign'> {
     },
     // объединение: паспорта и ссылки по коду переходят к записи, с которой объединяют
     reassign: async (db, from, to) => {
+      // та же запись: pull-after-push стёр бы ссылки — переносить нечего
+      if (String(from._id) === String(to._id)) return 0;
       let n = 0;
       if (ref.pp === 'passportCategory') {
         if (s(from.code) && s(to.code)) n += (await db.collection('productpassports').updateMany({ passportCategory: s(from.code) }, { $set: { passportCategory: s(to.code) } })).modifiedCount;
@@ -299,7 +317,7 @@ const noUsage: UsageParts = { usage: async () => new Map(), related: async () =>
 /** id записей «Материалов и покрытий» с кодом («Сортамент» привязан к коду материала, таблица изделия — к id). */
 const matIdsByCode = async (db: Db, code: string) => (code ? (await db.collection('dict_values').find({ dict: 'passportMaterials', code }).project({ _id: 1 }).toArray()).map((x) => x._id) : []);
 
-export const DICTS: DictDef[] = [
+const BASE: DictBase[] = [
   // ───────── Склад и позиции ─────────
   {
     key: 'categories', group: 'Склад и позиции', title: 'Категории',
@@ -371,6 +389,10 @@ export const DICTS: DictDef[] = [
         return [String(d._id), n];
       }));
     },
+    busy: async (db, d) => {
+      const q = { deletedAt: null, unit: { $in: [s(d.symbol), s(d.key)].filter(Boolean).map(sameRe) } };
+      return (await db.collection('materials').countDocuments(q, { limit: 1 })) + (await db.collection('supplyrequests').countDocuments(q, { limit: 1 })) > 0;
+    },
     related: async (db, d) => {
       const vals = [s(d.symbol), s(d.key)].filter(Boolean);
       const q = { deletedAt: null, unit: { $in: vals } };
@@ -399,7 +421,7 @@ export const DICTS: DictDef[] = [
     softDelete: { isActive: false },
   },
   // Причины списания (SK-5): `stockmovements.reason` — название; значения по умолчанию добавляет WriteOffReasonsSeed
-  simpleList('writeOffReasons', 'Склад и позиции', 'Причины списания', 'Почему материал списан со склада без выдачи: брак, потеря, порча, прочее. Выбирается в окне «Списать».', []),
+  simpleList('writeOffReasons', 'Склад и позиции', 'Причины списания', 'Почему материал списан со склада без выдачи: брак, потеря, порча, прочее. Выбирается в окне «Списать».', [], { coll: 'stockmovements', field: 'reason' }),
   {
     key: 'colors', group: 'Склад и позиции', title: 'Цвета',
     hint: 'Цвета покраски и материалов (RAL и свои). Позже — выбор цвета в позиции и заказе.',
@@ -413,6 +435,11 @@ export const DICTS: DictDef[] = [
       // склад + позиции заказов + заявки: цвет, которого нет на складе, не выглядит неиспользуемым
       const [m, i, r] = await Promise.all([tally(db, 'materials', 'colors'), tally(db, 'incomes', 'color'), tally(db, 'supplyrequests', 'color')]);
       return new Map(docs.map((d) => { const k = norm(d.name); return [String(d._id), (m.get(k) ?? 0) + (i.get(k) ?? 0) + (r.get(k) ?? 0)]; }));
+    },
+    busy: async (db, d) => {
+      const re = sameRe(d.name);
+      return (await db.collection('materials').countDocuments({ deletedAt: null, colors: re }, { limit: 1 })) + (await db.collection('incomes').countDocuments({ deletedAt: null, color: re }, { limit: 1 }))
+        + (await db.collection('supplyrequests').countDocuments({ deletedAt: null, color: re }, { limit: 1 })) > 0;
     },
     related: async (db, d) => {
       const q = { deletedAt: null, colors: s(d.name) };
@@ -484,6 +511,14 @@ export const DICTS: DictDef[] = [
       const t = await tally(db, 'supplyrequests', 'requestedBy');
       return new Map(docs.map((d) => [String(d._id), Math.max(...personKeys(d).map((k) => t.get(k) ?? 0), 0)]));
     },
+    // заявки (кто подал) + выдачи со склада
+    busy: async (db, d) => {
+      const names = [`${s(d.firstName)} ${s(d.lastName)}`, `${s(d.lastName)} ${s(d.firstName)}`].map((x) => x.trim()).filter(Boolean).map(sameRe);
+      if ((await db.collection('supplyrequests').countDocuments({ deletedAt: null, requestedBy: { $in: names } }, { limit: 1 })) > 0) return true;
+      return (await db.collection('stockmovements').countDocuments({ issuedToPersonId: d._id, deletedAt: null }, { limit: 1 })) > 0;
+    },
+    // в заявках человек записан «Имя Фамилия»: каскад — только при смене имени или фамилии (не должности и телефона)
+    renameKey: (d) => norm(`${s(d.firstName)} ${s(d.lastName)}`),
     related: async (db, d) => {
       const names = [`${s(d.firstName)} ${s(d.lastName)}`, `${s(d.lastName)} ${s(d.firstName)}`].map((x) => x.trim()).filter(Boolean);
       const q = { deletedAt: null, requestedBy: { $in: names.map((n) => new RegExp(`^\\s*${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')) } };
@@ -761,4 +796,5 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
 /** Поля справочника с подписью «Название» из DICT_UI. */
 export const uiFields = (d: DictDef) => { const l = DICT_UI[d.key]?.nameLabel; return l ? d.fields.map((f) => (f.key === 'name' ? { ...f, label: l } : f)) : d.fields; };
 
+export const DICTS: DictDef[] = BASE.map((d) => ({ ...d, ...DICT_META[d.key] }));
 export const DICT = new Map(DICTS.map((d) => [d.key, d]));

@@ -18,7 +18,7 @@
 
 ## Справочники
 - `sections/passport-tree.js` — дерево «Тексты паспорта» (`mountTree`, d=passportPhrases) + панель `ptnode` (`of=ptnode&open=<id>|new.<parentId>`; форма: название, текст, catChips, порядок, по умолчанию/обязательный; «Объединить с…» POST /dicts/passportPhrases/:id/merge {intoId}; «Убрать» DELETE + restore; «+ Подвариант»). Данные — GET /dicts/passportPhrases (узлы: parentId, text, categories, allCategories, order, required, isDefault).
-- `sections/dicts.js` — `reloadTree()` для TREE_KEY; общая таблица: метки «дубль · N» + фильтр; поле `categories` формы справочника — catChipsField. Старый редактор шаблона разделов (`passport-texts.js`, d=ptexts) переименован «Общие разделы (шаблон)»; `VARS` экспортируется.
+- `sections/dicts.js` (DICT, не закоммичено): `menuGroups/renderNav` (группы GROUP_NAME, select `.dict-sel`), `renderTable` (`ul.dict-list`), `removeItem` (usage → confirmDlg | modal замены, админ `isAdmin()`), форма: `_usage` widget + `warn` имени (`dict.form.fields`), `startEdit`. Контракт: /usage, merge, `dict.sections/locked`. Ниже — прежнее: `reloadTree()` для TREE_KEY; общая таблица: метки «дубль · N» + фильтр; поле `categories` формы справочника — catChipsField. Старый редактор шаблона разделов (`passport-texts.js`, d=ptexts) переименован «Общие разделы (шаблон)»; `VARS` экспортируется.
 - `sections/products.js` — блок «Паспорт» в форме изделия (pdCategory + pdChoices; сохранение: `savePd` → PUT /showcase/:id/passport-defaults с whitelist `PD_KEYS` + textChoices), действие «Клонировать» (POST /showcase/:id/clone → patch open).
 - `main.js` — SECTIONS/OWNER: ptext, ptextview, ptnode.
 

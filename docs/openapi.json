@@ -4219,6 +4219,38 @@
         ]
       }
     },
+    "/dicts/{key}/{id}/usage": {
+      "get": {
+        "operationId": "DictsController_usage",
+        "summary": "Занято ли значение и в каких разделах: { busy, sections, tracked, locked }",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники"
+        ]
+      }
+    },
     "/dicts/{key}/{id}": {
       "get": {
         "operationId": "DictsController_get",

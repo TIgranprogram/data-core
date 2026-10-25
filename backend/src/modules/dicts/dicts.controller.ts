@@ -51,6 +51,13 @@ export class DictsController {
     return this.dicts.importNames(key, body?.names);
   }
 
+  /** Занято ли значение и где (объявлен раньше общего `:key/:id`). */
+  @Get(':key/:id/usage')
+  @Roles('user')
+  usage(@Param('key') key: string, @Param('id') id: string) {
+    return this.dicts.usage(key, id);
+  }
+
   @Get(':key/:id')
   @Roles('user')
   async get(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
@@ -78,7 +85,7 @@ export class DictsController {
   @AuditAction({ action: 'dict.deleted', entityType: 'DictItem', idParam: 'id', details: (_d, p) => ({ meta: { dict: p.key } }) })
   remove(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return this.dicts.remove(key, id);
+    return this.dicts.remove(key, id, user);
   }
 
   @Post(':key/:id/restore')
@@ -93,9 +100,9 @@ export class DictsController {
   @Post(':key/:id/merge')
   @HttpCode(200)
   @Roles('manager')
-  @AuditAction({ action: 'dict.merged', entityType: 'DictItem', idParam: 'id', details: (d, p) => ({ meta: { dict: p.key, into: (d as { _id?: string })?._id, moved: (d as { moved?: number })?.moved } }) })
+  // журнал «dict.merged» (с id перенесённых записей) пишет сам сервис
   merge(@Param('key') key: string, @Param('id') id: string, @Body() body: { intoId?: string }, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return this.dicts.merge(key, id, String(body?.intoId ?? ''));
+    return this.dicts.merge(key, id, String(body?.intoId ?? ''), user);
   }
 }

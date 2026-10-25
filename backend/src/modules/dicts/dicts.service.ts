@@ -5,6 +5,8 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { DICT, DICTS, DICT_UI, type DictDef, type Doc, norm, translit, uiFields } from './dicts.defs';
+import { AuditService } from '../audit/audit.service';
+import { trackMoved, type MovedLog } from './dicts.moved';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -24,7 +26,7 @@ function similarity(a: string, b: string) {
  */
 @Injectable()
 export class DictsService {
-  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService) {}
+  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService, @Optional() private readonly audit?: AuditService) {}
   private get db() { return this.connection.db!; }
 
   /** Правка справочника с `editRoles` (группа «Паспорта» — директор и админ); остальные — как раньше (менеджер+ по @Roles). */
@@ -51,9 +53,25 @@ export class DictsService {
     if (!doc) throw new NotFoundException('Запись не найдена (возможно, удалена)');
     return doc;
   }
-  private item(d: DictDef, doc: Doc, used = 0) {
+  private item(d: DictDef, doc: Doc) {
     const id = String(doc._id);
-    return { ...d.row(doc), id, _id: id, dict: d.key, used, updatedAt: doc.updatedAt ?? null };
+    return { ...d.row(doc), id, _id: id, dict: d.key, updatedAt: doc.updatedAt ?? null };
+  }
+
+  /** Администратор (и владелец) — занятое значение удаляет только он. */
+  private isAdmin(user?: { role?: string; isOwner?: boolean } | null) {
+    return user?.isOwner === true || effectiveRoles(user?.role).includes('admin');
+  }
+  /** Занято ли значение: быстрая проверка одной записи (без подсчёта всей коллекции). */
+  private async isBusy(d: DictDef, doc: Doc) {
+    if (d.untracked) return false;
+    return d.busy ? d.busy(this.db, doc) : ((await d.usage(this.db, [doc])).get(String(doc._id)) ?? 0) > 0;
+  }
+  /** Списки выбора для полей-ссылок формы: ключ справочника → [{ value, label }]. */
+  private async refsOf(d: DictDef) {
+    const refs: Record<string, { value: string; label: string }[]> = {};
+    for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
+    return refs;
   }
 
   /** Для полей-ссылок (select + ref): рядом с id — название (workTypeId → workTypeName, parentId → parentName). */
@@ -65,46 +83,51 @@ export class DictsService {
 
   /** Группы и справочники со счётчиками — левая колонка экрана. */
   async groups() {
-    const out: { group: string; items: { key: string; title: string; hint: string; count: number }[] }[] = [];
+    const out: { group: string; items: { key: string; title: string; hint: string; count: number; sections: string[] }[] }[] = [];
     for (const d of DICTS) {
       const n = await this.db.collection(d.coll).countDocuments(d.match);
       let g = out.find((x) => x.group === d.group);
       if (!g) out.push((g = { group: d.group, items: [] }));
-      g.items.push({ key: d.key, title: d.title, hint: d.hint, count: n, ...(d.editRoles ? { editRoles: d.editRoles } : {}) });
+      g.items.push({ key: d.key, title: d.title, hint: d.hint, count: n, sections: d.sections, ...(d.editRoles ? { editRoles: d.editRoles } : {}) });
     }
     return { items: out };
   }
 
-  /** Строки справочника: названия, свои колонки, «используется в N». Поля формы — для правой панели. */
+  /** Строки справочника: названия, свои колонки. Без «используется» (его даёт `usage` по одной записи); исключение — «Тексты паспорта». Поля формы — для правой панели. */
   async list(key: string, search?: string) {
     const d = this.def(key);
     const docs = await this.docs(d);
-    // справочники «Паспорта»: «где используется» считается по справочникам и паспортам — кэш по версиям (С9), без пересчёта при каждом открытии
-    const used = this.versions && key.startsWith('passport')
-      ? await this.versions.cached('dicts.usage', ['dict_values', 'productpassports', 'products'], key, () => d.usage(this.db, docs))
-      : await d.usage(this.db, docs);
+    // дерево «Тексты паспорта» показывает «используется»: считает кэшируемый подсчёт по версиям данных
+    const used = key === 'passportPhrases'
+      ? this.versions ? await this.versions.cached('dicts.usage', ['dict_values', 'productpassports', 'products'], key, () => d.usage(this.db, docs)) : await d.usage(this.db, docs)
+      : null;
     const tk = searchTokens(search); // слова в любом порядке, ё = е, M10 = М10
-    // справочник для ссылок «Вид работ» / «График выплат» в форме
-    const refs: Record<string, { value: string; label: string }[]> = {};
-    for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
-    const items = docs.map((x) => this.item(d, x, used.get(String(x._id)) ?? 0) as Record<string, unknown>)
+    const refs = await this.refsOf(d);
+    const items = docs.map((x) => (used ? { ...this.item(d, x), used: used.get(String(x._id)) ?? 0 } : this.item(d, x)) as Record<string, unknown>)
       .map((x) => this.refNames(d, x, refs))
       .filter((x) => matchesAll(tk, ...Object.values(x).filter((v) => typeof v === 'string' || typeof v === 'number')))
       .sort((a, b) => String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru'));
     await this.attachPhotos(d, items);
-    return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, newTitle: DICT_UI[d.key]?.newTitle, group: d.group, hint: d.hint, columns: d.columns, fields: uiFields(d), refs } };
+    const locked = d.locked ? docs.flatMap((x) => { const reason = d.locked!(x); return reason ? [{ id: String(x._id), code: s(x.code), reason }] : []; }) : [];
+    return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, newTitle: DICT_UI[d.key]?.newTitle, group: d.group, hint: d.hint, columns: d.columns, fields: uiFields(d), refs, sections: d.sections, refBy: d.refBy, locked } };
   }
 
   async get(key: string, id: string) {
     const d = this.def(key);
     const doc = await this.one(d, id);
-    const used = (await d.usage(this.db, [doc])).get(id) ?? 0;
-    const related = await d.related(this.db, doc);
-    const base = (await this.list(key)).dict;
-    const row = this.item(d, doc, used) as Record<string, unknown>;
-    Object.assign(row, this.refNames(d, row, base.refs));
+    const refs = await this.refsOf(d);
+    const row = this.item(d, doc) as Record<string, unknown>;
+    Object.assign(row, this.refNames(d, row, refs));
     await this.attachPhotos(d, [row]);
-    return { ...row, related, dictInfo: { title: d.title, fields: uiFields(d), refs: base.refs } };
+    return { ...row, dictInfo: { title: d.title, fields: uiFields(d), refs } };
+  }
+
+  /** Связь значения с данными: занято ли и в каких разделах. Быстрая проверка наличия, без подсчёта. */
+  async usage(key: string, id: string) {
+    const d = this.def(key);
+    const doc = await this.one(d, id);
+    const busy = await this.isBusy(d, doc);
+    return { busy, sections: busy ? d.sections : [], tracked: !d.untracked, locked: d.locked?.(doc) ?? null };
   }
 
   /** Поля-картинки (photo/photos): к строке — `photos: { id: { url, thumb } }` для показа и формы. */
@@ -157,23 +180,36 @@ export class DictsService {
     return this.get(key, String(r.insertedId));
   }
 
+  /**
+   * Правка. У справочника со строковой связью (`refBy: 'name'`) смена названия сначала переносится по данным (каскад),
+   * и только потом пишется в сам справочник — упавший на полпути запрос повторяется тем же PATCH. Ответ: запись + `moved`.
+   */
   async update(key: string, id: string, body: Record<string, unknown>) {
     const d = this.def(key);
     const cur = await this.one(d, id);
     body = this.lockedCode(d, cur, body ?? {});
     const set = await d.toDoc(body, false, this.db, id);
-    await this.checkDuplicate(d, { ...cur, ...set } as Doc, id);
+    const next = { ...cur, ...set } as Doc;
+    await this.checkDuplicate(d, next, id);
+    const rk = d.renameKey ?? d.name;
+    const renamed = d.refBy === 'name' && norm(rk(cur)) !== norm(rk(next));
+    const moved = renamed ? await d.reassign(this.db, cur, next) : 0;
     await this.db.collection(d.coll).updateOne({ _id: cur._id }, { $set: set });
-    return this.get(key, id);
+    if (renamed) await this.audit?.log({ action: 'dict.renamed', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, from: d.name(cur), to: d.name(next), moved } } });
+    return { ...(await this.get(key, id)), moved };
   }
 
-  /** Удалить (в корзину). Используемое значение удалить нельзя — только объединить с другим (СП.8). */
-  async remove(key: string, id: string) {
+  /** Удалить (в корзину). Встроенное не удаляется; занятое — только администратор и только заменой («Объединить с…»). */
+  async remove(key: string, id: string, user?: { role?: string; isOwner?: boolean } | null) {
     const d = this.def(key);
     const doc = await this.one(d, id);
+    const lock = d.locked?.(doc);
+    if (lock) throw new ConflictException(`«${d.name(doc)}» — ${lock.toLowerCase()}: удалить нельзя`);
     await d.beforeRemove?.(this.db, doc);
-    const used = (await d.usage(this.db, [doc])).get(id) ?? 0;
-    if (used > 0) throw new ConflictException(`«${d.name(doc)}» используется в записях: ${used}. Удалить нельзя — объедините с другим значением («Объединить с…»), записи перейдут к нему.`);
+    if (await this.isBusy(d, doc)) {
+      if (!this.isAdmin(user)) throw new ForbiddenException('Удаление занятого значения доступно администратору');
+      throw new ConflictException(`«${d.name(doc)}» используется в записях. Удалить нельзя — замените на другое значение («Объединить с…»), записи перейдут к нему.`);
+    }
     await this.db.collection(d.coll).updateOne({ _id: doc._id }, { $set: { deletedAt: new Date(), ...(d.softDelete ?? {}) } });
     return { id, deleted: true };
   }
@@ -187,14 +223,19 @@ export class DictsService {
     return this.get(key, id);
   }
 
-  /** Объединить дубль: всё связанное с `id` переходит к `intoId`, дубль — в корзину. */
-  async merge(key: string, id: string, intoId: string) {
+  /** Объединить дубль: всё связанное с `id` переходит к `intoId`, дубль — в корзину. Занятое значение — только администратор. */
+  async merge(key: string, id: string, intoId: string, user?: { role?: string; isOwner?: boolean } | null) {
     const d = this.def(key);
     const into = String(intoId || '').replace(`${key}:`, '');
     if (!into || into === id) throw new BadRequestException('Выберите, с чем объединить');
     const [from, to] = await Promise.all([this.one(d, id), this.one(d, into)]);
-    const moved = await d.reassign(this.db, from, to);
+    const lock = d.locked?.(from);
+    if (lock) throw new ConflictException(`«${d.name(from)}» — ${lock.toLowerCase()}: объединить нельзя`);
+    if (!this.isAdmin(user) && (await this.isBusy(d, from))) throw new ForbiddenException('Удаление занятого значения доступно администратору');
+    const log: MovedLog = { ids: [], truncated: false };
+    const moved = await d.reassign(trackMoved(this.db, log), from, to);
     await this.db.collection(d.coll).updateOne({ _id: from._id }, { $set: { deletedAt: new Date(), mergedInto: to._id, ...(d.softDelete ?? {}) } });
+    await this.audit?.log({ action: 'dict.merged', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, into, moved, movedIds: log.ids, ...(log.truncated ? { movedIdsTruncated: true } : {}) } } });
     return { ...(await this.get(key, into)), moved };
   }
 

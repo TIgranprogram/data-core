@@ -174,8 +174,7 @@ describe('Showcase', () => {
     expect(x.materialsSpec).toEqual({ rows: [{ materialId: String(m[0]), sizes: ['∅89×3', '33,5×2,8'], partIds: [String(m[2])] }], coatingIds: [String(m[1])] });
     expect(x.materialsText).toBe('Изготовлено из стальных труб ∅89×3 и 33,5×2,8 мм. Состоит из стоек. Окрашено порошковой краской.');
     // справочник: используется в изделии — удалить нельзя
-    const used = (await http().get('/api/dicts/passportParts').set(auth()).expect(200)).body.items.find((i: { id: string }) => i.id === String(m[2]));
-    expect(used.used).toBe(1);
+    expect((await http().get(`/api/dicts/passportParts/${String(m[2])}/usage`).set(auth()).expect(200)).body).toMatchObject({ busy: true, tracked: true });
     await http().patch(`/api/showcase/${x.id}`).set(auth()).send({ materialsSpec: { rows: [{ materialId: String(new Types.ObjectId()) }] } }).expect(400);
     await http().patch(`/api/showcase/${x.id}`).set(auth()).send({ materialsSpec: { rows: [{ sizes: ['2'] }] } }).expect(400);
     const pv = (await http().post('/api/showcase/materials-text').set(auth()).send({ materialsSpec: { rows: [{ materialId: String(m[0]), sizes: ['∅57×3'] }] } }).expect(200)).body;

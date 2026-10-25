@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
 import { checkNode, leavesOf, buildForest, rootIdOf, toNode, type PhraseNode } from '../../common/passport/phrase-tree';
-import type { DictDef, Doc } from './dicts.defs';
+import type { DictBase, Doc } from './dicts.defs';
 
 type Db = mongo.Db;
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -18,7 +18,7 @@ const loadNodes = async (db: Db): Promise<PhraseNode[]> => (await db.collection(
  * списком: проверки структуры при записи, «Используется» по выборам в паспортах и изделиях (`textChoices`), удаление узла с
  * вариантами — отказ. Старые поля (`section`, `categories`, `text`) прежние; выданные паспорта хранят свой снимок текста.
  */
-export function passportPhrasesDef(base: DictDef): DictDef {
+export function passportPhrasesDef(base: DictBase): DictBase {
   const rootOf = (all: PhraseNode[], id: string) => rootIdOf(new Map(all.map((n) => [n.id, n])), id);
   /** Листья, чьи выборы считаются «использованием» узла: сам лист или все листья ветки. */
   const leafIdsOf = (all: PhraseNode[], d: Doc) => {
