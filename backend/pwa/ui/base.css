@@ -26,7 +26,9 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); margin: 0
 .brand img { width: 30px; height: 30px; }
 .brand small { display: block; font-size: 11px; font-weight: 500; color: var(--gold); letter-spacing: .02em; }
 .side-group { display: flex; align-items: center; gap: 8px; margin: 16px 10px 6px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--side-head); }
-.side-group::before { content: ''; width: 14px; height: 2px; border-radius: 1px; background: currentColor; opacity: .8; flex: none; } /* короткая полоска перед названием группы (2026-10-24) */
+/* Заголовок группы меню — ОДИН вид для главного меню и меню «Справочников» (2026-10-25): золотая точка перед названием.
+   Меняется здесь — меняется в обоих меню; цвет — от места (тёмное меню: --side-head, панель: --gold-deep) */
+.side-group::before, .dict-group::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .side-link { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 8px; color: var(--side-text); font-weight: 500; position: relative; }
 .side-link:hover { background: var(--side-2); color: #fff; text-decoration: none; }
 .side-link.active { background: var(--side-2); color: var(--side-text-hi); }
@@ -863,7 +865,7 @@ html { scrollbar-gutter: stable; }
 /* «Справочники» (TASKS СП.4, DESIGN §4): группы слева, таблица справа, строка раскрывается — что связано */
 .dict-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s4); align-items: start; }
 .dict-nav { padding: var(--s2); position: sticky; top: calc(var(--topbar-h) + var(--s3)); }
-.dict-group { font-size: var(--fs-label); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: var(--s3) var(--s2) var(--s1); }
+.dict-group { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-label); font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--gold-deep); padding: var(--s3) var(--s2) var(--s1); } /* как .side-group — см. общий ::before выше */
 .dict-group:first-child { padding-top: var(--s1); }
 .dict-link { display: flex; align-items: center; gap: var(--s2); padding: 7px var(--s2); border-radius: var(--radius-sm); color: var(--text); position: relative; }
 .dict-link:hover { background: var(--row-hover); text-decoration: none; }
