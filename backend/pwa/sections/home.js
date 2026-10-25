@@ -14,7 +14,6 @@ import { moveLabel } from './movements.js';
 import { heading, patchStatus, receiveDialog, requests } from './requests.js';
 import { markToday } from './orders.js';
 import { STAGE } from './salesorders.js';
-import { errText } from '../ui/errors.js';
 
 /**
  * «Сегодня» — рабочий стол менеджера (CANON §2 «Главная»). Не витрина, а список дел:
@@ -221,7 +220,7 @@ export function mountHome(deps) {
     } catch (e) {
       // Разовый сбой (напр. в момент продления входа) — одна повторная попытка
       if (summaryRetry++ < 1) { setTimeout(loadSummary, 1200); return; }
-      summary.replaceChildren(h('div', { class: 'sum-item static' }, h('span', { class: 'sum-l' }, 'Сводка не загрузилась: ' + errText(e))));
+      summary.replaceChildren(failBlock(e, null, { text: 'Сводка не загрузилась' }));
     }
   }
 

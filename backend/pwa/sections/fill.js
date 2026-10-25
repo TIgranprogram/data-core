@@ -3,7 +3,6 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { errText } from '../ui/errors.js';
 
 /**
  * «Требуют заполнения» по категориям (TASKS ТЗ.3–ТЗ.4). Данные — `/api/fill-audit`: группа = что не заполнено,
@@ -62,6 +61,6 @@ export function fillToday() {
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, g.title), h('div', { class: 'q-sub' }, [g.area, g.why].join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num' }, qty(g.count))))),
     r.groups.length > top.length ? h('li', { class: 'q-empty' }, `ещё групп: ${r.groups.length - top.length} — «Все →»`) : '');
-  }).catch((e) => list.replaceChildren(h('li', { class: 'q-empty' }, 'Не загрузилось: ' + errText(e))));
+  }).catch((e) => list.replaceChildren(failBlock(e, null, { tag: 'li', cls: 'q-empty' })));
   return { el, load };
 }

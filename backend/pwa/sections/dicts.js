@@ -14,7 +14,6 @@ import { mountTree, TREE_KEY } from './passport-tree.js';
 import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { normSearch, searchTokens } from '../core/facets.js';
-import { errText } from '../ui/errors.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы, справа компактная таблица выбранного
@@ -119,7 +118,7 @@ export function mountDicts(params) {
     };
     const key = dictKey() + ':' + r.id;
     if (relCache.has(key)) fill(relCache.get(key));
-    else api(`/dicts/${dictKey()}/${r.id}`).then((res) => { relCache.set(key, res); fill(res); }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + errText(e))));
+    else api(`/dicts/${dictKey()}/${r.id}`).then((res) => { relCache.set(key, res); fill(res); }).catch((e) => box.replaceChildren(failBlock(e)));
     return box;
   }
   function toggle(id) { if (openRows.has(id)) openRows.delete(id); else openRows.add(id); renderTable(); }
@@ -148,7 +147,7 @@ export function mountDicts(params) {
           h('span', { class: 'muted' }, [c.uses ? `встречается ${qty(c.uses)} раз` : '', c.source].filter(Boolean).join(' · ')),
           c.similar ? h('span', { class: 'tag' }, `похоже на «${c.similar.name}» ${Math.round(c.similar.score * 100)}%`) : null))),
         h('div', { class: 'bulk-foot' }, go2, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { cand.hidden = true; } }, 'Закрыть')));
-    } catch (e) { cand.replaceChildren(h('p', { class: 'muted' }, 'Не загрузилось: ' + errText(e))); }
+    } catch (e) { cand.replaceChildren(failBlock(e)); }
   }
 
   async function reloadTree() {

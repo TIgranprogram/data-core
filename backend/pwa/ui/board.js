@@ -2,8 +2,8 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
+import { failBlock } from './busy.js';
 import { toastError } from './toast.js';
-import { errText } from './errors.js';
 
 /**
  * Доска — колонки слева направо (по статусу). Один компонент на все разделы с доской.
@@ -181,7 +181,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       } catch (e) {
         if (my !== seq) return;
         n.textContent = '—';
-        body.replaceChildren(h('div', { class: 'col-more' }, 'Не загрузилось: ' + errText(e)));
+        body.replaceChildren(failBlock(e, null, { cls: 'col-more' }));
       }
     }));
     if (my === seq) { el.classList.remove('loading'); if (board.headCount && totals.length === cols.length) onTotal?.(totals.reduce((a, b) => a + b, 0)); }
