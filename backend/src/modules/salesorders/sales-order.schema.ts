@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { ORDER_STAGES, type OrderStage } from '../../common/text/order-key';
+import { ORDER_PRIORITIES, ORDER_STAGES, type OrderPriority, type OrderStage } from '../../common/text/order-key';
 
 export type SalesOrderDocument = HydratedDocument<SalesOrder>;
 
@@ -31,6 +31,8 @@ export class SalesOrder {
   @Prop({ type: Date }) deliveryDeadline?: Date;
   @Prop({ type: String, enum: ORDER_STAGES, default: 'new', index: true }) stage!: OrderStage;
   @Prop({ trim: true }) notes?: string;
+  /** Приоритет заказа (ПРЖ-3): нет = обычный. Подставляется в задачи «Проектирования»; в кэш позиций не копируется. */
+  @Prop({ type: String, enum: ORDER_PRIORITIES, index: true }) priority?: OrderPriority;
 
   /**
    * Ключ «компания|номер» (order-key.ts). Ставится при создании и НЕ меняется при правке номера —

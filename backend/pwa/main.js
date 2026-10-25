@@ -18,6 +18,7 @@ import { mountPayroll } from './sections/payroll.js';
 const FEATURES = { payroll: true };
 import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
+import { design } from './sections/design.js';
 import { partners } from './sections/partners.js';
 import { dict, mountDicts } from './sections/dicts.js';
 import { mountFill } from './sections/fill.js';
@@ -51,8 +52,8 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, design, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['partners', 'Контрагенты', 'partners'], ['products', 'Продукция', 'stock'], ['passports', 'Паспорта', 'orders'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
@@ -153,7 +154,7 @@ function shell() {
     navLinks.home,
     group('Снабжение', navLinks.requests),
     group('Склад', navLinks.stock),
-    group('Заказы', navLinks.salesorders, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners),
+    group('Заказы', navLinks.salesorders, navLinks.design, navLinks.products, session.canEdit ? navLinks.passports : null, navLinks.partners),
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' },
       installLink(),
@@ -208,9 +209,10 @@ async function refreshCounts() {
   // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
   const get = (id, path) => (session.sees(id) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
   try {
-    const [r, s, o, so] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders')]);
+    const [r, s, o, so, dz] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks')]);
     if (o) set('orders', o.counts?.awaiting || 0);
     if (so) set('salesorders', so.counts?.active || 0);
+    if (dz) set('design', (dz.counts?.queue || 0) + (dz.counts?.work || 0));
     if (r) { const c = r.counts || {}; set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0)); }
     if (s) set('stock', (s.counts?.low || 0) + (s.counts?.none || 0));
   } catch { /* счётчики не критичны */ }
@@ -318,7 +320,7 @@ function syncCard(section, params) {
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, lid: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, lid: undefined, dstatus: undefined, lineId: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     changed: () => { mounted?.list?.reload?.(); refreshCounts(); },

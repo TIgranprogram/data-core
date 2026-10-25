@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsMongoId, IsOptional, IsString, Length } from 'class-validator';
-import { ORDER_STAGES, type OrderStage } from '../../common/text/order-key';
+import { ORDER_PRIORITIES, ORDER_STAGES, type OrderPriority, type OrderStage } from '../../common/text/order-key';
 
 /** Шапка заказа заказчика. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить; текст '' — очистить. */
 export class SalesOrderDto {
@@ -16,6 +16,7 @@ export class SalesOrderDto {
   @ApiPropertyOptional({ description: 'Срок изготовления' }) @IsOptional() @IsString() @Length(0, 30) productionDeadline?: string;
   @ApiPropertyOptional({ description: 'Окончание поставки' }) @IsOptional() @IsString() @Length(0, 30) deliveryDeadline?: string;
   @ApiPropertyOptional({ enum: ORDER_STAGES, description: 'new | production | ready | shipped | closed | cancelled' }) @IsOptional() @IsIn(ORDER_STAGES as unknown as string[]) stage?: OrderStage;
+  @ApiPropertyOptional({ enum: ORDER_PRIORITIES, description: 'urgent | high | normal | low; "" — снять (= обычный)' }) @IsOptional() @IsIn([...ORDER_PRIORITIES, '']) priority?: OrderPriority | '';
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 5000) notes?: string;
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }

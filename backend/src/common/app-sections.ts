@@ -15,7 +15,7 @@ export const APP_SECTIONS = [
   { id: 'orders', label: 'Позиции и оплаты' },
   { id: 'money', label: 'Платёжный календарь' },
   { id: 'payroll', label: 'ФОТ' },
-  // SK-8d: будущий раздел «Проектирование» (/api/design-tasks, ТЗ PRJ) — проверка готова заранее.
+  // «Проектирование»: /api/design-tasks (modules/design, ПРЖ-3).
   { id: 'design', label: 'Проектирование' },
 ] as const;
 

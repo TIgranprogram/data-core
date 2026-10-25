@@ -746,6 +746,21 @@ Write-paths, которые должны быть all-or-nothing, использ
 | importKey | string, unique sparse | «компания\|номер» (`order-key.ts`); ставится при создании и не меняется — по нему лист «Заказы» и импорт находят шапку |
 | clientUid, source, editedInApp, importFiles | | повтор; google-sheets / import-xlsx; правилась в приложении — лист берёт поля из шапки |
 | deletedAt, createdBy, createdAt, updatedAt | | soft-delete (вместе с позициями), аудит |
+| priority | enum | ПРЖ-3: urgent / high / normal / low; нет = обычный; в кэш позиций не копируется |
+
+### `DesignTask` (задача «Проектирования») — коллекция `designtasks`, модуль `modules/design` (ПРЖ-3)
+Чертежи под позицию заказа или свободная задача. Срок и приоритет заказа в задачу не копируются — берутся при выдаче; цен нет.
+| Поле | Тип | Заметки |
+|--|--|--|
+| seq | number | сквозной номер, код «D-N» (`nextSeq('DesignTask','D')`), unique |
+| status | enum | queue / work (нужен исполнитель) / done / paused (нужна причина `pauseReason`) |
+| orderId, incomeId, productId | ObjectId | заказ, позиция (incomes), изделие (products); у свободной задачи пусто |
+| assigneeId | ObjectId → persons | исполнитель |
+| title, note | string | своё название (иначе «Чертежи <артикул> ЗНП <№ заказа> поз <№>»), заметка |
+| manual | {deadline?, priority?} | свои срок и приоритет; пусто — из заказа (срок изготовления → отгрузка) |
+| completedAt, completedBy | Date, ObjectId | при done; пустой `products.designerId` получает исполнителя |
+| openIncomeId | ObjectId | замок «одна открытая задача на позицию» (= incomeId, пока не done и не удалена), unique sparse |
+| deletedAt | Date | корзина |
 
 ### `SupplyRequest.invoiceDate` (общая с kppdf `supplyrequests`)
 Необязательное `Date` — дата счёта поставщика; расход в платёжном календаре ложится на неё. Раньше лежала строкой в `sheetExtra.invoiceDate`.

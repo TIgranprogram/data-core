@@ -12,14 +12,17 @@ import { errText } from './errors.js';
  *   card(row) → { title, meta: [узлы/строки], side },
  *   move?(row, toKey) → Promise<boolean>   // перенос карточки в другую колонку (только для admin/manager)
  *   perColumn: 30,
+ *   columns[]: { compact — тонкие карточки, per — порция, portion — «ещё N →» дописывает порцию на месте }
+ *   card(row, column) → ещё { body — свои узлы карточки вместо заголовка/мета, cls }; add(ключ колонки) + addLabel — «+ Добавить» в колонке;
+ *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
  * }
  * Перетаскивание — своё, на pointer-событиях (CANON §2, замечание пользователя 2026-10-19): карточка «поднимается»
  * и едет за курсором с тенью, на её месте пунктир, колонка-цель подсвечена; никакого полупрозрачного призрака
  * браузера и значка «нельзя». Мышь — сразу после сдвига на 6px; палец — долгое нажатие (350 мс), иначе это прокрутка.
  */
-export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
+export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTotal }) {
   let query = initialQuery;
-  const el = h('div', { class: 'board' });
+  const el = h('div', { class: 'board' + (board.cls ? ' ' + board.cls : '') });
   const per = board.perColumn || 30;
   const canMove = !!board.move && session.canEdit;
 
@@ -29,7 +32,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
     const col = h('section', { class: 'col tone-' + (c.tone || 'dim'), 'aria-label': c.label, dataset: { key: c.key } },
       h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, c.label), n), body);
     el.append(col);
-    return { c, n, body, col };
+    return { c, n, body, col, page: 1, shown: 0, more: null, addLink: null };
   });
 
   // ---------- Перетаскивание ----------
@@ -122,36 +125,65 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged }) {
 
   // только последний ответ (ПО.2): быстрый поиск-стирание — старый медленный ответ не затирает новый
   let seq = 0;
+  const fetchCol = async (c, page, my) => {
+    const q = { query: { ...query, ...c.query, page, limit: c.per || per } };
+    // 6 колонок = 6 запросов: быстрое «ввёл-стёр» упирается в лимит 10/с → один повтор через секунду
+    return api(path, q).catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return api(path, q); });
+  };
+  function cardEl(row, c) {
+    const v = board.card(row, c);
+    const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0',
+      onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter') onOpen(row); } },
+    ...(v.body ? [].concat(v.body) : [
+      v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
+      h('div', { class: 't-title', title: v.title }, v.title),
+      h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null)]));
+    bindDrag(card, row, c.key);
+    return card;
+  }
+  /** Карточки колонки; append — порция «ещё N →» дописывается в конец (c.portion), иначе колонка перерисовывается. */
+  function paint(col, r, append, my) {
+    const { c, body } = col;
+    col.more?.remove(); col.addLink?.remove();
+    col.shown = (append ? col.shown : 0) + r.items.length;
+    const cards = r.items.map((row) => cardEl(row, c));
+    if (!append) body.replaceChildren(...(cards.length ? cards : [h('div', { class: 'col-more muted' }, 'Пусто')]));
+    else body.append(...cards);
+    const rest = r.total - col.shown;
+    col.more = null;
+    if (rest > 0) {
+      // c.portion — «ещё N →» дописывает порцию на месте; иначе остальное — списком (завершённое там свёрнуто по месяцам, фаза М)
+      col.more = c.portion
+        ? h('button', { type: 'button', class: 'col-more link-btn', onclick: async (e) => {
+          const btn = e.currentTarget; btn.disabled = true;
+          try { const next = await fetchCol(c, ++col.page, my); paint(col, next, true, my); } catch (ex) { col.page--; btn.disabled = false; toastError(ex); }
+        } }, `ещё ${qty(Math.min(rest, c.per || per))} из ${qty(rest)} →`)
+        : h('button', { type: 'button', class: 'col-more link-btn', onclick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }) }, `ещё ${qty(rest)} — списком по месяцам →`);
+      body.append(col.more);
+    }
+    // тихая ссылка «+ Добавить задачу» внизу колонки (board.add(ключ колонки))
+    col.addLink = board.add && session.canEdit ? h('button', { type: 'button', class: 'col-add link-btn', onclick: () => board.add(c.key) }, board.addLabel || '+ Добавить') : null;
+    if (col.addLink) body.append(col.addLink);
+  }
   async function load() {
     const my = ++seq;
     el.classList.add('loading');
-    await Promise.all(cols.map(async ({ c, n, body }) => {
+    const totals = [];
+    await Promise.all(cols.map(async (col) => {
+      const { c, n, body } = col;
       try {
-        const q = { query: { ...query, ...c.query, page: 1, limit: per } };
-        // 6 колонок = 6 запросов: быстрое «ввёл-стёр» упирается в лимит 10/с → один повтор через секунду
-        const r = await api(path, q).catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return api(path, q); });
+        col.page = 1;
+        const r = await fetchCol(c, 1, my);
         if (my !== seq) return;
-        n.textContent = qty(r.total);
-        if (!r.items.length) { body.replaceChildren(h('div', { class: 'col-more muted' }, 'Пусто')); return; }
-        body.replaceChildren(...r.items.map((row) => {
-          const v = board.card(row);
-          const card = h('article', { class: 'tcard' + (canMove ? ' movable' : ''), tabindex: '0',
-            onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter') onOpen(row); } },
-          v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
-          h('div', { class: 't-title', title: v.title }, v.title),
-          h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null));
-          bindDrag(card, row, c.key);
-          return card;
-        }));
-        // Остальное — списком (завершённое там свёрнуто по месяцам, фаза М)
-        if (r.total > r.items.length) body.append(h('button', { type: 'button', class: 'col-more link-btn', onclick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }) }, `ещё ${qty(r.total - r.items.length)} — списком по месяцам →`));
+        n.textContent = qty(r.total); totals.push(r.total);
+        paint(col, r, false, my);
       } catch (e) {
         if (my !== seq) return;
         n.textContent = '—';
         body.replaceChildren(h('div', { class: 'col-more' }, 'Не загрузилось: ' + errText(e)));
       }
     }));
-    if (my === seq) el.classList.remove('loading');
+    if (my === seq) { el.classList.remove('loading'); if (board.headCount && totals.length === cols.length) onTotal?.(totals.reduce((a, b) => a + b, 0)); }
   }
   load();
   return { el, reload: load, setQuery: (q) => { query = q; load(); } };

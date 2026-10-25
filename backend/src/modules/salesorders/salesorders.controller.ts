@@ -24,10 +24,11 @@ export class SalesOrdersController {
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false, description: '№ заказа, заказчик, предмет, № контракта, примечание' })
-  @ApiQuery({ name: 'sort', required: false, description: 'orderNo | customer | stage | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)' })
+  @ApiQuery({ name: 'sort', required: false, description: 'orderNo | customer | stage | priority | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)' })
   @ApiQuery({ name: 'filter', required: false, description: 'active (новый / в производстве / готов) | done (отгружен / закрыт) | all' })
   @ApiQuery({ name: 'stage', required: false, description: 'этапы через запятую: new, production, ready, shipped, closed, cancelled' })
   @ApiQuery({ name: 'companyId', required: false })
+  @ApiQuery({ name: 'priority', required: false, description: 'приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low' })
   @ApiQuery({ name: 'from', required: false, description: 'по дате отгрузки, ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>) {

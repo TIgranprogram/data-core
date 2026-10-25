@@ -55,6 +55,7 @@ import { StockModule } from './modules/stock/stock.module';
 import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
+import { DesignModule } from './modules/design/design.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { DictsModule } from './modules/dicts/dicts.module';
 import { FillAuditModule } from './modules/fill-audit/fill-audit.module';
@@ -166,6 +167,7 @@ import { RequestMethod } from '@nestjs/common';
     DiskModule,             // /api/health/disk — место на диске сервера (админ / директор)
     FillAuditModule,        // /api/fill-audit — «Требуют заполнения» по категориям (что, зачем, куда идти)
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
+    DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа
