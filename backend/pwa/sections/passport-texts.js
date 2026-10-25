@@ -26,7 +26,7 @@ function withVars(text) {
   });
 }
 export const CATS = [
-  { code: 'ALL', name: 'Для всех' }, { code: 'TRN', name: 'Тренажёры' }, { code: 'WRK', name: 'Воркаут' }, { code: 'MAF', name: 'Благоустройство' },
+  { code: 'ALL', name: 'Для всех' }, { code: 'TRN', name: 'Тренажёры' }, { code: 'WRK', name: 'Воркаут' }, { code: 'BLG', name: 'Благоустройство' },
   { code: 'DIO', name: 'Детское игровое (позже)' }, { code: 'DSP', name: 'Детское спортивное (позже)' },
 ];
 /** Переменные (§3.3 п. 8) — подсказка; клик вставляет в текст. */

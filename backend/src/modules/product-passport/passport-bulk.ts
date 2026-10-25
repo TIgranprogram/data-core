@@ -27,7 +27,8 @@ export class PassportBulk {
     if (ids.length > 500) throw new BadRequestException('За один раз — не больше 500 паспортов');
     const set = Object.fromEntries(Object.entries(dto.set ?? {}).filter(([k]) => (BULK_PASSPORT_FIELDS as readonly string[]).includes(k)));
     if (!Object.keys(set).length) throw new BadRequestException('Отметьте, что изменить');
-    if (set.passportCategory !== undefined && set.passportCategory !== '' && !['DIO', 'DSP', 'TRN', 'WRK', 'MAF'].includes(String(set.passportCategory))) throw new BadRequestException('Неизвестная категория паспорта');
+    if (set.passportCategory === 'MAF') set.passportCategory = 'BLG'; // старый код (2026-10-25)
+    if (set.passportCategory !== undefined && set.passportCategory !== '' && !['DIO', 'DSP', 'TRN', 'WRK', 'BLG'].includes(String(set.passportCategory))) throw new BadRequestException('Неизвестная категория паспорта');
     for (const k of BULK_NUMBER_FIELDS) if (k in set && set[k] !== null && set[k] !== '') { const n = Number(String(set[k]).replace(',', '.')); if (!Number.isFinite(n) || n < 0) throw new BadRequestException('Числа — не меньше нуля'); set[k] = n; }
     for (const k of ['elements', 'materialIds'] as const) if (k in set && !Array.isArray(set[k])) throw new BadRequestException('Элементы и материалы — список');
     const rebuild = dto.rebuildText !== false && 'passportCategory' in set;

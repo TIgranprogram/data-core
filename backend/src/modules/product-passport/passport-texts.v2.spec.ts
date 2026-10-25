@@ -73,7 +73,7 @@ describe('PASSPORT_TEXTS_V2', () => {
     expect(order('TRN')).toEqual(['general', 'use', 'mounting', 'service', 'moving', ...tail]);
     expect(order('WRK')).toEqual(['general', 'use', 'mounting', 'service', 'checks', ...tail]);
     expect(order('DSP')).toEqual(['general', 'use', 'mounting', 'service', ...tail]);
-    expect(order('MAF')).toEqual(['general', 'mounting', 'service', 'care', ...tail]);
+    expect(order('BLG')).toEqual(['general', 'mounting', 'service', 'care', ...tail]);
     expect(order('DIO')).toEqual(['general', 'use', 'mounting', 'service', 'inspections', ...tail]);
   });
 
@@ -92,7 +92,7 @@ describe('PASSPORT_TEXTS_V2', () => {
     expect(svc('TRN')).not.toMatch(/52301|55679/);
     expect(svc('DIO')).toContain(STD_DICT.GOST_R_52301);
     expect(svc('DSP')).toContain(STD_DICT.GOST_R_55679);
-    expect(svc('MAF')).not.toMatch(/ГОСТ/);
+    expect(svc('BLG')).not.toMatch(/ГОСТ/);
   });
 
   it.each(CATS)('%s: качество текста (§6.1)', (c) => {

@@ -1,4 +1,5 @@
 import { IsArray, IsBoolean, IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { IsObjectId } from '../../../common/decorators/is-object-id.decorator';
 import { PASSPORT_IMAGE_KINDS } from '../product-passport.schema';
 
@@ -40,7 +41,8 @@ export class CreateProductPassportDto {
   /** [{ pos, code, name, qty, unit, note }] — по умолчанию «Изделие в сборе». */
   @IsOptional() @IsArray() bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string; size?: string; mass?: number; photoId?: string }>;
   // ───── Паспорт v2 (БЗ-6 §3.4) — всё необязательное ─────
-  @IsOptional() @IsIn(['DIO', 'DSP', 'TRN', 'WRK', 'MAF']) passportCategory?: string;
+  // 2026-10-25: код MAF заменён на BLG; старое значение (открытая старая версия приложения) принимаем как BLG
+  @IsOptional() @Transform(({ value }) => (value === 'MAF' ? 'BLG' : value)) @IsIn(['DIO', 'DSP', 'TRN', 'WRK', 'BLG']) passportCategory?: string;
   @IsOptional() @IsArray() @IsObjectId({ each: true }) elements?: string[];
   @IsOptional() @IsArray() @IsObjectId({ each: true }) materialIds?: string[];
   /** МИ: таблица «Материалы изделия» — снимок изделия с правкой; null — убрать. Разбор — common/catalog/materials-table.ts. */

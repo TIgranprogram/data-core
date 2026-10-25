@@ -82,7 +82,7 @@ export class ProductPassportController {
   @AppSection('passports', 'products')
   @Get('passports/funnel')
   @Roles(...VIEW)
-  @ApiQuery({ name: 'category', required: false, description: 'Код категории паспорта: TRN, WRK, MAF, DIO, DSP' })
+  @ApiQuery({ name: 'category', required: false, description: 'Код категории паспорта: TRN, WRK, BLG, DIO, DSP' })
   funnel(@Query('category') category?: string) {
     return this.service.funnel(category);
   }
@@ -97,7 +97,7 @@ export class ProductPassportController {
   /** «Шаблон паспорта» — типовые разделы 3–7 и таблицы (действующая версия). */
   @Get('passports/template')
   @Roles(...VIEW)
-  @ApiQuery({ name: 'category', required: false, enum: ['ALL', 'DIO', 'DSP', 'TRN', 'WRK', 'MAF'], description: 'Категория блока текста; нет версии категории — «Для всех»' })
+  @ApiQuery({ name: 'category', required: false, enum: ['ALL', 'DIO', 'DSP', 'TRN', 'WRK', 'BLG'], description: 'Категория блока текста; нет версии категории — «Для всех»' })
   template(@Query('category') category?: string) {
     return this.service.template(category);
   }
@@ -116,7 +116,7 @@ export class ProductPassportController {
    */
   @Get('passports/texts')
   @Roles(...VIEW)
-  @ApiQuery({ name: 'category', required: true, enum: ['DIO', 'DSP', 'TRN', 'WRK', 'MAF'] })
+  @ApiQuery({ name: 'category', required: true, enum: ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] })
   texts(@Query('category') category?: string) {
     return this.service.texts(category);
   }

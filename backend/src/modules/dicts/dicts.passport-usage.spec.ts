@@ -40,7 +40,7 @@ describe('справочники «Паспорта»: где используе
       { _id: id(), passportCategory: 'TRN', elements: [bar._id], deletedAt: null },
       { _id: id(), passportCategory: 'TRN', deletedAt: null },
       { _id: id(), passportCategory: 'TRN', deletedAt: new Date() },
-      { _id: id(), passportCategory: 'MAF', deletedAt: null },
+      { _id: id(), passportCategory: 'BLG', deletedAt: null },
     ],
   };
   const db = fakeDb(data);

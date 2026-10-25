@@ -71,7 +71,7 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
       { kind: 'пиктограмма правил', category: 'TRN', text: 'Чужая категория', use: 'да' },
     ];
     expect(resolveStyle(rows, 'DIO', { maxUsers: 4 })).toEqual({ color: '#2E7D32', icons: ['Не более 4 человек'] });
-    expect(resolveStyle(rows, 'MAF', {})).toEqual({ color: NEUTRAL_COLOR, icons: [] });
+    expect(resolveStyle(rows, 'BLG', {})).toEqual({ color: NEUTRAL_COLOR, icons: [] });
     expect(shortTiles({ ageFrom: 3, ageTo: 12, serviceLifeYears: 2, warrantyMonths: 12 }).map((t) => t.value)).toEqual(['3–12 лет', '2 года', '12 мес.']);
   });
 

@@ -76,7 +76,7 @@ describe('compose', () => {
       expect(r.sections[0].items).toHaveLength(1);
       expect(r.sections[0].items[0].text).toBe('Рост от 1400 мм');
     }
-    expect(compose([all, trn], {}, 'MAF').sections[0].items[0].text).toBe('Возраст любой');
+    expect(compose([all, trn], {}, 'BLG').sections[0].items[0].text).toBe('Возраст любой');
   });
 
   it('отсутствующая переменная — видимая метка и missing (без дублей)', () => {

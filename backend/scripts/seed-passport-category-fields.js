@@ -22,7 +22,7 @@ const FIELDS = {
     fieldHints: L('maxUsers — сколько человек занимаются одновременно', 'weightMax — допустимый вес занимающегося', 'siteLength — площадка вместе с зоной безопасности', 'serviceLifeYears — обычно 10 лет'),
     fieldDefaults: '',
   },
-  MAF: {
+  BLG: {
     allowedFields: L('maxUsers', 'siteLength', 'siteWidth', 'serviceLifeYears'),
     fieldHints: L('maxUsers — для скамьи, беседки, стола — число мест', 'siteLength — место под изделие вместе с проходами', 'serviceLifeYears — обычно 5 лет'),
     fieldDefaults: '',

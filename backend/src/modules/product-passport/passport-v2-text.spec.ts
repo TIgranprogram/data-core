@@ -34,7 +34,7 @@ describe('buildV2Text', () => {
   });
 
   it('без справочников — пустые части, текст шаблона собирается', () => {
-    const t = buildV2Text({ passport: { name: 'Скамья', passportCategory: 'MAF' }, all: DEFAULT_PASSPORT_TEMPLATE });
+    const t = buildV2Text({ passport: { name: 'Скамья', passportCategory: 'BLG' }, all: DEFAULT_PASSPORT_TEMPLATE });
     expect(t.rules).toEqual([]);
     expect(t.maintenance).toEqual([]);
     expect(t.sections.length).toBeGreaterThan(0);

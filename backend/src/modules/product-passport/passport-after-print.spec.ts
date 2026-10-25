@@ -19,7 +19,7 @@ describe('поля «после печати»', () => {
   it('заказчик / объект и прочее «после печати» не входят в «не хватает»', () => {
     const full = { name: 'Урна', category: 'Благоустройство', date: new Date(), supplierOrgId: 'x', height: 1, length: 1, width: 1, weight: 1, materials: 'сталь', installationMethod: 'анкеры', purpose: 'мусор', description: 'd', images: [{ kind: 'overview' }] };
     expect(missingFields(full as never)).toEqual([]);
-    const k = missingKeyed({ ...full, passportCategory: 'MAF', installationTypeId: 'i', serviceLifeYears: 5 } as never, { requiredFields: 'serviceLifeYears' });
+    const k = missingKeyed({ ...full, passportCategory: 'BLG', installationTypeId: 'i', serviceLifeYears: 5 } as never, { requiredFields: 'serviceLifeYears' });
     expect(k.map((x) => x.key)).not.toEqual(expect.arrayContaining(['customerName', 'objectName', 'orderNo', 'saleDate', 'installedBy', 'installedAt', 'note']));
   });
 });

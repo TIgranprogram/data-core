@@ -21,7 +21,7 @@ describe('buildForest: видимость по категории', () => {
     expect(buildForest([root, node({ name: 'Ветка', parentId: root.id }), node({ name: 'Пустой', parentId: root.id, allCategories: true })], 'TRN')).toEqual([]);
   });
   it('предок виден, если виден потомок; без категории — всё дерево', () => {
-    const branch = node({ name: 'Ветка', parentId: root.id, categories: 'MAF' });
+    const branch = node({ name: 'Ветка', parentId: root.id, categories: 'BLG' });
     const leaf = node({ name: 'Лист', parentId: branch.id, text: 'Т.', allCategories: true });
     expect(buildForest([root, branch, leaf], 'WRK')[0].children[0].children[0].name).toBe('Лист');
     expect(buildForest(nodes)[0].children).toHaveLength(2);

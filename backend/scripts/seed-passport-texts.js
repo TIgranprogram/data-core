@@ -12,7 +12,7 @@ const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
 const TEXTS = require('./passport-texts.v2.json');
 
-const ORDER = ['ALL', 'TRN', 'WRK', 'DSP', 'MAF', 'DIO'];
+const ORDER = ['ALL', 'TRN', 'WRK', 'DSP', 'BLG', 'DIO'];
 const argv = process.argv.slice(2);
 const apply = argv.includes('--apply');
 const onlyArg = argv.find((a) => a.startsWith('--only='));

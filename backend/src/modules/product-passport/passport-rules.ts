@@ -154,7 +154,7 @@ export const V2_REQUIRED_FIELDS: Record<string, Array<[string, string]>> = {
   DSP: [['ageFrom', 'Возраст от'], ['maxUsers', 'Пользователей одновременно'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
   TRN: [['heightMin', 'Рост пользователя от'], ['weightMax', 'Вес пользователя до'], ['maxUsers', 'Пользователей одновременно'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
   WRK: [['maxUsers', 'Пользователей одновременно'], ['siteLength', 'Площадка (длина)'], ['siteWidth', 'Площадка (ширина)'], ['serviceLifeYears', 'Срок службы']],
-  MAF: [['serviceLifeYears', 'Срок службы']],
+  BLG: [['serviceLifeYears', 'Срок службы']],
 };
 export const IMAGE_KIND_LABELS: Record<string, string> = {
   overview: 'Фото изделия', dimensions: 'Чертёж с размерами', safety: 'Зона безопасности', mounting: 'Схема монтажа', overview_callouts: 'Фото с подписями частей',
@@ -200,7 +200,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   const replaced = new Set(['Категория', 'Описание', ...(filled(p.materialIds) ? ['Материалы'] : []), ...(filled(p.installationTypeId) ? ['Установка'] : []), ...(filled(p.elements) ? ['Назначение'] : [])]);
   const m = missingFields(p).filter((x) => !replaced.has(x));
   const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'number' && !Number.isFinite(v));
-  if (empty(p.elements) && code !== 'MAF') m.push('Элементы');
+  if (empty(p.elements) && code !== 'BLG') m.push('Элементы');
   if (empty(p.installationTypeId)) m.push('Способ установки');
   for (const [k, label] of requiredFieldsOf(code, cat)) if (empty(p[k])) m.push(label);
   // «safety» (v1) и «safety_zone» (v2) — одно и то же требование

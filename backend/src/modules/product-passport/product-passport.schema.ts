@@ -183,7 +183,7 @@ export class ProductPassport {
   @Prop() strict?: boolean;
 
   // ───── Паспорт v2 (БЗ-6, docs/PASSPORTS-V2.md §3.4) — только новые необязательные поля; kppdf их не читает ─────
-  /** Код категории паспорта (справочник `passportCategories`): DIO, DSP, TRN, WRK, MAF. Пусто — паспорт v1. */
+  /** Код категории паспорта (справочник `passportCategories`): DIO, DSP, TRN, WRK, BLG. Пусто — паспорт v1. */
   @Prop() passportCategory?: string;
   /** Функциональные элементы, материалы — id записей справочников (`dict_values`). Строковое `materials` (v1) не трогаем. */
   @Prop({ type: [Types.ObjectId], default: undefined }) elements?: Types.ObjectId[];

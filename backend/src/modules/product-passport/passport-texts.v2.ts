@@ -19,6 +19,6 @@ import texts from '../../../scripts/passport-texts.v2.json';
  * нормативы — только {std:КОД} (коды — scripts/seed-passport-standards.js); {fig:вид}, {tab:ключ таблицы} — для PDF.
  * Нумерация «Для всех» начинается с 3 (1 Описание и 2 Технические данные выводит PDF) — legacyStartNumber.
  */
-export type PassportTextsCategory = 'ALL' | 'TRN' | 'WRK' | 'DSP' | 'MAF' | 'DIO';
+export type PassportTextsCategory = 'ALL' | 'TRN' | 'WRK' | 'DSP' | 'BLG' | 'DIO';
 
 export const PASSPORT_TEXTS_V2: Record<PassportTextsCategory, PassportTemplateContent> = texts as Record<PassportTextsCategory, PassportTemplateContent>;

@@ -6,7 +6,7 @@ describe('категория шаблона текста паспорта', () =
     expect(normalizeCategory(undefined)).toBe('ALL');
     expect(normalizeCategory('')).toBe('ALL');
     expect(normalizeCategory(null)).toBe('ALL');
-    expect(normalizeCategory('MAF')).toBe('MAF');
+    expect(normalizeCategory('BLG')).toBe('BLG');
     expect(() => normalizeCategory('XXX')).toThrow(BadRequestException);
     expect(() => normalizeCategory(5)).toThrow(BadRequestException);
   });

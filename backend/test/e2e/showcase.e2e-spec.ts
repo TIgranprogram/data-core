@@ -149,11 +149,11 @@ describe('Showcase', () => {
   it('БЗ-9: массовое изменение изделий — раздел (группы свои), цвета «добавить», значения паспорта, отмена', async () => {
     const x = (await http().post('/api/showcase').set(auth()).send({ sku: 'BK-1', name: 'А', type: 'Старый', group: 'Скамьи', colors: 'зелёный' }).expect(201)).body;
     const y = (await http().post('/api/showcase').set(auth()).send({ sku: 'BK-2', name: 'Б', type: 'Старый', group: 'Урны' }).expect(201)).body;
-    const r = (await http().post('/api/showcase/bulk').set(auth()).send({ ids: [x.id, y.id], set: { type: 'Благоустройство', colors: 'графит', status: 'archived', passportDefaults: { passportCategory: 'MAF', serviceLifeYears: 5 }, sku: 'нельзя' }, arrays: { colors: 'add' } }).expect(200)).body;
+    const r = (await http().post('/api/showcase/bulk').set(auth()).send({ ids: [x.id, y.id], set: { type: 'Благоустройство', colors: 'графит', status: 'archived', passportDefaults: { passportCategory: 'BLG', serviceLifeYears: 5 }, sku: 'нельзя' }, arrays: { colors: 'add' } }).expect(200)).body;
     expect(r).toMatchObject({ updated: 2, failed: [] });
     const x2 = (await http().get(`/api/showcase/${x.id}`).set(auth()).expect(200)).body;
     expect(x2).toMatchObject({ type: 'Благоустройство', group: 'Скамьи', colors: ['зелёный', 'графит'], status: 'archived', sku: 'BK-1' });
-    expect(x2.passportDefaults).toMatchObject({ passportCategory: 'MAF', serviceLifeYears: 5 });
+    expect(x2.passportDefaults).toMatchObject({ passportCategory: 'BLG', serviceLifeYears: 5 });
     expect((await http().get(`/api/showcase/${y.id}`).set(auth()).expect(200)).body).toMatchObject({ type: 'Благоустройство', group: 'Урны' });
     await http().post('/api/showcase/bulk/restore').set(auth()).send({ items: r.before }).expect(200);
     const x3 = (await http().get(`/api/showcase/${x.id}`).set(auth()).expect(200)).body;

@@ -6,7 +6,7 @@ import { parseChoices } from '../../common/passport/phrase-tree';
  * Значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b): `products.passportDefaults` — только новое поле
  * (коллекция общая с kppdf). «Выпустить паспорт» подставляет их в новый паспорт; запасной путь — последний паспорт модели.
  */
-export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'MAF'] as const;
+export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] as const;
 const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths'] as const;
 
 export interface PassportDefaults {
@@ -24,7 +24,8 @@ const oidOf = (v: unknown, what: string) => {
 /** Тело запроса → значения для записи; пустые поля не сохраняются, неизвестные — отбрасываются. */
 export function normalizePassportDefaults(b: Record<string, unknown>): PassportDefaults {
   const out: PassportDefaults = {};
-  const cat = String(b.passportCategory ?? '').trim();
+  const raw = String(b.passportCategory ?? '').trim();
+  const cat = raw === 'MAF' ? 'BLG' : raw; // старый код (2026-10-25: MAF → BLG)
   if (cat) {
     if (!(PASSPORT_CATEGORY_CODES as readonly string[]).includes(cat)) throw new BadRequestException(`Категория паспорта: одна из ${PASSPORT_CATEGORY_CODES.join(', ')}`);
     out.passportCategory = cat;

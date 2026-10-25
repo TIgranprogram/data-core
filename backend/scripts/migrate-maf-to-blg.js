@@ -1,4 +1,4 @@
-/* Т-14: что затронет смена кода категории паспорта MAF → BLG — ТОЛЬКО ПЛАН (режима записи нет намеренно).
+/* Т-14: что затронет смена кода категории паспорта MAF → BLG — план; запись — с --apply (решение пользователя 2026-10-25: «MAF убрать везде»; код выложен вместе с данными).
  * Применять — отдельной задачей после «да» пользователя: тогда дописать запись и бэкап, и одновременно выложить код
  * (список мест в коде — ниже, CODE_PLACES), иначе паспорта BLG будут отклонены проверкой @IsIn и не найдут тексты.
  *
@@ -39,6 +39,24 @@ const hasCode = (s) => String(s || '').split(/[,;\s]+/).includes(FROM);
   console.log(`ПЛАН смены кода ${FROM} → ${TO} (ничего не пишем; запись — после «да», отдельной задачей)`);
   for (const [k, n] of Object.entries(out)) console.log(`  ${k}: ${n}`);
   console.log('Код (выложить одновременно с данными):'); for (const p of CODE_PLACES) console.log('  - ' + p);
+  if (process.argv.includes('--apply')) {
+    const now = new Date(); const r = {};
+    const swapCsv = (v) => String(v || '').split(/s*,s*/).map((x) => (x === FROM ? TO : x)).join(', ');
+    r.passports = (await pp.updateMany({ passportCategory: FROM }, { $set: { passportCategory: TO } })).modifiedCount;
+    r.snapshots = (await pp.updateMany({ 'textSnapshot.category': FROM }, { $set: { 'textSnapshot.category': TO } })).modifiedCount;
+    r.templates = (await db.collection('passporttemplates').updateMany({ category: FROM }, { $set: { category: TO } })).modifiedCount;
+    r.products = (await db.collection('products').updateMany({ 'passportDefaults.passportCategory': FROM }, { $set: { 'passportDefaults.passportCategory': TO } })).modifiedCount;
+    r.dicts = 0;
+    for (const d of dv) {
+      const set = {};
+      if (d.dict === 'passportCategories' && d.code === FROM) set.code = TO;
+      if (d.dict === 'passportStyle' && d.category === FROM) set.category = TO;
+      if (d.dict === 'passportStyle' && /_MAF$/.test(String(d.code))) set.code = String(d.code).replace(/_MAF$/, '_' + TO);
+      if (hasCode(d.categories)) set.categories = swapCsv(d.categories);
+      if (Object.keys(set).length) r.dicts += (await db.collection('dict_values').updateOne({ _id: d._id }, { $set: { ...set, updatedAt: now } })).modifiedCount;
+    }
+    console.log('ЗАПИСАНО:', JSON.stringify(r));
+  }
   console.log('PDF: цвет обложки ищется по коду категории в «Оформлении» — меняется вместе с данными; название на обложке — из справочника (уже «Благоустройство»).');
   await c.close();
 })().catch((e) => { console.error(e.message); process.exit(1); });

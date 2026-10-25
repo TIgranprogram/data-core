@@ -17,7 +17,7 @@ export const LATER_CATS = ['DIO', 'DSP'];
 /** Категории паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
 export const V2_CATS = [
   { value: '', label: 'Без категории' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
-  { value: 'DSP', label: 'Детское спортивное' }, { value: 'DIO', label: 'Детское игровое' }, { value: 'MAF', label: 'Благоустройство' },
+  { value: 'DSP', label: 'Детское спортивное' }, { value: 'DIO', label: 'Детское игровое' }, { value: 'BLG', label: 'Благоустройство' },
 ];
 export const V2_NUMS = [
   ['ageFrom', 'Возраст от, лет', ''], ['ageTo', 'Возраст до, лет', ''],

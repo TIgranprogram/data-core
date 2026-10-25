@@ -83,7 +83,7 @@ describe('Паспорта изделий', () => {
     expect(ok.body.customerName).toBe('ИП Азизова');
     const locked = (await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ weight: 13 }).expect(409)).body;
     expect(locked.message).toMatch(/Новая редакция/);
-    const rev = (await http().patch(`/api/passports/${first}`).query({ newRevision: 1 }).set(as(admin.access)).send({ weight: 13, passportCategory: 'MAF' }).expect(200)).body;
+    const rev = (await http().patch(`/api/passports/${first}`).query({ newRevision: 1 }).set(as(admin.access)).send({ weight: 13, passportCategory: 'BLG' }).expect(200)).body;
     expect(rev).toMatchObject({ weight: 13, revision: 2, passportNumber: '550' });
     expect(rev.revisions).toHaveLength(1);
     expect(rev.revisions[0].data.weight).toBe(12.5);
@@ -92,7 +92,7 @@ describe('Паспорта изделий', () => {
 
   it('копия — черновик без номера: поля модели те же, заказчик пустой', async () => {
     const r = await http().post(`/api/passports/${first}/copy`).set(as(admin.access)).send({}).expect(201);
-    expect(r.body).toMatchObject({ status: 'draft', name: 'Урна парковая', height: 800, weight: 13, supplierOrgId: orgId, passportCategory: 'MAF' });
+    expect(r.body).toMatchObject({ status: 'draft', name: 'Урна парковая', height: 800, weight: 13, supplierOrgId: orgId, passportCategory: 'BLG' });
     expect(String(r.body.passportNumber)).toMatch(/^draft-/); // служебная метка черновика, не номер
     expect(r.body.customerName).toBeUndefined();
     copyId = r.body.id;

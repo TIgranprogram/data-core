@@ -38,7 +38,7 @@ export function passportPhrasesDef(base: DictDef): DictDef {
         { value: 'use', label: 'Правила пользования' }, { value: 'service', label: 'Техническое обслуживание' }, { value: 'general', label: 'Общие указания' },
         { value: 'storage', label: 'Хранение' }, { value: 'transport', label: 'Транспортирование' }, { value: 'repair', label: 'Ремонт' }] },
       { key: 'parentId', label: 'Родитель (id узла; пусто — раздел)', hint: 'Раздел → варианты → подварианты, не больше 4 уровней' },
-      { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, MAF (благоустройство), DIO, DSP' },
+      { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, BLG (благоустройство), DIO, DSP' },
       { key: 'allCategories', label: 'Для всех категорий', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }] },
       { key: 'order', label: 'Порядок среди соседей' },
       { key: 'required', label: 'Раздел обязателен', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }], hint: 'Только у раздела: без выбора паспорт не выпустить' },
