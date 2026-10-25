@@ -3,6 +3,11 @@
 > Только история: что сделано и как проверялось. Открытые задачи — [TASKS.md](TASKS.md), план — [../ROADMAP.md](../ROADMAP.md).
 > Агенту читать только при расследовании «почему так сделано».
 
+## 2026-10-25 — v1.178 — фиксы каталога поставщиков
+
+catalogUrl не сохранялся при обновлении контрагента (`REQUISITES` не включал поле) — явная обработка в `partners.service.ts`. Левый фильтр поставщиков — только с позициями (`GET /supplier-catalog/suppliers`). Подсказка поддерживаемых сайтов в форме.
+- health 200, /app/ 200, /admin/ 200, kppdf :3000 200. tsc + jest зелёные.
+
 ## 2026-10-25 — v1.177 — каталог поставщиков (SC-1 + SC-2)
 
 SC-1: новый модуль `supplier-catalog` — коллекция `supplieritems`, адаптер zaglushka.ru (cheerio), фото в `uploads/suppliers/<orgId>/`, SSRF-защита, аккуратный парсер (User-Agent Chrome, паузы 1–2 с, обработка 429). Поля `catalogUrl/catalogSyncStatus` в `organizations`. Маршруты: GET /supplier-catalog, POST /supplier-catalog/sync/:orgId, GET /supplier-catalog/sync/:orgId.
