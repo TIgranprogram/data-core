@@ -194,7 +194,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // Плитки (категории склада)
   const tilesBox = L.tiles ? h('div', { class: side ? 'ls-list' : 'tiles' }) : null;
-  const tilesGroup = tilesBox && side ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, L.tiles.title || 'Категории'), tilesBox) : null;
+  const tileTagBox = tilesBox && side ? h('div', { class: 'ls-tile-tag', hidden: true }) : null;
+  const tilesGroup = tilesBox && side ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, L.tiles.title || 'Категории'), tileTagBox, tilesBox) : null;
   let tiles = [];
   if (tilesBox) Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => (tilesGroup || tilesBox).remove());
   function renderTiles() {
@@ -224,6 +225,14 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         return [headBtn, subsEl];
       });
       tilesBox.replaceChildren(...nodes);
+      // ТИ-6: крошка выбранной категории (точечный сброс — тот же клик по активной плитке)
+      if (tileTagBox) {
+        const active = tiles.filter((x) => !x.head).find((x) => String(x.value) === cur);
+        if (active) {
+          tileTagBox.replaceChildren(h('button', { type: 'button', class: 'tag active ff-tag', title: 'Сбросить выбор', onclick: () => patch({ [L.tiles.key]: undefined, page: undefined }) }, active.label, ' ×'));
+          tileTagBox.hidden = false;
+        } else { tileTagBox.replaceChildren(); tileTagBox.hidden = true; }
+      }
       return;
     }
     tilesBox.replaceChildren(...tiles.map((x) => h('button', {

@@ -790,8 +790,14 @@ html { scrollbar-gutter: stable; }
 .ff-chev { margin-left: auto; color: var(--muted); transition: transform .15s; transform: rotate(-90deg); }
 .ff-group.open .ff-chev { transform: none; }
 .ff-checks { display: flex; flex-direction: column; padding-bottom: 8px; }
+/* ТИ-6: 2 колонки для длинных групп (длина мм, резьба) */
+.ff-checks.ff-cols { display: grid; grid-template-columns: 1fr 1fr; }
 .ff-check { display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 6px 0; cursor: pointer; overflow-wrap: anywhere; }
 .ff-check input { margin-top: 2px; flex: none; width: 18px; height: 18px; accent-color: var(--primary); }
+/* ТИ-6: крошки выбранных фильтров в inline-панели */
+.ff-crumbs { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px; }
+/* ТИ-6: крошка выбранной плитки-категории в сайдбаре */
+.ls-tile-tag { padding: 4px 0 2px; }
 .ff-head:focus { outline: none; }
 .ff-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding: 10px 16px; }
 .ff-shade { position: fixed; inset: 0; z-index: 38; background: transparent; } /* компьютер: прозрачный — клик мимо закрывает */

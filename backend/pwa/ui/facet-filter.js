@@ -64,10 +64,11 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
       const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key).slice(0, key === 'type' ? 30 : 40);
       if (!vals.length) return null;
       const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
+      const colCls = vals.length > 8 ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); renderPop(); } },
           h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
-        open ? h('div', { class: 'ff-checks', role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
+        open ? h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
           h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, v)))) : null);
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted' }, 'В этой категории признаков нет')]));
@@ -99,8 +100,9 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
 function inlineFilter(categoryKey) {
   let items = null; let src = null; let P = {}; let seq = 0;
   const folded = new Map();
+  const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
-  const el = h('div', { class: 'ff ff-inline' }, body);
+  const el = h('div', { class: 'ff ff-inline' }, crumbs, body);
   const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function render() {
@@ -110,15 +112,22 @@ function inlineFilter(categoryKey) {
     if (my !== seq) return;
     const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
     const sel = parseFt(P.ft);
+    // ТИ-6: крошки выбранных признаков (точечный сброс)
+    const names = Object.fromEntries(FACETS);
+    const selEntries = Object.entries(sel).filter(([, v]) => v);
+    crumbs.hidden = !selEntries.length;
+    crumbs.replaceChildren(...selEntries.map(([k, v]) =>
+      h('button', { type: 'button', class: 'tag active ff-tag', title: 'Убрать: ' + names[k], onclick: () => set(k, v) }, v, ' ×')));
     const groups = FACETS.map(([key, label]) => {
       const others = { ...sel }; delete others[key];
       const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key).slice(0, key === 'type' ? 30 : 40);
       if (!vals.length) return null;
       const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
+      const colCls = vals.length > 8 ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
           h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
-        open ? h('div', { class: 'ff-checks', role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
+        open ? h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
           h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, v)))) : null);
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, 'В этой категории признаков нет')]));
