@@ -33,6 +33,9 @@ export class ZaglushkaAdapter implements BaseAdapter {
   readonly hosts = ['zaglushka.ru'];
   /** Обход дошёл до конца без пропусков */
   complete = false;
+  /** Ход обхода для полосы состояния: страниц пройдено и в очереди */
+  visited = 0;
+  queued = 0;
 
   /**
    * Обход сайта от любой стартовой ссылки (корень, раздел): страницы с og:type=product — товары,
@@ -46,6 +49,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
     const queue: string[] = [baseUrl.toString()];
     const seen = new Set<string>(queue);
     let visited = 0;
+    this.visited = 0; this.queued = queue.length;
     let yielded = 0;
     let skipped = false;
 
@@ -55,6 +59,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
       const first = visited === 0;
       if (!first) await new Promise((r) => setTimeout(r, randMs(ITEM_PAUSE_MIN_MS, ITEM_PAUSE_MAX_MS)));
       visited++;
+      this.visited = visited; this.queued = queue.length;
 
       const html = await this.fetchPage(url, fetchFn);
       if (!html) {
@@ -75,6 +80,7 @@ export class ZaglushkaAdapter implements BaseAdapter {
       for (const l of links) {
         if (!seen.has(l)) { seen.add(l); queue.push(l); }
       }
+      this.queued = queue.length;
     }
     this.complete = !skipped;
   }

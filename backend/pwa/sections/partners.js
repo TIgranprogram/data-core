@@ -155,19 +155,9 @@ function requestsByMonth(items) {
 
 async function syncCatalog(r) {
   await api(`/supplier-catalog/sync/${r.id}`, { method: 'POST' });
-  toast('Синхронизация запущена');
-  const start = Date.now();
-  const tid = setInterval(async () => {
-    if (Date.now() - start > 120_000) { clearInterval(tid); return; }
-    try {
-      const st = await api(`/supplier-catalog/sync/${r.id}`);
-      if (st.status !== 'running') {
-        clearInterval(tid);
-        if (st.status === 'error') toast(`⚠ Ошибка синхронизации${st.error ? ': ' + st.error : ''}`);
-        else toast(`✓ Синхронизировано: ${st.total} поз.`);
-      }
-    } catch { clearInterval(tid); }
-  }, 3000);
+  // загрузка всего сайта идёт десятки минут — ход и остаток видны в «Каталоге» (полоса над списком)
+  toast('Загрузка прайса запущена — ход и примерное время видны в разделе «Каталог»');
+  go('supplier-catalog', { supplierId: r.id });
 }
 
 export const partners = {

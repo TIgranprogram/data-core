@@ -71,6 +71,8 @@ export class SupplierCatalogService implements OnModuleInit {
   private readonly logger = new Logger(SupplierCatalogService.name);
   /** orgId → true, пока идёт синхронизация */
   private readonly running = new Set<string>();
+  /** Ход идущей синхронизации (в памяти): для полосы «идёт загрузка» в приложении. */
+  private readonly progress = new Map<string, { startedAt: Date; items: number; prevTotal: number; adapter: ZaglushkaAdapter }>();
 
   /** Подменяется в тестах */
   fetchFn: FetchFn = (input, init) => fetch(input, init);
@@ -121,6 +123,7 @@ export class SupplierCatalogService implements OnModuleInit {
     lastSyncAt?: Date | null;
     error?: string | null;
     total: number;
+    progress?: { startedAt: Date; items: number; pages: number; queued: number; prevTotal: number; etaSec: number | null } | null;
   }> {
     if (!isValidObjectId(orgId)) throw new BadRequestException('Некорректный id организации');
     const org = await this.orgModel.findById(orgId).lean().exec();
@@ -132,7 +135,25 @@ export class SupplierCatalogService implements OnModuleInit {
       lastSyncAt: o['lastCatalogSyncAt'] as Date | null | undefined,
       error: o['catalogSyncError'] as string | null | undefined,
       total,
+      progress: this.progressOf(orgId),
     };
+  }
+
+  /**
+   * Ход синхронизации: товаров, страниц пройдено / в очереди и примерный остаток (сек).
+   * Остаток — по прошлому числу позиций (повторная загрузка) или по доле пройденных страниц (первая).
+   */
+  private progressOf(orgId: string) {
+    const p = this.progress.get(orgId);
+    if (!p || !this.running.has(orgId)) return null;
+    const pages = p.adapter.visited;
+    const queued = p.adapter.queued;
+    const elapsed = (Date.now() - p.startedAt.getTime()) / 1000;
+    let share = 0;
+    if (p.prevTotal > 0 && p.items > 0) share = Math.min(0.99, p.items / p.prevTotal);
+    else if (pages > 20) share = Math.min(0.99, pages / (pages + queued));
+    const etaSec = share > 0.02 ? Math.round((elapsed / share) * (1 - share)) : null;
+    return { startedAt: p.startedAt, items: p.items, pages, queued, prevTotal: p.prevTotal, etaSec };
   }
 
   /** Поставщики с позициями ИЛИ с заданной ссылкой каталога (новый поставщик виден до первой синхронизации). */
@@ -161,12 +182,14 @@ export class SupplierCatalogService implements OnModuleInit {
   }
 
   async listItems(opts: {
-    supplierId: string;
+    supplierId?: string;
     q?: string;
+    inStock?: string;
     page?: number;
     limit?: number;
   }): Promise<{ items: SupplierItemDocument[]; total: number; page: number; limit: number }> {
-    if (!opts.supplierId || !isValidObjectId(opts.supplierId)) {
+    // поставщик не выбран — позиции всех поставщиков (вход в «Каталог»); мусорный id — 400
+    if (opts.supplierId && !isValidObjectId(opts.supplierId)) {
       throw new BadRequestException('Некорректный id поставщика');
     }
     if ((opts.page !== undefined && !Number.isInteger(opts.page)) || (opts.limit !== undefined && !Number.isInteger(opts.limit))) {
@@ -174,10 +197,10 @@ export class SupplierCatalogService implements OnModuleInit {
     }
     const page = Math.min(100_000, Math.max(1, opts.page ?? 1));
     const limit = Math.min(200, Math.max(1, opts.limit ?? 50));
-    const filter: Record<string, unknown> = {
-      supplierId: new Types.ObjectId(opts.supplierId),
-      active: true,
-    };
+    const filter: Record<string, unknown> = { active: true };
+    if (opts.supplierId) filter['supplierId'] = new Types.ObjectId(opts.supplierId);
+    if (opts.inStock === '1') filter['inStock'] = true;
+    else if (opts.inStock === '0') filter['inStock'] = { $ne: true };
     if (opts.q) {
       const re = new RegExp(escapeRe(opts.q), 'i');
       filter['$or'] = [{ name: re }, { vendorArticle: re }];
@@ -206,6 +229,8 @@ export class SupplierCatalogService implements OnModuleInit {
     try {
       const prevActive = await this.itemModel.countDocuments({ supplierId, active: true });
       let collected = 0;
+      const prog = { startedAt: runStart, items: 0, prevTotal: prevActive, adapter };
+      this.progress.set(orgId, prog);
       const ops: Parameters<typeof this.itemModel.bulkWrite>[0] = [];
 
       for await (const item of adapter.fetchItems(catalogUrl, safeFetch)) {
@@ -221,6 +246,7 @@ export class SupplierCatalogService implements OnModuleInit {
           safeFetch,
         );
         collected++;
+        prog.items = collected;
 
         const doc = this.parsedToDoc(item, supplierId, localPhotoPaths, runStart);
         ops.push({
@@ -266,6 +292,7 @@ export class SupplierCatalogService implements OnModuleInit {
       this.logger.error(`sync failed orgId=${orgId}: ${msg}`);
     } finally {
       this.running.delete(orgId);
+      this.progress.delete(orgId);
     }
   }
 

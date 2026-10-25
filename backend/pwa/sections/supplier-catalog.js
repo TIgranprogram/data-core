@@ -8,6 +8,60 @@ const _cache = new Map();
 /** Кэш имён поставщиков: supplierId → name. Заполняется при загрузке tiles. */
 const _supplierNames = new Map();
 
+const mins = (sec) => (sec < 60 ? 'меньше минуты' : sec < 3600 ? `${Math.round(sec / 60)} мин` : `${Math.floor(sec / 3600)} ч ${Math.round((sec % 3600) / 60)} мин`);
+const canSync = () => ['admin', 'manager'].includes(session.role);
+
+/**
+ * Полоса состояния над списком: идёт загрузка прайса (товаров, страниц, сколько идёт, ≈ сколько осталось),
+ * итог последней загрузки или подсказка, что сделать, если позиций нет. Пока идёт загрузка — обновляется раз в 5 с.
+ */
+function syncStrip(reload) {
+  const box = h('div', { class: 'list-hint sync-strip', hidden: true, role: 'status', 'aria-live': 'polite' });
+  let wasRunning = new Set();
+  const start = async (s) => {
+    try { await api(`/supplier-catalog/sync/${s.id}`, { method: 'POST' }); toast(`Загрузка прайса «${s.name}» запущена`); setTimeout(tick, 1500); }
+    catch (e) { toastError(e); }
+  };
+  async function tick() {
+    if (!box.isConnected && wasRunning.size) return; // ушли с экрана — не опрашиваем
+    let sups = [];
+    try { sups = (await api('/supplier-catalog/suppliers')).items || []; } catch { return; }
+    const st = await Promise.all(sups.map((s) => api(`/supplier-catalog/sync/${s.id}`).then((x) => ({ ...s, ...x })).catch(() => ({ ...s, status: 'idle' }))));
+    const running = st.filter((s) => s.status === 'running');
+    for (const s of st) if (wasRunning.has(s.id) && s.status !== 'running') {
+      if (s.status === 'error') toast(`⚠ Загрузка прайса «${s.name}» не удалась${s.error ? ': ' + s.error : ''}`);
+      else toast(`✓ Прайс «${s.name}» загружен: ${qty(s.total)} поз.`);
+      reload();
+    }
+    wasRunning = new Set(running.map((s) => s.id));
+    const lines = [];
+    for (const s of running) {
+      const p = s.progress;
+      const parts = [`⏳ Идёт загрузка прайса «${s.name}»`];
+      if (p) {
+        parts.push(`товаров: ${qty(p.items)}${p.prevTotal ? ' из ≈' + qty(p.prevTotal) : ''}`, `страниц: ${qty(p.pages)}${p.queued ? ', впереди ' + qty(p.queued) : ''}`,
+          `идёт ${mins((Date.now() - new Date(p.startedAt).getTime()) / 1000)}`, p.etaSec != null ? `осталось ≈ ${mins(p.etaSec)}` : 'оценка времени — после первых страниц');
+      }
+      lines.push(h('div', null, parts.join(' · ')));
+    }
+    for (const s of st.filter((x) => x.status === 'error')) lines.push(h('div', null, `⚠ Последняя загрузка «${s.name}» не удалась${s.error ? ': ' + s.error : ''}. `,
+      canSync() ? h('button', { type: 'button', class: 'link-btn', onclick: () => start(s) }, 'Повторить') : null));
+    const empty = st.filter((x) => x.status !== 'running' && x.status !== 'error' && !x.itemCount);
+    for (const s of empty) lines.push(h('div', null, `Прайс «${s.name}» ещё не загружен. `,
+      canSync() ? h('button', { type: 'button', class: 'link-btn', onclick: () => start(s) }, 'Загрузить прайс') : 'Загрузку запускает менеджер или администратор.'));
+    if (!sups.length) lines.push(h('div', null, 'Позиций пока нет. Откройте поставщика в «Контрагентах» → «Изменить» → впишите ссылку на каталог → «Синхронизировать прайс».'));
+    else if (!lines.length) {
+      const last = st.filter((s) => s.lastSyncAt).sort((a, b) => new Date(b.lastSyncAt) - new Date(a.lastSyncAt))[0];
+      if (last) lines.push(h('div', null, `Прайс «${last.name}» обновлён ${date(last.lastSyncAt)}: ${qty(last.total)} поз.`));
+    }
+    box.replaceChildren(...lines);
+    box.hidden = !lines.length;
+    if (running.length) setTimeout(tick, 5000);
+  }
+  tick();
+  return box;
+}
+
 export const supplierCatalog = {
   id: 'supplier-catalog',
   title: 'Каталог поставщиков',
@@ -31,7 +85,8 @@ export const supplierCatalog = {
     sidebar: true,
     sortDefault: 'name',
     searchPlaceholder: 'Поиск: наименование, артикул…',
-    emptyText: 'Нет позиций — выберите поставщика и нажмите «Синхронизировать прайс» в его карточке.',
+    emptyText: 'Позиций нет. Загрузите прайс кнопкой в полосе выше или в карточке поставщика («Контрагенты» → поставщик → «Синхронизировать прайс»).',
+    top: (reload) => syncStrip(reload),
 
     /** Левая панель: список поставщиков. Клик — фильтр по supplierId (hidden filter ниже). */
     tiles: {

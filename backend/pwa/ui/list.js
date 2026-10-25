@@ -202,7 +202,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const syncPicks = () => panel.querySelectorAll('.pick-cb').forEach((cb) => { cb.checked = picked.has(cb.dataset.id); });
   let headCb = null;
   const headPick = () => headCb;
-  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !side ? chipsBox : null, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
+  // L.top(reload) — свой блок над списком (полоса состояния загрузки и т. п.), создаётся один раз
+  const topBox = L.top ? L.top(() => load()) : null;
+  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !side ? chipsBox : null, topBox, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
   const enterBulkMode = (id) => { if (!bulkOn) return; bulkMode = true; panel.classList.add('bulk-mode'); if (id) picked.add(id); syncPicks(); paintBulk(); };

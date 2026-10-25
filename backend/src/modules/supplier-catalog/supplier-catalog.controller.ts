@@ -24,19 +24,22 @@ export class SupplierCatalogController {
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
   @ApiOperation({ summary: 'Список позиций поставщика' })
-  @ApiQuery({ name: 'supplierId', required: true })
+  @ApiQuery({ name: 'supplierId', required: false })
+  @ApiQuery({ name: 'inStock', required: false, description: '1 — в наличии, 0 — нет' })
   @ApiQuery({ name: 'q', required: false })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   async list(
-    @Query('supplierId') supplierId: string,
+    @Query('supplierId') supplierId?: string,
     @Query('q') q?: string,
+    @Query('inStock') inStock?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.service.listItems({
       supplierId,
       q,
+      inStock,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });

@@ -374,6 +374,22 @@ describe('SupplierCatalogService: безопасность итога и вхо�
     expect(r.limit).toBe(200);
   });
 
+  it('listItems: без поставщика — все позиции (вход в «Каталог»), фильтр наличия', async () => {
+    await build();
+    await expect(service.listItems({})).resolves.toMatchObject({ items: [], total: 0 });
+    expect(itemModel.find).toHaveBeenLastCalledWith({ active: true });
+    await service.listItems({ inStock: '1' });
+    expect(itemModel.find).toHaveBeenLastCalledWith({ active: true, inStock: true });
+    await service.listItems({ inStock: '0' });
+    expect(itemModel.find).toHaveBeenLastCalledWith({ active: true, inStock: { $ne: true } });
+  });
+
+  it('getSyncStatus: без идущей синхронизации progress = null', async () => {
+    await build();
+    const st = await service.getSyncStatus(orgId);
+    expect(st.progress).toBeNull();
+  });
+
   it('onModuleInit: зависшие running → error «прервано перезапуском»', async () => {
     await build();
     await service.onModuleInit();
