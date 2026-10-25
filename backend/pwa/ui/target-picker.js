@@ -93,6 +93,9 @@ export function targetPicker({ mode = 'out' } = {}) {
   const orderBox = h('div', { class: 'tp-order' });
   const orderPanel = h('div', { class: 'tp-panel' }, orderBox);
   const orderIn = h('input', { placeholder: 'Номер заказа или заказчик, например 552 · 552-2', 'aria-label': 'Заказ', autocomplete: 'off' });
+  // поле стоит в своей подписи с самого начала: attachCombo вешает список рядом с полем и требует родителя
+  const orderTitle = h('span', null, 'Заказ');
+  const orderField = h('label', { class: 'field wide' }, orderTitle, orderIn);
   const orderOpts = () => (orders || []).map((o) => ({ value: o.id, label: orderLabel(o), sub: o.title || '' }));
   const dash = (text) => { const m = /^\s*(\S+?)\s*[-–]\s*(\d+)\s*$/.exec(text); return m ? { no: normSearch(m[1]), line: m[2] } : null; };
   const orderCombo = attachCombo(orderIn, {
@@ -127,7 +130,7 @@ export function targetPicker({ mode = 'out' } = {}) {
   }
 
   function renderOrder() {
-    if (!order) { orderBox.replaceChildren(h('label', { class: 'field wide' }, h('span', null, ret ? 'Заказ, из которого вернули' : res ? 'Под заказ (необязательно)' : 'Заказ'), orderIn)); return; }
+    if (!order) { orderTitle.textContent = ret ? 'Заказ, из которого вернули' : res ? 'Под заказ (необязательно)' : 'Заказ'; orderBox.replaceChildren(orderField); return; }
     const head = h('div', { class: 'tp-sel' }, h('b', { class: 'clip' }, order.label),
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { order = null; lines = null; line = null; whole = false; renderOrder(); requestAnimationFrame(() => orderIn.focus()); } }, 'Сменить заказ'));
     if (linesErr) { orderBox.replaceChildren(head, h('p', { class: 'muted' }, 'Позиции не загрузились: ' + linesErr)); return; }
