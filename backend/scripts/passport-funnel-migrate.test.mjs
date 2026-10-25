@@ -24,7 +24,7 @@ test('повторный запуск: перенесённое и корни н
 
 test('способ установки: привязка по названию и новый лист из текста монтажа', () => {
   const inst = [{ _id: 'i1', name: 'Анкерное', montage: 'Шаг 1\nШаг 2', categories: '' }, { _id: 'i2', name: 'Бетонирование', montage: 'Залить бетон', categories: 'WRK' }, { _id: 'i3', name: 'Без текста' }];
-  const p = buildPlan([ph('a2', 'installation', 'Анкерное', 'Крепится анкерами.')], inst);
+  const p = buildPlan([ph('a2', 'installation', 'Анкерное', 'Крепится анкерами.')], inst, { newFromInstall: true });
   assert.equal(p.leaves[0].installTypeId, 'i1');
   assert.equal(p.newLeaves.length, 1);
   assert.equal(p.newLeaves[0].installTypeId, 'i2');

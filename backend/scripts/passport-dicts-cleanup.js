@@ -99,13 +99,14 @@ const DECISIONS = {
   steelDefects: 'CORROSION, WELD_CRACK, DEFORMATION, LOOSE_THREADS',
 };
 // Спорные по смыслу — печатаются всегда, если запись есть (решает пользователь)
+const WITH_DISPUTED = process.argv.includes('--with-disputed');
 const DISPUTED_RULES = [
   { dict: 'passportPhrases', test: (d) => d.section === 'installation' && norm(d.name) === 'ограждение на опорных стойках' && csv(d.categories).some((c) => c === 'TRN' || c === 'DIO'),
-    why: 'вариант «Ограждение на опорных стойках» у тренажёров / детского игрового — ограждение относится к благоустройству; предлагаю в корзину' },
+    act: () => ({ del: true }), why: 'вариант «Ограждение на опорных стойках» у тренажёров / детского игрового — ограждение относится к благоустройству; предлагаю в корзину' },
   { dict: 'passportInstall', test: (d) => /устанавливается/i.test(s(d.montage).split('\n')[0]),
-    why: 'первая строка «Текста монтажа» — «где ставится» (дублирует «Готовые тексты → Установка» и привязана к виду площадок); предлагаю убрать строку' },
+    act: (d) => ({ set: { montage: String(d.montage ?? '').split(/\r?\n/).slice(1).join('\n').trim() } }), why: 'первая строка «Текста монтажа» — «где ставится» (дублирует «Готовые тексты → Установка» и привязана к виду площадок); предлагаю убрать строку' },
   { dict: 'passportCategories', test: (d) => code(d.code) !== 'ALL' && csv(d.standards).includes('GOST_R_2_610'),
-    why: 'норматив GOST_R_2_610 уже есть у «Для всех» — у категории лишний (предлагаю убрать из списка)' },
+    act: (d) => ({ set: { standards: csv(d.standards).filter((c) => c !== 'GOST_R_2_610').join(', ') } }), why: 'норматив GOST_R_2_610 уже есть у «Для всех» — у категории лишний (предлагаю убрать из списка)' },
 ];
 
 // ───────── ссылки (по id и по строке) ─────────
@@ -263,7 +264,13 @@ async function buildPlan(db) {
   }
   for (const d of of('passportInstall')) if (!s(d.montage)) plan.empty.push({ label: label(d), why: 'способ установки без текста монтажа' });
   for (const d of of('passportDefects')) if (!s(d.measure)) plan.empty.push({ label: label(d), why: 'дефект без меры' });
-  for (const r of DISPUTED_RULES) for (const d of of(r.dict).filter(r.test)) plan.disputed.push({ label: label(d), why: r.why });
+  // --with-disputed: решение пользователя 2026-10-25 по спорным — применить предложенное (в корзину / убрать строку / норматив)
+  for (const r of DISPUTED_RULES) for (const d of of(r.dict).filter(r.test)) {
+    if (!WITH_DISPUTED) { plan.disputed.push({ label: label(d), why: r.why }); continue; }
+    const a = r.act(d);
+    if (a.del) plan.deletes.push({ dict: r.dict, id: String(d._id), label: label(d), why: 'спорное, решение пользователя: ' + r.why });
+    else plan.sets.push({ dict: r.dict, id: String(d._id), label: label(d), set: a.set, why: 'спорное, решение пользователя: ' + r.why });
+  }
   return plan;
 }
 

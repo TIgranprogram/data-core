@@ -26,11 +26,14 @@ const fs = require('fs');
 const s = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const norm = (v) => s(v).toLowerCase().replace(/ё/g, 'е').replace(/[«»"'„“”]/g, '').replace(/[\s.,;:!]+$/, '');
 const lines = (v) => String(v ?? '').split(/\r?\n/).map(s).filter(Boolean);
+// ПВ 2026-10-25: варианты «Установки» → способ установки по смыслу (названия в справочниках разные)
+const INSTALL_BY_NAME = { 'бетонирование опорных стоек': 'CONCRETE_POSTS', 'закладные детали': 'EMBEDDED', 'анкерное крепление': 'ANCHORS', 'свободная установка': 'FREESTANDING', 'ограждение на опорных стойках': 'FENCE_POSTS' };
+const NEW_FROM_INSTALL = process.argv.includes('--new-from-install');
 const SECTIONS = { purpose: { name: 'Назначение', order: 10 }, installation: { name: 'Установка', order: 20 } };
 const NOTE = 'passport-funnel-migrate';
 
 /** Чистая функция: что сделать. phrases/installs — живые записи (deletedAt: null), поля как в базе. */
-function buildPlan(phrases, installs) {
+function buildPlan(phrases, installs, { newFromInstall = NEW_FROM_INSTALL } = {}) {
   const plan = { roots: [], leaves: [], newLeaves: [], skipped: 0 };
   const isRoot = (d) => !d.parentId && !s(d.text);
   const rootOf = {}; // section → существующий корень
@@ -47,12 +50,15 @@ function buildPlan(phrases, installs) {
     const section = SECTIONS[d.section] ? d.section : 'purpose';
     ensureRoot(section);
     ord[section] = (ord[section] ?? 0) + 1;
-    const inst = section === 'installation' ? installs.find((i) => norm(i.name) === norm(d.name) || (s(i.montage) && norm(lines(i.montage).join(' ')) === norm(d.text))) : null;
+    const byCode = INSTALL_BY_NAME[norm(d.name)];
+    const inst = section === 'installation' ? installs.find((i) => (byCode && String(i.code ?? '').toUpperCase() === byCode) || norm(i.name) === norm(d.name) || (s(i.montage) && norm(lines(i.montage).join(' ')) === norm(d.text))) : null;
     plan.leaves.push({ id: String(d._id), name: s(d.name), section, order: ord[section], allCategories: !s(d.categories), installTypeId: inst ? String(inst._id) : null });
   }
   // способ установки с текстом монтажа, которого нет среди листьев раздела «Установка»
   const instLeaves = [...phrases.filter((d) => d.section === 'installation' && s(d.text) && (d.parentId || d.funnelV)), ...plan.leaves.filter((l) => l.section === 'installation').map((l) => phrases.find((d) => String(d._id) === l.id))];
-  for (const i of installs) {
+  // п. 4 — только с --new-from-install: текст монтажа — это шаги раздела «Монтаж», а не вариант «Установки»;
+  // без флага новые листья не создаются (иначе «Бетонирование опор» рядом с «Бетонированием опорных стоек» — дубль)
+  for (const i of newFromInstall ? installs : []) {
     const montage = lines(i.montage).join('\n');
     if (!montage) continue;
     const linked = plan.leaves.some((l) => l.installTypeId === String(i._id)) || instLeaves.some((d) => String(d.installTypeId ?? '') === String(i._id) || norm(d.text) === norm(montage));

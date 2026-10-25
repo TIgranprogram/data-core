@@ -376,3 +376,4 @@
 - 2026-10-25: выкладка `34ee6da` (ПРЖ-1 автоартикул): health 200, `/app/` 200, kppdf 200; данные не менялись.
 
 - 2026-10-25 выкладка 413804f (ПВ «паспорт воронкой» + ПРЖ-3/5 «Проектирование»): release.sh — бэкап, health 200, /app 200, /admin 200, kppdf :3000 200; ensure-indexes --apply: salesorders.priority, designtasks ×5. Чистка справочников паспортов — только план (5 объединить, 32 дописать, 7 спорных), ждёт «да».
+- 2026-10-25 ПВ.4 на проде: бэкап → passport-dicts-cleanup.js --with-disputed --apply (дописано 37, объединено 5, в корзину 2; выгрузка /var/lib/datacore/backups/pp-cleanup-plan-20261025.json) → passport-funnel-migrate.js --apply (корней 2, текстов 37, новых листьев 0; выгрузка pp-funnel-migrate-20261025.json).
