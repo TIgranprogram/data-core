@@ -215,6 +215,12 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
           () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
           x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' ? x.sub : ''));
         const hasActive = String(tile.value) === cur || subs.some((x) => String(x.value) === cur);
+        // Раздел без подгрупп — работает как фильтр напрямую, а не как аккордеон
+        if (!subs.length) {
+          return [optBtn(tile.label, tile.n, String(tile.value) === cur,
+            () => patch({ [L.tiles.key]: String(tile.value) === cur ? undefined : tile.value, page: undefined }),
+            '', '')];
+        }
         const subsEl = h('div', { class: 'ls-subs', hidden: !hasActive },
           ...subs.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
             () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
@@ -227,7 +233,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       tilesBox.replaceChildren(...nodes);
       // ТИ-6: крошка выбранной категории (точечный сброс — тот же клик по активной плитке)
       if (tileTagBox) {
-        const active = tiles.filter((x) => !x.head).find((x) => String(x.value) === cur);
+        const active = tiles.find((x) => String(x.value) === cur);
         if (active) {
           tileTagBox.replaceChildren(h('button', { type: 'button', class: 'tag active ff-tag', title: 'Сбросить выбор', onclick: () => patch({ [L.tiles.key]: undefined, page: undefined }) }, active.label, ' ×'));
           tileTagBox.hidden = false;
