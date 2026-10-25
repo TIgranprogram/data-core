@@ -377,3 +377,4 @@
 
 - 2026-10-25 выкладка 413804f (ПВ «паспорт воронкой» + ПРЖ-3/5 «Проектирование»): release.sh — бэкап, health 200, /app 200, /admin 200, kppdf :3000 200; ensure-indexes --apply: salesorders.priority, designtasks ×5. Чистка справочников паспортов — только план (5 объединить, 32 дописать, 7 спорных), ждёт «да».
 - 2026-10-25 ПВ.4 на проде: бэкап → passport-dicts-cleanup.js --with-disputed --apply (дописано 37, объединено 5, в корзину 2; выгрузка /var/lib/datacore/backups/pp-cleanup-plan-20261025.json) → passport-funnel-migrate.js --apply (корней 2, текстов 37, новых листьев 0; выгрузка pp-funnel-migrate-20261025.json).
+- 2026-10-25 выкладка cd4406e (v1.156): ПВ2 карточки справочников, уведомления; на проде: migrate-maf-to-blg --apply (паспорта 97, снимки 97, шаблоны 2, изделия 79, справочники 25 — MAF не осталось), passport-texts-polish --apply (32, выгрузка pp-texts-polish-20261025.json), связь дефект↔материал двусторонняя (+61 в applies). Бэкап перед выкладкой.
