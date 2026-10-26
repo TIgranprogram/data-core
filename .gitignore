@@ -38,3 +38,7 @@ secrets/
 
 # доступ агента datacore-access (локальный пароль, если сменён в админке)
 deploy/synology/access.env
+
+# образцы Excel — не хранить в git (бинарники, меняются)
+docs/samples/*.xlsx
+docs/samples/*.xls
