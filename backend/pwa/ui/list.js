@@ -236,6 +236,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   function renderTiles() {
     if (!tilesBox) return;
     const cur = P[L.tiles.key] || '';
+    // при поиске счётчики групп устарели — скрываем чтобы не вводить в заблуждение
+    const showN = (n) => (P.q ? undefined : n);
     if (side) {
       // ТИ-7: группы по заголовкам (head:true) — свёрнуты по умолчанию, кроме активной
       const groups = [];
@@ -246,21 +248,21 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         else { if (!groups.length || groups[0].tile !== null) groups.unshift({ tile: null, subs: [] }); groups[0].subs.push(x); }
       }
       const nodes = groups.flatMap(({ tile, subs }) => {
-        if (!tile) return subs.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
+        if (!tile) return subs.map((x) => optBtn(x.label, showN(x.n), String(x.value) === cur,
           () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
           x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' ? x.sub : ''));
         const hasActive = String(tile.value) === cur || subs.some((x) => String(x.value) === cur);
         // Раздел без подгрупп — работает как фильтр напрямую, а не как аккордеон; head-leaf — нет стрелки
         if (!subs.length) {
-          return [optBtn(tile.label, tile.n, String(tile.value) === cur,
+          return [optBtn(tile.label, showN(tile.n), String(tile.value) === cur,
             () => patch({ [L.tiles.key]: String(tile.value) === cur ? undefined : tile.value, page: undefined }),
             'head head-leaf', '')];
         }
         const subsEl = h('div', { class: 'ls-subs', hidden: !hasActive },
-          ...subs.map((x) => optBtn(x.label, x.n, String(x.value) === cur,
+          ...subs.map((x) => optBtn(x.label, showN(x.n), String(x.value) === cur,
             () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
             'sub', typeof x.sub === 'string' ? x.sub : '')));
-        const headBtn = optBtn(tile.label, tile.n, hasActive,
+        const headBtn = optBtn(tile.label, showN(tile.n), hasActive,
           () => { subsEl.hidden = !subsEl.hidden; headBtn.classList.toggle('open', !subsEl.hidden); },
           'head' + (hasActive ? ' open' : ''), '');
         return [headBtn, subsEl];
@@ -279,7 +281,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     tilesBox.replaceChildren(...tiles.map((x) => h('button', {
       type: 'button', class: 'tile' + (String(x.value) === cur ? ' active' : ''),
       onclick: () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
-    }, h('b', { title: x.label }, x.label), h('span', { class: 'tl-n' }, qty(x.n)), x.sub ? h('span', { class: 'tl-sub' }, x.sub) : null)));
+    }, h('b', { title: x.label }, x.label), showN(x.n) !== undefined ? h('span', { class: 'tl-n' }, qty(showN(x.n))) : null, x.sub ? h('span', { class: 'tl-sub' }, x.sub) : null)));
   }
 
   // ---------- Левая панель: сборка, лист на телефоне ----------
