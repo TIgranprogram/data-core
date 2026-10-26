@@ -1676,3 +1676,10 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
   /* скрытие кнопок, которые дублируют mob-acts */
   .stock-acts { display: none; }
 }
+
+/* СКФ.4: шапка таблицы списка не уезжает при прокрутке (компьютер). Таблица листается внутри себя:
+   у .table-wrap есть overflow-x, поэтому липкой шапке нужна своя область прокрутки по высоте. */
+@media (min-width: 721px) {
+  .list-panel .table-wrap { max-height: calc(100vh - var(--topbar-h) - 160px); min-height: 240px; overflow: auto; }
+  .list-panel table.list thead th { position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 0 var(--border); }
+}

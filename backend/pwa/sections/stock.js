@@ -160,8 +160,7 @@ export const stock = {
 
   card: {
     gallery: (r) => r.photos || [],
-    photoAdd: (r, photoId) => api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }),
-    photoRemove: (r, photoId) => api(`/stock/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
+    // СКФ.5: фото в карточке — только просмотр; добавить / убрать — в «Изменить» (раньше было в двух местах)
     heading: (r) => r.name,
     subheading: (r) => [r.categoryName, r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
     stats: (r) => [['Остаток', `${qty(r.quantity)} ${unit(r)}`], ['В брони', qty(r.reservedQty)], ['Свободно', qty(r.free)]],
@@ -206,13 +205,14 @@ export const stock = {
         // новая позиция — сразу «Начальный остаток»: штуками или по весу (НО.2)
         ...(row ? [] : [{ section: 'Начальный остаток', tone: 'info', fixed: true },
           { key: 'initial', type: 'widget', label: '', wide: true, widget: () => { const q = h('input', { inputmode: 'decimal', placeholder: '0' }); const wc = weightCount({ qtyInput: q, label: 'Сколько лежит' }); return { el: wc.el, get value() { return JSON.stringify(wc.get()); }, set value(_) { /* только ввод */ } }; } }]),
-        { section: 'Запас', tone: 'info' },
-        { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
         { key: 'weightG', label: 'Вес 1 шт., г', type: 'number', min: 0, hint: 'Для счёта по весу: штуки = вес партии ÷ вес 1 шт.' },
         ...metalFields(),
-        { section: 'Фото и примечание', tone: 'who' },
+        { section: 'Фото и примечание', tone: 'main' },
         { key: 'photos', label: 'Фото', type: 'photos', hint: 'Перетащите, вставьте Ctrl+V или выберите файл' },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
+        // СКФ.5: настройки склада — отдельно от свойств самой позиции
+        { section: 'Склад', tone: 'info' },
+        { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
       ];
     },
     initial: () => ({ unit: 'шт', photos: [] }),
