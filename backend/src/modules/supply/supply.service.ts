@@ -236,13 +236,17 @@ export class SupplyService {
     const doc = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }).lean().exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
     const presented = (await this.present([doc as Record<string, unknown>]))[0] as Record<string, unknown>;
-    // СКЕ-4: подсказка «в каталоге сейчас N ₽» — берём из supplieritems по supplierId+article+color
+    // СКЕ-4/5: текущая цена и история цен из каталога (supplieritems по supplierId+article+color)
     if (doc.supplierId && doc.article) {
       const item = await this.connection.db!.collection('supplieritems').findOne(
         { supplierId: doc.supplierId, article: (doc.article as string).trim(), color: ((doc.color as string) || '').trim(), deletedAt: null },
-        { projection: { priceHint: 1 } },
+        { projection: { priceHint: 1, priceHistory: 1 } },
       );
       if (item?.priceHint != null) presented.catalogCurrentPrice = item.priceHint as number;
+      if (Array.isArray(item?.priceHistory) && (item.priceHistory as unknown[]).length) {
+        presented.catalogPriceHistory = (item.priceHistory as Array<{ price: number; date: Date; source: string }>)
+          .slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      }
     }
     return presented;
   }

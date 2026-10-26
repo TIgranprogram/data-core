@@ -267,7 +267,25 @@ export const requests = {
       ['Статус', h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), ' ', r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
       ['Количество', `${qty(r.qty)} ${r.unit || ''}`.trim()],
       ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''],
-      ['В каталоге сейчас', session.canMoney && r.catalogCurrentPrice != null ? h('span', { class: 'hint', title: 'Текущая цена в каталоге поставщика — заявка не меняется' }, money(r.catalogCurrentPrice) + ' ₽') : ''],
+      ['В каталоге сейчас', session.canMoney && r.catalogCurrentPrice != null
+        ? h('span', { class: 'hint', title: 'Текущая цена в каталоге поставщика — заявка не меняется' },
+            money(r.catalogCurrentPrice) + ' ₽',
+            r.catalogPriceHistory?.length > 1
+              ? h('details', { class: 'price-history', style: 'display:inline-block;margin-left:.5rem' },
+                  h('summary', { style: 'cursor:pointer;font-size:.85em;color:var(--muted)' }, 'история'),
+                  h('table', { class: 'small', style: 'margin-top:.25rem;border-collapse:collapse' },
+                    ...r.catalogPriceHistory.map((e) =>
+                      h('tr', null,
+                        h('td', { style: 'padding:.1rem .4rem .1rem 0;color:var(--muted);white-space:nowrap' }, date(e.date)),
+                        h('td', { style: 'padding:.1rem .4rem;text-align:right' }, money(e.price) + ' ₽'),
+                        h('td', { style: 'padding:.1rem 0;color:var(--muted);font-size:.85em' }, e.source === 'excel' ? 'Excel' : 'заявка'),
+                      )
+                    )
+                  )
+                )
+              : null
+          )
+        : ''],
       ['Куда', [COST_CENTER[r.costCenter] || (r.salesOrderId ? COST_CENTER.order : ''), r.costObject].filter(Boolean).join(' · ')],
       ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
       ['Поставщик', r.supplierName],
