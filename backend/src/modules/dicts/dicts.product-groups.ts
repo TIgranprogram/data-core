@@ -48,6 +48,12 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       const name = s(b.name);
       if (!name) throw new BadRequestException('Укажите название группы');
       const cur = id ? await db.collection('categories').findOne({ _id: new Types.ObjectId(id) }) : null;
+      // Дубль по названию — подсказываем пользователю до проверки номера
+      const nameDup = await db.collection('categories').findOne(
+        { ...GROUPS, name, ...(id ? { _id: { $ne: new Types.ObjectId(id) } } : {}) },
+        { projection: { name: 1, groupNo: 1 } },
+      );
+      if (nameDup) throw new ConflictException(`Группа «${s(nameDup.name)}» уже существует${s(nameDup.groupNo) ? ` (№${s(nameDup.groupNo)})` : ''} — найдите её в списке.`);
       // раздел: не пришёл при правке — остаётся прежний
       let parentId: unknown = cur?.parentId ?? null;
       if (b.parentId !== undefined || isNew) {

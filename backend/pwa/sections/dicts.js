@@ -313,6 +313,10 @@ export const dict = {
         refOpts[f.key] = (await Promise.all(dicts.map((d) => api('/dicts/' + d).catch(() => null).then((x) => (x?.items || []).filter((c) => c.code).map((c) => ({ code: String(c.code), name: c.name, group: dicts.length > 1 ? x?.dict?.title || d : '' })))))).flat();
       }
       const isNew = !r?.id;
+      // productGroups (новая запись): список существующих для предупреждения о дублях по имени и номеру
+      const pgItems = isNew && dictKey() === 'productGroups'
+        ? await api('/dicts/productGroups').then((x) => x.items).catch(() => null)
+        : null;
       // «Используется в: …» из /usage (сбой — без строки; правка при этом работает)
       const u = isNew ? null : await api(`/dicts/${dictKey()}/${r.id}/usage`).catch(() => null);
       const secs = (u?.sections || []).join(', ') || 'других разделах';
@@ -330,7 +334,17 @@ export const dict = {
           widget: (v) => ({ el: h('span', { class: 'muted' }, String(v ?? '')), get value() { return JSON.stringify(String(v ?? '')); }, set value(x) { void x; }, focus() {} }) }
         : {
         key: f.key, label: !isNew && f.key === 'name' ? 'Новое значение' : f.label, required: !!f.required && !(f.key === 'code' && f.lockAfterCreate && isNew), wide: !!f.wide,
-        ...(!isNew && NAME_KEYS.includes(f.key) && u?.busy ? { warn: (v) => (String(v ?? '').trim() && String(v).trim() !== String(r[f.key] ?? '') ? `Новое название сменится везде: ${secs}.` : null) } : {}),
+        ...(!isNew && NAME_KEYS.includes(f.key) && u?.busy ? { warn: (v) => (String(v ?? '').trim() && String(v).trim() !== String(r[f.key] ?? '') ? `Новое название сменится везде: ${secs}.` : null) }
+          : isNew && pgItems && (NAME_KEYS.includes(f.key) || f.key === 'groupNo') ? { warn: (v) => {
+            const t = String(v ?? '').trim();
+            if (!t) return null;
+            if (f.key === 'groupNo') {
+              const found = pgItems.find((x) => String(x.groupNo) === t);
+              return found ? `Номер уже занят группой «${found.name}»` : null;
+            }
+            const found = pgItems.find((x) => String(x.name ?? '').toLowerCase() === t.toLowerCase());
+            return found ? `Группа «${found.name}» уже есть${found.groupNo ? ` (№${found.groupNo})` : ''} — не нужно создавать заново.` : null;
+          }} : {}),
         hint: f.key === 'code' && f.lockAfterCreate && isNew ? 'Заполнится само из названия' : f.hint, max: 300,
         ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этой категории не выдаётся' } : {}),
         type: f.key === 'requiredImages' ? 'widget' : isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : 'text',
