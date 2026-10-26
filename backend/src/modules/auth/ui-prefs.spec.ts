@@ -35,7 +35,7 @@ describe('UiPrefsDto (ШП-1)', () => {
     [{ detailW: 359 }],
     [{ sidebarW: 199 }],
     [{ sidebarW: 361 }],
-    [{ filterW: 279 }],
+    [{ filterW: 239 }],
     [{ filterW: 701 }],
     [{ detailW: 700.5 }],
     [{ detailW: '700' }],

@@ -14,17 +14,17 @@ export class UiPrefsDto {
   @Max(360)
   sidebarW?: number;
 
-  @ApiPropertyOptional({ minimum: 360, maximum: 1100, example: 700, description: 'Ширина правой панели ввода' })
+  @ApiPropertyOptional({ minimum: 360, maximum: 1400, example: 700, description: 'Ширина правой панели ввода' })
   @IsOptional()
   @IsInt()
   @Min(360)
-  @Max(1100)
+  @Max(1400) // ПРД.3: как в приложении (core/prefs.js PREFS) — иначе 400 молча, и после обновления возвращалась старая ширина
   detailW?: number;
 
-  @ApiPropertyOptional({ minimum: 280, maximum: 700, example: 340, description: 'Ширина панели фильтров' })
+  @ApiPropertyOptional({ minimum: 240, maximum: 700, example: 340, description: 'Ширина панели фильтров' })
   @IsOptional()
   @IsInt()
-  @Min(280)
+  @Min(240)
   @Max(700)
   filterW?: number;
 }
