@@ -47,7 +47,7 @@ export class StockSearchService {
   /**
    * Позиции склада: материалы + остаток на складе по умолчанию (материал без остатка → 0).
    * Остаток лежит в другой коллекции, поэтому фильтр по состоянию, сортировка и страницы — в памяти
-   * (сотни–тысячи позиций — это быстро). status: ok | low | none | reserved (через запятую). deleted=1 — корзина.
+   * (сотни–тысячи позиций — это быстро). status: ok | low | none | reserved | ordered (через запятую; ordered — есть открытые заявки, ждут поставку). deleted=1 — корзина.
    */
   async listItems(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] } = {}) {
     const p = parseList(q, { sortable: ITEM_SORT, defaultSort: 'name', defaultLimit: 1000, maxLimit: 10000 });
@@ -60,12 +60,12 @@ export class StockSearchService {
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
     const { wh, rows: all } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
-    const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0 };
-    for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; }
+    const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0, ordered: 0 };
+    for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; if (r.ordered > 0) counts.ordered++; }
     let rows = [...all];
     if (q.status) {
       const want = new Set(String(q.status).split(','));
-      rows = rows.filter((r) => want.has(r.status) || (want.has('reserved') && r.reservedQty > 0));
+      rows = rows.filter((r) => want.has(r.status) || (want.has('reserved') && r.reservedQty > 0) || (want.has('ordered') && r.ordered > 0));
     }
     const [[field, dir]] = Object.entries(p.sort);
     const key2 = field as keyof (typeof rows)[number];

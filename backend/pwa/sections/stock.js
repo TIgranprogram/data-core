@@ -100,6 +100,7 @@ export const stock = {
           { value: 'low,none', label: 'Требуют внимания' },
           { value: 'low', label: 'Ниже минимума' },
           { value: 'none', label: 'Нет на складе' },
+          { value: 'ordered', label: 'Ждут поставку' },
           { value: 'reserved', label: 'В брони' },
           { value: 'ok', label: 'В норме' },
         ],
@@ -111,12 +112,14 @@ export const stock = {
       '': 'Все позиции склада. В строке: «+ Приход», «− Выдать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
+      ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',
       reserved: 'Отложено под заказы. Выдать — «Из брони» в строке.',
       ok: 'Хватает. Делать ничего не нужно.',
     },
     rowAction: (r) => {
       const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { orderItem(row); return false; } };
-      const inc = { label: '+ Приход', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
+      // ждёт поставку — «Принять»: окно прихода само предложит закрыть заявку (receiveField)
+      const inc = r.ordered > 0 ? { label: 'Принять', title: 'Приехала поставка: принять на склад и закрыть заявку', run: (row) => { openStockOp('in', row.id); return false; } } : { label: '+ Приход', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
       const out = { label: '− Выдать', title: 'Выдача / расход: кому и под что — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } };
       const fromRes = { label: 'Из брони', title: 'Выдать забронированное: количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } };
       const base = r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
@@ -141,7 +144,7 @@ export const stock = {
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
       { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap st-cell' },
           r.status === 'none' && r.ordered
-            ? h('span', { class: 'badge warn', title: `Нет на складе, в заявках: ${qty(r.ordered)} ${unit(r)}` }, `нет (зак. ${qty(r.ordered)})`)
+            ? h('span', { class: 'badge warn', title: `Нет на складе, в заявках: ${qty(r.ordered)} ${unit(r)}` }, `нет (заказано ${qty(r.ordered)})`)
             : [badge(STOCK_STATUS, r.status), r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  зак. ${qty(r.ordered)}`) : null],
           r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы — «Из брони» в строке' }, `бронь ${qty(r.reservedQty)}`) : null,
           r.hangingQty ? h('span', { class: 'tag tag-hang', title: 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Снимите бронь в «Забронировать» → «Активные брони»' }, `висит ${qty(r.hangingQty)}`) : null) },
@@ -150,7 +153,7 @@ export const stock = {
       thumb: photoThumb,
       title: (r) => r.name,
       sub: (r) => [r.categoryName, r.reservedQty ? `бронь ${qty(r.reservedQty)}` : '', r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
-      side: (r) => [h('b', { class: 'num' }, `${qty(r.quantity)} ${unit(r)}`), r.status === 'none' && r.ordered ? h('span', { class: 'badge warn' }, `зак. ${qty(r.ordered)}`) : badge(STOCK_STATUS, r.status)],
+      side: (r) => [h('b', { class: 'num' }, `${qty(r.quantity)} ${unit(r)}`), r.status === 'none' && r.ordered ? h('span', { class: 'badge warn' }, `нет (заказано ${qty(r.ordered)})`) : badge(STOCK_STATUS, r.status)],
     },
   },
 
