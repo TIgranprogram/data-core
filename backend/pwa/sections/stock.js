@@ -13,6 +13,7 @@ import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/errors.js';
 import { openStockOp } from './stock-ops.js';
 import { targetNote } from '../ui/target-picker.js';
+import { mobileStockDashboard } from './warehouse-mobile.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -87,6 +88,7 @@ export const stock = {
     query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
     headActions: () => [stockActions()],
+    top: (_reload) => mobileStockDashboard(),
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',

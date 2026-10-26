@@ -1560,3 +1560,83 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
   .db-oname, .db-chev { min-height: 44px; }
   .db-chev { width: 44px; }
 }
+
+/* =================== Мобильный склад: быстрые действия и touch-оптимизация (≤ 720px) =================== */
+
+/* Панель быстрых действий — сетка 2×2 крупных кнопок */
+.mob-dash { margin-bottom: var(--s4); }
+.mob-acts { display: none; }
+@media (max-width: 720px) {
+  .mob-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: var(--s4); }
+  .mob-act { display: flex; align-items: center; gap: 12px; padding: 16px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; text-align: left; font: inherit; color: var(--text); min-height: 72px; transition: background .12s, border-color .12s; -webkit-tap-highlight-color: transparent; }
+  .mob-act:active { background: var(--surface-2); border-color: var(--border-strong); }
+  .mob-act-ico { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; flex: none; }
+  .mob-ico { width: 22px; height: 22px; }
+  .mob-act-text { display: flex; flex-direction: column; min-width: 0; }
+  .mob-act-text b { font-size: 15px; font-weight: 650; }
+  .mob-act-text small { font-size: 12px; color: var(--muted); }
+  /* цвета карточек действий */
+  .ma-in .mob-act-ico { background: var(--ok-soft); color: var(--ok); }
+  .ma-out .mob-act-ico { background: var(--warn-soft); color: var(--warn); }
+  .ma-writeoff .mob-act-ico { background: var(--danger-soft); color: var(--danger); }
+  .ma-count .mob-act-ico { background: var(--info-soft); color: var(--info); }
+}
+
+/* Позиции, требующие внимания */
+.mob-alerts { display: none; }
+@media (max-width: 720px) {
+  .mob-alerts { display: block; margin-bottom: var(--s3); }
+  .mob-section-title { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; margin-bottom: var(--s2); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .mob-alert-list { display: flex; flex-direction: column; gap: 2px; }
+  .mob-alert-row { display: flex; align-items: center; gap: var(--s2); padding: 10px 0; border-bottom: 1px solid var(--border); color: var(--text); min-height: 44px; }
+  .mob-alert-row:hover { text-decoration: none; }
+  .mob-alert-name { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mob-alert-qty { font-weight: 600; white-space: nowrap; }
+}
+
+/* Последние движения */
+.mob-recent { display: none; }
+@media (max-width: 720px) {
+  .mob-recent { display: block; }
+  .mob-moves { list-style: none; margin: 0; padding: 0; }
+  .mob-move { display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; gap: 4px var(--s2); align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); min-height: 44px; }
+  .mob-move-type { font-size: var(--fs-sm); font-weight: 600; }
+  .mob-move-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  .mob-move-qty { font-weight: 600; white-space: nowrap; }
+  .mob-move-date { grid-column: 1; font-size: 11.5px; }
+}
+
+/* Touch-оптимизация: поля, кнопки, строки крупнее на мобильном */
+@media (max-width: 720px) {
+  /* все интерактивные элементы — минимум 44px (WCAG 2.5.8) */
+  input, select, textarea { height: 44px; font-size: 16px; }
+  textarea { height: auto; min-height: 44px; }
+  .btn { height: 44px; min-height: 44px; padding: 0 16px; font-size: 15px; }
+  .btn-sm { height: 38px; min-height: 38px; padding: 0 12px; }
+  .btn-primary, .btn-gold { height: 48px; min-height: 48px; font-size: 16px; font-weight: 650; }
+
+  /* складские операции: крупнее количество */
+  .ops-qty input { width: 100px; height: 48px; font-size: 20px; font-weight: 700; border-radius: var(--radius-sm); }
+  .ops-qty .btn-icon { width: 44px; height: 44px; font-size: 20px; }
+  .ops-line { padding: 14px var(--s3); }
+  .ops-name .clip { font-size: 15px; }
+
+  /* выбор позиции: крупный инпут */
+  .sop-lines .field input, .sop-lines .field select { height: 48px; font-size: 16px; }
+
+  /* кнопка подтверждения: на всю ширину и заметная */
+  .drawer-foot .btn-primary, .drawer-foot .btn-gold { width: 100%; justify-content: center; }
+
+  /* строки списка — крупнее для пальца */
+  .cards .c { padding: 14px var(--s3); min-height: 52px; }
+  .cards .c-main b { font-size: 15px; }
+
+  /* логин: крупнее */
+  .login-card { padding: 24px 20px; gap: 16px; }
+  .login-card input { height: 48px; font-size: 16px; }
+  .login-card .btn { height: 52px; font-size: 16px; font-weight: 650; }
+  .login-card h1 { font-size: 22px; }
+
+  /* скрытие кнопок, которые дублируют mob-acts */
+  .stock-acts { display: none; }
+}
