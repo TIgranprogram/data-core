@@ -63,6 +63,8 @@ export const facets = async () => {
   facetsAt = Date.now();
   return facetsCache;
 };
+/** Б2: числа фильтров при уже выбранном (воронка) — без кэша: ответ зависит от выбора. */
+export const facetsFor = (q) => api('/passports/facets', { query: q }).catch(() => ({ years: [], months: [], categories: [], customers: [], suppliers: [] }));
 let oursCache = null;
 // SK-8d: наши компании — из /incomes/lookups (открыт всем); «Контрагенты» могут быть закрыты роли. Сбой — прежний /partners
 export const ourCompanies = async () => (oursCache ??= await api('/incomes/lookups').then((r) => r.companies || [])

@@ -67,8 +67,9 @@ export class ProductPassportController {
   /** Значения для фильтров: годы, категории, поставщики, заказчики. */
   @Get('passports/facets')
   @Roles(...VIEW)
-  facets() {
-    return this.service.facets();
+  facets(@Query() q: Record<string, unknown>) {
+    // Б2: те же параметры, что у списка (category, year, month, supplierOrgId, customer, status, legacy) — числа при уже выбранном
+    return this.service.facets(q);
   }
 
   /** Готовые тексты для «Описания»: материалы, установка, назначение — варианты с категориями (ПС.5). */

@@ -144,18 +144,25 @@ export class PassportQueries {
     return f;
   }
 
-  /** Значения для фильтров: годы, категории, поставщики, заказчики. */
-  async facets() {
-    const [years, categories, customers, suppliers] = await Promise.all([
-      this.h.model.aggregate([{ $match: { deletedAt: null, date: { $type: 'date' } } }, { $group: { _id: { $year: '$date' }, n: { $sum: 1 } } }, { $sort: { _id: -1 } }]).exec(),
-      this.h.model.aggregate([{ $match: { deletedAt: null, category: { $nin: [null, ''] } } }, { $group: { _id: '$category', n: { $sum: 1 } } }, { $sort: { n: -1 } }]).exec(),
-      this.h.model.aggregate([{ $match: { deletedAt: null, customerName: { $nin: [null, ''] } } }, { $group: { _id: '$customerName', n: { $sum: 1 } } }, { $sort: { _id: 1 } }]).exec(),
-      this.h.model.aggregate([{ $match: { deletedAt: null } }, { $group: { _id: '$supplierOrgId', name: { $first: '$supplier' }, n: { $sum: 1 } } }, { $sort: { n: -1 } }]).exec(),
+  /**
+   * Значения для фильтров: годы, месяцы (при выбранном годе), категории, поставщики, заказчики.
+   * Б2 (воронка): каждый признак считается при уже выбранных ОСТАЛЬНЫХ (q — те же параметры, что у списка); без q — как раньше.
+   */
+  async facets(q: Record<string, unknown> = {}) {
+    const without = (...keys: string[]) => { const r = { ...q }; for (const k of keys) delete r[k]; return this.filterOf(r); };
+    const yearSel = Number(q.year);
+    const [years, months, categories, customers, suppliers] = await Promise.all([
+      this.h.model.aggregate([{ $match: { ...without('year', 'month'), date: { $type: 'date' } } }, { $group: { _id: { $year: '$date' }, n: { $sum: 1 } } }, { $sort: { _id: -1 } }]).exec(),
+      yearSel ? this.h.model.aggregate([{ $match: without('month') }, { $match: { date: { $type: 'date' } } }, { $group: { _id: { $month: '$date' }, n: { $sum: 1 } } }, { $sort: { _id: 1 } }]).exec() : Promise.resolve([]),
+      this.h.model.aggregate([{ $match: { ...without('category'), category: { $nin: [null, ''] } } }, { $group: { _id: '$category', n: { $sum: 1 } } }, { $sort: { n: -1 } }]).exec(),
+      this.h.model.aggregate([{ $match: { ...without('customer'), customerName: { $nin: [null, ''] } } }, { $group: { _id: '$customerName', n: { $sum: 1 } } }, { $sort: { _id: 1 } }]).exec(),
+      this.h.model.aggregate([{ $match: without('supplierOrgId') }, { $group: { _id: '$supplierOrgId', name: { $first: '$supplier' }, n: { $sum: 1 } } }, { $sort: { n: -1 } }]).exec(),
     ]);
     const orgs = await this.h.connection.collection('organizations').find({ _id: { $in: suppliers.map((s) => s._id).filter(Boolean) } }, { projection: { name: 1, shortName: 1 } }).toArray();
     const orgName = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     return {
       years: years.map((y) => ({ value: y._id, n: y.n })),
+      months: months.map((m) => ({ value: m._id, n: m.n })),
       categories: categories.map((c) => ({ value: c._id, n: c.n })),
       customers: customers.map((c) => ({ value: c._id, n: c.n })),
       suppliers: suppliers.filter((s) => s._id).map((s) => ({ value: String(s._id), label: orgName.get(String(s._id)) || s.name || '—', n: s.n })),

@@ -6,12 +6,13 @@ import { current, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { openBulk } from './bulk-edit.js';
-import { MONTHS, STATUS_LABEL, canEdit, dims, facets, heading, isIssued, num, numberOf, st, statusBadge, statusOf } from './passports/common.js';
+import { MONTHS, STATUS_LABEL, canEdit, dims, facets, facetsFor, heading, isIssued, num, numberOf, st, statusBadge, statusOf } from './passports/common.js';
 import { resetProducts } from './passports/models.js';
 import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, printDialog } from './passports/dialogs.js';
 import { passportBulkFields } from './passports/bulk.js';
 import { bomBlock, checkBlock, imagesBlock, previewBlock } from './passports/card-blocks.js';
 import { passportForm } from './passports/form.js';
+import { stepFunnel } from '../ui/step-funnel.js';
 
 /**
  * Раздел «Паспорта изделий» (TASKS ПС.4–ПС.5): паспорт = экземпляр (№, талон, номер изделия, дата, заказчик/объект),
@@ -55,12 +56,30 @@ export const passports = {
       { key: 'status', label: 'Статус', type: 'select', options: async () => [{ value: 'draft', label: 'Черновики' }, { value: 'issued', label: 'Выпущенные' }, { value: 'annulled', label: 'Аннулированные' }] },
       { key: 'state', label: 'Показать', type: 'chips', options: () => [{ value: 'incomplete', label: 'Неполные' }, { value: 'noImages', label: 'Без картинок' }],
         count: (resp, v) => (v === '' ? undefined : v === 'incomplete' ? resp.incomplete : undefined) },
-      { key: 'category', label: 'Категория', type: 'hidden' }, // выбирается плитками над списком
-      { key: 'year', label: 'Год', type: 'select', options: async () => (await facets()).years.map((y) => ({ value: String(y.value), label: `${y.value} (${y.n})` })) },
-      { key: 'month', label: 'Месяц', type: 'select', options: async () => MONTHS.map((m, i) => ({ value: String(i + 1), label: m })) },
-      { key: 'supplierOrgId', label: 'Поставщик', type: 'select', options: async () => (await facets()).suppliers.map((s) => ({ value: s.value, label: `${s.label} (${s.n})` })) },
-      { key: 'customer', label: 'Заказчик', type: 'select', options: async () => (await facets()).customers.map((c) => ({ value: c.value, label: `${c.value} (${c.n})` })) },
+      // Б2: категория → год → месяц → поставщик → заказчик — воронкой в левой панели (toolbarExtra); здесь — для «Сбросить всё» и счётчика
+      { key: 'category', label: 'Категория', type: 'hidden' },
+      { key: 'year', label: 'Год', type: 'hidden' },
+      { key: 'month', label: 'Месяц', type: 'hidden' },
+      { key: 'supplierOrgId', label: 'Поставщик', type: 'hidden' },
+      { key: 'customer', label: 'Заказчик', type: 'hidden' },
     ],
+    sidebar: true,
+    chipsTop: true,
+    toolbarExtra: () => stepFunnel({
+      steps: [{ key: 'category', label: 'Категория' }, { key: 'year', label: 'Год' }, { key: 'month', label: 'Месяц', when: (P) => !!P.year },
+        { key: 'supplierOrgId', label: 'Поставщик' }, { key: 'customer', label: 'Заказчик' }],
+      load: async (P) => {
+        const pick = ['category', 'year', 'month', 'supplierOrgId', 'customer', 'status', 'legacy'];
+        const f = await facetsFor(Object.fromEntries(pick.filter((k) => P[k]).map((k) => [k, P[k]])));
+        return {
+          category: f.categories.map((c) => ({ value: c.value, n: c.n })),
+          year: f.years.map((y) => ({ value: String(y.value), n: y.n })),
+          month: (f.months || []).map((m) => ({ value: String(m.value), label: MONTHS[m.value - 1], n: m.n })),
+          supplierOrgId: f.suppliers.map((x) => ({ value: x.value, label: x.label, n: x.n })),
+          customer: f.customers.map((c) => ({ value: c.value, n: c.n })),
+        };
+      },
+    }),
     // паспорта по категориям с фото (основной вид), по 50 на страницу — не все сотни сразу; «Таблица» — для поиска и сортировки
     gallery: {
       default: true, limit: 50, sort: 'category', lastGroup: 'Без категории',
@@ -72,7 +91,6 @@ export const passports = {
         badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
       }),
     },
-    tiles: { key: 'category', load: async () => (await facets()).categories.map((c) => ({ value: c.value, label: c.value, n: c.n })) },
     hints: {
       '': 'Паспорт — на каждое выданное изделие: свой номер, талон и номер изделия (их выдаёт система). Клик — карточка: картинки, «⇩ PDF с печатью», «Создать копию».',
       incomplete: 'Не хватает данных для выдачи: в строке видно, чего именно. Откройте и заполните — PDF соберётся полным.',
