@@ -42,3 +42,6 @@ deploy/synology/access.env
 # образцы Excel — не хранить в git (бинарники, меняются)
 docs/samples/*.xlsx
 docs/samples/*.xls
+
+# архив деплоя (создаётся datacore-deploy, не хранить в git)
+release.tgz
