@@ -265,7 +265,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
             () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
             'sub', typeof x.sub === 'string' ? x.sub : '')));
         const headBtn = optBtn(tile.label, showN(tile.n), hasActive,
-          () => { subsEl.hidden = !subsEl.hidden; headBtn.classList.toggle('open', !subsEl.hidden); },
+          // ПРД.5: клик по разделу — раскрыть и сразу показать весь раздел (с подгруппами); повторный по выбранному — снять
+          () => { const on = String(tile.value) === cur; subsEl.hidden = on; headBtn.classList.toggle('open', !on); patch({ [L.tiles.key]: on ? undefined : tile.value, page: undefined }); },
           'head' + (hasActive ? ' open' : ''), '');
         return [headBtn, subsEl];
       });
