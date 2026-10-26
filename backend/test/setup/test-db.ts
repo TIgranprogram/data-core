@@ -54,6 +54,7 @@ export async function createTestApp(): Promise<TestContext> {
     process.env.MONGO_URI ?? 'mongodb://localhost:27017/datacore?replicaSet=rs0&directConnection=true';
   // Replace the database name in the URI with the test database name.
   const testUri = mongoUri.replace(/\/[^/?]+(\?|$)/, `/${testDb}$1`);
+  process.env.MONGO_URI = testUri;
   const preMongoose: Mongoose = await connect(testUri);
   try {
     const db = preMongoose.connection.db;

@@ -22,7 +22,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 
 ```bash
 npx tsc --noEmit            # норма: exit 0
-npx jest --silent           # норма: все suites passed (152/1524 на 2026-10-25)
+npx jest --silent           # норма: все suites passed (160/1598 на 2026-10-26)
 npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
 ```
 
@@ -36,8 +36,8 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
 ```
-Норма: все suites passed (36 / 282 на 2026-10-25).
-Если в `backend/` нет `.env` (например, в git worktree), `ConfigModule` падает ещё при импорте `AppModule` — передай тестовые `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 символов) и `ADMIN_PASSWORD=admin123456` прямо в команде.
+Норма: все suites passed (36 / 284 на 2026-10-26).
+`jest-e2e-env.ts` (`setupFiles`) читает оба `.env` (backend/ и корневой) и строит root URI автоматически. Если `.env` нет — передай `MONGO_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 симв.) и `ADMIN_PASSWORD` прямо в команде.
 
 ## 3. Live-smoke (если менял рантайм/админку)
 

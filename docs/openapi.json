@@ -3674,6 +3674,37 @@
         ]
       }
     },
+    "/supply/suppliers/{id}/excel": {
+      "post": {
+        "operationId": "SupplyController_importExcel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "preview",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/incomes": {
       "get": {
         "operationId": "IncomesController_list",
@@ -4222,7 +4253,6 @@
     "/dicts/{key}/{id}/usage": {
       "get": {
         "operationId": "DictsController_usage",
-        "summary": "Занято ли значение и в каких разделах: { busy, sections, tracked, locked }",
         "parameters": [
           {
             "name": "key",
@@ -4419,7 +4449,20 @@
             "schema": {}
           },
           {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "draft | active | archived",
+            "schema": {}
+          },
+          {
             "name": "deleted",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "series",
             "required": false,
             "in": "query",
             "schema": {}
@@ -4428,13 +4471,6 @@
             "name": "groupId",
             "required": false,
             "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "draft | active | archived",
             "schema": {}
           },
           {
@@ -4910,6 +4946,29 @@
     "/health/bundle/{name}/download": {
       "get": {
         "operationId": "BundleController_download",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/bundle/{name}": {
+      "delete": {
+        "operationId": "BundleController_remove",
         "parameters": [
           {
             "name": "name",
@@ -9083,6 +9142,13 @@
             "schema": {}
           },
           {
+            "name": "legacy",
+            "required": false,
+            "in": "query",
+            "description": "1 — только старые (перенос: source не app)",
+            "schema": {}
+          },
+          {
             "name": "deleted",
             "required": false,
             "in": "query",
@@ -9107,13 +9173,6 @@
             "required": false,
             "in": "query",
             "description": "1 — без картинок",
-            "schema": {}
-          },
-          {
-            "name": "legacy",
-            "required": false,
-            "in": "query",
-            "description": "1 — только старые (перенос: source не app)",
             "schema": {}
           },
           {
@@ -10076,6 +10135,7 @@
                 "salesorders",
                 "partners",
                 "products",
+                "docs",
                 "passports",
                 "orders",
                 "money",
@@ -10157,6 +10217,7 @@
                 "salesorders",
                 "partners",
                 "products",
+                "docs",
                 "passports",
                 "orders",
                 "money",
@@ -11345,6 +11406,22 @@
             "type": "string"
           }
         }
+      },
+      "AddDesignOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Заказ (salesorders), который берём на доску проектирования"
+          },
+          "distribute": {
+            "type": "boolean",
+            "description": "true — сразу создать задачи «Распределение» на все позиции без открытой задачи"
+          }
+        },
+        "required": [
+          "orderId"
+        ]
       },
       "AddSheetSourceDto": {
         "type": "object",
@@ -12652,22 +12729,6 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
-      },
-      "AddDesignOrderDto": {
-        "type": "object",
-        "properties": {
-          "orderId": {
-            "type": "string",
-            "description": "Заказ (salesorders), который берём на доску проектирования"
-          },
-          "distribute": {
-            "type": "boolean",
-            "description": "true — сразу создать задачи «Распределение» на все позиции без открытой задачи"
-          }
-        },
-        "required": [
-          "orderId"
-        ]
       }
     }
   }

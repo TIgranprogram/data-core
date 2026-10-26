@@ -119,6 +119,10 @@ export class DictsService {
     const row = this.item(d, doc) as Record<string, unknown>;
     Object.assign(row, this.refNames(d, row, refs));
     await this.attachPhotos(d, [row]);
+    if (key === 'passportPhrases') {
+      const usedMap = await d.usage(this.db, [doc]);
+      row['used'] = usedMap.get(String(doc._id)) ?? 0;
+    }
     return { ...row, dictInfo: { title: d.title, fields: uiFields(d), refs } };
   }
 
