@@ -204,9 +204,8 @@ async function build() {
     } catch (err) { toastError(err, 'взять позиции в пересчёт'); } finally { free(); }
   } }, 'Взять всё из списка в пересчёт') : null;
 
-  const el = h('div', { class: 'sop' },
-    h('p', { class: 'hint' }, cfg.hint),
-    arrivals?.el,
+  // «Принять без счёта» — ручной ввод; скрыт когда есть список счетов
+  const manualSection = h('div', { class: 'sop-manual', hidden: !!arrivals },
     h('div', { class: 'form-grid' }, pickBox),
     h('div', { class: 'sop-head' }, h('div', { class: 'section-title' }, 'Что ' + (op === 'in' ? 'принимаем' : op === 'out' ? 'выдаём' : op === 'reserve' ? 'бронируем' : op === 'count' ? 'пересчитываем' : 'списываем')), count),
     takeAllBtn,
@@ -217,7 +216,14 @@ async function build() {
       resTp?.el,
       reasonSel ? h('label', { class: 'field wide' }, h('span', null, 'Причина списания *'), reasonSel) : null,
       noteBox,
-      op === 'in' ? h('label', { class: 'field wide' }, h('span', null, 'Документ'), doc) : null),
+      op === 'in' ? h('label', { class: 'field wide' }, h('span', null, 'Документ'), doc) : null));
+  // кнопка разворота — только для «Принять» с блоком счетов
+  const toggleManual = arrivals ? h('button', { type: 'button', class: 'link-btn sop-toggle-manual', style: { margin: 'var(--s2) 0 var(--s1)', fontSize: '0.85em' }, onclick() { manualSection.hidden = !manualSection.hidden; this.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }, '+ Принять без счёта') : null;
+  const el = h('div', { class: 'sop' },
+    h('p', { class: 'hint' }, cfg.hint),
+    arrivals?.el,
+    toggleManual,
+    manualSection,
     resPanel?.el);
 
   // позиция из карточки / строки списка: сразу в списке
