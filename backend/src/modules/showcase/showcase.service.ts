@@ -68,7 +68,25 @@ export class ShowcaseService {
     const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1 } }).toArray() : [];
     const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1 } }).toArray();
     const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)]));
-    const ph = await loadPhotos(this.db, docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? [])));
+    // БЗ-15: обложки из паспортов — для изделий без своих фото берём overview первого выпущенного паспорта
+    const ownPhotoIds = docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? []));
+    const noPicDocs = docs.filter((d) => !((d.photoIds as Types.ObjectId[])?.length));
+    const ppCoverMap = new Map<string, Types.ObjectId>(); // productId → photoId
+    if (noPicDocs.length > 0) {
+      const pps = await this.db.collection('productpassports').find(
+        { deletedAt: null, productId: { $in: noPicDocs.map((d) => d._id) }, 'images.kind': 'overview' },
+        { projection: { productId: 1, images: 1, date: 1 } },
+      ).sort({ date: -1, _id: -1 }).toArray();
+      const seen = new Set<string>();
+      for (const pp of pps) {
+        const pid = String(pp.productId);
+        if (seen.has(pid)) continue;
+        seen.add(pid);
+        const img = (pp.images as Array<{ kind: string; photoId: Types.ObjectId }>).find((i) => i.kind === 'overview');
+        if (img?.photoId) ppCoverMap.set(pid, img.photoId);
+      }
+    }
+    const ph = await loadPhotos(this.db, [...ownPhotoIds, ...ppCoverMap.values()]);
     // ПИ: категория паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
     const [ppCats, ppCounts] = await Promise.all([
       this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
@@ -78,10 +96,14 @@ export class ShowcaseService {
     return docs.map((d) => {
       const c = d.categoryId ? cat.get(String(d.categoryId)) : undefined;
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
+      const ppCoverId = ppCoverMap.get(String(d._id));
+      const ppCoverPhoto = ppCoverId ? (ph.get(String(ppCoverId)) ?? null) : null;
+      const photo = pics[0] ?? ppCoverPhoto ?? null;
+      const photoSource: 'own' | 'passport' | undefined = pics.length > 0 ? undefined : ppCoverPhoto ? 'passport' : undefined;
       return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, description: (d.description as string) ?? null,
         price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c?.parentId ? String(c.name) : null, // категория без родителя — сам раздел (группа не выбрана)
         hasPassportDefaults: !!d.passportDefaults && Object.keys(d.passportDefaults as object).length > 0,
-        type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo: pics[0] ?? null, deletedAt: (d.deletedAt as Date) ?? null,
+        type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo, ...(photoSource ? { photoSource } : {}), deletedAt: (d.deletedAt as Date) ?? null,
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
@@ -108,8 +130,10 @@ export class ShowcaseService {
     }
     const sortKey = String(q.sort || 'name').replace(/^-/, ''); const dir = String(q.sort || '').startsWith('-') ? -1 : 1;
     const sortField = ({ name: 'name', sku: 'sku', price: 'listPrice', series: 'series', deletedAt: 'deletedAt', category: 'categoryId' } as Record<string, string>)[sortKey] ?? 'name';
-    // category — галерея по разделам (ФИ2): изделия одной группы подряд, внутри — по названию
-    const order: Record<string, 1 | -1> = sortField === 'categoryId' ? { categoryId: dir, name: 1, _id: 1 } : { [sortField]: dir, _id: 1 };
+    // category — галерея по разделам (ФИ2): изделия одной группы подряд, внутри — по названию; withPhoto — сначала с обложкой (БЗ-15)
+    const order: Record<string, 1 | -1> = sortField === 'categoryId' ? { categoryId: dir, name: 1, _id: 1 }
+      : sortKey === 'withPhoto' ? { mainPhotoId: -1, name: 1, _id: 1 }
+      : { [sortField]: dir, _id: 1 };
     const [docs, total] = await Promise.all([
       this.db.collection('products').find(filter).sort(order).skip((page - 1) * limit).limit(limit).toArray(),
       this.db.collection('products').countDocuments(filter),

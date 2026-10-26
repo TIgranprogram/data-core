@@ -45,20 +45,26 @@ const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', '�
 export function mountList(section, params, { onOpen, onCreate, quick, onChanged }) {
   const L = { ...section.list, columns: section.list.columns.filter((c) => !c.money || session.canMoney) };
   let P = { ...params };
-  const st = () => ({
-    limit: Number(P.limit) || 25,
-    page: Math.max(1, Number(P.page) || 1),
-    sort: P.sort || L.sortDefault,
-    board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view) || (!!L.board.alt && P.view === L.board.alt)),
-    gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view)),
-  });
+  const vKey = () => L.viewKey ? 'dc-view-' + L.viewKey : null;
+  const savedView = () => { const k = vKey(); if (!k) return ''; try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+  const saveView = (v) => { const k = vKey(); if (!k) return; try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* */ } };
+  const st = () => {
+    const sv = !P.view ? savedView() : '';
+    return {
+      limit: Number(P.limit) || 25,
+      page: Math.max(1, Number(P.page) || 1),
+      sort: P.sort || L.sortDefault,
+      board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view) || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
+      gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view) || (!P.view && sv === 'gallery')),
+    };
+  };
   let rows = [];
 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
-  const btnTable = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default || L.board?.default ? 'table' : undefined, page: undefined }) }, icon('table'), 'Таблица');
-  const btnBoard = h('button', { type: 'button', onclick: () => patch({ view: L.board?.default ? undefined : 'board', page: undefined, status: undefined }) }, icon('board'), 'Доска');
-  const btnGallery = h('button', { type: 'button', onclick: () => patch({ view: L.gallery?.default ? undefined : 'gallery', page: undefined }) }, icon('gallery'), 'Галерея');
+  const btnTable = h('button', { type: 'button', onclick: () => { saveView(''); patch({ view: L.gallery?.default || L.board?.default ? 'table' : undefined, page: undefined }); } }, icon('table'), 'Таблица');
+  const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: L.board?.default ? undefined : 'board', page: undefined, status: undefined }); } }, icon('board'), 'Доска');
+  const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: L.gallery?.default ? undefined : 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
   const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin

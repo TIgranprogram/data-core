@@ -163,7 +163,8 @@ export const products = {
 
   list: {
     path: '/showcase',
-    sortDefault: 'name',
+    sortDefault: 'withPhoto',
+    viewKey: 'products',
     createLabel: 'Изделие',
     // БЗ-9: отметить изделия → «Изменить выбранные» (артикул, наименование, фото, состав — по одному)
     bulk: { open: (ids, { done }) => openBulk({ ids, done, fields: productBulkFields,
@@ -187,7 +188,7 @@ export const products = {
     query: (P) => (P.series ? { series: P.series } : {}),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
-      default: true, limit: 100, sort: 'category', lastGroup: 'Без раздела',
+      limit: 100, sort: 'category', lastGroup: 'Без раздела',
       groupBy: (r) => [r.type, r.group].filter(Boolean).join(' › ') || 'Без раздела',
       card: (r) => ({
         pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,
@@ -253,6 +254,11 @@ export const products = {
       ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
         : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
       ['Статус', STATUS[r.status] || r.status],
+      r.photoSource === 'passport' ? ['Обложка', h('span', null,
+        h('span', { class: 'muted' }, 'фото из паспорта'),
+        session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', style: 'margin-left:.5rem',
+          title: 'Скопировать фото из паспорта в карточку изделия — станет «своим»',
+          onclick: async () => { await api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [r.photo.id] } }); patch({}); } }, '← своей обложкой') : null)] : null,
       ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
       ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
