@@ -191,4 +191,40 @@ export class SupplierExcelService {
 
     return { rows, hash, supplierId, created, catalogUpdated };
   }
+
+  /** Каталог поставщиков — страница из supplieritems с именами поставщиков. */
+  async listItems(q: Record<string, string | undefined>) {
+    const page = Math.max(1, parseInt(String(q.page ?? '1'), 10) || 1);
+    const limit = Math.min(500, Math.max(1, parseInt(String(q.limit ?? '100'), 10) || 100));
+    const skip = (page - 1) * limit;
+    const filter: Record<string, unknown> = { deletedAt: null };
+    if (q.supplierId) {
+      const ids = String(q.supplierId).split(',').map((s) => s.trim()).filter((s) => Types.ObjectId.isValid(s)).map((s) => new Types.ObjectId(s));
+      if (ids.length) filter.supplierId = { $in: ids };
+    }
+    if (q.search) {
+      const re = new RegExp(String(q.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ name: re }, { article: re }];
+    }
+    const coll = this.itemModel.collection;
+    const [docs, total] = await Promise.all([
+      coll.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).toArray(),
+      coll.countDocuments(filter),
+    ]);
+    const supIds = [...new Set(docs.map((d) => String(d.supplierId)).filter(Boolean))].filter((s) => Types.ObjectId.isValid(s)).map((s) => new Types.ObjectId(s));
+    const orgs = supIds.length ? await this.conn.db!.collection('organizations').find({ _id: { $in: supIds } }, { projection: { name: 1, shortName: 1 } }).toArray() : [];
+    const names = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
+    const items = docs.map((d) => ({
+      id: String(d._id),
+      supplierId: String(d.supplierId),
+      supplierName: names.get(String(d.supplierId)) ?? '',
+      article: String(d.article ?? ''),
+      name: String(d.name ?? ''),
+      color: d.color ? String(d.color) : '',
+      priceHint: typeof d.priceHint === 'number' ? d.priceHint : null,
+      optGroup: d.optGroup ? String(d.optGroup) : '',
+      updatedAt: d.updatedAt instanceof Date ? d.updatedAt.toISOString() : null,
+    }));
+    return { items, total, page, limit };
+  }
 }

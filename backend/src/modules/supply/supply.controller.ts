@@ -21,6 +21,14 @@ export class SupplyController {
     private readonly excel: SupplierExcelService,
   ) {}
 
+  @AppSection('requests', 'suppliercatalog')
+  @Get('supplier-items')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  listSupplierItems(@Query() q: Record<string, string>) {
+    return this.excel.listItems(q);
+  }
+
   @AppSection('requests', 'stock')
   @Get('requests')
   @Roles('admin', 'director', 'manager', 'user')

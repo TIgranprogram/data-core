@@ -40,6 +40,7 @@ import { doctpl, passarchive, mountDocs } from './sections/docs.js';
 import { ptext, ptextview } from './sections/passport-texts.js';
 import { ptnode } from './sections/passport-tree.js';
 import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
+import { supplierCatalog } from './sections/supplier-catalog.js';
 import { composition } from './sections/composition.js';
 import { bulkEdit } from './sections/bulk-edit.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
@@ -54,8 +55,8 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, design, designorder: designOrder, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode };
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const SECTIONS = { requests, stock, movements, orders, salesorders, design, designorder: designOrder, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, suppliercatalog: supplierCatalog };
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { designorder: 'design', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
@@ -154,7 +155,7 @@ function shell() {
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
-    group('Снабжение', navLinks.requests),
+    group('Снабжение', navLinks.requests, navLinks.suppliercatalog),
     group('Склад', navLinks.stock),
     group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
     group('Производство', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли

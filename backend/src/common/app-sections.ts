@@ -7,6 +7,7 @@
 export const APP_SECTIONS = [
   { id: 'home', label: 'Сегодня' },
   { id: 'requests', label: 'Заявки' },
+  { id: 'suppliercatalog', label: 'Каталог поставщиков' },
   { id: 'stock', label: 'Остатки' },
   { id: 'salesorders', label: 'Заказы' },
   { id: 'partners', label: 'Контрагенты' },
