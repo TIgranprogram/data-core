@@ -208,3 +208,10 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 .role-fields input { width: 320px; max-width: 100%; }
 .sec-acts .push { margin-left: auto; }
 .role-new h3 { margin: 0 0 var(--s3); }
+/* БКП.4: копии вне дома */
+.srv-form { display: grid; gap: 10px; max-width: 560px; margin: 8px 0; }
+.srv-field { display: grid; gap: 4px; }
+.srv-field input { width: 100%; }
+.srv-target { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 8px 0; display: grid; gap: 4px; }
+.srv-add { margin-top: 10px; }
+.srv-add > summary { cursor: pointer; font-weight: 600; }

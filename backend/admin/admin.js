@@ -1091,6 +1091,53 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       prog.textContent = ''; toast('Не удалось сохранить копию: ' + (e.message || 'обрыв связи'));
     }
   }
+  // ---- Сервер: копии вне дома (БКП.4) — цели WebDAV, время, пароль шифрования ----
+  async function loadOffsite() {
+    const box = $('#offsite-box');
+    const field = (label, inp, hint) => { const l = el('label', 'srv-field'); l.append(el('span', null, label), inp); if (hint) l.append(el('small', 'muted', hint)); return l; };
+    const input = (type, value, ph) => { const i = el('input'); i.type = type; i.value = value ?? ''; if (ph) i.placeholder = ph; i.autocomplete = 'off'; return i; };
+    const btn = (txt, cls, fn) => { const b = el('button', 'btn' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.addEventListener('click', async () => { b.disabled = true; try { await fn(); } catch (e) { toast(e.message); } finally { b.disabled = false; } }); return b; };
+    const send = (path, method, body) => api('/health/offsite' + path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    let d;
+    try { d = await api('/health/offsite'); } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось загрузить: ' + e.message)); return; }
+    const parts = [];
+    const time = input('time', d.settings.time); const keep = input('number', d.settings.keep); keep.min = 1; keep.max = 60;
+    const pass = input('password', '', d.settings.hasPassword ? 'задан — впишите, чтобы сменить' : 'не задан — не короче 10 знаков');
+    const set = el('div', 'srv-form');
+    set.append(field('Время отправки', time, 'Каждый день. Ночная копия готова к 03:00 — ставьте позже, например 04:30.'),
+      field('Хранить копий', keep, 'Старые удаляются, остаются последние N.'),
+      field('Пароль шифрования', pass, 'Запишите и храните у себя. Без него копию не открыть: расшифровка — backend/scripts/backup-decrypt.js.'),
+      btn('Сохранить настройки', 'btn-primary', async () => { const b = { time: time.value, keep: Number(keep.value) }; if (pass.value) b.password = pass.value; await send('/settings', 'PUT', b); toast('Настройки сохранены'); loadOffsite(); }));
+    parts.push(set, el('p', 'muted', `Последняя копия на сервере: ${d.latestBackup ? new Date(d.latestBackup).toLocaleString('ru-RU') : 'нет'}${d.settings.lastAuto ? ' · последняя автоотправка: ' + d.settings.lastAuto : ''}`));
+    const list = el('div', 'srv-targets');
+    if (!d.targets.length) list.append(el('p', 'muted', 'Мест пока нет — добавьте ниже.'));
+    d.targets.forEach((t) => {
+      const row = el('div', 'srv-target');
+      const st = t.last ? `${t.last.ok ? '✔' : '✖'} ${new Date(t.last.at).toLocaleString('ru-RU')} — ${t.last.message}${t.last.bytes ? ' · ' + gb(t.last.bytes) : ''}` : 'Ещё не отправляли';
+      const res = el('span', 'muted');
+      row.append(el('b', null, t.name + (t.enabled ? '' : ' (выключено)')), el('div', 'muted', `${t.url} · ${t.username} · папка «${t.folder || '/'}» · пароль ${t.hasSecret ? 'задан' : 'не задан'}`), el('div', t.last && !t.last.ok ? 'error' : 'muted', st));
+      const acts = el('div', 'srv-btns');
+      acts.append(
+        btn('Проверить связь', '', async () => { res.textContent = 'Проверяю…'; const r = await send(`/targets/${t.id}/test`, 'POST'); res.textContent = r.message; res.className = r.ok ? 'ok' : 'error'; }),
+        btn('Отправить сейчас', '', async () => { res.textContent = 'Отправляю — архив и выгрузка, это долго…'; const r = await send('/run', 'POST', { id: t.id }); res.textContent = r.results.map((x) => x.message).join('; '); loadOffsite(); }),
+        btn(t.enabled ? 'Выключить' : 'Включить', '', async () => { await send(`/targets/${t.id}`, 'PATCH', { enabled: !t.enabled }); loadOffsite(); }),
+        btn('Удалить', 'btn-danger', async () => { if (!confirm(`Удалить место «${t.name}»? Копии в нём останутся.`)) return; await send(`/targets/${t.id}`, 'DELETE'); loadOffsite(); }), res);
+      row.append(acts); list.append(row);
+    });
+    parts.push(list);
+    const n = input('text', '', 'Яндекс-Диск'); const u = input('url', 'https://webdav.yandex.ru'); const lg = input('text', '', 'логин@yandex.ru');
+    const pw = input('password', '', 'пароль приложения'); const f = input('text', 'datacore-backups');
+    const add = el('details', 'srv-add'); add.append(el('summary', null, '+ Добавить место для копий'));
+    const form = el('div', 'srv-form');
+    form.append(field('Название', n), field('Адрес WebDAV', u, 'Яндекс-Диск: https://webdav.yandex.ru. Nextcloud: https://ваш-адрес/remote.php/dav/files/логин. Synology: https://адрес:5006.'),
+      field('Логин', lg, 'Яндекс-Диск — ваш логин Яндекса.'),
+      field('Пароль', pw, 'Яндекс: не пароль от почты, а «пароль приложения» — id.yandex.ru → Безопасность → Пароли приложений → «Файлы WebDAV».'),
+      field('Папка', f, 'Создастся сама.'),
+      btn('Добавить', 'btn-primary', async () => { await send('/targets', 'POST', { name: n.value, url: u.value, username: lg.value, password: pw.value, folder: f.value }); toast('Место добавлено — нажмите «Проверить связь»'); loadOffsite(); }));
+    add.append(form);
+    parts.push(add);
+    box.replaceChildren(...parts);
+  }
   async function loadBackups() {
     const box = $('#backups-box');
     try {
@@ -1229,6 +1276,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   function serverIdle() {
     idleBox('#server-box', { what: 'Сколько места занято на диске сервера.', wait: 'Обычно до 10 секунд.' }, 'Проверить место на диске', loadServer);
     idleBox('#backups-box', { what: 'Список ночных копий базы и фото — для скачивания.', wait: 'Обычно до 10 секунд.' }, 'Показать копии', loadBackups);
+    idleBox('#offsite-box', { what: 'Куда и когда отправлять зашифрованные копии вне дома.', wait: 'Обычно пара секунд.' }, 'Настроить копии вне дома', loadOffsite);
     idleBox('#bundle-box', { what: 'Один файл для переезда на другой сервер. Сборка — по кнопке, занимает 5–10 минут.', wait: 'Читаю состояние, до 10 секунд.' }, 'Показать пакеты', () => loadBundle());
   }
   $('#server-refresh').addEventListener('click', serverIdle);
