@@ -28,9 +28,10 @@ export function quickOrder({ load, categories, done }) {
     .then(() => { const a = document.activeElement; if (a === cat || a === item) a.dispatchEvent(new Event('focus')); }));
   cat.addEventListener('focus', ensure);
   item.addEventListener('focus', ensure);
-  attachCombo(cat, { options: () => (categories() || []).map((c) => ({ label: c })), onPick: (o) => { catSel = o.label; picked = null; item.value = ''; item.placeholder = `Позиция из «${o.label}»`; item.focus(); } });
+  let itemCombo;
+  attachCombo(cat, { options: () => (categories() || []).map((c) => ({ label: c })), onPick: (o) => { catSel = o.label; picked = null; item.value = ''; item.placeholder = `Позиция из «${o.label}»`; itemCombo?.suppress(); item.focus(); } });
   cat.addEventListener('change', () => { const v = cat.value.trim().toLowerCase(); catSel = (categories() || []).find((c) => c.toLowerCase() === v) || ''; });
-  attachCombo(item, {
+  itemCombo = attachCombo(item, {
     options: () => (items && catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
     empty: () => (catSel ? (items ? 'В этой категории ещё ничего не заказывали — «Новая позиция…»' : 'Загрузка…') : (cat.classList.add('need'), setTimeout(() => cat.classList.remove('need'), 1600), '← Сначала выберите категорию')),
     onPick: (o) => { picked = o.x; unit.textContent = o.x.values?.unit || 'шт'; q.focus(); q.select(); },
