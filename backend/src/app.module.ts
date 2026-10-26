@@ -63,7 +63,6 @@ import { DiskModule } from './modules/disk/disk.controller';
 import { ShowcaseModule } from './modules/showcase/showcase.controller';
 import { FinanceModule } from './modules/finance/finance.module';
 import { MetaModule } from './modules/meta/meta.module';
-import { SupplierCatalogModule } from './modules/supplier-catalog/supplier-catalog.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AppSectionGuard } from './common/guards/app-section.guard';
@@ -173,8 +172,7 @@ import { RequestMethod } from '@nestjs/common';
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
-    SupplierCatalogModule,  // SC-1: /api/supplier-catalog — каталог поставщиков (парсинг сайтов)
-    // ─── Канонические справочники (VISION #4) ─────────────────────────
+// ─── Канонические справочники (VISION #4) ─────────────────────────
     PersonModule,
     OrganizationModule,
     CounterpartyModule,

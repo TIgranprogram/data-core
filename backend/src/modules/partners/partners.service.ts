@@ -67,8 +67,6 @@ export class PartnersService {
       const a = by.get(String(o._id));
       return {
         id: String(o._id), kind: our ? 'our' : 'supplier', name: String(o.name), inn: realInn(o.inn), ...requisites(o),
-        // ссылка каталога поставщика (SC-1): без неё форма «Изменить» пустая и нет кнопки «Синхронизировать прайс»
-        ...(our ? {} : { catalogUrl: (o.catalogUrl as string) || null }),
         requests: a?.n ?? 0, sum: a?.sum ?? 0, lastDate: a?.last ?? null,
         // печать / подпись / логотип нашей компании — для паспортов (ПС.6); загрузка — PUT /organizations/:id/assets/:role
         ...(our ? { assets: ((o.assets as Array<{ role: string; storageUrl: string }>) || []).map((x) => ({ role: x.role, url: x.storageUrl })) } : {}),
@@ -183,12 +181,6 @@ export class PartnersService {
       if (DIGITS[k]) { v = v.replace(/\s/g, ''); if (v && !DIGITS[k][0].test(v)) throw new BadRequestException(DIGITS[k][1]); }
       if (k === 'email' && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) throw new BadRequestException('Почта — в виде name@example.ru');
       set[k] = v || null;
-    }
-    const url = (dto as Record<string, unknown>)['catalogUrl'];
-    if (url !== undefined) {
-      const v = clean(url as string);
-      if (v && !/^https?:\/\/[^\s/]+\.[^\s/]+/i.test(v)) throw new BadRequestException('Ссылка каталога — в виде https://сайт.ru/…');
-      set.catalogUrl = v || null;
     }
     return set;
   }

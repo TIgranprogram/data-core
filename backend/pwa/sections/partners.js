@@ -153,13 +153,6 @@ function requestsByMonth(items) {
   }));
 }
 
-async function syncCatalog(r) {
-  await api(`/supplier-catalog/sync/${r.id}`, { method: 'POST' });
-  // загрузка всего сайта идёт десятки минут — ход и остаток видны в «Каталоге» (полоса над списком)
-  toast('Загрузка прайса запущена — ход и примерное время видны в разделе «Каталог»');
-  go('supplier-catalog', { supplierId: r.id });
-}
-
 export const partners = {
   id: 'partners',
   title: 'Контрагенты',
@@ -212,13 +205,11 @@ export const partners = {
     // «Изменить» — заметно сверху карточки (СП.1), не только внизу
     editTop: true,
     view: (r) => [['Полное наименование', r.fullName], ['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Телефон', r.phone], ['Почта', r.email], ['Сайт', r.website],
-      ['Каталог на сайте', r.catalogUrl ? h('a', { href: r.catalogUrl, target: '_blank', rel: 'noopener' }, r.catalogUrl) : ''],
       ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
       ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')], ['Примечание', r.notes]],
     actions: (r) => [
       r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
       r.kind === 'supplier' && { label: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) },
-      r.kind === 'supplier' && !!r.catalogUrl && { label: 'Синхронизировать прайс', run: syncCatalog },
     ],
     extra: related,
   },
@@ -239,7 +230,6 @@ export const partners = {
       { key: 'phone', label: 'Телефон', max: 50 },
       { key: 'email', label: 'Почта', max: 200 },
       { key: 'website', label: 'Сайт', max: 300 },
-      ...(r?.kind === 'supplier' ? [{ key: 'catalogUrl', label: 'Ссылка на каталог (для загрузки прайса)', max: 500, wide: true, placeholder: 'https://zaglushka.ru/opora', hint: 'Поддерживаемые сайты: zaglushka.ru. Другие — ошибка при синхронизации.' }] : []),
       { key: 'contactName', label: 'Контактное лицо', max: 200 },
       { key: 'contactPhone', label: 'Телефон контакта', max: 50 },
       { section: 'Банк и примечание', tone: 'money', collapsed: true },
