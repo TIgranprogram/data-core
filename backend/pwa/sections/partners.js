@@ -159,17 +159,19 @@ async function importExcelDialog(r) {
   let previewHash = null;
   const fileInput = h('input', { type: 'file', accept: '.xlsx,.xls', required: true });
   const previewWrap = h('div', { class: 'excel-preview', hidden: true });
-  const dlTpl = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Кол-во', 'Группа', 'Цена'], ['АРТ-001', 'Качели двойные', 'Зелёный', 2, 'Качели', 12500]], 'Прайс');
-  const hint = h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика. Строки появятся для проверки перед добавлением. ',
+  // 2026-10-26: «Кол-во» — сколько заказать в этих единицах (пусто = 1); «Ед. изм.» — шт / м / кг / упак (пусто = шт); «Цена» — за 1 единицу
+  const dlTpl = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Ед. изм.', 'Кол-во', 'Группа', 'Цена'],
+    ['АРТ-001', 'Качели двойные', 'Зелёный', 'шт', 1, 'Качели', 12500], ['АРТ-002', 'Труба 40×20×2', '', 'м', 6, 'Металл', 210]], 'Прайс');
+  const hint = h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. Строки появятся для проверки перед добавлением. ',
     h('button', { type: 'button', class: 'link-btn', onclick: dlTpl }, '⇩ Скачать шаблон'));
 
   function renderPreview(rows) {
     previewRows = rows;
-    const cols = ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Группа', 'Цена'];
+    const cols = ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'];
     const th = h('tr', null, ...cols.map((c) => h('th', null, c)));
     const trs = rows.slice(0, 200).map((rw) => h('tr', null,
       h('td', null, rw.article), h('td', { class: 'clip' }, rw.name), h('td', null, rw.color),
-      h('td', { class: 'num' }, rw.qty), h('td', null, rw.optGroup),
+      h('td', { class: 'num' }, rw.qty), h('td', null, rw.unit || 'шт'), h('td', null, rw.optGroup),
       h('td', { class: 'num' }, rw.price != null ? rw.price.toLocaleString('ru') + ' ₽' : '—')));
     previewWrap.replaceChildren(
       h('p', { class: 'hint ok' }, `Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`),

@@ -12,6 +12,8 @@ export interface ExcelRow {
   name: string;
   color: string;
   qty: number;
+  /** Единица (шт, м, кг, упак); пусто — «шт» (2026-10-26: прайс с метражом) */
+  unit: string;
   optGroup: string;
   price: number | null;
   photoUrl: string | null;
@@ -48,6 +50,11 @@ const COL_MAP: Record<string, keyof ExcelRow | 'qty' | 'skip'> = {
   'кол-во': 'qty',
   'кол-во штук': 'qty',
   'количество': 'qty',
+  'ед. изм.': 'unit',
+  'ед.изм.': 'unit',
+  'ед': 'unit',
+  'ед.': 'unit',
+  'единица': 'unit',
   'оптовая группа': 'optGroup',
   'цена за 1 штуку': 'price',
   'цена': 'price',
@@ -99,7 +106,8 @@ export class SupplierExcelService {
         article,
         name: String(row.getCell(colIndex['name'] ?? 0).value ?? '').trim(),
         color: String(row.getCell(colIndex['color'] ?? 0).value ?? '').trim(),
-        qty: parseRuPrice(row.getCell(colIndex['qty'] ?? 0).value) ?? 1,
+        qty: parseRuPrice(row.getCell(colIndex['qty'] ?? 0).value) || 1, // пусто или 0 — одна единица
+        unit: (colIndex['unit'] ? String(row.getCell(colIndex['unit']).value ?? '').trim() : '') || 'шт',
         optGroup: String(row.getCell(colIndex['optGroup'] ?? 0).value ?? '').trim(),
         price: parseRuPrice(row.getCell(colIndex['price'] ?? 0).value),
         photoUrl: null,
@@ -144,7 +152,7 @@ export class SupplierExcelService {
         article: r.article,
         color: r.color || null,
         qty: r.qty,
-        unit: 'шт',
+        unit: r.unit || 'шт',
         supplierId: supplierOid,
         status: 'in_progress',
         requestDate: now,
