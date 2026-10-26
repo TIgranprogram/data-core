@@ -11,6 +11,8 @@ import { dirSize, exists } from './disk-fs';
 import { BackupsController } from './backups.controller';
 import { BundleController } from './bundle.controller';
 import { IntegrityService } from './integrity';
+import { OffsiteService } from './offsite';
+import { OffsiteController } from './offsite.controller';
 import { slowSummary } from '../../common/interceptors/slow-request.interceptor';
 
 /**
@@ -82,5 +84,5 @@ export class DiskController {
   }
 }
 
-@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController], providers: [DiskService, IntegrityService] })
+@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController, OffsiteController], providers: [DiskService, IntegrityService, OffsiteService] })
 export class DiskModule {}
