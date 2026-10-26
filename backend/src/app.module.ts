@@ -68,6 +68,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AppSectionGuard } from './common/guards/app-section.guard';
 import { UserContextInterceptor } from './common/interceptors/user-context.interceptor';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { SlowRequestInterceptor } from './common/interceptors/slow-request.interceptor';
 import { IdNormalizeInterceptor } from './common/interceptors/id-normalize.interceptor';
 import { AdminSeed } from './common/seed/admin.seed';
 import { AdminPasswordDriftDetector } from './common/seed/admin-password-drift-detector';
@@ -221,6 +222,7 @@ import { RequestMethod } from '@nestjs/common';
     { provide: APP_GUARD, useClass: RolesGuard },
     // SK-8d: последним — раздел «Рабочего места» закрыт для роли → 403 (@AppSection).
     { provide: APP_GUARD, useClass: AppSectionGuard },
+    { provide: APP_INTERCEPTOR, useClass: SlowRequestInterceptor }, // А4: первым — меряет весь путь запроса
     { provide: APP_INTERCEPTOR, useClass: UserContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     // T18: аддитивно добавляет `id` рядом с `_id` во все ответы.

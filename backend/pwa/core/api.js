@@ -77,7 +77,9 @@ async function raw(path, opts = {}, token) {
     return res;
   } catch {
     events.onNet(false);
-    throw new ApiError(HUMAN[0], 0);
+    const e = new ApiError(HUMAN[0], 0);
+    if (ctrl.signal.aborted) e.timeout = true; // долгий ответ — повтор не поможет (А5)
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -144,10 +146,21 @@ async function call(path, { method = 'GET', body, query } = {}) {
   if (method !== 'GET') { const out = parse(await send(path + qs, method, body)); for (const f of writeHooks) f(path, method); return out; }
   const key = path + qs;
   let p = inflight.get(key);
-  if (!p) { p = send(key, method).finally(() => inflight.delete(key)); inflight.set(key, p); }
+  if (!p) { p = sendRetry(key).finally(() => inflight.delete(key)); inflight.set(key, p); }
   return parse(await p);
 }
 const inflight = new Map();
+/** А5: GET повторяем до 2 раз (через 0,7 и 2 с) при сбое связи, 502/503/504 — туннель моргнул; запись (POST/PATCH) не повторяем. */
+export const RETRY_WAIT = [700, 2000];
+export const retryable = (e) => (e?.status === 0 && !e.timeout) || e?.status === 502 || e?.status === 503 || e?.status === 504;
+async function sendRetry(url) {
+  for (let i = 0; ; i++) {
+    try { return await send(url, 'GET'); } catch (e) {
+      if (i >= RETRY_WAIT.length || !retryable(e)) throw e;
+      await new Promise((r) => setTimeout(r, RETRY_WAIT[i]));
+    }
+  }
+}
 const parse = (text) => (text ? JSON.parse(text) : null);
 
 /** JWT истекает в ближайшие 30 с (или нет токена). Не разобрался — false: решит ответ сервера. */

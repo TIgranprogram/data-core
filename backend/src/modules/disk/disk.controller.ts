@@ -11,6 +11,7 @@ import { dirSize, exists } from './disk-fs';
 import { BackupsController } from './backups.controller';
 import { BundleController } from './bundle.controller';
 import { IntegrityService } from './integrity';
+import { slowSummary } from '../../common/interceptors/slow-request.interceptor';
 
 /**
  * Место на диске сервера (TASKS ДИ.1). Том с данными (`DATA_DIR` VM) смонтирован в контейнер только для чтения
@@ -71,6 +72,13 @@ export class DiskController {
   @Roles('admin', 'director')
   integrityReport(@Query('fresh') fresh?: string) {
     return this.integrity.report(fresh === '1');
+  }
+
+  /** А4: GET /api/health/slow — запросы дольше 1 с с последнего запуска, по маршрутам. */
+  @Get('slow')
+  @Roles('admin', 'director')
+  slow() {
+    return slowSummary();
   }
 }
 
