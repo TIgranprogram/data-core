@@ -254,7 +254,11 @@ function render({ section, params }) {
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
     if (section === 'docs') list = mountDocs(params, { onChanged: () => refreshCounts() });
-    else if (sec) {
+    else if (sec?.mount) {
+      const el = h('div', { class: 'panel' });
+      sec.mount(el, { params, setTitle: (t) => { if (ui.heading) ui.heading.textContent = t; } });
+      list = { el };
+    } else if (sec) {
       list = mountList(sec, params, {
         onOpen: (row) => openRecord(section, row.id),
         onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
