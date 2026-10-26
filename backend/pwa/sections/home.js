@@ -246,6 +246,12 @@ export function mountHome(deps) {
         ` — свободно ${(Math.round((d.freeBytes / 1024 ** 3) * 10) / 10).toLocaleString('ru-RU')} ГБ${d.daysLeft != null ? `, хватит примерно на ${d.daysLeft} дн.` : ''}. `,
         h('a', { href: '../admin/' }, 'Подробнее — «Администрирование → Сервер»'));
     }).catch(() => {});
+    // А1: проблемы в данных склада (сервер только находит; исправляем по плану) — плашка, только если есть
+    api('/health/integrity').then((r) => {
+      if (!r.issues?.length) return;
+      const n = h('p', { class: 'hint disk-note' }, h('b', null, 'Проверка данных: '), r.issues.map((x) => `${x.title} — ${x.count}`).join('; '), '. Напишите разработчику — исправим по плану.');
+      diskNote.after(n);
+    }).catch(() => {});
   }
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${day}`))),

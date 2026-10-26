@@ -1,4 +1,4 @@
-import { Controller, Get, Injectable, Module } from '@nestjs/common';
+import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { ApiTags } from '@nestjs/swagger';
 import { promises as fs } from 'fs';
@@ -10,6 +10,7 @@ import { diskState, type DiskSnapshot } from './disk-usage';
 import { dirSize, exists } from './disk-fs';
 import { BackupsController } from './backups.controller';
 import { BundleController } from './bundle.controller';
+import { IntegrityService } from './integrity';
 
 /**
  * Место на диске сервера (TASKS ДИ.1). Том с данными (`DATA_DIR` VM) смонтирован в контейнер только для чтения
@@ -57,14 +58,21 @@ export class DiskService {
 @ApiTags('Сервер')
 @Controller('health')
 export class DiskController {
-  constructor(private readonly disk: DiskService) {}
+  constructor(private readonly disk: DiskService, private readonly integrity: IntegrityService) {}
 
   @Get('disk')
   @Roles('admin', 'director')
   usage() {
     return this.disk.usage();
   }
+
+  /** А1: GET /api/health/integrity — проблемы в данных склада (только чтение); ?fresh=1 — пересчитать сейчас. */
+  @Get('integrity')
+  @Roles('admin', 'director')
+  integrityReport(@Query('fresh') fresh?: string) {
+    return this.integrity.report(fresh === '1');
+  }
 }
 
-@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController], providers: [DiskService] })
+@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController], providers: [DiskService, IntegrityService] })
 export class DiskModule {}
