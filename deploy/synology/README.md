@@ -98,6 +98,19 @@
 - `release.sh` печатает `df -h /var/lib/datacore` до и после выкладки и **останавливается, если свободно < 2 ГБ**; `remote-access/check.sh` — строка «4. Место на диске сервера».
 - Освободить место: старые папки `/var/lib/datacore/backups/*` (ротация 14 дней), `backend.prev-*` в `/opt/data-core`, `docker image prune` — только осознанно.
 
+## Копии вне дома (БКП, с 2026-10-27)
+Настройка — админка → «Сервер» → «Копии вне дома»: места WebDAV (Яндекс-Диск `https://webdav.yandex.ru` + пароль приложения, Nextcloud, второй Synology), время, сколько хранить, пароль шифрования. Код — `backend/src/modules/disk/offsite.ts`.
+Файл в облаке: `datacore-<штамп>.dcb` — zip (`mongo-<штамп>/` + `uploads-<штамп>/`), зашифрованный AES-256-GCM паролем пользователя.
+
+**Восстановить из копии вне дома (сервер погиб, ИИ рядом нет):**
+1. Скачать `.dcb` с Яндекс-Диска (папка `datacore-backups`) на любой ПК с Node.js 18+.
+2. Расшифровать: `node backend/scripts/backup-decrypt.js datacore-<штамп>.dcb` → спросит пароль шифрования → рядом появится `.zip`. Неверный пароль — «Неверный пароль или файл повреждён».
+3. Поднять сервер с кодом: Ubuntu + Docker, `git clone` репо, `docker compose -f docker-compose.prod.yml up -d` (секреты `.env` — из `CREDENTIALS.md` у владельца; новый пароль Mongo — тоже можно).
+4. Распаковать zip; базу — `docker cp mongo-<штамп> datacore-mongo:/tmp/` и `mongorestore -u <root> -p <пароль> --authenticationDatabase admin --db datacore /tmp/mongo-<штамп>/datacore` (без сжатия, как пишет `backup.sh`; в пустую базу, **без `--drop`**); фото — скопировать `uploads-<штамп>/` в `${DATA_DIR}/uploads/`.
+5. Проверить: `node deploy/synology/verify-restore.js`, `/api/health/ready` = 200, вход в приложение.
+6. Туннель и nginx на VPS — раздел «Публичный доступ» выше.
+Пароли целей и шифрования в базе зашифрованы ключом `BACKUP_SECRET_KEY` (нет — `JWT_SECRET`): сменили ключ — заново впишите пароли в админке.
+
 ## Диагностика на VM
 
 ```bash
