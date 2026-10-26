@@ -47,3 +47,13 @@ describe('nextSku', () => {
     await expect(nextSku(t.db, t.counter, gid)).rejects.toThrow('заняты номера 01–99');
   });
 });
+
+import { subtreeIds } from './showcase.service';
+describe('ПРД.5: поддерево категорий', () => {
+  it('берёт все уровни и не зацикливается', () => {
+    const { Types } = require('mongoose');
+    const [a, b, c, d] = [0, 1, 2, 3].map(() => new Types.ObjectId());
+    const cats = [{ _id: a }, { _id: b, parentId: a }, { _id: c, parentId: b }, { _id: d, parentId: c }, { _id: a, parentId: d }];
+    expect(subtreeIds(a, cats).map(String).sort()).toEqual([a, b, c, d].map(String).sort());
+  });
+});

@@ -125,8 +125,9 @@ export class ShowcaseService {
     if (q.series) filter.series = String(q.series).trim();
     if (q.groupId) {
       const g = oid(String(q.groupId), 'группы');
-      const kids = await this.db.collection('categories').find({ parentId: g }, { projection: { _id: 1 } }).toArray();
-      filter.categoryId = { $in: [g, ...kids.map((k) => k._id)] };
+      // ПРД.5: группа + всё поддерево (раздел → группа → подгруппа…), а не только прямые дети
+      const all = await this.db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { parentId: 1 } }).toArray();
+      filter.categoryId = { $in: subtreeIds(g, all) };
     }
     const sortKey = String(q.sort || 'name').replace(/^-/, ''); const dir = String(q.sort || '').startsWith('-') ? -1 : 1;
     const sortField = ({ name: 'name', sku: 'sku', price: 'listPrice', series: 'series', deletedAt: 'deletedAt', category: 'categoryId' } as Record<string, string>)[sortKey] ?? 'name';
@@ -152,9 +153,9 @@ export class ShowcaseService {
     const cats = await this.db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { name: 1, parentId: 1, groupNo: 1 } }).sort({ name: 1 }).toArray();
     const counts = await this.db.collection('products').aggregate([{ $match: LIVE }, { $group: { _id: '$categoryId', n: { $sum: 1 } } }]).toArray();
     const n = new Map(counts.map((c) => [String(c._id), c.n as number]));
-    const byParent = new Map<string, number>();
-    for (const c of cats) if (c.parentId) byParent.set(String(c.parentId), (byParent.get(String(c.parentId)) ?? 0) + (n.get(String(c._id)) ?? 0));
-    return cats.map((c) => ({ id: String(c._id), name: String(c.name), parentId: c.parentId ? String(c.parentId) : null, groupNo: c.groupNo ? String(c.groupNo) : null, count: (n.get(String(c._id)) ?? 0) + (byParent.get(String(c._id)) ?? 0) }))
+    // ПРД.5: число = всё поддерево (то же, что покажет список по этой группе)
+    const total = (id: Types.ObjectId) => subtreeIds(id, cats).reduce((sum, x) => sum + (n.get(String(x)) ?? 0), 0);
+    return cats.map((c) => ({ id: String(c._id), name: String(c.name), parentId: c.parentId ? String(c.parentId) : null, groupNo: c.groupNo ? String(c.groupNo) : null, count: total(c._id as Types.ObjectId) }))
       .filter((c) => c.count > 0);
   }
 
@@ -526,4 +527,13 @@ export class ShowcaseService {
       items: lines, total: Math.round(lines.reduce((s, l) => s + l.sum, 0) * 100) / 100, noPrice: lines.filter((l) => !l.price).length,
     };
   }
+}
+
+/** ПРД.5: id категории и всех её потомков на любой глубине (защита от петель — посещённые). */
+export function subtreeIds(root: Types.ObjectId, cats: Array<{ _id: unknown; parentId?: unknown }>): Types.ObjectId[] {
+  const kids = new Map<string, Types.ObjectId[]>();
+  for (const c of cats) if (c.parentId) { const k = String(c.parentId); kids.set(k, [...(kids.get(k) ?? []), c._id as Types.ObjectId]); }
+  const out: Types.ObjectId[] = []; const seen = new Set<string>(); const stack = [root];
+  while (stack.length) { const x = stack.pop()!; if (seen.has(String(x))) continue; seen.add(String(x)); out.push(x); stack.push(...(kids.get(String(x)) ?? [])); }
+  return out;
 }
