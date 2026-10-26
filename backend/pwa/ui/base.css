@@ -1407,7 +1407,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 @media (max-width: 720px) { .ntf .ntf-btn, .bell-pop .bell-clear { min-height: 44px; } .ntf .ntf-x { width: 44px; height: 44px; } .toasts { left: 12px; right: 12px; transform: none; width: auto; max-width: none; align-items: stretch; bottom: 16px; } .toast { width: auto; } }
 
 /* ---------- Левая панель фильтров (NAV F1): L.sidebar в ui/list.js ---------- */
-.ls-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--s4); align-items: start; }
+.ls-grid { display: grid; grid-template-columns: var(--filter-w, 280px) minmax(0, 1fr); gap: var(--s4); align-items: start; }
 .ls-main { min-width: 0; }
 .list-side { position: sticky; top: calc(var(--topbar-h) + var(--s3)); max-height: calc(100vh - var(--topbar-h) - 2 * var(--s3)); display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .ls-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s3); display: flex; flex-direction: column; gap: var(--s4); }
@@ -1432,7 +1432,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .list-side .date-f { flex-direction: column; align-items: stretch; }
 .list-side .ff-body { overflow: visible; padding: 0; }
 .list-side .ff-group:last-child { border-bottom: 0; }
-@media (max-width: 1100px) { .ls-grid { grid-template-columns: 240px minmax(0, 1fr); gap: var(--s3); } }
+@media (max-width: 1100px) { .ls-grid { grid-template-columns: var(--filter-w, 240px) minmax(0, 1fr); gap: var(--s3); } }
 @media (max-width: 720px) {
   .ls-grid { display: block; }
   .ls-open-btn { display: inline-flex; }

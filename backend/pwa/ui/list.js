@@ -1,4 +1,5 @@
 import { exportList } from './list-export.js';
+import { makeResizable } from './resizer.js';
 import { searchBox } from './searchbox.js';
 import { enhanceSelect } from './select.js';
 import { api, canEditSection, session } from '../core/api.js';
@@ -80,6 +81,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const sb = searchBox({ value: P.q || '', placeholder: L.searchPlaceholder || 'Поиск…', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
   // L.sidebar (NAV F1): поиск, категории, признаки и «Сбросить всё» — в левой панели; на телефоне она выезжает листом по кнопке «Фильтры · N»
   const side = L.sidebar ? h('aside', { class: 'list-side', 'aria-label': 'Фильтры' }) : null;
+  if (side) makeResizable(side, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' });
   const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
   const chipFilters = (L.filters || []).filter((f) => f.type === 'chips');
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
