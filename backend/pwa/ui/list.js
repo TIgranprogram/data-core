@@ -250,11 +250,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
           () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
           x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' ? x.sub : ''));
         const hasActive = String(tile.value) === cur || subs.some((x) => String(x.value) === cur);
-        // Раздел без подгрупп — работает как фильтр напрямую, а не как аккордеон
+        // Раздел без подгрупп — работает как фильтр напрямую, а не как аккордеон; head-leaf — нет стрелки
         if (!subs.length) {
           return [optBtn(tile.label, tile.n, String(tile.value) === cur,
             () => patch({ [L.tiles.key]: String(tile.value) === cur ? undefined : tile.value, page: undefined }),
-            '', '')];
+            'head head-leaf', '')];
         }
         const subsEl = h('div', { class: 'ls-subs', hidden: !hasActive },
           ...subs.map((x) => optBtn(x.label, x.n, String(x.value) === cur,

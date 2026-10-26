@@ -68,9 +68,9 @@ async function productBulkFields() {
   const cats = await api('/dicts/passportCategories').then((x) => (x.items || []).map((c) => ({ value: c.code, label: c.name }))).catch(() => []);
   const n = (v) => (v === '' ? null : v);
   return [
-    { key: 'type', label: 'Раздел', type: 'combo', options: fv.sections.map((x) => x.value), hint: 'Группа у каждого изделия останется своя' },
-    { key: 'group', label: 'Группа', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Раздел у каждого изделия останется свой' },
-    { key: 'series', label: 'Серия', type: 'combo', options: fv.series.map((x) => x.value) },
+    { key: 'type', label: 'Тип оборудования', type: 'combo', options: fv.sections.map((x) => x.value), hint: 'Группа у каждого изделия останется своя' },
+    { key: 'group', label: 'Группа изделий', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Тип у каждого изделия останется свой' },
+    { key: 'series', label: 'Наименование серии', type: 'combo', options: fv.series.map((x) => x.value) },
     { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже' }, { value: 'archived', label: 'Архив' }] },
     { key: 'price', label: 'Цена, ₽ — одна для всех', type: 'number', map: n },
     { key: 'designerId', label: 'Кто проектировал', type: 'combo', options: staff.map((p) => ({ value: p.id, label: p.label, sub: p.sub })), map: (v) => (v ? ids.get(v) || '' : ''), hint: 'Пусто — снять' },
@@ -177,19 +177,19 @@ export const products = {
       restore: (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } }) }) }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
     emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
-    // левая панель (NAV F3): поиск → «Раздел / Группа» → «Серия» → «Состояние»; цену и габариты не фильтруем
+    // левая панель (NAV F3): поиск → «Тип · Группа изделий» → «Серия» → «Состояние»; цену и габариты не фильтруем
     sidebar: true,
     filters: [
-      { key: 'groupId', label: 'Раздел', type: 'hidden' }, // выбирается списком «Раздел / Группа»
-      { key: 'series', label: 'Серия', allLabel: 'Все серии', type: 'select', options: async () => (await formValues()).series.map((x) => ({ value: x.value, label: x.value })) },
+      { key: 'groupId', label: 'Тип · Группа', type: 'hidden' }, // выбирается деревом «Тип · Группа изделий»
+      { key: 'series', label: 'Наименование серии', allLabel: 'Все серии', type: 'select', options: async () => (await formValues()).series.map((x) => ({ value: x.value, label: x.value })) },
       { key: 'status', label: 'Состояние', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
     ],
     // серия — точное совпадение на сервере (query series)
     query: (P) => (P.series ? { series: P.series } : {}),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
-      limit: 100, sort: 'category', lastGroup: 'Без раздела',
-      groupBy: (r) => [r.type, r.group].filter(Boolean).join(' › ') || 'Без раздела',
+      limit: 100, sort: 'category', lastGroup: 'Без типа',
+      groupBy: (r) => [r.type, r.group].filter(Boolean).join(' › ') || 'Без типа',
       card: (r) => ({
         pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,
         title: r.name,
@@ -198,7 +198,7 @@ export const products = {
       }),
     },
     tiles: {
-      key: 'groupId', title: 'Раздел / Группа',
+      key: 'groupId', title: 'Тип · Группа изделий',
       // раздел — заголовок, под ним его группы; группа без известного раздела — в конце с подписью
       load: async () => {
         const all = await api('/showcase/groups'); const tops = all.filter((g) => !g.parentId); const known = new Set(tops.map((g) => g.id));
@@ -227,7 +227,7 @@ export const products = {
       { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => pic(r.photo) },
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
       { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
-      { key: 'group', label: 'Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
+      { key: 'group', label: 'Тип · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
       { key: 'price', label: 'Цена', sort: 'price', cls: 'num right', render: (r) => (r.price ? money(r.price) : h('span', { class: 'muted' }, 'нет цены')) },
     ],
@@ -249,7 +249,7 @@ export const products = {
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r) => [
-      ['Артикул', r.sku], ['Раздел', r.type], ['Группа', r.group], ['Серия', r.series],
+      ['Артикул', r.sku], ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
       // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
       ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
         : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
@@ -320,11 +320,11 @@ export const products = {
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
       return [
       { section: 'Изделие', tone: 'main', fixed: true },
-      { key: 'sku', label: 'Артикул', required: true, max: 64, span: 1, warn: skuTaken },
+      { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken, hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
       { key: 'name', label: 'Наименование', required: true, max: 256, span: 3 },
-      { key: 'type', label: 'Раздел', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
-      { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного раздела' },
-      { key: 'series', label: 'Серия', type: 'combo', max: 100, options: fv.series.map(opt) },
+      { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
+      { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного типа' },
+      { key: 'series', label: 'Наименование серии', type: 'combo', max: 100, options: fv.series.map(opt) },
       { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
         hint: 'С ценой черновик сам становится «в продаже»' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Фото и состав — в карточке сразу после «Создать»' },

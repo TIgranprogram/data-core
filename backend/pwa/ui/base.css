@@ -1426,9 +1426,10 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .ls-opt .ls-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .ls-opt .ls-sub { color: var(--muted); font-size: var(--fs-sm); font-weight: 400; }
 .ls-opt b { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ls-opt.head { font-weight: 600; margin-top: 6px; }
+.ls-opt.head { font-weight: 700; margin-top: 8px; color: var(--heading); }
 .ls-opt.head::after { content: '▸'; margin-left: auto; font-size: 11px; color: var(--muted); }
 .ls-opt.head.open::after { content: '▾'; }
+.ls-opt.head-leaf::after { display: none; }
 .ls-subs { overflow: hidden; }
 .ls-opt.sub { padding-left: 22px; }
 /* ТИ-3: полоса слева у заказов в стадии «Проектирование» */
