@@ -99,7 +99,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       const acts = [section.card.editTop && section.form ? { label: 'Изменить', primary: true, run: () => showForm('edit') } : null, ...(section.card.actions ? section.card.actions(row, actx()) : [])].filter(Boolean);
       if (acts.length) content.push(h('div', { class: 'actions' }, acts.map((a) => h('button', { class: 'btn' + (a.primary ? ' btn-primary' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label))));
     }
-    content.push(h('dl', { class: 'fields' }, section.card.view(row).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
+    content.push(h('dl', { class: 'fields' }, section.card.view(row).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
     if (section.card.extra) content.push(section.card.extra(row, actx()));
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
@@ -224,7 +224,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     };
     // form.readonly — только просмотр (нет права записи): одна кнопка «Закрыть»
     if (form.readonly) { cancel.textContent = 'Закрыть'; foot.replaceChildren(cancel); } else foot.replaceChildren(save, cancel);
-    form.focus();
+    form.focus?.();
   }
 
   // «Требуют заполнения» (TASKS ТЗ.3): fill=<ключ поля> — сразу правка, нужное поле подсвечено, раскрыто и в фокусе
