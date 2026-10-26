@@ -103,7 +103,7 @@ main.js               вход, роутер по #раздел, шапка
 core/api.js           fetch + JWT/refresh + ошибки → понятный текст
 core/router.js        #раздел?параметры ↔ состояние
 core/format.js        даты, деньги, числа
-ui/tokens.css ui/base.css   токены и базовые стили
+ui/tokens.css ui/base.css list.css form.css screens.css panels.css   токены и стили (порядок в index.html важен)
 ui/list.js ui/card.js ui/form.js ui/dialog.js ui/toast.js ui/badges.js ui/pager.js
 ui/board.js ui/icons.js  доска (колонки по статусам) и иконки меню
 ui/quick.js          быстрое добавление одной строкой
@@ -157,3 +157,7 @@ sections/<раздел>.js  ОПИСАНИЕ раздела: API-путь, ко�
 - [ ] §6 пройден полностью, в HISTORY записано: что проверено и чем;
 - [ ] доки обновлены (MAP, openapi при смене API, этот канон — если появилось новое правило);
 - [ ] пользователю сказано человеческими словами, что можно проверить и где.
+
+## Размер файлов (ОР-5, 2026-10-26)
+- Раздел приложения длиннее 400 строк — разбивать на папку, как `sections/passports/`. Общий файл `ui/*.js` — так же.
+- Стили — по частям `ui/base.css`, `list.css`, `form.css`, `screens.css`, `panels.css`; новый файл стилей — подключить в `index.html` и `sw.js` по порядку.

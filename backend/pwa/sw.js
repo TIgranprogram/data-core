@@ -4,9 +4,9 @@
  * очищается и файлы берутся с сервера. Нет version.json (стенд, локально) — «сеть, иначе кэш», как раньше.
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
  */
-const SHELL = 'dc-app-shell-v26';
+const SHELL = 'dc-app-shell-v27';
 const PHOTOS = 'dc-app-photos-v1';
-const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
+const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './ui/list.css', './ui/form.css', './ui/screens.css', './ui/panels.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const VER_KEY = './__version';
 
 self.addEventListener('install', (e) => {

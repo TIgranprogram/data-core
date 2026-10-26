@@ -1,0 +1,132 @@
+/* ОР-1: часть бывшего base.css — форма, диалог, сообщения, вход. Порядок подключения в index.html важен (каскад). */
+/* ---------- Форма ---------- */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px var(--s3); }
+.form-grid .wide { grid-column: 1 / -1; }
+@media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
+/* Форма с цветными блоками ({ section, tone } в полях раздела) */
+.form-blocks { display: flex; flex-direction: column; gap: 12px; }
+.form-block { --tone: var(--primary); --tone-soft: var(--primary-soft); border: 1px solid var(--border); border-left: 4px solid var(--tone); border-radius: var(--radius-sm); background: var(--surface); padding: 12px 14px 14px; }
+.form-block[data-tone='info'] { --tone: var(--info); --tone-soft: var(--info-soft); }
+.form-block[data-tone='money'] { --tone: var(--warn); --tone-soft: var(--warn-soft); }
+.form-block[data-tone='who'] { --tone: var(--violet); --tone-soft: var(--violet-soft); }
+button.form-sec { width: 100%; border: 0; background: none; padding: 0; font: inherit; text-align: left; cursor: pointer; }
+.form-sec { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; color: var(--tone); min-height: 22px; }
+.form-sec:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 2px; }
+.form-sec-t { flex: none; font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; }
+.form-sec-sum { display: none; flex: 1; min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.form-sec-chev { margin-left: auto; color: var(--muted); font-size: 20px; line-height: 1; transform: rotate(90deg); transition: transform .15s; }
+button.form-sec:hover .form-sec-chev { color: var(--text); }
+.form-block.closed { padding-bottom: 12px; }
+.form-block.closed .form-sec { margin-bottom: 0; }
+.form-block.closed .form-sec-sum { display: block; }
+.form-block.closed .form-sec-chev { transform: none; }
+.form-block.closed > .form-grid { display: none; }
+/* Переключатель на 2–4 варианта (type: 'segment') */
+.fseg { display: flex; height: 36px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+.fseg-btn { --tone: var(--primary); flex: 1; min-width: 0; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: none; padding: 0 8px; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+.fseg-btn + .fseg-btn { border-left: 1px solid var(--border); }
+.fseg-btn:hover { color: var(--text); background: var(--surface-2); }
+.fseg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.fseg-btn[data-tone='danger'] { --tone: var(--danger); }
+.fseg-btn[data-tone='dim'] { --tone: var(--muted); }
+.fseg-btn.on, .fseg-btn.on:hover { background: var(--tone); color: var(--surface); font-weight: 600; }
+.form-blocks .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.form-blocks .form-grid > * { grid-column: span 2; min-width: 0; }
+.form-blocks .form-grid > .wide { grid-column: 1 / -1; }
+.form-blocks .form-grid > .span-1 { grid-column: span 1; }
+.form-blocks .form-grid > .span-3 { grid-column: span 3; }
+@media (max-width: 480px) {
+  .form-blocks .form-grid { grid-template-columns: 1fr 1fr; }
+  .form-blocks .form-grid > * { grid-column: span 1; }
+  .form-blocks .form-grid > .span-3, .form-blocks .form-grid > .span-3 + .span-1, .form-blocks .form-grid > .is-seg { grid-column: 1 / -1; }
+  .form-blocks .form-grid > .span-2 { grid-column: 1 / -1; } /* сортамент, марка — на телефоне во всю строку (проверка дизайнера SPR-1) */
+}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font-size: var(--fs-sm); color: var(--muted); font-weight: 500; }
+.field > span .req { color: var(--danger); }
+.field input, .field select, .field textarea { width: 100%; }
+.field.has-error input, .field.has-error select, .field.has-error textarea { border-color: var(--danger); }
+.field .err { color: var(--danger); font-size: 12px; }
+/* предупреждение под полем (не ошибка, сохранить можно): «такой артикул уже есть» — ФИ */
+.field .warn { color: var(--warn); font-size: 12px; }
+/* подставлено «по умолчанию» (из категории / модели) — серым, пока не поправили руками (ФП) */
+.field input.is-default, .field textarea.is-default { color: var(--muted); }
+/* «Не хватает для выпуска» в форме паспорта: пункт — ссылка к полю (ФП) */
+.tag.foreign { border-style: dashed; }
+/* откуда подставлено («из изделия», «по умолчанию») — серым у подписи поля, пока не поправили руками (ПИ) */
+.field > span[data-src]::after { content: ' · ' attr(data-src); color: var(--muted); font-weight: 400; }
+/* «Новый паспорт» — сначала изделие (ПИ): список с миниатюрами прямо в панели (строки .sg-row, как подсказки), выбранное — золотая полоса */
+/* список выбора в панели (не всплывающий): изделия в паспорте, «Добавить» в составе — строки .sg-row, группы .combo-group */
+.pick-list, .pp-prod-list { list-style: none; margin: var(--s2) 0 0; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.pp-prod-list .sg-row.on { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--gold); }
+.pp-prod-tools { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-top: var(--s2); }
+.pp-prod-tools input { flex: 1 1 220px; }
+.pp-prod-sel { display: flex; align-items: center; gap: var(--s3); }
+.pp-prod-sel .sg-pic { flex: 0 0 72px; width: 72px; height: 54px; }
+/* пока изделие не выбрано — остальные блоки паспорта скрыты */
+.form-blocks.pp-locked > .form-block:not(.pp-first) { display: none; }
+/* ПП: к кому идти, если не хватает данных, — «Кто проектировал» */
+.pp-designer { margin-top: var(--s1); font-weight: 600; }
+/* БЗ-9: отметка записей и «Изменить выбранные» */
+.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); background: var(--gold-soft, var(--surface-2)); border-bottom: 1px solid var(--border); }
+th.pick, td.pick { width: 36px; text-align: center; }
+.pick-cb, .pick-all { width: 18px; height: 18px; cursor: pointer; }
+.cards li > .pick-hit { display: flex; flex: none; align-self: center; margin-right: var(--s2); cursor: pointer; line-height: 0; }
+.gcard-wrap { position: relative; display: flex; }
+.gcard-wrap > .gcard { flex: 1; }
+.gc-pick { position: absolute; top: 6px; left: 6px; padding: 6px; background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.15)); line-height: 0; }
+.bulk-row { padding: var(--s2) 0; border-bottom: 1px solid var(--border); }
+.bulk-row .bulk-ctl { margin-top: var(--s1); opacity: .45; }
+.bulk-row.on .bulk-ctl { opacity: 1; }
+.bulk-row.on .bulk-use span { font-weight: 600; }
+@media (max-width: 719px) { .pick-cb, .pick-all { width: 24px; height: 24px; } .gc-pick { padding: 10px; } .cards li > .pick-hit { padding: 10px; margin: -10px 0 -10px -10px; } }
+/* Выбор множества: чекбоксы скрыты, пока нет bulk-mode */
+.list-panel:not(.bulk-mode) .pick-cb { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s; }
+.list-panel.bulk-mode .pick-cb { opacity: 1; pointer-events: auto; }
+.list-panel:not(.bulk-mode) td.pick, .list-panel:not(.bulk-mode) th.pick { width: 0; min-width: 0; padding: 0; overflow: hidden; }
+.list-panel:not(.bulk-mode) .pick-hit { display: none; }
+.list-panel.bulk-mode .pick-hit { display: flex; }
+.list-panel:not(.bulk-mode) .gc-pick { display: none; }
+.list-panel.bulk-mode .gc-pick { display: flex; }
+/* Шестерёнка-меню (каталог продукции) */
+.gear-wrap { position: relative; display: inline-flex; }
+.gear-drop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); min-width: 190px; display: none; flex-direction: column; padding: 4px 0; }
+.gear-drop.open { display: flex; }
+.gear-drop .btn { justify-content: flex-start; border: none; border-radius: 0; white-space: nowrap; width: 100%; }
+/* «Состав изделия» (СИ): строки по разделам — название · количество со степпером · цена/сумма · «×»; итог; на телефоне название — отдельной строкой */
+.pick-list .pick-head { padding: 8px 12px; font-weight: 650; color: var(--heading); background: var(--surface); border-bottom: 1px solid var(--border); }
+.comp-group { margin-top: var(--s3); }
+.comp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(96px, auto) auto; gap: var(--s2); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--border); }
+.comp-row .c-name small { display: block; color: var(--muted); font-size: 12px; }
+.comp-row.comp-missing .c-name { color: var(--danger); }
+.comp-qty { display: inline-flex; align-items: center; gap: 4px; }
+.comp-qty input { width: 76px; text-align: right; }
+.comp-sum { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+.comp-total { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); padding: var(--s3) 0; font-weight: 600; }
+.comp-nested summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+.comp-nested ul { margin: 4px 0 0; padding-left: var(--s4, 20px); color: var(--muted); font-size: var(--fs-sm); }
+@media (max-width: 719px) { .comp-row { grid-template-columns: 1fr auto auto; } .comp-row .c-name { grid-column: 1 / -1; } }
+.form-error { background: var(--danger-soft); color: var(--danger); padding: var(--s2) var(--s3); border-radius: var(--radius-sm); margin-bottom: var(--s3); }
+.hint { color: var(--muted); font-size: var(--fs-sm); margin: var(--s2) 0; }
+
+/* ---------- Диалог ---------- */
+.modal-back { position: fixed; inset: 0; background: rgba(16, 20, 28, .45); z-index: 60; display: flex; align-items: center; justify-content: center; padding: var(--s4); }
+.modal { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-lg); width: min(560px, 100%); max-height: 90vh; overflow-y: auto; overflow-x: hidden; }
+.modal-head { padding: 20px 24px 0; }
+.modal-body { padding: 12px 24px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: var(--s2); padding: 12px 24px 20px; }
+
+/* ---------- Сообщения ---------- */
+.toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: center; width: max-content; max-width: calc(100% - 24px); }
+
+/* ---------- Вход ---------- */
+.login { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 560px); background: var(--side); }
+.login-art { display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; padding: 56px; color: var(--side-text); background: radial-gradient(1200px 600px at 20% 10%, #2a3346, transparent), var(--side); }
+.login-art h2 { color: #fff; font-size: 34px; font-weight: 650; letter-spacing: -.02em; max-width: 560px; line-height: 1.15; }
+.login-art p { max-width: 480px; margin: 0; }
+.login-art .gold { color: var(--gold); }
+.login-side { background: var(--bg); display: flex; align-items: center; justify-content: center; padding: var(--s5); }
+.login-card { background: var(--surface); border-radius: 16px; padding: 36px; width: min(400px, 100%); box-shadow: var(--shadow); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; }
+.login-card img { width: 44px; height: 44px; }
+.login-card .btn { height: 42px; }
+@media (max-width: 860px) { .login { grid-template-columns: 1fr; } .login-art { display: none; } }
