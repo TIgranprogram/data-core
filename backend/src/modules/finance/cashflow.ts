@@ -18,6 +18,8 @@ export interface Op {
   doc?: string;
   category?: string;
   counterparty?: string;
+  /** URL миниатюры (первое фото заявки/изделия; БЗ-17). */
+  thumb?: string;
 }
 
 export interface Day {

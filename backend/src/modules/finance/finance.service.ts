@@ -48,7 +48,7 @@ export class FinanceService {
     const cname = new Map(companies.map((c) => [String(c.id), c.name]));
     const [reqs, incs, cats, orgs] = await Promise.all([
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, invoiceDate: range, priceHint: { $gt: 0 }, companyId: { $in: companyIds } },
-        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1 } }).toArray(),
+        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, photoIds: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, reportDate: range, amount: { $gt: 0 }, companyId: { $in: companyIds } },
         { projection: { orderNo: 1, title: 1, amount: 1, reportDate: 1, companyId: 1, customer: 1 } }).toArray(),
       db.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
@@ -56,10 +56,27 @@ export class FinanceService {
     ]);
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
+    const reqsWithPhoto = reqs.filter((r) => Array.isArray(r.photoIds) && (r.photoIds as unknown[]).length > 0);
+    const thumbMap = new Map<string, string>();
+    if (reqsWithPhoto.length > 0) {
+      const firstIds = reqsWithPhoto.map((r) => (r.photoIds as Types.ObjectId[])[0]);
+      const [thumbs, originals] = await Promise.all([
+        db.collection('photos').find({ parentPhotoId: { $in: firstIds }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
+        db.collection('photos').find({ _id: { $in: firstIds } }, { projection: { storageUrl: 1 } }).toArray(),
+      ]);
+      const byParent = new Map(thumbs.map((t) => [String(t.parentPhotoId), String(t.storageUrl)]));
+      const byId = new Map(originals.map((p) => [String(p._id), String(p.storageUrl)]));
+      for (const r of reqsWithPhoto) {
+        const pid = String((r.photoIds as Types.ObjectId[])[0]);
+        const url = byParent.get(pid) ?? byId.get(pid);
+        if (url) thumbMap.set(String(r._id), url);
+      }
+    }
     return [
       ...reqs.map((r): Op => ({ type: 'expense', id: String(r._id), date: iso(r.invoiceDate), amount: Number(r.priceHint), company: cname.get(String(r.companyId)) ?? '?',
         title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : undefined,
-        category: r.categoryId ? cat.get(String(r.categoryId)) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, costCenter: costCenterLabel(r as { costCenter?: unknown; salesOrderId?: unknown }) })),
+        category: r.categoryId ? cat.get(String(r.categoryId)) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, costCenter: costCenterLabel(r as { costCenter?: unknown; salesOrderId?: unknown }),
+        ...(thumbMap.has(String(r._id)) ? { thumb: thumbMap.get(String(r._id)) } : {}) })),
       ...incs.map((i): Op => ({ type: 'income', id: String(i._id), date: iso(i.reportDate), amount: Number(i.amount), company: cname.get(String(i.companyId)) ?? '?',
         title: String(i.title ?? ''), doc: i.orderNo ? `заказ ${i.orderNo}` : undefined, counterparty: i.customer ? String(i.customer) : undefined })),
     ];

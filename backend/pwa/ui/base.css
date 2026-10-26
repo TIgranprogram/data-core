@@ -425,6 +425,7 @@ body.detail-open .board { grid-auto-columns: minmax(240px, 1fr); }
 .sum-item.static { cursor: default; }
 .sum-v { white-space: nowrap; font-size: clamp(19px, 1.5vw, 24px); font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; }
 .sum-item.attn .sum-v::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+.sum-item:not(.static) .sum-v { color: var(--primary); }
 .sum-l { color: var(--muted); font-size: var(--fs-sm); }
 .sum-d { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sum-d b { color: var(--text); font-weight: 600; }
@@ -461,6 +462,8 @@ body.detail-open .board { grid-auto-columns: minmax(240px, 1fr); }
 .q-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-sub { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .q-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 13px; }
+.q-thumb { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; flex: none; }
+.q-row.has-pic { grid-template-columns: 40px minmax(0, 1fr) auto; }
 .q-date { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
 .q-actions { display: flex; gap: 6px; }
 .q-empty { padding: 22px 16px; color: var(--muted); text-align: center; list-style: none; }
@@ -468,6 +471,8 @@ body.detail-open .board { grid-auto-columns: minmax(240px, 1fr); }
 .q-more:hover { background: var(--surface-2); }
 @media (max-width: 720px) {
   .q-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .q-row.has-pic { grid-template-columns: 40px minmax(0, 1fr); }
+  .q-thumb { display: none; }
   .q-actions { grid-column: 1 / -1; justify-content: flex-end; }
   .summary { grid-template-columns: 1fr 1fr; }
   .sum-item { border-bottom: 1px solid var(--border); }
@@ -524,7 +529,7 @@ table.cal tr.grp th.sticky::before { content: ''; display: inline-block; width: 
 table.cal tr.grp.out th.sticky::before { background: var(--danger); }
 table.cal tr.bal td, table.cal tr.bal th { background: var(--surface-2); }
 table.cal tr.end td, table.cal tr.end th { border-top: 2px solid var(--border-strong); }
-table.cal td.click { cursor: pointer; }
+table.cal td.click { cursor: pointer; color: var(--primary); font-weight: 600; }
 table.cal td.click:hover { background: var(--gold-soft); }
 table.cal .strong { font-weight: 650; }
 .neg { color: var(--danger); }
