@@ -267,6 +267,7 @@ export const requests = {
       ['Статус', h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), ' ', r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
       ['Количество', `${qty(r.qty)} ${r.unit || ''}`.trim()],
       ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''],
+      ['В каталоге сейчас', session.canMoney && r.catalogCurrentPrice != null ? h('span', { class: 'hint', title: 'Текущая цена в каталоге поставщика — заявка не меняется' }, money(r.catalogCurrentPrice) + ' ₽') : ''],
       ['Куда', [COST_CENTER[r.costCenter] || (r.salesOrderId ? COST_CENTER.order : ''), r.costObject].filter(Boolean).join(' · ')],
       ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
       ['Поставщик', r.supplierName],

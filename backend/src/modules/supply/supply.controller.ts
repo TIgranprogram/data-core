@@ -79,8 +79,8 @@ export class SupplyController {
   @Patch('requests/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
-  update(@Param('id') id: string, @Body() dto: SupplyRequestDto) {
-    return this.supply.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: SupplyRequestDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.supply.update(id, dto, user?.role);
   }
 
   /** В корзину (мягкое удаление). */

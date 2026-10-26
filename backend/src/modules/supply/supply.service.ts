@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
 import { searchTokens, tokenRegex } from '../../common/text/search-norm';
@@ -235,7 +235,16 @@ export class SupplyService {
   async get(id: string) {
     const doc = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }).lean().exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
-    return (await this.present([doc as Record<string, unknown>]))[0];
+    const presented = (await this.present([doc as Record<string, unknown>]))[0] as Record<string, unknown>;
+    // СКЕ-4: подсказка «в каталоге сейчас N ₽» — берём из supplieritems по supplierId+article+color
+    if (doc.supplierId && doc.article) {
+      const item = await this.connection.db!.collection('supplieritems').findOne(
+        { supplierId: doc.supplierId, article: (doc.article as string).trim(), color: ((doc.color as string) || '').trim(), deletedAt: null },
+        { projection: { priceHint: 1 } },
+      );
+      if (item?.priceHint != null) presented.catalogCurrentPrice = item.priceHint as number;
+    }
+    return presented;
   }
 
   /** В корзину (мягко). Приход на склад по заявке, если был, остаётся — его отменяют на складе. */
@@ -323,7 +332,10 @@ export class SupplyService {
     if (d?.materialId && d.article) await this.stock.adoptArticle(d.materialId as Types.ObjectId, d.article, `заявка${d.num ? ' №' + d.num : ''}`).catch(() => undefined);
   }
 
-  async update(id: string, dto: SupplyInput) {
+  async update(id: string, dto: SupplyInput, userRole?: string) {
+    if (dto.priceHint !== undefined && userRole === 'manager') {
+      throw new ForbiddenException('Изменять сумму может только администратор или бухгалтер');
+    }
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const fields = await this.toFields(dto);
     // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
