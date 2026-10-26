@@ -48,20 +48,28 @@ export function withOrders(input) {
   return input;
 }
 
-/** Поля «Кому выдано»: { el, value() → { personId?, issuedTo? } }; issuedTo — подставить (объект брони). */
+/** ВЫД.1: последний «Кому выдано» — на 2 часа в этой вкладке: следующая выдача подставляет его сама (выдают пачкой одному). */
+const LAST_KEY = 'dc-issue-to';
+const lastTo = () => { try { const v = JSON.parse(sessionStorage.getItem(LAST_KEY) || 'null'); return v && Date.now() - v.at < 2 * 3600e3 ? v : null; } catch { return null; } };
+const saveTo = (v) => { try { sessionStorage.setItem(LAST_KEY, JSON.stringify({ ...v, at: Date.now() })); } catch { /* приватный режим */ } };
+
+/** Поля «Кому выдано»: { el, value() → { personId?, issuedTo? } }; issuedTo — подставить (объект брони); пусто — последний выбор. */
 export function issueToFields(issuedTo = '') {
+  const last = issuedTo ? null : lastTo();
+  if (last?.issuedTo) issuedTo = last.issuedTo;
   const sel = h('select', { 'aria-label': 'Кому выдано — сотрудник' }, h('option', { value: '' }, '— сотрудник —'));
   const txt = h('input', { maxlength: 200, value: issuedTo, placeholder: 'или: объект / заказ — из списка или своё', 'aria-label': 'Кому / куда выдано' });
   peopleByWork().then((groups) => {
     if (!groups.length) { sel.firstChild.textContent = '— сотрудников нет в «Справочниках» —'; return; }
     for (const g of groups) sel.append(h('optgroup', { label: g.group }, ...g.people.map((p) => h('option', { value: p.id }, p.name))));
+    if (last?.personId) sel.value = last.personId;
     enhanceSelect(sel); // много людей — поиск по списку, ФИО целиком (ВС.6)
   }).catch(() => { sel.firstChild.textContent = '— список не загрузился —'; });
   const el = h('label', { class: 'field wide' }, h('span', null, 'Кому выдано'), h('div', { class: 'issue-to' }, sel, h('div', null, txt)));
   withOrders(txt);
   return {
     el,
-    value: () => ({ ...(sel.value ? { personId: sel.value } : {}), ...(txt.value.trim() ? { issuedTo: txt.value.trim() } : {}) }),
+    value: () => { const v = { ...(sel.value ? { personId: sel.value } : {}), ...(txt.value.trim() ? { issuedTo: txt.value.trim() } : {}) }; if (v.personId || v.issuedTo) saveTo(v); return v; },
     reset: () => { sel.value = ''; txt.value = ''; },
   };
 }

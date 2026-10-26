@@ -10,6 +10,7 @@ import { date, isoDay, money, qty } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { status, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
+import { issueDialog } from './issue.js';
 import { moveLabel } from './movements.js';
 import { heading, patchStatus, receiveDialog, requests } from './requests.js';
 import { markToday } from './orders.js';
@@ -192,7 +193,13 @@ export function mountHome(deps) {
     resList.replaceChildren(...r.items.slice(0, 6).map((g) => h('li', { class: 'q-row', tabindex: '0', onclick: () => go('ops', { mode: 'reserve' }) },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, g.name),
         h('div', { class: 'q-sub' }, [`позиций: ${g.lines.length}`, g.salesOrder ? 'заказ ' + g.salesOrder : '', g.createdBy].filter(Boolean).join(' · '))),
-      h('div', { class: 'q-side' }, g.createdAt ? h('span', { class: 'q-date' }, date(g.createdAt)) : null))));
+      h('div', { class: 'q-side' }, g.createdAt ? h('span', { class: 'q-date' }, date(g.createdAt)) : null,
+        // ВЫД.2: выдать всю бронь одной кнопкой (кому — подставлено из заказа, можно поменять)
+        session.canEdit && g.lines.some((l) => l.qty > 0) ? h('button', { class: 'btn btn-sm', type: 'button', title: 'Выдать все позиции этой брони целиком', onclick: async (e) => {
+          e.stopPropagation();
+          const lines = g.lines.filter((l) => l.qty > 0);
+          if (await issueDialog(`Выдать всю бронь: ${g.name}`, lines, { issuedTo: g.salesOrder || g.name })) { toast('Бронь выдана'); window.dispatchEvent(new CustomEvent('data-changed')); loadRes(); }
+        } }, 'Выдать всё') : null))));
   }).catch((e) => resList.replaceChildren(failBlock(e, () => loadRes(), { tag: 'li', cls: 'q-empty' }))));
   const qRes = h('section', { class: 'panel queue' }, h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Брони на складе'), h('div', { class: 'q-hint' }, 'Отложено под заказ / изделие — не трогать')), h('a', { href: '#ops?mode=reserve', class: 'q-link' }, 'Все →')), resList);
 
