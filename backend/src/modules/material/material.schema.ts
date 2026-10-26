@@ -31,6 +31,14 @@ export class Material {
   @Prop({ required: true, index: true })
   name!: string;
 
+  /** ДМ.2: полное наименование (необязательно; CRM не читает). */
+  @Prop({ trim: true })
+  fullName?: string;
+
+  /** ДМ.2: наименование «как в счёте» поставщика (необязательно; CRM не читает). */
+  @Prop({ trim: true })
+  invoiceName?: string;
+
   /** New materials require a trimmed external article; legacy empty rows remain readable. */
   @Prop({ required: true, trim: true })
   article!: string;

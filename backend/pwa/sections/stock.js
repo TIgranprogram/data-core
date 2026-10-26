@@ -168,6 +168,8 @@ export const stock = {
       ['Состояние', badge(STOCK_STATUS, r.status)],
       ['Мин. остаток', r.minQuantity ? `${qty(r.minQuantity)} ${unit(r)}` : ''],
       ['Пересчитано', r.lastCountedAt ? date(r.lastCountedAt) : 'ещё не пересчитывали'],
+      ['Полное наименование', r.fullName],
+      ['В счёте', r.invoiceName],
       ['Категория', r.categoryName],
       ...metalView(r),
       ['Ед. изм.', r.unit],
@@ -198,7 +200,10 @@ export const stock = {
       const lk = await lookups().catch(() => ({ categories: [] }));
       return [
         { section: 'Что за позиция', tone: 'main', fixed: true },
-        { key: 'name', label: 'Наименование', required: true, max: 300, span: 3, hint: 'Как называется на складе: «Болт мебельный, M8х40, DIN 603»' },
+        { key: 'name', label: 'Наименование', required: true, max: 300, span: 3, hint: 'Короткое, как на складе: «Болт мебельный, M8х40, DIN 603»' },
+        // ДМ.2: необязательные — полное и «как в счёте» (поиск находит по всем трём)
+        { key: 'fullName', label: 'Полное наименование', max: 500, span: 3 },
+        { key: 'invoiceName', label: 'Наименование в счёте', max: 500, span: 3, hint: 'Как пишет поставщик — поиск найдёт позицию и по нему' },
         { key: 'article', label: 'Артикул (поставщика)', max: 100, span: 1, hint: 'Из счёта / заявки. Пусто — останется внутренний код' },
         { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },
@@ -218,7 +223,7 @@ export const stock = {
     initial: () => ({ unit: 'шт', photos: [] }),
     toInitial: (r) => ({ ...r, article: r.supplierArticle || '', ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
     toBody: (v) => {
-      const b = { photoIds: v.photos || [], name: v.name, unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
+      const b = { photoIds: v.photos || [], name: v.name, fullName: v.fullName || '', invoiceName: v.invoiceName || '', unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;
       // пустое поле = стереть значение (В.7): null уходит на сервер, мин. остаток станет 0
       b.minQuantity = v.minQuantity;

@@ -113,7 +113,7 @@ export class StockSearchService {
     if (q.section) filter.assortment = sameRe(q.section);
     if (q.thickness && Number(q.thickness) > 0) filter.dimensions = { $elemMatch: { type: 'thickness', value: Number(q.thickness) } };
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
-      .filter((m) => matchesAll(tokens, m.name, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
+      .filter((m) => matchesAll(tokens, m.name, (m as { fullName?: string }).fullName, (m as { invoiceName?: string }).invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     // скорость С7: независимые чтения — разом, категории — только нужные (не все категории CRM)
     const catIds = [...new Set(mats.map((m) => m.categoryId).filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
@@ -152,7 +152,7 @@ export class StockSearchService {
         // АР.1: артикул поставщика и внутренний код (СКЛ-… / sku) — раздельно; откуда взят артикул
         ...articleView(m as { article?: unknown; sku?: unknown; internalArticle?: unknown }), articleSource: (m as { articleSource?: string }).articleSource ?? null,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
-        notes: m.notes, quantity, reservedQty, free: freeQty(quantity, reservedQty), minQuantity,
+        notes: m.notes, fullName: (m as { fullName?: string }).fullName ?? null, invoiceName: (m as { invoiceName?: string }).invoiceName ?? null, quantity, reservedQty, free: freeQty(quantity, reservedQty), minQuantity,
         ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
         assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, dims: dimsOf(m.dimensions),
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),

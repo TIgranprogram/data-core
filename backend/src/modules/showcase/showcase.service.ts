@@ -100,7 +100,7 @@ export class ShowcaseService {
       const ppCoverPhoto = ppCoverId ? (ph.get(String(ppCoverId)) ?? null) : null;
       const photo = pics[0] ?? ppCoverPhoto ?? null;
       const photoSource: 'own' | 'passport' | undefined = pics.length > 0 ? undefined : ppCoverPhoto ? 'passport' : undefined;
-      return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, description: (d.description as string) ?? null,
+      return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, fullName: (d.fullName as string) ?? null, orderName: (d.orderName as string) ?? null, description: (d.description as string) ?? null,
         price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c?.parentId ? String(c.name) : null, // категория без родителя — сам раздел (группа не выбрана)
         hasPassportDefaults: !!d.passportDefaults && Object.keys(d.passportDefaults as object).length > 0,
         type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo, ...(photoSource ? { photoSource } : {}), deletedAt: (d.deletedAt as Date) ?? null,
@@ -117,7 +117,7 @@ export class ShowcaseService {
     const page = Math.max(1, Number(q.page) || 1), limit = Math.min(500, Math.max(1, Number(q.limit) || 50));
     const filter: Record<string, unknown> = { deletedAt: String(q.deleted) === '1' ? { $ne: null } : null };
     // поиск «как на складе»: слова в любом порядке, ё = е, M10 = М10
-    const sf = tokensFilter(q.search, ['name', 'sku', 'series']);
+    const sf = tokensFilter(q.search, ['name', 'fullName', 'orderName', 'sku', 'series']);
     if (sf) filter.$and = sf.$and;
     // NAV B2: состояние — draft (нет цены) / archived / active (в продаже: всё, кроме черновиков и архива)
     if (q.status === 'draft' || q.status === 'archived') filter.status = q.status;
@@ -265,6 +265,9 @@ export class ShowcaseService {
     const set: Record<string, unknown> = {};
     if (dto.name !== undefined) { const v = clean(dto.name); if (!v) throw new BadRequestException('Наименование не может быть пустым'); set.name = v; }
     if (dto.series !== undefined) set.series = clean(dto.series) || null;
+    // ДМ.2: полное и «как в заказе» — необязательные; пусто — стереть
+    if (dto.fullName !== undefined) set.fullName = clean(dto.fullName) || null;
+    if (dto.orderName !== undefined) set.orderName = clean(dto.orderName) || null;
     if (dto.description !== undefined) set.description = String(dto.description ?? '').trim() || null;
     if (dto.price !== undefined) { const p = dto.price === null || dto.price === '' ? 0 : Number(String(dto.price).replace(/\s/g, '').replace(',', '.')); if (!Number.isFinite(p) || p < 0) throw new BadRequestException('Цена — число'); set.listPrice = p; if (p > 0) set.status = 'active'; }
     if (dto.group !== undefined || dto.type !== undefined) set.categoryId = await this.category(dto.group as string, await this.category(dto.type as string, null));

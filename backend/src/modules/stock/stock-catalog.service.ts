@@ -62,6 +62,7 @@ export class StockCatalogService {
     const mat = await this.materials.create({
       name, unit: dto.unit?.trim() || 'шт', article: dto.article?.trim() || (await this.autoArticle()),
       sku: await this.skuFor(categoryId), categoryId, notes: dto.notes, weightKg: dto.weightKg,
+      ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
       ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
       ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
     });
@@ -91,6 +92,8 @@ export class StockCatalogService {
       await this.connection.db!.collection('materials').updateOne({ _id }, { $set: { articleSource: 'вручную', articleSetAt: new Date(), ...(isAutoArticle(mat.article) && mat.article ? { internalArticle: mat.article } : {}) } });
     }
     if (dto.notes !== undefined) set.notes = dto.notes;
+    if (dto.fullName !== undefined) set.fullName = dto.fullName.trim() || null;
+    if (dto.invoiceName !== undefined) set.invoiceName = dto.invoiceName.trim() || null;
     if (dto.weightKg !== undefined) set.weightKg = dto.weightKg;
     for (const k of ['assortment', 'materialGrade'] as const) if (dto[k] !== undefined) set[k] = dto[k]?.trim() || null;
     if (dto.dims) set.dimensions = mergeDims(mat.dimensions, dto.dims);

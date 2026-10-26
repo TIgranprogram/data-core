@@ -21,6 +21,9 @@ export type ProductStatus = 'new' | 'active' | 'archived' | 'draft';
 export class Product {
   /** Optional display name; catalog UIs fall back to the required SKU. */
   @Prop({ index: true }) name?: string;
+  /** ДМ.2: полное наименование; «как в заказе» — для заказов и паспортов на заказ (необязательно; CRM не читает). */
+  @Prop({ trim: true }) fullName?: string;
+  @Prop({ trim: true }) orderName?: string;
   /** New products must carry a trimmed article; sparse keeps legacy rows readable. */
   @Prop({ required: true, trim: true, index: true }) sku!: string;
   @Prop({ required: true, enum: ['good', 'service', 'work'], default: 'good' }) kind!: ProductKind;

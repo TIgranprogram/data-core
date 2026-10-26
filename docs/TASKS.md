@@ -466,8 +466,8 @@
 
 ### ДМ — единая модель данных изделий (аудит 2026-10-26, `docs/DATA-MODEL-REVIEW.md`)
 Итог: схема в целом годится, к производству готовы (модель kppdf: workers, ordertasks, techprocesses). Дыры: остаток в трёх местах, состав двумя способами, позиция заказа без снимка цены, паспорт без ссылки на позицию заказа, два разных «заказа» (наш `salesorders`/`incomes` и `orders` kppdf).
-- [ ] ДМ.1 (S) Решения пользователя — `docs/QUESTIONS.md` ДМ-1…ДМ-3.
-- [ ] ДМ.2 (M, только необязательные поля, синхронно с kppdf) Названия: продукция `fullName`, `orderName`; покупное `fullName`, `invoiceName`.
+- [x] ДМ.1 (S) (решено 2026-10-26: materials, модули не переносим, главный заказ — salesorders) Решения пользователя — `docs/QUESTIONS.md` ДМ-1…ДМ-3.
+- [x] ДМ.2 (M, 2026-10-26: products fullName/orderName, materials fullName/invoiceName — схемы, API, формы, поиск; только необязательные поля, синхронно с kppdf) Названия: продукция `fullName`, `orderName`; покупное `fullName`, `invoiceName`.
 - [ ] ДМ.3 (M, analyst) Карта «экран → какое название» — это ТИ-8 / СКФ.6.
 - [ ] ДМ.4 (M) Позиция заказа (`incomes`): снимок названия и цены при добавлении; паспорт — ссылка `incomeId` на позицию (основа для ПНЗ).
 - [ ] ДМ.5 (L) Остаток — только `storageitems`; `products.stockQty`/`materials.stockQty` — только чтение, не писать.

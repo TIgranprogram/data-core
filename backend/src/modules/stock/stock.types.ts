@@ -15,6 +15,8 @@ export interface StockItemInput {
   /** Вес 1 шт., г (НО): пишется в weightKg (кг) с пометкой weightUnit 'kg'; null — стереть. */
   weightG?: number | null;
   notes?: string;
+  fullName?: string; // ДМ.2
+  invoiceName?: string;
   /** Металл (СМ.1): сортамент / сечение, марка стали, размеры в мм (null — стереть). */
   assortment?: string | null;
   materialGrade?: string | null;

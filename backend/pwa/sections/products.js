@@ -258,7 +258,7 @@ export const products = {
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r) => [
-      ['Артикул', r.sku], ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
+      ['Артикул', r.sku], ['Полное наименование', r.fullName], ['В заказе', r.orderName], ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
       // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
       ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
         : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
@@ -330,7 +330,10 @@ export const products = {
       return [
       { section: 'Изделие', tone: 'main', fixed: true },
       { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken, hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
-      { key: 'name', label: 'Наименование', required: true, max: 256, span: 3 },
+      { key: 'name', label: 'Короткое наименование', required: true, max: 256, span: 3, hint: 'Для списков, фильтров и поиска' },
+      // ДМ.2: полное и «как в заказе» — необязательные; паспорт на заказ берёт название из заказа (ПНЗ)
+      { key: 'fullName', label: 'Полное наименование', max: 500, span: 3, hint: 'Для КП и документов. Пусто — берётся короткое' },
+      { key: 'orderName', label: 'Наименование в заказе', max: 500, span: 3, hint: 'Как изделие обычно пишут в заказе. Пусто — берётся короткое' },
       { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
       { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного типа' },
       { key: 'series', label: 'Наименование серии', type: 'combo', max: 100, options: fv.series.map(opt) },
@@ -369,7 +372,7 @@ export const products = {
     toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
-    toBody: (v, r) => ({ ...specBody(v, r), sku: v.sku, name: v.name, type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
+    toBody: (v, r) => ({ ...specBody(v, r), sku: v.sku, name: v.name, fullName: v.fullName || '', orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
       designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
