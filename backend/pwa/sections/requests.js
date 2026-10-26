@@ -1,6 +1,7 @@
 import { api, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
+import { stepFunnel } from '../ui/step-funnel.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { stockLookup } from '../core/stock-list.js';
@@ -185,12 +186,23 @@ export const requests = {
       h('button', { class: 'btn', type: 'button', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onclick: () => patch({ of: 'pasteorder', new: '1', open: undefined }) }, '+ Из таблицы'),
       h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции сразу', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, '+ Счёт')],
     searchPlaceholder: 'Поиск: наименование, №, поставщик, заказ…',
+    sidebar: true,
+    chipsTop: true, // статусы — строкой над списком
+    toolbarExtra: () => stepFunnel({
+      steps: [{ key: 'supplierId', label: 'Поставщик' }, { key: 'categoryId', label: 'Категория' }, { key: 'requestedBy', label: 'Кто подал' }],
+      load: async (P) => {
+        const keys = ['status', 'supplierId', 'categoryId', 'requestedBy', 'from', 'to', 'needsFill'];
+        const r = await api('/supply/requests', { query: { facets: 1, limit: 1, ...(P.q ? { search: P.q } : {}), ...Object.fromEntries(keys.filter((k) => P[k]).map((k) => [k, P[k]])) } });
+        return r.facets || {};
+      },
+    }),
     emptyText: 'Заявок пока нет.',
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', options: statusOptions, count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) ?? undefined },
-      { key: 'supplierId', label: 'Все поставщики', type: 'select', options: async () => (await lookups()).supplierRefs.map((s) => ({ value: s.id, label: s.name })) },
-      { key: 'categoryId', label: 'Все категории', type: 'select', options: async () => (await lookups()).categories.map((c) => ({ value: c.id, label: c.name })) },
-      { key: 'requestedBy', label: 'Кто подал: все', type: 'select', options: async () => (await lookups()).requestedBy.map((p) => ({ value: p, label: p })) },
+      // Б4: поставщик / категория / кто подал — воронкой в левой панели (числа при уже выбранном); здесь — для «Сбросить всё»
+      { key: 'supplierId', label: 'Поставщик', type: 'hidden' },
+      { key: 'categoryId', label: 'Категория', type: 'hidden' },
+      { key: 'requestedBy', label: 'Кто подал', type: 'hidden' },
       { key: 'from', label: 'С даты', short: 'с', type: 'date' },
       { key: 'to', label: 'По дату', short: 'по', type: 'date' },
       { key: 'needsFill', type: 'hidden' },

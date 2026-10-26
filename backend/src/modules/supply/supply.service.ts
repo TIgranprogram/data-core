@@ -229,7 +229,21 @@ export class SupplyService {
       counts[k] = (counts[k] ?? 0) + g.n;
       counts.all += g.n;
     }
-    return { items: await this.present(docs as Array<Record<string, unknown>>), total, page: p.page, limit: p.limit, sum: agg[0]?.sum ?? 0, counts };
+    const out = { items: await this.present(docs as Array<Record<string, unknown>>), total, page: p.page, limit: p.limit, sum: agg[0]?.sum ?? 0, counts };
+    if (q.facets !== '1' && q.facets !== 1) return out;
+    // Б4 (воронка): поставщик / категория / кто подал — с числом заявок при остальных выбранных фильтрах; поле дополнительное
+    const tally = async (field: string) => {
+      const m: Record<string, unknown> = { ...filter }; delete m[field];
+      const rows = await this.model.aggregate([{ $match: { ...m, [field]: { $nin: [null, ''] } } }, { $group: { _id: '$' + field, n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 200 }]).exec() as Array<{ _id: unknown; n: number }>;
+      return rows;
+    };
+    const [sup, cat, who] = await Promise.all([tally('supplierId'), tally('categoryId'), tally('requestedBy')]);
+    const [supN, catN] = await Promise.all([this.names('organizations', sup.map((r) => r._id)), this.names('categories', cat.map((r) => r._id))]);
+    return { ...out, facets: {
+      supplierId: sup.map((r) => ({ value: String(r._id), label: supN.get(String(r._id)) ?? '—', n: r.n })),
+      categoryId: cat.map((r) => ({ value: String(r._id), label: catN.get(String(r._id)) ?? '—', n: r.n })),
+      requestedBy: who.map((r) => ({ value: String(r._id), n: r.n })),
+    } };
   }
 
   async get(id: string) {
