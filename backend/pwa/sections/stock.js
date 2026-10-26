@@ -1,6 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBtn } from '../ui/busy.js';
+import { busyBtn, failBlock } from '../ui/busy.js';
 import { date, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
@@ -43,7 +43,8 @@ function recentMoves(r) {
       } }, `Вся история (${res.total})`) : null,
       h('a', { class: 'btn btn-ghost btn-sm', href: '#movements?materialId=' + r.id, title: 'Журнал движений позиции — там можно отменить ошибочное' }, 'Журнал движений →')].filter(Boolean));
   };
-  api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch(() => ul.replaceChildren(h('li', { class: 'muted' }, 'Не удалось загрузить историю')));
+  const loadHist = () => api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch((e) => ul.replaceChildren(h('li', null, failBlock(e, loadHist, { text: 'История не загрузилась' }))));
+  loadHist();
   return h('div', null, h('div', { class: 'section-title' }, 'Последние записи'), ul, more);
 }
 

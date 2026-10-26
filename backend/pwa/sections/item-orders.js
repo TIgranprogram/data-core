@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
@@ -50,7 +50,7 @@ export function orderedBlock(r) {
         d.suppliers.length ? h('div', null, h('div', { class: 'section-title' }, 'Поставщики и цены'),
           h('ul', { class: 'timeline' }, ...d.suppliers.map((s) => h('li', null, h('span', null, s.name), h('span', { class: 'muted' }, `брали ${s.count} раз${s.lastDate ? ' · последний ' + date(s.lastDate) : ''}`),
             session.canMoney && s.lastPrice ? h('span', { class: 'num' }, money(s.lastPrice) + ' / ' + (r.unit || 'шт')) : null)))) : null].filter(Boolean));
-    }).catch(() => box.replaceChildren());
+    }).catch((e) => box.replaceChildren(failBlock(e, load, { text: 'Заказы не загрузились' })));
   }
 
   load();

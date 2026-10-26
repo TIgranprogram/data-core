@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { toast, toastError } from '../ui/toast.js';
 import { requests } from './requests.js';
@@ -8,7 +8,7 @@ import { orders } from './orders.js';
 import { salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 import { partners } from './partners.js';
-import { errText } from '../ui/errors.js';
+
 
 /** Корзина (CANON §2 «Удаление»): всё удалённое, «Восстановить». */
 const SOURCES = [
@@ -45,7 +45,7 @@ export function mountTrash() {
         return h('tr', { class: 'static' }, h('td', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
           h('td', { class: 'num' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));
       }));
-    }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, 'Не удалось загрузить: ' + errText(e)))));
+    }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, failBlock(e, load)))));
     return panel;
   }
 

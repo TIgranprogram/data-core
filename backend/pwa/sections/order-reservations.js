@@ -3,7 +3,8 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
-import { errText } from '../ui/errors.js';
+import { failBlock } from '../ui/busy.js';
+
 import { toast, toastError } from '../ui/toast.js';
 import { editReservation } from './reservations.js';
 
@@ -23,7 +24,7 @@ export function orderReservations(order, onChanged) {
 
   async function load() {
     let d;
-    try { d = await api(`/stock/reservations/order/${order.id}`); } catch (e) { box.hidden = false; box.replaceChildren(h('div', { class: 'section-title' }, 'Брони заказа'), h('p', { class: 'muted' }, 'Не загрузились: ' + errText(e))); return; }
+    try { d = await api(`/stock/reservations/order/${order.id}`); } catch (e) { box.hidden = false; box.replaceChildren(h('div', { class: 'section-title' }, 'Брони заказа'), failBlock(e, load, { text: 'Не загрузились' })); return; }
     const items = d.items || [];
     box.hidden = !items.length && !d.hanging;
     if (box.hidden) return;

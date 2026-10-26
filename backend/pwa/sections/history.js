@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
 import { actionLabel, changeList } from '../ui/history.js';
@@ -27,7 +27,7 @@ function changesOf(r) {
     const x = res.items.find((i) => i.createdAt === r.createdAt);
     box.replaceChildren(h('div', { class: 'section-title' }, 'Что изменилось'),
       x?.changes?.length ? h('ul', { class: 'timeline' }, h('li', null, changeList(x.changes, {}, x.first))) : h('p', { class: 'muted' }, 'Подробностей по полям нет (действие без изменения полей или запись старше журнала).'));
-  }).catch(() => box.replaceChildren(h('p', { class: 'muted' }, 'Подробности недоступны')));
+  }).catch((e) => box.replaceChildren(failBlock(e, null, { text: 'Подробности недоступны' })));
   return box;
 }
 
