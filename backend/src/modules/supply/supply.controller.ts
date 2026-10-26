@@ -1,12 +1,14 @@
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
+import { SupplierExcelService } from './supplier-excel.service';
 
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
 @ApiTags('Снабжение')
@@ -14,7 +16,10 @@ import { SupplyService } from './supply.service';
 @AppSection('requests')
 @Controller('supply')
 export class SupplyController {
-  constructor(private readonly supply: SupplyService) {}
+  constructor(
+    private readonly supply: SupplyService,
+    private readonly excel: SupplierExcelService,
+  ) {}
 
   @AppSection('requests', 'stock')
   @Get('requests')
@@ -120,5 +125,26 @@ export class SupplyController {
   @AuditAction({ action: 'supply.request.received', entityType: 'SupplyRequest', idParam: 'id' })
   receive(@Param('id') id: string, @Body() dto: SupplyReceiveDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.supply.receive(id, dto, user?.id);
+  }
+
+  /**
+   * СКЕ-2: загрузить Excel-прайс поставщика.
+   * ?preview=1 → разбор без сохранения (предпросмотр строк).
+   * Без preview → создать заявки + upsert supplieritems.
+   */
+  @Post('suppliers/:id/excel')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 }, storage: undefined }))
+  async importExcel(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Query('preview') preview: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    if (!file?.buffer) throw new Error('Файл не передан');
+    if (preview === '1') return this.excel.preview(file.buffer, id);
+    return this.excel.apply(file.buffer, id, user?.id);
   }
 }
