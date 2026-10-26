@@ -83,6 +83,7 @@ export const stock = {
     path: '/stock/items',
     // левая панель (NAV F2): поиск → категории → состояние → признаки «тип / резьба / длина / стандарт»; выбранное уходит словами поиска
     sidebar: true,
+    chipsTop: true, // СКФ.2: «Состояние» — строкой над таблицей
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
     extraKeys: ['ft'],
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)

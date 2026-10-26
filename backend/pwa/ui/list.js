@@ -28,6 +28,7 @@ import { toastError } from './toast.js';
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
  *   tiles?: { key, title?, load: async () => [{ value, label, n, sub, head? }] } — плитки-фильтр над списком; с sidebar — список «Категории» в левой панели (head — раздел-заголовок),
+ *   chipsTop?: true — с sidebar чипы-фильтры не в панели, а строкой над таблицей (СКФ.2: «Состояние» сверху, слева — только «что ищем»),
  *   sidebar?: true — левая панель (280 px, всегда открыта): поиск, tiles, фильтры chips/select/date, toolbarExtra, «Сбросить всё»; на телефоне — лист по кнопке «Фильтры · N» (NAV F1),
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
@@ -90,6 +91,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   if (side) makeResizable(side, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' });
   const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
   const chipFilters = (L.filters || []).filter((f) => f.type === 'chips');
+  const sideChips = side && !L.chipsTop; // СКФ.2: chipsTop — чипы строкой над таблицей и при левой панели
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
   const controls = {};
   const sideParts = []; // выпадающие списки/даты левой панели
@@ -129,7 +131,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
 
   // Чипы: варианты загружаются один раз, счётчики — с каждым ответом
-  const chipsBox = h('div', { class: side ? 'ls-chips' : 'chips' });
+  const chipsBox = h('div', { class: sideChips ? 'ls-chips' : 'chips' });
   const optBtn = (label, n, active, onclick, cls = '', sub = '') => h('button', { type: 'button', class: 'ls-opt' + (active ? ' active' : '') + (cls ? ' ' + cls : ''), onclick },
     h('span', { class: 'ls-t', title: label }, label), sub ? h('span', { class: 'ls-sub' }, sub) : null, n !== undefined && n !== null ? h('b', null, qty(n)) : null);
   const hintBox = h('div', { class: 'list-hint', hidden: true });
@@ -138,7 +140,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   Promise.all(chipFilters.map((f) => Promise.resolve(f.options()))).then((o) => { chipOpts = o; renderChips(); });
   function renderChips() {
     if (!chipOpts) return;
-    if (side) {
+    if (sideChips) {
       chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
         if (st().board && f.key === 'status') return [];
         const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
@@ -212,7 +214,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const headPick = () => headCb;
   // L.top(reload) — свой блок над списком (полоса состояния загрузки и т. п.), создаётся один раз
   const topBox = L.top ? L.top(() => load()) : null;
-  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !side ? chipsBox : null, topBox, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
+  const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !sideChips ? chipsBox : null, topBox, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
   const enterBulkMode = (id) => { if (!bulkOn) return; bulkMode = true; panel.classList.add('bulk-mode'); if (id) picked.add(id); syncPicks(); paintBulk(); };
@@ -290,7 +292,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   if (side) {
     side.append(
       h('div', { class: 'ls-head' }, h('b', null, 'Фильтры'), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'Закрыть', onclick: () => closeSheet() }, '×')),
-      h('div', { class: 'ls-body' }, h('div', { class: 'ls-search' }, sb.el), tilesGroup, chipFilters.length ? chipsBox : null, ...sideParts, resetBtn),
+      h('div', { class: 'ls-body' }, h('div', { class: 'ls-search' }, sb.el), tilesGroup, chipFilters.length && sideChips ? chipsBox : null, ...sideParts, resetBtn),
       h('div', { class: 'ls-foot' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => closeSheet() }, 'Показать')));
     head.insertBefore(openBtn, head.querySelector('.spacer').nextSibling);
   }

@@ -94,15 +94,17 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
 }
 
 /**
- * Режим inline (NAV F2): те же группы признаков, но тело рисуется прямо в левой панели списка (L.sidebar):
- * без кнопки, всплывающей панели и затемнения; поиск и «Сбросить всё» — у самой панели. Выбор в группе один, повторный клик снимает.
+ * Режим inline (NAV F2) — воронка (СКФ.3): тело рисуется прямо в левой панели списка (L.sidebar).
+ * Выбранные шаги сворачиваются в строки «Тип: Болт мебельный ×» сверху; ниже — только ещё не выбранные признаки,
+ * первый из них раскрыт («следующий шаг»), остальные свёрнуты. У значений — число позиций; показываются лишь варианты,
+ * у которых есть позиции при уже выбранном. Выбор в группе один, повторный клик снимает.
  */
 function inlineFilter(categoryKey) {
   let items = null; let src = null; let P = {}; let seq = 0;
   const folded = new Map();
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
-  const el = h('div', { class: 'ff ff-inline' }, crumbs, body);
+  const el = h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, 'Уточнить'), crumbs, body);
   const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function render() {
@@ -112,26 +114,28 @@ function inlineFilter(categoryKey) {
     if (my !== seq) return;
     const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
     const sel = parseFt(P.ft);
-    // ТИ-6: крошки выбранных признаков (точечный сброс)
     const names = Object.fromEntries(FACETS);
-    const selEntries = Object.entries(sel).filter(([, v]) => v);
+    const selEntries = FACETS.map(([k]) => [k, sel[k]]).filter(([, v]) => v);
     crumbs.hidden = !selEntries.length;
     crumbs.replaceChildren(...selEntries.map(([k, v]) =>
-      h('button', { type: 'button', class: 'tag active ff-tag', title: 'Убрать: ' + names[k], onclick: () => set(k, v) }, v, ' ×')));
+      h('button', { type: 'button', class: 'ff-step', title: 'Убрать: ' + names[k], 'data-fk': 'x:' + k, onclick: () => set(k, v) },
+        h('span', { class: 'ff-step-l' }, names[k]), h('span', { class: 'ff-step-v' }, v), h('span', { class: 'ff-step-x', 'aria-hidden': 'true' }, '×'))));
+    let first = true;
     const groups = FACETS.map(([key, label]) => {
-      const others = { ...sel }; delete others[key];
-      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key).slice(0, key === 'type' ? 30 : 40);
-      if (!vals.length) return null;
-      const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
-      const colCls = vals.length > 8 ? ' ff-cols' : '';
+      if (sel[key]) return null; // выбранный шаг — уже строкой сверху
+      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel }), key).slice(0, key === 'type' ? 30 : 40);
+      if (vals.length < 2) return null; // один вариант — выбирать нечего
+      const open = folded.has(key) ? folded.get(key) : first;
+      first = false;
+      const colCls = vals.length > 8 && key !== 'type' ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
-          h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
-        open ? h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
-          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, v)))) : null);
+          h('span', { class: 'ff-gl' }, label), h('span', { class: 'ff-gn' }, String(vals.length)), h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
+        open ? h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v, n]) => h('label', { class: 'ff-check' },
+          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, v), h('b', { class: 'ff-cn' }, String(n))))) : null);
     }).filter(Boolean);
-    body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, 'В этой категории признаков нет')]));
-    if (fk) [...body.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });
+    body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, selEntries.length ? 'Уточнять больше нечего' : 'В этой категории признаков нет')]));
+    if (fk) [...el.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });
   }
   return { el, update: (next) => { P = { ...next }; render(); }, reset: () => items && (items = null) };
 }
