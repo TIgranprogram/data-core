@@ -52,7 +52,12 @@ echo "== 4. Проверка"
 "${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health/ready); [ "$s" = 200 ] && break; sleep 3; done
   echo "data-core /api/health/ready: $s"; echo "/app/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/app/)"; echo "/admin/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/admin/)"
   echo "kppdf :3000: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/)"; docker ps --format "{{.Names}} {{.Status}}" | grep -E "datacore|kppdf"
-  echo "место после выкладки: $(df -h /var/lib/datacore | tail -1)"'
+  echo "место после выкладки: $(df -h /var/lib/datacore | tail -1)"
+  # А2 (2026-10-26): смоук оболочки — каждый файл 200 и быстрее 3 с; иначе строка «СБОЙ»
+  bad=0; for u in /api/health /app/index.html /app/main.js /app/ui/base.css /app/ui/panels.css /app/version.json /admin/index.html; do
+    r=$(curl -s -o /dev/null -w "%{http_code} %{time_total}" http://127.0.0.1:3001$u); c=${r% *}; t=${r#* }
+    if [ "$c" != 200 ] || awk "BEGIN{exit !($t>3)}"; then echo "СБОЙ $u: $r"; bad=1; fi; done
+  [ $bad = 0 ] && echo "смоук: 7 из 7 в норме" || echo "смоук: есть сбои — смотреть выше"'
 
 if [[ $DATA == 1 ]]; then
   echo "== 5. Данные (в контейнере datacore-backend, его MONGO_URI)"

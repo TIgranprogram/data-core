@@ -29,6 +29,14 @@ export async function listBackups(root: string) {
   }));
 }
 
+/** Дата последней копии без подсчёта размеров (А3, сторож в /health). undefined — папка не подключена, null — копий нет. */
+export async function latestBackupDate(root: string): Promise<string | null | undefined> {
+  let names: string[];
+  try { names = await fs.readdir(root); } catch { return undefined; }
+  const last = names.filter((n) => n.startsWith('mongo-') && isStamp(n.slice(6))).map((n) => n.slice(6)).sort().pop();
+  return last ? stampDate(last) : null;
+}
+
 /** Папки для архива: [путь на диске, имя внутри архива]. Только реальные каталоги (не симлинки). */
 export async function backupDirs(root: string, stamp: string, part: BackupPart) {
   const out: Array<[string, string]> = [];
