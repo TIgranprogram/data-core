@@ -1090,6 +1090,8 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gcard { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font: inherit; min-width: 0; }
 .gcard:hover, .gcard:focus-visible { border-color: var(--border-strong); background: var(--surface-2); }
 .gcard.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+/* Галерея: отмеченная карточка в режиме выбора */
+.list-panel.bulk-mode .gcard-wrap:has(> .gc-pick .pick-cb:checked) > .gcard { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); background: var(--ok-soft); }
 .gc-pic { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: calc(var(--radius) - 2px); } /* чертежи — на белом в обеих темах */
 .gc-none { display: grid; place-items: center; background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
 .gc-title { font-weight: 600; font-size: var(--fs-sm); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

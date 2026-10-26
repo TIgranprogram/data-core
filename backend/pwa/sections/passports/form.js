@@ -75,7 +75,8 @@ export const passportForm = {
       { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => (w.el = tagPick({ options: els, value: v, label: 'Функциональные элементы' })) },
       ...(legacy ? [{ key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => (w.mat = tagPick({ options: mats, value: v, label: 'Материалы' })) }]
         : [...materialsFields({ r, md, ctx }), materialsText]),
-      { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
+      { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))],
+        hint: 'Определяет схему монтажа в PDF (фундамент, анкеры, скважины). Текст «Установка» выше — отдельно.' },
       { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
         hint: 'Стандартные схемы — в «Справочники → Паспорта → Способы установки»' },
