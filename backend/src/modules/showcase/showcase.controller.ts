@@ -18,7 +18,7 @@ export class ShowcaseController {
   @AppSection('products', 'passports', 'orders', 'salesorders')
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
-  @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'groupId', required: false }) @ApiQuery({ name: 'series', required: false }) @ApiQuery({ name: 'deleted', required: false }) @ApiQuery({ name: 'status', required: false, description: 'draft | active | archived' }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'groupId', required: false }) @ApiQuery({ name: 'series', required: false }) @ApiQuery({ name: 'deleted', required: false }) @ApiQuery({ name: 'status', required: false, description: 'draft | active | archived' }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false }) @ApiQuery({ name: 'facets', required: false, description: '1 — добавить facets.series: серии с числом при остальных фильтрах (воронка)' })
   list(@Query() q: Record<string, string>) { return this.s.list(q); }
 
   @Get('groups')

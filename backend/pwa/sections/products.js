@@ -1,4 +1,5 @@
 import { api, PREFIX, session } from '../core/api.js';
+import { stepFunnel } from '../ui/step-funnel.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -179,9 +180,17 @@ export const products = {
     emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
     // левая панель (NAV F3): поиск → «Тип · Группа изделий» → «Серия» → «Состояние»; цену и габариты не фильтруем
     sidebar: true,
+    chipsTop: true, // «Состояние» — строкой над списком, слева — только «что ищем»
+    toolbarExtra: () => stepFunnel({
+      steps: [{ key: 'series', label: 'Серия' }],
+      load: async (P) => {
+        const r = await api('/showcase', { query: { facets: 1, limit: 1, ...(P.groupId ? { groupId: P.groupId } : {}), ...(P.status ? { status: P.status } : {}), ...(P.q ? { search: P.q } : {}), ...(P.series ? { series: P.series } : {}) } });
+        return { series: r.facets?.series || [] };
+      },
+    }),
     filters: [
       { key: 'groupId', label: 'Тип · Группа', type: 'hidden' }, // выбирается деревом «Тип · Группа изделий»
-      { key: 'series', label: 'Наименование серии', allLabel: 'Все серии', type: 'select', options: async () => (await formValues()).series.map((x) => ({ value: x.value, label: x.value })) },
+      { key: 'series', label: 'Серия', type: 'hidden' }, // Б1: шаг воронки слева (toolbarExtra), числа — при выбранной группе
       { key: 'status', label: 'Состояние', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
     ],
     // серия — точное совпадение на сервере (query series)

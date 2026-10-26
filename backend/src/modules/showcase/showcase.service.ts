@@ -138,6 +138,12 @@ export class ShowcaseService {
       this.db.collection('products').find(filter).sort(order).skip((page - 1) * limit).limit(limit).toArray(),
       this.db.collection('products').countDocuments(filter),
     ]);
+    // Б1: facets=1 — серии с числом изделий при остальных выбранных фильтрах (воронка «Тип · Группа → Серия»); поле дополнительное
+    if (q.facets === '1') {
+      const { series: _s, ...rest } = filter;
+      const series = await this.db.collection('products').aggregate([{ $match: { ...rest, series: { $nin: [null, ''] } } }, { $group: { _id: '$series', n: { $sum: 1 } } }, { $sort: { _id: 1 } }]).toArray();
+      return { items: await this.present(docs as Doc[]), total, page, limit, facets: { series: series.map((x) => ({ value: String(x._id), n: x.n as number })) } };
+    }
     return { items: await this.present(docs as Doc[]), total, page, limit };
   }
 
