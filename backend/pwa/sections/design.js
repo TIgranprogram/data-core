@@ -72,10 +72,17 @@ export async function moveTask(r, to) {
 
 // ---------- форма: заказ → позиция ----------
 function targetWidget(v) {
-  const tp = targetPicker({ mode: 'reserve' });
+  const skuBox = h('div', { class: 'tp-sku', hidden: true });
+  const onLineChange = (line) => {
+    const pn = line?.productName, sku = line?.sku;
+    if (pn || sku) { skuBox.textContent = [sku && '№ ' + sku, pn].filter(Boolean).join(' · '); skuBox.hidden = false; }
+    else skuBox.hidden = true;
+  };
+  const tp = targetPicker({ mode: 'reserve', onChange: onLineChange });
   if (v?.orderId && v.lineId) tp.preset({ id: v.orderId, label: v.orderNo ? '№ ' + v.orderNo : 'Заказ', orderNo: v.orderNo }, v.lineId);
+  const wrap = h('div', null, tp.el, skuBox);
   return {
-    el: tp.el,
+    el: wrap,
     get value() { return JSON.stringify({ orderId: tp.orderId(), incomeId: tp.line()?.id || null, check: tp.check() }); },
     set value(_) { /* только ввод */ },
     focus: () => tp.el.querySelector('input')?.focus(),

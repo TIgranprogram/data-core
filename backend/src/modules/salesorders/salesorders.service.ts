@@ -208,14 +208,13 @@ export class SalesOrdersService {
     const order = await this.findRaw(id);
     const db = this.connection.db!;
     const lines = await this.incomes().find({ orderId: order._id, deletedAt: null }, { projection: { lineNo: 1, title: 1, productId: 1, photoIds: 1, qty: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
-    const need = lines.filter((l) => !(l.photoIds as unknown[] | undefined)?.length && l.productId).map((l) => l.productId as Types.ObjectId);
-    const byProduct = new Map<string, Types.ObjectId>();
-    if (need.length) {
-      // один источник с витриной: products.photoIds[0]
-      const pp = await db.collection('products').find({ _id: { $in: need } }, { projection: { photoIds: 1 } }).toArray();
-      for (const x of pp) { const first = ((x.photoIds as Types.ObjectId[] | undefined) ?? [])[0]; if (first) byProduct.set(String(x._id), first); }
+    const allProdIds = [...new Map(lines.filter((l) => l.productId).map((l) => [String(l.productId), l.productId as Types.ObjectId])).values()];
+    const prodInfo = new Map<string, { name?: string; sku?: string; firstPhoto?: Types.ObjectId }>();
+    if (allProdIds.length) {
+      const pp = await db.collection('products').find({ _id: { $in: allProdIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray();
+      for (const x of pp) { const first = ((x.photoIds as Types.ObjectId[] | undefined) ?? [])[0]; prodInfo.set(String(x._id), { name: x.name as string | undefined, sku: x.sku as string | undefined, firstPhoto: first }); }
     }
-    const photoOf = (l: Doc) => String(((l.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ?? (l.productId ? byProduct.get(String(l.productId)) : undefined) ?? '') || null;
+    const photoOf = (l: Doc) => String(((l.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ?? (l.productId ? prodInfo.get(String(l.productId))?.firstPhoto : undefined) ?? '') || null;
     // Превью (thumb) — двумя запросами на весь заказ; нет превью — оригинал
     const pIds = [...new Set(lines.map(photoOf).filter(Boolean) as string[])].map((s) => new Types.ObjectId(s));
     const [ph, th] = pIds.length ? await Promise.all([
@@ -229,6 +228,8 @@ export class SalesOrdersService {
       return {
         id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
         productId: l.productId ? String(l.productId) : null,
+        sku: (l.productId ? prodInfo.get(String(l.productId))?.sku : undefined) ?? null,
+        productName: (l.productId ? prodInfo.get(String(l.productId))?.name : undefined) ?? null,
         photoId, photoThumb: (photoId && url.get(photoId)) || null,
         qty: (l.qty as number | undefined) ?? null,
       };

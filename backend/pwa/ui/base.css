@@ -1256,6 +1256,7 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .tp-panel[hidden], .tp-ret[hidden] { display: none; }
 .tp-sel { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-width: 0; }
 .tp-line-sel { margin-top: var(--s2); padding: var(--s2) var(--s3); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: var(--radius-sm); background: var(--surface); }
+.tp-sku { margin-top: var(--s1); font-size: var(--fs-sm); color: var(--text-muted); }
 .tp-who { margin-top: var(--s2); }
 .tp-ret { margin-top: var(--s2); }
 .tn { color: var(--text); }

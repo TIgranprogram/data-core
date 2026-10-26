@@ -4,6 +4,7 @@ import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
+import { downloadXlsx } from '../core/xlsx-write.js';
 import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 
@@ -158,7 +159,9 @@ async function importExcelDialog(r) {
   let previewHash = null;
   const fileInput = h('input', { type: 'file', accept: '.xlsx,.xls', required: true });
   const previewWrap = h('div', { class: 'excel-preview', hidden: true });
-  const hint = h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика. Строки появятся для проверки перед добавлением.');
+  const dlTpl = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Кол-во', 'Группа', 'Цена'], ['АРТ-001', 'Качели двойные', 'Зелёный', 2, 'Качели', 12500]], 'Прайс');
+  const hint = h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика. Строки появятся для проверки перед добавлением. ',
+    h('button', { type: 'button', class: 'link-btn', onclick: dlTpl }, '⇩ Скачать шаблон'));
 
   function renderPreview(rows) {
     previewRows = rows;

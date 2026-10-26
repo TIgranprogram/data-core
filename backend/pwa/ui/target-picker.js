@@ -65,7 +65,7 @@ export function targetNote(m) {
 /** Короткая подпись без запросов (карточки на телефоне, строки поиска). */
 export const targetShort = (m) => (m.reason && !m.isReturn ? `Списано: ${m.reason}` : m.isReturn ? 'Возврат со сборки' : m.salesOrderLineId ? 'Выдано под позицию заказа' : '');
 
-export function targetPicker({ mode = 'out' } = {}) {
+export function targetPicker({ mode = 'out', onChange } = {}) {
   const ret = mode === 'return';
   const res = mode === 'reserve';
   const noSeg = ret || res;
@@ -139,12 +139,12 @@ export function targetPicker({ mode = 'out' } = {}) {
       orderBox.replaceChildren(head, h('div', { class: 'pp-prod-sel tp-line-sel' },
         line ? picBox(line) : null,
         h('div', { style: { flex: '1', minWidth: 0 } }, h('b', null, line ? `${lineCode(line)} · ${line.title}` : 'Весь заказ'), line?.qty ? h('div', { class: 'muted' }, `в заказе ${qty(line.qty)}`) : h('div', { class: 'muted' }, 'без конкретной позиции')),
-        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { line = null; whole = false; renderOrder(); } }, 'Сменить')));
+        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { line = null; whole = false; renderOrder(); onChange?.(null); } }, 'Сменить')));
       return;
     }
     const input = h('input', { value: q, placeholder: 'Найти позицию: 552-2 или название', 'aria-label': 'Найти позицию заказа', autocomplete: 'off' });
     const list = h('ul', { class: 'pp-prod-list', role: 'listbox', 'aria-label': 'Позиции заказа' });
-    const pick = (l) => { line = l; whole = !l; renderOrder(); };
+    const pick = (l) => { line = l; whole = !l; renderOrder(); onChange?.(line); };
     const fill = () => {
       const tk = searchTokens(q);
       const rows = lines.filter((l) => !tk.length || tk.every((t) => normSearch(`${lineCode(l)} ${l.title}`).includes(t)));
