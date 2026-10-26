@@ -174,7 +174,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const theadRow = h('tr');
   function renderHead() {
     const { sort } = st();
-    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } syncPicks(); paintBulk(); } });
+    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } }); // ПРД.1: «все» включает режим выбора — иначе отмеченного не видно
     theadRow.replaceChildren(...[bulkOn ? h('th', { class: 'pick' }, headCb) : null, ...L.columns.map((c) => {
       const field = c.sort;
       const isSorted = field && sort.replace(/^-/, '') === field;
@@ -208,7 +208,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const all = headPick(); if (all) { const ids = rows.map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
   };
   const pickBox = (row) => h('input', { type: 'checkbox', class: 'pick-cb', checked: picked.has(row.id), dataset: { id: row.id }, 'aria-label': 'Отметить запись',
-    onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) picked.add(row.id); else picked.delete(row.id); syncPicks(); paintBulk(); } });
+    onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) picked.add(row.id); else picked.delete(row.id); if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } });
   const syncPicks = () => panel.querySelectorAll('.pick-cb').forEach((cb) => { cb.checked = picked.has(cb.dataset.id); });
   let headCb = null;
   const headPick = () => headCb;
