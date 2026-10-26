@@ -106,10 +106,10 @@ export const passportForm = {
       { key: '_searchName', type: 'hidden' },
       ...funnelFields,
       // изделие — главный источник: здесь сводка в одну строку (ниже в блоке «Изделие»), поля — свёрнуты «Править здесь»
-      { section: 'Данные изделия — править в изделии', tone: 'main', collapsed: true },
+      { section: 'Данные изделия — идут в паспорт', tone: 'main', collapsed: true },
       { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
-      { key: 'name', label: 'Наименование', required: true, wide: true, max: 500,
-        hint: r ? undefined : 'Заполнено из изделия. Запасной путь — начните печатать и возьмите данные из прошлого паспорта с таким наименованием',
+      { key: 'name', label: 'Наименование (в PDF паспорта)', required: true, wide: true, max: 500,
+        hint: r ? 'Это наименование печатается в PDF паспорта. Изменить название изделия в «Продукции» — нажмите «править в изделии» выше.' : 'Заполнено из изделия. Запасной путь — начните печатать и возьмите данные из прошлого паспорта с таким наименованием',
         suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Взять из прошлого паспорта (запасной путь): подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
       { key: 'category', label: 'Раздел каталога (как в «Продукции»)', type: 'combo', options: cats, max: 200, hint: 'Только для списков и поиска; на разделы паспорта не влияет' },
       { key: 'article', label: 'Артикул', max: 50 },
