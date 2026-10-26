@@ -1582,6 +1582,28 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
   .ma-count .mob-act-ico { background: var(--info-soft); color: var(--info); }
 }
 
+/* Ждём поставку */
+.mob-arrivals { display: none; }
+@media (max-width: 720px) {
+  .mob-arrivals { display: block; margin-bottom: var(--s3); }
+  .mob-arr-groups { display: flex; flex-direction: column; gap: var(--s3); }
+  .mob-arr-group { background: var(--card); border-radius: var(--radius); padding: var(--s2) var(--s3); }
+  .mob-arr-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s2); }
+  .mob-arr-head b { font-size: 14px; }
+  .mob-arr-head small { font-size: 12px; }
+  .mob-arr-items { display: flex; flex-direction: column; gap: 2px; }
+  .mob-arr-item { display: flex; align-items: center; gap: var(--s2); padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; min-height: 44px; }
+  .mob-arr-item:last-child { border-bottom: none; }
+  .mob-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: var(--radius-sm); flex-shrink: 0; background: var(--bg2); }
+  .mob-arr-no-pic { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: var(--bg2); color: var(--muted); font-size: 20px; flex-shrink: 0; }
+  .mob-arr-info { flex: 1; min-width: 0; }
+  .mob-arr-name { font-weight: 500; font-size: 14px; }
+  .mob-arr-meta { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; font-size: 13px; margin-top: 2px; }
+  .mob-arr-meta b { color: var(--accent); }
+  .mob-arr-paid { color: var(--ok); font-size: 12px; font-weight: 600; }
+  .mob-arr-accept { margin-top: var(--s2); width: 100%; justify-content: center; }
+}
+
 /* Позиции, требующие внимания */
 .mob-alerts { display: none; }
 @media (max-width: 720px) {
