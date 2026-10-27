@@ -298,3 +298,17 @@
 .stk-edit-states { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
 .stk-edit-row { display: flex; gap: 6px; align-items: center; }
 .stk-edit-row input[type="text"], .stk-edit-row input:not([type]) { flex: 1; min-width: 0; }
+
+/* Обсуждение задачи проектирования */
+.dn-flag { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; font-size: var(--fs-sm); }
+.dn-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.dn-item { display: flex; gap: 8px; align-items: flex-start; }
+.dn-item.dn-open .dn-body { border-left: 3px solid var(--warn); padding-left: 8px; }
+.dn-body { min-width: 0; flex: 1; }
+.dn-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: var(--fs-sm); }
+.dn-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.dn-acts { display: flex; gap: 12px; font-size: var(--fs-sm); }
+.dn-input { width: 100%; resize: vertical; }
+.dn-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; }
+.dn-reply { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); color: var(--muted); margin-bottom: 4px; }
+.dn-badge { margin-left: 4px; }

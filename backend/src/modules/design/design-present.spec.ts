@@ -16,7 +16,7 @@ describe('design-present', () => {
   });
 
   const conn = (rows: Record<string, Array<Record<string, unknown>>>) => ({
-    db: { collection: (n: string) => ({ find: () => ({ toArray: async () => rows[n] ?? [] }) }) },
+    db: { collection: (n: string) => ({ aggregate: () => ({ toArray: async () => rows[n] ?? [] }), find: () => ({ toArray: async () => rows[n] ?? [] }) }) },
   }) as never;
 
   it('пустой список — пустой ответ', async () => {

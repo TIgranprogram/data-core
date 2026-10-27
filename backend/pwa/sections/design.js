@@ -5,6 +5,7 @@ import { current, go } from '../core/router.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
 import { mountBoard } from '../ui/board.js';
 import { askAssignee, askReason, mountDesignBoard } from '../ui/design-board.js';
+import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { toast } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
@@ -49,12 +50,12 @@ function boardBody(r, c) {
     return [pic(r), h('div', { class: 't-main' },
       h('div', { class: 't-title', title: title(r) }, title(r)),
       h('div', { class: 't-sub', title: r.pauseReason || '' }, [c.key === 'paused' && r.pauseReason, subLine(r)].filter(Boolean).join(' · ')),
-      h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), avatar(r)))];
+      h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r)))];
   }
   return [pic(r),
     h('div', { class: 't-title', title: title(r) }, title(r)),
     h('div', { class: 't-sub' }, subLine(r)),
-    h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), avatar(r))];
+    h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r))];
 }
 
 // ---------- перенос между стадиями ----------
@@ -118,13 +119,14 @@ export const design = {
       { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'queue,work',
         options: () => [{ value: 'queue,work', label: 'Открытые' }, ...STATUS_OPTS.map((o) => ({ value: o.value, label: o.label })), { value: 'queue,work,done,paused', label: 'Все' }],
         count: (resp, v) => (v === 'queue,work' ? (resp.counts?.queue || 0) + (resp.counts?.work || 0) : v === 'queue,work,done,paused' ? resp.counts?.all : resp.counts?.[v]) },
+      { key: 'needsAnswer', label: 'Вопросы', type: 'chips', options: () => [{ value: '1', label: 'Требует ответа' }] },
       { key: 'assigneeId', label: 'Все исполнители', type: 'select', options: () => people() },
       { key: 'orderId', label: 'Все заказы', type: 'select', options: () => activeOrders().then((os) => os.map((o) => ({ value: o.id, label: orderLabel(o) }))) },
     ],
     columns: [
       { key: 'code', label: 'Код', sort: 'seq', cls: 'nowrap', render: (r) => h('b', null, r.code) },
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.photo ? h('img', { class: 'pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
-      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), subLine(r, false) ? h('small', { class: 'muted' }, ' ' + subLine(r, false)) : null) },
+      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), subLine(r, false) ? h('small', { class: 'muted' }, ' ' + subLine(r, false)) : null, questionBadge(r) ? ' ' : null, questionBadge(r)) },
       { key: 'due', label: 'Срок', cls: 'nowrap', render: dueNode },
       { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prioBadge(r) || '' },
       { key: 'assignee', label: 'Исполнитель', cls: 'nowrap md-hide', render: (r) => (r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')) },
@@ -133,7 +135,7 @@ export const design = {
     card: {
       title: (r) => `${r.code} · ${title(r)}`,
       sub: (r) => [subLine(r, false), r.deadline ? 'срок ' + date(r.deadline) : '', r.assignee?.name].filter(Boolean).join(' · '),
-      side: (r) => [badge(STATUS, r.status), prioBadge(r)],
+      side: (r) => [badge(STATUS, r.status), prioBadge(r), questionBadge(r)],
       thumb: (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + r.photo, alt: '', loading: 'lazy' }) : null),
     },
     board: {
@@ -176,6 +178,7 @@ export const design = {
     extra: (r, ctx) => {
       const host = h('div', { class: 'db-blocks' });
       const can = session.canEdit;
+      host.append(discussionBlock(r, ctx));
       host.append(photosBlock(r, ctx, can));
       visibleStickers().then((list) => { const b = stickersBlock(r, list, ctx, can); if (b) host.append(b); });
       return host;

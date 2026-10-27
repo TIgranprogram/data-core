@@ -101,7 +101,7 @@ describe('DesignService', () => {
     [tasks, orders, incomes, persons, products, photos, marks, stickers] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
     tasks.uniqueSparse = 'openIncomeId';
     seq = 0;
-    const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos };
+    const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designnotes: new Coll() };
     const connection = { db: { collection: (n: string) => by[n] } };
     const counters = { nextSeq: jest.fn(async () => ++seq) };
     service = new DesignService(connection as never, tasks as never, counters as never, marks as never);

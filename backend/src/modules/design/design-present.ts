@@ -25,11 +25,14 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
   if (!docs.length) return [];
   const db = connection.db!;
   const orderIds = uniq(docs.map((d) => d.orderId)), incomeIds = uniq(docs.map((d) => d.incomeId)), personIds = uniq(docs.map((d) => d.assigneeId));
-  const [orders, incomes, persons] = await Promise.all([
+  const [orders, incomes, persons, noteRows] = await Promise.all([
     orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionDeadline: 1, shipDate: 1, priority: 1 } }).toArray() : [],
     incomeIds.length ? db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { lineNo: 1, title: 1, productId: 1 } }).toArray() : [],
     personIds.length ? db.collection('persons').find({ _id: { $in: personIds } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [],
+    // счётчики обсуждения: всего записей и открытых вопросов — одним запросом на страницу
+    db.collection('designnotes').aggregate([{ $match: { taskId: { $in: docs.map((d) => d._id) }, deletedAt: null } }, { $group: { _id: '$taskId', n: { $sum: 1 }, q: { $sum: { $cond: ['$needsAnswer', 1, 0] } } } }]).toArray(),
   ]);
+  const notes = new Map(noteRows.map((r) => [String(r._id), r as Doc]));
   const order = new Map(orders.map((o) => [String(o._id), o as Doc]));
   const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
   const person = new Map(persons.map((p) => [String(p._id), personView(p as Doc)]));
@@ -63,6 +66,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
       // карточка: фото задачи, иначе фото изделия позиции
       photo: own[0]?.thumb ?? (photoId ? photos.get(String(photoId))?.thumb ?? null : null),
       photoIds: own.map((x) => x!.id), photos: own,
+      notesCount: (notes.get(String(d._id))?.n as number | undefined) ?? 0, openQuestions: (notes.get(String(d._id))?.q as number | undefined) ?? 0,
       stickers: (d.stickers as Record<string, unknown> | undefined) ?? {},
       orderId: d.orderId ? String(d.orderId) : null, orderNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo,
       productId: pid ? String(pid) : null, sku, productName, customerTitle,

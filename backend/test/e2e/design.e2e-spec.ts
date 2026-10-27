@@ -163,4 +163,41 @@ describe('Design tasks (Проектирование)', () => {
       expect((await http().get(`/api/design-tasks/${taskId}`).set(auth()).expect(200)).body.photoIds).toEqual([]);
     });
   });
+  describe('обсуждение и вопросы менеджеру', () => {
+    let tid = '', userTok = '';
+    const uAuth = () => authHeader(userTok);
+    beforeAll(async () => {
+      const users = app.get<Model<UserDocument>>(getModelToken(User.name));
+      const username = `talker-${Date.now()}`;
+      await users.create({ username, email: `${username}@datacore.local`, displayName: 'Мария Орлова', passwordHash: await bcrypt.hash('talker-pw-1', 10), role: 'user', permissions: [], isActive: true });
+      userTok = (await http().post('/api/auth/login').send({ username, password: 'talker-pw-1' }).expect(200)).body.access;
+      tid = (await http().post('/api/design-tasks').set(auth()).send({ title: 'Обсуждаемая' }).expect(201)).body.id;
+    });
+
+    it('вопрос → «Требует ответа: 1» в задаче и списке; ответ снимает; чужому 403; импорт без дублей', async () => {
+      const q = (await http().post(`/api/design-tasks/${tid}/notes`).set(auth()).send({ kind: 'question', text: 'Какой цвет?' }).expect(201)).body;
+      expect(q.needsAnswer).toBe(true);
+      let row = (await http().get('/api/design-tasks?status=queue,work&needsAnswer=1').set(auth()).expect(200)).body.items.find((x: { id: string }) => x.id === tid);
+      expect(row.openQuestions).toBe(1);
+      const a = (await http().post(`/api/design-tasks/${tid}/notes`).set(uAuth()).send({ text: 'Графит', replyTo: q.id }).expect(201)).body;
+      expect(a.author.initials).toBe('МО');
+      row = (await http().get(`/api/design-tasks/${tid}`).set(auth()).expect(200)).body;
+      expect(row.openQuestions).toBe(0);
+      expect(row.notesCount).toBe(2);
+      await http().patch(`/api/design-notes/${q.id}`).set(uAuth()).send({ text: 'Чужое' }).expect(403);
+      await http().patch(`/api/design-notes/${a.id}`).set(uAuth()).send({ text: 'Графит RAL 7024' }).expect(200);
+      // импорт: у обычного пользователя поля игнорируются, у admin работают; повтор externalId — та же запись
+      const imp = { text: 'Из YouGile', authorName: 'Сергей К.', source: 'yougile', createdAt: '2026-09-01T10:00:00.000Z', externalId: 'yg-1' };
+      const bad = (await http().post(`/api/design-tasks/${tid}/notes`).set(uAuth()).send(imp).expect(201)).body;
+      expect(bad.source).toBe('app');
+      const one = (await http().post(`/api/design-tasks/${tid}/notes`).set(auth()).send(imp).expect(201)).body;
+      const two = (await http().post(`/api/design-tasks/${tid}/notes`).set(auth()).send(imp).expect(201)).body;
+      expect(two.id).toBe(one.id);
+      expect(one.author.name).toBe('Сергей К.');
+      expect(String(one.createdAt)).toContain('2026-09-01');
+      const list = (await http().get(`/api/design-tasks/${tid}/notes`).set(auth()).expect(200)).body.items;
+      expect(list[0].id).toBe(one.id); // самая ранняя — первой
+      expect((await http().get('/api/design-notes/open-questions').set(auth()).expect(200)).body.total).toBe(0);
+    });
+  });
 });

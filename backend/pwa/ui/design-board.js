@@ -7,6 +7,7 @@ import { badge, DESIGN_STATUS, ORDER_PRIORITY } from './badges.js';
 import { busyBlock, failBlock } from './busy.js';
 import { confirmDlg, modal } from './dialog.js';
 import { afterDrag, draggable } from './drag.js';
+import { questionBadge } from './design-notes.js';
 import { setStickers, stickerRow } from './design-stickers.js';
 import { enhanceSelect } from './select.js';
 import { toast, toastError } from './toast.js';
@@ -342,7 +343,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     const node = h('article', { class: 'tcard db-task' + (canEdit ? ' movable' : ''), tabindex: '0', role: 'button', dataset: { task: t.id },
       'aria-label': `${t.orderNo ? 'ЗНП ' + t.orderNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
-    h('div', { class: 'db-ttop' }, chip(t.orderId, t.orderNo),
+    h('div', { class: 'db-ttop' }, chip(t.orderId, t.orderNo), questionBadge(t),
       canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ task: t }, title, e.currentTarget); } }, '⋯') : null),
     t.photo ? photo(t.photo, 'db-cover') : null,
     h('div', { class: 'db-tbody' },

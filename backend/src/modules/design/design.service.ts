@@ -39,6 +39,7 @@ export class DesignService {
     if (q.orderId) base.orderId = { $in: oids(q.orderId) };
     if (p.search) base.$or = await this.searchClauses(String(q.search).trim(), p.search);
     const full: Doc = { ...base };
+    if (q.needsAnswer === '1') full._id = { $in: await this.db().collection('designnotes').distinct('taskId', { needsAnswer: true, deletedAt: null }) };
     if (q.status) {
       const want = String(q.status).split(',').map((s) => s.trim()).filter(Boolean);
       const bad = want.find((s) => !(DESIGN_STATUSES as readonly string[]).includes(s));

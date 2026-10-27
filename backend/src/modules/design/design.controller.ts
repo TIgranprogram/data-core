@@ -25,6 +25,7 @@ export class DesignController {
   @ApiQuery({ name: 'assigneeId', required: false }) @ApiQuery({ name: 'orderId', required: false })
   @ApiQuery({ name: 'search', required: false, description: 'название, D-N, № заказа, заказчик, изделие, артикул' })
   @ApiQuery({ name: 'sort', required: false, description: 'seq | completedAt | createdAt; «-» — по убыванию (умолч. seq; status=done — по completedAt убыв.)' })
+  @ApiQuery({ name: 'needsAnswer', required: false, description: '1 — только задачи с открытым вопросом менеджеру' })
   @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>) {
     return this.design.list(q);
