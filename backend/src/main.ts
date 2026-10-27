@@ -110,6 +110,7 @@ async function bootstrap() {
   // Static serve for uploaded photos at /uploads/* → ./uploads/
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    maxAge: '30d', // фото не перезаписываются по тому же пути — браузер не переспрашивает каждый раз (аудит скорости 2026-10-28)
   });
 
   // Personal Data Core — статическая админка (без сборки, vanilla JS).
