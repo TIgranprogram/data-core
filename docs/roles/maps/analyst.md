@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: 61b18c6 (DICT не закоммичен)
+коммит: не закоммичен (NAMES)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -25,3 +25,7 @@
 
 ## Проектирование-доска (DESIGN-BOARD, 2026-10-25)
 - ТЗ: `docs/roles/tz/DESIGN-BOARD.md`. Сервер `modules/design` (задача = позиция заказа, `designtasks`); новое — `designorders`. PWA: `sections/design.js`, `order-design.js`, `ui/board.js` (drag).
+
+## Три названия (ТИ-8, 2026-10-27)
+- ТЗ: `docs/roles/tz/NAMES.md`. ДМ.2 уже добавил `products.fullName/orderName`, `materials.fullName/invoiceName`; новых полей не нужно. Позиция заказа — `incomes.title` (снимок заказчика). Вопросы Н-1, Н-2 в QUESTIONS.
+- Дыры: `requests.js` и `invoice.js` сливают всё в одно `title/name`.
