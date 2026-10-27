@@ -168,6 +168,17 @@ describe('DesignService', () => {
     await expect(service.update(a.id, { status: 'queue' })).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('свободную задачу можно привязать к позиции: заказ и замок встают; занятая позиция и смена привязки — отказ', async () => {
+    const free = await service.create({ title: 'Из YouGile', note: 'YouGile D-9' });
+    const busy = await service.create({ incomeId: String(line2) });
+    await expect(service.update(free.id, { incomeId: String(line2) })).rejects.toBeInstanceOf(ConflictException);
+    const linked = await service.update(free.id, { incomeId: String(line1) });
+    expect(linked).toMatchObject({ incomeId: String(line1), orderId: String(orderId) });
+    await expect(service.create({ incomeId: String(line1) })).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.update(free.id, { incomeId: String(line2) })).rejects.toThrow('менять нельзя');
+    expect(busy.incomeId).toBe(String(line2));
+  });
+
   it('done: completedAt; пустой designerId изделия получает исполнителя, заполненный — не меняется', async () => {
     const a = await service.create({ incomeId: String(line1), assigneeId: String(personId), status: 'work' });
     const done = await service.update(a.id, { status: 'done' });

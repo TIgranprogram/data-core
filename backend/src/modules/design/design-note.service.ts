@@ -49,7 +49,14 @@ export class DesignNoteService {
     // перенос из YouGile — только admin; повтор с тем же externalId возвращает уже созданную запись
     if (admin && dto.externalId) {
       const dup = await this.model.findOne({ externalId: dto.externalId }).lean().exec();
-      if (dup) return (await this.present([dup as unknown as Doc], user))[0];
+      if (dup) {
+        // повтор импорта чинит время записи (timestamps перетирали createdAt при создании)
+        if (dto.createdAt && +new Date(dto.createdAt) !== +new Date((dup as Doc).createdAt as Date)) {
+          await this.model.collection.updateOne({ _id: dup._id }, { $set: { createdAt: new Date(dto.createdAt) } });
+          (dup as Doc).createdAt = new Date(dto.createdAt);
+        }
+        return (await this.present([dup as unknown as Doc], user))[0];
+      }
     }
     const kind = dto.kind ?? 'comment';
     if (kind === 'question' && dto.replyTo) throw new BadRequestException('Ответ — это комментарий, а не вопрос');
@@ -69,8 +76,9 @@ export class DesignNoteService {
         replyTo, needsAnswer: kind === 'question',
         source: admin && dto.source ? dto.source : 'app',
         ...(admin && dto.externalId ? { externalId: dto.externalId } : {}),
-        ...(admin && dto.createdAt ? { createdAt: at } : {}),
       });
+      // Mongoose timestamps ставят «сейчас» — своё время импорта пишем мимо них
+      if (admin && dto.createdAt) { await this.model.collection.updateOne({ _id: doc._id }, { $set: { createdAt: at } }); doc.set('createdAt', at); }
     } catch (e) {
       if ((e as { code?: number }).code === 11000) throw new ConflictException('Запись с таким externalId уже есть');
       throw e;

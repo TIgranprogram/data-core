@@ -208,12 +208,22 @@ export class DesignService {
 
   async update(id: string, dto: DesignTaskDto, userId?: string) {
     const cur = await this.findRaw(id);
-    if (dto.incomeId !== undefined) throw new BadRequestException('Позицию заказа у задачи менять нельзя — создайте новую задачу');
+    // Привязать можно только свободную задачу (позиции ещё нет); переносить с позиции на позицию нельзя — создайте новую задачу
+    const link: Doc = {};
+    if (dto.incomeId !== undefined) {
+      if (cur.incomeId) throw new BadRequestException('Позицию заказа у задачи менять нельзя — создайте новую задачу');
+      if (!dto.incomeId) throw new BadRequestException('Укажите позицию заказа');
+      const line = await this.lineOf(oid(dto.incomeId, 'позиции'));
+      if (!line) throw new NotFoundException('Позиция заказа не найдена');
+      if (cur.status !== 'done') await this.ensureNoOpen(line._id, cur._id as Types.ObjectId);
+      link.incomeId = line._id; link.orderId = line.orderId;
+      if (line.productId && !cur.productId) link.productId = line.productId; // своё изделие задачи не трогаем
+    }
     const status = dto.status ?? (cur.status as DesignStatus);
     const assigneeId = dto.assigneeId === undefined ? cur.assigneeId : dto.assigneeId ? oid(dto.assigneeId, 'сотрудника') : null;
     const pauseReason = dto.pauseReason === undefined ? cur.pauseReason : dto.pauseReason.trim();
     this.checkState(status, assigneeId, pauseReason);
-    const set: Doc = { status }, unset: Record<string, ''> = {};
+    const set: Doc = { status, ...link }, unset: Record<string, ''> = {};
     const put = (k: string, v: unknown) => (v === undefined || v === null || v === '' ? (unset[k] = '') : (set[k] = v));
     if (dto.assigneeId !== undefined) { if (assigneeId) await this.checkPerson(assigneeId as Types.ObjectId); put('assigneeId', assigneeId); }
     if (dto.productId !== undefined) {
@@ -235,9 +245,10 @@ export class DesignService {
       }
     } else {
       unset.completedAt = ''; unset.completedBy = '';
-      if (cur.incomeId) {
-        if (wasDone) await this.ensureNoOpen(cur.incomeId as Types.ObjectId, cur._id as Types.ObjectId);
-        set.openIncomeId = cur.incomeId;
+      const lineId = (link.incomeId ?? cur.incomeId) as Types.ObjectId | undefined;
+      if (lineId) {
+        if (wasDone && !link.incomeId) await this.ensureNoOpen(lineId, cur._id as Types.ObjectId);
+        set.openIncomeId = lineId;
       }
     }
     try {
@@ -246,6 +257,7 @@ export class DesignService {
       if (isDup(e)) throw new ConflictException('На эту позицию уже есть открытая задача');
       throw e;
     }
+    if (link.orderId) await this.markQuiet(link.orderId, userId);
     if (status === 'done' && !wasDone) {
       const productId = 'productId' in set ? set.productId : 'productId' in unset ? undefined : cur.productId ?? (await this.lineOf(cur.incomeId))?.productId;
       await this.fillDesigner(productId, assigneeId);

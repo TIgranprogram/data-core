@@ -8,7 +8,7 @@ import { DESIGN_STATUSES, type DesignStatus } from '../design-task.schema';
 export class DesignTaskDto {
   @ApiPropertyOptional({ enum: DESIGN_STATUSES, description: 'queue | work | done | paused' }) @IsOptional() @IsIn(DESIGN_STATUSES as unknown as string[]) status?: DesignStatus;
   @ApiPropertyOptional({ description: 'Исполнитель — сотрудник (persons); null — снять' }) @IsOptional() @ValidateIf((_o, v) => v !== null) @IsMongoId() assigneeId?: string | null;
-  @ApiPropertyOptional({ description: 'Позиция заказа (incomes): заказ и изделие берутся из неё' }) @IsOptional() @IsMongoId() incomeId?: string;
+  @ApiPropertyOptional({ description: 'Позиция заказа (incomes): заказ и изделие берутся из неё. В правке — только привязка свободной задачи (без позиции); сменить позицию нельзя' }) @IsOptional() @IsMongoId() incomeId?: string;
   @ApiPropertyOptional({ description: 'Изделие (products); null — снять' }) @IsOptional() @ValidateIf((_o, v) => v !== null) @IsMongoId() productId?: string | null;
   @ApiPropertyOptional({ description: 'Название; свободной задаче обязательно' }) @IsOptional() @IsString() @Length(0, 300) title?: string;
   @ApiPropertyOptional({ description: 'Свой срок ГГГГ-ММ-ДД / ДД.ММ.ГГГГ; ""/null — снова из заказа' }) @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Length(0, 30) deadline?: string | null;
