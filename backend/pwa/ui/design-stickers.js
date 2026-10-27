@@ -82,7 +82,7 @@ export function photosBlock(row, ctx, canEdit) {
   const strip = h('div', { class: 'pf-strip' });
   const paint = () => {
     strip.replaceChildren(...pics().map((p) => h('div', { class: 'pf-item' },
-      h('img', { src: PREFIX + (p.thumb || p.url), alt: '', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
+      h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
       canEdit ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: async () => {
         if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из задачи.', { okText: 'Убрать' }))) return;
         try { await api(`/design-tasks/${row.id}/photos/${p.id}`, { method: 'DELETE' }); row.photos = pics().filter((x) => x.id !== p.id); paint(); ctx.changed(); } catch (e) { toastError(e, 'убрать фото'); }

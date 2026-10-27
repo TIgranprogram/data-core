@@ -25,7 +25,7 @@ import { catArt } from '../ui/cat-art.js';
  * «⇩ Загрузить каталог» — Excel / вставка (колонки как в «Перечне изделий»: Тип · Группа · Артикул · Наименование · Серия · Цена).
  * Сервер — /api/showcase (поверх общей коллекции CRM products).
  */
-const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy' }) : null);
+const thumb = (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + (r.photo.thumb || r.photo.url), alt: '', loading: 'lazy', decoding: 'async' }) : null);
 // подсказки формы (ФИ): один запрос на 30 с — карточка зовёт fields() и ради подписей истории
 let fvCache = null; let fvAt = 0;
 const formValues = () => {

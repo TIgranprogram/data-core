@@ -136,7 +136,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0', role: 'button',
       onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(row); } } },
     ...(v.body ? [].concat(v.body) : [
-      v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
+      v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
       h('div', { class: 't-title', title: v.title }, v.title),
       h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null)]));
     bindDrag(card, row, c.key);

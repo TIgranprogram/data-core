@@ -225,9 +225,12 @@ export class StockSearchService {
 
   /** Сводка по категориям (плитки «Склада»): сколько позиций, сколько к закупке и сколько нет на складе. */
   async categorySummary() {
-    const all = await this.listItems({ limit: 100000 } as Record<string, unknown>);
+    // строки — из общего кэша (тот же ключ, что у listItems({}) и lookup): без сортировки, фото и «висящей» брони
+    const key = JSON.stringify([false, null, [], null, null, null, []]);
+    const make = () => this.itemRows({}, false, []);
+    const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
-    for (const i of all.items) {
+    for (const i of rows) {
       const id = i.categoryId ?? 'none';
       const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0, ordered: 0 };
       c.total++;
@@ -237,7 +240,7 @@ export class StockSearchService {
       by.set(id, c);
     }
     const items = [...by.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'ru'));
-    return { items, total: all.total };
+    return { items, total: rows.length };
   }
 
   async getItem(materialId: string) {

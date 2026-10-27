@@ -467,7 +467,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         const v = L.gallery.card(row);
         const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id },
           onclick: () => { if (bulkMode) { if (picked.has(row.id)) picked.delete(row.id); else picked.add(row.id); syncPicks(); paintBulk(); return; } onOpen(row); }, title: v.title },
-          v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
+          v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', decoding: 'async', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
           h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.price ? h('div', { class: 'gc-price' }, v.price) : null, v.badge || null);
         if (bindLong) bindLong(card, row.id);
         return bulkOn ? h('div', { class: 'gcard-wrap' }, card, h('label', { class: 'gc-pick', title: 'Отметить' }, pickBox(row))) : card;

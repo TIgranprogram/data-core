@@ -32,10 +32,10 @@ import { DOCK_MIN } from '../core/prefs.js';
 
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
 function gallery(pics, onRemove) {
-  const big = h('img', { class: 'g-big', src: PREFIX + pics[0].url, alt: '', loading: 'lazy' });
+  const big = h('img', { class: 'g-big', src: PREFIX + pics[0].url, alt: '', loading: 'lazy', decoding: 'async' });
   let cur = 0;
   const show = (i) => { cur = i; big.src = PREFIX + pics[i].url; strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); };
-  const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('img', { src: PREFIX + (p.thumb || p.url), alt: '', class: i ? '' : 'active', onclick: () => show(i) }))) : h('div');
+  const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', class: i ? '' : 'active', onclick: () => show(i) }))) : h('div');
   big.addEventListener('click', () => {
     const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото' }, h('img', { src: PREFIX + pics[cur].url, alt: '' }));
     const close = (e) => { if (!e || e.type === 'click' || e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', close, true); e?.stopPropagation?.(); } };

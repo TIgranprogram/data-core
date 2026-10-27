@@ -75,7 +75,7 @@ export function photoField(initial = []) {
   let pics = [...initial];
   const strip = h('div', { class: 'pf-strip' });
   const render = () => strip.replaceChildren(...pics.map((p, i) => h('div', { class: 'pf-item' },
-    h('img', { src: PREFIX + (p.thumb || p.url), alt: '', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
+    h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
     h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: () => { pics.splice(i, 1); render(); } }, '×'))));
   const drop = photoDrop({ attach: async (id, p) => { pics.push({ id, ...p }); return pics; }, done: render });
   render();
