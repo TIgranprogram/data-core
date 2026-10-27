@@ -24,7 +24,7 @@ const dmy = (d: unknown) => iso(d).split('-').reverse().join('.');
  * дают «не указано» в «Деньги → Сводка → Куда / На что / Кому».
  */
 /** Коллекции, которые читает «Требуют заполнения» (кэш С9). */
-const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems'] as const;
+const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems', 'products'] as const;
 
 /**
  * SK-8d: только группы открытых разделов роли (open = null — все). Кэш общий для всех ролей —
@@ -108,6 +108,9 @@ export class FillAuditService {
         coll: 'salesorders', q: { deletedAt: null, stage: { $nin: ['shipped', 'closed', 'cancelled'] }, ...empty('shipDate') }, item: (r) => ({ id: String(r._id), title: `№ ${r.orderNo ?? '—'} · ${r.customer ?? ''}`, sub: String(r.title ?? '') }), sort: { orderNo: -1 } },
       { key: 'mat-category', area: 'Склад', title: 'Позиции склада без категории', why: 'Без категории позицию не найти через «Категория → Позиция»', section: 'stock', field: 'categoryName', money: false,
         coll: 'materials', q: { deletedAt: null, ...empty('categoryId') }, item: (r) => ({ id: String(r._id), title: String(r.name ?? ''), sub: r.article ? `арт. ${r.article}` : '' }), sort: { name: 1 } },
+      // ── Каталог: пометки скрипта переноса ──
+      { key: 'product-check', area: 'Каталог', title: 'Изделия: проверить после переноса каталога', why: 'Скрипт переноса каталога не смог решить сам — в примечании написано, что сделать', section: 'products', field: 'notes', money: false,
+        coll: 'products', q: { deletedAt: null, notes: /^⚠ Проверить/ }, item: (r) => ({ id: String(r._id), title: String(r.name ?? r.sku ?? ''), sub: String(r.notes ?? '').slice(0, 120) }), sort: { name: 1 } },
     ];
 
     const groups: FillGroup[] = [];

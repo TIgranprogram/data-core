@@ -1,4 +1,24 @@
-import { onlyOpenGroups, type FillGroup } from './fill-audit.service';
+import { FillAuditService, onlyOpenGroups, type FillGroup } from './fill-audit.service';
+
+/** Группа product-check: изделия с примечанием «⚠ Проверить…» (мок Mongo). */
+describe('FillAuditService: product-check', () => {
+  it('ищет изделия по префиксу «⚠ Проверить» в notes', async () => {
+    const queries: Array<[string, Record<string, unknown>]> = [];
+    const col = (name: string) => ({
+      find: (q: Record<string, unknown>) => ({ sort: () => ({ limit: () => ({ toArray: async () => (name === 'products' ? [{ _id: 'p1', name: 'Горка', notes: '⚠ Проверить цену' }] : []) }) }), toArray: async () => [] }),
+      countDocuments: async (q: Record<string, unknown>) => { queries.push([name, q]); return name === 'products' ? 1 : 0; },
+      aggregate: () => ({ toArray: async () => [] }),
+    });
+    const svc = new FillAuditService({ db: { collection: col } } as never);
+    const res = await svc.report({ role: 'admin', isOwner: true }, { only: 'product-check' });
+    expect(res.groups).toHaveLength(1);
+    expect(res.groups[0]).toMatchObject({ key: 'product-check', section: 'products', field: 'notes', count: 1 });
+    expect(res.groups[0].items[0]).toMatchObject({ id: 'p1', title: 'Горка' });
+    const q = queries.find(([n]) => n === 'products')![1];
+    expect((q.notes as RegExp).test('⚠ Проверить цену')).toBe(true);
+    expect((q.notes as RegExp).test('обычное')).toBe(false);
+  });
+});
 
 /** SK-8d: «Требуют заполнения» — только группы открытых разделов, кэш (входной объект) не меняется. */
 describe('onlyOpenGroups', () => {

@@ -99,6 +99,16 @@ const STATUS = { draft: 'черновик · нет цены', active: 'в пр�
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
 // Себестоимость материалов (тем, кто видит деньги): цена — последняя закупка, иначе справочник материалов
+// Пометка скрипта переноса каталога («⚠ Проверить …»): жёлтая плашка; «Готово» снимает строки с ⚠ из примечания
+function warnNote(r) {
+  if (!r.notes || !r.notes.startsWith('⚠')) return null;
+  const rest = r.notes.split('\n').filter((l) => !l.trim().startsWith('⚠')).join('\n').trim();
+  return h('div', { style: 'background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:.6rem .8rem;margin-bottom:.8rem;display:flex;gap:.8rem;align-items:flex-start;justify-content:space-between' },
+    h('div', { style: 'white-space:pre-wrap' }, r.notes),
+    session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', title: 'Проверено — убрать пометку',
+      onclick: async () => { await api(`/showcase/${r.id}`, { method: 'PATCH', body: { notes: rest } }); patch({}); } }, 'Готово') : null);
+}
+
 function compositionBlock(r) {
   const items = r.composition || [];
   const cost = session.canMoney ? r.cost : null;
@@ -312,7 +322,7 @@ export const products = {
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => h('div', null, compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    extra: (r) => h('div', null, warnNote(r), compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
@@ -335,6 +345,7 @@ export const products = {
       ['Назначение', r.purpose], ['Монтаж', r.installation],
       ['Материалы', r.materialsText || (r.materialsSpec ? null : h('span', { class: 'muted' }, 'таблица не заполнена — «Изменить» → «Описание и материалы»'))],
       ['Описание', r.description],
+      ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
     ],
     actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
       ...(session.seesDocs() && r.passports?.items?.[0] ? [{ label: 'Печать паспорта', title: 'Последний выпущенный паспорт этого изделия: PDF и печать', run: async (row) => {
@@ -407,6 +418,7 @@ export const products = {
       { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
         hint: 'С ценой черновик сам становится «в продаже»' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Фото и состав — в карточке сразу после «Создать»' },
+      { key: 'notes', label: 'Примечание', type: 'textarea', wide: true, rows: 2, max: 2000 },
       { key: 'designerName', label: 'Кто проектировал', type: 'combo', options: people, strict: true, strictText: 'Выберите сотрудника из списка или оставьте пустым', hint: 'К кому идти, если в паспорте не хватает данных. В паспорт не входит' },
       { section: 'Характеристики', tone: 'info' },
       { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
@@ -439,7 +451,7 @@ export const products = {
     toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
-    toBody: (v, r) => ({ ...specBody(v, r), sku: v.sku, name: v.name, fullName: v.fullName || '', orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '',
+    toBody: (v, r) => ({ ...specBody(v, r), sku: v.sku, name: v.name, fullName: v.fullName || '', orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '', notes: v.notes || '',
       designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
