@@ -74,10 +74,10 @@ export function mountOrdersTab(params, { onChanged } = {}) {
       h('button', { class: 'btn btn-sm', type: 'button', onclick: () => printDialog(p) }, 'PDF и печать…')));
 
   const group = (g) => {
-    const key = g.orderId ? String(g.orderId) : 'none';
+    const key = g.orderId ? String(g.orderId) : g.orderNo ? 'no:' + g.orderNo : 'none'; // паспорт с номером заказа, но без связи — своя группа
     const isOpen = open === key;
     const head = h('button', { type: 'button', class: 'do-group-head', 'aria-expanded': String(isOpen), onclick: () => { open = isOpen ? '' : key; paint(); } },
-      h('b', null, g.orderId ? `Заказ № ${g.orderNo || '—'}` : 'Без заказа'),
+      h('b', null, g.orderId || g.orderNo ? `Заказ № ${g.orderNo || 'без номера'}` : 'Без заказа'),
       g.customerName ? h('span', { class: 'muted' }, ' · ' + g.customerName) : null,
       h('span', { class: 'do-count' }, `готовы ${g.ready} из ${g.total}`),
       g.rework ? h('span', { class: 'badge warn' }, `доработать: ${g.rework}`) : null,

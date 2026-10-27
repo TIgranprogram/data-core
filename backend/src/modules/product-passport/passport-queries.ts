@@ -169,7 +169,7 @@ export class PassportQueries {
     // NAV B1: «Архив паспортов» — старые (перенос: source не 'app', в т. ч. без поля); только чтение
     if (q.legacy === '1' || q.legacy === 'true') f.source = { $ne: 'app' };
     if (q.salesOrderId) f.salesOrderId = this.h.oid(q.salesOrderId);
-    if (q.orderNo) f.orderNo = new RegExp(`^\s*${escapeRe(String(q.orderNo).trim())}\s*$`, 'i');
+    if (q.orderNo) f.orderNo = new RegExp(`^\\s*${escapeRe(String(q.orderNo).trim())}\\s*$`, 'i');
     // готовность: своя или по умолчанию (выпущенный — готов, черновик — не готов); аннулированные не считаются
     if (q.readiness === 'ready' || q.readiness === 'notReady' || q.readiness === 'rework') {
       const issued = [{ status: 'issued' }, { status: { $exists: false }, passportNumber: { $nin: [null, ''] } }];
