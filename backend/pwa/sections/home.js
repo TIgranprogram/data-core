@@ -3,10 +3,9 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { icon } from '../ui/icons.js';
 import { modal } from '../ui/dialog.js';
-import { isoDay, qty } from '../core/format.js';
+import { isoDay } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
-import { SUPPLY_STATUS } from '../ui/badges.js';
 import { receiveDialog } from './requests.js';
 import { STAGE } from './salesorders.js';
 
@@ -39,13 +38,14 @@ export function mountHome(deps) {
   const dayText = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const seeReq = session.sees('requests'), seeStock = session.sees('stock');
 
-  let data = null, showAll = false, dayFilter = null, bellOpen = false;
-  const pulseEl = h('p', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '60%' } }));
+  let data = null, showAllQ = false, chip = null, dayFilter = null, bellOpen = false;
+  const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
   const bellBtn = h('button', { type: 'button', class: 'td-bell', title: 'Вопросы вам', 'aria-label': 'Вопросы вам', onclick: () => { bellOpen = !bellOpen; paintBell(); } });
   const bellPop = h('div', { class: 'td-bellpop', hidden: true });
   const feedEl = h('div', { class: 'td-feed' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
   const weekEl = h('div', { class: 'td-week' });
-  const chartsEl = h('div', { class: 'td-charts' });
+  const qEl = h('section', { class: 'td-qcard', hidden: true });
+  const tilesEl = h('div', { class: 'td-tiles', hidden: true });
 
   // ---------- Действия ----------
   const openRec = (c) => {
@@ -109,18 +109,17 @@ export function mountHome(deps) {
     toast('Карточка вернётся завтра', { undo: () => { const k = readSnooze(); delete k[c.kind + ':' + c.id]; writeSnooze(k); load(true); } });
   }
 
-  // ---------- Лента ----------
+  // ---------- Лента: группы ----------
   const dueText = (c) => {
-    if (c.kind === 'question') return 'ждёт ответа';
     if (c.overdueDays > 0) return `просрочено ${c.overdueDays} ${plural(c.overdueDays, 'день', 'дня', 'дней')}`;
     if (c.daysLeft === 0 || (c.due && c.due === isoDay())) return 'сегодня';
-    if (c.daysLeft > 0) return `осталось ${c.daysLeft} ${plural(c.daysLeft, 'день', 'дня', 'дней')}`;
+    if (c.daysLeft > 0) return `ещё ${c.daysLeft} ${plural(c.daysLeft, 'день', 'дня', 'дней')}`;
     return '';
   };
   function cardEl(c) {
     const li = h('article', { class: 'td-card tone-' + (c.tone || 'info'), tabindex: '0' });
-    const btns = (c.actions || []).slice(0, 2).map((a, i) => h('button', {
-      type: 'button', class: 'btn td-btn' + (i === 0 ? ' btn-primary' : ''),
+    const btns = (c.actions || []).slice(0, 1).map((a) => h('button', {
+      type: 'button', class: 'btn btn-sm btn-primary td-btn',
       onclick: async (e) => {
         e.stopPropagation();
         const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
@@ -133,11 +132,10 @@ export function mountHome(deps) {
     li.append(
       h('span', { class: 'td-dot', 'aria-hidden': 'true' }),
       h('div', { class: 'td-main' },
-        h('div', { class: 'td-kind' }, KIND_LABEL[c.kind] || ''),
         h('div', { class: 'td-title', title: c.title }, c.title),
-        c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
-        h('div', { class: 'td-due' }, dueText(c))),
-      h('div', { class: 'td-acts' }, btns, h('button', { type: 'button', class: 'btn td-btn td-later', title: 'Спрятать карточку до завтра', onclick: (e) => { e.stopPropagation(); snooze(c); } }, 'На завтра')));
+        h('div', { class: 'td-sub' }, [KIND_LABEL[c.kind], c.sub].filter(Boolean).join(' · '))),
+      h('div', { class: 'td-due' }, dueText(c)),
+      h('div', { class: 'td-acts' }, btns, h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn td-later', title: 'Спрятать карточку до завтра', onclick: (e) => { e.stopPropagation(); snooze(c); } }, 'На завтра')));
     li.addEventListener('click', (e) => { if (!e.target.closest('button')) openRec(c); });
     li.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === li) openRec(c); });
     // Свайп влево (телефон) — «на завтра»
@@ -146,39 +144,42 @@ export function mountHome(deps) {
     li.addEventListener('touchend', (e) => { if (x0 != null && e.changedTouches[0].clientX - x0 < -90) snooze(c); x0 = null; }, { passive: true });
     return li;
   }
-  const visibleFeed = () => {
-    const m = readSnooze(), t = isoDay();
-    return (data?.feed || []).filter((c) => !(m[c.kind + ':' + c.id] > t) && (!dayFilter || c.due === dayFilter));
-  };
+  const notSnoozed = (c) => { const m = readSnooze(); return !(m[c.kind + ':' + c.id] > isoDay()); };
+  const visibleFeed = () => (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c) && (!dayFilter || c.due === dayFilter)
+    && (chip === 'shipment' ? c.kind === 'shipment' : chip === 'overdue' ? c.overdueDays > 0 : true));
+  const questions = () => (data?.feed || []).filter((c) => c.kind === 'question' && notSnoozed(c));
+  function group(title, items, open) {
+    if (!items.length) return null;
+    return h('details', { class: 'td-group', open }, h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
+      h('div', { class: 'td-rows' }, ...items.map(cardEl)));
+  }
   function paintFeed() {
     if (!data) return;
-    const all = visibleFeed();
-    const rows = showAll ? all : all.slice(0, 7);
-    const more = all.length - rows.length;
+    const all = visibleFeed(), t = isoDay();
+    const over = all.filter((c) => c.overdueDays > 0);
+    const today = all.filter((c) => !(c.overdueDays > 0) && (c.daysLeft === 0 || c.due === t));
+    const week = all.filter((c) => !over.includes(c) && !today.includes(c));
+    const fl = dayFilter ? `Дела на ${new Date(dayFilter + 'T00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`
+      : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только отгрузки') : '';
     feedEl.replaceChildren(
-      dayFilter ? h('div', { class: 'td-filter' }, `Дела на ${new Date(dayFilter + 'T00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`,
-        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; paintFeed(); paintWeek(); } }, 'Показать все')) : null,
-      ...rows.map(cardEl),
-      !rows.length ? h('div', { class: 'td-empty' }, h('b', null, dayFilter ? 'На этот день дел нет' : 'Сегодня всё спокойно'),
-        h('span', null, 'Срочных дел нет. Можно ', h('a', { href: '#fill' }, 'заполнить недостающие данные'), '.')) : null,
-      more > 0 ? h('button', { type: 'button', class: 'btn td-more', onclick: () => { showAll = true; paintFeed(); } }, `Ещё ${qty(more)} ${plural(more, 'дело', 'дела', 'дел')} →`)
-        : showAll && all.length > 7 ? h('button', { type: 'button', class: 'btn td-more', onclick: () => { showAll = false; paintFeed(); } }, 'Свернуть') : null);
+      fl ? h('div', { class: 'td-filter' }, fl,
+        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : null,
+      group('Просрочено', over, true), group('Сегодня', today, true), group('На неделе', week, !!dayFilter),
+      !all.length ? h('div', { class: 'td-empty' }, h('b', null, fl ? 'Ничего не найдено' : 'Сегодня всё спокойно'),
+        h('span', null, 'Срочных дел нет. Можно ', h('a', { href: '#fill' }, 'заполнить недостающие данные'), '.')) : null);
   }
+  const paintAll = () => { paintPulse(); paintFeed(); paintQuestions(); paintWeek(); };
 
-  // ---------- Шапка: пульс и колокольчик ----------
+  // ---------- Пульс: три числа ----------
   function paintPulse() {
     const p = data?.pulse || {};
-    const bits = [];
-    const add = (n, a, b, c) => { if (n > 0) bits.push(`${n} ${plural(n, a, b, c)}`); };
-    add(p.overdue, 'срок горит', 'срока горят', 'сроков горят');
-    add(p.deliveriesToday, 'поставка ждём сегодня', 'поставки ждём сегодня', 'поставок ждём сегодня');
-    add(p.shipmentsSoon, 'отгрузка скоро', 'отгрузки скоро', 'отгрузок скоро');
-    add(p.questions, 'вопрос вам', 'вопроса вам', 'вопросов вам');
-    pulseEl.textContent = bits.length ? bits.join(' · ') : 'Срочных дел нет';
-    pulseEl.classList.toggle('calm', !bits.length);
+    const mk = (key, n, label) => h('button', { type: 'button', class: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'), 'aria-pressed': String(chip === key),
+      onclick: () => { chip = chip === key ? null : key; if (key === 'question') showAllQ = chip === key; dayFilter = null; paintAll(); } },
+      h('b', null, String(n || 0)), h('span', null, label));
+    pulseEl.replaceChildren(mk('overdue', p.overdue, 'горят'), mk('shipment', p.shipmentsSoon, 'отгрузок'), mk('question', p.questions ?? questions().length, 'вопросов'));
   }
   function paintBell() {
-    const qs = (data?.feed || []).filter((c) => c.kind === 'question');
+    const qs = questions();
     const n = data?.pulse?.questions ?? qs.length;
     bellBtn.replaceChildren(icon('bell'), n ? h('span', { class: 'td-bell-n' }, String(n)) : null);
     bellPop.hidden = !bellOpen;
@@ -188,113 +189,89 @@ export function mountHome(deps) {
       : [h('div', { class: 'td-sub' }, 'Вопросов к вам нет')]));
   }
 
+  // ---------- Вопросы: одна карточка ----------
+  function paintQuestions() {
+    const qs = questions();
+    if (!qs.length) { qEl.replaceChildren(); qEl.hidden = true; return; }
+    qEl.hidden = false;
+    const rows = showAllQ ? qs : qs.slice(0, 2);
+    qEl.replaceChildren(
+      h('h3', { class: 'td-h' }, `${qs.length} ${plural(qs.length, 'вопрос ждёт', 'вопроса ждут', 'вопросов ждут')} ответа`),
+      ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
+        h('button', { type: 'button', class: 'btn btn-sm btn-primary td-btn', onclick: () => answer(c) }, 'Ответить'))),
+      qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn', onclick: () => { showAllQ = !showAllQ; paintQuestions(); } },
+        showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`) : null);
+  }
+
   // ---------- Неделя ----------
   function paintWeek() {
     const days = data?.week || [];
     if (!days.length) { weekEl.replaceChildren(); return; }
-    const max = Math.max(1, ...days.map((d) => d.events.length));
     const today = isoDay();
-    weekEl.replaceChildren(h('h2', { class: 'td-h' }, 'Неделя'), h('div', { class: 'td-days' }, ...days.map((d) => {
+    const any = days.some((d) => d.events.length);
+    weekEl.replaceChildren(h('h3', { class: 'td-h' }, 'Неделя'), h('div', { class: 'td-days' }, ...days.map((d) => {
       const dt = new Date(d.date + 'T00:00');
-      const heat = Math.round((d.events.length / max) * 70);
       return h('button', {
-        type: 'button', class: 'td-day' + (d.date === today ? ' today' : '') + (dayFilter === d.date ? ' on' : ''), style: { '--heat': heat },
+        type: 'button', class: 'td-day' + (d.date === today ? ' today' : '') + (dayFilter === d.date ? ' on' : ''),
         'aria-pressed': String(dayFilter === d.date),
-        onclick: () => { dayFilter = dayFilter === d.date ? null : d.date; showAll = false; paintFeed(); paintWeek(); },
+        onclick: () => { dayFilter = dayFilter === d.date ? null : d.date; chip = null; paintAll(); },
       },
         h('span', { class: 'td-dn' }, dt.toLocaleDateString('ru-RU', { weekday: 'short' })),
         h('b', { class: 'td-dd' }, String(dt.getDate())),
-        h('span', { class: 'td-ev' }, d.events.slice(0, 6).map((e) => h('i', { class: 'td-pt k-' + e.kind, title: `${KIND_LABEL[e.kind] || ''}: ${e.title}` })),
-          d.events.length > 6 ? h('small', null, '+' + (d.events.length - 6)) : null));
-    })));
+        h('span', { class: 'td-ev' }, d.events.slice(0, 3).map((e) => h('i', { class: 'td-pt k-' + e.kind, title: `${KIND_LABEL[e.kind] || ''}: ${e.title}` })),
+          d.events.length > 3 ? h('small', null, '+' + (d.events.length - 3)) : null));
+    })), any ? null : h('div', { class: 'td-sub' }, 'На неделе событий нет'));
   }
 
-  // ---------- Диаграммы ----------
-  const chartBox = (title, body, note) => h('section', { class: 'panel td-chart' }, h('h3', null, title), body, note ? h('div', { class: 'td-sub' }, note) : null);
-  function funnel(counts) {
-    const rows = ['requested', 'in_progress', 'ordered', 'received'].map((k) => ({ k, label: SUPPLY_STATUS[k].label, n: counts[k] || 0 }));
-    const max = Math.max(1, ...rows.map((r) => r.n));
-    const w = 300, rh = 30;
-    const s = svg('svg', { viewBox: `0 0 ${w} ${rows.length * rh}`, class: 'td-svg', role: 'img', 'aria-label': 'Заявки по пути' },
-      rows.map((r, i) => svg('g', { class: 'td-bar sec-supply-fill', tabindex: '0', 'data-k': r.k },
-        svg('rect', { x: 0, y: i * rh + 3, width: w, height: rh - 6, class: 'td-track' }),
-        svg('rect', { x: 0, y: i * rh + 3, width: Math.max(r.n ? 4 : 0, (r.n / max) * w), height: rh - 6, rx: 4, class: 'td-fill-supply' }),
-        svg('text', { x: 8, y: i * rh + 20, class: 'td-lbl' }, `${r.label} · ${qty(r.n)}`))));
-    s.addEventListener('click', (e) => { const g = e.target.closest('[data-k]'); if (g) go('requests', { status: g.dataset.k }); });
-    return chartBox('Заявки по пути', s);
-  }
-  function bars(m) {
-    const keys = ['new', 'production', 'ready', 'shipped'];
-    const rows = keys.map((k) => ({ k, label: STAGE[k].label, n: m.byStage?.[k] || 0 }));
-    const max = Math.max(1, ...rows.map((r) => r.n));
-    const w = 300, bw = 56, H = 110;
-    const s = svg('svg', { viewBox: `0 0 ${w} ${H + 34}`, class: 'td-svg', role: 'img', 'aria-label': 'Заказы в работе' },
-      rows.map((r, i) => {
-        const x = 8 + i * 74, bh = Math.max(r.n ? 3 : 0, (r.n / max) * (H - 18));
-        return svg('g', { 'data-k': r.k, class: 'td-bar' },
-          svg('rect', { x, y: H - bh, width: bw, height: bh, rx: 4, class: 'td-fill-orders' }),
-          svg('text', { x: x + bw / 2, y: H - bh - 4, 'text-anchor': 'middle', class: 'td-lbl' }, String(r.n)),
-          svg('text', { x: x + bw / 2, y: H + 14, 'text-anchor': 'middle', class: 'td-cap' }, r.label.length > 10 ? r.label.slice(0, 9) + '…' : r.label));
-      }));
-    s.addEventListener('click', () => go('salesorders', { filter: 'active' }));
-    return chartBox('Заказы в работе', s, m.overdue ? `Просрочено по сроку отгрузки: ${m.overdue}` : 'Просроченных нет');
-  }
-  function donut(title, parts, centerLabel, onPick) {
-    const total = parts.reduce((a, p) => a + p.n, 0);
-    const R = 42, C = 2 * Math.PI * R;
-    let off = 0;
-    const arcs = total ? parts.filter((p) => p.n > 0).map((p) => {
-      const len = (p.n / total) * C;
-      const el = svg('circle', { cx: 60, cy: 60, r: R, fill: 'none', 'stroke-width': 16, class: 'td-arc ' + p.cls, 'stroke-dasharray': `${len} ${C - len}`, 'stroke-dashoffset': -off, transform: 'rotate(-90 60 60)', 'data-k': p.k });
-      off += len; return el;
-    }) : [svg('circle', { cx: 60, cy: 60, r: R, fill: 'none', 'stroke-width': 16, class: 'td-track-c' })];
-    const s = svg('svg', { viewBox: '0 0 120 120', class: 'td-svg td-ring', role: 'img', 'aria-label': title }, arcs,
-      svg('text', { x: 60, y: 62, 'text-anchor': 'middle', class: 'td-big' }, String(total)),
-      svg('text', { x: 60, y: 78, 'text-anchor': 'middle', class: 'td-cap' }, centerLabel));
-    s.addEventListener('click', (e) => { const a = e.target.closest('[data-k]'); onPick(a?.dataset.k); });
-    const legend = h('ul', { class: 'td-legend' }, parts.map((p) => h('li', null, h('i', { class: 'td-sw ' + p.cls }), `${p.label} · ${qty(p.n)}`)));
-    return chartBox(title, h('div', { class: 'td-ringwrap' }, s, legend));
-  }
-  function moneyLine(days) {
-    if (!days?.length) return null;
-    const w = 300, H = 110, pad = 6;
+  // ---------- Плитки-показатели: подпись, число, мини-график ----------
+  const segBar = (parts) => {
+    const tot = parts.reduce((a, p) => a + p.n, 0);
+    return h('div', { class: 'td-seg', 'aria-hidden': 'true' }, tot ? parts.filter((p) => p.n > 0).map((p) => h('i', { class: p.cls, style: { flex: String(p.n) } })) : null);
+  };
+  function spark(days) {
+    const w = 100, H = 32, pad = 3;
     const vals = days.map((d) => d.balance), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
-    const X = (i) => pad + (i / Math.max(1, days.length - 1)) * (w - pad * 2);
+    const X = (i) => (i / Math.max(1, days.length - 1)) * w;
     const Y = (v) => pad + (1 - (v - lo) / span) * (H - pad * 2);
-    const pts = days.map((d, i) => `${X(i)},${Y(d.balance)}`).join(' ');
-    const s = svg('svg', { viewBox: `0 0 ${w} ${H}`, class: 'td-svg', role: 'img', 'aria-label': 'Остаток денег на 14 дней' },
-      svg('line', { x1: pad, x2: w - pad, y1: Y(0), y2: Y(0), class: 'td-zero' }),
-      svg('polyline', { points: pts, fill: 'none', class: 'td-line', 'stroke-width': 2 }),
-      days.map((d, i) => (d.balance < 0 ? svg('circle', { cx: X(i), cy: Y(d.balance), r: 3.5, class: 'td-neg' }, svg('title', {}, `${d.date}: ${Math.round(d.balance).toLocaleString('ru-RU')} ₽`)) : null)));
-    s.addEventListener('click', () => go('money'));
-    const below = days.filter((d) => d.balance < 0).length;
-    return chartBox('Деньги, 14 дней', s, below ? `Ниже нуля дней: ${below}` : 'Остаток не уходит ниже нуля');
+    return svg('svg', { viewBox: `0 0 ${w} ${H}`, preserveAspectRatio: 'none', class: 'td-spark', 'aria-hidden': 'true' },
+      svg('line', { x1: 0, x2: w, y1: Y(0), y2: Y(0), class: 'td-zero', 'vector-effect': 'non-scaling-stroke' }),
+      svg('polyline', { points: days.map((d, i) => `${X(i)},${Y(d.balance)}`).join(' '), fill: 'none', class: 'td-line', 'vector-effect': 'non-scaling-stroke' }));
   }
-  function paintCharts() {
+  const tile = (label, value, graph, onclick, title) => h('button', { type: 'button', class: 'td-tile', title, onclick },
+    h('span', { class: 'td-tl' }, label), h('b', { class: 'td-tv' }, value), graph || h('div', { class: 'td-seg' }));
+  function paintTiles() {
     const m = data?.metrics || {};
     const out = [];
-    if (m.supply?.counts) out.push(funnel(m.supply.counts));
-    if (m.orders) out.push(bars(m.orders));
-    if (m.stock) out.push(donut('Склад', [
-      { k: 'ok', label: 'В норме', n: m.stock.ok || 0, cls: 'c-ok' }, { k: 'low', label: 'Мало', n: m.stock.low || 0, cls: 'c-warn' }, { k: 'none', label: 'Нет', n: m.stock.none || 0, cls: 'c-danger' }],
-    'позиций', (k) => go('stock', k && k !== 'ok' ? { status: k } : {})));
-    if (m.design?.counts) { const c = m.design.counts; out.push(donut('Задачи проектирования', [
-      { k: 'queue', label: 'В очереди', n: c.queue || 0, cls: 'c-info' }, { k: 'work', label: 'В работе', n: c.work || 0, cls: 'c-primary' },
-      { k: 'paused', label: 'На паузе', n: c.paused || 0, cls: 'c-warn' }, { k: 'done', label: 'Готово', n: c.done || 0, cls: 'c-ok' }], 'задач', () => go('design'))); }
-    const ml = m.money?.days && session.canMoney ? moneyLine(m.money.days) : null;
-    if (ml) out.push(ml);
-    chartsEl.replaceChildren(...out);
+    if (m.supply?.counts) {
+      const c = m.supply.counts;
+      const n = (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0);
+      out.push(tile('Заявки в пути', String(n), segBar([{ n: c.requested || 0, cls: 's1' }, { n: c.in_progress || 0, cls: 's2' }, { n: c.ordered || 0, cls: 's3' }, { n: c.received || 0, cls: 's4' }]),
+        () => go('requests'), 'Запрошено · в работе · заказано · получено'));
+    }
+    if (m.orders) {
+      const b = m.orders.byStage || {};
+      out.push(tile('Заказы в работе', String((b.new || 0) + (b.production || 0) + (b.ready || 0)), segBar([{ n: b.new || 0, cls: 's1' }, { n: b.production || 0, cls: 's2' }, { n: b.ready || 0, cls: 's3' }, { n: b.shipped || 0, cls: 's4' }]),
+        () => go('salesorders', { filter: 'active' }), 'Новые · в производстве · готовы · отгружены'));
+      out.push(tile('Просрочено', String(m.orders.overdue || 0), null, () => { chip = 'overdue'; dayFilter = null; paintAll(); }, 'Просрочено по сроку отгрузки'));
+    }
+    const days = m.money?.days;
+    if (days?.length && session.canMoney) {
+      const last = days[days.length - 1].balance;
+      out.push(tile('Деньги, 14 дн.', Math.round(last).toLocaleString('ru-RU') + ' ₽', spark(days), () => go('money'), 'Остаток денег на 14 дней'));
+    }
+    tilesEl.replaceChildren(...out);
+    tilesEl.hidden = !out.length;
   }
 
   // ---------- Загрузка ----------
   async function load(silent = false) {
     try {
       data = await api('/today', { query: { days: 7 } });
-      paintPulse(); paintBell(); paintFeed(); paintWeek(); paintCharts();
+      paintBell(); paintTiles(); paintAll();
     } catch (e) {
       if (silent && data) return;
       const fb = failBlock(e, () => load());
-      feedEl.replaceChildren(fb); pulseEl.textContent = '';
+      feedEl.replaceChildren(fb); pulseEl.replaceChildren();
     }
   }
 
@@ -307,8 +284,10 @@ export function mountHome(deps) {
       act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined }))] : null,
     seeStock ? [
       act('Принять машину', 'Приход по счёту', () => go('ops', { mode: 'in' })),
-      act('− Списать', 'Выдача со склада', () => go('ops', {})),
-      act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))] : null) : null;
+      h('details', { class: 'td-menu' }, h('summary', { class: 'btn' }, 'Ещё'),
+        h('div', { class: 'td-menu-pop' },
+          act('− Списать', 'Выдача со склада', () => go('ops', {})),
+          act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))))] : null) : null;
 
   // Диск сервера и целостность данных — админу, только если есть что показать
   const diskNote = h('p', { class: 'hint disk-note', hidden: true });
@@ -328,7 +307,7 @@ export function mountHome(deps) {
 
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head td-head' },
-      h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${dayText}`), pulseEl),
+      h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${dayText}`)),
       h('div', { class: 'td-bellwrap' }, bellBtn, bellPop)),
     diskNote,
     // на телефоне — три задачи «на ходу» крупно
@@ -337,10 +316,12 @@ export function mountHome(deps) {
         h('b', null, '+ Заявка'), h('span', null, 'закончилось — что, сколько')) : null,
       seeStock ? [h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
         h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null,
+    pulseEl,
     actions,
+    tilesEl,
     h('div', { class: 'td-grid' },
-      h('div', { class: 'td-left' }, h('h2', { class: 'td-h' }, 'Что горит сегодня'), feedEl, weekEl),
-      h('aside', { class: 'td-right' }, chartsEl)));
+      h('div', { class: 'td-left' }, h('h2', { class: 'td-h' }, 'Дела'), feedEl),
+      h('aside', { class: 'td-right' }, qEl, weekEl)));
 
   document.addEventListener('click', (e) => { if (bellOpen && !e.target.closest('.td-bellwrap')) { bellOpen = false; paintBell(); } });
   load();
