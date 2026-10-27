@@ -12,9 +12,9 @@ import { printDialog } from './passports/dialogs.js';
  * Данные — GET /passports/by-order. Статус меняется в окне (выбор + заметка для «Доработать»); в архиве статус не меняется.
  */
 export const READINESS = {
-  ready: { label: 'Готов', cls: 'ok' },
-  notReady: { label: 'Не готов', cls: 'dim' },
-  rework: { label: 'Доработать', cls: 'warn' },
+  ready: { label: 'Готов', cls: 'ok', hint: 'Готов — можно отдавать заказчику' },
+  notReady: { label: 'Не готов', cls: 'dim', hint: 'Не готов — ещё не проверен' },
+  rework: { label: 'Доработать', cls: 'warn', hint: 'Доработать — нужна правка (причина указана в паспорте)' },
 };
 
 /** Статус готовности: нет поля — выпущенный «Готов», черновик «Не готов»; аннулированный — без статуса. */
@@ -23,7 +23,7 @@ export const readinessOf = (r) => (statusOf(r) === 'annulled' ? null : r.readine
 export const readinessChip = (r) => {
   const k = readinessOf(r);
   const s = READINESS[k];
-  return s ? h('span', { class: 'badge ' + s.cls, title: k === 'rework' && r.reworkNote ? r.reworkNote : '' }, s.label) : h('span', { class: 'muted' }, 'аннулирован');
+  return s ? h('span', { class: 'badge ' + s.cls, title: k === 'rework' && r.reworkNote ? 'Доработать — ' + r.reworkNote : s.hint }, s.label) : h('span', { class: 'muted' }, 'аннулирован');
 };
 
 const canChange = () => session.canEdit && canEditTexts();
@@ -58,32 +58,47 @@ export function mountOrdersTab(params, { onChanged } = {}) {
   const list = h('div', { class: 'do-list' });
   const pager = h('div', { class: 'do-pager' });
   const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search, chips),
-    h('p', { class: 'hint' }, 'Паспорта сгруппированы по заказам. «Готов» — можно отдавать; «Доработать» — нужна правка. Новый паспорт выпускается из заказа.'), list, pager);
+    h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, h('span', { class: 'badge ' + x.cls }, x.label), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
+      h('span', { class: 'muted' }, 'Новый паспорт выпускается из заказа.')), list, pager);
   let timer = 0, seq = 0;
 
   const drawChips = () => chips.replaceChildren(...[['', 'Все'], ...Object.entries(READINESS).map(([k, s]) => [k, s.label])].map(([k, label]) =>
     h('button', { type: 'button', class: state.readiness === k ? 'active' : '', onclick: () => { state = { ...state, readiness: k, page: 1 }; load(); } }, label)));
 
+  const numOf = (p) => (p.passportNumber && !String(p.passportNumber).startsWith('draft-') ? '№ ' + p.passportNumber : 'черновик');
+  const hintOf = (p) => { const k = readinessOf(p); return k === 'rework' ? 'Доработать' + (p.reworkNote ? ' — ' + p.reworkNote : '') : k ? READINESS[k].hint : ''; };
+
   const row = (p) => h('li', { class: 'do-row' },
     h('a', { href: '#', class: 'do-name', onclick: (e) => { e.preventDefault(); go('docs', { tab: 'archive', of: 'passarchive', open: p.id }); } },
-      p.name || p.modelName || p.productName || 'Паспорт', h('span', { class: 'muted' }, ' ' + (p.passportNumber && !String(p.passportNumber).startsWith('draft-') ? '№ ' + p.passportNumber : 'черновик'))),
-    readinessChip(p),
-    p.reworkNote && readinessOf(p) === 'rework' ? h('span', { class: 'muted do-note' }, p.reworkNote) : null,
+      p.name || p.modelName || p.productName || 'Паспорт', h('span', { class: 'muted' }, ' ' + numOf(p))),
+    h('span', { class: 'do-state', title: hintOf(p) }, readinessChip(p),
+      readinessOf(p) === 'rework' && p.reworkNote ? h('span', { class: 'muted do-note' }, p.reworkNote) : null),
     h('span', { class: 'do-acts' },
       canChange() && statusOf(p) !== 'annulled' ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { if (await changeReadiness(p)) { toast('Статус сохранён'); await load(); onChanged?.(); } } }, 'Статус…') : null,
       h('button', { class: 'btn btn-sm', type: 'button', onclick: () => printDialog(p) }, 'PDF и печать…')));
 
+  // подгруппы по категории; если сервер не прислал categories — одна общая
+  const subgroups = (g) => {
+    const cats = g.categories?.length ? g.categories : [{ category: '', categoryLabel: '', total: (g.items || []).length, items: g.items || [] }];
+    return cats.map((c) => h('div', { class: 'do-cat' },
+      cats.length > 1 || c.categoryLabel ? h('div', { class: 'do-cat-head' }, h('b', null, c.categoryLabel || 'Без категории'), h('span', { class: 'muted' }, ` · ${c.total ?? c.items.length}`)) : null,
+      h('ul', { class: 'do-rows' }, ...(c.items || []).map(row))));
+  };
+
   const group = (g) => {
     const key = g.orderId ? String(g.orderId) : g.orderNo ? 'no:' + g.orderNo : 'none'; // паспорт с номером заказа, но без связи — своя группа
     const isOpen = open === key;
+    const pct = g.total ? Math.round((g.ready / g.total) * 100) : 0;
     const head = h('button', { type: 'button', class: 'do-group-head', 'aria-expanded': String(isOpen), onclick: () => { open = isOpen ? '' : key; paint(); } },
-      h('b', null, g.orderId || g.orderNo ? `Заказ № ${g.orderNo || 'без номера'}` : 'Без заказа'),
-      g.customerName ? h('span', { class: 'muted' }, ' · ' + g.customerName) : null,
-      h('span', { class: 'do-count' }, `готовы ${g.ready} из ${g.total}`),
-      g.rework ? h('span', { class: 'badge warn' }, `доработать: ${g.rework}`) : null,
-      g.notReady ? h('span', { class: 'badge dim' }, `не готовы: ${g.notReady}`) : null);
+      h('span', { class: 'do-title' },
+        h('b', null, g.orderId || g.orderNo ? `Заказ № ${g.orderNo || 'без номера'}` : 'Без заказа'),
+        g.customerName ? h('span', { class: 'muted' }, ' · ' + g.customerName) : null),
+      h('span', { class: 'do-big' }, h('b', null, `Готово ${g.ready} из ${g.total}`),
+        h('span', { class: 'do-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(g.total), 'aria-valuenow': String(g.ready) }, h('i', { style: `width:${pct}%` }))),
+      g.rework ? h('span', { class: 'badge warn', title: READINESS.rework.hint }, `доработать: ${g.rework}`) : null,
+      g.notReady ? h('span', { class: 'badge dim', title: READINESS.notReady.hint }, `не готовы: ${g.notReady}`) : null);
     return h('section', { class: 'do-group' }, head,
-      isOpen ? h('ul', { class: 'do-rows' }, ...(g.items || []).map(row)) : null,
+      isOpen ? h('div', { class: 'do-body' }, h('div', { class: 'section-title' }, `Паспорта (${g.total})`), ...subgroups(g)) : null,
       isOpen && g.orderId ? h('div', { class: 'do-foot' }, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);
   };
 
@@ -92,7 +107,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
     drawChips();
     const items = data?.items || [];
     list.replaceChildren(...(items.length ? items.map(group) : [h('p', { class: 'muted' },
-      state.search || state.readiness ? 'Ничего не найдено — снимите фильтр или поиск.' : 'Паспортов к заказам ещё нет — «Выпустить паспорт» в заказе.')]));
+      state.search || state.readiness ? 'Ничего не найдено — снимите фильтр или поиск.' : 'Паспортов к заказам ещё нет. Откройте позицию заказа и нажмите «Выпустить паспорт» — он появится здесь.')]));
     const pages = Math.max(1, Math.ceil((data?.total || 0) / limit));
     pager.replaceChildren(...(pages > 1 ? [
       h('button', { class: 'btn btn-sm', type: 'button', disabled: state.page <= 1, onclick: () => { state.page--; load(); } }, '← Назад'),

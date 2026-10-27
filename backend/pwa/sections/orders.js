@@ -51,7 +51,7 @@ export async function markToday(r, field) {
   return saved;
 }
 
-/** ПРЖ-4: «Подобрать изделие» — поиск по продукции → productId в PATCH позиции. Текст позиции (название заказчика) не меняется. */
+/** ПРЖ-4: «Связать с каталогом» — поиск по продукции → productId в PATCH позиции. Текст позиции (название заказчика) не меняется. */
 async function pickProduct(r) {
   const opts = await productOptions();
   const inp = h('input', { type: 'text', placeholder: 'Название или артикул изделия', autocomplete: 'off', value: r.product ? r.product.name : '' });
@@ -67,7 +67,7 @@ async function pickProduct(r) {
     }).catch(() => {});
   }
   return modal({
-    title: 'Подобрать изделие',
+    title: 'Связать с каталогом',
     okText: 'Привязать',
     body: h('div', null, like, h('p', { class: 'hint' }, `Позиция: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и «Нашего» названия.`), inp),
     onOk: async () => {
@@ -107,6 +107,9 @@ export async function priceDialog(r) {
   if (saved) toast(`Сумма: ${money(saved.amount)}${saved.shipDate ? ' — строка в платёжном календаре' : ''}`);
   return saved;
 }
+
+let locked = false;
+const LOCKED_KEYS = ['title', 'qty', 'unit', 'unitPrice', 'amountManual'];
 
 const toInitial = (r) => ({
   ...r, companyName: r.companyName || '', productId: r.product?.id || '',
@@ -184,7 +187,7 @@ export const orders = {
       ['Весь заказ', r.orderNo ? h('a', { href: '#orders?orderNo=' + encodeURIComponent(r.orderNo) }, `все строки заказа ${r.orderNo} →`) : ''],
     ],
     actions: (r) => [
-      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Подобрать изделие', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
+      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Связать с каталогом', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
       session.canMoney && !!r.paidDate && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
@@ -197,10 +200,16 @@ export const orders = {
   },
 
   form: {
-    fields: async () => {
+    fields: async (row) => {
       const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'нал'] }));
-      return [
-        { section: 'Позиция заказа', tone: 'main', fixed: true },
+      // Заказ уже в работе: название, кол-во, ед. и цены меняет только администратор (сервер иначе вернёт 403)
+      locked = false;
+      if (row?.orderId && session.role !== 'admin') {
+        const o = await api(`/salesorders/${row.orderId}`).catch(() => null);
+        locked = !!o && (o.stage || 'new') !== 'new';
+      }
+      const all = [
+        { section: locked ? 'Позиция заказа — название, количество и цену менять может администратор' : 'Позиция заказа', tone: 'main', fixed: true },
         { key: 'orderId', label: 'Заказ', type: 'select', options: await import('./salesorders.js').then((m) => m.activeOrders()).then((os) => os.map((o) => ({ value: o.id, label: m2(o) }))).catch(() => []), hint: 'Позиция попадёт в карточку заказа; № и заказчик возьмутся из заказа', wide: true },
         { key: 'orderNo', label: '№ заказа (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
@@ -223,17 +232,20 @@ export const orders = {
         { key: 'size', label: 'Размер', max: 100 },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
+      return locked ? all.filter((f) => !LOCKED_KEYS.includes(f.key)) : all;
     },
     initial: () => ({ unit: 'шт', paymentForm: 'б/р' }),
     toInitial,
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
-      return {
+      const body = {
         orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), unit: s(v.unit), companyName: s(v.companyName), paymentForm: s(v.paymentForm),
         kind: s(v.kind), color: s(v.color), size: s(v.size), notes: s(v.notes), shipDate: v.shipDate || '', paidDate: v.paidDate || '',
         qty: v.qty, unitPrice: v.unitPrice, amountManual: v.amountManual, orderId: v.orderId || null,
         productId: v.productId || null, // «—» в правке — отвязать; при создании пустое не шлём (сервер подберёт по названию)
       };
+      if (locked) for (const k of LOCKED_KEYS) delete body[k];
+      return body;
     },
     create: async (body) => { if (!body.productId) delete body.productId; const r = await api('/incomes', { method: 'POST', body }); incomeLookups.reset(); return r; },
     update: async (id, body) => { const r = await api(`/incomes/${id}`, { method: 'PATCH', body }); incomeLookups.reset(); return r; },

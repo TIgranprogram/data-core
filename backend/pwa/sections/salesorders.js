@@ -50,7 +50,7 @@ async function setStage(r, stage) {
   return saved;
 }
 
-/** «Подобрать изделия»: предложения сервера по всем позициям без изделия → выбор → apply. Возвращает обновлённый заказ или null. */
+/** «Связать с каталогом»: предложения сервера по всем позициям без изделия → выбор → apply. Возвращает обновлённый заказ или null. */
 async function matchProducts(r) {
   const res = await api(`/salesorders/${r.id}/match-products`, { method: 'POST', body: {} });
   const items = res?.items || [];
@@ -62,7 +62,7 @@ async function matchProducts(r) {
     return { it, sel, el: h('label', { class: 'field' }, h('span', null, `${it.lineNo ? it.lineNo + '. ' : ''}${it.title || ''}`), sel) };
   });
   const saved = await modal({
-    title: 'Подобрать изделия', okText: 'Сохранить', wide: true,
+    title: 'Связать с каталогом', okText: 'Сохранить', wide: true,
     body: h('div', null, h('p', { class: 'hint' }, 'Первое предложение отмечено. Выберите «Без изделия», если подходящего нет.'), ...rows.map((x) => x.el)),
     onOk: async () => {
       const picks = rows.filter((x) => x.sel.value).map((x) => ({ lineId: x.it.lineId, productId: x.sel.value }));
@@ -80,7 +80,7 @@ let focusNewLine = false; // ТИ-8: после создания заказа с
 const ourLine = (l) => {
   const our = l.product?.ourName || (l.productName && [l.sku || l.productSku, l.productName].filter(Boolean).join(' · '));
   if (our) return h('div', { class: 'muted small' }, 'Наше: ' + our);
-  return l.productId || l.product ? null : h('div', { class: 'muted small' }, 'Подберите изделие');
+  return l.productId || l.product ? null : h('div', { class: 'muted small' }, 'Свяжите с каталогом');
 };
 function addLineRow(r, after) {
   const title = h('input', { placeholder: 'Новая позиция: наименование (Enter — добавить)', maxlength: 500 });
@@ -146,7 +146,7 @@ function details(r) {
             h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title, ourLine(l)), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
             h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
-        session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
+        session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? (r.stage === 'new' || session.role === 'admin' ? addLineRow(r, () => load()) : h('p', { class: 'hint' }, 'Заказ уже в работе — менять позиции может администратор.')) : null),
       orderPassports(r),
       orderDesign({ id: r.id, orderNo: r.orderNo }, lines),
       seeReq && (d.supplyRequests || []).length ? sec(`Заказано под заказ (${d.supplyRequests.length})`,
@@ -231,7 +231,7 @@ export const salesorders = {
       NEXT[r.stage] && { label: NEXT_LABEL[r.stage], primary: true, run: async (row, ctx) => ctx.setRow(await setStage(row, NEXT[row.stage])) },
       r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить ${heading(row).toLowerCase()}?`, 'Заказ перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить заказ', danger: true }))) return; ctx.setRow(await setStage(row, 'cancelled')); } },
       !['closed', 'cancelled'].includes(r.stage) && session.canEdit && session.sees('stock') && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
-      !['closed', 'cancelled'].includes(r.stage) && ['admin', 'manager'].includes(session.role) && { label: 'Подобрать изделия', title: 'Предложить изделия для позиций без изделия', run: async (row, ctx) => { const s = await matchProducts(row); if (s) ctx.setRow(s); } },
+      !['closed', 'cancelled'].includes(r.stage) && ['admin', 'manager'].includes(session.role) && { label: 'Связать с каталогом', title: 'Связать позиции заказчика с нашими изделиями — для паспорта и производства. Заказ не меняется.', run: async (row, ctx) => { const s = await matchProducts(row); if (s) ctx.setRow(s); } },
       session.sees('orders') && { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
     extra: (r) => details(r),
