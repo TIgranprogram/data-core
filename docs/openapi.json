@@ -850,6 +850,34 @@
         ]
       }
     },
+    "/auth/confirm": {
+      "post": {
+        "operationId": "AuthController_confirm",
+        "summary": "Подтвердить действие своим паролем: токен на 120 с",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ token, expiresIn: 120 }"
+          },
+          "403": {
+            "description": "Неверный пароль или вход по ключу kppd_"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/me": {
       "get": {
         "operationId": "AuthController_me",
@@ -3315,6 +3343,45 @@
         ]
       }
     },
+    "/supply/supplier-items": {
+      "get": {
+        "operationId": "SupplyController_listSupplierItems",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "supplierId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/requests": {
       "get": {
         "operationId": "SupplyController_list",
@@ -4437,6 +4504,13 @@
         "operationId": "ShowcaseController_list",
         "parameters": [
           {
+            "name": "facets",
+            "required": false,
+            "in": "query",
+            "description": "1 — добавить facets.series: серии с числом при остальных фильтрах (воронка)",
+            "schema": {}
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -4880,6 +4954,43 @@
         ]
       }
     },
+    "/health/integrity": {
+      "get": {
+        "operationId": "DiskController_integrityReport",
+        "parameters": [
+          {
+            "name": "fresh",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/slow": {
+      "get": {
+        "operationId": "DiskController_slow",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
     "/health/backups": {
       "get": {
         "operationId": "BackupsController_list",
@@ -4981,6 +5092,129 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/offsite": {
+      "get": {
+        "operationId": "OffsiteController_view",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/offsite/settings": {
+      "put": {
+        "operationId": "OffsiteController_settings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/offsite/targets": {
+      "post": {
+        "operationId": "OffsiteController_add",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/offsite/targets/{id}": {
+      "patch": {
+        "operationId": "OffsiteController_edit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      },
+      "delete": {
+        "operationId": "OffsiteController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/offsite/targets/{id}/test": {
+      "post": {
+        "operationId": "OffsiteController_test",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
+    "/health/offsite/run": {
+      "post": {
+        "operationId": "OffsiteController_run",
+        "parameters": [],
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -5249,6 +5483,39 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}/match-products": {
+      "post": {
+        "operationId": "SalesOrdersController_matchProducts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchProductsDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -8042,6 +8309,30 @@
         ]
       }
     },
+    "/materials/{id}/passport-spec": {
+      "patch": {
+        "operationId": "MaterialController_setPassportSpec",
+        "summary": "МЦ-2: связь позиции склада с материалом паспорта (materialId, sizes, isCoating, passportText, techText)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
     "/materials/{id}/duplicate": {
       "post": {
         "operationId": "MaterialController_duplicate",
@@ -9162,6 +9453,25 @@
             "schema": {}
           },
           {
+            "name": "readiness",
+            "required": false,
+            "in": "query",
+            "description": "ready | notReady | rework",
+            "schema": {}
+          },
+          {
+            "name": "orderNo",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
             "name": "incomplete",
             "required": false,
             "in": "query",
@@ -9238,6 +9548,46 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/by-order": {
+      "get": {
+        "operationId": "ProductPassportController_byOrder",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "readiness",
+            "required": false,
+            "in": "query",
+            "description": "ready | notReady | rework",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -10131,6 +10481,7 @@
               "enum": [
                 "home",
                 "requests",
+                "suppliercatalog",
                 "stock",
                 "salesorders",
                 "partners",
@@ -10213,6 +10564,7 @@
               "enum": [
                 "home",
                 "requests",
+                "suppliercatalog",
                 "stock",
                 "salesorders",
                 "partners",
@@ -10376,6 +10728,10 @@
         "type": "object",
         "properties": {}
       },
+      "ConfirmDto": {
+        "type": "object",
+        "properties": {}
+      },
       "UiPrefsDto": {
         "type": "object",
         "properties": {
@@ -10389,13 +10745,13 @@
           "detailW": {
             "type": "number",
             "minimum": 360,
-            "maximum": 1100,
+            "maximum": 1400,
             "example": 700,
             "description": "Ширина правой панели ввода"
           },
           "filterW": {
             "type": "number",
-            "minimum": 280,
+            "minimum": 240,
             "maximum": 700,
             "example": 340,
             "description": "Ширина панели фильтров"
@@ -10542,6 +10898,14 @@
           },
           "notes": {
             "type": "string"
+          },
+          "fullName": {
+            "type": "string",
+            "description": "ДМ.2: полное наименование; пусто — стереть"
+          },
+          "invoiceName": {
+            "type": "string",
+            "description": "ДМ.2: наименование как в счёте поставщика; пусто — стереть"
           },
           "assortment": {
             "type": "object",
@@ -11255,6 +11619,33 @@
           "clientUid": {
             "type": "string",
             "description": "Ключ клиента — повтор не создаёт дубль"
+          }
+        }
+      },
+      "MatchPickDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "object",
+            "description": "null — оставить без изделия"
+          }
+        }
+      },
+      "MatchProductsDto": {
+        "type": "object",
+        "properties": {
+          "apply": {
+            "type": "boolean",
+            "description": "true — записать picks; иначе только предложения"
+          },
+          "picks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchPickDto"
+            }
           }
         }
       },
