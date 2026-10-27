@@ -5,11 +5,11 @@ describe('assistant.cost', () => {
   it('считает $ по токенам с учётом кэша', () => {
     // sonnet: вход 3, выход 15 за млн; кэш-чтение 0,1; кэш-запись 1,25
     const usd = calcUsd('claude-sonnet-5-5', { input_tokens: 1_000_000, output_tokens: 100_000, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 1_000_000 });
-    expect(usd).toBeCloseTo(3 + 1.5 + 0.3 + 3.75, 6);
+    expect(usd).toBeCloseTo(2 + 1 + 0.2 + 2.5, 6);
   });
 
   it('неизвестная модель — по цене самой дорогой', () => {
-    expect(calcUsd('x', { output_tokens: 1_000_000 })).toBe(25);
+    expect(calcUsd('x', { output_tokens: 1_000_000 })).toBe(20);
   });
 
   it('лимит человека и общий — 429 по-русски', () => {

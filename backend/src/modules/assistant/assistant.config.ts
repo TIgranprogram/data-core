@@ -11,13 +11,13 @@ export const MODELS: Record<ModelKey, { id: string; label: string; adminOnly: bo
 export const DEFAULT_MODEL: ModelKey = 'normal';
 
 /**
- * Цена, $ за миллион токенов. СВЕРИТЬ со страницей цен Anthropic перед запуском (значения — ориентир ТЗ ИИ-1 §7).
+ * Цена, $ за миллион токенов — по справочнику Claude API (сверено 2026-10-28; Haiku 5.5 — до 100K токенов запроса).
  * Кэш: чтение = 0,1 от входа, запись = 1,25 от входа.
  */
 export const PRICES: Record<string, { in: number; out: number }> = {
-  'claude-haiku-5-5': { in: 1, out: 5 },
-  'claude-sonnet-5-5': { in: 3, out: 15 },
-  'claude-opus-5-5': { in: 5, out: 25 },
+  'claude-haiku-5-5': { in: 0.1, out: 0.5 },
+  'claude-sonnet-5-5': { in: 2, out: 10 },
+  'claude-opus-5-5': { in: 4, out: 20 },
 };
 export const CACHE_READ_K = 0.1;
 export const CACHE_WRITE_K = 1.25;

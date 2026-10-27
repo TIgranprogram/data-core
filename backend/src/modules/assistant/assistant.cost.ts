@@ -10,7 +10,7 @@ export interface TokenUsage {
 
 /** Стоимость одного ответа модели, $ (6 знаков). Неизвестная модель — цена самой дорогой. */
 export function calcUsd(model: string, u: TokenUsage): number {
-  const p = PRICES[model] ?? { in: 5, out: 25 };
+  const p = PRICES[model] ?? { in: 4, out: 20 };
   const usd = ((u.input_tokens ?? 0) * p.in + (u.cache_read_input_tokens ?? 0) * p.in * CACHE_READ_K
     + (u.cache_creation_input_tokens ?? 0) * p.in * CACHE_WRITE_K + (u.output_tokens ?? 0) * p.out) / 1e6;
   return Math.round(usd * 1e6) / 1e6;

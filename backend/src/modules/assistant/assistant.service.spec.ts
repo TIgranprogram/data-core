@@ -56,7 +56,7 @@ describe('AssistantService', () => {
     expect(String(calls[0].messages[0].content)).toContain('«Сегодня»');
     expect(saved.map((m) => m.role)).toEqual(['user', 'assistant']);
     // sonnet: 1500 вход × 3 + 150 выход × 15 за млн
-    expect(usage[0].usd).toBeCloseTo((1500 * 3 + 150 * 15) / 1e6, 6);
+    expect(usage[0].usd).toBeCloseTo((1500 * 2 + 150 * 10) / 1e6, 6);
   });
 
   it('ошибка инструмента уходит модели как is_error, цикл не падает', async () => {
