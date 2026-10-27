@@ -51,25 +51,30 @@ export async function markToday(r, field) {
   return saved;
 }
 
-/** ПРЖ-4: «Связать с каталогом» — поиск по продукции → productId в PATCH позиции. Текст позиции (название заказчика) не меняется. */
+/** «Выбрать изделие»: до 3 предложений сервера (ПРЖ-4) + поиск по «Продукции» → productId в PATCH позиции. Название заказчика не меняется. */
 async function pickProduct(r) {
-  const opts = await productOptions();
+  let opts = []; let loadErr = '';
   const inp = h('input', { type: 'text', placeholder: 'Название или артикул изделия', autocomplete: 'off', value: r.product ? r.product.name : '' });
   let picked = r.productId || r.product?.id || '';
-  attachCombo(inp, { options: () => opts, free: false, onPick: (o) => { picked = o.value; } });
+  const field = h('label', { class: 'field' }, h('span', null, 'Изделие из «Продукции»'), inp);
+  const sugg = h('div', { class: 'hint' });
+  const choose = (id, label) => { inp.value = label; inp.title = label; picked = id; };
+  attachCombo(inp, { options: () => opts, onPick: (o) => { picked = o.value; }, empty: () => loadErr || undefined });
   inp.addEventListener('input', () => { picked = ''; });
-  const like = h('div', { class: 'hint' });
+  productOptions().then((o) => { opts = o; if (!o.length) loadErr = 'Список изделий пуст или не загрузился — закройте окно и откройте снова'; });
   if (r.orderId) {
     api(`/salesorders/${r.orderId}/match-products`, { method: 'POST', body: {} }).then((res) => {
       const sg = (res?.items || []).find((x) => String(x.lineId) === String(r.id))?.suggestions || [];
       if (!sg.length) return;
-      like.append('Похоже на: ', ...sg.slice(0, 3).flatMap((s, i) => [i ? ', ' : '', h('a', { href: '#', onclick: (e) => { e.preventDefault(); inp.value = s.name; picked = s.productId; } }, s.name)]));
+      sugg.append('Похоже на: ', ...sg.slice(0, 3).flatMap((x, i) => [i ? ', ' : '', h('a', { href: '#', onclick: (e) => { e.preventDefault(); choose(x.productId, x.name); } }, x.name)]));
     }).catch(() => {});
   }
   return modal({
-    title: 'Связать с каталогом',
-    okText: 'Привязать',
-    body: h('div', null, like, h('p', { class: 'hint' }, `Позиция: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и «Нашего» названия.`), inp),
+    title: 'Выбрать изделие',
+    okText: 'Выбрать',
+    body: h('div', null,
+      h('p', { class: 'hint' }, `Позиция в заказе: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и единого названия.`),
+      sugg, field),
     onOk: async () => {
       if (!picked) throw new Error('Выберите изделие из списка');
       const s = await api(`/incomes/${r.id}`, { method: 'PATCH', body: { productId: picked } });
@@ -181,13 +186,14 @@ export const orders = {
       ['Вид', r.kind],
       ['Цвет', r.color],
       ['Размер', r.size],
+      ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name], ['Полное', r.product?.fullName]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
       ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
       ['Примечание', r.notes],
       ['В календаре', r.reportDate ? `${date(r.reportDate)} (${r.paidDate ? 'по дате оплаты' : 'по дате отгрузки'})` : h('span', { class: 'muted' }, 'не попадает — нет даты отгрузки или оплаты')],
       ['Весь заказ', r.orderNo ? h('a', { href: '#orders?orderNo=' + encodeURIComponent(r.orderNo) }, `все строки заказа ${r.orderNo} →`) : ''],
     ],
     actions: (r) => [
-      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Связать с каталогом', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
+      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
       session.canMoney && !!r.paidDate && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },

@@ -55,7 +55,7 @@ export class IncomesService {
     const pids = [...new Set(docs.map((d) => d.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
     const prods = pids.length ? await this.connection.db!.collection('products').find({ _id: { $in: pids } }, { projection: { name: 1, sku: 1, fullName: 1, orderName: 1 } }).toArray() : [];
     // ТИ-8: name — короткое по цепочке Н-2; ourName — «sku · name» для строки «Наше: …»
-    const prod = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: productShortName(p as Named), sku: (p.sku as string) ?? null, ourName: ourProductLabel(p as Named) }]));
+    const prod = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: productShortName(p as Named), sku: (p.sku as string) ?? null, ourName: ourProductLabel(p as Named), fullName: (p.fullName as string) ?? null }]));
     return docs.map((d) => ({
       ...d,
       photos: ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => url.has(String(p))).map((p) => ({ id: String(p), url: url.get(String(p)), thumb: thumb.get(String(p)) ?? url.get(String(p)) })),
