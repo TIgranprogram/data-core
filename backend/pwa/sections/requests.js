@@ -31,7 +31,7 @@ function customerActions(text, shown, form) {
   return acts;
 }
 
-export const STATUS_ORDER = ['in_progress', 'requested', 'ordered', 'paid', 'received', 'cancelled'];
+export const STATUS_ORDER = ['requested', 'ordered', 'paid', 'received', 'in_progress', 'cancelled']; // «Заказать» первой, «Ожидает» — перед «Отменено» (пользователь 2026-10-27)
 const statusOptions = () => STATUS_ORDER.map((k) => ({ value: k, label: SUPPLY_STATUS[k].label }));
 export const NEXT = { in_progress: 'requested', requested: 'ordered', ordered: 'paid' };
 
