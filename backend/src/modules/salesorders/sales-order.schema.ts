@@ -23,6 +23,8 @@ export class SalesOrder {
   /** Форма оплаты: б/р, б/р 30%, нал… */
   @Prop({ trim: true }) paymentForm?: string;
   @Prop({ trim: true }) contractNo?: string;
+  /** № на производство («21-26» = порядковый-ГГ). В кэш позиций не копируется. */
+  @Prop({ trim: true, index: true }) productionNo?: string;
   @Prop({ type: Date }) contractDate?: Date;
   @Prop({ type: Date, index: true }) shipDate?: Date;
   /** Срок изготовления. */

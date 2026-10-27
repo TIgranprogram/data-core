@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { SalesOrderDto } from './dto';
-import { SalesOrdersService } from './salesorders.service';
+import { SalesOrdersService, nextProductionNo } from './salesorders.service';
 
 /** Цепочка запросов Mongoose: любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
@@ -101,5 +101,20 @@ describe('SalesOrdersService.matchProducts (ПРЖ-4)', () => {
     await service.matchProducts(String(orderId), true, [{ lineId: String(lineId), productId: String(prodId) }]);
     expect(updateOne.mock.calls[0][1].$set.productId).toEqual(prodId);
     await expect(service.matchProducts(String(orderId), true, [{ lineId: String(new Types.ObjectId()), productId: String(prodId) }])).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('nextProductionNo — № на производство', () => {
+  it('пусто → 1-26; max+1; чужой год и мусор не считаются', () => {
+    expect(nextProductionNo([], '26')).toBe('1-26');
+    expect(nextProductionNo(['9-26', '20-26', undefined, 'abc', '99-25', null], '26')).toBe('21-26');
+  });
+  it('сервис: ищет по году, считает и удалённые; плохой год — 400', async () => {
+    const find = jest.fn<unknown, [unknown, unknown]>(() => chain([{ productionNo: '20-26' }]));
+    const model = { find };
+    const s = new SalesOrdersService({} as never, model as never);
+    expect(await s.nextProductionNo({ year: '2026' })).toEqual({ value: '21-26' });
+    expect((find.mock.calls[0][0] as { productionNo: RegExp }).productionNo.source).toBe(String.raw`^\d+-26$`);
+    await expect(s.nextProductionNo({ year: 'x' })).rejects.toThrow(BadRequestException);
   });
 });

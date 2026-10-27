@@ -17,10 +17,17 @@ import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
 type Doc = Record<string, unknown>;
 const SORT = ['orderNo', 'customer', 'stage', 'shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate', 'createdAt', 'updatedAt', 'deletedAt', 'priority'];
-const TEXT = ['orderNo', 'customer', 'title', 'paymentForm', 'contractNo', 'notes'] as const;
+const TEXT = ['orderNo', 'customer', 'title', 'paymentForm', 'contractNo', 'productionNo', 'notes'] as const;
 /** Порядок «срочные сверху»: нет приоритета = обычный. */
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const DATES = [['contractDate', 'Дата контракта'], ['shipDate', 'Дата отгрузки'], ['productionDeadline', 'Срок изготовления'], ['deliveryDeadline', 'Окончание поставки']] as const;
+
+/** Следующий № на производство: max N среди «N-ГГ» этого года + 1 (yy — две цифры года). */
+export function nextProductionNo(nos: Array<string | undefined | null>, yy: string): string {
+  let max = 0;
+  for (const v of nos) { const m = /^(\d+)-(\d{2})$/.exec(String(v ?? '').trim()); if (m && m[2] === yy) max = Math.max(max, Number(m[1])); }
+  return `${max + 1}-${yy}`;
+}
 
 /**
  * Заказы заказчиков (TASKS З.1): шапка в `salesorders`, позиции — `incomes` с orderId.
@@ -67,7 +74,7 @@ export class SalesOrdersService {
     const due = q.dueTo ? dateRange(undefined, q.dueTo) : null;
     if (due) filter.$and = [{ $or: [{ shipDate: due }, { shipDate: null, productionDeadline: due }, { shipDate: null, productionDeadline: null, deliveryDeadline: due }] }];
     // поиск «как на складе»: каждое слово — в одном из полей (И), ё = е, M10 = М10
-    const sf = tokensFilter(q.search, ['orderNo', 'customer', 'title', 'contractNo', 'notes']);
+    const sf = tokensFilter(q.search, ['orderNo', 'customer', 'title', 'contractNo', 'productionNo', 'notes']);
     if (sf) filter.$and = [...((filter.$and as unknown[]) ?? []), ...sf.$and];
     // этапы: filter=active|done|all или явный список stage=new,production
     let stages: string[] | undefined;
@@ -173,6 +180,15 @@ export class SalesOrdersService {
     };
   }
 
+  /** `?year=2026` (умолч. текущий) → `{value:"21-26"}`; удалённые заказы номер не освобождают. */
+  async nextProductionNo(q: Record<string, unknown> = {}) {
+    const year = q.year === undefined || q.year === '' ? new Date().getFullYear() : Number(q.year);
+    if (!Number.isInteger(year) || year < 2000 || year > 2099) throw new BadRequestException('Параметр year — год, например 2026');
+    const yy = String(year % 100).padStart(2, '0');
+    const docs = await this.model.find({ productionNo: new RegExp(`^\\d+-${yy}$`) }, { productionNo: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    return { value: nextProductionNo((docs as Doc[]).map((d) => d.productionNo as string), yy) };
+  }
+
   /**
    * SK-8d: короткий список заказов для выбора из соседних разделов (выдача на складе, заявка «под заказ», паспорт) —
    * без денег. filter: active (по умолч.) | all; lines=1 — с позициями (id, lineNo, title, qty, productId).
@@ -181,7 +197,7 @@ export class SalesOrdersService {
     const f = q.filter ?? 'active';
     if (f !== 'active' && f !== 'all') throw new BadRequestException('Параметр filter: active (в работе) или all (все)');
     const filter: Doc = { deletedAt: null, ...(f === 'active' ? { stage: { $in: ACTIVE_STAGES } } : {}) };
-    const docs = await this.model.find(filter, { orderNo: 1, customer: 1, title: 1, stage: 1, shipDate: 1 }).sort({ createdAt: -1, _id: -1 }).lean().exec();
+    const docs = await this.model.find(filter, { orderNo: 1, productionNo: 1, customer: 1, title: 1, stage: 1, shipDate: 1 }).sort({ createdAt: -1, _id: -1 }).lean().exec();
     const withLines = String(q.lines) === '1';
     const byOrder = new Map<string, Doc[]>();
     if (withLines && docs.length) {
@@ -194,7 +210,7 @@ export class SalesOrdersService {
     }
     return {
       items: (docs as Doc[]).map((d) => ({
-        id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? null, customer: (d.customer as string | undefined) ?? null,
+        id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? null, productionNo: (d.productionNo as string | undefined) ?? null, customer: (d.customer as string | undefined) ?? null,
         title: (d.title as string | undefined) ?? null, stage: (d.stage as string | undefined) || 'new', shipDate: (d.shipDate as Date | undefined) ?? null,
         ...(withLines ? { lines: byOrder.get(String(d._id)) ?? [] } : {}),
       })),

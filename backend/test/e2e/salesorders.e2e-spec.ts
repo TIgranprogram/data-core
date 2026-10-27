@@ -53,6 +53,19 @@ describe('Sales orders (заказы заказчиков)', () => {
     await http().post('/api/salesorders').set(auth()).send({ orderNo: '3', stage: 'потерян' }).expect(400);
   });
 
+  it('№ на производство: пишется, ищется, следующий = max+1 за год; "" снимает', async () => {
+    const mk = (orderNo: string, productionNo: string) => http().post('/api/salesorders').set(auth()).send({ orderNo, customer: 'ПН', productionNo }).expect(201);
+    const o = (await mk('PN-1', '20-26')).body;
+    await mk('PN-2', '99-25');
+    expect(o.productionNo).toBe('20-26');
+    const nx = await http().get('/api/salesorders/next-production-no?year=2026').set(auth()).expect(200);
+    expect(nx.body.value).toBe('21-26');
+    const found = await http().get('/api/salesorders?search=20-26').set(auth()).expect(200);
+    expect(found.body.items.map((x: { id: string }) => x.id)).toContain(o.id);
+    const cleared = await http().patch(`/api/salesorders/${o.id}`).set(auth()).send({ productionNo: '' }).expect(200);
+    expect(cleared.body.productionNo).toBeUndefined();
+  });
+
   it('позиции через /incomes с orderId: поля шапки — из заказа, № позиции по порядку; карточка с суммой', async () => {
     const l1 = await http().post('/api/incomes').set(auth()).send({ orderId, title: 'Скамья', qty: 2, unitPrice: 1000, customer: 'не тот', unit: 'шт' }).expect(201);
     expect(l1.body).toMatchObject({ orderId, lineNo: 1, orderNo: '№ 2', customer: 'ООО Академия', companyName: 'СИЮ', paymentForm: 'б/р 50%', amount: 2000 });

@@ -185,7 +185,7 @@ export const salesorders = {
     periods: (P) => (P.filter === 'done' ? { date: (r) => r.shipDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
     rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: 'Следующий этап', run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
-      { key: 'orderNo', label: '№', sort: 'orderNo', cls: 'nowrap', render: (r) => h('b', null, r.orderNo || '—') },
+      { key: 'orderNo', label: '№', sort: 'orderNo', cls: 'nowrap', render: (r) => h('b', null, r.orderNo || '—', r.productionNo ? h('span', { class: 'muted' }, ` · ${r.productionNo}`) : null) },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: r.customer || '' }, r.customer || '') },
       { key: 'title', label: 'Предмет / позиции', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted', title: r.title || '' }, r.title || `${r.lineCount} поз.`) },
       { key: 'companyName', label: 'Компания', cls: 'md-hide', render: (r) => r.companyName || h('span', { class: 'muted' }, '—') },
@@ -197,7 +197,7 @@ export const salesorders = {
     ],
     card: {
       title: (r) => `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
-      sub: (r) => [r.title, `${r.lineCount} поз.`, deadline(r) ? 'срок ' + date(deadline(r)) : ''].filter(Boolean).join(' · '),
+      sub: (r) => [r.productionNo && 'произв. ' + r.productionNo, r.title, `${r.lineCount} поз.`, deadline(r) ? 'срок ' + date(deadline(r)) : ''].filter(Boolean).join(' · '),
       side: (r) => [badge(STAGE, r.stage), prio(r)],
     },
     board: {
@@ -221,6 +221,7 @@ export const salesorders = {
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
       ['Форма оплаты', r.paymentForm],
+      ['№ на производство', r.productionNo],
       ['Контракт', [r.contractNo, r.contractDate && 'от ' + date(r.contractDate)].filter(Boolean).join(' ')],
       ['Срок изготовления', date(r.productionDeadline)],
       ['Дата отгрузки', date(r.shipDate)],
@@ -243,6 +244,8 @@ export const salesorders = {
       return [
         { section: 'Заказ', tone: 'main', fixed: true },
         { key: 'orderNo', label: '№ заказа', required: true, max: 50 },
+        { key: 'productionNo', label: '№ на производство', max: 50, hint: 'Вид 21-26 (номер-год).',
+          mount: (fa) => { const inp = fa.input('productionNo'); const b = h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { const r = await api('/salesorders/next-production-no'); fa.set('productionNo', r.value); } catch (e) { toast(errText(e)); } } }, 'Следующий'); (fa.field('productionNo') || inp?.el || inp)?.append?.(b); } },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name) },
@@ -263,7 +266,7 @@ export const salesorders = {
     toInitial: (r) => ({ ...r, priority: r.priority || 'normal', ...Object.fromEntries(['shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate'].map((k) => [k, r[k] ? String(r[k]).slice(0, 10) : ''])) }),
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
-      return { orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage, priority: v.priority === 'normal' ? '' : v.priority || '',
+      return { orderNo: s(v.orderNo), productionNo: s(v.productionNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage, priority: v.priority === 'normal' ? '' : v.priority || '',
         productionDeadline: v.productionDeadline || '', shipDate: v.shipDate || '', deliveryDeadline: v.deliveryDeadline || '', contractNo: s(v.contractNo), contractDate: v.contractDate || '', notes: s(v.notes) };
     },
     create: (body) => api('/salesorders', { method: 'POST', body: { ...body, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } }).then((r) => { focusNewLine = true; return r; }),
