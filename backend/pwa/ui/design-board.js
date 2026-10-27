@@ -7,6 +7,7 @@ import { badge, DESIGN_STATUS, ORDER_PRIORITY } from './badges.js';
 import { busyBlock, failBlock } from './busy.js';
 import { confirmDlg, modal } from './dialog.js';
 import { afterDrag, draggable } from './drag.js';
+import { setStickers, stickerRow } from './design-stickers.js';
 import { enhanceSelect } from './select.js';
 import { toast, toastError } from './toast.js';
 
@@ -146,7 +147,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   const env = board.env;
   const canEdit = session.canEdit;
   let query = initialQuery;
-  const S = { orders: [], tasks: [], done: [], doneTotal: 0, donePage: 1, lines: new Map(), loadingLines: new Set(), expanded: new Set(), error: null, ready: false };
+  const S = { orders: [], tasks: [], done: [], doneTotal: 0, donePage: 1, lines: new Map(), loadingLines: new Set(), expanded: new Set(), error: null, ready: false, stickers: [] };
   let tab = 'board', chipCol = 'queue', seq = 0, openMenu = null, addBox = null;
 
   const live = h('div', { class: 'db-live', 'aria-live': 'polite', role: 'status' });
@@ -156,7 +157,9 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   const chipsEl = h('div', { class: 'db-chips', role: 'tablist', 'aria-label': 'Статус' });
   const tabsEl = h('div', { class: 'seg db-tabs', role: 'tablist', 'aria-label': 'Раздел доски' });
   const left = h('aside', { class: 'db-left', 'aria-label': 'Заказы в проектировании' }, ordersHead, ordersList);
-  const right = h('div', { class: 'db-right' }, chipsEl, colsEl);
+  const canSettings = session.role === 'admin' || session.user?.isOwner === true;
+  const settingsBtn = canSettings ? h('div', { class: 'db-tools' }, h('button', { type: 'button', class: 'btn btn-sm', title: 'Какие стикеры показывать на карточках', onclick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } }, 'Настройки доски')) : null;
+  const right = h('div', { class: 'db-right' }, settingsBtn, chipsEl, colsEl);
   const el = h('div', { class: 'db', dataset: { tab: 'board', col: 'queue' } }, tabsEl, left, right, live);
 
   const syncUrl = () => { S.expanded = new Set(String(current().params.o || '').split(',').filter(Boolean)); };
@@ -341,10 +344,11 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
     h('div', { class: 'db-ttop' }, chip(t.orderId, t.orderNo),
       canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ task: t }, title, e.currentTarget); } }, '⋯') : null),
-    h('div', { class: 'db-tbody' }, photo(t.photo),
+    t.photo ? photo(t.photo, 'db-cover') : null,
+    h('div', { class: 'db-tbody' },
       h('div', { class: 't-main' }, h('div', { class: 't-title', title }, title),
         h('div', { class: 't-sub', title: t.pauseReason || '' }, dotted(t.status === 'paused' && t.pauseReason, t.sku && '№ ' + t.sku, t.lineNo != null && 'поз. ' + t.lineNo, t.code)))),
-    h('div', { class: 't-foot' }, env.dueNode(t), t.priority && t.priority !== 'normal' ? badge(ORDER_PRIORITY, t.priority) : null,
+    S.stickers.length ? stickerRow(t, S.stickers) : h('div', { class: 't-foot' }, env.dueNode(t), t.priority && t.priority !== 'normal' ? badge(ORDER_PRIORITY, t.priority) : null,
       t.assignee ? h('span', { class: 'avatar sm', title: clean(t.assignee.name), 'aria-label': 'Исполнитель: ' + clean(t.assignee.name) }, clean(t.assignee.initials) || '?') : h('span', { class: 't-none' }, 'не назначен')));
     if (t.orderId) paintOrder(node, t.orderId); else paintOrder(node, '');
     if (canEdit) {
@@ -405,6 +409,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       const [b, d] = await Promise.all([api('/design-board'), fetchDone(1).catch(() => ({ items: [], total: 0 }))]);
       if (my !== seq) return;
       const nb = normBoard(b);
+      if (Array.isArray(b.stickers)) { S.stickers = [...b.stickers].sort((x, z) => (x.order ?? 0) - (z.order ?? 0)); setStickers(S.stickers); }
       S.orders = nb.orders.sort((a, z) => (a.deadline ? 0 : 1) - (z.deadline ? 0 : 1) || String(a.deadline).localeCompare(String(z.deadline)) || String(a.orderNo).localeCompare(String(z.orderNo), 'ru', { numeric: true }));
       lastOrders = new Map(S.orders.map((o) => [o.orderId, o]));
       S.tasks = nb.tasks;

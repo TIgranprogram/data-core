@@ -61,3 +61,7 @@
 - `sections/design-order.js` — панель заказа `of=designorder&open=<orderId>` (регистрация в `main.js` SECTIONS/OWNER). Токены `--oc-N` — `ui/tokens.css`; стили `.db*` — конец `ui/base.css`.
 - Правка CRLF-файлов (design.js, list.js, main.js, tokens.css, order-design.js) — скриптом node. Heredoc с апострофами в bash-инструменте падает — файлы писать через Write.
 - Вид доски (2026-10-27): CSS-only в ui/panels.css строки 62-165 (clamp 2 строки, .db-colempty пунктир, @media min-width:1600px).
+
+## Стикеры и фото задач проектирования (2026-10-27, не закоммичено)
+коммит: (после коммита координатора)
+- `ui/design-stickers.js` — `stickerNode/stickerRow`, кэш `setStickers/visibleStickers/allStickers`, `photosBlock`, `stickersBlock` (PATCH /design-tasks/:id/stickers; фото — POST/DELETE /photos). Карточка — `design-board.js taskEl` (`S.stickers`, кнопка «Настройки доски» только admin); панель задачи — `sections/design.js card.extra`; `sections/design-settings.js` (`of=designsettings&open=board`, main.js SECTIONS/OWNER). CSS — конец `ui/panels.css`.

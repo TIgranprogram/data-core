@@ -154,7 +154,10 @@ describe('Design tasks (Проектирование)', () => {
       await http().patch(`/api/design-tasks/${taskId}`).set(uAuth()).send({ title: 'Х' }).expect(403);
       const person = String((await db().collection('persons').insertOne({ firstName: 'Чужой', deletedAt: null })).insertedId);
       await http().patch(`/api/design-tasks/${taskId}`).set(auth()).send({ assigneeId: person }).expect(200);
-      await http().post(`/api/design-tasks/${taskId}/photos`).set(uAuth()).send({ photoId }).expect(403);
+      await http().post(`/api/design-tasks/${taskId}/photos`).set(uAuth()).send({ photoId }).expect(200); // вход ни с кем не связан — не ограничиваем
+      const other = (await db().collection('persons').insertOne({ firstName: 'Другой', userId: new Types.ObjectId(userId), deletedAt: null })).insertedId;
+      await http().post(`/api/design-tasks/${taskId}/photos`).set(uAuth()).send({ photoId }).expect(403); // вход связан с другим сотрудником
+      await db().collection('persons').deleteOne({ _id: other });
       await db().collection('persons').updateOne({ _id: new Types.ObjectId(person) }, { $set: { userId: new Types.ObjectId(userId) } });
       await http().delete(`/api/design-tasks/${taskId}/photos/${photoId}`).set(uAuth()).expect(200);
       expect((await http().get(`/api/design-tasks/${taskId}`).set(auth()).expect(200)).body.photoIds).toEqual([]);

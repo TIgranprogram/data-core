@@ -1,10 +1,11 @@
-import { api, PREFIX } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
 import { mountBoard } from '../ui/board.js';
 import { askAssignee, askReason, mountDesignBoard } from '../ui/design-board.js';
+import { photosBlock, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { toast } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
 import { activeOrders, orderLabel, STAGE } from './salesorders.js';
@@ -158,7 +159,7 @@ export const design = {
   card: {
     heading: (r) => `${r.code} · ${title(r)}`,
     subheading: (r) => STATUS[r.status]?.label || '',
-    gallery: (r) => (r.photo ? [{ id: 'p', url: r.photo, thumb: r.photo }] : []),
+    gallery: () => [], // фото — блок «Фото» ниже (extra)
     stats: (r) => [['Статус', STATUS[r.status]?.label || r.status], ['Приоритет', ORDER_PRIORITY[r.priority]?.label || r.priority], ['Срок', r.deadline ? date(r.deadline) : '—']],
     view: (r) => [
       ['Заказ', r.orderId ? h('a', { href: '#salesorders?open=' + r.orderId }, 'ЗНП ' + (clean(r.orderNo) || 'без номера')) : null],
@@ -172,6 +173,13 @@ export const design = {
       ['Примечание', r.note],
       ['Завершена', r.completedAt ? date(r.completedAt) : ''],
     ],
+    extra: (r, ctx) => {
+      const host = h('div', { class: 'db-blocks' });
+      const can = session.canEdit;
+      host.append(photosBlock(r, ctx, can));
+      visibleStickers().then((list) => { const b = stickersBlock(r, list, ctx, can); if (b) host.append(b); });
+      return host;
+    },
     actions: (r) => {
       const go2 = (to, label, primary) => ({ label, primary, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
       if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить')];

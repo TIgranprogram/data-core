@@ -20,6 +20,7 @@ import { orders } from './sections/orders.js';
 import { salesorders } from './sections/salesorders.js';
 import { design } from './sections/design.js';
 import { designOrder } from './sections/design-order.js';
+import { designSettings } from './sections/design-settings.js';
 import { partners } from './sections/partners.js';
 import { dict, mountDicts } from './sections/dicts.js';
 import { mountFill } from './sections/fill.js';
@@ -55,11 +56,11 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, design, designorder: designOrder, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, suppliercatalog: supplierCatalog };
+const SECTIONS = { requests, stock, movements, orders, salesorders, design, designorder: designOrder, designsettings: designSettings, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, suppliercatalog: supplierCatalog };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { designorder: 'design', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
+const OWNER = { designorder: 'design', designsettings: 'design', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */

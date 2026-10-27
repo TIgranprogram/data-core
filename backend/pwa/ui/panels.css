@@ -271,3 +271,30 @@
   .list-panel .table-wrap { max-height: calc(100vh - var(--topbar-h) - 160px); min-height: 240px; overflow: auto; }
   .list-panel table.list thead th { position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 0 var(--border); }
 }
+
+/* Стикеры и фото задач проектирования (DESIGN §4 «Стикеры») */
+.db-tools { display: flex; justify-content: flex-end; margin-bottom: var(--s2); }
+.db-cover { display: block; width: 100%; height: 120px; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-2); }
+.db-cover.none { display: none; }
+.db-stk { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: var(--fs-sm); }
+.db-stk .avatar { margin-left: auto; }
+.stk { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); line-height: 1.4; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text); border: 0; font-family: inherit; white-space: nowrap; }
+.stk.danger { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
+.stk.warn { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.stk.ok { background: var(--ok-soft); color: var(--ok); }
+.stk.dim { color: var(--muted); }
+.stk.has-color { background: color-mix(in srgb, var(--stc, var(--muted)) 18%, transparent); }
+.stk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--stc, var(--muted)); flex: none; }
+.stk-pick { cursor: pointer; padding: 3px 10px; opacity: .75; }
+.stk-pick.on { opacity: 1; outline: 2px solid var(--stc, var(--muted)); }
+.stk-row { display: grid; grid-template-columns: minmax(90px, 1fr) 2fr; gap: 8px; align-items: center; padding: 4px 0; }
+.stk-label { color: var(--muted); font-size: var(--fs-sm); }
+.stk-states { display: flex; flex-wrap: wrap; gap: 6px; }
+.stk-set-list { list-style: none; margin: 0 0 var(--s2); padding: 0; }
+.stk-set-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.stk-set-row.off .stk-set-main { opacity: .55; }
+.stk-set-main { flex: 1; min-width: 0; }
+.stk-set-acts { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.stk-edit-states { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.stk-edit-row { display: flex; gap: 6px; align-items: center; }
+.stk-edit-row input[type="text"], .stk-edit-row input:not([type]) { flex: 1; min-width: 0; }
