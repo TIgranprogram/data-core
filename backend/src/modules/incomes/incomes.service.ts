@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { customerNames } from '../partners/customer-names';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -16,6 +17,8 @@ import { Income, IncomeDocument, incomeDerived } from './income.schema';
 const INCOME_SORT = ['lineNo', 'orderNo', 'customer', 'title', 'qty', 'unitPrice', 'amount', 'shipDate', 'paidDate', 'reportDate', 'createdAt', 'updatedAt', 'deletedAt'];
 const TEXT = ['orderNo', 'customer', 'paymentForm', 'title', 'unit', 'kind', 'color', 'size', 'notes'] as const;
 const NUM = ['qty', 'unitPrice', 'amountManual'] as const;
+/** Поля, которые после формирования заказа меняет только admin (productId, фото, color, notes — свободны). */
+const LOCKED_FIELDS = ['title', 'qty', 'unit', 'unitPrice', 'amountManual'];
 /** Поля шапки заказа, продублированные в позиции (кэш; истина — salesorders). */
 const HEADER_CACHE = ['orderNo', 'customer', 'companyId', 'paymentForm', 'shipDate'] as const;
 
@@ -157,12 +160,24 @@ export class IncomesService {
     return incomeDerived({ qty: pick('qty'), unitPrice: pick('unitPrice'), amountManual: pick('amountManual'), shipDate: pick('shipDate'), paidDate: pick('paidDate') });
   }
 
-  async create(dto: IncomeDto, userId?: string) {
+  /**
+   * Состав сформированного заказа (этап ≠ new) — только admin (Ф-4). Машинный ключ kppd_ (keyScope) — как раньше, не блокируем
+   * внешних клиентов. Без actor (вызов из кода) защита не применяется.
+   */
+  private async assertOrderOpen(orderId: unknown, actor: AuthenticatedUser | undefined) {
+    if (!actor || !orderId || actor.role === 'admin' || actor.keyScope) return;
+    const o = await this.connection.db!.collection('salesorders').findOne({ _id: orderId as Types.ObjectId }, { projection: { stage: 1 } });
+    const stage = String(o?.stage || 'new');
+    if (o && stage !== 'new') throw new ForbiddenException('Заказ уже в работе. Менять позиции может только администратор.');
+  }
+
+  async create(dto: IncomeDto, userId?: string, actor?: AuthenticatedUser) {
     if (dto.clientUid) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (dup) return this.get(String(dup._id));
     }
     const f = await this.toFields(dto);
+    await this.assertOrderOpen(f.orderId, actor);
     if (!f.title) throw new BadRequestException('Укажите наименование');
     if (dto.productId === undefined) f.productId = await this.productByTitle(String(f.title));
     if (f.orderId) {
@@ -181,10 +196,14 @@ export class IncomesService {
     return this.get(String(doc._id));
   }
 
-  async update(id: string, dto: IncomeDto) {
+  async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     const f = await this.toFields(dto);
+    // защищённые поля — только если значение реально меняется (форма шлёт и неизменённые)
+    const same = (k: string) => String(f[k] ?? '') === String((cur as Record<string, unknown>)[k] ?? '');
+    if (LOCKED_FIELDS.some((k) => k in f && !same(k))) await this.assertOrderOpen(cur.orderId, actor);
+    if ('orderId' in f && !same('orderId')) { await this.assertOrderOpen(cur.orderId, actor); await this.assertOrderOpen(f.orderId, actor); }
     if ('title' in f && !f.title) throw new BadRequestException('Наименование не может быть пустым');
     const orderId = 'orderId' in f ? f.orderId : cur.orderId;
     if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
@@ -213,13 +232,21 @@ export class IncomesService {
     return this.get(id);
   }
 
-  async remove(id: string) {
+  async remove(id: string, actor?: AuthenticatedUser) {
+    if (actor) {
+      const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
+      await this.assertOrderOpen(cur?.orderId, actor);
+    }
     const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Запись дохода не найдена');
     return { id, deleted: true };
   }
 
-  async restore(id: string) {
+  async restore(id: string, actor?: AuthenticatedUser) {
+    if (actor) {
+      const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).lean().exec();
+      await this.assertOrderOpen(cur?.orderId, actor);
+    }
     const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: { $ne: null } }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
     if (!res.matchedCount) throw new NotFoundException('Записи нет в корзине');
     return this.get(id);

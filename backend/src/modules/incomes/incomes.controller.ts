@@ -49,21 +49,21 @@ export class IncomesController {
   @Roles('admin', 'manager')
   @AuditAction({ action: 'income.created', entityType: 'Income' })
   create(@Body() dto: IncomeDto, @CurrentUser() user?: AuthenticatedUser) {
-    return this.incomes.create(dto, user?.id);
+    return this.incomes.create(dto, user?.id, user);
   }
 
   @Patch(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'income.updated', entityType: 'Income', idParam: 'id' })
-  update(@Param('id') id: string, @Body() dto: IncomeDto) {
-    return this.incomes.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: IncomeDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.update(id, dto, user);
   }
 
   @Delete(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'income.deleted', entityType: 'Income', idParam: 'id' })
-  remove(@Param('id') id: string) {
-    return this.incomes.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.remove(id, user);
   }
 
   /** Фото позиции: photoId из POST /api/photos/upload (перетаскивание / вставка / файл в карточке). */
@@ -86,7 +86,7 @@ export class IncomesController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'income.restored', entityType: 'Income', idParam: 'id' })
-  restore(@Param('id') id: string) {
-    return this.incomes.restore(id);
+  restore(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.restore(id, user);
   }
 }

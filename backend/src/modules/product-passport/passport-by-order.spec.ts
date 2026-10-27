@@ -17,7 +17,7 @@ describe('готовность паспорта и группы по заказ�
   const mk = (docs: Array<Record<string, unknown>>) => {
     let filter: Record<string, unknown> = {};
     const model = { find: (f: Record<string, unknown>) => { filter = f; return { setOptions: () => ({ sort: () => ({ lean: () => ({ exec: async () => docs }) }) }) }; } };
-    return { q: new PassportQueries({ model, oid } as never), filter: () => filter };
+    return { q: new PassportQueries({ model, oid, categoryRules: async () => new Map([['SPORT', { name: 'Спортивные тренажёры' }]]) } as never), filter: () => filter };
   };
   const a = new Types.ObjectId();
 
@@ -36,6 +36,19 @@ describe('готовность паспорта и группы по заказ�
     expect(r.items[0]).toMatchObject({ orderId: String(a), customerName: 'ГБУ', total: 3, ready: 1, notReady: 1, rework: 1 });
     expect(r.items[1]).toMatchObject({ orderId: null, total: 2, ready: 2 });
     expect(r.items[2].items).toHaveLength(1);
+  });
+
+  it('by-order: category/categoryLabel у паспорта и подгруппы по категории («Без категории» последней)', async () => {
+    const { q } = mk([
+      { _id: 1, status: 'issued', orderNo: '7' },
+      { _id: 2, status: 'issued', orderNo: '7', passportCategory: 'SPORT' },
+      { _id: 3, status: 'issued', orderNo: '7', passportCategory: 'NEW' },
+      { _id: 4, status: 'issued', orderNo: '7', passportCategory: 'SPORT' },
+    ]);
+    const g = (await q.byOrder({})).items[0];
+    expect(g.items.find((i) => i._id === 2)).toMatchObject({ category: 'SPORT', categoryLabel: 'Спортивные тренажёры' });
+    expect(g.items.find((i) => i._id === 1)).toMatchObject({ category: null, categoryLabel: 'Без категории' });
+    expect(g.categories!.map((c) => [c.category, c.categoryLabel, c.total])).toEqual([['SPORT', 'Спортивные тренажёры', 2], ['NEW', 'NEW', 1], [null, 'Без категории', 1]]);
   });
 
   it('by-order: пагинация по заказам; аннулированные исключены', async () => {

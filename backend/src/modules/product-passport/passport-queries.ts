@@ -12,7 +12,7 @@ export interface QueriesHost {
   model: Model<ProductPassportDocument>;
   connection: Connection;
   versions?: DataVersionService;
-  categoryRules: () => Promise<Map<string, { requiredImages?: string; requiredFields?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string }>>;
+  categoryRules: () => Promise<Map<string, { name?: string; requiredImages?: string; requiredFields?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string }>>;
   installs: () => Promise<Map<string, Record<string, unknown>>>;
   withSchemes: (d: Doc, inst: Map<string, Record<string, unknown>>) => unknown;
   oid: (v: unknown) => Types.ObjectId;
@@ -73,9 +73,10 @@ export class PassportQueries {
     filter.status = filter.status ?? { $ne: 'annulled' };
     const sf = tokensFilter(q.search, ['passportNumber', 'name', 'article', 'customerName', 'objectName', 'orderNo']);
     if (sf) filter.$and = [...((filter.$and as unknown[]) ?? []), ...sf.$and];
-    const docs = (await this.h.model.find(filter, { name: 1, passportNumber: 1, status: 1, readiness: 1, reworkNote: 1, orderNo: 1, salesOrderId: 1, customerName: 1, objectName: 1, date: 1, updatedAt: 1, article: 1, category: 1 })
+    const docs = (await this.h.model.find(filter, { name: 1, passportNumber: 1, status: 1, readiness: 1, reworkNote: 1, orderNo: 1, salesOrderId: 1, customerName: 1, objectName: 1, date: 1, updatedAt: 1, article: 1, passportCategory: 1 })
       .setOptions({ includeSoftDeleted: true }).sort({ updatedAt: -1, _id: -1 }).lean().exec()) as unknown as Doc[];
-    const groups = new Map<string, { orderId: string | null; orderNo: string | null; customerName: string | null; total: number; ready: number; notReady: number; rework: number; items: Doc[] }>();
+    const cats = await this.h.categoryRules().catch(() => new Map<string, { name?: string }>());
+    const groups = new Map<string, { orderId: string | null; orderNo: string | null; customerName: string | null; total: number; ready: number; notReady: number; rework: number; items: Doc[]; categories?: Array<{ category: string | null; categoryLabel: string; total: number; items: Doc[] }> }>();
     for (const d of docs) {
       const no = String(d.orderNo ?? '').trim();
       const key = d.salesOrderId ? `id:${d.salesOrderId}` : no ? `no:${no.toLowerCase()}` : 'none';
@@ -84,8 +85,20 @@ export class PassportQueries {
       g.customerName = g.customerName || (d.customerName as string) || null;
       const r = readinessOf(d);
       g.total++; g[r]++;
-      g.items.push({ ...d, readiness: r });
+      const code = String(d.passportCategory ?? '').trim();
+      // category — код категории паспорта; categoryLabel — имя из справочника (нет — сам код; пусто — «Без категории»)
+      g.items.push({ ...d, readiness: r, category: code || null, categoryLabel: code ? (cats.get(code)?.name || code) : 'Без категории' });
       groups.set(key, g);
+    }
+    // внутри заказа — подгруппы по категории (без категории — последней); items остаётся плоским списком
+    for (const g of groups.values()) {
+      const by = new Map<string, NonNullable<typeof g.categories>[number]>();
+      for (const it of g.items) {
+        const c = (it.category as string | null) ?? '';
+        const e = by.get(c) ?? { category: c || null, categoryLabel: it.categoryLabel as string, total: 0, items: [] };
+        e.total++; e.items.push(it); by.set(c, e);
+      }
+      g.categories = [...by.values()].sort((a, b) => Number(!a.category) - Number(!b.category) || a.categoryLabel.localeCompare(b.categoryLabel, 'ru'));
     }
     const rows = [...groups.entries()].sort((a, b) => Number(a[0] === 'none') - Number(b[0] === 'none')).map(([, g]) => g);
     return { items: rows.slice(p.skip, p.skip + p.limit), total: rows.length, page: p.page, limit: p.limit };
