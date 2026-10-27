@@ -57,8 +57,8 @@ export function targetNote(m) {
   orderLines(m.salesOrderId).then((ls) => {
     const l = ls.find((x) => x.id === m.salesOrderLineId);
     if (!l) { el.textContent = m.isReturn ? 'Возврат со сборки' : 'Выдано под позицию заказа'; return; }
-    el.textContent = m.isReturn ? `${verb} ${lineCode(l)}` : `${verb} ${lineCode(l)} · ${l.title}`;
-    el.title = `${verb} ${lineCode(l)} · ${l.title}`;
+    el.textContent = m.isReturn ? `${verb} ${lineCode(l)}` : `${verb} ${[lineCode(l), l.title].filter(Boolean).join(' · ')}`;
+    el.title = `${verb} ${[lineCode(l), l.title].filter(Boolean).join(' · ')}`;
   }).catch(() => { el.textContent = m.isReturn ? 'Возврат со сборки' : 'Выдано под позицию заказа'; });
   return el;
 }
@@ -138,7 +138,7 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
     if (line || whole) {
       orderBox.replaceChildren(head, h('div', { class: 'pp-prod-sel tp-line-sel' },
         line ? picBox(line) : null,
-        h('div', { style: { flex: '1', minWidth: 0 } }, h('b', null, line ? `${lineCode(line)} · ${line.title}` : 'Весь заказ'), line?.qty ? h('div', { class: 'muted' }, `в заказе ${qty(line.qty)}`) : h('div', { class: 'muted' }, 'без конкретной позиции')),
+        h('div', { style: { flex: '1', minWidth: 0 } }, h('b', null, line ? [lineCode(line), line.title].filter(Boolean).join(' · ') : 'Весь заказ'), line?.qty ? h('div', { class: 'muted' }, `в заказе ${qty(line.qty)}`) : h('div', { class: 'muted' }, 'без конкретной позиции')),
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { line = null; whole = false; renderOrder(); onChange?.(null); } }, 'Сменить')));
       return;
     }
@@ -149,7 +149,7 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
       const tk = searchTokens(q);
       const rows = lines.filter((l) => !tk.length || tk.every((t) => normSearch(`${lineCode(l)} ${l.title}`).includes(t)));
       const items = rows.map((l) => h('li', { class: 'sg-row sg-pic-row', role: 'option', tabindex: '0', onclick: () => pick(l), onkeydown: (e) => { if (e.key === 'Enter') pick(l); } },
-        picBox(l), h('div', null, h('div', { class: 'opt-l' }, `${lineCode(l)} · ${l.title}`), l.qty ? h('small', null, `в заказе ${qty(l.qty)}`) : null)));
+        picBox(l), h('div', null, h('div', { class: 'opt-l' }, `${[lineCode(l), l.title].filter(Boolean).join(' · ')}`), l.qty ? h('small', null, `в заказе ${qty(l.qty)}`) : null)));
       if (!ret && !tk.length) items.push(h('li', { class: 'sg-row', role: 'option', tabindex: '0', onclick: () => pick(null), onkeydown: (e) => { if (e.key === 'Enter') pick(null); } }, h('div', { class: 'opt-l' }, 'Весь заказ'), h('small', null, 'без конкретной позиции')));
       list.replaceChildren(...(items.length ? items : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, lines.length ? `По «${q}» позиций нет` : 'В заказе нет позиций — выберите «Весь заказ» или добавьте позицию в заказе'))]));
     };

@@ -23,6 +23,10 @@ const COLS = ['queue', 'work', 'paused', 'done'];
 const SHORT = { queue: 'распределение', work: 'в работе', paused: 'пауза', done: 'готово' };
 const PER_DONE = 20;
 const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
+/** Пустое значение (null, undefined, пустая строка, случайное слово «null») — ''. Такое на экране не печатаем. */
+export const clean = (v) => { const s = v === null || v === undefined ? '' : String(v).trim(); return s === 'null' || s === 'undefined' || /^-{2,}$/.test(s) ? '' : s; };
+/** Подпись из кусочков: пустые отбрасываются, остальные через « · ». */
+export const dotted = (...xs) => xs.map(clean).filter(Boolean).join(' · ');
 const plain = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е');
 
 // ---------- общие окна (их же использует sections/design.js) ----------
@@ -61,17 +65,17 @@ export function statusSheet({ title, options, onPick, opener }) {
 const idOf = (x) => String(x?.orderId ?? x?.id ?? '');
 export function normOrder(o) {
   const c = o.counts || {};
-  return { orderId: idOf(o), orderNo: o.orderNo ?? '', customer: o.customer ?? '', deadline: o.deadline ?? null, priority: o.priority || 'normal', stage: o.stage || '',
+  return { orderId: idOf(o), orderNo: clean(o.orderNo), customer: clean(o.customer), deadline: o.deadline ?? null, priority: o.priority || 'normal', stage: o.stage || '',
     note: o.note || '', addedAt: o.addedAt || null, counts: { queue: c.queue || 0, work: c.work || 0, paused: c.paused || 0, done: c.done || 0, free: c.free ?? null }, lines: o.lines };
 }
 /** Позиция заказа (с задачей или без) → единый вид. */
 export function normLine(l, order) {
   const t = l.task ? normTask({ ...l.task, incomeId: l.incomeId ?? l.id, lineNo: l.lineNo, title: l.task.title ?? l.title, productName: l.productName, sku: l.sku, photo: l.photo }, order) : null;
-  return { incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.lineNo ?? null, title: l.title || l.productName || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: l.sku || null, photo: l.photo || null, task: t };
+  return { incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
 }
 /** Задача (из открытых задач или вложенная в позицию) → вид, который понимают moveTask и карточка. */
 export function normTask(t, order) {
-  return { ...t, id: String(t.id), status: t.status, orderId: String(t.orderId ?? order?.orderId ?? ''), orderNo: t.orderNo ?? order?.orderNo ?? null,
+  return { ...t, id: String(t.id), status: t.status, title: clean(t.title), productName: clean(t.productName) || null, sku: clean(t.sku) || null, customerTitle: clean(t.customerTitle) || null, orderId: String(t.orderId ?? order?.orderId ?? ''), orderNo: clean(t.orderNo) || clean(order?.orderNo) || null,
     assigneeId: t.assigneeId ?? t.assignee?.id ?? null, assignee: t.assignee || null, pauseReason: t.pauseReason || null, priority: t.priority || order?.priority || 'normal',
     deadline: t.deadline ?? order?.deadline ?? null, seq: t.seq ?? Number(String(t.code || '').replace(/\D/g, '')) ?? 0 };
 }
@@ -106,9 +110,9 @@ export async function distributeOrder(orderId) {
 }
 /** «Убрать из проектирования»: подтверждение, отказ сервера (есть открытые задачи) — понятным текстом, «Отменить» возвращает. */
 export async function dropOrder(order) {
-  if (!(await confirmDlg('Убрать заказ из проектирования?', `ЗНП ${order.orderNo} пропадёт из левой колонки. Задачи останутся в таблице.`, { okText: 'Убрать' }))) return false;
+  if (!(await confirmDlg('Убрать заказ из проектирования?', `${orderName(order)} пропадёт из левой колонки. Задачи останутся в таблице.`, { okText: 'Убрать' }))) return false;
   try { await removeFromBoard(order.orderId); } catch (e) { toastError(e, 'убрать заказ'); return false; }
-  toast(`Заказ ЗНП ${order.orderNo} убран из проектирования`, { undo: async () => { await addToBoard(order.orderId); changed(); } });
+  toast(`${orderName(order)} убран из проектирования`, { undo: async () => { await addToBoard(order.orderId); changed(); } });
   return true;
 }
 
@@ -128,8 +132,8 @@ export async function createTask(line, to, people) {
 
 // ---------- мелкие элементы ----------
 const photo = (src, cls = 'db-pic') => (src ? h('img', { class: cls, src: PREFIX + src, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('span', { class: cls + ' none' })) }) : h('span', { class: cls + ' none' }));
-const orderName = (o) => (o.orderNo ? 'ЗНП ' + o.orderNo : 'Заказ');
-const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), 'ЗНП ' + (orderNo || '—')), orderId) : h('span', { class: 'db-chip none' }, 'Без заказа'));
+const orderName = (o) => (clean(o.orderNo) ? 'ЗНП ' + clean(o.orderNo) : 'Заказ без номера');
+const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), 'ЗНП ' + (clean(orderNo) || 'без номера')), orderId) : h('span', { class: 'db-chip none' }, 'Без заказа'));
 
 /** Куда можно перенести: с левой стороны (нет задачи) — в «Завершены» нельзя. */
 function sheetOptions(status) {
@@ -231,12 +235,12 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   function lineEl(o, l) {
     const t = l.task;
     const node = h('div', { class: 'db-line' + (t ? ' has-task' : ' movable'), tabindex: '0', dataset: { income: l.incomeId },
-      'aria-label': `Поз. ${l.lineNo ?? ''} ${l.title}${t ? ', ' + COL_LABEL[t.status] : ', ещё не взято'}`,
+      'aria-label': `${l.lineNo != null ? 'Поз. ' + l.lineNo + ' ' : ''}${l.title}${t ? ', ' + (COL_LABEL[t.status] || '') : ', ещё не взято'}`,
       onclick: () => (t ? openTask(t) : openOrder(o.orderId)),
       onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (t) openTask(t); else openOrder(o.orderId); } } },
     photo(l.photo, 'db-pic sm'),
     h('div', { class: 'db-lmain' }, h('div', { class: 't-title', title: l.title }, (l.lineNo != null ? `поз. ${l.lineNo} · ` : '') + l.title),
-      h('div', { class: 't-sub' }, [l.sku && '№ ' + l.sku, l.qty != null && qty(l.qty) + ' шт'].filter(Boolean).join(' · '))),
+      h('div', { class: 't-sub' }, dotted(l.sku && '№ ' + l.sku, l.qty != null && qty(l.qty) + ' шт'))),
     t ? h('div', { class: 'db-lstate' }, badge(DESIGN_STATUS, t.status),
       h('button', { type: 'button', class: 'link-btn', onclick: (e) => { e.stopPropagation(); revealTask(t); } }, `в колонке «${COL_LABEL[t.status]}» →`))
       : canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${l.title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ line: l }, l.title, e.currentTarget); } }, '⋯') : null);
@@ -304,13 +308,13 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     function paint() {
       const have = new Set(S.orders.map((o) => o.orderId));
       const q = plain(search.value);
-      const rows = (all || []).filter((o) => !have.has(String(o.id)) && (!q || plain(`${o.orderNo} ${o.customer}`).includes(q)));
+      const rows = (all || []).filter((o) => !have.has(String(o.id)) && (!q || plain(dotted(o.orderNo, o.customer)).includes(q)));
       if (!rows.length) { list.replaceChildren(h('div', { class: 'db-hint' }, 'Нет подходящих заказов. Добавлены все заказы в работе, либо заказа нет — проверьте раздел «Заказы».')); return; }
       list.replaceChildren(...rows.slice(0, 40).map((o) => {
         const on = sel === o.id;
         return h('div', { class: 'db-add-row' + (on ? ' on' : ''), role: 'option', 'aria-selected': String(on) },
           h('button', { type: 'button', class: 'db-add-pick', onclick: () => { sel = on ? null : o.id; paint(); } },
-            h('b', null, orderName(o)), o.customer ? ' · ' + o.customer : '',
+            h('b', null, orderName(o)), clean(o.customer) ? ' · ' + clean(o.customer) : '',
             h('small', null, [o.shipDate ? 'отгрузка ' + String(o.shipDate).slice(0, 10).split('-').reverse().join('.') : '', o.lines?.length ? o.lines.length + ' поз.' : ''].filter(Boolean).join(' · '))),
           on ? h('div', { class: 'db-add-acts' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => add(o, true) }, 'Добавить и на распределение'),
             h('button', { type: 'button', class: 'btn btn-sm', onclick: () => add(o, false) }, 'Только добавить')) : null);
@@ -331,17 +335,17 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
 
   // ---------- правая часть: колонки статусов ----------
   function taskEl(t) {
-    const title = t.productName || t.title;
+    const title = clean(t.productName) || clean(t.title) || 'Без названия';
     const node = h('article', { class: 'tcard db-task' + (canEdit ? ' movable' : ''), tabindex: '0', role: 'button', dataset: { task: t.id },
-      'aria-label': `${t.orderNo ? 'ЗНП ' + t.orderNo + ', ' : ''}${title}, ${COL_LABEL[t.status]}`,
+      'aria-label': `${t.orderNo ? 'ЗНП ' + t.orderNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
     h('div', { class: 'db-ttop' }, chip(t.orderId, t.orderNo),
       canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ task: t }, title, e.currentTarget); } }, '⋯') : null),
     h('div', { class: 'db-tbody' }, photo(t.photo),
       h('div', { class: 't-main' }, h('div', { class: 't-title', title }, title),
-        h('div', { class: 't-sub', title: t.pauseReason || '' }, (t.status === 'paused' && t.pauseReason ? t.pauseReason + ' · ' : '') + [t.sku && '№ ' + t.sku, t.lineNo != null && 'поз. ' + t.lineNo, t.code].filter(Boolean).join(' · ')))),
+        h('div', { class: 't-sub', title: t.pauseReason || '' }, dotted(t.status === 'paused' && t.pauseReason, t.sku && '№ ' + t.sku, t.lineNo != null && 'поз. ' + t.lineNo, t.code)))),
     h('div', { class: 't-foot' }, env.dueNode(t), t.priority && t.priority !== 'normal' ? badge(ORDER_PRIORITY, t.priority) : null,
-      t.assignee ? h('span', { class: 'avatar sm', title: t.assignee.name, 'aria-label': 'Исполнитель: ' + t.assignee.name }, t.assignee.initials) : h('span', { class: 't-none' }, 'не назначен')));
+      t.assignee ? h('span', { class: 'avatar sm', title: clean(t.assignee.name), 'aria-label': 'Исполнитель: ' + clean(t.assignee.name) }, clean(t.assignee.initials) || '?') : h('span', { class: 't-none' }, 'не назначен')));
     if (t.orderId) paintOrder(node, t.orderId); else paintOrder(node, '');
     if (canEdit) {
       const item = { task: t, node };
@@ -365,7 +369,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       const o = oid && boardOrder(oid);
       const g = h('div', { class: 'db-group' });
       paintOrder(g, oid);
-      g.append(h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), oid ? [h('b', null, 'ЗНП ' + (o?.orderNo || ts[0].orderNo || '—')), o?.customer ? h('span', { class: 'muted' }, ' · ' + o.customer) : null] : 'Без заказа'),
+      g.append(h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), oid ? [h('b', null, 'ЗНП ' + (clean(o?.orderNo) || clean(ts[0].orderNo) || 'без номера')), o?.customer ? h('span', { class: 'muted' }, ' · ' + o.customer) : null] : 'Без заказа'),
         ...ts.sort((a, b) => (key === 'done' ? 0 : (a.seq || 0) - (b.seq || 0))).map(taskEl));
       body.append(g);
     }

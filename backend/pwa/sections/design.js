@@ -26,7 +26,8 @@ export const people = () => (peopleP ||= api('/dicts/persons').then((r) => (r.it
   .map((p) => ({ value: p.id, label: p.name })).sort((a, b) => a.label.localeCompare(b.label, 'ru'))).catch(() => { peopleP = null; return []; }));
 
 // ---------- мелкие элементы ----------
-const title = (r) => r.productName || r.title;
+const clean = (v) => { const s = v === null || v === undefined ? '' : String(v).trim(); return s === 'null' || s === 'undefined' ? '' : s; };
+const title = (r) => clean(r.productName) || clean(r.title) || 'Без названия';
 const dayDiff = (d) => Math.round((new Date(String(d).slice(0, 10)) - new Date(isoDay())) / 864e5);
 /** Срок: просрочен — красный и «просрочено N дн.» текстом, ≤ 2 дней — золото, у завершённых серый. */
 export function dueNode(r) {
@@ -39,14 +40,14 @@ export function dueNode(r) {
 }
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
-const subLine = (r, withCode = true) => [r.sku && '№ ' + r.sku, r.lineNo != null && 'поз. ' + r.lineNo, r.orderNo && 'ЗНП ' + r.orderNo, withCode && r.code].filter(Boolean).join(' · ');
+const subLine = (r, withCode = true) => [clean(r.sku) && '№ ' + clean(r.sku), r.lineNo != null && 'поз. ' + r.lineNo, clean(r.orderNo) && 'ЗНП ' + clean(r.orderNo), withCode && r.code].filter(Boolean).join(' · ');
 const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) }) : h('div', { class: 't-pic-none' }, 'нет фото'));
 
 function boardBody(r, c) {
   if (c.compact) {
     return [pic(r), h('div', { class: 't-main' },
       h('div', { class: 't-title', title: title(r) }, title(r)),
-      h('div', { class: 't-sub', title: r.pauseReason || '' }, (c.key === 'paused' && r.pauseReason ? r.pauseReason + ' · ' : '') + subLine(r)),
+      h('div', { class: 't-sub', title: r.pauseReason || '' }, [c.key === 'paused' && r.pauseReason, subLine(r)].filter(Boolean).join(' · ')),
       h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), avatar(r)))];
   }
   return [pic(r),
@@ -122,7 +123,7 @@ export const design = {
     columns: [
       { key: 'code', label: 'Код', sort: 'seq', cls: 'nowrap', render: (r) => h('b', null, r.code) },
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.photo ? h('img', { class: 'pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
-      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), h('small', { class: 'muted' }, ' ' + subLine(r, false))) },
+      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), subLine(r, false) ? h('small', { class: 'muted' }, ' ' + subLine(r, false)) : null) },
       { key: 'due', label: 'Срок', cls: 'nowrap', render: dueNode },
       { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prioBadge(r) || '' },
       { key: 'assignee', label: 'Исполнитель', cls: 'nowrap md-hide', render: (r) => (r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')) },
@@ -160,10 +161,10 @@ export const design = {
     gallery: (r) => (r.photo ? [{ id: 'p', url: r.photo, thumb: r.photo }] : []),
     stats: (r) => [['Статус', STATUS[r.status]?.label || r.status], ['Приоритет', ORDER_PRIORITY[r.priority]?.label || r.priority], ['Срок', r.deadline ? date(r.deadline) : '—']],
     view: (r) => [
-      ['Заказ', r.orderId ? h('a', { href: '#salesorders?open=' + r.orderId }, 'ЗНП ' + (r.orderNo || '—')) : null],
+      ['Заказ', r.orderId ? h('a', { href: '#salesorders?open=' + r.orderId }, 'ЗНП ' + (clean(r.orderNo) || 'без номера')) : null],
       ['Позиция', [r.lineNo != null && 'поз. ' + r.lineNo, r.customerTitle].filter(Boolean).join(' · ')],
-      ['Изделие', [r.sku && '№ ' + r.sku, r.productName].filter(Boolean).join(' · ')],
-      ['Название', r.title],
+      ['Изделие', [clean(r.sku) && '№ ' + clean(r.sku), clean(r.productName)].filter(Boolean).join(' · ')],
+      ['Название', clean(r.title)],
       ['Исполнитель', r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')],
       ['Срок', r.deadline ? h('span', null, dueNode(r), r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null) : ''],
       ['Приоритет', h('span', null, ORDER_PRIORITY[r.priority]?.label || r.priority, r.priorityFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)],
@@ -184,7 +185,7 @@ export const design = {
     fields: async (row) => {
       const ppl = await people();
       const fromOrderDl = row?.deadlineFromOrder && row.deadline ? ` Сейчас — из заказа: ${date(row.deadline)}.` : '';
-      const fromOrderPr = row?.priorityFromOrder ? ` Сейчас — из заказа: ${ORDER_PRIORITY[row.priority]?.label.toLowerCase()}.` : '';
+      const fromOrderPr = row?.priorityFromOrder ? ` Сейчас — из заказа: ${(ORDER_PRIORITY[row.priority]?.label || '').toLowerCase()}.` : '';
       return [
         ...(!row ? [
           { section: 'Позиция заказа', tone: 'main', fixed: true },
