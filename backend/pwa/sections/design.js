@@ -7,7 +7,7 @@ import { mountBoard } from '../ui/board.js';
 import { askAssignee, askReason, mountDesignBoard } from '../ui/design-board.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
 import { activeOrders, orderLabel, STAGE } from './salesorders.js';
 
@@ -99,6 +99,42 @@ const toInitial = (r) => ({
   priority: r.priorityFromOrder || r.priority === 'normal' ? '' : r.priority,
 });
 
+// ---------- карточка: шапка, фото, примечание ----------
+function openPhoto(url) {
+  const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото', onclick: () => box.remove() }, h('img', { src: PREFIX + url, alt: '' }));
+  document.body.append(box);
+}
+function topBlock(r, ctx) {
+  const can = session.canEdit;
+  const num = clean(r.productionNo);
+  const link = (text, id) => (id ? h('a', { href: '#salesorders?open=' + id }, text) : text);
+  const sub = [clean(r.sku) && 'арт. ' + clean(r.sku),
+    num ? link('ЗНП ' + num, r.orderId) : clean(r.orderNo) ? link('Заказ № ' + clean(r.orderNo), r.orderId) : null,
+    r.lineNo != null ? link('поз. ' + r.lineNo, r.orderId) : null].filter(Boolean);
+  const subEl = h('div', { class: 'dc-sub' }, ...sub.flatMap((x, i) => (i ? [' · ', x] : [x])));
+  const assign = async () => {
+    const who = await askAssignee(await people(), { okText: 'Назначить' });
+    if (!who) return;
+    try { ctx.setRow(await api('/design-tasks/' + r.id, { method: 'PATCH', body: { assigneeId: who } })); } catch (e) { toastError(e, 'назначить исполнителя'); }
+  };
+  const who = r.assignee
+    ? h(can ? 'button' : 'span', { class: 'dc-who', type: can ? 'button' : undefined, onclick: can ? assign : undefined }, h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials), ' ' + r.assignee.name)
+    : h(can ? 'button' : 'span', { class: 'dc-who t-none', type: can ? 'button' : undefined, onclick: can ? assign : undefined }, 'не назначен');
+  const chips = h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r), dueNode(r), who);
+  const big = (r.photos && r.photos[0]) || null;
+  const src = big ? big.url : r.photo;
+  const cover = src
+    ? h('img', { class: 'db-cover', src: PREFIX + (big ? big.url : src), alt: 'Фото изделия', title: 'Открыть крупно', tabindex: 0, onclick: () => openPhoto(big ? big.url : src), onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) })
+    : h('div', { class: 't-pic-none' }, 'Фото нет. Добавьте ниже, в блоке «Фото».');
+  return h('div', { class: 'dc-top' }, sub.length ? subEl : null, chips,
+    r.status === 'paused' && r.pauseReason ? h('div', { class: 'dc-pause' }, 'Пауза: ' + r.pauseReason) : null, cover);
+}
+function noteBlock(text) {
+  const p = h('div', { class: 'dc-note clip3' }, text);
+  const btn = h('button', { type: 'button', class: 'link-btn', onclick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать' : 'Свернуть'; } }, 'Показать');
+  return h('details', { class: 'db-blk' }, h('summary', null, 'Примечание'), h('div', { class: 'db-blk-body' }, p, btn));
+}
+
 export const design = {
   id: 'design',
   title: 'Проектирование',
@@ -160,33 +196,27 @@ export const design = {
 
   card: {
     heading: (r) => `${r.code} · ${title(r)}`,
-    subheading: (r) => STATUS[r.status]?.label || '',
-    gallery: () => [], // фото — блок «Фото» ниже (extra)
-    stats: (r) => [['Статус', STATUS[r.status]?.label || r.status], ['Приоритет', ORDER_PRIORITY[r.priority]?.label || r.priority], ['Срок', r.deadline ? date(r.deadline) : '—']],
-    view: (r) => [
-      ['Заказ', r.orderId ? h('a', { href: '#salesorders?open=' + r.orderId }, 'ЗНП ' + (clean(r.orderNo) || 'без номера')) : null],
-      ['Позиция', [r.lineNo != null && 'поз. ' + r.lineNo, r.customerTitle].filter(Boolean).join(' · ')],
-      ['Изделие', [clean(r.sku) && '№ ' + clean(r.sku), clean(r.productName)].filter(Boolean).join(' · ')],
-      ['Название', clean(r.title)],
-      ['Исполнитель', r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')],
-      ['Срок', r.deadline ? h('span', null, dueNode(r), r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null) : ''],
-      ['Приоритет', h('span', null, ORDER_PRIORITY[r.priority]?.label || r.priority, r.priorityFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)],
-      ['Причина паузы', r.pauseReason],
-      ['Примечание', r.note],
-      ['Завершена', r.completedAt ? date(r.completedAt) : ''],
-    ],
+    subheading: () => '',
+    gallery: () => [],
+    top: (r, ctx) => topBlock(r, ctx),
+    view: () => [],
     extra: (r, ctx) => {
       const host = h('div', { class: 'db-blocks' });
       const can = session.canEdit;
+      const prod = [['Артикул', clean(r.sku)], ['Изделие', clean(r.productName)], ['Название заказчика', clean(r.customerTitle)], ['Название задачи', clean(r.title) !== title(r) ? clean(r.title) : '']].filter(([, v]) => v);
+      if (prod.length) host.append(h('section', { class: 'dc-prod' }, h('h3', null, 'Изделие'), h('dl', { class: 'fields' }, prod.flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)]))));
       host.append(discussionBlock(r, ctx));
-      host.append(photosBlock(r, ctx, can));
+      const ph = photosBlock(r, ctx, can);
+      if (r.photos?.length) ph.open = false;
+      host.append(ph);
+      if (r.note) host.append(noteBlock(r.note));
       visibleStickers().then((list) => { const b = stickersBlock(r, list, ctx, can); if (b) host.append(b); });
       return host;
     },
     actions: (r) => {
-      const go2 = (to, label, primary) => ({ label, primary, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
-      if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить')];
-      if (r.status === 'work') return [go2('done', 'Завершить', true), go2('paused', 'Приостановить'), go2('queue', 'Вернуть на распределение')];
+      const go2 = (to, label, primary, more) => ({ label, primary, more, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
+      if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить', false, true)];
+      if (r.status === 'work') return [go2('done', 'Завершить', true), go2('paused', 'Приостановить', false, true), go2('queue', 'Вернуть на распределение', false, true)];
       if (r.status === 'paused') return [go2(r.assigneeId ? 'work' : 'queue', r.assigneeId ? 'Возобновить' : 'Вернуть на распределение', true), go2('done', 'Завершить')];
       return [go2('work', 'Вернуть в работу')];
     },

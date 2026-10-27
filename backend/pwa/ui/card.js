@@ -93,6 +93,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     upEl.hidden = !up;
     if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }
     const content = [];
+    if (section.card.top) content.push(section.card.top(row, actx()));
     const pics = section.card.gallery ? section.card.gallery(row) : [];
     const canPhoto = canEditSection(section) && section.card.photoAdd;
     if (pics.length) content.push(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
@@ -104,13 +105,23 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (canEditSection(section) && (section.card.actions || (section.card.editTop && section.form))) {
       // editTop — «Изменить» первой кнопкой сверху (СП.1: внизу её не замечают)
       const acts = [section.card.editTop && section.form ? { label: 'Изменить', primary: true, run: () => showForm('edit') } : null, ...(section.card.actions ? section.card.actions(row, actx()) : [])].filter(Boolean);
-      if (acts.length) content.push(h('div', { class: 'actions' }, acts.map((a) => h('button', { class: 'btn' + (a.primary ? ' btn-primary' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label))));
+      if (acts.length) {
+        // a.more — редкое действие уходит в «⋯» рядом с кнопками
+        const mk = (a, cls) => h('button', { class: cls || 'btn' + (a.primary ? ' btn-primary' : section.card.top ? ' btn-ghost' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label);
+        const rare = acts.filter((a) => a.more), main = acts.filter((a) => !a.more);
+        const kids = main.map((a) => mk(a));
+        if (rare.length) {
+          const menu = h('div', { class: 'menu', role: 'menu', hidden: true }, rare.map((a) => h('button', { type: 'button', role: 'menuitem', onclick: (e) => { menu.hidden = true; runAction(a, e.currentTarget); } }, a.label)));
+          kids.push(h('span', { class: 'act-more' }, h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', onclick: () => { menu.hidden = !menu.hidden; } }, '⋯'), menu));
+        }
+        content.push(h('div', { class: 'actions' }, kids));
+      }
     }
     content.push(h('dl', { class: 'fields' }, (section.card.view(row) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
     if (section.card.extra) content.push(section.card.extra(row, actx()));
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
-    const histWrap = histUl ? h('div', { hidden: true }, h('div', { class: 'section-title' }, 'История изменений'), histUl) : null;
+    const histWrap = histUl ? (section.card.top ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : h('div', { hidden: true }, h('div', { class: 'section-title' }, 'История изменений'), histUl)) : null;
     if (histWrap) content.push(histWrap);
     body.replaceChildren(...content);
     if (histUl) loadHistory(histUl, histWrap);

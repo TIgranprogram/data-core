@@ -21,18 +21,25 @@ export function noteTime(v) {
   return `${two(d.getDate())}.${two(d.getMonth() + 1)}.${d.getFullYear()} ${hm}`;
 }
 
+const noteClock = (v) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : `${two(d.getHours())}:${two(d.getMinutes())}`; };
+const dayKey = (v) => { const d = new Date(v); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+/** «Сегодня», «Вчера», иначе «27.10.2026». */
+const dayLabel = (v) => { const t = noteTime(v); return t.startsWith('сегодня') ? 'Сегодня' : t.startsWith('вчера') ? 'Вчера' : t.slice(0, 10); };
+/** Лишние пустые строки (импорт YouGile) схлопываются, остальное — как есть. */
+const tidy = (t) => String(t || '').replace(/\n\s*\n+/g, '\n').trim();
+
 /** Подпись открытых вопросов: «1 вопрос», «3 вопроса». */
 export const questionsText = (n) => `${n} ${plural(n, 'вопрос', 'вопроса', 'вопросов')}`;
 
 export function discussionBlock(row, ctx) {
   let items = [];
   let replyTo = null;
-  const list = h('div', { class: 'dn-list' });
+  const list = h('div', { class: 'dn-list', role: 'log', 'aria-live': 'polite' });
   const flag = h('div', { class: 'dn-flag', hidden: true });
   const input = h('textarea', { class: 'dn-input', rows: 2, maxlength: 4000, placeholder: 'Напишите сообщение…', 'aria-label': 'Сообщение' });
-  const ask = h('input', { type: 'checkbox' });
+  const ask = h('input', { type: 'checkbox', id: 'dn-ask-' + row.id });
   const replyBar = h('div', { class: 'dn-reply', hidden: true });
-  const send = h('button', { type: 'button', class: 'btn primary' }, 'Отправить');
+  const send = h('button', { type: 'button', class: 'btn btn-primary' }, 'Отправить');
 
   const open = () => items.filter((n) => n.kind === 'question' && n.needsAnswer);
   const sync = () => {
@@ -48,22 +55,35 @@ export function discussionBlock(row, ctx) {
     if (q) input.focus();
   };
 
-  const item = (n) => {
+  let openMenu = null;
+  const item = (n, same) => {
     const mine = n.canEdit;
     const isQ = n.kind === 'question';
-    return h('div', { class: 'dn-item' + (isQ && n.needsAnswer ? ' dn-open' : ''), id: 'dn-' + n.id },
-      h('span', { class: 'avatar sm', title: n.author.name }, n.author.initials),
-      h('div', { class: 'dn-body' },
-        h('div', { class: 'dn-head' }, h('b', null, n.author.name), h('span', { class: 'muted' }, noteTime(n.createdAt)),
+    const open = isQ && n.needsAnswer;
+    const menu = mine ? h('div', { class: 'menu', role: 'menu', hidden: true }, h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: () => { menu.hidden = true; remove(n); } }, 'Удалить')) : null;
+    const dots = mine ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon dn-dots', title: 'Ещё', 'aria-label': 'Ещё действия с сообщением', onclick: (e) => { e.stopPropagation(); const was = menu.hidden; openMenu?.(); menu.hidden = !was; openMenu = was ? () => { menu.hidden = true; } : null; } }, '⋯') : null;
+    return h('div', { class: 'dn-item' + (open ? ' dn-open' : '') + (same ? ' dn-same' : ''), id: 'dn-' + n.id },
+      same ? h('span', { class: 'dn-gap' }) : h('span', { class: 'avatar sm', title: n.author.name, 'aria-label': n.author.name }, n.author.initials),
+      h('div', { class: 'dn-bubble' },
+        same && !isQ ? null : h('div', { class: 'dn-head' }, same ? null : h('b', null, n.author.name), h('span', { class: 'muted' }, noteClock(n.createdAt)),
           isQ ? h('span', { class: 'stk ' + (n.needsAnswer ? 'warn' : 'dim') }, n.needsAnswer ? 'Требует ответа' : 'Есть ответ') : null),
-        h('div', { class: 'dn-text' }, n.text),
-        h('div', { class: 'dn-acts' },
-          isQ && n.needsAnswer ? h('button', { type: 'button', class: 'link-btn', onclick: () => setReply(n) }, 'Ответить') : null,
-          mine ? h('button', { type: 'button', class: 'link-btn', onclick: () => remove(n) }, 'Удалить') : null)));
+        h('div', { class: 'dn-text' }, tidy(n.text)),
+        open ? h('div', { class: 'dn-acts' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => setReply(n) }, 'Ответить')) : null,
+        dots ? h('div', { class: 'dn-menu' }, dots, menu) : null));
   };
+  document.addEventListener('click', () => { openMenu?.(); openMenu = null; });
 
   const paint = () => {
-    list.replaceChildren(...(items.length ? items.map(item) : [h('div', { class: 'db-hint' }, 'Пока нет сообщений. Напишите первое.')]));
+    const out = [];
+    let prev = null;
+    for (const n of items) {
+      const day = dayKey(n.createdAt);
+      if (!prev || prev.day !== day) out.push(h('div', { class: 'dn-day' }, h('span', null, dayLabel(n.createdAt))));
+      const same = prev && prev.day === day && prev.author === n.author.name && n.kind !== 'question';
+      out.push(item(n, same));
+      prev = { day, author: n.author.name };
+    }
+    list.replaceChildren(...(out.length ? out : [h('div', { class: 'db-hint' }, 'Пока нет сообщений. Напишите первое.')]));
     const q = open();
     flag.hidden = !q.length;
     flag.replaceChildren(...(q.length ? [h('b', null, 'Требует ответа: '), questionsText(q.length), ' ',
@@ -93,7 +113,7 @@ export function discussionBlock(row, ctx) {
   });
 
   const me = session.name;
-  const askLabel = h('label', { class: 'dn-ask' }, ask, ' Вопрос менеджеру');
+  const askLabel = h('label', { class: 'check dn-ask', for: 'dn-ask-' + row.id }, ask, h('span', null, 'Вопрос менеджеру'));
   const box = h('div', { class: 'dn-form' }, replyBar, input, h('div', { class: 'dn-row' }, askLabel, send));
   const el = h('details', { class: 'db-blk', open: true }, h('summary', null, 'Обсуждение'),
     h('div', { class: 'db-blk-body' }, flag, list, me ? box : null));

@@ -26,7 +26,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
   const db = connection.db!;
   const orderIds = uniq(docs.map((d) => d.orderId)), incomeIds = uniq(docs.map((d) => d.incomeId)), personIds = uniq(docs.map((d) => d.assigneeId));
   const [orders, incomes, persons, noteRows] = await Promise.all([
-    orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionDeadline: 1, shipDate: 1, priority: 1 } }).toArray() : [],
+    orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1, priority: 1 } }).toArray() : [],
     incomeIds.length ? db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { lineNo: 1, title: 1, productId: 1 } }).toArray() : [],
     personIds.length ? db.collection('persons').find({ _id: { $in: personIds } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [],
     // счётчики обсуждения: всего записей и открытых вопросов — одним запросом на страницу
@@ -52,6 +52,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
     const manual = (d.manual as { deadline?: Date; priority?: string } | undefined) ?? {};
     const sku = (prod?.sku as string | undefined) ?? null, productName = (prod?.name as string | undefined) ?? null;
     const orderNo = (o?.orderNo as string | undefined) ?? null, lineNo = (inc?.lineNo as number | undefined) ?? null;
+    const productionNo = (o?.productionNo as string | undefined) || null;
     const customerTitle = (inc?.title as string | undefined) ?? null;
     // «Чертежи <артикул> ЗНП <№ заказа> поз <№>»; без изделия — короткое название заказчика
     const auto = prod
@@ -68,7 +69,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
       photoIds: own.map((x) => x!.id), photos: own,
       notesCount: (notes.get(String(d._id))?.n as number | undefined) ?? 0, openQuestions: (notes.get(String(d._id))?.q as number | undefined) ?? 0,
       stickers: (d.stickers as Record<string, unknown> | undefined) ?? {},
-      orderId: d.orderId ? String(d.orderId) : null, orderNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo,
+      orderId: d.orderId ? String(d.orderId) : null, orderNo, productionNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo,
       productId: pid ? String(pid) : null, sku, productName, customerTitle,
       deadline: manual.deadline ?? orderDeadline(o), deadlineFromOrder: !manual.deadline && !!orderDeadline(o),
       priority: manual.priority ?? (o?.priority as string | undefined) ?? 'normal', priorityFromOrder: !manual.priority && !!o?.priority,

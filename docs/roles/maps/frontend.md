@@ -65,3 +65,6 @@
 ## Стикеры и фото задач проектирования (2026-10-27, не закоммичено)
 коммит: (после коммита координатора)
 - `ui/design-stickers.js` — `stickerNode/stickerRow`, кэш `setStickers/visibleStickers/allStickers`, `photosBlock`, `stickersBlock` (PATCH /design-tasks/:id/stickers; фото — POST/DELETE /photos). Карточка — `design-board.js taskEl` (`S.stickers`, кнопка «Настройки доски» только admin); панель задачи — `sections/design.js card.extra`; `sections/design-settings.js` (`of=designsettings&open=board`, main.js SECTIONS/OWNER). CSS — конец `ui/panels.css`.
+
+## Карточка задачи D-N (2026-10-27, не закоммичено)
+- `ui/card.js` — новые опции `card.top(row,ctx)` (блок до галереи), действие `more:true` уходит в «⋯» (`.act-more`), история — `details` при `card.top`. `sections/design.js` — `topBlock/noteBlock/openPhoto`, `card.extra`. `ui/design-notes.js` — мессенджер (`item/paint/tidy/dayLabel`). CSS — конец `ui/panels.css` (`.dc-*`, `.dn-*`). Сервер: `design-present.ts` отдаёт `productionNo`.
