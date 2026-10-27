@@ -34,6 +34,8 @@ export class CreateProductPassportDto {
   @IsOptional() @IsObjectId() customerOrgId?: string;
   @IsOptional() @IsString() orderNo?: string;
   @IsOptional() @IsObjectId() salesOrderId?: string;
+  @IsOptional() @IsIn(['ready', 'notReady', 'rework']) readiness?: string;
+  @IsOptional() @IsString() reworkNote?: string;
   @IsOptional() @IsObjectId() supplierOrgId?: string;
   @IsOptional() @IsNumber() @Min(0) @Max(240) warrantyMonths?: number;
   /** [{ kind: overview|dimensions|safety|mounting, photoId, order?, caption? }] */

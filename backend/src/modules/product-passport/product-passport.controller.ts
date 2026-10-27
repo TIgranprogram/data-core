@@ -56,12 +56,22 @@ export class ProductPassportController {
   @ApiQuery({ name: 'year', required: false }) @ApiQuery({ name: 'month', required: false, description: '1–12, вместе с year' })
   @ApiQuery({ name: 'category', required: false }) @ApiQuery({ name: 'supplierOrgId', required: false }) @ApiQuery({ name: 'customer', required: false })
   @ApiQuery({ name: 'noImages', required: false, description: '1 — без картинок' }) @ApiQuery({ name: 'incomplete', required: false, description: '1 — не хватает данных для выдачи' })
+  @ApiQuery({ name: 'salesOrderId', required: false }) @ApiQuery({ name: 'orderNo', required: false }) @ApiQuery({ name: 'readiness', required: false, description: 'ready | notReady | rework' })
   @ApiQuery({ name: 'productId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   @ApiQuery({ name: 'legacy', required: false, description: '1 — только старые (перенос: source не app)' })
   @ApiQuery({ name: 'sort', required: false, description: 'passportNo | date | name | category | customerName | createdAt | updatedAt; «-» — по убыванию (умолч. -passportNo)' })
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   list(@Query() q: Record<string, string>) {
     return this.service.list(q);
+  }
+
+  /** Заказ → паспорта: группы { orderId, orderNo, customerName, total, ready, notReady, rework, items[] }, пагинация по заказам; «Без заказа» — последней. */
+  @Get('passports/by-order')
+  @Roles(...VIEW)
+  @ApiQuery({ name: 'readiness', required: false, description: 'ready | notReady | rework' })
+  @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  byOrder(@Query() q: Record<string, string>) {
+    return this.service.byOrder(q);
   }
 
   /** Значения для фильтров: годы, категории, поставщики, заказчики. */

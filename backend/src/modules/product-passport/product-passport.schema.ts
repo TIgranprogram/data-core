@@ -65,6 +65,10 @@ export class ProductPassport {
   // ───── НМ: черновик → выпуск → (аннулирование); поля только data-core, kppdf их не читает ─────
   /** draft — черновик без номера; issued — выпущен (номер, талон, текст заморожены); annulled — аннулирован (номер занят). Нет поля — старый паспорт = выпущен. */
   @Prop() status?: string;
+  /** Готовность к отдаче: ready / notReady / rework. Не путать с status. Нет поля: выпущенный = готов, черновик = не готов (считается на чтении). kppdf поле не читает — только добавлено, синхронно не нужно. */
+  @Prop({ enum: ['ready', 'notReady', 'rework'] }) readiness?: string;
+  /** Что доработать (при readiness = rework). */
+  @Prop({ trim: true }) reworkNote?: string;
   @Prop() issuedAt?: Date;
   @Prop() annulledAt?: Date;
   @Prop({ trim: true }) annulReason?: string;

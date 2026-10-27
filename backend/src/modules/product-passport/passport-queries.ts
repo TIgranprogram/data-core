@@ -5,7 +5,7 @@ import { tokensFilter } from '../../common/text/search-norm';
 import type { ProductPassportDocument } from './product-passport.schema';
 import { missingFieldsV2 } from './passport-rules';
 import { missingChoices, resolveChoices, type PhraseTreeNode } from '../../common/passport/phrase-tree';
-import { MODEL_FIELDS, SORT, escapeRe, type Doc } from './passport-consts';
+import { MODEL_FIELDS, SORT, escapeRe, readinessOf, type Doc } from './passport-consts';
 
 /** Что спискам и подсказкам нужно от сервиса паспортов. */
 export interface QueriesHost {
@@ -39,7 +39,7 @@ export class PassportQueries {
       const filter = this.filterOf(q, p.deleted);
       // поиск «как на складе»: «качели двойные» = «двойные качели», ё = е
       const sf = tokensFilter(q.search, ['passportNumber', 'warrantyCode', 'productCode', 'name', 'article', 'customerName', 'objectName', 'orderNo', 'category', 'supplier']);
-      if (sf) filter.$and = sf.$and;
+      if (sf) filter.$and = [...((filter.$and as unknown[]) ?? []), ...sf.$and];
       const docs = await this.h.model.find(filter, full ? undefined : { textSnapshot: 0 }).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).lean().exec();
       // «неполные» считаются правилами, а не запросом — паспортов сотни
       const [cats, inst] = await Promise.all([this.h.categoryRules(), this.h.installs()]);
@@ -61,6 +61,34 @@ export class PassportQueries {
     const items = rows.slice(p.skip, p.skip + p.limit).map((d) => ({ ...d }));
     await this.attachThumbs(items);
     return { items, total: rows.length, page: p.page, limit: p.limit, incomplete: all.filter((d) => d.missing.length).length };
+  }
+
+  /**
+   * Заказ → паспорта: группы по заказу (ключ — salesOrderId, иначе нормализованный orderNo; без обоих — «Без заказа»).
+   * Фильтры как у списка (readiness, search, year…); аннулированные не входят. Пагинация — по заказам; «Без заказа» — последней.
+   */
+  async byOrder(q: Record<string, unknown> = {}) {
+    const p = parseList(q, { sortable: SORT, defaultSort: '-updatedAt', defaultLimit: 25 });
+    const filter = this.filterOf(q, false);
+    filter.status = filter.status ?? { $ne: 'annulled' };
+    const sf = tokensFilter(q.search, ['passportNumber', 'name', 'article', 'customerName', 'objectName', 'orderNo']);
+    if (sf) filter.$and = [...((filter.$and as unknown[]) ?? []), ...sf.$and];
+    const docs = (await this.h.model.find(filter, { name: 1, passportNumber: 1, status: 1, readiness: 1, reworkNote: 1, orderNo: 1, salesOrderId: 1, customerName: 1, objectName: 1, date: 1, updatedAt: 1, article: 1, category: 1 })
+      .setOptions({ includeSoftDeleted: true }).sort({ updatedAt: -1, _id: -1 }).lean().exec()) as unknown as Doc[];
+    const groups = new Map<string, { orderId: string | null; orderNo: string | null; customerName: string | null; total: number; ready: number; notReady: number; rework: number; items: Doc[] }>();
+    for (const d of docs) {
+      const no = String(d.orderNo ?? '').trim();
+      const key = d.salesOrderId ? `id:${d.salesOrderId}` : no ? `no:${no.toLowerCase()}` : 'none';
+      const g = groups.get(key) ?? { orderId: d.salesOrderId ? String(d.salesOrderId) : null, orderNo: no || null, customerName: null, total: 0, ready: 0, notReady: 0, rework: 0, items: [] };
+      g.orderNo = g.orderNo || no || null;
+      g.customerName = g.customerName || (d.customerName as string) || null;
+      const r = readinessOf(d);
+      g.total++; g[r]++;
+      g.items.push({ ...d, readiness: r });
+      groups.set(key, g);
+    }
+    const rows = [...groups.entries()].sort((a, b) => Number(a[0] === 'none') - Number(b[0] === 'none')).map(([, g]) => g);
+    return { items: rows.slice(p.skip, p.skip + p.limit), total: rows.length, page: p.page, limit: p.limit };
   }
 
   /** Миниатюра общего вида (галерея, строка списка): `thumb` — маленькая, `photoUrl` — оригинал. */
@@ -140,6 +168,15 @@ export class PassportQueries {
     if (q.productId) f.productId = this.h.oid(q.productId);
     // NAV B1: «Архив паспортов» — старые (перенос: source не 'app', в т. ч. без поля); только чтение
     if (q.legacy === '1' || q.legacy === 'true') f.source = { $ne: 'app' };
+    if (q.salesOrderId) f.salesOrderId = this.h.oid(q.salesOrderId);
+    if (q.orderNo) f.orderNo = new RegExp(`^\s*${escapeRe(String(q.orderNo).trim())}\s*$`, 'i');
+    // готовность: своя или по умолчанию (выпущенный — готов, черновик — не готов); аннулированные не считаются
+    if (q.readiness === 'ready' || q.readiness === 'notReady' || q.readiness === 'rework') {
+      const issued = [{ status: 'issued' }, { status: { $exists: false }, passportNumber: { $nin: [null, ''] } }];
+      const noField = { readiness: { $exists: false } };
+      const dflt = q.readiness === 'ready' ? { ...noField, $or: issued } : q.readiness === 'notReady' ? { ...noField, status: 'draft' } : null;
+      f.$and = [{ status: { $ne: 'annulled' } }, { $or: dflt ? [{ readiness: q.readiness }, dflt] : [{ readiness: q.readiness }] }];
+    }
     if (q.noImages === '1' || q.noImages === 'true') f['images.0'] = { $exists: false };
     return f;
   }

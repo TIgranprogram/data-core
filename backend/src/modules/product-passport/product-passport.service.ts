@@ -47,6 +47,7 @@ export class ProductPassportService {
   list(q: Record<string, unknown> = {}, opts: { full?: boolean } = {}) { return this.queries.list(q, opts); }
   phrases() { return this.queries.phrases(); }
   models() { return this.queries.models(); }
+  byOrder(q: Record<string, unknown> = {}) { return this.queries.byOrder(q); }
   facets(q: Record<string, unknown> = {}) { return this.queries.facets(q); }
   /** Массовое изменение выбранных паспортов (БЗ-9) → { updated, failed, before }. */
   bulk(dto: { ids?: unknown; set?: Record<string, unknown>; arrays?: Record<string, string>; rebuildText?: boolean }) { return this.bulkOps.run(dto); }

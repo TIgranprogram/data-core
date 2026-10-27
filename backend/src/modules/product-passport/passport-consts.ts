@@ -12,7 +12,7 @@ export const BULK_PASSPORT_FIELDS = ['passportCategory', 'category', 'installati
   'supplierOrgId', 'customerName', 'orderNo', 'objectName', 'installedBy', 'saleDate', 'installedAt'] as const;
 export const BULK_NUMBER_FIELDS = ['serviceLifeYears', 'warrantyMonths', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth'] as const;
 /** НМ-1: у выпущенного паспорта свободно меняются только эти поля (заполняются после печати). */
-export const AFTER_PRINT_FIELDS = ['saleDate', 'customerName', 'customerOrgId', 'orderNo', 'salesOrderId', 'objectName', 'installedBy', 'installedAt', 'note'] as const;
+export const AFTER_PRINT_FIELDS = ['saleDate', 'customerName', 'customerOrgId', 'orderNo', 'salesOrderId', 'objectName', 'installedBy', 'installedAt', 'note', 'readiness', 'reworkNote'] as const;
 /** НМ: выпущен ли паспорт (нет статуса и есть номер — старый, выпущенный до НМ). */
 export const isIssued = (d: { status?: unknown; passportNumber?: unknown }) => d.status === 'issued' || (!d.status && !!d.passportNumber && !isDraftNumber(d.passportNumber));
 /**
@@ -21,6 +21,9 @@ export const isIssued = (d: { status?: unknown; passportNumber?: unknown }) => d
  */
 export const DRAFT_PREFIX = 'draft-';
 export const isDraftNumber = (n: unknown) => String(n ?? '').startsWith(DRAFT_PREFIX);
+/** Готовность паспорта: своя, а без поля — выпущенный «готов», черновик «не готов» (данные не мигрируем). */
+export const readinessOf = (d: { readiness?: unknown; status?: unknown; passportNumber?: unknown }): 'ready' | 'notReady' | 'rework' =>
+  d.readiness === 'ready' || d.readiness === 'notReady' || d.readiness === 'rework' ? d.readiness : isIssued(d) ? 'ready' : 'notReady';
 /** Выданные номера: без `confirmNumbers: true` не меняются (ПС, «не менять молча»). */
 export const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
 export const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
