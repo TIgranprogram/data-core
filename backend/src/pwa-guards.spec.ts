@@ -39,3 +39,12 @@ describe('pwa: список modulepreload в index.html свежий', () => {
     expect(have).toEqual(want);
   });
 });
+
+/** Нативные append/replaceChildren печатают null/false текстом («nullnull»): core/dom.js обязан их оборачивать (регэксп по вызовам даёт ложные срабатывания). */
+describe('pwa: core/dom.js оборачивает нативные append/replaceChildren', () => {
+  it('обёртка на месте', () => {
+    const src = readFileSync(join(ROOT, 'core', 'dom.js'), 'utf8');
+    for (const n of ['append', 'prepend', 'replaceChildren', 'before', 'after']) expect(src).toContain(`'${n}'`);
+    expect(src).toContain('__clean');
+  });
+});

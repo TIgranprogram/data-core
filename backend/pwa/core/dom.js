@@ -26,6 +26,22 @@ function append(el, kids) {
   }
 }
 
+// Нативные append/prepend/replaceChildren/before/after печатают null/undefined/false текстом («nullnull»).
+// Оборачиваем один раз: пустые аргументы отбрасываются, как в h().
+const empty = (x) => x === undefined || x === null || x === false;
+for (const [proto, names] of [[Element.prototype, ['append', 'prepend', 'replaceChildren', 'before', 'after']], [DocumentFragment.prototype, ['append', 'prepend', 'replaceChildren']]]) {
+  for (const n of names) {
+    const orig = proto[n];
+    if (!orig || orig.__clean) continue;
+    const w = function (...a) { return orig.apply(this, a.filter((x) => !empty(x))); };
+    w.__clean = true;
+    proto[n] = w;
+  }
+}
+
+/** fill(el, ...kids) — replaceChildren без пустых (null/undefined/false). */
+export const fill = (el, ...kids) => { el.replaceChildren(...kids.flat().filter((x) => !empty(x))); return el; };
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 
 /** Отложить вызов (поиск при наборе). */
