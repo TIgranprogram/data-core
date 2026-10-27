@@ -14,6 +14,7 @@ const path = require('path');
 const [env, dir, ...flags] = process.argv.slice(2);
 if (!['local', 'prod'].includes(env) || !dir) { console.error('usage: <local|prod> <папка> [--apply --out f.json] [--replace]'); process.exit(2); }
 const APPLY = flags.includes('--apply');
+const UPDATE = flags.includes('--update'); // уже перенесённым: примечание с историей, исполнитель, «В работе»
 const REPLACE = flags.includes('--replace');
 const OUT = flags[flags.indexOf('--out') + 1];
 if (APPLY && (!OUT || OUT.startsWith('--'))) { console.error('--apply требует --out откат.json'); process.exit(2); }
@@ -21,7 +22,8 @@ const BASE = env === 'prod' ? 'https://kppdf-crm.ru/db' : 'http://localhost:3001
 
 // Подтверждено пользователем 2026-10-27; остальные ЗНП — без позиции, ЗНП в примечании.
 const ZNP = { '11-26': '9', '10-26': '10', '8-26': '90-П' };
-const PERSON = { 'Александр Нестратов': 'Нестратов Александр', Tigran: 'Овакян Тигран', 'Аркадий': 'Сим Аркадий' };
+const PERSON = { 'Александр Нестратов': 'Нестратов Александр', Tigran: 'Овакян Тигран', 'Аркадий': 'Сим Аркадий', 'Александр Еничевский': 'Еничевский Александр' };
+const NEW_PERSONS = [{ lastName: 'Еничевский', firstName: 'Александр' }]; // создать, если нет (решение пользователя 2026-10-27)
 const STATUS = { 'На распределении': 'queue', 'В работе': 'work', 'Приостановлены': 'paused', 'Завершены': 'done' };
 const PRIORITY = { 'Обычный': 'normal', 'В приоретете': 'high', 'Срочно': 'urgent', 'Низкий': 'low' };
 const MAX_PHOTOS = 20;
@@ -29,6 +31,9 @@ const MAX_PHOTOS = 20;
 const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
 const E = read('mcp-export.json');
 const LINES = read('lines.json').items;
+// history.json — [{id, h}] из MCP: создание, колонки, исполнители, сроки, переписка
+const HIST = fs.existsSync(path.join(dir, 'history.json')) ? Object.fromEntries(read('history.json').map((x) => [x.id, x.h])) : {};
+const cleanHist = (h) => { let prev = ''; return (h || '').replace(/https?:\/\/\S+/g, '[фото]').split('\n').filter((l) => { const k = l.slice(17); if (k === prev && k.startsWith('Срок')) return false; prev = k; return true; }).join('\n'); };
 
 function creds() {
   const d = path.join(__dirname, '../../deploy/synology');
@@ -72,7 +77,8 @@ function plan(persons) {
     const assigneeId = pid[PERSON[names[0]]] || null;
     const pri = Object.values(t.stickers).map((v) => PRIORITY[v]).find(Boolean) || 'normal';
     const items = t.checklists.flatMap((c) => c.items.map((i) => `${i.isCompleted ? '☑' : '☐'} ${i.title}`)).concat(t.subtasks.map((s) => `${s.complete ? '☑' : '☐'} ${s.title}`));
-    const first = (t.messages[0]?.text || '').replace(/https?:\/\/\S+/g, '').trim();
+    const hist = cleanHist(HIST[t.id]);
+    const first = hist ? '' : (t.messages[0]?.text || '').replace(/https?:\/\/\S+/g, '').trim();
     const note = [
       `YouGile ${t.taskId}`,
       !line && znp ? `ЗНП ${znp}${pos ? ` поз ${pos}` : ''}` : '',
@@ -80,6 +86,7 @@ function plan(persons) {
       t.complete && t.completeAt ? `Завершено в YouGile: ${t.completeAt.slice(0, 10)}` : '',
       items.length ? `Подзадачи: ${items.join('; ')}` : '',
       first,
+      hist ? `\nИстория из YouGile:\n${hist}` : '',
     ].filter(Boolean).join('\n').slice(0, 5000);
     return {
       yg: t.taskId, title: t.title.slice(0, 300), status: STATUS[t.column], incomeId: line?._id || null,
@@ -101,11 +108,31 @@ async function uploadPhoto(url) {
 (async () => {
   await login();
 
-  const persons = (await api('GET', '/api/persons?limit=500')).items.map((p) => ({ id: p.id, name: p.name || p.fullName || [p.lastName, p.firstName].filter(Boolean).join(' ') }));
+  let persons = (await api('GET', '/api/persons?limit=500')).items.map((p) => ({ id: p.id, name: p.name || p.fullName || [p.lastName, p.firstName].filter(Boolean).join(' ') }));
+  const pname = (p) => p.name || p.fullName || [p.lastName, p.firstName].filter(Boolean).join(' ');
+  const absent = NEW_PERSONS.filter((n) => !persons.some((p) => p.name === `${n.lastName} ${n.firstName}`));
+  if (absent.length) console.log(`создать сотрудников: ${absent.map((n) => `${n.lastName} ${n.firstName}`).join(', ')}`);
+  if (absent.length && APPLY) for (const n of absent) { const r = await api('POST', '/api/persons', n); persons.push({ id: r.id, name: pname(r) || `${n.lastName} ${n.firstName}` }); }
   const existing = (await api('GET', '/api/design-tasks?limit=500&status=queue,work,paused,done')).items;
   const done = new Set(existing.map((t) => (String(t.note || '').match(/^YouGile (D-\d+)/) || [])[1]).filter(Boolean));
   const toDelete = REPLACE ? existing.filter((t) => !/^YouGile D-\d+/.test(String(t.note || ''))) : [];
-  const rows = plan(persons).filter((r) => !done.has(r.yg));
+  const all = plan(persons);
+  if (UPDATE) {
+    const byYg = Object.fromEntries(existing.map((t) => [(String(t.note || '').match(/^YouGile (D-\d+)\n/) || [])[1], t]));
+    const ups = all.filter((r) => byYg[r.yg]).map((r) => { const cur = byYg[r.yg]; const patch = {};
+      if (cur.note !== r.note) patch.note = r.note;
+      if (r.assigneeId && String(cur.assigneeId || '') !== r.assigneeId) patch.assigneeId = r.assigneeId;
+      if (r.status === 'work' && r.assigneeId && cur.status === 'queue') patch.status = 'work';
+      return { yg: r.yg, code: cur.code, id: cur.id, before: { note: cur.note, assigneeId: cur.assigneeId || null, status: cur.status }, patch }; }).filter((u) => Object.keys(u.patch).length);
+    const k = (f) => ups.filter((u) => f in u.patch).length;
+    console.log(`обновить ${ups.length}: примечание ${k('note')}, исполнитель ${k('assigneeId')}, в работу ${k('status')}`);
+    if (!APPLY) return;
+    const log = { env, at: new Date().toISOString(), updated: [], problems: [] };
+    for (const u of ups) { try { await api('PATCH', `/api/design-tasks/${u.id}`, u.patch); log.updated.push(u); } catch (e) { log.problems.push(`${u.yg}: ${e.message}`); } fs.writeFileSync(OUT, JSON.stringify(log, null, 1)); }
+    console.log(`итог: обновлено ${log.updated.length}, проблем ${log.problems.length}`); log.problems.forEach((p) => console.log(' - ' + p));
+    return;
+  }
+  const rows = all.filter((r) => !done.has(r.yg));
 
   const cnt = {}; rows.forEach((r) => { cnt[r.status] = (cnt[r.status] || 0) + 1; });
   console.log(`${env}: удалить ${toDelete.length} (${toDelete.map((t) => t.code).join(', ')}); создать ${rows.length} ${JSON.stringify(cnt)}; уже есть ${done.size}`);
