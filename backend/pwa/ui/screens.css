@@ -717,6 +717,26 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gc-meta { color: var(--muted); font-size: var(--fs-sm); }
 @media (max-width: 720px) { .gal-box { padding: 10px; } .gal { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } }
 
+/* Первая страница «Продукции» (ui/cat-art.js, sections/products.js landing): разделы → плитки групп с рисунком */
+.cat-landing { display: flex; flex-direction: column; gap: var(--s5); }
+.cat-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.cat-top p { margin: 0; }
+.cat-sec-head { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s3); }
+.cat-sec-head h3 { margin: 0; }
+.cat-all { margin-left: auto; color: var(--link); }
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--s4); }
+.cat-tile { display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s, transform .15s; }
+.cat-tile:hover, .cat-tile:focus-visible { border-color: var(--border-strong); box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.cat-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cat-art { aspect-ratio: 16 / 10; background: var(--paper); border-bottom: 1px solid var(--border); display: grid; place-items: center; padding: var(--s3); }
+.cat-art svg { width: 100%; height: 100%; transition: transform .2s; }
+.cat-tile:hover .cat-art svg { transform: scale(1.04); }
+.cat-body { padding: var(--s3) var(--s4) var(--s4); display: flex; flex-direction: column; gap: 2px; }
+.cat-name { font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cat-n { color: var(--muted); font-size: var(--fs-sm); }
+@media (prefers-reduced-motion: reduce) { .cat-tile, .cat-art svg { transition: none; } .cat-tile:hover { transform: none; } .cat-tile:hover .cat-art svg { transform: none; } }
+@media (max-width: 720px) { .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); } .cat-body { padding: var(--s2) var(--s3) var(--s3); } .cat-landing { gap: var(--s4); } }
+
 /* «▾ Варианты» готовых текстов под длинным полем (ui/phrases.js) */
 .ph-btn { margin-top: 4px; font-size: var(--fs-sm); align-self: flex-start; }
 .ph-n { color: var(--muted); font-weight: 400; }

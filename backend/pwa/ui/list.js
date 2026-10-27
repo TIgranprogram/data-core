@@ -24,6 +24,7 @@ import { toastError } from './toast.js';
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
  *   footer?(resp), query?(params),
  *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», ui/design-board.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
+ *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
@@ -368,6 +369,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       return;
     }
     const my = ++seq;
+    if (isGallery && L.landing && !bulkMode && L.landing.when(P)) {
+      countEl.textContent = ''; foot.replaceChildren(); panel.classList.remove('loading');
+      const node = await L.landing.render({ pick: (v) => patch({ [L.tiles?.key || 'groupId']: v, page: undefined }) });
+      if (my !== seq) return;
+      loaded = true; rows = []; galleryBox.replaceChildren(node);
+      return;
+    }
     if (!loaded) stateRow(() => h('div', { class: 'skel-block' }, ...Array.from({ length: 6 }, () => h('div', { class: 'skel' }))));
     panel.classList.add('loading');
     let resp;

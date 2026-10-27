@@ -1,7 +1,7 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { stepFunnel } from '../ui/step-funnel.js';
 import { h } from '../core/dom.js';
-import { date, money, qty } from '../core/format.js';
+import { date, money, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { toast } from '../ui/toast.js';
 import { skuKey } from '../core/facets.js';
@@ -17,6 +17,7 @@ import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-s
 import { confirmDlg } from '../ui/dialog.js';
 import { funnelBox } from '../ui/funnel.js';
 import { V2_NUMS, canEdit as canEditPassportTexts } from './passports/common.js';
+import { catArt } from '../ui/cat-art.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -156,6 +157,35 @@ export function createProductFor(initial, then) {
 }
 const pending = () => (pendingCreate && Date.now() - pendingCreate.at < 15 * 60000 ? pendingCreate : null);
 
+// Первая страница «Продукции»: разделы и их группы плитками с рисунком; клик — тот же фильтр, что дерево слева.
+// Раздел без групп — плиткой в «Другие разделы». «Все изделия списком» (?all=1) — прежняя галерея.
+const nItems = (n) => `${qty(n)} ${plural(n, 'изделие', 'изделия', 'изделий')}`;
+const catTile = (g, pick) => {
+  const art = h('div', { class: 'cat-art' });
+  art.innerHTML = catArt(g.name); // свой статичный SVG, данных пользователя нет
+  return h('button', { type: 'button', class: 'cat-tile', title: g.name, onclick: () => pick(g.id) }, art,
+    h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, g.name), h('div', { class: 'cat-n' }, nItems(g.count || 0))));
+};
+async function catLanding({ pick }) {
+  const all = await api('/showcase/groups').catch(() => null);
+  if (!all?.length) return h('div', { class: 'state' }, h('div', null, 'Разделов пока нет — изделия покажутся списком.'),
+    h('button', { class: 'btn', type: 'button', onclick: () => patch({ all: '1' }) }, 'Все изделия'));
+  const tops = all.filter((g) => !g.parentId);
+  const kids = (t) => all.filter((g) => g.parentId === t.id);
+  const withKids = tops.filter((t) => kids(t).length);
+  const single = tops.filter((t) => !kids(t).length);
+  const total = tops.reduce((a, t) => a + (t.count || 0), 0);
+  const block = (title, n, onAll, tiles) => h('section', { class: 'cat-sec' },
+    h('div', { class: 'cat-sec-head' }, h('h3', null, title), n != null ? h('span', { class: 'gal-n' }, nItems(n)) : null,
+      onAll ? h('button', { class: 'btn btn-ghost btn-sm cat-all', type: 'button', onclick: onAll }, 'Весь раздел →') : null),
+    h('div', { class: 'cat-grid' }, ...tiles));
+  return h('div', { class: 'cat-landing' },
+    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите раздел или группу · всего ${nItems(total)}`),
+      h('button', { class: 'btn', type: 'button', onclick: () => patch({ all: '1' }) }, 'Все изделия списком')),
+    ...withKids.map((t) => block(t.name, t.count, () => pick(t.id), kids(t).map((g) => catTile(g, pick)))),
+    single.length ? block('Другие разделы', null, null, single.map((g) => catTile(g, pick))) : null);
+}
+
 export const products = {
   id: 'products',
   title: 'Продукция',
@@ -208,6 +238,7 @@ export const products = {
         badge: r.status === 'archived' ? h('span', { class: 'badge dim gc-badge' }, 'архив') : !r.price ? h('span', { class: 'badge warn gc-badge', title: 'Нет цены — изделие в черновиках' }, 'черновик') : null,
       }),
     },
+    landing: { when: (P) => !P.groupId && !P.q && !P.series && !P.status && !P.all, render: catLanding },
     tiles: {
       key: 'groupId', title: 'Тип · Группа изделий',
       // раздел — заголовок, под ним его группы; группа без известного раздела — в конце с подписью
