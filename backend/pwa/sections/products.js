@@ -166,24 +166,49 @@ const catTile = (g, pick) => {
   return h('button', { type: 'button', class: 'cat-tile', title: g.name, onclick: () => pick(g.id) }, art,
     h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, g.name), h('div', { class: 'cat-n' }, nItems(g.count || 0))));
 };
+const SEC_KEY = 'dc-prod-sec'; // раскрытый раздел — «назад» из галереи видит то же
+const secOpen = () => { try { return sessionStorage.getItem(SEC_KEY) || ''; } catch { return ''; } };
+const secSave = (id) => { try { if (id) sessionStorage.setItem(SEC_KEY, id); else sessionStorage.removeItem(SEC_KEY); } catch { /* приватный режим */ } };
 async function catLanding({ pick }) {
   const all = await api('/showcase/groups').catch(() => null);
   if (!all?.length) return h('div', { class: 'state' }, h('div', null, 'Разделов пока нет — изделия покажутся списком.'),
     h('button', { class: 'btn', type: 'button', onclick: () => patch({ all: '1' }) }, 'Все изделия'));
   const tops = all.filter((g) => !g.parentId);
   const kids = (t) => all.filter((g) => g.parentId === t.id);
-  const withKids = tops.filter((t) => kids(t).length);
-  const single = tops.filter((t) => !kids(t).length);
   const total = tops.reduce((a, t) => a + (t.count || 0), 0);
-  const block = (title, n, onAll, tiles) => h('section', { class: 'cat-sec' },
-    h('div', { class: 'cat-sec-head' }, h('h3', null, title), n != null ? h('span', { class: 'gal-n' }, nItems(n)) : null,
-      onAll ? h('button', { class: 'btn btn-ghost btn-sm cat-all', type: 'button', onclick: onAll }, 'Весь раздел →') : null),
-    h('div', { class: 'cat-grid' }, ...tiles));
-  return h('div', { class: 'cat-landing' },
-    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите раздел или группу · всего ${nItems(total)}`),
+  const items = []; // { id, tile, panel } — панель раскрывается переключением класса, запрос не повторяется
+  const setOpen = (id) => {
+    secSave(id);
+    for (const it of items) {
+      const on = it.id === id;
+      it.tile.classList.toggle('active', on); it.tile.setAttribute('aria-expanded', String(on));
+      it.panel.classList.toggle('open', on); if (on) it.panel.removeAttribute('inert'); else it.panel.setAttribute('inert', '');
+    }
+  };
+  const secItem = (t) => {
+    const ks = kids(t);
+    const art = h('div', { class: 'sec-art' });
+    art.innerHTML = catArt(t.name); // свой статичный SVG, данных пользователя нет
+    const pid = 'sec-p-' + t.id;
+    const body = h('span', { class: 'sec-body' }, h('span', { class: 'sec-name' }, t.name), h('span', { class: 'sec-n' }, nItems(t.count || 0)));
+    const tile = h('button', { type: 'button', class: 'sec-tile', title: t.name, 'aria-expanded': 'false', 'aria-controls': ks.length ? pid : undefined,
+      onclick: () => (ks.length ? setOpen(secOpen() === t.id ? '' : t.id) : pick(t.id)) }, art, body, ks.length ? h('span', { class: 'sec-chev', 'aria-hidden': 'true' }, '▾') : null);
+    const panel = h('div', { class: 'sec-panel', id: pid, inert: '' }, h('div', { class: 'sec-panel-in' },
+      h('div', { class: 'sec-panel-head' }, h('h3', null, 'Группы раздела «' + t.name + '»'),
+        h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => pick(t.id) }, 'Весь раздел →'),
+        h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => patch({ all: '1' }) }, 'Все изделия списком')),
+      h('div', { class: 'cat-grid' }, ...ks.map((g) => catTile(g, pick)))));
+    items.push({ id: t.id, tile, panel });
+    return h('div', { class: 'sec-item' }, tile, ks.length ? panel : null);
+  };
+  const main = tops.slice(0, 3); const rest = tops.slice(3);
+  const node = h('div', { class: 'cat-landing' },
+    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите раздел · всего ${nItems(total)}`),
       h('button', { class: 'btn', type: 'button', onclick: () => patch({ all: '1' }) }, 'Все изделия списком')),
-    ...withKids.map((t) => block(t.name, t.count, () => pick(t.id), kids(t).map((g) => catTile(g, pick)))),
-    single.length ? block('Другие разделы', null, null, single.map((g) => catTile(g, pick))) : null);
+    h('div', { class: 'sec-grid' }, ...main.map(secItem)),
+    rest.length ? h('section', { class: 'cat-sec' }, h('div', { class: 'cat-sec-head' }, h('h3', null, 'Другие разделы')), h('div', { class: 'sec-grid' }, ...rest.map(secItem))) : null);
+  const was = secOpen(); setOpen(items.some((it) => it.id === was) ? was : '');
+  return node;
 }
 
 export const products = {
@@ -234,7 +259,8 @@ export const products = {
       card: (r) => ({
         pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,
         title: r.name,
-        meta: [r.sku && `арт. ${r.sku}`, r.series, r.price ? money(r.price) : ''].filter(Boolean).join(' · '),
+        meta: [r.sku && `арт. ${r.sku}`, r.series].filter(Boolean).join(' · '),
+        price: r.price ? money(r.price) : null,
         badge: r.status === 'archived' ? h('span', { class: 'badge dim gc-badge' }, 'архив') : !r.price ? h('span', { class: 'badge warn gc-badge', title: 'Нет цены — изделие в черновиках' }, 'черновик') : null,
       }),
     },
@@ -266,9 +292,9 @@ export const products = {
     hints: {},
     rowAction: (r) => ({ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`«${row.name}» в КП — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); return false; } }),
     columns: [
-      { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => pic(r.photo) },
+      { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => { const p = pic(r.photo); p.classList.add('pic-lg'); return p; } },
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
-      { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
+      { key: 'name', label: 'Наименование', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name) },
       { key: 'group', label: 'Тип · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
       { key: 'price', label: 'Цена', sort: 'price', cls: 'num right', render: (r) => (r.price ? money(r.price) : h('span', { class: 'muted' }, 'нет цены')) },

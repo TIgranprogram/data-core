@@ -133,9 +133,6 @@ th.pick, td.pick { width: 36px; text-align: center; }
 /* ПРД.1/2 (2026-10-26): выбор нескольких. Компьютер: колонка галочек в таблице видна всегда (бледно, ярко — при наведении и отмеченная),
    отмеченная строка подсвечена. Галерея: галочка в правом нижнем углу — при наведении; в режиме выбора — у всех карточек. */
 @media (min-width: 720px) {
-  .list-panel:not(.bulk-mode) td.pick, .list-panel:not(.bulk-mode) th.pick { width: 36px; padding: 0 6px; overflow: visible; }
-  .list-panel:not(.bulk-mode) td .pick-cb { visibility: visible; pointer-events: auto; opacity: .3; }
-  .list-panel:not(.bulk-mode) tr:hover td .pick-cb { opacity: .8; }
   .list-panel:not(.bulk-mode) .gcard-wrap:hover .gc-pick { display: flex; }
   .list-panel:not(.bulk-mode) .gcard-wrap:hover .gc-pick .pick-cb { visibility: visible; pointer-events: auto; opacity: 1; }
 }

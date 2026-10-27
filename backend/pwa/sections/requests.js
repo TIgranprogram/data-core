@@ -181,6 +181,7 @@ export const requests = {
     path: '/supply/requests',
     export: 'admin',
     sortDefault: '-requestDate',
+    defaults: { status: 'requested' }, // вход в «Заявки» — сразу «Заказать»; чип «Все» снимает
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
     headActions: () => [

@@ -6,7 +6,7 @@ import { api, canEditSection, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from './busy.js';
 import { qty, plural } from '../core/format.js';
-import { patch } from '../core/router.js';
+import { patch, current } from '../core/router.js';
 import { mountBoard } from './board.js';
 import { icon } from './icons.js';
 import { pager } from './pager.js';
@@ -25,12 +25,13 @@ import { toastError } from './toast.js';
  *   footer?(resp), query?(params),
  *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», ui/design-board.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
- *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
+ *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, price?, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
  *   tiles?: { key, title?, load: async () => [{ value, label, n, sub, head? }] } — плитки-фильтр над списком; с sidebar — список «Категории» в левой панели (head — раздел-заголовок),
  *   chipsTop?: true — с sidebar чипы-фильтры не в панели, а строкой над таблицей (СКФ.2: «Состояние» сверху, слева — только «что ищем»),
  *   sidebar?: true — левая панель (280 px, всегда открыта): поиск, tiles, фильтры chips/select/date, toolbarExtra, «Сбросить всё»; на телефоне — лист по кнопке «Фильтры · N» (NAV F1),
+ *   defaults?: { status: 'requested' } — фильтры при входе в раздел без параметров в адресе (попадают в адрес; чип «Все» снимает),
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
  *   rowAction?(row) → { label, title, run(row) } | null — кнопка следующего шага в строке (как на «Сегодня»),
@@ -47,6 +48,11 @@ const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', '�
 export function mountList(section, params, { onOpen, onCreate, quick, onChanged }) {
   const L = { ...section.list, columns: section.list.columns.filter((c) => !c.money || session.canMoney) };
   let P = { ...params };
+  // L.defaults: фильтры по умолчанию — только при входе в раздел без параметров в адресе; «Все» их снимает и они не возвращаются
+  if (L.defaults && !Object.keys(params).length) {
+    P = { ...L.defaults };
+    setTimeout(() => { const c = current(); if (c.section === section.id && !Object.keys(c.params).length) patch(L.defaults); }, 0);
+  }
   const vKey = () => L.viewKey ? 'dc-view-' + L.viewKey : null;
   const savedView = () => { const k = vKey(); if (!k) return ''; try { return localStorage.getItem(k) || ''; } catch { return ''; } };
   const saveView = (v) => { const k = vKey(); if (!k) return; try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* */ } };
@@ -64,9 +70,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
-  const btnTable = h('button', { type: 'button', onclick: () => { saveView(''); patch({ view: L.gallery?.default || L.board?.default ? 'table' : undefined, page: undefined }); } }, icon('table'), 'Таблица');
-  const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: L.board?.default ? undefined : 'board', page: undefined, status: undefined }); } }, icon('board'), 'Доска');
-  const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: L.gallery?.default ? undefined : 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
+  const btnTable = h('button', { type: 'button', onclick: () => { saveView(''); patch({ view: 'table', page: undefined }); } }, icon('table'), 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
+  const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: 'board', page: undefined, status: undefined }); } }, icon('board'), 'Доска');
+  const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
   const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin
@@ -461,7 +467,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id },
           onclick: () => { if (bulkMode) { if (picked.has(row.id)) picked.delete(row.id); else picked.add(row.id); syncPicks(); paintBulk(); return; } onOpen(row); }, title: v.title },
           v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
-          h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.badge || null);
+          h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.price ? h('div', { class: 'gc-price' }, v.price) : null, v.badge || null);
         if (bindLong) bindLong(card, row.id);
         return bulkOn ? h('div', { class: 'gcard-wrap' }, card, h('label', { class: 'gc-pick', title: 'Отметить' }, pickBox(row))) : card;
       })))));

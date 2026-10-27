@@ -1,6 +1,7 @@
 # Карта роли frontend
 
 коммит: 1cab104 (+ незакоммиченная работа «Паспорт воронкой», 2026-10-25)
+- 2026-10-27 Продукция: `ui/list.js` — `L.defaults` (начало mountList), явный `view` в кнопках видов (~70), `gallery.card().price`; `products.js catLanding` (.sec-tile), CSS конец `ui/screens.css`. Не закоммичено.
 
 Правила: вид — skill `datacore-design` → `docs/DESIGN.md` (§4 каталог, §5 ввод только в правой панели, §8 журнал). Новый JS-модуль → `node backend/scripts/pwa-preload.mjs`. Проверка: `node --input-type=module --check < файл`, `cd backend && npx jest src/pwa-guards --silent`. Переводы строк в pwa смешаны (CRLF/LF) — править через Edit или скрипт с определением (урок 2026-10-25).
 

@@ -38,6 +38,7 @@
   --surface: #ffffff;
   --surface-2: #f6f9f8;
   --surface-3: #e9eeec;
+  --photo-bg: #f6f7f9; /* фото изделий и рисунки разделов — светлый фон в обеих темах */
   --paper: #ffffff; /* чертёж и печать — всегда на белом, в обеих темах */
   /* чернила */
   --text: #17201c;
@@ -94,6 +95,7 @@
   --surface: #171c25;
   --surface-2: #1c222d;
   --surface-3: #252c39;
+  --photo-bg: #f6f7f9; /* светлый и в тёмной теме: чертёж читается */
   --paper: #ffffff;
   --text: #c9ddd4;
   --muted: #8ea89c;
