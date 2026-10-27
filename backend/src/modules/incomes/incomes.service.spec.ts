@@ -241,7 +241,7 @@ describe('IncomesService', () => {
       colls.products = [{ _id: pid, name: 'Скамья', sku: 'S1' }];
       current = { _id: new Types.ObjectId(), companyId: cid, productId: pid, shipDate: new Date(), amount: 100 };
       const r = await service.get(String(current._id));
-      expect(r).toMatchObject({ status: 'awaiting', companyName: 'ООО Наша', product: { id: String(pid), name: 'Скамья', sku: 'S1' } });
+      expect(r).toMatchObject({ status: 'awaiting', companyName: 'ООО Наша', product: { id: String(pid), name: 'Скамья', sku: 'S1', ourName: 'S1 · Скамья' } });
     });
 
     it('status: paid / noamount / draft', async () => {

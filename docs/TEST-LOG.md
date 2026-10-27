@@ -55,3 +55,4 @@
 | 2026-10-25 | d9f66d0 (слияние ПВ + ПРЖ-3/5) | tsc 0; юнит 151/1517 ✅; pwa --check ✅; e2e не запускались (нет Docker) |
 | 2026-10-25 | 6a9730e (HEAD после 0bd528f; ПВ, клон изделия, designtasks, MAF→BLG) | e2e 36 suites / 282 tests ✅ (Docker Mongo 27018, БД datacore-test, правок тестов не потребовалось) |
 | 2026-10-25 | HEAD fa9b4dc + группы изделий / замок номера / import-catalog-photos | tsc 0; юнит 154/1541 ✅; pwa --check ✅; e2e 36 suites / 282 tests ✅ (Docker Mongo 27018, datacore-test; в dicts.e2e поправлен список справочников) |
+| 2026-10-27 | HEAD 46edd22 (приёмка 6181eec..HEAD: NAMES, TRASH, DOCS-ORDERS, MC) | tsc 0; юнит 171/1644 ✅ (+confirm-token.guard.spec, Н-1/invoiceName, ourName); pwa-guards 118 ✅; pwa --check ✅; scripts/*.test.mjs; e2e 36 suites / 284 tests ✅ (Docker, datacore-test) |

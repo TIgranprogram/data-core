@@ -90,6 +90,15 @@ describe('SupplyService', () => {
       expect(model.create).toHaveBeenCalledTimes(1);
     });
 
+    it('Н-1: позиция склада без названия — title = «в счёте», иначе короткое', async () => {
+      colls.materials = [{ _id: new Types.ObjectId(), name: 'Болт', invoiceName: 'Болт М10х50 DIN933' }];
+      await service.create({ materialId: String(new Types.ObjectId()) });
+      expect(model.create.mock.calls[0][0].title).toBe('Болт М10х50 DIN933');
+      colls.materials = [{ _id: new Types.ObjectId(), name: 'Гайка' }];
+      await service.create({ materialId: String(new Types.ObjectId()) });
+      expect(model.create.mock.calls[1][0].title).toBe('Гайка');
+    });
+
     it('значения по умолчанию и номер = последний + 1', async () => {
       last = { num: 41 };
       await service.create({ title: 'Болт' });
@@ -419,7 +428,7 @@ describe('SupplyService', () => {
       stock.createItem.mockResolvedValue({ id: newId });
       current = reqDoc({ unit: 'шт', article: 'A-7' });
       await service.receive(String(current._id), { qty: 4 });
-      expect(stock.createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Болт М10', unit: 'шт', article: 'A-7' }));
+      expect(stock.createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Болт М10', unit: 'шт', article: 'A-7', invoiceName: 'Болт М10' }));
       expect(stock.move).toHaveBeenCalledWith(newId, expect.objectContaining({ qty: 4 }), undefined);
       expect(setOf().materialId).toEqual(new Types.ObjectId(newId));
       expect(stock.adoptArticle).toHaveBeenCalled();
