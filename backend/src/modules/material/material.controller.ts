@@ -104,6 +104,12 @@ export class MaterialController {
   @AuditAction({ action: 'update', entityType: 'Material', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: UpdateMaterialDto, @CurrentUser() user: AuthenticatedUser) { return this.service.update(id, dto, user.organizationId); }
 
+  @Patch(':id/passport-spec')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'passport-spec', entityType: 'Material', idParam: 'id' })
+  @ApiOperation({ summary: 'МЦ-2: связь позиции склада с материалом паспорта (materialId, sizes, isCoating, passportText, techText)' })
+  setPassportSpec(@Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) { return this.service.setPassportSpec(id, body, user.organizationId); }
+
   @Delete(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'delete', entityType: 'Material', idParam: 'id' })

@@ -46,7 +46,7 @@ function buildService(
 /** Mimics the chained `find().populate()…lean().exec()` builder used by findAll. */
 function findChain<T>(items: T[]) {
   const chain: Record<string, unknown> = {};
-  for (const method of ['populate', 'sort', 'skip', 'limit', 'lean']) {
+  for (const method of ['select', 'populate', 'sort', 'skip', 'limit', 'lean']) {
     chain[method] = jest.fn().mockReturnValue(chain);
   }
   chain.exec = jest.fn().mockResolvedValue(items);

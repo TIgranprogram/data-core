@@ -11,6 +11,7 @@ import { CompositionLineService } from '../../common/catalog/composition-line.se
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
 import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
+import { mergePassportSpec, presentPassportSpec, type StoredPassportSpec } from '../../common/catalog/passport-link';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()
@@ -63,7 +64,8 @@ export class MaterialService {
     if (q.supplierId) filter.supplierId = { $in: [new Types.ObjectId(q.supplierId), q.supplierId] };
     if (q.materialKind) filter.materialKind = q.materialKind;
     const [items, total] = await Promise.all([
-      this.model.find(filter).populate('categoryId').populate('photoIds').populate('mainPhotoId').populate('supplierId').sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
+      // тексты паспорта (МЦ-6) в список не идут — только в карточку
+      this.model.find(filter).select('-passportSpec.passportText -passportSpec.techText').populate('categoryId').populate('photoIds').populate('mainPhotoId').populate('supplierId').sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
       this.model.countDocuments(filter).exec(),
     ]);
     // TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG: same orphan-reference guard as
@@ -212,6 +214,22 @@ export class MaterialService {
     } catch (err) {
       this.rethrowDuplicate(err);
     }
+  }
+
+  /**
+   * МЦ-2: связь с материалом паспорта. Переданные ключи заменяют, остальные остаются (`mergePassportSpec`);
+   * материал — живая запись «Материалов и покрытий». Тело — не через общий PATCH (там `forbidNonWhitelisted`).
+   */
+  async setPassportSpec(id: string, body: unknown, organizationId?: string | null) {
+    const doc = await this.findById(id, organizationId);
+    const cur = (doc.toObject() as { passportSpec?: StoredPassportSpec }).passportSpec;
+    const next = mergePassportSpec(cur, body);
+    if (next?.materialId) {
+      const ok = await this.model.db.collection('dict_values').findOne({ dict: 'passportMaterials', _id: next.materialId, deletedAt: null }, { projection: { _id: 1 } });
+      if (!ok) throw new BadRequestException('Материал не найден в справочнике «Материалы и покрытия»');
+    }
+    await this.model.collection.updateOne({ _id: doc._id }, next ? { $set: { passportSpec: next, updatedAt: new Date() } } : { $unset: { passportSpec: '' }, $set: { updatedAt: new Date() } });
+    return { id: String(doc._id), passportSpec: presentPassportSpec(next) };
   }
 
   private async loadAssignableMaterialCategory(categoryId: string, organizationId?: string | null): Promise<CategoryDocument> {

@@ -53,7 +53,7 @@
 | `unit` / `currency` | `/units`, `/currencies` (по `:key`), `active` | `units`, `currencies` | сиды; валюта всегда RUB |
 | `color-reference` | `/color-references` | `color_references` | RAL; сид «Не выбран» |
 | `work-type` | `/work-types`, `where-used` | `worktypes` | нужен product/product-module (populate) |
-| `material` | `/materials`, `composition`, `tree`, `where-used`, `duplicate` | `materials` | создание требует `name`, `article`, `unit` |
+| `material` | `/materials`, `composition`, `tree`, `where-used`, `duplicate`, `PATCH :id/passport-spec` (МЦ-2: связь с материалом паспорта, `common/catalog/passport-link.ts`) | `materials` | создание требует `name`, `article`, `unit` |
 | `product` | `/products`, `bulk`, `composition`, `tree`, `where-used`, `duplicate`, `:productId/modules` | `products` | EAV-атрибуты, состав (composition-lines) |
 | `product-module` | `/modules`, `bulk`, `composition`, `tree`, `where-used` | `productmodules` | |
 | `product-photo` / `product-module-photo` | `/products/:productId/photos`, `/product-module-photos` | `productphotos`, `productmodulephotos` | |

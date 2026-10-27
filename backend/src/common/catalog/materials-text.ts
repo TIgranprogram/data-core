@@ -107,19 +107,30 @@ export function sizeFromStock(text: string, rec: MatRec): string {
   return '';
 }
 
-export type StockLine = { name: string; text: string };
+/** `link` — связь позиции склада с материалом паспорта (МЦ-2, `materials.passportSpec`); без неё — подсказка по названию. */
+export type StockLine = { name: string; text: string; link?: { materialId: string; sizes: string[]; isCoating: boolean } | null };
 /**
- * «Взять из состава» (МИ.2): позиции склада из «Состава изделия» → строки таблицы. Материалы (kind ≠ coating) — строки
+ * «Взять из состава» (МИ.2): позиции склада из «Состава изделия» → строки таблицы. Сначала связь позиции (МЦ-2,
+ * `link`; запись справочника удалена/нет среди `recs` — связи нет), иначе подсказка по названию — такие названия
+ * идут в `hinted` (человек проверяет). Материалы (kind ≠ coating) — строки
  * с размером (написание из «Сортамента», если такой размер там есть), одинаковый материал — одна строка; покрытия
  * («Краска порошковая») — в coatingIds. Что не подошло ни к одной записи — в unmatched (решает человек).
  */
 export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: string })[], sortament: { material?: unknown; name?: unknown }[]) {
   const mats = recs.filter((r) => s(r.kind) !== 'coating');
   const coats = recs.filter((r) => s(r.kind) === 'coating');
-  const rows: SpecRow[] = []; const coatingIds: string[] = []; const unmatched: string[] = [];
+  const rows: SpecRow[] = []; const coatingIds: string[] = []; const unmatched: string[] = []; const hinted: string[] = [];
   for (const l of lines) {
+    if (l.link && recs.some((r) => r.id === l.link!.materialId)) {
+      if (l.link.isCoating) { if (!coatingIds.includes(l.link.materialId)) coatingIds.push(l.link.materialId); continue; }
+      let lr = rows.find((r) => r.materialId === l.link!.materialId);
+      if (!lr) rows.push((lr = { materialId: l.link.materialId, sizes: [], partIds: [] }));
+      for (const z of l.link.sizes) if (!lr.sizes.some((x) => low(normSize(x)) === low(normSize(z)))) lr.sizes.push(z);
+      continue;
+    }
     const coat = matchMaterial(l.text, coats);
     const mat = coat ? null : matchMaterial(l.text, mats);
+    if (coat || mat) { if (!hinted.includes(l.name)) hinted.push(l.name); }
     if (coat) { if (!coatingIds.includes(coat.id)) coatingIds.push(coat.id); continue; }
     if (!mat) { if (!unmatched.includes(l.name)) unmatched.push(l.name); continue; }
     let size = sizeFromStock(l.text, mat);
@@ -129,5 +140,5 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
     if (!row) rows.push((row = { materialId: mat.id, sizes: [], partIds: [] }));
     if (size && !row.sizes.includes(size)) row.sizes.push(size);
   }
-  return { rows, coatingIds, unmatched };
+  return { rows, coatingIds, unmatched, hinted };
 }

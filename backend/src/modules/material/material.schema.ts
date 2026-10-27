@@ -119,6 +119,14 @@ export class Material {
   @Prop()
   syncHash?: string;
 
+  /**
+   * МЦ-2: связь «позиция склада → материал паспорта» — поле только data-core, CRM не читает.
+   * Без default и required (иначе CRM-документы получат поле при каждом сохранении). Пишется только
+   * `PATCH /materials/:id/passport-spec`. Тексты (МЦ-6) — в том же поддереве.
+   */
+  @Prop({ type: Object, required: false })
+  passportSpec?: { materialId?: Types.ObjectId; sizes?: string[]; isCoating?: boolean; passportText?: string; techText?: string };
+
   /** TZ-CATALOG-314 archive marker; legacy rows without this field remain active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
@@ -133,5 +141,6 @@ export class Material {
 export const MaterialSchema = SchemaFactory.createForClass(Material);
 MaterialSchema.plugin(optimisticLockPlugin);
 MaterialSchema.index({ supplierId: 1 });
+MaterialSchema.index({ 'passportSpec.materialId': 1 }, { sparse: true });
 MaterialSchema.index({ organizationId: 1, article: 1 }, { unique: true, sparse: true });
 MaterialSchema.index({ deletedAt: 1, organizationId: 1 });

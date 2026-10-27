@@ -667,6 +667,8 @@ const BASE: DictBase[] = [
         let n = (await p.updateMany({ 'materialsSpec.rows.materialId': from._id }, { $set: { 'materialsSpec.rows.$[r].materialId': to._id } }, { arrayFilters: [{ 'r.materialId': from._id }] })).modifiedCount;
         await p.updateMany({ $and: [{ 'materialsSpec.coatingIds': from._id }, { 'materialsSpec.coatingIds': { $ne: to._id } }] }, { $push: { 'materialsSpec.coatingIds': to._id } } as Document);
         n += (await p.updateMany({ 'materialsSpec.coatingIds': from._id }, { $pull: { 'materialsSpec.coatingIds': from._id } } as Document)).modifiedCount;
+        // МЦ-2: позиции склада, связанные с материалом паспорта
+        n += (await db.collection('materials').updateMany({ 'passportSpec.materialId': from._id }, { $set: { 'passportSpec.materialId': to._id } })).modifiedCount;
         return n;
       }),
     editRoles: ['director'],

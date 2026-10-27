@@ -21,6 +21,7 @@ const RAW = [
   ['reservations', { salesOrderId: 1 }, { sparse: true }], // SK-6: брони заказа
   ['stockmovements', { salesOrderId: 1 }, { sparse: true }], // SK-5: выдано по заказу (lines-lookup)
   ['stockmovements', { salesOrderLineId: 1 }, { sparse: true }], // SK-7: состав изделия из выдач под позицию
+  ['materials', { 'passportSpec.materialId': 1 }, { sparse: true }], // МЦ-2: позиции склада по материалу паспорта
 ];
 
 (async () => {

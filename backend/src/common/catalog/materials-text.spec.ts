@@ -85,8 +85,23 @@ describe('«Взять из состава» (МИ.2)', () => {
     ]);
     expect(r.coatingIds).toEqual(['powder']);
     expect(r.unmatched).toEqual(['Болт М10']);
+    expect(r.hinted).toEqual(['Труба 89х3', 'Труба 33.5x2.8', 'Труба профильная 40х40х2', 'Лист г/к 2х1250х2500', 'Краска порошковая RAL 6005']);
+  });
+  it('МЦ-2: связь позиции важнее названия и не попадает в подсказки; удалённая запись справочника — «нет связи»', () => {
+    const r = specFromComposition([
+      { name: 'Болт М10', text: 'Болт М10', link: { materialId: 'pipe', sizes: ['∅89×3'], isCoating: false } },
+      { name: 'Труба 89х3', text: 'Труба 89х3', link: { materialId: 'pipe', sizes: ['∅89×3', '∅60×3'], isCoating: false } },
+      { name: 'Эмаль', text: 'Эмаль', link: { materialId: 'powder', sizes: [], isCoating: true } },
+      { name: 'Лист 2х1250х2500', text: 'Лист 2х1250х2500', link: { materialId: 'gone', sizes: [], isCoating: false } },
+    ], recs, []);
+    expect(r.rows).toEqual([
+      { materialId: 'pipe', sizes: ['∅89×3', '∅60×3'], partIds: [] },
+      { materialId: 'sheet', sizes: ['2'], partIds: [] },
+    ]);
+    expect(r.coatingIds).toEqual(['powder']);
+    expect(r.hinted).toEqual(['Лист 2х1250х2500']);
   });
   it('пустой состав — пустая таблица', () => {
-    expect(specFromComposition([], recs, [])).toEqual({ rows: [], coatingIds: [], unmatched: [] });
+    expect(specFromComposition([], recs, [])).toEqual({ rows: [], coatingIds: [], unmatched: [], hinted: [] });
   });
 });
