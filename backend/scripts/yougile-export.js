@@ -13,8 +13,11 @@ const ENV = path.join(ROOT, 'для анализа', 'yougile.env');
 const OUT = path.join(ROOT, 'для анализа', 'yougile-2026-10-27', 'export.json');
 const API = 'https://yougile.com/api-v2';
 
-const key = (fs.existsSync(ENV) ? fs.readFileSync(ENV, 'utf8') : '').match(/^\s*YOUGILE_KEY\s*=\s*(\S+)/m)?.[1];
-if (!key) { console.error(`Нет ключа: создайте ${ENV} со строкой YOUGILE_KEY=<ключ>`); process.exit(2); }
+// второй источник — прежний сервер синхронизации (06_ИИ_Агенты_и_Инструменты/yougile-sync-server/.env, YG_API_TOKEN)
+const SYNC_ENV = path.resolve(ROOT, '..', '..', '06_ИИ_Агенты_и_Инструменты', 'yougile-sync-server', '.env');
+const read = (f, re) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '').match(re)?.[1];
+const key = read(ENV, /^\s*YOUGILE_KEY\s*=\s*(\S+)/m) || read(SYNC_ENV, /^\s*YG_API_TOKEN\s*=\s*(\S+)/m);
+if (!key || /your-yougile/.test(key)) { console.error(`Нет ключа: создайте ${ENV} со строкой YOUGILE_KEY=<ключ>`); process.exit(2); }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function get(p, q = {}) {
