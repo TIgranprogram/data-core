@@ -76,3 +76,4 @@
 
 ## Меню «Настройки» + шапка (2026-10-28, не закоммичено)
 - `ui/pop-menu.js` — `openPopMenu({anchor,groups,head,side})`, `closePopMenu`, `isOpenFor`; CSS `.pm*` конец `ui/panels.css`. `main.js` — `settingsButton/historyButton/themeButton/avatarButton/installItem`; `.side-foot` = Настройки + версия.
+- v3 карточки задачи (2026-10-28): `sections/design.js` `taskPics/topBlock/specBlock` (сводка `.kv-grid`, `spec` → «Изделие»); `ui/gallery.js` `carousel/zoom` (`.pgal`); `ui/design-notes.js` `photoLine/isPhotoNote` («[фото]» одной строкой, `openGallery`); CSS — конец `ui/panels.css`. коммит: —. Карта обновлена.

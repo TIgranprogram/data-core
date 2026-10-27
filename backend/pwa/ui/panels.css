@@ -393,3 +393,39 @@ body[data-sec] .page-head .ico { color: var(--sec); }
   .topbar .btn-icon { width: 44px; height: 44px; }
   .avatar-btn { width: 44px; height: 44px; }
 }
+
+/* Сводка ключ-значение `.kv-grid` (DESIGN §4): карточка задачи проектирования, «Изделие» */
+.kv-grid { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: var(--s2) var(--s4); margin: 0; align-items: baseline; }
+.kv-grid dt { color: var(--muted); font-size: var(--fs-sm); }
+.kv-grid dd { margin: 0; font-weight: 500; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.kv-grid dd a { color: var(--link); }
+.kv-grid dt.kv-full { grid-column: 1; }
+.kv-grid dd.kv-full { grid-column: 2 / -1; }
+.kv-qty { font-size: var(--fs-h3); font-weight: 600; color: var(--heading); }
+.kv-warn { color: var(--warn); }
+.dc-raw { margin-top: var(--s2); }
+.dc-raw summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); min-height: 32px; }
+@media (max-width: 700px) {
+  .kv-grid { grid-template-columns: max-content 1fr; }
+  .kv-grid dt.kv-full, .kv-grid dd.kv-full { grid-column: auto; }
+}
+
+/* Карусель фото `.pgal` (ui/gallery.js; `.gal` занят сеткой каталога) */
+.pgal { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.pgal-stage { position: relative; aspect-ratio: 4 / 3; max-height: 360px; width: 100%; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; touch-action: pan-y; }
+.pgal-img { display: block; width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
+.pgal-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; min-width: 44px; padding: 0; font-size: 24px; line-height: 1; background: var(--surface-3); color: var(--text); border-radius: 999px; z-index: 1; }
+.pgal-arrow.prev { left: var(--s2); }
+.pgal-arrow.next { right: var(--s2); }
+.lightbox .pgal-arrow { position: fixed; }
+.pgal-n { position: absolute; right: var(--s2); bottom: var(--s2); background: var(--surface-3); color: var(--text); font-size: var(--fs-sm); padding: 2px 8px; border-radius: var(--radius-sm); }
+.pgal-strip { display: flex; gap: var(--s2); overflow-x: auto; padding-bottom: 2px; }
+.pgal-th { flex: none; width: 64px; height: 64px; padding: 0; border: 2px solid transparent; border-radius: var(--radius-sm); background: var(--surface-2); cursor: pointer; overflow: hidden; color: var(--muted); font: inherit; font-size: var(--fs-sm); }
+.pgal-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pgal-th[aria-current="true"] { border-color: var(--primary); }
+.pgal-add { border: 1px dashed var(--border); }
+.pgal-arrow:focus-visible, .pgal-th:focus-visible, .pgal-img:focus-visible, .dn-photoline:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pgal-empty { height: 120px; width: 100%; border: 1px dashed var(--border); cursor: pointer; font: inherit; }
+.dn-photoline { display: block; background: none; border: 0; padding: 4px 0 4px 32px; min-height: 32px; text-align: left; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
+.dn-photoline:hover { color: var(--link); }
+@media (max-width: 700px) { .pgal-stage { max-height: none; } .pgal-th { width: 56px; height: 56px; } .dn-photoline { min-height: 44px; } }

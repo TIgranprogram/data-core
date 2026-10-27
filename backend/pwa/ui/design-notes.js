@@ -31,7 +31,10 @@ const tidy = (t) => String(t || '').replace(/\n\s*\n+/g, '\n').trim();
 /** Подпись открытых вопросов: «1 вопрос», «3 вопроса». */
 export const questionsText = (n) => `${n} ${plural(n, 'вопрос', 'вопроса', 'вопросов')}`;
 
-export function discussionBlock(row, ctx) {
+const PHOTO_ONLY = /^(\s*\[фото\]\s*)+$/i;
+const isPhotoNote = (n) => n.kind !== 'question' && PHOTO_ONLY.test(n.text || '');
+
+export function discussionBlock(row, ctx, openGallery) {
   let items = [];
   let replyTo = null;
   const list = h('div', { class: 'dn-list', role: 'log', 'aria-live': 'polite' });
@@ -73,10 +76,24 @@ export function discussionBlock(row, ctx) {
   };
   document.addEventListener('click', () => { openMenu?.(); openMenu = null; });
 
+  /** Подряд идущие сообщения только с «[фото]» одного автора — одна строка «Имя добавил N фото · 12:40». */
+  const photoLine = (grp) => {
+    const cnt = grp.reduce((s, n) => s + ((n.text || '').match(/\[фото\]/gi) || []).length, 0);
+    return h('button', { type: 'button', class: 'dn-photoline', title: 'Открыть фото', onclick: () => openGallery?.(grp[0]) }, `${grp[0].author.name} добавил ${cnt} фото · ${noteClock(grp[grp.length - 1].createdAt)}`);
+  };
   const paint = () => {
     const out = [];
     let prev = null;
-    for (const n of items) {
+    for (let i = 0; i < items.length; i++) {
+      const n = items[i];
+      if (isPhotoNote(n)) {
+        const grp = [n];
+        while (i + 1 < items.length && isPhotoNote(items[i + 1]) && items[i + 1].author.name === n.author.name && dayKey(items[i + 1].createdAt) === dayKey(n.createdAt)) grp.push(items[++i]);
+        const day = dayKey(n.createdAt);
+        if (!prev || prev.day !== day) out.push(h('div', { class: 'dn-day' }, h('span', null, dayLabel(n.createdAt))));
+        out.push(photoLine(grp)); prev = { day, author: null };
+        continue;
+      }
       const day = dayKey(n.createdAt);
       if (!prev || prev.day !== day) out.push(h('div', { class: 'dn-day' }, h('span', null, dayLabel(n.createdAt))));
       const same = prev && prev.day === day && prev.author === n.author.name && n.kind !== 'question';

@@ -5,6 +5,7 @@ import { current, go } from '../core/router.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
 import { mountBoard } from '../ui/board.js';
 import { askAssignee, askReason, mountDesignBoard } from '../ui/design-board.js';
+import { carousel } from '../ui/gallery.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -99,19 +100,20 @@ const toInitial = (r) => ({
   priority: r.priorityFromOrder || r.priority === 'normal' ? '' : r.priority,
 });
 
-// ---------- карточка: шапка, фото, примечание ----------
-function openPhoto(url) {
-  const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото', onclick: () => box.remove() }, h('img', { src: PREFIX + url, alt: '' }));
-  document.body.append(box);
+// ---------- карточка: шапка, сводка, галерея ----------
+const pair = (k, v, cls) => (v === null || v === undefined || v === '' ? [] : [h('dt', { class: cls }, k), h('dd', { class: cls }, v)]);
+/** Фото для карусели: свои фото задачи (в т. ч. из сообщений), иначе фото изделия; без дублей. */
+export function taskPics(r) {
+  const seen = new Set();
+  const out = [];
+  for (const p of r.photos || []) if (p.url && !seen.has(p.url)) { seen.add(p.url); out.push(p); }
+  if (!out.length && r.photo) out.push({ url: r.photo, thumb: r.photo });
+  return out;
 }
 function topBlock(r, ctx) {
   const can = session.canEdit;
-  const num = clean(r.productionNo);
-  const link = (text, id) => (id ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + id }, text) : text);
-  const sub = [clean(r.sku) && 'арт. ' + clean(r.sku),
-    num ? link('ЗНП ' + num, r.orderId) : clean(r.orderNo) ? link('Заказ № ' + clean(r.orderNo), r.orderId) : null,
-    r.lineNo != null ? link('поз. ' + r.lineNo, r.orderId) : null].filter(Boolean);
-  const subEl = h('div', { class: 'dc-sub' }, ...sub.flatMap((x, i) => (i ? [' · ', x] : [x])));
+  const znp = clean(r.productionNo) || clean(r.orderNo);
+  const znpText = [znp, r.lineNo != null ? String(r.lineNo) : ''].filter(Boolean).join(' / ');
   const assign = async () => {
     const who = await askAssignee(await people(), { okText: 'Назначить' });
     if (!who) return;
@@ -120,14 +122,41 @@ function topBlock(r, ctx) {
   const who = r.assignee
     ? h(can ? 'button' : 'span', { class: 'dc-who', type: can ? 'button' : undefined, onclick: can ? assign : undefined }, h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials), ' ' + r.assignee.name)
     : h(can ? 'button' : 'span', { class: 'dc-who t-none', type: can ? 'button' : undefined, onclick: can ? assign : undefined }, 'не назначен');
-  const chips = h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r), dueNode(r), who);
-  const big = (r.photos && r.photos[0]) || null;
-  const src = big ? big.url : r.photo;
-  const cover = src
-    ? h('img', { class: 'db-cover', src: PREFIX + (big ? big.url : src), alt: 'Фото изделия', title: 'Открыть крупно', tabindex: 0, onclick: () => openPhoto(big ? big.url : src), onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) })
-    : h('div', { class: 't-pic-none' }, 'Фото нет. Добавьте ниже, в блоке «Фото».');
-  return h('div', { class: 'dc-top' }, sub.length ? subEl : null, chips,
-    r.status === 'paused' && r.pauseReason ? h('div', { class: 'dc-pause' }, 'Пауза: ' + r.pauseReason) : null, cover);
+  const qty = r.qty ?? r.spec?.qty ?? null;
+  const unit = clean(r.unit) || clean(r.spec?.unit) || 'шт';
+  const ask = async (e) => {
+    const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
+    try { await api(`/design-tasks/${r.id}/notes`, { method: 'POST', body: { text: 'Уточните, пожалуйста, сколько изделий нужно изготовить.', kind: 'question' } }); toast('Вопрос менеджеру отправлен'); b.textContent = 'Вопрос отправлен'; b.classList.remove('is-busy'); }
+    catch (err) { toastError(err, 'отправить вопрос'); b.classList.remove('is-busy'); b.disabled = false; }
+  };
+  const made = qty ? h('span', { class: 'kv-qty' }, `${qty} ${unit}`)
+    : h('span', { class: 'kv-warn' }, 'не указано ', can ? h('button', { type: 'button', class: 'link-btn', onclick: ask }, 'Уточнить у менеджера') : null);
+  const grid = h('dl', { class: 'kv-grid' },
+    ...pair('Изготовить', made, 'kv-full'),
+    ...pair('Арт.', clean(r.sku)),
+    ...pair('ЗНП / поз.', znpText ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, znpText) : znpText) : ''),
+    ...pair('Заказчик', clean(r.customerTitle), 'kv-full'),
+    ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
+    ...pair('Исполнитель', who));
+  const gal = carousel(taskPics(r), { onAdd: can ? () => {
+    const d = document.querySelector('.dc-photos'); if (!d) return;
+    d.open = true; d.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } : null });
+  return h('div', { class: 'dc-top' },
+    h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r)),
+    r.status === 'paused' && r.pauseReason ? h('div', { class: 'dc-pause' }, 'Пауза: ' + r.pauseReason) : null,
+    grid, gal.el);
+}
+/** «Изделие» из разбора ЗНП: пустые поля скрыты, нет ни одного — блока нет. Исходный текст — свёрнуто. */
+function specBlock(r) {
+  const sp = r.spec;
+  if (!sp) return null;
+  const kids = [['Габариты', clean(sp.size)], ['Крепление', clean(sp.mount)], ['Покрытие', clean(sp.cover)], ['RAL', clean(sp.ral)], ['Доп.', clean(sp.extra)]].flatMap(([k, v]) => pair(k, v));
+  const raw = clean(sp.raw);
+  if (!kids.length && !raw) return null;
+  return h('section', { class: 'dc-prod' }, h('h3', null, 'Изделие'),
+    kids.length ? h('dl', { class: 'kv-grid' }, ...kids) : null,
+    raw ? h('details', { class: 'dc-raw' }, h('summary', null, 'Исходный текст ЗНП'), h('div', { class: 'dc-note' }, raw)) : null);
 }
 function noteBlock(text) {
   const p = h('div', { class: 'dc-note clip3' }, text);
@@ -203,11 +232,12 @@ export const design = {
     extra: (r, ctx) => {
       const host = h('div', { class: 'db-blocks' });
       const can = session.canEdit;
-      const prod = [['Артикул', clean(r.sku)], ['Изделие', clean(r.productName)], ['Название заказчика', clean(r.customerTitle)], ['Название задачи', clean(r.title) !== title(r) ? clean(r.title) : '']].filter(([, v]) => v);
-      if (prod.length) host.append(h('section', { class: 'dc-prod' }, h('h3', null, 'Изделие'), h('dl', { class: 'fields' }, prod.flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)]))));
-      host.append(discussionBlock(r, ctx));
+      const prod = specBlock(r);
+      if (prod) host.append(prod);
+      host.append(discussionBlock(r, ctx, () => { const i = Math.max(0, taskPics(r).findIndex((p) => p.source === 'note')); (document.querySelectorAll('.pgal-th:not(.pgal-add)')[i] || document.querySelector('.pgal-img'))?.click(); document.querySelector('.pgal')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }));
       const ph = photosBlock(r, ctx, can);
-      if (r.photos?.length) ph.open = false;
+      ph.classList.add('dc-photos');
+      ph.open = false;
       host.append(ph);
       if (r.note) host.append(noteBlock(r.note));
       visibleStickers().then((list) => { const b = stickersBlock(r, list, ctx, can); if (b) host.append(b); });
