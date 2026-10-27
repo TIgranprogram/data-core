@@ -8,6 +8,9 @@
  * Порядок записи: 1) разделы 2) группы (создать / перенести в раздел) 3) изделия. Группы создаются ДО переноса изделий:
  * showcase сам создал бы группу без groupNo.
  * Истина: артикул есть в Excel -> раздел/группа оттуда; иначе правила GROUP_RULES/SECTION_RULES по старому названию; не нашли - спорное (остаётся).
+ * 4) Новые изделия: нет артикула (skuKey без пробелов, с корзиной) и нет того же названия в группе -> POST /api/showcase (draft, без цены);
+ *    в корзине тот же артикул -> restore + type/group; то же название при другом артикуле - только «спорные». Порядок: разделы, группы, переезд, новые.
+ *    Откат новых: log.created (id) - в корзину; log.restored (id) - обратно в корзину.
  * Откат: изделия - PATCH showcase {type: old.type, group: old.group}; перенесённые группы - PATCH dicts/productGroups/<id> {name, parentId: old};
  * созданные разделы/группы - вручную в корзину (пустые).
  */
@@ -17,6 +20,7 @@ const path = require('path');
 const [env, ...flags] = process.argv.slice(2);
 if (!['local', 'prod'].includes(env)) { console.error('usage: <local|prod> [--apply --out откат.json]'); process.exit(2); }
 const APPLY = flags.includes('--apply');
+const NOCREATE = flags.includes('--no-create');
 const OUT = flags[flags.indexOf('--out') + 1];
 if (APPLY && (!OUT || OUT.startsWith('--'))) { console.error('--apply требует --out откат.json'); process.exit(2); }
 const BASE = env === 'prod' ? 'https://kppdf-crm.ru/db' : 'http://localhost:3001';
@@ -135,6 +139,53 @@ async function api(method, p, body) {
   const sa = {}; stay.forEach((p) => { const k = `${p.type || '—'} / ${p.group || '—'}`; (sa[k] = sa[k] || []).push(p.sku); });
   Object.entries(sa).sort().forEach(([k, v]) => console.log(`  ${k}: ${v.length} (${v.slice(0, 3).join(', ')}${v.length > 3 ? '…' : ''})`));
 
+  // 5) новые изделия: есть в Excel, нет на сайте (ни по артикулу, ни по названию в той же группе); корзина - восстановить
+  const trash = []; for (let page = 1; ; page++) { const r = await api('GET', `/api/showcase?limit=500&page=${page}&deleted=1`); trash.push(...r.items); if (trash.length >= r.total || !r.items.length) break; }
+  const LOOK = { a: 'а', b: 'в', c: 'с', e: 'е', h: 'н', k: 'к', m: 'м', o: 'о', p: 'р', t: 'т', x: 'х', y: 'у' };
+  const sk = (s) => norm(s).replace(/[×*]/g, 'х').replace(/[abcehkmoptxy]/g, (c) => LOOK[c]).replace(/\s/g, '');
+  const nn = (s) => norm(s).replace(/[«»"“”„'`]/g, '').replace(/\s+/g, ' ').trim();
+  const liveSku = new Set(items.map((p) => sk(p.sku))), trashBySku = new Map(trash.map((p) => [sk(p.sku), p]));
+  const xSkus = new Set(EXCEL.map((r) => sk(r.sku)));
+  const words = (s) => new Set(nn(s).replace(/[^a-zа-я0-9\s]/g, ' ').split(' ').filter((w) => w.length >= 4));
+  const jac = (a, b) => { if (!a.size || !b.size) return 0; let i = 0; a.forEach((w) => b.has(w) && i++); return i / (a.size + b.size - i); };
+  // кандидаты на сопоставление: изделия сайта, чей артикул не из Excel (иначе они уже совпали по артикулу)
+  const pool = items.filter((p) => !xSkus.has(sk(p.sku))).map((p) => ({ p, w: words(p.name) }));
+  const rest = EXCEL.filter((r) => !liveSku.has(sk(r.sku)) && !trashBySku.has(sk(r.sku)));
+  const restores = EXCEL.filter((r) => !liveSku.has(sk(r.sku)) && trashBySku.has(sk(r.sku))).map((r) => ({ r, p: trashBySku.get(sk(r.sku)) }));
+  const pairs = [];
+  for (const r of rest) { const rw = words(r.name); for (const c of pool) {
+    const eq = nn(r.name) === nn(c.p.name);
+    const sc = eq ? 1 : jac(rw, c.w) + (norm(c.p.type) === norm(r.type) ? 0.05 : 0);
+    if (sc >= 0.5) pairs.push({ r, p: c.p, sc: Math.min(sc, 1) });
+  } }
+  pairs.sort((x, y) => y.sc - x.sc);
+  const usedR = new Set(), usedP = new Set(), sameP = [], disp = [], creates = [];
+  for (const q of pairs) if (q.sc >= 0.85 && !usedR.has(q.r) && !usedP.has(q.p.id)) { usedR.add(q.r); usedP.add(q.p.id); sameP.push(q); }
+  for (const r of rest) {
+    if (usedR.has(r)) continue;
+    const best = pairs.find((q) => q.r === r); // лучший кандидат, даже если уже занят другой строкой
+    if (best) disp.push(best); else creates.push(r);
+  }
+  const NOTE = '⚠ Проверить (каталог 28.10): ';
+  const noteFor = (q, isSame) => isSame
+    ? `${NOTE}в Excel это «${q.r.name}» с артикулом ${q.r.sku}. Рекомендуем: сменить артикул на ${q.r.sku}.`
+    : `${NOTE}похоже на «${q.r.name}» (${q.r.sku}) из Excel. Если это одно изделие - сменить артикул; если разные - завести ${q.r.sku} отдельно.`;
+  const notes = new Map(); // id -> {p, lines}
+  const addNote = (p, line) => { if (!notes.has(p.id)) notes.set(p.id, { p, lines: [] }); const n = notes.get(p.id); if (!n.lines.includes(line) && !String(p.notes || '').includes(line)) n.lines.push(line); };
+  sameP.forEach((q) => addNote(q.p, noteFor(q, true)));
+  disp.forEach((q) => addNote(q.p, noteFor(q, false)));
+  const mv5 = sameP.filter((q) => norm(q.p.type) !== norm(q.r.type) || norm(q.p.group) !== norm(q.r.group));
+  console.log(`
+5) НОВЫЕ ИЗДЕЛИЯ (артикулы не меняем, дублей не создаём): то же изделие ${sameP.length} (переедут ${mv5.length}), спорные ${disp.length}, создать ${NOCREATE ? 0 : creates.length}${NOCREATE ? ' (--no-create)' : ''}, из корзины ${restores.length}`);
+  console.log('ТО ЖЕ ИЗДЕЛИЕ (≥0.85): сайт -> Excel');
+  sameP.forEach((q) => console.log(`  ${q.p.sku} «${q.p.name}» = ${q.r.sku} «${q.r.name}» (${q.sc.toFixed(2)}) -> ${q.r.type} / ${q.r.group}`));
+  console.log('СПОРНЫЕ (0.5-0.85 или изделие уже занято другой строкой) - не создаём, решает пользователь:');
+  disp.forEach((q) => console.log(`  Excel ${q.r.sku} «${q.r.name}» ~ сайт ${q.p.sku} «${q.p.name}» (${q.sc.toFixed(2)})`));
+  console.log('СОЗДАТЬ (<0.5, похожих нет): ' + creates.length);
+  creates.slice(0, 10).forEach((r) => console.log(`  + ${r.sku} | ${r.name} | ${r.type} / ${r.group}`));
+  restores.slice(0, 10).forEach(({ r }) => console.log(`  ↺ из корзины ${r.sku} | ${r.name}`));
+  console.log(`ПОМЕТКИ в notes: ${[...notes.values()].filter((n) => n.lines.length).length} изделий`);
+
   // пустеющие - только пометка
   const moveIds = new Set(moves.map((m) => m.p.id));
   const keepG = new Set(grpPlan.filter((q) => q.g).map((q) => String(q.g.id)));
@@ -153,6 +204,13 @@ async function api(method, p, body) {
       if (q.act === 'move') { await api('PATCH', `/api/dicts/productGroups/${q.g.id}`, { name: q.g.name, parentId: sid.get(q.x.type) }); log.groups.push({ act: 'move', id: q.g.id, name: q.g.name, oldParentId: q.g.parentId }); }
     }
     for (const { p, t } of moves) { await api('PATCH', `/api/showcase/${p.id}`, { type: t.type, group: t.group }); log.products.push({ id: p.id, sku: p.sku, old: { type: p.type, group: p.group }, now: { type: t.type, group: t.group } }); }
+    log.created = []; log.restored = []; log.notes = []; log.moved5 = [];
+    for (const q of mv5) { await api('PATCH', `/api/showcase/${q.p.id}`, { type: q.r.type, group: q.r.group }); log.moved5.push({ id: q.p.id, old: { type: q.p.type, group: q.p.group } }); }
+    for (const { p, lines } of notes.values()) { if (!lines.length) continue; await api('PATCH', `/api/showcase/${p.id}`, { notes: [...lines, ...(p.notes ? [p.notes] : [])].join('\n') }); log.notes.push({ id: p.id, oldNotes: p.notes || '' }); }
+    if (!NOCREATE) {
+      for (const { r, p } of restores) { await api('POST', `/api/showcase/${p.id}/restore`); await api('PATCH', `/api/showcase/${p.id}`, { type: r.type, group: r.group }); log.restored.push({ id: p.id, sku: r.sku }); }
+      for (const r of creates) { const c = await api('POST', '/api/showcase', { name: r.name, sku: r.sku, type: r.type, group: r.group, status: 'draft' }); log.created.push({ id: c.id, sku: r.sku }); }
+    }
   } finally { fs.writeFileSync(OUT, JSON.stringify(log, null, 1)); }
   console.log(`готово: разделов ${log.sections.length}, групп ${log.groups.length}, изделий ${log.products.length}; откат - ${OUT}`);
 })().catch((e) => { console.error(e.message); process.exit(1); });
