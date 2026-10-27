@@ -95,6 +95,18 @@ function issuedBlock(d, sec) {
     i === 0 && k && lines.find((l) => String(l.id) === k)?.productId ? suggestLink(k) : null)))));
 }
 
+/** Строка «Паспорта N (готовы M)» → вкладка «По заказам» (ТИ-11). */
+function orderPassports(r) {
+  if (!session.seesDocs()) return null;
+  const val = h('span', { class: 'muted' }, 'загрузка…');
+  api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
+    const items = (d.items || []).filter((p) => p.status !== 'annulled');
+    const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
+    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Выпустить паспорт» в позиции заказа');
+  }).catch(() => val.replaceChildren('не удалось загрузить'));
+  return h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Паспорта'), val);
+}
+
 function details(r) {
   const box = h('div', null, h('div', { class: 'muted' }, 'Загрузка позиций…'));
   const load = () => api(`/salesorders/${r.id}`).then((d) => {
@@ -110,6 +122,7 @@ function details(r) {
             h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
         session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
+      orderPassports(r),
       orderDesign({ id: r.id, orderNo: r.orderNo }, lines),
       seeReq && (d.supplyRequests || []).length ? sec(`Заказано под заказ (${d.supplyRequests.length})`,
         h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`)))) ) : null,

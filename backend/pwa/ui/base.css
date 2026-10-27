@@ -149,3 +149,15 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 .tile .tl-n { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .tile .tl-sub { font-size: var(--fs-sm); color: var(--muted); }
 .tile .tl-sub .warn { color: var(--warn); font-weight: 600; }
+
+/* Документация → «По заказам» (ТИ-11) */
+.do-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.do-group { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
+.do-group-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; padding: 10px 12px; border: 0; background: transparent; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+.do-count { margin-left: auto; color: var(--muted); }
+.do-rows { list-style: none; margin: 0; padding: 0 12px 8px; }
+.do-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--border); }
+.do-name { flex: 1 1 200px; }
+.do-acts { margin-left: auto; display: flex; gap: 6px; }
+.do-foot { padding: 0 12px 10px; }
+.do-pager { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 8px; }
