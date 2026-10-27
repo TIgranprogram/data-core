@@ -24,6 +24,7 @@ import {
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
+import { ConfirmDto } from './dto/confirm.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UiPrefsDto } from './dto/ui-prefs.dto';
@@ -95,6 +96,23 @@ export class AuthController {
     await this.auth.logout(me.id);
     res.clearCookie('refreshToken', { path: '/api/auth' });
     return { ok: true };
+  }
+
+  /**
+   * Подтверждение паролем перед удалением (не-admin): пароль самого пользователя → токен на 120 с.
+   * Токен шлют в заголовке X-Confirm-Token на DELETE/restore заказов, заявок, позиций склада, контрагентов.
+   * Неверный пароль — 403 (не 401: клиент не должен считать сессию просроченной). Пароль не логируется.
+   */
+  @Post('confirm')
+  @Roles('admin', 'manager', 'user')
+  @Throttle({ short: { ttl: 60_000, limit: 5 }, long: { ttl: 3_600_000, limit: 30 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Подтвердить действие своим паролем: токен на 120 с' })
+  @ApiResponse({ status: 200, description: '{ token, expiresIn: 120 }' })
+  @ApiResponse({ status: 403, description: 'Неверный пароль или вход по ключу kppd_' })
+  confirm(@CurrentUser() me: AuthenticatedUser, @Body() dto: ConfirmDto) {
+    if (me.keyScope) throw new ForbiddenException('Подтверждение паролем — только из входа в приложение');
+    return this.auth.confirmPassword(me.id, dto.password);
   }
 
   @Get('me')

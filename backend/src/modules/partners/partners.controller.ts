@@ -1,9 +1,10 @@
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors, UseGuards } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { PartnersService, type PartnerInput } from './partners.service';
@@ -51,6 +52,7 @@ export class PartnersController {
 
   /** В корзину; занятого (заявки, заказы, записи CRM) — 409 с причиной. */
   @Delete(':id')
+  @UseGuards(ConfirmTokenGuard)
   @Roles('manager')
   @AuditAction({ action: 'partner.deleted', entityType: 'Partner', details: (_d, p) => ({ id: p.id }) })
   remove(@Param('id') id: string) {
@@ -58,6 +60,7 @@ export class PartnersController {
   }
 
   @Post(':id/restore')
+  @UseGuards(ConfirmTokenGuard)
   @HttpCode(200)
   @Roles('manager')
   @AuditAction({ action: 'partner.restored', entityType: 'Partner', details: (_d, p) => ({ id: p.id }) })

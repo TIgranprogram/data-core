@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -15,6 +16,7 @@ import { AuthResponse, AccessTokenResponse, AuthUserPayload } from './dto/auth-r
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { effectivePermissions } from '../../common/contracts/rbac-contract';
+import { CONFIRM_TTL_SEC, signConfirmToken } from '../../common/confirm-token';
 import { appSectionsFor } from '../../common/app-sections';
 import { roleLabelOf } from '../../common/roles-hierarchy';
 
@@ -61,6 +63,16 @@ export class AuthService {
     private readonly softlock: LoginSoftlockService,
     private readonly roles: RoleService,
   ) {}
+
+  /** Пароль текущего пользователя верный → короткоживущий токен подтверждения (пароль не логируем). */
+  async confirmPassword(userId: string, password: string): Promise<{ token: string; expiresIn: number }> {
+    const user = await this.users.findByIdWithHash(userId);
+    if (!user || !user.isActive || !(await this.users.verifyPassword(user, password))) {
+      this.logger.warn(`confirm_wrong_password user=${userId}`);
+      throw new ForbiddenException('Неверный пароль');
+    }
+    return { token: signConfirmToken(userId), expiresIn: CONFIRM_TTL_SEC };
+  }
 
   async register(dto: RegisterDto, res: Response): Promise<AuthResponse> {
     const isProd = this.config.get<string>('nodeEnv') === 'production';

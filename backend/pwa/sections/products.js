@@ -164,6 +164,7 @@ export const products = {
 
   list: {
     path: '/showcase',
+    export: 'admin',
     sortDefault: 'withPhoto',
     viewKey: 'products',
     createLabel: 'Изделие',

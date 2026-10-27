@@ -1,9 +1,10 @@
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
@@ -93,6 +94,7 @@ export class SupplyController {
 
   /** В корзину (мягкое удаление). */
   @Delete('requests/:id')
+  @UseGuards(ConfirmTokenGuard)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.deleted', entityType: 'SupplyRequest', idParam: 'id' })
   remove(@Param('id') id: string) {
@@ -101,6 +103,7 @@ export class SupplyController {
 
   /** Вернуть из корзины. */
   @Post('requests/:id/restore')
+  @UseGuards(ConfirmTokenGuard)
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.restored', entityType: 'SupplyRequest', idParam: 'id' })

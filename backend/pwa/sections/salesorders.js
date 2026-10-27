@@ -5,6 +5,7 @@ import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
+import { confirmDlg } from '../ui/dialog.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
 import { errText } from '../ui/errors.js';
@@ -132,6 +133,7 @@ export const salesorders = {
 
   list: {
     path: '/salesorders',
+    export: 'admin',
     sortDefault: 'shipDate',
     createLabel: 'Заказ',
     searchPlaceholder: 'Поиск: № заказа, заказчик, предмет, контракт…',
@@ -189,7 +191,7 @@ export const salesorders = {
     ],
     actions: (r) => [
       NEXT[r.stage] && { label: NEXT_LABEL[r.stage], primary: true, run: async (row, ctx) => ctx.setRow(await setStage(row, NEXT[row.stage])) },
-      r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => ctx.setRow(await setStage(row, 'cancelled')) },
+      r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить ${heading(row).toLowerCase()}?`, 'Заказ перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить заказ', danger: true }))) return; ctx.setRow(await setStage(row, 'cancelled')); } },
       !['closed', 'cancelled'].includes(r.stage) && session.canEdit && session.sees('stock') && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
       session.sees('orders') && { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
@@ -229,8 +231,8 @@ export const salesorders = {
     update: (id, body) => api(`/salesorders/${id}`, { method: 'PATCH', body }),
   },
 
-  remove: {
-    text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.customer || 'без заказчика'})? Позиции останутся в «Позициях заказов».`,
+  remove: { password: true,
+    text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.customer || 'без заказчика'})? Позиции останутся в «Позициях заказов», заявки и брони тоже. Отменённый заказ остаётся в списке; удаление — в корзину.`,
     run: (r) => api(`/salesorders/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/salesorders/${r.id}/restore`, { method: 'POST' }),
   },

@@ -94,6 +94,7 @@ export const orders = {
 
   list: {
     path: '/incomes',
+    export: 'admin',
     sortDefault: '-reportDate',
     createLabel: 'Строка заказа',
     searchPlaceholder: 'Поиск: № заказа, заказчик, наименование…',

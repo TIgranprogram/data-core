@@ -230,6 +230,7 @@ export const partners = {
 
   list: {
     path: '/partners',
+    export: 'admin',
     sortDefault: '',
     createLabel: 'Новый контрагент',
     searchPlaceholder: 'Поиск: название, ИНН, почта, телефон…',
@@ -319,7 +320,7 @@ export const partners = {
   },
 
   // в корзину — только незанятого; занятый сервер не даст (409 с причиной), дубль — «Объединить с…»
-  remove: {
+  remove: { password: true,
     text: (r) => `Удалить контрагента «${r.name}»?`,
     blocked: (r) => (r.kind === 'customer' && r.orders ? `У заказчика ${r.orders} заказ(ов) — удалить нельзя. Если это дубль написания — «Объединить с…».`
       : r.kind !== 'customer' && r.requests ? `На контрагента ${r.requests} заявок — удалить нельзя. Если это дубль — «Объединить с…».` : null),

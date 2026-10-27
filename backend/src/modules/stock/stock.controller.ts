@@ -1,8 +1,9 @@
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -278,6 +279,7 @@ export class StockController {
 
   /** В корзину: только без остатка и брони (иначе 409 с объяснением). */
   @Delete('items/:id')
+  @UseGuards(ConfirmTokenGuard)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.deleted', entityType: 'Material', idParam: 'id' })
   remove(@Param('id') id: string) {
@@ -285,6 +287,7 @@ export class StockController {
   }
 
   @Post('items/:id/restore')
+  @UseGuards(ConfirmTokenGuard)
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.restored', entityType: 'Material', idParam: 'id' })

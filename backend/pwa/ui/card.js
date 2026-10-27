@@ -1,8 +1,10 @@
-import { api, canEditSection, PREFIX } from '../core/api.js';
+import { api, canEditSection, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { go } from '../core/router.js';
 import { dateTime } from '../core/format.js';
 import { actionLabel, changeList } from './history.js';
 import { confirmDlg } from './dialog.js';
+import { withConfirm } from './confirm-password.js';
 import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
@@ -136,6 +138,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       const revertOf = (x) => (x.first || !canEditSection(section) || section.form?.build ? [] : (x.changes || []).filter((c) => byKey.has(c.field) && byKey.get(c.field).type !== 'widget' && byKey.get(c.field).type !== 'photos'));
       ul.replaceChildren(...r.items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
         changeList(x.changes, names, x.first),
+        String(x.action || '').endsWith('deleted') && session.canEdit ? h('a', { href: '#trash', class: 'btn btn-ghost btn-sm', title: 'Открыть корзину: там запись можно вернуть', onclick: (e) => { e.preventDefault(); go('trash'); } }, 'В корзине — восстановить') : null,
         revertOf(x).length ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Открыть правку с прежними значениями этих полей — проверьте и сохраните', onclick: () => {
           const back = revertOf(x);
           const values = Object.fromEntries(back.map((c) => [c.field, byKey.get(c.field).type === 'date' && c.from ? String(c.from).slice(0, 10) : c.from ?? '']));
@@ -159,10 +162,12 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (why) { toast(why, { error: true }); return; }
     if (!(await confirmDlg('Удалить?', section.remove.text(row) + ' Её можно будет восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
     try {
-      await section.remove.run(row);
+      // ТИ-4: не-админ вводит свой пароль (раздел помечен remove.password)
+      if (section.remove.password) { if ((await withConfirm(async () => { await section.remove.run(row); return true; }, { text: 'Удаление требует вашего пароля.' })) === null) return; }
+      else await section.remove.run(row);
       const removed = row;
       destroy(); ctx.close(); ctx.changed();
-      toast('Удалено', { undo: async () => { try { await section.remove.restore(removed); toast('Восстановлено'); ctx.changed(); } catch (e) { toastError(e); } } });
+      toast('Удалено', { undo: async () => { try { await (section.remove.password ? withConfirm(() => section.remove.restore(removed), { text: 'Восстановление требует вашего пароля.' }) : section.remove.restore(removed)); toast('Восстановлено'); ctx.changed(); } catch (e) { toastError(e); } } });
     } catch (e) { toastError(e); }
   }
 

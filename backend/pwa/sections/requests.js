@@ -179,6 +179,7 @@ export const requests = {
 
   list: {
     path: '/supply/requests',
+    export: 'admin',
     sortDefault: '-requestDate',
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
@@ -361,7 +362,7 @@ export const requests = {
 
   duplicate: (r) => ({ ...toInitial(r), status: 'requested', requestDate: isoDay(), requestedBy: session.name, invoiceNo: '', invoiceDate: '', num: undefined }),
 
-  remove: {
+  remove: { password: true,
     text: (r) => `Удалить заявку ${heading(r)}?` + (r.status === 'received' ? ' Приход на склад по ней останется — при необходимости отмените его в «Движениях».' : ''),
     run: (r) => api(`/supply/requests/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/supply/requests/${r.id}/restore`, { method: 'POST' }),

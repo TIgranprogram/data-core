@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors, UseGuards } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
@@ -79,6 +80,7 @@ export class SalesOrdersController {
   }
 
   @Delete(':id')
+  @UseGuards(ConfirmTokenGuard)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'salesorder.deleted', entityType: 'SalesOrder', idParam: 'id' })
   remove(@Param('id') id: string) {
@@ -86,6 +88,7 @@ export class SalesOrdersController {
   }
 
   @Post(':id/restore')
+  @UseGuards(ConfirmTokenGuard)
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'salesorder.restored', entityType: 'SalesOrder', idParam: 'id' })

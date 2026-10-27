@@ -261,7 +261,7 @@ export const stock = {
     },
   },
 
-  remove: {
+  remove: { password: true,
     blocked: (r) => (r.quantity > 0 ? `Нельзя удалить: на складе ${qty(r.quantity)} ${unit(r)}. Сначала спишите или сделайте инвентаризацию до 0.`
       : r.reservedQty > 0 ? 'Нельзя удалить: по позиции есть бронь. Сначала снимите её.' : null),
     text: (r) => `Удалить позицию «${r.name}»?`,

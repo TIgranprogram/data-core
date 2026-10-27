@@ -63,9 +63,14 @@ const HUMAN = {
   504: 'Сервер не ответил вовремя — подождите минуту и повторите. Введённое не потеряно.',
 };
 
+/** Токен подтверждения паролем (ui/confirm-password.js): уходит заголовком X-Confirm-Token в удаление/восстановление, пока действует withConfirm. */
+let confirmToken = null;
+export function setConfirmToken(t) { confirmToken = t || null; }
+
 async function raw(path, opts = {}, token) {
   const headers = { ...(opts.headers || {}) };
   if (token) headers.Authorization = 'Bearer ' + token;
+  if (confirmToken && (opts.method === 'DELETE' || /\/restore$/.test(path))) headers['X-Confirm-Token'] = confirmToken;
   const isForm = opts.body instanceof FormData;
   if (opts.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   const ctrl = new AbortController();
@@ -133,6 +138,14 @@ async function fileGet(path, { query, fallback = 'file', timeout = 180000 } = {}
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 30000);
   return name;
+}
+
+/** Проверка пароля текущего пользователя → токен подтверждения. Неверный пароль (401/403) не выбрасывает из системы. */
+export async function confirmPassword(password) {
+  const res = await raw('/auth/confirm', { method: 'POST', body: { password } }, session.access);
+  if (res.status === 401 || res.status === 403 || res.status === 400) throw new Error('Пароль неверный');
+  if (!res.ok) throw await errorOf(res);
+  return (parse(await res.text()) || {}).token;
 }
 
 /** Запрос к API. path — без /api. body — объект (JSON) или FormData. */

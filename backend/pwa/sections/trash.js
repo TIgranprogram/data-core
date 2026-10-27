@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { toast, toastError } from '../ui/toast.js';
+import { withConfirm } from '../ui/confirm-password.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
 import { salesorders } from './salesorders.js';
@@ -40,7 +41,7 @@ export function mountTrash() {
         const v = src.section.searchRow(row);
         const btn = session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
           e.currentTarget.disabled = true;
-          try { await src.section.remove.restore(row); toast('Восстановлено'); load(); } catch (ex) { toastError(ex); e.target.disabled = false; }
+          try { const go = () => src.section.remove.restore(row); if (src.section.remove.password) { if ((await withConfirm(go, { text: 'Восстановление требует вашего пароля.' })) === null) { e.target.disabled = false; return; } } else await go(); toast('Восстановлено'); load(); } catch (ex) { toastError(ex); e.target.disabled = false; }
         } }, 'Восстановить') : null;
         return h('tr', { class: 'static' }, h('td', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
           h('td', { class: 'num' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));

@@ -123,6 +123,12 @@ export class UserService {
     return doc;
   }
 
+  /** С хэшем пароля — только для сверки пароля (подтверждение действий). */
+  async findByIdWithHash(id: string): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(id)) return null;
+    return this.model.findById(id).exec();
+  }
+
   async findByUsername(username: string): Promise<UserDocument | null> {
     const escaped = escapeRegex(username.trim());
     if (!escaped) return null;
