@@ -69,7 +69,7 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .pp-designer { margin-top: var(--s1); font-weight: 600; }
 /* БЗ-9: отметка записей и «Изменить выбранные» */
 .bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); background: var(--gold-soft, var(--surface-2)); border-bottom: 1px solid var(--border); }
-th.pick, td.pick { width: 36px; text-align: center; }
+th.pick, td.pick { width: 48px; text-align: center; background: none; border-radius: 0; padding: 0 var(--s2); } /* не путать с панелью .pick (screens.css): без зелёной заливки */
 .pick-cb, .pick-all { width: 18px; height: 18px; cursor: pointer; }
 .cards li > .pick-hit { display: flex; flex: none; align-self: center; margin-right: var(--s2); cursor: pointer; line-height: 0; }
 .gcard-wrap { position: relative; display: flex; }
