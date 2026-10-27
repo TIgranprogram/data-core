@@ -58,10 +58,18 @@ async function pickProduct(r) {
   let picked = r.productId || r.product?.id || '';
   attachCombo(inp, { options: () => opts, free: false, onPick: (o) => { picked = o.value; } });
   inp.addEventListener('input', () => { picked = ''; });
+  const like = h('div', { class: 'hint' });
+  if (r.orderId) {
+    api(`/salesorders/${r.orderId}/match-products`, { method: 'POST', body: {} }).then((res) => {
+      const sg = (res?.items || []).find((x) => String(x.lineId) === String(r.id))?.suggestions || [];
+      if (!sg.length) return;
+      like.append('Похоже на: ', ...sg.slice(0, 3).flatMap((s, i) => [i ? ', ' : '', h('a', { href: '#', onclick: (e) => { e.preventDefault(); inp.value = s.name; picked = s.productId; } }, s.name)]));
+    }).catch(() => {});
+  }
   return modal({
     title: 'Подобрать изделие',
     okText: 'Привязать',
-    body: h('div', null, h('p', { class: 'hint' }, `Позиция: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и «Нашего» названия.`), inp),
+    body: h('div', null, like, h('p', { class: 'hint' }, `Позиция: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и «Нашего» названия.`), inp),
     onOk: async () => {
       if (!picked) throw new Error('Выберите изделие из списка');
       const s = await api(`/incomes/${r.id}`, { method: 'PATCH', body: { productId: picked } });

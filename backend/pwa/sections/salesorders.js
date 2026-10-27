@@ -5,7 +5,7 @@ import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
-import { confirmDlg } from '../ui/dialog.js';
+import { confirmDlg, modal } from '../ui/dialog.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
 import { errText } from '../ui/errors.js';
@@ -48,6 +48,31 @@ async function setStage(r, stage) {
   const saved = await api(`/salesorders/${r.id}`, { method: 'PATCH', body: { stage, ...(stage === 'shipped' && !r.shipDate ? { shipDate: isoDay() } : {}) } });
   toast(`${heading(r)} → ${STAGE[stage].label}`, { undo: async () => { await api(`/salesorders/${r.id}`, { method: 'PATCH', body: { stage: r.stage } }); window.dispatchEvent(new CustomEvent('data-changed')); } });
   return saved;
+}
+
+/** «Подобрать изделия»: предложения сервера по всем позициям без изделия → выбор → apply. Возвращает обновлённый заказ или null. */
+async function matchProducts(r) {
+  const res = await api(`/salesorders/${r.id}/match-products`, { method: 'POST', body: {} });
+  const items = res?.items || [];
+  if (!items.length) { toast('Все позиции уже с изделием'); return null; }
+  const rows = items.map((it) => {
+    const sel = h('select', null,
+      ...(it.suggestions || []).map((s) => h('option', { value: s.productId }, `${s.name}${s.sku ? ' · ' + s.sku : ''}`)),
+      h('option', { value: '' }, 'Без изделия'));
+    return { it, sel, el: h('label', { class: 'field' }, h('span', null, `${it.lineNo ? it.lineNo + '. ' : ''}${it.title || ''}`), sel) };
+  });
+  const saved = await modal({
+    title: 'Подобрать изделия', okText: 'Сохранить', wide: true,
+    body: h('div', null, h('p', { class: 'hint' }, 'Первое предложение отмечено. Выберите «Без изделия», если подходящего нет.'), ...rows.map((x) => x.el)),
+    onOk: async () => {
+      const picks = rows.filter((x) => x.sel.value).map((x) => ({ lineId: x.it.lineId, productId: x.sel.value }));
+      if (!picks.length) return {};
+      const a = await api(`/salesorders/${r.id}/match-products`, { method: 'POST', body: { apply: true, picks } });
+      toast(`Изделий привязано: ${a?.count ?? picks.length}`);
+      return api(`/salesorders/${r.id}`);
+    },
+  });
+  return saved && saved.id ? saved : null;
 }
 
 /** Быстрая строка «+ позиция» в карточке заказа: наименование, кол-во, ед. → Enter. Фото — в карточке позиции. */
@@ -206,6 +231,7 @@ export const salesorders = {
       NEXT[r.stage] && { label: NEXT_LABEL[r.stage], primary: true, run: async (row, ctx) => ctx.setRow(await setStage(row, NEXT[row.stage])) },
       r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить ${heading(row).toLowerCase()}?`, 'Заказ перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить заказ', danger: true }))) return; ctx.setRow(await setStage(row, 'cancelled')); } },
       !['closed', 'cancelled'].includes(r.stage) && session.canEdit && session.sees('stock') && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
+      !['closed', 'cancelled'].includes(r.stage) && ['admin', 'manager'].includes(session.role) && { label: 'Подобрать изделия', title: 'Предложить изделия для позиций без изделия', run: async (row, ctx) => { const s = await matchProducts(row); if (s) ctx.setRow(s); } },
       session.sees('orders') && { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
     extra: (r) => details(r),
