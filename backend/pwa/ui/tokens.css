@@ -88,6 +88,11 @@
   --sec-supply: #9a4f2c; --sec-supply-soft: #f8ebe3;
   --sec-stock: #1f6e7c; --sec-stock-soft: #e0f0f3;
   --sec-money: #8a4560; --sec-money-soft: #f6e8ed;
+  --sec-products-side: #8fa8dc; --sec-products-side-soft: rgba(143, 168, 220, .16);
+  --sec-orders-side: #b5a0dc; --sec-orders-side-soft: rgba(181, 160, 220, .16);
+  --sec-supply-side: #d9a086; --sec-supply-side-soft: rgba(217, 160, 134, .16);
+  --sec-stock-side: #7fbcc6; --sec-stock-side-soft: rgba(127, 188, 198, .16);
+  --sec-money-side: #cba0b0; --sec-money-side-soft: rgba(203, 160, 176, .16);
   --scheme: light;
 }
 
@@ -148,6 +153,11 @@
   --sec-supply: #d9a086; --sec-supply-soft: rgba(217, 160, 134, .16);
   --sec-stock: #7fbcc6; --sec-stock-soft: rgba(127, 188, 198, .16);
   --sec-money: #cba0b0; --sec-money-soft: rgba(203, 160, 176, .16);
+  --sec-products-side: #8fa8dc; --sec-products-side-soft: rgba(143, 168, 220, .16);
+  --sec-orders-side: #b5a0dc; --sec-orders-side-soft: rgba(181, 160, 220, .16);
+  --sec-supply-side: #d9a086; --sec-supply-side-soft: rgba(217, 160, 134, .16);
+  --sec-stock-side: #7fbcc6; --sec-stock-side-soft: rgba(127, 188, 198, .16);
+  --sec-money-side: #cba0b0; --sec-money-side-soft: rgba(203, 160, 176, .16);
   --scheme: dark;
 }
 

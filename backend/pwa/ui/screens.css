@@ -612,7 +612,7 @@ html { scrollbar-gutter: stable; }
   .go-tiles { display: grid; gap: var(--s3); margin: 0 0 var(--s4); }
   .go-tile { display: flex; flex-direction: column; gap: 2px; min-height: 72px; justify-content: center; padding: var(--s3) var(--s4); border-radius: var(--radius);
     background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow); color: var(--text); text-decoration: none; text-align: left; font: inherit; cursor: pointer; }
-  .go-tile b { font-size: var(--fs-h3); color: var(--sec-products); }
+  .go-tile b { font-size: var(--fs-h3); color: var(--sec, var(--text)); }
   .go-tile span { color: var(--muted); font-size: var(--fs-sm); }
   .go-tile:active { background: var(--row-hover); }
   .ops-row { min-height: 56px; }

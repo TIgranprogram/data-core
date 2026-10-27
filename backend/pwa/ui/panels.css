@@ -352,10 +352,19 @@ a.ref-products { color: var(--sec-products); } a.ref-orders { color: var(--sec-o
 .sec-stock { --sec: var(--sec-stock); --sec-soft: var(--sec-stock-soft); }
 .sec-money { --sec: var(--sec-money); --sec-soft: var(--sec-money-soft); }
 .chip-sec { background: var(--sec-soft, var(--primary-soft)); color: var(--sec, var(--primary)); }
-/* меню: полоса и иконка — цвет раздела; активный — фон -soft */
-.side-link[class*='sec-'] { border-left: 3px solid var(--sec); border-radius: 0 8px 8px 0; }
-.side-link[class*='sec-'] .ico { color: var(--sec); opacity: 1; }
-.side-link[class*='sec-'].active { background: var(--sec-soft); }
+/* меню: полоса и иконка — цвет раздела (тёмный вариант -side: меню тёмное в обеих темах); активный — фон -side-soft; золотую черту base.css у таких пунктов убираем */
+.side-link[class*='sec-'] { border-left: 3px solid var(--sec-side); border-radius: 0 8px 8px 0; }
+.side-link[class*='sec-'] .ico { color: var(--sec-side); opacity: 1; }
+.side-link[class*='sec-'].active { background: var(--sec-side-soft); }
+.side-link[class*='sec-'].active::before { display: none; }
+.side-link.sec-products { --sec-side: var(--sec-products-side); --sec-side-soft: var(--sec-products-side-soft); }
+.side-link.sec-orders { --sec-side: var(--sec-orders-side); --sec-side-soft: var(--sec-orders-side-soft); }
+.side-link.sec-supply { --sec-side: var(--sec-supply-side); --sec-side-soft: var(--sec-supply-side-soft); }
+.side-link.sec-stock { --sec-side: var(--sec-stock-side); --sec-side-soft: var(--sec-stock-side-soft); }
+.side-link.sec-money { --sec-side: var(--sec-money-side); --sec-side-soft: var(--sec-money-side-soft); }
+/* главные списки раздела: названия записей — --text, акцент — цвет раздела */
+body[data-sec] table.list a:not(.btn) { color: var(--text); }
+body[data-sec] table.list a:not(.btn):hover { color: var(--sec); }
 /* шапка экрана раздела: иконка у h1 и линия под шапкой */
 body[data-sec='products'] { --sec: var(--sec-products); } body[data-sec='orders'] { --sec: var(--sec-orders); } body[data-sec='supply'] { --sec: var(--sec-supply); } body[data-sec='stock'] { --sec: var(--sec-stock); } body[data-sec='money'] { --sec: var(--sec-money); }
 body[data-sec] .page-head { border-bottom: 1px solid var(--sec); padding-bottom: var(--s2); }
