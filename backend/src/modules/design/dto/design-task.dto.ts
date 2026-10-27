@@ -4,6 +4,17 @@ import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsObject, IsO
 import { ORDER_PRIORITIES, type OrderPriority } from '../../../common/text/order-key';
 import { DESIGN_STATUSES, type DesignStatus } from '../design-task.schema';
 
+export class DesignSpecDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 20) qty?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 20) unit?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) size?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 200) mount?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 200) cover?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) ral?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) extra?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 4000) raw?: string;
+}
+
 /** Поля создания и правки задачи. null / '' в правке — очистить (срок и приоритет → снова из заказа). */
 export class DesignTaskDto {
   @ApiPropertyOptional({ enum: DESIGN_STATUSES, description: 'queue | work | done | paused' }) @IsOptional() @IsIn(DESIGN_STATUSES as unknown as string[]) status?: DesignStatus;
@@ -15,6 +26,7 @@ export class DesignTaskDto {
   @ApiPropertyOptional({ enum: ORDER_PRIORITIES, description: 'Свой приоритет; ""/null — снова из заказа' }) @IsOptional() @ValidateIf((_o, v) => v !== null) @IsIn([...ORDER_PRIORITIES, '']) priority?: OrderPriority | '' | null;
   @ApiPropertyOptional({ description: 'Причина паузы (обязательна для paused)' }) @IsOptional() @IsString() @Length(0, 500) pauseReason?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 5000) note?: string;
+  @ApiPropertyOptional({ type: DesignSpecDto, description: 'Что изготовить {qty,unit,size,mount,cover,ral,extra,raw}; null — очистить' }) @IsOptional() @ValidateIf((_o, v) => v !== null) @ValidateNested() @Type(() => DesignSpecDto) spec?: DesignSpecDto | null;
 }
 
 export class FromOrderDto {

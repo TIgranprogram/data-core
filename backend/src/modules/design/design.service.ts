@@ -233,6 +233,7 @@ export class DesignService {
     }
     if (dto.title !== undefined) put('title', dto.title.trim());
     if (dto.note !== undefined) put('note', dto.note.trim());
+    if (dto.spec !== undefined) put('spec', dto.spec && Object.values(dto.spec).some((v) => String(v ?? '').trim()) ? Object.fromEntries(Object.entries(dto.spec).map(([k, v]) => [k, String(v ?? '').trim()])) : null);
     if (dto.deadline !== undefined) put('manual.deadline', this.parseDeadline(dto.deadline));
     if (dto.priority !== undefined) put('manual.priority', dto.priority);
     if (status === 'paused') set.pauseReason = String(pauseReason).trim(); else unset.pauseReason = '';

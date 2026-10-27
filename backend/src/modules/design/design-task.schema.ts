@@ -41,6 +41,8 @@ export class DesignTask {
   @Prop({ type: [Types.ObjectId], default: undefined }) photoIds?: Types.ObjectId[];
   /** Значения стикеров: { <_id стикера>: число | id состояния }; пишется точечно ($set stickers.<id>). */
   @Prop({ type: Object }) stickers?: Record<string, number | string>;
+  /** Что изготовить (разбор строки ЗНП из YouGile или ручная правка); необязательно. */
+  @Prop({ type: Object }) spec?: { qty?: string; unit?: string; size?: string; mount?: string; cover?: string; ral?: string; extra?: string; raw?: string };
   @Prop({ type: Types.ObjectId, ref: 'User' }) createdBy?: Types.ObjectId;
   @Prop({ type: Date, default: null }) deletedAt?: Date | null;
   @Prop({ type: Date }) createdAt?: Date;

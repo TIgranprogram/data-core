@@ -27,7 +27,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
   const orderIds = uniq(docs.map((d) => d.orderId)), incomeIds = uniq(docs.map((d) => d.incomeId)), personIds = uniq(docs.map((d) => d.assigneeId));
   const [orders, incomes, persons, noteRows] = await Promise.all([
     orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1, priority: 1 } }).toArray() : [],
-    incomeIds.length ? db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { lineNo: 1, title: 1, productId: 1 } }).toArray() : [],
+    incomeIds.length ? db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { lineNo: 1, title: 1, productId: 1, qty: 1, unit: 1 } }).toArray() : [],
     personIds.length ? db.collection('persons').find({ _id: { $in: personIds } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [],
     // счётчики обсуждения: всего записей и открытых вопросов — одним запросом на страницу
     db.collection('designnotes').aggregate([{ $match: { taskId: { $in: docs.map((d) => d._id) }, deletedAt: null } }, { $group: { _id: '$taskId', n: { $sum: 1 }, q: { $sum: { $cond: ['$needsAnswer', 1, 0] } } } }]).toArray(),
@@ -70,6 +70,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
       notesCount: (notes.get(String(d._id))?.n as number | undefined) ?? 0, openQuestions: (notes.get(String(d._id))?.q as number | undefined) ?? 0,
       stickers: (d.stickers as Record<string, unknown> | undefined) ?? {},
       orderId: d.orderId ? String(d.orderId) : null, orderNo, productionNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo,
+      qty: (inc?.qty as number | undefined) ?? null, unit: (inc?.unit as string | undefined) ?? null, spec: (d.spec as Doc | undefined) ?? null,
       productId: pid ? String(pid) : null, sku, productName, customerTitle,
       deadline: manual.deadline ?? orderDeadline(o), deadlineFromOrder: !manual.deadline && !!orderDeadline(o),
       priority: manual.priority ?? (o?.priority as string | undefined) ?? 'normal', priorityFromOrder: !manual.priority && !!o?.priority,
