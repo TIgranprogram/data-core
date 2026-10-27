@@ -255,5 +255,6 @@ export const design = {
     restore: (r) => api(`/design-tasks/${r.id}/restore`, { method: 'POST' }),
   },
 
+  searchRow: (r) => ({ title: `${r.code} · ${title(r)}`, sub: [r.orderNo && 'заказ ' + r.orderNo, r.customer].filter(Boolean).join(' · '), side: badge(STATUS, r.status) }),
   open: (id) => go('design', { open: id }),
 };

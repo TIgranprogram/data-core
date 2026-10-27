@@ -7,6 +7,7 @@ import { stock } from './stock.js';
 import { passports } from './passports.js';
 import { partners } from './partners.js';
 import { products } from './products.js';
+import { design } from './design.js';
 import { failBlock } from '../ui/busy.js';
 
 
@@ -19,6 +20,7 @@ const SOURCES = [
   { id: 'passports', section: passports, title: 'Паспорта', path: '/passports' },
   { id: 'partners', section: partners, title: 'Контрагенты', path: '/partners' },
   { id: 'products', section: products, title: 'Каталог', path: '/showcase' },
+  { id: 'design', section: design, title: 'Проектирование', path: '/design-tasks' },
 ];
 
 export function mountSearch(params) {
