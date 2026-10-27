@@ -241,7 +241,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const tileTagBox = tilesBox && side ? h('div', { class: 'ls-tile-tag', hidden: true }) : null;
   const tilesGroup = tilesBox && side ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, L.tiles.title || 'Категории'), tileTagBox, tilesBox) : null;
   let tiles = [];
-  if (tilesBox) Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => (tilesGroup || tilesBox).remove());
+  const loadTiles = (again) => Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => { if (!again) (tilesGroup || tilesBox).remove(); });
+  if (tilesBox) loadTiles(false);
   function renderTiles() {
     if (!tilesBox) return;
     const cur = P[L.tiles.key] || '';
@@ -580,7 +581,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   return {
     el,
     update,
-    reload: () => (st().board && board ? board.reload() : load()),
+    // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
+    reload: () => { if (tilesBox) loadTiles(true); extra?.update(P); return st().board && board ? board.reload() : load(); },
     focusSearch: () => sb.focus(),
     destroy: () => document.removeEventListener('keydown', onKey),
   };

@@ -12,6 +12,7 @@ import { icon } from './ui/icons.js';
 import { closePopMenu, isOpenFor, openPopMenu } from './ui/pop-menu.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
+import { lookups } from './sections/lookups.js';
 import { movements } from './sections/movements.js';
 import { mountMoney } from './sections/money.js';
 import { mountPayroll } from './sections/payroll.js';
@@ -363,7 +364,7 @@ function syncCard(section, params) {
   const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, priceHint: undefined, productUrl: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
-    changed: () => { mounted?.list?.reload?.(); refreshCounts(); },
+    changed: () => onDataChanged(), // тот же debounce, что у dc:changed: запись + это событие = одно обновление
     opened: (id) => { card.key = ofName + 'open:' + id; patch({ ...clear, of: ofName !== section ? ofName : undefined, open: id }); },
   };
   if (params.new) {
@@ -397,7 +398,17 @@ async function showApp() {
 }
 onChange((c) => { if (ui && session.refresh) render(c); });
 // «Отменить» во всплывающем сообщении и другие изменения вне списка — обновить текущий экран и счётчики меню
-window.addEventListener('data-changed', () => { mounted?.list?.reload?.(); refreshCounts(); });
+// Единый механизм «данные изменились»: core/api.js шлёт dc:changed после каждой успешной записи (POST/PATCH/PUT/DELETE),
+// старое data-changed — то же самое вручную. Debounce 300 мс склеивает пачку записей в одно обновление:
+// список, плитки/«Уточнить» слева (list.reload), счётчики меню, «Сегодня» и кэш справочников.
+let changedTimer = 0;
+function onDataChanged() {
+  lookups.reset();
+  clearTimeout(changedTimer);
+  changedTimer = setTimeout(() => { mounted?.list?.reload?.(); refreshCounts(); }, 300);
+}
+window.addEventListener('data-changed', onDataChanged);
+document.addEventListener('dc:changed', onDataChanged);
 window.addEventListener('online', () => events.onNet(true));
 window.addEventListener('offline', () => events.onNet(false));
 
