@@ -5,7 +5,7 @@ export type FeedTone = 'danger' | 'warn' | 'info';
 export interface FeedAction { id: string; label: string }
 
 /** Запись до расчёта срока: `due` — ГГГГ-ММ-ДД. */
-export interface RawItem { kind: FeedKind; id: string; title: string; sub: string; due: string; actions: FeedAction[] }
+export interface RawItem { kind: FeedKind; id: string; title: string; sub: string; due: string; actions: FeedAction[]; taskId?: string }
 export interface FeedItem extends RawItem {
   tone: FeedTone;
   /** Только у просроченных. */

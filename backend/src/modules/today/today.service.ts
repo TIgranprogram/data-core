@@ -131,7 +131,7 @@ export class TodayService {
     const items = rows.map((r) => {
       const task = t.get(String(r.taskId));
       return {
-        kind: 'question' as const, id: String(r._id), title: String(r.text ?? '').slice(0, 120), sub: String(task?.title || (task ? `Задача D-${task.seq}` : '')), due: iso(r.createdAt) || '9999-12-31',
+        kind: 'question' as const, id: String(r._id), taskId: String(r.taskId), title: String(r.text ?? '').slice(0, 120), sub: String(task?.title || (task ? `Задача D-${task.seq}` : '')), due: iso(r.createdAt) || '9999-12-31',
         actions: [{ id: 'answer', label: 'Ответить' }],
       };
     });

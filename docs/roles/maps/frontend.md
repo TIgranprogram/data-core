@@ -69,3 +69,7 @@
 
 ## Карточка задачи D-N (2026-10-27, не закоммичено)
 - `ui/card.js` — новые опции `card.top(row,ctx)` (блок до галереи), действие `more:true` уходит в «⋯» (`.act-more`), история — `details` при `card.top`. `sections/design.js` — `topBlock/noteBlock/openPhoto`, `card.extra`. `ui/design-notes.js` — мессенджер (`item/paint/tidy/dayLabel`). CSS — конец `ui/panels.css` (`.dc-*`, `.dn-*`). Сервер: `design-present.ts` отдаёт `productionNo`.
+
+## «Сегодня» (СГД-1 этап 1, 2026-10-28, не закоммичено)
+коммит: (после коммита координатора)
+- `sections/home.js` переписан: `load` (GET /today?days=7), `cardEl/RUN` (действия open/receive/shipped/move/answer), `snooze` (localStorage `dc-today-snooze`), `paintFeed/paintWeek/paintCharts` (funnel/bars/donut/moneyLine, SVG), колокольчик `paintBell`. CSS — конец `ui/screens.css` (`.td-*`). Старые очереди `.q-*/.lane*/.summary` в CSS остались (их используют fill/money/payroll).
