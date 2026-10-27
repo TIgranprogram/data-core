@@ -25,7 +25,7 @@ export class DesignExtrasService {
     if (!t) throw new NotFoundException('Задача не найдена');
     if (user && user.role !== 'admin' && user.role !== 'manager' && t.assigneeId) {
       // Связь «вход ↔ сотрудник» (persons.userId) пока не заводится: пока пользователь ни с кем не связан — не ограничиваем.
-      const me = await this.connection.db!.collection('persons').findOne({ userId: oid(user.id, 'пользователя'), deletedAt: null }, { projection: { _id: 1 } });
+      const me = await this.connection.db!.collection('persons').findOne({ userId: oid(user.id, 'пользователя') }, { projection: { _id: 1 } });
       if (me && String(me._id) !== String(t.assigneeId)) throw new ForbiddenException('Эта задача назначена другому сотруднику');
     }
     return { _id, t };

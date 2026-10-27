@@ -359,7 +359,10 @@ describe('DesignService', () => {
       expect((await extras.addPhoto(t.id, String(ph._id), user(uid))).photoIds).toHaveLength(1);
       expect((await extras.removePhoto(t.id, String(ph._id), user(uid))).photoIds).toEqual([]);
       const mine = await service.create({ title: 'Чужая', assigneeId: String(personId) });
+      await expect(extras.addPhoto(mine.id, String(ph._id), user(uid))).resolves.toBeDefined(); // вход ни с кем не связан — не ограничиваем
+      persons.rows.push({ _id: id(), name: 'Другой', userId: uid }); // вход связан с другим сотрудником
       await expect(extras.addPhoto(mine.id, String(ph._id), user(uid))).rejects.toBeInstanceOf(ForbiddenException);
+      persons.rows.pop();
       persons.rows[0].userId = uid; // сотрудник привязан к пользователю
       await expect(extras.addPhoto(mine.id, String(ph._id), user(uid))).resolves.toBeDefined();
       await extras.addPhoto(mine.id, String(ph._id), { id: String(id()), username: 'm', role: 'manager' }); // manager — любая
