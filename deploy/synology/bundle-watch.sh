@@ -38,7 +38,7 @@ rm -f "$REQ"
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 # строка → JSON-строка (без python/node на хосте)
 jstr() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\t' ' ' | sed -e ':a;N;$!ba;s/\n/\\n/g'; }
-write_status() { printf '%s\n' "$1" > "${STATUS}.tmp" && chmod 644 "${STATUS}.tmp" && mv -f "${STATUS}.tmp" "$STATUS"; }
+write_status() { local t; t="$(mktemp "${STATUS}.XXXXXX")" || return 1; printf '%s\n' "$1" > "$t" && chmod 644 "$t" && mv -f "$t" "$STATUS"; }
 
 STARTED="$(now)"
 write_status "{\"state\":\"running\",\"startedAt\":\"${STARTED}\"}"

@@ -18,7 +18,7 @@ user="$(get ACCESS_USER access.env)"; pass="$(get ACCESS_PASSWORD access.env)"
 [ -n "$pass" ] || pass="$(get ADMIN_PASSWORD config.env)"
 [ -n "$pass" ] || { echo "нет пароля: заполните ADMIN_PASSWORD в config.env или access.env" >&2; exit 3; }
 login="$(curl -sS -X POST "$base/api/auth/login" -H 'Content-Type: application/json' \
-  --data "$(printf '{"username":"%s","password":"%s"}' "$user" "$pass")")"
+  --data-binary @- <<<"$(printf '{"username":"%s","password":"%s"}' "$user" "$pass")")" # тело через stdin — пароль не виден в списке процессов
 token="$(printf '%s' "$login" | sed -n 's/.*"access":"\([^"]*\)".*/\1/p')"
 [ -n "$token" ] || { echo "вход не удался (пароль изменён в админке? тогда ACCESS_PASSWORD в access.env)" >&2; exit 4; }
 args=(-sS -X "$method" "$base$path" -H "Authorization: Bearer $token")

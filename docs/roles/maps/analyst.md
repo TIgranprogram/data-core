@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (NAMES)
+коммит: не закоммичен (ТИ-11 DOCS-ORDERS)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -29,3 +29,6 @@
 ## Три названия (ТИ-8, 2026-10-27)
 - ТЗ: `docs/roles/tz/NAMES.md`. ДМ.2 уже добавил `products.fullName/orderName`, `materials.fullName/invoiceName`; новых полей не нужно. Позиция заказа — `incomes.title` (снимок заказчика). Вопросы Н-1, Н-2 в QUESTIONS.
 - Дыры: `requests.js` и `invoice.js` сливают всё в одно `title/name`.
+
+## Документация/заказы (ТИ-11, 2026-10-27)
+- ТЗ: `docs/roles/tz/DOCS-ORDERS.md`. Есть `status` draft/issued/annulled, `salesOrderId`/`orderNo`; нет `readiness`, нет группировки. Экран: `pwa/sections/docs.js:20`. Вопросы Д-1…Д-3.

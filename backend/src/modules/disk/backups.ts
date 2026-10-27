@@ -16,16 +16,26 @@ export const stampDate = (stamp: string) => `${stamp.slice(0, 10)}T${stamp.slice
 
 const isRealDir = (p: string) => fs.lstat(p).then((s) => s.isDirectory(), () => false);
 
+type BackupRow = { stamp: string; date: string; mongoBytes: number; uploadsBytes: number | null; totalBytes: number };
+/** Размеры готовых копий не меняются — считаем один раз (обход папок грузит единственное ядро VM). Ключ — корень + штамп. */
+const sizeCache = new Map<string, BackupRow>();
+
 /** Список копий по штампам, новые сверху. null — папка копий не подключена. */
 export async function listBackups(root: string) {
   let names: string[];
   try { names = await fs.readdir(root); } catch { return null; }
   const stamps = names.filter((n) => n.startsWith('mongo-') && isStamp(n.slice(6))).map((n) => n.slice(6)).sort().reverse();
-  return Promise.all(stamps.map(async (stamp) => {
+  for (const k of sizeCache.keys()) if (k.startsWith(root + '|') && !stamps.includes(k.slice(root.length + 1))) sizeCache.delete(k);
+  return Promise.all(stamps.map(async (stamp, i) => {
+    const key = `${root}|${stamp}`;
+    const hit = sizeCache.get(key);
+    if (hit) return hit;
     const mongoBytes = (await dirSize(path.join(root, `mongo-${stamp}`))).bytes;
     const upDir = path.join(root, `uploads-${stamp}`);
     const uploadsBytes = (await isRealDir(upDir)) ? (await dirSize(upDir)).bytes : null;
-    return { stamp, date: stampDate(stamp), mongoBytes, uploadsBytes, totalBytes: mongoBytes + (uploadsBytes ?? 0) };
+    const row = { stamp, date: stampDate(stamp), mongoBytes, uploadsBytes, totalBytes: mongoBytes + (uploadsBytes ?? 0) };
+    if (i > 0) sizeCache.set(key, row); // самая новая может ещё дописываться — её не кэшируем
+    return row;
   }));
 }
 
