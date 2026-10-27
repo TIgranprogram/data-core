@@ -127,7 +127,7 @@ function inlineFilter(categoryKey) {
       if (vals.length < 2) return null; // один вариант — выбирать нечего
       const open = folded.has(key) ? folded.get(key) : first;
       first = false;
-      const colCls = vals.length > 8 && key !== 'type' ? ' ff-cols' : '';
+      const colCls = key === 'type' ? '' : vals.length > 16 ? ' ff-cols ff-cols3' : vals.length > 8 ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
           h('span', { class: 'ff-gl' }, label), h('span', { class: 'ff-gn' }, String(vals.length)), h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),

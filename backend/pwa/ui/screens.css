@@ -429,6 +429,8 @@ html { scrollbar-gutter: stable; }
 .ff-checks { display: flex; flex-direction: column; padding-bottom: 8px; }
 /* ТИ-6: 2 колонки для длинных групп (длина мм, резьба) */
 .ff-checks.ff-cols { display: grid; grid-template-columns: 1fr 1fr; }
+.ff-checks.ff-cols3 { grid-template-columns: 1fr 1fr 1fr; column-gap: 8px; }
+.ff-inline .ff-gl { color: var(--primary); } /* ТИ-5: заголовки групп в тон зелёному */
 .ff-check { display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 6px 0; cursor: pointer; overflow-wrap: anywhere; }
 .ff-check input { margin-top: 2px; flex: none; width: 18px; height: 18px; accent-color: var(--primary); }
 /* ТИ-6: крошки выбранных фильтров в inline-панели */
