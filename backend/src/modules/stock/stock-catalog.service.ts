@@ -53,7 +53,9 @@ export class StockCatalogService {
     const existing = await this.findMaterialByName(name);
     if (!existing && dto.article?.trim()) await this.assertArticleFree(dto.article.trim());
     if (existing) {
-      await this.updateItem(String(existing._id), { ...dto, name: undefined });
+      // ТИ-8: уже заполненное «название в счёте» не затираем
+      const keepInvoice = (existing as { invoiceName?: string }).invoiceName;
+      await this.updateItem(String(existing._id), { ...dto, name: undefined, ...(keepInvoice ? { invoiceName: undefined } : {}) });
       return this.search.getItem(String(existing._id));
     }
     const categoryId = dto.categoryId && Types.ObjectId.isValid(dto.categoryId)

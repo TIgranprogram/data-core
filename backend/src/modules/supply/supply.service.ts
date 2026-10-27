@@ -8,6 +8,7 @@ import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { CategoryResolver } from '../../common/catalog/category-resolver';
+import { materialRequestTitle } from '../../common/catalog/names';
 import { StockService } from '../stock/stock.service';
 import { OrgResolver } from './org-resolver';
 import { SupplierAliases } from './supplier-aliases';
@@ -328,6 +329,11 @@ export class SupplyService {
     const fields = await this.toFields(dto);
     if (fields.status === 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется (создайте заявку «Оплачено», затем «Принять»)');
     if (!fields.title && !fields.materialId) throw new BadRequestException('Укажите наименование');
+    // ТИ-8 Н-1: выбрана позиция склада, названия нет — «в счёте», если заполнено, иначе короткое
+    if (!fields.title && fields.materialId) {
+      const m = await this.connection.db!.collection('materials').findOne({ _id: fields.materialId as Types.ObjectId }, { projection: { name: 1, invoiceName: 1 } });
+      if (m) fields.title = materialRequestTitle(m as { name?: string; invoiceName?: string });
+    }
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {
       const last = await this.model.findOne({ num: { $ne: null } }).sort({ num: -1 }).lean().exec();
@@ -401,7 +407,7 @@ export class SupplyService {
       const name = doc.title?.trim();
       if (!name) throw new BadRequestException('У заявки нет наименования');
       const cat = doc.categoryId ? await this.connection.db!.collection('categories').findOne({ _id: doc.categoryId }) : null;
-      const item = await this.stock.createItem({ name, unit: doc.unit, article: doc.article, categoryName: cat?.name as string | undefined });
+      const item = await this.stock.createItem({ name, unit: doc.unit, article: doc.article, categoryName: cat?.name as string | undefined, invoiceName: name }); // ТИ-8: название из счёта — в invoiceName
       materialId = item.id;
     }
     // ЗП.4: пришла часть — приход, заявка остаётся открытой на остаток (qty уменьшается, receivedQty копится)

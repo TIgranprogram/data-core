@@ -168,8 +168,9 @@ export const stock = {
       ['Состояние', badge(STOCK_STATUS, r.status)],
       ['Мин. остаток', r.minQuantity ? `${qty(r.minQuantity)} ${unit(r)}` : ''],
       ['Пересчитано', r.lastCountedAt ? date(r.lastCountedAt) : 'ещё не пересчитывали'],
-      ['Полное наименование', r.fullName],
-      ['В счёте', r.invoiceName],
+      ['Короткое', r.name],
+      ['Длинное (документы)', r.fullName || r.name],
+      ['В счёте', r.invoiceName || r.name],
       ['Категория', r.categoryName],
       ...metalView(r),
       ['Ед. изм.', r.unit],
@@ -200,10 +201,10 @@ export const stock = {
       const lk = await lookups().catch(() => ({ categories: [] }));
       return [
         { section: 'Что за позиция', tone: 'main', fixed: true },
-        { key: 'name', label: 'Наименование', required: true, max: 300, span: 3, hint: 'Короткое, как на складе: «Болт мебельный, M8х40, DIN 603»' },
+        { key: 'name', label: 'Короткое название', required: true, max: 300, span: 3, hint: 'Для списков и фильтров, как на складе: «Болт мебельный, M8х40, DIN 603»' },
         // ДМ.2: необязательные — полное и «как в счёте» (поиск находит по всем трём)
-        { key: 'fullName', label: 'Полное наименование', max: 500, span: 3 },
-        { key: 'invoiceName', label: 'Наименование в счёте', max: 500, span: 3, hint: 'Как пишет поставщик — поиск найдёт позицию и по нему' },
+        { key: 'fullName', label: 'Длинное название', max: 500, span: 3, hint: 'Для документов и паспорта. Пусто — берётся короткое' },
+        { key: 'invoiceName', label: 'Название в счёте', max: 500, span: 3, hint: 'Как пишет поставщик — поиск найдёт позицию и по нему' },
         { key: 'article', label: 'Артикул (поставщика)', max: 100, span: 1, hint: 'Из счёта / заявки. Пусто — останется внутренний код' },
         { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },

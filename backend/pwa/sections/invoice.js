@@ -65,7 +65,9 @@ async function buildInvoiceForm(opts = {}) {
     const row = { title, q, unit, sum, cat, url: { value: '' }, photos: { ids: () => [] }, extra: {}, el: null };
     // форма новой позиции — в строке, нашим блоком
     const nCat = h('input', { maxlength: 100, placeholder: 'Выберите категорию' });
-    const nName = h('input', { maxlength: 300, placeholder: 'Как называется: «Болт мебельный, M8х40, DIN 603»' });
+    const nName = h('input', { maxlength: 300, placeholder: 'Коротко, для списков: «Болт мебельный M8х40»' });
+    const nFull = h('input', { maxlength: 500, placeholder: 'пусто — берётся короткое' });
+    const nInv = h('input', { maxlength: 500, placeholder: 'Как в счёте поставщика' });
     const nArt = h('input', { maxlength: 100, placeholder: 'пусто — присвоится сам' });
     const nUnit = h('input', { value: 'шт', maxlength: 30 });
     const nUrl = h('input', { maxlength: 1000, placeholder: 'https://…' });
@@ -74,10 +76,10 @@ async function buildInvoiceForm(opts = {}) {
     const nSave = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Создать позицию');
     const nBox = h('div', { class: 'form-block inv-new', 'data-tone': 'info', hidden: true },
       h('div', { class: 'inv-new-head' }, h('b', null, 'Новая позиция в базе'), h('span', { class: 'muted small' }, ' — появится на складе в выбранной категории')),
-      h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Наименование *', nName, 'wide'), field('Артикул', nArt), field('Ед. изм.', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
+      h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Короткое название *', nName, 'wide'), field('Длинное название', nFull, 'wide'), field('Название в счёте', nInv, 'wide'), field('Артикул', nArt), field('Ед. изм.', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
         h('div', { class: 'field wide' }, h('span', null, 'Фото'), nPhotos.el)),
       nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { nBox.hidden = true; } }, 'Отмена')));
-    const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = title.value.trim() || nName.value; (nCat.value ? nName : nCat).focus(); } }, 'Нет в списке — создать позицию');
+    const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = nName.value || title.value.trim(); nInv.value = nInv.value || row.src?.name || title.value.trim(); (nCat.value ? nName : nCat).focus(); } }, 'Нет в списке — создать позицию');
     const del = h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Убрать позицию', onclick: () => { rows.splice(rows.indexOf(row), 1); row.el.remove(); recalc(); } }, '×');
     const dupe = orderedNote(); // ЗП.3: позиция уже заказана — предупредить в строке
     row.el = h('div', { class: 'inv-row' },
@@ -110,7 +112,7 @@ async function buildInvoiceForm(opts = {}) {
       if (!name) { nErr.textContent = 'Впишите наименование'; nErr.hidden = false; nName.focus(); return; }
       nSave.disabled = true; nErr.hidden = true;
       try {
-        let it = await api('/stock/items', { method: 'POST', body: { name, unit: nUnit.value.trim() || 'шт', categoryName: newCat, ...(nArt.value.trim() ? { article: nArt.value.trim() } : {}), ...(nUrl.value.trim() ? { notes: 'Ссылка: ' + nUrl.value.trim() } : {}) } });
+        let it = await api('/stock/items', { method: 'POST', body: { name, ...(nFull.value.trim() ? { fullName: nFull.value.trim() } : {}), ...(nInv.value.trim() ? { invoiceName: nInv.value.trim() } : {}), unit: nUnit.value.trim() || 'шт', categoryName: newCat, ...(nArt.value.trim() ? { article: nArt.value.trim() } : {}), ...(nUrl.value.trim() ? { notes: 'Ссылка: ' + nUrl.value.trim() } : {}) } });
         for (const photoId of nPhotos.ids()) it = await api(`/stock/items/${it.id}/photos`, { method: 'POST', body: { photoId } });
         // в списки и в строку
         cat.value = newCat; setCat(newCat);

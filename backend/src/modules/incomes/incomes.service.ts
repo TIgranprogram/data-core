@@ -8,6 +8,7 @@ import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import { normText } from '../../common/text/norm-text';
 import { sameKey } from '../../common/text/same-text';
+import { ourProductLabel, productShortName, type Named } from '../../common/catalog/names';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { Income, IncomeDocument, incomeDerived } from './income.schema';
@@ -49,8 +50,9 @@ export class IncomesService {
     const thumb = new Map(th.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
     // название изделия из «Продукции» — для ссылки в карточке позиции (БЗ-5)
     const pids = [...new Set(docs.map((d) => d.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
-    const prods = pids.length ? await this.connection.db!.collection('products').find({ _id: { $in: pids } }, { projection: { name: 1, sku: 1 } }).toArray() : [];
-    const prod = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: String(p.name ?? p.sku ?? ''), sku: (p.sku as string) ?? null }]));
+    const prods = pids.length ? await this.connection.db!.collection('products').find({ _id: { $in: pids } }, { projection: { name: 1, sku: 1, fullName: 1, orderName: 1 } }).toArray() : [];
+    // ТИ-8: name — короткое по цепочке Н-2; ourName — «sku · name» для строки «Наше: …»
+    const prod = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: productShortName(p as Named), sku: (p.sku as string) ?? null, ourName: ourProductLabel(p as Named) }]));
     return docs.map((d) => ({
       ...d,
       photos: ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => url.has(String(p))).map((p) => ({ id: String(p), url: url.get(String(p)), thumb: thumb.get(String(p)) ?? url.get(String(p)) })),

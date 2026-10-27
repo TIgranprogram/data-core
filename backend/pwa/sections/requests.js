@@ -106,7 +106,7 @@ export async function pastItems() {
   const by = new Map();
   const key = (s) => normSearch(s);
   for (const it of stockRes) {
-    by.set(key(it.name), { label: it.name, cat: it.categoryName || '', stock: it, values: { title: it.name, unit: it.unit, categoryName: it.categoryName, article: it.article } });
+    by.set(key(it.name), { label: it.name, cat: it.categoryName || '', stock: it, values: { title: it.invoiceName || it.name, unit: it.unit, categoryName: it.categoryName, article: it.article } }); // Н-1: «в счёте», если есть, иначе короткое
   }
   for (const r of reqs.items) {
     if (!r.title) continue;
@@ -312,6 +312,7 @@ export const requests = {
       ['Доставка', r.deliveryNote],
       ['Ссылка', r.productUrl ? h('a', { href: r.productUrl, target: '_blank', rel: 'noopener' }, 'открыть') : ''],
       ['Примечание', r.notes],
+      ['Короткое (склад)', r.materialId && r.materialName && r.materialName !== r.title ? r.materialName : ''],
       ['Позиция склада', r.materialId ? h('a', { href: '#stock?open=' + r.materialId }, r.materialName || 'открыть') : ''],
       ['Оприходовано', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
     ],

@@ -50,6 +50,12 @@ async function setStage(r, stage) {
 }
 
 /** Быстрая строка «+ позиция» в карточке заказа: наименование, кол-во, ед. → Enter. Фото — в карточке позиции. */
+let focusNewLine = false; // ТИ-8: после создания заказа сразу даём ввести первую позицию
+const ourLine = (l) => {
+  const our = l.product?.ourName || (l.productName && [l.sku || l.productSku, l.productName].filter(Boolean).join(' · '));
+  if (our) return h('div', { class: 'muted small' }, 'Наше: ' + our);
+  return l.productId || l.product ? null : h('div', { class: 'muted small' }, 'Подберите изделие');
+};
 function addLineRow(r, after) {
   const title = h('input', { placeholder: 'Новая позиция: наименование (Enter — добавить)', maxlength: 500 });
   const q = h('input', { inputmode: 'decimal', value: '1', class: 'so-q', 'aria-label': 'Количество' });
@@ -69,6 +75,7 @@ function addLineRow(r, after) {
   };
   title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
   btn.addEventListener('click', go);
+  if (focusNewLine) { focusNewLine = false; setTimeout(() => { title.scrollIntoView?.({ block: 'center' }); title.focus(); }, 50); }
   return h('div', { class: 'so-add' }, title, q, unit, btn);
 }
 
@@ -98,7 +105,7 @@ function details(r) {
       sec(`Позиции (${lines.length})`, lines.length
         ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
           h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
-            h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
+            h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title, ourLine(l)), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
             h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
         session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? addLineRow(r, () => load()) : null),
@@ -218,7 +225,7 @@ export const salesorders = {
       return { orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage, priority: v.priority === 'normal' ? '' : v.priority || '',
         productionDeadline: v.productionDeadline || '', shipDate: v.shipDate || '', deliveryDeadline: v.deliveryDeadline || '', contractNo: s(v.contractNo), contractDate: v.contractDate || '', notes: s(v.notes) };
     },
-    create: (body) => api('/salesorders', { method: 'POST', body: { ...body, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } }),
+    create: (body) => api('/salesorders', { method: 'POST', body: { ...body, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } }).then((r) => { focusNewLine = true; return r; }),
     update: (id, body) => api(`/salesorders/${id}`, { method: 'PATCH', body }),
   },
 
