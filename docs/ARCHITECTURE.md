@@ -62,6 +62,10 @@ Vanilla JS без сборки: `admin.js` (вся логика, fetch к `/api`
 - Бэкап: `deploy/synology/backup.sh` (mongodump от root) по cron 03:00, ротация 14 дней; сверка восстановления — `deploy/synology/verify-restore.js`.
 - Деплой: `deploy/synology/deploy.py` (skill `datacore-deploy`).
 
+## Помощник (modules/assistant)
+
+Чат с Anthropic API (ключ `ANTHROPIC_API_KEY` в .env VM): инструменты чтения вызывают наши сервисы в процессе от имени пользователя, деньги не-денежной роли вырезаются; свои коллекции `assistantchats`, `assistantusage`; ТЗ — `docs/roles/tz/AI-ASSISTANT.md`.
+
 ## Единая база (с 2026-10-18)
 
 ```

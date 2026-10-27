@@ -53,3 +53,6 @@
 
 ## «Сегодня» (СГД-1, 2026-10-28, не закоммичено)
 - `modules/today/`: `today-feed.ts` (buildFeed/buildWeek/buildPulse, окна FEED_WINDOW), `today.service.ts:get`, `today.controller.ts`, specs рядом. `FinanceModule` теперь экспортирует FinanceService. openapi не обновлён (нужен Mongo). коммит: —
+
+## Помощник ИИ-1, этап 1 (2026-10-28, не закоммичено)
+- `modules/assistant/`: `assistant.service.ts:chat` (цикл ≤6 шагов, лимит, запись), `assistant.tools.ts` (`TOOL_DEFS`, `run`, `compact`; деньги — `stripMoney` из `money-mask.interceptor.ts`), `assistant.config.ts` (модели, цены «сверить», лимиты), `anthropic.client.ts` (fetch, без SDK), `assistant.store.ts` (`assistantchats` TTL 90 дн., `assistantusage`). Экспорт добавлен: FillAudit/Partners/Today модули. spec рядом; e2e и openapi НЕ делались. коммит: —

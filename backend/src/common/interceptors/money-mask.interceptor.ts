@@ -46,3 +46,6 @@ function strip(v: unknown, depth: number): unknown {
   }
   return out;
 }
+
+/** Убрать денежные поля из любых данных (помощник: инструменты читают сервисы напрямую, мимо интерцептора). */
+export const stripMoney = (v: unknown): unknown => strip(v, 0);
