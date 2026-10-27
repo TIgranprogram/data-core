@@ -70,7 +70,8 @@ export function cover(input: PdfV2Input, color: string): V2Page {
     if (ol) { d.font('gost-i').fontSize(8.5).fillColor('#333').text(ol, M.l, yy, { width: CW }); yy = d.y; }
     yy = Math.max(yy + 18, 140);
     d.font('gost-i').fontSize(18).fillColor('#000').text(`ПАСПОРТ № ${p.passportNumber ?? ''}`, M.l, yy, { width: CW, align: 'center' });
-    d.font('gost-i').fontSize(14).text(p.name ?? '', M.l + 10, d.y + 8, { width: CW - 20, align: 'center' });
+    const nameFs = coverNameFontSize(p.name ?? '', (t, fs) => { d.font('gost-i').fontSize(fs); return d.heightOfString(t, { width: CW - 20, align: 'center' }); });
+    d.font('gost-i').fontSize(nameFs).text(p.name ?? '', M.l + 10, d.y + 8, { width: CW - 20, align: 'center' });
     yy = d.y + 6;
     if (p.productCode) { d.font('gost-i').fontSize(10).fillColor('#333').text(`Артикул: ${p.productCode}`, M.l, yy, { width: CW, align: 'center' }); yy = d.y + 6; }
     // плашка категории + возраст «N+» кружком
@@ -97,3 +98,9 @@ export function cover(input: PdfV2Input, color: string): V2Page {
 
 // ─────────────────────────── лист для стенда A3 (Э6d) ───────────────────────────
 
+
+/** Размер шрифта названия на обложке: 14 pt, длинное — уменьшаем до 8 pt, пока не влезет в 3 строки (не режем). */
+export function coverNameFontSize(name: string, heightOf: (t: string, fs: number) => number, maxLines = 3): number {
+  for (let fs = 14; fs > 8; fs -= 0.5) if (heightOf(name, fs) <= fs * 1.25 * maxLines) return fs;
+  return 8;
+}

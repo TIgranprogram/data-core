@@ -76,3 +76,30 @@ describe('SalesOrdersService: приоритет и изделие позици�
     expect(r.lines[1].product).toBeNull();
   });
 });
+
+describe('SalesOrdersService.matchProducts (ПРЖ-4)', () => {
+  const orderId = new Types.ObjectId(), lineId = new Types.ObjectId(), prodId = new Types.ObjectId();
+  const updateOne = jest.fn();
+  let service: SalesOrdersService;
+  beforeEach(() => {
+    updateOne.mockClear();
+    const rows: Record<string, Array<Record<string, unknown>>> = {
+      incomes: [{ _id: lineId, lineNo: 1, title: 'Скамья парковая цвет графит' }],
+      products: [{ _id: prodId, name: 'Скамья парковая', sku: '3411' }],
+    };
+    const coll = (n: string) => { const q = { sort: () => q, toArray: async () => rows[n] }; return { find: () => q, updateOne }; };
+    const model = { findOne: () => chain({ _id: orderId }) };
+    service = new SalesOrdersService({ db: { collection: coll } } as never, model as never);
+  });
+
+  it('без apply — предложения, записи нет', async () => {
+    const r = await service.matchProducts(String(orderId));
+    expect(r.items?.[0].suggestions[0]).toMatchObject({ productId: String(prodId), sku: '3411' });
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+  it('apply — пишет productId; чужая позиция — 400', async () => {
+    await service.matchProducts(String(orderId), true, [{ lineId: String(lineId), productId: String(prodId) }]);
+    expect(updateOne.mock.calls[0][1].$set.productId).toEqual(prodId);
+    await expect(service.matchProducts(String(orderId), true, [{ lineId: String(new Types.ObjectId()), productId: String(prodId) }])).rejects.toBeInstanceOf(BadRequestException);
+  });
+});

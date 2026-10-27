@@ -11,6 +11,7 @@ import type { SalesOrderDto } from './dto';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
 import { netIssuedByLine } from '../../common/issued-net';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-key';
+import { suggestProducts } from '../../common/catalog/product-match';
 import { ORDER_CACHE_FIELDS } from './order-link';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
@@ -337,5 +338,28 @@ export class SalesOrdersService {
     await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
     await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' } });
     return this.get(id);
+  }
+
+  /** ПРЖ-4: подбор изделий для позиций без productId. Без apply — предложения; с apply — запись picks (productId=null — снять). */
+  async matchProducts(id: string, apply = false, picks: { lineId: string; productId: string | null }[] = []) {
+    const order = await this.findRaw(id);
+    const lines = await this.incomes().find({ orderId: order._id, deletedAt: null, productId: null }, { projection: { lineNo: 1, title: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    if (!apply) {
+      const prods = (await this.connection.db!.collection('products').find({ deletedAt: null }, { projection: { name: 1, fullName: 1, orderName: 1, sku: 1 } }).toArray())
+        .map((p) => ({ id: String(p._id), name: p.name as string, fullName: p.fullName as string, orderName: p.orderName as string, sku: p.sku as string }));
+      return { applied: false, items: lines.map((l) => ({ lineId: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, title: (l.title as string | undefined) ?? '', suggestions: suggestProducts(String(l.title ?? ''), prods) })) };
+    }
+    const own = new Set(lines.map((l) => String(l._id)));
+    const todo = picks.filter((x) => x?.productId);
+    const ids = [...new Set(todo.map((x) => String(x.productId)))].map((v) => oid(v, 'изделия'));
+    const found = new Set((await this.connection.db!.collection('products').find({ _id: { $in: ids }, deletedAt: null }, { projection: { _id: 1 } }).toArray()).map((p) => String(p._id)));
+    let applied = 0;
+    for (const x of todo) {
+      if (!own.has(String(x.lineId))) throw new BadRequestException('Позиция не из этого заказа или уже с изделием');
+      if (!found.has(String(x.productId))) throw new BadRequestException('Изделие не найдено');
+      await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции') }, { $set: { productId: oid(String(x.productId), 'изделия'), updatedAt: new Date() } });
+      applied++;
+    }
+    return { applied: true, count: applied };
   }
 }

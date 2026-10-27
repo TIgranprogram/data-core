@@ -7,7 +7,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
-import { SalesOrderDto } from './dto';
+import { MatchProductsDto, SalesOrderDto } from './dto';
 import { SalesOrdersService } from './salesorders.service';
 
 /**
@@ -63,6 +63,15 @@ export class SalesOrdersController {
   @Roles('admin', 'director', 'manager', 'user')
   linesLookup(@Param('id') id: string) {
     return this.orders.linesLookup(id);
+  }
+
+  /** ПРЖ-4: подбор изделий для позиций без изделия. Без apply — предложения, с apply — запись picks. */
+  @Post(':id/match-products')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'salesorder.match-products', entityType: 'SalesOrder', idParam: 'id' })
+  matchProducts(@Param('id') id: string, @Body() dto: MatchProductsDto) {
+    return this.orders.matchProducts(id, dto.apply === true, dto.picks);
   }
 
   @Post()
