@@ -60,3 +60,4 @@
 - `ui/drag.js` (`draggable`, `dragStep`, `afterDrag`), `core/order-color.js` (`orderColorIndex`, `paintOrder`); тесты `*.test.mjs` рядом.
 - `sections/design-order.js` — панель заказа `of=designorder&open=<orderId>` (регистрация в `main.js` SECTIONS/OWNER). Токены `--oc-N` — `ui/tokens.css`; стили `.db*` — конец `ui/base.css`.
 - Правка CRLF-файлов (design.js, list.js, main.js, tokens.css, order-design.js) — скриптом node. Heredoc с апострофами в bash-инструменте падает — файлы писать через Write.
+- Вид доски (2026-10-27): CSS-only в ui/panels.css строки 62-165 (clamp 2 строки, .db-colempty пунктир, @media min-width:1600px).
