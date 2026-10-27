@@ -29,7 +29,7 @@ function toneOf(left: number): FeedTone {
 const KIND_RANK: Record<FeedKind, number> = { delivery: 0, shipment: 1, design: 2, question: 3, payment: 4 };
 
 /** Лента: только то, что в окне своего вида; сортировка — просрочено (дольше всех первым) → сегодня → завтра. */
-export function buildFeed(items: RawItem[], today: string, limit = 30): { feed: FeedItem[]; total: number } {
+export function buildFeed(items: RawItem[], today: string, limit = 30): { feed: FeedItem[]; total: number; all: FeedItem[] } {
   const t = dayNum(today);
   const out: FeedItem[] = [];
   for (const it of items) {
@@ -37,8 +37,9 @@ export function buildFeed(items: RawItem[], today: string, limit = 30): { feed: 
     if (!Number.isFinite(left) || left > FEED_WINDOW[it.kind]) continue;
     out.push({ ...it, tone: toneOf(left), ...(left < 0 ? { overdueDays: -left } : { daysLeft: left }) });
   }
-  out.sort((a, b) => a.due.localeCompare(b.due) || KIND_RANK[a.kind] - KIND_RANK[b.kind] || a.title.localeCompare(b.title, 'ru'));
-  return { feed: out.slice(0, limit), total: out.length };
+  // вопросы вам — всегда сверху: ждут ответа человека, а не даты
+  out.sort((a, b) => Number(b.kind === 'question') - Number(a.kind === 'question') || a.due.localeCompare(b.due) || KIND_RANK[a.kind] - KIND_RANK[b.kind] || a.title.localeCompare(b.title, 'ru'));
+  return { feed: out.slice(0, limit), total: out.length, all: out };
 }
 
 /** Неделя: по дню с `today` на `days` вперёд; просроченное и дальше окна не входит. */

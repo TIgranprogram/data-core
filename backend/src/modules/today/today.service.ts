@@ -56,14 +56,14 @@ export class TodayService {
     }));
     items.push(...payments);
 
-    const { feed, total } = buildFeed(items, today);
+    const { feed, total, all } = buildFeed(items, today);
     const metrics: Record<string, unknown> = {};
     if (supply) metrics.supply = { counts: supply.counts };
     if (orders) metrics.orders = { byStage: orders.byStage, overdue: orders.overdue };
     if (stock) metrics.stock = stock;
     if (design) metrics.design = { counts: design.counts };
     if (forecast) metrics.money = { days: forecast.days.map((d) => ({ date: d.date, balance: d.closing })) };
-    return { today, pulse: buildPulse(feed), feed, feedTotal: total, week: buildWeek(items, today, days), metrics };
+    return { today, pulse: buildPulse(all), feed, feedTotal: total, week: buildWeek(items, today, days), metrics };
   }
 
   private async supply(db: NonNullable<Connection['db']>, upto: Date) {
