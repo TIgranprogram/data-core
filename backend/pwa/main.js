@@ -46,6 +46,7 @@ import { composition } from './sections/composition.js';
 import { bulkEdit } from './sections/bulk-edit.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
 import { bellButton } from './ui/notices.js';
+import { assistantButton } from './ui/assistant.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
@@ -192,6 +193,7 @@ function shell() {
     h('div', { class: 'histnav' },
       backBtn, fwdBtn),
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
+    assistantButton(),
     bellButton());
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП

@@ -369,3 +369,20 @@ body[data-sec] table.list a:not(.btn):hover { color: var(--sec); }
 body[data-sec='products'] { --sec: var(--sec-products); } body[data-sec='orders'] { --sec: var(--sec-orders); } body[data-sec='supply'] { --sec: var(--sec-supply); } body[data-sec='stock'] { --sec: var(--sec-stock); } body[data-sec='money'] { --sec: var(--sec-money); }
 body[data-sec] .page-head { border-bottom: 1px solid var(--sec); padding-bottom: var(--s2); }
 body[data-sec] .page-head .ico { color: var(--sec); }
+
+/* Помощник ИИ */
+.as-btn { gap: 6px; }
+.as-drawer { width: min(480px, 100%); z-index: 43; }
+.as-drawer-back { z-index: 42; }
+.as-body { display: flex; flex-direction: column; }
+.as-list-box { flex: 1; }
+.as-count { margin-top: 2px; }
+.as-foot { display: block; }
+.as-form { position: static; border-top: 0; padding: 0; }
+.as-user { flex-direction: row-reverse; }
+.as-user .dn-bubble { background: var(--primary-soft); }
+.as-reply .as-p { margin: 0 0 4px; overflow-wrap: anywhere; }
+.as-list { margin: 0 0 4px; padding-left: 18px; }
+.as-tips { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
+.as-wait .dn-bubble { padding-right: 12px; }
+@media (max-width: 720px) { .as-drawer { width: 100%; } .as-btn-t { display: none; } .as-btn { min-width: 44px; } .as-drawer .btn, .as-seg button, .as-tip { min-height: 44px; } }
