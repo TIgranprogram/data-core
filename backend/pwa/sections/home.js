@@ -38,10 +38,10 @@ export function mountHome(deps) {
   const dayText = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const seeReq = session.sees('requests'), seeStock = session.sees('stock');
 
-  let data = null, showAllQ = false, chip = null, dayFilter = null, bellOpen = false;
+  let data = null, showAllQ = false, chip = null, dayFilter = null;
   const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
-  const bellBtn = h('button', { type: 'button', class: 'td-bell', title: 'Вопросы вам', 'aria-label': 'Вопросы вам', onclick: () => { bellOpen = !bellOpen; paintBell(); } });
-  const bellPop = h('div', { class: 'td-bellpop', hidden: true });
+  const showQuestions = () => { chip = null; dayFilter = null; showAllQ = true; paintAll(); qEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const bellBtn = h('button', { type: 'button', class: 'td-bell', title: 'Вопросы ждут ответа — показать', 'aria-label': 'Вопросы ждут ответа', hidden: true, onclick: showQuestions });
   const feedEl = h('div', { class: 'td-feed' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
   const weekEl = h('div', { class: 'td-week' });
   const qEl = h('section', { class: 'td-qcard', hidden: true });
@@ -67,7 +67,6 @@ export function mountHome(deps) {
       const q = (r.items || []).find((x) => String(x.id || x._id) === String(c.id));
       taskId = q && (q.taskId || q.task?.id);
     } catch { /* откроем раздел целиком */ }
-    bellOpen = false; paintBell();
     if (taskId) deps.open('design', taskId); else go('design');
   }
   async function moveDate(c) {
@@ -173,20 +172,19 @@ export function mountHome(deps) {
   // ---------- Пульс: три числа ----------
   function paintPulse() {
     const p = data?.pulse || {};
-    const mk = (key, n, label) => h('button', { type: 'button', class: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'), 'aria-pressed': String(chip === key),
-      onclick: () => { chip = chip === key ? null : key; if (key === 'question') showAllQ = chip === key; dayFilter = null; paintAll(); } },
+    const mk = (key, n, label, title) => h('button', { type: 'button', title, class: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'), 'aria-pressed': String(chip === key),
+      onclick: () => { if (key === 'question') { showQuestions(); return; } chip = chip === key ? null : key; dayFilter = null; paintAll(); } },
       h('b', null, String(n || 0)), h('span', null, label));
-    pulseEl.replaceChildren(mk('overdue', p.overdue, 'горят'), mk('shipment', p.shipmentsSoon, 'отгрузок'), mk('question', p.questions ?? questions().length, 'вопросов'));
+    const o = p.overdue || 0, s = p.shipmentsSoon || 0, q = p.questions ?? questions().length;
+    pulseEl.replaceChildren(
+      mk('overdue', o, plural(o, 'просроченное дело', 'просроченных дела', 'просроченных дел'), 'Показать только просроченные дела'),
+      mk('shipment', s, plural(s, 'заказ к отгрузке', 'заказа к отгрузке', 'заказов к отгрузке'), 'Показать только отгрузки'),
+      mk('question', q, plural(q, 'вопрос ждёт ответа', 'вопроса ждут ответа', 'вопросов ждут ответа'), 'Показать вопросы'));
   }
   function paintBell() {
-    const qs = questions();
-    const n = data?.pulse?.questions ?? qs.length;
+    const n = data?.pulse?.questions ?? questions().length;
+    bellBtn.hidden = !n;
     bellBtn.replaceChildren(icon('bell'), n ? h('span', { class: 'td-bell-n' }, String(n)) : null);
-    bellPop.hidden = !bellOpen;
-    bellPop.replaceChildren(...(qs.length ? qs.map((c) => h('div', { class: 'td-q' },
-      h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
-      h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => answer(c) }, 'Ответить')))
-      : [h('div', { class: 'td-sub' }, 'Вопросов к вам нет')]));
   }
 
   // ---------- Вопросы: одна карточка ----------
@@ -196,7 +194,7 @@ export function mountHome(deps) {
     qEl.hidden = false;
     const rows = showAllQ ? qs : qs.slice(0, 2);
     qEl.replaceChildren(
-      h('h3', { class: 'td-h' }, `${qs.length} ${plural(qs.length, 'вопрос ждёт', 'вопроса ждут', 'вопросов ждут')} ответа`),
+      h('h3', { class: 'td-qh' }, `Вопросы ждут ответа · ${qs.length}`),
       ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
         h('button', { type: 'button', class: 'btn btn-sm btn-primary td-btn', onclick: () => answer(c) }, 'Ответить'))),
       qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn', onclick: () => { showAllQ = !showAllQ; paintQuestions(); } },
@@ -308,7 +306,7 @@ export function mountHome(deps) {
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head td-head' },
       h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${dayText}`)),
-      h('div', { class: 'td-bellwrap' }, bellBtn, bellPop)),
+      h('div', { class: 'td-bellwrap' }, bellBtn)),
     diskNote,
     // на телефоне — три задачи «на ходу» крупно
     session.canEdit && (seeReq || seeStock) ? h('div', { class: 'go-tiles' },
@@ -318,12 +316,10 @@ export function mountHome(deps) {
         h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null,
     pulseEl,
     actions,
-    tilesEl,
     h('div', { class: 'td-grid' },
-      h('div', { class: 'td-left' }, h('h2', { class: 'td-h' }, 'Дела'), feedEl),
-      h('aside', { class: 'td-right' }, qEl, weekEl)));
+      h('section', { class: 'td-panel' }, h('h2', { class: 'td-ph' }, 'Что сделать сегодня'), h('div', { class: 'td-pb' }, qEl, feedEl)),
+      h('aside', { class: 'td-panel' }, h('h2', { class: 'td-ph' }, 'Показатели'), h('div', { class: 'td-pb td-pb-r' }, tilesEl, weekEl))));
 
-  document.addEventListener('click', (e) => { if (bellOpen && !e.target.closest('.td-bellwrap')) { bellOpen = false; paintBell(); } });
   load();
   return { el, reload: () => load(true), update: () => {} };
 }
