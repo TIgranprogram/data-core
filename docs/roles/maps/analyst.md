@@ -30,5 +30,8 @@
 - ТЗ: `docs/roles/tz/NAMES.md`. ДМ.2 уже добавил `products.fullName/orderName`, `materials.fullName/invoiceName`; новых полей не нужно. Позиция заказа — `incomes.title` (снимок заказчика). Вопросы Н-1, Н-2 в QUESTIONS.
 - Дыры: `requests.js` и `invoice.js` сливают всё в одно `title/name`.
 
+## Замечания 27.10 (FB, 2026-10-27)
+- ТЗ: `docs/roles/tz/FEEDBACK-1027.md` (пароль, «По заказам»-2, «Связать с каталогом», стикеры/фото). Находки: на сервере нет запрета правки позиций сформированного заказа (`incomes.controller.ts:48–63`, только admin/manager); `designtasks` без фото, миниатюра с позиции; в UNIFIED-DB-MAP `designtasks` не упомянут. Вопросы Ф-1…Ф-6.
+
 ## Документация/заказы (ТИ-11, 2026-10-27)
 - ТЗ: `docs/roles/tz/DOCS-ORDERS.md`. Есть `status` draft/issued/annulled, `salesOrderId`/`orderNo`; нет `readiness`, нет группировки. Экран: `pwa/sections/docs.js:20`. Вопросы Д-1…Д-3.
