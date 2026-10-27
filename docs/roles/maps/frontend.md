@@ -73,3 +73,6 @@
 ## «Сегодня» (СГД-1 этап 1, 2026-10-28, не закоммичено)
 коммит: (после коммита координатора)
 - `sections/home.js` переписан: `load` (GET /today?days=7), `cardEl/RUN` (действия open/receive/shipped/move/answer), `snooze` (localStorage `dc-today-snooze`), `paintFeed/paintWeek/paintCharts` (funnel/bars/donut/moneyLine, SVG), колокольчик `paintBell`. CSS — конец `ui/screens.css` (`.td-*`). Старые очереди `.q-*/.lane*/.summary` в CSS остались (их используют fill/money/payroll).
+
+## Меню «Настройки» + шапка (2026-10-28, не закоммичено)
+- `ui/pop-menu.js` — `openPopMenu({anchor,groups,head,side})`, `closePopMenu`, `isOpenFor`; CSS `.pm*` конец `ui/panels.css`. `main.js` — `settingsButton/historyButton/themeButton/avatarButton/installItem`; `.side-foot` = Настройки + версия.

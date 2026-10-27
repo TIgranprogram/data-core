@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ТИ-11 DOCS-ORDERS)
+коммит: не закоммичен (SUPPLIER-CATALOG)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -38,3 +38,6 @@
 
 ## Задачник проектирования (DESIGN-DISCUSSION, 2026-10-27)
 - ТЗ: `docs/roles/tz/DESIGN-DISCUSSION.md`. YouGile: сообщения у 87/92 задач (238), чек-листы 3, подзадачи 8. Схема задачи `design/design-task.schema.ts:17–47`; `products.sku` уникален `common/catalog/product.schema.ts:71` → исполнение = отдельное изделие `sku 3404.2` + `baseSku/variant`. `photos` — только картинки → новая `files`. Вопросы ДО-1…ДО-3. коммит: — (не закоммичено)
+
+## Каталог поставщиков v2 (2026-10-28)
+- ТЗ `docs/roles/tz/SUPPLIER-CATALOG.md`. Экран `pwa/sections/supplier-catalog.js`, сервер `modules/supply/supplier-excel.service.ts`, схема `supplier-item.schema.ts`; алиасы `supplier_aliases`. Прод-замер не вышел (вход).

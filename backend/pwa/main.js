@@ -9,6 +9,7 @@ import { openCard } from './ui/card.js';
 import { installGlobalErrors } from './ui/errors.js';
 import { toast, toastError } from './ui/toast.js';
 import { icon } from './ui/icons.js';
+import { closePopMenu, isOpenFor, openPopMenu } from './ui/pop-menu.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
 import { movements } from './sections/movements.js';
@@ -108,11 +109,11 @@ function appVersion() {
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; });
 const isInstalled = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
-function installLink() {
+/** Пункт «Установить на телефон»: null, если уже установлено. */
+function installItem() {
   if (isInstalled()) return null;
-  return h('a', { class: 'side-link', href: '#', title: 'Установить «Рабочее место» на телефон или компьютер', onclick: async (e) => {
-    e.preventDefault();
-    if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice.catch(() => null); installEvt = null; if (r?.outcome === 'accepted') e.target.closest('a')?.remove(); return; }
+  return { label: 'Установить на телефон', icon: 'phone', onSelect: async () => {
+    if (installEvt) { installEvt.prompt(); await installEvt.userChoice.catch(() => null); installEvt = null; return; }
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     modal({ title: 'Установить на телефон', okText: 'Понятно', cancelText: 'Закрыть', body: h('div', null,
       h('p', null, 'Приложение ставится прямо из браузера — значок появится на экране телефона, открывается как обычное приложение и работает без связи (изменения уйдут, когда связь появится).'),
@@ -120,7 +121,7 @@ function installLink() {
         ? h('ol', null, h('li', null, 'Откройте этот адрес в Safari.'), h('li', null, 'Нажмите «Поделиться» (квадрат со стрелкой).'), h('li', null, 'Выберите «На экран „Домой“».'))
         : h('ol', null, h('li', null, 'Откройте этот адрес в Chrome на телефоне и войдите.'), h('li', null, 'Нажмите ⋮ (три точки справа сверху).'), h('li', null, 'Выберите «Установить приложение» или «Добавить на главный экран».')),
       h('p', { class: 'hint' }, 'Адрес: ' + location.origin + location.pathname)) });
-  } }, icon('phone'), h('span', { class: 'lbl' }, 'Установить на телефон'));
+  } };
 }
 
 // ---------- Каркас: меню слева, сверху поиск ----------
@@ -133,9 +134,6 @@ function shell() {
   // SK-8b: только разделы, отмеченные у роли (нет отметок — все, как раньше)
   navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, label, ico)]));
   const group = (title, ...links) => (links.some(Boolean) ? [h('div', { class: 'side-group' }, title), ...links] : null);
-  navLinks.trash = link('trash', 'Корзина', 'trash');
-  navLinks.dicts = link('dicts', 'Справочники', 'dicts');
-  navLinks.history = link('history', 'История', 'history'); // И.2 — директор и администратор
   const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
   let gsb;
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
@@ -163,20 +161,7 @@ function shell() {
     group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
     group('Производство', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
-    h('div', { class: 'side-foot' },
-      navLinks.dicts,
-      seesHistory ? navLinks.history : null,
-      navLinks.trash,
-      session.role === 'admin' ? h('a', { class: 'side-link', href: PREFIX + '/admin/', title: 'Администрирование' }, icon('admin'), h('span', { class: 'lbl' }, 'Администрирование')) : null,
-      // CRM живёт на том же домене в корне (https://kppdf-crm.ru/), приложение — под /db/; локально CRM нет
-      PREFIX ? h('a', { class: 'side-link', href: '/', title: 'CRM' }, icon('crm'), h('span', { class: 'lbl' }, 'CRM')) : null,
-      themeButton(),
-      h('div', { class: 'side-user' }, h('span', { class: 'avatar' }, initials),
-        h('div', { class: 'who' }, h('b', null, session.name), h('span', null, session.user?.roleLabel || roleName(session.user?.role)))),
-      h('a', { class: 'side-link', href: '#', title: 'Выйти', onclick: (e) => { e.preventDefault(); session.clear(); showLogin(); } }, icon('logout'), h('span', { class: 'lbl' }, 'Выйти')),
-      // «Установить на телефон» — внизу (пользователь 2026-10-26: первыми справочники, история, корзина)
-      installLink(),
-      appVersion()));
+    h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)
   const backBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Назад', onclick: () => window.history.back() }, '‹');
@@ -192,7 +177,10 @@ function shell() {
     h('div', { class: 'histnav' },
       backBtn, fwdBtn),
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
-    bellButton());
+    bellButton(),
+    seesHistory ? historyButton() : null,
+    themeButton(),
+    avatarButton(initials));
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
@@ -204,11 +192,47 @@ function shell() {
 const roleName = (r) => ({ admin: 'администратор', director: 'руководитель', manager: 'менеджер', user: 'просмотр' })[r] || r || '';
 events.onNet = (ok) => { if (netBar) netBar.hidden = ok; };
 
-/** Кнопка темы: как в системе → светлая → тёмная (theme.js). */
+const logout = () => { session.clear(); showLogin(); };
+
+/** Низ меню: один пункт «Настройки» → всплывающее меню вверх (DESIGN §4 «Всплывающее меню»). */
+function settingsButton() {
+  const btn = h('button', { class: 'side-link side-settings', type: 'button', title: 'Настройки', 'aria-label': 'Настройки', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+    onclick: () => {
+      if (isOpenFor(btn)) { closePopMenu(); return; }
+      shellEl.classList.remove('nav-open');
+      const nav = (id) => ({ label: id === 'dicts' ? 'Справочники' : 'Корзина', icon: id, href: '#' + id });
+      const sys = [session.role === 'admin' ? { label: 'Администрирование', icon: 'admin', href: PREFIX + '/admin/' } : null,
+        PREFIX ? { label: 'CRM', icon: 'crm', href: '/' } : null].filter(Boolean);
+      openPopMenu({ anchor: btn, side: 'up', cls: 'pm-settings', groups: [
+        { title: 'Данные', items: [nav('dicts'), nav('trash')] },
+        sys.length ? { title: 'Система', items: sys } : null,
+        { title: 'Приложение', items: [installItem()] },
+        { sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] },
+      ] });
+    } }, icon('settings'), h('span', { class: 'lbl' }, 'Настройки'));
+  return btn;
+}
+
+const historyButton = () => h('a', { class: 'btn btn-ghost btn-icon', href: '#history', title: 'История', 'aria-label': 'История' }, icon('history'));
+
+/** Иконка темы в шапке: система → светлая → тёмная (theme.js). */
 function themeButton() {
-  const name = h('span', null, window.dcTheme?.name() || 'как в системе');
-  return h('button', { class: 'side-link', type: 'button', title: 'Тема оформления', onclick: () => { name.textContent = window.dcTheme?.cycle() || ''; } },
-    icon('theme'), h('span', { class: 'lbl' }, 'Тема: ', name));
+  const btn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', onclick: () => { window.dcTheme?.cycle(); upd(); } }, icon('theme'));
+  const upd = () => { const t = 'Тема: ' + (window.dcTheme?.name() || 'как в системе'); btn.title = t; btn.setAttribute('aria-label', t); };
+  upd();
+  return btn;
+}
+
+/** Аватар в шапке → меню: имя, роль, «Выйти». */
+function avatarButton(initials) {
+  const btn = h('button', { class: 'avatar avatar-btn', type: 'button', title: session.name || 'Профиль', 'aria-label': 'Профиль: ' + (session.name || ''), 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+    onclick: () => {
+      if (isOpenFor(btn)) { closePopMenu(); return; }
+      openPopMenu({ anchor: btn, side: 'down', cls: 'pm-user',
+        head: h('div', { class: 'pm-who' }, h('b', null, session.name || ''), h('span', null, session.user?.roleLabel || roleName(session.user?.role))),
+        groups: [{ sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] }] });
+    } }, initials);
+  return btn;
 }
 
 /** Счётчики в меню: активные заявки; позиции к закупке и без остатка. */
