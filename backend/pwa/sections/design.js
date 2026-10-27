@@ -107,7 +107,7 @@ function openPhoto(url) {
 function topBlock(r, ctx) {
   const can = session.canEdit;
   const num = clean(r.productionNo);
-  const link = (text, id) => (id ? h('a', { href: '#salesorders?open=' + id }, text) : text);
+  const link = (text, id) => (id ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + id }, text) : text);
   const sub = [clean(r.sku) && 'арт. ' + clean(r.sku),
     num ? link('ЗНП ' + num, r.orderId) : clean(r.orderNo) ? link('Заказ № ' + clean(r.orderNo), r.orderId) : null,
     r.lineNo != null ? link('поз. ' + r.lineNo, r.orderId) : null].filter(Boolean);

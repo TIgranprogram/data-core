@@ -62,6 +62,8 @@ const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { designorder: 'design', designsettings: 'design', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
+// ЦВ-1: раздел данных → цвет (--sec-*)
+const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -126,7 +128,7 @@ let navLinks = {};
 let netBar;
 let shellEl;
 function shell() {
-  const link = (id, label, ico) => h('a', { class: 'side-link', href: '#' + id, title: label, onclick: () => shellEl.classList.remove('nav-open') },
+  const link = (id, label, ico) => h('a', { class: 'side-link' + (SEC_OF[id] ? ' sec-' + SEC_OF[id] : ''), href: '#' + id, title: label, onclick: () => shellEl.classList.remove('nav-open') },
     icon(ico), h('span', { class: 'lbl' }, label), h('span', { class: 'cnt', hidden: true }));
   // SK-8b: только разделы, отмеченные у роли (нет отметок — все, как раньше)
   navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, label, ico)]));
@@ -245,6 +247,7 @@ function render({ section, params }) {
   if (section === 'passports') { go('docs', { tab: 'archive', ...(params.open ? { of: 'passarchive', open: params.open } : {}) }, { replace: true }); return; }
   if (section === 'ops') { go('stock', { of: 'stockop', new: '1', op: { in: 'in', reserve: 'reserve', count: 'count' }[params.mode] || 'out' }, { replace: true }); return; }
   for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === (section === 'movements' ? 'stock' : section));
+  if (SEC_OF[OWNER[section] || section]) document.body.dataset.sec = SEC_OF[OWNER[section] || section]; else delete document.body.dataset.sec;
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
 
   const key = screenKey(section, params);

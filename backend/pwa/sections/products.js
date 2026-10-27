@@ -191,7 +191,7 @@ async function catLanding({ pick }) {
     art.innerHTML = catArt(t.name); // свой статичный SVG, данных пользователя нет
     const pid = 'sec-p-' + t.id;
     const body = h('span', { class: 'sec-body' }, h('span', { class: 'sec-name' }, t.name), h('span', { class: 'sec-n' }, nItems(t.count || 0)));
-    const tile = h('button', { type: 'button', class: 'sec-tile', title: t.name, 'aria-expanded': 'false', 'aria-controls': ks.length ? pid : undefined,
+    const tile = h('button', { type: 'button', class: 'sec-tile sec-products', title: t.name, 'aria-expanded': 'false', 'aria-controls': ks.length ? pid : undefined,
       onclick: () => (ks.length ? setOpen(secOpen() === t.id ? '' : t.id) : pick(t.id)) }, art, body, ks.length ? h('span', { class: 'sec-chev', 'aria-hidden': 'true' }, '▾') : null);
     const panel = h('div', { class: 'sec-panel', id: pid, inert: '' }, h('div', { class: 'sec-panel-in' },
       h('div', { class: 'sec-panel-head' }, h('h3', null, 'Группы раздела «' + t.name + '»'),

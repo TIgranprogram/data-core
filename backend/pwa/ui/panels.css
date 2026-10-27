@@ -5,7 +5,7 @@
 .list-side { position: sticky; top: calc(var(--topbar-h) + var(--s3)); max-height: calc(100vh - var(--topbar-h) - 2 * var(--s3)); display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .ls-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s3); display: flex; flex-direction: column; gap: var(--s4); }
 .ls-head, .ls-foot, .ls-open-btn, .ls-shade { display: none; }
-.ls-h { margin-bottom: 4px; font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--primary); }
+.ls-h { margin-bottom: 4px; font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .ls-list { display: flex; flex-direction: column; gap: 1px; }
 .ls-opt { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
 .ls-opt:hover { background: var(--row-hover); }
@@ -313,7 +313,7 @@
 .dc-who:focus-visible, .dn-dots:focus-visible, .act-more > .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .dc-pause { background: var(--warn-soft); color: var(--warn); border-radius: var(--radius-sm); padding: 6px 10px; font-size: var(--fs-sm); }
 .dc-prod { margin-bottom: var(--s3); }
-.dc-prod h3 { font-size: var(--fs-h3); color: var(--heading); margin: 0 0 var(--s2); }
+.dc-prod h3 { font-size: var(--fs-h3); color: var(--text); margin: 0 0 var(--s2); }
 .dc-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .dc-note.clip3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .act-more { position: relative; display: inline-block; }
@@ -342,3 +342,21 @@
   .act-more .btn-icon, .dn-dots { min-width: 44px; min-height: 44px; }
   .dc-who { min-height: 44px; }
 }
+
+/* ЦВ-1: ссылки на сущности раздела и акцент раздела (DESIGN §2.5) */
+a.ref-products, a.ref-orders, a.ref-supply, a.ref-stock, a.ref-money { text-decoration: underline dotted; text-underline-offset: 3px; }
+a.ref-products { color: var(--sec-products); } a.ref-orders { color: var(--sec-orders); } a.ref-supply { color: var(--sec-supply); } a.ref-stock { color: var(--sec-stock); } a.ref-money { color: var(--sec-money); }
+.sec-products { --sec: var(--sec-products); --sec-soft: var(--sec-products-soft); }
+.sec-orders { --sec: var(--sec-orders); --sec-soft: var(--sec-orders-soft); }
+.sec-supply { --sec: var(--sec-supply); --sec-soft: var(--sec-supply-soft); }
+.sec-stock { --sec: var(--sec-stock); --sec-soft: var(--sec-stock-soft); }
+.sec-money { --sec: var(--sec-money); --sec-soft: var(--sec-money-soft); }
+.chip-sec { background: var(--sec-soft, var(--primary-soft)); color: var(--sec, var(--primary)); }
+/* меню: полоса и иконка — цвет раздела; активный — фон -soft */
+.side-link[class*='sec-'] { border-left: 3px solid var(--sec); border-radius: 0 8px 8px 0; }
+.side-link[class*='sec-'] .ico { color: var(--sec); opacity: 1; }
+.side-link[class*='sec-'].active { background: var(--sec-soft); }
+/* шапка экрана раздела: иконка у h1 и линия под шапкой */
+body[data-sec='products'] { --sec: var(--sec-products); } body[data-sec='orders'] { --sec: var(--sec-orders); } body[data-sec='supply'] { --sec: var(--sec-supply); } body[data-sec='stock'] { --sec: var(--sec-stock); } body[data-sec='money'] { --sec: var(--sec-money); }
+body[data-sec] .page-head { border-bottom: 1px solid var(--sec); padding-bottom: var(--s2); }
+body[data-sec] .page-head .ico { color: var(--sec); }

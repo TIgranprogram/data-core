@@ -83,6 +83,11 @@
   --heading: #0e3b2b;
   --side-text-hi: #6fe0b0;
   --status-new: #2f62b0;
+  --sec-products: #3d5fa0; --sec-products-soft: #e6ecf7;
+  --sec-orders: #66499f; --sec-orders-soft: #eee9f7;
+  --sec-supply: #9a4f2c; --sec-supply-soft: #f8ebe3;
+  --sec-stock: #1f6e7c; --sec-stock-soft: #e0f0f3;
+  --sec-money: #8a4560; --sec-money-soft: #f6e8ed;
   --scheme: light;
 }
 
@@ -97,8 +102,8 @@
   --surface-3: #252c39;
   --photo-bg: #f6f7f9; /* светлый и в тёмной теме: чертёж читается */
   --paper: #ffffff;
-  --text: #c9ddd4;
-  --muted: #8ea89c;
+  --text: #d3dbd8;
+  --muted: #97a5a0;
   --heading: #6fe0b0;
   --border: #2a3140;
   --border-strong: #3b4557;
@@ -138,6 +143,11 @@
   --weekend-head: rgba(227, 183, 74, .10);
   --on-danger: #1f0b09;
   --status-new: #6f9ee8;
+  --sec-products: #8fa8dc; --sec-products-soft: rgba(143, 168, 220, .16);
+  --sec-orders: #b5a0dc; --sec-orders-soft: rgba(181, 160, 220, .16);
+  --sec-supply: #d9a086; --sec-supply-soft: rgba(217, 160, 134, .16);
+  --sec-stock: #7fbcc6; --sec-stock-soft: rgba(127, 188, 198, .16);
+  --sec-money: #cba0b0; --sec-money-soft: rgba(203, 160, 176, .16);
   --scheme: dark;
 }
 
