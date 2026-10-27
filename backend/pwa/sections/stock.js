@@ -13,6 +13,7 @@ import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/errors.js';
 import { openStockOp } from './stock-ops.js';
 import { targetNote } from '../ui/target-picker.js';
+import { passportSpecField, passportSpecView, savePassportSpec } from './stock-passport.js';
 import { mobileStockDashboard } from './warehouse-mobile.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
@@ -193,12 +194,13 @@ export const stock = {
       { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
     ],
     // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
-    extra: (r) => h('div', null, orderedBlock(r), recentMoves(r)),
+    extra: (r) => h('div', null, orderedBlock(r), passportSpecView(r), recentMoves(r)),
   },
 
   form: {
     fields: async (row) => {
       const lk = await lookups().catch(() => ({ categories: [] }));
+      const ps = await passportSpecField(row);
       return [
         { section: 'Что за позиция', tone: 'main', fixed: true },
         { key: 'name', label: 'Короткое название', required: true, max: 300, span: 3, hint: 'Для списков и фильтров, как на складе: «Болт мебельный, M8х40, DIN 603»' },
@@ -219,6 +221,7 @@ export const stock = {
         // СКФ.5: настройки склада — отдельно от свойств самой позиции
         { section: 'Склад', tone: 'info' },
         { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
+        ...(ps ? [{ section: 'Для паспорта', tone: 'info' }, ps] : []),
       ];
     },
     initial: () => ({ unit: 'шт', photos: [] }),
@@ -230,6 +233,7 @@ export const stock = {
       b.minQuantity = v.minQuantity;
       b.weightG = v.weightG; // НО: вес 1 шт. в граммах (сервер хранит кг)
       if (v.initial) b.initial = v.initial;
+      if (v.passportSpec) b.passportSpec = v.passportSpec;
       return { ...b, ...metalBody(v) };
     },
     create: async (body) => {
@@ -252,8 +256,9 @@ export const stock = {
       return r;
     },
     update: async (id, body) => {
-      const { photoIds, ...rest } = body;
+      const { photoIds, passportSpec, ...rest } = body;
       let r = await api(`/stock/items/${id}`, { method: 'PATCH', body: rest });
+      await savePassportSpec(id, passportSpec);
       const have = new Set((r.photos || []).map((p) => p.id));
       for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });
       for (const p of have) if (photoIds && !photoIds.includes(p)) r = await api(`/stock/items/${id}/photos/${p}`, { method: 'DELETE' });
