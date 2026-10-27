@@ -113,7 +113,10 @@ export async function applyProduct(api, p, catBy) {
   const ppCat = d.passportCategory || full.passportCategory?.code || p.ppCategory || categoryByName(full.name) || '';
   // 1. поля изделия
   for (const [k, v] of Object.entries({ name: full.name, article: full.sku, category: full.group || full.type, length: mmOf(full.dimensions?.length, u), width: mmOf(full.dimensions?.width, u),
-    height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '', description: full.description })) put(k, v, 'из изделия');
+    height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '', description: full.description })) {
+    if (k === 'name' && st.keepName && api.get('name') === st.keepName) continue; // название заказчика из позиции заказа не затираем нашим
+    put(k, v, 'из изделия');
+  }
   if ((full.photos || []).length && !JSON.parse(api.get('img_overview') || '[]').length) api.set('img_overview', full.photos.map((x) => ({ id: x.id, url: x.url, thumb: x.thumb })), { auto: true, src: 'из изделия' });
   // 2. значения паспорта по умолчанию у изделия; категория — первой (за ней wireForm подставит умолчания категории в пустое)
   if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: 'из изделия' });

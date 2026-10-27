@@ -98,3 +98,5 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 .menu button:hover { background: var(--surface-2); }
 .menu button.danger { color: var(--danger); }
 .rel { position: relative; }
+/* ТИ-2: возврат из вложенной карточки («← Заказ № …») */
+.drawer-head .drawer-up { margin-bottom: var(--s2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

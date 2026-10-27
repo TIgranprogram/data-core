@@ -18,6 +18,7 @@ import { DOCK_MIN } from '../core/prefs.js';
  * section = {
  *   title, entityType, noun ('заявку'), get(id) → row,
  *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), extra?(row, ctx),
+ *           parent?(row) → { label, run } — кнопка «← label» над заголовком (возврат к заказу),
  *           startEdit?(row) → true — открыть сразу в правке, noHistory — без «Истории изменений»,
  *           gallery?(row) → [{ id, url, thumb }], photoAdd?(row, photoId) → row, photoRemove?(row, photoId) → row },
  *   form?: { fields(row|null) → поля, toBody(values, row|null), create(body) → row, update(id, body) → row, initial?() },
@@ -51,11 +52,12 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let form = null;
   const titleEl = h('h2');
   const subEl = h('div', { class: 'muted small' });
+  const upEl = h('button', { class: 'btn btn-sm drawer-up', type: 'button', hidden: true }); // ТИ-2: явный возврат «← Заказ №…»
   const menuBox = h('div', { class: 'rel' });
   const body = h('div', { class: 'drawer-body' });
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
-    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, titleEl, subEl), menuBox,
+    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, titleEl, subEl), menuBox,
       h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot);
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
@@ -87,6 +89,9 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     drawer.classList.remove('loading');
     titleEl.textContent = section.card.heading(row);
     subEl.textContent = section.card.subheading ? section.card.subheading(row) : '';
+    const up = section.card.parent?.(row);
+    upEl.hidden = !up;
+    if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }
     const content = [];
     const pics = section.card.gallery ? section.card.gallery(row) : [];
     const canPhoto = canEditSection(section) && section.card.photoAdd;

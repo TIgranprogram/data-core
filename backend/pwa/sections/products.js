@@ -285,6 +285,14 @@ export const products = {
       ...(session.seesDocs() && passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } }] : []),
+      // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
+      ...(session.canEdit ? [{ label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
+        const chk = await api(`/showcase/${row.id}/assign-sku`, { method: 'POST', body: {} });
+        if (!chk.confirmRequired) { toast(chk.changed ? `Артикул: ${chk.sku}` : `Артикул ${chk.sku} уже по номеру группы`); return; }
+        if (!(await confirmDlg('Присвоить новый артикул?', `Сейчас: ${chk.sku || 'нет'}. ${chk.warning || ''}`, { okText: 'Присвоить' }))) return;
+        const res = await api(`/showcase/${row.id}/assign-sku`, { method: 'POST', body: { confirm: true } });
+        toast(`Новый артикул: ${res.sku}`); ctx.changed(); ctx.reload();
+      } }] : []),
       // копия изделия целиком (поля, фото, настройки паспорта) — быстрый способ сделать похожее; откроется копия
       ...(session.canEdit ? [{ label: 'Клонировать', title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
         const c = await api(`/showcase/${row.id}/clone`, { method: 'POST' });

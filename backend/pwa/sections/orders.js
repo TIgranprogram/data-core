@@ -2,6 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
+import { attachCombo } from '../ui/combo.js';
 import { badge } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
@@ -48,6 +49,26 @@ export async function markToday(r, field) {
     undo: async () => { await api(`/incomes/${r.id}`, { method: 'PATCH', body: { [field]: r[field] ? String(r[field]).slice(0, 10) : '' } }); window.dispatchEvent(new Event('data-changed')); },
   });
   return saved;
+}
+
+/** ПРЖ-4: «Подобрать изделие» — поиск по продукции → productId в PATCH позиции. Текст позиции (название заказчика) не меняется. */
+async function pickProduct(r) {
+  const opts = await productOptions();
+  const inp = h('input', { type: 'text', placeholder: 'Название или артикул изделия', autocomplete: 'off', value: r.product ? r.product.name : '' });
+  let picked = r.productId || r.product?.id || '';
+  attachCombo(inp, { options: () => opts, free: false, onPick: (o) => { picked = o.value; } });
+  inp.addEventListener('input', () => { picked = ''; });
+  return modal({
+    title: 'Подобрать изделие',
+    okText: 'Привязать',
+    body: h('div', null, h('p', { class: 'hint' }, `Позиция: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и «Нашего» названия.`), inp),
+    onOk: async () => {
+      if (!picked) throw new Error('Выберите изделие из списка');
+      const s = await api(`/incomes/${r.id}`, { method: 'PATCH', body: { productId: picked } });
+      incomeLookups.reset();
+      return s;
+    },
+  });
 }
 
 /** «Вписать сумму»: цена за единицу (сумма = кол-во × цена) или сумма строки целиком. */
@@ -131,6 +152,7 @@ export const orders = {
   },
 
   card: {
+    parent: (r) => (r.orderId ? { label: `Заказ № ${r.orderNo || '—'}`, run: () => go('salesorders', { open: String(r.orderId) }) } : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/incomes/${r.id}/photos`, { method: 'POST', body: { photoId } }),
     photoRemove: (r, photoId) => api(`/incomes/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
@@ -154,12 +176,13 @@ export const orders = {
       ['Весь заказ', r.orderNo ? h('a', { href: '#orders?orderNo=' + encodeURIComponent(r.orderNo) }, `все строки заказа ${r.orderNo} →`) : ''],
     ],
     actions: (r) => [
+      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Подобрать изделие', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
       session.canMoney && !!r.paidDate && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгружено сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
       session.seesDocs() && passports.canEdit() && { label: 'Выпустить паспорт', run: async (row) => {
-        const found = await issuePassport({ productId: row.productId ? String(row.productId) : '', name: row.title, orderNo: row.orderNo || '', salesOrderId: row.orderId ? String(row.orderId) : '', customerName: row.customer || '' });
+        const found = await issuePassport({ productId: row.productId ? String(row.productId) : '', name: row.title, orderNo: row.orderNo || '', salesOrderId: row.orderId ? String(row.orderId) : '', customerName: row.customer || '', customerTitle: row.title || '' });
         if (!found) toast('Модель не найдена по названию — выберите её в поле «Наименование» или заполните паспорт');
       } },
     ],
