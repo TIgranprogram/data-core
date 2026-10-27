@@ -21,6 +21,7 @@ const [env, ...flags] = process.argv.slice(2);
 if (!['local', 'prod'].includes(env)) { console.error('usage: <local|prod> [--apply --out откат.json]'); process.exit(2); }
 const APPLY = flags.includes('--apply');
 const NOCREATE = flags.includes('--no-create');
+const CREATEALL = flags.includes('--create-all'); // создать ВСЕ строки Excel без артикула на сайте; старые изделия не трогать, похожие - пометка в notes нового
 const OUT = flags[flags.indexOf('--out') + 1];
 if (APPLY && (!OUT || OUT.startsWith('--'))) { console.error('--apply требует --out откат.json'); process.exit(2); }
 const BASE = env === 'prod' ? 'https://kppdf-crm.ru/db' : 'http://localhost:3001';
@@ -166,6 +167,17 @@ async function api(method, p, body) {
     const best = pairs.find((q) => q.r === r); // лучший кандидат, даже если уже занят другой строкой
     if (best) disp.push(best); else creates.push(r);
   }
+  const w3 = (s) => nn(s).replace(/[^a-zа-я0-9\s]/g, ' ').split(' ').filter((w) => w.length >= 3);
+  const simNote = new Map(); // строка Excel -> текст пометки для создаваемого изделия
+  if (CREATEALL) {
+    sameP.length = 0; disp.length = 0; creates.length = 0; creates.push(...rest);
+    for (const r of rest) {
+      const bp = pairs.find((q) => q.r === r);
+      let sim = bp ? bp.p : null;
+      if (!sim) { const rw = w3(r.name); if (rw.length) sim = (pool.find((c) => { const cw = new Set(w3(c.p.name)); return rw.every((w) => cw.has(w)); }) || {}).p || null; }
+      if (sim) simNote.set(r, `⚠ Проверить (каталог 28.10): возможно, это то же изделие, что ${sim.sku} «${sim.name}». Если да - объединить (оставить одно) или удалить лишнее.`);
+    }
+  }
   const NOTE = '⚠ Проверить (каталог 28.10): ';
   const noteFor = (q, isSame) => isSame
     ? `${NOTE}в Excel это «${q.r.name}» с артикулом ${q.r.sku}. Рекомендуем: сменить артикул на ${q.r.sku}.`
@@ -176,13 +188,14 @@ async function api(method, p, body) {
   disp.forEach((q) => addNote(q.p, noteFor(q, false)));
   const mv5 = sameP.filter((q) => norm(q.p.type) !== norm(q.r.type) || norm(q.p.group) !== norm(q.r.group));
   console.log(`
-5) НОВЫЕ ИЗДЕЛИЯ (артикулы не меняем, дублей не создаём): то же изделие ${sameP.length} (переедут ${mv5.length}), спорные ${disp.length}, создать ${NOCREATE ? 0 : creates.length}${NOCREATE ? ' (--no-create)' : ''}, из корзины ${restores.length}`);
+5) НОВЫЕ ИЗДЕЛИЯ (артикулы не меняем, дублей не создаём): то же изделие ${sameP.length} (переедут ${mv5.length}), спорные ${disp.length}, создать ${NOCREATE ? 0 : creates.length}${CREATEALL ? ', из них с пометкой ' + simNote.size : ''}${NOCREATE ? ' (--no-create)' : ''}, из корзины ${restores.length}`);
   console.log('ТО ЖЕ ИЗДЕЛИЕ (≥0.85): сайт -> Excel');
   sameP.forEach((q) => console.log(`  ${q.p.sku} «${q.p.name}» = ${q.r.sku} «${q.r.name}» (${q.sc.toFixed(2)}) -> ${q.r.type} / ${q.r.group}`));
   console.log('СПОРНЫЕ (0.5-0.85 или изделие уже занято другой строкой) - не создаём, решает пользователь:');
   disp.forEach((q) => console.log(`  Excel ${q.r.sku} «${q.r.name}» ~ сайт ${q.p.sku} «${q.p.name}» (${q.sc.toFixed(2)})`));
   console.log('СОЗДАТЬ (<0.5, похожих нет): ' + creates.length);
   creates.slice(0, 10).forEach((r) => console.log(`  + ${r.sku} | ${r.name} | ${r.type} / ${r.group}`));
+  [...simNote].slice(0, 10).forEach(([r, t]) => console.log(`  ? ${r.sku} «${r.name}»: ${t}`));
   restores.slice(0, 10).forEach(({ r }) => console.log(`  ↺ из корзины ${r.sku} | ${r.name}`));
   console.log(`ПОМЕТКИ в notes: ${[...notes.values()].filter((n) => n.lines.length).length} изделий`);
 
@@ -209,7 +222,7 @@ async function api(method, p, body) {
     for (const { p, lines } of notes.values()) { if (!lines.length) continue; await api('PATCH', `/api/showcase/${p.id}`, { notes: [...lines, ...(p.notes ? [p.notes] : [])].join('\n') }); log.notes.push({ id: p.id, oldNotes: p.notes || '' }); }
     if (!NOCREATE) {
       for (const { r, p } of restores) { await api('POST', `/api/showcase/${p.id}/restore`); await api('PATCH', `/api/showcase/${p.id}`, { type: r.type, group: r.group }); log.restored.push({ id: p.id, sku: r.sku }); }
-      for (const r of creates) { const c = await api('POST', '/api/showcase', { name: r.name, sku: r.sku, type: r.type, group: r.group, status: 'draft' }); log.created.push({ id: c.id, sku: r.sku }); }
+      for (const r of creates) { const c = await api('POST', '/api/showcase', { name: r.name, sku: r.sku, type: r.type, group: r.group, status: 'draft', ...(simNote.has(r) ? { notes: simNote.get(r) } : {}) }); log.created.push({ id: c.id, sku: r.sku }); }
     }
   } finally { fs.writeFileSync(OUT, JSON.stringify(log, null, 1)); }
   console.log(`готово: разделов ${log.sections.length}, групп ${log.groups.length}, изделий ${log.products.length}; откат - ${OUT}`);
