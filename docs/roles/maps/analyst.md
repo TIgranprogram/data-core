@@ -35,3 +35,6 @@
 
 ## Документация/заказы (ТИ-11, 2026-10-27)
 - ТЗ: `docs/roles/tz/DOCS-ORDERS.md`. Есть `status` draft/issued/annulled, `salesOrderId`/`orderNo`; нет `readiness`, нет группировки. Экран: `pwa/sections/docs.js:20`. Вопросы Д-1…Д-3.
+
+## Задачник проектирования (DESIGN-DISCUSSION, 2026-10-27)
+- ТЗ: `docs/roles/tz/DESIGN-DISCUSSION.md`. YouGile: сообщения у 87/92 задач (238), чек-листы 3, подзадачи 8. Схема задачи `design/design-task.schema.ts:17–47`; `products.sku` уникален `common/catalog/product.schema.ts:71` → исполнение = отдельное изделие `sku 3404.2` + `baseSku/variant`. `photos` — только картинки → новая `files`. Вопросы ДО-1…ДО-3. коммит: — (не закоммичено)
