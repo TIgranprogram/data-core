@@ -139,7 +139,7 @@ function details(r) {
     const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
     // SK-8d: блоки соседних разделов — только если раздел открыт роли (сервер закрытые и так отдаёт пустыми)
     const seeReq = session.sees('requests'), seeStock = session.sees('stock');
-    box.replaceChildren(
+    box.replaceChildren(...[ // null/false не печатаем: DOM replaceChildren выводит их текстом («nullnull»)
       sec(`Позиции (${lines.length})`, lines.length
         ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
           h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
@@ -155,7 +155,7 @@ function details(r) {
       seeStock ? orderReservations({ id: r.id, orderNo: r.orderNo }, load) : null,
       seeStock ? issuedBlock(d, sec) : null,
       seeStock && (d.stockMovements || []).length ? sec(`Отпущено со склада (${d.stockMovements.length})`,
-        h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))) : null);
+        h('ul', { class: 'timeline' }, ...d.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))) : null].filter((x) => x != null && x !== false && x !== ''));
   }).catch((e) => box.replaceChildren(failBlock(e)));
   load();
   return box;

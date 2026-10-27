@@ -24,7 +24,7 @@ const SHORT = { queue: 'распределение', work: 'в работе', pa
 const PER_DONE = 20;
 const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
 /** Пустое значение (null, undefined, пустая строка, случайное слово «null») — ''. Такое на экране не печатаем. */
-export const clean = (v) => { const s = v === null || v === undefined ? '' : String(v).trim(); return s === 'null' || s === 'undefined' || /^-{2,}$/.test(s) ? '' : s; };
+export const clean = (v) => { const s = v === null || v === undefined || v === false ? '' : String(v).trim(); return s === 'null' || s === 'undefined' || /^-{2,}$/.test(s) ? '' : s; };
 /** Подпись из кусочков: пустые отбрасываются, остальные через « · ». */
 export const dotted = (...xs) => xs.map(clean).filter(Boolean).join(' · ');
 const plain = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е');
