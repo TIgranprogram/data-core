@@ -63,7 +63,6 @@ import { DiskModule } from './modules/disk/disk.controller';
 import { ShowcaseModule } from './modules/showcase/showcase.controller';
 import { FinanceModule } from './modules/finance/finance.module';
 import { TodayModule } from './modules/today/today.module';
-import { AssistantModule } from './modules/assistant/assistant.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -172,7 +171,6 @@ import { RequestMethod } from '@nestjs/common';
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     TodayModule,            // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
-    AssistantModule,        // /api/assistant — помощник: чат с инструментами чтения (Anthropic)
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа
