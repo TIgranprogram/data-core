@@ -760,7 +760,12 @@ Write-paths, которые должны быть all-or-nothing, использ
 | manual | {deadline?, priority?} | свои срок и приоритет; пусто — из заказа (срок изготовления → отгрузка) |
 | completedAt, completedBy | Date, ObjectId | при done; пустой `products.designerId` получает исполнителя |
 | openIncomeId | ObjectId | замок «одна открытая задача на позицию» (= incomeId, пока не done и не удалена), unique sparse |
+| photoIds | [ObjectId] → photos | фото задачи (до 20); необязательное |
+| stickers | Mixed `{<_id стикера>: число \| id состояния}` | значения стикеров, пишутся точечно; необязательное |
 | deletedAt | Date | корзина |
+
+### `DesignSticker` (стикер доски) — коллекция `designstickers`, только data-core
+`boardKey` ('main'), `key`, `label`, `kind` (system / number / state), `systemField` (assignee, deadline, priority, order, product), `unit`, `states[{id,label,color}]`, `visible`, `order`, `deletedAt`. Unique `{boardKey,key}` partial `deletedAt:null`. Системные — сид, не удаляются, только скрываются.
 
 ### `DesignOrder` (заказ на доске проектирования) — коллекция `designorders`, только data-core
 Метка «заказ взят на доску»: `orderId` (unique, индекс без `deletedAt`), `addedBy`, `addedAt`, `deletedAt` («убрано»; повторное добавление снимает). В `salesorders` поля нет.

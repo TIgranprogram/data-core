@@ -4,7 +4,8 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
+import { DesignTaskDto, FromOrderDto, PhotoDto, StickerValuesDto } from './dto/design-task.dto';
+import { DesignExtrasService } from './design-extras.service';
 import { DesignService } from './design.service';
 
 /**
@@ -15,7 +16,7 @@ import { DesignService } from './design.service';
 @AppSection('design')
 @Controller('design-tasks')
 export class DesignController {
-  constructor(private readonly design: DesignService) {}
+  constructor(private readonly design: DesignService, private readonly extras: DesignExtrasService) {}
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
@@ -56,6 +57,30 @@ export class DesignController {
   @AuditAction({ action: 'designtask.updated', entityType: 'DesignTask', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: DesignTaskDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.design.update(id, dto, user?.id);
+  }
+
+  /** Фото задачи: photoId из POST /api/photos/upload. user — только своя или ничья задача. */
+  @Post(':id/photos')
+  @HttpCode(200)
+  @Roles('admin', 'manager', 'user')
+  @AuditAction({ action: 'designtask.photo.added', entityType: 'DesignTask', idParam: 'id' })
+  addPhoto(@Param('id') id: string, @Body() dto: PhotoDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.extras.addPhoto(id, dto.photoId, user);
+  }
+
+  @Delete(':id/photos/:photoId')
+  @Roles('admin', 'manager', 'user')
+  @AuditAction({ action: 'designtask.photo.removed', entityType: 'DesignTask', idParam: 'id' })
+  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.extras.removePhoto(id, photoId, user);
+  }
+
+  /** Значения своих стикеров точечно; null / "" — очистить. */
+  @Patch(':id/stickers')
+  @Roles('admin', 'manager', 'user')
+  @AuditAction({ action: 'designtask.stickers.updated', entityType: 'DesignTask', idParam: 'id' })
+  setStickers(@Param('id') id: string, @Body() dto: StickerValuesDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.extras.setStickers(id, dto.values, user);
   }
 
   @Delete(':id')

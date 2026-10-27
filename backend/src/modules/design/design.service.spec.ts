@@ -1,8 +1,12 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { DesignBoardController } from './design-board.controller';
+import { DesignController } from './design.controller';
+import { DesignStickerController } from './design-sticker.controller';
 import { DesignBoardService } from './design-board.service';
 import { DesignService } from './design.service';
+import { DesignStickerService } from './design-sticker.service';
+import { DesignExtrasService } from './design-extras.service';
 import { APP_SECTION_KEY } from '../../common/decorators/app-section.decorator';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 
@@ -77,6 +81,8 @@ class Coll {
     for (const [k, v] of Object.entries(u.$set ?? {})) {
       if (k.includes('.')) { const [a, b] = k.split('.'); row[a] = { ...(row[a] ?? {}), [b]: v }; } else row[k] = v;
     }
+    for (const [k, v] of Object.entries(u.$addToSet ?? {})) if (!(row[k] ?? []).some((x: unknown) => same(x, v))) row[k] = [...(row[k] ?? []), v];
+    for (const [k, v] of Object.entries(u.$pull ?? {})) row[k] = (row[k] ?? []).filter((x: unknown) => !same(x, v));
     for (const k of Object.keys(u.$unset ?? {})) {
       if (k.includes('.')) { const [a, b] = k.split('.'); if (row[a]) delete row[a][b]; } else delete row[k];
     }
@@ -85,21 +91,23 @@ class Coll {
 }
 
 describe('DesignService', () => {
-  let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, photos: Coll, marks: Coll;
-  let service: DesignService, board: DesignBoardService;
+  let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, photos: Coll, marks: Coll, stickers: Coll;
+  let service: DesignService, board: DesignBoardService, stickerSvc: DesignStickerService, extras: DesignExtrasService;
   let seq: number;
   const id = () => new Types.ObjectId();
   let orderId: Types.ObjectId, prodId: Types.ObjectId, personId: Types.ObjectId, line1: Types.ObjectId, line2: Types.ObjectId;
 
   beforeEach(() => {
-    [tasks, orders, incomes, persons, products, photos, marks] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
+    [tasks, orders, incomes, persons, products, photos, marks, stickers] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
     tasks.uniqueSparse = 'openIncomeId';
     seq = 0;
     const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos };
     const connection = { db: { collection: (n: string) => by[n] } };
     const counters = { nextSeq: jest.fn(async () => ++seq) };
     service = new DesignService(connection as never, tasks as never, counters as never, marks as never);
-    board = new DesignBoardService(connection as never, tasks as never, marks as never, service);
+    stickerSvc = new DesignStickerService(stickers as never);
+    board = new DesignBoardService(connection as never, tasks as never, marks as never, service, stickerSvc);
+    extras = new DesignExtrasService(connection as never, tasks as never, stickerSvc);
     orderId = id(); prodId = id(); personId = id(); line1 = id(); line2 = id();
     orders.rows.push({ _id: orderId, orderNo: '20-26', deletedAt: null, shipDate: new Date('2026-12-20'), productionDeadline: new Date('2026-12-01'), priority: 'urgent' });
     products.rows.push({ _id: prodId, name: 'Скамья', sku: '3410', photoIds: [], deletedAt: null });
@@ -293,6 +301,76 @@ describe('DesignService', () => {
       expect(roles('lines')).toEqual(['admin', 'director', 'manager', 'user']);
       expect(roles('add')).toEqual(['admin', 'manager']);
       expect(roles('remove')).toEqual(['admin', 'manager']);
+    });
+  });
+  describe('фото и стикеры', () => {
+    const user = (uid: Types.ObjectId) => ({ id: String(uid), username: 'u', role: 'user' });
+    it('сид системных стикеров идемпотентен; скрыть можно, удалить — нет', async () => {
+      await stickerSvc.seedSystem(); await stickerSvc.seedSystem();
+      const all = await stickerSvc.list();
+      expect(all.map((x) => x.key)).toEqual(['assignee', 'deadline', 'priority', 'order', 'product']);
+      await stickerSvc.update(all[1].id, { visible: false });
+      await stickerSvc.seedSystem(); // скрытый не возвращается
+      expect(stickers.rows.find((r) => r.key === 'deadline')!.visible).toBe(false);
+      await expect(stickerSvc.remove(all[0].id)).rejects.toThrow('Системный стикер удалить нельзя');
+      await expect(stickerSvc.update(all[0].id, { label: 'Другое' })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('значения: число и состояние валидируются, пустое — $unset, чужой id и системный — 400', async () => {
+      const num = await stickerSvc.create({ kind: 'number', label: 'Часы план', unit: 'ч' });
+      const st = await stickerSvc.create({ kind: 'state', label: 'Чертёж', states: [{ label: 'Эскиз', color: '#ffcc00' }, { label: 'Утверждён' }] });
+      await stickerSvc.seedSystem();
+      const sys = (await stickerSvc.list()).find((x) => x.kind === 'system')!;
+      const t = await service.create({ title: 'Свободная' });
+      const stateId = st.states![0].id;
+      const r = await extras.setStickers(t.id, { [num.id]: '8,5', [st.id]: stateId });
+      expect(r.stickers).toEqual({ [num.id]: 8.5, [st.id]: stateId });
+      await expect(extras.setStickers(t.id, { [num.id]: 'abc' })).rejects.toThrow('введите число');
+      await expect(extras.setStickers(t.id, { [st.id]: 'нет такого' })).rejects.toThrow('выберите состояние');
+      await expect(extras.setStickers(t.id, { [sys.id]: 1 })).rejects.toThrow('считается из полей');
+      await expect(extras.setStickers(t.id, { '$where.x': 1 })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(extras.setStickers(t.id, { [String(id())]: 1 })).rejects.toThrow('Стикер не найден');
+      expect((await extras.setStickers(t.id, { [num.id]: null })).stickers).toEqual({ [st.id]: stateId });
+      // удалённый стикер: значение остаётся в задаче, но новое записать нельзя
+      await stickerSvc.remove(num.id);
+      await expect(extras.setStickers(t.id, { [num.id]: 1 })).rejects.toThrow('Стикер не найден');
+    });
+
+    it('доска отдаёт видимые стикеры один раз и stickers/photoIds у задач', async () => {
+      await stickerSvc.seedSystem();
+      const hide = (await stickerSvc.list())[0];
+      await stickerSvc.update(hide.id, { visible: false });
+      const t = await service.create({ title: 'Эскиз' });
+      const ph = { _id: id(), storageUrl: '/uploads/a.jpg' };
+      photos.rows.push(ph);
+      await extras.addPhoto(t.id, String(ph._id));
+      const r = await board.board();
+      expect(r.stickers.map((x) => x.key)).toEqual(['deadline', 'priority', 'order', 'product']);
+      expect(r.tasks[0]).toMatchObject({ photoIds: [String(ph._id)], stickers: {}, photo: '/uploads/a.jpg' });
+    });
+
+    it('фото: нет файла — 404; повтор не дублирует; удаление; user — только ничья или своя задача', async () => {
+      const t = await service.create({ title: 'Эскиз' });
+      await expect(extras.addPhoto(t.id, String(id()))).rejects.toThrow('Фото не найдено');
+      const ph = { _id: id(), storageUrl: '/uploads/b.jpg' };
+      photos.rows.push(ph);
+      const uid = id();
+      await extras.addPhoto(t.id, String(ph._id), user(uid)); // ничья — можно
+      expect((await extras.addPhoto(t.id, String(ph._id), user(uid))).photoIds).toHaveLength(1);
+      expect((await extras.removePhoto(t.id, String(ph._id), user(uid))).photoIds).toEqual([]);
+      const mine = await service.create({ title: 'Чужая', assigneeId: String(personId) });
+      await expect(extras.addPhoto(mine.id, String(ph._id), user(uid))).rejects.toBeInstanceOf(ForbiddenException);
+      persons.rows[0].userId = uid; // сотрудник привязан к пользователю
+      await expect(extras.addPhoto(mine.id, String(ph._id), user(uid))).resolves.toBeDefined();
+      await extras.addPhoto(mine.id, String(ph._id), { id: String(id()), username: 'm', role: 'manager' }); // manager — любая
+    });
+
+    it('роли: фото и значения — admin/manager/user, настройки стикеров — admin', () => {
+      const roles = (c: object, m: string) => Reflect.getMetadata(ROLES_KEY, (c as { prototype: Record<string, object> }).prototype[m]);
+      expect(roles(DesignController, 'addPhoto')).toEqual(['admin', 'manager', 'user']);
+      expect(roles(DesignController, 'setStickers')).toEqual(['admin', 'manager', 'user']);
+      expect(roles(DesignController, 'update')).toEqual(['admin', 'manager']);
+      for (const m of ['create', 'update', 'remove']) expect(roles(DesignStickerController, m)).toEqual(['admin']);
     });
   });
 });

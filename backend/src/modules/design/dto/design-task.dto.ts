@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsMongoId, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsObject, IsOptional, IsString, Length, Matches, Max, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../../common/text/order-key';
 import { DESIGN_STATUSES, type DesignStatus } from '../design-task.schema';
 
@@ -24,4 +25,29 @@ export class FromOrderDto {
 export class AddDesignOrderDto {
   @ApiProperty({ description: 'Заказ (salesorders), который берём на доску проектирования' }) @IsMongoId() orderId!: string;
   @ApiPropertyOptional({ description: 'true — сразу создать задачи «Распределение» на все позиции без открытой задачи' }) @IsOptional() @IsBoolean() distribute?: boolean;
+}
+
+export class PhotoDto {
+  @ApiProperty({ description: 'Фото из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
+}
+
+export class StickerValuesDto {
+  @ApiProperty({ description: '{ <id стикера>: число | id состояния }; null или "" — очистить значение', type: 'object', additionalProperties: true })
+  @IsObject() values!: Record<string, unknown>;
+}
+
+export class StickerStateDto {
+  @ApiPropertyOptional({ description: 'Устойчивый id состояния; пусто — создаётся сервером' }) @IsOptional() @IsString() @Length(1, 40) id?: string;
+  @ApiProperty() @IsString() @Length(1, 60) label!: string;
+  @ApiPropertyOptional({ description: 'Цвет #RRGGBB' }) @IsOptional() @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'Цвет — в виде #RRGGBB' }) color?: string;
+}
+
+/** Создание и правка стикера доски. Системным можно менять только visible и order. */
+export class DesignStickerDto {
+  @ApiPropertyOptional({ enum: ['number', 'state'], description: 'Вид (только при создании)' }) @IsOptional() @IsIn(['number', 'state']) kind?: 'number' | 'state';
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 60) label?: string;
+  @ApiPropertyOptional({ description: 'Единица числа («ч», «шт»)' }) @IsOptional() @IsString() @Length(0, 20) unit?: string;
+  @ApiPropertyOptional({ type: [StickerStateDto], description: 'Состояния (для kind=state, 1–20)' }) @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => StickerStateDto) states?: StickerStateDto[];
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() visible?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(100000) order?: number;
 }

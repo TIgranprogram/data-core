@@ -37,6 +37,10 @@ export class DesignTask {
    * Уникальный sparse-индекс (partial с $ne/$in в Mongo 4.4 недоступен). Ставит только сервис.
    */
   @Prop({ type: Types.ObjectId }) openIncomeId?: Types.ObjectId;
+  /** Фото задачи (photos; загрузка — POST /api/photos/upload, привязка — POST /design-tasks/:id/photos). */
+  @Prop({ type: [Types.ObjectId], default: undefined }) photoIds?: Types.ObjectId[];
+  /** Значения стикеров: { <_id стикера>: число | id состояния }; пишется точечно ($set stickers.<id>). */
+  @Prop({ type: Object }) stickers?: Record<string, number | string>;
   @Prop({ type: Types.ObjectId, ref: 'User' }) createdBy?: Types.ObjectId;
   @Prop({ type: Date, default: null }) deletedAt?: Date | null;
   @Prop({ type: Date }) createdAt?: Date;

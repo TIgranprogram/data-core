@@ -4,11 +4,12 @@ import type { Connection, Model } from 'mongoose';
 import type { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { shortProductName } from '../showcase/order-product-name';
-import { loadPhotos } from '../showcase/showcase-common';
+import { loadPhotos } from '../../common/photos';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
 import { DesignTask, type DesignTaskDocument } from './design-task.schema';
 import { orderDeadline, presentTasks } from './design-present';
 import { DesignService } from './design.service';
+import { DesignStickerService } from './design-sticker.service';
 import type { AddDesignOrderDto } from './dto/design-task.dto';
 
 type Doc = Record<string, unknown>;
@@ -27,6 +28,7 @@ export class DesignBoardService {
     @InjectModel(DesignTask.name) private readonly tasks: Model<DesignTaskDocument>,
     @InjectModel(DesignOrder.name) private readonly marks: Model<DesignOrderDocument>,
     private readonly design: DesignService,
+    private readonly stickers: DesignStickerService,
   ) {}
 
   private db() { return this.connection.db!; }
@@ -91,6 +93,8 @@ export class DesignBoardService {
       ordersTotal: orders.length,
       tasks: await presentTasks(this.connection, openTasks as Doc[]),
       tasksTotal,
+      // видимые стикеры доски по порядку — один раз на ответ; значения — в tasks[].stickers
+      stickers: await this.stickers.list(true),
     };
   }
 

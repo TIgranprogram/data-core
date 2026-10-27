@@ -1,6 +1,6 @@
 import type { Connection, Types } from 'mongoose';
 import { shortProductName } from '../showcase/order-product-name';
-import { loadPhotos } from '../showcase/showcase-common';
+import { loadPhotos } from '../../common/photos';
 
 type Doc = Record<string, unknown>;
 type Oid = Types.ObjectId;
@@ -38,7 +38,8 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
   const products = productIds.length ? await db.collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray() : [];
   const product = new Map(products.map((p) => [String(p._id), p as Doc]));
   const firstPhoto = (p?: Doc) => ((p?.photoIds as Oid[] | undefined) ?? [])[0];
-  const photos = await loadPhotos(db, uniq(products.map(firstPhoto)));
+  // фото задач и изделий — один find на всю выдачу
+  const photos = await loadPhotos(db, uniq([...products.map(firstPhoto), ...docs.flatMap((d) => (d.photoIds as Oid[] | undefined) ?? [])]));
 
   return docs.map((d) => {
     const o = d.orderId ? order.get(String(d.orderId)) : undefined;
@@ -54,11 +55,15 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
       ? ['Чертежи', sku ?? productName, orderNo ? `ЗНП ${orderNo}` : '', lineNo != null ? `поз ${lineNo}` : ''].filter(Boolean).join(' ')
       : customerTitle ? shortProductName(customerTitle) : '';
     const photoId = firstPhoto(prod);
+    const own = ((d.photoIds as Oid[] | undefined) ?? []).map((x) => photos.get(String(x))).filter((x) => !!x);
     const seq = d.seq as number;
     return {
       id: String(d._id), code: `D-${seq}`, seq, status: d.status as string,
       title: (d.title as string | undefined) || auto || 'Без названия',
-      photo: photoId ? photos.get(String(photoId))?.thumb ?? null : null,
+      // карточка: фото задачи, иначе фото изделия позиции
+      photo: own[0]?.thumb ?? (photoId ? photos.get(String(photoId))?.thumb ?? null : null),
+      photoIds: own.map((x) => x!.id), photos: own,
+      stickers: (d.stickers as Record<string, unknown> | undefined) ?? {},
       orderId: d.orderId ? String(d.orderId) : null, orderNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo,
       productId: pid ? String(pid) : null, sku, productName, customerTitle,
       deadline: manual.deadline ?? orderDeadline(o), deadlineFromOrder: !manual.deadline && !!orderDeadline(o),

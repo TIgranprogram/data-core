@@ -1,6 +1,10 @@
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
+import * as bcrypt from 'bcryptjs';
+import { getModelToken } from '@nestjs/mongoose';
+import { Types, type Model } from 'mongoose';
+import { User, type UserDocument } from '../../src/modules/user/user.schema';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 
 /**
@@ -92,5 +96,68 @@ describe('Design tasks (Проектирование)', () => {
     expect(l.lines).toHaveLength(2);
     await http().post('/api/design-tasks').set(auth()).send({ incomeId: lineId, status: 'done' }).expect(400);
     await http().delete(`/api/design-board/${orderId}`).set(auth()).expect(409);
+  });
+  describe('фото и стикеры (DESIGN-STICKERS)', () => {
+    let userTok = '', userId = '', photoId = '', taskId = '', numId = '', stateId = '';
+    const uAuth = () => authHeader(userTok);
+
+    beforeAll(async () => {
+      const users = app.get<Model<UserDocument>>(getModelToken(User.name));
+      const username = `designer-${Date.now()}`;
+      const u = await users.create({ username, email: `${username}@datacore.local`, displayName: username, passwordHash: await bcrypt.hash('designer-pw-1', 10), role: 'user', permissions: [], isActive: true });
+      userId = String(u._id);
+      userTok = (await http().post('/api/auth/login').send({ username, password: 'designer-pw-1' }).expect(200)).body.access;
+      photoId = String((await db().collection('photos').insertOne({ storageUrl: '/uploads/t.jpg', createdAt: new Date() })).insertedId);
+      taskId = (await http().post('/api/design-tasks').set(auth()).send({ title: 'С фото' }).expect(201)).body.id;
+    });
+
+    it('сид: пять системных стикеров; настройки — только admin (user → 403)', async () => {
+      const l = (await http().get('/api/design-stickers').set(uAuth()).expect(200)).body;
+      expect(l.map((x: { key: string }) => x.key)).toEqual(['assignee', 'deadline', 'priority', 'order', 'product']);
+      await http().post('/api/design-stickers').set(uAuth()).send({ kind: 'number', label: 'X' }).expect(403);
+      await http().patch(`/api/design-stickers/${l[0].id}`).set(uAuth()).send({ visible: false }).expect(403);
+      await http().delete(`/api/design-stickers/${l[0].id}`).set(auth()).expect(400);
+      await http().patch(`/api/design-stickers/${l[0].id}`).set(auth()).send({ label: 'Другое' }).expect(400);
+    });
+
+    it('создать числовой и состояния; доска отдаёт видимые один раз', async () => {
+      const n = (await http().post('/api/design-stickers').set(auth()).send({ kind: 'number', label: 'Часы план', unit: 'ч' }).expect(201)).body;
+      const st = (await http().post('/api/design-stickers').set(auth()).send({ kind: 'state', label: 'Чертёж', states: [{ label: 'Эскиз', color: '#ffcc00' }, { label: 'Утверждён', color: '#00aa55' }] }).expect(201)).body;
+      numId = n.id; stateId = st.states[0].id;
+      await http().post('/api/design-stickers').set(auth()).send({ kind: 'state', label: 'Пусто' }).expect(400);
+      const hide = (await http().get('/api/design-stickers').set(auth()).expect(200)).body.find((x: { key: string }) => x.key === 'deadline');
+      await http().patch(`/api/design-stickers/${hide.id}`).set(auth()).send({ visible: false }).expect(200);
+      const b = (await http().get('/api/design-board').set(auth()).expect(200)).body;
+      expect(b.stickers.map((x: { key: string }) => x.key)).not.toContain('deadline');
+      expect(b.stickers.map((x: { id: string }) => x.id)).toEqual(expect.arrayContaining([numId, st.id]));
+      await http().patch(`/api/design-stickers/${hide.id}`).set(auth()).send({ visible: true }).expect(200);
+    });
+
+    it('значения: точечная запись, проверка типа, очистка; user — на ничьей задаче', async () => {
+      const r = (await http().patch(`/api/design-tasks/${taskId}/stickers`).set(uAuth()).send({ values: { [numId]: 8, } }).expect(200)).body;
+      expect(r.stickers[numId]).toBe(8);
+      await http().patch(`/api/design-tasks/${taskId}/stickers`).set(auth()).send({ values: { [(await db().collection('designstickers').findOne({ kind: 'state' }))!._id.toString()]: stateId } }).expect(200);
+      const t = (await http().get(`/api/design-tasks/${taskId}`).set(auth()).expect(200)).body;
+      expect(Object.keys(t.stickers)).toHaveLength(2); // второй PATCH не затёр первый
+      await http().patch(`/api/design-tasks/${taskId}/stickers`).set(auth()).send({ values: { [numId]: 'abc' } }).expect(400);
+      await http().patch(`/api/design-tasks/${taskId}/stickers`).set(auth()).send({ values: { 'a.b': 1 } }).expect(400);
+      await http().patch(`/api/design-tasks/${taskId}/stickers`).set(auth()).send({}).expect(400);
+      expect((await http().patch(`/api/design-tasks/${taskId}/stickers`).set(auth()).send({ values: { [numId]: null } }).expect(200)).body.stickers[numId]).toBeUndefined();
+    });
+
+    it('фото: добавить, повтор, 404 на чужой photoId; user не правит общий PATCH и чужую задачу', async () => {
+      const r = (await http().post(`/api/design-tasks/${taskId}/photos`).set(uAuth()).send({ photoId }).expect(200)).body;
+      expect(r).toMatchObject({ photoIds: [photoId], photo: '/uploads/t.jpg' });
+      expect((await http().post(`/api/design-tasks/${taskId}/photos`).set(auth()).send({ photoId }).expect(200)).body.photoIds).toHaveLength(1);
+      await http().post(`/api/design-tasks/${taskId}/photos`).set(auth()).send({ photoId: '0'.repeat(24) }).expect(404);
+      await http().post(`/api/design-tasks/${taskId}/photos`).set(auth()).send({}).expect(400);
+      await http().patch(`/api/design-tasks/${taskId}`).set(uAuth()).send({ title: 'Х' }).expect(403);
+      const person = String((await db().collection('persons').insertOne({ firstName: 'Чужой', deletedAt: null })).insertedId);
+      await http().patch(`/api/design-tasks/${taskId}`).set(auth()).send({ assigneeId: person }).expect(200);
+      await http().post(`/api/design-tasks/${taskId}/photos`).set(uAuth()).send({ photoId }).expect(403);
+      await db().collection('persons').updateOne({ _id: new Types.ObjectId(person) }, { $set: { userId: new Types.ObjectId(userId) } });
+      await http().delete(`/api/design-tasks/${taskId}/photos/${photoId}`).set(uAuth()).expect(200);
+      expect((await http().get(`/api/design-tasks/${taskId}`).set(auth()).expect(200)).body.photoIds).toEqual([]);
+    });
   });
 });

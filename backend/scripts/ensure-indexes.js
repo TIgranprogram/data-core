@@ -13,7 +13,7 @@ const { NestFactory } = require(require.resolve('@nestjs/core', { paths: [root] 
 const { getConnectionToken } = require(require.resolve('@nestjs/mongoose', { paths: [root] }));
 
 /** Модели data-core (коллекции, которые пишет data-core): индексы — из их схем. */
-const MODELS = ['Income', 'SalesOrder', 'DesignTask', 'DesignOrder', 'ProductPassport', 'Photo', 'AuditLog', 'ClientError', 'SupplierItem'];
+const MODELS = ['Income', 'SalesOrder', 'DesignTask', 'DesignOrder', 'DesignSticker', 'ProductPassport', 'Photo', 'AuditLog', 'ClientError', 'SupplierItem'];
 /** Индексы без схемы (коллекции читаются напрямую): частые запросы. */
 const RAW = [
   ['photos', { parentPhotoId: 1, variant: 1 }],
