@@ -1,6 +1,8 @@
-import { api, apiFile, session } from '../core/api.js';
+import { api, apiFile, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, money, qty } from '../core/format.js';
+import { date, money, qty, plural } from '../core/format.js';
+import { stepFunnel } from '../ui/step-funnel.js';
+import { catArt } from '../ui/cat-art.js';
 import { current, patch } from '../core/router.js';
 import { attachCombo } from '../ui/combo.js';
 import { modal } from '../ui/dialog.js';
@@ -47,28 +49,76 @@ function queryOf(P) {
   const q = {};
   if (P.q) q.search = P.q;
   if (P.supplierId) q.supplierId = P.supplierId;
-  if (P.categoryId) q.categoryId = P.categoryId;
+  if (P.subId || P.catId) q.categoryId = P.subId || P.catId; // 'none' — без категории
+  if (P.ord && P.ord.startsWith('-')) q.dir = 'desc';
   if (FLAGS.some(([k]) => k === P.flag)) q[P.flag] = '1';
   return q;
 }
 
 // ---------- левая панель: категории и быстрые отборы ----------
+const ORDERS = [['', 'По названию'], ['price', 'Цена: сначала дешёвые'], ['-price', 'Цена: сначала дорогие'], ['-priceDate', 'Дата цены: сначала свежие'], ['priceDate', 'Дата цены: сначала старые']];
+const STALE_MS = 183 * 86400000;
+const isStale = (r) => r.priceHint != null && (!r.priceDate || Date.now() - new Date(r.priceDate).getTime() > STALE_MS);
+const catTops = (c) => { const all = c.categories || []; const ids = new Set(all.map((x) => String(x.id))); return all.filter((x) => !x.parentId || !ids.has(String(x.parentId))); };
+const totalOf = (c) => (c.suppliers || []).reduce((a, s) => a + (s.count || 0), 0);
+
+/** Слева: воронка Категория → Подкатегория (поставщики — плитки списка), быстрые отборы, порядок, «Сбросить», «Показано N из M». */
 function sideFilters() {
   const el = h('div', { class: 'ls-extra' });
+  const funnel = stepFunnel({
+    title: 'Категория',
+    steps: [{ key: 'catId', label: 'Категория' }, { key: 'subId', label: 'Подкатегория', when: (P) => !!P.catId && P.catId !== 'none' }],
+    load: async (P) => {
+      const c = await getCounts();
+      const tops = catTops(c).map((x) => ({ value: x.id, label: x.name, n: x.count }));
+      if (c.noCategory) tops.push({ value: 'none', label: 'Без категории', n: c.noCategory });
+      const subs = P.catId ? (c.categories || []).filter((x) => String(x.parentId) === P.catId).map((x) => ({ value: x.id, label: x.name, n: x.count })) : [];
+      return { catId: tops, subId: subs };
+    },
+  });
+  const rest = h('div');
   let P = {};
+  let seq = 0;
   const opt = (label, n, on, run) => h('button', { type: 'button', class: 'ls-opt' + (on ? ' active' : ''), onclick: run },
     h('span', { class: 'ls-t' }, label), n !== undefined ? h('b', null, qty(n)) : null);
   async function paint() {
+    const my = ++seq;
     let c;
     try { c = await getCounts(); } catch { return; }
     const flagN = { unmatched: c.unmatched, noPrice: c.noPrice, stale: c.stale };
-    el.replaceChildren(
+    const shown = h('p', { class: 'sc-shown muted small' });
+    api('/supply/catalog/items', { query: { ...queryOf(P), limit: 1 } }).then((r) => {
+      if (my === seq) shown.textContent = `Показано ${qty(r.total)} из ${qty(totalOf(c))}`;
+    }).catch(() => {});
+    rest.replaceChildren(
+      shown,
       h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Быстро'),
         h('div', { class: 'ls-list' }, FLAGS.map(([k, label]) => opt(label, flagN[k], P.flag === k, () => patch({ flag: P.flag === k ? undefined : k, page: undefined }))))),
-      (c.categories || []).length ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Категории'),
-        h('div', { class: 'ls-list' }, c.categories.map((x) => opt(x.name, x.count, P.categoryId === x.id, () => patch({ categoryId: P.categoryId === x.id ? undefined : x.id, page: undefined }))))) : null);
+      h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Порядок'),
+        h('div', { class: 'ls-list' }, ORDERS.map(([k, label]) => opt(label, undefined, (P.ord || '') === k, () => patch({ ord: k || undefined, page: undefined }))))),
+      h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => patch({ supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined }) }, 'Сбросить'));
   }
-  return { el, update(next) { P = next; paint(); } };
+  el.append(funnel.el, rest);
+  return { el, update(next) { P = next; funnel.update(next); paint(); } };
+}
+
+// ---------- первая страница: плитки главных категорий ----------
+const nPos = (n) => `${qty(n)} ${plural(n, 'позиция', 'позиции', 'позиций')}`;
+async function catLanding() {
+  const c = await getCounts();
+  const go = (p) => patch({ ...p, view: 'table', page: undefined });
+  const tile = (name, n, pick) => {
+    const art = h('div', { class: 'cat-art' });
+    art.innerHTML = catArt(name); // свой статичный SVG, данных пользователя нет
+    return h('button', { type: 'button', class: 'cat-tile', title: name, onclick: pick }, art, h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, name), h('div', { class: 'cat-n' }, nPos(n || 0))));
+  };
+  const tops = catTops(c);
+  if (!tops.length && !c.noCategory) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), h('button', { class: 'btn', type: 'button', onclick: () => go({ all: '1' }) }, 'Все списком'));
+  return h('div', { class: 'cat-landing' },
+    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(totalOf(c))}`), h('button', { class: 'btn', type: 'button', onclick: () => go({ all: '1' }) }, 'Все списком')),
+    h('div', { class: 'cat-grid' },
+      ...tops.map((x) => tile(x.name, x.count, () => go({ catId: x.id }))),
+      c.noCategory ? tile('Без категории', c.noCategory, () => go({ catId: 'none' })) : null));
 }
 
 // ---------- шапка: крошки и шестерёнка ----------
@@ -186,6 +236,7 @@ function materialWidget(v, row) {
   return { el: wrap, get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
 }
 
+const thumb = (r) => (r.thumb ? h('img', { class: 'thumb', src: PREFIX + r.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : null);
 const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
 
 export const supplierCatalog = {
@@ -202,11 +253,14 @@ export const supplierCatalog = {
     path: '/supply/catalog/items',
     sidebar: true,
     export: false, // выгрузка — в шестерёнке (формат шаблона, можно править и загружать обратно)
-    extraKeys: ['categoryId', 'flag'],
+    extraKeys: ['catId', 'subId', 'flag', 'ord', 'all'],
     toolbarExtra: sideFilters,
     top: topBlock,
     query: queryOf,
-    sortDefault: '',
+    // порядок — из адреса (?ord=price|-price|priceDate|…): список шлёт sort, направление (dir) добавляет queryOf
+    get sortDefault() { return (current().params.ord || '').replace(/^-/, ''); },
+    gallery: { default: true, limit: 100, card: (r) => ({ pic: r.thumb ? PREFIX + r.thumb : null, title: r.name, meta: [r.supplierName, r.article && !r.article.startsWith('manual:') ? 'арт. ' + r.article : ''].filter(Boolean).join(' · '), price: r.priceHint != null ? money(r.priceHint) : null }) },
+    landing: { when: (P) => !P.supplierId && !P.catId && !P.subId && !P.q && !P.flag && !P.all, render: catLanding },
     createLabel: 'Новая позиция',
     searchPlaceholder: 'Артикул, название, примечание…',
     emptyText: 'В каталоге пока пусто. Загрузите прайс поставщика по шаблону: шестерёнка → «Скачать шаблон Excel», затем «Загрузить Excel…».',
@@ -215,16 +269,18 @@ export const supplierCatalog = {
       load: async () => (await getCounts()).suppliers.map((s) => ({ value: s.id, label: s.name, n: s.count })),
     },
     columns: [
+      { key: 'photo', label: '', render: (r) => thumb(r) },
       { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },
       { key: 'article', label: 'Артикул поставщика', cls: 'nowrap', render: (r) => r.article && !r.article.startsWith('manual:') ? r.article : h('span', { class: 'muted' }, '—') },
       { key: 'name', label: 'Название у поставщика', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name, r.color ? h('span', { class: 'muted' }, ' · ' + r.color) : null) },
       { key: 'material', label: 'Наш материал', cls: 'clip md-hide', render: (r) => r.materialId ? h('span', { title: r.materialArticle }, r.materialName) : h('span', { class: 'badge warn', title: 'Не связана с позицией склада' }, 'нет связи') },
       { key: 'unit', label: 'Ед.', cls: 'md-hide', render: (r) => r.unit || '' },
       { key: 'priceHint', label: 'Цена, ₽', cls: 'num right', render: (r) => r.priceHint != null ? money(r.priceHint) : h('span', { class: 'muted' }, '—') },
-      { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => r.priceDate ? date(r.priceDate) : '' },
+      { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => (isStale(r) ? h('span', { class: 'sc-stale', title: 'Цене больше 6 месяцев' }, r.priceDate ? 'от ' + date(r.priceDate) + ' — устарела' : 'устарела') : r.priceDate ? date(r.priceDate) : '') },
       { key: 'stockQty', label: 'Остаток', cls: 'num right md-hide', render: (r) => r.stockQty != null ? qty(r.stockQty) : '' },
     ],
     card: {
+      thumb,
       title: (r) => r.name,
       sub: (r) => [r.supplierName, r.article && !r.article.startsWith('manual:') ? 'арт. ' + r.article : '', r.materialName].filter(Boolean).join(' · '),
       side: (r) => [h('b', { class: 'num' }, r.priceHint != null ? money(r.priceHint) + ' ₽' : '—')],
@@ -232,6 +288,9 @@ export const supplierCatalog = {
   },
 
   card: {
+    gallery: (r) => r.photos || [],
+    photoAdd: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); rowCache.set(x.id, x); return x; },
+    photoRemove: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }); rowCache.set(x.id, x); return x; },
     heading: (r) => r.name,
     subheading: (r) => r.supplierName || '',
     editTop: true,
@@ -244,7 +303,7 @@ export const supplierCatalog = {
       return h('div', { class: 'sc-card' },
         h('div', { class: 'sc-price' },
           h('div', { class: 'sc-price-v num' }, r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана'),
-          r.priceHint != null && r.priceDate ? h('div', { class: 'muted small' }, 'от ' + date(r.priceDate)) : null),
+          r.priceHint != null && r.priceDate ? h('div', { class: isStale(r) ? 'sc-stale small' : 'muted small' }, 'от ' + date(r.priceDate) + (isStale(r) ? ' — устарела' : '')) : null),
         h('div', { class: 'sc-grid' },
           cell('Артикул у поставщика', art),
           cell('Цвет', r.color), cell('Группа', r.optGroup),

@@ -1374,3 +1374,7 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .invl-head[aria-expanded="true"] .invl-chev { transform: rotate(90deg); }
 .invl-row.open > .invl-head { background: var(--surface-3); box-shadow: inset 3px 0 0 var(--primary); }
 .invl-collapse { align-self: flex-start; }
+
+/* Каталог поставщиков: устаревшая цена, строка «показано N из M» */
+.sc-stale { color: var(--muted); font-style: italic; }
+.sc-shown { margin: 8px 0; }
