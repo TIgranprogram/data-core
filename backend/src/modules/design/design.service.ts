@@ -5,6 +5,8 @@ import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ProductionOrdersService } from '../salesorders/production-orders.service';
 import type { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
 import { DESIGN_STATUSES, DesignTask, type DesignStatus, type DesignTaskDocument } from './design-task.schema';
@@ -25,6 +27,8 @@ export class DesignService {
     @InjectModel(DesignTask.name) private readonly model: Model<DesignTaskDocument>,
     private readonly counters: CounterService,
     @InjectModel(DesignOrder.name) private readonly designOrders: Model<DesignOrderDocument>,
+    private readonly notices: NotificationsService,
+    private readonly orders: ProductionOrdersService,
   ) {}
 
   private readonly log = new Logger(DesignService.name);
@@ -92,6 +96,19 @@ export class DesignService {
 
   private async checkPerson(id: Types.ObjectId) {
     if (!(await this.db().collection('persons').findOne({ _id: id, deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException('Сотрудник не найден — выберите из списка');
+  }
+
+  /** Уведомление исполнителю: задача назначена. Сотрудник связан со входом через persons.userId; нет связи — не шлём. */
+  private async notifyAssigned(task: Doc, assigneeId: unknown, actorId?: string) {
+    try {
+      if (!assigneeId) return;
+      const p = await this.db().collection('persons').findOne({ _id: assigneeId as Types.ObjectId }, { projection: { userId: 1 } });
+      if (!p?.userId) return;
+      const name = String(task.title || (task.seq ? `D-${task.seq}` : 'Задача проектирования'));
+      await this.notices.safe({ userId: p.userId as Types.ObjectId, type: 'task_assigned', text: `Вам назначена задача проектирования: ${name}`, href: `#design?open=${String(task._id)}` }, actorId);
+    } catch (e) {
+      this.log.warn(`Уведомление исполнителю не отправлено: ${(e as Error).message}`);
+    }
   }
 
   private async checkProduct(id: Types.ObjectId) {
@@ -180,6 +197,7 @@ export class DesignService {
     if (dto.priority) manual.priority = dto.priority;
     if (Object.keys(manual).length) f.manual = manual;
     const doc = await this.insert(f, userId);
+    await this.notifyAssigned(doc, f.assigneeId, userId);
     return this.get(String(doc._id));
   }
 
@@ -260,6 +278,8 @@ export class DesignService {
       throw e;
     }
     if (link.orderId) await this.markQuiet(link.orderId, userId);
+    if (dto.assigneeId && String(assigneeId) !== String(cur.assigneeId ?? '')) await this.notifyAssigned(cur, assigneeId, userId);
+    if (status !== cur.status) await this.orders.recheck(link.orderId ?? cur.orderId, userId); // «Проектирование завершено» мог закрыть последний пункт готовности
     if (status === 'done' && !wasDone) {
       const productId = 'productId' in set ? set.productId : 'productId' in unset ? undefined : cur.productId ?? (await this.lineOf(cur.incomeId))?.productId;
       await this.fillDesigner(productId, assigneeId);

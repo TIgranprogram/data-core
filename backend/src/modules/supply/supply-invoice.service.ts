@@ -4,6 +4,7 @@ import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { escapeRe, oid } from '../../common/list-query';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MaterialPriceService } from '../material/material-price.service';
 import type { PriceSource } from '../material/material-price.schema';
 import { PatchInvoiceDto } from './dto-invoice';
@@ -27,6 +28,7 @@ export class SupplyInvoiceService {
     @InjectModel(SupplyRequest.name) private readonly requests: Model<SupplyRequestDocument>,
     private readonly supply: SupplyService,
     private readonly prices: MaterialPriceService,
+    private readonly notices: NotificationsService,
   ) {}
 
   private async tx<T>(fn: (s: ClientSession) => Promise<T>): Promise<T> {
@@ -164,7 +166,7 @@ export class SupplyInvoiceService {
   }
 
   /** Правка счёта; «выставлен» — только при №, дате и сумме. Копирует поля в заявки, сумму делит по строкам. */
-  async update(id: string, dto: PatchInvoiceDto) {
+  async update(id: string, dto: PatchInvoiceDto, actorId?: string) {
     const inv = await this.load(id);
     if (inv.status === 'paid') throw new BadRequestException('Счёт оплачен — править его нельзя');
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
@@ -200,6 +202,10 @@ export class SupplyInvoiceService {
         await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       }
     });
+    if (status === 'issued' && inv.status !== 'issued') {
+      const what = [next.no ? `№${next.no}` : '', next.supplierName ? `от ${next.supplierName}` : ''].filter(Boolean).join(' ');
+      await this.notices.toRoles(['admin', 'director', 'accountant'], { type: 'invoice_awaiting_payment', text: `Счёт ${what || 'без номера'} выставлен — ждёт оплаты`, href: `#requests?tab=invoices&open=${id}` }, actorId);
+    }
     return this.get(id);
   }
 

@@ -9,7 +9,10 @@ import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { CategoryResolver } from '../../common/catalog/category-resolver';
 import { materialRequestTitle } from '../../common/catalog/names';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ProductionOrdersService } from '../salesorders/production-orders.service';
 import { StockService } from '../stock/stock.service';
+import { requestReturn, requestReturnText } from './supply-notices';
 import { OrgResolver } from './org-resolver';
 import { SupplierAliases } from './supplier-aliases';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
@@ -69,6 +72,8 @@ export class SupplyService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(SupplyRequest.name) private readonly model: Model<SupplyRequestDocument>,
     private readonly stock: StockService,
+    private readonly notices: NotificationsService,
+    private readonly orders: ProductionOrdersService,
   ) {}
 
   private async names(coll: string, ids: unknown[]) {
@@ -363,7 +368,17 @@ export class SupplyService {
     if (d?.materialId && d.article) await this.stock.adoptArticle(d.materialId as Types.ObjectId, d.article, `заявка${d.num ? ' №' + d.num : ''}`).catch(() => undefined);
   }
 
-  async update(id: string, dto: SupplyInput, userRole?: string) {
+  /** После смены статуса заявки: вернулась/отменена — автору; пересчёт готовности заказа. Ошибки не пробрасываются. */
+  private async afterStatus(prev: Record<string, unknown> | null, next: string | undefined, actorId?: string) {
+    try {
+      if (!prev) return;
+      const kind = requestReturn(prev.status as string | undefined, next);
+      if (kind && prev.createdBy) await this.notices.safe({ userId: prev.createdBy as Types.ObjectId, type: 'request_returned', text: requestReturnText(kind, prev.num, prev.title, next!), href: `#requests?open=${String(prev._id)}` }, actorId);
+      if (prev.salesOrderId) await this.orders.recheck(prev.salesOrderId, actorId);
+    } catch { /* уведомление не должно ломать операцию */ }
+  }
+
+  async update(id: string, dto: SupplyInput, userRole?: string, actorId?: string) {
     if (dto.priceHint !== undefined && userRole === 'manager') {
       throw new ForbiddenException('Изменять сумму может только администратор или бухгалтер');
     }
@@ -374,6 +389,7 @@ export class SupplyService {
       const cur = await this.model.findById(id, { status: 1 }).lean().exec();
       if (cur && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
     }
+    const prev = fields.status ? await this.model.findOne({ _id: id, deletedAt: null }, { status: 1, createdBy: 1, num: 1, title: 1, salesOrderId: 1 }).lean().exec() as Record<string, unknown> | null : null;
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : undefined;
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(fields)) (v === undefined ? (unset[k] = '') : (set[k] = v));
@@ -383,6 +399,7 @@ export class SupplyService {
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
+    await this.afterStatus(prev, fields.status as string | undefined, actorId);
     return this.get(id);
   }
 
@@ -391,6 +408,15 @@ export class SupplyService {
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
    */
   async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
+    const out = await this.receiveRaw(id, dto, userId);
+    try {
+      const so = await this.model.findById(id, { salesOrderId: 1 }).lean().exec() as { salesOrderId?: unknown } | null;
+      if (so?.salesOrderId) await this.orders.recheck(so.salesOrderId, userId);
+    } catch { /* пересчёт готовности не должен ломать приход */ }
+    return out;
+  }
+
+  private async receiveRaw(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');

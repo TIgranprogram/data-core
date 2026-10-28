@@ -75,7 +75,7 @@ describe('SupplyService', () => {
       move: jest.fn(async () => ({})),
       createItem: jest.fn(async () => ({ id: String(new Types.ObjectId()) })),
     };
-    service = new SupplyService(connection as never, model as never, stock as never);
+    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never);
   });
 
   describe('create', () => {

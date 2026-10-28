@@ -52,7 +52,14 @@ export class ProductionOrdersController {
     return this.svc.get(key, this.see(user));
   }
 
-  /** Этап «ко всем договорам»: подтягивает отстающие до выбранного; ответ — карточка + `changed` (id изменённых договоров). */
+  /** Готовность к отгрузке: пункты проверки с подсказкой. Только подсказка — этап ставит человек. */
+  @Get(':key/readiness')
+  @Roles('admin', 'director', 'manager', 'user')
+  readiness(@Param('key') key: string) {
+    return this.svc.readiness(key);
+  }
+
+  /** Этап «ко всем договорам»: подтягивает отстающие до выбранного; ответ — карточка + `changed` (id изменённых договоров) + `warnings` (для «ready», если не все проверки пройдены). */
   @Post(':key/stage')
   @HttpCode(200)
   @Roles('admin', 'manager')

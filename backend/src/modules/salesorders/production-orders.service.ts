@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Logger, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -6,7 +6,9 @@ import { parseList } from '../../common/list-query';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { numberLines, sortLines, sortOrdersByEntry } from '../../common/text/production-seq';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ourCompanies } from '../incomes/incomes.service';
+import { loadReadinessFacts, readinessChecks, readinessWarnings, type Readiness } from './order-readiness';
 import { checkAssign, compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 import { SalesOrdersService, nextProductionNo } from './salesorders.service';
@@ -24,11 +26,14 @@ const ts = (d: unknown) => (d ? new Date(d as Date).getTime() : Infinity);
  */
 @Injectable()
 export class ProductionOrdersService {
+  private readonly log = new Logger(ProductionOrdersService.name);
+
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(SalesOrder.name) private readonly model: Model<SalesOrderDocument>,
     private readonly orders: SalesOrdersService,
     private readonly audit: AuditService,
+    private readonly notices: NotificationsService,
   ) {}
 
   private async byNo(no: string) {
@@ -152,6 +157,7 @@ export class ProductionOrdersService {
       ourCompanies(this.connection),
     ]);
     const sum = new Map(agg.map((a) => [String(a._id), a]));
+    const facts = await loadReadinessFacts(this.connection.db!, new Map(page.map((g) => [g.key, this.liveIds(g.docs)])));
     const cname = new Map(companies.map((c) => [String(c.id), c.name]));
     const uniq = (v: unknown[]) => [...new Set(v.filter(Boolean).map(String))];
     const items = page.map((g) => {
@@ -163,6 +169,7 @@ export class ProductionOrdersService {
         lineCount: part.reduce((a, s) => a + (s?.lines ?? 0), 0), amount: part.reduce((a, s) => a + (s?.amount ?? 0), 0), paidAmount: part.reduce((a, s) => a + (s?.paid ?? 0), 0),
         deadline: g.deadline, stage: g.stage, stageLabel: STAGE_LABELS[g.stage], stagesDiffer: g.stagesDiffer, priority: g.priority,
         createdAt: new Date(created(g)),
+        readiness: { ready: readinessChecks(facts.get(g.key)!, g.key, String(g.docs[0]._id)).ready },
       };
     });
     return { items, total: shown.length, page: p.page, limit: p.limit, counts: { all: n(ORDER_STAGES), active: n(ACTIVE_STAGES), done: n(DONE_STAGES), ...counts, fresh } };
@@ -186,6 +193,42 @@ export class ProductionOrdersService {
     return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, toProduce: toProduce(lines), ...sum, stageLabel: STAGE_LABELS[sum.stage] };
   }
 
+  private liveIds(docs: Doc[]) { return docs.filter((d) => d.stage !== 'cancelled').map((d) => d._id as Types.ObjectId); }
+
+  private async evaluate(docs: Doc[], key: string): Promise<Readiness> {
+    const live = docs.filter((d) => d.stage !== 'cancelled');
+    const facts = await loadReadinessFacts(this.connection.db!, new Map([[key, this.liveIds(docs)]]));
+    return readinessChecks(facts.get(key)!, key, String((live[0] ?? docs[0])._id));
+  }
+
+  /** Готовность заказа к отгрузке: пункты с подсказкой «что осталось». Только подсказка — этап ставит человек. */
+  async readiness(key: string): Promise<Readiness> {
+    const docs = await this.members(key);
+    return this.evaluate(docs, groupKey(docs[0]));
+  }
+
+  /**
+   * Пересчёт после события (задача проектирования, заявка): первый переход в «готово» → уведомление менеджерам
+   * (без повторов: последнее состояние — в orderreadystate, данные только data-core). Ошибки не пробрасываются.
+   */
+  async recheck(orderId: unknown, actorId?: string): Promise<void> {
+    try {
+      if (!orderId || !Types.ObjectId.isValid(String(orderId))) return;
+      const docs = await this.members(String(orderId));
+      const key = groupKey(docs[0]);
+      const r = await this.evaluate(docs, key);
+      const state = this.connection.db!.collection<{ _id: string; ready: boolean }>('orderreadystate');
+      const prev = await state.findOneAndUpdate({ _id: key }, { $set: { ready: r.ready, at: new Date() } }, { upsert: true, returnDocument: 'before' });
+      const stage = summarize(docs).stage;
+      if (r.ready && !prev?.ready && ORDER_STAGES.indexOf(stage) < ORDER_STAGES.indexOf('ready')) {
+        const no = String(docs[0].productionNo ?? '').trim() || String(docs[0].orderNo ?? '');
+        await this.notices.toRoles(['manager'], { type: 'order_ready', text: `Заказ ${no || 'без номера'} прошёл все проверки — можно отметить «Готов к отгрузке»`, href: `#salesorders?open=${encodeURIComponent(key)}` }, actorId);
+      }
+    } catch (e) {
+      this.log.warn(`Пересчёт готовности заказа не удался: ${(e as Error).message}`);
+    }
+  }
+
   /** Этап «ко всем договорам»: подтягивает отстающие договоры до `stage` (опережающие и отменённые не трогает), пишет историю каждого. */
   async setStage(key: string, stage: string, see: See = {}) {
     if (!(ORDER_STAGES as readonly string[]).includes(stage)) throw new BadRequestException(`Неизвестный этап «${stage}»`);
@@ -197,6 +240,8 @@ export class ProductionOrdersService {
       await this.model.updateOne({ _id: d._id }, { $set: { stage, editedInApp: true } }).exec();
       await this.audit.log({ action: 'salesorder.updated', entityType: 'SalesOrder', entityId: String(d._id), details: { partial: true, before: { stage: d.stage }, after: { stage }, meta: { via: 'production-orders', key } } as never });
     }
-    return { ...(await this.get(key, see)), changed: todo.map((d) => String(d._id)) };
+    // «Готов к отгрузке» — решение человека: не всё готово — разрешаем, но предупреждаем
+    const warnings = stage === 'ready' ? readinessWarnings(await this.evaluate(docs, groupKey(docs[0]))) : [];
+    return { ...(await this.get(key, see)), changed: todo.map((d) => String(d._id)), warnings };
   }
 }

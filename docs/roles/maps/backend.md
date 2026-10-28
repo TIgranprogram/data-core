@@ -67,3 +67,7 @@
 
 ## Уведомления и мини-чат (УВ, 2026-10-28, не закоммичено)
 - `modules/notifications/` (`notification-kind.ts` kindOf/kindFilter/unreadCounts, `notifications.service.ts:notify` — вызывать из других модулей), `modules/messages/` (`messages.service.ts`). Колокольчик в pwa был только в localStorage. e2e не писался, openapi не обновлён. коммит: —
+
+## Готовность заказа и уведомления (В4, 2026-10-28, не закоммичено)
+- `salesorders/order-readiness.ts` (pure `readinessChecks`, `loadReadinessFacts` — 4 агрегации), `production-orders.service.ts` `readiness`/`evaluate`/`recheck` (order_ready, состояние `orderreadystate`), `setStage` → `warnings`; маршрут `:key/readiness`.
+- `notifications.service.ts` `safe`/`toRoles`; хуки: `supply-invoice.service.ts update` (счёт выставлен), `supply.service.ts afterStatus`+`supply-notices.ts` (заявка вернулась), `design.service.ts notifyAssigned` (нужен `persons.userId`, связи нет — пока не шлётся). openapi не обновлён. коммит: —

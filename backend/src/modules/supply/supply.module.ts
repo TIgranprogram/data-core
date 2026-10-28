@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { SalesOrdersModule } from '../salesorders/salesorders.module';
 import { MaterialModule } from '../material/material.module';
 import { StockModule } from '../stock/stock.module';
 import { SupplyController } from './supply.controller';
@@ -15,6 +17,8 @@ import { SupplierCatalogService } from './supplier-catalog.service';
 @Module({
   imports: [
     StockModule,
+    NotificationsModule,
+    SalesOrdersModule,
     MaterialModule,
     MongooseModule.forFeature([
       { name: SupplyRequest.name, schema: SupplyRequestSchema },

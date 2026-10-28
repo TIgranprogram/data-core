@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { SalesOrdersModule } from '../salesorders/salesorders.module';
 import { CounterModule } from '../counter/counter.module';
 import { DesignBoardController } from './design-board.controller';
 import { DesignBoardService } from './design-board.service';
@@ -17,7 +19,7 @@ import { DesignService } from './design.service';
 
 /** /api/design-tasks — «Проектирование»: задачи на чертежи под позиции заказов (`designtasks`); /api/design-board — доска заказов (`designorders`); /api/design-stickers — стикеры доски (`designstickers`). */
 @Module({
-  imports: [MongooseModule.forFeature([{ name: DesignTask.name, schema: DesignTaskSchema }, { name: DesignOrder.name, schema: DesignOrderSchema }, { name: DesignSticker.name, schema: DesignStickerSchema }, { name: DesignNote.name, schema: DesignNoteSchema }]), CounterModule],
+  imports: [MongooseModule.forFeature([{ name: DesignTask.name, schema: DesignTaskSchema }, { name: DesignOrder.name, schema: DesignOrderSchema }, { name: DesignSticker.name, schema: DesignStickerSchema }, { name: DesignNote.name, schema: DesignNoteSchema }]), CounterModule, NotificationsModule, SalesOrdersModule],
   controllers: [DesignController, DesignBoardController, DesignStickerController, DesignNoteController],
   providers: [DesignService, DesignBoardService, DesignStickerService, DesignExtrasService, DesignNoteService],
 })

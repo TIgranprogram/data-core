@@ -24,7 +24,7 @@ describe('SupplyInvoiceService: приход по счёту', () => {
     const model = { findOne: jest.fn(() => chain({ _id: invId, status: 'paid', fileIds: [] })) };
     const requests = { find: jest.fn(() => chain(lines)) };
     const connection = { db: { collection: () => ({ find: () => ({ toArray: async () => [] }) }) } };
-    svc = new SupplyInvoiceService(connection as never, model as never, requests as never, supply as never, {} as never);
+    svc = new SupplyInvoiceService(connection as never, model as never, requests as never, supply as never, {} as never, { toRoles: async () => 0 } as never);
     jest.spyOn(svc, 'get').mockResolvedValue({ id: String(invId) } as never);
   });
 

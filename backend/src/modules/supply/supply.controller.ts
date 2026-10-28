@@ -57,8 +57,8 @@ export class SupplyController {
   @Patch('invoices/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.updated', entityType: 'SupplyInvoice', idParam: 'id' })
-  updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto) {
-    return this.invoices.update(id, dto);
+  updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.invoices.update(id, dto, user?.id);
   }
 
   /** Принять счёт на склад: все неполученные заявки (или отмеченные). */
@@ -234,7 +234,7 @@ export class SupplyController {
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: SupplyRequestDto, @CurrentUser() user?: AuthenticatedUser) {
-    return this.supply.update(id, dto, user?.role);
+    return this.supply.update(id, dto, user?.role, user?.id);
   }
 
   /** В корзину (мягкое удаление). */

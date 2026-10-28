@@ -104,7 +104,7 @@ describe('DesignService', () => {
     const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designnotes: new Coll() };
     const connection = { db: { collection: (n: string) => by[n] } };
     const counters = { nextSeq: jest.fn(async () => ++seq) };
-    service = new DesignService(connection as never, tasks as never, counters as never, marks as never);
+    service = new DesignService(connection as never, tasks as never, counters as never, marks as never, { safe: async () => true } as never, { recheck: async () => undefined } as never);
     stickerSvc = new DesignStickerService(stickers as never);
     board = new DesignBoardService(connection as never, tasks as never, marks as never, service, stickerSvc);
     extras = new DesignExtrasService(connection as never, tasks as never, stickerSvc);
