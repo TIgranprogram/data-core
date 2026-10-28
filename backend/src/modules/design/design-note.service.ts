@@ -78,7 +78,7 @@ export class DesignNoteService {
         ...(admin && dto.externalId ? { externalId: dto.externalId } : {}),
       });
       // Mongoose timestamps ставят «сейчас» — своё время импорта пишем мимо них
-      if (admin && dto.createdAt) { await this.model.collection.updateOne({ _id: doc._id }, { $set: { createdAt: at } }); doc.set('createdAt', at); }
+      if (admin && dto.createdAt) await this.model.collection.updateOne({ _id: doc._id }, { $set: { createdAt: at } });
     } catch (e) {
       if ((e as { code?: number }).code === 11000) throw new ConflictException('Запись с таким externalId уже есть');
       throw e;
@@ -86,7 +86,10 @@ export class DesignNoteService {
     if (replyTo) {
       await this.model.updateOne({ _id: replyTo, needsAnswer: true }, { $set: { needsAnswer: false, answeredAt: at, ...(imported ? {} : { answeredBy: oid(user.id, 'пользователя') }) } }).exec();
     }
-    return (await this.present([doc.toObject() as unknown as Doc], user))[0];
+    // createdAt у timestamps неизменяем (doc.set молча не срабатывает) — в ответ кладём своё время
+    const out = doc.toObject() as unknown as Doc;
+    if (admin && dto.createdAt) out.createdAt = at;
+    return (await this.present([out], user))[0];
   }
 
   private async mine(id: string, user: AuthenticatedUser) {

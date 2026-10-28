@@ -56,7 +56,7 @@ describe('Sales orders (заказы заказчиков)', () => {
   it('№ на производство: пишется, ищется, следующий = max+1 за год; "" снимает', async () => {
     const mk = (orderNo: string, productionNo: string) => http().post('/api/salesorders').set(auth()).send({ orderNo, customer: 'ПН', productionNo }).expect(201);
     const o = (await mk('PN-1', '20-26')).body;
-    await mk('PN-2', '99-25');
+    const o2 = (await mk('PN-2', '99-25')).body;
     expect(o.productionNo).toBe('20-26');
     const nx = await http().get('/api/salesorders/next-production-no?year=2026').set(auth()).expect(200);
     expect(nx.body.value).toBe('21-26');
@@ -64,6 +64,8 @@ describe('Sales orders (заказы заказчиков)', () => {
     expect(found.body.items.map((x: { id: string }) => x.id)).toContain(o.id);
     const cleared = await http().patch(`/api/salesorders/${o.id}`).set(auth()).send({ productionNo: '' }).expect(200);
     expect(cleared.body.productionNo).toBeUndefined();
+    // убрать за собой: следующий тест считает заказы
+    for (const x of [o, o2]) await http().delete(`/api/salesorders/${x.id}`).set(auth()).expect(200);
   });
 
   it('позиции через /incomes с orderId: поля шапки — из заказа, № позиции по порядку; карточка с суммой', async () => {
@@ -125,7 +127,7 @@ describe('Sales orders (заказы заказчиков)', () => {
     await http().delete(`/api/salesorders/${orderId}`).set(auth()).expect(200);
     await http().get(`/api/salesorders/${orderId}`).set(auth()).expect(404);
     expect((await http().get(`/api/incomes?orderId=${orderId}`).set(auth()).expect(200)).body.total).toBe(0);
-    expect((await http().get('/api/salesorders?deleted=1').set(auth()).expect(200)).body.total).toBe(1);
+    expect((await http().get('/api/salesorders?deleted=1').set(auth()).expect(200)).body.items.map((x: { id: string }) => x.id)).toContain(orderId);
     await http().post('/api/salesorders').set(auth()).send({ orderNo: '2', companyName: 'СИЮ' }).expect(409); // номер занят заказом в корзине
     const back = await http().post(`/api/salesorders/${orderId}/restore`).set(auth()).expect(200);
     expect(back.body.lineCount).toBe(2); // удалённая отдельно позиция остаётся в корзине

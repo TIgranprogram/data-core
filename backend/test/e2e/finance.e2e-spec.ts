@@ -116,6 +116,7 @@ describe('Finance: incomes + cashflow', () => {
     const cf = await http().get('/api/finance/cashflow?from=2026-10-03&to=2026-10-03').set(auth()).expect(200);
     expect(cf.body.days[0].ops.find((o: { title: string }) => o.title.startsWith('Горка'))).toMatchObject({ amount: 300, method: 'нал' });
     expect(cf.body.pending.awaiting.total).toBeGreaterThanOrEqual(700);
+    await http().delete(`/api/incomes/${a.body.id}`).set(auth()).expect(200); // не мешать сводке и прогнозу
     // ФОТ: ставка + табель → начислено, выплата → в календарь
     const siu = (await db().collection('organizations').findOne({ shortName: 'СИЮ' }))!;
     const pid = (await db().collection('persons').insertOne({ firstName: 'Иван', lastName: 'Тест-ФОТ', status: 'active', salaryKind: 'hour', salaryRate: 400, companyId: siu._id, deletedAt: null })).insertedId;
@@ -149,6 +150,7 @@ describe('Finance: incomes + cashflow', () => {
     expect(paid.status).toBe('paid');
     // «Отменить оплату»
     expect((await http().patch(`/api/incomes/${row.id}`).set(auth()).send({ paidDate: '' }).expect(200)).body.status).toBe('awaiting');
+    await http().delete(`/api/incomes/${row.id}`).set(auth()).expect(200); // ожидаемое поступление не должно попасть в прогноз
   });
 
   it('БЗ-1: прогноз — будущие выплаты и поступления, разрыв, «без срока», роли', async () => {
