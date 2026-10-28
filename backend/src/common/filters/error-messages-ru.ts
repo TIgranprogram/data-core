@@ -107,7 +107,7 @@ const FIELD_RU: Record<string, string> = {
   unit: 'Ед. изм.', article: 'Артикул', inn: 'ИНН', phone: 'Телефон', ttl: 'Срок действия', label: 'Название',
   priceHint: 'Сумма', invoiceNo: '№ счёта', invoiceDate: 'Дата счёта', requestDate: 'Дата заявки', notes: 'Примечание',
   minQuantity: 'Мин. остаток', weightKg: 'Вес', type: 'Тип', note: 'Примечание', url: 'Ссылка', key: 'Ключ', value: 'Значение',
-  orderNo: '№ заказа', customer: 'Заказчик', unitPrice: 'Цена', amountManual: 'Доход вручную', shipDate: 'Дата отгрузки', paidDate: 'Дата оплаты',
+  orderNo: '№ договора', customer: 'Заказчик', unitPrice: 'Цена', amountManual: 'Доход вручную', shipDate: 'Дата отгрузки', paidDate: 'Дата оплаты',
 };
 /** Поля паспорта (приёмка 2026-10-23: «maxUsers: Должно быть числом» → «Пользователей одновременно: …»). */
 Object.assign(FIELD_RU, { maxUsers: 'Пользователей одновременно', siteLength: 'Площадка (длина)', siteWidth: 'Площадка (ширина)', ageFrom: 'Возраст от', ageTo: 'Возраст до',

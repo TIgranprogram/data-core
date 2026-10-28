@@ -62,7 +62,7 @@ export class DesignService {
   /** Поиск: название задачи, код D-N, № заказа / заказчик, название и артикул изделия. */
   private async searchClauses(text: string, re: RegExp): Promise<Doc[]> {
     const [orders, prods] = await Promise.all([
-      this.db().collection('salesorders').find({ deletedAt: null, $or: [{ orderNo: re }, { customer: re }] }, { projection: { _id: 1 } }).limit(200).toArray(),
+      this.db().collection('salesorders').find({ deletedAt: null, $or: [{ orderNo: re }, { productionNo: re }, { customer: re }] }, { projection: { _id: 1 } }).limit(200).toArray(),
       this.db().collection('products').find({ deletedAt: null, $or: [{ name: re }, { sku: re }] }, { projection: { _id: 1 } }).limit(200).toArray(),
     ]);
     const clauses: Doc[] = [{ title: re }];

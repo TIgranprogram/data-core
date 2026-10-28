@@ -27,7 +27,7 @@ describe('design-present', () => {
     const oid = new Types.ObjectId(), iid = new Types.ObjectId(), pid = new Types.ObjectId();
     const ship = new Date('2026-03-03'), own = new Date('2026-04-04');
     const rows = {
-      salesorders: [{ _id: oid, orderNo: '77', shipDate: ship, priority: 'urgent' }],
+      salesorders: [{ _id: oid, orderNo: '109-П', productionNo: '77', shipDate: ship, priority: 'urgent' }],
       incomes: [{ _id: iid, lineNo: 2, title: 'Скамья', productId: pid }],
       products: [{ _id: pid, name: 'Скамья парковая', sku: '3410' }],
     };

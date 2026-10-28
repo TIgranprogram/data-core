@@ -67,7 +67,7 @@ export function statusSheet({ title, options, onPick, opener }) {
 const idOf = (x) => String(x?.orderId ?? x?.id ?? '');
 export function normOrder(o) {
   const c = o.counts || {};
-  return { orderId: idOf(o), orderNo: clean(o.orderNo), customer: clean(o.customer), deadline: o.deadline ?? null, priority: o.priority || 'normal', stage: o.stage || '',
+  return { orderId: idOf(o), orderNo: clean(o.orderNo), productionNo: clean(o.productionNo), customer: clean(o.customer), deadline: o.deadline ?? null, priority: o.priority || 'normal', stage: o.stage || '',
     note: o.note || '', addedAt: o.addedAt || null, counts: { queue: c.queue || 0, work: c.work || 0, paused: c.paused || 0, done: c.done || 0, free: c.free ?? null }, lines: o.lines };
 }
 /** Позиция заказа (с задачей или без) → единый вид. */
@@ -77,7 +77,7 @@ export function normLine(l, order) {
 }
 /** Задача (из открытых задач или вложенная в позицию) → вид, который понимают moveTask и карточка. */
 export function normTask(t, order) {
-  return { ...t, id: String(t.id), status: t.status, title: clean(t.title), productName: clean(t.productName) || null, sku: clean(t.sku) || null, customerTitle: clean(t.customerTitle) || null, orderId: String(t.orderId ?? order?.orderId ?? ''), orderNo: clean(t.orderNo) || clean(order?.orderNo) || null,
+  return { ...t, id: String(t.id), status: t.status, title: clean(t.title), productName: clean(t.productName) || null, sku: clean(t.sku) || null, customerTitle: clean(t.customerTitle) || null, orderId: String(t.orderId ?? order?.orderId ?? ''), orderNo: clean(t.orderNo) || clean(order?.orderNo) || null, productionNo: clean(t.productionNo) || clean(order?.productionNo) || null,
     assigneeId: t.assigneeId ?? t.assignee?.id ?? null, assignee: t.assignee || null, pauseReason: t.pauseReason || null, priority: t.priority || order?.priority || 'normal',
     deadline: t.deadline ?? order?.deadline ?? null, seq: t.seq ?? Number(String(t.code || '').replace(/\D/g, '')) ?? 0 };
 }
@@ -134,8 +134,9 @@ export async function createTask(line, to, people) {
 
 // ---------- мелкие элементы ----------
 const photo = (src, cls = 'db-pic') => (src ? h('img', { class: cls, src: PREFIX + src, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('span', { class: cls + ' none' })) }) : h('span', { class: cls + ' none' }));
-const orderName = (o) => (clean(o.orderNo) ? 'ЗНП ' + clean(o.orderNo) : 'Заказ без номера');
-const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), 'ЗНП ' + (clean(orderNo) || 'без номера')), orderId) : h('span', { class: 'db-chip none' }, 'Без заказа'));
+// ЗНП — № заказа (производства, productionNo); № договора (orderNo) — справка
+const orderName = (o) => (clean(o.productionNo) ? 'ЗНП ' + clean(o.productionNo) : 'Заказ, нет №');
+const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), 'ЗНП ' + (clean(orderNo) || 'нет №')), orderId) : h('span', { class: 'db-chip none' }, 'Без заказа'));
 
 /** Куда можно перенести: с левой стороны (нет задачи) — в «Завершены» нельзя. */
 function sheetOptions(status) {
@@ -170,8 +171,8 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   const setO = () => { const o = [...S.expanded].join(','); const P = current().params; if ((P.o || '') !== o) go('design', { ...P, o: o || undefined }, { replace: true }); };
 
   // ---------- фильтры шапки списка (поиск, исполнитель, заказ) — по уже загруженному ----------
-  const taskText = (t) => plain([t.code, t.title, t.productName, t.sku, t.orderNo, t.customerTitle].join(' '));
-  const orderText = (o) => plain([o.orderNo, o.customer].join(' '));
+  const taskText = (t) => plain([t.code, t.title, t.productName, t.sku, t.productionNo, t.orderNo, t.customerTitle].join(' '));
+  const orderText = (o) => plain([o.productionNo, o.orderNo, o.customer].join(' '));
   const wantTask = (t) => (!query.assigneeId || t.assigneeId === query.assigneeId) && (!query.orderId || t.orderId === query.orderId) && (!query.search || taskText(t).includes(plain(query.search)));
   const visibleOrders = () => {
     const q = plain(query.search);
@@ -304,8 +305,8 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     async function add(o, distribute) {
       close(); el.classList.add('loading');
       try {
-        if (distribute) { const r = await addToBoard(o.id, true); toast(`Заказ ${orderName({ orderNo: o.orderNo })} добавлен${r.created ? `, на распределение: ${r.created} поз.` : ''}`); }
-        else { await addToBoard(o.id, false); toast(`Заказ ${orderName({ orderNo: o.orderNo })} добавлен в проектирование`); }
+        if (distribute) { const r = await addToBoard(o.id, true); toast(`Заказ ${orderName(o)} добавлен${r.created ? `, на распределение: ${r.created} поз.` : ''}`); }
+        else { await addToBoard(o.id, false); toast(`Заказ ${orderName(o)} добавлен в проектирование`); }
         S.expanded.add(o.id); setO();
       } catch (e) { toastError(e, 'добавить заказ'); } finally { await load(true); }
     }
@@ -341,9 +342,9 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   function taskEl(t) {
     const title = clean(t.productName) || clean(t.title) || 'Без названия';
     const node = h('article', { class: 'tcard db-task' + (canEdit ? ' movable' : ''), tabindex: '0', role: 'button', dataset: { task: t.id },
-      'aria-label': `${t.orderNo ? 'ЗНП ' + t.orderNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
+      'aria-label': `${t.productionNo ? 'ЗНП ' + t.productionNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
-    h('div', { class: 'db-ttop' }, chip(t.orderId, t.orderNo), questionBadge(t),
+    h('div', { class: 'db-ttop' }, chip(t.orderId, t.productionNo), questionBadge(t),
       canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ task: t }, title, e.currentTarget); } }, '⋯') : null),
     t.photo ? photo(t.photo, 'db-cover') : null,
     h('div', { class: 'db-tbody' },
@@ -374,7 +375,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       const o = oid && boardOrder(oid);
       const g = h('div', { class: 'db-group' });
       paintOrder(g, oid);
-      g.append(h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), oid ? [h('b', null, 'ЗНП ' + (clean(o?.orderNo) || clean(ts[0].orderNo) || 'без номера')), o?.customer ? h('span', { class: 'muted' }, ' · ' + o.customer) : null] : 'Без заказа'),
+      g.append(h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), oid ? [h('b', null, 'ЗНП ' + (clean(o?.productionNo) || clean(ts[0].productionNo) || 'нет №')), o?.customer ? h('span', { class: 'muted' }, ' · ' + o.customer) : null] : 'Без заказа'),
         ...ts.sort((a, b) => (key === 'done' ? 0 : (a.seq || 0) - (b.seq || 0))).map(taskEl));
       body.append(g);
     }

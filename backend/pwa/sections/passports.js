@@ -136,7 +136,7 @@ export const passports = {
       ['Назначение', r.purpose],
       ['Описание', r.description],
       ['Заказчик', r.customerName],
-      ['№ заказа', r.orderNo],
+      ['№ договора', r.orderNo],
       ['Объект', r.objectName],
       ['Заметки', r.note],
       ['Поставщик', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],

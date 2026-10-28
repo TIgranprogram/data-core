@@ -58,7 +58,7 @@ export class DesignBoardService {
     // заказы, удалённые в CRM, отсекаются
     const orders = ids.size ? await this.db().collection('salesorders').find(
       { _id: { $in: [...ids.values()] }, deletedAt: null },
-      { projection: { orderNo: 1, customer: 1, title: 1, productionDeadline: 1, shipDate: 1, deliveryDeadline: 1, priority: 1, stage: 1, notes: 1 } },
+      { projection: { orderNo: 1, productionNo: 1, customer: 1, title: 1, productionDeadline: 1, shipDate: 1, deliveryDeadline: 1, priority: 1, stage: 1, notes: 1 } },
     ).toArray() : [];
     const rank = (o: Doc) => addedAt.get(String(o._id))?.getTime() ?? Number.MAX_SAFE_INTEGER; // подхваченные без метки — в конце
     orders.sort((a, b) => rank(a) - rank(b) || String(a.orderNo ?? '').localeCompare(String(b.orderNo ?? ''), 'ru', { numeric: true }));
@@ -81,7 +81,7 @@ export class DesignBoardService {
         const e = byOrder.get(String(o._id));
         const lines = linesOf.get(String(o._id)) ?? 0;
         return {
-          orderId: String(o._id), orderNo: (o.orderNo as string | undefined) ?? null, customer: (o.customer as string | undefined) ?? null,
+          orderId: String(o._id), orderNo: (o.orderNo as string | undefined) ?? null, productionNo: (o.productionNo as string | undefined) ?? null, customer: (o.customer as string | undefined) ?? null,
           title: (o.title as string | undefined) ?? null,
           deadline: orderDeadline(o), shipDate: (o.shipDate as Date | undefined) ?? null, deliveryDeadline: (o.deliveryDeadline as Date | undefined) ?? null,
           priority: (o.priority as string | undefined) ?? 'normal', stage: (o.stage as string | undefined) ?? null, note: (o.notes as string | undefined) ?? null,

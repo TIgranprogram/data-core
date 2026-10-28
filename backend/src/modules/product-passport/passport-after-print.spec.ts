@@ -5,7 +5,7 @@ import { missingFields, missingKeyed } from './passport-rules';
 describe('поля «после печати»', () => {
   it('пусто — линии для ручки (дата продажи — месяц и год по дате паспорта)', () => {
     const l = afterPrintLines({ date: '2026-10-23' });
-    expect(l.map((x) => x.label)).toEqual(['Дата продажи:', 'Покупатель:', '№ заказа:', 'Адрес установки:', 'Монтаж выполнил:', 'Дата монтажа:']);
+    expect(l.map((x) => x.label)).toEqual(['Дата продажи:', 'Покупатель:', '№ договора:', 'Адрес установки:', 'Монтаж выполнил:', 'Дата монтажа:']);
     expect(l.every((x) => x.blank)).toBe(true);
     expect(l[0].text).toBe('«____» октября 2026 г.');
     expect(l[1].text).toMatch(/^_+$/);

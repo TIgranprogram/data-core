@@ -109,7 +109,7 @@ describe('DesignService', () => {
     board = new DesignBoardService(connection as never, tasks as never, marks as never, service, stickerSvc);
     extras = new DesignExtrasService(connection as never, tasks as never, stickerSvc);
     orderId = id(); prodId = id(); personId = id(); line1 = id(); line2 = id();
-    orders.rows.push({ _id: orderId, orderNo: '20-26', deletedAt: null, shipDate: new Date('2026-12-20'), productionDeadline: new Date('2026-12-01'), priority: 'urgent' });
+    orders.rows.push({ _id: orderId, orderNo: '109-П', productionNo: '20-26', deletedAt: null, shipDate: new Date('2026-12-20'), productionDeadline: new Date('2026-12-01'), priority: 'urgent' });
     products.rows.push({ _id: prodId, name: 'Скамья', sku: '3410', photoIds: [], deletedAt: null });
     persons.rows.push({ _id: personId, lastName: 'Иванов', firstName: 'Пётр', deletedAt: null });
     incomes.rows.push(
@@ -285,7 +285,7 @@ describe('DesignService', () => {
       const before = [marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)];
 
       const r = await board.board();
-      expect(r.orders.map((o) => o.orderNo)).toEqual(['20-26', '21-26']);
+      expect(r.orders.map((o) => o.orderNo)).toEqual(['109-П', '21-26']);
       expect(r.ordersTotal).toBe(2);
       expect(r.orders[0]).toMatchObject({ orderId: String(orderId), customer: null, priority: 'urgent', linesCount: 2, counts: { queue: 0, work: 0, paused: 0, done: 0, free: 2 } });
       expect(r.orders[1]).toMatchObject({ orderNo: '21-26', customer: 'ООО Ромашка', addedAt: null, linesCount: 1, counts: { queue: 1, free: 0 } });

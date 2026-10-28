@@ -30,7 +30,7 @@ describe('Design tasks (Проектирование)', () => {
     personId = String(p.insertedId);
     const pr = await db().collection('products').insertOne({ name: 'Скамья', sku: '3410', photoIds: [], deletedAt: null });
     productId = String(pr.insertedId);
-    orderId = (await http().post('/api/salesorders').set(auth()).send({ orderNo: '20-26', customer: 'ООО Парк', productionDeadline: '2026-12-01', shipDate: '2026-12-20', priority: 'urgent' }).expect(201)).body.id;
+    orderId = (await http().post('/api/salesorders').set(auth()).send({ orderNo: '20-26', productionNo: '20-26', customer: 'ООО Парк', productionDeadline: '2026-12-01', shipDate: '2026-12-20', priority: 'urgent' }).expect(201)).body.id;
     lineId = (await http().post('/api/incomes').set(auth()).send({ orderId, title: 'Скамья парковая Цвет: графит', qty: 2, unitPrice: 1000, productId }).expect(201)).body.id;
     await http().post('/api/incomes').set(auth()).send({ orderId, title: 'Урна', qty: 1 }).expect(201);
   });

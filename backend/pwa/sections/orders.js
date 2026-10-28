@@ -265,7 +265,7 @@ export const orders = {
       const all = [
         { section: locked ? 'Позиция заказа — название, количество и цену менять может администратор' : 'Позиция заказа', tone: 'main', fixed: true },
         { key: 'orderId', label: 'Заказ', type: 'select', options: await import('./salesorders.js').then((m) => m.activeOrders()).then((os) => os.map((o) => ({ value: o.id, label: m2(o) }))).catch(() => []), hint: 'Позиция попадёт в карточку заказа; № и заказчик возьмутся из заказа', wide: true },
-        { key: 'orderNo', label: '№ заказа (если без карточки заказа)', max: 50 },
+        { key: 'orderNo', label: '№ договора (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Наименование', required: true, wide: true, max: 500 },
         { key: 'productId', label: 'Изделие из «Продукции»', type: 'select', wide: true, options: await productOptions(),

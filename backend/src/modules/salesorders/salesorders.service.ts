@@ -18,7 +18,7 @@ import { ORDER_CACHE_FIELDS } from './order-link';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
 type Doc = Record<string, unknown>;
-const SORT = ['orderNo', 'customer', 'stage', 'shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate', 'createdAt', 'updatedAt', 'deletedAt', 'priority'];
+const SORT = ['orderNo', 'productionNo', 'customer', 'stage', 'shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate', 'createdAt', 'updatedAt', 'deletedAt', 'priority'];
 const TEXT = ['orderNo', 'customer', 'title', 'paymentForm', 'contractNo', 'productionNo', 'notes'] as const;
 /** Порядок «срочные сверху»: нет приоритета = обычный. */
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
@@ -305,7 +305,7 @@ export class SalesOrdersService {
       if (dup) return this.get(String(dup._id));
     }
     const { f, companyShort } = await this.toFields(dto);
-    if (!f.orderNo) throw new BadRequestException('Укажите № заказа');
+    if (!f.orderNo) throw new BadRequestException('Укажите № договора');
     const key = orderKey(companyShort ?? '', f.orderNo);
     const taken = await this.clash(key);
     if (taken) throw new ConflictException(`Заказ № ${f.orderNo}${companyShort ? ` у ${companyShort}` : ''} уже есть${taken.deletedAt ? ' (в корзине)' : ''}`);
@@ -320,7 +320,7 @@ export class SalesOrdersService {
   async update(id: string, dto: SalesOrderDto) {
     const cur = await this.findRaw(id);
     const { f, companyShort } = await this.toFields(dto);
-    if ('orderNo' in f && !f.orderNo) throw new BadRequestException('№ заказа не может быть пустым');
+    if ('orderNo' in f && !f.orderNo) throw new BadRequestException('№ договора не может быть пустым');
     if ('orderNo' in f || companyShort !== undefined) {
       const company = companyShort !== undefined ? companyShort ?? '' : await this.companyShort(cur.companyId);
       const no = (f.orderNo ?? cur.orderNo) as string;

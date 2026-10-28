@@ -56,7 +56,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
     const customerTitle = (inc?.title as string | undefined) ?? null;
     // «Чертежи <артикул> ЗНП <№ заказа> поз <№>»; без изделия — короткое название заказчика
     const auto = prod
-      ? ['Чертежи', sku ?? productName, orderNo ? `ЗНП ${orderNo}` : '', lineNo != null ? `поз ${lineNo}` : ''].filter(Boolean).join(' ')
+      ? ['Чертежи', sku ?? productName, productionNo ? `ЗНП ${productionNo}` : '', lineNo != null ? `поз ${lineNo}` : ''].filter(Boolean).join(' ')
       : customerTitle ? shortProductName(customerTitle) : '';
     const photoId = firstPhoto(prod);
     const own = ((d.photoIds as Oid[] | undefined) ?? []).map((x) => photos.get(String(x))).filter((x) => !!x);

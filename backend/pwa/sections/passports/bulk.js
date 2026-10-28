@@ -18,7 +18,7 @@ export async function passportBulkFields() {
     ...V2_NUMS.filter(([k]) => k !== 'serviceLifeYears').map(([k, l]) => ({ key: k, label: l, type: 'number', map: n })),
     { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })) },
     { key: 'customerName', label: 'Покупатель', type: 'combo', options: f.customers.map((c) => c.value) },
-    { key: 'orderNo', label: '№ заказа', type: 'text' },
+    { key: 'orderNo', label: '№ договора', type: 'text' },
     { key: 'objectName', label: 'Адрес установки', type: 'text' },
     { key: 'installedBy', label: 'Монтаж выполнил', type: 'text' },
     { key: 'saleDate', label: 'Дата продажи', type: 'date', map: n },

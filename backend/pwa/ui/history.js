@@ -9,7 +9,7 @@ import { date } from '../core/format.js';
 const FIELD = {
   title: 'Наименование', name: 'Название', qty: 'Количество', unit: 'Ед.', status: 'Статус', stage: 'Этап', notes: 'Примечание', note: 'Примечание',
   priceHint: 'Сумма', amount: 'Сумма', unitPrice: 'Цена', paid: 'Оплачено', paidDate: 'Дата оплаты', shipDate: 'Отгрузка', invoiceNo: 'Счёт', invoiceDate: 'Дата счёта',
-  supplierName: 'Поставщик', supplier: 'Поставщик', categoryName: 'Категория', requestedBy: 'Кто подал', customer: 'Заказчик', orderNo: '№ заказа',
+  supplierName: 'Поставщик', supplier: 'Поставщик', categoryName: 'Категория', requestedBy: 'Кто подал', customer: 'Заказчик', orderNo: '№ договора', productionNo: '№ заказа',
   statusLabel: 'Статус', priority: 'Приоритет', article: 'Артикул', internalArticle: 'Внутр. код', articleSource: 'Артикул — откуда', quantity: 'Остаток', reservedQty: 'В брони', minQuantity: 'Мин. остаток', article: 'Артикул', inn: 'ИНН', kpp: 'КПП', phone: 'Телефон', email: 'Почта',
   website: 'Сайт', legalAddress: 'Адрес', contactName: 'Контакт', costCenter: 'Направление', deletedAt: 'Удалено', companyName: 'Компания',
 };

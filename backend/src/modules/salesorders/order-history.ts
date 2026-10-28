@@ -14,8 +14,8 @@ export interface HistoryItem { at: Date; type: HistoryType; who: string | null; 
 export interface HistoryAccess { money: boolean; design: boolean; passports: boolean; stock: boolean }
 
 const FIELD: Record<string, string> = {
-  orderNo: '№ заказа', customer: 'Заказчик', title: 'Предмет', stage: 'Этап', priority: 'Приоритет', shipDate: 'Дата отгрузки', productionDeadline: 'Срок изготовления',
-  deliveryDeadline: 'Окончание поставки', contractDate: 'Дата контракта', contractNo: '№ контракта', productionNo: '№ на производство', notes: 'Примечание',
+  orderNo: '№ договора', customer: 'Заказчик', title: 'Предмет', stage: 'Этап', priority: 'Приоритет', shipDate: 'Дата отгрузки', productionDeadline: 'Срок изготовления',
+  deliveryDeadline: 'Окончание поставки', contractDate: 'Дата контракта', contractNo: '№ контракта', productionNo: '№ заказа', notes: 'Примечание',
   paymentForm: 'Форма оплаты', qty: 'Количество', unit: 'Единица', size: 'Размер', color: 'Цвет', kind: 'Вид', status: 'Статус', paidDate: 'Дата оплаты',
   amount: 'Сумма', unitPrice: 'Цена', amountManual: 'Сумма вручную',
 };

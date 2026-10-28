@@ -38,7 +38,9 @@ const HINT = {
 
 /** Приоритет заказа: «обычный» не показываем. */
 const prio = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
-const heading = (r) => `Заказ № ${r.orderNo || '—'}`;
+/** № заказа = № на производство (productionNo); № договора (orderNo) — справка. Несколько договоров с одним № — один заказ производства. */
+export const prodNo = (r) => r?.productionNo || 'нет №';
+const heading = (r) => `Заказ № ${prodNo(r)}`;
 const deadline = (r) => r.shipDate || r.productionDeadline || r.deliveryDeadline;
 function due(r) {
   const d = deadline(r);
@@ -178,7 +180,7 @@ export const salesorders = {
     export: 'admin',
     sortDefault: 'shipDate',
     createLabel: 'Заказ',
-    searchPlaceholder: 'Поиск: № заказа, заказчик, предмет, контракт…',
+    searchPlaceholder: 'Поиск: № заказа, № договора, заказчик, предмет…',
     emptyText: 'Заказов пока нет.',
     emptyHint: 'Нажмите «+ Заказ»: заказчик, наша компания, срок. Позиции добавьте внутри заказа.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
@@ -190,7 +192,8 @@ export const salesorders = {
     periods: (P) => (P.filter === 'done' ? { date: (r) => r.shipDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
     rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: 'Следующий этап', run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
-      { key: 'orderNo', label: '№', sort: 'orderNo', cls: 'nowrap', render: (r) => h('b', null, r.orderNo || '—', r.productionNo ? h('span', { class: 'muted' }, ` · ${r.productionNo}`) : null) },
+      { key: 'productionNo', label: '№ заказа', sort: 'productionNo', cls: 'nowrap', render: (r) => (r.productionNo ? h('b', null, r.productionNo) : h('span', { class: 'muted' }, 'нет №')) },
+      { key: 'orderNo', label: '№ договора', sort: 'orderNo', cls: 'nowrap md-hide', render: (r) => h('span', { class: 'muted' }, r.orderNo || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: r.customer || '' }, r.customer || '') },
       { key: 'title', label: 'Предмет / позиции', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted', title: r.title || '' }, r.title || `${r.lineCount} поз.`) },
       { key: 'companyName', label: 'Компания', cls: 'md-hide', render: (r) => r.companyName || h('span', { class: 'muted' }, '—') },
@@ -201,15 +204,15 @@ export const salesorders = {
       { key: 'stage', label: 'Этап', sort: 'stage', cls: 'nowrap', render: (r) => badge(STAGE, r.stage) },
     ],
     card: {
-      title: (r) => `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
-      sub: (r) => [r.productionNo && 'произв. ' + r.productionNo, r.title, `${r.lineCount} поз.`, deadline(r) ? 'срок ' + date(deadline(r)) : ''].filter(Boolean).join(' · '),
+      title: (r) => `№ ${prodNo(r)} · ${r.customer || ''}`,
+      sub: (r) => [r.orderNo && 'договор ' + r.orderNo, r.title, `${r.lineCount} поз.`, deadline(r) ? 'срок ' + date(deadline(r)) : ''].filter(Boolean).join(' · '),
       side: (r) => [badge(STAGE, r.stage), prio(r)],
     },
     board: {
       columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-shipDate' : 'shipDate' } })),
       card: (r) => ({
-        title: `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
-        meta: [r.title ? h('span', null, r.title.slice(0, 80)) : null, h('span', null, `${r.lineCount} поз.`), deadline(r) ? due(r) : null, prio(r)].filter(Boolean),
+        title: `№ ${prodNo(r)} · ${r.customer || ''}`,
+        meta: [r.orderNo ? h('span', { class: 'muted' }, 'договор ' + r.orderNo) : null, r.title ? h('span', null, r.title.slice(0, 80)) : null, h('span', null, `${r.lineCount} поз.`), deadline(r) ? due(r) : null, prio(r)].filter(Boolean),
         side: r.amount && session.canMoney ? money(r.amount) : '',
       }),
       move: async (r, to) => { await setStage(r, to); return true; },
@@ -221,12 +224,12 @@ export const salesorders = {
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     stats: (r) => [['Этап', STAGE[r.stage]?.label || r.stage], ['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
+      ['№ договора', r.orderNo],
       ['Заказчик', customerLink(r.customer)],
       ['Предмет', r.title],
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
       ['Форма оплаты', r.paymentForm],
-      ['№ на производство', r.productionNo],
       ['Контракт', [r.contractNo, r.contractDate && 'от ' + date(r.contractDate)].filter(Boolean).join(' ')],
       ['Срок изготовления', date(r.productionDeadline)],
       ['Дата отгрузки', date(r.shipDate)],
@@ -249,9 +252,9 @@ export const salesorders = {
       const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'б/р 30%', 'б/р 50%', 'нал'] }));
       return [
         { section: 'Заказ', tone: 'main', fixed: true },
-        { key: 'orderNo', label: '№ заказа', required: true, max: 50 },
-        { key: 'productionNo', label: '№ на производство', max: 50, hint: 'Вид 21-26 (номер-год).',
-          mount: (fa) => { const inp = fa.input('productionNo'); const b = h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { const r = await api('/salesorders/next-production-no'); fa.set('productionNo', r.value); } catch (e) { toast(errText(e)); } } }, 'Следующий'); (fa.field('productionNo') || inp?.el || inp)?.append?.(b); } },
+        { key: 'productionNo', label: '№ заказа', max: 50, hint: 'Номер для производства, вид 21-26 (номер-год). Несколько договоров с одним № — один заказ. Нет номера — «Взять свободный №».',
+          mount: (fa) => { const inp = fa.input('productionNo'); const b = h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { const r = await api('/salesorders/next-production-no'); fa.set('productionNo', r.value); } catch (e) { toast(errText(e)); } } }, 'Взять свободный №'); (fa.field('productionNo') || inp?.el || inp)?.append?.(b); } },
+        { key: 'orderNo', label: '№ договора', required: true, max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name) },
@@ -292,7 +295,7 @@ export const salesorders = {
 /** Выбор заказа и позиции (для заявок и списаний, З.6): заказы в работе. Кэш на 1 минуту (core/orders-lookup.js). */
 // SK-8d: короткий список (/salesorders/lookup) — открыт и для «Склада», «Заявок»; кэш — в core/orders-lookup.js
 export const activeOrders = () => ordersLookup({ filter: 'active' });
-export const orderLabel = (o) => `№ ${o.orderNo || '—'} · ${o.customer || ''}`.trim();
+export const orderLabel = (o) => [`№ ${prodNo(o)}`, o.orderNo && `договор ${o.orderNo}`, o.customer].filter(Boolean).join(' · ');
 
 /** Варианты «Заказ / позиция» для выпадающего списка (З.6): «id» — весь заказ, «id:lineId» — позиция. */
 export async function orderOptions(keep) {
