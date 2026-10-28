@@ -43,7 +43,7 @@ const RAW = [
       if (apply && toCreate.length) await m.createIndexes().catch((e) => console.log(`    ошибка: ${e.message}`));
     }
     for (const [coll, key, opts] of RAW) {
-      const have = (await conn.collection(coll).indexes()).some((i) => JSON.stringify(i.key) === JSON.stringify(key));
+      const have = (await conn.collection(coll).indexes().catch(() => [])).some((i) => JSON.stringify(i.key) === JSON.stringify(key));
       console.log(`  ${coll} ${JSON.stringify(key)}: ${have ? 'есть' : 'недостаёт'}`);
       if (apply && !have) await conn.collection(coll).createIndex(key, opts || {}).catch((e) => console.log(`    ошибка: ${e.message}`));
     }
