@@ -20,7 +20,7 @@ type ObjectId = mongo.ObjectId;
  */
 export type Doc = Document & { _id: ObjectId };
 /** photo — одна картинка (id фото строкой), photos — несколько (список id); в приложении — загрузка, а не ввод id (БЗ-6 Э9.7). */
-export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos'; required?: boolean; options?: { value: string; label: string }[];
+export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos' | 'date'; required?: boolean; options?: { value: string; label: string }[];
   /** Строка — ключ в `refs` для select (id записи); объект — выбор кодов из записей справочника `dict` (у двух — через запятую), хранится строка кодов через запятую. */
   ref?: string | { dict: string; multiple?: boolean };
   hint?: string; wide?: boolean;
@@ -479,6 +479,7 @@ const BASE: DictBase[] = [
       { key: 'lastName', label: 'Фамилия' },
       { key: 'firstName', label: 'Имя', required: true },
       { key: 'patronymic', label: 'Отчество' },
+      { key: 'birthDate', label: 'Дата рождения', type: 'date' },
       { key: 'position', label: 'Должность' },
       { key: 'workTypeId', label: 'Вид работ', type: 'select', ref: 'worktypes' },
       { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'active', label: 'Работает' }, { value: 'vacation', label: 'В отпуске' }, { value: 'fired', label: 'Уволен' }] },
@@ -495,6 +496,7 @@ const BASE: DictBase[] = [
       workTypeId: d.workTypeId ? String(d.workTypeId) : '', payoutScheduleId: d.payoutScheduleId ? String(d.payoutScheduleId) : '',
       status: s(d.status) || 'active', statusLabel: ({ active: 'Работает', vacation: 'В отпуске', fired: 'Уволен' } as Record<string, string>)[s(d.status) || 'active'],
       salaryKind: s(d.salaryKind), salaryRate: d.salaryRate ?? null,
+      birthDate: d.birthDate ? new Date(d.birthDate as Date).toISOString().slice(0, 10) : '',
     }),
     toDoc: async (b, isNew) => {
       const doc: Document = { updatedAt: new Date() };
@@ -504,6 +506,7 @@ const BASE: DictBase[] = [
       if (b.salaryRate !== undefined) { const n = Number(String(b.salaryRate ?? '').replace(/\s/g, '').replace(',', '.')); doc.salaryRate = Number.isFinite(n) && n > 0 ? n : null; }
       if (b.workTypeId !== undefined) doc.workTypeId = oidOrNull(b.workTypeId);
       if (b.payoutScheduleId !== undefined) doc.payoutScheduleId = oidOrNull(b.payoutScheduleId);
+      if (b.birthDate !== undefined) { const t = /^\d{4}-\d{2}-\d{2}$/.test(String(b.birthDate)) ? new Date(String(b.birthDate) + 'T00:00:00Z') : null; doc.birthDate = t; }
       if (isNew) Object.assign(doc, { status: doc.status ?? 'active', deletedAt: null, createdAt: new Date() });
       return doc;
     },

@@ -35,7 +35,7 @@ export function mountPayroll() {
   let data = null;
   let seq = 0;
 
-  /** Окно выплаты: вид, дата, сумма (по умолчанию — остаток); у сотрудника без компании — выбор нашей компании. */
+  /** Окно выплаты: вид, дата, сумма (из строки сотрудника — только эти 3 поля, имя в заголовке) (по умолчанию — остаток); у сотрудника без компании — выбор нашей компании. */
   async function payDialog(person) {
     const l = await incomeLookups().catch(() => ({ companies: [] }));
     const people = data.items.filter((p) => p.rate || p.paid);
@@ -50,10 +50,10 @@ export function mountPayroll() {
     const sync = () => { const p = cur(); co.value = p?.companyId || ''; coField.hidden = !!p?.companyId; sum.value = p && p.balance > 0 ? String(p.balance).replace('.', ',') : ''; };
     who.addEventListener('change', sync); sync();
     const saved = await modal({
-      title: 'Выплата сотруднику',
+      title: person ? `Выплата: ${person.name}` : 'Выплата сотруднику',
       okText: 'Записать выплату',
       body: h('div', { class: 'form-grid' },
-        h('label', { class: 'field' }, h('span', null, 'Сотрудник'), who), coField,
+        person ? null : h('label', { class: 'field' }, h('span', null, 'Сотрудник'), who), coField,
         h('label', { class: 'field' }, h('span', null, 'Вид'), kind),
         h('label', { class: 'field' }, h('span', null, 'Дата'), dt),
         h('label', { class: 'field' }, h('span', null, 'Сумма, ₽ на руки'), sum)),

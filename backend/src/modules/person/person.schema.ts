@@ -48,6 +48,10 @@ export class Person {
   @Prop()
   salaryRate?: number;
 
+  /** Дата рождения (полночь UTC). */
+  @Prop({ type: Date, default: null })
+  birthDate?: Date | null;
+
   /** График выплат (dict_values, dict = payoutSchedules). */
   @Prop({ type: Types.ObjectId, sparse: true })
   payoutScheduleId?: Types.ObjectId;
