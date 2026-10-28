@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
+import { opThumb } from '../ui/op-row.js';
 
 /**
  * «Требуют заполнения» по категориям (TASKS ТЗ.3–ТЗ.4). Данные — `/api/fill-audit`: группа = что не заполнено,
@@ -17,7 +18,8 @@ function groupBlock(g, open, onToggle) {
     h('span', { class: 'fill-chev', 'aria-hidden': 'true' }, open ? '▾' : '▸'),
     h('span', { class: 'fill-t' }, h('b', null, g.title), h('span', { class: 'muted' }, g.why)),
     h('span', { class: 'q-n' }, qty(g.count)));
-  const body = open ? h('ul', { class: 'q-list' }, ...g.items.map((x) => h('li', { class: 'q-row', tabindex: '0', onclick: () => openRow(g, x), onkeydown: (e) => { if (e.key === 'Enter') openRow(g, x); } },
+  const body = open ? h('ul', { class: 'q-list' }, ...g.items.map((x) => h('li', { class: 'q-row' + (x.thumb ? ' has-pic' : ''), tabindex: '0', onclick: () => openRow(g, x), onkeydown: (e) => { if (e.key === 'Enter') openRow(g, x); } },
+    opThumb(x.thumb),
     h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), x.sub ? h('div', { class: 'q-sub' }, x.sub) : null),
     h('div', { class: 'q-side' }, h('span', { class: 'btn btn-sm row-act' }, 'Заполнить')))),
   g.count > g.items.length ? h('li', { class: 'q-empty' }, `Показаны первые ${g.items.length} из ${qty(g.count)}. Заполните эти — список обновится.`) : null) : null;

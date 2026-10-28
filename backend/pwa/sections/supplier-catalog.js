@@ -19,7 +19,7 @@ import { setCrumbTail } from '../ui/crumbs.js';
  * Правка, добавление, импорт — только admin / manager; остальные — просмотр и выгрузка.
  */
 
-const canWrite = () => ['admin', 'manager'].includes(session.role);
+const canWrite = () => session.canEdit;
 const FLAGS = [['unmatched', 'Без связи с нашим материалом'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
 const SRC = { excel: 'Excel', request: 'Заявка', stock: 'Склад', manual: 'Вручную' };
 

@@ -114,7 +114,7 @@ export function pastItems() {
 }
 async function loadPast() {
   const [reqs, stockRes] = await Promise.all([
-    api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch(() => ({ items: [] })),
+    api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch((e) => { if (e.status === 403) toast('Нет доступа к прошлым заявкам', { error: true }); return { items: [] }; }),
     stockLookup().catch(() => []), // короткий список склада (/stock/lookup, SK-8d) — общий кэш (core/stock-list.js); pastItems зовут по действию
   ]);
   const by = new Map();

@@ -229,7 +229,12 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   function closeMenus() { openMenu?.(); openMenu = null; }
   document.addEventListener('click', (e) => { if (!el.isConnected) return; if (!e.target.closest?.('.db-menu-host, .db-add-host')) { closeMenus(); closeAdd(); } });
   function menuBtn(label, items, cls = '') {
-    const menu = h('div', { class: 'menu db-menu', role: 'menu', hidden: true }, items.map((i) => h('button', { type: 'button', role: 'menuitem', class: i.danger ? 'danger' : '', onclick: (e) => { e.stopPropagation(); closeMenus(); i.run(); } }, i.label)));
+    items = items.filter(Boolean);
+    if (!items.some((i) => !i.sep)) return null; // в меню нет пунктов для этой роли — кнопки нет
+    // разделитель между группами: лишние (в начале, в конце, подряд) убираем
+    items = items.filter((i, k, a) => !i.sep || (k > 0 && k < a.length - 1 && !a[k - 1].sep));
+    const menu = h('div', { class: 'menu db-menu', role: 'menu', hidden: true }, items.map((i) => (i.sep ? h('div', { class: 'menu-sep', role: 'separator', style: { height: '1px', margin: '4px 0', background: 'var(--border)' } })
+      : h('button', { type: 'button', role: 'menuitem', class: i.danger ? 'danger' : '', onclick: (e) => { e.stopPropagation(); closeMenus(); i.run(); } }, i.label))));
     const btn = h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more ' + cls, 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': label, title: label,
       onclick: (e) => {
         e.stopPropagation();
@@ -243,6 +248,85 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     return h('span', { class: 'rel db-menu-host' }, btn, menu);
   }
 
+  // ---------- быстрые действия из меню «⋯» (серверные права проверяет сам сервер, тут только прячем пункты) ----------
+  const SEP = { sep: true };
+  const taskUrl = (t) => `${location.origin}${location.pathname}#design?open=${t.id}`;
+  const orderUrl = (id) => `${location.origin}${location.pathname}#design?of=designorder&open=${id}`;
+  async function copyLink(url) {
+    try { await navigator.clipboard.writeText(url); toast('Ссылка скопирована'); }
+    catch { window.prompt('Скопируйте ссылку', url); }
+  }
+  const openInOrders = (id) => go('salesorders', { open: id }, { kind: 'card' });
+  /** Правка и перечитывание доски; отмена окна (false/null) — тихо. */
+  async function quick(fn, what, ok) {
+    el.classList.add('loading');
+    try { const r = await fn(); if (r !== false && r !== null && ok) toast(ok); } catch (e) { toastError(e, what); } finally { await load(true); }
+  }
+  const askAssign = async (t) => { const who = await askAssignee(await env.people(), { okText: 'Назначить' }); if (!who) return false; await api(`/design-tasks/${t.id}`, { method: 'PATCH', body: { assigneeId: who } }); return true; };
+  async function askDue(t) {
+    const d = h('input', { type: 'date', 'aria-label': 'Срок', value: t.deadline && !t.deadlineFromOrder ? String(t.deadline).slice(0, 10) : '' });
+    const p = h('select', { 'aria-label': 'Приоритет' }, h('option', { value: '' }, 'Как в заказе'), ...Object.entries(ORDER_PRIORITY).map(([v, x]) => h('option', { value: v }, x.label)));
+    p.value = t.priorityFromOrder || !t.priority ? '' : t.priority;
+    queueMicrotask(() => enhanceSelect(p));
+    const v = await modal({ title: 'Срок и приоритет', okText: 'Сохранить',
+      body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Срок'), d), h('p', { class: 'hint' }, 'Пусто — срок берётся из заказа.'), h('label', { class: 'field' }, h('span', null, 'Приоритет'), p)),
+      onOk: () => ({ deadline: d.value, priority: p.value }) });
+    if (!v) return false;
+    await api(`/design-tasks/${t.id}`, { method: 'PATCH', body: v });
+    return true;
+  }
+  async function askQuestion(t) {
+    const ta = h('textarea', { rows: 4, maxlength: 2000, 'aria-label': 'Вопрос менеджеру', placeholder: 'Например: уточните, сколько изделий нужно изготовить' });
+    const text = await modal({ title: 'Вопрос менеджеру', okText: 'Отправить', body: h('label', { class: 'field' }, h('span', null, 'Текст вопроса'), ta),
+      onOk: () => { const s = ta.value.trim(); if (!s) throw new Error('Впишите вопрос.'); return s; } });
+    if (!text) return false;
+    await api(`/design-tasks/${t.id}/notes`, { method: 'POST', body: { text, kind: 'question' } });
+    return true;
+  }
+  function pickPhoto(t) {
+    const inp = h('input', { type: 'file', accept: 'image/*', hidden: true });
+    inp.addEventListener('change', () => {
+      const f = inp.files[0]; inp.remove();
+      if (!f) return;
+      quick(async () => {
+        if (!/^image\//.test(f.type)) throw new Error('Это не картинка — нужны JPG, PNG, WEBP');
+        const fd = new FormData(); fd.append('file', f, f.name);
+        const ph = await api('/photos/upload', { method: 'POST', body: fd });
+        await api(`/design-tasks/${t.id}/photos`, { method: 'POST', body: { photoId: String(ph._id || ph.id) } });
+      }, 'добавить фото', 'Фото добавлено');
+    });
+    document.body.append(inp); inp.click();
+  }
+  async function trash(t, title) {
+    if (!(await confirmDlg('Удалить задачу?', `Удалить задачу ${t.code || ''} «${title}»?`, { okText: 'Удалить', danger: true }))) return;
+    try { await api(`/design-tasks/${t.id}`, { method: 'DELETE' }); } catch (e) { toastError(e, 'удалить задачу'); return; }
+    toast('Задача удалена', { undo: async () => { await api(`/design-tasks/${t.id}/restore`, { method: 'POST' }); changed(); } });
+    load(true);
+  }
+  function taskMenu(t, title) {
+    return menuBtn(`Действия с задачей «${title}»`, [
+      canEdit && { label: t.assignee ? 'Сменить исполнителя…' : 'Назначить исполнителя…', run: () => quick(() => askAssign(t), 'назначить исполнителя', 'Исполнитель назначен') },
+      canEdit && { label: 'Изменить срок и приоритет…', run: () => quick(() => askDue(t), 'изменить срок', 'Сохранено') },
+      { label: 'Задать вопрос менеджеру…', run: () => quick(() => askQuestion(t), 'отправить вопрос', 'Вопрос отправлен') },
+      { label: 'Добавить фото…', run: () => pickPhoto(t) },
+      SEP,
+      t.orderId && { label: 'Открыть заказ', run: () => openOrder(t.orderId) },
+      t.orderId && { label: 'Открыть в «Заказах»', run: () => openInOrders(t.orderId) },
+      { label: 'Копировать ссылку', run: () => copyLink(taskUrl(t)) },
+      SEP,
+      canEdit && { label: 'Перенести в…', run: () => pickStatus({ task: t }, title, null) },
+      canEdit && SEP,
+      canEdit && { label: 'Удалить в корзину', danger: true, run: () => trash(t, title) },
+    ], 'db-tmenu');
+  }
+  function lineMenu(o, l) {
+    return menuBtn(`Действия с позицией «${l.title}»`, [
+      { label: 'Взять в работу', run: () => moveTo({ line: l }, 'work') },
+      { label: 'На распределение', run: () => moveTo({ line: l }, 'queue') },
+      { label: 'Открыть заказ', run: () => openOrder(o.orderId) },
+    ]);
+  }
+
   function lineEl(o, l) {
     const t = l.task;
     const node = h('div', { class: 'db-line' + (t ? ' has-task' : ' movable'), tabindex: '0', dataset: { income: l.incomeId },
@@ -254,7 +338,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       h('div', { class: 't-sub' }, dotted(l.sku && '№ ' + l.sku, l.qty != null && qty(l.qty) + ' шт'))),
     t ? h('div', { class: 'db-lstate' }, badge(DESIGN_STATUS, t.status),
       h('button', { type: 'button', class: 'link-btn', onclick: (e) => { e.stopPropagation(); revealTask(t); } }, `в колонке «${COL_LABEL[t.status]}» →`))
-      : canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${l.title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ line: l }, l.title, e.currentTarget); } }, '⋯') : null);
+      : canEdit ? lineMenu(o, l) : null);
     if (!t && canEdit) draggable(node, { canStart: () => !isPhone(), targetSel: '.db-cols .col', scroller: colsEl, sourceClass: 'is-lifted', onDrop: (c) => dropOn({ line: l }, c) });
     return node;
   }
@@ -266,8 +350,12 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       onclick: () => toggle(o.orderId) }, open ? '▾' : '▸');
     const counts = [...COLS.filter((k) => c[k]).map((k) => h('span', { class: 'db-cnt ' + k, title: COL_LABEL[k] }, `${SHORT[k]} ${c[k]}`)),
       c.free ? h('span', { class: 'db-cnt free', title: 'Изделия, которые ещё не взяты в проектирование' }, `не взято ${c.free}`) : null];
+    const only = query.orderId === o.orderId;
     const items = [{ label: 'Открыть', run: () => openOrder(o.orderId) },
-      ...(canEdit ? [{ label: 'На распределение все позиции', run: () => act(() => distributeOrder(o.orderId)) }, { label: 'Убрать из проектирования', danger: true, run: () => act(() => dropOrder(o)) }] : [])];
+      { label: 'Открыть в «Заказах»', run: () => openInOrders(o.orderId) },
+      { label: only ? 'Сбросить: показать все заказы' : 'Показать только этот заказ', run: () => { const P = current().params; go('design', { ...P, orderId: only ? undefined : o.orderId }, { replace: true }); } },
+      { label: 'Копировать ссылку', run: () => copyLink(orderUrl(o.orderId)) },
+      ...(canEdit ? [SEP, { label: 'На распределение все позиции', run: () => act(() => distributeOrder(o.orderId)) }, SEP, { label: 'Убрать из проектирования', danger: true, run: () => act(() => dropOrder(o)) }] : [])];
     const lines = S.lines.get(o.orderId);
     const body = !open ? null : h('div', { class: 'db-lines' }, S.loadingLines.has(o.orderId) && !lines ? busyBlock('изделия', { cls: 'db-hint' })
       : lines && lines.length ? lines.map((l) => lineEl(o, l)) : h('div', { class: 'db-hint' }, 'В заказе нет позиций.'));
@@ -353,7 +441,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       'aria-label': `${t.productionNo ? '№ ' + t.productionNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
     h('div', { class: 'db-ttop' }, chip(t.orderId, t.productionNo), questionBadge(t),
-      canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ task: t }, title, e.currentTarget); } }, '⋯') : null),
+      taskMenu(t, title)),
     t.photo ? photo(t.photo, 'db-cover') : null,
     h('div', { class: 'db-tbody' },
       h('div', { class: 't-main' }, h('div', { class: 't-title', title }, title),

@@ -5,6 +5,7 @@ import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
+import { opRow } from '../ui/op-row.js';
 import { forecastView } from './money-forecast.js';
 
 /**
@@ -167,10 +168,7 @@ export function mountMoney(params) {
       opsBox.replaceChildren(
         h('div', { class: 'q-head' }, h('h3', null, d.title || `Операции ${dd.getUTCDate()} ${MONTHS[dd.getUTCMonth()].replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та')}`),
           h('button', { class: 'btn btn-ghost btn-sm q-link', type: 'button', onclick: () => { opsBox.hidden = true; } }, 'Скрыть')),
-        h('ul', { class: 'q-list' }, d.ops.map((o) => h('li', { class: 'q-row' + (o.thumb ? ' has-pic' : '') + (o.beforeStart ? ' dim' : ''), tabindex: '0', onclick: () => patch({ of: o.type === 'income' ? 'orders' : 'requests', open: o.id }) },
-          o.thumb ? h('img', { class: 'q-thumb', src: PREFIX + o.thumb, decoding: 'async', onerror: (e) => e.target.remove(), alt: '', loading: 'lazy' }) : null,
-          h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, o.title), h('div', { class: 'q-sub' }, [o.type === 'income' ? 'поступление' : 'выплата', o.method, o.company, o.doc, o.counterparty, o.category, o.beforeStart ? 'до старта учёта' : ''].filter(Boolean).join(' · '))),
-          h('div', { class: 'q-side' }, h('span', { class: 'num ' + (o.type === 'income' ? 'pos' : 'neg') }, (o.type === 'income' ? '+' : '−') + money(o.amount)))))));
+        h('ul', { class: 'q-list' }, d.ops.map(opRow)));
       opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     const t = c.totals;
@@ -278,7 +276,7 @@ export function mountMoney(params) {
     try {
       const m = month();
       const end = `${m}-${String(lastDay(m)).padStart(2, '0')}`;
-      if (settings === null) settings = await api('/finance/settings').catch(() => ({}));
+      if (settings === null) settings = await api('/finance/settings').catch((e) => { if (e.status === 403) throw new Error('Нет доступа к разделу «Деньги»'); return {}; });
       const q = { from: `${m}-01`, to: end < todayIso() ? end : todayIso(), org: org() };
       let content;
       // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
@@ -296,7 +294,7 @@ export function mountMoney(params) {
         const pTo = `${Number(y) - 1}${to.slice(4)}`.replace(/-02-29$/, '-02-28');
         const [s, p] = await Promise.all([
           api('/finance/summary', { query: { from: `${y}-01-01`, to, org: org() } }),
-          api('/finance/summary', { query: { from: `${Number(y) - 1}-01-01`, to: pTo, org: org() } }).catch(() => null),
+          api('/finance/summary', { query: { from: `${Number(y) - 1}-01-01`, to: pTo, org: org() } }).catch((e) => { if (e.status === 403) throw new Error('Нет доступа к сводке прошлого года'); return null; }),
         ]);
         if (my !== seq) return;
         renderChrome(s.companies);
