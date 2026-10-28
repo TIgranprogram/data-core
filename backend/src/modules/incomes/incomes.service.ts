@@ -36,6 +36,12 @@ export async function ourCompanies(connection: Connection) {
  * Доходы (строки заказов). Список с суммой и счётчиками «ждут оплаты / оплачено»; amount и reportDate
  * пересчитываются при каждой записи (income.schema `incomeDerived`).
  */
+/** Опечатка в годе (2205, 1925) не проходит: даты денег — с 2015 по «сегодня + 2 года» (аудит целостности 2026-10-29). */
+function inRange(d: Date, what: string) {
+  const max = new Date(); max.setFullYear(max.getFullYear() + 2);
+  if (d.getFullYear() < 2015 || d > max) throw new BadRequestException(`${what}: проверьте год — ${d.toLocaleDateString('ru-RU')}`);
+}
+
 @Injectable()
 export class IncomesService {
   constructor(
@@ -129,6 +135,7 @@ export class IncomesService {
     if (dto.payments !== undefined) f.payments = (dto.payments ?? []).map((p) => {
       const date = parseSheetDate(p.date);
       if (!date) throw new BadRequestException('Дата платежа — в формате ДД.ММ.ГГГГ');
+      inRange(date, 'Дата платежа');
       const amount = r2(Number(p.amount));
       if (!(amount > 0)) throw new BadRequestException('Сумма платежа должна быть больше нуля');
       return { date, amount, ...(String(p.method ?? '').trim() ? { method: String(p.method).trim() } : {}), ...(String(p.note ?? '').trim() ? { note: String(p.note).trim() } : {}) };
@@ -137,6 +144,7 @@ export class IncomesService {
       if (dto[k] === undefined) continue;
       const d = parseSheetDate(dto[k]);
       if (dto[k] && !d) throw new BadRequestException(`${k === 'shipDate' ? 'Дата отгрузки' : 'Дата оплаты'} — в формате ДД.ММ.ГГГГ`);
+      if (d) inRange(d, k === 'shipDate' ? 'Дата отгрузки' : 'Дата оплаты');
       f[k] = d;
     }
     if (dto.lineNo !== undefined) f.lineNo = dto.lineNo === null ? undefined : Number(dto.lineNo);
