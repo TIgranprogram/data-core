@@ -234,7 +234,7 @@ export const partners = {
     sortDefault: '',
     createLabel: 'Новый контрагент',
     searchPlaceholder: 'Поиск: название, ИНН, почта, телефон…',
-    emptyText: 'Пусто.',
+    emptyText: 'Контрагентов пока нет.', emptyHint: 'Они появятся из заявок и заказов. Добавить вручную: «+ Контрагент» — наименование и роль (заказчик / поставщик).',
     filters: [
       { key: 'type', label: 'Кто', type: 'chips', noAll: true, defaultValue: 'supplier',
         options: () => [{ value: 'supplier', label: 'Поставщики' }, { value: 'customer', label: 'Заказчики' }, { value: 'our', label: 'Наши компании' }],

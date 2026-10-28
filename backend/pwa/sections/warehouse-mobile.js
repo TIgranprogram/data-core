@@ -115,7 +115,7 @@ async function loadRecent(box) {
   try {
     const r = await api('/stock/movements', { query: { limit: 8, sort: '-date' } });
     const items = r.items || [];
-    if (!items.length) { box.replaceChildren(h('div', { class: 'mob-section-title' }, 'Движений пока нет')); return; }
+    if (!items.length) { box.replaceChildren(h('div', { class: 'mob-section-title' }, 'Движений нет. Приход и списание — кнопки в карточке позиции.')); return; }
     box.replaceChildren(
       h('div', { class: 'mob-section-title' }, 'Последние движения'),
       h('ul', { class: 'mob-moves' },

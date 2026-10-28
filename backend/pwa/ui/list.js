@@ -411,7 +411,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         ? h('div', { class: 'state' }, h('div', null, P.q ? `По «${P.q}» ничего не найдено.` : 'Ничего не найдено.'),
           P.q ? h('button', { class: 'btn', type: 'button', onclick: () => { sb.set('', true); patch({ q: undefined, page: undefined }); } }, 'Сбросить поиск') : null,
           h('button', { class: 'btn btn-ghost', type: 'button', onclick: resetFilters }, 'Сбросить всё'))
-        : h('div', { class: 'state' }, h('div', null, L.emptyText || 'Записей пока нет.'),
+        : h('div', { class: 'state' }, h('div', null, L.emptyText || 'Записей пока нет.'), L.emptyHint ? h('p', { class: 'state-hint' }, L.emptyHint) : null,
           canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate }, '+ ' + (L.createLabel || 'Создать')) : null));
     } else if (isGallery) {
       renderGallery();

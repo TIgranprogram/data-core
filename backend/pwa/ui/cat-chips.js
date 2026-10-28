@@ -58,7 +58,7 @@ export function refChips({ options, value = '', multiple = true, label = 'Выб
     paint(); box.dispatchEvent(new Event('change', { bubbles: true }));
   } }, o.group ? `${o.name} · ${o.group}` : o.name));
   function paint() { for (const b of btns) { const on = cur.has(b.dataset.code); b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); } }
-  if (!list.length) box.append(h('span', { class: 'muted' }, 'Список пока пуст'));
+  if (!list.length) box.append(h('span', { class: 'muted' }, 'Категорий нет. «Справочники → Категории» — добавьте категорию материала.'));
   box.append(...btns);
   paint();
   return { el: box, get value() { return [...cur].join(','); }, focus: () => btns[0]?.focus() };

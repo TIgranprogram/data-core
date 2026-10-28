@@ -45,7 +45,7 @@ export const history = {
     sortDefault: '',
     createLabel: false,
     searchPlaceholder: 'Поиск не нужен — фильтры справа',
-    emptyText: 'Изменений за выбранное время нет.',
+    emptyText: 'Изменений за выбранное время нет.', emptyHint: 'Выберите период шире.',
     filters: [
       { key: 'entityType', label: 'Раздел', type: 'chips', options: async () => TYPES.map(({ value, label }) => ({ value, label })) },
       { key: 'userId', label: 'Кто', type: 'select', options: async () => api('/audit-logs/app/users') },

@@ -50,7 +50,7 @@ export const passports = {
       apply: (set, arrays) => api('/passports/bulk', { method: 'POST', body: { ids, set, arrays } }),
       restore: (before) => api('/passports/bulk/restore', { method: 'POST', body: { items: before } }) }) }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: № паспорта, талон, номер изделия, наименование, заказчик, объект…',
-    emptyText: 'Паспортов пока нет.',
+    emptyText: 'Паспортов пока нет.', emptyHint: 'Нажмите «Новый паспорт» и выберите изделие в «Продукции». Нет изделия — сначала создайте его.',
     query: (P) => ({ ...(P.state === 'incomplete' ? { incomplete: 1 } : {}), ...(P.state === 'noImages' ? { noImages: 1 } : {}) }),
     filters: [
       { key: 'status', label: 'Статус', type: 'select', options: async () => [{ value: 'draft', label: 'Черновики' }, { value: 'issued', label: 'Выпущенные' }, { value: 'annulled', label: 'Аннулированные' }] },

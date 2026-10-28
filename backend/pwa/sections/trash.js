@@ -36,7 +36,7 @@ export function mountTrash() {
       h('div', { class: 'table-wrap', style: { display: 'block' } }, h('table', { class: 'list' },
         h('thead', null, h('tr', null, h('th', null, 'Запись'), h('th', null, 'Удалено'), h('th', null, ''))), body)));
     api(src.path, { query: { deleted: 1, sort: '-deletedAt', limit: 100 } }).then((r) => {
-      if (!r.items.length) { body.replaceChildren(h('tr', null, h('td', { class: 'muted', colspan: 3 }, 'Пусто'))); return; }
+      if (!r.items.length) { body.replaceChildren(h('tr', null, h('td', { class: 'muted', colspan: 3 }, 'Корзина пуста. Удалённое хранится здесь, его можно вернуть.'))); return; }
       body.replaceChildren(...r.items.map((row) => {
         const v = src.section.searchRow(row);
         const btn = session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {

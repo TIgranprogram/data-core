@@ -198,7 +198,7 @@ export const requests = {
         return r.facets || {};
       },
     }),
-    emptyText: 'Заявок пока нет.',
+    emptyText: 'Заявок пока нет.', emptyHint: 'Нажмите «+ Заявка»: что нужно, сколько, под какой заказ. Позиции берутся из «Остатков» и «Каталога поставщиков».',
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', options: statusOptions, count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) ?? undefined },
       // Б4: поставщик / категория / кто подал — воронкой в левой панели (числа при уже выбранном); здесь — для «Сбросить всё»

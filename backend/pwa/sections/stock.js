@@ -32,7 +32,7 @@ function recentMoves(r) {
   const ul = h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…'));
   const more = h('div', { class: 'actions' });
   const show = (res, full) => {
-    if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений пока нет')); more.replaceChildren(); return; }
+    if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
     ul.replaceChildren(...res.items.map((m) => h('li', null,
       h('span', { class: 'when' }, date(m.date)), h('span', null, HIST[m.type] || m.type),
       h('span', { class: 'num ' + (m.type === 'in' ? 'pos' : m.type === 'out' ? 'neg' : '') }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
@@ -95,7 +95,7 @@ export const stock = {
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',
-    emptyText: 'На складе пока нет позиций.',
+    emptyText: 'Склад пуст.', emptyHint: 'Позиции появляются из прихода по заявке или кнопкой «+ Позиция» (категория, ед. изм., остаток).',
     filters: [
       { key: 'status', label: 'Состояние', type: 'chips',
         options: () => [
