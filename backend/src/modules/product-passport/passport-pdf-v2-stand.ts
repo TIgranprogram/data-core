@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { join } from 'path';
 import { fontDir, PdfOrg } from './passport-pdf';
-import { PdfPassportV2, PdfV2Text, PdfV2Style, NEUTRAL_COLOR } from './passport-pdf-v2-types';
+import { PdfPassportV2, PdfV2Text, PdfV2Style, MONO_COLOR } from './passport-pdf-v2-types';
 import { has, num, shortTiles, ruleIcon } from './passport-pdf-v2-common';
 
 const A3 = { w: 841.89, h: 1190.55 };
@@ -29,7 +29,7 @@ export function standRules(icons: string[] = [], rules: string[] = [], maxUsers?
 export async function renderStandPdf(input: StandInput): Promise<Buffer> {
   const dir = fontDir();
   const { passport: p, org, style } = input;
-  const color = style?.color || NEUTRAL_COLOR;
+  const color = MONO_COLOR;
   const doc = new PDFDocument({ autoFirstPage: false, size: [A3.w, A3.h], margin: 0, info: { Title: `Правила пользования — ${p.name ?? ''}`, Author: org?.name ?? '' } });
   doc.registerFont('gost', join(dir, 'gost-a.ttf'));
   doc.registerFont('gost-i', join(dir, 'gost-a-slanted.ttf'));
@@ -42,12 +42,11 @@ export async function renderStandPdf(input: StandInput): Promise<Buffer> {
 
   // полоса категории (+ логотип справа)
   const band = 120;
-  d.save().fillColor(color).rect(0, 0, A3.w, band).fill().restore();
+  d.lineWidth(1.2).strokeColor('#000').moveTo(0, band).lineTo(A3.w, band).stroke();
   const cat = style?.categoryName || p.passportCategory || '';
   const logoW = input.logo ? 220 : 0;
-  if (cat) d.font('gost').fontSize(30).fillColor('#fff').text(cat, L, band / 2 - 17, { width: W - logoW - 20, lineBreak: false, ellipsis: true });
+  if (cat) d.font('gost').fontSize(30).fillColor('#000').text(cat, L, band / 2 - 17, { width: W - logoW - 20, lineBreak: false, ellipsis: true });
   if (input.logo) {
-    d.save().fillColor('#fff').roundedRect(A3.w - L - logoW, 20, logoW, band - 40, 6).fill().restore();
     try { d.image(input.logo, A3.w - L - logoW + 8, 24, { fit: [logoW - 16, band - 48], align: 'center', valign: 'center' }); } catch { /* без логотипа */ }
   }
   let y = band + 34;
@@ -59,7 +58,7 @@ export async function renderStandPdf(input: StandInput): Promise<Buffer> {
   while (ns > 24 && d.fontSize(ns).heightOfString(name, { width: W, align: 'center' }) > ns * 2.6) ns -= 2;
   d.font('gost').fontSize(ns).fillColor('#000').text(name, L, y, { width: W, align: 'center', height: ns * 3.6, ellipsis: true });
   y = d.y + 4;
-  if (p.productCode) { d.font('gost-i').fontSize(18).fillColor('#444').text(`Артикул: ${p.productCode}`, L, y, { width: W, align: 'center' }); y = d.y; }
+  if (p.productCode) { d.font('gost-i').fontSize(18).fillColor('#000').text(`Артикул: ${p.productCode}`, L, y, { width: W, align: 'center' }); y = d.y; }
   y += 22;
 
   // «Коротко» — плитки (пользователей — отдельной строкой ниже)
@@ -68,17 +67,16 @@ export async function renderStandPdf(input: StandInput): Promise<Buffer> {
     const cols = 3, gap = 14, tw = (W - gap * (cols - 1)) / cols, th = 96;
     tiles.forEach((t, i) => {
       const x = L + (i % cols) * (tw + gap), yy = y + Math.floor(i / cols) * (th + gap);
-      d.save().fillColor(color).fillOpacity(0.1).roundedRect(x, yy, tw, th, 10).fill().restore();
-      d.save().fillColor(color).rect(x, yy + 12, 5, th - 24).fill().restore();
-      d.font('gost-i').fontSize(16).fillColor('#444').text(t.label, x + 18, yy + 14, { width: tw - 28, lineBreak: false, ellipsis: true });
+      d.save().lineWidth(0.5).strokeColor('#000').rect(x, yy, tw, th).stroke().restore();
+      d.font('gost-i').fontSize(16).fillColor('#000').text(t.label, x + 18, yy + 14, { width: tw - 28, lineBreak: false, ellipsis: true });
       d.font('gost').fontSize(30).fillColor('#000').text(t.value, x + 18, yy + 44, { width: tw - 28, lineBreak: false, ellipsis: true });
     });
     y += Math.ceil(tiles.length / cols) * (th + gap) + 8;
   }
   if (has(p.maxUsers)) {
     const h = 64;
-    d.save().fillColor(color).roundedRect(L, y, W, h, 12).fill().restore();
-    d.font('gost').fontSize(32).fillColor('#fff').text(`Не более ${num(p.maxUsers)} человек одновременно`, L, y + h / 2 - 19, { width: W, align: 'center', lineBreak: false, ellipsis: true });
+    d.save().lineWidth(1).strokeColor('#000').rect(L, y, W, h).stroke().restore();
+    d.font('gost').fontSize(32).fillColor('#000').text(`Не более ${num(p.maxUsers)} человек одновременно`, L, y + h / 2 - 19, { width: W, align: 'center', lineBreak: false, ellipsis: true });
     y += h + 26;
   }
 
@@ -108,9 +106,9 @@ export async function renderStandPdf(input: StandInput): Promise<Buffer> {
   const who = org?.shortName || org?.name || '';
   const contact = [who, org?.phone ? `тел. ${org.phone}` : ''].filter(Boolean).join(' · ');
   if (contact) d.font('gost').fontSize(22).fillColor('#000').text(contact, L, footTop + 16, { width: W, align: 'center', lineBreak: false, ellipsis: true });
-  if (org?.email) d.font('gost-i').fontSize(14).fillColor('#333').text(org.email, L, footTop + 48, { width: W, align: 'center', lineBreak: false });
-  d.font('gost-i').fontSize(10).fillColor('#666').text(`Паспорт № ${p.passportNumber ?? ''}`, L, A3.h - 38, { width: W, align: 'right', lineBreak: false });
-  d.save().fillColor(color).rect(0, A3.h - 14, A3.w, 14).fill().restore();
+  if (org?.email) d.font('gost-i').fontSize(14).fillColor('#000').text(org.email, L, footTop + 48, { width: W, align: 'center', lineBreak: false });
+  d.font('gost-i').fontSize(10).fillColor('#000').text(`Паспорт № ${p.passportNumber ?? ''}`, L, A3.h - 38, { width: W, align: 'right', lineBreak: false });
+  d.lineWidth(0.5).strokeColor('#000').moveTo(0, A3.h - 14).lineTo(A3.w, A3.h - 14).stroke();
   doc.end();
   return done;
 }

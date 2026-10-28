@@ -113,9 +113,9 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     const titleH = textH('gost', 9, title) + 4;
     const drawHead = (d: PDFKit.PDFDocument, yy: number) => {
       let x = M.l;
-      d.save().fillColor(color).fillOpacity(0.12).rect(M.l, yy, CW, headH).fill().restore();
-      d.lineWidth(0.4).strokeColor('#555');
-      cols.forEach((c, i) => { d.rect(x, yy, ws[i], headH).stroke(); d.font('gost-i').fontSize(7.2).fillColor('#000').text(c, x + 2, yy + 3, { width: ws[i] - 4, align: 'center' }); x += ws[i]; });
+      d.lineWidth(0.4).strokeColor('#000');
+      cols.forEach((c, i) => { d.rect(x, yy, ws[i], headH).stroke(); d.font('gost').fontSize(7.2).fillColor('#000').text(c, x + 2, yy + 3, { width: ws[i] - 4, align: 'center' }); x += ws[i]; });
+      d.lineWidth(0.75).strokeColor('#000').moveTo(M.l, yy + headH).lineTo(M.l + CW, yy + headH).stroke();
     };
     place(titleH, (d, yy) => d.font('gost').fontSize(9).fillColor('#000').text(title, M.l, yy, { width: CW }), headH + 30);
     place(headH, drawHead);
@@ -125,13 +125,13 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
       if (y + h > BOTTOM) { newPage(); place(headH, drawHead); }
       place(h, (d, yy) => {
         let x = M.l;
-        d.lineWidth(0.4).strokeColor('#555');
+        d.lineWidth(0.4).strokeColor('#000');
         r.forEach((c, i) => {
           d.rect(x, yy, ws[i], h).stroke();
           if (typeof c === 'string') {
             if (c) { d.font('gost-i').fontSize(cellSize).fillColor('#000'); const th = d.heightOfString(c, { width: ws[i] - 6 }); d.text(c, x + 3, yy + (h - th) / 2 + 1, { width: ws[i] - 6, align: /^[\d,.—-]+$/.test(c) ? 'center' : 'left' }); }
           } else if ('box' in c) {
-            const s = 7.5; d.lineWidth(0.8).strokeColor('#000').rect(x + (ws[i] - s) / 2, yy + (h - s) / 2, s, s).stroke(); d.lineWidth(0.4).strokeColor('#555');
+            const s = 7.5; d.lineWidth(0.8).strokeColor('#000').rect(x + (ws[i] - s) / 2, yy + (h - s) / 2, s, s).stroke(); d.lineWidth(0.4).strokeColor('#000');
           } else if (c.img) {
             try { d.image(c.img, x + 2, yy + 2, { fit: [ws[i] - 4, h - 4], align: 'center', valign: 'center' }); } catch { /* битая миниатюра — пустая ячейка */ }
           }
@@ -243,7 +243,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   if (cur.draws.length) body.push(cur);
   body.forEach((pg, i) => { pg.no = i + 1; });
   if (input.mode === 'print') while ((body.length + 2) % 4) body.push({ kind: 'body', draws: [] });
-  return [cover(input, color), ...body, warranty({ ...input, passport: p })];
+  return [cover(input), ...body, warranty({ ...input, passport: p })];
 }
 
 /** «Коротко» (§3.7): плитки, «для чего», ключевые правила-пиктограммы. Пусто — страницы нет. */

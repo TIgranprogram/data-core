@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { join } from 'path';
 import { fontDir, imposition } from './passport-pdf';
-import { PdfV2Input, NEUTRAL_COLOR, MONO_COLOR } from './passport-pdf-v2-types';
+import { PdfV2Input, MONO_COLOR } from './passport-pdf-v2-types';
 import { A5, A4L, M, CW, V2Page } from './passport-pdf-v2-common';
 import { layoutV2 } from './passport-pdf-v2-layout';
 
@@ -31,7 +31,7 @@ export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok, fail) => { doc.on('end', () => ok(Buffer.concat(chunks))); doc.on('error', fail); });
 
-  const color = input.mono ? MONO_COLOR : input.style?.color || NEUTRAL_COLOR;
+  const color = MONO_COLOR;
   const pages = layoutV2(doc, input, color);
   const total = pages.reduce((m, p) => Math.max(m, p.no ?? 0), 0);
   const foot = `${input.org?.shortName || input.org?.name || ''}${input.org?.shortName || input.org?.name ? ' · ' : ''}${input.passport.passportNumber ? `Паспорт № ${input.passport.passportNumber}` : 'Паспорт — черновик, без номера'}`;
@@ -40,15 +40,11 @@ export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
     doc.translate(ox, 0);
     doc.rect(0, 0, A5.w, A5.h).clip();
     for (const d of p.draws) d.draw(doc, d.y);
-    if (input.watermark) {
-      doc.save().rotate(-35, { origin: [A5.w / 2, A5.h / 2] }).font('gost').fontSize(64).fillColor('#9a9a9a').fillOpacity(0.28)
-        .text(input.watermark, 0, A5.h / 2 - 34, { width: A5.w, align: 'center', lineBreak: false }).restore();
-    }
     if (p.no && p.footer) {
       const fy = A5.h - 30;
       doc.lineWidth(0.6).strokeColor(color).moveTo(M.l, fy).lineTo(A5.w - M.r, fy).stroke();
-      doc.font('gost-i').fontSize(8).fillColor('#444').text(foot, M.l, fy + 5, { width: CW - 60, lineBreak: false, ellipsis: true });
-      doc.font('gost-i').fontSize(8).fillColor('#444').text(`стр. ${p.no}/${total}`, A5.w - M.r - 60, fy + 5, { width: 60, align: 'right', lineBreak: false });
+      doc.font('gost-i').fontSize(8).fillColor('#000').text(foot, M.l, fy + 5, { width: CW - 60, lineBreak: false, ellipsis: true });
+      doc.font('gost-i').fontSize(8).fillColor('#000').text(`стр. ${p.no}/${total}`, A5.w - M.r - 60, fy + 5, { width: 60, align: 'right', lineBreak: false });
     }
     doc.restore();
   };

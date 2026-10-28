@@ -1,5 +1,5 @@
 import type { Page } from './passport-pdf';
-import { PdfPassportV2, MONO_COLOR } from './passport-pdf-v2-types';
+import { PdfPassportV2 } from './passport-pdf-v2-types';
 
 export const A5 = { w: 419.53, h: 595.28 };
 export const A4L = { w: 841.89, h: 595.28 };
@@ -38,11 +38,11 @@ export function shortTiles(p: PdfPassportV2): Array<{ label: string; value: stri
 export function ruleIcon(d: PDFKit.PDFDocument, x: number, y: number, r: number, text: string, color: string) {
   const cx = x + r, cy = y + r;
   if (/^не\s/i.test(text)) {
-    d.save().lineWidth(1.6).strokeColor(color === MONO_COLOR ? MONO_COLOR : '#C62828').circle(cx, cy, r - 1).stroke();
+    d.save().lineWidth(1.6).strokeColor(color).circle(cx, cy, r - 1).stroke();
     d.moveTo(cx - (r - 1) * 0.7, cy - (r - 1) * 0.7).lineTo(cx + (r - 1) * 0.7, cy + (r - 1) * 0.7).stroke().restore();
   } else {
-    d.save().fillColor(color).circle(cx, cy, r).fill();
-    d.font('gost').fontSize(r * 1.3).fillColor('#fff').text('!', x, cy - r * 0.62, { width: 2 * r, align: 'center', lineBreak: false }).restore();
+    d.save().lineWidth(1.2).strokeColor(color).moveTo(cx, y + 1).lineTo(x + 2 * r - 1, y + 2 * r - 1).lineTo(x + 1, y + 2 * r - 1).closePath().stroke();
+    d.font('gost').fontSize(r * 1.1).fillColor('#000').text('!', x, cy - r * 0.2, { width: 2 * r, align: 'center', lineBreak: false }).restore();
   }
 }
 
