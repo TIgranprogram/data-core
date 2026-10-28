@@ -19,7 +19,7 @@ import { activeOrders, orderLabel, STAGE } from './salesorders.js';
  * Срок и приоритет по умолчанию берутся из заказа (серым «из заказа»), их можно заменить своими.
  */
 export const STATUS = DESIGN_STATUS;
-const ORDER = ['queue', 'work', 'paused', 'done'];
+const ORDER = ['queue', 'work', 'paused', 'done', 'cancelled'];
 const PRIO_OPTS = Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label }));
 const STATUS_OPTS = ORDER.map((value) => ({ value, label: STATUS[value].label }));
 
@@ -64,11 +64,11 @@ function boardBody(r, c) {
 export async function moveTask(r, to) {
   if (r.status === to) return r;
   const body = { status: to };
-  if (to === 'paused') { const why = await askReason(); if (!why) return null; body.pauseReason = why; }
+  if (to === 'paused' || to === 'cancelled') { const why = await askReason(to); if (!why) return null; body.pauseReason = why; }
   if (to === 'work' && !r.assigneeId) { const who = await askAssignee(await people()); if (!who) return null; body.assigneeId = who; } // окно «Кто проектирует?» вместо ошибки
   const saved = await api(`/design-tasks/${r.id}`, { method: 'PATCH', body });
   toast(`${r.code} → ${STATUS[to].label}`, { undo: async () => {
-    await api(`/design-tasks/${r.id}`, { method: 'PATCH', body: { status: r.status, ...(r.status === 'paused' ? { pauseReason: r.pauseReason || 'Возврат после отмены' } : {}) } });
+    await api(`/design-tasks/${r.id}`, { method: 'PATCH', body: { status: r.status, ...(r.status === 'paused' || r.status === 'cancelled' ? { pauseReason: r.pauseReason || 'Возврат после отмены' } : {}) } });
     window.dispatchEvent(new CustomEvent('data-changed'));
   } });
   return saved;
@@ -144,7 +144,7 @@ function topBlock(r, ctx) {
   } : null });
   return h('div', { class: 'dc-top' },
     h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r)),
-    r.status === 'paused' && r.pauseReason ? h('div', { class: 'dc-pause' }, 'Пауза: ' + r.pauseReason) : null,
+    (r.status === 'paused' || r.status === 'cancelled') && r.pauseReason ? h('div', { class: 'dc-pause' }, (r.status === 'cancelled' ? 'Отменена: ' : 'Пауза: ') + r.pauseReason) : null,
     grid, gal.el);
 }
 /** «Изделие» из разбора ЗНП: пустые поля скрыты, нет ни одного — блока нет. Исходный текст — свёрнуто. */
@@ -215,6 +215,7 @@ export const design = {
         { key: 'work', label: STATUS.work.label, tone: 'info', query: { status: 'work', sort: 'seq' } },
         { key: 'paused', label: STATUS.paused.label, tone: 'warn', compact: true, portion: true, per: 20, query: { status: 'paused', sort: 'seq' } },
         { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
+        { key: 'cancelled', label: STATUS.cancelled.label, tone: 'dim', compact: true, portion: true, per: 20, emptyText: 'Пусто. Сюда — снятые задачи (расторжение договора и т. п.)', query: { status: 'cancelled', sort: '-createdAt' } },
       ],
       card: (r, c) => ({ body: boardBody(r, c) }),
       move: async (r, to) => !!(await moveTask(r, to)),
@@ -245,9 +246,11 @@ export const design = {
     },
     actions: (r) => {
       const go2 = (to, label, primary, more) => ({ label, primary, more, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
-      if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить', false, true)];
-      if (r.status === 'work') return [go2('done', 'Завершить', true), go2('paused', 'Приостановить', false, true), go2('queue', 'Вернуть на распределение', false, true)];
-      if (r.status === 'paused') return [go2(r.assigneeId ? 'work' : 'queue', r.assigneeId ? 'Возобновить' : 'Вернуть на распределение', true), go2('done', 'Завершить')];
+      const cancel = go2('cancelled', 'Отменить (снята)', false, true);
+      if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить', false, true), cancel];
+      if (r.status === 'work') return [go2('done', 'Завершить', true), go2('paused', 'Приостановить', false, true), go2('queue', 'Вернуть на распределение', false, true), cancel];
+      if (r.status === 'paused') return [go2(r.assigneeId ? 'work' : 'queue', r.assigneeId ? 'Возобновить' : 'Вернуть на распределение', true), go2('done', 'Завершить'), cancel];
+      if (r.status === 'cancelled') return [go2('queue', 'Вернуть на распределение', true)];
       return [go2('work', 'Вернуть в работу')];
     },
   },
@@ -267,8 +270,8 @@ export const design = {
         { key: 'title', label: 'Название', wide: true, max: 300, hint: row ? undefined : 'Можно оставить пустым, если выбрана позиция: «Чертежи 3410 ЗНП 20-26 поз 7».' },
         { key: 'assigneeId', label: 'Исполнитель', type: 'select', options: ppl },
         { key: 'status', label: 'Статус', type: 'select', required: true, options: STATUS_OPTS },
-        { key: 'pauseReason', label: 'Причина паузы', wide: true, max: 500,
-          mount: (fa) => { const sync = () => { const f = fa.field('pauseReason'); if (f) f.hidden = fa.input('status')?.value !== 'paused'; }; fa.on('status', sync); sync(); } },
+        { key: 'pauseReason', label: 'Причина (пауза / отмена)', wide: true, max: 500,
+          mount: (fa) => { const sync = () => { const f = fa.field('pauseReason'); if (f) f.hidden = !['paused', 'cancelled'].includes(fa.input('status')?.value); }; fa.on('status', sync); sync(); } },
         { section: 'Срок и приоритет', tone: 'info' },
         { key: 'deadline', label: 'Срок', type: 'date', hint: 'Пусто — срок берётся из заказа.' + fromOrderDl },
         { key: 'priority', label: 'Приоритет', type: 'select', options: PRIO_OPTS, hint: '«—» — как в заказе.' + fromOrderPr },
@@ -276,13 +279,13 @@ export const design = {
         { key: 'note', label: 'Примечание', type: 'textarea', wide: true },
       ];
     },
-    initial: () => ({ status: ['queue', 'work', 'done', 'paused'].includes(current().params.dstatus) ? current().params.dstatus : 'queue',
+    initial: () => ({ status: ['queue', 'work', 'done', 'paused', 'cancelled'].includes(current().params.dstatus) ? current().params.dstatus : 'queue',
       target: current().params.orderId ? { orderId: current().params.orderId, orderNo: current().params.orderNo, lineId: current().params.lineId } : undefined }),
     toInitial,
     toBody: (v, row) => {
       const needs = () => {
         if (v.status === 'work' && !v.assigneeId) throw new Error('Для статуса «В работе» выберите исполнителя.');
-        if (v.status === 'paused' && !v.pauseReason) throw new Error('Для паузы впишите причину.');
+        if ((v.status === 'paused' || v.status === 'cancelled') && !v.pauseReason) throw new Error('Для паузы или отмены впишите причину.');
       };
       needs();
       if (!row) {
@@ -292,7 +295,7 @@ export const design = {
         if (!t.incomeId && !v.title) throw new Error('Впишите название задачи или выберите позицию заказа.');
         return {
           ...(t.incomeId ? { incomeId: t.incomeId } : {}), ...(v.title ? { title: v.title } : {}), ...(v.assigneeId ? { assigneeId: v.assigneeId } : {}),
-          status: v.status, ...(v.status === 'paused' ? { pauseReason: v.pauseReason } : {}),
+          status: v.status, ...(v.status === 'paused' || v.status === 'cancelled' ? { pauseReason: v.pauseReason } : {}),
           ...(v.deadline ? { deadline: v.deadline } : {}), ...(v.priority ? { priority: v.priority } : {}), ...(v.note ? { note: v.note } : {}),
         };
       }
@@ -302,7 +305,7 @@ export const design = {
         if (norm(v[k]) === norm(was[k])) continue;
         body[k] = k === 'assigneeId' ? v[k] || null : norm(v[k]);
       }
-      if (body.status === 'paused' && !body.pauseReason) body.pauseReason = v.pauseReason;
+      if ((body.status === 'paused' || body.status === 'cancelled') && !body.pauseReason) body.pauseReason = v.pauseReason;
       return body;
     },
     create: (body) => api('/design-tasks', { method: 'POST', body }),

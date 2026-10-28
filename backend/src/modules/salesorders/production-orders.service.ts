@@ -50,7 +50,9 @@ export class ProductionOrdersService {
 
   async list(q: Record<string, unknown> = {}) {
     const p = parseList(q, { sortable: SORT, defaultSort: '-createdAt', defaultLimit: 25 });
-    const { filter, stages } = this.orders.filters(q);
+    // filter=new — «Новые»: этап «Новый», нет задач проектирования (живых) и отгрузок (пользователь 2026-10-28)
+    const wantNew = q.filter === 'new';
+    const { filter, stages } = this.orders.filters(wantNew ? { ...q, filter: undefined } : q);
     // 1) договоры, подходящие под поиск/компанию/даты; 2) весь заказ целиком по их №
     const hits = await this.model.find(filter, { productionNo: 1 }).lean().exec() as Doc[];
     const nos = [...new Set(hits.map((h) => String(h.productionNo ?? '').trim()).filter(Boolean))];
@@ -65,7 +67,17 @@ export class ProductionOrdersService {
     const counts: Record<string, number> = Object.fromEntries(ORDER_STAGES.map((s) => [s, 0]));
     for (const g of groups) counts[g.stage]++;
     const n = (ss: readonly string[]) => ss.reduce((a, s) => a + (counts[s] ?? 0), 0);
-    const shown = stages ? groups.filter((g) => stages.includes(g.stage)) : groups;
+    const allIds = groups.flatMap((g) => g.docs.map((d) => d._id));
+    const db = this.connection.db!, inIds = { orderId: { $in: allIds }, deletedAt: null };
+    const [dt, dm, sh] = allIds.length ? await Promise.all([
+      db.collection('designtasks').distinct('orderId', inIds),
+      db.collection('designorders').distinct('orderId', inIds), // заказ добавлен на доску проектирования
+      db.collection('shipments').distinct('orderId', inIds),
+    ]) : [[], [], []];
+    const started = new Set([...dt, ...dm, ...sh].map(String));
+    const isNew = (g: (typeof groups)[number]) => g.docs.every((d) => (d.stage || 'new') === 'new' && !started.has(String(d._id)));
+    const fresh = groups.filter(isNew).length;
+    const shown = wantNew ? groups.filter(isNew) : stages ? groups.filter((g) => stages.includes(g.stage)) : groups;
 
     const field = Object.keys(p.sort)[0], dir = p.sort[field];
     const cmp = (x: number, y: number) => (x === y ? 0 : x < y ? -1 : 1) * dir;
@@ -102,7 +114,7 @@ export class ProductionOrdersService {
         createdAt: new Date(created(g)),
       };
     });
-    return { items, total: shown.length, page: p.page, limit: p.limit, counts: { all: n(ORDER_STAGES), active: n(ACTIVE_STAGES), done: n(DONE_STAGES), ...counts } };
+    return { items, total: shown.length, page: p.page, limit: p.limit, counts: { all: n(ORDER_STAGES), active: n(ACTIVE_STAGES), done: n(DONE_STAGES), ...counts, fresh } };
   }
 
   /** Карточка заказа: договоры (как `salesorders/:id`, позиции со сквозным seqNo), «К производству», срок, этап. */

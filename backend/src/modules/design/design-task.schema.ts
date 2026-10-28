@@ -5,7 +5,7 @@ import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-ke
 export type DesignTaskDocument = HydratedDocument<DesignTask>;
 
 /** Статусы задачи: на распределении → в работе (нужен исполнитель) → завершена; приостановлена — с причиной. */
-export const DESIGN_STATUSES = ['queue', 'work', 'done', 'paused'] as const;
+export const DESIGN_STATUSES = ['queue', 'work', 'done', 'paused', 'cancelled'] as const; // cancelled — снята (расторжение и т. п.), документации нет; причина в pauseReason
 export type DesignStatus = (typeof DESIGN_STATUSES)[number];
 
 /**

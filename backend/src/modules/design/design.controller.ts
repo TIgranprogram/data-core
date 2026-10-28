@@ -21,7 +21,7 @@ export class DesignController {
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: 'до 500 (умолч. 100)' })
-  @ApiQuery({ name: 'status', required: false, description: 'queue | work | done | paused, через запятую' })
+  @ApiQuery({ name: 'status', required: false, description: 'queue | work | done | paused | cancelled, через запятую' })
   @ApiQuery({ name: 'assigneeId', required: false }) @ApiQuery({ name: 'orderId', required: false })
   @ApiQuery({ name: 'search', required: false, description: 'название, D-N, № заказа, заказчик, изделие, артикул' })
   @ApiQuery({ name: 'sort', required: false, description: 'seq | completedAt | createdAt; «-» — по убыванию (умолч. seq; status=done — по completedAt убыв.)' })

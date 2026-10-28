@@ -207,7 +207,7 @@ describe('DesignService', () => {
     await service.create({ title: 'Два' });
     await service.update(a.id, { status: 'done' });
     const all = await service.list({});
-    expect(all.counts).toEqual({ queue: 1, work: 0, done: 1, paused: 0, all: 2 });
+    expect(all.counts).toEqual({ queue: 1, work: 0, done: 1, paused: 0, cancelled: 0, all: 2 });
     expect((await service.list({ status: 'queue' })).items.map((i) => i.title)).toEqual(['Два']);
     await expect(service.list({ status: 'xx' })).rejects.toBeInstanceOf(BadRequestException);
   });

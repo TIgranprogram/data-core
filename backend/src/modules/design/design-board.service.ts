@@ -45,7 +45,7 @@ export class DesignBoardService {
     const byOrder = new Map<string, { counts: Record<string, number>; lines: Set<string> }>();
     for (const g of grouped) {
       const key = String(g._id.orderId);
-      const e = byOrder.get(key) ?? { counts: { queue: 0, work: 0, paused: 0, done: 0 }, lines: new Set<string>() };
+      const e = byOrder.get(key) ?? { counts: { queue: 0, work: 0, paused: 0, done: 0, cancelled: 0 }, lines: new Set<string>() };
       e.counts[g._id.status] = (e.counts[g._id.status] ?? 0) + g.n;
       for (const l of g.lines) if (l) e.lines.add(String(l));
       byOrder.set(key, e);
@@ -87,7 +87,7 @@ export class DesignBoardService {
           priority: (o.priority as string | undefined) ?? 'normal', stage: (o.stage as string | undefined) ?? null, note: (o.notes as string | undefined) ?? null,
           addedAt: addedAt.get(String(o._id)) ?? null,
           linesCount: lines,
-          counts: { ...(e?.counts ?? { queue: 0, work: 0, paused: 0, done: 0 }), free: Math.max(0, lines - (e?.lines.size ?? 0)) },
+          counts: { ...(e?.counts ?? { queue: 0, work: 0, paused: 0, done: 0, cancelled: 0 }), free: Math.max(0, lines - (e?.lines.size ?? 0)) },
         };
       }),
       ordersTotal: orders.length,

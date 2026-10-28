@@ -87,6 +87,7 @@ export class DesignService {
   private checkState(status: DesignStatus, assigneeId: unknown, pauseReason: unknown) {
     if (status === 'work' && !assigneeId) throw new BadRequestException('Назначьте исполнителя, чтобы взять задачу в работу');
     if (status === 'paused' && !String(pauseReason ?? '').trim()) throw new BadRequestException('Укажите причину приостановки');
+    if (status === 'cancelled' && !String(pauseReason ?? '').trim()) throw new BadRequestException('Укажите причину отмены');
   }
 
   private async checkPerson(id: Types.ObjectId) {
@@ -172,7 +173,7 @@ export class DesignService {
     if (dto.assigneeId) { f.assigneeId = oid(dto.assigneeId, 'сотрудника'); await this.checkPerson(f.assigneeId as Types.ObjectId); }
     if (dto.title?.trim()) f.title = dto.title.trim();
     if (dto.note?.trim()) f.note = dto.note.trim();
-    if (status === 'paused') f.pauseReason = String(dto.pauseReason).trim();
+    if (status === 'paused' || status === 'cancelled') f.pauseReason = String(dto.pauseReason).trim();
     const manual: Doc = {};
     const deadline = this.parseDeadline(dto.deadline);
     if (deadline) manual.deadline = deadline;
@@ -236,7 +237,7 @@ export class DesignService {
     if (dto.spec !== undefined) put('spec', dto.spec && Object.values(dto.spec).some((v) => String(v ?? '').trim()) ? Object.fromEntries(Object.entries(dto.spec).map(([k, v]) => [k, String(v ?? '').trim()])) : null);
     if (dto.deadline !== undefined) put('manual.deadline', this.parseDeadline(dto.deadline));
     if (dto.priority !== undefined) put('manual.priority', dto.priority);
-    if (status === 'paused') set.pauseReason = String(pauseReason).trim(); else unset.pauseReason = '';
+    if (status === 'paused' || status === 'cancelled') set.pauseReason = String(pauseReason).trim(); else unset.pauseReason = '';
     const wasDone = cur.status === 'done';
     if (status === 'done') {
       if (!wasDone) {

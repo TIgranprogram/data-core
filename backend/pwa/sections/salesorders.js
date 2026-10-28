@@ -32,6 +32,7 @@ export const STAGE = {
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
 const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружена', shipped: 'Закрыть' };
 const HINT = {
+  new: 'Новые (входящие): ещё не в проектировании, не в производстве и не отгружены. Начните — «В производство» или передайте в проектирование.',
   active: 'Заказы в работе: проектирование, производство, готовые к отгрузке. Красный срок — просрочено.',
   done: 'Отгруженные и закрытые заказы — по месяцам отгрузки. Нажмите на месяц, чтобы раскрыть.',
 };
@@ -246,7 +247,8 @@ export const salesorders = {
     emptyHint: 'Нажмите «+ Договор»: № заказа, заказчик, срок. Договоры с одним № заказа объединяются в один заказ.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
     filters: [
-      { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', options: () => [{ value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
+      // вкладки: Новые → В работе (по умолчанию) → Выполненные → Все в конце (пользователь 2026-10-28)
+      { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', noAll: true, options: () => [{ value: 'new', label: 'Новые' }, { value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }, { value: 'all', label: 'Все' }], count: (resp, v) => (v === 'new' ? resp.counts?.fresh : resp.counts?.[v]) },
     ],
     hints: HINT,
     hintKey: 'filter',

@@ -49,7 +49,7 @@ function progressBlock(row) {
   const over = dues.filter((d) => d < today()).length;
   const free = row.lines.filter((l) => !l.task).length;
   return block('Как идёт проектирование', true, h('dl', { class: 'fields' },
-    ...['queue', 'work', 'paused', 'done'].flatMap((k) => field(COL_LABEL[k], String(c[k] ?? 0))),
+    ...['queue', 'work', 'paused', 'done', 'cancelled'].flatMap((k) => field(COL_LABEL[k], String(c[k] ?? 0))),
     ...(field('Ещё не взято', String(free)) || []),
     ...(field('Ближайший срок', dues[0] ? date(dues[0]) : open.length ? 'без срока' : '') || []),
     ...(field('Просрочено', over ? `${over} шт.` : open.length ? 'нет' : '') || [])));

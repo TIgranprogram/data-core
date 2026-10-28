@@ -20,9 +20,9 @@ import { toast, toastError } from './toast.js';
  * POST /design-board {orderId, distribute?}, DELETE /design-board/:orderId, POST /design-tasks {incomeId, status, assigneeId?, pauseReason?}.
  * board.env = { people(), moveTask(task, to), dueNode(row), activeOrders(), stageLabel(stage) } — из sections/design.js.
  */
-export const COL_LABEL = { queue: 'Распределение', work: 'В работе', paused: 'Приостановлены', done: 'Завершены' };
-const COLS = ['queue', 'work', 'paused', 'done'];
-const SHORT = { queue: 'распределение', work: 'в работе', paused: 'пауза', done: 'готово' };
+export const COL_LABEL = { queue: 'Распределение', work: 'В работе', paused: 'Приостановлены', done: 'Завершены', cancelled: 'Отменены' };
+const COLS = ['queue', 'work', 'paused', 'done', 'cancelled'];
+const SHORT = { queue: 'распределение', work: 'в работе', paused: 'пауза', done: 'готово', cancelled: 'отменено' };
 const PER_DONE = 20;
 const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
 /** Пустое значение (null, undefined, пустая строка, случайное слово «null») — ''. Такое на экране не печатаем. */
@@ -33,10 +33,12 @@ const plain = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е');
 
 // ---------- общие окна (их же использует sections/design.js) ----------
 /** Окно причины паузы → строка или null (отмена). */
-export function askReason() {
-  const inp = h('input', { maxlength: 500, placeholder: 'Например: ждём размеры от заказчика', 'aria-label': 'Причина паузы' });
-  return modal({ title: 'Приостановить задачу', body: h('label', { class: 'field' }, h('span', null, 'Причина паузы'), inp), okText: 'Приостановить',
-    onOk: () => { const v = inp.value.trim(); if (!v) throw new Error('Впишите причину паузы.'); return v; } });
+/** Причина паузы или отмены (to = 'paused' | 'cancelled'). */
+export function askReason(to = 'paused') {
+  const c = to === 'cancelled';
+  const inp = h('input', { maxlength: 500, placeholder: c ? 'Например: договор расторгнут' : 'Например: ждём размеры от заказчика', 'aria-label': c ? 'Причина отмены' : 'Причина паузы' });
+  return modal({ title: c ? 'Отменить задачу' : 'Приостановить задачу', body: h('div', null, h('label', { class: 'field' }, h('span', null, c ? 'Причина отмены' : 'Причина паузы'), inp), c ? h('p', { class: 'hint' }, 'Работа по изделию снята, документации нет. Вернуть можно — «На распределение».') : null), okText: c ? 'Отменить задачу' : 'Приостановить', danger: c,
+    onOk: () => { const v = inp.value.trim(); if (!v) throw new Error(c ? 'Впишите причину отмены.' : 'Впишите причину паузы.'); return v; } });
 }
 /** Окно «Кто проектирует?» → id сотрудника или null (отмена — ничего не создаётся и не меняется). */
 export function askAssignee(people, { okText = 'Назначить и взять в работу' } = {}) {
@@ -123,7 +125,7 @@ export async function dropOrder(order) {
  * В «В работе» спрашивает исполнителя, в «Приостановлены» — причину; отмена окна — ничего не создаётся (false). Сразу в «Завершены» нельзя.
  */
 export async function createTask(line, to, people) {
-  if (to === 'done') { toast('Сначала возьмите изделие в работу', { tone: 'warn' }); return false; }
+  if (to === 'done' || to === 'cancelled') { toast(to === 'done' ? 'Сначала возьмите изделие в работу' : 'Отменить можно только начатую задачу', { tone: 'warn' }); return false; }
   const body = { incomeId: line.incomeId, status: to };
   if (to === 'paused') { const why = await askReason(); if (!why) return false; body.pauseReason = why; }
   if (to === 'work') { const who = await askAssignee(await people()); if (!who) return false; body.assigneeId = who; }
@@ -142,6 +144,7 @@ const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-
 function sheetOptions(status) {
   const items = [['queue', status ? 'Вернуть на распределение' : 'Распределение'], ['work', status === 'done' ? 'Вернуть в работу' : status === 'paused' ? 'Возобновить' : 'В работе'], ['paused', 'Приостановить']];
   if (status) items.push(['done', 'Завершить']);
+  if (status && status !== 'done') items.push(['cancelled', 'Отменить (снята)']);
   return items.map(([to, label]) => ({ to, label, here: to === status }));
 }
 
@@ -354,7 +357,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     t.photo ? photo(t.photo, 'db-cover') : null,
     h('div', { class: 'db-tbody' },
       h('div', { class: 't-main' }, h('div', { class: 't-title', title }, title),
-        h('div', { class: 't-sub', title: t.pauseReason || '' }, dotted(t.status === 'paused' && t.pauseReason, t.sku && '№ ' + t.sku, t.lineNo != null && 'поз. ' + t.lineNo, t.code)))),
+        h('div', { class: 't-sub', title: t.pauseReason || '' }, dotted((t.status === 'paused' || t.status === 'cancelled') && t.pauseReason, t.sku && '№ ' + t.sku, t.lineNo != null && 'поз. ' + t.lineNo, t.code)))),
     S.stickers.length ? stickerRow(t, S.stickers) : h('div', { class: 't-foot' }, env.dueNode(t), t.priority && t.priority !== 'normal' ? badge(ORDER_PRIORITY, t.priority) : null,
       t.assignee ? h('span', { class: 'avatar sm', title: clean(t.assignee.name), 'aria-label': 'Исполнитель: ' + clean(t.assignee.name) }, clean(t.assignee.initials) || '?') : h('span', { class: 't-none' }, 'не назначен')));
     if (t.orderId) paintOrder(node, t.orderId); else paintOrder(node, '');
@@ -375,7 +378,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     const list = (key === 'done' ? S.done : S.tasks.filter((t) => t.status === key)).filter(wantTask);
     const n = key === 'done' ? S.doneTotal : list.length;
     const body = h('div', { class: 'col-body' });
-    if (!list.length) body.append(h('div', { class: 'col-more muted db-colempty' }, key === 'paused' ? 'Пусто' : canEdit ? 'Перетащите сюда изделие из заказа слева' : 'Здесь пока пусто'));
+    if (!list.length) body.append(h('div', { class: 'col-more muted db-colempty' }, key === 'paused' || key === 'cancelled' ? 'Пусто' : canEdit ? 'Перетащите сюда изделие из заказа слева' : 'Здесь пока пусто'));
     for (const [oid, ts] of groups(list)) {
       const o = oid && boardOrder(oid);
       const g = h('div', { class: 'db-group' });
@@ -391,7 +394,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       } }, `ещё ${qty(Math.min(PER_DONE, S.doneTotal - S.done.length))} из ${qty(S.doneTotal - S.done.length)} →`));
     }
     const count = h('span', { class: 'n' }, S.ready ? qty(n) : '…');
-    return h('section', { class: `col tone-${DESIGN_STATUS[key].tone} db-col${key === 'paused' && !list.length ? ' is-collapsed' : ''}`, role: 'region', 'aria-label': COL_LABEL[key], dataset: { key } },
+    return h('section', { class: `col tone-${DESIGN_STATUS[key].tone} db-col${(key === 'paused' || key === 'cancelled') && !list.length ? ' is-collapsed' : ''}`, role: 'region', 'aria-label': COL_LABEL[key], dataset: { key } },
       h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, COL_LABEL[key]), count), body);
   }
   function paintRight() {
