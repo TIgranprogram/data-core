@@ -14,7 +14,7 @@ import { setCrumbTail } from '../ui/crumbs.js';
 
 /**
  * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
- * Слева: поставщики с числом (tiles), категории и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
+ * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
  * Справа: таблица GET /supply/catalog/items. Сверху: крошки и шестерёнка (шаблон, импорт, выгрузка).
  * Правка, добавление, импорт — только admin / manager; остальные — просмотр и выгрузка.
  */
@@ -67,13 +67,22 @@ function sideFilters() {
   const el = h('div', { class: 'ls-extra' });
   const funnel = stepFunnel({
     title: 'Категория',
-    steps: [{ key: 'catId', label: 'Категория' }, { key: 'subId', label: 'Подкатегория', when: (P) => !!P.catId && P.catId !== 'none' }],
+    steps: [{ key: 'catId', label: 'Категория' }, { key: 'subId', label: 'Подкатегория', when: (P) => !!P.catId && P.catId !== 'none' }, { key: 'supplierId', label: 'Поставщик' }],
     load: async (P) => {
       const c = await getCounts();
       const tops = catTops(c).map((x) => ({ value: x.id, label: x.name, n: x.count }));
       if (c.noCategory) tops.push({ value: 'none', label: 'Без категории', n: c.noCategory });
       const subs = P.catId ? (c.categories || []).filter((x) => String(x.parentId) === P.catId).map((x) => ({ value: x.id, label: x.name, n: x.count })) : [];
-      return { catId: tops, subId: subs };
+      // поставщики — только те, у кого есть позиции в выбранной ветке категорий (не весь список пачкой)
+      const pick = P.subId || P.catId;
+      let branch = null;
+      if (pick === 'none') branch = new Set(['none']);
+      else if (pick) {
+        branch = new Set([pick]);
+        for (let grew = true; grew;) { grew = false; for (const x of c.categories || []) if (branch.has(String(x.parentId)) && !branch.has(x.id)) { branch.add(x.id); grew = true; } }
+      }
+      const sups = (c.suppliers || []).filter((s) => !branch || (s.cats || []).some((k) => branch.has(k))).map((s) => ({ value: s.id, label: s.name, n: s.count }));
+      return { catId: tops, subId: subs, supplierId: sups };
     },
   });
   const rest = h('div');
@@ -130,8 +139,12 @@ function topBlock(reload) {
         canWrite() ? { label: 'Загрузить Excel…', onSelect: () => importDialog(reload) } : null,
         { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
       ] }] }) }, icon('settings'));
-  const el = h('div', { class: 'sc-top' }, h('span', { class: 'spacer' }), gear);
+  // выход к плиткам категорий и сброс — всегда на виду сверху (жалоба 2026-10-29: «зашёл в категорию — назад не выйти»)
+  const ALL = { supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined };
+  const back = h('button', { class: 'btn', type: 'button', onclick: () => patch(ALL) }, '← Все категории');
+  const el = h('div', { class: 'sc-top' }, back, h('span', { class: 'spacer' }), gear);
   el.onParams = async (P) => {
+    back.hidden = !(P.supplierId || P.catId || P.subId || P.q || P.flag || P.all || P.ord);
     setCrumbTail(null);
     if (!P.supplierId) return;
     const c = await getCounts().catch(() => null);
@@ -264,10 +277,6 @@ export const supplierCatalog = {
     createLabel: 'Новая позиция',
     searchPlaceholder: 'Артикул, название, примечание…',
     emptyText: 'В каталоге пока пусто. Загрузите прайс поставщика по шаблону: шестерёнка → «Скачать шаблон Excel», затем «Загрузить Excel…».',
-    tiles: {
-      key: 'supplierId', title: 'Поставщики',
-      load: async () => (await getCounts()).suppliers.map((s) => ({ value: s.id, label: s.name, n: s.count })),
-    },
     columns: [
       { key: 'photo', label: '', render: (r) => thumb(r) },
       { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },

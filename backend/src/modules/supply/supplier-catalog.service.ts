@@ -160,7 +160,7 @@ export class SupplierCatalogService {
     const base = { deletedAt: null };
     const stale = new Date(Date.now() - STALE_DAYS * DAY);
     const [bySup, byCat, all, noCategory, unmatched, noPrice, old] = await Promise.all([
-      this.items.aggregate([{ $match: base }, { $group: { _id: '$supplierId', n: { $sum: 1 } } }]).toArray(),
+      this.items.aggregate([{ $match: base }, { $group: { _id: '$supplierId', n: { $sum: 1 }, cats: { $addToSet: '$categoryId' } } }]).toArray(),
       this.items.aggregate([{ $match: { ...base, categoryId: { $ne: null } } }, { $group: { _id: '$categoryId', n: { $sum: 1 } } }]).toArray(),
       this.items.countDocuments(base),
       this.items.countDocuments({ ...base, categoryId: null }),
@@ -183,7 +183,9 @@ export class SupplierCatalogService {
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'ru');
     return {
       all, noCategory, unmatched, noPrice, stale: old,
-      suppliers: bySup.map((x) => ({ id: String(x._id), name: on.get(String(x._id)) ?? '(поставщик удалён)', count: x.n })).sort(byName),
+      suppliers: bySup.map((x) => ({ id: String(x._id), name: on.get(String(x._id)) ?? '(поставщик удалён)', count: x.n,
+        // категории его позиций (null — «Без категории»): левая воронка показывает поставщиков выбранной категории
+        cats: ((x.cats ?? []) as unknown[]).map((c) => (c ? String(c) : 'none')) })).sort(byName),
       categories: [...sub].map(([id, count]) => ({ id, name: cn.get(id) ?? '(категория удалена)', parentId: cats.parent.get(id) ?? null, count, own: own.get(id) ?? 0 })).sort(byName),
     };
   }
