@@ -93,3 +93,6 @@
 
 ## Заявки — шаг 3 (2026-10-28, не закоммичено)
 - `request-step.js`: `advance` — заказ через POST /supply/invoices, «оплачен» всегда панель (№, дата=сегодня, сумма=priceHint|catalogCurrentPrice×qty, поставщик, плательщик для счёта); `invoiceBlock(r,ctx)` — блок «Счёт» (card.extra в requests.js); `bulkOrder` → один POST. `ui/board.js`: `pickAll` («Выбрать все» в `.col-tools`). CSS `.t-step` (gold-soft), `.t-pick`, `.inv-block` конец screens.css. Карта обновлена.
+
+## Заявки — автозаполнение В1 (2026-10-28, не закоммичено)
+- `sections/request-fill.js` — `wireFill(fapi)` (mount поля «Наименование»): З1/З2 price-default + prices по скрытому materialId, З3 каталог поставщика, З4 заказ -> заказчик/кол-во + строка «Заказ № N поз.». `requests.js`: hidden materialId/num, `fromInvoice` (З6 показ из счёта), `orderTag`, фильтр `salesOrderId`, колонка «Заказ». `salesorders.js` кнопка «+ Заявка под этот заказ»; `main.js` whitelist params salesOrderRef/qty; `ui/form.js` pick шлёт change на hidden. Карта обновлена.

@@ -1252,3 +1252,9 @@ table.cal tr.pend th, table.cal tr.pend td { color: var(--muted); font-style: it
 .board-bar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); margin: 0 auto; max-width: 560px; z-index: 35; display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); }
 .board-bar .btn { min-height: 44px; }
 .board-bar b { margin-right: auto; }
+
+/* Заявки: автозаполнение (CHAIN-AUDIT З1-З5) */
+.rq-chips{display:flex;flex-wrap:wrap;gap:var(--sp-1,4px);margin-top:var(--sp-1,4px);align-items:center}
+.rq-chip{cursor:pointer}
+.rq-note{color:var(--muted)}
+.tag.rq-order{background:var(--gold-soft,var(--surface-2));white-space:nowrap}

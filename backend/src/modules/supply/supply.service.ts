@@ -190,6 +190,7 @@ export class SupplyService {
     }
     if (q.categoryId) filter.categoryId = { $in: oids(q.categoryId) };
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
+    if (q.salesOrderId) filter.salesOrderId = { $in: oids(q.salesOrderId) };
     if (q.requestedBy) filter.requestedBy = String(q.requestedBy);
     if (q.priority) filter.priority = String(q.priority);
     const range = dateRange(q.from, q.to);

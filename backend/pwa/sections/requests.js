@@ -12,7 +12,9 @@ import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
-import { joinRef, orderOptions, splitRef } from './salesorders.js';
+import { joinRef, orderLabel, orderOptions, splitRef } from './salesorders.js';
+import { wireFill } from './request-fill.js';
+import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep } from './request-step.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
@@ -110,7 +112,7 @@ export async function pastItems() {
   const by = new Map();
   const key = (s) => normSearch(s);
   for (const it of stockRes) {
-    by.set(key(it.name), { label: it.name, cat: it.categoryName || '', stock: it, values: { title: it.invoiceName || it.name, unit: it.unit, categoryName: it.categoryName, article: it.article } }); // Н-1: «в счёте», если есть, иначе короткое
+    by.set(key(it.name), { label: it.name, cat: it.categoryName || '', stock: it, values: { title: it.invoiceName || it.name, unit: it.unit, categoryName: it.categoryName, article: it.article, materialId: it.materialId || it.id } }); // Н-1: «в счёте», если есть, иначе короткое
   }
   for (const r of reqs.items) {
     if (!r.title) continue;
@@ -118,7 +120,7 @@ export async function pastItems() {
     const x = by.get(k) || { label: r.title, cat: r.categoryName || '', values: { title: r.title } };
     if (!x.last) {
       x.last = r;
-      x.values = { ...x.values, unit: x.values.unit || r.unit, categoryName: x.values.categoryName || r.categoryName, supplierName: r.supplierName, article: x.values.article || r.article };
+      x.values = { ...x.values, unit: x.values.unit || r.unit, categoryName: x.values.categoryName || r.categoryName, supplierName: r.supplierName, article: x.values.article || r.article, materialId: x.values.materialId || r.materialId };
       if (!x.cat) x.cat = r.categoryName || '';
     }
     x.n = (x.n || 0) + 1;
@@ -132,12 +134,18 @@ export async function pastItems() {
   }));
 }
 
+/** Показ без правки: значение берётся из счёта (правится только в счёте). */
+const fromInvoice = (label, text) => ({ key: '_inv' + label, type: 'widget', label, hint: 'Из счёта — правится в счёте', widget: () => ({ el: h('div', null, text || '—'), get value() { return ''; }, set value(_) { /* только показ */ } }) });
+
 const fields = async (r) => {
   const lk = await lookups();
+  const inv = !!r?.invoiceId; // З6: № счёта, дата, поставщик лежат в счёте — в заявке только показ
   return [
     { section: 'Что заказать', tone: 'main', fixed: true },
     r ? null : { key: '_pick', type: 'pick', load: pastItems, target: 'title' },
-    { key: 'title', label: 'Наименование', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
+    { key: 'materialId', type: 'hidden' },
+    { key: 'num', type: 'hidden' },
+    { key: 'title', mount: wireFill, label: 'Наименование', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
     { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
     { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(lk), max: 30, span: 1 },
@@ -152,12 +160,12 @@ const fields = async (r) => {
     { section: 'Поставщик и счёт', tone: 'money' },
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
     { key: 'status', label: 'Статус', type: 'select', required: true, options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
-    { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200 },
+    inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200 },
     { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },
-    { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },
-    { key: 'invoiceDate', label: 'Дата счёта', type: 'date', hint: 'День расхода в календаре', span: 1 },
+    inv ? fromInvoice('№ счёта', r.invoiceNo) : { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },
+    inv ? fromInvoice('Дата счёта', r.invoiceDate ? date(r.invoiceDate) : '') : { key: 'invoiceDate', label: 'Дата счёта', type: 'date', hint: 'День расхода в календаре', span: 1 },
     { section: 'Для кого', tone: 'who' },
     { key: 'costCenter', label: 'Куда (направление затрат)', type: 'select', options: Object.entries(COST_CENTER).map(([value, label]) => ({ value, label })), hint: 'Для «Денег»: сколько ушло на цех, офис, СМР, заказы' },
     { key: 'costObject', label: 'Объект СМР / уточнение', max: 200 },
@@ -211,6 +219,9 @@ function stepAct(r) {
   return { label: st.verb, run: async (row, ctx) => { if (await advance(row, st.to, patchStatus)) { toast(`Статус: ${SUPPLY_STATUS[st.to].label}`); ctx.setRow(await api(`/supply/requests/${row.id}`)); } } };
 }
 
+/** З5: метка заказа на карточке и в списке — «Заказ № N» (номер берётся из подписи заявки). */
+const orderTag = (r) => (r.salesOrderId ? 'Заказ № ' + (/№\s*([^\s·]+)/.exec(r.orderLabel || '')?.[1] || '—') : '');
+
 const toInitial = (r) => ({ ...r, photos: r.photos || [], salesOrderRef: joinRef(r), status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
 
 export const requests = {
@@ -238,7 +249,7 @@ export const requests = {
     toolbarExtra: () => stepFunnel({
       steps: [{ key: 'supplierId', label: 'Поставщик' }, { key: 'categoryId', label: 'Категория' }, { key: 'requestedBy', label: 'Кто подал' }],
       load: async (P) => {
-        const keys = ['status', 'supplierId', 'categoryId', 'requestedBy', 'from', 'to', 'needsFill'];
+        const keys = ['status', 'supplierId', 'categoryId', 'requestedBy', 'from', 'to', 'needsFill', 'salesOrderId'];
         const r = await api('/supply/requests', { query: { facets: 1, limit: 1, ...(P.q ? { search: P.q } : {}), ...Object.fromEntries(keys.filter((k) => P[k]).map((k) => [k, P[k]])) } });
         return r.facets || {};
       },
@@ -253,6 +264,7 @@ export const requests = {
       { key: 'from', label: 'С даты', short: 'с', type: 'date' },
       { key: 'to', label: 'По дату', short: 'по', type: 'date' },
       { key: 'needsFill', type: 'hidden' },
+      { key: 'salesOrderId', label: 'По заказу', allLabel: 'Все заказы', type: 'select', options: async () => (await ordersLookup({ filter: 'active' }).catch(() => [])).map((o) => ({ value: o.id, label: orderLabel(o) })) },
     ],
     banner: (P) => (P.needsFill ? { text: 'Показаны заявки, которые не попадают в выплаты: нет суммы, даты счёта или нашей компании. Откройте и допишите.', keys: ['needsFill'] } : null),
     columns: [
@@ -262,6 +274,7 @@ export const requests = {
       { key: 'title', label: 'Наименование', sort: 'title', cls: 'clip', render: (r) => h('span', { title: name(r) }, name(r)) },
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
       { key: 'supplierName', label: 'Поставщик', cls: 'md-hide', render: (r) => r.supplierName || '' },
+      { key: 'orderTag', label: 'Заказ', cls: 'nowrap md-hide', render: (r) => (r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId, title: r.orderLabel || '' }, orderTag(r)) : '') },
       { key: 'requestedBy', label: 'Кто подал', sort: 'requestedBy', cls: 'nowrap md-hide', render: (r) => r.requestedBy || '' },
       { key: 'priceHint', money: true, label: 'Сумма', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
       { key: 'status', label: 'Статус', sort: 'status', cls: 'nowrap', render: (r) => h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), r.priority === 'urgent' ? h('span', null, ' ', badge(PRIORITY, 'urgent')) : null) },
@@ -303,7 +316,7 @@ export const requests = {
       card: (r, c, ctx) => ({
         pic: r.photo,
         title: heading(r),
-        meta: [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.priority === 'urgent' ? badge(PRIORITY, 'urgent') : null].filter(Boolean).map((x) => (typeof x === 'string' ? h('span', null, x) : x)),
+        meta: [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.salesOrderId ? h('span', { class: 'tag rq-order', title: r.orderLabel || 'Заявка под заказ' }, orderTag(r)) : null, r.priority === 'urgent' ? badge(PRIORITY, 'urgent') : null].filter(Boolean).map((x) => (typeof x === 'string' ? h('span', null, x) : x)),
         side: r.priceHint && session.canMoney ? money(r.priceHint) : '',
         foot: session.canEdit ? stepFoot(r, ctx) : null,
       }),
@@ -354,7 +367,7 @@ export const requests = {
       ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
       ['Поставщик', r.supplierName],
       ['Категория', r.categoryName],
-      ['Заказ / заказчик', r.orderLabel],
+      ['Заказ / заказчик', r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId }, r.orderLabel || orderTag(r)) : r.orderLabel],
       ['Наша компания', r.companyName],
       ['Тип счёта', r.invoiceType],
       ['№ счёта', r.invoiceNo],
@@ -386,16 +399,19 @@ export const requests = {
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
       const body = {
-        title: s(v.title), qty: v.qty ?? 1, unit: s(v.unit), categoryName: s(v.categoryName), supplierName: s(v.supplierName),
+        title: s(v.title), qty: v.qty ?? 1, unit: s(v.unit), categoryName: s(v.categoryName), 
         companyName: s(v.companyName), orderLabel: s(v.orderLabel), requestedBy: s(v.requestedBy), article: s(v.article), color: s(v.color),
-        productUrl: s(v.productUrl), invoiceType: s(v.invoiceType), invoiceNo: s(v.invoiceNo), deliveryNote: s(v.deliveryNote), notes: s(v.notes),
+        productUrl: s(v.productUrl), invoiceType: s(v.invoiceType), deliveryNote: s(v.deliveryNote), notes: s(v.notes),
         statusLabel: SUPPLY_STATUS[v.status]?.label, priorityLabel: PRIORITY[v.priority]?.label,
         photoIds: v.photos || [],
       };
       body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7)
       if (v.requestDate) body.requestDate = v.requestDate;
       body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
-      body.invoiceDate = v.invoiceDate || '';
+      if ('supplierName' in v) body.supplierName = s(v.supplierName);
+      if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo);
+      if ('invoiceDate' in v) body.invoiceDate = v.invoiceDate || '';
+      if (v.materialId) body.materialId = String(v.materialId);
       Object.assign(body, splitRef(v.salesOrderRef));
       if (body.salesOrderId && !v.orderLabel) delete body.orderLabel; // подпись заказа поставит сервер
       return body;

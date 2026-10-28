@@ -110,7 +110,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
           options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
           empty: () => (catSel ? null : (cat.classList.add('need'), setTimeout(() => cat.classList.remove('need'), 1600), '← Сначала выберите категорию — тогда здесь будут её позиции')),
           onPick: (o) => {
-            for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') xx.input.value = String(val); }
+            for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') { xx.input.value = String(val); if (xx.input.type === 'hidden') xx.input.dispatchEvent(new Event('change', { bubbles: true })); } }
             lock(true); summarize();
           },
         });
