@@ -158,10 +158,11 @@ function shell() {
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
-    group('Снабжение', navLinks.requests, navLinks.suppliercatalog),
-    group('Склад', navLinks.stock),
-    group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
+    // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     group('Производство', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
+    group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
+    group('Склад', navLinks.stock),
+    group('Снабжение', navLinks.requests, navLinks.suppliercatalog),
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
