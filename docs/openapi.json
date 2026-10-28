@@ -3343,6 +3343,218 @@
         ]
       }
     },
+    "/supply/invoices": {
+      "post": {
+        "operationId": "SupplyController_createInvoices",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoicesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "get": {
+        "operationId": "SupplyController_listInvoices",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "№ счёта или поставщик",
+            "schema": {}
+          },
+          {
+            "name": "supplierId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "через запятую: draft, issued, paid, cancelled",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}": {
+      "get": {
+        "operationId": "SupplyController_getInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "patch": {
+        "operationId": "SupplyController_updateInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "delete": {
+        "operationId": "SupplyController_removeInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/receive": {
+      "post": {
+        "operationId": "SupplyController_receiveInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/pay": {
+      "post": {
+        "operationId": "SupplyController_payInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/supplier-items": {
       "get": {
         "operationId": "SupplyController_listSupplierItems",
@@ -3370,6 +3582,251 @@
             "required": false,
             "in": "query",
             "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/items": {
+      "get": {
+        "operationId": "SupplyController_catalogList",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "stale",
+            "required": false,
+            "in": "query",
+            "description": "1 — цена старше 180 дней",
+            "schema": {}
+          },
+          {
+            "name": "noPrice",
+            "required": false,
+            "in": "query",
+            "description": "1 — без цены",
+            "schema": {}
+          },
+          {
+            "name": "unmatched",
+            "required": false,
+            "in": "query",
+            "description": "1 — без связи с материалом",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "materialId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "supplierId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "post": {
+        "operationId": "SupplyController_catalogCreate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/counts": {
+      "get": {
+        "operationId": "SupplyController_catalogCounts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/template": {
+      "get": {
+        "operationId": "SupplyController_catalogTemplate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/export": {
+      "get": {
+        "operationId": "SupplyController_catalogExport",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/import": {
+      "post": {
+        "operationId": "SupplyController_catalogImport",
+        "parameters": [
+          {
+            "name": "preview",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/bulk": {
+      "post": {
+        "operationId": "SupplyController_catalogBulk",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogBulkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/catalog/items/{id}": {
+      "patch": {
+        "operationId": "SupplyController_catalogPatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogItemPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "delete": {
+        "operationId": "SupplyController_catalogRemove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3772,6 +4229,1115 @@
         ]
       }
     },
+    "/notifications": {
+      "get": {
+        "operationId": "NotificationsController_list",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "description": "important | system",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Уведомления"
+        ]
+      }
+    },
+    "/notifications/unread": {
+      "get": {
+        "operationId": "NotificationsController_unread",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Уведомления"
+        ]
+      }
+    },
+    "/notifications/read-all": {
+      "post": {
+        "operationId": "NotificationsController_readAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Уведомления"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "post": {
+        "operationId": "NotificationsController_read",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Уведомления"
+        ]
+      }
+    },
+    "/salesorders": {
+      "get": {
+        "operationId": "SalesOrdersController_list",
+        "parameters": [
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "по дате отгрузки, ГГГГ-ММ-ДД",
+            "schema": {}
+          },
+          {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "description": "приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low",
+            "schema": {}
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "stage",
+            "required": false,
+            "in": "query",
+            "description": "этапы через запятую: new, production, ready, partly, shipped, closed, cancelled",
+            "schema": {}
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "active (новый / в производстве / готов / частично отгружен) | done (отгружен / закрыт) | all",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "orderNo | customer | stage | priority | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "№ заказа, заказчик, предмет, № контракта, № на производство, примечание",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      },
+      "post": {
+        "operationId": "SalesOrdersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/next-production-no": {
+      "get": {
+        "operationId": "SalesOrdersController_nextProductionNo",
+        "parameters": [
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "год, умолч. текущий",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/lookup": {
+      "get": {
+        "operationId": "SalesOrdersController_lookup",
+        "parameters": [
+          {
+            "name": "lines",
+            "required": false,
+            "in": "query",
+            "description": "1 — с позициями [{id, lineNo, title, qty, productId}]",
+            "schema": {}
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "active (по умолч.: новый / в производстве / готов) | all",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}": {
+      "get": {
+        "operationId": "SalesOrdersController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      },
+      "patch": {
+        "operationId": "SalesOrdersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      },
+      "delete": {
+        "operationId": "SalesOrdersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}/history": {
+      "get": {
+        "operationId": "SalesOrdersController_history",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "change | line | design | passport | shipment | payment | stock",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}/lines-lookup": {
+      "get": {
+        "operationId": "SalesOrdersController_linesLookup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}/match-products": {
+      "post": {
+        "operationId": "SalesOrdersController_matchProducts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchProductsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/salesorders/{id}/restore": {
+      "post": {
+        "operationId": "SalesOrdersController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
+    "/production-orders": {
+      "get": {
+        "operationId": "ProductionOrdersController_list",
+        "parameters": [
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "stage",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "active | done | all — по этапу заказа (самый отстающий договор)",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "productionNo | deadline | customer | createdAt; «-» — по убыванию (умолч. -createdAt)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "как у /salesorders; заказ находится, если подошёл любой его договор",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/production-orders/unassigned": {
+      "get": {
+        "operationId": "ProductionOrdersController_unassigned",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/production-orders/assign": {
+      "post": {
+        "operationId": "ProductionOrdersController_assign",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignOrdersDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/production-orders/{key}": {
+      "get": {
+        "operationId": "ProductionOrdersController_get",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/production-orders/{key}/readiness": {
+      "get": {
+        "operationId": "ProductionOrdersController_readiness",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/production-orders/{key}/stage": {
+      "post": {
+        "operationId": "ProductionOrdersController_setStage",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductionStageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/materials": {
+      "get": {
+        "operationId": "MaterialController_list",
+        "summary": "List all materials with pagination and filters",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "materialKind",
+            "required": false,
+            "in": "query",
+            "description": "Filter by catalog kind",
+            "schema": {
+              "enum": [
+                "raw",
+                "part",
+                "fastener",
+                "purchased",
+                "other"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of materials"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      },
+      "post": {
+        "operationId": "MaterialController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMaterialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/prices": {
+      "get": {
+        "operationId": "MaterialController_getPrices",
+        "summary": "История закупочных цен материала (без НДС)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/price-default": {
+      "get": {
+        "operationId": "MaterialController_getPriceDefault",
+        "summary": "Последняя цена и поставщик — для подстановки в заявку",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/where-used": {
+      "get": {
+        "operationId": "MaterialController_getWhereUsed",
+        "summary": "List catalog parents that use this material",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size, max 100",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/composition": {
+      "get": {
+        "operationId": "MaterialController_getComposition",
+        "summary": "Deталь BOM: raw materials in this part (TZ-NX-DETAIL-MATERIAL-BOM)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      },
+      "post": {
+        "operationId": "MaterialController_addComposition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCompositionLineDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/composition/{lineId}": {
+      "patch": {
+        "operationId": "MaterialController_updateComposition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCompositionLineDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      },
+      "delete": {
+        "operationId": "MaterialController_removeComposition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/tree": {
+      "get": {
+        "operationId": "MaterialController_getTree",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "maxDepth",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}": {
+      "get": {
+        "operationId": "MaterialController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      },
+      "patch": {
+        "operationId": "MaterialController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMaterialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      },
+      "delete": {
+        "operationId": "MaterialController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/passport-spec": {
+      "patch": {
+        "operationId": "MaterialController_setPassportSpec",
+        "summary": "МЦ-2: связь позиции склада с материалом паспорта (materialId, sizes, isCoating, passportText, techText)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
+    "/materials/{id}/duplicate": {
+      "post": {
+        "operationId": "MaterialController_duplicate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Материалы"
+        ]
+      }
+    },
     "/incomes": {
       "get": {
         "operationId": "IncomesController_list",
@@ -3819,7 +5385,7 @@
             "name": "status",
             "required": false,
             "in": "query",
-            "description": "draft (не отгружено) | awaiting (отгружено, ждём оплату) | paid",
+            "description": "draft (не отгружено) | awaiting (отгружено, ждём оплату) | partial (оплачено частично) | paid",
             "schema": {}
           },
           {
@@ -4007,6 +5573,70 @@
           },
           {
             "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/payments": {
+      "post": {
+        "operationId": "IncomesController_addPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/payments/{index}": {
+      "delete": {
+        "operationId": "IncomesController_removePayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
             "required": true,
             "in": "path",
             "schema": {
@@ -5256,299 +6886,6 @@
         ]
       }
     },
-    "/salesorders": {
-      "get": {
-        "operationId": "SalesOrdersController_list",
-        "parameters": [
-          {
-            "name": "deleted",
-            "required": false,
-            "in": "query",
-            "description": "1 — корзина",
-            "schema": {}
-          },
-          {
-            "name": "to",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "from",
-            "required": false,
-            "in": "query",
-            "description": "по дате отгрузки, ГГГГ-ММ-ДД",
-            "schema": {}
-          },
-          {
-            "name": "priority",
-            "required": false,
-            "in": "query",
-            "description": "приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low",
-            "schema": {}
-          },
-          {
-            "name": "companyId",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "stage",
-            "required": false,
-            "in": "query",
-            "description": "этапы через запятую: new, production, ready, shipped, closed, cancelled",
-            "schema": {}
-          },
-          {
-            "name": "filter",
-            "required": false,
-            "in": "query",
-            "description": "active (новый / в производстве / готов) | done (отгружен / закрыт) | all",
-            "schema": {}
-          },
-          {
-            "name": "sort",
-            "required": false,
-            "in": "query",
-            "description": "orderNo | customer | stage | priority | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)",
-            "schema": {}
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "№ заказа, заказчик, предмет, № контракта, примечание",
-            "schema": {}
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      },
-      "post": {
-        "operationId": "SalesOrdersController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SalesOrderDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      }
-    },
-    "/salesorders/lookup": {
-      "get": {
-        "operationId": "SalesOrdersController_lookup",
-        "parameters": [
-          {
-            "name": "lines",
-            "required": false,
-            "in": "query",
-            "description": "1 — с позициями [{id, lineNo, title, qty, productId}]",
-            "schema": {}
-          },
-          {
-            "name": "filter",
-            "required": false,
-            "in": "query",
-            "description": "active (по умолч.: новый / в производстве / готов) | all",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      }
-    },
-    "/salesorders/{id}": {
-      "get": {
-        "operationId": "SalesOrdersController_get",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      },
-      "patch": {
-        "operationId": "SalesOrdersController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SalesOrderDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      },
-      "delete": {
-        "operationId": "SalesOrdersController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      }
-    },
-    "/salesorders/{id}/lines-lookup": {
-      "get": {
-        "operationId": "SalesOrdersController_linesLookup",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      }
-    },
-    "/salesorders/{id}/match-products": {
-      "post": {
-        "operationId": "SalesOrdersController_matchProducts",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MatchProductsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      }
-    },
-    "/salesorders/{id}/restore": {
-      "post": {
-        "operationId": "SalesOrdersController_restore",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заказы заказчиков"
-        ]
-      }
-    },
     "/design-tasks": {
       "get": {
         "operationId": "DesignController_list",
@@ -5558,6 +6895,13 @@
             "required": false,
             "in": "query",
             "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "needsAnswer",
+            "required": false,
+            "in": "query",
+            "description": "1 — только задачи с открытым вопросом менеджеру",
             "schema": {}
           },
           {
@@ -5590,7 +6934,7 @@
             "name": "status",
             "required": false,
             "in": "query",
-            "description": "queue | work | done | paused, через запятую",
+            "description": "queue | work | done | paused | cancelled, через запятую",
             "schema": {}
           },
           {
@@ -5738,6 +7082,103 @@
         ]
       }
     },
+    "/design-tasks/{id}/photos": {
+      "post": {
+        "operationId": "DesignController_addPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-tasks/{id}/photos/{photoId}": {
+      "delete": {
+        "operationId": "DesignController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-tasks/{id}/stickers": {
+      "patch": {
+        "operationId": "DesignController_setStickers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StickerValuesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
     "/design-tasks/{id}/restore": {
       "post": {
         "operationId": "DesignController_restore",
@@ -5840,6 +7281,501 @@
         },
         "tags": [
           "Проектирование"
+        ]
+      }
+    },
+    "/design-stickers": {
+      "get": {
+        "operationId": "DesignStickerController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "post": {
+        "operationId": "DesignStickerController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignStickerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-stickers/{id}": {
+      "patch": {
+        "operationId": "DesignStickerController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignStickerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "delete": {
+        "operationId": "DesignStickerController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-tasks/{id}/notes": {
+      "get": {
+        "operationId": "DesignNoteController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "post": {
+        "operationId": "DesignNoteController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-notes/open-questions": {
+      "get": {
+        "operationId": "DesignNoteController_openQuestions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/design-notes/{id}": {
+      "patch": {
+        "operationId": "DesignNoteController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignNoteEditDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      },
+      "delete": {
+        "operationId": "DesignNoteController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
+    "/salesorders/{id}/shipments": {
+      "get": {
+        "operationId": "ShipmentsController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — отменённые (для восстановления)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Отгрузки"
+        ]
+      },
+      "post": {
+        "operationId": "ShipmentsController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Отгрузки"
+        ]
+      }
+    },
+    "/shipments/{id}": {
+      "patch": {
+        "operationId": "ShipmentsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Отгрузки"
+        ]
+      },
+      "delete": {
+        "operationId": "ShipmentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Отгрузки"
+        ]
+      }
+    },
+    "/shipments/{id}/restore": {
+      "post": {
+        "operationId": "ShipmentsController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Отгрузки"
+        ]
+      }
+    },
+    "/shipments/{id}/pdf": {
+      "get": {
+        "operationId": "ShipmentsController_pdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Отгрузки"
+        ]
+      }
+    },
+    "/messages/users": {
+      "get": {
+        "operationId": "MessagesController_users",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
+    "/messages/threads": {
+      "get": {
+        "operationId": "MessagesController_threads",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
+    "/messages/with/{userId}": {
+      "get": {
+        "operationId": "MessagesController_with",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
+    "/messages/with/{userId}/read": {
+      "post": {
+        "operationId": "MessagesController_read",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
+    "/messages": {
+      "post": {
+        "operationId": "MessagesController_send",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
+    "/today": {
+      "get": {
+        "operationId": "TodayController_get",
+        "parameters": [
+          {
+            "name": "days",
+            "required": false,
+            "in": "query",
+            "description": "Горизонт недели, 1–31 (по умолчанию 7)",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сегодня"
         ]
       }
     },
@@ -5955,6 +7891,42 @@
         ]
       }
     },
+    "/finance/settings": {
+      "get": {
+        "operationId": "FinanceController_settings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      },
+      "put": {
+        "operationId": "FinanceController_saveSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
     "/finance/needs-fill": {
       "get": {
         "operationId": "FinanceController_needsFill",
@@ -5966,6 +7938,163 @@
         },
         "tags": [
           "Деньги"
+        ]
+      }
+    },
+    "/payroll/summary": {
+      "get": {
+        "operationId": "PayrollController_summary",
+        "parameters": [
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ (умолч. текущий)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ФОТ"
+        ]
+      }
+    },
+    "/payroll/timesheet": {
+      "put": {
+        "operationId": "PayrollController_saveTimesheet",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimesheetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ФОТ"
+        ]
+      }
+    },
+    "/payroll/payments": {
+      "get": {
+        "operationId": "PayrollController_payments",
+        "parameters": [
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "personId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ФОТ"
+        ]
+      },
+      "post": {
+        "operationId": "PayrollController_addPayment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ФОТ"
+        ]
+      }
+    },
+    "/payroll/payments/{id}": {
+      "delete": {
+        "operationId": "PayrollController_removePayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ФОТ"
+        ]
+      }
+    },
+    "/payroll/people/{id}": {
+      "patch": {
+        "operationId": "PayrollController_setCompany",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ФОТ"
         ]
       }
     },
@@ -7951,411 +10080,6 @@
         ]
       }
     },
-    "/materials": {
-      "get": {
-        "operationId": "MaterialController_list",
-        "summary": "List all materials with pagination and filters",
-        "parameters": [
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "Search by name",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "categoryId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by category",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "materialKind",
-            "required": false,
-            "in": "query",
-            "description": "Filter by catalog kind",
-            "schema": {
-              "enum": [
-                "raw",
-                "part",
-                "fastener",
-                "purchased",
-                "other"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Items per page",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of materials"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      },
-      "post": {
-        "operationId": "MaterialController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMaterialDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}/where-used": {
-      "get": {
-        "operationId": "MaterialController_getWhereUsed",
-        "summary": "List catalog parents that use this material",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Page size, max 100",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}/composition": {
-      "get": {
-        "operationId": "MaterialController_getComposition",
-        "summary": "Deталь BOM: raw materials in this part (TZ-NX-DETAIL-MATERIAL-BOM)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      },
-      "post": {
-        "operationId": "MaterialController_addComposition",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCompositionLineDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}/composition/{lineId}": {
-      "patch": {
-        "operationId": "MaterialController_updateComposition",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateCompositionLineDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      },
-      "delete": {
-        "operationId": "MaterialController_removeComposition",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}/tree": {
-      "get": {
-        "operationId": "MaterialController_getTree",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "maxDepth",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}": {
-      "get": {
-        "operationId": "MaterialController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      },
-      "patch": {
-        "operationId": "MaterialController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateMaterialDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      },
-      "delete": {
-        "operationId": "MaterialController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}/passport-spec": {
-      "patch": {
-        "operationId": "MaterialController_setPassportSpec",
-        "summary": "МЦ-2: связь позиции склада с материалом паспорта (materialId, sizes, isCoating, passportText, techText)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
-    "/materials/{id}/duplicate": {
-      "post": {
-        "operationId": "MaterialController_duplicate",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Справочники — Материалы"
-        ]
-      }
-    },
     "/products": {
       "get": {
         "operationId": "ProductController_list",
@@ -9399,6 +11123,40 @@
       "get": {
         "operationId": "ProductPassportController_duplicates",
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/queue": {
+      "get": {
+        "operationId": "ProductPassportController_queue",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "due",
+            "required": false,
+            "in": "query",
+            "description": "overdue | soon | all (умолч.)",
+            "schema": {}
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -11387,6 +13145,74 @@
           "qty"
         ]
       },
+      "CreateInvoicesDto": {
+        "type": "object",
+        "properties": {
+          "requestIds": {
+            "description": "Заявки, которые заказываем (id); делятся на счета по поставщику",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PatchInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "no": {
+            "type": "string",
+            "description": "№ счёта"
+          },
+          "date": {
+            "type": "string",
+            "description": "Дата счёта ГГГГ-ММ-ДД или ДД.ММ.ГГГГ"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Сумма счёта, ₽"
+          },
+          "payerCompanyId": {
+            "type": "string",
+            "description": "Плательщик — наша компания (id организации); \"\" — снять"
+          },
+          "fileIds": {
+            "description": "Файлы счёта (id из POST /api/photos/upload) — весь список",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issue": {
+            "type": "boolean",
+            "description": "true — «Счёт выставлен»: нужны №, дата и сумма"
+          }
+        }
+      },
+      "ReceiveInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "requestIds": {
+            "description": "Какие заявки счёта принять (id); по умолчанию — все неполученные",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CatalogItemDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CatalogBulkDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CatalogItemPatchDto": {
+        "type": "object",
+        "properties": {}
+      },
       "SupplyRequestDto": {
         "type": "object",
         "properties": {
@@ -11538,6 +13364,522 @@
           }
         }
       },
+      "MatchPickDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "object",
+            "description": "null — оставить без изделия"
+          }
+        }
+      },
+      "MatchProductsDto": {
+        "type": "object",
+        "properties": {
+          "apply": {
+            "type": "boolean",
+            "description": "true — записать picks; иначе только предложения"
+          },
+          "picks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchPickDto"
+            }
+          }
+        }
+      },
+      "SalesOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderNo": {
+            "type": "string",
+            "description": "№ договора (обязателен при создании)"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания по id (organizations)"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Наша компания по названию: СИЮ / ССЮ; \"\" — без компании"
+          },
+          "customer": {
+            "type": "string",
+            "description": "Заказчик"
+          },
+          "title": {
+            "type": "string",
+            "description": "Предмет заказа / контракта"
+          },
+          "paymentForm": {
+            "type": "string",
+            "description": "Форма оплаты: б/р, б/р 30%, нал…"
+          },
+          "contractNo": {
+            "type": "string",
+            "description": "№ госконтракта"
+          },
+          "productionNo": {
+            "type": "string",
+            "description": "№ заказа (производства), например 21-26; один № у нескольких договоров — один заказ; \"\" снимает"
+          },
+          "contractDate": {
+            "type": "string",
+            "description": "Дата контракта"
+          },
+          "shipDate": {
+            "type": "string",
+            "description": "Дата отгрузки"
+          },
+          "productionDeadline": {
+            "type": "string",
+            "description": "Срок изготовления"
+          },
+          "deliveryDeadline": {
+            "type": "string",
+            "description": "Окончание поставки"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "new",
+              "production",
+              "ready",
+              "partly",
+              "shipped",
+              "closed",
+              "cancelled"
+            ],
+            "description": "new | production | ready | partly | shipped | closed | cancelled"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "urgent",
+              "high",
+              "normal",
+              "low"
+            ],
+            "description": "urgent | high | normal | low; \"\" — снять (= обычный)"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не создаёт дубль"
+          }
+        }
+      },
+      "AssignOrdersDto": {
+        "type": "object",
+        "properties": {
+          "contractIds": {
+            "description": "id договоров без № заказа",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "productionNo": {
+            "type": "string",
+            "description": "№ существующего заказа; нет — создаётся новый"
+          }
+        }
+      },
+      "ProductionStageDto": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "new",
+              "production",
+              "ready",
+              "partly",
+              "shipped",
+              "closed",
+              "cancelled"
+            ],
+            "description": "new | production | ready | partly | shipped | closed"
+          }
+        }
+      },
+      "CompositionOverrideDimensionsDto": {
+        "type": "object",
+        "properties": {
+          "length": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateCompositionLineDto": {
+        "type": "object",
+        "properties": {
+          "lineType": {
+            "type": "string",
+            "enum": [
+              "module",
+              "material",
+              "product"
+            ]
+          },
+          "refId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 0.000001
+          },
+          "sortOrder": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string"
+          },
+          "overrideDimensions": {
+            "$ref": "#/components/schemas/CompositionOverrideDimensionsDto"
+          },
+          "isPurchased": {
+            "type": "boolean"
+          },
+          "sourcePosition": {
+            "type": "string"
+          },
+          "sourceCode": {
+            "type": "string"
+          },
+          "unitPriceOverride": {
+            "type": "number",
+            "description": "Цена переопределения (только для product-lines)"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lineType",
+          "refId",
+          "quantity"
+        ]
+      },
+      "UpdateCompositionLineDto": {
+        "type": "object",
+        "properties": {
+          "lineType": {
+            "type": "string",
+            "enum": [
+              "module",
+              "material",
+              "product"
+            ]
+          },
+          "refId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 0.000001
+          },
+          "sortOrder": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string"
+          },
+          "overrideDimensions": {
+            "$ref": "#/components/schemas/CompositionOverrideDimensionsDto"
+          },
+          "isPurchased": {
+            "type": "boolean"
+          },
+          "sourcePosition": {
+            "type": "string"
+          },
+          "sourceCode": {
+            "type": "string"
+          },
+          "unitPriceOverride": {
+            "type": "number",
+            "description": "Цена переопределения (только для product-lines)"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "DimensionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "length",
+              "width",
+              "height",
+              "thickness",
+              "diameter",
+              "depth"
+            ],
+            "description": "Тип размера"
+          },
+          "value": {
+            "type": "number",
+            "description": "Значение размера"
+          },
+          "isImmutable": {
+            "type": "boolean",
+            "description": "Неизменяемый размер"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ]
+      },
+      "CreateMaterialDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Стекло 4мм",
+            "description": "Название материала"
+          },
+          "article": {
+            "type": "string",
+            "example": "STK-004",
+            "description": "Артикул материала"
+          },
+          "sku": {
+            "type": "string",
+            "example": "M-0001",
+            "description": "Внутренний код материала (уникальный, поисковый)"
+          },
+          "materialKind": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "part",
+              "fastener",
+              "purchased",
+              "other"
+            ],
+            "description": "Тип каталожной позиции"
+          },
+          "assortment": {
+            "type": "string",
+            "description": "Сортамент или тип позиции (например, труба/лист)"
+          },
+          "standardRef": {
+            "type": "string",
+            "description": "Нормативный стандарт: ГОСТ, ASTM и т.п."
+          },
+          "materialGrade": {
+            "type": "string",
+            "description": "Марка материала: Ст3, AISI 304 и т.п."
+          },
+          "weightKg": {
+            "type": "number",
+            "example": 1.5,
+            "description": "Масса в килограммах"
+          },
+          "unit": {
+            "type": "string",
+            "example": "м2",
+            "description": "Единица измерения"
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "ID категории"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание материала"
+          },
+          "pricePerUnit": {
+            "type": "number",
+            "description": "Цена за единицу (RUB)"
+          },
+          "stockQty": {
+            "type": "number",
+            "description": "Количество на складе"
+          },
+          "dimensions": {
+            "description": "Размеры материала",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DimensionDto"
+            }
+          },
+          "colors": {
+            "description": "Цвета, доступные для заказа у материала",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "photoIds": {
+            "description": "ID фотографий",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mainPhotoId": {
+            "type": "string",
+            "description": "ID основного фото"
+          },
+          "supplierId": {
+            "type": "string",
+            "description": "ID поставщика"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Заметки"
+          }
+        },
+        "required": [
+          "name",
+          "article",
+          "unit"
+        ]
+      },
+      "UpdateMaterialDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Стекло 4мм",
+            "description": "Название материала"
+          },
+          "article": {
+            "type": "string",
+            "example": "STK-004",
+            "description": "Артикул материала"
+          },
+          "sku": {
+            "type": "string",
+            "example": "M-0001",
+            "description": "Внутренний код материала (уникальный, поисковый)"
+          },
+          "materialKind": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "part",
+              "fastener",
+              "purchased",
+              "other"
+            ],
+            "description": "Тип каталожной позиции"
+          },
+          "assortment": {
+            "type": "string",
+            "description": "Сортамент или тип позиции (например, труба/лист)"
+          },
+          "standardRef": {
+            "type": "string",
+            "description": "Нормативный стандарт: ГОСТ, ASTM и т.п."
+          },
+          "materialGrade": {
+            "type": "string",
+            "description": "Марка материала: Ст3, AISI 304 и т.п."
+          },
+          "weightKg": {
+            "type": "number",
+            "example": 1.5,
+            "description": "Масса в килограммах"
+          },
+          "unit": {
+            "type": "string",
+            "example": "м2",
+            "description": "Единица измерения"
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "ID категории"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание материала"
+          },
+          "pricePerUnit": {
+            "type": "number",
+            "description": "Цена за единицу (RUB)"
+          },
+          "stockQty": {
+            "type": "number",
+            "description": "Количество на складе"
+          },
+          "dimensions": {
+            "description": "Размеры материала",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DimensionDto"
+            }
+          },
+          "colors": {
+            "description": "Цвета, доступные для заказа у материала",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "photoIds": {
+            "description": "ID фотографий",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mainPhotoId": {
+            "type": "string",
+            "description": "ID основного фото"
+          },
+          "supplierId": {
+            "type": "string",
+            "description": "ID поставщика"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Заметки"
+          }
+        }
+      },
+      "PaymentDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Дата платежа ГГГГ-ММ-ДД / ДД.ММ.ГГГГ"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Сумма, ₽ (> 0)"
+          },
+          "method": {
+            "type": "string",
+            "description": "Способ: нал | безнал | карта"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
       "IncomeDto": {
         "type": "object",
         "properties": {
@@ -11613,110 +13955,12 @@
             "type": "string",
             "description": "Дата оплаты"
           },
-          "notes": {
-            "type": "string"
-          },
-          "clientUid": {
-            "type": "string",
-            "description": "Ключ клиента — повтор не создаёт дубль"
-          }
-        }
-      },
-      "MatchPickDto": {
-        "type": "object",
-        "properties": {
-          "lineId": {
-            "type": "string"
-          },
-          "productId": {
-            "type": "object",
-            "description": "null — оставить без изделия"
-          }
-        }
-      },
-      "MatchProductsDto": {
-        "type": "object",
-        "properties": {
-          "apply": {
-            "type": "boolean",
-            "description": "true — записать picks; иначе только предложения"
-          },
-          "picks": {
+          "payments": {
+            "description": "Платежи (заменяют весь список). paidDate без payments = оплачено целиком (старый способ); paidDate \"\" — снять оплату",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MatchPickDto"
+              "$ref": "#/components/schemas/PaymentDto"
             }
-          }
-        }
-      },
-      "SalesOrderDto": {
-        "type": "object",
-        "properties": {
-          "orderNo": {
-            "type": "string",
-            "description": "№ заказа (обязателен при создании)"
-          },
-          "companyId": {
-            "type": "string",
-            "description": "Наша компания по id (organizations)"
-          },
-          "companyName": {
-            "type": "string",
-            "description": "Наша компания по названию: СИЮ / ССЮ; \"\" — без компании"
-          },
-          "customer": {
-            "type": "string",
-            "description": "Заказчик"
-          },
-          "title": {
-            "type": "string",
-            "description": "Предмет заказа / контракта"
-          },
-          "paymentForm": {
-            "type": "string",
-            "description": "Форма оплаты: б/р, б/р 30%, нал…"
-          },
-          "contractNo": {
-            "type": "string",
-            "description": "№ контракта"
-          },
-          "contractDate": {
-            "type": "string",
-            "description": "Дата контракта"
-          },
-          "shipDate": {
-            "type": "string",
-            "description": "Дата отгрузки"
-          },
-          "productionDeadline": {
-            "type": "string",
-            "description": "Срок изготовления"
-          },
-          "deliveryDeadline": {
-            "type": "string",
-            "description": "Окончание поставки"
-          },
-          "stage": {
-            "type": "string",
-            "enum": [
-              "new",
-              "production",
-              "ready",
-              "shipped",
-              "closed",
-              "cancelled"
-            ],
-            "description": "new | production | ready | shipped | closed | cancelled"
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "urgent",
-              "high",
-              "normal",
-              "low"
-            ],
-            "description": "urgent | high | normal | low; \"\" — снять (= обычный)"
           },
           "notes": {
             "type": "string"
@@ -11746,6 +13990,35 @@
           "orderId"
         ]
       },
+      "DesignSpecDto": {
+        "type": "object",
+        "properties": {
+          "qty": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "mount": {
+            "type": "string"
+          },
+          "cover": {
+            "type": "string"
+          },
+          "ral": {
+            "type": "string"
+          },
+          "extra": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        }
+      },
       "DesignTaskDto": {
         "type": "object",
         "properties": {
@@ -11755,7 +14028,8 @@
               "queue",
               "work",
               "done",
-              "paused"
+              "paused",
+              "cancelled"
             ],
             "description": "queue | work | done | paused"
           },
@@ -11765,7 +14039,7 @@
           },
           "incomeId": {
             "type": "string",
-            "description": "Позиция заказа (incomes): заказ и изделие берутся из неё"
+            "description": "Позиция заказа (incomes): заказ и изделие берутся из неё. В правке — только привязка свободной задачи (без позиции); сменить позицию нельзя"
           },
           "productId": {
             "type": "object",
@@ -11795,8 +14069,41 @@
           },
           "note": {
             "type": "string"
+          },
+          "spec": {
+            "description": "Что изготовить {qty,unit,size,mount,cover,ral,extra,raw}; null — очистить",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DesignSpecDto"
+              }
+            ]
           }
         }
+      },
+      "PhotoDto": {
+        "type": "object",
+        "properties": {
+          "photoId": {
+            "type": "string",
+            "description": "Фото из POST /api/photos/upload"
+          }
+        },
+        "required": [
+          "photoId"
+        ]
+      },
+      "StickerValuesDto": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "description": "{ <id стикера>: число | id состояния }; null или \"\" — очистить значение",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "values"
+        ]
       },
       "AddDesignOrderDto": {
         "type": "object",
@@ -11813,6 +14120,298 @@
         "required": [
           "orderId"
         ]
+      },
+      "StickerStateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Устойчивый id состояния; пусто — создаётся сервером"
+          },
+          "label": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "description": "Цвет #RRGGBB"
+          }
+        },
+        "required": [
+          "label"
+        ]
+      },
+      "DesignStickerDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "number",
+              "state"
+            ],
+            "description": "Вид (только при создании)"
+          },
+          "label": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Единица числа («ч», «шт»)"
+          },
+          "states": {
+            "description": "Состояния (для kind=state, 1–20)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StickerStateDto"
+            }
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "number"
+          }
+        }
+      },
+      "DesignNoteDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "comment",
+              "question"
+            ],
+            "description": "comment (по умолчанию) | question — вопрос менеджеру"
+          },
+          "text": {
+            "type": "string",
+            "description": "Текст, до 4000 знаков"
+          },
+          "replyTo": {
+            "type": "string",
+            "description": "Ответ на вопрос (id записи kind=question этой же задачи); снимает «Требует ответа»"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "app",
+              "coordinator",
+              "yougile"
+            ],
+            "description": "Импорт, только admin: app | coordinator | yougile"
+          },
+          "authorName": {
+            "type": "string",
+            "description": "Импорт, только admin: имя автора, если его нет среди пользователей"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Импорт, только admin: время записи (ISO)"
+          },
+          "externalId": {
+            "type": "string",
+            "description": "Импорт, только admin: id сообщения в YouGile; повтор с тем же id вернёт уже созданную запись"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "DesignNoteEditDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "ShipmentLineDto": {
+        "type": "object",
+        "properties": {
+          "incomeId": {
+            "type": "string",
+            "description": "id позиции заказа (incomes)"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Сколько отгружено сейчас (> 0, не больше остатка)"
+          }
+        },
+        "required": [
+          "incomeId",
+          "qty"
+        ]
+      },
+      "CreateShipmentDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShipmentLineDto"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "description": "Почему отгружено не всё"
+          },
+          "note": {
+            "type": "string"
+          },
+          "docNo": {
+            "type": "string",
+            "description": "№ документа (УПД / ТН)"
+          },
+          "receiver": {
+            "type": "string",
+            "description": "Кто принял"
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
+      "UpdateShipmentDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "docNo": {
+            "type": "string"
+          },
+          "receiver": {
+            "type": "string"
+          }
+        }
+      },
+      "SendMessageDto": {
+        "type": "object",
+        "properties": {
+          "toUserId": {
+            "type": "string",
+            "description": "id получателя (активный пользователь)"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "toUserId",
+          "text"
+        ]
+      },
+      "SettingsDto": {
+        "type": "object",
+        "properties": {
+          "startDate": {
+            "type": "object",
+            "description": "ГГГГ-ММ-ДД; null или пусто — без старта учёта",
+            "nullable": true
+          },
+          "openingBalance": {
+            "type": "object",
+            "description": "Остаток на счёте на дату старта по компаниям, ₽"
+          }
+        }
+      },
+      "TimesheetDto": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "type": "string"
+          },
+          "month": {
+            "type": "string",
+            "description": "ГГГГ-ММ"
+          },
+          "hours": {
+            "type": "object",
+            "description": "Часы (для почасовой); null — очистить",
+            "nullable": true
+          },
+          "days": {
+            "type": "object",
+            "description": "Отработано дней (для оклада); null — очистить",
+            "nullable": true
+          },
+          "normDays": {
+            "type": "object",
+            "description": "Норма дней в месяце (для оклада по дням); null — очистить",
+            "nullable": true
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "personId",
+          "month"
+        ]
+      },
+      "PayoutDto": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "type": "string"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания (organizations), которая платит"
+          },
+          "date": {
+            "type": "string",
+            "description": "Дата выплаты ГГГГ-ММ-ДД"
+          },
+          "amount": {
+            "type": "number",
+            "description": "₽ на руки"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "advance",
+              "salary",
+              "bonus",
+              "other"
+            ],
+            "description": "advance | salary | bonus | other (умолч. salary)"
+          },
+          "month": {
+            "type": "string",
+            "description": "За какой месяц ГГГГ-ММ (умолч. месяц даты)"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "personId",
+          "companyId",
+          "date",
+          "amount"
+        ]
+      },
+      "PersonCompanyDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "object",
+            "description": "Наша компания (organizations); null — снять",
+            "nullable": true
+          }
+        }
       },
       "AddSheetSourceDto": {
         "type": "object",
@@ -12434,358 +15033,6 @@
           "isActive": {
             "type": "boolean",
             "description": "Доступность в активных списках"
-          }
-        }
-      },
-      "CompositionOverrideDimensionsDto": {
-        "type": "object",
-        "properties": {
-          "length": {
-            "type": "number"
-          },
-          "width": {
-            "type": "number"
-          },
-          "height": {
-            "type": "number"
-          },
-          "unit": {
-            "type": "string"
-          }
-        }
-      },
-      "CreateCompositionLineDto": {
-        "type": "object",
-        "properties": {
-          "lineType": {
-            "type": "string",
-            "enum": [
-              "module",
-              "material",
-              "product"
-            ]
-          },
-          "refId": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "number",
-            "minimum": 0.000001
-          },
-          "sortOrder": {
-            "type": "number",
-            "minimum": 0
-          },
-          "unit": {
-            "type": "string"
-          },
-          "overrideDimensions": {
-            "$ref": "#/components/schemas/CompositionOverrideDimensionsDto"
-          },
-          "isPurchased": {
-            "type": "boolean"
-          },
-          "sourcePosition": {
-            "type": "string"
-          },
-          "sourceCode": {
-            "type": "string"
-          },
-          "unitPriceOverride": {
-            "type": "number",
-            "description": "Цена переопределения (только для product-lines)"
-          },
-          "notes": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "lineType",
-          "refId",
-          "quantity"
-        ]
-      },
-      "UpdateCompositionLineDto": {
-        "type": "object",
-        "properties": {
-          "lineType": {
-            "type": "string",
-            "enum": [
-              "module",
-              "material",
-              "product"
-            ]
-          },
-          "refId": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "number",
-            "minimum": 0.000001
-          },
-          "sortOrder": {
-            "type": "number",
-            "minimum": 0
-          },
-          "unit": {
-            "type": "string"
-          },
-          "overrideDimensions": {
-            "$ref": "#/components/schemas/CompositionOverrideDimensionsDto"
-          },
-          "isPurchased": {
-            "type": "boolean"
-          },
-          "sourcePosition": {
-            "type": "string"
-          },
-          "sourceCode": {
-            "type": "string"
-          },
-          "unitPriceOverride": {
-            "type": "number",
-            "description": "Цена переопределения (только для product-lines)"
-          },
-          "notes": {
-            "type": "string"
-          }
-        }
-      },
-      "DimensionDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "length",
-              "width",
-              "height",
-              "thickness",
-              "diameter",
-              "depth"
-            ],
-            "description": "Тип размера"
-          },
-          "value": {
-            "type": "number",
-            "description": "Значение размера"
-          },
-          "isImmutable": {
-            "type": "boolean",
-            "description": "Неизменяемый размер"
-          }
-        },
-        "required": [
-          "type",
-          "value"
-        ]
-      },
-      "CreateMaterialDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Стекло 4мм",
-            "description": "Название материала"
-          },
-          "article": {
-            "type": "string",
-            "example": "STK-004",
-            "description": "Артикул материала"
-          },
-          "sku": {
-            "type": "string",
-            "example": "M-0001",
-            "description": "Внутренний код материала (уникальный, поисковый)"
-          },
-          "materialKind": {
-            "type": "string",
-            "enum": [
-              "raw",
-              "part",
-              "fastener",
-              "purchased",
-              "other"
-            ],
-            "description": "Тип каталожной позиции"
-          },
-          "assortment": {
-            "type": "string",
-            "description": "Сортамент или тип позиции (например, труба/лист)"
-          },
-          "standardRef": {
-            "type": "string",
-            "description": "Нормативный стандарт: ГОСТ, ASTM и т.п."
-          },
-          "materialGrade": {
-            "type": "string",
-            "description": "Марка материала: Ст3, AISI 304 и т.п."
-          },
-          "weightKg": {
-            "type": "number",
-            "example": 1.5,
-            "description": "Масса в килограммах"
-          },
-          "unit": {
-            "type": "string",
-            "example": "м2",
-            "description": "Единица измерения"
-          },
-          "categoryId": {
-            "type": "string",
-            "description": "ID категории"
-          },
-          "description": {
-            "type": "string",
-            "description": "Описание материала"
-          },
-          "pricePerUnit": {
-            "type": "number",
-            "description": "Цена за единицу (RUB)"
-          },
-          "stockQty": {
-            "type": "number",
-            "description": "Количество на складе"
-          },
-          "dimensions": {
-            "description": "Размеры материала",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DimensionDto"
-            }
-          },
-          "colors": {
-            "description": "Цвета, доступные для заказа у материала",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "photoIds": {
-            "description": "ID фотографий",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "mainPhotoId": {
-            "type": "string",
-            "description": "ID основного фото"
-          },
-          "supplierId": {
-            "type": "string",
-            "description": "ID поставщика"
-          },
-          "notes": {
-            "type": "string",
-            "description": "Заметки"
-          }
-        },
-        "required": [
-          "name",
-          "article",
-          "unit"
-        ]
-      },
-      "UpdateMaterialDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Стекло 4мм",
-            "description": "Название материала"
-          },
-          "article": {
-            "type": "string",
-            "example": "STK-004",
-            "description": "Артикул материала"
-          },
-          "sku": {
-            "type": "string",
-            "example": "M-0001",
-            "description": "Внутренний код материала (уникальный, поисковый)"
-          },
-          "materialKind": {
-            "type": "string",
-            "enum": [
-              "raw",
-              "part",
-              "fastener",
-              "purchased",
-              "other"
-            ],
-            "description": "Тип каталожной позиции"
-          },
-          "assortment": {
-            "type": "string",
-            "description": "Сортамент или тип позиции (например, труба/лист)"
-          },
-          "standardRef": {
-            "type": "string",
-            "description": "Нормативный стандарт: ГОСТ, ASTM и т.п."
-          },
-          "materialGrade": {
-            "type": "string",
-            "description": "Марка материала: Ст3, AISI 304 и т.п."
-          },
-          "weightKg": {
-            "type": "number",
-            "example": 1.5,
-            "description": "Масса в килограммах"
-          },
-          "unit": {
-            "type": "string",
-            "example": "м2",
-            "description": "Единица измерения"
-          },
-          "categoryId": {
-            "type": "string",
-            "description": "ID категории"
-          },
-          "description": {
-            "type": "string",
-            "description": "Описание материала"
-          },
-          "pricePerUnit": {
-            "type": "number",
-            "description": "Цена за единицу (RUB)"
-          },
-          "stockQty": {
-            "type": "number",
-            "description": "Количество на складе"
-          },
-          "dimensions": {
-            "description": "Размеры материала",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DimensionDto"
-            }
-          },
-          "colors": {
-            "description": "Цвета, доступные для заказа у материала",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "photoIds": {
-            "description": "ID фотографий",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "mainPhotoId": {
-            "type": "string",
-            "description": "ID основного фото"
-          },
-          "supplierId": {
-            "type": "string",
-            "description": "ID поставщика"
-          },
-          "notes": {
-            "type": "string",
-            "description": "Заметки"
           }
         }
       },
