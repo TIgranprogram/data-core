@@ -122,6 +122,13 @@ export class SupplierCatalogService {
     return (await this.present([(await this.items.findOne({ _id: oid(id) }))!]))[0];
   }
 
+  /** Одна позиция — карточка открывается по ссылке и после обновления страницы (не только из списка). */
+  async get(id: string) {
+    const d = await this.items.findOne({ _id: oid(id), deletedAt: null });
+    if (!d) throw new NotFoundException('Позиция каталога не найдена — возможно, удалена');
+    return (await this.present([d]))[0];
+  }
+
   async addPhoto(id: string, photoId: string) {
     const pid = oid(photoId, 'фото');
     if (!(await this.coll('photos').countDocuments({ _id: pid }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');

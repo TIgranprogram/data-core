@@ -259,7 +259,9 @@ export const supplierCatalog = {
   canEdit: canWrite,
   get: async (id) => {
     if (rowCache.has(id)) return rowCache.get(id);
-    throw new Error('Позиция не найдена в текущем списке — откройте её из каталога');
+    const r = await api(`/supply/catalog/items/${id}`);
+    rowCache.set(r.id, r);
+    return r;
   },
 
   list: {

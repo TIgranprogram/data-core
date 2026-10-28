@@ -107,6 +107,13 @@ export class SupplyController {
   }
 
   @AppSection('requests', 'suppliercatalog')
+  @Get('catalog/items/:id')
+  @Roles('admin', 'director', 'manager', 'user')
+  catalogItem(@Param('id') id: string) {
+    return this.catalog.get(id);
+  }
+
+  @AppSection('requests', 'suppliercatalog')
   @Get('catalog/counts')
   @Roles('admin', 'director', 'manager', 'user')
   catalogCounts() {
