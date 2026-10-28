@@ -4,10 +4,11 @@ import { decideArticle } from '../stock/article';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { firstPhotoThumbs } from '../../common/photo-thumbs';
 import { openSectionsFor } from '../../common/app-sections';
 
 type Q = Record<string, unknown>;
-type Item = { id: string; title: string; sub?: string };
+type Item = { id: string; title: string; sub?: string; thumb?: string };
 /**
  * Одна очередь «требуют заполнения»: что не заполнено, зачем это нужно и куда идти.
  * section + field — раздел приложения и ключ поля формы: клик открывает карточку сразу в правке с подсвеченным полем.
@@ -122,7 +123,12 @@ export class FillAuditService {
       if (!count) continue;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars -- служебные поля описания группы в ответ не идут
       const { coll: _c, q: _q, item, sort: _s, ...g } = d;
-      groups.push({ ...g, count, items: rows.map((r) => item(r as Q)) });
+      const items = rows.map((r) => item(r as Q));
+      if (d.coll === 'supplyrequests') { // миниатюра фото заявки — одним запросом на группу
+        const thumbs = await firstPhotoThumbs(db, rows);
+        for (const it of items) { const t = thumbs.get(it.id); if (t) it.thumb = t; }
+      }
+      groups.push({ ...g, count, items });
     }
     if (!opts.only || opts.only === 'mat-article') { const g = await this.articleGroup(limit); if (g) groups.push(g); }
     return { total: groups.reduce((s, g) => s + g.count, 0), groups };

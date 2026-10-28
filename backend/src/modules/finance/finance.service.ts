@@ -7,6 +7,7 @@ import { ourCompanies } from '../incomes/incomes.service';
 import { buildCashflow, buildPending, buildSummary, openingFromStart, type Op, type Start } from './cashflow';
 import { incomePayments, type IncomePayment } from '../incomes/income.schema';
 import { PayrollService } from '../payroll/payroll.service';
+import { firstPhotoThumbs } from '../../common/photo-thumbs';
 import { buildForecast, expectedOps, type ExpenseSrc, type IncomeSrc } from './forecast';
 
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
@@ -95,22 +96,7 @@ export class FinanceService {
     ]);
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
-    const reqsWithPhoto = reqs.filter((r) => Array.isArray(r.photoIds) && (r.photoIds as unknown[]).length > 0);
-    const thumbMap = new Map<string, string>();
-    if (reqsWithPhoto.length > 0) {
-      const firstIds = reqsWithPhoto.map((r) => (r.photoIds as Types.ObjectId[])[0]);
-      const [thumbs, originals] = await Promise.all([
-        db.collection('photos').find({ parentPhotoId: { $in: firstIds }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
-        db.collection('photos').find({ _id: { $in: firstIds } }, { projection: { storageUrl: 1 } }).toArray(),
-      ]);
-      const byParent = new Map(thumbs.map((t) => [String(t.parentPhotoId), String(t.storageUrl)]));
-      const byId = new Map(originals.map((p) => [String(p._id), String(p.storageUrl)]));
-      for (const r of reqsWithPhoto) {
-        const pid = String((r.photoIds as Types.ObjectId[])[0]);
-        const url = byParent.get(pid) ?? byId.get(pid);
-        if (url) thumbMap.set(String(r._id), url);
-      }
-    }
+    const thumbMap = await firstPhotoThumbs(db, reqs);
     const exp = (r: (typeof reqs)[number], date: string, overdue?: boolean): Op => ({ type: 'expense', id: String(r._id), date, amount: Number(r.priceHint), company: cname.get(String(r.companyId)) ?? '?',
         title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : undefined,
         category: r.categoryId ? cat.get(String(r.categoryId)) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, costCenter: costCenterLabel(r as { costCenter?: unknown; salesOrderId?: unknown }),
@@ -206,7 +192,7 @@ export class FinanceService {
     const [reqs, incs, orgs, payDue] = await Promise.all([
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids },
         $or: [{ invoiceDate: { $gte: stale } }, { invoiceDate: null, status: { $in: ['in_progress', 'requested', 'ordered'] } }, { invoiceDate: { $exists: false }, status: { $in: ['in_progress', 'requested', 'ordered'] } }] },
-      { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1 } }).toArray(),
+      { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1, photoIds: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, paidDate: null },
       { projection: { title: 1, amount: 1, companyId: 1, paymentForm: 1, shipDate: 1, orderId: 1, orderNo: 1, customer: 1, createdAt: 1, payments: 1, paidDate: 1 } }).toArray(),
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
@@ -216,8 +202,9 @@ export class FinanceService {
       { projection: { stage: 1, deletedAt: 1, contractDate: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1, paymentForm: 1 } }).toArray();
     const ord = new Map(orders.map((o) => [String(o._id), o]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
+    const thumbMap = await firstPhotoThumbs(db, reqs);
     const expenses: ExpenseSrc[] = reqs.map((r) => ({ id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), amount: Number(r.priceHint), company: cname.get(String(r.companyId)) ?? '?',
-      invoiceDate: iso(r.invoiceDate) || null, status: String(r.status), doc: r.invoiceNo ? String(r.invoiceNo) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined }));
+      invoiceDate: iso(r.invoiceDate) || null, status: String(r.status), doc: r.invoiceNo ? String(r.invoiceNo) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, thumb: thumbMap.get(String(r._id)) }));
     const incomes: IncomeSrc[] = incs.flatMap((i) => {
       const o = i.orderId ? ord.get(String(i.orderId)) : undefined;
       if (o && (o.deletedAt || o.stage === 'cancelled')) return [];

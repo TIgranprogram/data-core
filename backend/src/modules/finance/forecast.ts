@@ -12,7 +12,7 @@
  */
 import { buildCashflow, type Op } from './cashflow';
 
-export interface ExpenseSrc { id: string; title: string; amount: number; company: string; invoiceDate?: string | null; status: string; doc?: string; counterparty?: string }
+export interface ExpenseSrc { id: string; title: string; amount: number; company: string; invoiceDate?: string | null; status: string; doc?: string; counterparty?: string; thumb?: string }
 export interface IncomeSrc {
   /** Уже принято платежами, ₽ (К7). */
   paid?: number;
@@ -34,14 +34,14 @@ export function prepayPercent(form?: string | null): number | null {
 /** Будущие операции и «без срока» из заявок и позиций заказов. today — ГГГГ-ММ-ДД. */
 export function expectedOps(expenses: ExpenseSrc[], incomes: IncomeSrc[], today: string) {
   const ops: (Op & { overdue?: boolean })[] = [];
-  const noDate: { type: 'income' | 'expense'; id: string; title: string; amount: number; company: string; doc?: string; counterparty?: string }[] = [];
+  const noDate: { type: 'income' | 'expense'; id: string; title: string; amount: number; company: string; doc?: string; counterparty?: string; thumb?: string }[] = [];
   for (const e of expenses) {
     if (!(e.amount > 0) || e.status === 'cancelled') continue;
     if (e.invoiceDate) {
       const overdue = e.invoiceDate <= today;
-      ops.push({ type: 'expense', id: e.id, date: overdue ? today : e.invoiceDate, amount: r2(e.amount), company: e.company, title: overdue ? `${e.title} · просрочено` : e.title, doc: e.doc, counterparty: e.counterparty, overdue });
+      ops.push({ type: 'expense', id: e.id, date: overdue ? today : e.invoiceDate, amount: r2(e.amount), company: e.company, title: overdue ? `${e.title} · просрочено` : e.title, doc: e.doc, counterparty: e.counterparty, thumb: e.thumb, overdue });
     }
-    else if (OPEN.has(e.status)) noDate.push({ type: 'expense', id: e.id, title: e.title, amount: r2(e.amount), company: e.company, doc: e.doc, counterparty: e.counterparty });
+    else if (OPEN.has(e.status)) noDate.push({ type: 'expense', id: e.id, title: e.title, amount: r2(e.amount), company: e.company, doc: e.doc, counterparty: e.counterparty, thumb: e.thumb });
   }
   for (const i of incomes) {
     if (!(i.amount > 0)) continue;
