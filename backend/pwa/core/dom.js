@@ -8,6 +8,7 @@ export function h(tag, attrs, ...children) {
     if (k === 'value') value = v; // после детей: у <select> сначала нужны <option>
     else if (k === 'class') el.className = v;
     else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'onclick' && typeof v === 'function' && tag === 'button') el.addEventListener('click', busyClick(el, v));
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k in el && typeof v !== 'string') el[k] = v;
@@ -16,6 +17,29 @@ export function h(tag, attrs, ...children) {
   append(el, children);
   if (value !== undefined) el.value = String(value);
   return el;
+}
+
+/** Кнопка с onclick, вернувшим промис: пока он идёт — крутилка (.is-busy), disabled, повторные клики игнорируются. */
+function busyClick(el, fn) {
+  return function (e) {
+    if (el.__busy) { e.preventDefault(); return undefined; }
+    const was = el.disabled;
+    const r = fn.call(this, e);
+    if (r && typeof r.then === 'function') {
+      el.__busy = true;
+      el.classList.add('is-busy');
+      el.setAttribute('aria-busy', 'true');
+      if (!el.disabled) el.disabled = true;
+      const end = () => {
+        el.__busy = false;
+        el.classList.remove('is-busy');
+        el.removeAttribute('aria-busy');
+        el.disabled = was;
+      };
+      r.then(end, end);
+    }
+    return r;
+  };
 }
 
 function append(el, kids) {

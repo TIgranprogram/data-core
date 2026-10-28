@@ -150,7 +150,34 @@ export async function confirmPassword(password) {
 
 /** Запрос к API. path — без /api. body — объект (JSON) или FormData. */
 export async function api(path, opts = {}) {
-  return call(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
+  return trackLoad(call(path, opts).catch((e) => failed(e, path, opts.method || 'GET')));
+}
+
+/** Полоска загрузки сверху: видна, если что-то идёт дольше 150 мс (api-запросы, ленивая загрузка раздела). */
+let active = 0;
+let barTimer = 0;
+let barEl = null;
+function barSet(on) {
+  if (typeof document === 'undefined') return;
+  if (on) {
+    if (barTimer || (barEl && barEl.isConnected)) return;
+    barTimer = setTimeout(() => {
+      barTimer = 0;
+      if (!active) return;
+      barEl = barEl || Object.assign(document.createElement('div'), { className: 'load-bar', role: 'progressbar' });
+      barEl.setAttribute('aria-label', 'Загрузка');
+      document.body.append(barEl);
+    }, 150);
+  } else {
+    clearTimeout(barTimer); barTimer = 0;
+    if (barEl) barEl.remove();
+  }
+}
+export function trackLoad(p) {
+  active++; barSet(true);
+  const end = () => { if (--active <= 0) { active = 0; barSet(false); } };
+  Promise.resolve(p).then(end, end);
+  return p;
 }
 async function call(path, { method = 'GET', body, query } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';

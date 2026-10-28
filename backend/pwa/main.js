@@ -1,6 +1,6 @@
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
-import { api, canEditSection, events, login, PREFIX, session } from './core/api.js';
+import { api, canEditSection, events, login, PREFIX, session, trackLoad } from './core/api.js';
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/dialog.js';
@@ -295,7 +295,7 @@ function render(c) {
   // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render
   const miss = allowed(section) ? needed(section, params) : [];
   if (miss.length) {
-    Promise.all(miss.map(loadSec)).then(() => render(current())).catch((e) => {
+    trackLoad(Promise.all(miss.map(loadSec))).then(() => render(current())).catch((e) => {
       reportError(e, { kind: 'unhandled', action: 'загрузить раздел' });
       ui.main.replaceChildren(failBlock(e, () => { mounted = null; render(current()); }, { cls: 'panel state', text: 'Раздел не открылся' }));
       mounted = null;

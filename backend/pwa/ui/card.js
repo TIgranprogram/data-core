@@ -82,7 +82,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     form = null;
     menuBox.replaceChildren();
     foot.replaceChildren();
-    if (!fresh && !row) { body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } })); }
+    if (!fresh && !row) { body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }), h('p', { class: 'muted' }, 'Загрузка…')); }
     if (!fresh && row) drawer.classList.add('loading'); // соседняя запись: старое содержимое видно, пока грузится новое
     try { row = fresh || (await section.get(id)); }
     catch (e) { drawer.classList.remove('loading'); body.replaceChildren(failBlock(e, () => showView(), { text: 'Запись не открылась' })); titleEl.textContent = section.title; return; }
@@ -195,7 +195,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     menuBox.replaceChildren();
     titleEl.textContent = isNew ? section.newTitle || 'Новая запись' : 'Изменить';
     subEl.textContent = isNew ? '' : section.card.heading(row);
-    body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }));
+    body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }), h('p', { class: 'muted' }, 'Загрузка…'));
     foot.replaceChildren();
     let flds;
     try {
