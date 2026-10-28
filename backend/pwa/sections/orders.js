@@ -19,14 +19,16 @@ import { issuePassport, passports } from './passports.js';
 export const INCOME_STATUS = {
   draft: { label: 'Не отгружено', tone: 'dim' },
   awaiting: { label: 'Ждём оплату', tone: 'warn' },
+  partial: { label: 'Частично оплачено', tone: 'info' },
   noamount: { label: 'Без суммы', tone: 'dim' },
   paid: { label: 'Оплачено', tone: 'ok' },
   shipped: { label: 'Отгружено', tone: 'dim' }, // роль без прав на деньги: оплату не видно (сервер, MoneyMask)
 };
 const STATUS_HINT = {
-  '': 'Строки заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено». Сумма и даты нужны для платёжного календаря.',
+  '': 'Строки заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено» (платёж можно принять частями). Сумма и даты нужны для платёжного календаря.',
   draft: 'Ещё не отгружено. Отгрузили — отметьте дату отгрузки.',
-  awaiting: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено».',
+  awaiting: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено»: откроется окно платежа.',
+  partial: 'Часть денег пришла, остаток (долг) ещё нет. Кнопка «Платёж» — принять следующий платёж.',
   noamount: 'Отгружено, но сумма не указана (в Excel-заказах цен нет). Кнопка «Вписать сумму» в строке — и строка попадёт в «Ждём оплату» и в календарь.',
   paid: 'Деньги получены — доход в платёжном календаре на дату оплаты.',
   shipped: 'Отгружено.',
@@ -42,10 +44,13 @@ incomeLookups.reset = () => { lk = null; };
 
 const heading = (r) => (r.orderNo ? `Заказ ${r.orderNo} · ` : '') + (r.title || '—');
 
-/** Отметить дату (оплата / отгрузка) — сегодня. */
+/** Сегодня по Москве (ГГГГ-ММ-ДД) — дата платежа по умолчанию. */
+export const todayMsk = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+/** Отметить дату отгрузки — сегодня. Оплата — не здесь: см. paymentDialog (платёж с суммой). */
 export async function markToday(r, field) {
   const saved = await api(`/incomes/${r.id}`, { method: 'PATCH', body: { [field]: isoDay() } });
-  toast(field === 'paidDate' ? `Оплачено: ${money(saved.amount)}` : 'Отгружено сегодня', {
+  toast('Отгружено сегодня', {
     undo: async () => { await api(`/incomes/${r.id}`, { method: 'PATCH', body: { [field]: r[field] ? String(r[field]).slice(0, 10) : '' } }); window.dispatchEvent(new Event('data-changed')); },
   });
   return saved;
@@ -113,6 +118,48 @@ export async function priceDialog(r) {
   return saved;
 }
 
+/** «Платёж»: дата (сегодня по Москве), сумма (по умолчанию = долг), способ. POST /incomes/:id/payments. */
+export async function paymentDialog(r) {
+  const l = await incomeLookups().catch(() => ({ paymentMethods: ['нал', 'безнал', 'карта'] }));
+  const debt = r.debt != null ? r.debt : Math.max(0, (Number(r.amount) || 0) - (Number(r.paidAmount) || 0));
+  const dt = h('input', { type: 'date', value: todayMsk(), required: true });
+  const sum = h('input', { inputmode: 'decimal', placeholder: '0,00', value: debt > 0 ? String(debt).replace('.', ',') : '' });
+  const met = h('select', null, h('option', { value: '' }, '— не указан —'), ...(l.paymentMethods || []).map((m) => h('option', { value: m }, m)));
+  const saved = await modal({
+    title: 'Платёж: ' + (r.title || ''),
+    okText: 'Принять платёж',
+    body: h('div', null,
+      h('p', { class: 'hint' }, `${r.orderNo ? 'Заказ ' + r.orderNo + ' · ' : ''}${r.customer || ''} · сумма ${money(r.amount)} · оплачено ${money(r.paidAmount || 0)} · долг ${money(debt)}`),
+      h('div', { class: 'form-grid' },
+        h('label', { class: 'field' }, h('span', null, 'Дата'), dt),
+        h('label', { class: 'field' }, h('span', null, 'Сумма, ₽'), sum),
+        h('label', { class: 'field' }, h('span', null, 'Способ'), met))),
+    onOk: async () => {
+      const a = parseNum(sum.value);
+      if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
+      if (!dt.value) throw new Error('Укажите дату платежа');
+      return api(`/incomes/${r.id}/payments`, { method: 'POST', body: { date: dt.value, amount: a, ...(met.value ? { method: met.value } : {}) } });
+    },
+  });
+  if (saved) toast(`Платёж принят: ${money(saved.paidAmount)} из ${money(saved.amount)}`);
+  return saved;
+}
+
+/** Блок «Оплаты» в карточке позиции: список платежей, «+ Платёж», удаление. */
+function paymentsBlock(r, ctx) {
+  if (!session.canMoney) return null;
+  const list = r.payments || [];
+  const canEdit = session.canEdit;
+  return h('div', { class: 'card-block' },
+    h('div', { class: 'q-head' }, h('h3', null, 'Оплаты'), canEdit && Number(r.amount) > 0 && r.debt > 0 ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { const s = await paymentDialog(r); if (s) ctx.setRow(s); } }, '+ Платёж') : null),
+    list.length ? h('ul', { class: 'q-list' }, list.map((p, i) => h('li', { class: 'q-row' },
+      h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, date(p.date)), h('div', { class: 'q-sub' }, [p.method, p.note].filter(Boolean).join(' · '))),
+      h('div', { class: 'q-side' }, h('span', { class: 'num pos' }, money(p.amount)),
+        canEdit ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Удалить платёж', onclick: async () => { ctx.setRow(await api(`/incomes/${r.id}/payments/${i}`, { method: 'DELETE' })); toast('Платёж удалён'); } }, '✕') : null))))
+      : h('p', { class: 'muted' }, Number(r.amount) > 0 ? 'Платежей пока нет.' : 'Сначала впишите сумму позиции.'),
+    list.length ? h('p', { class: 'hint' }, `Оплачено ${money(r.paidAmount)} из ${money(r.amount)}; долг ${money(r.debt)}.`) : null);
+}
+
 let locked = false;
 const LOCKED_KEYS = ['title', 'qty', 'unit', 'unitPrice', 'amountManual'];
 
@@ -135,7 +182,7 @@ export const orders = {
     sortDefault: '-reportDate',
     createLabel: 'Строка заказа',
     searchPlaceholder: 'Поиск: № заказа, заказчик, наименование…',
-    emptyText: 'Заказов пока нет. Они появятся из листа «Заказы» Google-таблицы или добавьте вручную.',
+    emptyText: 'Позиций нет. Добавьте заказ в разделе «Заказы» — его позиции появятся здесь.',
     hints: STATUS_HINT,
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', options: () => Object.entries(INCOME_STATUS).filter(([v]) => (session.canMoney ? v !== 'shipped' : v === 'draft' || v === 'shipped')).map(([value, s]) => ({ value, label: s.label })), count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
@@ -150,13 +197,13 @@ export const orders = {
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'md-hide', render: (r) => r.customer || '' },
       { key: 'title', label: 'Наименование', sort: 'title', cls: 'clip', render: (r) => h('span', { title: r.title }, r.title) },
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => (r.qty != null ? `${qty(r.qty)} ${r.unit || ''}`.trim() : '') },
-      { key: 'amount', label: 'Сумма', sort: 'amount', cls: 'num right', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, 'нет суммы')) },
+      { key: 'amount', label: 'Сумма', sort: 'amount', cls: 'num right', render: (r) => (r.amount ? money(r.amount) : session.canMoney && session.canEdit ? h('a', { href: '#', class: 'muted', title: 'Вписать цену или сумму', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); if (await priceDialog(r)) window.dispatchEvent(new Event('data-changed')); } }, 'нет суммы — вписать') : h('span', { class: 'muted' }, 'нет суммы')) },
       { key: 'shipDate', label: 'Отгрузка', sort: 'shipDate', cls: 'num md-hide', render: (r) => date(r.shipDate) },
       { key: 'paidDate', label: 'Оплата', sort: 'paidDate', cls: 'num', render: (r) => date(r.paidDate) },
       { key: 'companyName', label: 'Компания', cls: 'md-hide', render: (r) => r.companyName || '' },
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(INCOME_STATUS, r.status) },
     ],
-    rowAction: (r) => (r.status === 'awaiting' ? { label: 'Оплачено', title: 'Деньги пришли сегодня', run: (row) => markToday(row, 'paidDate') }
+    rowAction: (r) => (r.status === 'awaiting' || r.status === 'partial' ? { label: r.status === 'partial' ? 'Платёж' : 'Оплачено', title: 'Принять платёж: сумма по умолчанию — весь долг', run: async (row) => !!(await paymentDialog(row)) }
       : r.status === 'noamount' ? { label: 'Вписать сумму', title: 'Цена за единицу или сумма строки', run: async (row) => !!(await priceDialog(row)) }
       : r.status === 'draft' ? [{ label: 'Сумма', title: 'Цена или сумма строки', run: async (row) => !!(await priceDialog(row)) }, { label: 'Отгружено', title: 'Отгрузили сегодня', run: (row) => markToday(row, 'shipDate') }] : null),
     card: {
@@ -164,17 +211,18 @@ export const orders = {
       sub: (r) => [r.customer, `${qty(r.qty)} ${r.unit || ''}`.trim(), r.companyName].filter(Boolean).join(' · '),
       side: (r) => [badge(INCOME_STATUS, r.status), r.amount ? h('span', { class: 'num small' }, money(r.amount)) : null],
     },
-    footer: (resp) => h('span', { class: 'sum-line', title: 'Сумма всех позиций в списке — с учётом вкладки, поиска и фильтров, по всем страницам' }, `Итого по списку: ${money(resp.sum || 0)} · ${qty(resp.total)} позиций`),
+    footer: (resp) => h('span', { class: 'sum-line', title: 'Сумма, оплачено и долг по всем позициям списка — с учётом вкладки, поиска и фильтров, по всем страницам' }, resp.money && session.canMoney ? `Итого: сумма ${money(resp.money.sum)} · оплачено ${money(resp.money.paid)} · долг ${money(resp.money.debt)} · ${qty(resp.total)} позиций` : `${qty(resp.total)} позиций`),
   },
 
   card: {
+    extra: (r, ctx) => paymentsBlock(r, ctx),
     parent: (r) => (r.orderId ? { label: `Заказ № ${r.orderNo || '—'}`, run: () => go('salesorders', { open: String(r.orderId) }) } : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/incomes/${r.id}/photos`, { method: 'POST', body: { photoId } }),
     photoRemove: (r, photoId) => api(`/incomes/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
     heading,
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
-    stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплата', date(r.paidDate) || '—']] : [])],
+    stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплачено', r.paidAmount ? money(r.paidAmount) : '—'], ['Долг', r.amount ? money(r.debt || 0) : '—']] : [])],
     view: (r) => [
       ['Статус', badge(INCOME_STATUS, r.status)],
       ['Заказчик', customerLink(r.customer)],
@@ -195,8 +243,8 @@ export const orders = {
     actions: (r) => [
       session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
-      session.canMoney && !r.paidDate && !!r.amount && { label: 'Оплачено сегодня', primary: !!r.shipDate, run: async (row, ctx) => ctx.setRow(await markToday(row, 'paidDate')) },
-      session.canMoney && !!r.paidDate && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
+      session.canMoney && !r.paidDate && !!r.amount && { label: 'Принять платёж', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
+      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгружено сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
       session.seesDocs() && passports.canEdit() && { label: 'Выпустить паспорт', run: async (row) => {
         const found = await issuePassport({ productId: row.productId ? String(row.productId) : '', name: row.title, orderNo: row.orderNo || '', salesOrderId: row.orderId ? String(row.orderId) : '', customerName: row.customer || '', customerTitle: row.title || '' });

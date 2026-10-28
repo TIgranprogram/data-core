@@ -80,3 +80,8 @@
 
 ## Каталог поставщиков v2 (2026-10-28, не закоммичено)
 - `sections/supplier-catalog.js` переписан на ui/list.js: tiles=поставщики, `sideFilters` (категории + flag unmatched/noPrice/stale), `topBlock` (крошки + шестерёнка: шаблон/импорт/выгрузка), `importDialog` (preview → apply), `materialWidget`. `list.js`: `topBox.onParams(P)`. CSS `.sc-*` конец screens.css. Карточка берёт строку из `rowCache` (GET по id на сервере нет). Карта обновлена.
+
+## Деньги под новый сервер (2026-10-28, не закоммичено)
+- `sections/orders.js`: `INCOME_STATUS.partial`, `todayMsk`, `paymentDialog` (POST /incomes/:id/payments), `paymentsBlock` (card.extra, DELETE .../payments/:i), строка «Итого» из `resp.money`, «нет суммы — вписать». `markToday` теперь только отгрузка.
+- `sections/money.js`: `settings` (GET /finance/settings, `hasStart`), `startDialog` (⚙, PUT, admin), плитки `c.metrics` (`.m-tiles`), строки `pend` из `c.pending`, `beforeStart` серым (`.q-row.dim`), пустые подсказки. `money-forecast.js`: «самый низкий остаток». CSS — конец `ui/screens.css`.
+- `sections/payroll.js` переписан: /payroll/summary, timesheet (inputs в строке), `payDialog`, `companyPick`, список выплат. DEMO удалён. Карта обновлена.

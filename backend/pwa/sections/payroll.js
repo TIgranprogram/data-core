@@ -1,76 +1,156 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock } from '../ui/busy.js';
-import { money, qty } from '../core/format.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
+import { date, money, parseNum, qty } from '../core/format.js';
+import { modal, confirmDlg } from '../ui/dialog.js';
+import { toast, toastError } from '../ui/toast.js';
+import { incomeLookups, todayMsk } from './orders.js';
 
 /**
- * «ФОТ» — фонд оплаты труда (TASKS Д3.6). ПРЕЗЕНТАЦИОННАЯ страница: показывает, как будет выглядеть учёт
- * зарплат (сотрудник, ставка за месяц или час, график выплат, начислено / выплачено), данные — примерные.
- * Включается/выключается одной строкой: FEATURES.payroll в main.js. Своих данных и API нет — удаляется без следов.
+ * «ФОТ» — фонд оплаты труда. Данные с сервера: GET /api/payroll/summary?month= (сотрудники, табель, начислено,
+ * выплачено, остаток, срок выплаты, итог и по компаниям). Правка табеля — PUT /payroll/timesheet, выплаты —
+ * POST/DELETE /payroll/payments, компания сотрудника — PATCH /payroll/people/:id. Ставки — «Справочники → Сотрудники».
+ * Включается/выключается одной строкой: FEATURES.payroll в main.js.
  */
-const DEMO = [
-  { name: 'Иванов Сергей', role: 'Сварщик', company: 'СИЮ', kind: 'hour', rate: 450, hours: 168, schedule: 'два раза в месяц (10 и 25)', paid: 37800 },
-  { name: 'Петров Алексей', role: 'Слесарь-сборщик', company: 'СИЮ', kind: 'hour', rate: 380, hours: 160, schedule: 'два раза в месяц (10 и 25)', paid: 30400 },
-  { name: 'Смирнова Ольга', role: 'Бухгалтер', company: 'ССЮ', kind: 'month', rate: 65000, schedule: 'раз в месяц (5-го)', paid: 65000 },
-  { name: 'Кузнецов Дмитрий', role: 'Менеджер снабжения', company: 'ССЮ', kind: 'month', rate: 70000, schedule: 'два раза в месяц (10 и 25)', paid: 35000 },
-  { name: 'Попов Игорь', role: 'Маляр', company: 'Спортсет', kind: 'hour', rate: 400, hours: 120, schedule: 'раз в две недели', paid: 24000 },
-];
-const accrued = (p) => (p.kind === 'hour' ? p.rate * (p.hours || 0) : p.rate);
-
-/**
- * Настоящие сотрудники (TASKS Л.4): «Справочники → Сотрудники» со ставкой. Пока ни у кого ставки нет — пример ниже.
- * Начисления и выплаты по месяцам ещё не ведутся — показываем ставку, вид оплаты и график выплат.
- */
-function realView(people, refs) {
-  const sched = new Map((refs.payoutSchedules || []).map((x) => [x.value, x.label]));
-  const monthly = people.filter((p) => p.salaryKind !== 'hour').reduce((s, p) => s + (Number(p.salaryRate) || 0), 0);
-  const kpi = (l, v) => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, v), h('span', { class: 'sum-l' }, l));
-  return h('div', { class: 'payroll' },
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'ФОТ'), h('div', { class: 'sub' }, 'Сотрудники и ставки — из «Справочники → Сотрудники». Начисления и выплаты по месяцам появятся позже.'))),
-    h('div', { class: 'summary' }, kpi('сотрудников со ставкой', qty(people.length)), kpi('оклады в месяц', money(monthly)), kpi('почасовых', qty(people.filter((p) => p.salaryKind === 'hour').length))),
-    h('div', { class: 'panel' }, h('div', { class: 'table-wrap' }, h('table', { class: 'list' },
-      h('thead', null, h('tr', null, ...['Сотрудник', 'Должность', 'Вид работ', 'Статус', 'Ставка', 'График выплат'].map((x, i) => h('th', { class: i === 4 ? 'right' : '' }, x)))),
-      h('tbody', null, ...people.map((p) => h('tr', { tabindex: '0', onclick: () => { location.hash = '#dicts?d=persons&of=dict&open=' + p.id; } },
-        h('td', null, h('b', null, p.name)), h('td', null, p.position), h('td', null, p.workTypeName || ''), h('td', null, p.statusLabel),
-        h('td', { class: 'num right' }, money(p.salaryRate) + (p.salaryKind === 'hour' ? ' / час' : ' / мес')),
-        h('td', { class: 'muted' }, sched.get(p.payoutScheduleId) || '—'))))))),
-    h('p', { class: 'hint' }, 'Клик по строке — карточка сотрудника: ставка, график, вид работ.'));
-}
+const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+const KINDS = [['advance', 'Аванс'], ['salary', 'Зарплата'], ['bonus', 'Премия'], ['other', 'Прочее']];
+const curMonth = () => todayMsk().slice(0, 7);
+const shift = (m, n) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
+const label = (m) => { const [y, mo] = m.split('-').map(Number); return `${MONTHS[mo - 1][0].toUpperCase()}${MONTHS[mo - 1].slice(1)} ${y}`; };
+const kpi = (l, v, cls = '') => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, v), h('span', { class: 'sum-l' }, l));
 
 export function mountPayroll() {
-  const box = h('div', null, busyBlock('сотрудников', { cls: 'panel state' }));
-  api('/dicts/persons').then((r) => {
-    const people = r.items.filter((p) => p.status !== 'fired' && Number(p.salaryRate) > 0);
-    box.replaceChildren(people.length ? realView(people, r.dict.refs || {}) : demoView());
-  }).catch(() => box.replaceChildren(demoView()));
-  return { el: box, reload: () => {}, update: () => {} };
-}
-
-/** Пример: пока ставки сотрудникам не внесены. */
-function demoView() {
-  const rows = DEMO.map((p) => ({ ...p, accrued: accrued(p) }));
-  const total = rows.reduce((s, p) => s + p.accrued, 0);
-  const paid = rows.reduce((s, p) => s + p.paid, 0);
-  const byCo = {};
-  for (const p of rows) byCo[p.company] = (byCo[p.company] || 0) + p.accrued;
-  const kpi = (l, v) => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' }, v), h('span', { class: 'sum-l' }, l));
+  if (!session.canMoney) return { el: h('div', { class: 'panel state' }, 'Раздел доступен только ролям с доступом к деньгам.'), reload: () => {}, update: () => {} };
+  let month = curMonth();
+  const monthLabel = h('span', { class: 'm-label' });
+  const next = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => { month = shift(month, 1); load(); } }, '›');
+  const body = h('div', { class: 'm-body' }, busyBlock('сотрудников', { cls: 'panel state' }));
+  const addBtn = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => payDialog(null) }, '+ Выплата');
   const el = h('div', { class: 'payroll' },
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'ФОТ'), h('div', { class: 'sub' }, 'Фонд оплаты труда: кто сколько получает и когда выплаты'))),
-    h('p', { class: 'hint demo-note' }, 'Это пример, как будет выглядеть раздел. Данные условные. Внесите сотрудникам ставку в «Справочники → Сотрудники» — здесь появятся настоящие.'),
-    h('div', { class: 'summary' }, kpi('сотрудников', qty(rows.length)), kpi('начислено за месяц', money(total)), kpi('выплачено', money(paid)), kpi('к выплате', money(total - paid))),
-    h('div', { class: 'panel' }, h('div', { class: 'table-wrap' }, h('table', { class: 'list' },
-      h('thead', null, h('tr', null, ...['Сотрудник', 'Должность', 'Компания', 'Ставка', 'Часы', 'Начислено', 'Выплачено', 'Остаток', 'Выплаты'].map((t, i) => h('th', { class: i >= 3 && i <= 7 ? 'right' : '' }, t)))),
-      h('tbody', null, ...rows.map((p) => h('tr', null,
-        h('td', null, h('b', null, p.name)), h('td', null, p.role), h('td', null, p.company),
-        h('td', { class: 'num right' }, p.kind === 'hour' ? `${money(p.rate)} / час` : `${money(p.rate)} / мес`),
-        h('td', { class: 'num right' }, p.kind === 'hour' ? qty(p.hours) : '—'),
+    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'ФОТ'), h('div', { class: 'sub' }, 'Фонд оплаты труда: начислено, выплачено, остаток по сотрудникам и компаниям')), h('span', { class: 'spacer' }), addBtn),
+    h('div', { class: 'm-controls' }, h('div', { class: 'm-month' },
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Предыдущий месяц', onclick: () => { month = shift(month, -1); load(); } }, '‹'), monthLabel, next)),
+    body);
+
+  let data = null;
+  let seq = 0;
+
+  /** Окно выплаты: вид, дата, сумма (по умолчанию — остаток); у сотрудника без компании — выбор нашей компании. */
+  async function payDialog(person) {
+    const l = await incomeLookups().catch(() => ({ companies: [] }));
+    const people = data.items.filter((p) => p.rate || p.paid);
+    const who = h('select', null, ...people.map((p) => h('option', { value: p.id }, p.name)));
+    if (person) who.value = person.id;
+    const cur = () => people.find((p) => p.id === who.value);
+    const co = h('select', null, h('option', { value: '' }, '— выберите —'), ...l.companies.map((c) => h('option', { value: c.id }, c.name)));
+    const coField = h('label', { class: 'field' }, h('span', null, 'Наша компания (платит)'), co);
+    const kind = h('select', null, ...KINDS.map(([v, t]) => h('option', { value: v, selected: v === 'salary' }, t)));
+    const dt = h('input', { type: 'date', value: todayMsk() });
+    const sum = h('input', { inputmode: 'decimal', placeholder: '0,00' });
+    const sync = () => { const p = cur(); co.value = p?.companyId || ''; coField.hidden = !!p?.companyId; sum.value = p && p.balance > 0 ? String(p.balance).replace('.', ',') : ''; };
+    who.addEventListener('change', sync); sync();
+    const saved = await modal({
+      title: 'Выплата сотруднику',
+      okText: 'Записать выплату',
+      body: h('div', { class: 'form-grid' },
+        h('label', { class: 'field' }, h('span', null, 'Сотрудник'), who), coField,
+        h('label', { class: 'field' }, h('span', null, 'Вид'), kind),
+        h('label', { class: 'field' }, h('span', null, 'Дата'), dt),
+        h('label', { class: 'field' }, h('span', null, 'Сумма, ₽ на руки'), sum)),
+      onOk: async () => {
+        const p = cur(); const a = parseNum(sum.value);
+        if (!p) throw new Error('Выберите сотрудника');
+        if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
+        const companyId = p.companyId || co.value;
+        if (!companyId) throw new Error('Выберите нашу компанию');
+        return api('/payroll/payments', { method: 'POST', body: { personId: p.id, companyId, date: dt.value, amount: a, kind: kind.value, month } });
+      },
+    });
+    if (saved) { toast('Выплата записана'); load(); }
+  }
+
+  /** Правка табеля в строке: часы (почасовая) или дни/норма (оклад). */
+  function sheetInputs(p) {
+    const send = async (field, inp) => {
+      const raw = inp.value.trim();
+      const v = raw === '' ? null : parseNum(raw);
+      try { await api('/payroll/timesheet', { method: 'PUT', body: { personId: p.id, month, [field]: v } }); load(); } catch (e) { toastError(e); }
+    };
+    const mk = (field, val, ph, title) => { const i = h('input', { class: 'pr-inp', inputmode: 'decimal', placeholder: ph, title, value: val ?? '' }); i.addEventListener('change', () => send(field, i)); return i; };
+    if (p.kind === 'hour') return mk('hours', p.hours, 'часов', 'Отработано часов за месяц');
+    return h('span', { class: 'nowrap' }, mk('days', p.days, 'дней', 'Отработано дней (пусто — полный оклад)'), ' из ', mk('normDays', p.normDays, 'норма', 'Рабочих дней в месяце'));
+  }
+
+  async function companyPick(p, cell) {
+    const l = await incomeLookups().catch(() => ({ companies: [] }));
+    const sel = h('select', null, h('option', { value: '' }, 'выбрать компанию…'), ...l.companies.map((c) => h('option', { value: c.id }, c.name)));
+    sel.addEventListener('change', async () => {
+      if (!sel.value) return;
+      try { await api(`/payroll/people/${p.id}`, { method: 'PATCH', body: { companyId: sel.value } }); toast('Компания сотрудника сохранена'); load(); } catch (e) { toastError(e); }
+    });
+    cell.replaceChildren(sel);
+  }
+
+  function view(s, pays) {
+    monthLabel.textContent = label(s.month);
+    next.disabled = s.month >= curMonth();
+    const items = s.items.filter((p) => p.rate || p.paid || p.hasTimesheet);
+    if (!items.length) {
+      return [h('div', { class: 'panel state' }, h('div', null, 'Ставок нет. «Справочники → Сотрудники» → сотрудник → «Оплата» и «Ставка».'),
+        h('a', { class: 'btn', href: '#dicts?d=persons' }, 'Открыть «Сотрудники»'))];
+    }
+    const cos = s.byCompany || [];
+    const row = (p) => {
+      const coCell = h('td', { class: 'md-hide' }, p.companyName || h('a', { href: '#', class: 'muted', title: 'Нужна для календаря: чья это зарплата', onclick: (e) => { e.preventDefault(); companyPick(p, coCell); } }, 'компания не указана — выбрать'));
+      return h('tr', null,
+        h('td', null, h('a', { href: '#dicts?d=persons&of=dict&open=' + p.id }, h('b', null, p.name)), p.position ? h('div', { class: 'muted small' }, p.position) : null),
+        coCell,
+        h('td', { class: 'num right' }, p.rate ? money(p.rate) + (p.kind === 'hour' ? ' / час' : ' / мес') : h('span', { class: 'muted' }, 'нет ставки')),
+        h('td', { class: 'right' }, p.rate ? sheetInputs(p) : ''),
         h('td', { class: 'num right' }, money(p.accrued)), h('td', { class: 'num right' }, money(p.paid)),
-        h('td', { class: 'num right ' + (p.accrued - p.paid > 0 ? 'neg' : '') }, money(p.accrued - p.paid)),
-        h('td', { class: 'muted' }, p.schedule)))),
-      h('tfoot', null, h('tr', { class: 'total' }, h('td', { colspan: 5 }, 'Итого (Total)'), h('td', { class: 'num right' }, money(total)), h('td', { class: 'num right' }, money(paid)), h('td', { class: 'num right' }, money(total - paid)), h('td'))))))
-    , h('div', { class: 'panel dash-card compact-card', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'ФОТ по компаниям')),
-      h('div', { class: 'shares' }, ...Object.entries(byCo).map(([c, v]) => h('div', { class: 'share' },
-        h('div', { class: 'share-l' }, h('span', null, c), h('b', { class: 'num' }, money(v)), h('span', { class: 'muted num share-p' }, Math.round((v / total) * 100) + '%')),
-        h('div', { class: 'share-bar' }, h('i', { style: { width: (v / Math.max(...Object.values(byCo))) * 100 + '%' } })))))));
-  return el;
+        h('td', { class: 'num right ' + (p.balance > 0 ? 'neg' : '') }, money(p.balance)),
+        h('td', { class: 'num md-hide' }, date(p.dueDate)),
+        h('td', { class: 'act' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => payDialog(p) }, '+ Выплата')));
+    };
+    const t = s.totals;
+    const noRate = s.noRate ? h('p', { class: 'hint' }, `Без ставки: ${s.noRate} — «Справочники → Сотрудники» → сотрудник → «Оплата» и «Ставка».`) : null;
+    const maxCo = Math.max(1, ...cos.map((c) => c.accrued));
+    return [
+      h('div', { class: 'summary' }, kpi('сотрудников', qty(items.length)), kpi('начислено', money(t.accrued)), kpi('выплачено', money(t.paid)), kpi('остаток к выплате', money(t.balance), t.balance > 0 ? 'neg' : '')),
+      noRate,
+      h('div', { class: 'panel' }, h('div', { class: 'table-wrap' }, h('table', { class: 'list' },
+        h('thead', null, h('tr', null, ...[['Сотрудник'], ['Компания', 'md-hide'], ['Ставка', 'right'], ['Часы / дни', 'right'], ['Начислено', 'right'], ['Выплачено', 'right'], ['Остаток', 'right'], ['Срок выплаты', 'md-hide'], ['']].map(([x, c]) => h('th', { class: c || '' }, x)))),
+        h('tbody', null, ...items.map(row)),
+        h('tfoot', null, h('tr', { class: 'total' }, h('td', { colspan: 4 }, 'Итого'), h('td', { class: 'num right' }, money(t.accrued)), h('td', { class: 'num right' }, money(t.paid)), h('td', { class: 'num right' }, money(t.balance)), h('td', { colspan: 2 }))))),
+      h('p', { class: 'hint' }, 'Часы и дни правятся прямо в строке (почасовая — часы; оклад — отработано дней из нормы, пусто — полный оклад). Остаток — начислено минус выплачено; срок — по графику выплат сотрудника.')),
+      cos.length ? h('div', { class: 'panel dash-card compact-card', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'ФОТ по компаниям')),
+        h('div', { class: 'shares' }, ...cos.map((c) => h('div', { class: 'share' },
+          h('div', { class: 'share-l' }, h('span', null, c.company), h('b', { class: 'num' }, money(c.accrued)), h('span', { class: 'muted num share-p' }, `выплачено ${money(c.paid)} · остаток ${money(c.balance)}`)),
+          h('div', { class: 'share-bar' }, h('i', { style: { width: Math.max(2, (c.accrued / maxCo) * 100) + '%' } })))))) : null,
+      h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, `Выплаты — ${label(s.month)}`)),
+        pays.items.length ? h('ul', { class: 'q-list' }, pays.items.map((p) => h('li', { class: 'q-row' },
+          h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, p.person), h('div', { class: 'q-sub' }, [date(p.date), p.kindLabel, p.company, p.note].filter(Boolean).join(' · '))),
+          h('div', { class: 'q-side' }, h('span', { class: 'num neg' }, '−' + money(p.amount)),
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Удалить выплату', onclick: async () => {
+              if (!(await confirmDlg('Удалить выплату?', `${p.person}: ${money(p.amount)} от ${date(p.date)}`, { okText: 'Удалить', danger: true }))) return;
+              try { await api(`/payroll/payments/${p.id}`, { method: 'DELETE' }); toast('Выплата удалена'); load(); } catch (e) { toastError(e); }
+            } }, '✕'))))) : h('p', { class: 'muted', style: { padding: '0 16px 12px' } }, 'За месяц выплат нет. «+ Выплата» — записать аванс, зарплату или премию.')),
+    ];
+  }
+
+  async function load() {
+    const my = ++seq;
+    monthLabel.textContent = label(month);
+    el.classList.add('loading');
+    try {
+      const [s, pays] = await Promise.all([api('/payroll/summary', { query: { month } }), api('/payroll/payments', { query: { month } })]);
+      if (my !== seq) return;
+      data = s;
+      body.replaceChildren(...view(s, pays).filter(Boolean));
+    } catch (e) {
+      if (my === seq) body.replaceChildren(failBlock(e, load, { cls: 'panel state' }));
+    } finally { if (my === seq) el.classList.remove('loading'); }
+  }
+  load();
+  return { el, reload: load, update: () => {} };
 }

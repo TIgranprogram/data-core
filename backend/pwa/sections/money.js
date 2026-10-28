@@ -3,6 +3,8 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
+import { modal } from '../ui/dialog.js';
+import { toast } from '../ui/toast.js';
 import { forecastView } from './money-forecast.js';
 
 /**
@@ -24,7 +26,10 @@ const store = { get: (k) => { try { return localStorage.getItem(k); } catch { re
 /** Сумма для ячейки: ноль не показываем, минус — красным. */
 const cell = (v, opts = {}) => (v ? h('span', { class: 'num' + (v < 0 && !opts.calm ? ' neg' : '') + (opts.strong ? ' strong' : '') }, money(v).replace(' ₽', '')) : '');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const hasOpening = (el) => el.value.trim() !== '' && Number(el.value.trim().replace(',', '.')) !== 0;
+/** «Старт учёта» с сервера (GET /finance/settings): есть дата — остаток считает сервер, ручной ввод не нужен. */
+let settings = null;
+const hasStart = () => !!settings?.startDate;
+const hasOpening = (el) => hasStart() || el.value.trim() !== '' && Number(el.value.trim().replace(',', '.')) !== 0;
 
 export function mountMoney(params) {
   let P = { ...params };
@@ -49,7 +54,25 @@ export function mountMoney(params) {
       monthLabel,
       nextBtn),
     orgSeg,
-    h('label', { class: 'date-f' }, h('span', { class: 'm-open-l' }, 'остаток денег на 1-е'), opening));
+    h('label', { class: 'date-f' }, h('span', { class: 'm-open-l' }, 'остаток денег на 1-е'), opening),
+    gear);
+  const gear = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true, title: 'Дата, с которой ведётся учёт, и остаток на счетах наших компаний', onclick: () => startDialog() }, '⚙ Старт учёта');
+  async function startDialog() {
+    const st = await api('/finance/settings');
+    const dt = h('input', { type: 'date', value: st.startDate || '' });
+    const ins = (st.companies || []).map((n) => [n, h('input', { inputmode: 'decimal', placeholder: '0,00', value: st.openingBalance?.[n] ? String(st.openingBalance[n]).replace('.', ',') : '' })]);
+    const saved = await modal({
+      title: 'Старт учёта',
+      okText: 'Сохранить',
+      body: h('div', null,
+        h('p', { class: 'hint' }, 'С этой даты считается остаток денег. Операции раньше старта показываются серым и в остаток не входят. Пустая дата — без старта учёта.'),
+        h('div', { class: 'form-grid' },
+          h('label', { class: 'field' }, h('span', null, 'Дата старта'), dt),
+          ...ins.map(([n, inp]) => h('label', { class: 'field' }, h('span', null, 'Остаток на старт — ' + n + ', ₽'), inp)))),
+      onOk: () => api('/finance/settings', { method: 'PUT', body: { startDate: dt.value || null, openingBalance: Object.fromEntries(ins.map(([n, inp]) => [n, Number(inp.value.trim().replace(/\s/g, '').replace(',', '.')) || 0])) } }),
+    });
+    if (saved) { settings = saved; toast('Старт учёта сохранён'); load(); }
+  }
   const body = h('div', { class: 'm-body' });
   const el = h('div', { class: 'money' },
     h('div', { class: 'page-head' }, h('h1', null, 'Деньги'), h('span', { class: 'spacer' }), tabs),
@@ -68,7 +91,9 @@ export function mountMoney(params) {
     controls.hidden = tab() === 'fill';
     nextBtn.disabled = tab() === 'summary' ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
     nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
-    opening.parentElement.hidden = tab() !== 'calendar' && tab() !== 'forecast';
+    opening.parentElement.hidden = (tab() !== 'calendar' && tab() !== 'forecast') || hasStart();
+    gear.hidden = session.role !== 'admin' || (tab() !== 'calendar' && tab() !== 'forecast');
+    gear.textContent = hasStart() ? '⚙ Старт учёта: ' + settings.startDate.split('-').reverse().join('.') : '⚙ Старт учёта';
   }
 
   // ---------- Календарь ----------
@@ -87,7 +112,19 @@ export function mountMoney(params) {
         return h('td', { class: 'day' + (d.weekday === 0 || d.weekday === 6 ? ' wkend' : '') + (can ? ' click' : ''), onclick: can ? () => showOps(d) : undefined, title: can ? 'Операции дня' : undefined }, v);
       }));
     const cos = c.companies;
+    // «Ещё не деньги»: в остаток не входят; клик по сумме дня — список
+    const pendRow = (label, p, hint) => {
+      if (!p || !p.total) return null;
+      const byDay = (d) => ({ date: d.date, ops: p.items.filter((o) => o.date === d.date) });
+      const late = p.items.filter((o) => o.date < c.from);
+      return h('tr', { class: 'pend', title: hint },
+        h('th', { class: 'sticky' }, label), h('td', { class: 'tot', onclick: () => showOps({ date: c.to, ops: p.items, title: label }), style: { cursor: 'pointer' } }, cell(p.total)),
+        days.map((d) => { const x = byDay(d); const v = x.ops.reduce((a, o) => a + o.amount, 0) + (d.date === c.from ? late.reduce((a, o) => a + o.amount, 0) : 0); return h('td', { class: 'day' + (v ? ' click' : ''), onclick: v ? () => showOps({ date: d.date, title: label, ops: d.date === c.from ? [...late, ...x.ops] : x.ops }) : undefined }, cell(v)); }));
+    };
+    const pendRows = [pendRow('Счета к оплате (не в остатке)', c.pending?.invoices, 'Заявки с датой счёта, ещё не оплаченные: деньги не ушли, в остаток не входят'),
+      pendRow('Отгружено без оплаты (не в остатке)', c.pending?.awaiting, 'Позиции отгружены, оплаты ещё нет: деньги не пришли, в остаток не входят')];
     const withOpen = hasOpening(opening);
+    const startDate = c.startDate || settings?.startDate || null;
     const calm = { calm: !withOpen };
     const rows = [
       withOpen ? row('Остаток на начало дня', 'bal', cell(c.totals.opening), (d) => cell(d.opening)) : null,
@@ -99,24 +136,38 @@ export function mountMoney(params) {
       row('Результат дня', 'res', cell(c.totals.income - c.totals.expense, { strong: true }), (d) => cell(d.income - d.expense)),
       row('Финансовый результат (нарастающий)', 'bal end', cell(c.totals.closing - c.totals.opening, { strong: true }), (d) => cell(d.closing - c.totals.opening)),
       withOpen ? row('Остаток денег на конец дня', 'bal', cell(c.totals.closing, { strong: true }), (d) => cell(d.closing)) : null,
+      ...pendRows,
     ].filter(Boolean);
     function showOps(d) {
       sel.date = d.date;
       const dd = new Date(d.date + 'T00:00:00Z');
       opsBox.hidden = false;
       opsBox.replaceChildren(
-        h('div', { class: 'q-head' }, h('h3', null, `Операции ${dd.getUTCDate()} ${MONTHS[dd.getUTCMonth()].replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та')}`),
+        h('div', { class: 'q-head' }, h('h3', null, d.title || `Операции ${dd.getUTCDate()} ${MONTHS[dd.getUTCMonth()].replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та')}`),
           h('button', { class: 'btn btn-ghost btn-sm q-link', type: 'button', onclick: () => { opsBox.hidden = true; } }, 'Скрыть')),
-        h('ul', { class: 'q-list' }, d.ops.map((o) => h('li', { class: 'q-row' + (o.thumb ? ' has-pic' : ''), tabindex: '0', onclick: () => patch({ of: o.type === 'income' ? 'orders' : 'requests', open: o.id }) },
+        h('ul', { class: 'q-list' }, d.ops.map((o) => h('li', { class: 'q-row' + (o.thumb ? ' has-pic' : '') + (o.beforeStart ? ' dim' : ''), tabindex: '0', onclick: () => patch({ of: o.type === 'income' ? 'orders' : 'requests', open: o.id }) },
           o.thumb ? h('img', { class: 'q-thumb', src: PREFIX + o.thumb, decoding: 'async', onerror: (e) => e.target.remove(), alt: '', loading: 'lazy' }) : null,
-          h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, o.title), h('div', { class: 'q-sub' }, [o.type === 'income' ? 'поступление' : 'выплата', o.company, o.doc, o.counterparty, o.category].filter(Boolean).join(' · '))),
+          h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, o.title), h('div', { class: 'q-sub' }, [o.type === 'income' ? 'поступление' : 'выплата', o.method, o.company, o.doc, o.counterparty, o.category, o.beforeStart ? 'до старта учёта' : ''].filter(Boolean).join(' · '))),
           h('div', { class: 'q-side' }, h('span', { class: 'num ' + (o.type === 'income' ? 'pos' : 'neg') }, (o.type === 'income' ? '+' : '−') + money(o.amount)))))));
       opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     const t = c.totals;
+    const mt = c.metrics;
+    const tile = (label, v, cls = '', onclick) => h(onclick ? 'button' : 'div', { ...(onclick ? { type: 'button', onclick } : {}), class: 'td-tile m-tile' }, h('span', { class: 'td-tl', title: label }, label), h('span', { class: 'td-tv ' + cls }, money(v)));
+    const tiles = mt ? h('div', { class: 'td-tiles m-tiles' },
+      tile('поступило', mt.received, 'pos'), tile('выплачено', mt.paid), tile('сальдо', mt.saldo, mt.saldo < 0 ? 'neg' : ''),
+      tile('ожидается поступлений', mt.expectedIncome), tile('счета к оплате', mt.invoicesToPay), tile('просрочено', mt.overdueInvoices, mt.overdueInvoices > 0 ? 'neg' : '')) : null;
+    const allOps = days.flatMap((d) => d.ops);
+    const fillLink = h('a', { href: '#fill' }, 'Требуют заполнения');
+    const nf = c.needsFill?.total || 0;
+    const empty = !allOps.length ? h('p', { class: 'hint' }, 'За месяц нет операций.', nf ? [` Не попало в расчёт: ${nf} — «`, fillLink, '».'] : '')
+      : !allOps.some((o) => o.type === 'expense') ? h('p', { class: 'hint' }, 'Расходов нет. Появятся у заявок с суммой, датой счёта и нашей компанией — см. «', fillLink, '».') : null;
     const kpi = (label, v, opts = {}) => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' + (v < 0 && !opts.calm ? ' neg' : '') }, (opts.sign && v > 0 ? '+' : '') + money(v)), h('span', { class: 'sum-l' }, label));
     const upto = c.to < `${month()}-${String(lastDay(month())).padStart(2, '0')}` ? ` по ${Number(c.to.slice(8))}-е` : '';
     return [
+      tiles,
+      empty,
+      startDate ? h('p', { class: 'hint' }, 'Учёт ведётся с ' + startDate.split('-').reverse().join('.') + '; операции раньше — серым, в остаток не входят.') : null,
       h('div', { class: 'summary' }, ...(withOpen
         ? [kpi('остаток на начало', t.opening), kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('остаток' + (upto ? ' сегодня' : ' на конец'), t.closing)]
         : [kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('итог месяца' + upto, t.income - t.expense, { calm: true, sign: true })]),
@@ -205,13 +256,14 @@ export function mountMoney(params) {
     try {
       const m = month();
       const end = `${m}-${String(lastDay(m)).padStart(2, '0')}`;
+      if (settings === null) settings = await api('/finance/settings').catch(() => ({}));
       const q = { from: `${m}-01`, to: end < todayIso() ? end : todayIso(), org: org() };
       let content;
       // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
       if (tab() === 'forecast') {
         const days = [30, 60, 90].includes(Number(P.days)) ? Number(P.days) : 30;
-        const f = await api('/finance/forecast', { query: { days, org: org(), opening: opening.value.trim().replace(',', '.') || 0 } });
+        const f = await api('/finance/forecast', { query: { days, org: org(), ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });
         if (my !== seq) return;
         renderChrome(f.companies);
         content = forecastView(f, { horizon: days, hasOpening: hasOpening(opening) });
@@ -230,7 +282,7 @@ export function mountMoney(params) {
       } else if (m > cur()) {
         content = [h('div', { class: 'panel state' }, h('div', null, 'Это будущий месяц — здесь показываются только прошедшие дни.'), h('div', { class: 'muted' }, 'План и прогноз денег будут отдельным разделом.'), h('button', { class: 'btn', type: 'button', onclick: () => patch({ month: undefined }) }, 'К текущему месяцу'))];
       } else {
-        const c = await api('/finance/cashflow', { query: { ...q, opening: opening.value.trim().replace(',', '.') || 0 } });
+        const c = await api('/finance/cashflow', { query: { ...q, ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });
         if (my !== seq) return;
         renderChrome(c.companies);
         content = calendar(c);
