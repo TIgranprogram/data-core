@@ -108,7 +108,7 @@ export const passportForm = {
       ...funnelFields,
       // изделие — главный источник: здесь сводка в одну строку (ниже в блоке «Изделие»), поля — свёрнуты «Править здесь»
       { section: 'Данные изделия — идут в паспорт', tone: 'main', collapsed: true },
-      { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' },
+      { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' }, { key: 'incomeId', type: 'hidden' },
       { key: 'name', label: 'Наименование (в PDF паспорта)', required: true, wide: true, max: 500,
         hint: r ? 'Это наименование печатается в PDF паспорта. Изменить название изделия в «Продукции» — нажмите «править в изделии» выше.' : 'Заполнено из изделия. Запасной путь — начните печатать и возьмите данные из прошлого паспорта с таким наименованием',
         suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Взять из прошлого паспорта (запасной путь): подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
@@ -198,6 +198,7 @@ export const passportForm = {
     if (!r && v._copyFrom) body._copyFrom = v._copyFrom;
     if (!r && v.productId) body.productId = v.productId;
     if (!r && v.salesOrderId) body.salesOrderId = v.salesOrderId;
+    if (!r && v.incomeId) body.incomeId = v.incomeId;
     if (r && isIssued(r)) body._issued = true;
     // ПИ.4: «Запомнить» — значения по умолчанию изделию (после сохранения паспорта)
     const pid = v.productId || r?.productId;

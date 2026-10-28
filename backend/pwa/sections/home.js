@@ -38,6 +38,7 @@ export function mountHome(deps) {
   const dayText = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const seeReq = session.sees('requests'), seeStock = session.sees('stock');
 
+  let pq = null; // очередь паспортов: счётчики для карточки
   let data = null, showAllQ = false, chip = null, dayFilter = null;
   const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
   const showQuestions = () => { chip = null; dayFilter = null; showAllQ = true; paintAll(); qEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
@@ -252,6 +253,8 @@ export function mountHome(deps) {
         () => go('salesorders', { filter: 'active' }), 'Новые · в производстве · готовы · отгружены'));
       out.push(tile('Просрочено', String(m.orders.overdue || 0), null, () => { chip = 'overdue'; dayFilter = null; paintAll(); }, 'Просрочено по сроку отгрузки'));
     }
+    if (pq?.counts?.hot > 0) out.unshift(tile('Паспорта к сроку · ' + pq.counts.hot, String(pq.counts.hot), segBar([{ n: pq.counts.none || 0, cls: 's1' }, { n: pq.counts.draft || 0, cls: 's2' }, { n: pq.counts.rework || 0, cls: 's3' }]),
+      () => go('docs'), 'Позиции, где проектирование готово, а паспорта нет и до отгрузки не больше 3 дней'));
     const days = m.money?.days;
     if (days?.length && session.canMoney) {
       const last = days[days.length - 1].balance;
@@ -265,6 +268,7 @@ export function mountHome(deps) {
   async function load(silent = false) {
     try {
       data = await api('/today', { query: { days: 7 } });
+      if (session.seesDocs()) pq = await api('/passports/queue', { query: { due: 'soon', limit: 1 } }).catch(() => pq);
       paintBell(); paintTiles(); paintAll();
     } catch (e) {
       if (silent && data) return;

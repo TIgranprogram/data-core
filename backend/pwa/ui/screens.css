@@ -1209,3 +1209,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .sc-crumbs a { color: var(--muted); text-decoration: none; }
 .sc-crumbs a:hover { color: var(--text); text-decoration: underline; }
 .sc-preview { margin-top: 8px; }
+/* очередь паспортов: «горит» (ревью 2026-10-28) */
+table.so-lines tr.dq-hot { background: var(--danger-soft); }
+table.so-lines tr.dq-hot td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+@media (max-width: 700px) { .btn-sm { min-height: 44px; } }

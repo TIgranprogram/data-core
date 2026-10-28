@@ -9,6 +9,7 @@ import { canEdit as canEditTexts, statusOf } from './passports/common.js';
 import { linkDialog, printDialog } from './passports/dialogs.js';
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
+import { mountQueueTab } from './docs-queue.js';
 
 /*
  * «Документация» (NAV F5): две вкладки в адресе #docs?tab=…
@@ -18,8 +19,8 @@ import { mountOrdersTab } from './docs-orders.js';
  * Панели справа: of=doctpl (шаблон изделия), of=passarchive (карточка архива, без правки), of=passports (полная карточка —
  * только чтобы дописать черновик).
  */
-const TABS = [['templates', 'Паспорта'], ['orders', 'По заказам'], ['archive', 'Архив паспортов']];
-const tabOf = (p) => (p.tab === 'archive' ? 'archive' : p.tab === 'orders' ? 'orders' : 'templates');
+const TABS = [['queue', 'Нужно сделать паспорт'], ['templates', 'Паспорта'], ['orders', 'По заказам'], ['archive', 'Архив паспортов']];
+const tabOf = (p) => (['archive', 'orders', 'templates'].includes(p.tab) ? p.tab : 'queue');
 const isOld = (r) => !!r.source && r.source !== 'app';
 const hasTpl = (d) => !!d && (Object.keys(d.textChoices || {}).length > 0 || !!d.passportCategory);
 
@@ -140,15 +141,16 @@ export function mountDocs(params, { onChanged } = {}) {
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg), body);
 
   const drawTabs = () => seg.replaceChildren(...TABS.map(([k, label]) =>
-    h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '', onclick: () => { if (tab !== k) go('docs', k === 'templates' ? {} : { tab: k }, { replace: true }); } }, label)));
+    h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '', onclick: () => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }, label)));
 
   function mountTab(p) {
     inner?.destroy?.();
+    if (tab === 'queue') { inner = mountQueueTab(p); body.replaceChildren(inner.el); drawTabs(); return; }
     if (tab === 'orders') { inner = mountOrdersTab(p, { onChanged }); body.replaceChildren(inner.el); drawTabs(); return; }
     const sec = tab === 'archive' ? passarchive : doctpl;
     const secId = sec.id;
     inner = mountList(sec, listParams(p), {
-      onOpen: (row) => go('docs', { ...(tab === 'archive' ? { tab: 'archive' } : {}), of: secId, open: row.id }, { replace: !!current().params.open, kind: 'card' }),
+      onOpen: (row) => go('docs', { tab, of: secId, open: row.id }, { replace: !!current().params.open, kind: 'card' }),
       onCreate: () => {},
       onChanged,
     });
@@ -164,7 +166,7 @@ export function mountDocs(params, { onChanged } = {}) {
     destroy: () => inner?.destroy?.(),
     update: (p) => {
       if (tabOf(p) !== tab) { tab = tabOf(p); mountTab(p); return; }
-      if (tab === 'orders') { inner.update(p); return; }
+      if (tab === 'orders' || tab === 'queue') { inner.update(p); return; }
       inner.update(listParams({ ...p, open: p.of === (tab === 'archive' ? 'passarchive' : 'doctpl') ? p.open : undefined }));
     },
   };

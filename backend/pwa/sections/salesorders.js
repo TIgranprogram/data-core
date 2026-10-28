@@ -13,6 +13,7 @@ import { failBlock } from '../ui/busy.js';
 import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
+import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
@@ -23,6 +24,7 @@ export const STAGE = {
   new: { label: 'Проектирование', tone: 'primary' },
   production: { label: 'Производство', tone: 'info' },
   ready: { label: 'Готово к отгрузке', tone: 'warn' },
+  partly: { label: 'Частично отгружен', tone: 'warn' },
   shipped: { label: 'Отгружена', tone: 'ok' },
   closed: { label: 'Закрыт', tone: 'dim' },
   cancelled: { label: 'Отменён', tone: 'danger' },
@@ -141,13 +143,15 @@ function details(r) {
     const seeReq = session.sees('requests'), seeStock = session.sees('stock');
     box.replaceChildren(...[ // null/false не печатаем: DOM replaceChildren выводит их текстом («nullnull»)
       sec(`Позиции (${lines.length})`, lines.length
-        ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
+        ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
           h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
             h('td', { class: 'muted' }, l.lineNo || i + 1), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title, ourLine(l)), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
-            h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
+            h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
         : h('p', { class: 'muted' }, 'Позиций пока нет — добавьте ниже.'),
         session.canEdit && !['closed', 'cancelled'].includes(r.stage) ? (r.stage === 'new' || session.role === 'admin' ? addLineRow(r, () => load()) : h('p', { class: 'hint' }, 'Заказ уже в работе — менять позиции может администратор.')) : null),
       orderPassports(r),
+      shipmentsBlock({ id: r.id, stage: r.stage }, () => load()),
+      historyBlock({ id: r.id }),
       orderDesign({ id: r.id, orderNo: r.orderNo }, lines),
       seeReq && (d.supplyRequests || []).length ? sec(`Заказано под заказ (${d.supplyRequests.length})`,
         h('ul', { class: 'timeline' }, ...d.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`)))) ) : null,
@@ -176,6 +180,7 @@ export const salesorders = {
     createLabel: 'Заказ',
     searchPlaceholder: 'Поиск: № заказа, заказчик, предмет, контракт…',
     emptyText: 'Заказов пока нет.',
+    emptyHint: 'Нажмите «+ Заказ»: заказчик, наша компания, срок. Позиции добавьте внутри заказа.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
     filters: [
       { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', options: () => [{ value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }], count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
@@ -201,7 +206,7 @@ export const salesorders = {
       side: (r) => [badge(STAGE, r.stage), prio(r)],
     },
     board: {
-      columns: ['new', 'production', 'ready', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-shipDate' : 'shipDate' } })),
+      columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-shipDate' : 'shipDate' } })),
       card: (r) => ({
         title: `№ ${r.orderNo || '—'} · ${r.customer || ''}`,
         meta: [r.title ? h('span', null, r.title.slice(0, 80)) : null, h('span', null, `${r.lineCount} поз.`), deadline(r) ? due(r) : null, prio(r)].filter(Boolean),
@@ -233,6 +238,7 @@ export const salesorders = {
       r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить заказ', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить ${heading(row).toLowerCase()}?`, 'Заказ перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить заказ', danger: true }))) return; ctx.setRow(await setStage(row, 'cancelled')); } },
       !['closed', 'cancelled'].includes(r.stage) && session.canEdit && session.sees('stock') && { label: 'Загрузить спецификацию', title: 'Файл Excel → брони под позиции этого заказа', run: (row) => patch({ of: 'specimport', new: '1', orderId: row.id, open: undefined }, { replace: false }) },
       !['closed', 'cancelled'].includes(r.stage) && ['admin', 'manager'].includes(session.role) && { label: 'Связать с каталогом', title: 'Связать позиции заказчика с нашими изделиями — для паспорта и производства. Заказ не меняется.', run: async (row, ctx) => { const s = await matchProducts(row); if (s) ctx.setRow(s); } },
+      !['closed', 'cancelled', 'new'].includes(r.stage) && canShip() && { label: 'Отгрузить', primary: !NEXT[r.stage], run: (row) => patch({ of: 'shipdo', open: row.id }, { replace: false }) },
       session.sees('orders') && { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
     extra: (r) => details(r),

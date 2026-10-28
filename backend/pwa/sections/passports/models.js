@@ -48,7 +48,7 @@ export async function orders() {
  * по ссылке на изделие, затем по артикулу, затем по названию — подставляются её поля и картинки; номер и талон — сервер.
  * Возвращает true, если модель нашлась.
  */
-export async function issuePassport({ productId, name, article, orderNo, salesOrderId, customerName, customerTitle }) {
+export async function issuePassport({ productId, name, article, orderNo, salesOrderId, customerName, customerTitle, incomeId }) {
   // ПИ: изделие — единый источник; форма сама подставит его поля, значения по умолчанию, категорию и прошлый паспорт
   let pid = productId;
   if (!pid && (article || name)) {
@@ -58,7 +58,7 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
   }
   // ПРЖ-4: из позиции заказа в паспорт идёт название заказчика (правится); из изделия — наше. Выпущенные не меняются.
   st.keepName = customerTitle || '';
-  st.draft = { productId: pid || '', salesOrderId, orderNo, customerName, ...(customerTitle ? { name: customerTitle } : {}), ...(pid ? {} : { _searchName: name || article || '' }) };
+  st.draft = { productId: pid || '', salesOrderId, ...(incomeId ? { incomeId } : {}), orderNo, customerName, ...(customerTitle ? { name: customerTitle } : {}), ...(pid ? {} : { _searchName: name || article || '' }) };
   patch({ of: 'passports', new: '1', open: undefined });
   return !!pid;
 }
