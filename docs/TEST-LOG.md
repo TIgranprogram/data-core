@@ -58,3 +58,4 @@
 | 2026-10-27 | HEAD 46edd22 (приёмка 6181eec..HEAD: NAMES, TRASH, DOCS-ORDERS, MC) | tsc 0; юнит 171/1644 ✅ (+confirm-token.guard.spec, Н-1/invoiceName, ourName); pwa-guards 118 ✅; pwa --check ✅; scripts/*.test.mjs; e2e 36 suites / 284 tests ✅ (Docker, datacore-test) |
 | 2026-10-27 | HEAD 46edd22 + trash-docs-orders.e2e-spec (корзина заказов/confirm-токен, by-order, PATCH readiness); openapi.json перегенерирован (281 путь) | e2e 37 suites / 288 tests ✅ (Docker Mongo 27018, datacore-test) |
 | 2026-10-27 вечер | full | юнит 171/1659, e2e 37/293 | стикеры и фото проектирования, защита позиций заказа, «По заказам» v2 |
+| 2026-10-28 ночь | HEAD a2013ed | tsc 0; юнит 1691 ✅; e2e — нет Docker дома (не гонялся); smoke прода: health 200, /app 200 | ЗНП, Сегодня v2, карточка v3, каталог Excel, каталог поставщиков, меню «Настройки», автообновление |
