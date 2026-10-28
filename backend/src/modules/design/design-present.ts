@@ -1,6 +1,7 @@
 import type { Connection, Types } from 'mongoose';
 import { shortProductName } from '../showcase/order-product-name';
 import { loadPhotos } from '../../common/photos';
+import { loadSeq } from '../../common/text/production-seq';
 
 type Doc = Record<string, unknown>;
 type Oid = Types.ObjectId;
@@ -32,6 +33,8 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
     // счётчики обсуждения: всего записей и открытых вопросов — одним запросом на страницу
     db.collection('designnotes').aggregate([{ $match: { taskId: { $in: docs.map((d) => d._id) }, deletedAt: null } }, { $group: { _id: '$taskId', n: { $sum: 1 }, q: { $sum: { $cond: ['$needsAnswer', 1, 0] } } } }]).toArray(),
   ]);
+  // сквозной № позиции по заказу производства (договоры с одним № заказа)
+  const seqOf = await loadSeq(db, orderIds);
   const notes = new Map(noteRows.map((r) => [String(r._id), r as Doc]));
   const order = new Map(orders.map((o) => [String(o._id), o as Doc]));
   const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
@@ -53,10 +56,11 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
     const sku = (prod?.sku as string | undefined) ?? null, productName = (prod?.name as string | undefined) ?? null;
     const orderNo = (o?.orderNo as string | undefined) ?? null, lineNo = (inc?.lineNo as number | undefined) ?? null;
     const productionNo = (o?.productionNo as string | undefined) || null;
+    const seqNo = seqOf.get(String(d.incomeId))?.seqNo ?? null, posNo = seqNo ?? lineNo;
     const customerTitle = (inc?.title as string | undefined) ?? null;
     // «Чертежи <артикул> ЗНП <№ заказа> поз <№>»; без изделия — короткое название заказчика
     const auto = prod
-      ? ['Чертежи', sku ?? productName, productionNo ? `№ ${productionNo}` : '', lineNo != null ? `поз ${lineNo}` : ''].filter(Boolean).join(' ')
+      ? ['Чертежи', sku ?? productName, productionNo ? `№ ${productionNo}` : '', posNo != null ? `поз ${posNo}` : ''].filter(Boolean).join(' ')
       : customerTitle ? shortProductName(customerTitle) : '';
     const photoId = firstPhoto(prod);
     const own = ((d.photoIds as Oid[] | undefined) ?? []).map((x) => photos.get(String(x))).filter((x) => !!x);
@@ -69,7 +73,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
       photoIds: own.map((x) => x!.id), photos: own,
       notesCount: (notes.get(String(d._id))?.n as number | undefined) ?? 0, openQuestions: (notes.get(String(d._id))?.q as number | undefined) ?? 0,
       stickers: (d.stickers as Record<string, unknown> | undefined) ?? {},
-      orderId: d.orderId ? String(d.orderId) : null, orderNo, productionNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo,
+      orderId: d.orderId ? String(d.orderId) : null, orderNo, productionNo, incomeId: d.incomeId ? String(d.incomeId) : null, lineNo, seqNo,
       qty: (inc?.qty as number | undefined) ?? null, unit: (inc?.unit as string | undefined) ?? null, spec: (d.spec as Doc | undefined) ?? null,
       productId: pid ? String(pid) : null, sku, productName, customerTitle,
       deadline: manual.deadline ?? orderDeadline(o), deadlineFromOrder: !manual.deadline && !!orderDeadline(o),

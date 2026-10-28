@@ -13,6 +13,7 @@ import { netIssuedByLine } from '../../common/issued-net';
 import { remaining } from '../../common/text/shipment-calc';
 import { HISTORY_TYPES, loadOrderHistory, type HistoryAccess } from './order-history';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-key';
+import { loadSeq } from '../../common/text/production-seq';
 import { suggestProducts } from '../../common/catalog/product-match';
 import { ORDER_CACHE_FIELDS } from './order-link';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
@@ -66,9 +67,9 @@ export class SalesOrdersService {
     });
   }
 
-  async list(q: Record<string, unknown> = {}) {
-    const p = parseList(q, { sortable: SORT, defaultSort: '-createdAt', defaultLimit: 25 });
-    const filter: Doc = { deletedAt: p.deleted ? { $ne: null } : null };
+  /** Фильтры списка заказов (общие с /production-orders): filter — без этапов, stages — список этапов или undefined. */
+  filters(q: Record<string, unknown>, deleted = false): { filter: Doc; stages?: string[] } {
+    const filter: Doc = { deletedAt: deleted ? { $ne: null } : null };
     if (q.companyId) filter.companyId = { $in: oids(q.companyId) };
     const range = dateRange(q.from, q.to);
     if (range) filter.shipDate = range;
@@ -96,6 +97,12 @@ export class SalesOrdersService {
       if (bad) throw new BadRequestException(`Неизвестный приоритет «${bad}»: urgent, high, normal или low`);
       filter.$and = [...((filter.$and as unknown[]) ?? []), { $or: [{ priority: { $in: want } }, ...(want.includes('normal') ? [{ priority: null }] : [])] }];
     }
+    return { filter, stages };
+  }
+
+  async list(q: Record<string, unknown> = {}) {
+    const p = parseList(q, { sortable: SORT, defaultSort: '-createdAt', defaultLimit: 25 });
+    const { filter, stages } = this.filters(q, p.deleted);
     const full = { ...filter, ...(stages ? { stage: { $in: stages } } : {}) };
     // № заказа «N-ГГ» — не по алфавиту: год, затем N числом; без № — в конце (Mongo 4.4: $split + $convert)
     const num = (i: number) => ({ $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: ['$productionNo', ''] }, '-'] }, i] }, to: 'int', onError: null, onNull: null } });
@@ -211,11 +218,12 @@ export class SalesOrdersService {
     const docs = await this.model.find(filter, { orderNo: 1, productionNo: 1, customer: 1, title: 1, stage: 1, shipDate: 1 }).sort({ createdAt: -1, _id: -1 }).lean().exec();
     const withLines = String(q.lines) === '1';
     const byOrder = new Map<string, Doc[]>();
+    const seq = withLines && docs.length ? await loadSeq(this.connection.db!, docs.map((d) => d._id)) : new Map<string, { seqNo: number }>();
     if (withLines && docs.length) {
       const lines = await this.incomes().find({ orderId: { $in: docs.map((d) => d._id) }, deletedAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
       for (const l of lines) {
         const list = byOrder.get(String(l.orderId)) ?? [];
-        list.push({ id: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '', qty: (l.qty as number | undefined) ?? null, productId: l.productId ? String(l.productId) : null });
+        list.push({ id: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, seqNo: seq.get(String(l._id))?.seqNo ?? null, title: l.title ?? '', qty: (l.qty as number | undefined) ?? null, productId: l.productId ? String(l.productId) : null });
         byOrder.set(String(l.orderId), list);
       }
     }
@@ -235,6 +243,7 @@ export class SalesOrdersService {
   async linesLookup(id: string) {
     const order = await this.findRaw(id);
     const db = this.connection.db!;
+    const seq = await loadSeq(db, [order._id]);
     const lines = await this.incomes().find({ orderId: order._id, deletedAt: null }, { projection: { lineNo: 1, title: 1, productId: 1, photoIds: 1, qty: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
     const allProdIds = [...new Map(lines.filter((l) => l.productId).map((l) => [String(l.productId), l.productId as Types.ObjectId])).values()];
     const prodInfo = new Map<string, { name?: string; sku?: string; firstPhoto?: Types.ObjectId }>();
@@ -254,7 +263,7 @@ export class SalesOrdersService {
     return lines.map((l) => {
       const photoId = photoOf(l);
       return {
-        id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, productionNo: (order.productionNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
+        id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, productionNo: (order.productionNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, seqNo: seq.get(String(l._id))?.seqNo ?? null, title: l.title ?? '',
         productId: l.productId ? String(l.productId) : null,
         sku: (l.productId ? prodInfo.get(String(l.productId))?.sku : undefined) ?? null,
         productName: (l.productId ? prodInfo.get(String(l.productId))?.name : undefined) ?? null,
@@ -317,6 +326,7 @@ export class SalesOrdersService {
     const doc = await this.model.create({
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
       stage: f.stage ?? 'new', importKey: key, clientUid: dto.clientUid,
+      ...(f.productionNo ? { productionAddedAt: new Date() } : {}),
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
     return this.get(String(doc._id));
@@ -335,9 +345,24 @@ export class SalesOrdersService {
     // importKey не меняется: по нему лист «Заказы» и импорт продолжают находить эту шапку
     const set: Doc = { editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
+    // № заказа менялся: фиксируем дату входа в заказ (порядок договоров); убрать договор из заказа с выдачами/отгрузками нельзя
+    if ('productionNo' in f && (f.productionNo ?? '') !== (cur.productionNo ?? '')) {
+      if (cur.productionNo) await this.ensureDetachable(cur._id as Types.ObjectId);
+      if (f.productionNo) set.productionAddedAt = new Date(); else unset.productionAddedAt = '';
+    }
     await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     await this.syncLines(cur._id as Types.ObjectId, f);
     return this.get(id);
+  }
+
+  /** Договор можно вывести из заказа, только если по нему нет выдач со склада и отгрузок. */
+  private async ensureDetachable(orderId: Types.ObjectId) {
+    const db = this.connection.db!;
+    const [issued, shipped] = await Promise.all([
+      db.collection('stockmovements').countDocuments({ salesOrderId: orderId, deletedAt: null, cancelledAt: null }, { limit: 1 }),
+      db.collection('shipments').countDocuments({ orderId, deletedAt: null }, { limit: 1 }),
+    ]);
+    if (issued || shipped) throw new ConflictException('Договор уже в работе: есть выдачи/отгрузки');
   }
 
   /** Правка шапки → кэш-поля в позициях; при смене даты отгрузки reportDate = оплата ?? отгрузка. */

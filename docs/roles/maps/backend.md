@@ -1,6 +1,6 @@
 # Карта роли backend
 
-коммит: 61b18c6 (+ правки ПВ и DICT 2026-10-25, не закоммичены)
+коммит: 627c9bf (+ правки ПВ и DICT 2026-10-25, не закоммичены)
 
 ## Паспорта «воронкой» (ПВ) — где что
 - Дерево/выбор (pure): `backend/src/common/passport/phrase-tree.ts` — `toNode`, `buildForest(nodes, category)`, `resolveChoices`, `missingChoices`, `checkNode` (запись), `checkChoices`, `parseChoices`, `presentForest`. spec рядом.
@@ -61,3 +61,6 @@
 - `modules/shipments/` (`shipments.service.ts` create/list/remove/restore/pdf, `shipment-pdf.ts`, `shipment.schema.ts`, `dto.ts`); расчёты — `common/text/shipment-calc.ts`; этап `partly` — `common/text/order-key.ts`; карточка заказа `lines[].shipped/left` — `salesorders.service.ts` `get`.
 - Очередь: `product-passport/passport-queue.ts` (`buildQueue`, `loadQueue`, `fromIncome`), маршрут `GET /passports/queue`; `incomeId` — `product-passport.schema.ts`, `passport-consts.ts` OID_FIELDS.
 - История: `salesorders/order-history.ts` (`loadOrderHistory`), `GET /salesorders/:id/history`. e2e `test/e2e/shipments.e2e-spec.ts` НЕ запускался; openapi не обновлён (нужен Mongo). коммит: —
+
+## Заказ производства (PRODUCTION-ORDERS, 2026-10-28, не закоммичено)
+- `modules/salesorders/production-orders.ts` (pure: groupKey, summarize, toProduce, compareProductionNo), `production-orders.service.ts` (list — группировка в памяти, get, setStage), `production-orders.controller.ts`; `salesorders.service.ts` `filters()` (общий с list), `ensureDetachable` (409), `productionAddedAt` в create/update; `common/text/production-seq.ts` (`numberLines`, `loadSeq`) — seqNo в lines-lookup/lookup/design-present/passport-queue; `shipments.service.ts` `shipmentNumber`. e2e `production-orders.e2e-spec.ts` зелёный. openapi не обновлён. коммит: —

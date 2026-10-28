@@ -33,3 +33,8 @@ export class MatchProductsDto {
   @ApiPropertyOptional({ description: 'true — записать picks; иначе только предложения' }) @IsOptional() @IsBoolean() apply?: boolean;
   @ApiPropertyOptional({ type: [MatchPickDto] }) @IsOptional() @IsArray() @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => MatchPickDto) picks?: MatchPickDto[];
 }
+
+/** Этап «ко всем договорам» заказа производства. */
+export class ProductionStageDto {
+  @ApiPropertyOptional({ enum: ORDER_STAGES, description: "new | production | ready | partly | shipped | closed" }) @IsIn(ORDER_STAGES as unknown as string[]) stage!: OrderStage;
+}

@@ -25,6 +25,8 @@ export class SalesOrder {
   @Prop({ trim: true }) contractNo?: string;
   /** № на производство («21-26» = порядковый-ГГ). В кэш позиций не копируется. */
   @Prop({ trim: true, index: true }) productionNo?: string;
+  /** Когда договор вошёл в заказ (установлен/сменён productionNo): порядок договоров и сквозная нумерация позиций. Нет — createdAt. */
+  @Prop({ type: Date }) productionAddedAt?: Date;
   @Prop({ type: Date }) contractDate?: Date;
   @Prop({ type: Date, index: true }) shipDate?: Date;
   /** Срок изготовления. */
@@ -56,3 +58,4 @@ export class SalesOrder {
 
 export const SalesOrderSchema = SchemaFactory.createForClass(SalesOrder);
 SalesOrderSchema.index({ stage: 1, shipDate: -1 });
+SalesOrderSchema.index({ productionNo: 1, deletedAt: 1 });

@@ -15,6 +15,9 @@ type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-exp
 /** Дата ГГГГ-ММ-ДД → полночь UTC; пусто — сегодня по Москве. */
 const day = (v?: string) => new Date(`${v ? String(v).slice(0, 10) : new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10)}T00:00:00.000Z`);
 const fmt = (n: number) => String(Math.round(n * 1000) / 1000);
+/** Номер отгрузки: с № заказа — ОТГ-21-26-109-П-1 (у договоров одного заказа счётчики свои, № договора различает); без — ОТГ-109-П-1. */
+export const shipmentNumber = (productionNo: unknown, orderNo: unknown, seq: number) =>
+  ['ОТГ', String(productionNo ?? '').trim(), String(orderNo ?? '').trim() || '—', seq].filter(Boolean).join('-');
 const isOid = (v: unknown) => Types.ObjectId.isValid(String(v));
 
 /**
@@ -118,7 +121,7 @@ export class ShipmentsService {
     let doc: ShipmentDocument;
     try {
       doc = await this.model.create({
-        orderId: _id, seq, number: `ОТГ-${String(o.productionNo ?? '').trim() || String(o.orderNo ?? '').trim() || '—'}-${seq}`, date: day(dto.date), lines: outLines,
+        orderId: _id, seq, number: shipmentNumber(o.productionNo, o.orderNo, seq), date: day(dto.date), lines: outLines,
         whoId: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, whoName: await this.userName(user),
         reason: dto.reason?.trim() || undefined, note: dto.note?.trim() || undefined, docNo: dto.docNo?.trim() || undefined, receiver: dto.receiver?.trim() || undefined,
       });
