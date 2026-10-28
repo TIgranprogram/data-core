@@ -12,6 +12,8 @@ import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
+import { CreateInvoicesDto, PatchInvoiceDto } from './dto-invoice';
+import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -26,7 +28,45 @@ export class SupplyController {
     private readonly supply: SupplyService,
     private readonly excel: SupplierExcelService,
     private readonly catalog: SupplierCatalogService,
+    private readonly invoices: SupplyInvoiceService,
   ) {}
+
+// ───────── Счета поставщиков: заявки группой → черновик счёта (по поставщику) → выставлен → оплачен ─────────
+  @Post('invoices')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.created', entityType: 'SupplyInvoice' })
+  createInvoices(@Body() dto: CreateInvoicesDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.invoices.create(dto.requestIds, user?.id);
+  }
+
+  @Get('invoices/:id')
+  @Roles('admin', 'director', 'manager', 'user')
+  getInvoice(@Param('id') id: string) {
+    return this.invoices.get(id);
+  }
+
+  @Patch('invoices/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.updated', entityType: 'SupplyInvoice', idParam: 'id' })
+  updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto) {
+    return this.invoices.update(id, dto);
+  }
+
+  /** Оплата — только денежные роли. */
+  @Post('invoices/:id/pay')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'accountant')
+  @AuditAction({ action: 'supply.invoice.paid', entityType: 'SupplyInvoice', idParam: 'id' })
+  payInvoice(@Param('id') id: string) {
+    return this.invoices.pay(id);
+  }
+
+  @Delete('invoices/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.deleted', entityType: 'SupplyInvoice', idParam: 'id' })
+  removeInvoice(@Param('id') id: string) {
+    return this.invoices.remove(id);
+  }
 
   @AppSection('requests', 'suppliercatalog')
   @Get('supplier-items')

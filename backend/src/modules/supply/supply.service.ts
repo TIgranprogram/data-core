@@ -247,6 +247,12 @@ export class SupplyService {
     } };
   }
 
+  /** Строки счёта — заявки с invoiceId, в виде для клиента. */
+  async byInvoice(invoiceId: Types.ObjectId) {
+    const docs = await this.model.find({ invoiceId, deletedAt: null }).sort({ num: 1, _id: 1 }).lean().exec();
+    return this.present(docs as Array<Record<string, unknown>>);
+  }
+
   async get(id: string) {
     const doc = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }).lean().exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');

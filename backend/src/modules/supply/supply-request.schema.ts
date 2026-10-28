@@ -189,6 +189,10 @@ export class SupplyRequest {
   @Prop()
   receivedTo?: string;
 
+  /** Счёт поставщика (supplyinvoices) — поле только data-core; CRM его не знает. */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  invoiceId?: Types.ObjectId;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
 
