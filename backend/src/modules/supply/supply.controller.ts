@@ -1,5 +1,6 @@
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -10,6 +11,10 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
+import { SupplierCatalogService } from './supplier-catalog.service';
+import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
+
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
 @ApiTags('Снабжение')
@@ -20,6 +25,7 @@ export class SupplyController {
   constructor(
     private readonly supply: SupplyService,
     private readonly excel: SupplierExcelService,
+    private readonly catalog: SupplierCatalogService,
   ) {}
 
   @AppSection('requests', 'suppliercatalog')
@@ -28,6 +34,87 @@ export class SupplyController {
   @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   listSupplierItems(@Query() q: Record<string, string>) {
     return this.excel.listItems(q);
+  }
+
+  // ───────── Каталог поставщиков v2: просмотр/экспорт — все роли раздела; правка и импорт — admin, manager ─────────
+  @AppSection('requests', 'suppliercatalog')
+  @Get('catalog/items')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'materialId', required: false })
+  @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'unmatched', required: false, description: '1 — без связи с материалом' })
+  @ApiQuery({ name: 'noPrice', required: false, description: '1 — без цены' }) @ApiQuery({ name: 'stale', required: false, description: '1 — цена старше 180 дней' })
+  @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  catalogList(@Query() q: Record<string, string>) {
+    return this.catalog.list(q);
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Get('catalog/counts')
+  @Roles('admin', 'director', 'manager', 'user')
+  catalogCounts() {
+    return this.catalog.counts();
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Get('catalog/template')
+  @Roles('admin', 'director', 'manager', 'user')
+  async catalogTemplate(@Res() res: Response) {
+    res.setHeader('Content-Type', XLSX);
+    res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent('Шаблон каталога поставщика.xlsx'));
+    res.send(await this.catalog.template());
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Get('catalog/export')
+  @Roles('admin', 'director', 'manager', 'user')
+  async catalogExport(@Query() q: Record<string, string>, @Res() res: Response) {
+    res.setHeader('Content-Type', XLSX);
+    res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent('Каталог поставщиков.xlsx'));
+    res.send(await this.catalog.export(q));
+  }
+
+  /** multipart: file; supplierId — поставщик по умолчанию (необязателен, если в файле ИНН/название). ?preview=1 — без записи. */
+  @AppSection('requests', 'suppliercatalog')
+  @Post('catalog/import')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 }, storage: undefined }))
+  @AuditAction({ action: 'supply.catalog.import', entityType: 'SupplierItem' })
+  catalogImport(@UploadedFile() file: Express.Multer.File, @Query('preview') preview: string, @Query('supplierId') qSupplier: string, @Body('supplierId') bSupplier: string, @CurrentUser() user?: AuthenticatedUser) {
+    if (!file?.buffer) throw new BadRequestException('Файл не передан');
+    const supplierId = qSupplier || bSupplier || undefined;
+    return preview === '1' ? this.catalog.preview(file.buffer, supplierId) : this.catalog.apply(file.buffer, supplierId, user?.id);
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Post('catalog/items')
+  @Roles('admin', 'manager')
+  catalogCreate(@Body() dto: CatalogItemDto) {
+    return this.catalog.bulk([dto]);
+  }
+
+  /** Массовая запись (скрипты наполнения): source request|stock|manual, существующие данные Excel не перетираются. */
+  @AppSection('requests', 'suppliercatalog')
+  @Post('catalog/bulk')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  catalogBulk(@Body() dto: CatalogBulkDto) {
+    return this.catalog.bulk(dto.items);
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Patch('catalog/items/:id')
+  @Roles('admin', 'manager')
+  catalogPatch(@Param('id') id: string, @Body() dto: CatalogItemPatchDto) {
+    return this.catalog.patch(id, dto);
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Delete('catalog/items/:id')
+  @Roles('admin', 'manager')
+  catalogRemove(@Param('id') id: string) {
+    return this.catalog.remove(id);
   }
 
   @AppSection('requests', 'stock')

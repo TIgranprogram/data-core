@@ -12,9 +12,9 @@ export class PriceHistoryEntry {
   @Prop({ required: true, default: () => new Date() })
   date!: Date;
 
-  /** excel — из загруженного прайса; request — из заявки снабжения. */
-  @Prop({ required: true, enum: ['excel', 'request'] })
-  source!: 'excel' | 'request';
+  /** excel — прайс; request — заявка; stock — склад; manual — вручную. */
+  @Prop({ required: true, enum: ['excel', 'request', 'stock', 'manual'] })
+  source!: 'excel' | 'request' | 'stock' | 'manual';
 }
 
 const PriceHistoryEntrySchema = SchemaFactory.createForClass(PriceHistoryEntry);
@@ -49,9 +49,31 @@ export class SupplierItem {
   @Prop({ trim: true })
   photoUrl?: string;
 
-  /** Откуда последнее обновление: excel | request. */
-  @Prop({ enum: ['excel', 'request'], default: 'excel' })
-  source?: 'excel' | 'request';
+  /** Откуда последнее обновление: excel | request | stock | manual. */
+  @Prop({ enum: ['excel', 'request', 'stock', 'manual'], default: 'excel' })
+  source?: 'excel' | 'request' | 'stock' | 'manual';
+
+  // ── Каталог v2 (необязательные; CRM их не читает) ──
+  /** Наш материал; нет — ещё не сопоставлено. */
+  @Prop({ type: Types.ObjectId, ref: 'Material', index: true, sparse: true })
+  materialId?: Types.ObjectId;
+
+  @Prop({ trim: true })
+  unit?: string;
+
+  /** Копия категории материала — для фильтра. */
+  @Prop({ type: Types.ObjectId, ref: 'Category', index: true, sparse: true })
+  categoryId?: Types.ObjectId;
+
+  /** Дата последней цены. */
+  @Prop({ type: Date })
+  priceDate?: Date;
+
+  @Prop()
+  inStock?: boolean;
+
+  @Prop({ trim: true })
+  note?: string;
 
   /** История цен — заполняется при каждом upsert с другой ценой (СКЕ-5). */
   @Prop({ type: [PriceHistoryEntrySchema], default: [] })
