@@ -80,7 +80,7 @@ body.detail-open .board { grid-auto-columns: minmax(240px, 1fr); }
 .q-sub { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .q-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 13px; }
 .q-thumb { width: 56px; height: 56px; border-radius: var(--radius-sm); object-fit: cover; flex: none; }
-.q-row.has-pic { grid-template-columns: 40px minmax(0, 1fr) auto; }
+.q-row.has-pic { grid-template-columns: 56px minmax(0, 1fr) auto; }
 .q-date { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
 .q-actions { display: flex; gap: 6px; }
 .q-empty { padding: 22px 16px; color: var(--muted); text-align: center; list-style: none; }
@@ -88,7 +88,7 @@ body.detail-open .board { grid-auto-columns: minmax(240px, 1fr); }
 .q-more:hover { background: var(--surface-2); }
 @media (max-width: 720px) {
   .q-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .q-row.has-pic { grid-template-columns: 40px minmax(0, 1fr); }
+  .q-row.has-pic { grid-template-columns: minmax(0, 1fr) auto; }
   .q-thumb { display: none; }
   .q-actions { grid-column: 1 / -1; justify-content: flex-end; }
   .summary { grid-template-columns: 1fr 1fr; }
@@ -669,6 +669,7 @@ table.cal.forecast th.day.gap { box-shadow: inset 0 -3px 0 var(--danger); }
 table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .m-horizon { margin: 0 0 var(--s3); }
 .m-nodate summary { cursor: pointer; padding: var(--s3) var(--s4); }
+.m-nodate summary .muted { display: block; }
 @media (max-width: 720px) {
   .money .page-head { flex-wrap: wrap; }
   .money .page-head > .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
@@ -1222,4 +1223,5 @@ table.cal tr.pend th, table.cal tr.pend td { color: var(--muted); font-style: it
 .q-row.dim { opacity: .55; }
 .pay-grid { display: grid; grid-template-columns: 1fr; gap: var(--s3); }
 .pr-inp { width: 84px; text-align: right; }
-@media (max-width: 900px) { .m-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1280px) { .m-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .m-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

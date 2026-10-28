@@ -101,7 +101,7 @@ export function mountMoney(params) {
     const days = c.days;
     const sel = { date: null };
     const opsBox = h('div', { class: 'm-ops', hidden: true });
-    const head = h('tr', null, h('th', { class: 'sticky' }, 'Показатель'), h('th', { class: 'tot', title: 'Total — итог за выбранный период' }, 'Итого (Total)'),
+    const head = h('tr', null, h('th', { class: 'sticky' }, 'Показатель'), h('th', { class: 'tot', title: 'Итог за выбранный период' }, 'Итого'),
       days.map((d) => h('th', { class: 'day' + (d.weekday === 0 || d.weekday === 6 ? ' wkend' : '') + (d.date === new Date().toISOString().slice(0, 10) ? ' today' : '') },
         h('b', null, String(Number(d.date.slice(8)))), h('span', null, WD[d.weekday]))));
     const row = (label, cls, total, get, clickable) => h('tr', { class: cls },
