@@ -71,3 +71,38 @@ describe('Supply invoices', () => {
     await http().get(`/api/supply/invoices/${id}`).set(auth()).expect(404);
   });
 });
+
+/** История цен материала: запись при «выставлен»/«оплачен», без дублей (e2e нужен Mongo rs0 — дома не запускался). */
+describe('Material prices', () => {
+  let ctx: TestContext | undefined;
+  let app: INestApplication;
+  let token: AuthTokens;
+  const db = () => ctx!.connection.db!;
+  const http = () => request(app.getHttpServer());
+  const auth = () => authHeader(token.access);
+
+  beforeAll(async () => {
+    ctx = await createTestApp(); app = ctx.app; token = await loginAsAdmin(app);
+    for (const c of ['supplyrequests', 'supplyinvoices', 'organizations', 'materials', 'materialprices']) await db().collection(c).deleteMany({});
+  });
+  afterAll(async () => { await ctx?.cleanup(); });
+
+  it('выставлен → строка цены (1200 с НДС / 10 шт = 100 без НДС), оплата — вторая; повтор без дублей; price-default', async () => {
+    const mat = await db().collection('materials').insertOne({ name: 'Лист', article: 'L-1', unit: 'шт', createdAt: new Date() });
+    const mid = String(mat.insertedId);
+    const rid = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Лист', qty: 10, unit: 'шт', supplierName: 'Металл', materialId: mid, priceHint: 1 }).expect(201)).body.id as string;
+    const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [rid] }).expect(201)).body.items[0].id as string;
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: '1', date: '2026-10-20', amount: 1200, issue: true }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ amount: 1200 }).expect(200); // повторная правка — не дубль
+    let h = (await http().get(`/api/materials/${mid}/prices`).set(auth()).expect(200)).body;
+    expect(h.total).toBe(1);
+    expect(h.items[0]).toMatchObject({ price: 100, priceWithVat: 120, vatRate: 20, source: 'invoice_issued', supplierName: 'Металл' });
+    const org = await db().collection('organizations').findOne({ name: 'Металл' });
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ payerCompanyId: String(org!._id) }).expect(200);
+    await http().post(`/api/supply/invoices/${inv}/pay`).set(auth()).expect(200);
+    h = (await http().get(`/api/materials/${mid}/prices`).set(auth()).expect(200)).body;
+    expect(h.total).toBe(2);
+    const d = (await http().get(`/api/materials/${mid}/price-default`).set(auth()).expect(200)).body;
+    expect(d).toMatchObject({ price: 100, supplierName: 'Металл' });
+  });
+});

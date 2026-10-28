@@ -9,6 +9,7 @@ import { CatalogGraphService, MAX_DEPTH } from '../../common/catalog/catalog-gra
 import { CreateMaterialDto, MATERIAL_KINDS } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { MaterialService } from './material.service';
+import { MaterialPriceService } from './material-price.service';
 
 @ApiTags('Справочники — Материалы')
 @AppSection('stock')
@@ -17,6 +18,7 @@ export class MaterialController {
   constructor(
     private readonly service: MaterialService,
     private readonly catalogGraph: CatalogGraphService,
+    private readonly prices: MaterialPriceService,
   ) {}
 
   @Get()
@@ -32,6 +34,16 @@ export class MaterialController {
   list(@CurrentUser() user: AuthenticatedUser, @Query('page') page = '1', @Query('limit') limit = '20', @Query('search') search?: string, @Query('categoryId') categoryId?: string, @Query('materialKind') materialKind?: CreateMaterialDto['materialKind']) {
     return this.service.findAll({ page: parseInt(page, 10), limit: parseInt(limit, 10), search, categoryId, materialKind }, user.organizationId);
   }
+
+  @Get(':id/prices')
+  @Roles('admin', 'director', 'manager')
+  @ApiOperation({ summary: 'История закупочных цен материала (без НДС)' })
+  getPrices(@Param('id') id: string, @Query() q: Record<string, unknown>) { return this.prices.list(id, q); }
+
+  @Get(':id/price-default')
+  @Roles('admin', 'director', 'manager')
+  @ApiOperation({ summary: 'Последняя цена и поставщик — для подстановки в заявку' })
+  getPriceDefault(@Param('id') id: string) { return this.prices.defaultFor(id); }
 
   @Get(':id/where-used')
   @Roles('admin', 'director', 'manager', 'user')

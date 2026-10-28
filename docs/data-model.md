@@ -563,6 +563,10 @@ dimensions: [
 
 ⚠️ **Нет `id` PK** — кандидат на добавление.
 
+### materialprices — история закупочных цен (2026-10-28, только data-core)
+
+Строка = факт цены за единицу: `materialId, supplierId, supplierName, price` (без НДС), `vatRate` (20 по умолчанию), `priceWithVat, unit, qty, currency` (RUB), `date` (дата счёта), `source` (invoice_issued | invoice_paid | manual | import), `invoiceId, requestId, salesOrderId, createdBy`. Индексы: {materialId,date:-1}, {supplierId,date:-1}, уникальный {requestId,source} (sparse). В `materials` добавлены `lastPrice, lastPriceDate, lastSupplierId, lastSupplierName` (общая с CRM коллекция — только новые поля). Себестоимость — по средней (решение по умолчанию).
+
 ## 5. Production (Производство)
 
 ### `WorkType` (Вид работ)

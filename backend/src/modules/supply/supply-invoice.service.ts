@@ -4,6 +4,8 @@ import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { oid } from '../../common/list-query';
+import { MaterialPriceService } from '../material/material-price.service';
+import type { PriceSource } from '../material/material-price.schema';
 import { PatchInvoiceDto } from './dto-invoice';
 import { ISSUED_GATE, ORDERED_GATE, missing, splitAmount } from './supply-invoice-rules';
 import { SupplyInvoice, SupplyInvoiceDocument } from './supply-invoice.schema';
@@ -24,6 +26,7 @@ export class SupplyInvoiceService {
     @InjectModel(SupplyInvoice.name) private readonly model: Model<SupplyInvoiceDocument>,
     @InjectModel(SupplyRequest.name) private readonly requests: Model<SupplyRequestDocument>,
     private readonly supply: SupplyService,
+    private readonly prices: MaterialPriceService,
   ) {}
 
   private async tx<T>(fn: (s: ClientSession) => Promise<T>): Promise<T> {
@@ -117,7 +120,10 @@ export class SupplyInvoiceService {
       const $set: Lean = {}; const $unset: Lean = {};
       for (const [k, v] of Object.entries(set)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
-      if (status === 'issued') await this.copyToRequests({ ...next, status }, session);
+      if (status === 'issued') {
+        await this.copyToRequests({ ...next, status }, session);
+        await this.recordPrices({ ...next, status }, 'invoice_issued', session);
+      }
     });
     return this.get(id);
   }
@@ -132,6 +138,19 @@ export class SupplyInvoiceService {
     }
   }
 
+  /** Строка истории цен на каждую заявку счёта с materialId: сумма строки (после деления) / количество. */
+  private async recordPrices(inv: Lean, source: PriceSource, session: ClientSession) {
+    const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' }, materialId: { $exists: true, $ne: null } }).session(session).lean().exec() as Lean[];
+    for (const l of lines) {
+      await this.prices.record({
+        materialId: l.materialId as Types.ObjectId, supplierId: inv.supplierId as Types.ObjectId | undefined, supplierName: inv.supplierName as string | undefined,
+        lineTotalWithVat: Number(l.priceHint) || 0, qty: Number(l.qty) || 0, unit: l.unit as string | undefined, vatRate: inv.vatRate as number | undefined,
+        date: (inv.date as Date | undefined) ?? new Date(), source, invoiceId: inv._id as Types.ObjectId, requestId: l._id as Types.ObjectId,
+        salesOrderId: l.salesOrderId as Types.ObjectId | undefined, createdBy: inv.createdBy as Types.ObjectId | undefined,
+      }, session);
+    }
+  }
+
   /** Оплата всего счёта: нужен «выставлен» и плательщик. */
   async pay(id: string) {
     const inv = await this.load(id);
@@ -143,6 +162,7 @@ export class SupplyInvoiceService {
       await this.model.updateOne({ _id: inv._id }, { $set: { status: 'paid', paidAt: now } }, { session }).exec();
       await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } },
         { $set: { paid: true, paidAt: now, status: 'ordered', editedInApp: true } }, { session }).exec();
+      await this.recordPrices(inv, 'invoice_paid', session);
     });
     return this.get(id);
   }

@@ -74,6 +74,12 @@ export class Material {
   @Prop({ default: 0 })
   pricePerUnit?: number;
 
+  /** Последняя закупочная цена за ед. без НДС (пишет materialprices при записи строки, не пересчёт). */
+  @Prop() lastPrice?: number;
+  @Prop({ type: Date }) lastPriceDate?: Date;
+  @Prop({ type: Types.ObjectId, ref: 'Organization' }) lastSupplierId?: Types.ObjectId;
+  @Prop() lastSupplierName?: string;
+
   @Prop({ default: 0 })
   stockQty?: number;
 
