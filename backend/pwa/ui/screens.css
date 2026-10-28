@@ -968,7 +968,34 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .resizer:hover::before, .resizer.is-active::before { background: var(--gold); opacity: 1; }
 .sidebar { overflow-y: auto; overscroll-behavior: contain; }
 
-.side-ver-foot { padding: 6px 12px 0; font-size: 10.5px; color: var(--side-text); opacity: .45; font-variant-numeric: tabular-nums; } /* номер версии внизу меню (2026-10-24) */
+.side-ver-foot { padding: 6px 12px 0; font-size: 10.5px; color: var(--side-text); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; } /* номер версии внизу меню (2026-10-24) */
+.ver-num { opacity: .45; }
+.ver-update { color: var(--gold); font-weight: 700; text-decoration: underline; min-height: 24px; display: inline-flex; align-items: center; }
+@media (max-width: 720px) { .ver-update { min-height: 44px; font-size: var(--fs-sm); } }
+/* УВ: колокольчик — вкладки, переписки; чат в правой панели */
+.bell-tabs { display: flex; gap: var(--s1); padding: 0 var(--s1) var(--s2); border-bottom: 1px solid var(--border); margin-bottom: var(--s2); }
+.bell-tab { flex: 1; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.bell-tab.on { background: var(--surface-2); color: var(--heading); }
+.bell-badge.static { position: static; display: inline-block; }
+.bell-item.is-link { cursor: pointer; }
+.bell-head > span { display: inline-flex; gap: var(--s1); }
+.bell-thread { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 52px; padding: var(--s2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bell-thread:hover, .bell-thread.is-new { background: var(--surface-2); }
+.bt-main { display: flex; flex-direction: column; min-width: 0; }
+.bt-last { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s1); flex: none; }
+.bt-time { color: var(--muted); font-size: var(--fs-sm); }
+.bell-search { width: 100%; margin-bottom: var(--s2); }
+.chat { display: flex; flex-direction: column; gap: var(--s2); }
+.chat-feed { display: flex; flex-direction: column; gap: var(--s2); max-height: 55vh; min-height: 200px; overflow-y: auto; padding: var(--s2); background: var(--surface-2); border-radius: var(--radius-sm); }
+.chat-msg { align-self: flex-start; max-width: 85%; padding: var(--s2) var(--s3); border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); }
+.chat-msg.mine { align-self: flex-end; background: var(--gold-soft); }
+.chat-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-time { margin-top: 2px; color: var(--muted); font-size: var(--fs-sm); }
+.chat-empty { margin: auto; padding: var(--s3); color: var(--muted); text-align: center; }
+.chat-form { display: flex; gap: var(--s2); align-items: flex-end; }
+.chat-input { flex: 1; resize: vertical; min-height: 44px; }
+@media (max-width: 720px) { .bell-tab, .bell-pop .bell-clear { min-height: 44px; } .chat-feed { max-height: 50vh; } .chat-msg { max-width: 92%; } }
 
 /* Паспорт «воронкой» (ПВ, 2026-10-25): шаги выбора текстов, сводка из изделия, липкая плашка «Осталось сделать», галочки категорий, метки качества */
 .pp-funnel { display: grid; gap: var(--s3); }

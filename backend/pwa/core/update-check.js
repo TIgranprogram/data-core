@@ -1,6 +1,5 @@
 import { h } from './dom.js';
 import { toast } from '../ui/toast.js';
-import { addNotice } from '../ui/notices.js';
 
 /**
  * Новая версия приложения (замечание 2026-10-22: установленное на Windows приложение «не обновилось»; затем —
@@ -21,11 +20,11 @@ const fmt = (date) => {
   return Number.isNaN(d.getTime()) ? '' : `${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
-let loaded = null; let latest = null; let shown = false;
+let loaded = null; let latest = null; let shown = false; let swNew = false;
 const subs = new Set();
 const notify = () => subs.forEach((fn) => fn());
 /** Есть ли версия новее открытой (меню показывает «Обновить приложение» только тогда). */
-export const hasNewer = () => !!(latest?.v && loaded?.v && latest.v !== loaded.v);
+export const hasNewer = () => swNew || !!(latest?.v && loaded?.v && latest.v !== loaded.v);
 export const onVersion = (fn) => { subs.add(fn); fn(); };
 /** Открытая версия (для сборщика ошибок, ОШ2): коммит выкладки или ETag main.js; не узнали — ''. */
 export const currentVersion = () => String(loaded?.v || '');
@@ -45,13 +44,13 @@ export function watchUpdates() {
     const r = await probe();
     if (!r?.v || !loaded?.v) return;
     latest = r; notify();
-    if (r.v !== loaded.v && !shown) { shown = true; showBar(r); }
+    if (r.v !== loaded.v && !shown) { shown = true; }
   };
   // ОШ2.4: service worker нашёл новую оболочку (уже работал до этого — не первая установка) — та же полоса, без перезагрузки
   navigator.serviceWorker?.getRegistration?.().then((reg) => reg?.addEventListener('updatefound', () => {
     const w = reg.installing;
     w?.addEventListener('statechange', () => {
-      if (w.state === 'activated' && navigator.serviceWorker.controller && !shown) { shown = true; showBar(latest || {}); }
+      if (w.state === 'activated' && navigator.serviceWorker.controller && !shown) { shown = true; swNew = true; notify(); }
     });
   })).catch(() => {});
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
@@ -59,21 +58,18 @@ export function watchUpdates() {
   setInterval(check, 10 * 60 * 1000);
 }
 
-/** Новая версия — сообщение в колокольчике (не полоса поверх экрана). */
+/** Обновить: проверить service worker и перезагрузить. */
 export async function reloadApp() {
   try { const reg = await navigator.serviceWorker?.getRegistration?.(); await reg?.update(); } catch { /* без service worker */ }
   location.reload();
 }
-function showBar(r) {
-  addNotice({ id: 'app-update', text: 'Вышла новая версия приложения', sub: fmt(r.date) ? 'от ' + fmt(r.date) + ' · данные не теряются' : 'данные не теряются', action: { label: 'Обновить', run: reloadApp } });
-}
-
-/** Номер версии внизу меню (2026-10-24): «v1.245» — тихо, без дат и призывов; обновление — через колокольчик. */
+/** Номер версии внизу меню (2026-10-24): «v1.245» — тихо, без дат и призывов; при новой версии рядом ссылка «Обновить систему». */
 export function versionLabel(el) {
   const render = () => {
-    if (!loaded) { el.textContent = ''; return; }
-    el.textContent = loaded.n ? `v1.${loaded.n}` : `v${String(loaded.v).slice(0, 7)}`;
+    if (!loaded) { el.replaceChildren(); return; }
+    const num = loaded.n ? `v1.${loaded.n}` : `v${String(loaded.v).slice(0, 7)}`;
     el.title = fmt(loaded.date) ? 'Версия приложения от ' + fmt(loaded.date) : 'Версия приложения';
+    el.replaceChildren(h('span', { class: 'ver-num' }, num), ...(hasNewer() ? [h('a', { href: '#', class: 'ver-update', title: 'Вышла новая версия — данные не теряются', onclick: (e) => { e.preventDefault(); reloadApp(); } }, 'Обновить систему')] : []));
   };
   subs.add(render); render();
 }
