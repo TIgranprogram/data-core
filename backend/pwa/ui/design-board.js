@@ -174,9 +174,12 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   const taskText = (t) => plain([t.code, t.title, t.productName, t.sku, t.productionNo, t.orderNo, t.customerTitle].join(' '));
   const orderText = (o) => plain([o.productionNo, o.orderNo, o.customer].join(' '));
   const wantTask = (t) => (!query.assigneeId || t.assigneeId === query.assigneeId) && (!query.orderId || t.orderId === query.orderId) && (!query.search || taskText(t).includes(plain(query.search)));
+  // по умолчанию — только заказы с открытыми задачами (распределение, в работе, пауза); всё спроектировано или задач нет — скрыты (пользователь 2026-10-28)
+  let showAll = false;
+  const isOpen = (o) => (o.counts.queue + o.counts.work + o.counts.paused) > 0;
   const visibleOrders = () => {
     const q = plain(query.search);
-    return S.orders.filter((o) => (!query.orderId || o.orderId === query.orderId)
+    return S.orders.filter((o) => (showAll || q || query.orderId || isOpen(o)) && (!query.orderId || o.orderId === query.orderId)
       && (!q || orderText(o).includes(q) || S.tasks.some((t) => t.orderId === o.orderId && taskText(t).includes(q))));
   };
 
@@ -332,10 +335,12 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
 
   function paintLeft() {
     const vis = visibleOrders();
-    ordersHead.replaceChildren(h('h2', { class: 'db-h' }, 'Заказы · ', h('span', { class: 'num' }, String(vis.length))), picker);
+    const hidden = S.orders.filter((o) => !isOpen(o)).length;
+    const toggle = hidden ? h('button', { type: 'button', class: 'link-btn small', title: 'Заказы, где всё спроектировано или задачи не поставлены', onclick: () => { showAll = !showAll; paintLeft(); } }, showAll ? 'Только в работе' : `Показать все (+${hidden})`) : null;
+    ordersHead.replaceChildren(h('h2', { class: 'db-h' }, 'Заказы · ', h('span', { class: 'num' }, String(vis.length))), toggle, picker);
     if (!S.ready) { ordersList.replaceChildren(busyBlock('заказы', { cls: 'db-hint' })); return; }
     if (S.error) { ordersList.replaceChildren(failBlock(S.error, () => load(true), { cls: 'db-hint', text: 'Доска не загрузилась' })); return; }
-    ordersList.replaceChildren(...(vis.length ? vis.map(orderEl) : [h('div', { class: 'db-empty' }, S.orders.length ? 'По вашему поиску заказов нет.' : 'Добавьте заказ, который нужно проектировать — кнопка выше.')]));
+    ordersList.replaceChildren(...(vis.length ? vis.map(orderEl) : [h('div', { class: 'db-empty' }, S.orders.length ? (showAll || query.search ? 'По вашему поиску заказов нет.' : 'Открытых задач нет. «Показать все» — заказы, где всё готово или задачи не поставлены.') : 'Добавьте заказ, который нужно проектировать — кнопка выше.')]));
   }
 
   // ---------- правая часть: колонки статусов ----------
