@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 let parseZnpLine;
-try { ({ parseZnpLine } = require('../dist/modules/design/znp-line')); } catch { console.error('нет dist: сначала npx nest build'); process.exit(2); }
+try { ({ parseZnpLine } = require('../dist/src/modules/design/znp-line')); } catch { console.error('нет dist: сначала npx nest build'); process.exit(2); }
 
 const [env, ...flags] = process.argv.slice(2);
 if (!['local', 'prod'].includes(env)) { console.error('usage: <local|prod> [--apply --out откат.json]'); process.exit(2); }
