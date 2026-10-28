@@ -168,6 +168,24 @@ export class SupplyController {
     return this.catalog.patch(id, dto);
   }
 
+  /** Добавить фото позиции каталога (photoId из POST /api/photos/upload). */
+  @AppSection('requests', 'suppliercatalog')
+  @Post('catalog/items/:id/photos')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.catalog.photo.added', entityType: 'SupplierItem', idParam: 'id' })
+  catalogAddPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto) {
+    return this.catalog.addPhoto(id, dto.photoId);
+  }
+
+  @AppSection('requests', 'suppliercatalog')
+  @Delete('catalog/items/:id/photos/:photoId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.catalog.photo.removed', entityType: 'SupplierItem', idParam: 'id' })
+  catalogRemovePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+    return this.catalog.removePhoto(id, photoId);
+  }
+
   @AppSection('requests', 'suppliercatalog')
   @Delete('catalog/items/:id')
   @Roles('admin', 'manager')

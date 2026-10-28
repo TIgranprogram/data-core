@@ -33,11 +33,34 @@ export class SupplierCatalogService {
 
   // ───────── список и счётчики ─────────
 
-  private filter(q: Record<string, string | undefined>): Doc {
+  /** Категории материалов: id → parentId (для поддеревьев). */
+  private async catParents() {
+    const cats = await this.coll('categories').find({ kind: 'material' }, { projection: { name: 1, parentId: 1 } }).toArray();
+    return { cats, parent: new Map(cats.map((c) => [String(c._id), c.parentId ? String(c.parentId) : null])) };
+  }
+
+  /** Выбранные категории + все их потомки. */
+  private async withDescendants(ids: Types.ObjectId[]) {
+    const { parent } = await this.catParents();
+    const want = new Set(ids.map(String));
+    const res = new Set(want);
+    for (const id of parent.keys()) {
+      for (let cur: string | null = id, depth = 0; cur && depth < 20; cur = parent.get(cur) ?? null, depth++) {
+        if (want.has(cur)) { res.add(id); break; }
+      }
+    }
+    return [...res].map((s) => new Types.ObjectId(s));
+  }
+
+  private async filter(q: Record<string, string | undefined>): Promise<Doc> {
     const f: Doc = { deletedAt: null };
-    const sup = oids(q.supplierId), cat = oids(q.categoryId), mat = oids(q.materialId);
+    const sup = oids(q.supplierId), mat = oids(q.materialId);
     if (sup.length) f.supplierId = { $in: sup };
-    if (cat.length) f.categoryId = { $in: cat };
+    if (q.categoryId === 'none') f.categoryId = null;
+    else {
+      const cat = oids(q.categoryId);
+      if (cat.length) f.categoryId = { $in: await this.withDescendants(cat) };
+    }
     if (mat.length) f.materialId = { $in: mat };
     if (q.unmatched === '1') f.materialId = null;
     if (q.noPrice === '1') f.priceHint = null;
@@ -57,13 +80,16 @@ export class SupplierCatalogService {
       orgIds.length ? this.coll('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1, inn: 1 } }).toArray() : [],
       matIds.length ? this.coll('materials').find({ _id: { $in: matIds } }, { projection: { name: 1, article: 1, stockQty: 1 } }).toArray() : [],
     ]);
+    const pu = await this.photoUrls(docs.flatMap((d) => (d.photoIds as Types.ObjectId[] | undefined) ?? []));
     const on = new Map(orgs.map((o) => [String(o._id), o]));
     const mn = new Map(mats.map((m) => [String(m._id), m]));
     return docs.map((d) => {
-      const o = on.get(String(d.supplierId)), m = d.materialId ? mn.get(String(d.materialId)) : undefined;
+      const ph = ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => pu.has(String(p))).map((p) => ({ id: String(p), ...pu.get(String(p))! }));
+      const o =on.get(String(d.supplierId)), m = d.materialId ? mn.get(String(d.materialId)) : undefined;
       const last = Array.isArray(d.priceHistory) && d.priceHistory.length ? d.priceHistory[d.priceHistory.length - 1] : null;
       const priceDate = d.priceDate ?? last?.date ?? null;
       return {
+        photos: ph, thumb: ph[0]?.thumb ?? (d.photoUrl ? String(d.photoUrl) : ''),
         id: String(d._id), supplierId: String(d.supplierId), supplierName: o ? String(o.shortName || o.name) : '', supplierInn: o?.inn ? String(o.inn) : '',
         article: String(d.article ?? ''), name: String(d.name ?? ''), color: d.color ? String(d.color) : '', unit: d.unit ? String(d.unit) : '',
         priceHint: typeof d.priceHint === 'number' ? d.priceHint : null,
@@ -78,12 +104,52 @@ export class SupplierCatalogService {
     });
   }
 
+  /** id фото → { url, thumb } (превью — вариант thumb, иначе оригинал). */
+  private async photoUrls(ids: Types.ObjectId[]) {
+    const out = new Map<string, { url: string; thumb: string }>();
+    if (!ids.length) return out;
+    const photos = this.coll('photos');
+    const [orig, thumbs] = await Promise.all([
+      photos.find({ _id: { $in: ids } }, { projection: { storageUrl: 1 } }).toArray(),
+      photos.find({ parentPhotoId: { $in: ids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
+    ]);
+    const th = new Map(thumbs.map((t) => [String(t.parentPhotoId), String(t.storageUrl)]));
+    for (const p of orig) out.set(String(p._id), { url: String(p.storageUrl), thumb: th.get(String(p._id)) ?? String(p.storageUrl) });
+    return out;
+  }
+
+  private async one(id: string) {
+    return (await this.present([(await this.items.findOne({ _id: oid(id) }))!]))[0];
+  }
+
+  async addPhoto(id: string, photoId: string) {
+    const pid = oid(photoId, 'фото');
+    if (!(await this.coll('photos').countDocuments({ _id: pid }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
+    const r = await this.items.updateOne({ _id: oid(id), deletedAt: null }, { $addToSet: { photoIds: pid }, $set: { updatedAt: new Date() } });
+    if (!r.matchedCount) throw new NotFoundException('Позиция каталога не найдена');
+    return this.one(id);
+  }
+
+  async removePhoto(id: string, photoId: string) {
+    const r = await this.items.updateOne({ _id: oid(id), deletedAt: null }, { $pull: { photoIds: oid(photoId, 'фото') } as Doc, $set: { updatedAt: new Date() } });
+    if (!r.matchedCount) throw new NotFoundException('Позиция каталога не найдена');
+    return this.one(id);
+  }
+
+  /** Сортировка: sort=name|price|priceDate, dir=desc — по убыванию. */
+  private sortOf(q: Record<string, string | undefined>): Record<string, 1 | -1> {
+    const dir = q.dir === 'desc' ? -1 : 1;
+    if (q.sort === 'price') return { priceHint: dir, name: 1, _id: 1 };
+    if (q.sort === 'priceDate') return { priceDate: dir, name: 1, _id: 1 };
+    return { name: dir, _id: 1 };
+  }
+
   async list(q: Record<string, string | undefined>) {
     const page = Math.max(1, parseInt(String(q.page ?? '1'), 10) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(String(q.limit ?? '100'), 10) || 100));
-    const f = this.filter(q);
+    const f = await this.filter(q);
     const [docs, total] = await Promise.all([
-      this.items.find(f).sort({ name: 1, _id: 1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      this.items.find(f).sort(this.sortOf(q)).skip((page - 1) * limit).limit(limit).toArray(),
       this.items.countDocuments(f),
     ]);
     return { items: await this.present(docs), total, page, limit };
@@ -93,25 +159,32 @@ export class SupplierCatalogService {
   async counts() {
     const base = { deletedAt: null };
     const stale = new Date(Date.now() - STALE_DAYS * DAY);
-    const [bySup, byCat, all, unmatched, noPrice, old] = await Promise.all([
+    const [bySup, byCat, all, noCategory, unmatched, noPrice, old] = await Promise.all([
       this.items.aggregate([{ $match: base }, { $group: { _id: '$supplierId', n: { $sum: 1 } } }]).toArray(),
       this.items.aggregate([{ $match: { ...base, categoryId: { $ne: null } } }, { $group: { _id: '$categoryId', n: { $sum: 1 } } }]).toArray(),
       this.items.countDocuments(base),
+      this.items.countDocuments({ ...base, categoryId: null }),
       this.items.countDocuments({ ...base, materialId: null }),
       this.items.countDocuments({ ...base, priceHint: null }),
       this.items.countDocuments({ ...base, priceHint: { $ne: null }, $or: [{ priceDate: null }, { priceDate: { $lt: stale } }] }),
     ]);
     const [orgs, cats] = await Promise.all([
       bySup.length ? this.coll('organizations').find({ _id: { $in: bySup.map((x) => x._id) } }, { projection: { name: 1, shortName: 1 } }).toArray() : [],
-      byCat.length ? this.coll('categories').find({ _id: { $in: byCat.map((x) => x._id) } }, { projection: { name: 1 } }).toArray() : [],
+      this.catParents(),
     ]);
     const on = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
-    const cn = new Map(cats.map((c) => [String(c._id), String(c.name)]));
+    const cn = new Map(cats.cats.map((c) => [String(c._id), String(c.name)]));
+    // счётчик по поддереву: позиция учитывается в своей категории и во всех предках
+    const own = new Map(byCat.map((x) => [String(x._id), x.n as number]));
+    const sub = new Map<string, number>();
+    for (const [id, n] of own) {
+      for (let cur: string | null = id, d = 0; cur && d < 20; cur = cats.parent.get(cur) ?? null, d++) sub.set(cur, (sub.get(cur) ?? 0) + n);
+    }
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'ru');
     return {
-      all, unmatched, noPrice, stale: old,
+      all, noCategory, unmatched, noPrice, stale: old,
       suppliers: bySup.map((x) => ({ id: String(x._id), name: on.get(String(x._id)) ?? '(поставщик удалён)', count: x.n })).sort(byName),
-      categories: byCat.map((x) => ({ id: String(x._id), name: cn.get(String(x._id)) ?? '(категория удалена)', count: x.n })).sort(byName),
+      categories: [...sub].map(([id, count]) => ({ id, name: cn.get(id) ?? '(категория удалена)', parentId: cats.parent.get(id) ?? null, count, own: own.get(id) ?? 0 })).sort(byName),
     };
   }
 
@@ -359,7 +432,7 @@ export class SupplierCatalogService {
 
   /** Экспорт по текущему фильтру: колонки шаблона + «Остаток», «ИНН поставщика», «Поставщик» — файл можно исправить и залить обратно. */
   async export(q: Record<string, string | undefined>): Promise<Buffer> {
-    const docs = await this.items.find(this.filter(q)).sort({ supplierId: 1, name: 1 }).limit(20000).toArray();
+    const docs = await this.items.find(await this.filter(q)).sort({ supplierId: 1, name: 1 }).limit(20000).toArray();
     const view = await this.present(docs);
     const { wb, ws } = await this.book([...TEMPLATE_COLUMNS.map((c) => c.title), 'Остаток', 'ИНН поставщика', 'Поставщик'].join('|'), view.map((v) => [
       v.article, v.name, v.color, v.unit, v.priceHint ?? '', v.priceDate ? v.priceDate.slice(0, 10).split('-').reverse().join('.') : '',

@@ -49,6 +49,10 @@ export class SupplierItem {
   @Prop({ trim: true })
   photoUrl?: string;
 
+  /** Свои фото позиции (id из POST /api/photos/upload); CRM не читает. */
+  @Prop({ type: [Types.ObjectId], default: undefined })
+  photoIds?: Types.ObjectId[];
+
   /** Откуда последнее обновление: excel | request | stock | manual. */
   @Prop({ enum: ['excel', 'request', 'stock', 'manual'], default: 'excel' })
   source?: 'excel' | 'request' | 'stock' | 'manual';
