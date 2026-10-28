@@ -19,7 +19,7 @@ import { mountPayroll } from './sections/payroll.js';
 /** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
 const FEATURES = { payroll: true };
 import { orders } from './sections/orders.js';
-import { salesorders } from './sections/salesorders.js';
+import { salesorders, salesorder } from './sections/salesorders.js';
 import { design } from './sections/design.js';
 import { designOrder } from './sections/design-order.js';
 import { designSettings } from './sections/design-settings.js';
@@ -59,11 +59,11 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, design, designorder: designOrder, designsettings: designSettings, shipdo, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, suppliercatalog: supplierCatalog };
+const SECTIONS = { requests, stock, movements, orders, salesorders, salesorder, design, designorder: designOrder, designsettings: designSettings, shipdo, partners, invoice, pasteorder: pasteOrder, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, suppliercatalog: supplierCatalog };
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { designorder: 'design', designsettings: 'design', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
+const OWNER = { salesorder: 'salesorders', designorder: 'design', designsettings: 'design', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', invoice: 'requests',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
@@ -362,7 +362,7 @@ function syncCard(section, params) {
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, priceHint: undefined, productUrl: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, productionNo: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, priceHint: undefined, productUrl: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     changed: () => onDataChanged(), // тот же debounce, что у dc:changed: запись + это событие = одно обновление
@@ -373,7 +373,7 @@ function syncCard(section, params) {
     // initial() может быть async (паспорта: поставщик по умолчанию с сервера) — карточка дождётся
     const initial = Promise.resolve(sec.form.initial ? sec.form.initial() : {}).then((b) => {
       const x = { ...b };
-      for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'customer', 'companyName', 'orderId', 'article', 'supplierName', 'priceHint', 'productUrl']) if (params[k]) x[k] = params[k];
+      for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'productionNo', 'customer', 'companyName', 'orderId', 'article', 'supplierName', 'priceHint', 'productUrl']) if (params[k]) x[k] = params[k];
       return x;
     });
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };

@@ -402,7 +402,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     lastResp = resp;
     countEl.textContent = qty(resp.total);
     renderChips();
-    rows = resp.items;
+    rows = L.map ? resp.items.map(L.map) : resp.items; // L.map — привести строку ответа к виду { id, … } (список «Заказов»: key → id)
     if (bulkOn) queueMicrotask(paintBulk); // «все на странице» — по новой странице
     const active = anyFilter() || P.q;
     if (!rows.length) {

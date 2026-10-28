@@ -31,7 +31,7 @@ export function orderReservations(order, onChanged) {
     // что выдавать и сколько — в правой панели (SK-6c); здесь только список и кнопка
     const can = items.filter((x) => x.onHand > 0 && x.qty > 0).length;
     const act = h('button', { type: 'button', class: 'btn btn-primary btn-sm', disabled: !can, onclick: () => patch({ of: 'resedit', new: '1', op: 'issueorder', orderId: order.id, open: undefined }, { replace: false }) }, 'Выдать по заказу…');
-    const lineLabel = (x) => (x.salesOrderLineId ? `${order.orderNo || ''}${x.lineNo ? '-' + x.lineNo : ''} · ${x.lineTitle || 'позиция заказа'}` : 'весь заказ');
+    const lineLabel = (x) => (x.salesOrderLineId ? `${order.productionNo || order.orderNo || ''}${(order.productionNo && order.seqBy?.get(String(x.salesOrderLineId))) || x.lineNo ? '-' + ((order.productionNo && order.seqBy?.get(String(x.salesOrderLineId))) || x.lineNo) : ''} · ${x.lineTitle || 'позиция заказа'}` : 'весь заказ');
     const rows = items.map((x) => {
       return h('li', { class: 'spec-row res-order-row' }, h('span'),
         h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: x.name }, x.name),

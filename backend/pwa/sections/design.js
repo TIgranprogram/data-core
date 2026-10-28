@@ -43,7 +43,7 @@ export function dueNode(r) {
 }
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
-const subLine = (r, withCode = true) => [clean(r.sku) && '№ ' + clean(r.sku), r.lineNo != null && 'поз. ' + r.lineNo, clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), withCode && r.code].filter(Boolean).join(' · ');
+const subLine = (r, withCode = true) => [clean(r.sku) && '№ ' + clean(r.sku), (r.seqNo ?? r.lineNo) != null && 'поз. ' + (r.seqNo ?? r.lineNo), clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), withCode && r.code].filter(Boolean).join(' · ');
 const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) }) : h('div', { class: 't-pic-none' }, 'нет фото'));
 
 function boardBody(r, c) {
@@ -113,7 +113,7 @@ export function taskPics(r) {
 function topBlock(r, ctx) {
   const can = session.canEdit;
   const znp = clean(r.productionNo);
-  const znpText = [znp, r.lineNo != null ? String(r.lineNo) : ''].filter(Boolean).join(' / ');
+  const znpText = [znp, (r.seqNo ?? r.lineNo) != null ? String(r.seqNo ?? r.lineNo) : ''].filter(Boolean).join(' / ');
   const assign = async () => {
     const who = await askAssignee(await people(), { okText: 'Назначить' });
     if (!who) return;

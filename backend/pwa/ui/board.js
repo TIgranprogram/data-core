@@ -129,7 +129,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   const fetchCol = async (c, page, my) => {
     const q = { query: { ...query, ...c.query, page, limit: c.per || per } };
     // 6 колонок = 6 запросов: быстрое «ввёл-стёр» упирается в лимит 10/с → один повтор через секунду
-    return api(path, q).catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return api(path, q); });
+    const run = () => api(path, q).then((r) => (board.map && r?.items ? { ...r, items: r.items.map(board.map) } : r));
+    return run().catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return run(); });
   };
   function cardEl(row, c) {
     const v = board.card(row, c);

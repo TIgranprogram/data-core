@@ -429,3 +429,12 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 .dn-photoline { display: block; background: none; border: 0; padding: 4px 0 4px 32px; min-height: 32px; text-align: left; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
 .dn-photoline:hover { color: var(--link); }
 @media (max-width: 700px) { .pgal-stage { max-height: none; } .pgal-th { width: 56px; height: 56px; } .dn-photoline { min-height: 44px; } }
+
+/* Заказ производства: группа договора в карточке заказа (ПЗ-2) */
+.so-grp { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: var(--s3) 0; overflow: hidden; }
+.so-grp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.so-grp-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1); min-width: 0; }
+.so-grp-acts { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.so-grp > table { margin: 0; }
+.so-more { padding: var(--s2) var(--s3); border-top: 1px solid var(--border); }
+.so-more > summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }

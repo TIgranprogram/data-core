@@ -72,12 +72,12 @@ export function normOrder(o) {
 }
 /** Позиция заказа (с задачей или без) → единый вид. */
 export function normLine(l, order) {
-  const t = l.task ? normTask({ ...l.task, incomeId: l.incomeId ?? l.id, lineNo: l.lineNo, title: l.task.title ?? l.title, productName: l.productName, sku: l.sku, photo: l.photo }, order) : null;
-  return { incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
+  const t = l.task ? normTask({ ...l.task, incomeId: l.incomeId ?? l.id, lineNo: l.seqNo ?? l.lineNo, title: l.task.title ?? l.title, productName: l.productName, sku: l.sku, photo: l.photo }, order) : null;
+  return { incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.seqNo ?? l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
 }
 /** Задача (из открытых задач или вложенная в позицию) → вид, который понимают moveTask и карточка. */
 export function normTask(t, order) {
-  return { ...t, id: String(t.id), status: t.status, title: clean(t.title), productName: clean(t.productName) || null, sku: clean(t.sku) || null, customerTitle: clean(t.customerTitle) || null, orderId: String(t.orderId ?? order?.orderId ?? ''), orderNo: clean(t.orderNo) || clean(order?.orderNo) || null, productionNo: clean(t.productionNo) || clean(order?.productionNo) || null,
+  return { ...t, lineNo: t.seqNo ?? t.lineNo ?? null, id: String(t.id), status: t.status, title: clean(t.title), productName: clean(t.productName) || null, sku: clean(t.sku) || null, customerTitle: clean(t.customerTitle) || null, orderId: String(t.orderId ?? order?.orderId ?? ''), orderNo: clean(t.orderNo) || clean(order?.orderNo) || null, productionNo: clean(t.productionNo) || clean(order?.productionNo) || null,
     assigneeId: t.assigneeId ?? t.assignee?.id ?? null, assignee: t.assignee || null, pauseReason: t.pauseReason || null, priority: t.priority || order?.priority || 'normal',
     deadline: t.deadline ?? order?.deadline ?? null, seq: t.seq ?? Number(String(t.code || '').replace(/\D/g, '')) ?? 0 };
 }

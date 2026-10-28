@@ -34,7 +34,7 @@ function linesBlock(row, ctx) {
     return h('li', { class: 'db-prow' },
       l.photo ? h('img', { class: 'db-pic sm', src: PREFIX + l.photo, alt: '', loading: 'lazy' }) : h('span', { class: 'db-pic sm none' }),
       h('div', { class: 'db-pmain' },
-        h('div', { class: 't-title' }, (l.lineNo != null ? `поз. ${l.lineNo} · ` : '') + l.title),
+        h('div', { class: 't-title' }, ((l.seqNo ?? l.lineNo) != null ? `поз. ${l.seqNo ?? l.lineNo} · ` : '') + l.title),
         h('div', { class: 't-sub' }, [l.sku && '№ ' + l.sku, t?.assignee?.name].filter(Boolean).join(' · ')),
         h('div', { class: 'db-pstate' }, t ? [badge(DESIGN_STATUS, t.status), ' ', h('a', { href: '#design?open=' + t.id, title: 'Открыть изделие справа' }, 'Открыть')] : h('span', { class: 'muted' }, 'ещё не взято')),
         acts.length ? h('div', { class: 'db-pacts' }, acts) : null));
@@ -86,6 +86,6 @@ export const designOrder = {
       linesBlock(r, ctx),
       progressBlock(r),
       block('Что в позициях', false, r.lines.length ? h('table', { class: 'db-ptable' }, h('thead', null, h('tr', null, ['Поз.', 'Название', 'Кол-во', 'Артикул'].map((x) => h('th', null, x)))),
-        h('tbody', null, r.lines.map((l) => h('tr', null, h('td', null, l.lineNo ?? ''), h('td', null, l.title), h('td', { class: 'num' }, l.qty != null ? qty(l.qty) : ''), h('td', null, l.sku || ''))))) : h('div', { class: 'db-hint' }, 'Позиций нет.'))),
+        h('tbody', null, r.lines.map((l) => h('tr', null, h('td', null, l.seqNo ?? l.lineNo ?? ''), h('td', null, l.title), h('td', { class: 'num' }, l.qty != null ? qty(l.qty) : ''), h('td', null, l.sku || ''))))) : h('div', { class: 'db-hint' }, 'Позиций нет.'))),
   },
 };

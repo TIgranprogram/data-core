@@ -6,7 +6,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
-import { salesorders } from './salesorders.js';
+import { salesorder as salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 import { partners } from './partners.js';
 

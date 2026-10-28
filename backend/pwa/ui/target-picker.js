@@ -35,8 +35,8 @@ const photoUrl = (l) => {
   if (!photoCache.has(l.photoId)) photoCache.set(l.photoId, inQueue(() => api('/photos/' + l.photoId)).then((p) => p.storageUrl || '').catch(() => ''));
   return photoCache.get(l.photoId);
 };
-/** «21-26-2» — № заказа (производства; нет — № договора) и номер позиции. */
-export const lineCode = (l) => [l.productionNo || l.orderNo, l.lineNo].filter((x) => x !== null && x !== undefined && x !== '').join('-');
+/** «21-26-2» — № заказа и сквозной № позиции; нет № заказа — «№ договора-№ в договоре». */
+export const lineCode = (l) => (l.productionNo ? [l.productionNo, l.seqNo ?? l.lineNo] : [l.orderNo, l.lineNo]).filter((x) => x !== null && x !== undefined && x !== '').join('-');
 
 function picBox(l) {
   const box = h('div', { class: 'sg-pic sg-pic-none' });

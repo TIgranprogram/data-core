@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
-import { salesorders } from './salesorders.js';
+import { salesorder as salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 import { passports } from './passports.js';
 import { partners } from './partners.js';
