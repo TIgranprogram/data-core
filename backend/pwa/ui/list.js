@@ -79,7 +79,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const exportBtn = (L.export === false || (L.export === 'admin' && session.role !== 'admin')) ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
     onclick: (e) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, e.currentTarget); } }, '⇩ Excel');
   // «Выбрать» — явный вход в выбор нескольких строк (на ПК без Ctrl+клик, на телефоне без долгого нажатия)
-  const selBtn = L.bulk && canEditSection(section) ? h('button', { class: 'btn btn-ghost', type: 'button', title: 'Отметить несколько строк и изменить их разом (на ПК — Ctrl+клик, на телефоне — долгое нажатие)',
+  const selBtn = L.bulk && !L.bulk.always && canEditSection(section) ? h('button', { class: 'btn btn-ghost', type: 'button', title: 'Отметить несколько строк и изменить их разом (на ПК — Ctrl+клик, на телефоне — долгое нажатие)',
     onclick: () => (bulkMode ? exitBulkMode() : enterBulkMode()) }, 'Выбрать') : null;
   const head = h('div', { class: 'page-head' },
     h('h1', null, section.title, ' ', countEl),
@@ -181,7 +181,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const theadRow = h('tr');
   function renderHead() {
     const { sort } = st();
-    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } }); // ПРД.1: «все» включает режим выбора — иначе отмеченного не видно
+    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (!canPick(r)) continue; if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } }); // ПРД.1: «все» включает режим выбора — иначе отмеченного не видно
     theadRow.replaceChildren(...[bulkOn ? h('th', { class: 'pick' }, headCb) : null, ...L.columns.map((c) => {
       const field = c.sort;
       const isSorted = field && sort.replace(/^-/, '') === field;
@@ -201,20 +201,20 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const quickBox = quick && canCreate ? quick : null;
   // БЗ-9: отметка записей и «Изменить выбранные» — только где раздел объявил L.bulk и есть право правки
   const bulkOn = !!L.bulk && canEditSection(section);
-  const picked = new Set();
+  const picked = new Set(); const canPick = (r) => !L.bulk?.can || L.bulk.can(r); const always = !!L.bulk?.always; /* bulk.can — какие строки отмечать; bulk.always — флажки сразу, без «Выбрать» */
   let bulkMode = false;
   const bulkBar = bulkOn ? h('div', { class: 'bulk-bar', hidden: true, role: 'region', 'aria-label': 'Выбранные записи' }) : null;
   const paintBulk = () => {
     if (!bulkBar) return;
     // полоса видна весь режим выбора (и при 0 отмеченных): иначе из режима не выйти
-    bulkBar.hidden = !bulkMode && !picked.size;
+    bulkBar.hidden = always ? !picked.size : (!bulkMode && !picked.size);
     if (selBtn) selBtn.classList.toggle('active', bulkMode);
     bulkBar.replaceChildren(h('b', null, picked.size ? `Выбрано: ${qty(picked.size)}` : 'Отметьте строки — клик по строке или галочке'),
-      picked.size ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); } }) }, L.bulk.label || 'Изменить выбранные') : null,
-      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, 'Готово'));
-    const all = headPick(); if (all) { const ids = rows.map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
+      picked.size ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: rows.filter((r) => picked.has(r.id)) }) }, L.bulk.label || 'Изменить выбранные') : null,
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять' : 'Готово'));
+    const all = headPick(); if (all) { const ids = rows.filter(canPick).map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
   };
-  const pickBox = (row) => h('input', { type: 'checkbox', class: 'pick-cb', checked: picked.has(row.id), dataset: { id: row.id }, 'aria-label': 'Отметить запись',
+  const pickBox = (row) => !canPick(row) ? h('span', { class: 'pick-cb pick-none' }) : h('input', { type: 'checkbox', class: 'pick-cb', checked: picked.has(row.id), dataset: { id: row.id }, 'aria-label': 'Отметить запись',
     onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) picked.add(row.id); else picked.delete(row.id); if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } });
   const syncPicks = () => panel.querySelectorAll('.pick-cb').forEach((cb) => { cb.checked = picked.has(cb.dataset.id); });
   let headCb = null;
@@ -227,7 +227,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   let board = null;
   const enterBulkMode = (id) => { if (!bulkOn) return; bulkMode = true; panel.classList.add('bulk-mode'); if (id) picked.add(id); syncPicks(); paintBulk(); };
   const togglePick = (id) => { if (picked.has(id)) picked.delete(id); else picked.add(id); syncPicks(); paintBulk(); };
-  const exitBulkMode = () => { bulkMode = false; panel.classList.remove('bulk-mode'); picked.clear(); syncPicks(); paintBulk(); };
+  const exitBulkMode = () => { bulkMode = always; if (!always) panel.classList.remove('bulk-mode'); picked.clear(); syncPicks(); paintBulk(); };
+  if (always && bulkOn) { bulkMode = true; panel.classList.add("bulk-mode"); }
   const bindLong = bulkOn ? (el, id) => {
     let tmr = null; let suppress = false;
     el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; suppress = false; tmr = setTimeout(() => { tmr = null; suppress = true; enterBulkMode(id); if (navigator.vibrate) navigator.vibrate(15); }, 350); });
@@ -430,7 +431,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
           }
         }
         const trCls = L.rowClass ? L.rowClass(row) : '';
-        const tr = h('tr', { class: trCls || undefined, onclick: (e) => { if (bulkMode) { togglePick(row.id); return; } if (bulkOn && (e.ctrlKey || e.metaKey)) { enterBulkMode(row.id); return; } onOpen(row); }, dataset: { i: String(i) } },
+        const tr = h('tr', { class: trCls || undefined, onclick: (e) => { if (bulkMode && !always) { if (canPick(row)) togglePick(row.id); return; } if (bulkOn && (e.ctrlKey || e.metaKey)) { enterBulkMode(row.id); return; } onOpen(row); }, dataset: { i: String(i) } },
           bulkOn ? h('td', { class: 'pick' }, pickBox(row)) : null,
           L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
         if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));

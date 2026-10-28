@@ -140,3 +140,7 @@ th.pick, td.pick { width: 48px; text-align: center; background: none; border-rad
 table.list tbody tr:has(.pick-cb:checked) { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--gold); }
 .gcard-wrap:has(.pick-cb:checked) > .gcard { outline: 2px solid var(--primary); outline-offset: -2px; }
 .gc-pick { top: auto; left: auto; right: 6px; bottom: 6px; }
+/* bulk.always (заявки, таблица): пустая ячейка у строк без отметки; флажок 22 px, на телефоне строка ≥ 44 px */
+.pick-cb.pick-none { display: inline-block; opacity: 0 !important; pointer-events: none; }
+.list-panel.bulk-mode .pick-cb:not(.pick-none) { width: 22px; height: 22px; }
+@media (max-width: 719px) { .list-panel.bulk-mode td.pick { min-height: 44px; } .list-panel.bulk-mode .cards li > .pick-hit { min-height: 44px; } }

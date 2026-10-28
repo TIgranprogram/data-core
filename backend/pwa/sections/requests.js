@@ -296,6 +296,7 @@ export const requests = {
       received: 'Получено и оприходовано на склад. Делать ничего не нужно.',
       cancelled: 'Отменённые заявки — в расчёты не идут.',
     },
+    bulk: { always: true, label: 'Заказал у поставщика', can: (r) => supplyKey(r) === 'requested' && session.canEdit, open: (ids, { done, rows }) => { bulkOrder(rows).then((n) => { if (n) done(); }); } }, // флажки в таблице, как на доске
     rowAction: (r) => {
       const k = supplyKey(r);
       const st = nextStep(r);
