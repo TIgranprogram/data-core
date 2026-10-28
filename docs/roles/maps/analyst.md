@@ -42,3 +42,6 @@
 ## Каталог поставщиков v2 (2026-10-28)
 - ТЗ `docs/roles/tz/SUPPLIER-CATALOG.md`. Экран `pwa/sections/supplier-catalog.js`, сервер `modules/supply/supplier-excel.service.ts`, схема `supplier-item.schema.ts`; алиасы `supplier_aliases`. Прод-замер не вышел (вход).
 - ОТГ/ОП (2026-10-28): ТЗ `docs/roles/tz/SHIPMENTS-PASSPORTS.md`. Этапы `common/text/order-key.ts:8`; паспорт `product-passport.schema.ts:59,69,163` (нет `incomeId`); задача дизайна `design/design-task.schema.ts:20-33`; `issuedByLine` = выдача склада, не отгрузка. Вопросы ОП-1…ОП-5.
+
+## Аудит «Деньги» (2026-10-28)
+- `docs/audit/MONEY-AUDIT-2026-10-28.md`. Позиции 78 %, календарь 70 %, ФОТ 25 %. Ключ: выплаты по `invoiceDate`, не `paidAt` (`finance.service.ts:50`); поступления = оплата ?? отгрузка; ФОТ на проде показывает DEMO (`payroll.js:70`). Вопросы В-1…В-5 — в отчёте, в QUESTIONS не перенесены. коммит: —
