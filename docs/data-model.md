@@ -731,6 +731,10 @@ Write-paths, которые должны быть all-or-nothing, использ
 | deletedWithOrder | boolean | удалена вместе с заказом — вернётся при его восстановлении |
 | deletedAt, createdBy, createdAt, updatedAt | | soft-delete, аудит |
 
+### `Shipment` (Отгрузка заказа) — коллекция `shipments`, модуль `modules/shipments` (ОТГ)
+
+`orderId`, `seq` + `number` («ОТГ-<№ заказа>-<seq>», unique (orderId, seq)), `date`, `lines[{incomeId, title, unit, qty}]`, `whoId/whoName`, `reason?`, `note?`, `docNo?`, `receiver?`, `deletedAt/deletedById/deletedByName` (отмена). Остаток позиции не хранится: `incomes.qty` − Σ `lines.qty` неудалённых. Этап заказа `partly` (Частично отгружен) — между `ready` и `shipped`. `productpassports.incomeId` — позиция заказа (необязательно).
+
 ### `SalesOrder` (Заказ заказчика — шапка) — коллекция `salesorders`, модуль `modules/salesorders` (TASKS З.1)
 Имя `orders` занято CRM kppdf — не трогаем. Позиции — `incomes` с `orderId`.
 | Поле | Тип | Заметки |

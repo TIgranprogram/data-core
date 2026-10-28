@@ -26,5 +26,5 @@ export const readinessOf = (d: { readiness?: unknown; status?: unknown; passport
   d.readiness === 'ready' || d.readiness === 'notReady' || d.readiness === 'rework' ? d.readiness : isIssued(d) ? 'ready' : 'notReady';
 /** Выданные номера: без `confirmNumbers: true` не меняются (ПС, «не менять молча»). */
 export const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
-export const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
+export const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'incomeId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
 export { escapeRe } from '../../common/list-query';

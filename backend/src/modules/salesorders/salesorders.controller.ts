@@ -7,6 +7,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { canSeeMoney } from '../../common/roles-hierarchy';
 import { MatchProductsDto, SalesOrderDto } from './dto';
 import { SalesOrdersService } from './salesorders.service';
 
@@ -26,8 +27,8 @@ export class SalesOrdersController {
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false, description: '№ заказа, заказчик, предмет, № контракта, № на производство, примечание' })
   @ApiQuery({ name: 'sort', required: false, description: 'orderNo | customer | stage | priority | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)' })
-  @ApiQuery({ name: 'filter', required: false, description: 'active (новый / в производстве / готов) | done (отгружен / закрыт) | all' })
-  @ApiQuery({ name: 'stage', required: false, description: 'этапы через запятую: new, production, ready, shipped, closed, cancelled' })
+  @ApiQuery({ name: 'filter', required: false, description: 'active (новый / в производстве / готов / частично отгружен) | done (отгружен / закрыт) | all' })
+  @ApiQuery({ name: 'stage', required: false, description: 'этапы через запятую: new, production, ready, partly, shipped, closed, cancelled' })
   @ApiQuery({ name: 'companyId', required: false })
   @ApiQuery({ name: 'priority', required: false, description: 'приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low' })
   @ApiQuery({ name: 'from', required: false, description: 'по дате отгрузки, ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false })
@@ -63,6 +64,19 @@ export class SalesOrdersController {
   get(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
     const open = openSectionsFor(user);
     return this.orders.get(id, { requests: sectionOpen(open, 'requests'), stock: sectionOpen(open, 'stock') });
+  }
+
+  /**
+   * Единая лента заказа, новые сверху: { items:[{at, type, who, title, text, link}], total }.
+   * type: change | line | design | passport | shipment | payment | stock. Суммы и оплата — только денежным ролям; закрытые разделы роли не показываются.
+   */
+  @Get(':id/history')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'type', required: false, description: 'change | line | design | passport | shipment | payment | stock' })
+  @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'limit', required: false })
+  history(@Param('id') id: string, @Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser) {
+    const open = openSectionsFor(user);
+    return this.orders.history(id, q, { money: canSeeMoney(user), design: sectionOpen(open, 'design'), passports: sectionOpen(open, 'passports'), stock: sectionOpen(open, 'stock') });
   }
 
   /** Позиции заказа для выдачи со склада: [{id, orderNo, lineNo, title, productId, photoId, qty}] — без цен, photoId: фото позиции → фото изделия → null. */

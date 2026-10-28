@@ -10,8 +10,8 @@ import { addDays, buildFeed, buildPulse, buildWeek, type RawItem } from './today
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
 const LIMIT = 300;
 /** Заказ ещё не отгружен. */
-const NOT_SHIPPED = ['new', 'production', 'ready'];
-const STAGES = ['new', 'production', 'ready', 'shipped'];
+const NOT_SHIPPED = ['new', 'production', 'ready', 'partly'];
+const STAGES = ['new', 'production', 'ready', 'partly', 'shipped'];
 
 /**
  * «Сегодня» (GET /api/today): лента дел, неделя, показатели. Только чтение.

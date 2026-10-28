@@ -34,6 +34,8 @@ export class CreateProductPassportDto {
   @IsOptional() @IsObjectId() customerOrgId?: string;
   @IsOptional() @IsString() orderNo?: string;
   @IsOptional() @IsObjectId() salesOrderId?: string;
+  /** Позиция заказа: сервер подставит заказ, № заказа, изделие и заказчика (если не переданы). */
+  @IsOptional() @IsObjectId() incomeId?: string;
   @IsOptional() @IsIn(['ready', 'notReady', 'rework']) readiness?: string;
   @IsOptional() @IsString() reworkNote?: string;
   @IsOptional() @IsObjectId() supplierOrgId?: string;

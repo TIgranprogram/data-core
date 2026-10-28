@@ -56,3 +56,8 @@
 
 ## Каталог поставщиков v2 (SUPPLIER-CATALOG эт.1, 2026-10-28, не закоммичено)
 - `modules/supply/supplier-catalog.service.ts` (list/counts/upsertOne/bulk/patch/plan→preview/apply/template/export), `supplier-catalog-import.ts` (чистый разбор + classifyRow), `dto-catalog.ts`, маршруты `supply.controller.ts` `catalog/*`; spec `supplier-catalog-import.spec.ts` (разбор + права). Скрипт `scripts/catalog-from-stock.js`. openapi не обновлён, e2e не писался. коммит: —
+
+## Отгрузки, очередь паспортов, история заказа (ОТГ/ОП/ИСТ, 2026-10-28, не закоммичено)
+- `modules/shipments/` (`shipments.service.ts` create/list/remove/restore/pdf, `shipment-pdf.ts`, `shipment.schema.ts`, `dto.ts`); расчёты — `common/text/shipment-calc.ts`; этап `partly` — `common/text/order-key.ts`; карточка заказа `lines[].shipped/left` — `salesorders.service.ts` `get`.
+- Очередь: `product-passport/passport-queue.ts` (`buildQueue`, `loadQueue`, `fromIncome`), маршрут `GET /passports/queue`; `incomeId` — `product-passport.schema.ts`, `passport-consts.ts` OID_FIELDS.
+- История: `salesorders/order-history.ts` (`loadOrderHistory`), `GET /salesorders/:id/history`. e2e `test/e2e/shipments.e2e-spec.ts` НЕ запускался; openapi не обновлён (нужен Mongo). коммит: —

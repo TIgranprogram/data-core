@@ -10,6 +10,8 @@ import { normText } from '../../common/text/norm-text';
 import type { SalesOrderDto } from './dto';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
 import { netIssuedByLine } from '../../common/issued-net';
+import { remaining } from '../../common/text/shipment-calc';
+import { HISTORY_TYPES, loadOrderHistory, type HistoryAccess } from './order-history';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-key';
 import { suggestProducts } from '../../common/catalog/product-match';
 import { ORDER_CACHE_FIELDS } from './order-link';
@@ -170,7 +172,11 @@ export class SalesOrdersService {
     const prods = prodIds.length ? await db.collection('products').find({ _id: { $in: prodIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray() : [];
     const prodOf = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: String(p.name ?? p.sku ?? ''), sku: (p.sku as string | undefined) ?? null, photoId: ((p.photoIds as Types.ObjectId[] | undefined) ?? [])[0] ? String((p.photoIds as Types.ObjectId[])[0]) : null }]));
     for (const l of lines as Doc[]) l.product = l.productId ? prodOf.get(String(l.productId)) ?? null : null;
-    const header = (await this.present([doc]))[0];
+    // отгрузки (ОТГ): по каждой позиции «отгружено / осталось»; legacyShipped — этап «отгружен» без записей отгрузок (до учёта)
+    const ships = await this.connection.db!.collection('shipments').find({ orderId: _id, deletedAt: null }, { projection: { lines: 1 } }).toArray();
+    const rem = new Map(remaining((lines as Doc[]).map((l) => ({ id: String(l._id), qty: l.qty as number | undefined })), ships.map((x) => ({ lines: ((x.lines as Array<{ incomeId: unknown; qty: number }>) ?? []).map((y) => ({ incomeId: String(y.incomeId), qty: y.qty })) }))).map((r) => [r.incomeId, r]));
+    for (const l of lines as Doc[]) { const r = rem.get(String(l._id)); l.shipped = r?.shipped ?? 0; l.left = r?.left ?? 0; }
+    const header = { ...(await this.present([doc]))[0], shipmentCount: ships.length, legacyShipped: doc.stage === 'shipped' && ships.length === 0 };
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
       ...header,
@@ -354,6 +360,14 @@ export class SalesOrdersService {
     await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
     await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' } });
     return this.get(id);
+  }
+
+  /** Единая лента заказа (order-history.ts): изменения, позиции, оплата, проектирование, паспорта, отгрузки, склад. */
+  async history(id: string, q: Record<string, unknown>, acc: HistoryAccess) {
+    const t = String(q.type ?? '').trim();
+    if (t && !(HISTORY_TYPES as readonly string[]).includes(t)) throw new BadRequestException(`Тип «${t}» неизвестен: ${HISTORY_TYPES.join(', ')}`);
+    const doc = await this.findRaw(id);
+    return loadOrderHistory(this.connection.db!, doc._id as Types.ObjectId, q, acc);
   }
 
   /** ПРЖ-4: подбор изделий для позиций без productId. Без apply — предложения; с apply — запись picks (productId=null — снять). */

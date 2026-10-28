@@ -56,12 +56,14 @@ import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { DesignModule } from './modules/design/design.module';
+import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { DictsModule } from './modules/dicts/dicts.module';
 import { FillAuditModule } from './modules/fill-audit/fill-audit.module';
 import { DiskModule } from './modules/disk/disk.controller';
 import { ShowcaseModule } from './modules/showcase/showcase.controller';
 import { FinanceModule } from './modules/finance/finance.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 import { TodayModule } from './modules/today/today.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -170,7 +172,9 @@ import { RequestMethod } from '@nestjs/common';
     FillAuditModule,        // /api/fill-audit — «Требуют заполнения» по категориям (что, зачем, куда идти)
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
+    ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     TodayModule,            // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
+    PayrollModule,          // /api/payroll — ФОТ: табель, начисления, выплаты (в календарь и прогноз — через finance)
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
     ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа

@@ -162,6 +162,10 @@ export class ProductPassport {
   @Prop({ type: Types.ObjectId, ref: 'SalesOrder' })
   salesOrderId?: Types.ObjectId;
 
+  /** Позиция заказа (`incomes`), под которую сделан паспорт (очередь «Нужно сделать»). Только data-core, необязательно; CRM поле не читает. */
+  @Prop({ type: Types.ObjectId })
+  incomeId?: Types.ObjectId;
+
   /** Наша компания-поставщик (реквизиты, печать и подпись для PDF). */
   @Prop({ type: Types.ObjectId, ref: 'Organization', index: true })
   supplierOrgId?: Types.ObjectId;
@@ -235,6 +239,7 @@ export class ProductPassport {
 export const ProductPassportSchema = SchemaFactory.createForClass(ProductPassport);
 // Уникальность (ПС.1). Частичные индексы: старые записи kppdf без новых полей не мешают; дубль 2491 — вне индекса.
 ProductPassportSchema.index({ passportNumber: 1 }, { unique: true, name: 'passportNumber_unique' });
+ProductPassportSchema.index({ incomeId: 1 }, { sparse: true, name: 'incomeId_1' }); // очередь паспортов: паспорт позиции
 ProductPassportSchema.index({ salesOrderId: 1 }, { sparse: true, name: 'salesOrderId_1' }); // ТИ-11: паспорта заказа, «По заказам»
 ProductPassportSchema.index({ productCode: 1 }, { unique: true, name: 'productCode_unique', partialFilterExpression: { productCodeDuplicate: { $eq: false }, productCode: { $type: 'string' } } });
 ProductPassportSchema.index({ warrantyCode: 1 }, { unique: true, name: 'warrantyCode_unique', partialFilterExpression: { warrantyCode: { $type: 'string' } } });

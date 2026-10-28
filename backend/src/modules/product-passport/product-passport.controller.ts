@@ -50,6 +50,14 @@ export class ProductPassportController {
     return this.service.duplicates(q);
   }
 
+  /** Очередь «Нужно сделать»: позиции с готовым проектированием и без выпущенного паспорта, по сроку отгрузки. Без денег. */
+  @Get('passports/queue')
+  @Roles(...VIEW)
+  @ApiQuery({ name: 'due', required: false, description: 'overdue | soon | all (умолч.)' }) @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'limit', required: false })
+  queue(@Query() q: Record<string, string>) {
+    return this.service.queue(q);
+  }
+
   @Get('passports')
   @Roles(...VIEW)
   @ApiQuery({ name: 'search', required: false, description: '№ паспорта, талон, номер изделия, наименование, артикул, заказчик, объект, № заказа' })

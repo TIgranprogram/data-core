@@ -77,7 +77,7 @@ export class PartnersService {
   private async customers() {
     const agg = await this.db.collection('salesorders').aggregate([
       { $match: { deletedAt: null, customer: { $nin: [null, ''] } } },
-      { $group: { _id: '$customer', n: { $sum: 1 }, active: { $sum: { $cond: [{ $in: [{ $ifNull: ['$stage', 'new'] }, ['new', 'production', 'ready']] }, 1, 0] } }, last: { $max: '$shipDate' } } },
+      { $group: { _id: '$customer', n: { $sum: 1 }, active: { $sum: { $cond: [{ $in: [{ $ifNull: ['$stage', 'new'] }, ['new', 'production', 'ready', 'partly']] }, 1, 0] } }, last: { $max: '$shipDate' } } },
     ]).toArray();
     const sums = await this.db.collection('incomes').aggregate([
       { $match: { deletedAt: null, customer: { $nin: [null, ''] } } },

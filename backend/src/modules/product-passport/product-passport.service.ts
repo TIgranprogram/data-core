@@ -19,6 +19,7 @@ import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
+import { fromIncome, loadQueue } from './passport-queue';
 import { PassportIssue } from './passport-issue';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
 import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode } from '../../common/passport/phrase-tree';
@@ -58,6 +59,9 @@ export class ProductPassportService {
   /** НМ: аннулирование выпущенного — причина обязательна. */
   annul(id: string, reason: unknown) { return this.issueOps.annul(id, reason); }
   /** НМ-2: похожие паспорта той же модели (черновик, тот же заказ / покупатель / адрес). */
+  /** Очередь «Нужно сделать» (passport-queue.ts). */
+  queue(q: Record<string, unknown>) { return loadQueue(this.connection.db!, { due: q.due as string | undefined, search: q.search as string | undefined, limit: Number(q.limit) || undefined }); }
+
   duplicates(q: Record<string, unknown>) { return this.issueOps.duplicates(q); }
 
   // ─── карточка ────────────────────────────────────────────────────────────────────────────────────
@@ -153,7 +157,7 @@ export class ProductPassportService {
 
   /** Новый паспорт: номера выдаёт сервер (если не заданы явно), описание собирается из частей, комплектность по умолчанию. */
   async create(dto: CreateProductPassportDto): Promise<ProductPassportDocument> {
-    const set = this.normalize(dto);
+    const set = this.normalize(await fromIncome(this.connection.db!, dto));
     await this.mi.check((set.materialsSpec as StoredSpec | null | undefined) ?? null);
     const date = (set.date as Date) || dayUtc();
     set.date = date;
