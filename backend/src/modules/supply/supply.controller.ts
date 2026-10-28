@@ -12,7 +12,7 @@ import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
-import { CreateInvoicesDto, PatchInvoiceDto } from './dto-invoice';
+import { CreateInvoicesDto, PatchInvoiceDto, ReceiveInvoiceDto } from './dto-invoice';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
@@ -39,6 +39,15 @@ export class SupplyController {
     return this.invoices.create(dto.requestIds, user?.id);
   }
 
+  @Get('invoices')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'status', required: false, description: 'через запятую: draft, issued, paid, cancelled' })
+  @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'q', required: false, description: '№ счёта или поставщик' })
+  @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  listInvoices(@Query() q: Record<string, string>) {
+    return this.invoices.list(q);
+  }
+
   @Get('invoices/:id')
   @Roles('admin', 'director', 'manager', 'user')
   getInvoice(@Param('id') id: string) {
@@ -50,6 +59,15 @@ export class SupplyController {
   @AuditAction({ action: 'supply.invoice.updated', entityType: 'SupplyInvoice', idParam: 'id' })
   updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto) {
     return this.invoices.update(id, dto);
+  }
+
+  /** Принять счёт на склад: все неполученные заявки (или отмеченные). */
+  @Post('invoices/:id/receive')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.received', entityType: 'SupplyInvoice', idParam: 'id' })
+  receiveInvoice(@Param('id') id: string, @Body() dto: ReceiveInvoiceDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.invoices.receive(id, dto.requestIds, user?.id);
   }
 
   /** Оплата — только денежные роли. */

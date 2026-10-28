@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
-import { oid } from '../../common/list-query';
+import { escapeRe, oid } from '../../common/list-query';
 import { MaterialPriceService } from '../material/material-price.service';
 import type { PriceSource } from '../material/material-price.schema';
 import { PatchInvoiceDto } from './dto-invoice';
@@ -50,11 +50,86 @@ export class SupplyInvoiceService {
     return inv as Lean;
   }
 
-  /** Счёт + его заявки (в виде для клиента). */
+  /** Номера заказов/договоров по заявкам: salesOrderId → { orderNo, productionNo, contractNo }. */
+  private async orderInfo(reqs: Lean[]) {
+    const ids = [...new Set(reqs.map((r) => r.salesOrderId).filter(Boolean).map(String))].map((i) => new Types.ObjectId(i));
+    const docs = ids.length ? await this.connection.db!.collection('salesorders').find({ _id: { $in: ids } }, { projection: { orderNo: 1, productionNo: 1, contractNo: 1 } }).toArray() : [];
+    return new Map(docs.map((d) => [String(d._id), { orderNo: (d.orderNo as string) ?? null, productionNo: (d.productionNo as string) ?? null, contractNo: (d.contractNo as string) ?? null }]));
+  }
+
+  /** Список счетов: статус (через запятую), поставщик, поиск по № / поставщику, период по дате счёта; sum — по всем найденным. */
+  async list(q: Record<string, string | undefined>) {
+    const page = Math.max(1, Number(q.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
+    const f: Lean = { deletedAt: null };
+    const st = (q.status ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (st.length) f.status = { $in: st };
+    if (q.supplierId) f.supplierId = oid(q.supplierId, 'поставщика');
+    if (q.q?.trim()) { const re = new RegExp(escapeRe(q.q.trim()), 'i'); f.$or = [{ no: re }, { supplierName: re }]; }
+    const range: Lean = {};
+    if (q.from) { const d = parseSheetDate(q.from); if (!d) throw new BadRequestException('Дата «с» — в формате ГГГГ-ММ-ДД'); range.$gte = d; }
+    if (q.to) { const d = parseSheetDate(q.to); if (!d) throw new BadRequestException('Дата «по» — в формате ГГГГ-ММ-ДД'); range.$lt = new Date(d.getTime() + 86400000); }
+    if (Object.keys(range).length) f.date = range;
+    const [rows, total, agg] = await Promise.all([
+      this.model.find(f).sort({ date: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec() as Promise<Lean[]>,
+      this.model.countDocuments(f).exec(),
+      this.model.aggregate([{ $match: f }, { $group: { _id: null, sum: { $sum: '$amount' } } }]).exec(),
+    ]);
+    const reqs = rows.length ? await this.requests.find({ invoiceId: { $in: rows.map((r) => r._id) }, deletedAt: null, status: { $ne: 'cancelled' } }).lean().exec() as Lean[] : [];
+    const [orders, names] = await Promise.all([this.orderInfo(reqs), this.orgNames(rows.map((r) => r.payerCompanyId))]);
+    const items = rows.map((r) => {
+      const mine = reqs.filter((x) => String(x.invoiceId) === String(r._id));
+      const nos = [...new Set(mine.map((x) => orders.get(String(x.salesOrderId))).filter(Boolean).map((o) => o!.productionNo || o!.orderNo).filter(Boolean))] as string[];
+      return { id: String(r._id), no: r.no ?? null, date: r.date ?? null, amount: r.amount ?? 0, status: r.status, paidAt: r.paidAt ?? null,
+        supplierId: r.supplierId ? String(r.supplierId) : null, supplierName: r.supplierName ?? null,
+        payerName: r.payerCompanyId ? names.get(String(r.payerCompanyId)) ?? null : null, requestsCount: mine.length, orders: nos };
+    });
+    return { items, total, page, limit, sum: (agg[0]?.sum as number) ?? 0 };
+  }
+
+  /** Счёт + его заявки (с № заказа/договора), файлы с адресами, цепочка заказы → договоры. */
   async get(id: string) {
     const inv = await this.load(id);
     const [items, names] = await Promise.all([this.supply.byInvoice(inv._id as Types.ObjectId), this.orgNames([inv.payerCompanyId])]);
-    return { ...inv, id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, requests: items };
+    const orders = await this.orderInfo(items as Lean[]);
+    const requests = (items as Lean[]).map((r) => {
+      const o = r.salesOrderId ? orders.get(String(r.salesOrderId)) : undefined;
+      return { ...r, orderNo: o?.orderNo ?? null, productionNo: o?.productionNo ?? null, contractNo: o?.contractNo ?? null, hasOrder: Boolean(o) };
+    });
+    const chain = new Map<string, { productionNo: string | null; contracts: string[] }>();
+    for (const r of requests) {
+      if (!r.hasOrder) continue;
+      const key = r.productionNo ?? '';
+      const e = chain.get(key) ?? { productionNo: r.productionNo, contracts: [] };
+      const c = r.contractNo ?? r.orderNo;
+      if (c && !e.contracts.includes(c)) e.contracts.push(c);
+      chain.set(key, e);
+    }
+    const fids = (inv.fileIds as Types.ObjectId[] | undefined) ?? [];
+    const photos = fids.length ? await this.connection.db!.collection('photos').find({ _id: { $in: fids } }, { projection: { storageUrl: 1, originalName: 1, name: 1 } }).toArray() : [];
+    const files = fids.map((f) => photos.find((p) => String(p._id) === String(f))).filter(Boolean).map((p) => ({ id: String(p!._id), url: String(p!.storageUrl), name: String(p!.originalName ?? p!.name ?? 'Файл счёта') }));
+    return { ...inv, id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, requests, files, orders: [...chain.values()] };
+  }
+
+  /** Принять счёт на склад: каждая неполученная заявка — через SupplyService.receive (приход на склад по умолчанию, повтор безопасен по clientUid). */
+  async receive(id: string, requestIds: string[] | undefined, userId?: string) {
+    const inv = await this.load(id);
+    if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+    const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } }).sort({ num: 1, _id: 1 }).lean().exec() as Lean[];
+    const label = (d: Lean) => `Заявка №${d.num ?? '—'} «${d.title ?? ''}»`;
+    let todo = lines.filter((d) => d.status !== 'received');
+    if (requestIds?.length) {
+      const want = [...new Set(requestIds)];
+      for (const w of want) {
+        const d = lines.find((x) => String(x._id) === w);
+        if (!d) throw new BadRequestException('Заявка не входит в этот счёт');
+        if (d.status === 'received') throw new ConflictException(`${label(d)} уже принята на склад`);
+      }
+      todo = lines.filter((d) => want.includes(String(d._id)));
+    }
+    if (!todo.length) throw new ConflictException('Все позиции этого счёта уже приняты на склад');
+    for (const d of todo) await this.supply.receive(String(d._id), { clientUid: `inv-${id}-${String(d._id)}` }, userId);
+    return { ...(await this.get(id)), receivedCount: todo.length };
   }
 
   /** Заказать группой: заявки делятся по поставщику, на каждого — черновик счёта; заявки → «заказано». */
