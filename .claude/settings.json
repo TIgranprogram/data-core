@@ -10,7 +10,10 @@
       "Bash(git log*)",
       "Bash(docker ps*)",
       "Bash(docker compose ps*)",
-      "Bash(docker compose logs*)"
+      "Bash(docker compose logs*)",
+      "Bash(bash deploy/synology/api.sh prod *)",
+      "Bash(bash deploy/synology/api.sh local *)",
+      "Bash(bash deploy/synology/release.sh*)"
     ],
     "deny": [
       "Read(./.env)",
