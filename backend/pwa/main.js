@@ -13,45 +13,11 @@ import { closePopMenu, isOpenFor, openPopMenu } from './ui/pop-menu.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
 import { lookups } from './sections/lookups.js';
-import { movements } from './sections/movements.js';
-import { mountMoney } from './sections/money.js';
-import { mountPayroll } from './sections/payroll.js';
 /** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
 const FEATURES = { payroll: true };
-import { orders } from './sections/orders.js';
-import { salesorders, salesorder } from './sections/salesorders.js';
-import { design } from './sections/design.js';
-import { designOrder } from './sections/design-order.js';
-import { designSettings } from './sections/design-settings.js';
-import { shipdo } from './sections/order-shipments.js';
-import { partners } from './sections/partners.js';
-import { dict, mountDicts } from './sections/dicts.js';
-import { mountFill } from './sections/fill.js';
-import { invoice, pasteOrder } from './sections/invoice.js';
-import { reqStep } from './sections/request-step.js';
-import { requests } from './sections/requests.js';
-import { mountRequests } from './sections/requests-tabs.js';
-import { mountSearch } from './sections/search.js';
-import { stock } from './sections/stock.js';
-import { stockOp } from './sections/stock-ops.js';
-import { resEdit } from './sections/reservation-edit.js';
-import { specImport } from './ui/spec-import.js';
-import { compSuggest } from './ui/composition-suggest.js';
-import { mountTrash } from './sections/trash.js';
 // раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
-import { history as historySection } from './sections/history.js';
-import { products } from './sections/products.js';
-import { passports } from './sections/passports.js';
-import { doctpl, passarchive, mountDocs } from './sections/docs.js';
-import { ptext, ptextview } from './sections/passport-texts.js';
-import { ptnode } from './sections/passport-tree.js';
-import { catalogImport, fromOrders, fromPassports, kp } from './sections/kp.js';
-import { supplierCatalog } from './sections/supplier-catalog.js';
-import { composition } from './sections/composition.js';
-import { bulkEdit } from './sections/bulk-edit.js';
 import { versionLabel, watchUpdates } from './core/update-check.js';
 import { bellButton } from './ui/bell.js';
-import { chat } from './sections/chat.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
@@ -62,7 +28,65 @@ events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' 
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
-const SECTIONS = { requests, stock, movements, orders, salesorders, salesorder, design, designorder: designOrder, designsettings: designSettings, chat, shipdo, partners, invoice, pasteorder: pasteOrder, reqstep: reqStep, dict, history: historySection, products, passports, doctpl, passarchive, kp, catalogimport: catalogImport, fromorders: fromOrders, frompassports: fromPassports, composition, bulkedit: bulkEdit, stockop: stockOp, resedit: resEdit, specimport: specImport, compsug: compSuggest, ptext, ptextview, ptnode, suppliercatalog: supplierCatalog };
+// Скорость: разделы грузятся при первом открытии (import() с кэшем промиса), а не все сразу при старте (канал медленный).
+const SECTIONS = {};   // имя раздела -> описание (заполняется по мере загрузки)
+const FN = {};         // имя функции монтирования -> функция
+// ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
+const LAZY = {
+  requests: [() => import('./sections/requests.js'), [['requests','requests']]],
+  stock: [() => import('./sections/stock.js'), [['stock','stock']]],
+  movements: [() => import('./sections/movements.js'), [['movements','movements']]],
+  orders: [() => import('./sections/orders.js'), [['orders','orders']]],
+  salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
+  design: [() => import('./sections/design.js'), [['design','design']]],
+  designorder: [() => import('./sections/design-order.js'), [['designorder','designOrder']]],
+  designsettings: [() => import('./sections/design-settings.js'), [['designsettings','designSettings']]],
+  chat: [() => import('./sections/chat.js'), [['chat','chat']]],
+  shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
+  partners: [() => import('./sections/partners.js'), [['partners','partners']]],
+  invoice: [() => import('./sections/invoice.js'), [['invoice','invoice'],['pasteorder','pasteOrder']]],
+  reqstep: [() => import('./sections/request-step.js'), [['reqstep','reqStep']]],
+  dicts: [() => import('./sections/dicts.js'), [['dict','dict'],['@mountDicts','mountDicts']]],
+  history: [() => import('./sections/history.js'), [['history','history']]],
+  products: [() => import('./sections/products.js'), [['products','products']]],
+  passports: [() => import('./sections/passports.js'), [['passports','passports']]],
+  docs: [() => import('./sections/docs.js'), [['doctpl','doctpl'],['passarchive','passarchive'],['@mountDocs','mountDocs']]],
+  kp: [() => import('./sections/kp.js'), [['kp','kp'],['catalogimport','catalogImport'],['fromorders','fromOrders'],['frompassports','fromPassports']]],
+  suppliercatalog: [() => import('./sections/supplier-catalog.js'), [['suppliercatalog','supplierCatalog']]],
+  composition: [() => import('./sections/composition.js'), [['composition','composition']]],
+  bulkedit: [() => import('./sections/bulk-edit.js'), [['bulkedit','bulkEdit']]],
+  stockop: [() => import('./sections/stock-ops.js'), [['stockop','stockOp']]],
+  resedit: [() => import('./sections/reservation-edit.js'), [['resedit','resEdit']]],
+  specimport: [() => import('./ui/spec-import.js'), [['specimport','specImport']]],
+  compsug: [() => import('./ui/composition-suggest.js'), [['compsug','compSuggest']]],
+  ptext: [() => import('./sections/passport-texts.js'), [['ptext','ptext'],['ptextview','ptextview']]],
+  ptnode: [() => import('./sections/passport-tree.js'), [['ptnode','ptnode']]],
+  money: [() => import('./sections/money.js'), [['@mountMoney','mountMoney']]],
+  payroll: [() => import('./sections/payroll.js'), [['@mountPayroll','mountPayroll']]],
+  trash: [() => import('./sections/trash.js'), [['@mountTrash','mountTrash']]],
+  fill: [() => import('./sections/fill.js'), [['@mountFill','mountFill']]],
+  search: [() => import('./sections/search.js'), [['@mountSearch','mountSearch']]],
+  reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
+};
+// имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
+const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext' };
+const loading = {};
+/** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
+function loadSec(key) {
+  const def = LAZY[key];
+  if (!def) return Promise.resolve();
+  return (loading[key] ??= def[0]().then((m) => {
+    for (const [name, exp] of def[1]) { if (name[0] === '@') FN[name.slice(1)] = m[exp]; else SECTIONS[name] = m[exp]; }
+  }).catch((e) => { delete loading[key]; throw e; }));
+}
+/** Какие модули ещё нужны экрану: сам раздел + раздел панели справа (?of=). */
+function needed(section, params) {
+  const keys = new Set();
+  const add = (n) => { const k = LOADER_OF[n] || n; if (LAZY[k]) keys.add(k); };
+  add(section); add(params?.of);
+  if (section === 'requests') keys.add('reqtabs');
+  return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
+}
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
@@ -265,12 +289,23 @@ function closeCard() { if (card) { card.handle.close(); card = null; } }
 /** Экран пересоздаётся только при смене раздела (и поиска по всему — у него свой запрос); остальное — update(). */
 const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '');
 
-function render({ section, params }) {
+function render(c) {
+  const { section, params } = c;
   if (!section) { go(DEFAULT, {}, { replace: true }); return; }
+  // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render
+  const miss = allowed(section) ? needed(section, params) : [];
+  if (miss.length) {
+    Promise.all(miss.map(loadSec)).then(() => render(current())).catch((e) => {
+      reportError(e, { kind: 'unhandled', action: 'загрузить раздел' });
+      ui.main.replaceChildren(failBlock(e, () => { mounted = null; render(current()); }, { cls: 'panel state', text: 'Раздел не открылся' }));
+      mounted = null;
+    });
+    return;
+  }
   // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
   // SK-8b: раздел снят с роли — прямой адрес ведёт на «Сегодня» с подсказкой, без ошибки
   if (!allowed(section)) {
-    toast(`Раздел «${SECTIONS[OWNER[section] || section]?.title || NAMES[OWNER[section] || section] || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
+    toast(`Раздел «${titleOf(OWNER[section] || section) || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
     go(DEFAULT, {}, { replace: true }); return;
   }
   // старый адрес #passports (ссылки из изделия, заказа, истории): «Архив паспортов» в «Документации», карточка — только просмотр и печать
@@ -287,8 +322,8 @@ function render({ section, params }) {
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
-    if (section === 'docs') list = mountDocs(params, { onChanged: () => refreshCounts() });
-    else if (section === 'requests') list = mountRequests(params, (p) => mountList(sec, p, {
+    if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
+    else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
       onOpen: (row) => openRecord(section, row.id),
       onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
       quick: sec.quick ? sec.quick(() => { mounted?.list?.reload?.(); refreshCounts(); }) : null,
@@ -306,12 +341,12 @@ function render({ section, params }) {
         onChanged: () => refreshCounts(),
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
-    else if (section === 'money') list = mountMoney(params);
-    else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = mountPayroll();
-    else if (section === 'trash') list = mountTrash();
-    else if (section === 'dicts') list = mountDicts(params);
-    else if (section === 'fill') list = mountFill(params);
-    else if (section === 'search') list = mountSearch(params);
+    else if (section === 'money') list = FN.mountMoney(params);
+    else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = FN.mountPayroll();
+    else if (section === 'trash') list = FN.mountTrash();
+    else if (section === 'dicts') list = FN.mountDicts(params);
+    else if (section === 'fill') list = FN.mountFill(params);
+    else if (section === 'search') list = FN.mountSearch(params);
     else { go(DEFAULT, {}, { replace: true }); return; }
     } catch (e) {
       reportError(e, { kind: 'unhandled', action: 'открыть раздел' });
@@ -335,10 +370,11 @@ function openRecord(section, id) {
 }
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
+const titleOf = (n) => SECTIONS[n]?.title || NAMES[n] || NAV.find(([id]) => id === n)?.[1];
 const NAMES = { home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
 function screenTitle(url) {
   const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
-  const name = SECTIONS[sec]?.title || NAMES[sec] || 'Сегодня';
+  const name = titleOf(sec) || 'Сегодня';
   return /(^|&)(open|new)=/.test(qs) ? `${name} (карточка)` : name;
 }
 

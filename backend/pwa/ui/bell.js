@@ -143,7 +143,7 @@ export function bellButton() {
   onNotices(() => { if (!pop.hidden) paint(); });
   document.addEventListener(REFRESH, counts);
   window.addEventListener('focus', counts);
-  setInterval(() => { if (document.visibilityState === 'visible' && wrap.isConnected) counts(); }, 60000);
+  setInterval(() => { if (document.visibilityState === 'visible' && wrap.isConnected) counts(); }, 120000);
   paintBadge(); counts();
   return wrap;
 }

@@ -4,13 +4,19 @@
  * очищается и файлы берутся с сервера. Нет version.json (стенд, локально) — «сеть, иначе кэш», как раньше.
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
  */
-const SHELL = 'dc-app-shell-v27';
+const SHELL = 'dc-app-shell-v28';
 const PHOTOS = 'dc-app-photos-v1';
 const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './ui/list.css', './ui/form.css', './ui/screens.css', './ui/panels.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const VER_KEY = './__version';
 
+// Установка не ждёт загрузки оболочки (канал медленный, ≈1 с на файл): сразу активируемся, а файлы кладём в кэш по одному
+// в фоне; сбой одного файла установку не роняет. Остальные модули кэшируются при первом запросе (cache-first по версии).
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(self.skipWaiting());
+  (async () => {
+    const c = await caches.open(SHELL);
+    for (const f of SHELL_FILES) { try { if (!(await c.match(f))) await c.add(f); } catch { /* файл подтянется при первом запросе */ } }
+  })().catch(() => {});
 });
 
 self.addEventListener('activate', (e) => {

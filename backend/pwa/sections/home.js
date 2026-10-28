@@ -6,8 +6,6 @@ import { modal } from '../ui/dialog.js';
 import { isoDay } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
-import { receiveDialog } from './requests.js';
-import { STAGE } from './salesorders.js';
 
 /**
  * «Сегодня» — утренний бриф (docs/roles/tz/TODAY.md, этап 1): шапка с пульсом дня и колокольчиком,
@@ -89,6 +87,7 @@ export function mountHome(deps) {
   async function shipped(c) {
     const was = await api(`/salesorders/${c.id}`);
     await api(`/salesorders/${c.id}`, { method: 'PATCH', body: { stage: 'shipped', shipDate: isoDay() } });
+    const { STAGE } = await import('./salesorders.js');
     toast(`${c.title} → ${STAGE.shipped.label}`, { undo: async () => {
       await api(`/salesorders/${c.id}`, { method: 'PATCH', body: { stage: was.stage, shipDate: was.shipDate ? String(was.shipDate).slice(0, 10) : null } });
       load(true);
@@ -97,6 +96,7 @@ export function mountHome(deps) {
   }
   async function receive(c) {
     const r = await api(`/supply/requests/${c.id}`);
+    const { receiveDialog } = await import('./requests.js');
     return !!(await receiveDialog(r));
   }
   const RUN = { open: async (c) => { openRec(c); return false; }, receive, shipped, move: moveDate, answer: async (c) => { await answer(c); return false; } };

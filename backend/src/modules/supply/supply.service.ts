@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
 import { searchTokens, tokenRegex } from '../../common/text/search-norm';
@@ -74,6 +75,7 @@ export class SupplyService {
     private readonly stock: StockService,
     private readonly notices: NotificationsService,
     private readonly orders: ProductionOrdersService,
+    @Optional() private readonly versions?: DataVersionService,
   ) {}
 
   private async names(coll: string, ids: unknown[]) {
@@ -224,11 +226,16 @@ export class SupplyService {
     const sort: Record<string, 1 | -1> = { ...p.sort };
     if (!('num' in sort)) sort.num = -1;
     sort._id = -1;
-    const [docs, total, agg, byStatus] = await Promise.all([
-      this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort(sort).skip(p.skip).limit(p.limit).lean().exec(),
-      this.model.countDocuments(filter).setOptions({ includeSoftDeleted: true }).exec(),
+    // сумма и счётчики не зависят от страницы и сортировки — кэш по версии данных и фильтру (без page/limit/sort)
+    const totals = async () => Promise.all([
       this.model.aggregate([{ $match: filter }, { $group: { _id: null, sum: { $sum: { $ifNull: ['$priceHint', 0] } } } }]).exec(),
       this.model.aggregate([{ $match: noStatus }, { $group: { _id: { s: '$status', p: { $eq: ['$paid', true] } }, n: { $sum: 1 } } }]).exec(),
+    ]);
+    const pure = Object.fromEntries(Object.entries(q).filter(([k]) => !['page', 'limit', 'sort', 'facets'].includes(k)));
+    const [docs, total, [agg, byStatus]] = await Promise.all([
+      this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort(sort).skip(p.skip).limit(p.limit).lean().exec(),
+      this.model.countDocuments(filter).setOptions({ includeSoftDeleted: true }).exec(),
+      this.versions ? this.versions.cached('supply.totals', ['supplyrequests', 'organizations'], JSON.stringify(pure), totals) : totals(),
     ]);
     const counts: Record<string, number> = { all: 0 };
     for (const g of byStatus as Array<{ _id: { s: string; p: boolean }; n: number }>) {

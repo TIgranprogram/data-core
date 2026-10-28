@@ -1,7 +1,8 @@
-import { BadRequestException, Logger, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Logger, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { parseList } from '../../common/list-query';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { numberLines, sortLines, sortOrdersByEntry } from '../../common/text/production-seq';
@@ -34,6 +35,7 @@ export class ProductionOrdersService {
     private readonly orders: SalesOrdersService,
     private readonly audit: AuditService,
     private readonly notices: NotificationsService,
+    @Optional() private readonly versions?: DataVersionService,
   ) {}
 
   private async byNo(no: string) {
@@ -106,46 +108,15 @@ export class ProductionOrdersService {
 
   async list(q: Record<string, unknown> = {}) {
     const p = parseList(q, { sortable: SORT, defaultSort: '-createdAt', defaultLimit: 25 });
-    // filter=new — «Новые»: этап «Новый», нет задач проектирования (живых) и отгрузок (пользователь 2026-10-28)
-    const wantNew = q.filter === 'new';
-    const { filter, stages } = this.orders.filters(wantNew ? { ...q, filter: undefined } : q);
-    // 1) договоры, подходящие под поиск/компанию/даты; 2) весь заказ целиком по их №
-    const hits = await this.model.find(filter, { productionNo: 1 }).lean().exec() as Doc[];
-    const nos = [...new Set(hits.map((h) => String(h.productionNo ?? '').trim()).filter(Boolean))];
-    const singles = hits.filter((h) => !String(h.productionNo ?? '').trim()).map((h) => h._id);
-    const or = [...(nos.length ? [{ productionNo: { $in: nos } }] : []), ...(singles.length ? [{ _id: { $in: singles } }] : [])];
-    const docs = or.length ? await this.model.find({ deletedAt: null, $or: or }, FIELDS).lean().exec() as Doc[] : [];
-    const byKey = new Map<string, Doc[]>();
-    for (const d of docs) byKey.set(groupKey(d), [...(byKey.get(groupKey(d)) ?? []), d]);
-    const groups = [...byKey.entries()].map(([key, ds]) => ({ key, docs: sortOrdersByEntry(ds), ...summarize(ds) }));
-
-    // счётчики вкладок — по объединённым заказам, до отбора по этапу
-    const counts: Record<string, number> = Object.fromEntries(ORDER_STAGES.map((s) => [s, 0]));
-    for (const g of groups) counts[g.stage]++;
+    // группы, счётчики вкладок и порядок не зависят от страницы — считаются один раз на версию данных и фильтр
+    const pure = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page' && k !== 'limit'));
+    const build = () => this.groupsAndCounts(q, p.sort);
+    const { shown, counts, fresh } = this.versions
+      ? await this.versions.cached('production-orders.list', ['salesorders', 'designtasks', 'designorders', 'shipments'], JSON.stringify(pure), build)
+      : await build();
     const n = (ss: readonly string[]) => ss.reduce((a, s) => a + (counts[s] ?? 0), 0);
-    const allIds = groups.flatMap((g) => g.docs.map((d) => d._id));
-    const db = this.connection.db!, inIds = { orderId: { $in: allIds }, deletedAt: null };
-    const [dt, dm, sh] = allIds.length ? await Promise.all([
-      db.collection('designtasks').distinct('orderId', inIds),
-      db.collection('designorders').distinct('orderId', inIds), // заказ добавлен на доску проектирования
-      db.collection('shipments').distinct('orderId', inIds),
-    ]) : [[], [], []];
-    const started = new Set([...dt, ...dm, ...sh].map(String));
-    const isNew = (g: (typeof groups)[number]) => g.docs.every((d) => (d.stage || 'new') === 'new' && !started.has(String(d._id)));
-    const fresh = groups.filter(isNew).length;
-    const shown = wantNew ? groups.filter(isNew) : stages ? groups.filter((g) => stages.includes(g.stage)) : groups;
-
-    const field = Object.keys(p.sort)[0], dir = p.sort[field];
-    const cmp = (x: number, y: number) => (x === y ? 0 : x < y ? -1 : 1) * dir;
-    const created = (g: (typeof groups)[number]) => Math.min(...g.docs.map((d) => ts(d.createdAt)));
-    shown.sort((a, b) => {
-      const r = field === 'productionNo' ? compareProductionNo(a.docs[0]?.productionNo, b.docs[0]?.productionNo, dir)
-        : field === 'deadline' ? cmp(ts(a.deadline), ts(b.deadline))
-        : field === 'customer' ? String(a.docs[0]?.customer ?? '').localeCompare(String(b.docs[0]?.customer ?? ''), 'ru') * dir
-        : cmp(created(a), created(b));
-      return r || b.key.localeCompare(a.key);
-    });
     const page = shown.slice(p.skip, p.skip + p.limit);
+    const created = (g: (typeof shown)[number]) => Math.min(...g.docs.map((d) => ts(d.createdAt)));
 
     // сводка по позициям и названия компаний — по одному запросу на страницу
     const ids = page.flatMap((g) => g.docs.map((d) => d._id as Types.ObjectId));
@@ -173,6 +144,49 @@ export class ProductionOrdersService {
       };
     });
     return { items, total: shown.length, page: p.page, limit: p.limit, counts: { all: n(ORDER_STAGES), active: n(ACTIVE_STAGES), done: n(DONE_STAGES), ...counts, fresh } };
+  }
+
+  /** Заказы (группы договоров) под фильтр, уже отсортированные + счётчики вкладок и «Новые». Результат общий — не менять. */
+  private async groupsAndCounts(q: Record<string, unknown>, sort: Record<string, 1 | -1>) {
+    // filter=new — «Новые»: этап «Новый», нет задач проектирования (живых) и отгрузок (пользователь 2026-10-28)
+    const wantNew = q.filter === 'new';
+    const { filter, stages } = this.orders.filters(wantNew ? { ...q, filter: undefined } : q);
+    // 1) договоры, подходящие под поиск/компанию/даты; 2) весь заказ целиком по их №
+    const hits = await this.model.find(filter, { productionNo: 1 }).lean().exec() as Doc[];
+    const nos = [...new Set(hits.map((h) => String(h.productionNo ?? '').trim()).filter(Boolean))];
+    const singles = hits.filter((h) => !String(h.productionNo ?? '').trim()).map((h) => h._id);
+    const or = [...(nos.length ? [{ productionNo: { $in: nos } }] : []), ...(singles.length ? [{ _id: { $in: singles } }] : [])];
+    const docs = or.length ? await this.model.find({ deletedAt: null, $or: or }, FIELDS).lean().exec() as Doc[] : [];
+    const byKey = new Map<string, Doc[]>();
+    for (const d of docs) byKey.set(groupKey(d), [...(byKey.get(groupKey(d)) ?? []), d]);
+    const groups = [...byKey.entries()].map(([key, ds]) => ({ key, docs: sortOrdersByEntry(ds), ...summarize(ds) }));
+
+    // счётчики вкладок — по объединённым заказам, до отбора по этапу
+    const counts: Record<string, number> = Object.fromEntries(ORDER_STAGES.map((s) => [s, 0]));
+    for (const g of groups) counts[g.stage]++;
+    const allIds = groups.flatMap((g) => g.docs.map((d) => d._id));
+    const db = this.connection.db!, inIds = { orderId: { $in: allIds }, deletedAt: null };
+    const [dt, dm, sh] = allIds.length ? await Promise.all([
+      db.collection('designtasks').distinct('orderId', inIds),
+      db.collection('designorders').distinct('orderId', inIds), // заказ добавлен на доску проектирования
+      db.collection('shipments').distinct('orderId', inIds),
+    ]) : [[], [], []];
+    const started = new Set([...dt, ...dm, ...sh].map(String));
+    const isNew = (g: (typeof groups)[number]) => g.docs.every((d) => (d.stage || 'new') === 'new' && !started.has(String(d._id)));
+    const fresh = groups.filter(isNew).length;
+    const shown = wantNew ? groups.filter(isNew) : stages ? groups.filter((g) => stages.includes(g.stage)) : groups;
+
+    const field = Object.keys(sort)[0], dir = sort[field];
+    const cmp = (x: number, y: number) => (x === y ? 0 : x < y ? -1 : 1) * dir;
+    const created = (g: (typeof groups)[number]) => Math.min(...g.docs.map((d) => ts(d.createdAt)));
+    shown.sort((a, b) => {
+      const r = field === 'productionNo' ? compareProductionNo(a.docs[0]?.productionNo, b.docs[0]?.productionNo, dir)
+        : field === 'deadline' ? cmp(ts(a.deadline), ts(b.deadline))
+        : field === 'customer' ? String(a.docs[0]?.customer ?? '').localeCompare(String(b.docs[0]?.customer ?? ''), 'ru') * dir
+        : cmp(created(a), created(b));
+      return r || b.key.localeCompare(a.key);
+    });
+    return { shown, counts, fresh };
   }
 
   /** Карточка заказа: договоры (как `salesorders/:id`, позиции со сквозным seqNo), «К производству», срок, этап. */

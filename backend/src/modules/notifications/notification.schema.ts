@@ -24,3 +24,4 @@ export class Notification {
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 NotificationSchema.index({ userId: 1, readAt: 1 });
+NotificationSchema.index({ userId: 1, kind: 1, readAt: 1, createdAt: -1 }); // счётчики и вкладки «Важные/Система»
