@@ -30,6 +30,7 @@ import { mountFill } from './sections/fill.js';
 import { invoice, pasteOrder } from './sections/invoice.js';
 import { reqStep } from './sections/request-step.js';
 import { requests } from './sections/requests.js';
+import { mountRequests } from './sections/requests-tabs.js';
 import { mountSearch } from './sections/search.js';
 import { stock } from './sections/stock.js';
 import { stockOp } from './sections/stock-ops.js';
@@ -286,6 +287,12 @@ function render({ section, params }) {
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
     if (section === 'docs') list = mountDocs(params, { onChanged: () => refreshCounts() });
+    else if (section === 'requests') list = mountRequests(params, (p) => mountList(sec, p, {
+      onOpen: (row) => openRecord(section, row.id),
+      onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
+      quick: sec.quick ? sec.quick(() => { mounted?.list?.reload?.(); refreshCounts(); }) : null,
+      onChanged: () => refreshCounts(),
+    }));
     else if (sec?.mount) {
       const el = h('div', { class: 'panel' });
       sec.mount(el, { params, setTitle: (t) => { if (ui.heading) ui.heading.textContent = t; } });

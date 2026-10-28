@@ -96,3 +96,6 @@
 
 ## Заявки — автозаполнение В1 (2026-10-28, не закоммичено)
 - `sections/request-fill.js` — `wireFill(fapi)` (mount поля «Наименование»): З1/З2 price-default + prices по скрытому materialId, З3 каталог поставщика, З4 заказ -> заказчик/кол-во + строка «Заказ № N поз.». `requests.js`: hidden materialId/num, `fromInvoice` (З6 показ из счёта), `orderTag`, фильтр `salesOrderId`, колонка «Заказ». `salesorders.js` кнопка «+ Заявка под этот заказ»; `main.js` whitelist params salesOrderRef/qty; `ui/form.js` pick шлёт change на hidden. Карта обновлена.
+
+## Заказы — договоры без заказа В3 (2026-10-28, не закоммичено)
+- `sections/salesorders-unassigned.js` — `unassignedPicker` (поиск, галочки, «Выбрать все»), `unassignedTop` (плашка над списком, `list.top`), `chooseTarget` (новый/существующий), `addContractsDialog` (действие «+ Добавить договор» в карточке, salesorders.js ~303). CSS `.ua-*` конец screens.css. Карта обновлена.

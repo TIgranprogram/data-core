@@ -13,6 +13,7 @@ import { failBlock } from '../ui/busy.js';
 import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
+import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
@@ -251,6 +252,7 @@ export const salesorders = {
       // вкладки: Новые → В работе (по умолчанию) → Выполненные → Все в конце (пользователь 2026-10-28)
       { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', noAll: true, options: () => [{ value: 'new', label: 'Новые' }, { value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }, { value: 'all', label: 'Все' }], count: (resp, v) => (v === 'new' ? resp.counts?.fresh : resp.counts?.[v]) },
     ],
+    top: (reload) => unassignedTop(reload),
     hints: HINT,
     hintKey: 'filter',
     periods: (P) => (P.filter === 'done' ? { date: (r) => r.deadline || r.createdAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
@@ -300,6 +302,7 @@ export const salesorders = {
       const many = (r.orderNos || []).length > 1;
       return [
         NEXT[r.stage] && { label: NEXT_LABEL[r.stage] + (many ? ' — всем договорам' : ''), title: many ? 'Этап сменится у договоров, которые отстают' : undefined, primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
+        !closedStage(r) && r.productionNo && session.canEdit && { label: '+ Добавить договор', title: 'Выбрать договоры без заказа и добавить их в этот заказ', run: async (row, ctx) => { if (await addContractsDialog(row.productionNo, null)) { const s = await salesorders.get(row.key || row.id); if (s) ctx.setRow(s); } } },
         !closedStage(r) && { label: '+ Договор в этот заказ', title: 'Новый договор с этим № заказа', run: (row) => patch({ of: 'salesorder', new: '1', productionNo: row.productionNo || '', customer: names(row.customers) && (row.customers || [])[0] || '', open: undefined }, { replace: false }) },
       ];
     },

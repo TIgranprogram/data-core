@@ -9,6 +9,13 @@ export const SUPPLY_STATUS = {
   received: { label: 'Получено', tone: 'ok' },
   cancelled: { label: 'Отменено', tone: 'danger' },
 };
+/** Статусы счёта поставщика (supply/invoices). */
+export const INVOICE_STATUS = {
+  draft: { label: 'Черновик', tone: 'dim' },
+  issued: { label: 'Выставлен', tone: 'info' },
+  paid: { label: 'Оплачен', tone: 'ok' },
+  cancelled: { label: 'Отменён', tone: 'danger' },
+};
 /** Ключ статуса заявки с учётом «оплачено» (status=ordered + paid). */
 export const supplyKey = (r) => (r.status === 'ordered' && r.paid ? 'paid' : r.status || 'requested');
 

@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (SHIPMENTS-PASSPORTS)
+коммит: не закоммичен (CHAIN-AUDIT)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -45,3 +45,6 @@
 
 ## Аудит «Деньги» (2026-10-28)
 - `docs/audit/MONEY-AUDIT-2026-10-28.md`. Позиции 78 %, календарь 70 %, ФОТ 25 %. Ключ: выплаты по `invoiceDate`, не `paidAt` (`finance.service.ts:50`); поступления = оплата ?? отгрузка; ФОТ на проде показывает DEMO (`payroll.js:70`). Вопросы В-1…В-5 — в отчёте, в QUESTIONS не перенесены. коммит: —
+
+## Цепочка заказа (CHAIN-AUDIT, 2026-10-28)
+- ТЗ: `docs/roles/tz/CHAIN-AUDIT.md`. Этапы `common/text/order-key.ts:8`; счёт `supply/supply-invoice.schema.ts:36` (нет списка GET); заявка `salesOrderId` :175, `invoiceId` :194; «+ Договор в этот заказ» `pwa/sections/salesorders.js:302`. КП — нет сущности (ДМ.8). Вопросы ЦП-1…3.
