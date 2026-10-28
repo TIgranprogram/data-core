@@ -99,3 +99,6 @@
 
 ## Заказы — договоры без заказа В3 (2026-10-28, не закоммичено)
 - `sections/salesorders-unassigned.js` — `unassignedPicker` (поиск, галочки, «Выбрать все»), `unassignedTop` (плашка над списком, `list.top`), `chooseTarget` (новый/существующий), `addContractsDialog` (действие «+ Добавить договор» в карточке, salesorders.js ~303). CSS `.ua-*` конец screens.css. Карта обновлена.
+
+## Крошки и вкладки (2026-10-28, не закоммичено)
+- `ui/crumbs.js` (`setCrumbs/setCrumbTail/crumbsEl`), `main.js` `GROUP_OF` + вызов в `render`; `.crumbs/.tabs/.invl-chev` — конец `ui/screens.css`. `.tabs` вместо `.seg` в requests-tabs/docs/money; `invoices-tab.js` `rowEl` (шеврон, Esc), `detailEl(...,collapse)`. Счётчик неоплаченных на вкладке не сделан. Карта обновлена.

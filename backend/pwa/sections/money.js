@@ -38,7 +38,7 @@ export function mountMoney(params) {
   const org = () => P.org || 'all';
 
   // ---------- Шапка: вкладки, месяц, компания, начальный остаток ----------
-  const tabs = h('div', { class: 'seg', role: 'tablist' });
+  const tabs = h('div', { class: 'tabs', role: 'tablist' });
   const monthLabel = h('span', { class: 'm-label' });
   const orgSeg = h('div', { class: 'seg' });
   const opening = h('input', { class: 'm-open', inputmode: 'decimal', placeholder: 'не знаю', 'aria-label': 'Остаток на начало месяца', title: 'Остаток денег на начало месяца (запоминается в этом браузере)' });

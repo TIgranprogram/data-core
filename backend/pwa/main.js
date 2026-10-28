@@ -22,6 +22,7 @@ import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
 import { failBlock } from './ui/busy.js';
+import { setCrumbs, crumbsEl } from './ui/crumbs.js';
 // ОШ2: сбой запроса (сеть, 5xx, ответ не разобрался) — в сборщик; GET — фоновая загрузка, запись — действие человека
 events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: method === 'GET' ? 'загрузка' : 'запись', url });
 // ОШ: любая необработанная ошибка — в сборщик и понятным русским текстом (детали — в консоль), без повторов;
@@ -94,6 +95,8 @@ const OWNER = { salesorder: 'salesorders', designorder: 'design', designsettings
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
+// Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
+const GROUP_OF = { salesorders: 'Производство', design: 'Производство', products: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -214,7 +217,7 @@ function shell() {
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
-    h('div', { class: 'main' }, topbar, netBar, main));
+    h('div', { class: 'main' }, topbar, crumbsEl, netBar, main));
   root.replaceChildren(shellEl);
   refreshCounts();
   return { main, gs, gsb };
@@ -316,6 +319,7 @@ function render(c) {
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
 
   const key = screenKey(section, params);
+  if (!mounted || mounted.key !== key) { const own = OWNER[section] || section; setCrumbs({ group: GROUP_OF[own] || '', title: titleOf(own) || '', href: '#' + own }); }
   const sec = SECTIONS[section];
   if (!mounted || mounted.key !== key) {
     mounted?.list?.destroy?.();

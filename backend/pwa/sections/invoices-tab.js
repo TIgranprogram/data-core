@@ -91,6 +91,7 @@ export function mountInvoicesTab(params = {}) {
   function rowEl(inv) {
     const detail = h('div', { class: 'invl-detail' });
     const head = h('button', { type: 'button', class: 'invl-head', 'aria-expanded': 'false', onclick: () => toggle() },
+      h('span', { class: 'invl-chev', 'aria-hidden': 'true' }, '▸'),
       h('span', { class: 'invl-no' }, inv.no ? `№ ${inv.no}` : 'без номера'),
       h('span', { class: 'invl-date muted' }, ruDate(inv.date)),
       h('span', { class: 'invl-sup' }, inv.supplierName || '—'),
@@ -106,14 +107,15 @@ export function mountInvoicesTab(params = {}) {
     }
     async function fill() {
       detail.replaceChildren(h('div', { class: 'muted' }, 'Загружаю счёт…'));
-      try { detail.replaceChildren(detailEl(await api(`/supply/invoices/${inv.id}`), fill)); } catch (e) { detail.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')); }
+      try { detail.replaceChildren(detailEl(await api(`/supply/invoices/${inv.id}`), fill, () => { toggle(false); head.focus(); })); } catch (e) { detail.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')); }
     }
     if (openIds.has(inv.id)) toggle(true);
+    box.addEventListener('keydown', (e) => { if (e.key === 'Escape' && box.classList.contains('open') && !document.querySelector('.modal-back')) { e.stopPropagation(); toggle(false); head.focus(); } });
     return box;
   }
 
   /** Раскрытая часть: позиции, файлы, цепочка, кнопки. */
-  function detailEl(inv, refresh) {
+  function detailEl(inv, refresh, collapse) {
     const reqs = inv.requests || [];
     const canAct = session.canEdit && inv.status !== 'cancelled';
     const run = async (btn, fn) => { btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); } };
@@ -172,7 +174,8 @@ export function mountInvoicesTab(params = {}) {
       reqs.length ? list : h('div', { class: 'muted' }, 'В счёте нет позиций.'),
       pending.length && checks.size ? h('div', { class: 'muted' }, 'Галочки — что приехало. По умолчанию все неполученные.') : null,
       files, chain,
-      actions.length ? h('div', { class: 'invl-actions' }, ...actions) : null);
+      actions.length ? h('div', { class: 'invl-actions' }, ...actions) : null,
+      collapse ? h('button', { class: 'btn btn-ghost invl-collapse', type: 'button', onclick: collapse }, 'Свернуть ▴') : null);
   }
 
   load();

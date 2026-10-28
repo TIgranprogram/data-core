@@ -136,7 +136,7 @@ const listParams = (p) => { const { tab, of, ...rest } = p; return rest; };
 export function mountDocs(params, { onChanged } = {}) {
   let tab = tabOf(params);
   let inner = null;
-  const seg = h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Документация' });
+  const seg = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Документация' });
   const body = h('div', { class: 'docs-body' });
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg), body);
 

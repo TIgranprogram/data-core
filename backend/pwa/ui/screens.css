@@ -1234,9 +1234,9 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 
 /* Каталог поставщиков: крошки и шестерёнка над списком */
 .sc-top { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; }
-.sc-crumbs { font-size: var(--fs-sm); color: var(--text); }
-.sc-crumbs a { color: var(--muted); text-decoration: none; }
-.sc-crumbs a:hover { color: var(--text); text-decoration: underline; }
+
+
+
 .sc-preview { margin-top: 8px; }
 /* очередь паспортов: «горит» (ревью 2026-10-28) */
 table.so-lines tr.dq-hot { background: var(--danger-soft); }
@@ -1352,3 +1352,25 @@ table.list tbody tr:active { background: var(--row-hover); filter: brightness(.9
 .sc-f b { font-weight: 500; overflow-wrap: anywhere; }
 .sc-nolink { display: inline-flex; align-items: center; gap: var(--s2); }
 .sc-hist th, .sc-hist td { padding: var(--s2) var(--s3); }
+
+/* Хлебные крошки (DESIGN §4) */
+.crumbs { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s4) 0; font-size: 14px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+.crumbs[hidden] { display: none; }
+.crumb-group, .crumb-sep { color: var(--muted); }
+.crumb { color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; }
+a.crumb:hover { color: var(--text); text-decoration: underline; }
+.crumb.cur { color: var(--text); font-weight: 600; }
+@media (min-width: 900px) { .crumb { min-height: 28px; } }
+
+/* Вкладки раздела (подчёркнутые): вместо .seg; .seg остаётся переключателем вида */
+.tabs { display: flex; gap: var(--s4); border-bottom: 1px solid var(--border); max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.tabs button { flex: none; height: 44px; padding: 0 var(--s1); border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; background: transparent; font: inherit; font-weight: 550; color: var(--muted); cursor: pointer; }
+.tabs button:hover { color: var(--text); }
+.tabs button.active { color: var(--text); font-weight: 700; border-bottom-color: var(--primary); }
+
+/* Счёт в списке: шеврон, выделенная шапка, «Свернуть» */
+.invl-head { position: sticky; top: 0; z-index: 1; border-radius: var(--radius) var(--radius) 0 0; }
+.invl-chev { display: inline-block; width: 1em; color: var(--muted); transition: transform 120ms ease; }
+.invl-head[aria-expanded="true"] .invl-chev { transform: rotate(90deg); }
+.invl-row.open > .invl-head { background: var(--surface-3); box-shadow: inset 3px 0 0 var(--primary); }
+.invl-collapse { align-self: flex-start; }

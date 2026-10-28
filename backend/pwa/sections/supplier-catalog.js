@@ -8,6 +8,7 @@ import { enhanceSelect } from '../ui/select.js';
 import { openPopMenu } from '../ui/pop-menu.js';
 import { icon } from '../ui/icons.js';
 import { toast, toastError } from '../ui/toast.js';
+import { setCrumbTail } from '../ui/crumbs.js';
 
 /**
  * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
@@ -72,10 +73,6 @@ function sideFilters() {
 
 // ---------- шапка: крошки и шестерёнка ----------
 function topBlock(reload) {
-  const crumbEnd = h('span', { class: 'sc-crumb-end' });
-  const crumbs = h('nav', { class: 'sc-crumbs', 'aria-label': 'Где вы' },
-    h('a', { href: '#stock' }, 'Снабжение'), h('span', { class: 'muted' }, ' › '),
-    h('a', { href: '#suppliercatalog', onclick: () => patch({ supplierId: undefined, categoryId: undefined, flag: undefined, page: undefined }) }, 'Каталог поставщиков'), crumbEnd);
   const gear = h('button', { class: 'btn btn-ghost', type: 'button', title: 'Шаблон, загрузка и выгрузка Excel', 'aria-label': 'Действия с Excel', 'aria-haspopup': 'menu',
     onclick: () => openPopMenu({ anchor: gear, side: 'down', groups: [
       { items: [
@@ -83,13 +80,13 @@ function topBlock(reload) {
         canWrite() ? { label: 'Загрузить Excel…', onSelect: () => importDialog(reload) } : null,
         { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
       ] }] }) }, icon('settings'));
-  const el = h('div', { class: 'sc-top' }, crumbs, h('span', { class: 'spacer' }), gear);
+  const el = h('div', { class: 'sc-top' }, h('span', { class: 'spacer' }), gear);
   el.onParams = async (P) => {
-    crumbEnd.replaceChildren();
+    setCrumbTail(null);
     if (!P.supplierId) return;
     const c = await getCounts().catch(() => null);
     const s = c?.suppliers?.find((x) => x.id === P.supplierId);
-    if (s && P.supplierId === current().params.supplierId) crumbEnd.replaceChildren(h('span', { class: 'muted' }, ' › '), h('span', null, s.name));
+    if (s && P.supplierId === current().params.supplierId) setCrumbTail(s.name);
   };
   return el;
 }
