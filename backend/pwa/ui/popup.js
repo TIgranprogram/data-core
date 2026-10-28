@@ -20,6 +20,8 @@ function clipper(el) {
  * Поле внутри окна или панели с прокруткой — список «плавающий» поверх всего (position: fixed по месту поля): иначе
  * он раздувает окно полосами прокрутки справа и снизу и обрезается (замечание 2026-10-23, окно «Выдать из брони»).
  */
+const GAP = 76; // ≈2 см до края экрана
+
 export function placeList(box) {
   box.classList.remove('drop-up', 'align-right', 'sheet', 'floating');
   for (const k of ['left', 'top', 'bottom', 'minWidth', 'maxHeight']) box.style[k] = '';
@@ -31,14 +33,18 @@ export function placeList(box) {
     const vw = window.innerWidth, vh = window.innerHeight, w = box.offsetWidth;
     box.style.left = Math.max(12, Math.min(a.left, vw - 12 - w)) + 'px';
     const below = vh - a.bottom - 10, above = a.top - 10, up = below < 220 && above > below;
-    box.style.maxHeight = Math.max(120, Math.min(8 * 46, up ? above : below)) + 'px';
+    box.style.maxHeight = Math.max(120, (up ? above : below) - GAP) + 'px';
     if (up) box.style.bottom = (vh - a.top + 2) + 'px'; else box.style.top = (a.bottom + 2) + 'px';
     return;
   }
+  // высота — до низа экрана с отступом GAP (≈2 см), меньше прокрутки (пользователь 2026-10-28)
+  const anchor = box.parentElement.getBoundingClientRect();
+  const below = window.innerHeight - anchor.bottom - GAP, above = anchor.top - GAP;
+  const up = below < 220 && above > below;
+  if (up) box.classList.add('drop-up');
+  box.style.maxHeight = Math.max(120, up ? above : below) + 'px';
   const r = box.getBoundingClientRect();
   if (r.right > window.innerWidth - 12) box.classList.add('align-right');
-  const anchor = box.parentElement.getBoundingClientRect();
-  if (r.bottom > window.innerHeight - 8 && anchor.top > window.innerHeight - anchor.bottom) box.classList.add('drop-up');
 }
 
 /** Подпись с выделенными совпадениями слов запроса (без innerHTML): «Болт **М10**». */

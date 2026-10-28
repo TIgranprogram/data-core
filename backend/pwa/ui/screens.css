@@ -627,7 +627,7 @@ html { scrollbar-gutter: stable; }
 .count-preview.danger { color: var(--danger); background: var(--danger-soft); font-weight: 600; }
 
 /* ── Выпадающий список: текст не режем (TASKS ВС, DESIGN §4) — combo / suggest / select ── */
-.combo-list, .suggest { min-width: 100%; width: max-content; max-width: min(560px, calc(100vw - 24px)); right: auto; max-height: calc(8 * 46px); overscroll-behavior: contain; }
+.combo-list, .suggest { min-width: 100%; width: max-content; max-width: min(560px, calc(100vw - 24px)); right: auto; overscroll-behavior: contain; }
 .combo-list.align-right, .suggest.align-right { left: auto; right: 0; }
 .combo-list.drop-up, .suggest.drop-up { top: auto; bottom: calc(100% + 2px); }
 .combo-opt, .sg-row { display: flex; flex-direction: column; gap: 2px; min-height: 40px; justify-content: center; padding: var(--s2) var(--s3); padding-right: 32px; position: relative; }
