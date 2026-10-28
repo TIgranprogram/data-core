@@ -17,10 +17,17 @@ user="$(get ACCESS_USER access.env)"; pass="$(get ACCESS_PASSWORD access.env)"
 [ -n "$user" ] || user=admin
 [ -n "$pass" ] || pass="$(get ADMIN_PASSWORD config.env)"
 [ -n "$pass" ] || { echo "нет пароля: заполните ADMIN_PASSWORD в config.env или access.env" >&2; exit 3; }
-login="$(curl -sS -X POST "$base/api/auth/login" -H 'Content-Type: application/json' \
-  --data-binary @- <<<"$(printf '{"username":"%s","password":"%s"}' "$user" "$pass")")" # тело через stdin — пароль не виден в списке процессов
-token="$(printf '%s' "$login" | sed -n 's/.*"access":"\([^"]*\)".*/\1/p')"
-[ -n "$token" ] || { echo "вход не удался (пароль изменён в админке? тогда ACCESS_PASSWORD в access.env)" >&2; exit 4; }
+# Токен живёт ~15 мин: держим его 10 мин в кэше, чтобы не входить на каждый вызов (вход ограничен 20 в час)
+cache="${TMPDIR:-/tmp}/.datacore-token-$env_name"
+token=""
+if [ -f "$cache" ] && [ -n "$(find "$cache" -mmin -10 2>/dev/null)" ]; then token="$(cat "$cache")"; fi
+if [ -z "$token" ]; then
+  login="$(curl -sS -X POST "$base/api/auth/login" -H 'Content-Type: application/json' \
+    --data-binary @- <<<"$(printf '{"username":"%s","password":"%s"}' "$user" "$pass")")" # тело через stdin — пароль не виден в списке процессов
+  token="$(printf '%s' "$login" | sed -n 's/.*"access":"\([^"]*\)".*/\1/p')"
+  [ -n "$token" ] || { echo "вход не удался (лимит 20 входов в час или пароль изменён в админке — тогда ACCESS_PASSWORD в access.env)" >&2; exit 4; }
+  (umask 077; printf '%s' "$token" > "$cache")
+fi
 args=(-sS -X "$method" "$base$path" -H "Authorization: Bearer $token")
 [ -n "$body" ] && args+=(-H 'Content-Type: application/json' --data @"$body")
 curl "${args[@]}"
