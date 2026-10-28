@@ -85,5 +85,5 @@ export function openSectionsFor(
 
 /** Открыт ли раздел (null-набор = всё открыто). */
 export function sectionOpen(open: Set<string> | null, id: string): boolean {
-  return !open || open.has(id);
+  return !open || open.has(id) || (id === 'passports' && open.has('docs'));
 }

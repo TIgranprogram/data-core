@@ -17,6 +17,7 @@ import { PartnersService, type PartnerInput } from './partners.service';
 export class PartnersController {
   constructor(private readonly partners: PartnersService) {}
 
+  @AppSection('partners', 'requests', 'suppliercatalog', 'salesorders', 'passports', 'stock')
   @Get()
   @Roles('user')
   @ApiQuery({ name: 'type', required: false, description: 'supplier (умолч.) | customer | our' })
@@ -36,6 +37,7 @@ export class PartnersController {
   }
 
   /** id — организация (ObjectId) или заказчик `c:<название>` (encodeURIComponent). */
+  @AppSection('partners', 'requests', 'suppliercatalog', 'salesorders', 'passports', 'stock')
   @Get(':id')
   @Roles('user')
   get(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {

@@ -35,11 +35,13 @@ export class MaterialController {
     return this.service.findAll({ page: parseInt(page, 10), limit: parseInt(limit, 10), search, categoryId, materialKind }, user.organizationId);
   }
 
+  @AppSection('stock', 'requests')
   @Get(':id/prices')
   @Roles('admin', 'director', 'manager')
   @ApiOperation({ summary: 'История закупочных цен материала (без НДС)' })
   getPrices(@Param('id') id: string, @Query() q: Record<string, unknown>) { return this.prices.list(id, q); }
 
+  @AppSection('stock', 'requests')
   @Get(':id/price-default')
   @Roles('admin', 'director', 'manager')
   @ApiOperation({ summary: 'Последняя цена и поставщик — для подстановки в заявку' })

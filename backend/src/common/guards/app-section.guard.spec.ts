@@ -50,6 +50,25 @@ describe('AppSectionGuard', () => {
     expect(guard.canActivate(ctx(undefined, ['salesorders']))).toBe(true);
   });
 
+  it('раздел docs открывает маршруты passports; обратно passports docs не открывает', () => {
+    setRoleSectionsAll([{ name: 'r-d', appSections: ['docs'] }, { name: 'r-p', appSections: ['passports'] }]);
+    expect(guard.canActivate(ctx({ role: 'r-d' }, ['products', 'passports']))).toBe(true);
+    expect(guard.canActivate(ctx({ role: 'r-d' }, undefined, ['passports']))).toBe(true);
+    expect(() => guard.canActivate(ctx({ role: 'r-p' }, ['docs']))).toThrow(ForbiddenException);
+  });
+
+  it('GET /partners открыт разделам requests/stock/…, запись — только partners', () => {
+    setRoleSectionsAll([{ name: 'r-s', appSections: ['stock'] }]);
+    const read = ['partners', 'requests', 'suppliercatalog', 'salesorders', 'passports', 'stock'];
+    expect(guard.canActivate(ctx({ role: 'r-s' }, read))).toBe(true);
+    expect(() => guard.canActivate(ctx({ role: 'r-s' }, undefined, ['partners']))).toThrow(ForbiddenException);
+  });
+
+  it('«Сегодня» без пометки раздела — видно роли с любыми галочками', () => {
+    setRoleSectionsAll([{ name: 'r-s', appSections: ['stock'] }]);
+    expect(guard.canActivate(ctx({ role: 'r-s' }))).toBe(true);
+  });
+
   it('кэш: неизвестные разделы отбрасываются, пусто = без ограничений', () => {
     setRoleSections('r-x', ['hack']);
     expect(openSectionsFor({ role: 'r-x' })).toBeNull();

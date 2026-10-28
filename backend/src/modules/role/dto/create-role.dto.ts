@@ -49,10 +49,9 @@ export class CreateRoleDto {
   permissions?: string[];
 
   /** SK-8c: «права как у» — встроенная роль, на которую опирается своя (не admin). */
-  @ApiPropertyOptional({ enum: BASE_ROLES, description: 'Права как у: user | manager | accountant | director (только у своей роли)' })
-  @IsOptional()
+  @ApiProperty({ enum: BASE_ROLES, description: 'Права как у: user | manager | accountant | director (обязателен при создании; в PATCH необязателен)' })
   @IsIn(BASE_ROLES as unknown as string[], { message: '«Права как у»: выберите наблюдателя, менеджера, бухгалтера или директора' })
-  baseRole?: string;
+  baseRole?: string; // тип необязателен (сиды встроенных ролей), но валидатор требует при создании
 
   @ApiPropertyOptional({ description: 'Порядок сортировки' })
   @IsOptional()

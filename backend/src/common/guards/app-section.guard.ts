@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { APP_SECTION_KEY } from '../decorators/app-section.decorator';
-import { appSectionLabel, openSectionsFor } from '../app-sections';
+import { appSectionLabel, openSectionsFor, sectionOpen } from '../app-sections';
 
 /**
  * SK-8d: сервер не отдаёт данные разделов, закрытых для роли (галочки
@@ -21,7 +21,7 @@ export class AppSectionGuard implements CanActivate {
     if (!ids || ids.length === 0) return true;
     const req = context.switchToHttp().getRequest<{ user?: { role?: string; isOwner?: boolean } }>();
     const open = openSectionsFor(req.user);
-    if (!open || ids.some((id) => open.has(id))) return true;
+    if (!open || ids.some((id) => sectionOpen(open, id))) return true;
     throw new ForbiddenException(`Раздел «${appSectionLabel(ids[0])}» для вашей роли закрыт`);
   }
 }
