@@ -65,6 +65,8 @@ import { ShowcaseModule } from './modules/showcase/showcase.controller';
 import { FinanceModule } from './modules/finance/finance.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { TodayModule } from './modules/today/today.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { MessagesModule } from './modules/messages/messages.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -173,7 +175,9 @@ import { RequestMethod } from '@nestjs/common';
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
-    TodayModule,            // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
+    NotificationsModule,    // /api/notifications — уведомления пользователя (Важные / Система)
+    MessagesModule,         // /api/messages — мини-чат сотрудников
+    TodayModule,          // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
     PayrollModule,          // /api/payroll — ФОТ: табель, начисления, выплаты (в календарь и прогноз — через finance)
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
