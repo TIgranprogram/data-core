@@ -8,11 +8,12 @@ import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
+import { advance, bulkOrder, missingFor, nextStep } from './request-step.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
@@ -94,7 +95,10 @@ async function changeStatus(r, ctx) {
     onOk: async () => sel.value,
   });
   if (key === 'received' && supplyKey(r) !== 'received') { await receive(r, ctx); return; }
-  if (key && key !== supplyKey(r)) await setStatus(r, key, ctx);
+  if (key && key !== supplyKey(r)) {
+    if (missingFor(r, key).length) { await advance(r, key, patchStatus); return; } // не хватает данных — панель «Следующий шаг», статус не меняется
+    await setStatus(r, key, ctx);
+  }
 }
 
 /** Ранее заказанное + склад для подсказок в новой заявке (З.7): одно наименование — одна строка. */
@@ -167,6 +171,46 @@ const fields = async (r) => {
   ];
 };
 
+/** Что делать в колонке (одна строка под названием) и что писать, когда колонка пуста. */
+const COLUMN_HINT = {
+  requested: 'Выберите позиции и закажите у поставщика.',
+  ordered: 'Ждём счёт и оплату. Оплатили — «Счёт оплачен».',
+  paid: 'Оплачено, ждём поставку. Пришло — «Принять».',
+  received: 'Принято на склад. Делать ничего не нужно.',
+  in_progress: 'Ждут решения: заказывать или отменить.',
+  cancelled: 'Отменённые — в расчёты не идут.',
+};
+const COLUMN_EMPTY = {
+  requested: 'Нет заявок к заказу. Новая — кнопка «+ Заявка».',
+  ordered: 'Ничего не ждёт счёта и оплаты.',
+  paid: 'Ничего не ждёт поставки.',
+  received: 'Принятых заявок пока нет.',
+  in_progress: 'Никто не ждёт решения.',
+  cancelled: 'Отменённых нет.',
+};
+
+/** Карточка доски: серый список недостающего до следующего этапа и ОДНА кнопка-глагол. */
+function stepFoot(r, ctx) {
+  const st = nextStep(r);
+  if (!st) return null;
+  const miss = st.kind === 'receive' ? [] : missingFor(r, st.to);
+  const btn = h('button', { class: 'btn btn-primary t-step', type: 'button', title: st.kind === 'receive' ? 'Оприходовать на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onclick: async () => {
+    btn.disabled = true; btn.classList.add('is-busy');
+    try {
+      if (st.kind === 'receive') { if (await receiveDialog(r)) ctx.changed(); }
+      else if (await advance(r, st.to, patchStatus)) { toast(`${heading(r)} → ${SUPPLY_STATUS[st.to].label}`); ctx.changed(); }
+    } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
+  } }, st.verb);
+  return h('div', { class: 't-step-box' },
+    miss.length ? h('div', { class: 't-need' }, 'Не хватает: ' + miss.map((f) => f.label.toLowerCase()).join(', ')) : null, btn);
+}
+/** Кнопка шага в карточке-панели: тот же глагол и те же ворота. */
+function stepAct(r) {
+  const st = nextStep(r);
+  if (!st || st.kind === 'receive') return null;
+  return { label: st.verb, run: async (row, ctx) => { if (await advance(row, st.to, patchStatus)) { toast(`Статус: ${SUPPLY_STATUS[st.to].label}`); ctx.setRow(await api(`/supply/requests/${row.id}`)); } } };
+}
+
 const toInitial = (r) => ({ ...r, photos: r.photos || [], salesOrderRef: joinRef(r), status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
 
 export const requests = {
@@ -181,12 +225,13 @@ export const requests = {
     path: '/supply/requests',
     export: 'admin',
     sortDefault: '-requestDate',
-    defaults: { status: 'requested' }, // вход в «Заявки» — сразу «Заказать»; чип «Все» снимает
+    viewKey: 'requests', // выбор «Доска / Таблица» запоминается в браузере
+    defaults: { status: 'requested' }, // таблица: вход сразу в «Заказать»; чип «Все» снимает
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
     headActions: () => [
       h('button', { class: 'btn', type: 'button', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onclick: () => patch({ of: 'pasteorder', new: '1', open: undefined }) }, '+ Из таблицы'),
-      h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: все позиции сразу', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, '+ Счёт')],
+      h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: внести уже оплаченный или полученный счёт со всеми позициями', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, 'Счёт без заявок')],
     searchPlaceholder: 'Поиск: наименование, №, поставщик, заказ…',
     sidebar: true,
     chipsTop: true, // статусы — строкой над списком
@@ -230,37 +275,42 @@ export const requests = {
     // Завершённое копится — сворачивается по месяцам получения/отмены (TASKS фаза М)
     periods: (P) => (['received', 'cancelled'].includes(P.status) ? { date: (r) => r.receivedAt || r.requestDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.priceHint) || 0), 0)) : undefined } : null),
     hints: {
-      '': 'Все заявки. Кнопка в строке — следующий шаг: «В заказ» → «Заказано» → «Оплачено» → «Принять» на склад.',
+      '': 'Все заявки. Кнопка в строке — следующий шаг: «Заказал у поставщика» → «Счёт оплачен» → «Принять» на склад.',
       in_progress: 'Ждут решения: заказывать («В заказ») или отменить в карточке.',
-      requested: 'Нужно заказать у поставщика. Оформили — «Заказано».',
-      ordered: 'Заказано, ждём счёт и оплату. Оплатили — «Оплачено» (впишите № и дату счёта в карточке).',
+      requested: 'Нужно заказать у поставщика. Заказали — «Заказал у поставщика».',
+      ordered: 'Заказано, ждём счёт и оплату. Оплатили — «Счёт оплачен» (понадобятся № и дата счёта).',
       paid: 'Оплачено, ждём поставку. Пришло — «Принять»: товар встанет на склад.',
       received: 'Получено и оприходовано на склад. Делать ничего не нужно.',
       cancelled: 'Отменённые заявки — в расчёты не идут.',
     },
     rowAction: (r) => {
       const k = supplyKey(r);
-      if (k === 'paid' || (k === 'ordered' && r.paid)) return { label: 'Принять', title: 'Оприходовать на склад', run: async (row) => !!(await receiveDialog(row)) };
-      const to = NEXT[k];
-      if (!to) return null;
-      const label = { requested: 'В заказ', ordered: 'Заказано', paid: 'Оплачено' }[to];
-      return { label, title: 'Статус → «' + SUPPLY_STATUS[to].label + '»', run: async (row) => {
-        await patchStatus(row, to);
-        toast(`${heading(row)} → ${SUPPLY_STATUS[to].label}`, { undo: async () => { await patchStatus(row, k); window.dispatchEvent(new Event('data-changed')); } });
+      const st = nextStep(r);
+      if (!st) return null;
+      if (st.kind === 'receive') return { label: st.verb, title: 'Оприходовать на склад', run: async (row) => !!(await receiveDialog(row)) };
+      return { label: st.verb, title: 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', run: async (row) => {
+        if (!(await advance(row, st.to, patchStatus))) return false; // не хватает данных — открылась панель «Следующий шаг»
+        toast(`${heading(row)} → ${SUPPLY_STATUS[st.to].label}`, { undo: async () => { await patchStatus(row, k); window.dispatchEvent(new Event('data-changed')); } });
       } };
     },
     board: {
-      columns: STATUS_ORDER.map((k) => ({ key: k, label: SUPPLY_STATUS[k].label, tone: SUPPLY_STATUS[k].tone, query: { status: k, sort: '-requestDate' } })),
-      card: (r) => ({
+      default: true, // доска — вид по умолчанию; «Таблица» — переключатель, выбор запоминается (viewKey)
+      columns: STATUS_ORDER.map((k) => ({
+        key: k, label: SUPPLY_STATUS[k].label, tone: SUPPLY_STATUS[k].tone, query: { status: k, sort: '-requestDate' },
+        hint: COLUMN_HINT[k], emptyText: COLUMN_EMPTY[k], money: true,
+        get multi() { return k === 'requested' && session.canEdit ? { label: 'Заказал у поставщика', run: bulkOrder } : undefined; }, // роль известна после входа
+      })),
+      card: (r, c, ctx) => ({
         pic: r.photo,
         title: heading(r),
         meta: [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.priority === 'urgent' ? badge(PRIORITY, 'urgent') : null].filter(Boolean).map((x) => (typeof x === 'string' ? h('span', null, x) : x)),
         side: r.priceHint && session.canMoney ? money(r.priceHint) : '',
+        foot: session.canEdit ? stepFoot(r, ctx) : null,
       }),
-      /** Перетаскивание в колонку: «Получено» — через оприходование на склад, остальное — смена статуса. */
+      /** Перетаскивание в колонку: «Получено» — через оприходование на склад, не хватает данных — панель «Следующий шаг», остальное — смена статуса. */
       move: async (r, to) => {
         if (to === 'received') return !!(await receiveDialog(r));
-        await api(`/supply/requests/${r.id}`, { method: 'PATCH', body: { statusLabel: SUPPLY_STATUS[to].label } });
+        if (!(await advance(r, to, patchStatus))) return false;
         toast(`«${name(r)}» → ${SUPPLY_STATUS[to].label}`);
         return true;
       },
@@ -322,7 +372,7 @@ export const requests = {
       const k = supplyKey(r);
       return [
         !['received', 'cancelled'].includes(k) && { label: 'Оприходовать на склад', primary: true, run: receive },
-        NEXT[k] && { label: '→ ' + SUPPLY_STATUS[NEXT[k]].label, run: (row, ctx) => setStatus(row, NEXT[k], ctx) },
+        stepAct(r),
         { label: 'Сменить статус…', run: changeStatus },
       ];
     },

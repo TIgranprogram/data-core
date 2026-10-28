@@ -1,7 +1,7 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { qty } from '../core/format.js';
-import { patch } from '../core/router.js';
+import { money, qty } from '../core/format.js';
+import { onChange, patch } from '../core/router.js';
 import { failBlock } from './busy.js';
 import { toastError } from './toast.js';
 
@@ -16,6 +16,9 @@ import { toastError } from './toast.js';
  *   card(row, column) → ещё { body — свои узлы карточки вместо заголовка/мета, cls }; add(ключ колонки) + addLabel — «+ Добавить» в колонке;
  *   columns[].emptyText — строка или функция: что написать в пустой колонке (по умолчанию «Пусто»)
  *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
+ *   columns[].hint — строка «что здесь делать» под названием; columns[].money — сумма колонки (resp.sum) для денежных ролей;
+ *   columns[].multi = { label, run(rows) → число переведённых } — чекбоксы на карточках и полоса «Выбрано N · label»;
+ *   card(row, c, { changed }) → ещё { foot — узел внизу карточки (чек-лист и кнопка; клики не открывают карточку) }
  * }
  * Перетаскивание — своё, на pointer-событиях (CANON §2, замечание пользователя 2026-10-19): карточка «поднимается»
  * и едет за курсором с тенью, на её месте пунктир, колонка-цель подсвечена; никакого полупрозрачного призрака
@@ -29,12 +32,31 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
 
   const cols = board.columns.map((c) => {
     const n = h('span', { class: 'n' }, '…');
+    const sum = h('span', { class: 'col-sum num', hidden: true });
     const body = h('div', { class: 'col-body' }, h('div', { class: 'skel', style: { margin: '8px 4px' } }));
     const col = h('section', { class: 'col tone-' + (c.tone || 'dim'), 'aria-label': c.label, dataset: { key: c.key } },
-      h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, c.label), n), body);
+      h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, c.label), n, sum),
+      c.hint ? h('div', { class: 'col-hint' }, c.hint) : null, body);
     el.append(col);
-    return { c, n, body, col, page: 1, shown: 0, more: null, addLink: null };
+    return { c, n, sum, body, col, page: 1, shown: 0, more: null, addLink: null };
   });
+
+  // ---------- Выбор нескольких карточек (columns[].multi) ----------
+  const sel = new Map();
+  let bar = null;
+  const dropBar = () => { bar?.remove(); bar = null; };
+  const unsub = onChange(() => setTimeout(() => { if (!el.isConnected) { dropBar(); unsub(); } }, 60));
+  function paintBar() {
+    const mc = cols.find((x) => x.c.multi)?.c.multi;
+    if (!mc || !sel.size) { dropBar(); return; }
+    if (!bar) { bar = h('div', { class: 'board-bar', role: 'toolbar', 'aria-label': 'Выбранные заявки' }); document.body.append(bar); }
+    const go = h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
+      go.disabled = true; go.classList.add('is-busy');
+      try { const n = await mc.run([...sel.values()]); sel.clear(); dropBar(); if (n) onChanged(); else load(); }
+      catch (ex) { toastError(ex); go.disabled = false; go.classList.remove('is-busy'); }
+    } }, mc.label);
+    bar.replaceChildren(h('b', null, `Выбрано ${sel.size}`), go, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { sel.clear(); dropBar(); cols.forEach(({ body }) => body.querySelectorAll('.tcard.selected').forEach((x) => { x.classList.remove('selected'); const i = x.querySelector('.t-pick input'); if (i) i.checked = false; })); } }, 'Снять'));
+  }
 
   // ---------- Перетаскивание ----------
   let drag = null; // { row, from, card, ghost, dx, dy, over, started, timer, x0, y0, pointerId, touch }
@@ -133,15 +155,29 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     return run().catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return run(); });
   };
   function cardEl(row, c) {
-    const v = board.card(row, c);
+    const v = board.card(row, c, { changed: onChanged });
+    const multi = !!c.multi && canMove;
     const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0', role: 'button',
       onclick: () => { if (!suppressClick) onOpen(row); }, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(row); } } },
+    multi ? pickEl(row) : null,
     ...(v.body ? [].concat(v.body) : [
       v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
       h('div', { class: 't-title', title: v.title }, v.title),
-      h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null)]));
+      h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null)]),
+    v.foot ? quiet(v.foot) : null);
+    if (multi && sel.has(row.id)) card.classList.add('selected');
     bindDrag(card, row, c.key);
     return card;
+  }
+  /** Блок внутри карточки со своими кнопками: нажатие не открывает карточку и не начинает перетаскивание. */
+  function quiet(node) {
+    for (const t of ['pointerdown', 'click', 'keydown']) node.addEventListener(t, (e) => e.stopPropagation());
+    return node;
+  }
+  function pickEl(row) {
+    const cb = h('input', { type: 'checkbox', 'aria-label': 'Выбрать заявку', checked: sel.has(row.id) });
+    cb.addEventListener('change', () => { if (cb.checked) sel.set(row.id, row); else sel.delete(row.id); cb.closest('.tcard')?.classList.toggle('selected', cb.checked); paintBar(); });
+    return quiet(h('label', { class: 't-pick', title: 'Выбрать' }, cb));
   }
   /** Карточки колонки; append — порция «ещё N →» дописывается в конец (c.portion), иначе колонка перерисовывается. */
   function paint(col, r, append, my) {
@@ -169,6 +205,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   }
   async function load() {
     const my = ++seq;
+    sel.clear(); dropBar();
     el.classList.add('loading');
     const totals = [];
     await Promise.all(cols.map(async (col) => {
@@ -178,6 +215,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
         const r = await fetchCol(c, 1, my);
         if (my !== seq) return;
         n.textContent = qty(r.total); totals.push(r.total);
+        if (c.money && session.canMoney && r.sum != null) { col.sum.textContent = money(r.sum); col.sum.hidden = false; } else col.sum.hidden = true;
         paint(col, r, false, my);
       } catch (e) {
         if (my !== seq) return;

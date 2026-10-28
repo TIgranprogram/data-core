@@ -62,7 +62,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       limit: Number(P.limit) || 25,
       page: Math.max(1, Number(P.page) || 1),
       sort: P.sort || L.sortDefault,
-      board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view) || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
+      board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
       gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view) || (!P.view && sv === 'gallery')),
     };
   };
@@ -70,7 +70,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
-  const btnTable = h('button', { type: 'button', onclick: () => { saveView(''); patch({ view: 'table', page: undefined }); } }, icon('table'), 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
+  const btnTable = h('button', { type: 'button', onclick: () => { saveView(L.board?.default ? 'table' : ''); patch({ view: 'table', page: undefined }); } }, icon('table'), 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
   const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: 'board', page: undefined, status: undefined }); } }, icon('board'), 'Доска');
   const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
   const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;

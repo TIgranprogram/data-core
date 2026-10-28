@@ -85,3 +85,8 @@
 - `sections/orders.js`: `INCOME_STATUS.partial`, `todayMsk`, `paymentDialog` (POST /incomes/:id/payments), `paymentsBlock` (card.extra, DELETE .../payments/:i), строка «Итого» из `resp.money`, «нет суммы — вписать». `markToday` теперь только отгрузка.
 - `sections/money.js`: `settings` (GET /finance/settings, `hasStart`), `startDialog` (⚙, PUT, admin), плитки `c.metrics` (`.m-tiles`), строки `pend` из `c.pending`, `beforeStart` серым (`.q-row.dim`), пустые подсказки. `money-forecast.js`: «самый низкий остаток». CSS — конец `ui/screens.css`.
 - `sections/payroll.js` переписан: /payroll/summary, timesheet (inputs в строке), `payDialog`, `companyPick`, список выплат. DEMO удалён. Карта обновлена.
+
+## Заявки — воронка, шаг 1 (2026-10-28, не закоммичено)
+- `sections/request-step.js` — `GATES` (ворота: ordered — поставщик/кол-во/ед.; paid — № счёта/дата/сумма), `missingFor`, `nextStep` (глаголы), `openStep` (of=reqstep&open=id), `reqStep` (панель «Следующий шаг», только недостающие поля, «Сохранить и перевести»), `advance`, `bulkOrder`. main.js — SECTIONS/OWNER `reqstep`.
+- `sections/requests.js` — `board.default`, `viewKey:'requests'`, `COLUMN_HINT/EMPTY`, `stepFoot` (чек-лист + кнопка), `stepAct`, ворота в `move`/`changeStatus`/`rowAction`.
+- `ui/board.js` — `columns[].hint/money/multi`, `card().foot`, полоса `.board-bar`; `ui/list.js` — `board.default` + запомненная «Таблица» (`dc-view-*`=table). CSS — конец `ui/screens.css`.
