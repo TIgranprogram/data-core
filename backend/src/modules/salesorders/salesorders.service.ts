@@ -249,7 +249,7 @@ export class SalesOrdersService {
     return lines.map((l) => {
       const photoId = photoOf(l);
       return {
-        id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
+        id: String(l._id), orderNo: (order.orderNo as string | undefined) ?? null, productionNo: (order.productionNo as string | undefined) ?? null, lineNo: (l.lineNo as number | undefined) ?? null, title: l.title ?? '',
         productId: l.productId ? String(l.productId) : null,
         sku: (l.productId ? prodInfo.get(String(l.productId))?.sku : undefined) ?? null,
         productName: (l.productId ? prodInfo.get(String(l.productId))?.name : undefined) ?? null,

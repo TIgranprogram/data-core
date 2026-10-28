@@ -15,7 +15,7 @@ export interface HistoryAccess { money: boolean; design: boolean; passports: boo
 
 const FIELD: Record<string, string> = {
   orderNo: '№ договора', customer: 'Заказчик', title: 'Предмет', stage: 'Этап', priority: 'Приоритет', shipDate: 'Дата отгрузки', productionDeadline: 'Срок изготовления',
-  deliveryDeadline: 'Окончание поставки', contractDate: 'Дата контракта', contractNo: '№ контракта', productionNo: '№ заказа', notes: 'Примечание',
+  deliveryDeadline: 'Окончание поставки', contractDate: 'Дата госконтракта', contractNo: '№ госконтракта', productionNo: '№ заказа', notes: 'Примечание',
   paymentForm: 'Форма оплаты', qty: 'Количество', unit: 'Единица', size: 'Размер', color: 'Цвет', kind: 'Вид', status: 'Статус', paidDate: 'Дата оплаты',
   amount: 'Сумма', unitPrice: 'Цена', amountManual: 'Сумма вручную',
 };

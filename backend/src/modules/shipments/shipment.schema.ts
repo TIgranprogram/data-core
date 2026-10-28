@@ -20,7 +20,7 @@ const ShipmentLineSchema = SchemaFactory.createForClass(ShipmentLine);
 @Schema({ timestamps: true, collection: 'shipments' })
 export class Shipment {
   @Prop({ type: Types.ObjectId, required: true, index: true }) orderId!: Types.ObjectId;
-  /** «ОТГ-<№ заказа>-<n>»; n — счётчик по заказу, удалённые номера не переиспользуются. */
+  /** «ОТГ-<№ заказа (productionNo), нет — № договора>-<n>»; n — счётчик по заказу, удалённые номера не переиспользуются. */
   @Prop({ type: String, required: true, index: true }) number!: string;
   /** Порядковый номер отгрузки внутри заказа (n в «ОТГ-№-n»); пара (orderId, seq) уникальна. */
   @Prop({ type: Number, required: true }) seq!: number;

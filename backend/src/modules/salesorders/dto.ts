@@ -11,7 +11,7 @@ export class SalesOrderDto {
   @ApiPropertyOptional({ description: 'Заказчик' }) @IsOptional() @IsString() @Length(0, 300) customer?: string;
   @ApiPropertyOptional({ description: 'Предмет заказа / контракта' }) @IsOptional() @IsString() @Length(0, 1000) title?: string;
   @ApiPropertyOptional({ description: 'Форма оплаты: б/р, б/р 30%, нал…' }) @IsOptional() @IsString() @Length(0, 50) paymentForm?: string;
-  @ApiPropertyOptional({ description: '№ контракта' }) @IsOptional() @IsString() @Length(0, 100) contractNo?: string;
+  @ApiPropertyOptional({ description: '№ госконтракта' }) @IsOptional() @IsString() @Length(0, 100) contractNo?: string;
   @ApiPropertyOptional({ description: '№ заказа (производства), например 21-26; один № у нескольких договоров — один заказ; "" снимает' }) @IsOptional() @IsString() @Length(0, 50) productionNo?: string;
   @ApiPropertyOptional({ description: 'Дата контракта' }) @IsOptional() @IsString() @Length(0, 30) contractDate?: string;
   @ApiPropertyOptional({ description: 'Дата отгрузки' }) @IsOptional() @IsString() @Length(0, 30) shipDate?: string;

@@ -118,7 +118,7 @@ export class ShipmentsService {
     let doc: ShipmentDocument;
     try {
       doc = await this.model.create({
-        orderId: _id, seq, number: `ОТГ-${String(o.orderNo ?? '').trim() || '—'}-${seq}`, date: day(dto.date), lines: outLines,
+        orderId: _id, seq, number: `ОТГ-${String(o.productionNo ?? '').trim() || String(o.orderNo ?? '').trim() || '—'}-${seq}`, date: day(dto.date), lines: outLines,
         whoId: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, whoName: await this.userName(user),
         reason: dto.reason?.trim() || undefined, note: dto.note?.trim() || undefined, docNo: dto.docNo?.trim() || undefined, receiver: dto.receiver?.trim() || undefined,
       });

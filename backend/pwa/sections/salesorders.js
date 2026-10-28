@@ -116,7 +116,7 @@ function issuedBlock(d, sec) {
   const lines = d.lines || [];
   const groups = new Map();
   for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
-  const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `${d.orderNo || ''}-${lines[i].lineNo || i + 1} · ${lines[i].title}`; };
+  const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `${d.productionNo || d.orderNo || ''}-${lines[i].lineNo || i + 1} · ${lines[i].title}`; };
   return sec(`Выдано со склада по позициям (${groups.size})`, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', i ? { class: 'tl-cont' } : null,
     i === 0 ? h('span', { class: 'tl-line', title: title(k) }, title(k)) : null, h('span', null, x.materialName || 'позиция'),
     h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || '')),
@@ -230,7 +230,7 @@ export const salesorders = {
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
       ['Форма оплаты', r.paymentForm],
-      ['Контракт', [r.contractNo, r.contractDate && 'от ' + date(r.contractDate)].filter(Boolean).join(' ')],
+      ['№ госконтракта', [r.contractNo, r.contractDate && 'от ' + date(r.contractDate)].filter(Boolean).join(' ')],
       ['Срок изготовления', date(r.productionDeadline)],
       ['Дата отгрузки', date(r.shipDate)],
       ['Окончание поставки', date(r.deliveryDeadline)],
@@ -266,7 +266,7 @@ export const salesorders = {
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
         { key: 'deliveryDeadline', label: 'Окончание поставки', type: 'date' },
         { section: 'Контракт и примечание', tone: 'who', collapsed: true },
-        { key: 'contractNo', label: '№ контракта', max: 100 },
+        { key: 'contractNo', label: '№ госконтракта', max: 100 },
         { key: 'contractDate', label: 'Дата контракта', type: 'date' },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
