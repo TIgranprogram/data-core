@@ -20,7 +20,7 @@ export function mountRequests(params, mkList) {
     h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '', onclick: () => { if (tab !== k) go('requests', k === 'invoices' ? { tab: 'invoices' } : {}, { replace: true }); } }, label)));
   function mountTab(p) {
     inner?.destroy?.();
-    inner = tab === 'invoices' ? mountInvoicesTab() : mkList(clean(p));
+    inner = tab === 'invoices' ? mountInvoicesTab(p) : mkList(clean(p));
     body.replaceChildren(inner.el);
     drawTabs();
   }

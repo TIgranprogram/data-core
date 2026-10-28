@@ -361,7 +361,8 @@ setGuard(async (next) => {
 function syncCard(section, params) {
   const ofName = params.of || (section === 'home' ? undefined : section);
   const sec = SECTIONS[ofName];
-  const want = sec && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
+  const invTab = section === 'requests' && params.tab === 'invoices' && !params.of; // open= там — id счёта, не карточка заявки
+  const want = sec && !invTab && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
   if (!want) { closeCard(); return; }
   const key = ofName + want + (params.fill ? '~' + params.fill : '') + (['stockop', 'resedit', 'specimport', 'compsug'].includes(ofName) ? '@' + (params.op || '') + (params.materialId || '') + (params.rid || '') + (params.orderId || '') + (params.lid || '') : '');
   if (card?.key === key) return;

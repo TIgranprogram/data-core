@@ -62,7 +62,32 @@ async function setStage(r, stage) {
   if (many && !(await confirmDlg(`${heading(r)}: «${STAGE[stage].label}» — ко всем договорам?`, 'Этап сменится у договоров, которые отстают. Остальные не меняются.', { okText: 'Да, ко всем' }))) return null;
   const saved = await api(`/production-orders/${encodeURIComponent(r.key)}/stage`, { method: 'POST', body: { stage } });
   toast(`${heading(r)} → ${STAGE[stage].label}${saved?.changed?.length ? ` (договоров: ${saved.changed.length})` : ''}`);
+  if (saved?.warnings?.length) toast('Не всё готово', { tone: 'warn', sub: saved.warnings.map((w) => (typeof w === 'string' ? w : w.label || w.hint || '')).filter(Boolean).join('; ') });
   return shape(saved);
+}
+
+/** Блок «Готовность к отгрузке» в карточке заказа: проверки сервера + кнопка «Отметить: готов к отгрузке». */
+function readinessBlock(r, after) {
+  const box = h('div', { class: 'so-sec rdy' });
+  const paint = (d) => {
+    const checks = d?.checks || [];
+    const bad = checks.filter((c) => !c.ok);
+    const can = session.canEdit && ['new', 'production'].includes(r.stage);
+    const mark = async (btn) => {
+      if (bad.length && !(await confirmDlg('Не выполнено: ' + bad.map((c) => c.label).join('; ') + '. Всё равно отметить?', 'Заказ перейдёт в «Готово к отгрузке».', { okText: 'Да, отметить' }))) return;
+      btn.disabled = true; btn.classList.add('is-busy');
+      try { await setStage(r, 'ready'); window.dispatchEvent(new CustomEvent('data-changed')); after?.(); } catch (e) { toast(errText(e)); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
+    };
+    const btn = can ? h('button', { class: 'btn ' + (bad.length ? 'btn-ghost' : 'btn-warm btn-primary'), type: 'button', onclick: (e) => mark(e.currentTarget) }, 'Отметить: готов к отгрузке') : null;
+    box.replaceChildren(h('div', { class: 'section-title' }, 'Готовность к отгрузке'),
+      ...checks.map((c) => h('div', { class: 'rdy-row' + (c.ok ? ' ok' : '') },
+        h('span', { class: c.ok ? 'pos' : 'muted', 'aria-hidden': 'true' }, c.ok ? '✓' : '○'), ' ', h('span', null, c.label),
+        !c.ok && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
+        !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null)),
+      btn);
+  };
+  api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint).catch(() => box.replaceChildren());
+  return box;
 }
 
 /** «Связать с каталогом»: предложения сервера по всем позициям без изделия → выбор → apply. Возвращает обновлённый заказ или null. */
@@ -205,6 +230,7 @@ function details(r) {
   const box = h('div', null);
   const paint = (d) => box.replaceChildren(...[
     produceBlock(d),
+    ['closed', 'cancelled', 'shipped', 'ready', 'partly'].includes(d.stage) ? null : readinessBlock(d, reload),
     sec(`Договоры (${(d.orders || []).length})`, ...((d.orders || []).length ? d.orders.map((o) => contractGroup(o, reload)) : [h('p', { class: 'muted' }, 'Договоров нет.')])),
   ].filter(Boolean));
   const reload = () => api(`/production-orders/${encodeURIComponent(r.key)}`).then((d) => paint(d)).catch((e) => box.replaceChildren(failBlock(e, reload)));
@@ -220,7 +246,7 @@ function shape(d) {
   return { ...d, id: d.key, orderNos: os.map((o) => o.orderNo), customers: uniq(os.map((o) => o.customer)), companyNames: uniq(os.map((o) => o.companyName)),
     lineCount: os.reduce((s, o) => s + (o.lineCount ?? (o.lines || []).length), 0), amount: sumOf(os, 'amount'), paidAmount: sumOf(os, 'paidAmount') };
 }
-const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
+const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? h('span', { class: 'tag ok', title: 'Все проверки пройдены — можно отметить «Готово к отгрузке»' }, ' Можно отгружать') : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
 const names = (a) => (a || []).join(', ');
 
 export const salesorders = {

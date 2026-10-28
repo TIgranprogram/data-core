@@ -1320,3 +1320,8 @@ body.has-board-bar { padding-bottom: 80px; }
 .ua-cb, .invl-cb { width: 22px; height: 22px; flex: none; accent-color: var(--gold-deep); cursor: pointer; }
 .ua-all { display: inline-flex; align-items: center; gap: var(--s2); }
 @media (pointer: coarse) { .ua-row, .ua-all, .invl-reqs li { min-height: 44px; } }
+
+/* Готовность заказа к отгрузке */
+.rdy-row { padding: var(--sp-1, 4px) 0; }
+.rdy-row.ok { color: var(--text-muted, inherit); }
+.btn.btn-warm { background: var(--gold, var(--accent)); border-color: var(--gold, var(--accent)); color: var(--on-accent, #fff); }

@@ -16,7 +16,8 @@ const STATUS_OPTS = [['', 'Все статусы'], ['draft', 'Черновик'
 const cut = (v) => String(v || '').slice(0, 10);
 const ruDate = (v) => (v ? isoDay(v).split('-').reverse().join('.') : '—');
 
-export function mountInvoicesTab() {
+export function mountInvoicesTab(params = {}) {
+  let focusId = params.open || ''; // #requests?tab=invoices&open=<id счёта> — из уведомления
   const F = { status: '', supplierId: '', q: '', from: '', to: '' };
   let page = 1; let seq = 0; let timer = null;
   const openIds = new Set();
@@ -69,6 +70,7 @@ export function mountInvoicesTab() {
       return;
     }
     rows.replaceChildren(...items.map(rowEl));
+    if (focusId) showFocused(items);
     const pages = Math.ceil((r.total || 0) / LIMIT);
     foot.replaceChildren(
       h('div', { class: 'invl-sum' }, `Счетов: ${r.total ?? items.length} · Итого: `, h('b', null, money(r.sum ?? 0))),
@@ -76,6 +78,14 @@ export function mountInvoicesTab() {
         h('button', { class: 'btn', type: 'button', disabled: page <= 1, onclick: () => { page--; load(); } }, '‹ Назад'),
         h('span', { class: 'muted' }, `${page} из ${pages}`),
         h('button', { class: 'btn', type: 'button', disabled: page >= pages, onclick: () => { page++; load(); } }, 'Далее ›')) : null);
+  }
+
+  /** Счёт из ссылки: раскрыть; нет на странице — подгрузить и поставить первым. */
+  async function showFocused(items) {
+    const id = focusId; focusId = '';
+    const found = rows.querySelectorAll('.invl-row')[items.findIndex((i) => i.id === id)];
+    if (found) { found.querySelector('.invl-head')?.click(); found.scrollIntoView?.({ block: 'center' }); return; }
+    try { const inv = await api(`/supply/invoices/${id}`); openIds.add(id); const row = rowEl({ ...inv, id }); rows.prepend(row); row.scrollIntoView?.({ block: 'center' }); } catch { toast('Счёт не найден'); }
   }
 
   function rowEl(inv) {
@@ -170,7 +180,7 @@ export function mountInvoicesTab() {
   return {
     el,
     reload: load,
-    update: () => {},
+    update: (p) => { if (p?.open && p.open !== focusId) { focusId = p.open; load(); } },
     focusSearch: () => q.focus(),
     destroy: () => { seq++; clearTimeout(timer); },
   };
