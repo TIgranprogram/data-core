@@ -20,6 +20,32 @@ export interface Op {
   counterparty?: string;
   /** URL миниатюры (первое фото заявки/изделия; БЗ-17). */
   thumb?: string;
+  /** Только у «ещё не денег» (счёт к оплате / ждём оплату): дата в прошлом периода, но не закрыто. */
+  overdue?: boolean;
+  /** Способ оплаты (нал / безнал / карта) — у платежей по позициям. */
+  method?: string;
+  /** Операция раньше «старта учёта» — показывается серым, в остаток не входит. */
+  beforeStart?: boolean;
+}
+
+/** Старт учёта: с этой даты остаток = balance (сумма по выбранным компаниям). */
+export interface Start { date: string; balance: number }
+
+/** Остаток на начало дня `day` от старта учёта: остаток на старт + приход − расход операций [старт, day). */
+export function openingFromStart(start: Start, ops: Op[], day: string): number {
+  let b = start.balance;
+  for (const o of ops) if (o.amount > 0 && o.date >= start.date && o.date < day) b = r2(b + (o.type === 'income' ? o.amount : -o.amount));
+  return r2(b);
+}
+
+export interface Pending { total: number; count: number; byCompany: Record<string, number>; items: Op[] }
+
+/** «Ещё не деньги»: счета к оплате и отгруженное без оплаты — отдельной строкой, в остаток не входят (В-1, В-2). */
+export function buildPending(ops: Op[], from: string, to: string, companies: string[], limit = 200): Pending {
+  const list = ops.filter((o) => o.amount > 0 && o.date <= to && (o.date >= from || o.overdue === true));
+  const byCompany = Object.fromEntries(companies.map((c) => [c, 0])) as Record<string, number>;
+  for (const o of list) byCompany[o.company] = r2((byCompany[o.company] ?? 0) + o.amount);
+  return { total: r2(list.reduce((s, o) => s + o.amount, 0)), count: list.length, byCompany, items: [...list].sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit) };
 }
 
 export interface Day {
@@ -45,20 +71,22 @@ export function daysBetween(from: string, to: string): string[] {
   return out;
 }
 
-export function buildCashflow(ops: Op[], from: string, to: string, opening: number, companies: string[]) {
+export function buildCashflow(ops: Op[], from: string, to: string, opening: number, companies: string[], start?: Start | null) {
   const byDay = new Map<string, Op[]>();
   for (const op of ops) {
     if (!(op.amount > 0) || op.date < from || op.date > to) continue; // без суммы / вне периода — не считается
-    (byDay.get(op.date) ?? byDay.set(op.date, []).get(op.date)!).push(op);
+    (byDay.get(op.date) ?? byDay.set(op.date, []).get(op.date)!).push(start && op.date < start.date ? { ...op, beforeStart: true } : op);
   }
   const zero = () => Object.fromEntries(companies.map((c) => [c, 0])) as Record<string, number>;
   const totals = { income: 0, expense: 0, incomeBy: zero(), expenseBy: zero() };
   let balance = r2(opening);
   const days: Day[] = daysBetween(from, to).map((date) => {
+    if (start && date === start.date) balance = r2(start.balance); // день старта учёта: остаток на счёте
     const dayOps = byDay.get(date) ?? [];
     const incomeBy = zero(), expenseBy = zero();
     let income = 0, expense = 0;
     for (const op of dayOps) {
+      if (op.beforeStart) continue;
       const by = op.type === 'income' ? incomeBy : expenseBy;
       by[op.company] = r2((by[op.company] ?? 0) + op.amount);
       if (op.type === 'income') income += op.amount; else expense += op.amount;

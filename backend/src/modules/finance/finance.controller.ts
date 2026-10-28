@@ -1,7 +1,9 @@
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { SettingsDto } from './dto';
 import { FinanceService } from './finance.service';
 
 /** Деньги: платёжный календарь (ОДР) и сводка по СИЮ / ССЮ. Только чтение, все роли. */
@@ -36,6 +38,20 @@ export class FinanceController {
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id' })
   forecast(@Query() q: Record<string, string>) {
     return this.finance.forecast(q);
+  }
+
+  /** «Старт учёта»: дата и остатки на счетах наших компаний; от неё считаются остаток календаря и прогноз. */
+  @Get('settings')
+  @Roles('admin', 'accountant')
+  settings() {
+    return this.finance.settings();
+  }
+
+  @Put('settings')
+  @Roles('admin')
+  @AuditAction({ action: 'finance.settings.saved', entityType: 'FinanceSettings' })
+  saveSettings(@Body() b: SettingsDto) {
+    return this.finance.saveSettings(b);
   }
 
   /** Записи, которые не попадают в расчёт: чего не хватает. */

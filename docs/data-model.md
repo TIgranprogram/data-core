@@ -722,7 +722,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 | productId | ObjectId → products | изделие «Продукции» (БЗ-5); при создании без него — подбор по короткому названию |
 | kind, color | string | «Вид», «Цвет» листа |
 | size | string | размер — вариант изделия (БЗ-5) |
-| shipDate, paidDate | Date | отгрузка, оплата |
+| shipDate, paidDate | Date | отгрузка; paidDate — дата ПОЛНОЙ оплаты (вычисляется из `payments`; у старых записей без `payments` — оплачено целиком) |
+| payments | [{date, amount, method, note}] | платежи по позиции (В-4); method: нал / безнал / карта |
+| paidAmount | number | вычисляется: Σ платежей (старая запись с paidDate = amount); `debt` = amount − paidAmount в ответе API |
 | notes | string | |
 | **amount** | number | вычисляется сервисом: amountManual ?? qty × unitPrice |
 | **reportDate** | Date | вычисляется: paidDate ?? shipDate — дата в платёжном календаре |
@@ -819,3 +821,11 @@ Write-paths, которые должны быть all-or-nothing, использ
 | `dict_values` (`passportMaterials`) | `kind`, `genSingular`, `genPlural`, `sizeTemplate`, `phrase` | material / coating (пусто — material); род. п. ед. / мн. ч. (по числу размеров); шаблон размера с `{sizes}` («толщиной {sizes} мм»); фраза покрытия |
 | `dict_values` (`passportSortament`) | `name`, `material` | размер без «мм» + код материала (`passportMaterials.code`); дубль — пара «материал + размер» |
 | `dict_values` (`passportParts`) | `name`, `genSingular`, `genPlural`, `categories` | часть изделия; в тексте — род. п. мн. ч. («Состоит из стоек…») |
+
+
+### ФОТ и «Старт учёта» (2026-10-28, модули `payroll`, `finance`)
+- `payroll_timesheets` {personId, month `ГГГГ-ММ`, hours?, days?, normDays?, note?, deletedAt} — табель; уникально (personId, month).
+- `payroll_payments` {personId, companyId → organizations, date, amount, kind advance|salary|bonus|other, month, note?, createdBy, deletedAt} — выплаты «на руки».
+- `finance_settings` — одна запись `{key:'finance', startDate, openingBalance:{<компания>: ₽}}` — старт учёта.
+- `persons.companyId` — наша компания, платящая зарплату (ставка и график — `salaryKind/salaryRate/payoutScheduleId`, как и раньше).
+- Начисление = ставка × часы (почасовая) или оклад (полный / дни ÷ норма). Календарь: расход = оплаченные заявки (`paid`, `paidAt`) + `payroll_payments`; доход = `incomes.payments`.

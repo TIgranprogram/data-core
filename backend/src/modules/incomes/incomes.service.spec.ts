@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { IncomesService } from './incomes.service';
-import { incomeDerived } from './income.schema';
+import { incomeDerived, incomePayments } from './income.schema';
 
 /** Цепочка запросов Mongoose (find().sort().skip()…lean().exec()) — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
@@ -10,6 +10,23 @@ const chain = (result: unknown) => {
   c.exec = jest.fn(async () => result);
   return c;
 };
+
+describe('incomeDerived: платежи (В-4)', () => {
+  const d = (s: string) => new Date(s);
+  it('частично: paidAmount = Σ, paidDate пуст, reportDate = отгрузка', () => {
+    const r = incomeDerived({ amountManual: 1000, shipDate: d('2026-10-10'), payments: [{ date: d('2026-10-01'), amount: 300 }] });
+    expect(r).toMatchObject({ paidAmount: 300, paidDate: undefined, reportDate: d('2026-10-10') });
+  });
+  it('полностью: paidDate = дата последнего платежа', () => {
+    const r = incomeDerived({ amountManual: 1000, payments: [{ date: d('2026-10-01'), amount: 300 }, { date: d('2026-10-20'), amount: 700 }] });
+    expect(r).toMatchObject({ paidAmount: 1000, paidDate: d('2026-10-20'), reportDate: d('2026-10-20') });
+  });
+  it('старая запись: paidDate без платежей = оплачено на всю сумму; платежи для календаря — один', () => {
+    expect(incomeDerived({ amountManual: 500, paidDate: d('2026-10-05') })).toMatchObject({ paidAmount: 500, paidDate: d('2026-10-05') });
+    expect(incomePayments({ amount: 500, paidDate: d('2026-10-05') })).toEqual([{ date: d('2026-10-05'), amount: 500 }]);
+    expect(incomePayments({ amount: 0, paidDate: d('2026-10-05') })).toEqual([]);
+  });
+});
 
 describe('incomeDerived', () => {
   it('сумма = qty * unitPrice с округлением до копеек', () => {
@@ -295,8 +312,8 @@ describe('IncomesService', () => {
       expect(r).toMatchObject({ page: 2, limit: 10, sum: 777 });
       expect(r.items).toHaveLength(1);
       const c = r.counts as Record<string, number>;
-      expect(c.all).toBe(c.paid + c.awaiting + c.noamount + c.draft);
-      expect(Object.keys(r.counts).sort()).toEqual(['all', 'awaiting', 'draft', 'noamount', 'paid']);
+      expect(c.all).toBe(c.paid + c.partial + c.awaiting + c.noamount + c.draft);
+      expect(Object.keys(r.counts).sort()).toEqual(['all', 'awaiting', 'draft', 'noamount', 'paid', 'partial']);
     });
 
     it('list: по умолчанию без удалённых, корзина — deletedAt != null', async () => {

@@ -6,7 +6,7 @@ import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
-import { IncomeDto } from './dto';
+import { IncomeDto, PaymentDto } from './dto';
 import { IncomesService } from './incomes.service';
 
 /** Доходы — строки заказов (лист «Заказы»). Смотреть — все роли, менять — admin и manager (как снабжение). */
@@ -22,7 +22,7 @@ export class IncomesController {
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false, description: '№ заказа, заказчик, наименование, примечание, вид, цвет' })
   @ApiQuery({ name: 'sort', required: false, description: 'lineNo | orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)' })
-  @ApiQuery({ name: 'status', required: false, description: 'draft (не отгружено) | awaiting (отгружено, ждём оплату) | paid' })
+  @ApiQuery({ name: 'status', required: false, description: 'draft (не отгружено) | awaiting (отгружено, ждём оплату) | partial (оплачено частично) | paid' })
   @ApiQuery({ name: 'companyId', required: false }) @ApiQuery({ name: 'orderNo', required: false })
   @ApiQuery({ name: 'orderId', required: false, description: 'позиции заказа (salesorders), id через запятую' })
   @ApiQuery({ name: 'from', required: false, description: 'по дате в отчёт (оплаты, иначе отгрузки), ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false })
@@ -80,6 +80,23 @@ export class IncomesController {
   @AuditAction({ action: 'income.photo.removed', entityType: 'Income', idParam: 'id' })
   removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
     return this.incomes.removePhoto(id, photoId);
+  }
+
+  /** Принять платёж по позиции (частичная оплата). */
+  @Post(':id/payments')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.payment.added', entityType: 'Income', idParam: 'id' })
+  addPayment(@Param('id') id: string, @Body() dto: PaymentDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.addPayment(id, dto, user);
+  }
+
+  /** Убрать платёж по номеру в списке (0 — первый). */
+  @Delete(':id/payments/:index')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.payment.removed', entityType: 'Income', idParam: 'id' })
+  removePayment(@Param('id') id: string, @Param('index') index: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.removePayment(id, Number(index), user);
   }
 
   @Post(':id/restore')

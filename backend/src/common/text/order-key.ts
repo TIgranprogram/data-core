@@ -4,17 +4,17 @@
  * То же правило повторено в scripts/import-orders-xlsx.js (скрипт без сборки) — менять синхронно.
  */
 
-/** Этапы заказа: Новый → В производстве → Готов к отгрузке → Отгружен → Закрыт (+ Отменён). */
-export const ORDER_STAGES = ['new', 'production', 'ready', 'shipped', 'closed', 'cancelled'] as const;
+/** Этапы заказа: Новый → В производстве → Готов к отгрузке → Частично отгружен → Отгружен → Закрыт (+ Отменён). */
+export const ORDER_STAGES = ['new', 'production', 'ready', 'partly', 'shipped', 'closed', 'cancelled'] as const;
 export type OrderStage = (typeof ORDER_STAGES)[number];
 /** Приоритет заказа (ПРЖ-3): нет значения = обычный. */
 export const ORDER_PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const;
 export type OrderPriority = (typeof ORDER_PRIORITIES)[number];
 export const STAGE_LABELS: Record<OrderStage, string> = {
-  new: 'Новый', production: 'В производстве', ready: 'Готов к отгрузке', shipped: 'Отгружен', closed: 'Закрыт', cancelled: 'Отменён',
+  new: 'Новый', production: 'В производстве', ready: 'Готов к отгрузке', partly: 'Частично отгружен', shipped: 'Отгружен', closed: 'Закрыт', cancelled: 'Отменён',
 };
 /** «В работе» — до отгрузки; «выполненные» — отгружен или закрыт. Отменённые не входят ни туда, ни туда. */
-export const ACTIVE_STAGES: OrderStage[] = ['new', 'production', 'ready'];
+export const ACTIVE_STAGES: OrderStage[] = ['new', 'production', 'ready', 'partly'];
 export const DONE_STAGES: OrderStage[] = ['shipped', 'closed'];
 
 /** Номер заказа: без «№», пробелы схлопнуты, верхний регистр («№11 Крыловская» → «11 КРЫЛОВСКАЯ»). */

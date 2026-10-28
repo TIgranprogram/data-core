@@ -1,4 +1,4 @@
-import { buildCashflow, buildSummary, daysBetween, type Op } from './cashflow';
+import { buildCashflow, buildPending, buildSummary, daysBetween, openingFromStart, type Op } from './cashflow';
 import { incomeDerived } from '../incomes/income.schema';
 
 const op = (type: Op['type'], date: string, amount: number, company = 'СИЮ', extra: Partial<Op> = {}): Op => ({ type, id: date + amount, date, amount, company, title: 'x', ...extra });
@@ -33,9 +33,9 @@ describe('Платёжный календарь (ОДР)', () => {
 
   it('доход: «доход вручную» важнее кол-во × цена; дата в отчёт = оплата, иначе отгрузка', () => {
     const ship = new Date('2026-10-10'), paid = new Date('2026-10-15');
-    expect(incomeDerived({ qty: 3, unitPrice: 1000, amountManual: 2500, shipDate: ship })).toEqual({ amount: 2500, reportDate: ship });
-    expect(incomeDerived({ qty: 3, unitPrice: 1000.333, shipDate: ship, paidDate: paid })).toEqual({ amount: 3001, reportDate: paid });
-    expect(incomeDerived({ qty: 3 })).toEqual({ amount: 0, reportDate: undefined });
+    expect(incomeDerived({ qty: 3, unitPrice: 1000, amountManual: 2500, shipDate: ship })).toMatchObject({ amount: 2500, reportDate: ship });
+    expect(incomeDerived({ qty: 3, unitPrice: 1000.333, shipDate: ship, paidDate: paid })).toMatchObject({ amount: 3001, reportDate: paid });
+    expect(incomeDerived({ qty: 3 })).toMatchObject({ amount: 0, reportDate: undefined });
     expect(incomeDerived({ amountManual: 0, qty: 2, unitPrice: 5 }).amount).toBe(0); // 0 вручную — тоже «вручную»
   });
 
@@ -51,5 +51,24 @@ describe('Платёжный календарь (ОДР)', () => {
       { category: 'Без категории', byCompany: { СИЮ: 10, ССЮ: 0 }, total: 10 },
       { category: 'Метизы', byCompany: { СИЮ: 100, ССЮ: 40 }, total: 140 },
     ]);
+  });
+});
+
+describe('Старт учёта и «ещё не деньги»', () => {
+  const op = (date: string, type: 'income' | 'expense', amount: number): Op => ({ type, id: date + type, date, amount, company: 'СИЮ', title: 't' });
+  it('операции раньше старта серые, в остаток не входят; на день старта остаток = заданному', () => {
+    const { days, totals } = buildCashflow([op('2026-10-01', 'income', 999), op('2026-10-03', 'expense', 100), op('2026-10-04', 'income', 50)], '2026-10-01', '2026-10-04', 0, ['СИЮ'], { date: '2026-10-03', balance: 1000 });
+    expect(days[0].ops[0].beforeStart).toBe(true);
+    expect(days[0].income).toBe(0);
+    expect(days[2].opening).toBe(1000);
+    expect(days[3].closing).toBe(950);
+    expect(totals.income).toBe(50);
+  });
+  it('остаток на начало периода от старта', () => {
+    expect(openingFromStart({ date: '2026-10-03', balance: 1000 }, [op('2026-10-01', 'income', 5), op('2026-10-03', 'expense', 100), op('2026-10-05', 'income', 20)], '2026-10-10')).toBe(920);
+  });
+  it('pending: итог по компаниям, просроченные до периода входят', () => {
+    const p = buildPending([{ ...op('2026-09-01', 'expense', 10), overdue: true }, op('2026-10-05', 'expense', 20), op('2026-11-05', 'expense', 40)], '2026-10-01', '2026-10-31', ['СИЮ']);
+    expect(p).toMatchObject({ total: 30, count: 2, byCompany: { СИЮ: 30 } });
   });
 });

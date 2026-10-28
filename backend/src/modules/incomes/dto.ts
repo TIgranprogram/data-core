@@ -1,5 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf, ValidateNested } from 'class-validator';
+
+/** Платёж по позиции заказа. */
+export class PaymentDto {
+  @ApiPropertyOptional({ description: 'Дата платежа ГГГГ-ММ-ДД / ДД.ММ.ГГГГ' }) @IsString() @Length(1, 30) date!: string;
+  @ApiPropertyOptional({ description: 'Сумма, ₽ (> 0)' }) @IsNumber() @Min(0.01) amount!: number;
+  @ApiPropertyOptional({ description: 'Способ: нал | безнал | карта' }) @IsOptional() @IsString() @Length(0, 50) method?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) note?: string;
+}
 
 /** Доход (строка заказа). Числа: null — очистить поле. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить. */
 export class IncomeDto {
@@ -21,6 +30,7 @@ export class IncomeDto {
   @ApiPropertyOptional({ description: 'Доход вручную (важнее кол-во × цена)' }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsNumber() @Min(0) amountManual?: number | null;
   @ApiPropertyOptional({ description: 'Дата отгрузки' }) @IsOptional() @IsString() @Length(0, 30) shipDate?: string;
   @ApiPropertyOptional({ description: 'Дата оплаты' }) @IsOptional() @IsString() @Length(0, 30) paidDate?: string;
+  @ApiPropertyOptional({ description: 'Платежи (заменяют весь список). paidDate без payments = оплачено целиком (старый способ); paidDate "" — снять оплату', type: [PaymentDto] }) @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => PaymentDto) payments?: PaymentDto[];
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) notes?: string;
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }

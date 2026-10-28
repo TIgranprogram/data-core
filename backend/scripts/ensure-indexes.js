@@ -17,6 +17,10 @@ const MODELS = ['Income', 'SalesOrder', 'Shipment', 'DesignTask', 'DesignOrder',
 /** Индексы без схемы (коллекции читаются напрямую): частые запросы. */
 const RAW = [
   ['photos', { parentPhotoId: 1, variant: 1 }],
+  ['payroll_timesheets', { personId: 1, month: 1 }, { unique: true }], // ФОТ: один табель на сотрудника и месяц
+  ['payroll_payments', { month: 1, deletedAt: 1 }], // ФОТ: выплаты месяца
+  ['payroll_payments', { date: 1 }], // ФОТ: выплаты периода
+  ['finance_settings', { key: 1 }, { unique: true }], // Старт учёта
   ['dict_values', { dict: 1, deletedAt: 1 }],
   ['reservations', { salesOrderId: 1 }, { sparse: true }], // SK-6: брони заказа
   ['stockmovements', { salesOrderId: 1 }, { sparse: true }], // SK-5: выдано по заказу (lines-lookup)

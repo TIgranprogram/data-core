@@ -3,6 +3,10 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type IncomeDocument = HydratedDocument<Income>;
 
+export interface IncomePayment { date: Date; amount: number; method?: string; note?: string }
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
 /**
  * Доход = строка заказа (лист «Заказы» Google-таблицы): что отгрузили, кому, на сколько и когда оплатили.
  * Своя коллекция data-core (CRM `orders` не подходит: требует товар каталога и контрагента). Это и есть
@@ -38,7 +42,13 @@ export class Income {
   /** Доход вручную — важнее qty × unitPrice. */
   @Prop({ min: 0 }) amountManual?: number;
   @Prop({ type: Date, index: true }) shipDate?: Date;
+  /** Дата ПОЛНОЙ оплаты (= дата последнего платежа, когда Σ платежей ≥ сумма); вычисляется сервисом из `payments`. */
   @Prop({ type: Date, index: true }) paidDate?: Date;
+  /** Платежи по позиции (В-4): дата, сумма, способ (нал / безнал / карта), примечание. CRM коллекцию не читает. */
+  @Prop({ type: [{ _id: false, date: { type: Date, required: true }, amount: { type: Number, required: true, min: 0 }, method: { type: String, trim: true }, note: { type: String, trim: true } }], default: undefined })
+  payments?: IncomePayment[];
+  /** Σ платежей (вычисляется). У старых записей с paidDate без платежей = сумма позиции. */
+  @Prop({ default: 0 }) paidAmount?: number;
   @Prop({ trim: true }) notes?: string;
 
   /** Вычисляемые (сервис): сумма дохода и дата, на которую он ложится в календарь. */
@@ -69,9 +79,29 @@ export class Income {
 export const IncomeSchema = SchemaFactory.createForClass(Income);
 IncomeSchema.index({ reportDate: 1, companyId: 1 });
 
-/** amount и reportDate из полей строки (одно правило для сервиса, синхронизации таблиц и отчётов). */
-export function incomeDerived(d: { qty?: number | null; unitPrice?: number | null; amountManual?: number | null; shipDate?: Date | null; paidDate?: Date | null }) {
+/**
+ * amount, оплата и reportDate из полей строки (одно правило для сервиса, синхронизации таблиц и отчётов).
+ * Есть платежи: paidAmount = Σ, paidDate = дата последнего платежа, когда оплачено полностью (Σ ≥ сумма > 0), иначе пусто.
+ * Платежей нет, но есть paidDate (старые записи, таблица): считается оплаченной целиком.
+ */
+export function incomeDerived(d: { qty?: number | null; unitPrice?: number | null; amountManual?: number | null; shipDate?: Date | null; paidDate?: Date | null; payments?: Array<{ date: Date; amount: number }> | null }) {
   const manual = d.amountManual ?? undefined;
-  const calc = d.qty != null && d.unitPrice != null ? Math.round(d.qty * d.unitPrice * 100) / 100 : 0;
-  return { amount: manual != null ? manual : calc, reportDate: d.paidDate ?? d.shipDate ?? undefined };
+  const calc = d.qty != null && d.unitPrice != null ? r2(d.qty * d.unitPrice) : 0;
+  const amount = manual != null ? manual : calc;
+  const pays = d.payments ?? [];
+  let paidAmount: number, paidDate: Date | undefined;
+  if (pays.length) {
+    paidAmount = r2(pays.reduce((s, p) => s + p.amount, 0));
+    paidDate = amount > 0 && paidAmount >= amount ? new Date(Math.max(...pays.map((p) => p.date.getTime()))) : undefined;
+  } else {
+    paidDate = d.paidDate ?? undefined;
+    paidAmount = paidDate ? amount : 0;
+  }
+  return { amount, paidAmount, paidDate, reportDate: paidDate ?? d.shipDate ?? undefined };
+}
+
+/** Платежи позиции для календаря: свои или (старая запись с paidDate) один платёж на всю сумму. */
+export function incomePayments(d: { amount?: number | null; paidDate?: Date | null; payments?: IncomePayment[] | null }): IncomePayment[] {
+  if (d.payments?.length) return d.payments;
+  return d.paidDate && Number(d.amount) > 0 ? [{ date: d.paidDate, amount: Number(d.amount) }] : [];
 }

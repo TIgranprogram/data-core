@@ -12,7 +12,11 @@ import { sameKey } from '../../common/text/same-text';
 import { ourProductLabel, productShortName, type Named } from '../../common/catalog/names';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
-import { Income, IncomeDocument, incomeDerived } from './income.schema';
+import { Income, IncomeDocument, IncomePayment, incomeDerived, incomePayments } from './income.schema';
+
+/** Способы оплаты (подсказка формы платежа; в базе — свободный текст до 50 знаков). */
+export const PAYMENT_METHODS = ['нал', 'безнал', 'карта'];
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
 const INCOME_SORT = ['lineNo', 'orderNo', 'customer', 'title', 'qty', 'unitPrice', 'amount', 'shipDate', 'paidDate', 'reportDate', 'createdAt', 'updatedAt', 'deletedAt'];
 const TEXT = ['orderNo', 'customer', 'paymentForm', 'title', 'unit', 'kind', 'color', 'size', 'notes'] as const;
@@ -56,15 +60,20 @@ export class IncomesService {
     const prods = pids.length ? await this.connection.db!.collection('products').find({ _id: { $in: pids } }, { projection: { name: 1, sku: 1, fullName: 1, orderName: 1 } }).toArray() : [];
     // ТИ-8: name — короткое по цепочке Н-2; ourName — «sku · name» для строки «Наше: …»
     const prod = new Map(prods.map((p) => [String(p._id), { id: String(p._id), name: productShortName(p as Named), sku: (p.sku as string) ?? null, ourName: ourProductLabel(p as Named), fullName: (p.fullName as string) ?? null }]));
-    return docs.map((d) => ({
+    return docs.map((d) => {
+      const pays = incomePayments(d as { amount?: number; paidDate?: Date; payments?: IncomePayment[] });
+      const paidAmount = r2(pays.reduce((s, p) => s + p.amount, 0));
+      return {
       ...d,
+      payments: pays, paidAmount, debt: Math.max(0, r2((Number(d.amount) || 0) - paidAmount)),
       photos: ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => url.has(String(p))).map((p) => ({ id: String(p), url: url.get(String(p)), thumb: thumb.get(String(p)) ?? url.get(String(p)) })),
       id: String(d._id), _id: String(d._id),
       companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
       product: d.productId ? prod.get(String(d.productId)) ?? null : null,
-      /** paid — оплачено; awaiting — отгружено, ждём оплату; draft — ещё не отгружено. */
-      status: d.paidDate ? 'paid' : d.shipDate ? (Number(d.amount) > 0 ? 'awaiting' : 'noamount') : 'draft',
-    }));
+      /** paid — оплачено; partial — оплачено частично; awaiting — отгружено, ждём оплату; noamount — отгружено без суммы; draft — ещё не отгружено. */
+      status: d.paidDate ? 'paid' : paidAmount > 0 ? 'partial' : d.shipDate ? (Number(d.amount) > 0 ? 'awaiting' : 'noamount') : 'draft',
+      };
+    });
   }
 
   /** money=false (роль без прав на деньги): период и порядок по умолчанию — по дате отгрузки, не по «дате в отчёт» (= дате оплаты). */
@@ -82,9 +91,11 @@ export class IncomesService {
     const statusCond: Record<string, Record<string, unknown>> = {
       paid: { paidDate: { $ne: null } },
       // «Ждём оплату» — только с суммой; отгружено без суммы (позиции из Excel без цен) — «Без суммы», в оплату не просится
-      awaiting: { paidDate: null, shipDate: { $ne: null }, amount: { $gt: 0 } },
-      noamount: { paidDate: null, shipDate: { $ne: null }, $or: [{ amount: null }, { amount: { $lte: 0 } }] },
-      draft: { paidDate: null, shipDate: null },
+      // «Частично» — есть платежи, но Σ меньше суммы (paidDate при этом пуст)
+      partial: { paidDate: null, paidAmount: { $gt: 0 } },
+      awaiting: { paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } },
+      noamount: { paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, $or: [{ amount: null }, { amount: { $lte: 0 } }] },
+      draft: { paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: null },
     };
     // «отгружено» без деталей оплаты — для ролей без денег (MoneyMask заменяет paid/awaiting/noamount); в счётчики не входит
     const shippedCond = { shipDate: { $ne: null } };
@@ -92,13 +103,15 @@ export class IncomesService {
     const [docs, total, agg, counts] = await Promise.all([
       this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, orderNo: -1, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(full).setOptions({ includeSoftDeleted: true }).exec(),
-      this.model.aggregate([{ $match: full }, { $group: { _id: null, sum: { $sum: '$amount' } } }]).exec(),
+      this.model.aggregate([{ $match: full }, { $group: { _id: null, sum: { $sum: '$amount' }, paid: { $sum: '$paidAmount' } } }]).exec(),
       Promise.all(Object.entries(statusCond).map(async ([k, c]) => [k, await this.model.countDocuments({ ...filter, ...c }).setOptions({ includeSoftDeleted: true }).exec()] as const)),
     ]);
     const byStatus = Object.fromEntries(counts) as Record<string, number>;
     return {
       items: await this.present(docs as Array<Record<string, unknown>>), total, page: p.page, limit: p.limit,
-      sum: agg[0]?.sum ?? 0, counts: { all: byStatus.paid + byStatus.awaiting + byStatus.noamount + byStatus.draft, ...byStatus },
+      sum: agg[0]?.sum ?? 0, counts: { all: byStatus.paid + byStatus.partial + byStatus.awaiting + byStatus.noamount + byStatus.draft, ...byStatus },
+      // деньги по текущему фильтру (строка итогов над списком): сумма, оплачено, долг
+      money: { sum: agg[0]?.sum ?? 0, paid: r2(agg[0]?.paid ?? 0), debt: r2(Math.max(0, (agg[0]?.sum ?? 0) - (agg[0]?.paid ?? 0))) },
     };
   }
 
@@ -113,6 +126,13 @@ export class IncomesService {
     const f: Record<string, unknown> = {};
     for (const k of TEXT) if (dto[k] !== undefined) f[k] = String(dto[k] ?? '').trim() || undefined;
     for (const k of NUM) if (dto[k] !== undefined) f[k] = dto[k] === null ? undefined : Number(dto[k]);
+    if (dto.payments !== undefined) f.payments = (dto.payments ?? []).map((p) => {
+      const date = parseSheetDate(p.date);
+      if (!date) throw new BadRequestException('Дата платежа — в формате ДД.ММ.ГГГГ');
+      const amount = r2(Number(p.amount));
+      if (!(amount > 0)) throw new BadRequestException('Сумма платежа должна быть больше нуля');
+      return { date, amount, ...(String(p.method ?? '').trim() ? { method: String(p.method).trim() } : {}), ...(String(p.note ?? '').trim() ? { note: String(p.note).trim() } : {}) };
+    });
     for (const k of ['shipDate', 'paidDate'] as const) {
       if (dto[k] === undefined) continue;
       const d = parseSheetDate(dto[k]);
@@ -154,10 +174,44 @@ export class IncomesService {
     return prods.find((p) => productNameKey(String(p.name ?? '')) === key)?._id as Types.ObjectId | undefined;
   }
 
-  /** Пересчитать amount/reportDate по итоговому состоянию записи. */
+  /**
+   * Пересчитать amount / оплату / reportDate по итоговому состоянию записи и записать оплату в f (payments, paidAmount, paidDate).
+   * Старый вход: paidDate без payments = оплачено целиком (платежей нет, сумма следует за ценой); paidDate '' = снять оплату.
+   */
   private derive(cur: Record<string, unknown>, f: Record<string, unknown>) {
     const pick = <T>(k: string) => (k in f ? f[k] : cur[k]) as T;
-    return incomeDerived({ qty: pick('qty'), unitPrice: pick('unitPrice'), amountManual: pick('amountManual'), shipDate: pick('shipDate'), paidDate: pick('paidDate') });
+    const base = { qty: pick<number>('qty'), unitPrice: pick<number>('unitPrice'), amountManual: pick<number>('amountManual'), shipDate: pick<Date>('shipDate') };
+    let payments = (cur.payments as IncomePayment[] | undefined) ?? [];
+    if ('payments' in f) payments = (f.payments as IncomePayment[]) ?? [];
+    else if ('paidDate' in f) payments = []; // старый вход: paidDate — оплачено целиком, следует за суммой (платежи сбрасываются)
+    const legacy = !payments.length && !('payments' in f) ? pick<Date>('paidDate') : undefined;
+    const d = incomeDerived({ ...base, payments, paidDate: legacy });
+    if ((payments.length || legacy) && !(d.amount > 0)) throw new BadRequestException('Сначала впишите сумму (цену за единицу или сумму строки), потом отмечайте оплату');
+    if (payments.length && d.paidAmount > d.amount + 0.005) throw new BadRequestException(`Платежи (${d.paidAmount} ₽) больше суммы позиции (${d.amount} ₽)`);
+    if (payments.length || 'payments' in f || 'paidDate' in f) f.payments = payments.length ? payments : undefined;
+    f.paidAmount = d.paidAmount; f.paidDate = d.paidDate;
+    return d;
+  }
+
+  private paymentsView(cur: unknown) {
+    return incomePayments(cur as { amount?: number; paidDate?: Date; payments?: IncomePayment[] })
+      .map((x) => ({ date: x.date.toISOString().slice(0, 10), amount: x.amount, method: x.method, note: x.note }));
+  }
+
+  /** Добавить платёж к позиции (кнопка «Принять оплату»: дата, сумма, способ). */
+  async addPayment(id: string, p: { date: string; amount: number; method?: string; note?: string }, actor?: AuthenticatedUser) {
+    const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
+    if (!cur) throw new NotFoundException('Запись дохода не найдена');
+    return this.update(id, { payments: [...this.paymentsView(cur), p] } as IncomeDto, actor);
+  }
+
+  /** Убрать платёж по номеру в списке (0 — первый). */
+  async removePayment(id: string, index: number, actor?: AuthenticatedUser) {
+    const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
+    if (!cur) throw new NotFoundException('Запись дохода не найдена');
+    const have = this.paymentsView(cur);
+    if (!Number.isInteger(index) || index < 0 || index >= have.length) throw new NotFoundException('Платежа с таким номером нет');
+    return this.update(id, { payments: have.filter((_, i) => i !== index) } as IncomeDto, actor);
   }
 
   /**
@@ -208,8 +262,6 @@ export class IncomesService {
     const orderId = 'orderId' in f ? f.orderId : cur.orderId;
     if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
     const { amount, reportDate } = this.derive(cur as Record<string, unknown>, f);
-    // Оплата без суммы бессмысленна (так строка «оплачена» на 0 ₽) — сначала сумма
-    if (f.paidDate && !(amount > 0)) throw new BadRequestException('Сначала впишите сумму (цену за единицу или сумму строки), потом отмечайте оплату');
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
@@ -265,6 +317,6 @@ export class IncomesService {
     const paymentForms = [...dict.map((d) => d.name), ...(dict.length ? [] : ['б/р', 'б/р 30%', 'б/р 50%', 'нал']), ...forms]
       .map((v) => String(v ?? '').replace(/\s+/g, ' ').trim()).filter((v) => v && !seen.has(sameKey(v)) && seen.add(sameKey(v)))
       .sort((x, y) => x.localeCompare(y, 'ru'));
-    return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers, paymentForms };
+    return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers, paymentForms, paymentMethods: PAYMENT_METHODS };
   }
 }

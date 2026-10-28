@@ -2,17 +2,20 @@
  * Прогноз денег (TASKS БЗ-1) — отдельно от факта: платёжный календарь показывает только то, что было (по сегодня),
  * прогноз — только будущее (с завтра). Чистые функции, покрыты юнит-тестами (forecast.spec.ts).
  *
- * Ожидаемые выплаты — заявки (не отменённые, не полученные без даты) с суммой и нашей компанией:
- *   дата счёта позже сегодня → в этот день; открытые (ожидает / заказать / в работе) без даты счёта → «без срока».
- * Ожидаемые поступления — позиции заказов с суммой без отметки оплаты, которых ещё нет в факте
- * (факт берёт дату оплаты, иначе отгрузки — значит, отгружено, но не оплачено по сегодня, уже в факте):
- *   форма оплаты «… 30% …» — 30% в день заказа (договора), остаток — в срок; иначе всё — в срок;
+ * Факт — только оплаченное (заявки с paid, платежи по позициям, выплаты ФОТ), поэтому в прогноз идёт всё неоплаченное:
+ * Ожидаемые выплаты — НЕоплаченные заявки (не отменённые) с суммой и нашей компанией:
+ *   дата счёта позже сегодня → в этот день; дата счёта уже прошла (счёт не оплачен) → на сегодня как «просрочено»;
+ *   открытые (ожидает / заказать / в работе) без даты счёта → «без срока».
+ * Ожидаемые поступления — неоплаченный остаток позиций заказов (сумма − уже принятые платежи, К7):
+ *   форма оплаты «… 30% …» — 30% в день заказа (договора), остаток — в срок; уже принятая предоплата вычитается; иначе всё — в срок;
  *   срок = отгрузка → изготовление → окончание поставки; срок уже прошёл — на сегодня как «просрочено»; срока нет — «без срока».
  */
 import { buildCashflow, type Op } from './cashflow';
 
 export interface ExpenseSrc { id: string; title: string; amount: number; company: string; invoiceDate?: string | null; status: string; doc?: string; counterparty?: string }
 export interface IncomeSrc {
+  /** Уже принято платежами, ₽ (К7). */
+  paid?: number;
   id: string; title: string; amount: number; company: string; paymentForm?: string | null; orderNo?: string; customer?: string;
   /** Дата заказа / договора (для предоплаты) и срок (отгрузка → изготовление → поставка), ГГГГ-ММ-ДД. */
   orderDate?: string | null; due?: string | null;
@@ -34,7 +37,10 @@ export function expectedOps(expenses: ExpenseSrc[], incomes: IncomeSrc[], today:
   const noDate: { type: 'income' | 'expense'; id: string; title: string; amount: number; company: string; doc?: string; counterparty?: string }[] = [];
   for (const e of expenses) {
     if (!(e.amount > 0) || e.status === 'cancelled') continue;
-    if (e.invoiceDate) { if (e.invoiceDate > today) ops.push({ type: 'expense', id: e.id, date: e.invoiceDate, amount: r2(e.amount), company: e.company, title: e.title, doc: e.doc, counterparty: e.counterparty }); }
+    if (e.invoiceDate) {
+      const overdue = e.invoiceDate <= today;
+      ops.push({ type: 'expense', id: e.id, date: overdue ? today : e.invoiceDate, amount: r2(e.amount), company: e.company, title: overdue ? `${e.title} · просрочено` : e.title, doc: e.doc, counterparty: e.counterparty, overdue });
+    }
     else if (OPEN.has(e.status)) noDate.push({ type: 'expense', id: e.id, title: e.title, amount: r2(e.amount), company: e.company, doc: e.doc, counterparty: e.counterparty });
   }
   for (const i of incomes) {
@@ -46,9 +52,14 @@ export function expectedOps(expenses: ExpenseSrc[], incomes: IncomeSrc[], today:
       const overdue = date <= today;
       ops.push({ ...base, date: overdue ? today : date, amount: r2(amount), title: [i.title, what, overdue ? 'просрочено' : ''].filter(Boolean).join(' · '), overdue });
     };
+    const paid = i.paid ?? 0;
+    if (paid >= i.amount) continue;
     const p = prepayPercent(i.paymentForm);
-    if (p) { const pre = (i.amount * p) / 100; at(i.orderDate || i.due, pre, `предоплата ${p}%`); at(i.due, i.amount - pre, `остаток ${100 - p}%`); }
-    else at(i.due, i.amount, '');
+    if (p) {
+      const pre = Math.max(0, (i.amount * p) / 100 - paid); // предоплата, которую ещё не внесли
+      at(i.orderDate || i.due, pre, `предоплата ${p}%`);
+      at(i.due, i.amount - paid - pre, paid > 0 && pre === 0 ? 'остаток' : `остаток ${100 - p}%`);
+    } else at(i.due, i.amount - paid, paid > 0 ? 'остаток' : '');
   }
   return { ops, noDate };
 }

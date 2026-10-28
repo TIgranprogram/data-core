@@ -27,7 +27,7 @@ export class MoneyMaskInterceptor implements NestInterceptor {
 }
 
 /** Статусы позиций заказа, по которым видно оплату (incomes.service `status`); для роли без денег — «отгружено». */
-const PAY_STATUS = new Set(['paid', 'awaiting', 'noamount']);
+const PAY_STATUS = new Set(['paid', 'partial', 'awaiting', 'noamount']);
 
 function strip(v: unknown, depth: number): unknown {
   if (depth > 6 || v === null || typeof v !== 'object') return v;
@@ -39,7 +39,7 @@ function strip(v: unknown, depth: number): unknown {
     if (k === 'status' && typeof x === 'string' && PAY_STATUS.has(x)) { out[k] = 'shipped'; continue; }
     if (k === 'counts' && x && typeof x === 'object' && 'awaiting' in (x as object) && 'paid' in (x as object)) {
       const c = x as Record<string, number>;
-      out[k] = { all: c.all, draft: c.draft, shipped: (c.paid ?? 0) + (c.awaiting ?? 0) + (c.noamount ?? 0) };
+      out[k] = { all: c.all, draft: c.draft, shipped: (c.paid ?? 0) + (c.partial ?? 0) + (c.awaiting ?? 0) + (c.noamount ?? 0) };
       continue;
     }
     out[k] = strip(x, depth + 1);

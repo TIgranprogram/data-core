@@ -88,4 +88,4 @@ export function roleLabelOf(name: string | undefined | null, label?: string | nu
 }
 
 /** Денежные поля, которые скрываются от менеджера и наблюдателя (в ответах) и не принимаются от них (в запросах). */
-export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate'];
+export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate', 'payments', 'debt', 'money'];

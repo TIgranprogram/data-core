@@ -10,7 +10,7 @@ const IGNORE = new Set(['_id', 'id', '__v', 'updatedAt', 'updatedBy', 'createdAt
   'photos', 'photoIds', 'photo', 'materialPhoto', 'lines', 'related', 'items', 'counts', 'stockMovements', 'supplyRequests', 'reservations', 'issues',
   'dictInfo', 'typeLabel', 'canCancel', 'deletedWithOrder', 'version', 'clientUid']);
 /** Денежные поля — только деньги-ролям (как MoneyMaskInterceptor). */
-export const MONEY_FIELDS = new Set(['priceHint', 'amount', 'amountManual', 'unitPrice', 'paidAmount', 'sum', 'salaryRate', 'price', 'total', 'paidDate', 'reportDate']);
+export const MONEY_FIELDS = new Set(['priceHint', 'amount', 'amountManual', 'unitPrice', 'paidAmount', 'sum', 'salaryRate', 'price', 'total', 'paidDate', 'reportDate', 'payments']);
 /** Статусы позиций заказа, по которым видно оплату — в истории тоже только деньги-ролям (как MoneyMaskInterceptor). */
 const PAY_STATUS = new Set(['paid', 'awaiting', 'noamount']);
 

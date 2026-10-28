@@ -68,6 +68,9 @@ describe('Finance: incomes + cashflow', () => {
     await req({ title: 'Без даты', companyName: 'СИЮ', priceHint: 99 });
     await req({ title: 'Без компании', priceHint: 84, invoiceDate: '2026-10-03' });
     await req({ title: 'Отменена', priceHint: 1e6, companyName: 'СИЮ', invoiceDate: '2026-10-03', statusLabel: 'Отменено' });
+    // расход считается по ОПЛАТЕ: все заявки выше — оплачены (paidAt нет → день счёта); одна неоплаченная — «счета к оплате»
+    await db().collection('supplyrequests').updateMany({}, { $set: { paid: true } });
+    await req({ title: 'Неоплаченный', priceHint: 700, companyName: 'СИЮ', invoiceDate: '2026-10-04' });
     const r = await http().get('/api/finance/cashflow?from=2026-10-01&to=2026-10-05&opening=10000').set(auth()).expect(200);
     expect(r.body.companies).toEqual(['СИЮ', 'ССЮ']);
     const d = (date: string) => r.body.days.find((x: { date: string }) => x.date === date);
@@ -78,6 +81,8 @@ describe('Finance: incomes + cashflow', () => {
     expect(d('2026-10-05').ops[0]).toMatchObject({ type: 'income', title: 'Флагшток', doc: 'заказ 34', counterparty: 'ООО Стройсервис' });
     expect(d('2026-10-01').ops[0]).toMatchObject({ type: 'expense', doc: 'С-1', category: 'Метизы' });
     expect(r.body.totals).toMatchObject({ opening: 10000, income: 3000, expense: 1500.25, closing: 11499.75, expenseBy: { СИЮ: 1000, ССЮ: 500.25 } });
+    expect(r.body.pending.invoices).toMatchObject({ total: 700, count: 1, byCompany: { СИЮ: 700, ССЮ: 0 } });
+    expect(r.body.metrics).toMatchObject({ received: 3000, paid: 1500.25, saldo: 1499.75, invoicesToPay: 700 });
     const nf = r.body.needsFill.items.map((x: { title: string; missing: string[] }) => [x.title.replace(/^№\d+ · /, ''), x.missing.join(', ')]);
     expect(nf).toEqual(expect.arrayContaining([
       ['Без суммы', 'сумма'], ['Без даты', 'дата счёта'], ['Без компании', 'наша компания'], ['Без цены', 'сумма (кол-во × цена или вручную), дата отгрузки или оплаты'],
@@ -86,10 +91,44 @@ describe('Finance: incomes + cashflow', () => {
     // одна компания
     const ssu = await http().get('/api/finance/cashflow?from=2026-10-01&to=2026-10-05&org=ССЮ').set(auth()).expect(200);
     expect(ssu.body.totals).toMatchObject({ expense: 500.25, income: 3000, closing: 2499.75 });
+    // старт учёта: остаток от даты старта, операции раньше — серые и в остаток не входят
+    await http().put('/api/finance/settings').set(auth()).send({ startDate: '2026-10-03', openingBalance: { СИЮ: 5000, ССЮ: 0 } }).expect(200);
+    const st = await http().get('/api/finance/cashflow?from=2026-10-01&to=2026-10-05&opening=999').set(auth()).expect(200);
+    expect(st.body.startDate).toBe('2026-10-03');
+    expect(st.body.days.find((x: { date: string }) => x.date === '2026-10-01').ops[0].beforeStart).toBe(true);
+    expect(st.body.days.find((x: { date: string }) => x.date === '2026-10-03').opening).toBe(5000);
+    expect(st.body.totals.closing).toBe(8000);
+    await http().put('/api/finance/settings').set(auth()).send({ startDate: null, openingBalance: {} }).expect(200);
     await http().get('/api/finance/cashflow?org=Рога').set(auth()).expect(400);
     await http().get('/api/finance/cashflow?from=2026-10-05&to=2026-10-01').set(auth()).expect(400);
   });
 
+  it('частичные оплаты позиции и ФОТ', async () => {
+    const a = await http().post('/api/incomes').set(auth()).send({ orderNo: '77', companyName: 'СИЮ', title: 'Горка', amountManual: 1000, shipDate: '2026-10-02' }).expect(201);
+    const p1 = await http().post(`/api/incomes/${a.body.id}/payments`).set(auth()).send({ date: '2026-10-03', amount: 300, method: 'нал' }).expect(200);
+    expect(p1.body).toMatchObject({ status: 'partial', paidAmount: 300, debt: 700 });
+    await http().post(`/api/incomes/${a.body.id}/payments`).set(auth()).send({ date: '2026-10-04', amount: 800 }).expect(400);
+    const p2 = await http().post(`/api/incomes/${a.body.id}/payments`).set(auth()).send({ date: '2026-10-04', amount: 700 }).expect(200);
+    expect(p2.body).toMatchObject({ status: 'paid', paidAmount: 1000, debt: 0 });
+    expect(p2.body.paidDate.slice(0, 10)).toBe('2026-10-04');
+    const del = await http().delete(`/api/incomes/${a.body.id}/payments/1`).set(auth()).expect(200);
+    expect(del.body).toMatchObject({ status: 'partial', paidAmount: 300 });
+    const cf = await http().get('/api/finance/cashflow?from=2026-10-03&to=2026-10-03').set(auth()).expect(200);
+    expect(cf.body.days[0].ops.find((o: { title: string }) => o.title.startsWith('Горка'))).toMatchObject({ amount: 300, method: 'нал' });
+    expect(cf.body.pending.awaiting.total).toBeGreaterThanOrEqual(700);
+    // ФОТ: ставка + табель → начислено, выплата → в календарь
+    const siu = (await db().collection('organizations').findOne({ shortName: 'СИЮ' }))!;
+    const pid = (await db().collection('persons').insertOne({ firstName: 'Иван', lastName: 'Тест-ФОТ', status: 'active', salaryKind: 'hour', salaryRate: 400, companyId: siu._id, deletedAt: null })).insertedId;
+    await http().put('/api/payroll/timesheet').set(auth()).send({ personId: String(pid), month: '2026-10', hours: 100 }).expect(200);
+    await http().post('/api/payroll/payments').set(auth()).send({ personId: String(pid), companyId: String(siu._id), date: '2026-10-05', amount: 10000, kind: 'advance' }).expect(200);
+    const s = await http().get('/api/payroll/summary?month=2026-10').set(auth()).expect(200);
+    expect(s.body.items.find((x: { name: string }) => x.name.includes('Тест-ФОТ'))).toMatchObject({ accrued: 40000, paid: 10000, balance: 30000, companyName: 'СИЮ' });
+    const fot = await http().get('/api/finance/cashflow?from=2026-10-05&to=2026-10-05').set(auth()).expect(200);
+    expect(fot.body.days[0].ops.find((o: { category?: string }) => o.category === 'ФОТ')).toMatchObject({ amount: 10000, type: 'expense' });
+    await db().collection('persons').deleteOne({ _id: pid });
+    await db().collection('payroll_payments').deleteMany({});
+    await db().collection('payroll_timesheets').deleteMany({});
+  });
   it('сводка: месяцы, прибыль по компаниям, расходы по категориям', async () => {
     const s = await http().get('/api/finance/summary?from=2026-09-01&to=2026-10-31').set(auth()).expect(200);
     expect(s.body.months.map((m: { month: string }) => m.month)).toEqual(['2026-09', '2026-10']);

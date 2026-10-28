@@ -51,6 +51,10 @@ export class Person {
   /** График выплат (dict_values, dict = payoutSchedules). */
   @Prop({ type: Types.ObjectId, sparse: true })
   payoutScheduleId?: Types.ObjectId;
+
+  /** Наша компания, которая платит зарплату (organizations.isOurCompany) — ФОТ по компаниям; пишет /api/payroll/people/:id. */
+  @Prop({ type: Types.ObjectId, sparse: true })
+  companyId?: Types.ObjectId;
 }
 
 export const PersonSchema = SchemaFactory.createForClass(Person);
