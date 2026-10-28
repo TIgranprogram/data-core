@@ -124,7 +124,8 @@ export class SupplierCatalogService {
     const hasPrice = typeof d.price === 'number';
     if (!ex) {
       await this.items.insertOne({
-        supplierId: d.supplierId, article: d.article, name: d.name, ...(d.color ? { color: d.color } : {}),
+        // vendorArticle — старый уникальный индекс (supplierId, vendorArticle, organizationId) на проде: без него вторая позиция поставщика даёт дубль null
+        supplierId: d.supplierId, article: d.article, vendorArticle: d.article, name: d.name, ...(d.color ? { color: d.color } : {}),
         ...(d.unit ? { unit: d.unit } : {}), ...(d.optGroup ? { optGroup: d.optGroup } : {}), ...(d.note ? { note: d.note } : {}),
         ...(d.materialId ? { materialId: d.materialId } : {}), ...(d.categoryId ? { categoryId: d.categoryId } : {}),
         ...(hasPrice ? { priceHint: d.price, priceDate: date } : {}),
