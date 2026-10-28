@@ -193,7 +193,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     const base0 = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
     const base = revert ? { ...base0, ...revert.values } : base0; // И.3: прежние значения поверх текущих
     menuBox.replaceChildren();
-    titleEl.textContent = isNew ? section.newTitle || 'Новая запись' : 'Изменить';
+    titleEl.textContent = isNew ? section.newTitle || 'Новая запись' : section.card.editTitle?.(row) || 'Изменить';
     subEl.textContent = isNew ? '' : section.card.heading(row);
     body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }), h('p', { class: 'muted' }, 'Загрузка…'));
     foot.replaceChildren();

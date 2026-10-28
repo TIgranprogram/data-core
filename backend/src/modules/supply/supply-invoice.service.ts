@@ -186,6 +186,13 @@ export class SupplyInvoiceService {
         set.payerCompanyId = org._id;
       } else set.payerCompanyId = undefined;
     }
+    if (dto.supplierId !== undefined) {
+      if (inv.status === 'paid') throw new BadRequestException('Счёт оплачен — поставщика не сменить');
+      const org = await this.connection.db!.collection('organizations').findOne({ _id: oid(dto.supplierId, 'поставщика'), deletedAt: null });
+      if (!org) throw new BadRequestException('Поставщик не найден среди организаций');
+      set.supplierId = org._id;
+      set.supplierName = String(org.shortName || org.name || '');
+    }
     const next = { ...inv, ...set };
     if (dto.issue) {
       const lack = missing(ISSUED_GATE, next);
@@ -200,6 +207,8 @@ export class SupplyInvoiceService {
       if (status === 'issued') {
         await this.copyToRequests({ ...next, status }, session);
         await this.recordPrices({ ...next, status }, 'invoice_issued', session);
+      } else if (set.supplierId) {
+        await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { supplierId: set.supplierId, editedInApp: true } }, { session }).exec();
       }
     });
     if (status === 'issued' && inv.status !== 'issued') {
@@ -213,7 +222,7 @@ export class SupplyInvoiceService {
   private async copyToRequests(inv: Lean, session: ClientSession) {
     const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null }).sort({ num: 1, _id: 1 }).session(session).lean().exec() as Lean[];
     const shares = splitAmount(Number(inv.amount) || 0, lines.map((l) => Number(l.lineTotal ?? l.priceHint) || 0));
-    const common = { invoiceNo: inv.no, invoiceDate: inv.date, editedInApp: true, ...(inv.payerCompanyId ? { companyId: inv.payerCompanyId } : {}) };
+    const common = { invoiceNo: inv.no, invoiceDate: inv.date, editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}), ...(inv.payerCompanyId ? { companyId: inv.payerCompanyId } : {}) };
     for (let i = 0; i < lines.length; i++) {
       await this.requests.updateOne({ _id: lines[i]._id }, { $set: { ...common, priceHint: shares[i] } }, { session }).exec();
     }

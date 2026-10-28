@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { isoDay, money } from '../core/format.js';
+import { isoDay, money, date } from '../core/format.js';
 import { photoField } from '../ui/photos.js';
 import { patch } from '../core/router.js';
 import { SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
@@ -8,6 +8,7 @@ import { attachCombo } from '../ui/combo.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, unitList } from './lookups.js';
+
 
 /**
  * Заявки: «ворота» этапов и шаг воронки (REQUESTS-FUNNEL, шаг 1 — только приложение).
@@ -58,7 +59,7 @@ const today = () => isoDay();
 let payers = null;
 const payerList = () => (payers ??= api('/incomes/lookups').then((x) => (x.companies || []).map((c) => ({ value: String(c.id), label: c.name }))).catch(() => { payers = null; return []; }));
 /** Сумма по умолчанию: сумма заявки, иначе цена из каталога поставщика × количество. */
-const defaultAmount = (r) => (Number(r.priceHint) > 0 ? Number(r.priceHint) : Number(r.catalogCurrentPrice) > 0 ? Math.round(Number(r.catalogCurrentPrice) * (Number(r.qty) || 1) * 100) / 100 : null);
+const defaultAmount = (r, defPrice) => (Number(r.priceHint) > 0 ? Number(r.priceHint) : Number(defPrice) > 0 ? Math.round(Number(defPrice) * (Number(r.qty) || 1) * 100) / 100 : Number(r.catalogCurrentPrice) > 0 ? Math.round(Number(r.catalogCurrentPrice) * (Number(r.qty) || 1) * 100) / 100 : null);
 
 const fieldDefs = (lk) => ({
   supplierName: { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, required: true },
@@ -68,6 +69,27 @@ const fieldDefs = (lk) => ({
   invoiceDate: { key: 'invoiceDate', label: 'Дата счёта', type: 'date', required: true, span: 1 },
   priceHint: { key: 'priceHint', money: true, label: 'Сумма счёта, ₽', type: 'money', min: 0, required: true },
 });
+/** Чипы прошлых поставщиков позиции под полем «Поставщик»: клик подставляет имя. */
+function supplierChips(fapi, r) {
+  if (!r.materialId) return;
+  const chips = h('div', { class: 'rq-chips', hidden: true });
+  fapi.field('supplierName')?.append(chips);
+  api(`/materials/${r.materialId}/prices`, { query: { limit: 20 } }).catch(() => null).then((hist) => {
+    const seen = new Map();
+    for (const x of (hist?.items || hist || []).filter((x) => x && x.supplierName)) if (!seen.has(x.supplierName)) seen.set(x.supplierName, x);
+    if (!seen.size) return;
+    chips.replaceChildren(...[...seen.values()].slice(0, 4).map((x) => h('button', { type: 'button', class: 'tag rq-chip', title: 'Подставить поставщика', onclick: () => fapi.set('supplierName', x.supplierName) }, x.supplierName + (session.canMoney && x.price > 0 ? ` · ${money(x.price)} ₽` : ''))));
+    chips.hidden = false;
+  });
+}
+/** id организации-поставщика по названию; нет такой — создаём (как в «Контрагентах»). */
+async function ensureSupplierId(name) {
+  const n = String(name || '').trim(); if (!n) return '';
+  const find = async () => ((await api('/partners', { query: { limit: 500, type: 'supplier' } })).items || []).find((p) => [p.shortName, p.name].some((x) => String(x || '').trim().toLowerCase() === n.toLowerCase()))?.id || '';
+  const have = await find(); if (have) return have;
+  try { const c = await api('/partners', { method: 'POST', body: { kind: 'supplier', name: n } }); if (c?.id) return c.id; } catch (e) { if (e.status !== 409) throw e; }
+  return find();
+}
 const heading = (r) => (r.num ? `№${r.num} · ` : '') + (r.title || r.materialName || '—');
 const verbOf = (to) => ({ ordered: 'Заказал у поставщика', paid: 'Счёт оплачен' }[to] || SUPPLY_STATUS[to]?.label || '');
 
@@ -81,10 +103,13 @@ export const reqStep = {
     const r = await api(`/supply/requests/${id}`);
     const to = pending?.id === id ? pending.to : nextStep(r)?.to;
     const inv = to === 'paid' && r.invoiceId ? await api(`/supply/invoices/${r.invoiceId}`).catch(() => null) : null;
-    return { ...r, _to: to, _miss: missingFor(r, to), _inv: inv };
+    const def = to === 'paid' && r.materialId ? await api(`/materials/${r.materialId}/price-default`).catch(() => null) : null;
+    const companies = to === 'paid' ? await payerList() : [];
+    return { ...r, _to: to, _miss: missingFor(r, to), _inv: inv, _defPrice: def?.price, _companies: companies };
   },
   card: {
     heading,
+    editTitle: (r) => `${verbOf(r._to) || 'Следующий шаг'} — ${r.title || r.materialName || '—'}`,
     subheading: (r) => (r._to ? `Следующий шаг: «${verbOf(r._to)}»` : ''),
     noHistory: true,
     startEdit: (r) => r._to === 'paid' || r._miss.length > 0,
@@ -109,19 +134,18 @@ export const reqStep = {
       const head = { key: '_next', type: 'widget', label: '', wide: true, widget: () => ({ el: note, get value() { return ''; }, set value(_) { /* только показ */ } }) };
       if (!paid) return [head, ...r._miss.map((f) => defs[f.key])];
       // «Счёт оплачен»: всегда одни и те же поля; уже заполненные показываем заполненными
-      const supplier = r.invoiceId
-        ? { key: '_sup', type: 'widget', label: 'Поставщик', widget: () => ({ el: h('div', null, r.supplierName || r._inv?.supplierName || '—'), get value() { return ''; }, set value(_) { /* только показ */ } }) }
-        : { ...defs.supplierName, required: true };
+      const supplier = { ...defs.supplierName, required: true, wide: true, hint: 'Другой поставщик сохранится в истории позиции вместе с ценой', mount: (fapi) => supplierChips(fapi, r) };
       return [head, { ...defs.invoiceNo, required: true }, { ...defs.invoiceDate, required: true }, defs.priceHint, supplier,
         r.invoiceId ? { key: 'payerCompanyId', label: 'Кто платит (наша компания)', type: 'select', required: true, options: await payerList() } : null].filter(Boolean);
     },
     toInitial: (r) => ({ ...r,
       invoiceNo: r._inv?.no || r.invoiceNo || '',
       invoiceDate: String(r._inv?.date || r.invoiceDate || '').slice(0, 10) || today(),
-      priceHint: (r._inv?.amount > 0 ? r._inv.amount : null) ?? defaultAmount(r),
-      payerCompanyId: r._inv?.payerCompanyId ? String(r._inv.payerCompanyId) : '' }),
+      priceHint: (r._inv?.amount > 0 ? r._inv.amount : null) ?? defaultAmount(r, r._defPrice),
+      supplierName: r.supplierName || r._inv?.supplierName || '',
+      payerCompanyId: r._inv?.payerCompanyId ? String(r._inv.payerCompanyId) : r.companyId ? String(r.companyId) : r.payerCompanyId ? String(r.payerCompanyId) : r._companies?.length === 1 ? r._companies[0].value : '' }),
     toBody: (v, r) => {
-      if (r._to === 'paid' && r.invoiceId) return { _inv: r.invoiceId, no: String(v.invoiceNo ?? ''), date: String(v.invoiceDate ?? ''), amount: Number(v.priceHint) || 0, payerCompanyId: String(v.payerCompanyId ?? '') };
+      if (r._to === 'paid' && r.invoiceId) return { _inv: r.invoiceId, no: String(v.invoiceNo ?? ''), date: String(v.invoiceDate ?? ''), amount: Number(v.priceHint) || 0, payerCompanyId: String(v.payerCompanyId ?? ''), _sup: String(v.supplierName ?? '').trim() !== String(r.supplierName || r._inv?.supplierName || '').trim() ? String(v.supplierName ?? '').trim() : '' };
       if (r._to === 'paid') return { statusLabel: SUPPLY_STATUS.paid.label, invoiceNo: String(v.invoiceNo ?? ''), invoiceDate: String(v.invoiceDate ?? ''), priceHint: v.priceHint, supplierName: String(v.supplierName ?? '') };
       const body = r._to === 'ordered' ? { _order: true } : { statusLabel: SUPPLY_STATUS[r._to].label };
       for (const f of r._miss) body[f.key] = f.key === 'qty' ? v[f.key] : String(v[f.key] ?? '');
@@ -130,7 +154,8 @@ export const reqStep = {
     update: async (id, body) => {
       let saved;
       if (body._inv) {
-        const { _inv, ...inv } = body;
+        const { _inv, _sup, ...inv } = body;
+        if (_sup) inv.supplierId = await ensureSupplierId(_sup); // сервер ставит имя счёта и переносит поставщика во все заявки счёта
         await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { ...inv, issue: true } });
         if (session.canMoney) { await api(`/supply/invoices/${_inv}/pay`, { method: 'POST' }); toast('Счёт оплачен'); } else toast('Счёт выставлен — оплату отметит бухгалтер');
         saved = await api(`/supply/requests/${id}`);
@@ -208,7 +233,7 @@ export function invoiceBlock(r, ctx) {
     }) }, 'Счёт оплачен');
     const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
     box.replaceChildren(
-      h('div', { class: 'section-title' }, 'Счёт' + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
+      h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
       field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Кто платит (наша компания)', payer),
       lock ? null : h('div', { class: 'field' }, h('span', null, 'Файл счёта' + (known.length ? ` (уже загружено: ${known.length})` : '')), files.el),
       h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '')),

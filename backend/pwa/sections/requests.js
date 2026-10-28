@@ -349,6 +349,7 @@ export const requests = {
       return api(`/supply/requests/${r.id}/photos/${photoId}`, { method: 'DELETE' });
     },
     heading,
+    editTitle: (r) => 'Заявка — ' + name(r),
     subheading: (r) => [date(r.requestDate || r.createdAt), r.requestedBy && `подал(а): ${r.requestedBy}`].filter(Boolean).join(' · '),
     view: (r) => [
       ['Статус', h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), ' ', r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
