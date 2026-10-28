@@ -9,7 +9,7 @@ import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/ba
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { toast, toastError } from '../ui/toast.js';
-import { lookups, UNITS, unitList } from './lookups.js';
+import { lookups, UNITS, unitList, partnerAction } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { joinRef, orderLabel, orderOptions, splitRef } from './salesorders.js';
@@ -29,7 +29,7 @@ function customerActions(text, shown, form) {
     const x = text.slice(0, i).trim(), y = text.slice(i + 1).trim();
     acts.push({ label: `Заказчик: «${x}» · Объект: «${y}» — разнести по полям`, run: async () => { await create(x); form.set('orderLabel', x); form.set('costObject', y); } });
   } else if (!known(text)) {
-    acts.push({ label: `+ Новый заказчик «${text}»`, run: async () => { await create(text); form.set('orderLabel', text); toast(`Заказчик «${text}» добавлен в «Контрагенты»`); } });
+    acts.push({ label: `Создать «${text}»`, run: async () => { await create(text); form.set('orderLabel', text); toast(`Заказчик «${text}» добавлен в «Контрагенты»`); } });
   }
   return acts;
 }
@@ -134,11 +134,11 @@ async function loadPast() {
     x.n = (x.n || 0) + 1;
     by.set(k, x);
   }
+  const dup = new Map(); for (const x of by.values()) { const k = key(x.label); dup.set(k, (dup.get(k) || 0) + 1); }
   return [...by.values()].map((x) => ({
     ...x,
     search: normSearch([x.label, x.cat, x.values.article, x.last?.supplierName].filter(Boolean).join(' ')),
-    sub: [x.cat, x.stock ? `на складе ${qty(x.stock.quantity)} ${x.stock.unit || ''}` : null,
-      x.last ? `заказывали ${x.n} раз, последний — ${date(x.last.requestDate)}${x.last.supplierName ? ' у ' + x.last.supplierName : ''}${x.last.priceHint ? ` за ${money(x.last.priceHint)} (${qty(x.last.qty)} ${x.last.unit || ''})` : ''}` : null].filter(Boolean).join(' · '),
+    sub: dup.get(key(x.label)) > 1 && x.values.article ? 'арт. ' + x.values.article : '',
   }));
 }
 
@@ -168,7 +168,7 @@ const fields = async (r) => {
     { section: 'Поставщик и счёт', tone: 'money' },
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
     { key: 'status', label: 'Статус', type: 'select', required: true, options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
-    inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200 },
+    inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
     { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },

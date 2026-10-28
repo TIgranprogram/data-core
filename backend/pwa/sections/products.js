@@ -381,7 +381,7 @@ export const products = {
       const staff = await api('/dicts/persons').then((x) => (x.items || []).map((p) => ({ value: p.id, label: [p.lastName, p.firstName, p.patronymic].filter(Boolean).join(' ') || p.name, sub: p.position || '', fired: p.status === 'fired' }))).catch(() => []);
       const people = staff.filter((p) => !p.fired); // в выборе — работающие; уже указанный уволенный остаётся (сопоставление — по всем)
       designerIds = new Map(staff.map((p) => [p.label, p.value]));
-      const opt = (x) => ({ value: x.value, label: x.value, sub: [x.n ? `${qty(x.n)} изд.` : '', x.sub].filter(Boolean).join(' · ') });
+      const opt = (x) => ({ value: x.value, label: x.value, sub: x.n ? `${qty(x.n)} изд.` : '' });
       const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
       // группы выбранного раздела — сверху, остальные — «Все» (с разделом в подписи); одно название — один раз
       const groups = (get) => {

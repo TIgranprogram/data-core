@@ -328,9 +328,10 @@ table.so-lines.static tbody tr:hover { background: none; }
 .combo-list { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 2px); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); max-height: 320px; overflow-y: auto; }
 .combo-opt { padding: 8px 12px; cursor: pointer; }
 .combo-opt.active, .combo-opt:hover { background: var(--row-hover); }
-.combo-opt.cur { font-weight: 600; }
+.combo-opt.cur { background: var(--row-selected); }
 /* .combo-opt .opt-l — см. «Выпадающий список» ниже (ВС) */
-.combo-opt small { color: var(--muted); font-size: 12px; }
+.combo-opt .opt-l { font-size: 15px; font-weight: 600; color: var(--text); }
+.combo-opt small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .combo-group { padding: 6px 12px 4px; font-size: var(--fs-label, 11px); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); position: sticky; top: 0; }
 .combo-empty { padding: 10px 12px; color: var(--muted); font-size: var(--fs-sm); }
 .pick { background: var(--primary-soft); border-radius: var(--radius); padding: 10px 12px; }
@@ -1340,3 +1341,14 @@ table.list tbody tr:active { background: var(--row-hover); filter: brightness(.9
   .btn:active:not(:disabled), .chip:active, .seg button:active, .tcard:active, .sec-tile:active { transform: none; }
   .load-bar::after { animation-duration: 3s; }
 }
+
+/* Каталог поставщиков: карточка позиции (цена крупно, поля «подпись сверху») */
+.sc-card { display: flex; flex-direction: column; gap: var(--s4); margin-bottom: var(--s4); }
+.sc-price { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s3) var(--s4); }
+.sc-price-v { font-size: 24px; font-weight: 650; }
+.sc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3) var(--s4); }
+.sc-f { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sc-f span { color: var(--muted); font-size: var(--fs-label, 11px); }
+.sc-f b { font-weight: 500; overflow-wrap: anywhere; }
+.sc-nolink { display: inline-flex; align-items: center; gap: var(--s2); }
+.sc-hist th, .sc-hist td { padding: var(--s2) var(--s3); }

@@ -9,7 +9,7 @@ import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
 import { COST_CENTER } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
-import { lookups, UNITS, unitList } from './lookups.js';
+import { lookups, UNITS, unitList, partnerAction } from './lookups.js';
 import { pastItems } from './requests.js';
 import { orderedNote } from './item-orders.js';
 import { errText } from '../ui/errors.js';
@@ -80,7 +80,9 @@ async function buildInvoiceForm(opts = {}) {
       h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Короткое название *', nName, 'wide'), field('Длинное название', nFull, 'wide'), field('Название в счёте', nInv, 'wide'), field('Артикул', nArt), field('Ед. изм.', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
         h('div', { class: 'field wide' }, h('span', null, 'Фото'), nPhotos.el)),
       nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { nBox.hidden = true; } }, 'Отмена')));
-    const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = nName.value || title.value.trim(); nInv.value = nInv.value || row.src?.name || title.value.trim(); (nCat.value ? nName : nCat).focus(); } }, 'Нет в списке — создать позицию');
+    const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = nName.value || title.value.trim(); nInv.value = nInv.value || row.src?.name || title.value.trim(); (nCat.value ? nName : nCat).focus(); } }, 'Создать позицию');
+    const syncAdd = () => { const t = title.value.trim(); addNew.textContent = t ? `Создать «${t.length > 30 ? t.slice(0, 30) + '…' : t}»` : 'Создать позицию'; addNew.hidden = !t || t === row.picked || items.some((x) => x.label.toLowerCase() === t.toLowerCase()); };
+    title.addEventListener('input', () => setTimeout(syncAdd, 0)); title.addEventListener('change', () => setTimeout(syncAdd, 0)); syncAdd();
     const del = h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Убрать позицию', onclick: () => { rows.splice(rows.indexOf(row), 1); row.el.remove(); recalc(); } }, '×');
     const dupe = orderedNote(); // ЗП.3: позиция уже заказана — предупредить в строке
     row.el = h('div', { class: 'inv-row' },
@@ -117,7 +119,7 @@ async function buildInvoiceForm(opts = {}) {
         for (const photoId of nPhotos.ids()) it = await api(`/stock/items/${it.id}/photos`, { method: 'POST', body: { photoId } });
         // в списки и в строку
         cat.value = newCat; setCat(newCat);
-        items.unshift({ label: it.name, cat: newCat, sub: [newCat, 'новая'].join(' · '), values: { title: it.name, unit: it.unit, categoryName: newCat, article: it.article } });
+        items.unshift({ label: it.name, cat: newCat, sub: 'новая', values: { title: it.name, unit: it.unit, categoryName: newCat, article: it.article } });
         title.value = it.name; row.picked = it.name; unit.value = it.unit || 'шт'; row.extra = { article: it.article };
         row.url = { value: nUrl.value.trim() };
         nBox.hidden = true;
@@ -194,7 +196,7 @@ async function buildInvoiceForm(opts = {}) {
     h('div', { class: 'section-title' }, 'Позиции счёта'),
     lines,
     h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ Строка счёта'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
-  attachCombo(sup, { options: () => (lk.suppliers || []).map((s) => ({ label: s })) });
+  attachCombo(sup, { options: () => (lk.suppliers || []).map((s) => ({ label: s })), extra: (t) => partnerAction('supplier', t, lk.suppliers, (n) => { (lk.suppliers ||= []).push(n); sup.value = n; }) });
   attachCombo(type, { options: () => (lk.invoiceTypes || []).map((s) => ({ label: s })) });
   if (!opts.paste) addRow(false);
   recalc();

@@ -236,20 +236,32 @@ export const supplierCatalog = {
 
   card: {
     heading: (r) => r.name,
-    subheading: (r) => [r.supplierName, r.article && !r.article.startsWith('manual:') ? 'арт. ' + r.article : ''].filter(Boolean).join(' · '),
+    subheading: (r) => r.supplierName || '',
     editTop: true,
-    stats: (r) => [['Цена', r.priceHint != null ? `${money(r.priceHint)} ₽${r.unit ? ' / ' + r.unit : ''}` : '—'], ['Дата цены', r.priceDate ? date(r.priceDate) : '—'], ['Остаток', r.stockQty != null ? qty(r.stockQty) : '—']],
-    view: (r) => [
-      ['Поставщик', r.supplierName], ['Артикул поставщика', r.article && !r.article.startsWith('manual:') ? r.article : ''], ['Название у поставщика', r.name],
-      ['Цвет', r.color], ['Ед. изм.', r.unit], ['Группа', r.optGroup],
-      ['Наш материал', r.materialId ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null) : h('span', { class: 'muted' }, 'нет связи — задайте в «Изменить»')],
-      ['Откуда', SRC[r.source] || ''], ['Примечание', r.note],
-    ],
+    top: (r, ctx) => {
+      const art = r.article && !r.article.startsWith('manual:') ? r.article : '';
+      const cell = (l, v) => (v === undefined || v === null || v === '' ? null : h('div', { class: 'sc-f' }, h('span', null, l), h('b', null, v)));
+      const mat = r.materialId
+        ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null)
+        : h('span', { class: 'sc-nolink' }, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.edit() }, 'Связать') : null);
+      return h('div', { class: 'sc-card' },
+        h('div', { class: 'sc-price' },
+          h('div', { class: 'sc-price-v num' }, r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана'),
+          r.priceHint != null && r.priceDate ? h('div', { class: 'muted small' }, 'от ' + date(r.priceDate)) : null),
+        h('div', { class: 'sc-grid' },
+          cell('Артикул у поставщика', art),
+          cell('Цвет', r.color), cell('Группа', r.optGroup),
+          cell('Остаток', r.stockQty != null ? qty(r.stockQty) : ''),
+          cell('Откуда', SRC[r.source] || ''),
+          cell('Наш материал', mat),
+          cell('Примечание', r.note)));
+    },
+    view: () => [],
     extra: (r) => {
       const hist = [...(r.priceHistory || [])].reverse();
       if (!hist.length) return h('p', { class: 'muted' }, 'Истории цен пока нет.');
-      return h('div', null, h('h3', null, 'История цен'),
-        h('table', { class: 'data-table' }, h('thead', null, h('tr', null, h('th', null, 'Дата'), h('th', { class: 'num' }, 'Цена, ₽'), h('th', null, 'Откуда'))),
+      return h('div', null, h('div', { class: 'section-title' }, 'История цен'),
+        h('table', { class: 'data-table sc-hist' }, h('thead', null, h('tr', null, h('th', null, 'Дата'), h('th', { class: 'num' }, 'Цена, ₽'), h('th', null, 'Откуда'))),
           h('tbody', null, hist.map((x) => h('tr', null, h('td', null, x.date ? date(x.date) : '—'), h('td', { class: 'num' }, money(x.price)), h('td', { class: 'muted' }, SRC[x.source] || x.source || ''))))));
     },
   },

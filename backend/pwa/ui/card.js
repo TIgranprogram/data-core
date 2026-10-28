@@ -165,7 +165,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
 
   function actx() {
-    return { reload: () => showView(), setRow: (r) => { showView(r); ctx.changed(); }, changed: ctx.changed, close: () => { destroy(); ctx.close(); } };
+    return { edit: () => showForm('edit'), reload: () => showView(), setRow: (r) => { showView(r); ctx.changed(); }, changed: ctx.changed, close: () => { destroy(); ctx.close(); } };
   }
   async function runAction(a, btn) {
     // дольше четверти секунды — крутилка на кнопке: видно, что дело идёт (замечание 2026-10-22 «тишина»); ОШ2.5 — ui/busy.js

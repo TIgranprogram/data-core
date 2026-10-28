@@ -74,12 +74,12 @@ async function build() {
   // ---------- Выбор позиции ----------
   const pickIn = h('input', { placeholder: 'Например: м10 гайка · din 933 · подшипник', 'aria-label': 'Найти позицию' });
   const pickBox = h('label', { class: 'field wide' }, h('span', null, 'Добавить позицию'), pickIn);
-  const opts = () => (all || []).map((i) => ({ value: i.id, label: i.name, sub: [`${qty(i.quantity)} ${i.unit || ''}`.trim(), i.reservedQty ? `в брони ${qty(i.reservedQty)}` : '', i.categoryName].filter(Boolean).join(' · ') }));
+  const opts = () => (all || []).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() }));
   const combo = attachCombo(pickIn, {
     options: opts,
     empty: () => (loading ? 'Загружаю склад…' : ''),
     onPick: (o) => { pickIn.value = ''; const it = all.find((x) => x.id === o.value); if (it) add(it); },
-    extra: (text) => (op === 'in' && all && text.length > 2 && !all.some((x) => x.name.toLowerCase() === text.toLowerCase()) ? [{ label: `+ Новая позиция «${text}»`, run: () => createNew(text) }] : []),
+    extra: (text) => (op === 'in' && all && text.length > 2 && !all.some((x) => x.name.toLowerCase() === text.toLowerCase()) ? [{ label: `Создать «${text}»`, run: () => createNew(text) }] : []),
   });
   pickIn.addEventListener('focus', async () => {
     if (all || loading) return;

@@ -82,14 +82,14 @@ async function buildCompositionForm() {
   const pick = h('ul', { class: 'pick-list', role: 'listbox', 'aria-label': 'Материалы и изделия' });
   // склад целиком — по действию (фокус поиска / чип «Материалы»), а не при открытии формы (ПР-1); один общий список на приложение
   let mats = []; let stockState = 0; let stockFailed = false; // 0 — не просили, 1 — грузится, 2 — готов
-  const matOf = (s) => ({ id: s.materialId || s.id, name: s.name, article: s.article, unit: s.unit, group: s.categoryName || 'Без категории', sub: [s.article && 'арт. ' + s.article, `на складе: ${qty(s.free ?? s.quantity ?? 0)} ${s.unit || ''}`].filter(Boolean).join(' · '), lineType: 'material' });
+  const matOf = (s) => ({ id: s.materialId || s.id, name: s.name, article: s.article, unit: s.unit, group: s.categoryName || 'Без категории', sub: s.article ? 'арт. ' + s.article : '', lineType: 'material' });
   const ensureStock = () => {
     if (stockState) return;
     stockState = 1; drawPick();
     stockLookup().then((list) => { mats = list.map(matOf); stockState = 2; }, () => { stockState = 0; stockFailed = true; }).then(drawPick);
   };
   const prods = products.filter((p) => p.id !== prod.id) // само в себя — нельзя (глубже проверит сервер)
-    .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: [p.sku && 'арт. ' + p.sku, p.price ? money(p.price) : ''].filter(Boolean).join(' · '), lineType: 'product' }));
+    .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: p.sku ? 'арт. ' + p.sku : '', lineType: 'product' }));
   const drawChips = () => chips.replaceChildren(...[['all', 'Все'], ['material', 'Материалы'], ['product', 'Изделия']].map(([v, l]) => h('button', { type: 'button', role: 'tab', class: 'chip' + (kind === v ? ' active' : ''), 'aria-selected': String(kind === v), onclick: () => { kind = v; drawChips(); drawPick(); } }, l)));
   function drawPick() {
     const tk = searchTokens(query);
