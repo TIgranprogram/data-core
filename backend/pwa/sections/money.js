@@ -1,4 +1,4 @@
-import { api, session } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
@@ -108,7 +108,7 @@ export function mountMoney(params) {
         h('div', { class: 'q-head' }, h('h3', null, `Операции ${dd.getUTCDate()} ${MONTHS[dd.getUTCMonth()].replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та')}`),
           h('button', { class: 'btn btn-ghost btn-sm q-link', type: 'button', onclick: () => { opsBox.hidden = true; } }, 'Скрыть')),
         h('ul', { class: 'q-list' }, d.ops.map((o) => h('li', { class: 'q-row' + (o.thumb ? ' has-pic' : ''), tabindex: '0', onclick: () => patch({ of: o.type === 'income' ? 'orders' : 'requests', open: o.id }) },
-          o.thumb ? h('img', { class: 'q-thumb', src: o.thumb, alt: '', loading: 'lazy' }) : null,
+          o.thumb ? h('img', { class: 'q-thumb', src: PREFIX + o.thumb, decoding: 'async', onerror: (e) => e.target.remove(), alt: '', loading: 'lazy' }) : null,
           h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, o.title), h('div', { class: 'q-sub' }, [o.type === 'income' ? 'поступление' : 'выплата', o.company, o.doc, o.counterparty, o.category].filter(Boolean).join(' · '))),
           h('div', { class: 'q-side' }, h('span', { class: 'num ' + (o.type === 'income' ? 'pos' : 'neg') }, (o.type === 'income' ? '+' : '−') + money(o.amount)))))));
       opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
