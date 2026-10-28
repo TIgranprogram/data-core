@@ -221,6 +221,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const headPick = () => headCb;
   // L.top(reload) — свой блок над списком (полоса состояния загрузки и т. п.), создаётся один раз
   const topBox = L.top ? L.top(() => load()) : null;
+  topBox?.onParams?.(P); // top может следить за адресом (крошки)
   const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !sideChips ? chipsBox : null, topBox, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   let board = null;
@@ -575,6 +576,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (onlyOpen) { markSelected(); return; }
     syncControls();
     extra?.update(P);
+    topBox?.onParams?.(P);
     load();
   }
 

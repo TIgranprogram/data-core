@@ -77,3 +77,6 @@
 ## Меню «Настройки» + шапка (2026-10-28, не закоммичено)
 - `ui/pop-menu.js` — `openPopMenu({anchor,groups,head,side})`, `closePopMenu`, `isOpenFor`; CSS `.pm*` конец `ui/panels.css`. `main.js` — `settingsButton/historyButton/themeButton/avatarButton/installItem`; `.side-foot` = Настройки + версия.
 - v3 карточки задачи (2026-10-28): `sections/design.js` `taskPics/topBlock/specBlock` (сводка `.kv-grid`, `spec` → «Изделие»); `ui/gallery.js` `carousel/zoom` (`.pgal`); `ui/design-notes.js` `photoLine/isPhotoNote` («[фото]» одной строкой, `openGallery`); CSS — конец `ui/panels.css`. коммит: —. Карта обновлена.
+
+## Каталог поставщиков v2 (2026-10-28, не закоммичено)
+- `sections/supplier-catalog.js` переписан на ui/list.js: tiles=поставщики, `sideFilters` (категории + flag unmatched/noPrice/stale), `topBlock` (крошки + шестерёнка: шаблон/импорт/выгрузка), `importDialog` (preview → apply), `materialWidget`. `list.js`: `topBox.onParams(P)`. CSS `.sc-*` конец screens.css. Карточка берёт строку из `rowCache` (GET по id на сервере нет). Карта обновлена.

@@ -1,106 +1,304 @@
-import { api } from '../core/api.js';
+import { api, apiFile, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { money } from '../core/format.js';
+import { date, money, qty } from '../core/format.js';
+import { current, patch } from '../core/router.js';
 import { attachCombo } from '../ui/combo.js';
+import { modal } from '../ui/dialog.js';
+import { enhanceSelect } from '../ui/select.js';
+import { openPopMenu } from '../ui/pop-menu.js';
+import { icon } from '../ui/icons.js';
+import { toast, toastError } from '../ui/toast.js';
 
 /**
- * Каталог поставщиков — позиции из supplieritems (прайсы, загруженные через «Контрагенты → Загрузить прайс»).
- * Только просмотр; редактирование — через повторную загрузку прайса.
+ * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
+ * Слева: поставщики с числом (tiles), категории и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
+ * Справа: таблица GET /supply/catalog/items. Сверху: крошки и шестерёнка (шаблон, импорт, выгрузка).
+ * Правка, добавление, импорт — только admin / manager; остальные — просмотр и выгрузка.
  */
 
+const canWrite = () => ['admin', 'manager'].includes(session.role);
+const FLAGS = [['unmatched', 'Без связи с нашим материалом'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
+const SRC = { excel: 'Excel', request: 'Заявка', stock: 'Склад', manual: 'Вручную' };
+
+// ---------- данные ----------
+let countsP = null;
+let countsAt = 0;
+/** Счётчики левой панели: кэш на 20 с, bust() — после правки и импорта. */
+function getCounts() {
+  if (!countsP || Date.now() - countsAt > 20000) { countsAt = Date.now(); countsP = api('/supply/catalog/counts').catch((e) => { countsP = null; throw e; }); }
+  return countsP;
+}
+const bust = () => { countsP = null; };
+
 let suppliersCache = null;
+/** Поставщики для выбора: /partners?type=supplier (не kind). */
 async function loadSuppliers() {
   if (suppliersCache) return suppliersCache;
-  const res = await api('/partners', { query: { limit: 500, kind: 'supplier' } }).catch(() => ({ items: [] }));
+  const res = await api('/partners', { query: { limit: 500, type: 'supplier' } }).catch(() => ({ items: [] }));
   suppliersCache = (res.items || []).map((p) => ({ value: p.id, label: String(p.shortName || p.name) }));
   return suppliersCache;
 }
 
+const rowCache = new Map(); // строки списка — карточка открывается без отдельного запроса (GET по id на сервере нет)
+
+/** Параметры адреса → запрос к серверу (список и выгрузка). */
+function queryOf(P) {
+  const q = {};
+  if (P.q) q.search = P.q;
+  if (P.supplierId) q.supplierId = P.supplierId;
+  if (P.categoryId) q.categoryId = P.categoryId;
+  if (FLAGS.some(([k]) => k === P.flag)) q[P.flag] = '1';
+  return q;
+}
+
+// ---------- левая панель: категории и быстрые отборы ----------
+function sideFilters() {
+  const el = h('div', { class: 'ls-extra' });
+  let P = {};
+  const opt = (label, n, on, run) => h('button', { type: 'button', class: 'ls-opt' + (on ? ' active' : ''), onclick: run },
+    h('span', { class: 'ls-t' }, label), n !== undefined ? h('b', null, qty(n)) : null);
+  async function paint() {
+    let c;
+    try { c = await getCounts(); } catch { return; }
+    const flagN = { unmatched: c.unmatched, noPrice: c.noPrice, stale: c.stale };
+    el.replaceChildren(
+      h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Быстро'),
+        h('div', { class: 'ls-list' }, FLAGS.map(([k, label]) => opt(label, flagN[k], P.flag === k, () => patch({ flag: P.flag === k ? undefined : k, page: undefined }))))),
+      (c.categories || []).length ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Категории'),
+        h('div', { class: 'ls-list' }, c.categories.map((x) => opt(x.name, x.count, P.categoryId === x.id, () => patch({ categoryId: P.categoryId === x.id ? undefined : x.id, page: undefined }))))) : null);
+  }
+  return { el, update(next) { P = next; paint(); } };
+}
+
+// ---------- шапка: крошки и шестерёнка ----------
+function topBlock(reload) {
+  const crumbEnd = h('span', { class: 'sc-crumb-end' });
+  const crumbs = h('nav', { class: 'sc-crumbs', 'aria-label': 'Где вы' },
+    h('a', { href: '#stock' }, 'Снабжение'), h('span', { class: 'muted' }, ' › '),
+    h('a', { href: '#suppliercatalog', onclick: () => patch({ supplierId: undefined, categoryId: undefined, flag: undefined, page: undefined }) }, 'Каталог поставщиков'), crumbEnd);
+  const gear = h('button', { class: 'btn btn-ghost', type: 'button', title: 'Шаблон, загрузка и выгрузка Excel', 'aria-label': 'Действия с Excel', 'aria-haspopup': 'menu',
+    onclick: () => openPopMenu({ anchor: gear, side: 'down', groups: [
+      { items: [
+        { label: 'Скачать шаблон Excel', onSelect: () => download('/supply/catalog/template', {}, 'Шаблон_каталога.xlsx') },
+        canWrite() ? { label: 'Загрузить Excel…', onSelect: () => importDialog(reload) } : null,
+        { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
+      ] }] }) }, icon('settings'));
+  const el = h('div', { class: 'sc-top' }, crumbs, h('span', { class: 'spacer' }), gear);
+  el.onParams = async (P) => {
+    crumbEnd.replaceChildren();
+    if (!P.supplierId) return;
+    const c = await getCounts().catch(() => null);
+    const s = c?.suppliers?.find((x) => x.id === P.supplierId);
+    if (s && P.supplierId === current().params.supplierId) crumbEnd.replaceChildren(h('span', { class: 'muted' }, ' › '), h('span', null, s.name));
+  };
+  return el;
+}
+
+async function download(path, query, fallback) {
+  try { toast(`Скачан: ${await apiFile(path, { query, fallback })}`); } catch (e) { toastError(e, 'скачать файл'); }
+}
+
+// ---------- импорт: окно с предпросмотром ----------
+const ST = { new: ['Новая', 'ok'], price: ['Цена изменилась', 'warn'], update: ['Изменится', 'info'], same: ['Без изменений', ''], error: ['Ошибка', 'warn'] };
+
+function previewTable(res) {
+  const c = res.counts || {};
+  const rows = res.rows || [];
+  const head = h('p', { class: 'hint' + (c.error ? '' : ' ok') },
+    `Строк: ${qty(c.total)} · новых: ${qty(c.new)} · цена изменилась: ${qty(c.price)} · изменится: ${qty(c.update)} · без изменений: ${qty(c.same)} · ошибок: ${qty(c.error)}`);
+  const dup = res.duplicate ? h('p', { class: 'form-error' }, 'Этот файл уже загружали. Если загрузить ещё раз, изменений почти не будет.') : null;
+  const note = c.error ? h('p', { class: 'hint' }, 'Строки с ошибками будут пропущены, остальные загрузятся.') : null;
+  const trs = rows.slice(0, 300).map((r) => {
+    const [label, tone] = ST[r.status] || [r.status, ''];
+    return h('tr', null,
+      h('td', { class: 'muted nowrap' }, String(r.rowNum)),
+      h('td', null, h('span', { class: 'badge ' + tone }, label), r.errors?.length ? h('div', { class: 'form-error small' }, r.errors.join('; ')) : null),
+      h('td', { class: 'muted nowrap' }, r.supplierName || '—'),
+      h('td', { class: 'nowrap' }, r.article || '—'),
+      h('td', null, r.name || '—', r.materialName ? h('div', { class: 'muted small' }, '→ ' + r.materialName) : null),
+      h('td', { class: 'num nowrap' }, r.price != null ? (r.oldPrice != null && r.oldPrice !== r.price ? `${money(r.oldPrice)} → ` : '') + money(r.price) : '—'));
+  });
+  const table = h('div', { class: 'table-wrap', style: { maxHeight: '320px', overflow: 'auto' } },
+    h('table', { class: 'data-table' },
+      h('thead', null, h('tr', null, ['Строка', 'Что будет', 'Поставщик', 'Артикул', 'Название', 'Цена, ₽'].map((t) => h('th', null, t)))),
+      h('tbody', null, ...trs)));
+  return [head, dup, note, table, rows.length > 300 ? h('p', { class: 'muted small' }, `Показаны первые 300 из ${rows.length}`) : null];
+}
+
+async function importDialog(reload) {
+  const sup = h('select', { 'aria-label': 'Поставщик' }, h('option', { value: '' }, 'Не выбран — поставщик указан в файле'));
+  loadSuppliers().then((list) => { list.forEach((o) => sup.append(h('option', { value: o.value }, o.label))); const cur = current().params.supplierId; if (cur) sup.value = cur; enhanceSelect(sup); });
+  const file = h('input', { type: 'file', accept: '.xlsx' });
+  const out = h('div', { class: 'sc-preview' });
+  let ready = false;
+  const form = () => { const fd = new FormData(); fd.append('file', file.files[0]); if (sup.value) fd.append('supplierId', sup.value); return fd; };
+  async function preview() {
+    ready = false;
+    if (!file.files?.[0]) { out.replaceChildren(); return; }
+    out.replaceChildren(h('p', { class: 'hint' }, 'Проверяю файл…'));
+    try {
+      const res = await api('/supply/catalog/import?preview=1', { method: 'POST', body: form() });
+      out.replaceChildren(...previewTable(res).filter(Boolean));
+      ready = (res.counts?.total || 0) > (res.counts?.error || 0);
+    } catch (e) { out.replaceChildren(h('p', { class: 'form-error' }, e.message || 'Не удалось прочитать файл')); }
+  }
+  file.addEventListener('change', preview);
+  sup.addEventListener('change', preview);
+  const body = h('div', null,
+    h('p', { class: 'hint' }, 'Скачайте шаблон в меню ⚙, заполните и загрузите. Поставщика можно не выбирать, если в файле есть колонка «ИНН поставщика».'),
+    h('label', { class: 'field' }, h('span', null, 'Поставщик (необязательно)'), sup),
+    h('label', { class: 'field' }, h('span', null, 'Файл Excel (.xlsx)'), file),
+    out);
+  await modal({
+    title: 'Загрузить прайс из Excel', okText: 'Загрузить', wide: true, body,
+    onOk: async () => {
+      if (!file.files?.[0]) throw new Error('Выберите файл');
+      if (!ready) throw new Error('Нет строк для загрузки — проверьте файл');
+      const res = await api('/supply/catalog/import', { method: 'POST', body: form() });
+      bust();
+      toast(`Загружено: новых ${res.created ?? 0}, обновлено ${res.updated ?? 0}, без изменений ${res.same ?? 0}${res.errors ? `, пропущено ${res.errors}` : ''}`);
+      reload?.();
+      window.dispatchEvent(new CustomEvent('data-changed'));
+    },
+  });
+}
+
+// ---------- карточка ----------
+/** Поле «Наш материал»: поиск по складу, пусто = связи нет. value — JSON id. */
+function materialWidget(v, row) {
+  let id = v || null;
+  const input = h('input', { type: 'text', placeholder: 'Найти на складе: название или артикул', value: row?.materialName || '' });
+  const wrap = h('div', { class: 'combo-wrap' }, input);
+  let opts = [];
+  let last = null;
+  let timer;
+  attachCombo(input, { options: () => opts, free: false, empty: () => 'Введите название — найду на складе',
+    onPick: (o) => { id = o.value; } });
+  input.addEventListener('input', () => {
+    if (!input.value.trim()) { id = null; }
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const s = input.value.trim();
+      if (s === last || s.length < 2) return;
+      last = s;
+      const res = await api('/stock/items', { query: { search: s, limit: 30 } }).catch(() => ({ items: [] }));
+      opts = (res.items || []).map((m) => ({ value: m.id, label: m.name, sub: [m.supplierArticle, m.categoryName].filter(Boolean).join(' · ') }));
+      input.dispatchEvent(new Event('focus'));
+    }, 250);
+  });
+  return { el: wrap, get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
+}
+
+const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
+
 export const supplierCatalog = {
   id: 'suppliercatalog',
   title: 'Каталог поставщиков',
+  newTitle: 'Новая позиция каталога',
+  canEdit: canWrite,
+  get: async (id) => {
+    if (rowCache.has(id)) return rowCache.get(id);
+    throw new Error('Позиция не найдена в текущем списке — откройте её из каталога');
+  },
 
-  async mount(el, { params, setTitle }) {
-    setTitle('Каталог поставщиков');
-    el.innerHTML = '';
+  list: {
+    path: '/supply/catalog/items',
+    sidebar: true,
+    export: false, // выгрузка — в шестерёнке (формат шаблона, можно править и загружать обратно)
+    extraKeys: ['categoryId', 'flag'],
+    toolbarExtra: sideFilters,
+    top: topBlock,
+    query: queryOf,
+    sortDefault: '',
+    createLabel: 'Новая позиция',
+    searchPlaceholder: 'Артикул, название, примечание…',
+    emptyText: 'В каталоге пока пусто. Загрузите прайс поставщика по шаблону: шестерёнка → «Скачать шаблон Excel», затем «Загрузить Excel…».',
+    tiles: {
+      key: 'supplierId', title: 'Поставщики',
+      load: async () => (await getCounts()).suppliers.map((s) => ({ value: s.id, label: s.name, n: s.count })),
+    },
+    columns: [
+      { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },
+      { key: 'article', label: 'Артикул поставщика', cls: 'nowrap', render: (r) => r.article && !r.article.startsWith('manual:') ? r.article : h('span', { class: 'muted' }, '—') },
+      { key: 'name', label: 'Название у поставщика', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name, r.color ? h('span', { class: 'muted' }, ' · ' + r.color) : null) },
+      { key: 'material', label: 'Наш материал', cls: 'clip md-hide', render: (r) => r.materialId ? h('span', { title: r.materialArticle }, r.materialName) : h('span', { class: 'badge warn', title: 'Не связана с позицией склада' }, 'нет связи') },
+      { key: 'unit', label: 'Ед.', cls: 'md-hide', render: (r) => r.unit || '' },
+      { key: 'priceHint', label: 'Цена, ₽', cls: 'num right', render: (r) => r.priceHint != null ? money(r.priceHint) : h('span', { class: 'muted' }, '—') },
+      { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => r.priceDate ? date(r.priceDate) : '' },
+      { key: 'stockQty', label: 'Остаток', cls: 'num right md-hide', render: (r) => r.stockQty != null ? qty(r.stockQty) : '' },
+    ],
+    card: {
+      title: (r) => r.name,
+      sub: (r) => [r.supplierName, r.article && !r.article.startsWith('manual:') ? 'арт. ' + r.article : '', r.materialName].filter(Boolean).join(' · '),
+      side: (r) => [h('b', { class: 'num' }, r.priceHint != null ? money(r.priceHint) + ' ₽' : '—')],
+    },
+  },
 
-    const state = { supplierId: params.supplierId || '', search: params.search || '', page: 1, loading: false };
+  card: {
+    heading: (r) => r.name,
+    subheading: (r) => [r.supplierName, r.article && !r.article.startsWith('manual:') ? 'арт. ' + r.article : ''].filter(Boolean).join(' · '),
+    editTop: true,
+    stats: (r) => [['Цена', r.priceHint != null ? `${money(r.priceHint)} ₽${r.unit ? ' / ' + r.unit : ''}` : '—'], ['Дата цены', r.priceDate ? date(r.priceDate) : '—'], ['Остаток', r.stockQty != null ? qty(r.stockQty) : '—']],
+    view: (r) => [
+      ['Поставщик', r.supplierName], ['Артикул поставщика', r.article && !r.article.startsWith('manual:') ? r.article : ''], ['Название у поставщика', r.name],
+      ['Цвет', r.color], ['Ед. изм.', r.unit], ['Группа', r.optGroup],
+      ['Наш материал', r.materialId ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null) : h('span', { class: 'muted' }, 'нет связи — задайте в «Изменить»')],
+      ['Откуда', SRC[r.source] || ''], ['Примечание', r.note],
+    ],
+    extra: (r) => {
+      const hist = [...(r.priceHistory || [])].reverse();
+      if (!hist.length) return h('p', { class: 'muted' }, 'Истории цен пока нет.');
+      return h('div', null, h('h3', null, 'История цен'),
+        h('table', { class: 'data-table' }, h('thead', null, h('tr', null, h('th', null, 'Дата'), h('th', { class: 'num' }, 'Цена, ₽'), h('th', null, 'Откуда'))),
+          h('tbody', null, hist.map((x) => h('tr', null, h('td', null, x.date ? date(x.date) : '—'), h('td', { class: 'num' }, money(x.price)), h('td', { class: 'muted' }, SRC[x.source] || x.source || ''))))));
+    },
+  },
 
-    // ── шапка ──────────────────────────────────────────────────────────────
-    const supplierInput = h('input', { type: 'text', class: 'combo-input', placeholder: 'Все поставщики', autocomplete: 'off' });
-    const supplierWrap = h('div', { class: 'combo-wrap' }, supplierInput);
-    const searchInput = h('input', { type: 'search', class: 'search-input', placeholder: 'Артикул или название…', value: state.search });
-
-    const toolbar = h('div', { class: 'list-toolbar' }, supplierWrap, searchInput);
-
-    // ── таблица ────────────────────────────────────────────────────────────
-    const tbody = h('tbody');
-    const countEl = h('span', { class: 'muted' }, '');
-    const table = h('table', { class: 'data-table' },
-      h('thead', null, h('tr', null,
-        h('th', null, 'Поставщик'), h('th', null, 'Артикул'), h('th', null, 'Название'),
-        h('th', null, 'Цвет'), h('th', null, 'Группа'), h('th', { class: 'num' }, 'Цена'),
-        h('th', null, 'Обновлено'))),
-      tbody);
-    const wrap = h('div', { class: 'table-wrap' }, table);
-    const footer = h('div', { class: 'list-footer' }, countEl);
-    el.append(toolbar, wrap, footer);
-
-    // ── combo поставщика ───────────────────────────────────────────────────
-    const suppliers = await loadSuppliers();
-    attachCombo(supplierInput, {
-      items: suppliers,
-      value: state.supplierId,
-      placeholder: 'Все поставщики',
-      onChange(val) {
-        state.supplierId = val || '';
-        state.page = 1;
-        load();
-      },
-    });
-
-    // ── поиск ─────────────────────────────────────────────────────────────
-    let searchTimer;
-    searchInput.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => { state.search = searchInput.value.trim(); state.page = 1; load(); }, 300);
-    });
-
-    // ── загрузка ──────────────────────────────────────────────────────────
-    async function load() {
-      if (state.loading) return;
-      state.loading = true;
-      tbody.replaceChildren(h('tr', null, h('td', { colspan: '7', class: 'muted', style: { textAlign: 'center', padding: '16px' } }, 'Загрузка…')));
-      try {
-        const q = { limit: '200', page: String(state.page) };
-        if (state.supplierId) q.supplierId = state.supplierId;
-        if (state.search) q.search = state.search;
-        const res = await api('/supply/supplier-items', { query: q });
-        const rows = res.items || [];
-        if (!rows.length) {
-          tbody.replaceChildren(h('tr', null, h('td', { colspan: '7', class: 'muted', style: { textAlign: 'center', padding: '24px' } },
-            state.search || state.supplierId ? 'Ничего не найдено — уточните фильтр' : 'Прайсы ещё не загружены — откройте «Контрагенты», выберите поставщика → «Загрузить прайс из Excel»')));
-          countEl.textContent = '';
-          return;
-        }
-        const fmt = (d) => d ? new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
-        tbody.replaceChildren(...rows.map((r) => h('tr', null,
-          h('td', null, r.supplierName || '—'),
-          h('td', { class: 'muted nowrap' }, r.article || '—'),
-          h('td', null, r.name),
-          h('td', null, r.color || '—'),
-          h('td', { class: 'muted' }, r.optGroup || '—'),
-          h('td', { class: 'num' }, r.priceHint != null ? money(r.priceHint) + ' ₽' : '—'),
-          h('td', { class: 'muted nowrap' }, fmt(r.updatedAt)))));
-        const shown = rows.length;
-        countEl.textContent = res.total > shown ? `Показано ${shown} из ${res.total}` : `Позиций: ${res.total}`;
-      } catch (e) {
-        tbody.replaceChildren(h('tr', null, h('td', { colspan: '7', class: 'form-error' }, e.message || 'Ошибка загрузки')));
-      } finally {
-        state.loading = false;
+  form: {
+    closeAfterCreate: true,
+    fields: async (r) => {
+      const sups = r ? [] : await loadSuppliers();
+      return [
+        { section: 'Позиция', tone: 'main', fixed: true },
+        ...(r ? [] : [{ key: 'supplierId', label: 'Поставщик', type: 'select', required: true, wide: true, options: [{ value: '', label: 'Выберите поставщика' }, ...sups] }]),
+        ...(r ? [] : [{ key: 'article', label: 'Артикул поставщика', max: 100, hint: 'Пусто — позиция узнаётся по нашему материалу' }]),
+        { key: 'name', label: 'Название у поставщика', required: true, wide: true, max: 300 },
+        { key: 'color', label: 'Цвет', max: 100 },
+        { key: 'unit', label: 'Ед. изм.', max: 40 },
+        { key: 'price', label: 'Цена, ₽', type: 'number', min: 0, hint: 'Изменение цены запишется в историю' },
+        ...(r ? [{ key: 'optGroup', label: 'Группа', max: 100 }] : []),
+        { section: 'Связь с нашим складом', tone: 'info', fixed: true },
+        { key: 'material', label: 'Наш материал', type: 'widget', wide: true, widget: (v) => materialWidget(v, r) },
+        { key: 'note', label: 'Примечание', type: 'textarea', wide: true, max: 500 },
+      ];
+    },
+    toInitial: (r) => ({ ...r, price: r.priceHint, material: r.materialId || '' }),
+    toBody: (v, row) => {
+      const body = { name: v.name, color: v.color || '', unit: v.unit || '', note: v.note || '' };
+      const price = num(v.price);
+      if (row) {
+        body.optGroup = v.optGroup || '';
+        if (price !== null) body.price = price;
+        body.materialId = v.material || null;
+      } else {
+        body.supplierId = v.supplierId;
+        if (v.article) body.article = v.article;
+        if (price !== null) body.price = price;
+        if (v.material) body.materialId = v.material;
       }
-    }
-
-    load();
+      return body;
+    },
+    create: async (body) => {
+      const res = await api('/supply/catalog/items', { method: 'POST', body });
+      if (res.errors?.length) throw new Error(res.errors.join('; '));
+      bust();
+      return { id: '' };
+    },
+    update: async (id, body) => {
+      const saved = await api(`/supply/catalog/items/${id}`, { method: 'PATCH', body });
+      rowCache.set(saved.id, saved);
+      bust();
+      return saved;
+    },
   },
 };

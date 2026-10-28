@@ -163,15 +163,18 @@ export class SupplierCatalogService {
     for (const [i, it] of items.entries()) {
       const article = (it.article ?? '').trim() || (it.materialId ? `manual:${it.materialId}` : '');
       if (!article) { res.errors.push(`#${i + 1}: нет артикула и материала`); continue; }
+      if (!Types.ObjectId.isValid(String(it.supplierId ?? ''))) { res.errors.push(`#${i + 1}: неверный поставщик «${it.supplierId}»`); continue; }
       const color = normColor(it.color);
       const m = it.materialId ? mats.get(it.materialId) : undefined;
       const supplierId = new Types.ObjectId(it.supplierId);
+      try {
       const ex = await this.items.findOne({ supplierId, article, color: color || { $in: [null, ''] } as any }); // eslint-disable-line @typescript-eslint/no-explicit-any
       const r = await this.upsertOne(ex ?? undefined, {
         supplierId, article, color, name: it.name, unit: it.unit || (m?.unit as string), price: it.price ?? null, priceDate: parseDate(it.priceDate),
         note: it.note, materialId: m ? m._id : null, categoryId: m?.categoryId ?? null, source: it.source ?? 'manual',
       });
       res[r]++;
+      } catch (e) { res.errors.push(`#${i + 1} ${article}: ${(e as Error).message}`); } // строка с ошибкой не роняет весь пакет
     }
     return res;
   }

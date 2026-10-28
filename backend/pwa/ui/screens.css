@@ -1202,3 +1202,10 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .td-pb-r .td-tile { min-height: 76px; }
 .td-pb-r .td-h { font-size: var(--fs-table); }
 .td-head { margin-bottom: var(--s2); }
+
+/* Каталог поставщиков: крошки и шестерёнка над списком */
+.sc-top { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; }
+.sc-crumbs { font-size: var(--fs-sm); color: var(--text); }
+.sc-crumbs a { color: var(--muted); text-decoration: none; }
+.sc-crumbs a:hover { color: var(--text); text-decoration: underline; }
+.sc-preview { margin-top: 8px; }
