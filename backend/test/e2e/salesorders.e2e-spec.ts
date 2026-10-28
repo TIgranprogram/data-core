@@ -57,6 +57,10 @@ describe('Sales orders (заказы заказчиков)', () => {
     const mk = (orderNo: string, productionNo: string) => http().post('/api/salesorders').set(auth()).send({ orderNo, customer: 'ПН', productionNo }).expect(201);
     const o = (await mk('PN-1', '20-26')).body;
     const o2 = (await mk('PN-2', '99-25')).body;
+    const o3 = (await mk('PN-3', '3-26')).body;
+    // сортировка «№ заказа»: год, затем номер числом (3-26 раньше 20-26), без № — в конце
+    const srt = (await http().get('/api/salesorders?sort=productionNo&search=ПН').set(auth()).expect(200)).body.items.map((x: { productionNo: string }) => x.productionNo);
+    expect(srt).toEqual(['99-25', '3-26', '20-26']);
     expect(o.productionNo).toBe('20-26');
     const nx = await http().get('/api/salesorders/next-production-no?year=2026').set(auth()).expect(200);
     expect(nx.body.value).toBe('21-26');
@@ -65,7 +69,7 @@ describe('Sales orders (заказы заказчиков)', () => {
     const cleared = await http().patch(`/api/salesorders/${o.id}`).set(auth()).send({ productionNo: '' }).expect(200);
     expect(cleared.body.productionNo).toBeUndefined();
     // убрать за собой: следующий тест считает заказы
-    for (const x of [o, o2]) await http().delete(`/api/salesorders/${x.id}`).set(auth()).expect(200);
+    for (const x of [o, o2, o3]) await http().delete(`/api/salesorders/${x.id}`).set(auth()).expect(200);
   });
 
   it('позиции через /incomes с orderId: поля шапки — из заказа, № позиции по порядку; карточка с суммой', async () => {

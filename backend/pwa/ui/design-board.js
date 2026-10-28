@@ -135,8 +135,8 @@ export async function createTask(line, to, people) {
 // ---------- мелкие элементы ----------
 const photo = (src, cls = 'db-pic') => (src ? h('img', { class: cls, src: PREFIX + src, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('span', { class: cls + ' none' })) }) : h('span', { class: cls + ' none' }));
 // ЗНП — № заказа (производства, productionNo); № договора (orderNo) — справка
-const orderName = (o) => (clean(o.productionNo) ? 'ЗНП ' + clean(o.productionNo) : 'Заказ, нет №');
-const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), 'ЗНП ' + (clean(orderNo) || 'нет №')), orderId) : h('span', { class: 'db-chip none' }, 'Без заказа'));
+const orderName = (o) => (clean(o.productionNo) ? '№ ' + clean(o.productionNo) : 'Заказ, нет №');
+const chip = (orderId, orderNo) => (orderId ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), '№ ' + (clean(orderNo) || 'нет №')), orderId) : h('span', { class: 'db-chip none' }, 'Без заказа'));
 
 /** Куда можно перенести: с левой стороны (нет задачи) — в «Завершены» нельзя. */
 function sheetOptions(status) {
@@ -342,7 +342,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
   function taskEl(t) {
     const title = clean(t.productName) || clean(t.title) || 'Без названия';
     const node = h('article', { class: 'tcard db-task' + (canEdit ? ' movable' : ''), tabindex: '0', role: 'button', dataset: { task: t.id },
-      'aria-label': `${t.productionNo ? 'ЗНП ' + t.productionNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
+      'aria-label': `${t.productionNo ? '№ ' + t.productionNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
     h('div', { class: 'db-ttop' }, chip(t.orderId, t.productionNo), questionBadge(t),
       canEdit ? h('button', { type: 'button', class: 'btn btn-ghost btn-icon db-more', 'aria-label': `Статус: перенести «${title}»`, title: 'Статус', onclick: (e) => { e.stopPropagation(); pickStatus({ task: t }, title, e.currentTarget); } }, '⋯') : null),
@@ -375,7 +375,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       const o = oid && boardOrder(oid);
       const g = h('div', { class: 'db-group' });
       paintOrder(g, oid);
-      g.append(h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), oid ? [h('b', null, 'ЗНП ' + (clean(o?.productionNo) || clean(ts[0].productionNo) || 'нет №')), o?.customer ? h('span', { class: 'muted' }, ' · ' + o.customer) : null] : 'Без заказа'),
+      g.append(h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), oid ? [h('b', null, '№ ' + (clean(o?.productionNo) || clean(ts[0].productionNo) || 'нет №')), o?.customer ? h('span', { class: 'muted' }, ' · ' + o.customer) : null] : 'Без заказа'),
         ...ts.sort((a, b) => (key === 'done' ? 0 : (a.seq || 0) - (b.seq || 0))).map(taskEl));
       body.append(g);
     }

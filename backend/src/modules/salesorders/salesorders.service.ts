@@ -97,8 +97,13 @@ export class SalesOrdersService {
       filter.$and = [...((filter.$and as unknown[]) ?? []), { $or: [{ priority: { $in: want } }, ...(want.includes('normal') ? [{ priority: null }] : [])] }];
     }
     const full = { ...filter, ...(stages ? { stage: { $in: stages } } : {}) };
+    // № заказа «N-ГГ» — не по алфавиту: год, затем N числом; без № — в конце (Mongo 4.4: $split + $convert)
+    const num = (i: number) => ({ $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: ['$productionNo', ''] }, '-'] }, i] }, to: 'int', onError: null, onNull: null } });
     const [docs, total, byStage] = await Promise.all([
-      'priority' in p.sort
+      'productionNo' in p.sort
+        ? this.model.aggregate([{ $match: full }, { $addFields: { _pnone: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$productionNo', ''] } }, 0] }, 0, 1] }, _py: num(1), _pn: num(0) } },
+          { $sort: { _pnone: 1, _py: p.sort.productionNo, _pn: p.sort.productionNo, productionNo: p.sort.productionNo, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _pnone: 0, _py: 0, _pn: 0 } }]).exec()
+      : 'priority' in p.sort
         // срочность — не по алфавиту: ранг через $switch (Mongo 4.4)
         ? this.model.aggregate([{ $match: full }, { $addFields: { _rank: { $switch: { branches: Object.entries(PRIORITY_RANK).map(([k, v]) => ({ case: { $eq: ['$priority', k] }, then: v })), default: PRIORITY_RANK.normal } } } }, { $sort: { _rank: p.sort.priority, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _rank: 0 } }]).exec()
         : this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),

@@ -139,7 +139,7 @@ describe('DesignService', () => {
   it('from-order: задача на позицию, повтор — 0 новых; срок (изготовление → отгрузка) и приоритет из заказа', async () => {
     const r = await service.fromOrder({ orderId: String(orderId) });
     expect(r).toMatchObject({ created: 2, skipped: 0 });
-    expect(r.items.map((i) => i.title)).toEqual(['Чертежи 3410 ЗНП 20-26 поз 7', 'Урна']);
+    expect(r.items.map((i) => i.title)).toEqual(['Чертежи 3410 № 20-26 поз 7', 'Урна']);
     expect(r.items[0]).toMatchObject({ priority: 'urgent', priorityFromOrder: true, deadlineFromOrder: true, sku: '3410', productName: 'Скамья', lineNo: 7 });
     expect(r.items[0].deadline).toEqual(new Date('2026-12-01'));
     expect(await service.fromOrder({ orderId: String(orderId) })).toMatchObject({ created: 0, skipped: 2, items: [] });

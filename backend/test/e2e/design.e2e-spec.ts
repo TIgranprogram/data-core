@@ -52,7 +52,7 @@ describe('Design tasks (Проектирование)', () => {
     expect(r).toMatchObject({ created: 2, skipped: 0 });
     const t = r.items.find((x: { sku: string | null }) => x.sku === '3410');
     taskId = t.id;
-    expect(t).toMatchObject({ status: 'queue', title: expect.stringContaining('Чертежи 3410 ЗНП 20-26'), priority: 'urgent', priorityFromOrder: true, deadlineFromOrder: true });
+    expect(t).toMatchObject({ status: 'queue', title: expect.stringContaining('Чертежи 3410 № 20-26'), priority: 'urgent', priorityFromOrder: true, deadlineFromOrder: true });
     expect(t.deadline.slice(0, 10)).toBe('2026-12-01');
     expect((await http().post('/api/design-tasks/from-order').set(auth()).send({ orderId }).expect(200)).body).toMatchObject({ created: 0, skipped: 2 });
     await http().post('/api/design-tasks').set(auth()).send({ incomeId: lineId }).expect(409);

@@ -64,7 +64,7 @@ export const designOrder = {
     return { ...o, id: o.orderId, lines: await loadLines(id, o) };
   },
   card: {
-    heading: (r) => `${r.orderNo ? 'ЗНП ' + r.orderNo : 'Заказ без номера'}${r.customer ? ' · ' + r.customer : ''}`,
+    heading: (r) => `${r.productionNo ? 'Заказ № ' + r.productionNo : 'Заказ, нет №'}${r.customer ? ' · ' + r.customer : ''}`,
     subheading: () => 'Заказ в проектировании',
     noHistory: true,
     actions: (r, ctx) => {
@@ -75,7 +75,7 @@ export const designOrder = {
       ].filter(Boolean);
     },
     view: (r) => [
-      ['Заказ', h('a', { href: '#salesorders?open=' + r.orderId }, (r.orderNo ? 'ЗНП ' + r.orderNo : 'Заказ без номера'))],
+      ['Заказ', h('a', { href: '#salesorders?open=' + r.orderId }, (r.productionNo ? 'Заказ № ' + r.productionNo : 'Заказ, нет №'))],
       ['Заказчик', r.customer],
       ['Срок', r.deadline ? dueNode({ deadline: r.deadline, status: 'queue' }) : 'без срока'],
       ['Приоритет', ORDER_PRIORITY[r.priority]?.label],

@@ -53,7 +53,7 @@ export function stickerNode(task, st) {
         const p = ORDER_PRIORITY[task.priority]; if (!p || task.priority === 'normal') return none;
         return { node: chip(p.tone, p.label) };
       }
-      case 'order': return text(task.orderNo) ? { node: chip('', 'ЗНП ' + text(task.orderNo)) } : none;
+      case 'order': return text(task.productionNo) ? { node: chip('', '№ ' + text(task.productionNo)) } : none;
       case 'product': { const t = text(task.productName) || text(task.sku); return t ? { node: chip('', t) } : none; }
       default: return none;
     }

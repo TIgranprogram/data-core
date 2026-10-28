@@ -36,7 +36,7 @@ describe('design-present', () => {
       { _id: new Types.ObjectId(), seq: 6, status: 'new', orderId: oid, incomeId: iid, title: 'Моё', manual: { deadline: own, priority: 'low' } },
       { _id: new Types.ObjectId(), seq: 7, status: 'new' },
     ]);
-    expect(a).toMatchObject({ code: 'D-5', title: 'Чертежи 3410 ЗНП 77 поз 2', deadline: ship, deadlineFromOrder: true, priority: 'urgent', priorityFromOrder: true, sku: '3410' });
+    expect(a).toMatchObject({ code: 'D-5', title: 'Чертежи 3410 № 77 поз 2', deadline: ship, deadlineFromOrder: true, priority: 'urgent', priorityFromOrder: true, sku: '3410' });
     expect(b).toMatchObject({ title: 'Моё', deadline: own, deadlineFromOrder: false, priority: 'low', priorityFromOrder: false });
     expect(c).toMatchObject({ title: 'Без названия', priority: 'normal', deadline: null, assignee: null, photo: null });
   });
