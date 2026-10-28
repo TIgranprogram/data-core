@@ -104,7 +104,15 @@ async function changeStatus(r, ctx) {
 }
 
 /** Ранее заказанное + склад для подсказок в новой заявке (З.7): одно наименование — одна строка. */
-export async function pastItems() {
+let pastCache = null;
+let pastAt = 0;
+export function pastItems() {
+  if (Date.now() - pastAt > 120000) pastCache = null; // кэш на 2 мин: список в форме не должен стареть надолго
+  if (!pastCache) pastAt = Date.now();
+  pastCache ||= loadPast().catch((e) => { pastCache = null; throw e; });
+  return pastCache;
+}
+async function loadPast() {
   const [reqs, stockRes] = await Promise.all([
     api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch(() => ({ items: [] })),
     stockLookup().catch(() => []), // короткий список склада (/stock/lookup, SK-8d) — общий кэш (core/stock-list.js); pastItems зовут по действию
@@ -216,7 +224,7 @@ function stepFoot(r, ctx) {
 function stepAct(r) {
   const st = nextStep(r);
   if (!st || st.kind === 'receive') return null;
-  return { label: st.verb, run: async (row, ctx) => { if (await advance(row, st.to, patchStatus)) { toast(`Статус: ${SUPPLY_STATUS[st.to].label}`); ctx.setRow(await api(`/supply/requests/${row.id}`)); } } };
+  return { label: st.verb, run: async (row, ctx) => { const done = await advance(row, st.to, patchStatus); if (done) { toast(`Статус: ${SUPPLY_STATUS[st.to].label}`); ctx.setRow(done === true ? await api(`/supply/requests/${row.id}`) : done); } } };
 }
 
 /** З5: метка заказа на карточке и в списке — «Заказ № N» (номер берётся из подписи заявки). */
@@ -308,6 +316,7 @@ export const requests = {
       } };
     },
     board: {
+      colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
       default: true, // доска — вид по умолчанию; «Таблица» — переключатель, выбор запоминается (viewKey)
       columns: STATUS_ORDER.map((k) => ({
         key: k, label: SUPPLY_STATUS[k].label, tone: SUPPLY_STATUS[k].tone, query: { status: k, sort: '-requestDate' },
@@ -417,8 +426,8 @@ export const requests = {
       if (body.salesOrderId && !v.orderLabel) delete body.orderLabel; // подпись заказа поставит сервер
       return body;
     },
-    create: async (body) => { const r = await api('/supply/requests', { method: 'POST', body }); lookups.reset(); return r; },
-    update: async (id, body) => { const r = await api(`/supply/requests/${id}`, { method: 'PATCH', body }); lookups.reset(); return r; },
+    create: async (body) => { const r = await api('/supply/requests', { method: 'POST', body }); pastCache = null; if (r?.supplierName) lookups.reset(); return r; },
+    update: async (id, body) => { const r = await api(`/supply/requests/${id}`, { method: 'PATCH', body }); if (body && ('supplierName' in body || 'categoryName' in body || 'companyName' in body)) lookups.reset(); return r; },
   },
 
   /** Быстрая заявка одной строкой над списком (и на «Главной»). */

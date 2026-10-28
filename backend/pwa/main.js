@@ -266,10 +266,10 @@ function avatarButton(initials) {
 }
 
 /** Счётчики в меню: активные заявки; позиции к закупке и без остатка. */
-async function refreshCounts() {
+async function refreshCounts(only) {
   const set = (id, n) => { const c = navLinks[id]?.querySelector('.cnt'); if (c) { c.textContent = String(n); c.hidden = !n; } };
   // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
-  const get = (id, path) => (session.sees(id) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
+  const get = (id, path) => (session.sees(id) && (!only || only.has(id)) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
   try {
     const [r, s, o, so, dz] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks')]);
     if (o) set('orders', o.counts?.awaiting || 0);
@@ -327,7 +327,7 @@ function render(c) {
       onOpen: (row) => openRecord(section, row.id),
       onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
       quick: sec.quick ? sec.quick(() => { mounted?.list?.reload?.(); refreshCounts(); }) : null,
-      onChanged: () => refreshCounts(),
+      onChanged: () => { /* счётчики и список обновит dc:changed после записи */ },
     }));
     else if (sec?.mount) {
       const el = h('div', { class: 'panel' });
@@ -338,7 +338,7 @@ function render(c) {
         onOpen: (row) => openRecord(section, row.id),
         onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
         quick: sec.quick ? sec.quick(() => { mounted?.list?.reload?.(); refreshCounts(); }) : null,
-        onChanged: () => refreshCounts(),
+        onChanged: () => { /* счётчики и список обновит dc:changed после записи */ },
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = FN.mountMoney(params);
@@ -450,10 +450,30 @@ onChange((c) => { if (ui && session.refresh) render(c); });
 // старое data-changed — то же самое вручную. Debounce 300 мс склеивает пачку записей в одно обновление:
 // список, плитки/«Уточнить» слева (list.reload), счётчики меню, «Сегодня» и кэш справочников.
 let changedTimer = 0;
-function onDataChanged() {
-  lookups.reset();
+let countsTimer = 0;
+let lastRow = null;       // запись из ответа последней одиночной записи (PATCH) — для точечного обновления доски
+let rowsMixed = false;    // за окно склейки было больше одной записи — обновляем всё
+const countsOf = new Set();
+const LOOKUP_PATH = /^\/(partners|dicts|materials|supply\/catalog|supply\/lookups)(\/|$|\?)/;
+const COUNT_SECTION = [[/^\/supply\/(requests|invoices)/, 'requests'], [/^\/stock/, 'stock'], [/^\/incomes/, 'orders'], [/^\/(salesorders|production-orders)/, 'salesorders'], [/^\/design-tasks/, 'design']];
+function onDataChanged(e) {
+  const d = e?.detail;
+  const path = d?.path || '';
+  if (!path || LOOKUP_PATH.test(path)) lookups.reset(); // справочники сбрасываем только при записи в них
+  // счётчики меню — только затронутых разделов и не чаще раза в 2 с
+  const hit = path ? COUNT_SECTION.filter(([re]) => re.test(path)).map(([, id]) => id) : [];
+  if (!path) ['requests', 'stock', 'orders', 'salesorders', 'design'].forEach((id) => countsOf.add(id)); else hit.forEach((id) => countsOf.add(id));
+  if (countsOf.size && !countsTimer) countsTimer = setTimeout(() => { countsTimer = 0; const ids = new Set(countsOf); countsOf.clear(); refreshCounts(ids); }, 2000);
+  const one = d?.method === 'PATCH' && d.result && d.result.id && !d.result.items ? d.result : null;
+  if (changedTimer) rowsMixed = true;
+  lastRow = one;
   clearTimeout(changedTimer);
-  changedTimer = setTimeout(() => { mounted?.list?.reload?.(); refreshCounts(); }, 300);
+  changedTimer = setTimeout(() => {
+    changedTimer = 0;
+    const row = !rowsMixed ? lastRow : null;
+    rowsMixed = false; lastRow = null;
+    mounted?.list?.reload?.(row);
+  }, 300);
 }
 window.addEventListener('data-changed', onDataChanged);
 document.addEventListener('dc:changed', onDataChanged);

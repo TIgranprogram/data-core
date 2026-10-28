@@ -183,7 +183,7 @@ async function call(path, { method = 'GET', body, query } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   // одинаковые GET, пока первый ещё в пути (меню и «Сегодня» просят одни и те же счётчики), — один запрос к серверу;
   // разбор — у каждого свой, чтобы правка ответа одним местом не задела другое
-  if (method !== 'GET') { const out = parse(await send(path + qs, method, body)); for (const f of writeHooks) f(path, method); announceChange(path, method); return out; }
+  if (method !== 'GET') { const out = parse(await send(path + qs, method, body)); for (const f of writeHooks) f(path, method); announceChange(path, method, out); return out; }
   const key = path + qs;
   let p = inflight.get(key);
   if (!p) { p = sendRetry(key).finally(() => inflight.delete(key)); inflight.set(key, p); }
@@ -191,9 +191,9 @@ async function call(path, { method = 'GET', body, query } = {}) {
 }
 const inflight = new Map();
 /** Единое «данные изменились»: после успешной записи (не GET) — dc:changed {path, method}. Слушают main.js (список, счётчики, «Сегодня», кэши) и ui/list.js. */
-function announceChange(path, method) {
+function announceChange(path, method, result) {
   if (typeof document === 'undefined' || /^\/(auth|meta|client|prefs)(\/|$|\?)|\/me(\/|$|\?)|ui-?prefs/i.test(path)) return;
-  document.dispatchEvent(new CustomEvent('dc:changed', { detail: { path, method } }));
+  document.dispatchEvent(new CustomEvent('dc:changed', { detail: { path, method, result } }));
 }
 /** А5: GET повторяем до 2 раз (через 0,7 и 2 с) при сбое связи, 502/503/504 — туннель моргнул; запись (POST/PATCH) не повторяем. */
 export const RETRY_WAIT = [700, 2000];

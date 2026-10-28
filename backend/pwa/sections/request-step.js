@@ -154,8 +154,7 @@ export const reqStep = {
 export async function advance(r, to, patchStatus) {
   if (to === 'paid' || missingFor(r, to).length) { openStep(r, to); return false; } // «Счёт оплачен» — всегда панель с № / датой / суммой / поставщиком
   if (to === 'ordered') { await api('/supply/invoices', { method: 'POST', body: { requestIds: [r.id] } }); return true; } // заказ — через счёт
-  await patchStatus(r, to);
-  return true;
+  return (await patchStatus(r, to)) || true; // ответ — обновлённая запись (вызывающий кладёт её в карточку без лишнего GET)
 }
 
 /** «Заказал у поставщика» для нескольких заявок: поставщика спрашиваем один раз. Возвращает число переведённых. */

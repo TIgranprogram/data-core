@@ -267,8 +267,11 @@ export function mountHome(deps) {
   // ---------- Загрузка ----------
   async function load(silent = false) {
     try {
-      data = await api('/today', { query: { days: 7 } });
-      if (session.seesDocs()) pq = await api('/passports/queue', { query: { due: 'soon', limit: 1 } }).catch(() => pq);
+      const [d, q] = await Promise.all([
+        api('/today', { query: { days: 7 } }),
+        session.seesDocs() ? api('/passports/queue', { query: { due: 'soon', limit: 1 } }).catch(() => pq) : Promise.resolve(pq),
+      ]);
+      data = d; pq = q;
       paintBell(); paintTiles(); paintAll();
     } catch (e) {
       if (silent && data) return;
@@ -292,16 +295,24 @@ export function mountHome(deps) {
           act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))))] : null) : null;
 
   // Диск сервера и целостность данных — админу, только если есть что показать
+  // проверки здоровья — не чаще раза в час (ответ в sessionStorage)
+  const hourly = async (path) => {
+    const k = 'dc.health.' + path;
+    try { const c = JSON.parse(sessionStorage.getItem(k) || 'null'); if (c && Date.now() - c.t < 3600000) return c.v; } catch { /* нет кэша */ }
+    const v = await api(path);
+    try { sessionStorage.setItem(k, JSON.stringify({ t: Date.now(), v })); } catch { /* хранилище недоступно */ }
+    return v;
+  };
   const diskNote = h('p', { class: 'hint disk-note', hidden: true });
   if (session.role === 'admin' || session.user?.isOwner) {
-    api('/health/disk').then((d) => {
+    hourly('/health/disk').then((d) => {
       if (d.level === 'ok') return;
       diskNote.hidden = false;
       diskNote.replaceChildren(h('b', null, `Диск сервера занят на ${String(d.usedPct).replace('.', ',')}%`),
         ` — свободно ${(Math.round((d.freeBytes / 1024 ** 3) * 10) / 10).toLocaleString('ru-RU')} ГБ${d.daysLeft != null ? `, хватит примерно на ${d.daysLeft} дн.` : ''}. `,
         h('a', { href: '../admin/' }, 'Подробнее — «Администрирование → Сервер»'));
     }).catch(() => {});
-    api('/health/integrity').then((r) => {
+    hourly('/health/integrity').then((r) => {
       if (!r.issues?.length) return;
       diskNote.after(h('p', { class: 'hint disk-note' }, h('b', null, 'Проверка данных: '), r.issues.map((x) => `${x.title} — ${x.count}`).join('; '), '. Напишите разработчику — исправим по плану.'));
     }).catch(() => {});

@@ -216,12 +216,23 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     col.addLink = board.add && session.canEdit ? h('button', { type: 'button', class: 'col-add link-btn', onclick: () => board.add(c.key) }, board.addLabel || '+ Добавить') : null;
     if (col.addLink) body.append(col.addLink);
   }
-  async function load() {
+  let loadedAt = 0;
+  /** Точечное обновление после записи одной записи: только колонка, где карточка была, и колонка, куда она попала (board.colOf(row)). Иначе — всё. */
+  function reloadFor(row) {
+    if (Date.now() - loadedAt < 1000) return Promise.resolve(); // доска только что перезагружена (перенос карточки)
+    const to = row && board.colOf ? board.colOf(row) : null;
+    const from = row ? cols.find((x) => x.rows.some((q) => q.id === row.id)) : null;
+    if (!from) return load(); // записи нет на экране — не угадываем, обновляем всё
+    const list = cols.filter((x) => x === from || x.c.key === to);
+    return load(list);
+  }
+  async function load(only) {
     const my = ++seq;
-    sel.clear(); dropBar();
+    loadedAt = Date.now();
+    if (!only) { sel.clear(); dropBar(); }
     el.classList.add('loading');
     const totals = [];
-    await Promise.all(cols.map(async (col) => {
+    await Promise.all((only || cols).map(async (col) => {
       const { c, n, body } = col;
       try {
         col.page = 1;
@@ -236,8 +247,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
         body.replaceChildren(failBlock(e, null, { cls: 'col-more' }));
       }
     }));
-    if (my === seq) { el.classList.remove('loading'); if (board.headCount && totals.length === cols.length) onTotal?.(totals.reduce((a, b) => a + b, 0)); }
+    if (my === seq) { el.classList.remove('loading'); if (!only && board.headCount && totals.length === cols.length) onTotal?.(totals.reduce((a, b) => a + b, 0)); }
   }
   load();
-  return { el, reload: load, setQuery: (q) => { query = q; load(); } };
+  return { el, reload: () => load(), reloadFor, setQuery: (q) => { query = q; load(); } };
 }
