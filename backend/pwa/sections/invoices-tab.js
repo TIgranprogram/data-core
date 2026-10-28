@@ -22,7 +22,7 @@ export function mountInvoicesTab() {
   const openIds = new Set();
 
   const sel = (opts, key, title) => {
-    const s = h('select', { class: 'inv-f', 'aria-label': title, onchange: () => { F[key] = s.value; reload(); } }, ...opts.map(([v, l]) => h('option', { value: v }, l)));
+    const s = h('select', { class: 'invl-f', 'aria-label': title, onchange: () => { F[key] = s.value; reload(); } }, ...opts.map(([v, l]) => h('option', { value: v }, l)));
     return s;
   };
   const statusSel = sel(STATUS_OPTS, 'status', 'Статус');
@@ -32,14 +32,14 @@ export function mountInvoicesTab() {
     supSel.append(...list.map(([v, l]) => h('option', { value: v }, l)));
     enhanceSelect(supSel);
   }).catch(() => {});
-  const q = h('input', { type: 'search', class: 'inv-f', placeholder: 'Поиск: № счёта, поставщик…', oninput: () => { clearTimeout(timer); timer = setTimeout(() => { F.q = q.value.trim(); reload(); }, 300); } });
-  const from = h('input', { type: 'date', class: 'inv-f', 'aria-label': 'С даты', onchange: () => { F.from = from.value; reload(); } });
-  const to = h('input', { type: 'date', class: 'inv-f', 'aria-label': 'По дату', onchange: () => { F.to = to.value; reload(); } });
-  const bar = h('div', { class: 'inv-bar' }, q, statusSel, supSel, h('span', { class: 'inv-period' }, from, h('span', { class: 'muted' }, '—'), to));
+  const q = h('input', { type: 'search', class: 'invl-f', placeholder: 'Поиск: № счёта, поставщик…', oninput: () => { clearTimeout(timer); timer = setTimeout(() => { F.q = q.value.trim(); reload(); }, 300); } });
+  const from = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'С даты', onchange: () => { F.from = from.value; reload(); } });
+  const to = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'По дату', onchange: () => { F.to = to.value; reload(); } });
+  const bar = h('div', { class: 'invl-bar' }, q, statusSel, supSel, h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to));
 
-  const rows = h('div', { class: 'inv-list' });
-  const foot = h('div', { class: 'inv-foot' });
-  const el = h('div', { class: 'inv-tab' }, bar, rows, foot);
+  const rows = h('div', { class: 'invl-list' });
+  const foot = h('div', { class: 'invl-foot' });
+  const el = h('div', { class: 'invl-tab' }, bar, rows, foot);
 
   function reload() { page = 1; load(); }
 
@@ -71,23 +71,23 @@ export function mountInvoicesTab() {
     rows.replaceChildren(...items.map(rowEl));
     const pages = Math.ceil((r.total || 0) / LIMIT);
     foot.replaceChildren(
-      h('div', { class: 'inv-sum' }, `Счетов: ${r.total ?? items.length} · Итого: `, h('b', null, money(r.sum ?? 0))),
-      pages > 1 ? h('div', { class: 'inv-pager' },
+      h('div', { class: 'invl-sum' }, `Счетов: ${r.total ?? items.length} · Итого: `, h('b', null, money(r.sum ?? 0))),
+      pages > 1 ? h('div', { class: 'invl-pager' },
         h('button', { class: 'btn', type: 'button', disabled: page <= 1, onclick: () => { page--; load(); } }, '‹ Назад'),
         h('span', { class: 'muted' }, `${page} из ${pages}`),
         h('button', { class: 'btn', type: 'button', disabled: page >= pages, onclick: () => { page++; load(); } }, 'Далее ›')) : null);
   }
 
   function rowEl(inv) {
-    const detail = h('div', { class: 'inv-detail' });
-    const head = h('button', { type: 'button', class: 'inv-head', 'aria-expanded': 'false', onclick: () => toggle() },
-      h('span', { class: 'inv-no' }, inv.no ? `№ ${inv.no}` : 'без номера'),
-      h('span', { class: 'inv-date muted' }, ruDate(inv.date)),
-      h('span', { class: 'inv-sup' }, inv.supplierName || '—'),
-      h('span', { class: 'inv-amt num' }, inv.amount > 0 ? money(inv.amount) : '—'),
+    const detail = h('div', { class: 'invl-detail' });
+    const head = h('button', { type: 'button', class: 'invl-head', 'aria-expanded': 'false', onclick: () => toggle() },
+      h('span', { class: 'invl-no' }, inv.no ? `№ ${inv.no}` : 'без номера'),
+      h('span', { class: 'invl-date muted' }, ruDate(inv.date)),
+      h('span', { class: 'invl-sup' }, inv.supplierName || '—'),
+      h('span', { class: 'invl-amt num' }, inv.amount > 0 ? money(inv.amount) : '—'),
       badge(INVOICE_STATUS, inv.status),
-      h('span', { class: 'inv-meta muted' }, [inv.payerName && `платит: ${inv.payerName}`, (inv.orders || []).length && `заказы: ${inv.orders.join(', ')}`, `позиций: ${inv.requestsCount ?? 0}`].filter(Boolean).join(' · ')));
-    const box = h('div', { class: 'inv-row' }, head, detail);
+      h('span', { class: 'invl-meta muted' }, [inv.payerName && `платит: ${inv.payerName}`, (inv.orders || []).length && `заказы: ${inv.orders.join(', ')}`, `позиций: ${inv.requestsCount ?? 0}`].filter(Boolean).join(' · ')));
+    const box = h('div', { class: 'invl-row' }, head, detail);
     function toggle(force) {
       const on = force ?? !box.classList.contains('open');
       box.classList.toggle('open', on);
@@ -111,10 +111,10 @@ export function mountInvoicesTab() {
 
     const checks = new Map();
     const pending = reqs.filter((x) => x.status !== 'received' && x.status !== 'cancelled');
-    const list = h('ul', { class: 'inv-reqs' }, ...reqs.map((x) => {
+    const list = h('ul', { class: 'invl-reqs' }, ...reqs.map((x) => {
       const can = pending.includes(x) && canAct && inv.status !== 'draft';
       let cb = null;
-      if (can) { cb = h('input', { type: 'checkbox', checked: true, 'aria-label': 'Принять позицию' }); checks.set(x.id, cb); }
+      if (can) { cb = h('input', { type: 'checkbox', class: 'invl-cb', checked: true, 'aria-label': 'Принять позицию' }); checks.set(x.id, cb); }
       const price = x.price ?? x.priceHint;
       const sum = price > 0 && x.qty > 0 ? money(price * x.qty) : '';
       return h('li', null, cb,
@@ -124,11 +124,11 @@ export function mountInvoicesTab() {
     }));
 
     const files = (inv.files || []).length
-      ? h('div', { class: 'inv-files' }, h('span', { class: 'muted' }, 'Файлы: '), ...inv.files.map((f) => h('a', { href: f.url, target: '_blank', rel: 'noopener' }, f.name || 'файл')))
+      ? h('div', { class: 'invl-files' }, h('span', { class: 'muted' }, 'Файлы: '), ...inv.files.map((f) => h('a', { href: f.url, target: '_blank', rel: 'noopener' }, f.name || 'файл')))
       : h('div', { class: 'muted' }, 'Файла счёта нет.');
 
     const chain = (inv.orders || []).length
-      ? h('div', { class: 'inv-chain' }, h('span', { class: 'muted' }, 'Заказ → договоры: '), ...inv.orders.map((o) => h('span', { class: 'inv-chain-i' },
+      ? h('div', { class: 'invl-chain' }, h('span', { class: 'muted' }, 'Заказ → договоры: '), ...inv.orders.map((o) => h('span', { class: 'invl-chain-i' },
         h('a', { href: '#salesorders?q=' + encodeURIComponent(o.productionNo) }, `Заказ № ${o.productionNo}`),
         (o.contracts || []).length ? ` → ${o.contracts.join(', ')}` : '')))
       : h('div', { class: 'muted' }, 'Не привязан к заказу.');
@@ -158,11 +158,11 @@ export function mountInvoicesTab() {
     }
     if (inv.status === 'draft' && !actions.length) { /* только просмотр */ }
 
-    return h('div', { class: 'inv-body' },
+    return h('div', { class: 'invl-body' },
       reqs.length ? list : h('div', { class: 'muted' }, 'В счёте нет позиций.'),
       pending.length && checks.size ? h('div', { class: 'muted' }, 'Галочки — что приехало. По умолчанию все неполученные.') : null,
       files, chain,
-      actions.length ? h('div', { class: 'inv-actions' }, ...actions) : null);
+      actions.length ? h('div', { class: 'invl-actions' }, ...actions) : null);
   }
 
   load();

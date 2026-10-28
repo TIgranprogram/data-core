@@ -214,6 +214,7 @@ export function invoiceBlock(r, ctx) {
       lock ? null : h('div', { class: 'field' }, h('span', null, 'Файл счёта' + (known.length ? ` (уже загружено: ${known.length})` : '')), files.el),
       h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '')),
       h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),
+      lock ? h('div', { class: 'muted' }, paid ? 'Счёт оплачен — поля не меняются' : inv.status === 'issued' ? 'Счёт выставлен — поля не меняются' : null) : null,
       lock ? null : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
   })().catch((e) => box.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')));
   return box;

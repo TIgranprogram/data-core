@@ -1254,37 +1254,42 @@ table.cal tr.pend th, table.cal tr.pend td { color: var(--muted); font-style: it
 .board-bar b { margin-right: auto; }
 
 /* Заявки: автозаполнение (CHAIN-AUDIT З1-З5) */
-.rq-chips{display:flex;flex-wrap:wrap;gap:var(--sp-1,4px);margin-top:var(--sp-1,4px);align-items:center}
+.rq-chips{display:flex;flex-wrap:wrap;gap:var(--s1);margin-top:var(--s1);align-items:center}
 .rq-chip{cursor:pointer}
 .rq-note{color:var(--muted)}
-.tag.rq-order{background:var(--gold-soft,var(--surface-2));white-space:nowrap}
+.tag.rq-order{background:var(--gold-soft);white-space:nowrap}
 
 /* В3: договоры без заказа */
-.ua-top{margin-bottom:var(--s-3,12px)}
-.ua-box{margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r-md,8px);background:var(--surface)}
-.ua-bar{display:flex;gap:12px;align-items:center;margin-bottom:8px;padding:8px 12px;border-radius:var(--r-md,8px);background:var(--gold-soft,var(--surface-2))}
+.ua-top{margin-bottom:var(--s3)}
+.ua-box{margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)}
+.ua-bar{display:flex;gap:12px;align-items:center;margin-bottom:8px;padding:8px 12px;border-radius:var(--radius-sm);background:var(--gold-soft)}
 .ua-head{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:8px 0}
-.ua-list{max-height:50vh;overflow:auto}
+.ua-list{max-height:50dvh;overflow:auto}
 .ua-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer}
 .ua-main{flex:1;min-width:0}
 
 /* Вкладка «Счета» в «Заявках» */
-.inv-bar { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-bottom: var(--s3); }
-.inv-bar .inv-f { min-width: 0; max-width: 100%; }
-.inv-period { display: inline-flex; gap: var(--s1); align-items: center; }
-.inv-list { display: flex; flex-direction: column; gap: var(--s2); }
-.inv-row { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-.inv-head { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; width: 100%; padding: var(--s3); text-align: left; background: none; border: 0; cursor: pointer; color: inherit; font: inherit; }
-.inv-head .inv-no { font-weight: 600; }
-.inv-head .inv-sup { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
-.inv-head .inv-meta { flex-basis: 100%; font-size: var(--fs-sm); }
-.inv-row.open { border-color: var(--primary); }
-.inv-detail:not(:empty) { padding: 0 var(--s3) var(--s3); }
-.inv-body { display: flex; flex-direction: column; gap: var(--s2); }
-.inv-body .inv-reqs { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); }
-.inv-body .inv-reqs li { display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; overflow-wrap: anywhere; }
-.inv-chain-i + .inv-chain-i::before { content: ' · '; }
-.inv-files { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.inv-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.inv-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s2); margin-top: var(--s3); }
-.inv-pager { display: flex; gap: var(--s2); align-items: center; }
+.invl-bar { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-bottom: var(--s3); }
+.invl-bar .invl-f { min-width: 0; max-width: 100%; }
+.invl-period { display: inline-flex; gap: var(--s1); align-items: center; }
+.invl-list { display: flex; flex-direction: column; gap: var(--s2); }
+.invl-row { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.invl-head { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; width: 100%; padding: var(--s3); text-align: left; background: none; border: 0; cursor: pointer; color: inherit; font: inherit; }
+.invl-head .invl-no { font-weight: 600; }
+.invl-head .invl-sup { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.invl-head .invl-meta { flex-basis: 100%; font-size: var(--fs-sm); }
+.invl-row.open { border-color: var(--primary); }
+.invl-detail:not(:empty) { padding: 0 var(--s3) var(--s3); }
+.invl-body { display: flex; flex-direction: column; gap: var(--s2); }
+.invl-body .invl-reqs { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); }
+.invl-body .invl-reqs li { display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; overflow-wrap: anywhere; }
+.invl-chain-i + .invl-chain-i::before { content: ' · '; }
+.invl-files { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.invl-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.invl-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s2); margin-top: var(--s3); }
+.invl-pager { display: flex; gap: var(--s2); align-items: center; }
+
+body.has-board-bar { padding-bottom: 80px; }
+.ua-cb, .invl-cb { width: 22px; height: 22px; flex: none; accent-color: var(--gold-deep); cursor: pointer; }
+.ua-all { display: inline-flex; align-items: center; gap: var(--s2); }
+@media (pointer: coarse) { .ua-row, .ua-all, .invl-reqs li { min-height: 44px; } }

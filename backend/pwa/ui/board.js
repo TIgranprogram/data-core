@@ -55,12 +55,12 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   // ---------- Выбор нескольких карточек (columns[].multi) ----------
   const sel = new Map();
   let bar = null;
-  const dropBar = () => { bar?.remove(); bar = null; };
+  const dropBar = () => { bar?.remove(); bar = null; document.body.classList.remove('has-board-bar'); };
   const unsub = onChange(() => setTimeout(() => { if (!el.isConnected) { dropBar(); unsub(); } }, 60));
   function paintBar() {
     const mc = cols.find((x) => x.c.multi)?.c.multi;
     if (!mc || !sel.size) { dropBar(); return; }
-    if (!bar) { bar = h('div', { class: 'board-bar', role: 'toolbar', 'aria-label': 'Выбранные заявки' }); document.body.append(bar); }
+    if (!bar) { bar = h('div', { class: 'board-bar', role: 'toolbar', 'aria-label': 'Выбранные заявки' }); document.body.append(bar); document.body.classList.add('has-board-bar'); }
     const go = h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
       go.disabled = true; go.classList.add('is-busy');
       try { const n = await mc.run([...sel.values()]); sel.clear(); dropBar(); if (n) onChanged(); else load(); }

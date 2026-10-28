@@ -20,7 +20,7 @@ export function unassignedPicker({ onChange } = {}) {
   let total = 0;
   let q = '';
   const search = h('input', { type: 'search', placeholder: 'Поиск: № договора, заказчик…', 'aria-label': 'Поиск договоров' });
-  const allCb = h('input', { type: 'checkbox', 'aria-label': 'Выбрать все' });
+  const allCb = h('input', { type: 'checkbox', class: 'ua-cb', 'aria-label': 'Выбрать все' });
   const body = h('div', { class: 'ua-list' });
   const info = h('span', { class: 'muted small' });
   const more = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Показать ещё');
@@ -30,7 +30,7 @@ export function unassignedPicker({ onChange } = {}) {
     more.hidden = rows.length >= total;
     if (!rows.length) { body.replaceChildren(h('p', { class: 'muted' }, q ? 'Ничего не найдено.' : EMPTY)); sync(); return; }
     body.replaceChildren(...rows.map((r) => {
-      const cb = h('input', { type: 'checkbox', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
+      const cb = h('input', { type: 'checkbox', class: 'ua-cb', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
       return h('label', { class: 'ua-row' }, cb,
         h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (r.orderNo || '—')), h('span', { class: 'muted' }, r.customer ? ' · ' + r.customer : '')),
         h('span', { class: 'muted small nowrap' }, [r.date && date(r.date), `${qty(r.lineCount || 0)} поз.`, session.canMoney && r.amount ? money(r.amount) : ''].filter(Boolean).join(' · ')));
