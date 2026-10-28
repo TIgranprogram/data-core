@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (SUPPLIER-CATALOG)
+коммит: не закоммичен (SHIPMENTS-PASSPORTS)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -41,3 +41,4 @@
 
 ## Каталог поставщиков v2 (2026-10-28)
 - ТЗ `docs/roles/tz/SUPPLIER-CATALOG.md`. Экран `pwa/sections/supplier-catalog.js`, сервер `modules/supply/supplier-excel.service.ts`, схема `supplier-item.schema.ts`; алиасы `supplier_aliases`. Прод-замер не вышел (вход).
+- ОТГ/ОП (2026-10-28): ТЗ `docs/roles/tz/SHIPMENTS-PASSPORTS.md`. Этапы `common/text/order-key.ts:8`; паспорт `product-passport.schema.ts:59,69,163` (нет `incomeId`); задача дизайна `design/design-task.schema.ts:20-33`; `issuedByLine` = выдача склада, не отгрузка. Вопросы ОП-1…ОП-5.
