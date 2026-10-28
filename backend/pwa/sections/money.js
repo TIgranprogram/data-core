@@ -48,6 +48,7 @@ export function mountMoney(params) {
   const nextBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => patch({ month: shiftMonth(month(), step()) }) }, '›');
   // в «Сводке» листаем годами, в календаре — месяцами
   const step = () => (tab() === 'summary' ? 12 : 1);
+  const gear = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true, title: 'Дата, с которой ведётся учёт, и остаток на счетах наших компаний', onclick: () => startDialog() }, '⚙ Старт учёта');
   const controls = h('div', { class: 'm-controls' },
     h('div', { class: 'm-month' },
       h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад', onclick: () => patch({ month: shiftMonth(month(), -step()) }) }, '‹'),
@@ -56,7 +57,6 @@ export function mountMoney(params) {
     orgSeg,
     h('label', { class: 'date-f' }, h('span', { class: 'm-open-l' }, 'остаток денег на 1-е'), opening),
     gear);
-  const gear = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true, title: 'Дата, с которой ведётся учёт, и остаток на счетах наших компаний', onclick: () => startDialog() }, '⚙ Старт учёта');
   async function startDialog() {
     const st = await api('/finance/settings');
     const dt = h('input', { type: 'date', value: st.startDate || '' });
