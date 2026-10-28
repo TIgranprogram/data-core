@@ -13,7 +13,7 @@ import { lookups, UNITS, unitList } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { joinRef, orderOptions, splitRef } from './salesorders.js';
-import { advance, bulkOrder, missingFor, nextStep } from './request-step.js';
+import { advance, bulkOrder, invoiceBlock, missingFor, nextStep } from './request-step.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
@@ -194,7 +194,7 @@ function stepFoot(r, ctx) {
   const st = nextStep(r);
   if (!st) return null;
   const miss = st.kind === 'receive' ? [] : missingFor(r, st.to);
-  const btn = h('button', { class: 'btn btn-primary t-step', type: 'button', title: st.kind === 'receive' ? 'Оприходовать на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onclick: async () => {
+  const btn = h('button', { class: 'btn btn-sm t-step', type: 'button', title: st.kind === 'receive' ? 'Оприходовать на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onclick: async () => {
     btn.disabled = true; btn.classList.add('is-busy');
     try {
       if (st.kind === 'receive') { if (await receiveDialog(r)) ctx.changed(); }
@@ -368,6 +368,7 @@ export const requests = {
       ['Позиция склада', r.materialId ? h('a', { href: '#stock?open=' + r.materialId }, r.materialName || 'открыть') : ''],
       ['Оприходовано', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
     ],
+    extra: (r, ctx) => (r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
     actions: (r) => {
       const k = supplyKey(r);
       return [

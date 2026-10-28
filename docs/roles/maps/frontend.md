@@ -90,3 +90,6 @@
 - `sections/request-step.js` — `GATES` (ворота: ordered — поставщик/кол-во/ед.; paid — № счёта/дата/сумма), `missingFor`, `nextStep` (глаголы), `openStep` (of=reqstep&open=id), `reqStep` (панель «Следующий шаг», только недостающие поля, «Сохранить и перевести»), `advance`, `bulkOrder`. main.js — SECTIONS/OWNER `reqstep`.
 - `sections/requests.js` — `board.default`, `viewKey:'requests'`, `COLUMN_HINT/EMPTY`, `stepFoot` (чек-лист + кнопка), `stepAct`, ворота в `move`/`changeStatus`/`rowAction`.
 - `ui/board.js` — `columns[].hint/money/multi`, `card().foot`, полоса `.board-bar`; `ui/list.js` — `board.default` + запомненная «Таблица» (`dc-view-*`=table). CSS — конец `ui/screens.css`.
+
+## Заявки — шаг 3 (2026-10-28, не закоммичено)
+- `request-step.js`: `advance` — заказ через POST /supply/invoices, «оплачен» всегда панель (№, дата=сегодня, сумма=priceHint|catalogCurrentPrice×qty, поставщик, плательщик для счёта); `invoiceBlock(r,ctx)` — блок «Счёт» (card.extra в requests.js); `bulkOrder` → один POST. `ui/board.js`: `pickAll` («Выбрать все» в `.col-tools`). CSS `.t-step` (gold-soft), `.t-pick`, `.inv-block` конец screens.css. Карта обновлена.

@@ -34,12 +34,23 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const n = h('span', { class: 'n' }, '…');
     const sum = h('span', { class: 'col-sum num', hidden: true });
     const body = h('div', { class: 'col-body' }, h('div', { class: 'skel', style: { margin: '8px 4px' } }));
+    const all = c.multi && canMove ? h('button', { type: 'button', class: 'col-all link-btn', title: 'Отметить все карточки колонки', onclick: () => pickAll(me) }, 'Выбрать все') : null;
     const col = h('section', { class: 'col tone-' + (c.tone || 'dim'), 'aria-label': c.label, dataset: { key: c.key } },
       h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, c.label), n, sum),
+      all ? h('div', { class: 'col-tools' }, all) : null,
       c.hint ? h('div', { class: 'col-hint' }, c.hint) : null, body);
     el.append(col);
-    return { c, n, sum, body, col, page: 1, shown: 0, more: null, addLink: null };
+    const me = { c, n, sum, body, col, page: 1, shown: 0, more: null, addLink: null, rows: [], all };
+    return me;
   });
+  /** «Выбрать все» в шапке колонки: отметить (или снять, если все уже отмечены) показанные карточки. */
+  function pickAll(col) {
+    const every = col.rows.length && col.rows.every((r) => sel.has(r.id));
+    col.rows.forEach((r) => { if (every) sel.delete(r.id); else sel.set(r.id, r); });
+    col.body.querySelectorAll('.tcard').forEach((x, i) => { const on = !every; x.classList.toggle('selected', on); const cb = x.querySelector('.t-pick input'); if (cb) cb.checked = on; });
+    col.all.textContent = every ? 'Выбрать все' : 'Снять все';
+    paintBar();
+  }
 
   // ---------- Выбор нескольких карточек (columns[].multi) ----------
   const sel = new Map();
@@ -55,7 +66,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       try { const n = await mc.run([...sel.values()]); sel.clear(); dropBar(); if (n) onChanged(); else load(); }
       catch (ex) { toastError(ex); go.disabled = false; go.classList.remove('is-busy'); }
     } }, mc.label);
-    bar.replaceChildren(h('b', null, `Выбрано ${sel.size}`), go, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { sel.clear(); dropBar(); cols.forEach(({ body }) => body.querySelectorAll('.tcard.selected').forEach((x) => { x.classList.remove('selected'); const i = x.querySelector('.t-pick input'); if (i) i.checked = false; })); } }, 'Снять'));
+    bar.replaceChildren(h('b', null, `Выбрано ${sel.size}`), go, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { sel.clear(); dropBar(); cols.forEach(({ body, all }) => { if (all) all.textContent = 'Выбрать все'; }); cols.forEach(({ body }) => body.querySelectorAll('.tcard.selected').forEach((x) => { x.classList.remove('selected'); const i = x.querySelector('.t-pick input'); if (i) i.checked = false; })); } }, 'Снять'));
   }
 
   // ---------- Перетаскивание ----------
@@ -184,6 +195,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const { c, body } = col;
     col.more?.remove(); col.addLink?.remove();
     col.shown = (append ? col.shown : 0) + r.items.length;
+    col.rows = append ? [...col.rows, ...r.items] : [...r.items];
+    if (col.all) col.all.textContent = 'Выбрать все';
     const cards = r.items.map((row) => cardEl(row, c));
     if (!append) body.replaceChildren(...(cards.length ? cards : [h('div', { class: 'col-more muted' }, typeof c.emptyText === 'function' ? c.emptyText() : c.emptyText || 'Пусто')]));
     else body.append(...cards);
