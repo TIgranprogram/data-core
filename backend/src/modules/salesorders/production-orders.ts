@@ -65,3 +65,11 @@ export function compareProductionNo(a: unknown, b: unknown, dir: 1 | -1 = 1): nu
   }
   return ((x[0] - y[0]) || (x[1] - y[1])) * dir;
 }
+
+/** Проверка привязки: договор уже в другом заказе → конфликт с его №; не найден → missing. */
+export function checkAssign(ids: string[], found: Doc[]): { missing: string[]; taken: Array<{ id: string; productionNo: string }> } {
+  const have = new Map(found.map((d) => [String(d._id), d]));
+  const missing = ids.filter((i) => !have.has(i));
+  const taken = found.filter((d) => String(d.productionNo ?? '').trim()).map((d) => ({ id: String(d._id), productionNo: String(d.productionNo).trim() }));
+  return { missing, taken };
+}

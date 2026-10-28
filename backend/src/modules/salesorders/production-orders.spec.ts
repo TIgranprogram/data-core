@@ -1,6 +1,6 @@
 import { numberLines, sortOrdersByEntry } from '../../common/text/production-seq';
 import { shipmentNumber } from '../shipments/shipments.service';
-import { compareProductionNo, groupKey, summarize, toProduce } from './production-orders';
+import { checkAssign, compareProductionNo, groupKey, summarize, toProduce } from './production-orders';
 
 const d = (s: string) => new Date(`${s}T00:00:00Z`);
 
@@ -70,5 +70,13 @@ describe('ключ, сортировка, номер отгрузки', () => {
   it('номер отгрузки: с № заказа — ОТГ-<заказ>-<договор>-<n>, без — ОТГ-<договор>-<n>', () => {
     expect(shipmentNumber('21-26', '109-П', 2)).toBe('ОТГ-21-26-109-П-2');
     expect(shipmentNumber(undefined, '109-П', 1)).toBe('ОТГ-109-П-1');
+  });
+});
+
+describe('привязка договоров к заказу', () => {
+  it('занятые и несуществующие находятся', () => {
+    const r = checkAssign(['a', 'b', 'c'], [{ _id: 'a' }, { _id: 'b', productionNo: '5-26' }]);
+    expect(r.missing).toEqual(['c']);
+    expect(r.taken).toEqual([{ id: 'b', productionNo: '5-26' }]);
   });
 });

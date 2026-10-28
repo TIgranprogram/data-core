@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -7,9 +7,9 @@ import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, type OrderStage
 import { numberLines, sortLines, sortOrdersByEntry } from '../../common/text/production-seq';
 import { AuditService } from '../audit/audit.service';
 import { ourCompanies } from '../incomes/incomes.service';
-import { compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
+import { checkAssign, compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
-import { SalesOrdersService } from './salesorders.service';
+import { SalesOrdersService, nextProductionNo } from './salesorders.service';
 
 type Doc = Record<string, unknown>;
 type See = { requests?: boolean; stock?: boolean };
@@ -46,6 +46,57 @@ export class ProductionOrdersService {
     if (!docs.length) docs = await this.byNo(k);
     if (!docs.length) throw new NotFoundException('Заказ не найден');
     return sortOrdersByEntry(docs);
+  }
+
+  /** Договоры без № заказа: id, № договора, заказчик, дата, сумма, число позиций. */
+  async unassigned(q: Record<string, unknown> = {}) {
+    const p = parseList(q, { sortable: ['createdAt'], defaultSort: '-createdAt', defaultLimit: 25 });
+    const { filter } = this.orders.filters({ search: q.q ?? q.search });
+    const full = { $and: [filter, { $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }] };
+    const [docs, total] = await Promise.all([
+      this.model.find(full, { orderNo: 1, customer: 1, contractDate: 1, createdAt: 1 }).sort({ createdAt: -1, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec() as Promise<Doc[]>,
+      this.model.countDocuments(full).exec(),
+    ]);
+    const ids = docs.map((d) => d._id);
+    const agg = ids.length ? await this.connection.db!.collection('incomes').aggregate([
+      { $match: { orderId: { $in: ids }, deletedAt: null } },
+      { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' } } },
+    ]).toArray() : [];
+    const sum = new Map(agg.map((a) => [String(a._id), a]));
+    const items = docs.map((d) => ({
+      id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', customer: (d.customer as string | undefined) ?? '',
+      date: (d.contractDate ?? d.createdAt) as Date, amount: sum.get(String(d._id))?.amount ?? 0, lineCount: sum.get(String(d._id))?.lines ?? 0,
+    }));
+    return { items, total, page: p.page, limit: p.limit };
+  }
+
+  /** Привязка договоров к заказу: без `productionNo` — новый (следующий № года), с ним — к существующему. Позиции нумеруются сами (по productionAddedAt). */
+  async assign(contractIds: string[], productionNo?: string) {
+    const ids = [...new Set(contractIds)];
+    if (!ids.length) throw new BadRequestException('Выберите хотя бы один договор');
+    const found = await this.model.find({ _id: { $in: ids.map((i) => new Types.ObjectId(i)) }, deletedAt: null }).lean().exec() as Doc[];
+    const { missing, taken } = checkAssign(ids, found);
+    if (missing.length) throw new NotFoundException(`Договор не найден: ${missing.join(', ')}`);
+    if (taken.length) throw new ConflictException(`Договор уже в заказе ${taken.map((t) => t.productionNo).join(', ')}`);
+    let no = String(productionNo ?? '').trim();
+    if (no) {
+      if (!(await this.byNo(no)).length) throw new NotFoundException(`Заказ ${no} не найден`);
+    } else {
+      const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
+      const all = await this.model.find({ productionNo: new RegExp(`^\\d+-${yy}$`) }, { productionNo: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec() as Doc[];
+      no = nextProductionNo(all.map((d) => d.productionNo as string), yy);
+    }
+    const now = new Date();
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // повторная проверка внутри транзакции: параллельная привязка того же договора → 409
+        const res = await this.model.updateMany({ _id: { $in: found.map((d) => d._id) }, deletedAt: null, $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }, { $set: { productionNo: no, productionAddedAt: now, editedInApp: true } }, { session }).exec();
+        if (res.modifiedCount !== found.length) throw new ConflictException('Договор уже занят другим заказом, обновите список');
+      });
+    } finally { await session.endSession(); }
+    for (const d of found) await this.audit.log({ action: 'salesorder.updated', entityType: 'SalesOrder', entityId: String(d._id), details: { partial: true, before: { productionNo: null }, after: { productionNo: no }, meta: { via: 'production-orders.assign' } } as never });
+    return { productionNo: no, orderIds: ids };
   }
 
   async list(q: Record<string, unknown> = {}) {

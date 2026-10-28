@@ -5,7 +5,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { Roles } from '../../common/decorators/roles.decorator';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
-import { ProductionStageDto } from './dto';
+import { AssignOrdersDto, ProductionStageDto } from './dto';
 import { ProductionOrdersService } from './production-orders.service';
 
 /**
@@ -29,6 +29,21 @@ export class ProductionOrdersController {
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false })
   list(@Query() q: Record<string, string>) {
     return this.svc.list(q);
+  }
+
+  @Get('unassigned')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'q', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
+  unassigned(@Query() q: Record<string, string>) {
+    return this.svc.unassigned(q);
+  }
+
+  /** Привязать договоры без № к новому заказу (без productionNo) или существующему. */
+  @Post('assign')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  assign(@Body() dto: AssignOrdersDto) {
+    return this.svc.assign(dto.contractIds, dto.productionNo);
   }
 
   @Get(':key')

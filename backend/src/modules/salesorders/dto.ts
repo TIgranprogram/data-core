@@ -38,3 +38,9 @@ export class MatchProductsDto {
 export class ProductionStageDto {
   @ApiPropertyOptional({ enum: ORDER_STAGES, description: "new | production | ready | partly | shipped | closed" }) @IsIn(ORDER_STAGES as unknown as string[]) stage!: OrderStage;
 }
+
+/** Привязка договоров без № к заказу производства. Без `productionNo` — новый заказ. */
+export class AssignOrdersDto {
+  @ApiPropertyOptional({ description: 'id договоров без № заказа' }) @IsArray() @ArrayMaxSize(200) @IsMongoId({ each: true }) contractIds!: string[];
+  @ApiPropertyOptional({ description: '№ существующего заказа; нет — создаётся новый' }) @IsOptional() @IsString() @Length(0, 50) productionNo?: string;
+}
