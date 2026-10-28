@@ -59,19 +59,41 @@ export function mountMoney(params) {
     gear);
   async function startDialog() {
     const st = await api('/finance/settings');
-    const dt = h('input', { type: 'date', value: st.startDate || '' });
+    const ru = (v) => v.split('-').reverse().join('.');
+    const num = (inp) => Number(inp.value.trim().replace(/\s/g, '').replace(',', '.')) || 0;
+    const dt = h('input', { type: 'date', value: st.startDate || '', max: new Date().toISOString().slice(0, 10) });
     const ins = (st.companies || []).map((n) => [n, h('input', { inputmode: 'decimal', placeholder: '0,00', value: st.openingBalance?.[n] ? String(st.openingBalance[n]).replace('.', ',') : '' })]);
+    const total = h('b', { class: 'num' });
+    const recount = () => { total.textContent = money(ins.reduce((t, [, inp]) => t + num(inp), 0)) + ' ₽'; };
+    ins.forEach(([, inp]) => inp.addEventListener('input', recount)); recount();
+    // быстрый выбор: 1-е текущего месяца, 1 января, 1-е выбранного в календаре месяца
+    const now = new Date(); const pad = (x) => String(x).padStart(2, '0');
+    const quick = [[`${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`, 'С 1-го числа этого месяца'], [`${now.getFullYear()}-01-01`, 'С 1 января'], [month() + '-01', 'С 1-го числа открытого месяца']]
+      .filter(([v], i, a) => a.findIndex(([w]) => w === v) === i);
+    const chips = h('div', { class: 'chips' }, ...quick.map(([v, l]) => h('button', { type: 'button', class: 'chip', onclick: () => { dt.value = v; } }, l + ' · ' + ru(v))));
+    const now0 = st.startDate
+      ? h('p', null, 'Сейчас учёт ведётся с ', h('b', null, ru(st.startDate)), '. Выберите новую дату — остаток пересчитается.')
+      : h('p', null, 'Старт учёта не задан. Остаток месяца сейчас вводится вручную.');
+    let clear = false;
     const saved = await modal({
-      title: 'Старт учёта',
+      title: st.startDate ? 'Изменить старт учёта' : 'Старт учёта',
       okText: 'Сохранить',
       body: h('div', null,
-        h('p', { class: 'hint' }, 'С этой даты считается остаток денег. Операции раньше старта показываются серым и в остаток не входят. Пустая дата — без старта учёта.'),
+        now0,
+        h('p', { class: 'hint' }, 'Укажите день, на который известен остаток на счетах. С этой даты сайт сам считает остаток каждого дня. Операции раньше — серым, в остаток не входят.'),
+        chips,
         h('div', { class: 'form-grid' },
           h('label', { class: 'field' }, h('span', null, 'Дата старта'), dt),
-          ...ins.map(([n, inp]) => h('label', { class: 'field' }, h('span', null, 'Остаток на старт — ' + n + ', ₽'), inp)))),
-      onOk: () => api('/finance/settings', { method: 'PUT', body: { startDate: dt.value || null, openingBalance: Object.fromEntries(ins.map(([n, inp]) => [n, Number(inp.value.trim().replace(/\s/g, '').replace(',', '.')) || 0])) } }),
+          ...ins.map(([n, inp]) => h('label', { class: 'field' }, h('span', null, 'Остаток на начало дня — ' + n + ', ₽'), inp))),
+        h('p', null, 'Итого на старт: ', total),
+        st.startDate ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: (e) => { clear = true; dt.value = ''; e.currentTarget.textContent = 'Старт будет убран после «Сохранить»'; } }, 'Убрать старт учёта') : null),
+      onOk: () => {
+        if (!clear && !dt.value) throw new Error('Выберите дату старта');
+        if (dt.value && dt.value > new Date().toISOString().slice(0, 10)) throw new Error('Дата старта не может быть в будущем');
+        return api('/finance/settings', { method: 'PUT', body: { startDate: dt.value || null, openingBalance: Object.fromEntries(ins.map(([n, inp]) => [n, num(inp)])) } });
+      },
     });
-    if (saved) { settings = saved; toast('Старт учёта сохранён'); load(); }
+    if (saved) { settings = saved; toast(saved.startDate ? 'Учёт ведётся с ' + ru(saved.startDate) : 'Старт учёта убран'); load(); }
   }
   const body = h('div', { class: 'm-body' });
   const el = h('div', { class: 'money' },
@@ -93,7 +115,7 @@ export function mountMoney(params) {
     nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
     opening.parentElement.hidden = (tab() !== 'calendar' && tab() !== 'forecast') || hasStart();
     gear.hidden = session.role !== 'admin' || (tab() !== 'calendar' && tab() !== 'forecast');
-    gear.textContent = hasStart() ? '⚙ Старт учёта: ' + settings.startDate.split('-').reverse().join('.') : '⚙ Старт учёта';
+    gear.textContent = hasStart() ? 'Учёт с ' + settings.startDate.split('-').reverse().join('.') + ' · изменить' : '⚙ Старт учёта';
   }
 
   // ---------- Календарь ----------

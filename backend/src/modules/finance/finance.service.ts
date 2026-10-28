@@ -44,6 +44,7 @@ export class FinanceService {
 
   async saveSettings(b: { startDate?: string | null; openingBalance?: Record<string, number> }) {
     if (b.startDate && !DAY.test(b.startDate)) throw new BadRequestException('Дата старта — ГГГГ-ММ-ДД');
+    if (b.startDate && b.startDate > new Date().toISOString().slice(0, 10)) throw new BadRequestException('Дата старта не может быть в будущем');
     const names = (await ourCompanies(this.connection)).map((c) => c.name);
     const ob: Record<string, number> = {};
     for (const [k, v] of Object.entries(b.openingBalance ?? {})) {
