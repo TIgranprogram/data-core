@@ -18,6 +18,7 @@ import { confirmDlg } from '../ui/dialog.js';
 import { funnelBox } from '../ui/funnel.js';
 import { V2_NUMS, canEdit as canEditPassportTexts } from './passports/common.js';
 import { catArt } from '../ui/cat-art.js';
+import { routeBlock } from './work-route.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -333,7 +334,7 @@ export const products = {
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => h('div', null, warnNote(r), compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    extra: (r) => h('div', null, warnNote(r), compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoMain: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [photoId, ...(r.photos || []).map((p) => p.id).filter((x) => x !== photoId)] } }),

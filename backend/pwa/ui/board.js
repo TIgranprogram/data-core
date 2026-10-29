@@ -15,6 +15,7 @@ import { draggable } from './drag.js';
  *   move?(row, toKey) → Promise<boolean>   // перенос карточки в другую колонку (только для admin/manager)
  *   perColumn: 30,
  *   columns[]: { compact — тонкие карточки, per — порция, portion — «ещё N →» дописывает порцию на месте }
+ *   canDrop?(row, toKey) → bool — можно ли бросить карточку на колонку (по умолчанию да, кроме своей колонки)
  *   card(row, column) → ещё { body — свои узлы карточки вместо заголовка/мета, cls }; add(ключ колонки) + addLabel — «+ Добавить» в колонке;
  *   columns[].emptyText — строка или функция: что написать в пустой колонке (по умолчанию «Пусто»)
  *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
@@ -31,6 +32,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   const el = h('div', { class: 'board' + (board.cls ? ' ' + board.cls : '') });
   const per = board.perColumn || 30;
   const canMove = !!board.move && session.canEdit;
+  // board.canDrop(row, toKey) — можно ли бросить эту карточку на колонку (доска «В работе»: колонки, которых нет в маршруте изделия, не принимают)
 
   const cols = board.columns.map((c) => {
     const n = h('span', { class: 'n' }, '…');
@@ -84,7 +86,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       canStart: () => canMove,
       targetSel: '.col',
       scroller: el, scrollAxis: 'x',
-      canDrop: (t) => el.contains(t) && t.dataset.key !== from,
+      canDrop: (t) => el.contains(t) && t.dataset.key !== from && (!board.canDrop || board.canDrop(row, t.dataset.key)),
       onDrop: (t) => dropTo(card, row, from, t),
     });
   }

@@ -15,6 +15,7 @@ import { failBlock } from '../ui/busy.js';
 import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
+import { orderWork } from './order-work.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
@@ -289,6 +290,7 @@ function details(r) {
     inWork(d) ? plateOf(d) : null,
     produceBlock(d),
     ['closed', 'cancelled', 'shipped', 'ready', 'partly'].includes(d.stage) ? null : readinessBlock(d, reload),
+    ['closed', 'cancelled'].includes(d.stage) ? null : orderWork(d.orders),
     sec(`Договоры (${(d.orders || []).length})`, ...((d.orders || []).length ? d.orders.map((o) => contractGroup(o, reload)) : [h('p', { class: 'muted' }, 'Договоров нет.')])),
   ].filter(Boolean));
   const reload = () => api(`/production-orders/${encodeURIComponent(r.key)}`).then((d) => paint(d)).catch((e) => box.replaceChildren(failBlock(e, reload)));

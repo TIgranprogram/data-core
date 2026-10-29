@@ -42,6 +42,7 @@ const LAZY = {
   orders: [() => import('./sections/orders.js'), [['orders','orders'],['incpay','incPay'],['incprice','incPrice']]],
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
   design: [() => import('./sections/design.js'), [['design','design']]],
+  work: [() => import('./sections/work.js'), [['work','work']]],
   designorder: [() => import('./sections/design-order.js'), [['designorder','designOrder']]],
   profile: [() => import('./sections/profile.js'), [['profile','profile']]],
   matching: [() => import('./sections/salesorders-matching.js'), [['matching','matching']]],
@@ -103,15 +104,15 @@ function needed(section, params) {
   if (section === 'requests') keys.add('reqtabs');
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
-const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
+const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
-const GROUP_OF = { salesorders: 'Производство', design: 'Производство', products: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
+const GROUP_OF = { salesorders: 'Производство', design: 'Производство', work: 'Производство', products: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -206,7 +207,7 @@ function shell() {
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
-    group('Производство', navLinks.salesorders, navLinks.design), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
+    group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
     group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
@@ -303,10 +304,11 @@ async function refreshCounts(only) {
   // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
   const get = (id, path) => (session.sees(id) && (!only || only.has(id)) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
   try {
-    const [r, s, o, so, dz] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks')]);
+    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
     if (o) set('orders', o.counts?.awaiting || 0);
     if (so) set('salesorders', so.counts?.active || 0);
     if (dz) set('design', (dz.counts?.queue || 0) + (dz.counts?.work || 0));
+    if (wk) set('work', (wk.counts?.waiting || 0) + (wk.counts?.work || 0));
     if (r) { const c = r.counts || {}; set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0)); }
     if (s) set('stock', (s.counts?.low || 0) + (s.counts?.none || 0));
   } catch { /* счётчики не критичны */ }
@@ -490,14 +492,14 @@ let lastRow = null;       // запись из ответа последней �
 let rowsMixed = false;    // за окно склейки было больше одной записи — обновляем всё
 const countsOf = new Set();
 const LOOKUP_PATH = /^\/(partners|dicts|materials|supply\/catalog|supply\/lookups)(\/|$|\?)/;
-const COUNT_SECTION = [[/^\/supply\/(requests|invoices)/, 'requests'], [/^\/stock/, 'stock'], [/^\/incomes/, 'orders'], [/^\/(salesorders|production-orders)/, 'salesorders'], [/^\/design-tasks/, 'design']];
+const COUNT_SECTION = [[/^\/supply\/(requests|invoices)/, 'requests'], [/^\/stock/, 'stock'], [/^\/incomes/, 'orders'], [/^\/(salesorders|production-orders)/, 'salesorders'], [/^\/design-tasks/, 'design'], [/^\/work-tasks/, 'work']];
 function onDataChanged(e) {
   const d = e?.detail;
   const path = d?.path || '';
   if (!path || LOOKUP_PATH.test(path)) lookups.reset(); // справочники сбрасываем только при записи в них
   // счётчики меню — только затронутых разделов и не чаще раза в 2 с
   const hit = path ? COUNT_SECTION.filter(([re]) => re.test(path)).map(([, id]) => id) : [];
-  if (!path) ['requests', 'stock', 'orders', 'salesorders', 'design'].forEach((id) => countsOf.add(id)); else hit.forEach((id) => countsOf.add(id));
+  if (!path) ['requests', 'stock', 'orders', 'salesorders', 'design', 'work'].forEach((id) => countsOf.add(id)); else hit.forEach((id) => countsOf.add(id));
   if (countsOf.size && !countsTimer) countsTimer = setTimeout(() => { countsTimer = 0; const ids = new Set(countsOf); countsOf.clear(); refreshCounts(ids); }, 2000);
   const one = d?.method === 'PATCH' && d.result && d.result.id && !d.result.items ? d.result : null;
   if (changedTimer) rowsMixed = true;

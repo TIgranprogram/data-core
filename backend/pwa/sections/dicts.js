@@ -25,6 +25,8 @@ import { normSearch, searchTokens } from '../core/facets.js';
  * d=passportPhrases — дерево «раздел → вариант» «Тексты паспорта» (sections/passport-tree.js).
  */
 const dictKey = () => current().params.d || 'categories';
+/** Сотрудник: виды работ словами (их может быть несколько: workTypeIds). */
+const workTypesText = (r) => { const all = r.dictInfo?.refs?.worktypes || []; const ids = r.workTypeIds?.length ? r.workTypeIds : r.workTypeId ? [r.workTypeId] : []; return ids.map((id) => all.find((o) => String(o.value) === String(id))?.label).filter(Boolean).join(', '); };
 const fmt = (f, v, refs) => {
   if (v === undefined || v === null || v === '' || v === 'null' || (Array.isArray(v) && !v.length)) return '';
   if (f?.key === 'requiredImages') return linesToKinds(v).map(kindName).join(', ');
@@ -295,7 +297,7 @@ export const dict = {
     startEdit: () => true, // «Изменить» в списке — сразу правка в правой панели
     view: (r) => (r.dictInfo?.fields || []).filter((f) => !['name', 'firstName', 'lastName', 'patronymic'].includes(f.key) || r.dict === 'persons')
       .filter((f) => f.type !== 'money' || session.canMoney)
-      .map((f) => [f.label, isPhoto(f) ? photoStrip(r, f) : f.type === 'color' && r[f.key] ? h('span', null, h('i', { class: 'swatch', style: { background: r[f.key] } }), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
+      .map((f) => [f.key === 'workTypeId' && r.dict === 'persons' ? 'Виды работ' : f.label, f.key === 'workTypeId' && r.dict === 'persons' ? workTypesText(r) : isPhoto(f) ? photoStrip(r, f) : f.type === 'color' && r[f.key] ? h('span', null, h('i', { class: 'swatch', style: { background: r[f.key] } }), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
     actions: (r) => [{ label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) }],
   },
   form: {
@@ -326,7 +328,11 @@ export const dict = {
           u && u.tracked !== false ? h('div', { class: 'muted' }, u.busy ? `Используется в: ${secs}` : 'Нигде не используется') : null,
           canEditDict() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => mergeDialog(r, { close() {} }) }, 'Объединить с…') : null),
         get value() { return ''; }, set value(x) { void x; }, focus() {} }) };
-      const one = (f) => (f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
+      // «Виды работ» сотрудника — несколько, галочками (workTypeIds; от них зависит, кого предложат на карточку в «В работе»)
+      const wtOpts = (info.refs?.worktypes || []).map((o) => ({ code: String(o.value), name: o.label }));
+      const one = (f) => (dictKey() === 'persons' && f.key === 'workTypeId' ? { key: 'workTypeIds', label: 'Виды работ', type: 'widget', wide: true, hint: 'Можно несколько. По ним предлагаем исполнителя на карточке в «В работе».', summary: () => '',
+        widget: (v) => refChipsField(wtOpts, { label: 'Виды работ', value: v, multiple: true }) }
+        : f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
         widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }
         : f.ref?.dict ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '',
           widget: (v) => refChipsField(refOpts[f.key] || [], { label: f.label, value: v, multiple: f.ref.multiple !== false }) }
@@ -362,8 +368,8 @@ export const dict = {
     },
     initial: () => (dictKey() === 'persons' ? { status: 'active' } : {}),
     // картинки (БЗ-6 Э9.7): в форме — загрузка/вставка как везде; в базе — id фото (photo — один, photos — список)
-    toInitial: (r) => ({ ...r, ...Object.fromEntries((r.dictInfo?.fields || []).filter(isPhoto).map((f) => [f.key, idsOf(r[f.key]).map((id) => ({ id, url: r.photos?.[id]?.url, thumb: r.photos?.[id]?.thumb || r.photos?.[id]?.url }))])) }),
-    toBody: (v) => Object.fromEntries(Object.entries(v).filter(([k, x]) => !k.startsWith('_') && !(k === 'code' && (x === '' || x == null))).map(([k, x]) => [k, k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
+    toInitial: (r) => ({ ...r, workTypeIds: r.workTypeIds?.length ? r.workTypeIds : r.workTypeId ? [r.workTypeId] : [], ...Object.fromEntries((r.dictInfo?.fields || []).filter(isPhoto).map((f) => [f.key, idsOf(r[f.key]).map((id) => ({ id, url: r.photos?.[id]?.url, thumb: r.photos?.[id]?.thumb || r.photos?.[id]?.url }))])) }),
+    toBody: (v) => Object.fromEntries(Object.entries(v).filter(([k, x]) => !k.startsWith('_') && !(k === 'code' && (x === '' || x == null))).map(([k, x]) => [k, k === 'workTypeIds' ? String(x || '').split(',').map((t) => t.trim()).filter(Boolean) : k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
     create: (b) => api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
     update: (id, b) => api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); if (r?.moved > 0) toast('Название изменено везде'); return r; }),
   },

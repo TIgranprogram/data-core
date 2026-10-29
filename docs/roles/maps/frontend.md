@@ -115,3 +115,9 @@
 ## Аудит П2/П3: шапки и панели вместо окон (2026-10-29, не закоммичено)
 - `ui/side-form.js` — `sideForm({id,title,get,fields,toInitial,toBody,save,saveLabel,canEdit})` = раздел-панель «сразу форма → сохранить → закрыться»; `openSide(id,key)` = `patch({of,open})`; `noteField`. Образцы: `orders.js incPay/incPrice` (`paymentDialog/priceDialog` теперь только открывают панель), `payroll.js payout`, `money.js finStart`, `requests.js reqReceive` (`receiveDialog`), `supplier-catalog.js priceList` (`open=<supplierId>|x|order:<supplierId>`; `partners.js` вызывает её, окно прайса там убрано). Регистрация: `main.js` LAZY/LOADER_OF/OWNER (incpay, incprice, payout, finstart, reqreceive, pricelist).
 - `ui/list.js` — `L.moreActions(reload)` → меню «Ещё ▾» (+ «⇩ Excel»; кнопка `exportBtn` = `moreBtn`). Использует: requests, products (импорт одним блоком), stock (`stockMore`, `stockActions` = «Принять на склад»), passports (PDF пакетом). Осталось окном: `pickProduct` (1 поле), `changeStatus`. Не тронуто: кнопки склада на `home.js:319–323`.
+
+## «В работе» (WORK-UI, 2026-10-30, не закоммичено)
+коммит: (после коммита координатора)
+- `sections/work.js` — раздел (`work`): `mountWorkBoard` (колонки из ответа сервера `columns`, оборачивает `ui/board.js`; пусто — `.wk-empty`), `boardBody`, `moveTo/call` (move/done/waiting + undo), `topBlock/routeSteps`, `assignBlock` (people?workTypeId), `cancelBlock`, `card.actions`. `ui/board.js` — новая опция `board.canDrop(row,toKey)`.
+- `sections/order-work.js` — `orderWork(orders)` блок «В работе» в карточке заказа (`salesorders.js details`), `launchResult` (refused/warnings словами). `sections/work-route.js` — `routeBlock(product)` «Как делается» (products.js card.extra), `workTypes()`.
+- `dicts.js` persons: поле `workTypeIds` (refChipsField) вместо одиночного `workTypeId`, `workTypesText`. `main.js` — LAZY/NAV/SEC_OF/GROUP_OF/счётчик `work`. `help-flow-data.js` — узел `k1`. CSS `.wk-*` — конец `ui/screens.css`.

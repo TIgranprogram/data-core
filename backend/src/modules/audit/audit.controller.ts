@@ -9,13 +9,13 @@ import { canSeeMoney } from '../../common/roles-hierarchy';
 import { appSectionLabel, openSectionsFor } from '../../common/app-sections';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
-export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem', 'Product'];
+export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem', 'Product', 'WorkTask'];
 
 /** SK-8d: тип записи → разделы «Рабочего места» (открыт любой — история видна); [] — всегда (справочники). */
 export const RECORD_TYPE_SECTIONS: Record<string, string[]> = {
   SupplyRequest: ['requests'], Material: ['stock'], StockMovement: ['stock'],
   Counterparty: ['partners'], Partner: ['partners'], Order: ['orders', 'salesorders'], Income: ['orders', 'salesorders'],
-  SalesOrder: ['salesorders'], Product: ['products'], DictItem: [],
+  SalesOrder: ['salesorders'], Product: ['products'], WorkTask: ['work'], DictItem: [],
 };
 
 /** Типы истории, чьи разделы открыты пользователю (без ограничений — все). */

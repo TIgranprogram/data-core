@@ -1579,3 +1579,47 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .pf-pdf-name { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Паспорт: откуда категория (плашка под «Категория паспорта») */
 .pp-cat-src { margin-top: 6px; font-size: var(--fs-sm); }
+/* «Требуют заполнения»: счёт прямо в строке (fill.js quickRow) */
+.fill-qrow { cursor: default; }
+.fill-qrow .btn-primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.fill-quick input.err { border-color: var(--danger, #c0392b); }
+.fill-quick { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.fill-quick input { width: 9.5em; min-width: 0; }
+.fill-quick input[type="date"] { width: 10.5em; }
+@media (max-width: 600px) { .fill-quick input, .fill-quick input[type="date"] { flex: 1 1 8em; width: auto; } }
+
+/* «В работе» (производство): доска по видам работ, маршрут, запуск из заказа, «Как делается» у изделия */
+.wk-wrap { min-width: 0; }
+.wk-dots { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.wk-dot { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); flex: none; }
+.wk-dot.done { background: var(--ok); border-color: var(--ok); }
+.wk-dot.current { background: var(--info); border-color: var(--info); box-shadow: 0 0 0 3px var(--info-soft); }
+.wk-step { display: flex; align-items: center; gap: var(--s2); margin-top: 6px; min-width: 0; }
+.wk-step-name { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-where { display: inline-flex; align-items: center; gap: var(--s2); }
+.wk-empty { text-align: center; padding: var(--s5, 32px) var(--s3); display: grid; gap: var(--s2); justify-items: center; }
+.wk-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.wk-st { display: flex; gap: var(--s2); align-items: baseline; padding: 6px 8px; border-radius: var(--radius-sm); min-width: 0; }
+.wk-st .wk-mark { width: 1.2em; text-align: center; flex: none; color: var(--muted); }
+.wk-st.done .wk-mark { color: var(--ok); }
+.wk-st.current { background: var(--info-soft); font-weight: 600; }
+.wk-st.current .wk-mark { color: var(--info); }
+.wk-st.next { color: var(--muted); }
+.wk-st-name { min-width: 0; overflow-wrap: anywhere; }
+.wk-route-now h3, .wk-assign h3 { margin: var(--s3) 0 var(--s2); font-size: var(--fs-h3); }
+.wk-photo { display: block; max-width: 100%; max-height: 220px; object-fit: contain; border-radius: var(--radius-sm); background: var(--photo-bg); margin: var(--s2) 0; }
+.wk-assign { display: grid; gap: var(--s2); }
+.wk-assign textarea, .wk-cancel textarea { width: 100%; box-sizing: border-box; }
+.wk-launch { margin: var(--s2) 0; padding: var(--s2) var(--s3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.wk-launch-head { margin: 0 0 4px; font-weight: 600; }
+.wk-launch-list { margin: 4px 0 0; padding-left: 1.2em; }
+.wk-launch-list.wk-bad { color: var(--danger); }
+.wk-launch-list.wk-warn { color: var(--gold-deep); }
+.wk-route { margin-top: var(--s3); }
+.wk-rt-list { list-style: none; margin: 0 0 var(--s2); padding: 0; display: grid; gap: var(--s2); }
+.wk-rt-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: var(--s2); align-items: start; padding: var(--s2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.wk-rt-n { font-weight: 600; color: var(--muted); padding-top: 8px; text-align: center; }
+.wk-rt-main { display: grid; gap: var(--s2); min-width: 0; }
+.wk-rt-main select, .wk-rt-main input[type="text"], .wk-rt-main .sel-wrap { width: 100%; min-width: 0; box-sizing: border-box; }
+.wk-rt-btns { display: flex; gap: 2px; }
+@media (max-width: 720px) { .wk-rt-row { grid-template-columns: 24px minmax(0, 1fr); } .wk-rt-btns { grid-column: 2; } }
