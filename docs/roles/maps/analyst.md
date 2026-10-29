@@ -48,3 +48,6 @@
 
 ## Цепочка заказа (CHAIN-AUDIT, 2026-10-28)
 - ТЗ: `docs/roles/tz/CHAIN-AUDIT.md`. Этапы `common/text/order-key.ts:8`; счёт `supply/supply-invoice.schema.ts:36` (нет списка GET); заявка `salesOrderId` :175, `invoiceId` :194; «+ Договор в этот заказ» `pwa/sections/salesorders.js:302`. КП — нет сущности (ДМ.8). Вопросы ЦП-1…3.
+
+## Сопоставление договор→продукция (2026-10-29)
+- ТЗ `docs/roles/tz/CONTRACT-MATCHING.md`. `productByTitle` incomes.service.ts:178; «Открыть заказы» products.js:373 ищет по тексту договора (salesorders.service.ts:80), не по productId. assign: production-orders.service.ts:81. Вопросы КМ-1…5. коммит: — (не закоммичено)
