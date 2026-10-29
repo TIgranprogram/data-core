@@ -145,7 +145,35 @@ export class ZonesService implements OnApplicationBootstrap, OnModuleDestroy {
       // ниже директора — только id, имя, должность, зоны (без телефона и логина)
       return full ? r : { id: r.id, name: r.name, position: r.position, zoneCodes: r.zoneCodes, zones: r.zones };
     });
-    return { items, total: items.length, unassigned: zl.unassigned };
+    if (!full) return { items, total: items.length, unassigned: zl.unassigned };
+    return { items, total: items.length, unassigned: zl.unassigned, loginsWithoutPerson: await this.loginsWithoutPerson(rows as Doc[]) };
+  }
+
+  /** Входы, не связанные ни с одним сотрудником, + подсказка «это …?» по фамилии и имени (СВ-1). */
+  private async loginsWithoutPerson(persons: Doc[]) {
+    const norm = (v: unknown) => String(v ?? '').toLowerCase().replace(/ё/g, 'е').split(/\s+/).filter(Boolean);
+    const free = persons.filter((p) => !p.userId);
+    return (await this.loginOptions()).items.filter((u) => !u.personId).map((u) => {
+      const words = new Set(norm(u.displayName));
+      const hit = free.filter((p) => { const ln = norm(p.lastName)[0]; const fn = norm(p.firstName)[0]; return !!ln && !!fn && words.has(ln) && words.has(fn); });
+      return { userId: u.userId, username: u.username, displayName: u.displayName, role: u.role, suggestPersonId: hit.length === 1 ? String(hit[0]._id) : null };
+    });
+  }
+
+  /** Создать сотрудника из входа без сотрудника: ФИО — из имени входа (СВ-2). */
+  async createFromLogin(userId: string) {
+    const uid = oid(userId, 'пользователя');
+    const user = await this.db().collection('users').findOne({ _id: uid, accountType: { $ne: 'device' } }, { projection: { username: 1, displayName: 1 } });
+    if (!user) throw new BadRequestException('Пользователь не найден — выберите из списка');
+    const col = this.db().collection('persons');
+    const other = await col.findOne({ userId: uid, deletedAt: null }, { projection: { lastName: 1, firstName: 1, patronymic: 1 } });
+    if (other) throw new ConflictException(`Вход уже связан с ${personLabel(other)}`);
+    const [lastName, firstName, ...rest] = String(user.displayName || user.username).trim().split(/\s+/);
+    const now = new Date();
+    const doc: Doc = { lastName: firstName ? lastName : '', firstName: firstName || lastName, status: 'active', userId: uid, deletedAt: null, createdAt: now, updatedAt: now };
+    if (rest.length) doc.patronymic = rest.join(' ');
+    const { insertedId } = await col.insertOne(doc);
+    return this.row({ ...doc, _id: insertedId });
   }
 
   private async personDoc(id: string): Promise<PersonRow> {

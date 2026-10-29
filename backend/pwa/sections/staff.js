@@ -9,7 +9,7 @@ import { toast, toastError } from '../ui/toast.js';
 /**
  * «Управление → Сотрудники» (ЗО-2): список сотрудников, вкладка «Зоны», плашка «Не назначено».
  * Правка — только в правой панели: карточка сотрудника (`of=staffcard`: вход, зоны, история) и карточка зоны (`of=zonecard`).
- * Сервер: /zones, /staff, /staff/logins, /staff/:id, PUT /staff/:id/zones, PUT /staff/:id/login.
+ * Сервер: /zones, /staff (+ loginsWithoutPerson), POST /staff/from-login, /staff/logins, /staff/:id, PUT /staff/:id/zones, PUT /staff/:id/login.
  */
 const TABS = [['staff', 'Сотрудники'], ['zones', 'Зоны']];
 const tabOf = (p) => (p?.tab === 'zones' ? 'zones' : 'staff');
@@ -44,13 +44,37 @@ export function mountStaff(params) {
 
   const chips = (list) => (list?.length ? h('span', { class: 'st-zones' }, ...list.map((z) => h('span', { class: 'tag dim' }, z.name))) : h('span', { class: 'muted small' }, 'нет зон'));
 
+  // СВ-4: вход на сайт есть, а сотрудника нет — связать с сотрудником или создать его
+  function loginsBlock(items) {
+    const list = staff?.loginsWithoutPerson || [];
+    if (!list.length) return null;
+    const free = items.filter((p) => !p.hasLogin);
+    const byId = new Map(items.map((p) => [p.id, p]));
+    const act = (e, fn, ok) => busy(e, async () => { try { await fn(); toast(ok); load(true); } catch (ex) { toastError(ex, 'связать вход'); } });
+    const link = (pid, uid) => api(`/staff/${pid}/login`, { method: 'PUT', body: { userId: uid } });
+    return h('section', { class: 'st-block' },
+      h('h3', { class: 'section-title' }, `Входы без сотрудника (${list.length})`),
+      h('p', { class: 'hint' }, 'Эти люди входят на сайт, но не связаны с сотрудником — им не приходят уведомления зон. Свяжите каждого.'),
+      h('ul', { class: 'st-list' }, ...list.map((u) => {
+        const sug = u.suggestPersonId && byId.get(u.suggestPersonId);
+        const sel = h('select', { 'aria-label': 'Сотрудник для входа ' + u.displayName }, h('option', { value: '' }, 'Выбрать сотрудника…'), ...free.map((p) => h('option', { value: p.id }, p.name)));
+        sel.onchange = (e) => { if (sel.value) act(e, () => link(sel.value, u.userId), 'Вход связан'); };
+        return h('li', { class: 'st-row' },
+          h('span', { class: 'st-main' }, h('b', null, u.displayName), h('span', { class: 'muted small' }, 'логин ' + u.username)),
+          sug ? h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: (e) => act(e, () => link(sug.id, u.userId), 'Вход связан') }, `Это ${sug.name} — связать`) : null,
+          free.length ? sel : null,
+          h('button', { type: 'button', class: 'btn btn-sm', onclick: (e) => act(e, () => api('/staff/from-login', { method: 'POST', body: { userId: u.userId } }), 'Сотрудник создан') }, 'Создать сотрудника'));
+      })));
+  }
+
   function drawStaff() {
     const items = staff?.items || [];
-    if (!items.length) { body.replaceChildren(h('div', { class: 'state' }, 'Сотрудников пока нет. Добавьте их в «Данных → Сотрудники» — они появятся здесь.')); return; }
-    body.replaceChildren(h('ul', { class: 'st-list' }, ...items.map((p) => h('li', null, h('button', { type: 'button', class: 'st-row', onclick: () => openPanel('staffcard', p.id) },
+    const logins = loginsBlock(items);
+    if (!items.length) { body.replaceChildren(...[logins, h('div', { class: 'state' }, 'Сотрудников пока нет. Добавьте их в «Данных → Сотрудники» — они появятся здесь.')].filter(Boolean)); return; }
+    body.replaceChildren(...[logins, h('ul', { class: 'st-list' }, ...items.map((p) => h('li', null, h('button', { type: 'button', class: 'st-row', onclick: () => openPanel('staffcard', p.id) },
       h('span', { class: 'st-main' }, h('b', null, p.name), h('span', { class: 'muted small' }, [p.position, p.statusLabel && p.statusLabel !== 'Работает' ? p.statusLabel : ''].filter(Boolean).join(' · ') || 'должность не указана')),
       h('span', { class: p.hasLogin ? 'badge ok' : 'badge warn', title: p.hasLogin ? 'Получает уведомления' : 'Сотрудник не связан со входом — ему не приходят уведомления' }, p.hasLogin ? 'вход связан' : 'нет входа'),
-      chips(p.zones))))));
+      chips(p.zones)))))].filter(Boolean));
   }
 
   function drawZones() {
@@ -164,7 +188,7 @@ function zoneEditor(z, everyone, ctx) {
       check('Показывать зону', active, (v) => { active = v; }),
       z.system ? h('p', { class: 'hint' }, 'Базовую зону удалить нельзя — её можно переименовать или скрыть.') : null),
     h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Кто отвечает'),
-      everyone.length ? h('div', { class: 'st-checks' }, ...everyone.map((p) => check(p.name + (p.hasLogin ? '' : ' (нет входа)'), members.has(p.id), (v) => (v ? members.add(p.id) : members.delete(p.id)))))
+      everyone.length ? h('div', { class: 'st-checks' }, ...everyone.map((p) => check(p.name + (p.hasLogin ? '' : ' (не получит уведомления — нет входа)'), members.has(p.id), (v) => (v ? members.add(p.id) : members.delete(p.id)))))
         : h('p', { class: 'hint' }, 'Сотрудников нет.')),
     h('div', { class: 'actions' }, save, del));
 }

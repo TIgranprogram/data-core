@@ -72,3 +72,36 @@ describe('ZonesService: уведомления и напоминание «Не 
     expect(sent[0].text).toBe(unassignedText(['Паспорта', 'Склад']));
   });
 });
+
+describe('ZonesService: входы без сотрудника (СВ-1, СВ-2)', () => {
+  const uid = '64b000000000000000000001';
+  const make = (linked: Record<string, unknown> | null) => {
+    const inserted: Array<Record<string, unknown>> = [];
+    const conn = { db: { collection: (n: string) => ({
+      findOne: async () => (n === 'users' ? { _id: uid, username: 'ivanov', displayName: 'Иванов Пётр Сергеевич' } : linked),
+      insertOne: async (d: Record<string, unknown>) => { inserted.push(d); return { insertedId: 'p1' }; },
+    }) } };
+    const svc = new ZonesService({} as never, {} as never, {} as never, conn as never, {} as never);
+    jest.spyOn(svc as never, 'row' as never).mockImplementation((async (p: unknown) => p) as never);
+    return { svc, inserted };
+  };
+  it('подсказка: одно совпадение фамилии и имени (ё = е)', async () => {
+    const { svc } = make(null);
+    jest.spyOn(svc, 'loginOptions').mockResolvedValue({ total: 2, items: [
+      { userId: 'u1', username: 'a', displayName: 'Нестратов Александр', role: 'manager', personId: null, personName: null },
+      { userId: 'u2', username: 'b', displayName: 'Связанный', role: 'user', personId: 'pX', personName: 'X' },
+    ] });
+    const r = await (svc as never as { loginsWithoutPerson: (p: unknown[]) => Promise<Array<Record<string, unknown>>> })
+      .loginsWithoutPerson([{ _id: 'p9', lastName: 'Нестратов', firstName: 'Александр' }, { _id: 'p8', lastName: 'Сим', firstName: 'Аркадий', userId: 'u7' }]);
+    expect(r).toEqual([expect.objectContaining({ userId: 'u1', suggestPersonId: 'p9' })]);
+  });
+  it('создать сотрудника из входа: ФИО из имени входа, связь userId', async () => {
+    const { svc, inserted } = make(null);
+    await svc.createFromLogin(uid);
+    expect(inserted[0]).toMatchObject({ lastName: 'Иванов', firstName: 'Пётр', patronymic: 'Сергеевич', status: 'active' });
+  });
+  it('вход уже связан — 409', async () => {
+    const { svc } = make({ lastName: 'Сим', firstName: 'Аркадий' });
+    await expect(svc.createFromLogin(uid)).rejects.toThrow('Вход уже связан');
+  });
+});

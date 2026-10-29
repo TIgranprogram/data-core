@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -39,6 +39,15 @@ export class ZonesController {
   @Get('staff/logins')
   @Roles('admin', 'director')
   logins() { return this.zones.loginOptions(); }
+
+  /** Создать сотрудника из входа без сотрудника (СВ-2). */
+  @Post('staff/from-login')
+  @Roles('admin', 'director')
+  @AuditAction({ action: 'person.created.fromLogin', entityType: 'Person' })
+  fromLogin(@Body() dto: PersonUserDto) {
+    if (!dto.userId) throw new BadRequestException('Выберите вход');
+    return this.zones.createFromLogin(dto.userId);
+  }
 
   @Get('staff/:id')
   @Roles('admin', 'director')
