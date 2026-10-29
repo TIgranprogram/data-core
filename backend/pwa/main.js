@@ -67,13 +67,14 @@ const LAZY = {
   ptnode: [() => import('./sections/passport-tree.js'), [['ptnode','ptnode']]],
   money: [() => import('./sections/money.js'), [['@mountMoney','mountMoney']]],
   payroll: [() => import('./sections/payroll.js'), [['@mountPayroll','mountPayroll']]],
+  staff: [() => import('./sections/staff.js'), [['@mountStaff','mountStaff'],['staffcard','staffCard'],['zonecard','zoneCard']]],
   trash: [() => import('./sections/trash.js'), [['@mountTrash','mountTrash']]],
   fill: [() => import('./sections/fill.js'), [['@mountFill','mountFill']]],
   search: [() => import('./sections/search.js'), [['@mountSearch','mountSearch']]],
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext' };
+const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff' };
 const loading = {};
 /** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
 function loadSec(key) {
@@ -91,15 +92,15 @@ function needed(section, params) {
   if (section === 'requests') keys.add('reqtabs');
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests',
+const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', staffcard: 'staff', zonecard: 'staff',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
-const GROUP_OF = { salesorders: 'Производство', design: 'Производство', products: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги' };
+const GROUP_OF = { salesorders: 'Производство', design: 'Производство', products: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -199,6 +200,7 @@ function shell() {
     group('Склад', navLinks.stock),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog),
     session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,
+    group('Управление', navLinks.staff),
     h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)
@@ -361,6 +363,7 @@ function render(c) {
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = FN.mountMoney(params);
     else if (section === 'payroll' && FEATURES.payroll && session.canPayroll) list = FN.mountPayroll();
+    else if (section === 'staff') list = FN.mountStaff(params);
     else if (section === 'trash') list = FN.mountTrash();
     else if (section === 'dicts') list = FN.mountDicts(params);
     else if (section === 'fill') list = FN.mountFill(params);
@@ -389,7 +392,7 @@ function openRecord(section, id) {
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
 const titleOf = (n) => SECTIONS[n]?.title || NAMES[n] || NAV.find(([id]) => id === n)?.[1];
-const NAMES = { home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
+const NAMES = { home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', staff: 'Сотрудники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
 function screenTitle(url) {
   const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
   const name = titleOf(sec) || 'Сегодня';

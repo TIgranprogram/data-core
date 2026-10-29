@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ZonesModule } from '../zones/zones.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SalesOrdersModule } from '../salesorders/salesorders.module';
 import { MaterialModule } from '../material/material.module';
@@ -18,6 +19,7 @@ import { SupplierCatalogService } from './supplier-catalog.service';
   imports: [
     StockModule,
     NotificationsModule,
+    ZonesModule,
     SalesOrdersModule,
     MaterialModule,
     MongooseModule.forFeature([

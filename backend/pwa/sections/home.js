@@ -39,6 +39,8 @@ export function mountHome(deps) {
 
   let pq = null; // очередь паспортов: счётчики для карточки
   let data = null, showAllQ = false, chip = null, dayFilter = null;
+  let mode = null; // «Моё» / «Всё»: первый раз — как скажет сервер (scope.defaultMode)
+  const scopeEl = h('div', { class: 'td-scope', hidden: true });
   const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
   const showQuestions = () => { chip = null; dayFilter = null; showAllQ = !showAllQ || qEl.hidden; paintAll(); qEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const bellBtn = h('button', { type: 'button', class: 'td-bell', title: 'Вопросы ждут ответа — показать', 'aria-label': 'Вопросы ждут ответа', hidden: true, onclick: showQuestions });
@@ -274,15 +276,29 @@ export function mountHome(deps) {
     tilesEl.hidden = !out.length;
   }
 
+  // ---------- Моё / Всё (ЗО-4) ----------
+  function paintScope() {
+    const sc = data?.scope;
+    scopeEl.hidden = !sc;
+    if (!sc) return;
+    const pick = (m) => { if (mode === m) return; mode = m; load(); };
+    scopeEl.replaceChildren(
+      h('div', { class: 'seg', role: 'group', 'aria-label': 'Что показывать' },
+        ...[['mine', 'Моё'], ['all', 'Всё']].map(([m, label]) => h('button', { type: 'button', class: mode === m ? 'active' : '', 'aria-pressed': String(mode === m), onclick: () => pick(m) }, label))),
+      sc.linked === false ? h('div', { class: 'hint td-scope-hint' }, 'Вход не связан с сотрудником — скажите директору.') : null);
+  }
+
   // ---------- Загрузка ----------
   let unmatchedN = 0;
   async function load(silent = false) {
     try {
       const [d, q] = await Promise.all([
-        api('/today', { query: { days: 7 } }),
+        api('/today', { query: { days: 7, ...(mode ? { scope: mode } : {}) } }),
         session.seesDocs() ? api('/passports/queue', { query: { due: 'soon', limit: 1 } }).catch(() => pq) : Promise.resolve(pq),
       ]);
       data = d; pq = q;
+      if (!mode) mode = d.scope?.defaultMode === 'mine' ? 'mine' : 'all';
+      paintScope();
       unmatchedN = (await unmatchedCount()).total || 0;
       paintBell(); paintTiles(); paintAll();
     } catch (e) {
@@ -333,7 +349,7 @@ export function mountHome(deps) {
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head td-head' },
       h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${dayText}`)),
-      h('div', { class: 'td-bellwrap' }, bellBtn)),
+      h('div', { class: 'td-bellwrap' }, scopeEl, bellBtn)),
     diskNote,
     // на телефоне — три задачи «на ходу» крупно
     session.canEdit && (seeReq || seeStock) ? h('div', { class: 'go-tiles' },

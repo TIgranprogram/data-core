@@ -5,12 +5,19 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { DictsService } from './dicts.service';
+import { canSeePayroll } from '../../common/roles-hierarchy';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { hidePayroll } from './dicts.payroll';
 
 /** SK-8d: «Сотрудники» без оплаты, если раздел «ФОТ» для роли закрыт. */
 const payrollMask = <T>(key: string, user: AuthenticatedUser | undefined, res: T): T =>
-  key === 'persons' && !sectionOpen(openSectionsFor(user), 'payroll') ? hidePayroll(res) : res;
+  key === 'persons' && (!canSeePayroll(user) || !sectionOpen(openSectionsFor(user), 'payroll')) ? hidePayroll(res) : res;
+
+/** Ставку и вид оплаты не принимаем от тех, кому ФОТ закрыт. */
+const payrollBody = (key: string, user: AuthenticatedUser | undefined, body: Record<string, unknown>) => {
+  if (key === 'persons' && !canSeePayroll(user) && body) { delete body.salaryRate; delete body.salaryKind; }
+  return body;
+};
 
 /**
  * «Справочники» приложения (TASKS СП.4–СП.8): категории, единицы, цвета, сотрудники, виды работ, графики выплат,
@@ -69,7 +76,7 @@ export class DictsController {
   @AuditAction({ action: 'dict.created', entityType: 'DictItem' })
   async create(@Param('key') key: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return payrollMask(key, user, await this.dicts.create(key, body));
+    return payrollMask(key, user, await this.dicts.create(key, payrollBody(key, user, body)));
   }
 
   @Patch(':key/:id')
@@ -77,7 +84,7 @@ export class DictsController {
   @AuditAction({ action: 'dict.updated', entityType: 'DictItem', idParam: 'id' })
   async update(@Param('key') key: string, @Param('id') id: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthenticatedUser) {
     this.dicts.assertCanEdit(key, user);
-    return payrollMask(key, user, await this.dicts.update(key, id, body));
+    return payrollMask(key, user, await this.dicts.update(key, id, payrollBody(key, user, body)));
   }
 
   @Delete(':key/:id')

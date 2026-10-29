@@ -35,7 +35,7 @@ export function diffSnapshots(prev: Record<string, unknown> | null | undefined, 
   const labelled = 'statusLabel' in next;
   for (const k of keys) {
     if (k === 'status' && labelled) continue;
-    if (IGNORE.has(k) || (!canMoney && MONEY_FIELDS.has(k))) continue;
+    if (IGNORE.has(k) || k === 'salaryRate' || k === 'salaryKind' || (!canMoney && MONEY_FIELDS.has(k))) continue; // ставки ФОТ — только в разделе «ФОТ», в истории не показываем (менеджер видит деньги снабжения, но не зарплаты)
     const a = prev ? simple(prev[k]) : null, b = simple(next[k]);
     if (a === undefined || b === undefined) continue;
     if (!canMoney && k === 'status' && (PAY_STATUS.has(String(a)) || PAY_STATUS.has(String(b)))) continue;

@@ -20,7 +20,7 @@ const label = (m) => { const [y, mo] = m.split('-').map(Number); return `${MONTH
 const kpi = (l, v, cls = '') => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, v), h('span', { class: 'sum-l' }, l));
 
 export function mountPayroll() {
-  if (!session.canMoney) return { el: h('div', { class: 'panel state' }, 'Раздел доступен только ролям с доступом к деньгам.'), reload: () => {}, update: () => {} };
+  if (!session.canPayroll) return { el: h('div', { class: 'panel state' }, 'Раздел доступен только бухгалтеру и руководству.'), reload: () => {}, update: () => {} };
   let month = curMonth();
   const monthLabel = h('span', { class: 'm-label' });
   const next = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => { month = shift(month, 1); load(); } }, '›');

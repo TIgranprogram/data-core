@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
+import { ZonesService } from '../zones/zones.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProductionOrdersService } from '../salesorders/production-orders.service';
 import type { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
@@ -29,6 +30,7 @@ export class DesignService {
     @InjectModel(DesignOrder.name) private readonly designOrders: Model<DesignOrderDocument>,
     private readonly notices: NotificationsService,
     private readonly orders: ProductionOrdersService,
+    @Optional() private readonly zones?: ZonesService,
   ) {}
 
   private readonly log = new Logger(DesignService.name);
@@ -98,10 +100,21 @@ export class DesignService {
     if (!(await this.db().collection('persons').findOne({ _id: id, deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException('Сотрудник не найден — выберите из списка');
   }
 
+  /** ЗО-3: задача без исполнителя — тем, кто раздаёт проектирование (зона «Распределение»). */
+  private async notifyUnassigned(task: Doc, actorId?: string) {
+    const name = String(task.title || (task.seq ? `D-${task.seq}` : 'Задача проектирования'));
+    await this.zones?.notifyZone('design_dispatch', { type: 'task_unassigned', text: `Задача без исполнителя: ${name}`, href: `#design?open=${String(task._id)}` }, { actorId });
+  }
+
   /** Уведомление исполнителю: задача назначена. Сотрудник связан со входом через persons.userId; нет связи — не шлём. */
   private async notifyAssigned(task: Doc, assigneeId: unknown, actorId?: string) {
     try {
       if (!assigneeId) return;
+      if (this.zones) {
+        const name = String(task.title || (task.seq ? `D-${task.seq}` : 'Задача проектирования'));
+        await this.zones.notifyZone('design', { type: 'task_assigned', text: `Вам назначена задача проектирования: ${name}`, href: `#design?open=${String(task._id)}` }, { personId: assigneeId, actorId });
+        return;
+      }
       const p = await this.db().collection('persons').findOne({ _id: assigneeId as Types.ObjectId }, { projection: { userId: 1 } });
       if (!p?.userId) return;
       const name = String(task.title || (task.seq ? `D-${task.seq}` : 'Задача проектирования'));
@@ -198,6 +211,7 @@ export class DesignService {
     if (Object.keys(manual).length) f.manual = manual;
     const doc = await this.insert(f, userId);
     await this.notifyAssigned(doc, f.assigneeId, userId);
+    if (!f.assigneeId) await this.notifyUnassigned(doc, userId);
     return this.get(String(doc._id));
   }
 
@@ -278,6 +292,9 @@ export class DesignService {
       throw e;
     }
     if (link.orderId) await this.markQuiet(link.orderId, userId);
+    if (dto.assigneeId !== undefined && String(assigneeId ?? '') !== String(cur.assigneeId ?? '')) {
+      await this.zones?.recordHandoff({ entity: 'designtask', entityId: cur._id, field: 'assigneeId', from: cur.assigneeId, to: assigneeId, byUserId: userId });
+    }
     if (dto.assigneeId && String(assigneeId) !== String(cur.assigneeId ?? '')) await this.notifyAssigned(cur, assigneeId, userId);
     if (status !== cur.status) await this.orders.recheck(link.orderId ?? cur.orderId, userId); // «Проектирование завершено» мог закрыть последний пункт готовности
     if (status === 'done' && !wasDone) {

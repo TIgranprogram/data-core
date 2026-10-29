@@ -27,18 +27,20 @@ describe('Свои роли (SK-8c)', () => {
   beforeEach(() =>
     setCustomRoleBases([
       { name: 'r-sklad1', baseRole: 'manager' },
+      { name: 'r-obs001', baseRole: 'user' },
       { name: 'r-buh001', baseRole: 'accountant' },
       { name: 'r-bad001', baseRole: 'admin' },
     ]),
   );
   afterAll(() => setCustomRoleBases([]));
 
-  it('baseRole=manager: проходит @Roles("admin","manager"), не проходит @Roles("director") и не видит денег', () => {
+  it('baseRole=manager: проходит @Roles("admin","manager"), не проходит @Roles("director") и видит деньги, но не ФОТ', () => {
     expect(guard(['admin', 'manager']).canActivate(ctx({ role: 'r-sklad1' }))).toBe(true);
     expect(guard(['user']).canActivate(ctx({ role: 'r-sklad1' }))).toBe(true);
     expect(() => guard(['director']).canActivate(ctx({ role: 'r-sklad1' }))).toThrow(ForbiddenException);
     expect(() => guard(['admin']).canActivate(ctx({ role: 'r-sklad1' }))).toThrow(ForbiddenException);
-    expect(canSeeMoney({ role: 'r-sklad1' })).toBe(false);
+    expect(canSeeMoney({ role: 'r-sklad1' })).toBe(true);
+    expect(canSeeMoney({ role: 'r-obs001' })).toBe(false);
   });
 
   it('baseRole=accountant: видит деньги, проходит @Roles("manager")', () => {
@@ -46,10 +48,10 @@ describe('Свои роли (SK-8c)', () => {
     expect(guard(['manager']).canActivate(ctx({ role: 'r-buh001' }))).toBe(true);
   });
 
-  it('MoneyMask: своей роли как у менеджера суммы в ответе и в запросе скрываются', async () => {
+  it('MoneyMask: своей роли как у наблюдателя суммы в ответе и в запросе скрываются', async () => {
     const body = { amount: 5, note: 'x' };
     const out = await lastValueFrom(
-      new MoneyMaskInterceptor().intercept(ctx({ role: 'r-sklad1' }, body), { handle: () => of({ amount: 10, name: 'a' }) }) as never,
+      new MoneyMaskInterceptor().intercept(ctx({ role: 'r-obs001' }, body), { handle: () => of({ amount: 10, name: 'a' }) }) as never,
     );
     expect(out).toEqual({ name: 'a' });
     expect(body).toEqual({ note: 'x' });

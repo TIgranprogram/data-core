@@ -6,7 +6,7 @@ const ENTITY_RU: Record<string, string> = {
   Role: 'Роль', Category: 'Категория', Contract: 'Договор', Shipment: 'Отгрузка', Reservation: 'Резерв', SupplyInvoice: 'Счёт поставщика',
   SupplierItem: 'Цена поставщика', DesignTask: 'Задача проектирования', DesignOrder: 'Проектный заказ', DesignNote: 'Заметка проектирования',
   ProductAlias: 'Соответствие названия изделию', DesignSticker: 'Стикер проектирования', PayrollPayment: 'Выплата', PayrollTimesheet: 'Табель', WorkType: 'Вид работ',
-  Organization: 'Организация', Person: 'Сотрудник', Proposal: 'Предложение', Unit: 'Единица измерения', Currency: 'Валюта',
+  Organization: 'Организация', Person: 'Сотрудник', Zone: 'Зона ответственности', Proposal: 'Предложение', Unit: 'Единица измерения', Currency: 'Валюта',
 };
 const VERB_RU: Record<string, string> = {
   created: 'Создано', updated: 'Изменено', deleted: 'Удалено', restored: 'Восстановлено',

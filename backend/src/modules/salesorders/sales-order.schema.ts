@@ -38,6 +38,9 @@ export class SalesOrder {
   /** Приоритет заказа (ПРЖ-3): нет = обычный. Подставляется в задачи «Проектирования»; в кэш позиций не копируется. */
   @Prop({ type: String, enum: ORDER_PRIORITIES, index: true }) priority?: OrderPriority;
 
+  /** ЗО-5: ответственный менеджер договора — сотрудник (persons). Смена пишется в handoffs. */
+  @Prop({ type: Types.ObjectId, sparse: true }) responsibleId?: Types.ObjectId;
+
   /**
    * Ключ «компания|номер» (order-key.ts). Ставится при создании и НЕ меняется при правке номера —
    * по нему лист «Заказы» и импорт Excel находят шапку без дублей.

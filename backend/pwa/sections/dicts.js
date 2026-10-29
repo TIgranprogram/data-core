@@ -99,7 +99,7 @@ export function mountDicts(params) {
   function renderTable() {
     if (!data) return;
     const { dict } = data;
-    const cols = dict.columns.filter((c) => !(c.key === 'salaryRate' && !session.canMoney));
+    const cols = dict.columns.filter((c) => !(c.key === 'salaryRate' && !session.canPayroll));
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
     // слова в любом порядке, ё = е, M10 = М10 (как поиск на складе)
     const tk = searchTokens(q);

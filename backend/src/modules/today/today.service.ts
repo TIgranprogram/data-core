@@ -1,10 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { FinanceService } from '../finance/finance.service';
 import { StockService } from '../stock/stock.service';
+import { ZonesService } from '../zones/zones.service';
+import { isMine, pickScope, ZONE_OF } from './today-scope';
 import { addDays, buildFeed, buildPulse, buildWeek, type RawItem } from './today-feed';
 
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
@@ -25,9 +27,10 @@ export class TodayService {
     @InjectConnection() private readonly connection: Connection,
     private readonly finance: FinanceService,
     private readonly stock: StockService,
+    @Optional() private readonly zones?: ZonesService,
   ) {}
 
-  async get(user: { role?: string; isOwner?: boolean } | undefined, q: { days?: unknown }, now = new Date()) {
+  async get(user: { id?: string; role?: string; isOwner?: boolean } | undefined, q: { days?: unknown; scope?: unknown }, now = new Date()) {
     const days = q.days === undefined || q.days === '' ? 7 : Number(q.days);
     if (!Number.isInteger(days) || days < 1 || days > 31) throw new BadRequestException('Горизонт — от 1 до 31 дня');
     // дата по Москве: сервер живёт в UTC, а день менеджера начинается раньше
@@ -55,15 +58,19 @@ export class TodayService {
       actions: [{ id: 'open', label: 'Открыть' }],
     }));
     items.push(...payments);
+    for (const it of items) it.zoneCode = ZONE_OF[it.kind];
+    const zs = (await this.zones?.scopeOf(user?.id)) ?? null;
+    const scope = pickScope(q.scope, zs);
+    const shown = scope.mode === 'mine' && zs ? items.filter((it) => isMine(it, zs)) : items;
 
-    const { feed, total, all } = buildFeed(items, today);
+    const { feed, total, all } = buildFeed(shown, today);
     const metrics: Record<string, unknown> = {};
     if (supply) metrics.supply = { counts: supply.counts };
     if (orders) metrics.orders = { byStage: orders.byStage, overdue: orders.overdue };
     if (stock) metrics.stock = stock;
     if (design) metrics.design = { counts: design.counts };
     if (forecast) metrics.money = { days: forecast.days.map((d) => ({ date: d.date, balance: d.closing })) };
-    return { today, pulse: buildPulse(all), feed, feedTotal: total, week: buildWeek(items, today, days), metrics };
+    return { today, scope, pulse: buildPulse(all), feed, feedTotal: total, week: buildWeek(shown, today, days), metrics };
   }
 
   private async supply(db: NonNullable<Connection['db']>, upto: Date) {
@@ -71,13 +78,14 @@ export class TodayService {
     const [by, rows] = await Promise.all([
       db.collection('supplyrequests').aggregate<{ _id: string; n: number }>([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]).toArray(),
       db.collection('supplyrequests').find({ ...base, status: 'ordered', neededBy: { $lte: upto } },
-        { projection: { num: 1, title: 1, neededBy: 1, supplierId: 1, requestedBy: 1 }, sort: { neededBy: 1 }, limit: LIMIT }).toArray(),
+        { projection: { num: 1, title: 1, neededBy: 1, supplierId: 1, requestedBy: 1, responsibleId: 1 }, sort: { neededBy: 1 }, limit: LIMIT }).toArray(),
     ]);
     const counts: Record<string, number> = { requested: 0, in_progress: 0, ordered: 0, received: 0 };
     for (const b of by) if (b._id in counts) counts[b._id] = b.n;
     const items = rows.flatMap((r) => (iso(r.neededBy) ? [{
       kind: 'delivery' as const, id: String(r._id), title: String(r.title ?? 'Заявка'), sub: r.num ? `Заявка №${r.num}` : '', due: iso(r.neededBy),
       actions: [{ id: 'receive', label: 'Принять' }, { id: 'move', label: 'Перенести дату' }],
+      ...(r.responsibleId ? { personId: String(r.responsibleId) } : {}),
     }] : []));
     return { counts, items };
   }
@@ -88,13 +96,14 @@ export class TodayService {
       db.collection('salesorders').aggregate<{ _id: string; n: number }>([{ $match: { ...base, stage: { $in: STAGES } } }, { $group: { _id: '$stage', n: { $sum: 1 } } }]).toArray(),
       db.collection('salesorders').countDocuments({ ...base, stage: { $in: NOT_SHIPPED }, shipDate: { $lt: new Date(today + 'T00:00:00Z') } }),
       db.collection('salesorders').find({ ...base, stage: { $in: NOT_SHIPPED }, shipDate: { $lte: upto } },
-        { projection: { orderNo: 1, customer: 1, title: 1, shipDate: 1 }, sort: { shipDate: 1 }, limit: LIMIT }).toArray(),
+        { projection: { orderNo: 1, customer: 1, title: 1, shipDate: 1, responsibleId: 1 }, sort: { shipDate: 1 }, limit: LIMIT }).toArray(),
     ]);
     const byStage: Record<string, number> = Object.fromEntries(STAGES.map((s) => [s, 0]));
     for (const b of by) byStage[b._id] = b.n;
     const items = rows.flatMap((o) => (iso(o.shipDate) ? [{
       kind: 'shipment' as const, id: String(o._id), title: `Заказ ${o.orderNo ?? ''}`.trim(), sub: String(o.customer ?? o.title ?? ''), due: iso(o.shipDate),
       actions: [{ id: 'open', label: 'Открыть' }, { id: 'shipped', label: 'Отгружено' }],
+      ...(o.responsibleId ? { personId: String(o.responsibleId) } : {}),
     }] : []));
     return { byStage, overdue, items };
   }
@@ -105,7 +114,7 @@ export class TodayService {
       db.collection('designtasks').aggregate<{ _id: string; n: number }>([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]).toArray(),
       db.collection('designtasks').countDocuments({ ...base, status: 'done', completedAt: { $gte: new Date(addDays(today, -7) + 'T00:00:00Z') } }),
       db.collection('designtasks').find({ ...base, status: { $in: ['queue', 'work'] } },
-        { projection: { seq: 1, title: 1, orderId: 1, 'manual.deadline': 1 }, limit: LIMIT }).toArray(),
+        { projection: { seq: 1, title: 1, orderId: 1, assigneeId: 1, 'manual.deadline': 1 }, limit: LIMIT }).toArray(),
     ]);
     const counts = { queue: 0, work: 0, paused: 0, done: doneWeek };
     for (const b of by) if (b._id === 'queue' || b._id === 'work' || b._id === 'paused') counts[b._id] = b.n;
@@ -117,7 +126,7 @@ export class TodayService {
       const o = r.orderId ? ord.get(String(r.orderId)) : undefined;
       const due = iso((r.manual as { deadline?: Date } | undefined)?.deadline) || iso(o?.productionDeadline) || iso(o?.shipDate);
       if (!due || new Date(due + 'T00:00:00Z') > upto) return [];
-      return [{ kind: 'design' as const, id: String(r._id), title: String(r.title || `Задача D-${r.seq}`), sub: o?.orderNo ? `Заказ ${o.orderNo}` : '', due, actions: [{ id: 'open', label: 'Открыть' }] }];
+      return [{ kind: 'design' as const, id: String(r._id), title: String(r.title || `Задача D-${r.seq}`), sub: o?.orderNo ? `Заказ ${o.orderNo}` : '', due, actions: [{ id: 'open', label: 'Открыть' }], ...(r.assigneeId ? { personId: String(r.assigneeId) } : {}) }];
     });
     return { counts, items };
   }

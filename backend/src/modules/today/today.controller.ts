@@ -12,8 +12,9 @@ export class TodayController {
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user', 'accountant')
+  @ApiQuery({ name: 'scope', required: false, description: 'mine | all — «Моё / Всё» (по умолчанию: зоны человека; Руководство и вход без сотрудника — all)' })
   @ApiQuery({ name: 'days', required: false, description: 'Горизонт недели, 1–31 (по умолчанию 7)' })
-  get(@Query() q: { days?: string }, @CurrentUser() user: AuthenticatedUser) {
+  get(@Query() q: { days?: string; scope?: string }, @CurrentUser() user: AuthenticatedUser) {
     return this.today.get(user, q);
   }
 }

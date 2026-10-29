@@ -5,7 +5,7 @@ import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixtur
 
 /**
  * Иерархия ролей и деньги (решение пользователя 2026-10-20, common/roles-hierarchy.ts):
- * директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель; суммы и платёжный календарь — только админ / директор / бухгалтер.
+ * директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель; суммы, оплаты и платёжный календарь — админ / директор / бухгалтер / менеджер (2026-10-29); ФОТ — без менеджера; наблюдатель денег не видит.
  */
 describe('Roles hierarchy + money visibility', () => {
   let ctx: TestContext | undefined;
@@ -19,7 +19,7 @@ describe('Roles hierarchy + money visibility', () => {
     ctx = await createTestApp();
     app = ctx.app;
     admin = await loginAsAdmin(app);
-    for (const role of ['manager', 'accountant', 'director']) {
+    for (const role of ['user', 'manager', 'accountant', 'director']) {
       const username = `rm-${role}-${Date.now()}`;
       await http().post('/api/admin/users').set(as(admin.access)).send({ username, password: 'role-pass-123', role }).expect(201);
       tokens[role] = (await http().post('/api/auth/login').send({ username, password: 'role-pass-123' }).expect(200)).body.access;
@@ -28,15 +28,22 @@ describe('Roles hierarchy + money visibility', () => {
   });
   afterAll(async () => { await ctx?.cleanup(); });
 
-  it('менеджер: заявки видит без сумм, сумму вписать не может; платёжный календарь — 403', async () => {
-    const list = (await http().get('/api/supply/requests').query({ search: 'Болт с ценой' }).set(as(tokens.manager)).expect(200)).body;
+  it('наблюдатель: заявки видит без сумм, платёжный календарь — 403', async () => {
+    const list = (await http().get('/api/supply/requests').query({ search: 'Болт с ценой' }).set(as(tokens.user)).expect(200)).body;
     expect(list.items[0].title).toBe('Болт с ценой');
     expect(list.items[0].priceHint).toBeUndefined();
     expect(list.sum).toBeUndefined();
+    await http().get('/api/finance/summary').set(as(tokens.user)).expect(403);
+  });
+
+  it('менеджер: видит и вписывает суммы, календарь открыт; настройки финансов и ФОТ — 403', async () => {
+    const list = (await http().get('/api/supply/requests').query({ search: 'Болт с ценой' }).set(as(tokens.manager)).expect(200)).body;
+    expect(list.items[0].priceHint).toBe(1500);
     const created = (await http().post('/api/supply/requests').set(as(tokens.manager)).send({ title: 'Гайка', qty: 1, priceHint: 999, clientUid: 'rm-2' }).expect(201)).body;
-    const raw = (await http().get(`/api/supply/requests/${created.id}`).set(as(admin.access)).expect(200)).body;
-    expect(raw.priceHint ?? 0).toBe(0);
-    await http().get('/api/finance/summary').set(as(tokens.manager)).expect(403);
+    expect((await http().get(`/api/supply/requests/${created.id}`).set(as(admin.access)).expect(200)).body.priceHint).toBe(999);
+    await http().get('/api/finance/summary').set(as(tokens.manager)).expect(200);
+    await http().get('/api/finance/settings').set(as(tokens.manager)).expect(403);
+    await http().get('/api/payroll/summary').set(as(tokens.manager)).expect(403);
   });
 
   it('бухгалтер: видит суммы и календарь; пользователей — нет', async () => {
@@ -52,7 +59,7 @@ describe('Roles hierarchy + money visibility', () => {
     await http().get('/api/admin/users').set(as(tokens.director)).expect(403);
   });
 
-  it('И.1/И.2: история записи «было → стало» (суммы — только деньги-ролям), общая история — директору', async () => {
+  it('И.1/И.2: история записи «было → стало» (суммы — деньги-ролям и менеджеру), общая история — директору', async () => {
     const r = (await http().post('/api/supply/requests').set(as(admin.access)).send({ title: 'Уголок история', qty: 3, priceHint: 700, clientUid: 'rm-h1' }).expect(201)).body;
     await http().patch(`/api/supply/requests/${r.id}`).set(as(admin.access)).send({ qty: 5, priceHint: 900 }).expect(200);
     const q = { entityType: 'SupplyRequest', entityId: r.id };
@@ -60,7 +67,7 @@ describe('Roles hierarchy + money visibility', () => {
     expect(full.items[0].changes).toEqual(expect.arrayContaining([{ field: 'qty', from: 3, to: 5 }, { field: 'priceHint', from: 700, to: 900 }]));
     expect(full.items[full.items.length - 1].first).toBe(true);
     const mgr = (await http().get('/api/audit-logs/record').query(q).set(as(tokens.manager)).expect(200)).body;
-    expect(mgr.items[0].changes).toEqual([{ field: 'qty', from: 3, to: 5 }]);
+    expect(mgr.items[0].changes).toEqual(expect.arrayContaining([{ field: 'qty', from: 3, to: 5 }, { field: 'priceHint', from: 700, to: 900 }]));
     // общая история: директору — да, менеджеру — нет; фильтр по разделу и одной записи
     const app1 = (await http().get('/api/audit-logs/app').query({ entityType: 'SupplyRequest' }).set(as(tokens.director)).expect(200)).body;
     expect(app1.items.some((x: { entityId: string; title: string }) => x.entityId === r.id && x.title.includes('Уголок история'))).toBe(true);

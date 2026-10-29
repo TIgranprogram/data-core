@@ -59,9 +59,19 @@ export class Person {
   /** Наша компания, которая платит зарплату (organizations.isOurCompany) — ФОТ по компаниям; пишет /api/payroll/people/:id. */
   @Prop({ type: Types.ObjectId, sparse: true })
   companyId?: Types.ObjectId;
+
+  /** Вход в приложение (users._id): связь «сотрудник ↔ вход» (ЗО-1). Один вход — один сотрудник; CRM не читает. */
+  @Prop({ type: Types.ObjectId })
+  userId?: Types.ObjectId;
+
+  /** Текущие зоны ответственности (коды); истина — zoneassignments (ЗО-2). */
+  @Prop({ type: [String], default: undefined })
+  zoneCodes?: string[];
 }
 
 export const PersonSchema = SchemaFactory.createForClass(Person);
 PersonSchema.index({ lastName: 1, firstName: 1, patronymic: 1 });
 /** TZ-PARTY-305: дубли телефона запрещены (sparse — null/undefined пропускаются). */
 PersonSchema.index({ phone: 1 }, { unique: true, sparse: true });
+/** ЗО-1: один вход — один сотрудник (Mongo 4.4: partial только с $type). */
+PersonSchema.index({ userId: 1 }, { unique: true, partialFilterExpression: { userId: { $type: 'objectId' } } });

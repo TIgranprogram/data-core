@@ -19,6 +19,7 @@ export class SalesOrderDto {
   @ApiPropertyOptional({ description: 'Окончание поставки' }) @IsOptional() @IsString() @Length(0, 30) deliveryDeadline?: string;
   @ApiPropertyOptional({ enum: ORDER_STAGES, description: 'new | production | ready | partly | shipped | closed | cancelled' }) @IsOptional() @IsIn(ORDER_STAGES as unknown as string[]) stage?: OrderStage;
   @ApiPropertyOptional({ enum: ORDER_PRIORITIES, description: 'urgent | high | normal | low; "" — снять (= обычный)' }) @IsOptional() @IsIn([...ORDER_PRIORITIES, '']) priority?: OrderPriority | '';
+  @ApiPropertyOptional({ description: 'Ответственный менеджер — сотрудник (persons.id); "" — снять' }) @IsOptional() @IsString() @Length(0, 30) responsibleId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 5000) notes?: string;
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }

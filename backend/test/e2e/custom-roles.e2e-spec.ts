@@ -54,7 +54,7 @@ describe('Свои роли (SK-8c) и «Выдать по заказу» по �
     expect(mm.user ?? mm).toMatchObject({ role: 'manager', baseRole: 'manager' });
   });
 
-  it('Кладовщик: приход и выдача на складе проходят, бронь — тоже; денег не видит', async () => {
+  it('Кладовщик: приход и выдача на складе проходят, бронь — тоже; деньги снабжения видит', async () => {
     const item = (await http().post('/api/stock/items').set(as(keeper)).send({ name: 'Болт кладовщика М6', unit: 'шт', categoryName: 'Метизы' }).expect(201)).body;
     await http().post('/api/stock/batch').set(as(keeper)).send({ type: 'in', lines: [{ materialId: item.id, qty: 20 }] }).expect(201);
     await http().post('/api/stock/batch').set(as(keeper)).send({ type: 'out', lines: [{ materialId: item.id, qty: 3 }] }).expect(201);
@@ -65,8 +65,8 @@ describe('Свои роли (SK-8c) и «Выдать по заказу» по �
     for (const t of [keeper, manager]) {
       const list = (await http().get('/api/supply/requests').query({ search: 'Гайка с ценой SK8c' }).set(as(t)).expect(200)).body;
       expect(list.items[0].title).toBe('Гайка с ценой SK8c');
-      expect(list.items[0].priceHint).toBeUndefined();
-      await http().get('/api/finance/summary').set(as(t)).expect(403);
+      expect(list.items[0].priceHint).toBe(1500);
+      await http().get('/api/payroll/summary').set(as(t)).expect(403);
     }
     await http().get('/api/admin/users').set(as(keeper)).expect(403);
   });

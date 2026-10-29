@@ -107,8 +107,8 @@ export class SalesOrdersController {
   @Patch(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'salesorder.updated', entityType: 'SalesOrder', idParam: 'id' })
-  update(@Param('id') id: string, @Body() dto: SalesOrderDto) {
-    return this.orders.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: SalesOrderDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.orders.update(id, dto, user?.id);
   }
 
   @Delete(':id')

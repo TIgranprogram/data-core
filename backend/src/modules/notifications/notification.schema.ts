@@ -17,6 +17,8 @@ export class Notification {
   @Prop({ type: String, trim: true, maxlength: 300 }) sub?: string;
   /** Куда перейти по нажатию (хэш приложения). */
   @Prop({ type: String, trim: true, maxlength: 300 }) href?: string;
+  /** Зона ответственности, из которой пришло уведомление (ЗО-3). */
+  @Prop({ type: String, trim: true, maxlength: 40 }) zoneCode?: string;
   @Prop({ type: Types.ObjectId }) fromUserId?: Types.ObjectId;
   @Prop({ type: Date, default: null }) readAt?: Date | null;
 }

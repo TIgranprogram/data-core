@@ -1,6 +1,7 @@
 import { api, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
+import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { stepFunnel } from '../ui/step-funnel.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -183,6 +184,7 @@ const fields = async (r) => {
       strictText: 'Выберите заказчика из списка или нажмите «+ Новый заказчик «…»» в списке. Участок / объект — в поле «Объект СМР / уточнение»',
       hint: 'Из «Контрагентов». Участок, объект — в «Объект СМР / уточнение»', extra: customerActions },
     { key: 'requestedBy', label: 'Кто подал', type: 'combo', options: lk.requestedBy, max: 200 },
+    await responsibleField(),
     { key: 'requestDate', label: 'Дата заявки', type: 'date' },
   ];
 };
@@ -378,6 +380,7 @@ export const requests = {
       ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
       ['Поставщик', r.supplierName],
       ['Категория', r.categoryName],
+      ['Ответственный', r.responsible],
       ['Заказ / заказчик', r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId }, r.orderLabel || orderTag(r)) : r.orderLabel],
       ['Наша компания', r.companyName],
       ['Тип счёта', r.invoiceType],
@@ -392,7 +395,7 @@ export const requests = {
       ['Позиция склада', r.materialId ? h('a', { href: '#stock?open=' + r.materialId }, r.materialName || 'открыть') : ''],
       ['Оприходовано', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
     ],
-    extra: (r, ctx) => (r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
+    extra: (r, ctx) => h('div', null, handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
     actions: (r) => {
       const k = supplyKey(r);
       return [
@@ -423,6 +426,7 @@ export const requests = {
       if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo);
       if ('invoiceDate' in v) body.invoiceDate = v.invoiceDate || '';
       if (v.materialId) body.materialId = String(v.materialId);
+      if ('responsibleId' in v) body.responsibleId = v.responsibleId || '';
       Object.assign(body, splitRef(v.salesOrderRef));
       if (body.salesOrderId && !v.orderLabel) delete body.orderLabel; // подпись заказа поставит сервер
       return body;

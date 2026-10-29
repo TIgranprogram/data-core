@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -7,6 +7,7 @@ import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import { ourCompanies } from '../incomes/incomes.service';
 import { normText } from '../../common/text/norm-text';
+import { ZonesService } from '../zones/zones.service';
 import type { SalesOrderDto } from './dto';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
 import { netIssuedByLine } from '../../common/issued-net';
@@ -41,6 +42,7 @@ export class SalesOrdersService {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(SalesOrder.name) private readonly model: Model<SalesOrderDocument>,
+    @Optional() private readonly zones?: ZonesService,
   ) {}
 
   private incomes() { return this.connection.db!.collection('incomes'); }
@@ -294,6 +296,14 @@ export class SalesOrdersService {
       f[k] = d;
     }
     if (dto.stage !== undefined) f.stage = dto.stage;
+    if (dto.responsibleId !== undefined) {
+      if (!dto.responsibleId) f.responsibleId = undefined;
+      else {
+        const pid = Types.ObjectId.isValid(dto.responsibleId) ? new Types.ObjectId(dto.responsibleId) : null;
+        if (!pid || !(await this.connection.db!.collection('persons').findOne({ _id: pid, deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException('Ответственный — выберите сотрудника из списка');
+        f.responsibleId = pid;
+      }
+    }
     if (dto.priority !== undefined) f.priority = (dto.priority as OrderPriority | '') || undefined;
     let companyShort: string | null | undefined;
     if (dto.companyId || dto.companyName !== undefined) {
@@ -339,10 +349,19 @@ export class SalesOrdersService {
       ...(f.productionNo ? { productionAddedAt: new Date() } : {}),
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
+    await this.afterCreate(doc.toObject() as unknown as Doc, userId);
     return this.get(String(doc._id));
   }
 
-  async update(id: string, dto: SalesOrderDto) {
+  /** ЗО-3/5: новый заказ — личному менеджеру, иначе зоне «Договоры», иначе руководству («Не назначено»). */
+  private async afterCreate(o: Doc, actorId?: string) {
+    try {
+      if (o.responsibleId) await this.zones?.recordHandoff({ entity: 'salesorder', entityId: o._id, field: 'responsibleId', to: o.responsibleId, byUserId: actorId });
+      await this.zones?.notifyZone('contracts', { type: 'order_new', text: `Новый заказ № ${o.orderNo ?? ''}${o.customer ? ' · ' + o.customer : ''}`, href: `#salesorders?open=${String(o._id)}` }, { personId: o.responsibleId, actorId });
+    } catch { /* уведомление не ломает создание */ }
+  }
+
+  async update(id: string, dto: SalesOrderDto, userId?: string) {
     const cur = await this.findRaw(id);
     const { f, companyShort } = await this.toFields(dto);
     if ('orderNo' in f && !f.orderNo) throw new BadRequestException('№ договора не может быть пустым');
@@ -362,6 +381,7 @@ export class SalesOrdersService {
     }
     await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     await this.syncLines(cur._id as Types.ObjectId, f);
+    if ('responsibleId' in f) await this.zones?.recordHandoff({ entity: 'salesorder', entityId: cur._id, field: 'responsibleId', from: cur.responsibleId, to: f.responsibleId, byUserId: userId });
     return this.get(id);
   }
 

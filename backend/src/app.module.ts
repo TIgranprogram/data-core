@@ -68,6 +68,7 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { TodayModule } from './modules/today/today.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ZonesModule } from './modules/zones/zones.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -179,6 +180,7 @@ import { RequestMethod } from '@nestjs/common';
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     NotificationsModule,    // /api/notifications — уведомления пользователя (Важные / Система)
+    ZonesModule,            // /api/zones, /api/staff — зоны ответственности, сотрудник ↔ вход, адресация уведомлений (ЗО)
     MessagesModule,         // /api/messages — мини-чат сотрудников
     TodayModule,          // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
     PayrollModule,          // /api/payroll — ФОТ: табель, начисления, выплаты (в календарь и прогноз — через finance)

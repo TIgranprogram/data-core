@@ -18,6 +18,7 @@ export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Направление затрат: workshop (цех) | office (офис) | smr (СМР) | order (под заказ); "" — не указано' }) @IsOptional() @IsIn(['', 'workshop', 'office', 'smr', 'order']) costCenter?: string;
   @ApiPropertyOptional({ description: 'Объект СМР / уточнение' }) @IsOptional() @IsString() @Length(0, 200) costObject?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 200) requestedBy?: string;
+  @ApiPropertyOptional({ description: 'Ответственный — сотрудник (persons.id); "" — снять. Текст responsible заполняется ФИО автоматически' }) @IsOptional() @IsString() @Length(0, 30) responsibleId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) article?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) color?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 1000) productUrl?: string;

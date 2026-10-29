@@ -3,6 +3,7 @@ import {
   effectiveRoles,
   MONEY_FIELDS,
   MONEY_ROLES,
+  canSeePayroll,
   ROLE_INHERITS,
 } from './roles-hierarchy';
 
@@ -52,8 +53,14 @@ describe('roles-hierarchy (иерархия ролей и доступ к ден
       expect(canSeeMoney({ role })).toBe(true);
     });
 
-    it.each(['manager', 'user', 'guest'])('роль %s деньги не видит', (role) => {
+    it.each(['user', 'guest'])('роль %s деньги не видит', (role) => {
       expect(canSeeMoney({ role })).toBe(false);
+    });
+
+    it('ФОТ (canSeePayroll): менеджер и наблюдатель не видят', () => {
+      for (const role of ['admin', 'director', 'accountant']) expect(canSeePayroll({ role })).toBe(true);
+      for (const role of ['manager', 'user']) expect(canSeePayroll({ role })).toBe(false);
+      expect(canSeePayroll({ role: 'user', isOwner: true })).toBe(true);
     });
 
     it('владелец видит деньги независимо от роли', () => {

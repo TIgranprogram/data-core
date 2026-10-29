@@ -53,6 +53,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
     await user('dirStock', (await role('Директор склада', 'director', ['stock'])).name);
     await user('dirPay', (await role('Директор с ФОТ', 'director', ['stock', 'payroll'])).name);
     await user('manager', 'manager');
+    await user('observer', 'user');
     await user('accountant', 'accountant');
 
     // данные: заказ с позициями (одна оплачена), позиция склада, заявка
@@ -111,8 +112,8 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
         const r = await http().get(url).set(k);
         expect({ url, status: r.status, message: r.body.message }).toEqual({ url, status: 403, message: expect.stringMatching(/^Раздел «.+» для вашей роли закрыт$/) });
       }
-      // деньги менеджерской роли закрыты правами (RolesGuard); у директора со Складом — разделом
-      await http().get('/api/finance/summary').set(k).expect(403);
+      // деньги менеджерской роли открыты правами, но раздел «Деньги» закрыт галочками; у директора со Складом — тоже разделом
+      closed(await http().get('/api/finance/summary').set(k));
       for (const url of ['/api/finance/summary', '/api/finance/cashflow', '/api/finance/forecast']) closed(await http().get(url).set(as(tok.dirStock)));
       await http().get('/api/finance/summary').set(as(tok.accountant)).expect(200);
       closed(await http().get('/api/audit-logs/record').query({ entityType: 'SalesOrder', entityId: orderId }).set(k));
@@ -131,7 +132,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
     });
 
     it('/dicts/persons: закрыт ФОТ — без salaryKind/salaryRate (и в форме), открыт — с оплатой', async () => {
-      for (const key of ['keeper', 'dirStock']) {
+      for (const key of ['keeper', 'dirStock', 'manager']) {
         const r = (await http().get('/api/dicts/persons').set(as(tok[key])).expect(200)).body;
         const p = r.items.find((x: { name: string }) => x.name === 'Ставкин Пётр');
         expect(p.salaryKind).toBeUndefined();
@@ -166,7 +167,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
       await http().get('/api/stock/lookup').set(k).expect(200); // короткий поиск для «Заявок» остаётся
       await http().patch(`/api/roles/${keeperRoleId}`).set(as(admin.access)).send({ appSections: [] }).expect(200);
       await http().get('/api/salesorders').set(k).expect(200);
-      await http().get('/api/finance/summary').set(k).expect(403); // права на деньги не менялись
+      await http().get('/api/finance/summary').set(k).expect(200); // галочки сняты — разделы открыты, деньги у менеджера есть
       await http().patch(`/api/roles/${keeperRoleId}`).set(as(admin.access)).send({ appSections: ['stock', 'requests'] }).expect(200);
       closed(await http().get('/api/salesorders').set(k));
     });
@@ -212,7 +213,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
     const PAY = /"(paid|awaiting|noamount)"|Оплач|оплач/;
 
     it('карточка заказа, список заказов: без сумм, дат оплат; статус позиции — draft / shipped', async () => {
-      for (const key of ['manager', 'free']) {
+      for (const key of ['observer']) {
         const card = (await http().get(`/api/salesorders/${orderId}`).set(as(tok[key])).expect(200)).body;
         const { supplyRequests: _s, ...rest } = card;
         expect(JSON.stringify(rest)).not.toMatch(MONEY);
@@ -225,7 +226,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
     });
 
     it('/incomes список и карточка: без сумм, дат оплат, статусы и counts без paid/awaiting/noamount', async () => {
-      const m = as(tok.manager);
+      const m = as(tok.observer);
       const list = (await http().get('/api/incomes').query({ orderId }).set(m).expect(200)).body;
       expect(JSON.stringify(list)).not.toMatch(MONEY);
       expect(JSON.stringify(list)).not.toMatch(PAY);
@@ -239,7 +240,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
     });
 
     it('?status=paid / awaiting / noamount не отличают оплату от отгрузки', async () => {
-      const m = as(tok.manager);
+      const m = as(tok.observer);
       const ids = async (q: Record<string, string>) =>
         ((await http().get('/api/incomes').query({ orderId, ...q }).set(m).expect(200)).body.items as Array<{ id: string }>).map((x) => x.id).sort();
       const shipped = await ids({ status: 'shipped' });
@@ -248,7 +249,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
     });
 
     it('?sort=-paidDate / -reportDate / amount не применяются (порядок как без сортировки)', async () => {
-      const m = as(tok.manager);
+      const m = as(tok.observer);
       const order = async (q: Record<string, string>) =>
         ((await http().get('/api/incomes').query({ orderId, ...q }).set(m).expect(200)).body.items as Array<{ id: string }>).map((x) => x.id);
       const base = await order({});
@@ -257,12 +258,12 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
 
     it('порядок по умолчанию не выдаёт оплату: одна дата отгрузки — новые сверху, оплаченная не всплывает', async () => {
       // сортировка по умолчанию у /incomes — -reportDate (= дата оплаты ?? отгрузки): оплаченная позиция встаёт первой
-      const items = (await http().get('/api/incomes').query({ orderId }).set(as(tok.manager)).expect(200)).body.items as Array<{ title: string }>;
+      const items = (await http().get('/api/incomes').query({ orderId }).set(as(tok.observer)).expect(200)).body.items as Array<{ title: string }>;
       expect(items.map((x) => x.title)).toEqual(['Без суммы отгружено', 'Урна вторая', 'Скамья первая']);
     });
 
     it('?from&to (период) по позициям не выдаёт оплату: отгружено 10.01, оплата 15.02', async () => {
-      const m = as(tok.manager);
+      const m = as(tok.observer);
       const titles = async (q: Record<string, string>) =>
         ((await http().get('/api/incomes').query({ orderId, ...q }).set(m).expect(200)).body.items as Array<{ title: string }>).map((x) => x.title).sort();
       // если период фильтрует по дате оплаты (reportDate = paidDate ?? shipDate), оплаченная позиция «пропадёт» из дня отгрузки
@@ -276,16 +277,26 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
 
     it('история позиции (/audit-logs/record Income): без даты оплаты и сумм', async () => {
       await http().patch(`/api/incomes/${paidLineId}`).set(as(admin.access)).send({ paidDate: '20.02.2026', qty: 3 }).expect(200);
-      const h = (await http().get('/api/audit-logs/record').query({ entityType: 'Income', entityId: paidLineId }).set(as(tok.manager)).expect(200)).body;
+      const h = (await http().get('/api/audit-logs/record').query({ entityType: 'Income', entityId: paidLineId }).set(as(tok.observer)).expect(200)).body;
       const fields = h.items.flatMap((x: { changes?: Array<{ field: string }> }) => (x.changes ?? []).map((c) => c.field));
       expect(fields).toContain('qty');
       expect(h.items.flatMap((x: { changes?: Array<{ field: string }> }) => (x.changes ?? []).filter((c) => ['paidDate', 'reportDate', 'amount', 'unitPrice', 'status'].includes(c.field)))).toEqual([]);
     });
 
     it('карточка заказчика: заказы без сумм и оплаты', async () => {
-      const c = (await http().get(`/api/partners/${encodeURIComponent('c:ООО Разделы')}`).set(as(tok.manager)).expect(200)).body;
+      const c = (await http().get(`/api/partners/${encodeURIComponent('c:ООО Разделы')}`).set(as(tok.observer)).expect(200)).body;
       expect(c.related.length).toBe(2);
       expect(JSON.stringify(c)).not.toMatch(MONEY);
+    });
+
+    it('менеджер видит деньги снабжения и финансы, но не ФОТ; наблюдатель финансы не видит', async () => {
+      const m = as(tok.manager);
+      const card = (await http().get(`/api/salesorders/${orderId}`).set(m).expect(200)).body;
+      expect(card.amount).toBe(3500);
+      for (const url of ['/api/finance/summary', '/api/finance/cashflow', '/api/finance/forecast']) await http().get(url).set(m).expect(200);
+      await http().get('/api/finance/settings').set(m).expect(403);
+      await http().get('/api/payroll/summary').set(m).expect(403);
+      await http().get('/api/finance/summary').set(as(tok.observer)).expect(403);
     });
 
     it('бухгалтер видит всё: суммы, даты оплат, статусы paid / awaiting / noamount', async () => {

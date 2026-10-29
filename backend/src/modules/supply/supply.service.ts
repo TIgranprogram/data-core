@@ -13,6 +13,8 @@ import { materialRequestTitle } from '../../common/catalog/names';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProductionOrdersService } from '../salesorders/production-orders.service';
 import { StockService } from '../stock/stock.service';
+import { ZonesService } from '../zones/zones.service';
+import { personLabel } from '../zones/zone-routing';
 import { requestReturn, requestReturnText } from './supply-notices';
 import { OrgResolver } from './org-resolver';
 import { SupplierAliases } from './supplier-aliases';
@@ -36,6 +38,7 @@ export interface SupplyInput {
   costCenter?: string;
   costObject?: string;
   requestedBy?: string;
+  responsibleId?: string;
   article?: string;
   color?: string;
   productUrl?: string;
@@ -76,6 +79,7 @@ export class SupplyService {
     private readonly notices: NotificationsService,
     private readonly orders: ProductionOrdersService,
     @Optional() private readonly versions?: DataVersionService,
+    @Optional() private readonly zones?: ZonesService,
   ) {}
 
   private async names(coll: string, ids: unknown[]) {
@@ -316,6 +320,16 @@ export class SupplyService {
     if (dto.salesOrderLineId !== undefined) f.salesOrderLineId = dto.salesOrderLineId && Types.ObjectId.isValid(dto.salesOrderLineId) ? new Types.ObjectId(dto.salesOrderLineId) : undefined;
     if (dto.costCenter !== undefined) f.costCenter = dto.costCenter || undefined;
     if (dto.costObject !== undefined) f.costObject = String(dto.costObject ?? '').trim() || undefined;
+    if (dto.responsibleId !== undefined) {
+      if (!dto.responsibleId) f.responsibleId = undefined;
+      else {
+        if (!Types.ObjectId.isValid(dto.responsibleId)) throw new BadRequestException('Ответственный — выберите сотрудника из списка');
+        const p = await this.connection.db!.collection('persons').findOne({ _id: new Types.ObjectId(dto.responsibleId), deletedAt: null }, { projection: { lastName: 1, firstName: 1, patronymic: 1 } });
+        if (!p) throw new BadRequestException('Сотрудник не найден — выберите из списка');
+        f.responsibleId = p._id;
+        f.responsible = personLabel(p); // текст — для CRM, она читает его
+      }
+    }
     if (dto.qty !== undefined) f.qty = Number(dto.qty);
     if (dto.priceHint !== undefined) f.priceHint = dto.priceHint === null ? null : Number(dto.priceHint); // null — сумму стёрли (В.7)
     if (dto.num !== undefined) f.num = Number(dto.num);
@@ -367,7 +381,26 @@ export class SupplyService {
     });
     if (photoIds.length) await this.writePhotos(doc._id as Types.ObjectId, { $set: { photoIds } });
     await this.adoptArticle(doc as unknown as Record<string, unknown>);
+    await this.afterCreate(doc as unknown as Record<string, unknown>, userId);
     return this.get(String(doc._id));
+  }
+
+  /** ЗО-3/5: новая заявка — личному ответственному, иначе людям зоны «Снабжение», иначе руководству («Не назначено»). Ошибки не пробрасываются. */
+  private async afterCreate(doc: Record<string, unknown>, actorId?: string) {
+    try {
+      if (doc.responsibleId) await this.zones?.recordHandoff({ entity: 'supplyrequest', entityId: doc._id, field: 'responsibleId', to: doc.responsibleId, byUserId: actorId });
+      await this.zones?.notifyZone('supply', { type: 'request_new', text: `Новая заявка${doc.num ? ' №' + doc.num : ''}: ${doc.title ?? ''}`, href: `#requests?open=${String(doc._id)}` }, { personId: doc.responsibleId, actorId });
+    } catch { /* уведомление не должно ломать создание */ }
+  }
+
+  /** ЗО-5: смена ответственного — запись передачи и уведомление новому. */
+  private async afterResponsible(id: string, prev: unknown, actorId?: string) {
+    try {
+      const cur = await this.model.findById(id, { responsibleId: 1, num: 1, title: 1 }).lean().exec() as Record<string, unknown> | null;
+      if (!cur || String(cur.responsibleId ?? '') === String(prev ?? '')) return;
+      await this.zones?.recordHandoff({ entity: 'supplyrequest', entityId: id, field: 'responsibleId', from: prev, to: cur.responsibleId, byUserId: actorId });
+      if (cur.responsibleId) await this.zones?.notifyZone('supply', { type: 'request_assigned', text: `Вам передана заявка${cur.num ? ' №' + cur.num : ''}: ${cur.title ?? ''}`, href: `#requests?open=${id}` }, { personId: cur.responsibleId, actorId });
+    } catch { /* история и уведомление не ломают правку */ }
   }
 
   /** АР.2: артикул заявки → в позицию склада, если у той пусто / автоартикул (правила — stock/article.ts). */
@@ -386,9 +419,8 @@ export class SupplyService {
   }
 
   async update(id: string, dto: SupplyInput, userRole?: string, actorId?: string) {
-    if (dto.priceHint !== undefined && userRole === 'manager') {
-      throw new ForbiddenException('Изменять сумму может только администратор или бухгалтер');
-    }
+    // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
+    void userRole;
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const fields = await this.toFields(dto);
     // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
@@ -397,6 +429,7 @@ export class SupplyService {
       if (cur && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
     }
     const prev = fields.status ? await this.model.findOne({ _id: id, deletedAt: null }, { status: 1, createdBy: 1, num: 1, title: 1, salesOrderId: 1 }).lean().exec() as Record<string, unknown> | null : null;
+    const prevResp = dto.responsibleId !== undefined ? ((await this.model.findOne({ _id: id, deletedAt: null }, { responsibleId: 1 }).lean().exec()) as { responsibleId?: unknown } | null)?.responsibleId : undefined;
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : undefined;
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(fields)) (v === undefined ? (unset[k] = '') : (set[k] = v));
@@ -407,6 +440,7 @@ export class SupplyService {
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
     await this.afterStatus(prev, fields.status as string | undefined, actorId);
+    if (dto.responsibleId !== undefined) await this.afterResponsible(id, prevResp, actorId);
     return this.get(id);
   }
 

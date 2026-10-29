@@ -2,7 +2,7 @@
  * Иерархия ролей (решение пользователя 2026-10-20): старшая роль получает всё, что есть у младших.
  *   директор → бухгалтер → менеджер → наблюдатель (user).
  * Администратор — отдельно: всё, плюс пользователи и настройки (как и раньше, только явным @Roles('admin')).
- * Деньги (суммы, доходы, платёжный календарь) видят только администратор, директор и бухгалтер.
+ * Деньги (суммы, оплаты, платёжный календарь) видят администратор, директор, бухгалтер и менеджер; ФОТ и ставки — только admin/director/accountant (canSeePayroll).
  *
  * SK-8c — свои роли (`roles` с `baseRole`, код `r-…`): права = права `baseRole`
  * (+ иерархия ниже неё). Соответствие «код → baseRole» держит кэш в памяти
@@ -72,10 +72,16 @@ export function effectiveRoles(role: string | undefined | null): string[] {
   return [role, ...(ROLE_INHERITS[role] ?? [])];
 }
 
-export const MONEY_ROLES = ['admin', 'director', 'accountant'];
+export const MONEY_ROLES = ['admin', 'director', 'accountant', 'manager'];
+export const PAYROLL_ROLES = ['admin', 'director', 'accountant'];
 
 export function canSeeMoney(user: { role?: string | null; isOwner?: boolean } | undefined | null): boolean {
   return !!user && (user.isOwner === true || MONEY_ROLES.includes(String(baseRoleOf(user.role))));
+}
+
+/** ФОТ и ставки сотрудников — уже, чем «деньги»: менеджер их не видит. */
+export function canSeePayroll(user: { role?: string | null; isOwner?: boolean } | undefined | null): boolean {
+  return !!user && (user.isOwner === true || PAYROLL_ROLES.includes(String(baseRoleOf(user.role))));
 }
 
 /**
@@ -87,5 +93,5 @@ export function roleLabelOf(name: string | undefined | null, label?: string | nu
   return BUILTIN_ROLE_LABELS[String(name)] ?? label ?? String(name ?? '');
 }
 
-/** Денежные поля, которые скрываются от менеджера и наблюдателя (в ответах) и не принимаются от них (в запросах). */
+/** Денежные поля, которые скрываются от наблюдателя (в ответах) и не принимаются от них (в запросах). */
 export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate', 'payments', 'debt', 'money'];

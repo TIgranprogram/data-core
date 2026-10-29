@@ -70,10 +70,10 @@ export class SupplyController {
     return this.invoices.receive(id, dto.requestIds, user?.id);
   }
 
-  /** Оплата — только денежные роли. */
+  /** Оплата — денежные роли (и менеджер). */
   @Post('invoices/:id/pay')
   @HttpCode(200)
-  @Roles('admin', 'director', 'accountant')
+  @Roles('admin', 'director', 'accountant', 'manager')
   @AuditAction({ action: 'supply.invoice.paid', entityType: 'SupplyInvoice', idParam: 'id' })
   payInvoice(@Param('id') id: string) {
     return this.invoices.pay(id);

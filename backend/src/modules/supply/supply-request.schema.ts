@@ -113,6 +113,10 @@ export class SupplyRequest {
   @Prop({ trim: true })
   responsible?: string;
 
+  /** ЗО-5: ответственный — сотрудник (persons). Текст responsible при смене заполняется ФИО (его читает CRM). */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true })
+  responsibleId?: Types.ObjectId;
+
   /** TZ-SUPPLY-BE-INVOICE-DELIVERY — счёт/доставка, независимы от status. */
   @Prop({ trim: true })
   invoiceNo?: string;

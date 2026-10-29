@@ -8,6 +8,7 @@ import { toast } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
+import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/errors.js';
 import { failBlock } from '../ui/busy.js';
 import { orderReservations } from './order-reservations.js';
@@ -357,6 +358,7 @@ export const salesorder = {
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     parent: (r) => ({ label: `Заказ № ${prodNo(r)}`, run: () => patch({ of: undefined, open: r.productionNo || r.id }, { replace: false }) }),
     editTop: true,
+    extra: (r) => handoffLine('salesorder', r.id),
     stats: (r) => [['Этап', STAGE[r.stage]?.label || r.stage], ['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
       ['№ заказа', r.productionNo || h('span', { class: 'muted' }, 'нет №')],
@@ -364,6 +366,7 @@ export const salesorder = {
       ['Предмет', r.title],
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
+      ['Ответственный', r.responsible],
       ['Форма оплаты', r.paymentForm],
       ['№ госконтракта', [r.contractNo, r.contractDate && 'от ' + date(r.contractDate)].filter(Boolean).join(' ')],
       ['Срок изготовления', date(r.productionDeadline)],
@@ -395,6 +398,7 @@ export const salesorder = {
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { key: 'stage', label: 'Этап', type: 'select', required: true, options: Object.entries(STAGE).map(([value, s]) => ({ value, label: s.label })) },
+        await responsibleField('Кому передан договор. Смена записывается в историю передач.'),
         { key: 'priority', label: 'Приоритет', type: 'select', required: true, options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
         { section: 'Сроки', tone: 'info' },
         { key: 'productionDeadline', label: 'Срок изготовления', type: 'date' },
@@ -411,6 +415,7 @@ export const salesorder = {
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
       return { orderNo: s(v.orderNo), productionNo: s(v.productionNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage, priority: v.priority === 'normal' ? '' : v.priority || '',
+        ...('responsibleId' in v ? { responsibleId: v.responsibleId || '' } : {}),
         productionDeadline: v.productionDeadline || '', shipDate: v.shipDate || '', deliveryDeadline: v.deliveryDeadline || '', contractNo: s(v.contractNo), contractDate: v.contractDate || '', notes: s(v.notes) };
     },
     create: (body) => api('/salesorders', { method: 'POST', body: { ...body, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } }).then((r) => { focusNewLine = true; return r; }),

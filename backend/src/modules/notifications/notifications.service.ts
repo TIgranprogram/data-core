@@ -15,6 +15,8 @@ export interface NewNotice {
   fromUserId?: Types.ObjectId | string;
   /** Не задан — определяется по типу. */
   kind?: NoticeKind;
+  /** Из какой зоны ответственности пришло («почему мне»). */
+  zoneCode?: string;
 }
 
 /** Уведомления пользователя: список по виду, счётчики «Важные / Система», прочтение. Видны только свои. */
@@ -31,7 +33,7 @@ export class NotificationsService {
   async notify(n: NewNotice) {
     const doc = await this.model.create({
       userId: new Types.ObjectId(String(n.userId)), type: n.type, kind: n.kind ?? kindOf(n.type),
-      text: n.text, sub: n.sub, href: n.href,
+      text: n.text, sub: n.sub, href: n.href, ...(n.zoneCode ? { zoneCode: n.zoneCode } : {}),
       ...(n.fromUserId ? { fromUserId: new Types.ObjectId(String(n.fromUserId)) } : {}),
     });
     return doc.toObject();
@@ -90,7 +92,7 @@ export class NotificationsService {
       this.unread(user),
     ]);
     const items = docs.map((d) => ({
-      id: String(d._id), type: d.type, kind: kindOf(d.type, d.kind), text: d.text, sub: d.sub ?? null, href: d.href ?? null,
+      id: String(d._id), type: d.type, kind: kindOf(d.type, d.kind), text: d.text, sub: d.sub ?? null, href: d.href ?? null, zoneCode: d.zoneCode ?? null,
       fromUserId: d.fromUserId ? String(d.fromUserId) : null, read: !!d.readAt, readAt: d.readAt ?? null, createdAt: (d as { createdAt?: Date }).createdAt ?? null,
     }));
     return { items, total, page: p.page, limit: p.limit, unread: counts };

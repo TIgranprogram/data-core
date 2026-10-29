@@ -3,7 +3,7 @@ import { map, type Observable } from 'rxjs';
 import { canSeeMoney, MONEY_FIELDS } from '../roles-hierarchy';
 
 /**
- * Деньги — только администратору, директору и бухгалтеру (common/roles-hierarchy.ts).
+ * Деньги — администратору, директору, бухгалтеру и менеджеру (common/roles-hierarchy.ts).
  * Для остальных: из тела запроса денежные поля убираются (сумму не впишешь), из ответа — тоже (не увидишь).
  * Вешается на контроллеры заявок, заказов и позиций заказов (@UseInterceptors(MoneyMaskInterceptor)).
  */

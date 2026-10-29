@@ -37,7 +37,7 @@ describe('TodayService', () => {
 
   it('не денежная роль: денег нет ни в ленте, ни в метриках, прогноз не считается', async () => {
     const { svc, forecast } = make();
-    const r = await svc.get({ role: 'manager' }, {}, NOW);
+    const r = await svc.get({ role: 'user' }, {}, NOW);
     expect(forecast).not.toHaveBeenCalled();
     expect(r.metrics.money).toBeUndefined();
     expect(r.feed.some((f) => f.kind === 'payment')).toBe(false);

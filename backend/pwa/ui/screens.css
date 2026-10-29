@@ -1417,3 +1417,30 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 /* метка «не сопоставлено» — кликабельная (DESIGN §4.1) */
 .mt-flag { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 @media (max-width: 720px) { .mt-flag { min-height: 44px; display: inline-flex; align-items: center; } }
+/* Управление → Сотрудники (ЗО-2) и «Моё / Всё» на «Сегодня» (ЗО-4) */
+.staff .page-head { align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
+.st-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); padding: var(--s3) var(--s4); margin: var(--s3) 0; background: var(--warn-soft); border: 1px solid var(--border); border-radius: var(--radius); }
+.st-banner-acts { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.st-body { margin-top: var(--s3); }
+.st-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.st-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.6fr) auto; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+.st-row:hover { border-color: var(--primary); }
+.st-row.off { opacity: .6; }
+.st-main { display: grid; gap: 2px; min-width: 0; }
+.st-zones { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.st-zones .tag { cursor: inherit; height: 24px; }
+.st-none { color: var(--danger); font-weight: 600; }
+.st-blocks { display: grid; gap: var(--s4); }
+.st-block { display: grid; gap: var(--s2); }
+.st-checks { display: grid; gap: var(--s2); }
+.st-check.off { opacity: .5; }
+.st-hint { margin-left: 28px; }
+.st-hist { margin: 0; padding-left: var(--s4); display: grid; gap: var(--s1); }
+.hint.warn { color: var(--danger); }
+.ho-line { margin-top: var(--s2); }
+.td-scope { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.td-scope-hint { max-width: 280px; }
+@media (max-width: 720px) { .st-row { grid-template-columns: minmax(0, 1fr) auto; } .st-row .st-zones { grid-column: 1 / -1; } }
+
+/* переключатели .seg — 44 px на телефоне (приёмка 2026-10-29) */
+@media (max-width: 700px) { .td-scope .seg button { min-height: 44px; } }

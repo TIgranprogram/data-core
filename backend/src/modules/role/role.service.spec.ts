@@ -154,9 +154,9 @@ describe('RoleService', () => {
 
     it('SK-8c: кэш baseRole обновляется после правки — права меняются сразу', async () => {
       const { model, service } = make();
-      setCustomRoleBases([{ name: 'r-abc123', baseRole: 'manager' }]);
+      setCustomRoleBases([{ name: 'r-abc123', baseRole: 'user' }]);
       expect(canSeeMoney({ role: 'r-abc123' })).toBe(false);
-      model.findById.mockReturnValue(chain(roleDoc({ name: 'r-abc123', baseRole: 'manager' })));
+      model.findById.mockReturnValue(chain(roleDoc({ name: 'r-abc123', baseRole: 'user' })));
       await service.update('1', { baseRole: 'accountant' } as never);
       expect(baseRoleOf('r-abc123')).toBe('accountant');
       expect(canSeeMoney({ role: 'r-abc123' })).toBe(true);

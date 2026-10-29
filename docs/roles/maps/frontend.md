@@ -102,3 +102,8 @@
 
 ## Крошки и вкладки (2026-10-28, не закоммичено)
 - `ui/crumbs.js` (`setCrumbs/setCrumbTail/crumbsEl`), `main.js` `GROUP_OF` + вызов в `render`; `.crumbs/.tabs/.invl-chev` — конец `ui/screens.css`. `.tabs` вместо `.seg` в requests-tabs/docs/money; `invoices-tab.js` `rowEl` (шеврон, Esc), `detailEl(...,collapse)`. Счётчик неоплаченных на вкладке не сделан. Карта обновлена.
+
+## Сотрудники и зоны (ЗО-1…5, 2026-10-29, не закоммичено)
+- `sections/staff.js` — `mountStaff` (плашка «Не назначено», вкладки `?tab=zones`, списки), `staffCard` (`of=staffcard`: вход /staff/logins, зоны, история), `zoneCard` (`of=zonecard&open=<id>|new`, `codeOf` — код из названия). main.js: LAZY/OWNER/NAV/GROUP_OF «Управление»; `core/api.js sees('staff')` = admin/director/owner.
+- `ui/responsible.js` — `responsibleField`, `handoffLine(entity,id)`; подключено в `requests.js` (fields/toBody/view/extra) и `salesorders.js` (форма договора, view, card.extra).
+- `home.js` — `mode`, `paintScope` (Моё/Всё). `ui/bell.js openItem` — zone_unassigned → `#staff?tab=zones`. CSS — конец `ui/screens.css` (`.st-*`, `.td-scope`).

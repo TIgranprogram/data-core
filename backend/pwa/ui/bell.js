@@ -61,9 +61,10 @@ export function bellButton() {
     close();
     if (!x.read) api(`/notifications/${x.id}/read`, { method: 'POST' }).then(counts).catch(() => {});
     x.read = true;
-    if (x.href) location.hash = asHash(x.href);
+    const href = x.href || (x.type === 'zone_unassigned' ? '#staff?tab=zones' : '');
+    if (href) location.hash = asHash(href);
   };
-  const serverItem = (x) => h('div', { class: 'bell-item' + (x.read ? '' : ' is-new') + (x.href ? ' is-link' : ''), onclick: () => openItem(x) },
+  const serverItem = (x) => h('div', { class: 'bell-item' + (x.read ? '' : ' is-new') + ((x.href || x.type === 'zone_unassigned') ? ' is-link' : ''), onclick: () => openItem(x) },
     noticeCard({ tone: 'info', title: x.text, sub: x.sub, time: noticeTime(x.createdAt), role: 'menuitem' }));
   const localItem = (x) => h('div', { class: 'bell-item' + (x.read ? '' : ' is-new') },
     noticeCard({

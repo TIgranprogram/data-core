@@ -77,3 +77,6 @@
 
 ## Категория паспорта (PASSPORT-CATEGORY, 2026-10-29, не закоммичено)
 - `showcase/form-values.ts` `passportCategoryFor(item, cats, direct)` + `resolvePassportCategory` (own/inherited); `showcase/passport-inherit.ts`; `showcase.service.ts` `present` (`ppOwn/ppInherited/ppSource`) и `get` (`passportCategory`); `category.schema.ts`/DTO `passportCategory`; поле в `dicts.product-groups.ts` (`PP_FIELD`); `showcase-from-passports.ts`. Скрипт `scripts/passport-category-report.js` (только чтение). Тесты — `form-values.spec.ts`. e2e и openapi не трогались. коммит: —
+
+## Зоны ответственности (ЗО-1…5, 2026-10-29, не закоммичено)
+- `modules/zones/` (`zones.service.ts`: seed, listZones, staff, setZones, linkUser, route/notifyZone, remindUnassigned (час), scopeOf, recordHandoff; `zone-routing.ts` pure; spec). `persons.userId` (partial unique, `person.schema.ts`) / `zoneCodes`; `responsibleId` — `supply-request.schema.ts`, `sales-order.schema.ts`; хуки — `supply.service.ts` afterCreate/afterResponsible, `salesorders.service.ts` afterCreate/update, `design.service.ts` notifyAssigned/notifyUnassigned; «Сегодня» — `today/today-scope.ts`. e2e/openapi не трогались. коммит: —
