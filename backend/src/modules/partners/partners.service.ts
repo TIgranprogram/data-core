@@ -194,7 +194,17 @@ export class PartnersService {
   }
 
   /** «+ Новый контрагент» (СП.1): поставщик / заказчик / наша компания — запись в organizations. */
+  /** Создание по одному названию — по очереди: двойное нажатие «Создать» шлёт два запроса сразу, второй должен увидеть первый (дубль «Арабелла» 2026-10-29). */
+  private creating = new Map<string, Promise<unknown>>();
   async create(dto: PartnerInput) {
+    const key = norm(dto.name);
+    const prev = this.creating.get(key) ?? Promise.resolve();
+    const run = prev.catch(() => undefined).then(() => this.createOnce(dto));
+    this.creating.set(key, run);
+    try { return await run; } finally { if (this.creating.get(key) === run) this.creating.delete(key); }
+  }
+
+  private async createOnce(dto: PartnerInput) {
     const kind = String(dto.kind || 'supplier');
     if (!['supplier', 'customer', 'our'].includes(kind)) throw new BadRequestException('Кто это: поставщик, заказчик или наша компания');
     const name = clean(dto.name);

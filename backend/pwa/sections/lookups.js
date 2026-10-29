@@ -18,12 +18,14 @@ export function partnerAction(kind, text, names, onDone) {
   const t = String(text || '').trim();
   if (t.length < 2 || (names || []).some((n) => String(n).trim().toLowerCase() === t.toLowerCase())) return [];
   const who = kind === 'customer' ? 'заказчика' : 'поставщика';
+  let busy = false; // двойное нажатие — один запрос
   return [{ label: `Создать «${t}»`, run: async () => {
+    if (busy) return; busy = true;
     try {
       await api('/partners', { method: 'POST', body: { kind, name: t } });
       lookups.reset(); onDone?.(t);
       toast(`Контрагент «${t}» добавлен`);
-    } catch (e) { if (e.status === 409) { onDone?.(t); return; } toast('Не удалось создать ' + who + ': ' + errText(e), { error: true }); }
+    } catch (e) { if (e.status === 409) { onDone?.(t); return; } toast('Не удалось создать ' + who + ': ' + errText(e), { error: true }); } finally { busy = false; }
   } }];
 }
 
