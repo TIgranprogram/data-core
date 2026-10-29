@@ -2,7 +2,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { attachCombo } from '../ui/combo.js';
-import { toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
+import { current, patch } from '../core/router.js';
 
 /**
  * Правая панель «Сопоставление» (`?of=matching&open=<id договора>`): позиции договора ↔ изделия из продукции.
@@ -58,6 +59,15 @@ function lineRow(it, run, write) {
         input.focus();
       } catch (e) { ready = false; toastError(e, 'загрузить изделия'); }
     } }, 'Выбрать другое изделие'));
+    // подходящего нет — создать изделие из названия позиции; после «Создать» позиция сопоставляется с ним и панель возвращается сюда
+    acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async () => {
+      const { createProductFor } = await import('./products.js'); // форма изделия — только по нажатию (не грузим при старте)
+      const back = { of: current().params.of, open: current().params.open };
+      createProductFor({ name: it.title, unit: it.unit || 'шт' }, async (prod) => {
+        try { await api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: prod.id } }); toast('Изделие создано и сопоставлено'); } catch (e) { toastError(e, 'сопоставить с новым изделием'); }
+        patch({ ...back, new: undefined });
+      });
+    } }, '+ Создать изделие'));
     if (it.state !== 'none') acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })) }, 'Не изделие (монтаж, доставка)'));
   }
   return h('li', { class: 'mt-row' + (it.matched ? '' : ' mt-open') },

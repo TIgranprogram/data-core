@@ -104,7 +104,7 @@ export class DesignBoardService {
     const orderId = oid(orderIdRaw, 'заказа');
     if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
     const incomes = await this.db().collection('incomes').find(
-      { orderId, deletedAt: null }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1, color: 1, size: 1, productId: 1, matchStatus: 1 } },
+      { orderId, deletedAt: null }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1, color: 1, size: 1, productId: 1, matchStatus: 1, photoIds: 1 } },
     ).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
     const incomeIds = incomes.map((i) => i._id as Oid);
     const taskDocs = incomeIds.length ? await this.tasks.find({ incomeId: { $in: incomeIds }, deletedAt: null }).sort({ seq: 1 }).lean().exec() : [];
@@ -118,14 +118,16 @@ export class DesignBoardService {
     const products = productIds.length ? await this.db().collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray() : [];
     const product = new Map(products.map((p) => [String(p._id), p as Doc]));
     const firstPhoto = (p?: Doc) => ((p?.photoIds as Oid[] | undefined) ?? [])[0];
-    const photoIds = [...new Map(products.map((p) => firstPhoto(p as Doc)).filter(Boolean).map((p) => [String(p), p as Oid])).values()];
+    // фото строки: изделия, иначе своё фото позиции заказа (несопоставленная позиция или изделие без фото)
+    const photoOf = (i: Doc) => firstPhoto(i.productId ? product.get(String(i.productId)) : undefined) ?? firstPhoto(i);
+    const photoIds = [...new Map(incomes.map((i) => photoOf(i as Doc)).filter(Boolean).map((p) => [String(p), p as Oid])).values()];
     const photos = await loadPhotos(this.db(), photoIds);
     return {
       orderId: String(orderId),
       lines: incomes.map((i) => {
         const prod = i.productId ? product.get(String(i.productId)) : undefined;
         const t = pick.get(String(i._id));
-        const photo = firstPhoto(prod);
+        const photo = photoOf(i as Doc);
         return {
           incomeId: String(i._id), lineNo: (i.lineNo as number | undefined) ?? null,
           title: shortProductName(String(i.title ?? '')) || ((prod?.name as string | undefined) ?? 'Без названия'),
