@@ -415,6 +415,13 @@ export class SupplyService {
       const kind = requestReturn(prev.status as string | undefined, next);
       if (kind && prev.createdBy) await this.notices.safe({ userId: prev.createdBy as Types.ObjectId, type: 'request_returned', text: requestReturnText(kind, prev.num, prev.title, next!), href: `#requests?open=${String(prev._id)}` }, actorId);
       if (prev.salesOrderId) await this.orders.recheck(prev.salesOrderId, actorId);
+      // СВ-11: заказано у поставщика — складу «ждите поставку», бухгалтерии «счёт к оплате» (если не оплачено)
+      if (next === 'ordered' && prev.status !== 'ordered') {
+        const name = `заявка${prev.num ? ' №' + prev.num : ''}: ${prev.title ?? ''}`, href = `#requests?open=${String(prev._id)}`;
+        await this.zones?.notifyZone('stock', { type: 'supply_expected', text: `Ждём поставку — принять на склад: ${name}`, href }, { actorId });
+        const paid = (await this.model.findById(prev._id, { paid: 1 }).lean().exec() as { paid?: boolean } | null)?.paid;
+        if (!paid) await this.zones?.notifyZone('accounting', { type: 'invoice_to_pay', text: `Счёт к оплате: ${name}`, href }, { actorId });
+      }
     } catch { /* уведомление не должно ломать операцию */ }
   }
 
@@ -428,7 +435,7 @@ export class SupplyService {
       const cur = await this.model.findById(id, { status: 1 }).lean().exec();
       if (cur && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
     }
-    const prev = fields.status ? await this.model.findOne({ _id: id, deletedAt: null }, { status: 1, createdBy: 1, num: 1, title: 1, salesOrderId: 1 }).lean().exec() as Record<string, unknown> | null : null;
+    const prev = fields.status ? await this.model.findOne({ _id: id, deletedAt: null }, { status: 1, createdBy: 1, num: 1, title: 1, salesOrderId: 1, paid: 1 }).lean().exec() as Record<string, unknown> | null : null;
     const prevResp = dto.responsibleId !== undefined ? ((await this.model.findOne({ _id: id, deletedAt: null }, { responsibleId: 1 }).lean().exec()) as { responsibleId?: unknown } | null)?.responsibleId : undefined;
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : undefined;
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
