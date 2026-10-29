@@ -4,7 +4,10 @@ html, body { margin: 0; }
 body { font: var(--fs)/1.45 var(--font); color: var(--text); background: var(--bg); color-scheme: var(--scheme, light); -webkit-font-smoothing: antialiased; font-feature-settings: 'cv11', 'ss01'; }
 [hidden] { display: none !important; }
 a { color: var(--link); text-decoration: none; }
-a:hover { text-decoration: underline; }
+/* Ссылка видна без наведения (DESIGN §4.1, 2026-10-29): пунктир всегда, сплошная при наведении; строки и плитки — с классом, без подчёркивания */
+a:not([class]), .link-btn, .q-link, .ref-orders, .cat-all { text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+a:not([class]):hover, .link-btn:hover, .q-link:hover, .ref-orders:hover, .cat-all:hover { text-decoration-style: solid; }
+a:not([class]):focus-visible, .link-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
 /* Иерархия текста (2026-10-20): заголовок отличается от текста размером, жирностью и цветом --heading.
    h1 страница 26/700 · h2 карточка/окно 19/650 · h3 блок/очередь 16/650 · текст 14/400 · подпись 12.5 muted · метка 11.5 заглавными */
 h1 { font-size: var(--fs-h1); font-weight: 700; color: var(--heading); margin: 0; letter-spacing: -.015em; line-height: 1.2; }
