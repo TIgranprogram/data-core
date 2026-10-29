@@ -1405,3 +1405,11 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .mt-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .mt-pick{margin-top:8px}
 .mt{display:flex;flex-direction:column;gap:8px}
+
+/* Очередь несопоставленных позиций */
+.mt-plate{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:var(--s3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius-sm);background:var(--gold-soft);color:var(--text)}
+.mq-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:var(--s3)}
+.mq-bar .field{flex:1;min-width:200px;margin:0}
+.mq-acts{display:flex;gap:6px;flex-wrap:wrap}
+.mq-body{overflow-x:auto}
+.td-unm{padding:8px 14px;font-size:var(--fs-h3)}

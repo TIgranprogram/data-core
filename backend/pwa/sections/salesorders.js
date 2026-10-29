@@ -14,6 +14,7 @@ import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
+import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
@@ -226,9 +227,13 @@ function produceBlock(d) {
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
 }
 
+const inWork = (d) => !['new', 'closed', 'cancelled'].includes(d.stage);
+const plateOf = (d) => { const u = unmatchedOrders(d); return u.length ? unmatchedPlate(u.reduce((s, x) => s + x.n, 0), u[0].id) : null; };
+
 function details(r) {
   const box = h('div', null);
   const paint = (d) => box.replaceChildren(...[
+    inWork(d) ? plateOf(d) : null,
     produceBlock(d),
     ['closed', 'cancelled', 'shipped', 'ready', 'partly'].includes(d.stage) ? null : readinessBlock(d, reload),
     sec(`Договоры (${(d.orders || []).length})`, ...((d.orders || []).length ? d.orders.map((o) => contractGroup(o, reload)) : [h('p', { class: 'muted' }, 'Договоров нет.')])),
@@ -279,7 +284,7 @@ export const salesorders = {
       // вкладки: Новые → В работе (по умолчанию) → Выполненные → Все в конце (пользователь 2026-10-28)
       { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', noAll: true, options: () => [{ value: 'new', label: 'Новые' }, { value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }, { value: 'all', label: 'Все' }], count: (resp, v) => (v === 'new' ? resp.counts?.fresh : resp.counts?.[v]) },
     ],
-    top: (reload) => unassignedTop(reload),
+    top: (reload) => h('div', null, unmatchedTop(), unassignedTop(reload)),
     hints: HINT,
     hintKey: 'filter',
     periods: (P) => (P.filter === 'done' ? { date: (r) => r.deadline || r.createdAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
@@ -306,7 +311,7 @@ export const salesorders = {
       columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
       card: (r) => ({
         title: `№ ${prodNo(r)} · ${names(r.customers)}`,
-        meta: [(r.orderNos || []).length ? h('span', { class: 'muted' }, 'договоры ' + names(r.orderNos)) : null, h('span', null, `${r.lineCount} поз.`), r.deadline ? due(r) : null, r.stagesDiffer ? h('span', { class: 'muted' }, 'разные этапы') : null, prio(r)].filter(Boolean),
+        meta: [(r.orderNos || []).length ? h('span', { class: 'muted' }, 'договоры ' + names(r.orderNos)) : null, h('span', null, `${r.lineCount} поз.`), r.deadline ? due(r) : null, r.stagesDiffer ? h('span', { class: 'muted' }, 'разные этапы') : null, prio(r), unmatchedOrders(r)[0] ? unmatchedFlag(unmatchedOrders(r)[0].id) : null].filter(Boolean),
         side: r.amount && session.canMoney ? money(r.amount) : '',
       }),
       move: async (r, to) => !!(await setStage(r, to)),

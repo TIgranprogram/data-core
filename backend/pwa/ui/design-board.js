@@ -10,6 +10,7 @@ import { afterDrag, draggable } from './drag.js';
 import { questionBadge } from './design-notes.js';
 import { setStickers, stickerRow } from './design-stickers.js';
 import { enhanceSelect } from './select.js';
+import { unmatchedFlag } from '../sections/matching-queue.js';
 import { toast, toastError } from './toast.js';
 
 /**
@@ -74,8 +75,8 @@ export function normOrder(o) {
 }
 /** Позиция заказа (с задачей или без) → единый вид. */
 export function normLine(l, order) {
-  const t = l.task ? normTask({ ...l.task, incomeId: l.incomeId ?? l.id, lineNo: l.seqNo ?? l.lineNo, title: l.task.title ?? l.title, productName: l.productName, sku: l.sku, photo: l.photo }, order) : null;
-  return { incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.seqNo ?? l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
+  const t = l.task ? normTask({ matched: l.matched ?? l.task.matched ?? null, ...l.task, incomeId: l.incomeId ?? l.id, lineNo: l.seqNo ?? l.lineNo, title: l.task.title ?? l.title, productName: l.productName, sku: l.sku, photo: l.photo }, order) : null;
+  return { matched: l.matched ?? null, incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.seqNo ?? l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
 }
 /** Задача (из открытых задач или вложенная в позицию) → вид, который понимают moveTask и карточка. */
 export function normTask(t, order) {
@@ -335,7 +336,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (t) openTask(t); else openOrder(o.orderId); } } },
     photo(l.photo, 'db-pic sm'),
     h('div', { class: 'db-lmain' }, h('div', { class: 't-title', title: l.title }, (l.lineNo != null ? `поз. ${l.lineNo} · ` : '') + l.title),
-      h('div', { class: 't-sub' }, dotted(l.sku && '№ ' + l.sku, l.qty != null && qty(l.qty) + ' шт'))),
+      h('div', { class: 't-sub' }, dotted(l.sku && '№ ' + l.sku, l.qty != null && qty(l.qty) + ' шт'), l.matched === false ? [' ', unmatchedFlag(o.orderId)] : null)),
     t ? h('div', { class: 'db-lstate' }, badge(DESIGN_STATUS, t.status),
       h('button', { type: 'button', class: 'link-btn', onclick: (e) => { e.stopPropagation(); revealTask(t); } }, `в колонке «${COL_LABEL[t.status]}» →`))
       : canEdit ? lineMenu(o, l) : null);
@@ -440,7 +441,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     const node = h('article', { class: 'tcard db-task' + (canEdit ? ' movable' : ''), tabindex: '0', role: 'button', dataset: { task: t.id },
       'aria-label': `${t.productionNo ? '№ ' + t.productionNo + ', ' : ''}${title}, ${COL_LABEL[t.status] || ''}`,
       onclick: () => openTask(t), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(t); } } },
-    h('div', { class: 'db-ttop' }, chip(t.orderId, t.productionNo), questionBadge(t),
+    h('div', { class: 'db-ttop' }, chip(t.orderId, t.productionNo), t.matched === false && t.orderId ? unmatchedFlag(t.orderId) : null, questionBadge(t),
       taskMenu(t, title)),
     t.photo ? photo(t.photo, 'db-cover') : null,
     h('div', { class: 'db-tbody' },

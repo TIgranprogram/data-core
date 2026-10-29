@@ -6,6 +6,7 @@ import { modal } from '../ui/dialog.js';
 import { isoDay } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
+import { unmatchedCount } from './matching-queue.js';
 
 /**
  * «Сегодня» — утренний бриф (docs/roles/tz/TODAY.md, этап 1): шапка с пульсом дня и колокольчиком,
@@ -159,6 +160,7 @@ export function mountHome(deps) {
         items.length > PREVIEW ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-more', onclick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } },
           full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`) : null));
   }
+  const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
   const emptyBox = (t, s2) => h('div', { class: 'td-empty' }, h('b', null, t), s2 ? h('span', null, s2) : null);
   function paintFeed() {
     if (!data) return;
@@ -170,10 +172,10 @@ export function mountHome(deps) {
       : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только отгрузки') : '';
     const bar = fl ? h('div', { class: 'td-filter' }, fl,
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : null;
-    const urgent = [group('over', 'Просрочено', over, true)];
+    const urgent = [group('over', 'Просрочено', over, true), unmatchedRow()];
     const plan = [group('today', 'Сегодня', today, true), group('week', 'На неделе', week, true)];
     if (fl && !all.length) plan.unshift(emptyBox('Ничего не найдено', 'По этому условию дел нет — нажмите «Показать все».'));
-    urgEl.replaceChildren(bar, ...urgent, !urgent[0] && !questions().length && !fl ? emptyBox('Срочного нет', 'Просроченных дел и вопросов нет.') : null);
+    urgEl.replaceChildren(bar, ...urgent, !urgent[0] && !urgent[1] && !questions().length && !fl ? emptyBox('Срочного нет', 'Просроченных дел и вопросов нет.') : null);
     planEl.replaceChildren(...plan, !all.length && !fl ? emptyBox('На сегодня и неделю дел нет', 'Можно заполнить недостающие данные: раздел «Заполнить».') : null);
   }
   const paintAll = () => { paintPulse(); paintFeed(); paintQuestions(); paintWeek(); };
@@ -273,6 +275,7 @@ export function mountHome(deps) {
   }
 
   // ---------- Загрузка ----------
+  let unmatchedN = 0;
   async function load(silent = false) {
     try {
       const [d, q] = await Promise.all([
@@ -280,6 +283,7 @@ export function mountHome(deps) {
         session.seesDocs() ? api('/passports/queue', { query: { due: 'soon', limit: 1 } }).catch(() => pq) : Promise.resolve(pq),
       ]);
       data = d; pq = q;
+      unmatchedN = (await unmatchedCount()).total || 0;
       paintBell(); paintTiles(); paintAll();
     } catch (e) {
       if (silent && data) return;
