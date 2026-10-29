@@ -23,6 +23,7 @@ function clipper(el) {
 const GAP = 76; // ≈2 см до края экрана
 
 export function placeList(box) {
+  if (!box.parentElement) return; // окно уже закрыто — список вне страницы (ошибка с сайта 2026-10-29)
   box.classList.remove('drop-up', 'align-right', 'sheet', 'floating');
   for (const k of ['left', 'top', 'bottom', 'minWidth', 'maxHeight']) box.style[k] = '';
   if (phone()) { box.classList.add('sheet'); return; }
