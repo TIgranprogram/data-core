@@ -11,6 +11,7 @@ import { openPopMenu } from '../ui/pop-menu.js';
 import { icon } from '../ui/icons.js';
 import { toast, toastError } from '../ui/toast.js';
 import { setCrumbTail } from '../ui/crumbs.js';
+import { partnerAction } from './lookups.js';
 
 /**
  * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
@@ -339,7 +340,9 @@ export const supplierCatalog = {
       const sups = r ? [] : await loadSuppliers();
       return [
         { section: 'Позиция', tone: 'main', fixed: true },
-        ...(r ? [] : [{ key: 'supplierId', label: 'Поставщик', type: 'select', required: true, wide: true, options: [{ value: '', label: 'Выберите поставщика' }, ...sups] }]),
+        // поставщика нет в списке — «Создать «…»» прямо из поля (как в заявке)
+        ...(r ? [] : [{ key: 'supplierName', label: 'Поставщик', type: 'combo', required: true, wide: true, max: 200, options: sups.map((o) => o.label),
+          extra: (t, shown, form) => partnerAction('supplier', t, sups.map((o) => o.label), (n) => { suppliersCache = null; form.add(n); form.set('supplierName', n); }) }]),
         ...(r ? [] : [{ key: 'article', label: 'Артикул поставщика', max: 100, hint: 'Пусто — позиция узнаётся по нашему материалу' }]),
         { key: 'name', label: 'Название у поставщика', required: true, wide: true, max: 300 },
         { key: 'color', label: 'Цвет', max: 100 },
@@ -360,14 +363,20 @@ export const supplierCatalog = {
         if (price !== null) body.price = price;
         body.materialId = v.material || null;
       } else {
-        body.supplierId = v.supplierId;
+        body.supplierName = v.supplierName;
         if (v.article) body.article = v.article;
         if (price !== null) body.price = price;
         if (v.material) body.materialId = v.material;
       }
       return body;
     },
-    create: async (body) => {
+    create: async ({ supplierName, ...body }) => {
+      const key = String(supplierName || '').trim().toLowerCase();
+      const find = async () => (await loadSuppliers()).find((o) => o.label.trim().toLowerCase() === key);
+      let sup = await find();
+      if (!sup) { suppliersCache = null; sup = await find(); }
+      if (!sup) throw new Error(`Поставщика «${supplierName}» нет — нажмите «Создать «${supplierName}»» под полем`);
+      body.supplierId = sup.value;
       const res = await api('/supply/catalog/items', { method: 'POST', body });
       if (res.errors?.length) throw new Error(res.errors.join('; '));
       bust();
