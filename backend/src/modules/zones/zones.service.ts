@@ -4,6 +4,7 @@ import { Types, type Connection, type Model } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DEFAULT_ZONES, MANAGEMENT, isWorking, personLabel, routeNotice, unassignedText, type Route } from './zone-routing';
+import { scanLowStock, scanPassports, scanReservations } from './zone-events';
 import type { CreateZoneDto, UpdateZoneDto } from './dto/zones.dto';
 import { Handoff, Zone, ZoneAssignment, type HandoffDocument, type ZoneAssignmentDocument, type ZoneDocument } from './zone.schema';
 
@@ -42,7 +43,12 @@ export class ZonesService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** Раз в час: уволенных снять с зон, руководству напомнить «Не назначено» (не чаще раза в сутки). */
   private async tick() {
-    try { await this.releaseFired(); await this.remindUnassigned(); } catch (e) { this.log.warn(`Проверка зон не выполнена: ${(e as Error).message}`); }
+    const run = async (name: string, fn: () => Promise<unknown>) => { try { await fn(); } catch (e) { this.log.warn(`${name}: ${(e as Error).message}`); } };
+    await run('Проверка зон', async () => { await this.releaseFired(); await this.remindUnassigned(); });
+    const notify = (zone: string, n: ZoneNotice, dedupeDays: number) => this.notifyZone(zone, n, { dedupeDays });
+    await run('Брони к выдаче', () => scanReservations(this.db(), notify));
+    await run('Остаток ниже минимума', () => scanLowStock(this.db(), notify));
+    await run('Паспорта к отгрузке', () => scanPassports(this.db(), notify));
   }
 
   /** Недостающие базовые зоны по коду (повтор безопасен; переименованные и скрытые не трогаем). */
@@ -308,7 +314,7 @@ export class ZonesService implements OnApplicationBootstrap, OnModuleDestroy {
    * Отправить уведомление по зоне. Исполнителя действия не уведомляем. Никого нет — руководству с пометкой «Не назначено: <зона>».
    * Ошибки не пробрасываются. Возвращает маршрут и число отправленных.
    */
-  async notifyZone(zoneCode: string, n: ZoneNotice, opts: { personId?: unknown; actorId?: string } = {}): Promise<Route & { sent: number }> {
+  async notifyZone(zoneCode: string, n: ZoneNotice, opts: { personId?: unknown; actorId?: string; dedupeDays?: number } = {}): Promise<Route & { sent: number }> {
     const r = await this.route(zoneCode, opts.personId).catch((e) => { this.log.warn(`Маршрут зоны ${zoneCode}: ${(e as Error).message}`); return null; });
     if (!r) return { userIds: [], zoneCode, unassigned: false, via: 'zone', sent: 0 };
     let sub = n.sub;
@@ -317,8 +323,16 @@ export class ZonesService implements OnApplicationBootstrap, OnModuleDestroy {
       sub = [unassignedText([name]), n.sub].filter(Boolean).join(' · ');
     }
     let sent = 0;
-    for (const uid of r.userIds) if (await this.notices.safe({ ...n, sub, userId: uid, zoneCode }, opts.actorId)) sent++;
+    for (const uid of r.userIds) if (!(await this.seen(uid, n, opts.dedupeDays)) && await this.notices.safe({ ...n, sub, userId: uid, zoneCode }, opts.actorId)) sent++;
     return { ...r, sent };
+  }
+
+  /** Уже слали это человеку (тип + href) в окне `days` дней? Infinity — когда-либо. Без `days` проверки нет. */
+  private async seen(userId: string, n: ZoneNotice, days?: number): Promise<boolean> {
+    if (days === undefined || !Types.ObjectId.isValid(userId)) return false;
+    const f: Doc = { userId: new Types.ObjectId(userId), type: n.type, href: n.href };
+    if (Number.isFinite(days)) f.createdAt = { $gte: new Date(Date.now() - days * DAY) };
+    return !!(await this.db().collection('notifications').findOne(f, { projection: { _id: 1 } }));
   }
 
   /** Зоны пользователя для «Сегодня»: связь вход → сотрудник → зоны. */

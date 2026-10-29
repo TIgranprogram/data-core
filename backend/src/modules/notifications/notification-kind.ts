@@ -3,7 +3,7 @@ export const NOTICE_KINDS = ['important', 'system'] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
 /** Типы, которые требуют действия человека: сообщение, задача, счёт ждёт оплаты, заявка вернулась. */
-export const IMPORTANT_TYPES = ['message', 'task_assigned', 'invoice_awaiting_payment', 'request_returned', 'zone_unassigned'] as const;
+export const IMPORTANT_TYPES = ['message', 'task_assigned', 'invoice_awaiting_payment', 'request_returned', 'zone_unassigned', 'reservation_due', 'stock_below_min', 'income_no_contract', 'passport_missing'] as const;
 
 /** Вид по типу; записи без вида (старые) — «Система», кроме известных типов действий. */
 export function kindOf(type: string | undefined | null, stored?: string | null): NoticeKind {

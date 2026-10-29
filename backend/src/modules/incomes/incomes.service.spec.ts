@@ -386,3 +386,22 @@ describe('IncomesService', () => {
     });
   });
 });
+
+describe('СВ-11 (3): новый платёж у позиции без договора → Бухгалтерия', () => {
+  const run = async (order: Record<string, unknown> | null, f: Record<string, unknown>, cur: Record<string, unknown>) => {
+    const notifyZone = jest.fn(async () => ({}));
+    const conn = { db: { collection: () => ({ findOne: async () => order }) } };
+    const svc = new IncomesService(conn as never, {} as never, { notifyZone } as never);
+    await svc.notifyNoContract({ _id: new Types.ObjectId(), customer: 'ООО А', ...cur }, f);
+    return notifyZone;
+  };
+  const pay = { date: new Date(), amount: 500, method: 'x' };
+  it('платёж добавлен, договора нет — событие в accounting без повтора (Infinity)', async () => {
+    const n = await run({ _id: 1, contractNo: '' }, { payments: [pay] }, { orderId: new Types.ObjectId() });
+    expect(n).toHaveBeenCalledWith('accounting', expect.objectContaining({ type: 'income_no_contract' }), expect.objectContaining({ dedupeDays: Infinity }));
+  });
+  it('есть договор или платёж не новый — тишина', async () => {
+    expect(await run({ _id: 1, contractNo: 'Д-1' }, { payments: [pay] }, { orderId: new Types.ObjectId() })).not.toHaveBeenCalled();
+    expect(await run(null, { payments: [pay] }, { payments: [pay] })).not.toHaveBeenCalled();
+  });
+});

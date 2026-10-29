@@ -1,10 +1,12 @@
 import { photoToFront } from '../../common/photo-main';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { customerNames } from '../partners/customer-names';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
+import { INCOME_NO_CONTRACT_DEDUPE_DAYS, incomeNoContractText, noContract } from '../zones/zone-events';
+import { ZonesService } from '../zones/zones.service';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
@@ -48,6 +50,7 @@ export class IncomesService {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Income.name) private readonly model: Model<IncomeDocument>,
+    @Optional() private readonly zones?: ZonesService,
   ) {}
 
   private async present(docs: Array<Record<string, unknown>>) {
@@ -280,7 +283,24 @@ export class IncomesService {
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
     await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+    await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
     return this.get(id);
+  }
+
+  /** СВ-11 (3): появился новый платёж у позиции без договора — сообщить Бухгалтерии (один раз на позицию). */
+  async notifyNoContract(cur: Record<string, unknown>, f: Record<string, unknown>, actor?: AuthenticatedUser) {
+    if (!this.zones || !Array.isArray(f.payments)) return;
+    const before = ((cur.payments as unknown[] | undefined) ?? []).length;
+    if ((f.payments as IncomePayment[]).length <= before) return;
+    const orderId = ('orderId' in f ? f.orderId : cur.orderId) as Types.ObjectId | undefined;
+    const order = orderId ? await this.connection.db!.collection('salesorders').findOne({ _id: orderId, deletedAt: null }) : null;
+    if (!noContract(order)) return;
+    const last = (f.payments as IncomePayment[])[(f.payments as IncomePayment[]).length - 1];
+    const customer = (('customer' in f ? f.customer : cur.customer) as string | undefined) ?? undefined;
+    await this.zones.notifyZone('accounting', {
+      type: 'income_no_contract', text: incomeNoContractText(Number(last?.amount) || 0, customer),
+      href: orderId ? `#salesorders?open=${String(orderId)}&item=${String(cur._id)}` : `#money?open=${String(cur._id)}`,
+    }, { actorId: actor?.id, dedupeDays: INCOME_NO_CONTRACT_DEDUPE_DAYS });
   }
 
   async addPhoto(id: string, photoId: string) {
