@@ -1,13 +1,15 @@
 /**
- * Перетаскивание карточки для новой доски «Проектирование» (DESIGN §4 «Доска заказов»). `ui/board.js` его не использует.
+ * Перетаскивание карточки — единственное место для ВСЕХ досок (`ui/board.js`, `ui/design-board.js`): поменяли здесь — поменялись все.
  * Карточка «поднимается» и едет за курсором тенью, цель подсвечена (`.drop`). Мышь — после сдвига на 6 px;
  * палец — долгое нажатие 350 мс (раньше сдвинулся — это прокрутка). Esc — отмена. На телефоне и с клавиатуры
  * основной путь — меню «Статус», перетаскивание только дополнение.
  *
- * draggable(el, { canStart(), onDrop(target, el), targetSel, scroller?, sourceClass? }) → снять обработчики().
+ * draggable(el, { canStart(), onDrop(target, el), targetSel, scroller?, scrollAxis?, canDrop?(target), sourceClass? }) → снять обработчики().
  *  targetSel — селектор цели (`.col`), onDrop вызывается только если отпустили над целью.
+ *  canDrop — можно ли бросить на эту цель (по умолчанию да; доска не принимает бросок в ту же колонку).
+ *  scrollAxis — 'x' только горизонтальная автопрокрутка у краёв scroller (по умолчанию и по вертикали).
  *  sourceClass — что повесить на исходную карточку, пока тащат (по умолчанию `placeholder` — пунктир; для позиций слева `is-lifted` — приглушена).
- * Общие классы `drag-ghost`, `placeholder`, `drop`, `body.dragging` — те же, что у ui/board.js.
+ * Общие классы `drag-ghost`, `placeholder`, `drop`, `body.dragging` — правила в screens.css.
  */
 export const MOUSE_PX = 6, TOUCH_PX = 8, HOLD_MS = 350;
 
@@ -29,17 +31,19 @@ export const justDragged = () => Date.now() - lastEnd < 60;
 /** Выполнить fn сразу, а во время перетаскивания — после него. */
 export function afterDrag(fn) { if (isDragging()) queue.push(fn); else fn(); }
 
-export function draggable(el, { canStart = () => true, onDrop, targetSel, scroller, sourceClass = 'placeholder' }) {
+export function draggable(el, { canStart = () => true, canDrop = () => true, onDrop, targetSel, scroller, scrollAxis, sourceClass = 'placeholder' }) {
   const clickGuard = (e) => { if (justDragged()) { e.stopImmediatePropagation(); e.preventDefault(); } };
   el.addEventListener('click', clickGuard, true);
 
   const moveGhost = (d, x, y) => {
     d.ghost.style.transform = `translate(${x - d.dx - d.left}px, ${y - d.dy - d.top}px) rotate(2deg)`;
-    const t = document.elementFromPoint(x, y)?.closest?.(targetSel) || null;
+    let t = document.elementFromPoint(x, y)?.closest?.(targetSel) || null;
+    if (t && !canDrop(t)) t = null;
     if (d.over !== t) { d.over?.classList.remove('drop'); t?.classList.add('drop'); d.over = t; }
     if (scroller) {
       const b = scroller.getBoundingClientRect();
       if (x > b.right - 60) scroller.scrollLeft += 18; else if (x < b.left + 60) scroller.scrollLeft -= 18;
+      if (scrollAxis === 'x') return;
       if (y > b.bottom - 50) scroller.scrollTop += 14; else if (y < b.top + 50) scroller.scrollTop -= 14;
     }
   };

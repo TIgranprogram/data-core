@@ -19,6 +19,12 @@ describe('изделие → категория паспорта (ФИ2)', () =>
     expect(passportCategoryFor({ type: 'уличный тренажер', group: 'Прочее' }, cats)?.code).toBe('TRN');
   });
   it('не нашли — null', () => expect(passportCategoryFor({ type: 'МАФ', group: null }, cats)).toBeNull());
+  it('группа по корню слова раньше раздела: «Тренажеры» в «Спортивное оборудование» → TRN, не WRK (прод 2026-10-29)', () => {
+    const prod = [{ code: 'WRK', name: 'Воркаут и спортивное оборудование', catalogNames: 'Воркаут, Спортивное оборудование' }, { code: 'TRN', name: 'Уличный тренажёр', catalogNames: 'Уличный тренажёр' }, { code: 'ALL', name: 'Для всех', catalogNames: '' }];
+    expect(passportCategoryFor({ group: 'Тренажеры', type: 'Спортивное оборудование' }, prod)).toEqual({ code: 'TRN', name: 'Уличный тренажёр', via: 'группа «Тренажеры»', source: 'dict' });
+    expect(passportCategoryFor({ group: 'Воркаут', type: 'Спортивное оборудование' }, prod)?.code).toBe('WRK');
+    expect(passportCategoryFor({ group: 'Спорт оборудование', type: 'Спортивное оборудование' }, prod)?.code).toBe('WRK');
+  });
 });
 
 import { resolvePassportCategory } from './form-values';

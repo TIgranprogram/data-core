@@ -63,3 +63,6 @@
 
 ## Аудит «В работе» + воронка (2026-10-29)
 - `docs/audit/AUDIT-PRODUCTION.md`. Есть: `worktypes` (общая; `work-type.schema.ts`), `ProductModule.workTypes[]` (`product-module.schema.ts:66`), `persons.workTypeId` (один). Нет: маршрута у `products`, `persons.workTypeIds[]`, `worktasks`, пункта «Изготовлено» в `order-readiness.ts`. Образец доски — `modules/design`. Вопросы 1–8 в отчёте, в QUESTIONS не перенесены. коммит: —
+
+## Аудит паспортов: содержание (2026-10-29)
+- `docs/audit/AUDIT-PASSPORTS-CONTENT.md`. Части изделия: в сиде 25 (`data-mi-dicts.js:67`), нет базовых (каркас, поручень, закладная…); у WRK нет норматива (56440 не добавлен); нет ИИ в рантайме; `spec-import.js` = брони, не паспорт; разборщик «Труба 89х3» — `data-mi-dicts.js parseMaterials`. Вопросы В-1…В-7 в отчёте, в QUESTIONS не перенесены. коммит: —

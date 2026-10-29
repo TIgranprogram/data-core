@@ -50,13 +50,19 @@ export function passportCategoryFor(
     if (!c) continue;
     return { code: c, name: clean(byCode(c)?.name) || c, via: `${via} «${clean(name)}»`, source };
   }
+  // группа раньше раздела: сначала точное имя, потом по корню слова («Тренажеры» ≈ «Уличный тренажёр»);
+  // иначе группа «Тренажеры» без своей категории уходила в раздел «Спортивное оборудование» → «Воркаут» (2026-10-29)
   for (const [name, via] of [[item.group, 'группа'], [item.type, 'раздел']] as const) {
     if (!clean(name)) continue;
-    const c = cats.find((x) => clean(x.catalogNames).split(/[,;\n]/).some((n) => clean(n) && key(n) === key(String(name))));
+    const want = stems(String(name));
+    const c = cats.find((x) => clean(x.catalogNames).split(/[,;\n]/).some((n) => clean(n) && key(n) === key(String(name))))
+      ?? (want.size ? cats.find((x) => clean(x.code) !== 'ALL' && [...stems(`${x.name} ${x.catalogNames ?? ''}`)].some((w) => want.has(w))) : undefined);
     if (c) return { code: clean(c.code), name: clean(c.name), via: `${via} «${clean(name)}»`, source: 'dict' };
   }
   return null;
 }
+/** Корни слов для сравнения названий: слова от 5 букв — первые 6 букв, без «ё». */
+const stems = (v: string) => new Set(key(v).split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 5).map((w) => w.slice(0, 6)));
 
 /** Своя категория изделия (вручную, passportDefaults) отдельно от унаследованной; итог — своя, если задана (решение 2026-10-29). */
 export function resolvePassportCategory(own: string | null | undefined, inherited: PpFound | null, cats: PpCat[]) {
