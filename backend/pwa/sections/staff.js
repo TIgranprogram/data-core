@@ -73,7 +73,7 @@ export function mountStaff(params) {
     if (!items.length) { body.replaceChildren(...[logins, h('div', { class: 'state' }, 'Сотрудников пока нет. Добавьте их в «Данных → Сотрудники» — они появятся здесь.')].filter(Boolean)); return; }
     body.replaceChildren(...[logins, h('ul', { class: 'st-list' }, ...items.map((p) => h('li', null, h('button', { type: 'button', class: 'st-row', onclick: () => openPanel('staffcard', p.id) },
       h('span', { class: 'st-main' }, h('b', null, p.name), h('span', { class: 'muted small' }, [p.position, p.statusLabel && p.statusLabel !== 'Работает' ? p.statusLabel : ''].filter(Boolean).join(' · ') || 'должность не указана')),
-      h('span', { class: p.hasLogin ? 'badge ok' : 'badge warn', title: p.hasLogin ? 'Получает уведомления' : 'Сотрудник не связан со входом — ему не приходят уведомления' }, p.hasLogin ? 'вход связан' : 'нет входа'),
+      h('span', { class: p.hasLogin ? 'badge ok' : 'badge warn', title: p.hasLogin ? 'Получает уведомления' : 'Сотрудник не связан со входом — ему не приходят уведомления' }, p.hasLogin ? 'вход: ' + (p.login?.username || 'связан') : 'нет входа — открыть и дать вход'),
       chips(p.zones)))))].filter(Boolean));
   }
 

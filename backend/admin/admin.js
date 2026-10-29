@@ -341,8 +341,10 @@
     if (userState.search) q.set('search', userState.search);
     if (userState.role) q.set('role', userState.role);
     try {
-      const r = await api('/admin/users?' + q);
-      (r.items || []).forEach((u) => tbody.append(userRow(u)));
+      // СВ-6: какой сотрудник связан со входом (связать — «Рабочее место → Управление → Сотрудники»)
+      const [r, links] = await Promise.all([api('/admin/users?' + q), api('/staff/logins').catch(() => ({ items: [] }))]);
+      const person = new Map((links.items || []).map((l) => [l.userId, l.personName]));
+      (r.items || []).forEach((u) => tbody.append(userRow(u, person.get(userId(u)))));
       const pages = Math.max(1, Math.ceil((r.total || 0) / userState.limit));
       $('#users-page').textContent = `стр. ${userState.page} / ${pages} · всего ${r.total || 0}`;
       $('#users-prev').disabled = userState.page <= 1;
@@ -357,10 +359,10 @@
    */
   function userId(u) { return (u && (u.id || u._id)) || ''; }
 
-  function userRow(u) {
+  function userRow(u, personName) {
     const tr = el('tr');
     tr.append(el('td', '', u.username), el('td', '', u.displayName || '—'), el('td', '', u.email || '—'),
-      el('td', '', roleNameRu(u.role)), el('td', '', u.isActive ? 'да' : 'нет'), el('td', '', fmtDate(u.createdAt)));
+      el('td', '', roleNameRu(u.role)), el('td', personName ? '' : 'muted', personName || 'не связан'), el('td', '', u.isActive ? 'да' : 'нет'), el('td', '', fmtDate(u.createdAt)));
     const td = el('td');
     const edit = el('button', 'btn btn-sm', 'Изменить'); edit.onclick = () => openUserDialog(u);
     const reset = el('button', 'btn btn-sm', 'Сброс пароля'); reset.onclick = () => resetPassword(u);
