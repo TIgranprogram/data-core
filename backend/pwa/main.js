@@ -107,18 +107,21 @@ const root = $('#root');
 
 // ---------- Вход ----------
 function showLogin(message) {
+  let last = ''; try { last = localStorage.getItem('dca_last_user') || ''; } catch { /* приватный режим */ }
   closeCard();
   const err = h('div', { class: 'form-error', hidden: !message }, message || '');
-  const user = h('input', { name: 'username', autocomplete: 'username', required: true });
+  const user = h('input', { name: 'username', autocomplete: 'username', required: true, value: last });
   const pass = h('input', { name: 'password', type: 'password', autocomplete: 'current-password', required: true });
+  const remember = h('input', { type: 'checkbox', name: 'remember', checked: true });
   const btn = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Войти');
   const form = h('form', { class: 'login-card' },
     h('img', { src: 'icon.svg', alt: '' }), h('h1', null, 'Вход'), h('div', { class: 'muted' }, 'Логин и пароль сотрудника — те же, что в CRM.'),
-    err, h('label', { class: 'field' }, h('span', null, 'Логин'), user), h('label', { class: 'field' }, h('span', null, 'Пароль'), pass), btn);
+    err, h('label', { class: 'field' }, h('span', null, 'Логин'), user), h('label', { class: 'field' }, h('span', null, 'Пароль'), pass),
+    h('label', { class: 'check' }, remember, ' Запомнить меня'), btn);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     btn.disabled = true; btn.textContent = 'Вход…'; err.hidden = true;
-    try { await login(user.value.trim(), pass.value); showApp(); serverPrefs(session.user?.uiPrefs); }
+    try { await login(user.value.trim(), pass.value, remember.checked); showApp(); serverPrefs(session.user?.uiPrefs); }
     catch (ex) { err.textContent = ex.message; err.hidden = false; btn.disabled = false; btn.textContent = 'Войти'; pass.select(); }
   });
   root.replaceChildren(h('div', { class: 'login' },
@@ -126,9 +129,9 @@ function showLogin(message) {
       h('h2', null, 'Рабочее место — ', h('span', { class: 'gold' }, 'заявки, склад и учёт'), ' в одном окне'),
       h('p', null, 'Все данные — в единой базе компании: заявки снабжения, остатки и движения склада.')),
     h('div', { class: 'login-side' }, form)));
-  user.focus();
+  (last && message ? pass : user).focus(); // сессия завершилась: логин подставлен, фокус на пароле
 }
-events.onAuthLost = () => { session.clear(); showLogin('Сессия истекла — войдите снова.'); };
+events.onAuthLost = () => { session.clear(); showLogin('Сессия завершена — войдите снова'); };
 
 // ---------- «Обновить приложение» (2026-10-22): у установленного приложения нет кнопки браузера «обновить» ----------
 // 2026-10-24: пункта «Обновить приложение» нет — новая версия приходит в колокольчик; внизу меню — тихий номер «v1.245»
@@ -195,7 +198,7 @@ function shell() {
     group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog),
-    session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll ? navLinks.payroll : null) : null,
+    session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,
     h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)
@@ -357,7 +360,7 @@ function render(c) {
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = FN.mountMoney(params);
-    else if (section === 'payroll' && FEATURES.payroll && session.canMoney) list = FN.mountPayroll();
+    else if (section === 'payroll' && FEATURES.payroll && session.canPayroll) list = FN.mountPayroll();
     else if (section === 'trash') list = FN.mountTrash();
     else if (section === 'dicts') list = FN.mountDicts(params);
     else if (section === 'fill') list = FN.mountFill(params);

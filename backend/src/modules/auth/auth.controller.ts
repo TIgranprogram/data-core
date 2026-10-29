@@ -34,6 +34,7 @@ import { UserService } from '../user/user.service';
 interface RefreshPayload {
   id: string;
   version: number;
+  remember?: boolean;
 }
 
 @ApiTags('Auth')
@@ -84,7 +85,7 @@ export class AuthController {
     @CurrentUser() payload: RefreshPayload,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.auth.refresh(payload.id, payload.version, res);
+    return this.auth.refresh(payload.id, payload.version, res, payload.remember);
   }
 
   @Post('logout')

@@ -8,6 +8,7 @@ import { jwtFromRequest } from '../jwt-from-request';
 export interface JwtRefreshPayload {
   sub: string;
   version: number;
+  rem?: boolean;
 }
 
 @Injectable()
@@ -44,6 +45,6 @@ export class JwtRefreshStrategy extends PassportStrategy(
     if (user.refreshTokenVersion !== payload.version) {
       throw new UnauthorizedException('Refresh token revoked');
     }
-    return { id: user.id, version: user.refreshTokenVersion };
+    return { id: user.id, version: user.refreshTokenVersion, remember: payload.rem !== false };
   }
 }

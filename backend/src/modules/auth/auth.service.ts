@@ -52,6 +52,9 @@ const DUMMY_BCRYPT_HASH = bcrypt.hashSync('__not_a_real_password__', 10);
  */
 const OWNER_ONLY_PAGE_KEYS = new Set<string>(['admin-roles']);
 
+/** «Запомнить меня»: скользящий срок refresh, дней. */
+export const REMEMBER_DAYS = 90;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -167,7 +170,7 @@ export class AuthService {
     user.lastLoginAt = new Date();
     await user.save();
     this.logger.log(`User logged in: ${user.username}`);
-    return this.buildAuthResponse(user, res);
+    return this.buildAuthResponse(user, res, dto.remember ?? true);
   }
 
   /**
@@ -176,15 +179,16 @@ export class AuthService {
    * reach this point, the token is signed, unexpired, and matches the
    * current user version.
    */
-  async refresh(userId: string, version: number, res: Response): Promise<AccessTokenResponse> {
+  async refresh(userId: string, version: number, res: Response, remember = true): Promise<AccessTokenResponse> {
     const user = await this.findActiveUserOrThrow(userId);
     if (user.refreshTokenVersion !== version) {
       throw new UnauthorizedException('Refresh token revoked');
     }
     const access = await this.signAccess(user);
-    const refresh = await this.signRefresh(user);
-    this.setRefreshCookie(res, refresh);
-    return { access };
+    // скользящий срок: каждый успешный refresh выдаёт новый токен на полный срок (90 дней при «Запомнить меня»)
+    const refresh = await this.signRefresh(user, remember);
+    this.setRefreshCookie(res, refresh, remember);
+    return { access, refresh };
   }
 
   /**
@@ -250,13 +254,13 @@ export class AuthService {
     return user;
   }
 
-  private async buildAuthResponse(user: UserDocument, res: Response): Promise<AuthResponse> {
+  private async buildAuthResponse(user: UserDocument, res: Response, remember = true): Promise<AuthResponse> {
     const [access, refresh, role] = await Promise.all([
       this.signAccess(user),
-      this.signRefresh(user),
+      this.signRefresh(user, remember),
       this.roles.resolveForAuth(user.role),
     ]);
-    this.setRefreshCookie(res, refresh);
+    this.setRefreshCookie(res, refresh, remember);
     return {
       access,
       refresh,
@@ -264,13 +268,14 @@ export class AuthService {
     };
   }
 
-  private setRefreshCookie(res: Response, token: string): void {
+  private setRefreshCookie(res: Response, token: string, remember = true): void {
     // path must match global prefix (/api) + auth controller base (/auth)
     res.cookie('refreshToken', token, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      // без «Запомнить меня» — сессионная cookie (до закрытия браузера)
+      ...(remember ? { maxAge: REMEMBER_DAYS * 24 * 60 * 60 * 1000 } : {}),
       path: '/api/auth',
     });
   }
@@ -291,13 +296,14 @@ export class AuthService {
     );
   }
 
-  private async signRefresh(user: UserDocument): Promise<string> {
+  private async signRefresh(user: UserDocument, remember = true): Promise<string> {
     return this.jwt.signAsync(
-      { sub: user.id, version: user.refreshTokenVersion },
+      { sub: user.id, version: user.refreshTokenVersion, rem: remember },
       {
         secret: this.config.get<string>('jwt.refreshSecret'),
-        expiresIn:
-          this.config.get<string>('jwt.refreshExpiresIn') ?? '30d',
+        expiresIn: remember
+          ? `${REMEMBER_DAYS}d`
+          : this.config.get<string>('jwt.refreshExpiresIn') ?? '30d',
       },
     );
   }

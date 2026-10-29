@@ -2,9 +2,16 @@
 export const PREFIX = location.pathname.replace(/\/app(\/.*)?$/, ''); // '' локально или '/db' за nginx
 const API = PREFIX + '/api';
 
+// «Запомнить меня»: вход в localStorage (90 дней скользящий); без галочки — в sessionStorage (до закрытия браузера)
+const sessionOnly = () => { try { return !!sessionStorage.getItem('dca_refresh') && !localStorage.getItem('dca_refresh'); } catch { return false; } };
 const store = {
-  get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
-  set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch { /* приватный режим */ } },
+  get(k) { try { return sessionStorage.getItem(k) || localStorage.getItem(k) || ''; } catch { return ''; } },
+  set(k, v) {
+    try {
+      const st = sessionOnly() ? sessionStorage : localStorage;
+      if (v) st.setItem(k, v); else { sessionStorage.removeItem(k); localStorage.removeItem(k); }
+    } catch { /* приватный режим */ }
+  },
 };
 
 export const session = {
@@ -19,7 +26,8 @@ export const session = {
   // Иерархия ролей (backend common/roles-hierarchy.ts): директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель
   get canEdit() { return ['admin', 'director', 'accountant', 'manager'].includes(this.role) || this.user?.isOwner === true; },
   /** Суммы, доходы, платёжный календарь — только админ / директор / бухгалтер (сервер всё равно скрывает). */
-  get canMoney() { return ['admin', 'director', 'accountant'].includes(this.role) || this.user?.isOwner === true; },
+  get canMoney() { return ['admin', 'director', 'accountant', 'manager'].includes(this.role) || this.user?.isOwner === true; },
+  get canPayroll() { return ['admin', 'director', 'accountant'].includes(this.role) || this.user?.isOwner === true; },
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
   /** SK-8b: виден ли раздел меню по галочкам роли (user.sections; нет списка — всё как раньше; «Сегодня» и админ — всегда).
    *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */
@@ -95,8 +103,12 @@ async function refreshAccess() {
   if (!session.refresh) throw new AuthError('Войдите снова', 401);
   refreshing ??= (async () => {
     const res = await raw('/auth/refresh', { method: 'POST' }, session.refresh);
-    if (!res.ok) throw new AuthError('Сессия истекла — войдите снова', 401);
-    session.access = (await res.json()).access;
+    // выход — только если сервер отверг токен (401/403); сбой сети, 5xx, перезапуск — не повод выкидывать из системы
+    if (res.status === 401 || res.status === 403) throw new AuthError('Сессия завершена — войдите снова', 401);
+    if (!res.ok) throw await errorOf(res);
+    const j = await res.json();
+    session.access = j.access;
+    if (j.refresh) session.refresh = j.refresh; // скользящий срок: новый refresh на полный срок
   })().finally(() => { refreshing = null; });
   return refreshing;
 }
@@ -129,7 +141,7 @@ async function fileGet(path, { query, fallback = 'file', timeout = 180000 } = {}
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   let res = await raw(path + qs, { timeout }, session.access);
   if (res.status === 401 && session.refresh) {
-    try { await refreshAccess(); } catch (e) { events.onAuthLost(); throw e; }
+    try { await refreshAccess(); } catch (e) { if (e instanceof AuthError) events.onAuthLost(); throw e; }
     res = await raw(path + qs, { timeout }, session.access);
   }
   if (!res.ok) throw await errorOf(res);
@@ -225,10 +237,10 @@ async function send(url, method, body) {
   if (session.refresh && expiresSoon(session.access)) await refreshAccess().catch(() => {});
   let res = await raw(url, { method, body }, session.access);
   if (res.status === 401 && session.refresh) {
-    try { await refreshAccess(); } catch (e) { events.onAuthLost(); throw e; }
+    try { await refreshAccess(); } catch (e) { if (e instanceof AuthError) events.onAuthLost(); throw e; }
     res = await raw(url, { method, body }, session.access);
   }
-  if (res.status === 401) { events.onAuthLost(); throw new AuthError('Сессия истекла — войдите снова', 401); }
+  if (res.status === 401) { events.onAuthLost(); throw new AuthError('Сессия завершена — войдите снова', 401); }
   if (!res.ok) throw await errorOf(res);
   // пустой ответ (204 или 200 без тела — например, удаление паспорта) — null, а не ошибка разбора JSON
   if (res.status === 204) return null;
@@ -241,14 +253,17 @@ export async function apiQuiet(path, body) {
   return res.status;
 }
 
-export async function login(username, password) {
-  const res = await raw('/auth/login', { method: 'POST', body: { username, password } });
+export async function login(username, password, remember = true) {
+  const res = await raw('/auth/login', { method: 'POST', body: { username, password, remember } });
   if (!res.ok) {
     if (res.status === 401) throw new ApiError('Неверный логин или пароль', 401);
     if (res.status === 429) throw new ApiError('Слишком много попыток входа. Подождите минуту.', 429);
     throw await errorOf(res);
   }
   const j = await res.json();
+  session.clear();
+  try { sessionStorage.removeItem('dca_refresh'); if (!remember) sessionStorage.setItem('dca_refresh', j.refresh); } catch { /* приватный режим */ }
   session.access = j.access; session.refresh = j.refresh; session.user = j.user;
+  try { localStorage.setItem('dca_last_user', username); } catch { /* приватный режим */ }
   return j.user;
 }

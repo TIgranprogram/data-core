@@ -81,6 +81,7 @@ interface BuildOpts {
   nodeEnv?: string;
   user?: Record<string, unknown> | null;
   verifyResult?: boolean;
+  jwt?: JwtService;
 }
 
 function buildAuthService(opts: BuildOpts = {}): {
@@ -95,7 +96,7 @@ function buildAuthService(opts: BuildOpts = {}): {
   if (opts.verifyResult !== undefined) {
     users.verifyPassword = async () => opts.verifyResult as boolean;
   }
-  const jwt = { signAsync: async () => 'mock-token' } as unknown as JwtService;
+  const jwt = opts.jwt ?? ({ signAsync: async () => 'mock-token' } as unknown as JwtService);
   const config = {
     get: (key: string) => {
       if (key === 'nodeEnv') return opts.nodeEnv ?? 'production';
@@ -363,6 +364,54 @@ describe('AuthService (TZ-249 §2.2-2.4)', () => {
       expect(body.access).toBe('mock-token');
       expect(body.refresh).toBe('mock-token');
       expect(body.user.username).toBe('alice');
+    });
+  });
+
+  describe('«Запомнить меня» и скользящий срок refresh', () => {
+    const userDoc = {
+      id: 'u1', username: 'alice', role: 'user', permissions: [] as string[], isActive: true,
+      refreshTokenVersion: 3, lastLoginAt: null, save: async () => undefined,
+    };
+    const build = () => {
+      const signed: Array<{ payload: any; opts: any }> = [];
+      const jwt = { signAsync: async (payload: any, opts: any) => { signed.push({ payload, opts }); return 'tok'; } } as unknown as JwtService;
+      const { svc, users } = buildAuthService({ user: userDoc, verifyResult: true, jwt });
+      users.findById = async () => userDoc as never;
+      const cookies: any[] = [];
+      const res = { cookie: (_n: string, _v: string, o: any) => cookies.push(o) } as never;
+      const refreshSign = () => signed.filter((x) => 'rem' in x.payload)[0];
+      return { svc, res, cookies, refreshSign, signed };
+    };
+
+    it('login без remember: по умолчанию 90 дней, cookie с maxAge', async () => {
+      const t = build();
+      await t.svc.login({ username: 'alice', password: 'x' }, t.res);
+      expect(t.refreshSign().opts.expiresIn).toBe('90d');
+      expect(t.refreshSign().payload.rem).toBe(true);
+      expect(t.cookies[0].maxAge).toBe(90 * 24 * 3600 * 1000);
+    });
+
+    it('login remember=false: сессионная cookie, rem=false, срок не 90 дней', async () => {
+      const t = build();
+      await t.svc.login({ username: 'alice', password: 'x', remember: false }, t.res);
+      expect(t.refreshSign().payload.rem).toBe(false);
+      expect(t.refreshSign().opts.expiresIn).toBe('30d');
+      expect(t.cookies[0]).not.toHaveProperty('maxAge');
+    });
+
+    it('refresh выдаёт новый refresh на полные 90 дней (скользящий срок) и возвращает его в теле', async () => {
+      const t = build();
+      const out = await t.svc.refresh('u1', 3, t.res, true);
+      expect(out.refresh).toBe('tok');
+      expect(t.refreshSign().opts.expiresIn).toBe('90d');
+      expect(t.cookies[0].maxAge).toBe(90 * 24 * 3600 * 1000);
+    });
+
+    it('refresh сохраняет режим «не запоминать»', async () => {
+      const t = build();
+      await t.svc.refresh('u1', 3, t.res, false);
+      expect(t.refreshSign().payload.rem).toBe(false);
+      expect(t.cookies[0]).not.toHaveProperty('maxAge');
     });
   });
 

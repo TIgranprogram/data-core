@@ -69,4 +69,6 @@ export interface AuthResponse {
 
 export interface AccessTokenResponse {
   access: string;
+  /** Новый refresh (скользящий срок) — клиент заменяет им старый. */
+  refresh: string;
 }

@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (CHAIN-AUDIT)
+коммит: не закоммичен (ЗО)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -51,3 +51,6 @@
 
 ## Сопоставление договор→продукция (2026-10-29)
 - ТЗ `docs/roles/tz/CONTRACT-MATCHING.md`. `productByTitle` incomes.service.ts:178; «Открыть заказы» products.js:373 ищет по тексту договора (salesorders.service.ts:80), не по productId. assign: production-orders.service.ts:81. Вопросы КМ-1…5. коммит: — (не закоммичено)
+
+## Зоны ответственности (ЗО, 2026-10-29)
+- ТЗ `docs/roles/tz/RESPONSIBILITY-ZONES.md`. persons — `dicts.defs.ts:474`; `persons.userId` читается в `design.service.ts:101–108`, но не заполняется. Уведомления `notification.schema.ts:13` (только userId). Лента `today.service.ts:54–134`. `supplyrequests.responsible` :114 — на проде пусто у 181/181. Меню `pwa/main.js:102,245`. Вопросы ЗО-1…5. коммит: —
