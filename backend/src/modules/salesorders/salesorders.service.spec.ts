@@ -68,6 +68,12 @@ describe('SalesOrdersService: приоритет и изделие позици�
     expect(model.find).not.toHaveBeenCalled();
   });
 
+  it('requireFields (форма приложения): без № заказа, заказчика, компании — 400 со списком; без флага — как раньше', async () => {
+    await expect(service.create({ orderNo: '7', requireFields: true })).rejects.toThrow('Заполните: № заказа, заказчик, наша компания');
+    await expect(service.update(String(orderId), { customer: '', requireFields: true })).rejects.toThrow('Заполните: № заказа, заказчик, наша компания');
+    await expect(service.update(String(orderId), { customer: 'Школа' })).resolves.toBeDefined();
+  });
+
   it('PATCH с priority пишет поле и не копирует его в позиции; "" снимает', async () => {
     jest.spyOn(service, 'get').mockResolvedValue({} as never);
     await service.update(String(orderId), { priority: 'urgent' });

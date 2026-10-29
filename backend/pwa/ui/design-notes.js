@@ -69,7 +69,7 @@ export function discussionBlock(row, ctx, openGallery) {
       same ? h('span', { class: 'dn-gap' }) : h('span', { class: 'avatar sm', title: n.author.name, 'aria-label': n.author.name }, n.author.initials),
       h('div', { class: 'dn-bubble' },
         same && !isQ ? null : h('div', { class: 'dn-head' }, same ? null : h('b', null, n.author.name), h('span', { class: 'muted' }, noteClock(n.createdAt)),
-          isQ ? h('span', { class: 'stk ' + (n.needsAnswer ? 'warn' : 'dim') }, n.needsAnswer ? 'Требует ответа' : 'Есть ответ') : null),
+          isQ ? h('span', { class: 'stk ' + (n.needsAnswer ? 'warn' : 'dim') }, n.needsAnswer ? 'Без ответа' : 'Есть ответ') : null),
         h('div', { class: 'dn-text' }, tidy(n.text)),
         open ? h('div', { class: 'dn-acts' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => setReply(n) }, 'Ответить')) : null,
         dots ? h('div', { class: 'dn-menu' }, dots, menu) : null));
@@ -103,7 +103,7 @@ export function discussionBlock(row, ctx, openGallery) {
     list.replaceChildren(...(out.length ? out : [h('div', { class: 'db-hint' }, 'Пока нет сообщений. Напишите первое.')]));
     const q = open();
     flag.hidden = !q.length;
-    flag.replaceChildren(...(q.length ? [h('b', null, 'Требует ответа: '), questionsText(q.length), ' ',
+    flag.replaceChildren(...(q.length ? [h('b', null, 'Без ответа: '), questionsText(q.length), ' ',
       h('button', { type: 'button', class: 'link-btn', onclick: () => document.getElementById('dn-' + q[0].id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 'Показать')] : []));
   };
 
@@ -140,5 +140,5 @@ export function discussionBlock(row, ctx, openGallery) {
 
 /** Значок на карточке/в списке: число открытых вопросов менеджеру (нет — ничего). */
 export const questionBadge = (t) => (t?.openQuestions > 0
-  ? h('span', { class: 'stk warn dn-badge', title: 'Требует ответа: ' + questionsText(t.openQuestions), 'aria-label': 'Требует ответа: ' + questionsText(t.openQuestions) }, '? ' + t.openQuestions)
+  ? h('span', { class: 'stk warn dn-badge', title: 'Без ответа: ' + questionsText(t.openQuestions), 'aria-label': 'Без ответа: ' + questionsText(t.openQuestions) }, '? ' + t.openQuestions)
   : null);

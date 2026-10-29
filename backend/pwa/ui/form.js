@@ -24,6 +24,7 @@ import { enhanceSelect } from './select.js';
  *   warn — async (value) => текст | null: предупреждение под полем при вводе (`.field .warn`), сохранить не мешает.
  *   load — у combo: async () => варианты (строки или { value, label }); грузятся при первом фокусе, кэшируются; если есть и options — дополняют их (без повторов).
  *   note — вместо поля: { note: 'текст' } — общая серая строка-подсказка на всю ширину.
+ *   choose — у обязательного select: пустое «Выберите…» вместо первого варианта (нельзя сохранить, не выбрав);
  *   strict — у combo: только из списка (прежнее значение можно оставить); функция strict(get) — проверка включена, пока она true.
  *   suggestKeep — выбор подсказки не затирает то, что человек уже поправил руками (паспорт: смена модели).
  *   mount(api) — после сборки: поле следит за другими. api: get(k), set(k, v, { auto, src }), on(k, fn), input(k), field(k), open(k), manual(k), keys(), root.
@@ -136,7 +137,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       const list = [...opts];
       if (v != null && v !== '' && !list.some((o) => String(o.value) === String(v))) list.push({ value: v, label: String(v) });
       input = h('select', { id, name: f.key, value: v ?? '' },
-        f.required ? null : h('option', { value: '' }, '—'),
+        f.required ? (f.choose && (v == null || v === '') ? h('option', { value: '' }, 'Выберите…') : null) : h('option', { value: '' }, '—'),
         list.map((o) => h('option', { value: String(o.value) }, o.label)));
       enhanceSelect(input); // длинные варианты (заказ, компания) — без обрезки (ВС.6); короткие остаются обычными
     } else if (f.type === 'textarea') {

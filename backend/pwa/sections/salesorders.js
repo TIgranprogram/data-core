@@ -75,6 +75,8 @@ async function setContractStage(r, stage) {
   toast(`Договор ${r.orderNo || ''} → ${STAGE[stage].label}`, { undo: async () => { await api(`/salesorders/${r.id}`, { method: 'PATCH', body: { stage: r.stage } }); window.dispatchEvent(new CustomEvent('data-changed')); } });
   return saved;
 }
+/** Следующий свободный № заказа; сбой — пусто (впишут руками). */
+const freeNo = () => api('/salesorders/next-production-no').then((r) => r?.value || '', () => '');
 /** Договоры заказа, которые отстают от этапа `stage` (отменённые не в счёт). */
 const lagging = (r, stage) => (r.orders || []).filter((o) => o.stage !== 'cancelled' && STAGE_ORDER.indexOf(o.stage || 'new') < STAGE_ORDER.indexOf(stage));
 /** Выбор договоров галочками: все отстающие отмечены. null — отказались, иначе id выбранных. */
@@ -434,19 +436,22 @@ export const salesorder = {
   },
 
   form: {
-    fields: async () => {
+    fields: async (row) => {
       const [l, nums] = await Promise.all([
         incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'б/р 30%', 'б/р 50%', 'нал'] })),
         api('/production-orders', { query: { filter: 'active', limit: 200, sort: '-createdAt' } }).then((r) => uniq((r.items || []).map((x) => x.productionNo))).catch(() => []),
       ]);
       return [
         { section: 'Договор', tone: 'main', fixed: true },
-        { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50, hint: 'Номер для производства, вид 21-26 (номер-год). Выберите № из списка — договор войдёт в этот заказ. Нет номера — «Взять свободный №».',
-          mount: (fa) => { const inp = fa.input('productionNo'); const b = h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { const r = await api('/salesorders/next-production-no'); fa.set('productionNo', r.value); } catch (e) { toast(errText(e)); } } }, 'Взять свободный №'); (fa.field('productionNo') || inp?.el || inp)?.append?.(b); } },
+        { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50,
+          hint: row ? 'Номер для производства, например 21-26: номер и год. Выберите № из списка — договор войдёт в этот заказ.'
+            : 'Подставлен свободный №. Выберите № из списка — договор войдёт в этот заказ. Очистите поле — снова встанет свободный.',
+          // новый заказ: пустое поле после правки — снова свободный №
+          mount: (fa) => { if (row) return; const inp = fa.input('productionNo'); (inp?.el || inp)?.addEventListener?.('change', async () => { if (!String(fa.get('productionNo')).trim()) { const v = await freeNo(); if (v && !String(fa.get('productionNo')).trim()) fa.set('productionNo', v, { auto: true }); } }); } },
         { key: 'orderNo', label: '№ договора', required: true, max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', required: true, options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
-        { key: 'companyName', label: 'Наша компания', type: 'select', required: true, options: l.companies.map((c) => c.name) },
+        { key: 'companyName', label: 'Наша компания', type: 'select', required: true, choose: true, hint: 'Выбирайте каждый раз — от компании зависят документы.', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { key: 'stage', label: 'Этап', type: 'select', required: true, options: Object.entries(STAGE).map(([value, s]) => ({ value, label: s.label })) },
         await responsibleField('Кому передан договор. Смена записывается в историю передач.'),
@@ -461,13 +466,13 @@ export const salesorder = {
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
       ];
     },
-    initial: () => ({ stage: 'new', paymentForm: 'б/р', priority: 'normal' }),
+    initial: async () => ({ stage: 'new', paymentForm: 'б/р', priority: 'normal', productionNo: await freeNo() }),
     toInitial: (r) => ({ ...r, priority: r.priority || 'normal', ...Object.fromEntries(['shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate'].map((k) => [k, r[k] ? String(r[k]).slice(0, 10) : ''])) }),
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
       return { orderNo: s(v.orderNo), productionNo: s(v.productionNo), customer: s(v.customer), title: s(v.title), companyName: s(v.companyName), paymentForm: s(v.paymentForm), stage: v.stage, priority: v.priority === 'normal' ? '' : v.priority || '',
         ...('responsibleId' in v ? { responsibleId: v.responsibleId || '' } : {}),
-        productionDeadline: v.productionDeadline || '', shipDate: v.shipDate || '', deliveryDeadline: v.deliveryDeadline || '', contractNo: s(v.contractNo), contractDate: v.contractDate || '', notes: s(v.notes) };
+        productionDeadline: v.productionDeadline || '', shipDate: v.shipDate || '', deliveryDeadline: v.deliveryDeadline || '', contractNo: s(v.contractNo), contractDate: v.contractDate || '', notes: s(v.notes), requireFields: true };
     },
     create: (body) => api('/salesorders', { method: 'POST', body: { ...body, clientUid: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) } }).then((r) => { focusNewLine = true; return r; }),
     update: (id, body) => api(`/salesorders/${id}`, { method: 'PATCH', body }),

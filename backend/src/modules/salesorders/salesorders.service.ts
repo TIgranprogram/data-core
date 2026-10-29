@@ -333,12 +333,21 @@ export class SalesOrdersService {
     return null;
   }
 
+  /** Форма приложения (`requireFields`): договор без № заказа, заказчика или нашей компании не сохраняется. При правке — с учётом прежних значений. */
+  private checkRequired(f: Doc, cur?: Doc) {
+    const val = (k: string) => (k in f ? f[k] : cur?.[k]);
+    const miss = [['orderNo', '№ договора'], ['productionNo', '№ заказа'], ['customer', 'заказчик'], ['companyId', 'наша компания']]
+      .filter(([k]) => !String(val(k) ?? '').trim()).map(([, label]) => label);
+    if (miss.length) throw new BadRequestException(`Заполните: ${miss.join(', ')}`);
+  }
+
   async create(dto: SalesOrderDto, userId?: string) {
     if (dto.clientUid) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (dup) return this.get(String(dup._id));
     }
     const { f, companyShort } = await this.toFields(dto);
+    if (dto.requireFields) this.checkRequired(f);
     if (!f.orderNo) throw new BadRequestException('Укажите № договора');
     const key = orderKey(companyShort ?? '', f.orderNo);
     const taken = await this.clash(key);
@@ -364,6 +373,7 @@ export class SalesOrdersService {
   async update(id: string, dto: SalesOrderDto, userId?: string) {
     const cur = await this.findRaw(id);
     const { f, companyShort } = await this.toFields(dto);
+    if (dto.requireFields) this.checkRequired(f, cur as Doc);
     if ('orderNo' in f && !f.orderNo) throw new BadRequestException('№ договора не может быть пустым');
     if ('orderNo' in f || companyShort !== undefined) {
       const company = companyShort !== undefined ? companyShort ?? '' : await this.companyShort(cur.companyId);
