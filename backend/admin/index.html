@@ -42,6 +42,7 @@
         <button class="tab" data-tab="audit"><span class="ico" aria-hidden="true">📜</span><span class="lbl">Журнал</span></button>
         <button class="tab" data-tab="sheets"><span class="ico" aria-hidden="true">📊</span><span class="lbl">Google-таблицы</span></button>
         <button class="tab" data-tab="server"><span class="ico" aria-hidden="true">💾</span><span class="lbl">Сервер</span></button>
+        <button class="tab" data-tab="devlog"><span class="ico" aria-hidden="true">🧭</span><span class="lbl">Ведение проекта</span></button>
         <button class="tab" data-tab="connect"><span class="ico" aria-hidden="true">🔌</span><span class="lbl">Подключение</span></button>
       </nav>
       <div class="side-foot">
@@ -291,6 +292,13 @@
       <h3>Переезд на другой сервер</h3>
       <p class="panel-note">Один файл: код, база, фото, настройки и инструкция. С ним агент разворачивает копию на новом сервере. Внутри пароли — храните как пароль, не пересылайте.</p>
       <div id="bundle-box" class="srv"><p class="muted">Нажмите кнопку, чтобы загрузить.</p></div>
+    </main>
+
+    <main id="tab-devlog" class="tab-panel" hidden>
+      <div class="panel-head"><h2>Ведение проекта</h2></div>
+      <p class="panel-note">Что сделано, какие были ошибки, сколько времени ушло и архив документов.</p>
+      <div id="dv-tabs" class="filters"></div>
+      <div id="dv-body"></div>
     </main>
 
     <main id="tab-connect" class="tab-panel" hidden>

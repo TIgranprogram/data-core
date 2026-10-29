@@ -139,6 +139,184 @@
     catch { b.textContent = 'API недоступен'; b.className = 'badge bad'; }
   }
 
+  // ---- Ведение проекта (devlog): версии, ошибки, задачи, время, документы, набор ----
+  const DV = { tab: 'releases', built: false };
+  const DV_TABS = [['releases', 'Версии'], ['errors', 'Ошибки'], ['tasks', 'Задачи'], ['time', 'Время'], ['docs', 'Документы'], ['kit', 'Набор']];
+  const DV_PREFIX = { feat: 'новое', fix: 'исправление', docs: 'документы', chore: 'служебное', perf: 'ускорение', refactor: 'порядок в коде', test: 'проверки', style: 'оформление' };
+  const DV_ERR = { new: 'новая', in_progress: 'в работе', fixed: 'исправлена', not_bug: 'не ошибка' };
+  const DV_TASK = { open: 'открыта', in_progress: 'в работе', done: 'сделана', not_bug: 'не нужна' };
+  const dvItems = (r) => (Array.isArray(r) ? r : (r && r.items) || []);
+  const dvQs = (o) => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== '' && v != null) p.set(k, v); }); const s = p.toString(); return s ? '?' + s : ''; };
+  const dvDay = (s) => s ? new Date(s).toLocaleDateString('ru-RU') : '—';
+  const dvHours = (n) => (Number(n) || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+  function dvEmpty(box, text) { box.replaceChildren(el('p', 'muted dv-empty', text)); }
+  function dvTable(heads, rows) {
+    const wrap = el('div', 'table-wrap'), t = el('table', 'table'), th = el('tr');
+    heads.forEach((x) => th.append(el('th', x.startsWith('#') ? 'num' : '', x.replace(/^#/, ''))));
+    const tb = el('tbody'); rows.forEach((r) => tb.append(r));
+    const hd = el('thead'); hd.append(th); t.append(hd, tb); wrap.append(t); return wrap;
+  }
+  function dvTd(content, cls) { const td = el('td', cls || ''); if (content instanceof Node) td.append(content); else td.textContent = content == null ? '—' : content; return td; }
+  function dvSelect(map, cur, onChange) {
+    const s = el('select'); Object.entries(map).forEach(([k, v]) => s.append(new Option(v, k))); s.value = cur in map ? cur : Object.keys(map)[0];
+    s.addEventListener('change', () => onChange(s.value)); return s;
+  }
+  function openDevlog() {
+    const root = $('#dv-body');
+    if (!DV.built) {
+      const bar = $('#dv-tabs');
+      DV_TABS.forEach(([k, t]) => { const b = el('button', 'btn btn-sm dv-tab', t); b.dataset.k = k; b.addEventListener('click', () => { DV.tab = k; openDevlog(); }); bar.append(b); });
+      DV.built = true;
+    }
+    document.querySelectorAll('.dv-tab').forEach((b) => b.classList.toggle('btn-primary', b.dataset.k === DV.tab));
+    root.replaceChildren(el('p', 'muted', 'Загрузка…'));
+    const fn = { releases: dvReleases, errors: () => dvItemsTab('error'), tasks: () => dvItemsTab('task'), time: dvTime, docs: dvDocs, kit: dvKit }[DV.tab];
+    Promise.resolve(fn(root)).catch((e) => { root.replaceChildren(el('p', 'error', 'Не удалось загрузить: ' + e.message)); });
+  }
+  async function dvReleases(root) {
+    const list = dvItems(await api('/devlog/releases'));
+    if (!list.length) return dvEmpty(root, 'Версий пока нет. Они появятся после первой выкладки.');
+    const feed = el('div', 'dv-feed');
+    list.forEach((r) => {
+      const commits = r.commits || [];
+      const d = el('details', 'dv-card'), s = el('summary');
+      s.append(el('b', '', r.version), el('span', 'muted', ' · ' + dvDay(r.date)), el('span', 'dv-sum', r.summary ? ' — ' + r.summary : ''));
+      d.append(s);
+      if (!commits.length) d.append(el('p', 'muted small', 'Список правок не сохранён.'));
+      const ul = el('ul', 'dv-commits');
+      commits.forEach((c) => {
+        if (typeof c === 'string') return;
+        const li = el('li'); li.append(el('span', 'dv-tag dv-' + (c.prefix || 'x'), DV_PREFIX[c.prefix] || c.prefix || 'правка'), document.createTextNode(' ' + (c.subject || '')));
+        if (c.area) li.append(el('span', 'muted small', ' · ' + c.area));
+        ul.append(li);
+      });
+      if (ul.children.length) d.append(ul);
+      feed.append(d);
+    });
+    root.replaceChildren(feed);
+  }
+  async function dvItemsTab(type) {
+    const root = $('#dv-body'), isErr = type === 'error', MAP = isErr ? DV_ERR : DV_TASK;
+    const fl = el('div', 'filters'), st = el('select'), q = el('input');
+    st.append(new Option('Все статусы', '')); Object.entries(MAP).forEach(([k, v]) => st.append(new Option(v, k)));
+    q.placeholder = 'Поиск по тексту или разделу'; fl.append(st, q);
+    const out = el('div'); root.replaceChildren(fl, out);
+    let tm = null;
+    const load = async () => {
+      out.replaceChildren(el('p', 'muted', 'Загрузка…'));
+      const rows = dvItems(await api('/devlog/items' + dvQs({ type, status: st.value, search: q.value.trim() })));
+      if (!rows.length) return dvEmpty(out, isErr ? 'Ошибок нет — это хорошо. Новые попадут сюда после выкладки.' : 'Задач не найдено. Попробуйте сменить фильтр.');
+      const trs = rows.map((r) => {
+        const tr = el('tr'), status = r.status || (isErr ? 'new' : 'open');
+        const t = el('div'); t.append(el('div', '', r.title || '—'));
+        if (isErr && r.recurred) t.append(el('span', 'dv-tag dv-back', 'вернулась'));
+        tr.append(dvTd(t), dvTd(r.area || '—'));
+        if (isErr) tr.append(dvTd(r.count ?? r.occurrences ?? 1, 'num'), dvTd(dvDay(r.firstAt || r.createdAt)), dvTd(dvDay(r.lastAt || r.updatedAt)));
+        else tr.append(dvTd(dvDay(r.createdAt)), dvTd(r.closedAt ? dvDay(r.closedAt) : '—'));
+        const sel = dvSelect(MAP, status, async (v) => {
+          sel.disabled = true;
+          try { await api('/devlog/items/' + r.id, { method: 'PATCH', body: JSON.stringify({ status: v }) }); toast('Статус сохранён'); await load(); }
+          catch (e) { toast(e.message); sel.disabled = false; }
+        });
+        const c = el('div'); c.append(sel);
+        if (isErr && status === 'fixed' && r.refs && r.refs.fixVersion) c.append(el('div', 'muted small', 'в ' + r.refs.fixVersion));
+        tr.append(dvTd(c));
+        return tr;
+      });
+      out.replaceChildren(dvTable(isErr ? ['Что случилось', 'Раздел', '#Раз', 'Впервые', 'Последний раз', 'Статус'] : ['Задача', 'Раздел', 'Создана', 'Закрыта', 'Статус'], trs));
+    };
+    const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', e.message)));
+    st.addEventListener('change', safe); q.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(safe, 300); });
+    await load();
+  }
+  function dvBars(data, title) {
+    const box = el('div', 'dv-chart'); box.append(el('h4', '', title));
+    if (!data.length) { box.append(el('p', 'muted small', 'Нет данных за период.')); return box; }
+    const W = 520, H = 180, pad = 24, max = Math.max(...data.map((d) => d.v), 1), bw = (W - pad) / data.length;
+    const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H + 36}`); svg.setAttribute('class', 'dv-svg'); svg.setAttribute('role', 'img');
+    const mk = (n, a, t) => { const e = document.createElementNS(NS, n); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (t != null) e.textContent = t; return e; };
+    data.forEach((d, i) => {
+      const bh = Math.max(2, (d.v / max) * (H - 20)), x = pad + i * bw;
+      const r = mk('rect', { x: x + 3, y: H - bh, width: Math.max(4, bw - 8), height: bh, rx: 3, class: 'dv-bar' }); r.append(mk('title', {}, `${d.l}: ${dvHours(d.v)} ч`));
+      svg.append(r, mk('text', { x: x + bw / 2, y: H - bh - 4, 'text-anchor': 'middle', class: 'dv-val' }, dvHours(d.v)), mk('text', { x: x + bw / 2, y: H + 14, 'text-anchor': 'middle', class: 'dv-lbl' }, d.l.length > 9 ? d.l.slice(0, 8) + '…' : d.l));
+    });
+    box.append(svg); return box;
+  }
+  async function dvTime(root) {
+    const now = new Date(), from = new Date(now.getTime() - 30 * 864e5), iso = (d) => d.toISOString().slice(0, 10);
+    const fl = el('div', 'filters'), a = el('input'), b = el('input'), m = el('input'); a.type = 'date'; b.type = 'date'; m.type = 'checkbox'; m.checked = true; a.value = iso(from); b.value = iso(now);
+    const ml = el('label', 'dv-chk'); ml.append(m, document.createTextNode(' с ручной правкой часов'));
+    fl.append(el('label', '', 'С'), a, el('label', '', 'по'), b, ml);
+    const out = el('div'); root.replaceChildren(fl, out);
+    const load = async () => {
+      out.replaceChildren(el('p', 'muted', 'Загрузка…'));
+      const range = { from: a.value, to: b.value };
+      const [st, ss] = await Promise.all([api('/devlog/stats' + dvQs({ ...range, manual: m.checked ? 1 : '' })), api('/devlog/sessions' + dvQs(range))]);
+      const sessions = dvItems(ss);
+      if (!sessions.length && !(st && st.totalHours)) return dvEmpty(out, 'За этот период работы не видно. Выберите другие даты.');
+      const tot = el('div', 'dv-total'); tot.append(el('b', '', dvHours(st.totalHours) + ' ч'), el('span', 'muted', ` · сессий: ${st.sessions ?? sessions.length} · правок: ${st.commits ?? 0}`));
+      tot.append(el('div', 'muted small', 'Оценка по правкам, точность ±30–40 %. ' + (st.note || '')));
+      const obj = (v) => Array.isArray(v) ? v.map((x) => ({ l: String(x.week ?? x.area ?? x.key ?? x.label ?? x._id ?? ''), v: Number(x.hours ?? x.value ?? 0) })) : Object.entries(v || {}).map(([l, x]) => ({ l, v: Number(x && typeof x === 'object' ? x.hours : x) || 0 }));
+      const charts = el('div', 'dv-charts'); charts.append(dvBars(obj(st.byWeek), 'Часы по неделям'), dvBars(obj(st.byArea).sort((p, q) => q.v - p.v).slice(0, 8), 'Часы по разделам'));
+      const trs = sessions.map((s) => {
+        const tr = el('tr'), inp = el('input'); inp.type = 'number'; inp.min = '0'; inp.step = '0.5'; inp.className = 'dv-hours';
+        inp.value = s.manualHours ?? ''; inp.placeholder = dvHours(s.hours);
+        const save = el('button', 'btn btn-sm', 'Сохранить');
+        save.addEventListener('click', async () => {
+          save.disabled = true;
+          try { await api('/devlog/sessions/' + s.id, { method: 'PATCH', body: JSON.stringify({ manualHours: inp.value === '' ? null : Number(inp.value) }) }); toast('Часы сохранены'); await load(); }
+          catch (e) { toast(e.message); save.disabled = false; }
+        });
+        const cell = el('div', 'dv-edit'); cell.append(inp, save);
+        tr.append(dvTd(dvDay(s.start)), dvTd(dvHours(s.hours), 'num'), dvTd(s.commits ?? '—', 'num'), dvTd(s.place === 'home' ? 'дом' : s.place === 'work' ? 'работа' : '—'), dvTd(cell));
+        return tr;
+      });
+      out.replaceChildren(tot, charts, el('h4', 'dv-h', 'Рабочие сессии'), trs.length ? dvTable(['День', '#Часы (оценка)', '#Правок', 'Место', 'Ваши часы (если точнее)'], trs) : el('p', 'muted', 'Сессий нет.'));
+    };
+    const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', e.message)));
+    [a, b, m].forEach((x) => x.addEventListener('change', safe));
+    await load();
+  }
+  async function dvDocs(root) {
+    const fl = el('div', 'filters'), q = el('input'); q.placeholder = 'Найти документ по названию или тексту'; fl.append(q);
+    const out = el('div', 'dv-docs'), list = el('div'), view = el('pre', 'dv-text'); view.hidden = true;
+    out.append(list, view); root.replaceChildren(fl, out);
+    const KIND = { checklist: 'чек-лист', tz: 'ТЗ', audit: 'аудит', history: 'история' };
+    const load = async () => {
+      const rows = dvItems(await api('/devlog/docs' + dvQs({ search: q.value.trim() })));
+      if (!rows.length) { dvEmpty(list, 'Архив пуст. Закрытые чек-листы и ТЗ появятся здесь после выкладки.'); return; }
+      list.replaceChildren(...rows.map((d) => {
+        const b = el('button', 'dv-doc'); b.append(el('b', '', d.title || d.path), el('span', 'muted small', ' · ' + (KIND[d.kind] || d.kind || '') + (d.closedAt ? ' · закрыт ' + dvDay(d.closedAt) : '')));
+        b.addEventListener('click', async () => {
+          view.hidden = false; view.textContent = 'Загрузка…';
+          try { const full = await api('/devlog/docs/' + d.id); view.textContent = full.text || '(пусто)'; } catch (e) { view.textContent = e.message; }
+        });
+        return b;
+      }));
+    };
+    let tm = null; q.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(() => load().catch((e) => toast(e.message)), 300); });
+    await load();
+  }
+  function dvKit(root) {
+    const box = el('div', 'dv-kit');
+    box.append(el('p', '', 'Набор для нового проекта: роли агентов, процессы (скиллы), шаблоны CLAUDE.md и AGENTS.md, образцы законов и дизайн-системы и готовый стартовый промт.'),
+      el('p', 'muted small', 'Без данных, паролей, адресов серверов и кода. Только то, что переносится как есть.'));
+    const btn = el('button', 'btn btn-primary', 'Скачать набор'), note = el('span', 'muted small');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; note.textContent = 'Готовим…';
+      try {
+        const res = await authFetch('/devlog/kit/download');
+        if (res.status === 404) { note.textContent = 'Набор появится после первой выкладки.'; return; }
+        if (!res.ok) { let m = 'Не удалось скачать набор'; try { m = (await res.json()).message || m; } catch { /* не JSON */ } throw new Error(m); }
+        const blob = await res.blob(), a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'project-kit.zip'; document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000); note.textContent = ''; toast('Набор сохранён');
+      } catch (e) { note.textContent = ''; toast(e.message); } finally { btn.disabled = false; }
+    });
+    const row = el('div', 'filters'); row.append(btn, note); box.append(row); root.replaceChildren(box);
+  }
+
   // ---- Tabs ----
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
@@ -150,6 +328,7 @@
     if (t.dataset.tab === 'sheets') loadSheets();
     if (t.dataset.tab === 'audit') { auditState.page = 1; loadAudit(); }
     if (t.dataset.tab === 'server') serverIdle();
+    if (t.dataset.tab === 'devlog') openDevlog();
   }));
 
   // ---- Users ----
