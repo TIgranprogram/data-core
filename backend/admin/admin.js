@@ -384,8 +384,20 @@
     $('#f-password').value = '';
     $('#f-password-wrap').hidden = !!u; // пароль только при создании
     $('#f-username').disabled = !!u;    // логин не меняем
+    // СВ-6: при создании входа — сразу связать с сотрудником (без связи не приходят уведомления зон)
+    $('#f-person-wrap').hidden = !!u;
+    $('#f-person-hint').hidden = !!u;
+    if (!u) fillPersons();
     $('#user-form-error').hidden = true;
     $('#user-dialog').showModal();
+  }
+  async function fillPersons() {
+    const sel = $('#f-person');
+    sel.replaceChildren(new Option('Создать нового сотрудника (по имени)', '__new__'), new Option('Не связывать с сотрудником', ''));
+    try {
+      const r = await api('/staff');
+      (r.items || []).filter((p) => !p.hasLogin).forEach((p) => sel.append(new Option(p.name, p.id)));
+    } catch { /* список сотрудников не загрузился — останутся «создать» и «не связывать» */ }
   }
   async function saveUser(ev) {
     ev.preventDefault();
@@ -396,7 +408,12 @@
       else {
         body.username = $('#f-username').value;
         body.password = $('#f-password').value;
-        await api('/admin/users', { method: 'POST', body: JSON.stringify(body) });
+        const created = await api('/admin/users', { method: 'POST', body: JSON.stringify(body) });
+        const pid = $('#f-person').value, uid = userId(created);
+        try {
+          if (pid === '__new__') await api('/staff/from-login', { method: 'POST', body: JSON.stringify({ userId: uid }) });
+          else if (pid) await api(`/staff/${pid}/login`, { method: 'PUT', body: JSON.stringify({ userId: uid }) });
+        } catch (e) { toast('Вход создан, но сотрудник не связан: ' + e.message); }
       }
       $('#user-dialog').close(); loadUsers();
     } catch (e) { const p = $('#user-form-error'); p.textContent = e.message; p.hidden = false; }
