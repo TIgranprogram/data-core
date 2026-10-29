@@ -29,4 +29,24 @@ describe('FillAudit', () => {
     const only = (await http().get('/api/fill-audit').query({ only: 'exp-cost' }).set(auth()).expect(200)).body;
     expect(only.groups).toEqual([]);
   });
+
+  it('получено без счёта → exp-noinvoice с быстрым вводом; вписали счёт в строке — ушла и встала в «Счёт есть»/календарь', async () => {
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Уголок 50', qty: 2, clientUid: 'fa-2' }).expect(201)).body;
+    const { Types } = await import('mongoose');
+    await ctx!.connection.db!.collection('supplyrequests').updateOne({ _id: new Types.ObjectId(r.id) }, { $set: { status: 'received' } });
+    const g = (await http().get('/api/fill-audit').query({ only: 'exp-noinvoice' }).set(auth()).expect(200)).body.groups[0];
+    expect(g).toMatchObject({ key: 'exp-noinvoice', quick: ['invoiceNo', 'invoiceDate', 'priceHint'], quickPath: '/supply/requests', count: 1 });
+    expect(g.items[0]).toMatchObject({ id: r.id, values: { invoiceNo: '', invoiceDate: '', priceHint: null } });
+    await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ invoiceNo: '15', invoiceDate: '2026-10-05', priceHint: 3400 }).expect(200);
+    expect((await http().get('/api/fill-audit').query({ only: 'exp-noinvoice' }).set(auth()).expect(200)).body.groups).toEqual([]);
+  });
+
+  it('оплачено без суммы → exp-paid', async () => {
+    const r = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Краска', qty: 1, clientUid: 'fa-3' }).expect(201)).body;
+    const { Types } = await import('mongoose');
+    await ctx!.connection.db!.collection('supplyrequests').updateOne({ _id: new Types.ObjectId(r.id) }, { $set: { status: 'received', paid: true } });
+    const g = (await http().get('/api/fill-audit').query({ only: 'exp-paid' }).set(auth()).expect(200)).body.groups[0];
+    expect(g).toMatchObject({ key: 'exp-paid', count: 1 });
+    expect((await http().get('/api/fill-audit').query({ only: 'exp-noinvoice' }).set(auth()).expect(200)).body.groups.flatMap((x: { items: Array<{ id: string }> }) => x.items.map((i) => i.id))).not.toContain(r.id);
+  });
 });

@@ -41,3 +41,28 @@ describe('onlyOpenGroups', () => {
     expect(onlyOpenGroups({ total: 2, groups: [g('so-ship', 'salesorders', 2)] }, new Set(['stock']))).toEqual({ total: 0, groups: [] });
   });
 });
+
+/** К показу директорам: «Получено или заказано, а счёта нет» — быстрый ввод в списке (quick + values). */
+describe('FillAuditService: exp-noinvoice', () => {
+  it('ищет неоплаченные полученные/заказанные заявки без счёта и отдаёт поля быстрого ввода', async () => {
+    let seen: Record<string, unknown> | null = null;
+    const row = { _id: 'r1', num: 7, title: 'Труба', status: 'received', requestDate: new Date('2026-10-20T00:00:00Z') };
+    const col = (name: string) => ({
+      find: (q: Record<string, unknown>) => ({ sort: () => ({ limit: () => ({ toArray: async () => (name === 'supplyrequests' ? [row] : []) }) }), toArray: async () => [] }),
+      countDocuments: async (q: Record<string, unknown>) => { if (name === 'supplyrequests') seen = q; return name === 'supplyrequests' ? 1 : 0; },
+      aggregate: () => ({ toArray: async () => [] }),
+    });
+    const svc = new FillAuditService({ db: { collection: col } } as never);
+    const res = await svc.report({ role: 'admin', isOwner: true }, { only: 'exp-noinvoice' });
+    expect(res.groups[0]).toMatchObject({ key: 'exp-noinvoice', field: 'invoiceNo', quick: ['invoiceNo', 'invoiceDate', 'priceHint'] });
+    expect(res.groups[0].items[0].values).toEqual({ invoiceNo: '', invoiceDate: '', priceHint: null });
+    expect(seen).toMatchObject({ paid: { $ne: true }, status: { $in: ['ordered', 'received'] } });
+  });
+
+  it('менеджер без денег группу не видит', async () => {
+    const col = () => ({ find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }) }), toArray: async () => [] }), countDocuments: async () => 1, aggregate: () => ({ toArray: async () => [] }) });
+    const svc = new FillAuditService({ db: { collection: col } } as never);
+    const res = await svc.report({ role: 'user' }, { only: 'exp-noinvoice' });
+    expect(res.groups).toEqual([]);
+  });
+});

@@ -30,7 +30,7 @@ const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 /** «Старт учёта» — правая панель (П3, было окно): дата и остаток на счетах каждой нашей компании. PUT /finance/settings (только админ). */
 let live = null; // { month(), reload() } — открытый экран «Деньги»
 const ruDate = (v) => v.split('-').reverse().join('.');
-const numOf = (v) => Number(String(v ?? '').trim().replace(/s/g, '').replace(',', '.')) || 0;
+const numOf = (v) => Number(String(v ?? '').trim().replace(/\s/g, '').replace(',', '.')) || 0;
 export const finStart = sideForm({
   id: 'finstart', title: 'Старт учёта', canEdit: () => session.role === 'admin', entityType: 'FinanceSettings', noun: 'настройку',
   get: async () => ({ ...(await api('/finance/settings')) }),
@@ -183,7 +183,7 @@ export function mountMoney(params) {
     const fillLink = h('a', { href: '#fill' }, 'Требуют заполнения');
     const nf = c.needsFill?.total || 0;
     const empty = !allOps.length ? h('p', { class: 'hint' }, 'За месяц нет операций.', nf ? [` Не попало в расчёт: ${nf} — «`, fillLink, '».'] : '')
-      : !allOps.some((o) => o.type === 'expense') ? h('p', { class: 'hint' }, 'Расходов нет. Появятся у заявок с суммой, датой счёта и нашей компанией — см. «', fillLink, '».') : null;
+      : !allOps.some((o) => o.type === 'expense') ? h('p', { class: 'hint' }, 'Выплат нет. Появятся у оплаченных заявок с суммой и нашей компанией — см. «', fillLink, '».') : null;
     const kpi = (label, v, opts = {}) => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' + (v < 0 && !opts.calm ? ' neg' : '') }, (opts.sign && v > 0 ? '+' : '') + money(v)), h('span', { class: 'sum-l' }, label));
     const upto = c.to < `${month()}-${String(lastDay(month())).padStart(2, '0')}` ? ` по ${Number(c.to.slice(8))}-е` : '';
     return [
@@ -195,7 +195,7 @@ export function mountMoney(params) {
         : [kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('итог месяца' + upto, t.income - t.expense, { calm: true, sign: true })]),
         c.needsFill.total ? h('button', { class: 'sum-item attn', type: 'button', onclick: () => go('fill') }, h('span', { class: 'sum-v' }, String(c.needsFill.total)), h('span', { class: 'sum-l' }, 'не попали в расчёт →')) : null),
       h('div', { class: 'panel cal-wrap' }, h('table', { class: 'cal' }, h('thead', null, head), h('tbody', null, rows))),
-      h('p', { class: 'hint' }, `Только то, что уже было — по сегодня включительно; будущие даты здесь не показываются (для них будет отдельный прогноз). Выплаты — заявки с датой счёта, суммой и нашей компанией. Поступления — позиции заказов с суммой (по дате оплаты, иначе отгрузки). ${withOpen ? '' : 'Введите остаток денег на 1-е число — появится остаток по дням. '}Нажмите на сумму дня — увидите операции.`),
+      h('p', { class: 'hint' }, `Только то, что уже было — по сегодня включительно; будущие даты здесь не показываются (для них будет отдельный прогноз). Выплаты — оплаченные заявки (в день оплаты) и выплаты ФОТ. Поступления — платежи по позициям заказов (в день платежа). Счета к оплате и отгруженное без оплаты — отдельными строками, в остаток не входят. ${withOpen ? '' : 'Введите остаток денег на 1-е число — появится остаток по дням. '}Нажмите на сумму дня — увидите операции.`),
       h('div', { class: 'panel' }, opsBox),
     ];
   }

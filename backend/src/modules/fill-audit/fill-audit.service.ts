@@ -8,12 +8,16 @@ import { firstPhotoThumbs } from '../../common/photo-thumbs';
 import { openSectionsFor } from '../../common/app-sections';
 
 type Q = Record<string, unknown>;
-type Item = { id: string; title: string; sub?: string; thumb?: string };
+type Item = { id: string; title: string; sub?: string; thumb?: string; values?: Record<string, unknown> };
 /**
  * Одна очередь «требуют заполнения»: что не заполнено, зачем это нужно и куда идти.
  * section + field — раздел приложения и ключ поля формы: клик открывает карточку сразу в правке с подсвеченным полем.
  */
-export type FillGroup = { key: string; area: string; title: string; why: string; section: string; field: string; money: boolean; count: number; items: Item[] };
+export type FillGroup = { key: string; area: string; title: string; why: string; section: string; field: string; money: boolean; count: number; items: Item[]; quick?: string[]; quickPath?: string };
+
+/** Быстрый ввод прямо в списке (заявки): поля PATCH /supply/requests/:id и текущие значения строки. */
+const QUICK_REQ = ['invoiceNo', 'invoiceDate', 'priceHint'];
+const REQ_PATH = '/supply/requests';
 
 const empty = (f: string) => ({ $or: [{ [f]: null }, { [f]: { $exists: false } }, { [f]: '' }] });
 const iso = (d: unknown) => (d instanceof Date ? d.toISOString().slice(0, 10) : d ? String(d).slice(0, 10) : '');
@@ -63,6 +67,8 @@ export class FillAuditService {
     const reqItem = (r: Q): Item => ({ id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), sub: [r.invoiceNo ? `счёт ${r.invoiceNo}` : '', r.invoiceDate ? dmy(r.invoiceDate) : r.requestDate ? dmy(r.requestDate) : '', r.requestedBy].filter(Boolean).join(' · ') });
     const incItem = (r: Q): Item => ({ id: String(r._id), title: String(r.title ?? ''), sub: [r.orderNo ? `заказ ${r.orderNo}` : '', r.customer].filter(Boolean).join(' · ') });
 
+    const reqQuick = (r: Q): Item => ({ ...reqItem(r), values: { invoiceNo: r.invoiceNo ?? '', invoiceDate: iso(r.invoiceDate), priceHint: Number(r.priceHint) > 0 ? Number(r.priceHint) : null } });
+    const noSum = { $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] };
     type Def = Omit<FillGroup, 'count' | 'items'> & { coll: string; q: Q; item: (r: Q) => Item; sort: Record<string, 1 | -1> };
     // только черновики: у выпущенного/аннулированного эти поля не меняются (AFTER_PRINT_FIELDS) — в «Заполнить» им не место
     const ppLive = { deletedAt: null, $and: [{ $or: [{ status: 'draft' }, { status: { $exists: false }, passportNumber: { $in: [null, ''] } }, { status: { $exists: false }, passportNumber: /^draft-/ }] }] };
@@ -83,9 +89,14 @@ export class FillAuditService {
         coll: 'productpassports', q: { ...ppLive, $or: [empty('materials'), empty('installationMethod'), empty('purpose')] }, item: ppItem, sort: { passportNo: -1 } },
       // ── Деньги: без этого платёжный календарь и сводка считают неверно ──
       { key: 'exp-amount', area: 'Деньги', title: 'Счёт есть, суммы нет', why: 'Заявка с датой счёта без суммы не попадает в выплаты', section: 'requests', field: 'priceHint', money: true,
-        coll: 'supplyrequests', q: { ...live, invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] }, item: reqItem, sort: { invoiceDate: -1 } },
+        coll: 'supplyrequests', q: { ...live, invoiceDate: { $ne: null }, ...noSum }, item: reqQuick, quick: QUICK_REQ, quickPath: REQ_PATH, sort: { invoiceDate: -1 } },
+      // «счета, которых не хватает» (к показу директорам): покупка прошла, а в деньгах её нет
+      { key: 'exp-noinvoice', area: 'Деньги', title: 'Получено или заказано, а счёта нет', why: 'Покупка была, но в деньгах её нет — впишите № счёта, дату и сумму', section: 'requests', field: 'invoiceNo', money: true,
+        coll: 'supplyrequests', q: { ...live, paid: { $ne: true }, status: { $in: ['ordered', 'received'] }, ...empty('invoiceNo'), $and: [empty('invoiceDate'), empty('invoiceId'), noSum] }, item: reqQuick, quick: QUICK_REQ, quickPath: REQ_PATH, sort: { requestDate: -1 } },
+      { key: 'exp-paid', area: 'Деньги', title: 'Оплачено, но нет суммы или даты', why: 'Оплата отмечена, а в платёжный календарь не попала', section: 'requests', field: 'priceHint', money: true,
+        coll: 'supplyrequests', q: { ...live, paid: true, $or: [noSum, { $and: [empty('paidAt'), empty('invoiceDate')] }] }, item: reqQuick, quick: QUICK_REQ, quickPath: REQ_PATH, sort: { requestDate: -1 } },
       { key: 'exp-date', area: 'Деньги', title: 'Сумма есть, даты счёта нет', why: 'Без даты счёта выплата не встаёт в календарь', section: 'requests', field: 'invoiceDate', money: true,
-        coll: 'supplyrequests', q: { ...live, priceHint: { $gt: 0 }, ...empty('invoiceDate') }, item: reqItem, sort: { requestDate: -1 } },
+        coll: 'supplyrequests', q: { ...live, priceHint: { $gt: 0 }, ...empty('invoiceDate') }, item: reqQuick, quick: QUICK_REQ, quickPath: REQ_PATH, sort: { requestDate: -1 } },
       { key: 'exp-company', area: 'Деньги', title: 'Не указана наша компания', why: 'Платёжный календарь делится по компаниям — без неё расход теряется', section: 'requests', field: 'companyName', money: true,
         coll: 'supplyrequests', q: { ...inExpenses, ...noCompany }, item: reqItem, sort: { invoiceDate: -1 } },
       { key: 'exp-cost', area: 'Аналитика расходов', title: 'Не указано, куда пошло', why: 'Цех, офис, СМР или заказ — иначе в «Куда тратили» это «не указано»', section: 'requests', field: 'costCenter', money: true,
@@ -95,7 +106,9 @@ export class FillAuditService {
       { key: 'exp-category', area: 'Аналитика расходов', title: 'Не указана категория', why: '«На что тратили» — по категориям', section: 'requests', field: 'categoryName', money: true,
         coll: 'supplyrequests', q: { ...inExpenses, ...empty('categoryId') }, item: reqItem, sort: { invoiceDate: -1 } },
       { key: 'inc-amount', area: 'Деньги', title: 'Позиции заказов без суммы', why: 'Не попадают в поступления и в выручку', section: 'orders', field: 'unitPrice', money: true,
-        coll: 'incomes', q: { deletedAt: null, $or: [{ amount: null }, { amount: { $exists: false } }, { amount: { $lte: 0 } }] }, item: incItem, sort: { orderNo: -1 } },
+        coll: 'incomes', q: { deletedAt: null, $or: [{ amount: null }, { amount: { $exists: false } }, { amount: { $lte: 0 } }] }, sort: { orderNo: -1 },
+        item: (r) => { const it = incItem(r); return { ...it, sub: [it.sub, r.qty != null ? `кол-во ${r.qty}${r.unit ? ' ' + r.unit : ''}` : ''].filter(Boolean).join(' · '), values: { unitPrice: Number(r.unitPrice) > 0 ? Number(r.unitPrice) : null } }; },
+        quick: ['unitPrice'], quickPath: '/incomes' },
       { key: 'inc-company', area: 'Деньги', title: 'Позиции заказов без нашей компании', why: 'Поступление не встаёт в календарь нужной компании', section: 'orders', field: 'companyName', money: true,
         coll: 'incomes', q: { deletedAt: null, ...noCompany }, item: incItem, sort: { orderNo: -1 } },
       // ── Заявки и склад (видят все) ──
