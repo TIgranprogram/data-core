@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Выкладка data-core на VM вручную по ssh (когда нет python/deploy.py) — по шагам skill `datacore-deploy`.
-# Запуск из корня репо в Git Bash:   bash deploy/synology/release.sh [--data] [--drop-archive]
+# Запуск из корня репо в Git Bash:   bash deploy/synology/release.sh [--data] [--drop-archive] [--force-urgent]
+#   сначала ворота deploy/synology/preflight.sh — красное → выкладки нет;
 #   без флагов — только новая версия backend (бэкап → архив HEAD → замена backend/ deploy/ → build → up → проверка);
 #   --data          — плюс загрузка Excel-заказов с фото и привязка заказов «Спортсет» (повторно безопасно, ничего не задваивает);
 #   --drop-archive  — после бэкапа: архивные таблицы прежнего приложения (app_supply_*, app_warehouse_*) выгружаются
@@ -11,11 +12,14 @@ VM="${VM:-tiit@192.168.1.52}"
 KEY="${KEY:-$HOME/.ssh/kppdf80-vm}"
 ORDERS_DIR="${ORDERS_DIR:-для анализа/заказы}"
 SSH=(ssh -i "$KEY" -o BatchMode=yes "$VM")
-DATA=0; DROP=0
-for a in "$@"; do [[ "$a" == "--data" ]] && DATA=1; [[ "$a" == "--drop-archive" ]] && DROP=1; done
+DATA=0; DROP=0; URGENT=""
+for a in "$@"; do [[ "$a" == "--data" ]] && DATA=1; [[ "$a" == "--drop-archive" ]] && DROP=1; [[ "$a" == "--force-urgent" ]] && URGENT="--force-urgent"; done
 
 cd "$(git rev-parse --show-toplevel)"
-[[ -z "$(git status --porcelain -- backend deploy docker-compose.prod.yml)" ]] || { echo "Есть незакоммиченные изменения — сначала коммит"; exit 1; }
+# Ворота (RELEASE-GATE): незакоммиченное, push, tsc/юнит, импорты приложения, след дизайнера и full.
+# --force-urgent — только когда сайт уже сломан: пропускает приёмку дизайнера и full, остальное — нет.
+echo "== Ворота"
+bash deploy/synology/preflight.sh $URGENT || exit 1
 echo "== Версия: $(git log --oneline -1)"
 
 # Место на диске VM (TASKS ДИ.3): показать и остановиться, если свободно < 2 ГБ (бэкап + сборка образа его съедят)
