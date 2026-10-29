@@ -61,7 +61,20 @@ function mount(el, { params }) {
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
   const clip = h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Добавить фото (можно вставить Ctrl+V или перетащить)', 'aria-label': 'Добавить фото', onclick: () => file.click() }, icon('clip'));
   const send = h('button', { type: 'button', class: 'btn btn-primary', onclick: () => submit() }, 'Отправить');
-  const form = h('div', { class: 'chat-form' }, clip, text, send);
+  // смайлики по теме производства спортивного оборудования (пользователь 2026-10-29) — вставляются в текст на место курсора
+  const pick = h('div', { class: 'chat-emoji', hidden: true, role: 'dialog', 'aria-label': 'Смайлики' },
+    ...EMOJI.map(([group, list]) => h('div', { class: 'chat-emoji-grp' }, h('div', { class: 'chat-emoji-lab' }, group),
+      h('div', { class: 'chat-emoji-row' }, ...list.map(([e, t]) => h('button', { type: 'button', class: 'chat-emoji-btn', title: t, 'aria-label': t, onclick: () => putEmoji(e) }, e))))));
+  const smile = h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Смайлики', 'aria-label': 'Смайлики', 'aria-expanded': 'false', onclick: () => togglePick() }, '😊');
+  const togglePick = (open = pick.hidden) => { pick.hidden = !open; smile.setAttribute('aria-expanded', String(open)); };
+  const putEmoji = (e) => {
+    const a = text.selectionStart ?? text.value.length, b = text.selectionEnd ?? a;
+    text.value = text.value.slice(0, a) + e + text.value.slice(b);
+    text.focus(); text.selectionStart = text.selectionEnd = a + e.length;
+    togglePick(false);
+  };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pick.hidden) togglePick(false); });
+  const form = h('div', { class: 'chat-form' }, pick, clip, smile, text, send);
   convEl.append(h('div', { class: 'cv-head' }, back, h('span', { class: 'cv-who' }, title, subt)), feed, strip, form, file);
 
   const paintPics = () => {
@@ -186,5 +199,13 @@ function mount(el, { params }) {
   timer = setTimeout(tick, EVERY);
   return { update: (p) => route(p || {}), destroy: () => { clearTimeout(timer); document.removeEventListener('paste', onPaste); } };
 }
+
+/** Наборы смайликов чата: [группа, [[смайлик, подсказка]]]. */
+const EMOJI = [
+  ['Производство', [['🏭', 'Цех'], ['⚙️', 'Механизм'], ['🔩', 'Крепёж'], ['🔧', 'Ключ'], ['🛠️', 'Ремонт'], ['🪛', 'Отвёртка'], ['🔨', 'Сборка'], ['🪚', 'Пила'], ['🔥', 'Сварка'], ['⚡', 'Срочно'], ['🎨', 'Покраска'], ['🧰', 'Инструмент'], ['📐', 'Чертёж'], ['📏', 'Размеры'], ['🧱', 'Фундамент'], ['🏗️', 'Монтаж']]],
+  ['Спортоборудование', [['🏋️', 'Тренажёр'], ['💪', 'Силовой'], ['🤸', 'Воркаут'], ['🏃', 'Кардио'], ['🚴', 'Велотренажёр'], ['🛝', 'Детская площадка'], ['⚽', 'Футбол'], ['🏀', 'Баскетбол'], ['🏐', 'Волейбол'], ['🎾', 'Теннис'], ['🥅', 'Ворота'], ['🏆', 'Сделали'], ['🥇', 'Лучшие']]],
+  ['Снабжение и отгрузка', [['📦', 'Упаковано'], ['🚚', 'Отгрузка'], ['🚛', 'Доставка'], ['📋', 'Заявка'], ['🧾', 'Счёт'], ['💰', 'Оплата'], ['📄', 'Паспорт'], ['📞', 'Позвони'], ['⏰', 'Срок'], ['📅', 'Дата'], ['🚧', 'В работе']]],
+  ['Ответы', [['👍', 'Ок'], ['👌', 'Принято'], ['✅', 'Готово'], ['❌', 'Нет'], ['⚠️', 'Внимание'], ['❓', 'Вопрос'], ['🙏', 'Спасибо'], ['🤝', 'Договорились'], ['👀', 'Смотрю'], ['😊', 'Улыбка'], ['😅', 'Бывает'], ['🎉', 'Ура']]],
+];
 
 export const chat = { id: 'chat', title: 'Чат', mount };

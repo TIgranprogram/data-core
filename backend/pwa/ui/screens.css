@@ -1011,7 +1011,14 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .chat-photo img { width: 120px; height: 120px; object-fit: cover; }
 .chat-time { margin-top: 2px; color: var(--muted); font-size: var(--fs-sm); }
 .chat-empty { margin: auto; padding: var(--s3); color: var(--muted); text-align: center; }
-.chat-form { display: flex; gap: var(--s2); align-items: flex-end; }
+.chat-form { display: flex; gap: var(--s2); align-items: flex-end; position: relative; }
+.chat-emoji { position: absolute; left: 0; bottom: calc(100% + var(--s2)); z-index: 20; width: min(360px, 100%); max-height: 320px; overflow-y: auto;
+  padding: var(--s2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+.chat-emoji-grp + .chat-emoji-grp { margin-top: var(--s2); }
+.chat-emoji-lab { font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--s1); }
+.chat-emoji-row { display: flex; flex-wrap: wrap; gap: 2px; }
+.chat-emoji-btn { width: 40px; height: 40px; font-size: 22px; line-height: 1; border: 0; background: none; border-radius: var(--radius-sm); cursor: pointer; }
+.chat-emoji-btn:hover, .chat-emoji-btn:focus-visible { background: var(--surface-2); outline: 2px solid var(--primary); outline-offset: -2px; }
 .chat-input { flex: 1; resize: none; min-height: 44px; }
 .cv-pics .cv-up { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: var(--fs-sm); }
 .cv.over .cv-conv { outline: 2px dashed var(--gold); outline-offset: -4px; }
