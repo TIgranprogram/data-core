@@ -271,6 +271,7 @@ export const salesorders = {
     createLabel: false,
     headActions: () => [h('button', { class: 'btn btn-primary', type: 'button', title: 'Новый договор: № заказа можно взять существующий — договоры объединятся в один заказ', onclick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }, '+ Договор')],
     searchPlaceholder: 'Поиск: № заказа, № договора, заказчик, предмет…',
+    extraKeys: ['productId'], query: (P) => ({ productId: P.productId || undefined }),
     emptyText: 'Заказов пока нет.',
     emptyHint: 'Нажмите «+ Договор»: № заказа, заказчик, срок. Договоры с одним № заказа объединяются в один заказ.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',

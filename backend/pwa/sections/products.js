@@ -95,6 +95,8 @@ export async function savePd(id, pd) {
   const body = { ...Object.fromEntries(PD_KEYS.filter((k) => prev[k] !== undefined && prev[k] !== null && prev[k] !== '').map((k) => [k, prev[k]])), ...(cat ? { passportCategory: cat } : {}), textChoices: pd.choices };
   await api(`/showcase/${id}/passport-defaults`, { method: 'PUT', body });
 }
+// заголовок блока в списке полей карточки (стиль .fields-grp в panels.css)
+const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { class: 'fields-grp-end' })];
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
@@ -327,20 +329,28 @@ export const products = {
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r) => [
-      ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name], ['В заказе', r.orderName || r.name], ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
+      grp('Названия и артикул'),
+      ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name],
+      ['Название в договоре', r.orderName || r.name],
+      grp('Классификация'),
+      ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
       // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
       ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
         : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
+      grp('Статус и цена'),
       ['Статус', STATUS[r.status] || r.status],
+      ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
+      ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
+      ['Ед. изм.', r.unit],
       r.photoSource === 'passport' ? ['Обложка', h('span', null,
         h('span', { class: 'muted' }, 'фото из паспорта'),
         session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', style: 'margin-left:.5rem',
           title: 'Скопировать фото из паспорта в карточку изделия — станет «своим»',
           onclick: async () => { await api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [r.photo.id] } }); patch({}); } }, '← своей обложкой') : null)] : null,
+      grp('Проектирование'),
       ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
-      ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
-      ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
-      ['Габариты (Д×Ш×В)', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
+      grp('Описание и материалы'),
+      ['Габариты (Д×Ш×В)', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['RAL', r.ralCode],
       ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
       ['Назначение', r.purpose], ['Монтаж', r.installation],
       ['Материалы', r.materialsText || (r.materialsSpec ? null : h('span', { class: 'muted' }, 'таблица не заполнена — «Изменить» → «Описание и материалы»'))],
@@ -370,7 +380,7 @@ export const products = {
         patch({ open: c.id, of: undefined, new: undefined });
       } }] : []),
       { label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
-      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { q: row.name }) }],
+      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) }],
   },
 
   form: {
@@ -411,7 +421,7 @@ export const products = {
       { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров и поиска' },
       // ДМ.2: полное и «как в заказе» — необязательные; паспорт на заказ берёт название из заказа (ПНЗ)
       { key: 'fullName', label: 'Длинное название', max: 500, span: 3, hint: 'Для КП и документов. Пусто — берётся короткое' },
-      { key: 'orderName', label: 'Название в заказе', max: 500, span: 3, hint: 'Как изделие обычно пишут в заказе. Пусто — берётся короткое' },
+      { key: 'orderName', label: 'Название в договоре', max: 500, span: 3, hint: 'Как изделие называется в договорах заказчика — по нему система предлагает сопоставление. Пусто — берётся короткое' },
       { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
       { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного типа' },
       { key: 'series', label: 'Наименование серии', type: 'combo', max: 100, options: fv.series.map(opt) },

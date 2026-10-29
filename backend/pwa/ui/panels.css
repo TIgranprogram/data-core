@@ -452,3 +452,8 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 .avatar-img svg { display: block; }
 .avatar-btn.avatar-wrap { background: none; padding: 0; }
 .who-cell { display: inline-flex; align-items: center; gap: var(--s1); }
+
+/* блоки полей карточки изделия: заголовок на всю строку */
+.fields dt:has(> .fields-grp) { grid-column: 1 / -1; margin-top: var(--s2); padding-bottom: 2px; border-bottom: 1px solid var(--border); color: var(--text); font-weight: 600; font-size: var(--fs-sm); }
+.fields dt:has(> .fields-grp):first-child { margin-top: 0; }
+.fields dd:has(> .fields-grp-end) { display: none; }
