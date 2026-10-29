@@ -215,6 +215,7 @@ export const contracts = {
   title: 'Договоры',
   list: {
     path: '/supply/contracts',
+    sortDefault: '-date', // без него список падал при отрисовке шапки (ошибка с сайта 2026-10-29)
     export: false,
     createLabel: 'Договор',
     searchPlaceholder: '№ договора, поставщик, предмет…',

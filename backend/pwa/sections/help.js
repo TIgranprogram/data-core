@@ -161,6 +161,24 @@ function scenarioCard(sc) {
     sc.strict ? h('p', { class: 'hp-strict' }, h('b', null, 'Порядок важен: '), sc.strict) : null);
 }
 
+/** Карта: по умолчанию вписана в ширину целиком; «Крупно» — в натуральный размер, двигать мышкой (зажать и тянуть) или прокруткой. */
+function mapBox() {
+  const svg = mapSvg();
+  const box = h('div', { class: 'hp-map is-fit' }, svg);
+  const btn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, '🔍 Крупно');
+  const setFit = (fit) => { box.classList.toggle('is-fit', fit); btn.textContent = fit ? '🔍 Крупно' : '⤢ Вся карта'; if (fit) box.scrollTo(0, 0); };
+  btn.onclick = () => setFit(!box.classList.contains('is-fit'));
+  // перетаскивание мышью в режиме «Крупно»
+  let drag = null;
+  box.addEventListener('pointerdown', (e) => { if (box.classList.contains('is-fit') || e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, l: box.scrollLeft, t: box.scrollTop }; box.setPointerCapture(e.pointerId); box.classList.add('is-drag'); });
+  box.addEventListener('pointermove', (e) => { if (!drag) return; box.scrollLeft = drag.l - (e.clientX - drag.x); box.scrollTop = drag.t - (e.clientY - drag.y); });
+  const end = () => { drag = null; box.classList.remove('is-drag'); };
+  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+  // клик по карте в режиме «вся карта» — сразу крупно
+  box.addEventListener('dblclick', () => setFit(!box.classList.contains('is-fit')));
+  return h('div', { class: 'hp-mapwrap' }, h('div', { class: 'hp-maptools' }, btn, h('span', { class: 'muted small' }, 'Двойной щелчок — крупно / вся карта; в «Крупно» карту можно тянуть мышкой')), box);
+}
+
 export const help = {
   id: 'help',
   title: 'Работа с сайтом',
@@ -168,8 +186,7 @@ export const help = {
     el.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Работа с сайтом'), h('span', { class: 'muted small' }, 'Откуда начать и что за чем идёт. Порядок почти везде не строгий — недостающее добавляется позже.')),
       h('section', { class: 'hp-sec' }, h('h2', null, 'С чего начать?'), h('div', { class: 'hp-cards' }, SCENARIOS.map(scenarioCard))),
-      h('section', { class: 'hp-sec' }, h('h2', null, 'Карта работы'), legend(),
-        h('div', { class: 'hp-map' }, mapSvg()), mapList()));
+      h('section', { class: 'hp-sec' }, h('h2', null, 'Карта работы'), legend(), mapBox(), mapList()));
     return {};
   },
 };

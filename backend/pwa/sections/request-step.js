@@ -113,11 +113,11 @@ export const reqStep = {
     editTitle: (r) => `${verbOf(r._to) || 'Следующий шаг'} — ${r.title || r.materialName || '—'}`,
     subheading: (r) => (r._to ? `Следующий шаг: «${verbOf(r._to)}»` : ''),
     noHistory: true,
-    startEdit: (r) => r._to === 'paid' || r._miss.length > 0,
+    startEdit: (r) => r._to === 'paid' || (r._miss || []).length > 0,
     view: () => [],
     extra: (r, ctx) => h('div', null,
-      h('p', { class: 'hint' }, r._miss.length ? 'Заполните поля и нажмите «Сохранить и перевести».' : 'Всё заполнено — можно переводить.'),
-      r._miss.length || !r._to ? null : h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
+      h('p', { class: 'hint' }, (r._miss || []).length ? 'Заполните поля и нажмите «Сохранить и перевести».' : 'Всё заполнено — можно переводить.'),
+      (r._miss || []).length || !r._to ? null : h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
         if (r._to === 'ordered') await api('/supply/invoices', { method: 'POST', body: { requestIds: [r.id] } });
         else await api(`/supply/requests/${r.id}`, { method: 'PATCH', body: { statusLabel: SUPPLY_STATUS[r._to].label } });
         toast(`${heading(r)} → ${SUPPLY_STATUS[r._to].label}`); ctx.changed(); ctx.close();

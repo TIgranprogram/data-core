@@ -1541,8 +1541,13 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .hp-later, .hp-strict { padding: 5px 8px; border-radius: var(--radius-sm); }
 .hp-later { background: var(--ls); }
 .hp-strict { background: var(--warn-soft); }
-.hp-map { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; }
-.hp-svg { display: block; font-family: inherit; }
+.hp-sec, .hp-mapwrap { min-width: 0; max-width: 100%; }
+.hp-maptools { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-bottom: 6px; }
+.hp-map { width: 100%; max-width: 100%; min-width: 0; overflow: auto; max-height: calc(100vh - var(--topbar-h) - 80px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; cursor: grab; overscroll-behavior: contain; }
+.hp-map.is-drag { cursor: grabbing; user-select: none; }
+.hp-svg { display: block; font-family: inherit; max-width: none; }
+.hp-map.is-fit { overflow: hidden; max-height: none; cursor: zoom-in; }
+.hp-map.is-fit .hp-svg { width: 100%; height: auto; }
 .hp-band { fill: var(--ls); opacity: .6; }
 .hp-band-ref { fill: var(--surface-2); stroke: var(--border-strong); stroke-dasharray: 4 4; opacity: 1; }
 .hp-lane { fill: var(--text); font-size: 14px; font-weight: 700; }
@@ -1564,7 +1569,7 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .hp-step small { color: var(--muted); font-size: 12px; }
 .hp-arr-s { color: var(--muted); }
 @media (max-width: 700px) {
-  .hp-map, .hp-legend { display: none; }
+  .hp-map, .hp-legend, .hp-maptools { display: none; }
   .hp-list { display: block; }
 }
 .inv-ro { padding: 6px 0; font-weight: 500; color: var(--text); }
