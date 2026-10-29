@@ -25,6 +25,10 @@ export class SupplyInvoice {
   @Prop({ trim: true })
   supplierName?: string;
 
+  /** Договор поставщика (suppliercontracts); тот же поставщик, что у счёта. */
+  @Prop({ type: Types.ObjectId, ref: 'SupplierContract', index: true })
+  contractId?: Types.ObjectId;
+
   /** Кто платит — наша компания. */
   @Prop({ type: Types.ObjectId, ref: 'Organization' })
   payerCompanyId?: Types.ObjectId;

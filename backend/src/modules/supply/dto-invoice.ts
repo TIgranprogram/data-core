@@ -17,6 +17,7 @@ export class PatchInvoiceDto {
   @ApiPropertyOptional({ description: 'Сумма счёта, ₽' }) @IsOptional() @IsNumber() @Min(0) amount?: number;
   @ApiPropertyOptional({ description: 'Плательщик — наша компания (id организации); "" — снять' }) @IsOptional() @IsString() @Length(0, 30) payerCompanyId?: string;
   @ApiPropertyOptional({ description: 'Поставщик (id организации) — сменить, пока счёт не оплачен; переносится во все заявки счёта' }) @IsOptional() @IsString() @Length(1, 30) supplierId?: string;
+  @ApiPropertyOptional({ description: 'Договор поставщика (id из /supply/contracts, того же поставщика, не закрытый); "" — снять' }) @IsOptional() @IsString() @Length(0, 30) contractId?: string;
   @ApiPropertyOptional({ description: 'Файлы счёта (id из POST /api/photos/upload) — весь список', type: [String] })
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsMongoId({ each: true }) fileIds?: string[];
   @ApiPropertyOptional({ description: 'true — «Счёт выставлен»: нужны №, дата и сумма' }) @IsOptional() @IsBoolean() issue?: boolean;

@@ -1489,3 +1489,16 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .pn-err { flex: 1 1 100%; color: var(--danger); font-size: var(--fs-sm); }
 .pn-err:empty { display: none; }
 @media (max-width: 700px) { .pn-item { flex: 1 1 100%; justify-content: space-between; } .pn-num, .pn-edit, .pn-input { min-height: 44px; } .pn-form { flex: 1 1 100%; justify-content: flex-end; } .pn-input { flex: 1 1 100px; } }
+
+/* Договоры поставщиков */
+.ctr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.ctr-ul { list-style: none; margin: 0; padding: 0; }
+.ctr-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--border); cursor: pointer; }
+.ctr-row:hover, .ctr-row:focus-visible { background: var(--surface-3); }
+.ctr-row .clip { flex: 1 1 140px; min-width: 0; }
+.ctr-row b { color: var(--primary); }
+.ctr-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.ctr-del { margin-left: auto; }
+@media (max-width: 700px) { .ctr-row { min-height: 44px; } .ctr-del, .ctr-head .btn { min-height: 44px; } }
+.invl-contract { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); }
+.contract-field .hint:empty { display: none; }

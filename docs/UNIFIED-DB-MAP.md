@@ -34,6 +34,7 @@ actualcosts, cart_items, cart_sessions, catalogattachments, certificates, commen
 **Группа Б — пустые, но код data-core на них ссылается (сначала правка кода, ЕБ.6):**
 - `orders`, `quotations`, `purchaseorders`, `costcalculations`, `boms`, `workers` — проверка ссылок перед удалением изделия/материала (`common/catalog/catalog-references.ts:39–50`); убрать строки → удалить таблицы.
 - `productmodules`, `productmodulephotos` — чтение старого состава (`showcase-composition.ts`, `common/catalog/product-module.schema.ts`); после ДМ.6.
+- `suppliercontracts` — договоры поставщиков (ДП), только data-core; не путать с `contracts` ниже (след старого модуля). Репо kppdf с такой коллекцией не сверен — проверить на работе.
 - `counterparties`, `contracts` — старый модуль `counterparty` и права в сидах; удалить модуль → таблицы.
 - `productphotos`, `attributedefinitions`, `entityattributevalues`, `organizationcontacts`, `sites` — модули data-core без данных; решить: удалить модуль или оставить на будущее.
 

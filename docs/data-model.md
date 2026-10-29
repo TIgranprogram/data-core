@@ -780,6 +780,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 ### `DesignOrder` (заказ на доске проектирования) — коллекция `designorders`, только data-core
 Метка «заказ взят на доску»: `orderId` (unique, индекс без `deletedAt`), `addedBy`, `addedAt`, `deletedAt` («убрано»; повторное добавление снимает). В `salesorders` поля нет.
 
+### `SupplierContract` (договор поставщика) — коллекция `suppliercontracts`, только data-core
+`supplierId` (Organization, обяз.), `supplierName` (снимок), `no` (≤100, обяз.), `date` (обяз.), `subject` (≤300), `validTo`, `amount` (≥0, справочно), `fileIds[]` (photos), `status` active|closed, `createdBy`, `deletedAt`. Индексы: `{supplierId,deletedAt}`, уникальный частичный `{supplierId,no}` при `deletedAt:null`. Связь: `supplyinvoices.contractId` (необязательно). Договоры покупателей (`salesorders.contractNo`) — отдельно.
+
 ### `SupplyRequest.invoiceDate` (общая с kppdf `supplyrequests`)
 Необязательное `Date` — дата счёта поставщика; расход в платёжном календаре ложится на неё. Раньше лежала строкой в `sheetExtra.invoiceDate`.
 

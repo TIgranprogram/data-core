@@ -49,6 +49,7 @@ const LAZY = {
   chat: [() => import('./sections/chat.js'), [['chat','chat']]],
   shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
   partners: [() => import('./sections/partners.js'), [['partners','partners']]],
+  contract: [() => import('./sections/contracts.js'), [['contract','contract']]],
   invoice: [() => import('./sections/invoice.js'), [['invoice','invoice'],['pasteorder','pasteOrder']]],
   reqstep: [() => import('./sections/request-step.js'), [['reqstep','reqStep']]],
   dicts: [() => import('./sections/dicts.js'), [['dict','dict'],['@mountDicts','mountDicts']]],
@@ -96,7 +97,7 @@ function needed(section, params) {
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', staffcard: 'staff', zonecard: 'staff',
+const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
@@ -432,7 +433,7 @@ function syncCard(section, params) {
     return;
   }
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, productionNo: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, priceHint: undefined, productUrl: undefined };
+  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, productionNo: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, supplierId: undefined, priceHint: undefined, productUrl: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     changed: () => onDataChanged(), // тот же debounce, что у dc:changed: запись + это событие = одно обновление
@@ -443,7 +444,7 @@ function syncCard(section, params) {
     // initial() может быть async (паспорта: поставщик по умолчанию с сервера) — карточка дождётся
     const initial = Promise.resolve(sec.form.initial ? sec.form.initial() : {}).then((b) => {
       const x = { ...b };
-      for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'productionNo', 'customer', 'companyName', 'orderId', 'article', 'supplierName', 'priceHint', 'productUrl', 'salesOrderRef', 'qty']) if (params[k]) x[k] = params[k];
+      for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'productionNo', 'customer', 'companyName', 'orderId', 'article', 'supplierName', 'priceHint', 'productUrl', 'salesOrderRef', 'qty', 'supplierId']) if (params[k]) x[k] = params[k];
       return x;
     });
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };

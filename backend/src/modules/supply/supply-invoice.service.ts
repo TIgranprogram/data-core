@@ -52,6 +52,22 @@ export class SupplyInvoiceService {
     return inv as Lean;
   }
 
+  /** Договоры поставщиков по id: contractId → { no, date, status } (удалённые не показываем). */
+  private async contractInfo(ids: unknown[]) {
+    const list = [...new Set(ids.filter(Boolean).map(String))].map((i) => new Types.ObjectId(i));
+    const docs = list.length ? await this.connection.db!.collection('suppliercontracts').find({ _id: { $in: list }, deletedAt: null }, { projection: { no: 1, date: 1 } }).toArray() : [];
+    return new Map(docs.map((d) => [String(d._id), { contractNo: (d.no as string) ?? null, contractDate: (d.date as Date) ?? null }]));
+  }
+
+  /** Договор для счёта: существует, не удалён, того же поставщика; закрытый — только если уже выбран. */
+  private async checkContract(contractId: string, supplierId: unknown, current: unknown): Promise<Types.ObjectId> {
+    const c = await this.connection.db!.collection('suppliercontracts').findOne({ _id: oid(contractId, 'договора'), deletedAt: null });
+    if (!c) throw new BadRequestException('Договор не найден');
+    if (!supplierId || String(c.supplierId) !== String(supplierId)) throw new BadRequestException('Договор другого поставщика');
+    if (c.status === 'closed' && String(current ?? '') !== String(c._id)) throw new BadRequestException('Договор закрыт — выберите действующий');
+    return c._id;
+  }
+
   /** Номера заказов/договоров по заявкам: salesOrderId → { orderNo, productionNo, contractNo }. */
   private async orderInfo(reqs: Lean[]) {
     const ids = [...new Set(reqs.map((r) => r.salesOrderId).filter(Boolean).map(String))].map((i) => new Types.ObjectId(i));
@@ -67,6 +83,10 @@ export class SupplyInvoiceService {
     const st = (q.status ?? '').split(',').map((x) => x.trim()).filter(Boolean);
     if (st.length) f.status = { $in: st };
     if (q.supplierId) f.supplierId = oid(q.supplierId, 'поставщика');
+    if (q.contract) {
+      if (!['none', 'has'].includes(q.contract)) throw new BadRequestException('Договор: none (без договора) или has (с договором)');
+      f.contractId = q.contract === 'none' ? null : { $ne: null };
+    }
     if (q.q?.trim()) { const re = new RegExp(escapeRe(q.q.trim()), 'i'); f.$or = [{ no: re }, { supplierName: re }]; }
     const range: Lean = {};
     if (q.from) { const d = parseSheetDate(q.from); if (!d) throw new BadRequestException('Дата «с» — в формате ГГГГ-ММ-ДД'); range.$gte = d; }
@@ -78,13 +98,14 @@ export class SupplyInvoiceService {
       this.model.aggregate([{ $match: f }, { $group: { _id: null, sum: { $sum: '$amount' } } }]).exec(),
     ]);
     const reqs = rows.length ? await this.requests.find({ invoiceId: { $in: rows.map((r) => r._id) }, deletedAt: null, status: { $ne: 'cancelled' } }).lean().exec() as Lean[] : [];
-    const [orders, names] = await Promise.all([this.orderInfo(reqs), this.orgNames(rows.map((r) => r.payerCompanyId))]);
+    const [orders, names, contracts] = await Promise.all([this.orderInfo(reqs), this.orgNames(rows.map((r) => r.payerCompanyId)), this.contractInfo(rows.map((r) => r.contractId))]);
     const items = rows.map((r) => {
       const mine = reqs.filter((x) => String(x.invoiceId) === String(r._id));
       const nos = [...new Set(mine.map((x) => orders.get(String(x.salesOrderId))).filter(Boolean).map((o) => o!.productionNo || o!.orderNo).filter(Boolean))] as string[];
       return { id: String(r._id), no: r.no ?? null, date: r.date ?? null, amount: r.amount ?? 0, status: r.status, paidAt: r.paidAt ?? null,
         supplierId: r.supplierId ? String(r.supplierId) : null, supplierName: r.supplierName ?? null,
-        payerName: r.payerCompanyId ? names.get(String(r.payerCompanyId)) ?? null : null, requestsCount: mine.length, orders: nos };
+        payerName: r.payerCompanyId ? names.get(String(r.payerCompanyId)) ?? null : null,
+        contractId: r.contractId ? String(r.contractId) : null, contractNo: contracts.get(String(r.contractId))?.contractNo ?? null, contractDate: contracts.get(String(r.contractId))?.contractDate ?? null, requestsCount: mine.length, orders: nos };
     });
     return { items, total, page, limit, sum: (agg[0]?.sum as number) ?? 0 };
   }
@@ -92,7 +113,8 @@ export class SupplyInvoiceService {
   /** Счёт + его заявки (с № заказа/договора), файлы с адресами, цепочка заказы → договоры. */
   async get(id: string) {
     const inv = await this.load(id);
-    const [items, names] = await Promise.all([this.supply.byInvoice(inv._id as Types.ObjectId), this.orgNames([inv.payerCompanyId])]);
+    const [items, names, contracts] = await Promise.all([this.supply.byInvoice(inv._id as Types.ObjectId), this.orgNames([inv.payerCompanyId]), this.contractInfo([inv.contractId])]);
+    const contract = contracts.get(String(inv.contractId));
     const orders = await this.orderInfo(items as Lean[]);
     const requests = (items as Lean[]).map((r) => {
       const o = r.salesOrderId ? orders.get(String(r.salesOrderId)) : undefined;
@@ -110,7 +132,7 @@ export class SupplyInvoiceService {
     const fids = (inv.fileIds as Types.ObjectId[] | undefined) ?? [];
     const photos = fids.length ? await this.connection.db!.collection('photos').find({ _id: { $in: fids } }, { projection: { storageUrl: 1, originalName: 1, name: 1 } }).toArray() : [];
     const files = fids.map((f) => photos.find((p) => String(p._id) === String(f))).filter(Boolean).map((p) => ({ id: String(p!._id), url: String(p!.storageUrl), name: String(p!.originalName ?? p!.name ?? 'Файл счёта') }));
-    return { ...inv, id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, requests, files, orders: [...chain.values()] };
+    return { ...inv, id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, contractNo: contract?.contractNo ?? null, contractDate: contract?.contractDate ?? null, requests, files, orders: [...chain.values()] };
   }
 
   /** Принять счёт на склад: каждая неполученная заявка — через SupplyService.receive (приход на склад по умолчанию, повтор безопасен по clientUid). */
@@ -193,6 +215,14 @@ export class SupplyInvoiceService {
       set.supplierId = org._id;
       set.supplierName = String(org.shortName || org.name || '');
     }
+    const warnings: string[] = [];
+    const supplierNow = set.supplierId ?? inv.supplierId;
+    if (dto.contractId) set.contractId = await this.checkContract(dto.contractId, supplierNow, inv.contractId);
+    else if (dto.contractId === '') set.contractId = undefined;
+    else if (set.supplierId && inv.contractId && String(set.supplierId) !== String(inv.supplierId)) {
+      set.contractId = undefined;
+      warnings.push('Договор снят: он относится к прежнему поставщику. Выберите договор нового поставщика');
+    }
     const next = { ...inv, ...set };
     if (dto.issue) {
       const lack = missing(ISSUED_GATE, next);
@@ -215,7 +245,7 @@ export class SupplyInvoiceService {
       const what = [next.no ? `№${next.no}` : '', next.supplierName ? `от ${next.supplierName}` : ''].filter(Boolean).join(' ');
       await this.notices.toRoles(['admin', 'director', 'accountant'], { type: 'invoice_awaiting_payment', text: `Счёт ${what || 'без номера'} выставлен — ждёт оплаты`, href: `#requests?tab=invoices&open=${id}` }, actorId);
     }
-    return this.get(id);
+    return warnings.length ? { ...(await this.get(id)), warnings } : this.get(id);
   }
 
   /** Копия полей счёта в заявки: № и дата, плательщик, сумма — пропорционально lineTotal (иначе priceHint), остаток копеек — последней. */

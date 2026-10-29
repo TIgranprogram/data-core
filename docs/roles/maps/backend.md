@@ -80,3 +80,6 @@
 
 ## Зоны ответственности (ЗО-1…5, 2026-10-29, не закоммичено)
 - `modules/zones/` (`zones.service.ts`: seed, listZones, staff, setZones, linkUser, route/notifyZone, remindUnassigned (час), scopeOf, recordHandoff; `zone-routing.ts` pure; spec). `persons.userId` (partial unique, `person.schema.ts`) / `zoneCodes`; `responsibleId` — `supply-request.schema.ts`, `sales-order.schema.ts`; хуки — `supply.service.ts` afterCreate/afterResponsible, `salesorders.service.ts` afterCreate/update, `design.service.ts` notifyAssigned/notifyUnassigned; «Сегодня» — `today/today-scope.ts`. e2e/openapi не трогались. коммит: —
+
+## Договоры поставщиков (ДП, 2026-10-29, не закоммичено)
+- `modules/supply/supplier-contract.{schema,service,controller}.ts` + `dto-contract.ts`; счёт: `supply-invoice.service.ts` `checkContract`/`contractInfo` (update, list, get), `contractId` в схеме и `dto-invoice.ts`. Тесты — `supplier-contract.service.spec.ts`, e2e `supplier-contracts.e2e-spec.ts` (зелёный). openapi перегенерирован через docker. Коллекция читается из счёта «сырой» (`db.collection`), поэтому `deletedAt: null` вручную. Роли `supply` нет — только admin/director/manager/user. коммит: —

@@ -8,6 +8,7 @@ import { attachCombo } from '../ui/combo.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, unitList } from './lookups.js';
+import { canContract, contractField, contractView, showWarnings } from './contracts.js';
 
 
 /**
@@ -232,9 +233,15 @@ export function invoiceBlock(r, ctx) {
       await api(`/supply/invoices/${inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен');
     }) }, 'Счёт оплачен');
     const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
+    // договор поставщика: выбор/создание сразу пишет в счёт (можно и у оплаченного); без прав — только показ
+    const cf = canContract() && inv.supplierId
+      ? contractField({ supplierId: inv.supplierId, current: inv.contractId ? { id: inv.contractId, no: inv.contractNo || '—', date: inv.contractDate } : null,
+        onChange: async (id) => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { contractId: id } })); toast(id ? 'Договор привязан к счёту' : 'Договор снят со счёта'); ctx.changed?.(); } })
+      : null;
+    const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
     box.replaceChildren(
       h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
-      field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Кто платит (наша компания)', payer),
+      field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Кто платит (наша компания)', payer), contractRow,
       lock ? null : h('div', { class: 'field' }, h('span', null, 'Файл счёта' + (known.length ? ` (уже загружено: ${known.length})` : '')), files.el),
       h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '')),
       h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),

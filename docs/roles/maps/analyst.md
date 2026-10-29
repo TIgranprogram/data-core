@@ -57,3 +57,6 @@
 
 ## Быстрые задачи (ЗД, 2026-10-29)
 - ТЗ docs/roles/tz/QUICK-TASKS.md. Новая tasks; чат/design-note/designtasks не годятся. План: pwa/sections/home.js:176,348, лента today/today-feed.ts. Общее для выбора объекта: ui/target-picker.js (orderLines/picBox); step-funnel.js — фильтр списка, не подходит. Вопросы ЗД-1…6. коммит: —
+
+## Договоры поставщиков (ДП, 2026-10-29)
+- ТЗ `docs/roles/tz/SUPPLIER-CONTRACTS.md`. Новая `suppliercontracts` (имя `contracts` — след старого counterparty, не брать); `supplyinvoices.contractId`. DTO `supply/dto-invoice.ts:14`; экраны invoice.js:207, request-step.js:138, invoices-tab.js, partners.js. kppdf-репо недоступно с этой машины. Вопросы ДП-1…4. коммит: —

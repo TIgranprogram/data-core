@@ -9,6 +9,9 @@ import { SupplyController } from './supply.controller';
 import { SupplyRequest, SupplyRequestSchema } from './supply-request.schema';
 import { SupplierItem, SupplierItemSchema } from './supplier-item.schema';
 import { SupplyInvoice, SupplyInvoiceSchema } from './supply-invoice.schema';
+import { SupplierContract, SupplierContractSchema } from './supplier-contract.schema';
+import { SupplierContractService } from './supplier-contract.service';
+import { SupplierContractController } from './supplier-contract.controller';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
@@ -26,10 +29,11 @@ import { SupplierCatalogService } from './supplier-catalog.service';
       { name: SupplyRequest.name, schema: SupplyRequestSchema },
       { name: SupplierItem.name, schema: SupplierItemSchema },
       { name: SupplyInvoice.name, schema: SupplyInvoiceSchema },
+      { name: SupplierContract.name, schema: SupplierContractSchema },
     ]),
   ],
-  controllers: [SupplyController],
-  providers: [SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService],
+  controllers: [SupplyController, SupplierContractController],
+  providers: [SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplierContractService],
   exports: [SupplyService],
 })
 export class SupplyModule {}

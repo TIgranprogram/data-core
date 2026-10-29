@@ -7,6 +7,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
+import { contractsBlock } from './contracts.js';
 
 /**
  * «Контрагенты» (TASKS фаза 4): поставщики (из заявок), заказчики (из заказов), наши компании.
@@ -86,6 +87,7 @@ function stampBlock(r, ctx) {
 function related(r, ctx) {
   const items = r.related || [];
   if (r.kind === 'our') return h('div', null, stampBlock(r, ctx), relatedRest(r, items));
+  if (r.kind === 'supplier') return h('div', null, contractsBlock(r), relatedRest(r, items));
   return relatedRest(r, items);
 }
 

@@ -7,6 +7,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
+import { canContract, contractView } from './contracts.js';
 
 /**
  * Вкладка «Счета» в «Заявках» (CHAIN-AUDIT З8–З12): список счетов с фильтрами и суммой;
@@ -20,7 +21,7 @@ const ruDate = (v) => (v ? isoDay(v).split('-').reverse().join('.') : '—');
 
 export function mountInvoicesTab(params = {}) {
   let focusId = params.open || ''; // #requests?tab=invoices&open=<id счёта> — из уведомления
-  const F = { status: '', supplierId: '', q: '', from: '', to: '' };
+  const F = { status: '', supplierId: '', q: '', from: '', to: '', contract: '' };
   let page = 1; let seq = 0; let timer = null;
   const openIds = new Set();
 
@@ -35,10 +36,13 @@ export function mountInvoicesTab(params = {}) {
     supSel.append(...list.map(([v, l]) => h('option', { value: v }, l)));
     enhanceSelect(supSel);
   }).catch(() => {});
+  // «Договор»: сервер фильтрует параметром contract=none|has
+  const ctrSel = h('select', { class: 'invl-f', 'aria-label': 'Договор', onchange: () => { F.contract = ctrSel.value; reload(); } },
+    h('option', { value: '' }, 'Договор: все'), h('option', { value: 'has' }, 'Договор: есть'), h('option', { value: 'none' }, 'Без договора'));
   const q = h('input', { type: 'search', class: 'invl-f', placeholder: 'Поиск: № счёта, поставщик…', oninput: () => { clearTimeout(timer); timer = setTimeout(() => { F.q = q.value.trim(); reload(); }, 300); } });
   const from = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'С даты', onchange: () => { F.from = from.value; reload(); } });
   const to = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'По дату', onchange: () => { F.to = to.value; reload(); } });
-  const bar = h('div', { class: 'invl-bar' }, q, statusSel, supSel, h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to));
+  const bar = h('div', { class: 'invl-bar' }, q, statusSel, supSel, ctrSel, h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to));
 
   const rows = h('div', { class: 'invl-list' });
   const foot = h('div', { class: 'invl-foot' });
@@ -99,6 +103,7 @@ export function mountInvoicesTab(params = {}) {
       h('span', { class: 'invl-sup' }, inv.supplierName || '—'),
       h('span', { class: 'invl-amt num' }, inv.amount > 0 ? money(inv.amount) : '—'),
       badge(INVOICE_STATUS, inv.status),
+      contractView(inv),
       h('span', { class: 'invl-meta muted' }, [inv.payerName && `платит: ${inv.payerName}`, (inv.orders || []).length && `заказы: ${inv.orders.join(', ')}`, `позиций: ${inv.requestsCount ?? 0}`].filter(Boolean).join(' · ')));
     const box = h('div', { class: 'invl-row' }, head, detail);
     function toggle(force) {
@@ -151,6 +156,11 @@ export function mountInvoicesTab(params = {}) {
         (o.contracts || []).length ? ` → ${o.contracts.join(', ')}` : '')))
       : h('div', { class: 'muted' }, 'Не привязан к заказу.');
 
+    // договор счёта: «Привязать» открывает заявку счёта справа — там поле «Договор»
+    const firstReq = reqs[0]?.id;
+    const contractLine = h('div', { class: 'invl-contract' }, h('span', { class: 'muted' }, 'Договор: '), contractView(inv),
+      firstReq && canContract() && inv.status !== 'cancelled' ? h('button', { type: 'button', class: 'link-btn', onclick: () => patch({ of: 'requests', open: firstReq }) }, inv.contractId ? 'Изменить' : 'Привязать') : null);
+
     const actions = [];
     if (canAct && inv.status === 'draft') {
       const b = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(b, async () => { await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { issue: true } }); toast('Счёт выставлен'); await after(); }) }, 'Выставить');
@@ -179,7 +189,7 @@ export function mountInvoicesTab(params = {}) {
     return h('div', { class: 'invl-body' },
       reqs.length ? list : h('div', { class: 'muted' }, 'В счёте нет позиций.'),
       pending.length && checks.size ? h('div', { class: 'muted' }, 'Галочки — что приехало. По умолчанию все неполученные.') : null,
-      files, chain,
+      files, contractLine, chain,
       actions.length ? h('div', { class: 'invl-actions' }, ...actions) : null,
       collapse ? h('button', { class: 'btn btn-ghost invl-collapse', type: 'button', onclick: collapse }, 'Свернуть ▴') : null);
   }

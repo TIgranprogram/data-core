@@ -107,3 +107,6 @@
 - `sections/staff.js` — `mountStaff` (плашка «Не назначено», вкладки `?tab=zones`, списки), `staffCard` (`of=staffcard`: вход /staff/logins, зоны, история), `zoneCard` (`of=zonecard&open=<id>|new`, `codeOf` — код из названия). main.js: LAZY/OWNER/NAV/GROUP_OF «Управление»; `core/api.js sees('staff')` = admin/director/owner.
 - `ui/responsible.js` — `responsibleField`, `handoffLine(entity,id)`; подключено в `requests.js` (fields/toBody/view/extra) и `salesorders.js` (форма договора, view, card.extra).
 - `home.js` — `mode`, `paintScope` (Моё/Всё). `ui/bell.js openItem` — zone_unassigned → `#staff?tab=zones`. CSS — конец `ui/screens.css` (`.st-*`, `.td-scope`).
+
+## Договоры поставщиков (2026-10-29, не закоммичено)
+- `pwa/sections/contracts.js`: `contractField` (панель счёта, в `request-step.js invoiceBlock`), `contractsBlock` (карточка поставщика, `partners.js related`), секция `contract` (`of=contract`, main.js LAZY/OWNER, param supplierId), `contractView`. `invoices-tab.js`: бейдж договора, фильтр F.contract -> GET ?contract=none|has, строка «Договор» + «Привязать». CSS `.ctr-*` конец screens.css. Карта обновлена.

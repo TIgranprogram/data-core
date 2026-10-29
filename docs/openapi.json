@@ -3472,6 +3472,15 @@
             "in": "query",
             "description": "через запятую: draft, issued, paid, cancelled",
             "schema": {}
+          },
+          {
+            "name": "contract",
+            "required": false,
+            "in": "query",
+            "description": "none — без договора, has — с договором",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4421,6 +4430,150 @@
             "name": "preview",
             "required": true,
             "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/contracts": {
+      "get": {
+        "operationId": "SupplierContractController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "№, предмет или поставщик",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "active | closed",
+            "schema": {}
+          },
+          {
+            "name": "supplierId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "post": {
+        "operationId": "SupplierContractController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupplierContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/contracts/{id}": {
+      "get": {
+        "operationId": "SupplierContractController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "patch": {
+        "operationId": "SupplierContractController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSupplierContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "delete": {
+        "operationId": "SupplierContractController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -12051,20 +12204,6 @@
         ]
       }
     },
-    "/passports/next-numbers": {
-      "get": {
-        "operationId": "ProductPassportController_nextNumbers",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
     "/passports/queue": {
       "get": {
         "operationId": "ProductPassportController_queue",
@@ -12089,6 +12228,44 @@
             "schema": {}
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/next-numbers": {
+      "get": {
+        "operationId": "ProductPassportController_nextNumbers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/next-number": {
+      "put": {
+        "operationId": "ProductPassportController_setNextNumber",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NextPassportNumberDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -13091,34 +13268,6 @@
             "description": ""
           }
         }
-      }
-    },
-    "/passports/next-number": {
-      "put": {
-        "operationId": "ProductPassportController_setNextNumber",
-        "summary": "Задать № следующего выпущенного паспорта",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NextPassportNumberDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "409": {
-            "description": "№ уже занят"
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
       }
     }
   },
@@ -14171,6 +14320,10 @@
             "type": "string",
             "description": "Поставщик (id организации) — сменить, пока счёт не оплачен; переносится во все заявки счёта"
           },
+          "contractId": {
+            "type": "string",
+            "description": "Договор поставщика (id из /supply/contracts, того же поставщика, не закрытый); \"\" — снять"
+          },
           "fileIds": {
             "description": "Файлы счёта (id из POST /api/photos/upload) — весь список",
             "type": "array",
@@ -14360,6 +14513,88 @@
           "partial": {
             "type": "boolean",
             "description": "Частично (ЗП.4): пришло меньше заказанного — заявка остаётся открытой на остаток"
+          }
+        }
+      },
+      "CreateSupplierContractDto": {
+        "type": "object",
+        "properties": {
+          "supplierId": {
+            "type": "string",
+            "description": "Поставщик (id организации)"
+          },
+          "no": {
+            "type": "string",
+            "description": "№ договора"
+          },
+          "date": {
+            "type": "string",
+            "description": "Дата договора ГГГГ-ММ-ДД или ДД.ММ.ГГГГ"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Предмет договора"
+          },
+          "validTo": {
+            "type": "string",
+            "description": "Действует до; \"\" — без срока"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Сумма, ₽ (справочно)"
+          },
+          "fileIds": {
+            "description": "Файлы договора (id из POST /api/photos/upload)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "closed"
+            ]
+          }
+        },
+        "required": [
+          "supplierId",
+          "no",
+          "date"
+        ]
+      },
+      "PatchSupplierContractDto": {
+        "type": "object",
+        "properties": {
+          "no": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "validTo": {
+            "type": "string",
+            "description": "\"\" — без срока"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "fileIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "closed"
+            ]
           }
         }
       },
@@ -14612,7 +14847,7 @@
           },
           "quantity": {
             "type": "number",
-            "minimum": 1e-06
+            "minimum": 0.000001
           },
           "sortOrder": {
             "type": "number",
@@ -14663,7 +14898,7 @@
           },
           "quantity": {
             "type": "number",
-            "minimum": 1e-06
+            "minimum": 0.000001
           },
           "sortOrder": {
             "type": "number",
@@ -16508,6 +16743,19 @@
         "type": "object",
         "properties": {}
       },
+      "NextPassportNumberDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 999999999
+          }
+        },
+        "required": [
+          "next"
+        ]
+      },
       "UpdateProductPassportDto": {
         "type": "object",
         "properties": {}
@@ -16527,19 +16775,6 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
-      },
-      "NextPassportNumberDto": {
-        "type": "object",
-        "properties": {
-          "next": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 999999999
-          }
-        },
-        "required": [
-          "next"
-        ]
       }
     }
   }

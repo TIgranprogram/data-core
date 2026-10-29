@@ -43,6 +43,7 @@ export class SupplyController {
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'status', required: false, description: 'через запятую: draft, issued, paid, cancelled' })
   @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'q', required: false, description: '№ счёта или поставщик' })
+  @ApiQuery({ name: 'contract', required: false, description: 'none — без договора, has — с договором' })
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   listInvoices(@Query() q: Record<string, string>) {
     return this.invoices.list(q);
