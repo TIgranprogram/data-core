@@ -11,7 +11,7 @@ import { toast, toastError } from './toast.js';
 import { actionText, errText, isFailure } from './errors.js';
 import { busyBlock, busyBtn, failBlock } from './busy.js';
 import { makeResizable } from './resizer.js';
-import { DOCK_MIN } from '../core/prefs.js';
+import { DOCK_MIN, getPref, setPref } from '../core/prefs.js';
 
 /**
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
@@ -27,6 +27,8 @@ import { DOCK_MIN } from '../core/prefs.js';
  * }
  * ctx: { close(), changed() — перерисовать список }.
  * На широком экране (≥ DOCK_MIN) карточка «пристыкована» справа рядом со списком: без затемнения, список виден и кликается.
+ * Зоны блоков (docs/DESIGN.md §4, «Раскладка панели»): card.zones = { top|stats|fields|extra: 'main'|'side'|'wide' } или data-zone="…" на самом блоке; без зоны — main.
+ * Вид выбирает пользователь в «⋯» шапки (prefs panelLayout: one — как раньше, two — две колонки, wide — две и широкий блок снизу).
  * load(id) — показать другую запись в той же панели (стрелки ↑/↓ в списке), без закрытия-открытия.
  */
 
@@ -50,6 +52,8 @@ function gallery(pics, onRemove, onMain) {
   paintMain();
   return h('div', { class: 'gallery' }, big, strip, main, del);
 }
+export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
+const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
 const docked = () => window.innerWidth >= DOCK_MIN;
 export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let row = null;
@@ -96,55 +100,76 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     const up = section.card.parent?.(row);
     upEl.hidden = !up;
     if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }
-    const content = [];
-    if (section.card.top) content.push(section.card.top(row, actx()));
+    const content = []; // [блок, зона по умолчанию]
+    const zones = section.card.zones || {};
+    const put = (el, def) => { if (el) content.push([el, el.dataset?.zone || zones[def] || (def === 'photo' ? 'side' : def === 'history' ? 'wide' : 'main')]); };
+    const rare = [];
+    if (section.card.top) put(section.card.top(row, actx()), 'top');
     const pics = section.card.gallery ? section.card.gallery(row) : [];
     const canPhoto = canEditSection(section) && section.card.photoAdd;
-    if (pics.length) content.push(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
+    if (pics.length) put(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
       if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из карточки.', { okText: 'Убрать' }))) return;
       try { actx().setRow(await section.card.photoRemove(row, p.id)); toast('Фото убрано'); } catch (e) { toastError(e); }
     } : null, canEditSection(section) && section.card.photoMain ? async (p) => {
       try { actx().setRow(await section.card.photoMain(row, p.id)); toast('Главное фото выбрано'); } catch (e) { toastError(e); }
-    } : null));
-    if (canPhoto) content.push(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }));
-    if (section.card.stats) content.push(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))));
+    } : null), 'photo');
+    if (canPhoto) put(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }), 'photo');
+    if (section.card.stats) put(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))), 'stats');
     if (canEditSection(section) && section.card.actions) {
       // «Изменить» — одна, внизу панели (пользователь 2026-10-28: две кнопки — дубль); editTop больше не дублирует её сверху
       const acts = section.card.actions(row, actx()).filter(Boolean);
       if (acts.length) {
-        // a.more — редкое действие уходит в «⋯» рядом с кнопками
+        // a.more — редкое действие уходит в единственное «⋯» шапки панели
         const mk = (a, cls) => h('button', { class: cls || 'btn' + (a.primary ? ' btn-primary' : section.card.top ? ' btn-ghost' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label);
-        const rare = acts.filter((a) => a.more), main = acts.filter((a) => !a.more);
-        const kids = main.map((a) => mk(a));
-        if (rare.length) {
-          const menu = h('div', { class: 'menu', role: 'menu', hidden: true }, rare.map((a) => h('button', { type: 'button', role: 'menuitem', onclick: (e) => { menu.hidden = true; runAction(a, e.currentTarget); } }, a.label)));
-          kids.push(h('span', { class: 'act-more' }, h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', onclick: () => { menu.hidden = !menu.hidden; } }, '⋯'), menu));
-        }
-        content.push(h('div', { class: 'actions' }, kids));
+        rare.push(...acts.filter((a) => a.more));
+        const kids = acts.filter((a) => !a.more).map((a) => mk(a));
+        if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');
       }
     }
-    content.push(h('dl', { class: 'fields' }, (section.card.view(row, actx()) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
-    if (section.card.extra) content.push(section.card.extra(row, actx()));
+    put(h('dl', { class: 'fields' }, (section.card.view(row, actx()) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])), 'fields');
+    if (section.card.extra) put(section.card.extra(row, actx()), 'extra');
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
     const histWrap = histUl ? (section.card.top ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : h('div', { hidden: true }, h('div', { class: 'section-title' }, 'История изменений'), histUl)) : null;
-    if (histWrap) content.push(histWrap);
-    body.replaceChildren(...content);
+    put(histWrap, 'history');
+    body.replaceChildren(...arrange(content));
     if (histUl) loadHistory(histUl, histWrap);
 
-    if (canEditSection(section)) {
-      if (section.form) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, 'Изменить'));
-      const items = [];
-      if (section.duplicate && section.form) items.push(h('button', { type: 'button', onclick: () => { closeMenu(); showForm('create', section.duplicate(row)); } }, 'Дублировать'));
-      if (section.remove) items.push(h('button', { type: 'button', class: 'danger', onclick: () => { closeMenu(); doRemove(); } }, 'Удалить'));
-      if (items.length) {
-        const menu = h('div', { class: 'menu', hidden: true }, items);
-        const toggle = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', onclick: () => { menu.hidden = !menu.hidden; } }, '⋯');
-        menuBox.append(toggle, menu);
-      }
-    }
+    if (canEditSection(section) && section.form) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, 'Изменить'));
+    buildMenu(rare);
   }
-  const closeMenu = () => { const m = menuBox.querySelector('.menu'); if (m) m.hidden = true; };
+  /** Блоки по зонам: one — плоско, как раньше; two/wide — сетка .dz-box > .dz-grid (колонки по ширине самой панели, ui/panels.css). */
+  function arrange(content) {
+    const mode = layoutNow();
+    if (mode === 'one') return content.map(([el]) => el);
+    const zone = (z) => content.filter(([, zz]) => (zz === 'wide' && mode === 'two' ? 'main' : zz) === z).map(([el]) => el);
+    const cols = ['main', 'side', 'wide'].map((z) => [z, zone(z)]).filter(([, els]) => els.length);
+    if (cols.length < 2) return content.map(([el]) => el);
+    return [h('div', { class: 'dz-box' }, h('div', { class: 'dz-grid', 'data-layout': mode }, cols.map(([z, els]) => h('div', { class: 'dz dz-' + z }, els))))];
+  }
+  /** Единственное «⋯» шапки: вид панели (всем) + редкие действия, «Дублировать», «Удалить» (с правом правки). */
+  function buildMenu(rare) {
+    const edit = canEditSection(section);
+    const menu = h('div', { class: 'menu', role: 'menu', hidden: true });
+    const toggle = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, '⋯');
+    const setOpen = (v) => { menu.hidden = !v; toggle.setAttribute('aria-expanded', String(v)); };
+    const away = (e) => { if (!menuBox.contains(e.target)) { setOpen(false); document.removeEventListener('click', away, true); } };
+    toggle.onclick = () => { const v = menu.hidden; setOpen(v); document.removeEventListener('click', away, true); if (v) document.addEventListener('click', away, true); };
+    const items = [h('div', { class: 'menu-sub', role: 'presentation' }, 'Вид панели')];
+    for (const [k, label] of LAYOUTS) {
+      const on = layoutNow() === k;
+      items.push(h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(on), onclick: () => { setPref('panelLayout', k === 'one' ? '' : k); setOpen(false); const y = body.scrollTop; showView(row).then(() => { body.scrollTop = y; toggle.focus(); }); } }, (on ? '✓ ' : '') + label));
+    }
+    const acts = [];
+    if (edit) {
+      rare.forEach((a) => acts.push(h('button', { type: 'button', role: 'menuitem', onclick: (e) => { setOpen(false); runAction(a, e.currentTarget); } }, a.label)));
+      if (section.duplicate && section.form) acts.push(h('button', { type: 'button', role: 'menuitem', onclick: () => { setOpen(false); showForm('create', section.duplicate(row)); } }, 'Дублировать'));
+      if (section.remove) acts.push(h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: () => { setOpen(false); doRemove(); } }, 'Удалить'));
+    }
+    if (acts.length) items.unshift(...acts, h('hr', { class: 'menu-sep' }));
+    menu.append(...items);
+    menuBox.replaceChildren(toggle, menu);
+  }
 
   async function loadHistory(ul, wrap) {
     if (!section.entityType || !row?.id) { return; }

@@ -67,7 +67,7 @@ function lineRow(it, run, write) {
         try { await api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: prod.id } }); toast('Изделие создано и сопоставлено'); } catch (e) { toastError(e, 'сопоставить с новым изделием'); }
         patch({ ...back, new: undefined });
       });
-    } }, '+ Создать изделие'));
+    } }, '+ Изделие'));
     if (it.state !== 'none') acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })) }, 'Не изделие (монтаж, доставка)'));
   }
   return h('li', { class: 'mt-row' + (it.matched ? '' : ' mt-open') },

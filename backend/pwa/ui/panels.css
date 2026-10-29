@@ -461,3 +461,24 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 
 /* вход: строка «Запомнить меня» — 44 px на телефоне (приёмка дизайнера 2026-10-29) */
 @media (max-width: 720px) { .login-card label.check { min-height: 44px; margin-top: 0; } }
+
+/* Раскладка правой панели (docs/DESIGN.md §4): колонки — по ширине самой панели, не окна. Выбор — «⋯» шапки, prefs panelLayout. */
+.dz-box { container-type: inline-size; container-name: dz; }
+.dz-grid { display: flex; flex-direction: column; gap: var(--s4); }
+.dz-grid > .dz { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+/* узкая панель: main → wide → side одной колонкой */
+.dz-grid > .dz-wide { order: 1; }
+.dz-grid > .dz-side { order: 2; }
+.dz-grid .dz > * { margin-bottom: 0; }
+.menu .menu-sub { padding: 6px 12px 2px; font-size: var(--fs-label); color: var(--muted); }
+.menu .menu-sep { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+.menu button[aria-checked="true"] { font-weight: 600; }
+@container dz (min-width: 760px) {
+  .dz-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s4) var(--s5); align-items: start; }
+  .dz-grid > .dz-main { grid-column: 1; grid-row: 1; order: 0; }
+  .dz-grid > .dz-side { grid-column: 2; grid-row: 1; order: 0; }
+  .dz-grid > .dz-wide { grid-column: 1 / -1; grid-row: 2; order: 0; }
+}
+@container dz (min-width: 1100px) { .dz-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+/* Пункты меню «⋯» на телефоне — палец (44 px) */
+@media (max-width: 720px) { .menu button { min-height: 44px; } }

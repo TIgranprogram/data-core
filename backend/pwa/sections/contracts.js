@@ -38,7 +38,7 @@ function filesField(known = []) {
 
 /**
  * Поле «Договор» для счёта. { el, id(), setSupplier(id) }.
- * Выбор из действующих договоров поставщика, «Без договора» и «+ Создать договор» (мини-форма тут же; после «Сохранить» договор выбран).
+ * Выбор из действующих договоров поставщика, «Без договора» и «+ Договор поставщика» (мини-форма тут же; после «Сохранить» договор выбран).
  * onChange(id) вызывается при выборе; бросит ошибку — выбор откатится.
  */
 export function contractField({ supplierId = '', current = null, onChange } = {}) {
@@ -48,7 +48,7 @@ export function contractField({ supplierId = '', current = null, onChange } = {}
   let list = [];
   const input = h('input', { autocomplete: 'off', maxlength: 200 });
   const note = h('div', { class: 'hint' });
-  const setNote = () => { note.textContent = sup ? (list.length || sel ? '' : 'У поставщика пока нет договоров. Создайте первый — «+ Создать договор».') : 'Сначала выберите поставщика.'; };
+  const setNote = () => { note.textContent = sup ? (list.length || sel ? '' : 'У поставщика пока нет договоров. Создайте первый — «+ Договор поставщика».') : 'Сначала выберите поставщика.'; };
   const paint = () => { input.value = sel ? selLabel : ''; input.placeholder = sup ? 'Без договора' : 'Сначала выберите поставщика'; input.disabled = !sup && !sel; setNote(); };
   const load = async () => { try { list = await fetchContracts(sup); } catch { list = []; } paint(); };
 
@@ -59,7 +59,7 @@ export function contractField({ supplierId = '', current = null, onChange } = {}
     try { await onChange?.(sel); } catch (e) { toastError(e); sel = prev.sel; selLabel = prev.selLabel; paint(); }
   }
 
-  // ---- мини-форма «+ Создать договор»: в той же панели ----
+  // ---- мини-форма «+ Договор поставщика»: в той же панели ----
   const nNo = h('input', { maxlength: 100, placeholder: 'например: 12/24' });
   const nDate = h('input', { type: 'date', value: isoDay() });
   const nSubject = h('input', { maxlength: 300, placeholder: 'о чём договор' });
@@ -88,12 +88,12 @@ export function contractField({ supplierId = '', current = null, onChange } = {}
   attachCombo(input, {
     options: () => [{ label: 'Без договора', x: null }, ...list.map((c) => ({ label: contractLabel(c), x: c }))],
     onPick: (o) => choose(o.x),
-    extra: () => (sup && canContract() ? [{ label: '+ Создать договор', run: () => { form.hidden = false; nNo.focus(); } }] : []),
+    extra: () => (sup && canContract() ? [{ label: '+ Договор поставщика', run: () => { form.hidden = false; nNo.focus(); } }] : []),
   });
   input.addEventListener('change', () => { if (!input.value.trim()) { if (sel) choose(null); } else { input.value = sel ? selLabel : ''; } });
   input.addEventListener('focus', () => input.select());
 
-  const el = h('div', { class: 'field contract-field' }, h('span', null, 'Договор'), h('div', { class: 'has-combo' }, input), note, form);
+  const el = h('div', { class: 'field contract-field' }, h('span', null, 'Договор поставщика'), h('div', { class: 'has-combo' }, input), note, form);
   paint();
   if (sup) load();
   return {
@@ -139,8 +139,8 @@ export function contractsBlock(r) {
     const open = () => patch({ of: 'contract', open: c.id, new: undefined });
     const del = canContract() ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm ctr-del', title: 'Удалить договор', onclick: async (e) => {
       e.stopPropagation();
-      if (!(await confirmDlg('Удалить договор?', `Договор № ${c.no} от ${date(c.date)} будет удалён. Если к нему привязаны счета, удалить не получится.`, { okText: 'Удалить', danger: true }))) return;
-      try { await api(`/supply/contracts/${c.id}`, { method: 'DELETE' }); toast('Договор удалён'); load(); } catch (err) { toastError(err); }
+      if (!(await confirmDlg('Удалить договор поставщика?', `Договор № ${c.no} от ${date(c.date)} будет удалён. Если к нему привязаны счета, удалить не получится.`, { okText: 'Удалить', danger: true }))) return;
+      try { await api(`/supply/contracts/${c.id}`, { method: 'DELETE' }); toast('Договор поставщика удалён'); load(); } catch (err) { toastError(err); }
     } }, 'Удалить') : null;
     return h('li', { class: 'ctr-row', tabindex: '0', onclick: open, onkeydown: (e) => { if (e.key === 'Enter') open(); } },
       h('b', null, `№ ${c.no}`), h('span', { class: 'when' }, date(c.date)),
@@ -169,7 +169,7 @@ function supplierWidget(v) {
 /** Правая панель договора. Открывается из карточки поставщика (#partners?of=contract&open=<id> | &new=1&supplierId=<id>). */
 export const contract = {
   id: 'contract',
-  title: 'Договор',
+  title: 'Договор поставщика',
   newTitle: 'Новый договор',
   noun: 'договор',
   entityType: 'SupplierContract',
@@ -190,7 +190,7 @@ export const contract = {
       { key: 'date', label: 'Дата договора', type: 'date', required: true },
       { key: 'subject', label: 'Предмет', wide: true, max: 300, hint: 'О чём договор — для списка выбора в счёте' },
       { key: 'validTo', label: 'Действует до', type: 'date', hint: 'Пусто — бессрочный' },
-      { key: 'status', label: 'Состояние', type: 'segment', options: [{ value: 'active', label: 'Действует' }, { value: 'closed', label: 'Закрыт' }], hint: 'Закрытый договор нельзя выбрать в новом счёте' },
+      { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'active', label: 'Действует' }, { value: 'closed', label: 'Закрыт' }], hint: 'Закрытый договор нельзя выбрать в новом счёте' },
       { key: 'fileIds', label: 'Скан договора', type: 'widget', wide: true, widget: (v) => { const ff = filesField(Array.isArray(v) ? v : []); return { el: ff.el, get value() { return JSON.stringify(ff.ids()); }, set value(_) { /* только показ */ } }; } },
     ],
     initial: () => ({ date: isoDay(), status: 'active' }),
@@ -217,13 +217,13 @@ export const contracts = {
     path: '/supply/contracts',
     sortDefault: '-date', // без него список падал при отрисовке шапки (ошибка с сайта 2026-10-29)
     export: false,
-    createLabel: 'Договор',
+    createLabel: 'Договор поставщика',
     searchPlaceholder: '№ договора, поставщик, предмет…',
     emptyText: 'Договоров пока нет.',
     emptyHint: 'Нажмите «+ Договор» — или привяжите договор прямо в счёте заявки.',
     filters: [
       { key: 'supplierId', label: 'Поставщик', allLabel: 'Все поставщики', options: async () => ((await api('/partners', { query: { type: 'supplier', limit: 500 } })).items || []).map((x) => ({ value: x.id, label: x.name })) },
-      { key: 'status', label: 'Состояние', allLabel: 'Любое состояние', options: () => [{ value: 'active', label: 'Действует' }, { value: 'closed', label: 'Закрыт' }] },
+      { key: 'status', label: 'Статус', allLabel: 'Любой статус', options: () => [{ value: 'active', label: 'Действует' }, { value: 'closed', label: 'Закрыт' }] },
     ],
     columns: [
       { key: 'no', label: '№ договора', cls: 'nowrap', render: (r) => h('b', null, r.no) },
@@ -232,7 +232,7 @@ export const contracts = {
       { key: 'subject', label: 'Предмет', cls: 'clip md-hide', render: (r) => cell(r.subject) },
       { key: 'validTo', label: 'Действует до', cls: 'nowrap', render: (r) => (r.validTo ? h('span', null, date(r.validTo), isOverdue(r) ? h('span', { class: 'badge warn', style: 'margin-left:6px' }, 'просрочен') : null) : h('span', { class: 'muted' }, 'бессрочный')) },
       { key: 'invoicesCount', label: 'Счетов', cls: 'num right', render: (r) => String(r.invoicesCount ?? 0) },
-      { key: 'status', label: 'Состояние', cls: 'nowrap', render: (r) => (r.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : h('span', { class: 'badge ok' }, 'действует')) },
+      { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => (r.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : h('span', { class: 'badge ok' }, 'действует')) },
     ],
     card: {
       title: (r) => `Договор № ${r.no}`,

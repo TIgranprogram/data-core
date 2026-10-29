@@ -116,7 +116,7 @@ export function mountMoney(params) {
     nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
     opening.parentElement.hidden = (tab() !== 'calendar' && tab() !== 'forecast') || hasStart();
     gear.hidden = session.role !== 'admin' || (tab() !== 'calendar' && tab() !== 'forecast');
-    gear.textContent = hasStart() ? 'Учёт с ' + settings.startDate.split('-').reverse().join('.') + ' · изменить' : '⚙ Старт учёта';
+    gear.textContent = hasStart() ? 'Учёт с ' + settings.startDate.split('-').reverse().join('.') + ' · Изменить' : '⚙ Старт учёта';
   }
 
   // ---------- Календарь ----------

@@ -103,7 +103,7 @@ export const movements = {
       ['Отменено', m.cancelledAt ? dateTime(m.cancelledAt) : ''],
     ],
     actions: (m) => [
-      m.canCancel && { label: 'Отменить это движение', run: async (row, ctx) => { if (await cancelMovement(row)) { ctx.changed(); ctx.reload(); } } },
+      m.canCancel && { label: 'Отменить движение', run: async (row, ctx) => { if (await cancelMovement(row)) { ctx.changed(); ctx.reload(); } } },
       m.batchId && !m.cancelledAt && { label: 'Отменить всю операцию', run: async (row, ctx) => { await api(`/stock/batch/${row.batchId}/cancel`, { method: 'POST' }); toast('Операция отменена целиком'); ctx.changed(); ctx.reload(); } },
       { label: 'Открыть позицию', run: (row) => go('stock', { open: row.materialId }) },
     ],

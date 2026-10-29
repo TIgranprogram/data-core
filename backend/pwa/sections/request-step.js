@@ -23,7 +23,7 @@ export const GATES = [
   { to: 'ordered', fields: [
     { key: 'supplierName', label: 'Поставщик', ok: (r) => !!r.supplierId || text(r.supplierName) },
     { key: 'qty', label: 'Количество', ok: (r) => Number(r.qty) > 0 },
-    { key: 'unit', label: 'Единица измерения', ok: (r) => text(r.unit) }] },
+    { key: 'unit', label: 'Ед. изм.', ok: (r) => text(r.unit) }] },
   { to: 'paid', fields: [
     { key: 'invoiceNo', label: '№ счёта', ok: (r) => text(r.invoiceNo) },
     { key: 'invoiceDate', label: 'Дата счёта', ok: (r) => text(r.invoiceDate) },
@@ -46,7 +46,7 @@ export function nextStep(r) {
   if (k === 'in_progress') return { to: 'requested', verb: 'В заказ' };
   if (k === 'requested') return { to: 'ordered', verb: 'Заказал у поставщика' };
   if (k === 'ordered') return { to: 'paid', verb: 'Счёт оплачен' };
-  if (k === 'paid') return { to: 'received', verb: 'Принять', kind: 'receive' };
+  if (k === 'paid') return { to: 'received', verb: 'Принять на склад', kind: 'receive' };
   return null;
 }
 
@@ -137,7 +137,7 @@ export const reqStep = {
       // «Счёт оплачен»: всегда одни и те же поля; уже заполненные показываем заполненными
       const supplier = { ...defs.supplierName, required: true, wide: true, hint: 'Другой поставщик сохранится в истории позиции вместе с ценой', mount: (fapi) => supplierChips(fapi, r) };
       return [head, { ...defs.invoiceNo, required: true }, { ...defs.invoiceDate, required: true }, defs.priceHint, supplier,
-        r.invoiceId ? { key: 'payerCompanyId', label: 'Кто платит (наша компания)', type: 'select', required: true, options: await payerList() } : null].filter(Boolean);
+        r.invoiceId ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', required: true, options: await payerList() } : null].filter(Boolean);
     },
     toInitial: (r) => ({ ...r,
       invoiceNo: r._inv?.no || r.invoiceNo || '',
@@ -245,12 +245,12 @@ export function invoiceBlock(r, ctx) {
     const saveFiles = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveFiles, async () => { await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { fileIds: files.ids() } }); toast('Файлы счёта сохранены'); }) }, 'Сохранить файлы');
     // оплаченный/выставленный: значения текстом, не «серыми» полями — их всё равно не изменить
     const ro = (label, val) => h('div', { class: 'field' }, h('span', null, label), h('div', { class: 'inv-ro' }, val || h('span', { class: 'muted' }, '—')));
-    const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
+    const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор поставщика'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
     box.replaceChildren(
       h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
       ...(lock
-        ? [ro('№ счёта', inv.no), ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Кто платит (наша компания)', inv.payerName)]
-        : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Кто платит (наша компания)', payer)]),
+        ? [ro('№ счёта', inv.no), ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Наша компания', inv.payerName)]
+        : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Наша компания', payer)]),
       contractRow,
       h('div', { class: 'field' }, h('span', null, 'Файл счёта'), session.canEdit ? files.el : null,
         !session.canEdit && !(inv.files || []).length ? h('span', { class: 'muted' }, 'Файла нет') : null,

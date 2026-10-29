@@ -37,8 +37,8 @@ export function mountInvoicesTab(params = {}) {
     enhanceSelect(supSel);
   }).catch(() => {});
   // «Договор»: сервер фильтрует параметром contract=none|has
-  const ctrSel = h('select', { class: 'invl-f', 'aria-label': 'Договор', onchange: () => { F.contract = ctrSel.value; reload(); } },
-    h('option', { value: '' }, 'Договор: все'), h('option', { value: 'has' }, 'Договор: есть'), h('option', { value: 'none' }, 'Без договора'));
+  const ctrSel = h('select', { class: 'invl-f', 'aria-label': 'Договор поставщика', onchange: () => { F.contract = ctrSel.value; reload(); } },
+    h('option', { value: '' }, 'Договор поставщика: все'), h('option', { value: 'has' }, 'Договор поставщика: есть'), h('option', { value: 'none' }, 'Без договора'));
   const q = h('input', { type: 'search', class: 'invl-f', placeholder: 'Поиск: № счёта, поставщик…', oninput: () => { clearTimeout(timer); timer = setTimeout(() => { F.q = q.value.trim(); reload(); }, 300); } });
   const from = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'С даты', onchange: () => { F.from = from.value; reload(); } });
   const to = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'По дату', onchange: () => { F.to = to.value; reload(); } });
@@ -158,7 +158,7 @@ export function mountInvoicesTab(params = {}) {
 
     // договор счёта: «Привязать» открывает заявку счёта справа — там поле «Договор»
     const firstReq = reqs[0]?.id;
-    const contractLine = h('div', { class: 'invl-contract' }, h('span', { class: 'muted' }, 'Договор: '), contractView(inv),
+    const contractLine = h('div', { class: 'invl-contract' }, h('span', { class: 'muted' }, 'Договор поставщика: '), contractView(inv),
       firstReq && canContract() && inv.status !== 'cancelled' ? h('button', { type: 'button', class: 'link-btn', onclick: () => patch({ of: 'requests', open: firstReq }) }, inv.contractId ? 'Изменить' : 'Привязать') : null);
 
     const actions = [];

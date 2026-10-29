@@ -55,7 +55,7 @@ export const passports = {
     query: (P) => ({ ...(P.state === 'incomplete' ? { incomplete: 1 } : {}), ...(P.state === 'noImages' ? { noImages: 1 } : {}) }),
     filters: [
       { key: 'status', label: 'Статус', type: 'select', options: async () => [{ value: 'draft', label: 'Черновики' }, { value: 'issued', label: 'Выпущенные' }, { value: 'annulled', label: 'Аннулированные' }] },
-      { key: 'state', label: 'Показать', type: 'chips', options: () => [{ value: 'incomplete', label: 'Неполные' }, { value: 'noImages', label: 'Без картинок' }],
+      { key: 'state', label: 'Фильтр', type: 'chips', options: () => [{ value: 'incomplete', label: 'Неполные' }, { value: 'noImages', label: 'Без картинок' }],
         count: (resp, v) => (v === '' ? undefined : v === 'incomplete' ? resp.incomplete : undefined) },
       // Б2: категория → год → месяц → поставщик → заказчик — воронкой в левой панели (toolbarExtra); здесь — для «Сбросить всё» и счётчика
       { key: 'category', label: 'Категория', type: 'hidden' },
@@ -107,9 +107,9 @@ export const passports = {
       { key: 'passportNumber', label: '№', sort: 'passportNo', cls: 'nowrap', render: (r) => h('b', null, numberOf(r) || '—') },
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => h('span', null, statusBadge(r), r.manualText?.length ? h('span', { class: 'badge info', title: 'Текст изменён вручную, не из справочника' }, ' изменено вручную') : null) },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
-      { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name || '' }, r.name || h('span', { class: 'muted' }, 'без названия')) },
+      { key: 'name', label: 'Название', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name || '' }, r.name || h('span', { class: 'muted' }, 'без названия')) },
       { key: 'category', label: 'Категория', sort: 'category', cls: 'md-hide', render: (r) => r.category || h('span', { class: 'muted' }, '—') },
-      { key: 'customerName', label: 'Заказчик / объект', sort: 'customerName', cls: 'clip md-hide', render: (r) => h('span', { title: [r.customerName, r.orderNo && 'заказ ' + r.orderNo, r.objectName].filter(Boolean).join(' · ') }, [r.customerName, r.orderNo && '№' + r.orderNo, r.objectName].filter(Boolean).join(' · ') || h('span', { class: 'muted' }, '—')) },
+      { key: 'customerName', label: 'Заказчик', sort: 'customerName', cls: 'clip md-hide', render: (r) => h('span', { title: [r.customerName, r.orderNo && 'заказ ' + r.orderNo, r.objectName].filter(Boolean).join(' · ') }, [r.customerName, r.orderNo && '№' + r.orderNo, r.objectName].filter(Boolean).join(' · ') || h('span', { class: 'muted' }, '—')) },
       { key: 'warrantyCode', label: 'Талон', cls: 'nowrap md-hide muted', render: (r) => r.warrantyCode || '' },
       { key: 'missing', label: 'Заполнено', cls: 'nowrap', render: (r) => (r.missing?.length ? h('span', { class: 'badge warn', title: 'Не хватает: ' + r.missing.join(', ') }, `нет ${r.missing.length}`) : h('span', { class: 'badge ok' }, 'всё')) },
     ],
@@ -127,7 +127,7 @@ export const passports = {
     subheading: (r) => [r.name, r.category].filter(Boolean).join(' · '),
     stats: (r) => [['Статус', STATUS_LABEL[statusOf(r)] + (r.revision > 1 ? `, редакция ${r.revision}` : '') + (r.annulReason ? ` — ${r.annulReason}` : '')], ['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
     view: (r) => [
-      ['Наименование', r.name],
+      ['Название', r.name],
       ['Категория', r.category],
       ['Артикул', r.article],
       ['Габариты (В × Д × Ш)', dims(r)],

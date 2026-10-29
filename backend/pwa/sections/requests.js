@@ -73,12 +73,12 @@ export async function receiveDialog(r) {
   const saved = await modal({
     title: 'Принять: ' + name(r),
     body: h('div', null,
-      h('label', { class: 'field' }, h('span', null, `Сколько пришло${r.unit ? ', ' + r.unit : ''}`), left),
+      h('label', { class: 'field' }, h('span', null, `Количество${r.unit ? ', ' + r.unit : ''}`), left),
       h('div', { class: 'field' }, h('span', null, 'Куда пошло'), seg),
       objWrap,
       h('label', { class: 'check' }, stock, ' Поставить на склад'), stockHint,
       r.materialName || !stock.checked ? null : h('p', { class: 'hint' }, 'Такой позиции на складе нет — она будет создана.')),
-    okText: 'Принять',
+    okText: 'Принять на склад',
     onOk: async () => {
       const n = Number(String(left.value).replace(',', '.').replace(/\s/g, ''));
       if (!(n > 0)) throw new Error('Укажите количество больше нуля');
@@ -155,7 +155,7 @@ const fields = async (r) => {
     r ? null : { key: '_pick', type: 'pick', load: pastItems, target: 'title' },
     { key: 'materialId', type: 'hidden' },
     { key: 'num', type: 'hidden' },
-    { key: 'title', mount: wireFill, label: 'Наименование', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
+    { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
     { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
     { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(lk), max: 30, span: 1 },
@@ -282,7 +282,7 @@ export const requests = {
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => pic(r.photo) },
       { key: 'num', label: '№', sort: 'num', cls: 'num', render: (r) => r.num ?? '' },
       { key: 'requestDate', label: 'Дата', sort: 'requestDate', cls: 'num', render: (r) => date(r.requestDate || r.createdAt) },
-      { key: 'title', label: 'Наименование', sort: 'title', cls: 'clip', render: (r) => h('span', { title: name(r) }, name(r)) },
+      { key: 'title', label: 'Название', sort: 'title', cls: 'clip', render: (r) => h('span', { title: name(r) }, name(r)) },
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
       { key: 'supplierName', label: 'Поставщик', cls: 'md-hide', render: (r) => r.supplierName || '' },
       { key: 'invoiceNo', label: 'Счёт', sort: 'invoiceNo', cls: 'nowrap md-hide', render: (r) => (r.invoiceNo ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), '№ ' + r.invoiceNo), String(r.invoiceId || 'n:' + r.invoiceNo)) : '') },

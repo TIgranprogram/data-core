@@ -83,7 +83,7 @@ export async function buildUnreserve(materialId) {
       h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: where(r) }, where(r)), r.hanging ? h('small', { class: 'neg' }, `висящая: ${r.hanging.toLowerCase()}`) : null),
       h('span', { class: 'num nowrap' }, `${qty(r.qty)} ${r.unit}`),
       h('span', { class: 'res-acts' },
-        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(r.id) }, 'изменить'),
+        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(r.id) }, 'Изменить'),
         h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => {
           if (!(await confirmDlg('Снять бронь?', `«${where(r)}» — ${qty(r.qty)} ${r.unit} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return;
           e.currentTarget.disabled = true;

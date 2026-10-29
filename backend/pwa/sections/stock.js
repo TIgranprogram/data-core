@@ -65,7 +65,7 @@ function stockActions() {
     menu.querySelector('button')?.focus();
   } }, 'ещё ▾');
   return h('div', { class: 'stock-acts' },
-    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять'),
+    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять на склад'),
     h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('out') }, 'Выдать'),
     h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('reserve') }, 'Забронировать'),
     h('div', { class: 'rel' }, more, menu),
@@ -121,7 +121,7 @@ export const stock = {
     rowAction: (r) => {
       const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { orderItem(row); return false; } };
       // ждёт поставку — «Принять»: окно прихода само предложит закрыть заявку (receiveField)
-      const inc = r.ordered > 0 ? { label: 'Принять', title: 'Приехала поставка: принять на склад и закрыть заявку', run: (row) => { openStockOp('in', row.id); return false; } } : { label: '+ Приход', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
+      const inc = r.ordered > 0 ? { label: 'Принять на склад', title: 'Приехала поставка: принять на склад и закрыть заявку', run: (row) => { openStockOp('in', row.id); return false; } } : { label: '+ Приход', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
       const out = { label: '− Выдать', title: 'Выдача / расход: кому и под что — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } };
       const fromRes = { label: 'Из брони', title: 'Выдать забронированное: количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } };
       const base = r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
@@ -136,10 +136,10 @@ export const stock = {
     },
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => pic(r.photos?.[0]) },
-      { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
+      { key: 'name', label: 'Название', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
       { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
       { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => h('b', null, qty(r.quantity)) },
-      { key: 'unit', label: 'Ед.', render: unit },
+      { key: 'unit', label: 'Ед. изм.', render: unit },
       { key: 'reservedQty', label: 'В брони', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
@@ -213,7 +213,7 @@ export const stock = {
         { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },
         // новая позиция — сразу «Начальный остаток»: штуками или по весу (НО.2)
         ...(row ? [] : [{ section: 'Начальный остаток', tone: 'info', fixed: true },
-          { key: 'initial', type: 'widget', label: '', wide: true, widget: () => { const q = h('input', { inputmode: 'decimal', placeholder: '0' }); const wc = weightCount({ qtyInput: q, label: 'Сколько лежит' }); return { el: wc.el, get value() { return JSON.stringify(wc.get()); }, set value(_) { /* только ввод */ } }; } }]),
+          { key: 'initial', type: 'widget', label: '', wide: true, widget: () => { const q = h('input', { inputmode: 'decimal', placeholder: '0' }); const wc = weightCount({ qtyInput: q, label: 'Количество' }); return { el: wc.el, get value() { return JSON.stringify(wc.get()); }, set value(_) { /* только ввод */ } }; } }]),
         { key: 'weightG', label: 'Вес 1 шт., г', type: 'number', min: 0, hint: 'Для счёта по весу: штуки = вес партии ÷ вес 1 шт.' },
         ...metalFields(),
         { section: 'Фото и примечание', tone: 'main' },

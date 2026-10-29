@@ -87,7 +87,7 @@ async function buildInvoiceForm(opts = {}) {
     const dupe = orderedNote(); // ЗП.3: позиция уже заказана — предупредить в строке
     row.el = h('div', { class: 'inv-row' },
       h('div', { class: 'inv-pick' }, field('Категория', h('div', { class: 'has-combo' }, cat)), field('Позиция', h('div', { class: 'has-combo' }, title))),
-      h('div', { class: 'inv-main' }, field('Кол-во', q), field('Ед.', h('div', { class: 'has-combo' }, unit)), session.canMoney ? field('Сумма, ₽', sum) : h('span'), h('div', { class: 'inv-btns' }, addNew, del)),
+      h('div', { class: 'inv-main' }, field('Кол-во', q), field('Ед. изм.', h('div', { class: 'has-combo' }, unit)), session.canMoney ? field('Сумма, ₽', sum) : h('span'), h('div', { class: 'inv-btns' }, addNew, del)),
       dupe.el, nBox);
     lines.append(row.el);
     let catSel = '';
@@ -185,7 +185,7 @@ async function buildInvoiceForm(opts = {}) {
   const pasteBox = opts.paste ? h('div', { class: 'form-block paste-box', 'data-tone': 'info' },
     h('div', { class: 'section-title' }, 'Вставьте строки таблицы'), pasteArea,
     h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('label', { class: 'btn btn-sm file-btn', title: 'Файл Excel (.xlsx) или CSV — первый лист' }, 'Загрузить файл…', h('input', { type: 'file', accept: '.xlsx,.csv,.txt', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; try { pasteArea.value = await readTableFile(fl); applyPaste(); } catch (err) { toastError(err); } } })),
-      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onclick: () => downloadTemplate() }, 'Скачать шаблон'), h('span', { class: 'spacer' })), pasteInfo) : null;
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onclick: () => downloadTemplate() }, '⇩ Шаблон Excel'), h('span', { class: 'spacer' })), pasteInfo) : null;
 
   const body = h('div', { class: 'inv' },
     h('p', { class: 'hint' }, opts.paste

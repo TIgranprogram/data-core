@@ -40,7 +40,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1p
 <p class="noprint m">Печать: Ctrl+P → «Сохранить как PDF».</p>
 <div class="head"><div><b style="font-size:16px">${esc(c.fullName || c.name || '')}</b><div class="m">${req}</div><div class="m">${bank}</div></div>
 <div style="text-align:right"><h1>Коммерческое предложение</h1><div>№ ${esc(d.number)} от ${esc(new Date(d.date).toLocaleDateString('ru-RU'))}</div>${d.customer ? `<div>Для: <b>${esc(d.customer)}</b></div>` : ''}</div></div>
-<table><thead><tr><th>№</th><th>Фото</th><th>Наименование</th><th class="r">Кол-во</th><th class="r">Цена</th><th class="r">Сумма</th></tr></thead><tbody>${rows}
+<table><thead><tr><th>№</th><th>Фото</th><th>Название</th><th class="r">Кол-во</th><th class="r">Цена</th><th class="r">Сумма</th></tr></thead><tbody>${rows}
 <tr class="tot"><td colspan="5" class="r">Итого</td><td class="r">${rub(d.total)}</td></tr></tbody></table>
 ${d.note ? `<div class="note">${esc(d.note)}</div>` : ''}</body></html>`;
   const w = window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
@@ -103,7 +103,7 @@ async function buildImportForm() {
   area.addEventListener('input', () => { clearTimeout(area._t); area._t = setTimeout(check, 400); });
   file.addEventListener('change', async () => { if (file.files[0]) { try { area.value = await readTableFile(file.files[0]); check(); } catch (e) { report.replaceChildren(h('p', { class: 'err' }, errText(e))); } } });
   const el = h('div', null, h('p', { class: 'hint' }, 'Каталог изделий: по артикулу — новые добавятся, у существующих обновятся название, раздел, группа, серия (цена — только если её ещё нет). Ничего не удаляется. Изделия без цены — черновики.'),
-    h('button', { class: 'btn', type: 'button', title: 'Пустая таблица с нужными колонками и примером', onclick: () => downloadXlsx('Шаблон каталога изделий.xlsx', [['Тип', 'Группа', 'Артикул', 'Наименование', 'Серия', 'Цена'], ['Детское игровое оборудование', 'Качели', 'КЧ-001', 'Качели двойные', 'Классик', 12500]], 'Каталог') }, '⇩ Скачать шаблон Excel'),
+    h('button', { class: 'btn', type: 'button', title: 'Пустая таблица с нужными колонками и примером', onclick: () => downloadXlsx('Шаблон каталога изделий.xlsx', [['Тип', 'Группа', 'Артикул', 'Наименование', 'Серия', 'Цена'], ['Детское игровое оборудование', 'Качели', 'КЧ-001', 'Качели двойные', 'Классик', 12500]], 'Каталог') }, '⇩ Шаблон Excel'),
     h('label', { class: 'field wide' }, h('span', null, 'Файл Excel (.xlsx) или CSV'), file), h('label', { class: 'field wide' }, h('span', null, 'Или вставьте строки'), area), report);
   return {
     el, focus: () => area.focus(), dirty: () => !!area.value.trim(),

@@ -86,7 +86,7 @@ export function mountPayroll() {
     const sel = h('select', null, h('option', { value: '' }, 'выбрать компанию…'), ...l.companies.map((c) => h('option', { value: c.id }, c.name)));
     sel.addEventListener('change', async () => {
       if (!sel.value) return;
-      try { await api(`/payroll/people/${p.id}`, { method: 'PATCH', body: { companyId: sel.value } }); toast('Компания сотрудника сохранена'); load(); } catch (e) { toastError(e); }
+      try { await api(`/payroll/people/${p.id}`, { method: 'PATCH', body: { companyId: sel.value } }); toast('Наша компания сотрудника сохранена'); load(); } catch (e) { toastError(e); }
     });
     cell.replaceChildren(sel);
   }
@@ -119,7 +119,7 @@ export function mountPayroll() {
       h('div', { class: 'summary' }, kpi('сотрудников', qty(items.length)), kpi('начислено', money(t.accrued)), kpi('выплачено', money(t.paid)), kpi('остаток к выплате', money(t.balance), t.balance > 0 ? 'neg' : '')),
       noRate,
       h('div', { class: 'panel' }, h('div', { class: 'table-wrap' }, h('table', { class: 'list' },
-        h('thead', null, h('tr', null, ...[['Сотрудник'], ['Компания', 'md-hide'], ['Ставка', 'right'], ['Часы / дни', 'right'], ['Начислено', 'right'], ['Выплачено', 'right'], ['Остаток', 'right'], ['Срок выплаты', 'md-hide'], ['']].map(([x, c]) => h('th', { class: c || '' }, x)))),
+        h('thead', null, h('tr', null, ...[['Сотрудник'], ['Наша компания', 'md-hide'], ['Ставка', 'right'], ['Часы / дни', 'right'], ['Начислено', 'right'], ['Выплачено', 'right'], ['Остаток', 'right'], ['Срок выплаты', 'md-hide'], ['']].map(([x, c]) => h('th', { class: c || '' }, x)))),
         h('tbody', null, ...items.map(row)),
         h('tfoot', null, h('tr', { class: 'total' }, h('td', { colspan: 4 }, 'Итого'), h('td', { class: 'num right' }, money(t.accrued)), h('td', { class: 'num right' }, money(t.paid)), h('td', { class: 'num right' }, money(t.balance)), h('td', { colspan: 2 }))))),
       h('p', { class: 'hint' }, 'Часы и дни правятся прямо в строке (почасовая — часы; оклад — отработано дней из нормы, пусто — полный оклад). Остаток — начислено минус выплачено; срок — по графику выплат сотрудника.')),

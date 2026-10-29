@@ -165,7 +165,7 @@ async function importExcelDialog(r) {
   const dlTpl = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Ед. изм.', 'Кол-во', 'Группа', 'Цена'],
     ['АРТ-001', 'Качели двойные', 'Зелёный', 'шт', 1, 'Качели', 12500], ['АРТ-002', 'Труба 40×20×2', '', 'м', 6, 'Металл', 210]], 'Прайс');
   const hint = h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. Строки появятся для проверки перед добавлением. ',
-    h('button', { type: 'button', class: 'link-btn', onclick: dlTpl }, '⇩ Скачать шаблон'));
+    h('button', { type: 'button', class: 'link-btn', onclick: dlTpl }, '⇩ Шаблон Excel'));
 
   function renderPreview(rows) {
     previewRows = rows;
@@ -290,7 +290,7 @@ export const partners = {
     // СП.1: все реквизиты блоками; новый — сначала «кто это» (по вкладке списка)
     fields: async (r) => [
       { section: 'Контрагент', tone: 'main', fixed: true },
-      ...(r ? [] : [{ key: 'kind', label: 'Кто это', type: 'segment', required: true, wide: true,
+      ...(r ? [] : [{ key: 'kind', label: 'Тип контрагента', type: 'segment', required: true, wide: true,
         options: [{ value: 'supplier', label: 'Поставщик' }, { value: 'customer', label: 'Заказчик' }, { value: 'our', label: 'Наша компания' }] }]),
       { key: 'name', label: r?.kind === 'customer' ? 'Название (во всех заказах)' : 'Название', required: true, wide: true, max: 300,
         hint: r?.kind === 'customer' ? 'Поменяется во всех заказах и позициях этого заказчика' : undefined },

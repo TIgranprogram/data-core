@@ -23,9 +23,9 @@ function editor(st, onDone) {
   const states = (st?.states || []).map((s) => ({ ...s }));
   if (isNew) states.push({ label: '', color: GREY });
   const stBox = h('div', { class: 'stk-edit-states' });
-  const unitField = h('label', { class: 'field' }, h('span', null, 'Единица измерения (необязательно)'), unit);
-  const statesField = h('div', { class: 'field' }, h('span', null, 'Состояния и их цвета'), stBox,
-    h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { states.push({ label: '', color: GREY }); paintStates(); } }, '+ Состояние'));
+  const unitField = h('label', { class: 'field' }, h('span', null, 'Ед. изм. (необязательно)'), unit);
+  const statesField = h('div', { class: 'field' }, h('span', null, 'Статусы и их цвета'), stBox,
+    h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { states.push({ label: '', color: GREY }); paintStates(); } }, '+ Статус'));
   function paintStates() {
     stBox.replaceChildren(...states.map((s, i) => h('div', { class: 'stk-edit-row' },
       h('input', { type: 'color', value: /^#[0-9a-fA-F]{6}$/.test(s.color || '') ? s.color : GREY, 'aria-label': 'Цвет', oninput: (e) => { s.color = e.target.value; } }),

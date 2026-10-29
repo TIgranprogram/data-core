@@ -39,4 +39,9 @@ export class UiPrefsDto {
   @IsOptional()
   @Matches(/^(all|[a-f0-9]{24})$/, { message: 'lastChat — id пользователя или all' })
   lastChat?: string;
+
+  @ApiPropertyOptional({ example: 'two', description: 'Вид правой панели: one | two | wide' })
+  @IsOptional()
+  @Matches(/^(one|two|wide)$/, { message: 'panelLayout — one, two или wide' })
+  panelLayout?: string;
 }

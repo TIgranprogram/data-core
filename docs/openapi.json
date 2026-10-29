@@ -13653,6 +13653,11 @@
             "type": "string",
             "example": "all",
             "description": "Чат: последний открытый собеседник — id пользователя или all"
+          },
+          "panelLayout": {
+            "type": "string",
+            "example": "two",
+            "description": "Вид правой панели: one | two | wide"
           }
         }
       },

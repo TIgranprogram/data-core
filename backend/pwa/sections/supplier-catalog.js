@@ -136,7 +136,7 @@ function topBlock(reload) {
   const gear = h('button', { class: 'btn btn-ghost', type: 'button', title: 'Шаблон, загрузка и выгрузка Excel', 'aria-label': 'Действия с Excel', 'aria-haspopup': 'menu',
     onclick: () => openPopMenu({ anchor: gear, side: 'down', groups: [
       { items: [
-        { label: 'Скачать шаблон Excel', onSelect: () => download('/supply/catalog/template', {}, 'Шаблон_каталога.xlsx') },
+        { label: '⇩ Шаблон Excel', onSelect: () => download('/supply/catalog/template', {}, 'Шаблон_каталога.xlsx') },
         canWrite() ? { label: 'Загрузить Excel…', onSelect: () => importDialog(reload) } : null,
         { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
       ] }] }) }, icon('settings'));
@@ -279,14 +279,14 @@ export const supplierCatalog = {
     landing: { when: (P) => !P.supplierId && !P.catId && !P.subId && !P.q && !P.flag && !P.all, render: catLanding },
     createLabel: 'Новая позиция',
     searchPlaceholder: 'Артикул, название, примечание…',
-    emptyText: 'В каталоге пока пусто. Загрузите прайс поставщика по шаблону: шестерёнка → «Скачать шаблон Excel», затем «Загрузить Excel…».',
+    emptyText: 'В каталоге пока пусто. Загрузите прайс поставщика по шаблону: шестерёнка → «⇩ Шаблон Excel», затем «Загрузить Excel…».',
     columns: [
       { key: 'photo', label: '', render: (r) => thumb(r) },
       { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },
       { key: 'article', label: 'Артикул поставщика', cls: 'nowrap', render: (r) => r.article && !r.article.startsWith('manual:') ? r.article : h('span', { class: 'muted' }, '—') },
       { key: 'name', label: 'Название у поставщика', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name, r.color ? h('span', { class: 'muted' }, ' · ' + r.color) : null) },
       { key: 'material', label: 'Наш материал', cls: 'clip md-hide', render: (r) => r.materialId ? h('span', { title: r.materialArticle }, r.materialName) : h('span', { class: 'badge warn', title: 'Не связана с позицией склада' }, 'нет связи') },
-      { key: 'unit', label: 'Ед.', cls: 'md-hide', render: (r) => r.unit || '' },
+      { key: 'unit', label: 'Ед. изм.', cls: 'md-hide', render: (r) => r.unit || '' },
       { key: 'priceHint', label: 'Цена, ₽', cls: 'num right', render: (r) => r.priceHint != null ? money(r.priceHint) : h('span', { class: 'muted' }, '—') },
       { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => (isStale(r) ? h('span', { class: 'sc-stale', title: 'Цене больше 6 месяцев' }, r.priceDate ? 'от ' + date(r.priceDate) + ' — устарела' : 'устарела') : r.priceDate ? date(r.priceDate) : '') },
       { key: 'stockQty', label: 'Остаток', cls: 'num right md-hide', render: (r) => r.stockQty != null ? qty(r.stockQty) : '' },

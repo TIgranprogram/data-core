@@ -21,34 +21,34 @@ import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
- * Вкладки «В работе / Выполненные», доска по этапам, карточка: позиции, что заказано под заказ
- * (заявки) и что отпущено со склада. Выполненные сворачиваются по месяцам отгрузки (фаза М).
+ * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
+ * (заявки) и что отпущено со склада. Закрытые сворачиваются по месяцам отгрузки (фаза М).
  */
 export const STAGE = {
   new: { label: 'Проектирование', tone: 'primary' },
   production: { label: 'Производство', tone: 'info' },
   ready: { label: 'Готово к отгрузке', tone: 'warn' },
   partly: { label: 'Частично отгружен', tone: 'warn' },
-  shipped: { label: 'Отгружена', tone: 'ok' },
+  shipped: { label: 'Отгружен', tone: 'ok' },
   closed: { label: 'Закрыт', tone: 'dim' },
   cancelled: { label: 'Отменён', tone: 'danger' },
 };
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
-const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружена', shipped: 'Закрыть' };
+const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружен', shipped: 'Закрыть' };
 const STAGE_ORDER = Object.keys(STAGE);
 /** Подсказка у кнопки следующего этапа: что произойдёт и что дальше. */
 const NEXT_TIP = {
   new: 'Заказ уйдёт в производство. Дальше — «Готово к отгрузке», когда всё изготовлено.',
-  production: 'Отметьте, когда всё изготовлено. Дальше оформите отгрузку — этап «Частично отгружен» / «Отгружена» поставится сам.',
+  production: 'Отметьте, когда всё изготовлено. Дальше оформите отгрузку — этап «Частично отгружен» / «Отгружен» поставится сам.',
   ready: 'Обычно этап ставится сам, когда оформлена отгрузка. Кнопка — если отгрузили без документа.',
-  shipped: 'Закрыть заказ, когда работа и оплата завершены. Закрытый заказ уходит в «Выполненные».',
+  shipped: 'Закрыть заказ, когда работа и оплата завершены. Закрытый заказ уходит в «Закрытые».',
 };
 /** Откуда этап и что дальше — строка в карточке заказа. */
 const STAGE_NOW = {
   new: 'Сейчас — проектирование. Дальше — кнопка «В производство».',
   production: 'Сейчас — производство. Когда всё изготовлено — кнопка «Готово к отгрузке».',
-  ready: 'Готов к отгрузке. Этап «Частично отгружен» / «Отгружена» поставится сам, когда оформите отгрузку.',
-  partly: 'Отгружено частично. Когда отгрузите всё — этап «Отгружена» поставится сам.',
+  ready: 'Готов к отгрузке. Этап «Частично отгружен» / «Отгружен» поставится сам, когда оформите отгрузку.',
+  partly: 'Отгружено частично. Когда отгрузите всё — этап «Отгружен» поставится сам.',
   shipped: 'Отгружено всё. Закройте заказ, когда работа и оплата завершены.',
 };
 const HINT = {
@@ -235,14 +235,14 @@ function contractGroup(o, reload) {
     if (!(await confirmDlg('Удалить?', salesorders.remove.text(o) + ' Её можно будет восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
     try {
       if ((await withConfirm(async () => { await salesorders.remove.run(o); return true; }, { text: 'Удаление требует вашего пароля.' })) === null) return;
-      toast('Договор удалён'); window.dispatchEvent(new CustomEvent('data-changed')); reload?.();
+      toast('Договор с заказчиком удалён'); window.dispatchEvent(new CustomEvent('data-changed')); reload?.();
     } catch (e) { toast(errText(e)); }
   } }, 'Удалить'));
   const head = h('div', { class: 'so-grp-head' },
     h('div', { class: 'so-grp-title' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : ''), ' ', badge(STAGE, o.stage), ' ', due(o)),
     acts.length ? h('div', { class: 'so-grp-acts' }, ...acts) : null);
   const table = lines.length
-    ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Наименование'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
+    ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Название'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null)),
       h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
         h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title, ourLine(l), l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
         h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null))))
@@ -275,7 +275,7 @@ function produceBlock(d) {
   const t = d.toProduce || [];
   if (!t.length) return null;
   return sec(`К производству (${t.length})`,
-    h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, 'Изделие'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Ед.'), h('th', null, 'Из позиций'))),
+    h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, 'Изделие'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Ед. изм.'), h('th', null, 'Из позиций'))),
       h('tbody', null, ...t.map((x, i) => h('tr', null, h('td', { class: 'muted' }, i + 1), h('td', null, x.title), h('td', { class: 'num nowrap' }, qty(x.qty)), h('td', { class: 'muted' }, x.unit || ''), h('td', { class: 'muted' }, (x.seqNos || []).join(', ')))))),
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
 }
@@ -334,8 +334,8 @@ export const salesorders = {
     emptyHint: 'Нажмите «+ Заказ»: № заказа, заказчик, срок. Договоры с одним № заказа объединяются в один заказ.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
     filters: [
-      // вкладки: Новые → В работе (по умолчанию) → Выполненные → Все в конце (пользователь 2026-10-28)
-      { key: 'filter', label: 'Состояние', type: 'chips', defaultValue: 'active', noAll: true, options: () => [{ value: 'new', label: 'Новые' }, { value: 'active', label: 'В работе' }, { value: 'done', label: 'Выполненные' }, { value: 'all', label: 'Все' }], count: (resp, v) => (v === 'new' ? resp.counts?.fresh : resp.counts?.[v]) },
+      // вкладки: Новые → В работе (по умолчанию) → Закрытые → Все в конце (пользователь 2026-10-28)
+      { key: 'filter', label: 'Статус', type: 'chips', defaultValue: 'active', noAll: true, options: () => [{ value: 'new', label: 'Новые' }, { value: 'active', label: 'В работе' }, { value: 'done', label: 'Закрытые' }, { value: 'all', label: 'Все' }], count: (resp, v) => (v === 'new' ? resp.counts?.fresh : resp.counts?.[v]) },
     ],
     top: (reload) => h('div', null, unmatchedTop(), unassignedTop(reload)),
     hints: HINT,
@@ -346,7 +346,7 @@ export const salesorders = {
       { key: 'productionNo', label: '№ заказа', sort: 'productionNo', cls: 'nowrap', render: (r) => (r.productionNo ? h('b', null, r.productionNo) : h('span', { class: 'muted' }, 'нет №')) },
       { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: names(r.customers) }, names(r.customers)) },
-      { key: 'companyName', label: 'Компания', cls: 'md-hide', render: (r) => names(r.companyNames) || h('span', { class: 'muted' }, '—') },
+      { key: 'companyName', label: 'Наша компания', cls: 'md-hide', render: (r) => names(r.companyNames) || h('span', { class: 'muted' }, '—') },
       { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => qty(r.lineCount) },
       { key: 'deadline', label: 'Срок', sort: 'deadline', cls: 'nowrap', render: due },
       { key: 'amount', money: true, label: 'Сумма', cls: 'num right md-hide', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, '—')) },
@@ -390,7 +390,7 @@ export const salesorders = {
       return [
         NEXT[r.stage] && { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage] + (many ? ' Договоры выберете галочками.' : ''), primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
         !closedStage(r) && r.productionNo && session.canEdit && { label: '+ Добавить договор', title: 'Выбрать договоры без заказа и добавить их в этот заказ', run: async (row, ctx) => { if (await addContractsDialog(row.productionNo, null)) { const s = await salesorders.get(row.key || row.id); if (s) ctx.setRow(s); } } },
-        !closedStage(r) && { label: '+ Договор в этот заказ', title: 'Новый договор с этим № заказа', run: (row) => patch({ of: 'salesorder', new: '1', productionNo: row.productionNo || '', customer: names(row.customers) && (row.customers || [])[0] || '', open: undefined }, { replace: false }) },
+        !closedStage(r) && { label: '+ Договор с заказчиком в этот заказ', title: 'Новый договор с этим № заказа', run: (row) => patch({ of: 'salesorder', new: '1', productionNo: row.productionNo || '', customer: names(row.customers) && (row.customers || [])[0] || '', open: undefined }, { replace: false }) },
       ];
     },
     extra: (r) => details(r),
@@ -400,7 +400,7 @@ export const salesorders = {
 /** Договор (`salesorders`): правка шапки, отмена, удаление. Открывается из группы в карточке заказа. */
 export const salesorder = {
   id: 'salesorder',
-  title: 'Договор',
+  title: 'Договор с заказчиком',
   newTitle: 'Новый договор',
   entityType: 'SalesOrder',
   historyLabels: { 'salesorder.created': 'Создан', 'salesorder.updated': 'Изменён', 'salesorder.deleted': 'Удалён', 'salesorder.restored': 'Восстановлен' },
@@ -429,7 +429,7 @@ export const salesorder = {
     ],
     actions: (r) => [
       NEXT[r.stage] && { label: NEXT_LABEL[r.stage], run: async (row, ctx) => ctx.setRow(await setContractStage(row, NEXT[row.stage])) },
-      r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить договор', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить договор ${row.orderNo || ''}?`, 'Договор перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить договор', danger: true }))) return; ctx.setRow(await setContractStage(row, 'cancelled')); } },
+      r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить договор с заказчиком', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить договор с заказчиком ${row.orderNo || ''}?`, 'Договор перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить договор с заказчиком', danger: true }))) return; ctx.setRow(await setContractStage(row, 'cancelled')); } },
       !closedStage(r) && ['admin', 'manager'].includes(session.role) && { label: 'Связать с каталогом', title: 'Связать позиции заказчика с нашими изделиями — для паспорта и производства. Договор не меняется.', run: async (row, ctx) => { const s = await matchProducts(row); if (s) ctx.setRow(s); } },
       session.sees('orders') && { label: '+ Позиция', run: (row) => go('orders', { new: '1', orderNo: row.orderNo || '', customer: row.customer || '', companyName: row.companyName || '', orderId: row.id }) },
     ],
@@ -442,7 +442,7 @@ export const salesorder = {
         api('/production-orders', { query: { filter: 'active', limit: 200, sort: '-createdAt' } }).then((r) => uniq((r.items || []).map((x) => x.productionNo))).catch(() => []),
       ]);
       return [
-        { section: 'Договор', tone: 'main', fixed: true },
+        { section: 'Договор с заказчиком', tone: 'main', fixed: true },
         { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50,
           hint: row ? 'Номер для производства, например 21-26: номер и год. Выберите № из списка — договор войдёт в этот заказ.'
             : 'Подставлен свободный №. Выберите № из списка — договор войдёт в этот заказ. Очистите поле — снова встанет свободный.',

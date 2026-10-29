@@ -38,7 +38,7 @@ export function orderReservations(order, onChanged) {
           h('small', { class: x.canIssue ? 'muted' : 'neg' }, lineLabel(x) + (x.issued ? ` · уже выдано ${qty(x.issued)} ${x.unit}` : '') + (x.canIssue ? '' : x.onHand > 0 ? ` · на складе только ${qty(x.onHand)} ${x.unit}` : ' · на складе нет'))),
         h('span', { class: 'num nowrap', title: 'Осталось в брони' }, `${qty(x.qty)} ${x.unit}`),
         session.canEdit ? h('span', { class: 'res-acts' },
-          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(x.id) }, 'изменить'),
+          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(x.id) }, 'Изменить'),
           h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => { const btn = e.currentTarget; if (!(await confirmDlg('Снять бронь?', `«${x.name}» — ${qty(x.qty)} ${x.unit || ''} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return; btn.disabled = true; try { await api(`/stock/reservations/${x.id}/release`, { method: 'POST' }); toast('Бронь снята'); await refresh(); } catch (er) { toastError(er); btn.disabled = false; } } }, 'снять')) : null);
     });
     box.replaceChildren(

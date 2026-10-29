@@ -15,7 +15,7 @@ import { unmatchedCount } from './matching-queue.js';
  */
 const SNOOZE_KEY = 'dc-today-snooze';
 const SEC_OF = { delivery: 'requests', shipment: 'salesorders', design: 'design' };
-const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка', design: 'Проектирование', question: 'Вопрос', payment: 'Платёж' };
+const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка', design: 'Проектирование', question: 'Вопрос', payment: 'Оплата' };
 const SVGNS = 'http://www.w3.org/2000/svg';
 
 function svg(tag, attrs = {}, ...kids) {

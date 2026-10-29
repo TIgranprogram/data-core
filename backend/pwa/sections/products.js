@@ -73,7 +73,7 @@ async function productBulkFields() {
   return [
     { key: 'type', label: 'Тип оборудования', type: 'combo', options: fv.sections.map((x) => x.value), hint: 'Группа у каждого изделия останется своя' },
     { key: 'group', label: 'Группа изделий', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Тип у каждого изделия останется свой' },
-    { key: 'series', label: 'Наименование серии', type: 'combo', options: fv.series.map((x) => x.value) },
+    { key: 'series', label: 'Название серии', type: 'combo', options: fv.series.map((x) => x.value) },
     { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже' }, { value: 'archived', label: 'Архив' }] },
     { key: 'price', label: 'Цена, ₽ — одна для всех', type: 'number', map: n },
     { key: 'designerId', label: 'Кто проектировал', type: 'combo', options: staff.map((p) => ({ value: p.id, label: p.label, sub: p.sub })), map: (v) => (v ? ids.get(v) || '' : ''), hint: 'Пусто — снять' },
@@ -279,7 +279,7 @@ export const products = {
     filters: [
       { key: 'groupId', label: 'Тип · Группа', type: 'hidden' }, // выбирается деревом «Тип · Группа изделий»
       { key: 'series', label: 'Серия', type: 'hidden' }, // Б1: шаг воронки слева (toolbarExtra), числа — при выбранной группе
-      { key: 'status', label: 'Состояние', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
+      { key: 'status', label: 'Статус', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
     ],
     // серия — точное совпадение на сервере (query series)
     query: (P) => (P.series ? { series: P.series } : {}),
@@ -325,7 +325,7 @@ export const products = {
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => { const p = pic(r.photo); p.classList.add('pic-lg'); return p; } },
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
-      { key: 'name', label: 'Наименование', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name) },
+      { key: 'name', label: 'Название', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name) },
       { key: 'group', label: 'Тип · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
       { key: 'price', label: 'Цена', sort: 'price', cls: 'num right', render: (r) => (r.price ? money(r.price) : h('span', { class: 'muted' }, 'нет цены')) },
@@ -353,7 +353,7 @@ export const products = {
       ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name],
       ['Название в договоре', r.orderName || r.name],
       grp('Классификация'),
-      ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
+      ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Название серии', r.series],
       // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
       ['Категория паспорта', passportCatView(r, ctx)],
       grp('Статус и цена'),
@@ -443,7 +443,7 @@ export const products = {
       { key: 'orderName', label: 'Название в договоре', max: 500, span: 3, hint: 'Как изделие называется в договорах заказчика — по нему система предлагает сопоставление. Пусто — берётся короткое' },
       { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
       { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного типа' },
-      { key: 'series', label: 'Наименование серии', type: 'combo', max: 100, options: fv.series.map(opt) },
+      { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt) },
       { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
         hint: 'С ценой черновик сам становится «в продаже»' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Фото и состав — в карточке сразу после «Создать»' },
@@ -453,7 +453,7 @@ export const products = {
       { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
       { key: 'dimW', label: 'Ширина', type: 'number', min: 0, span: 1 },
       { key: 'dimH', label: 'Высота', type: 'number', min: 0, span: 1 },
-      { key: 'dimUnit', label: 'Ед. габаритов', type: 'combo', max: 10, span: 1, options: ['мм', 'см', 'м'] },
+      { key: 'dimUnit', label: 'Ед. изм. габаритов', type: 'combo', max: 10, span: 1, options: ['мм', 'см', 'м'] },
       { key: 'weightKg', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
       { key: 'unit', label: 'Ед. изм.', type: 'combo', max: 20, span: 1, options: (fv.units || []).map(opt) },
       { key: 'ralCode', label: 'RAL', type: 'combo', max: 100, options: (fv.ral || []).map(opt), load: dictNames('colors'), hint: 'Основной цвет покрытия: RAL 6005' },

@@ -14,7 +14,7 @@ export function mobileStockDashboard() {
   if (!isMobile()) return null;
 
   const actions = [
-    { key: 'in', label: 'Принять', sub: 'Приход товара', cls: 'ma-in', ico: 'stock' },
+    { key: 'in', label: 'Принять на склад', sub: 'Приход товара', cls: 'ma-in', ico: 'stock' },
     { key: 'out', label: 'Выдать', sub: 'Со склада', cls: 'ma-out', ico: 'moves' },
     { key: 'writeoff', label: 'Списать', sub: 'Брак / потеря', cls: 'ma-writeoff', ico: 'trash' },
     { key: 'count', label: 'Пересчёт', sub: 'Сверить остатки', cls: 'ma-count', ico: 'ops' },

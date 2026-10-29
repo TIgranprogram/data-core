@@ -13,7 +13,7 @@ export function weighButton(it, mode, onDone) {
   if (!['in', 'count'].includes(mode) || String(it.unit || 'шт').toLowerCase() !== 'шт') return null;
   return h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, title: 'Посчитать по весу', 'aria-label': 'По весу', onclick: async () => {
     const q = h('input', { inputmode: 'decimal' });
-    const wc = weightCount({ qtyInput: q, unitWeightG: it.weightG, label: mode === 'count' ? 'Сколько лежит всего' : 'Пришло', expectQty: mode === 'count' ? it.quantity : null });
+    const wc = weightCount({ qtyInput: q, unitWeightG: it.weightG, label: mode === 'count' ? 'Количество всего' : 'Количество', expectQty: mode === 'count' ? it.quantity : null });
     setTimeout(() => wc.el.querySelector('.wc-seg .fseg-btn:last-child')?.click(), 0); // сразу «по весу»
     const r = await modal({
       title: `По весу: ${it.name}`, okText: 'Взять количество',

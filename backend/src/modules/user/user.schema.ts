@@ -12,9 +12,11 @@ export interface UiPrefs {
   chatW?: number;
   /** Чат v2: последний открытый чат — id пользователя или `all`. */
   lastChat?: string;
+  /** Вид правой панели: one | two | wide (одна колонка / две / две и широкий блок снизу). */
+  panelLayout?: string;
 }
 export const UI_PREF_KEYS = ['sidebarW', 'detailW', 'filterW', 'chatW'] as const;
-export const UI_PREF_STR_KEYS = ['lastChat'] as const;
+export const UI_PREF_STR_KEYS = ['lastChat', 'panelLayout'] as const;
 
 @Schema({ softDelete: false,  collection: 'users', timestamps: true })
 export class User {

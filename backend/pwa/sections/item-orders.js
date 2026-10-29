@@ -25,7 +25,7 @@ export function orderedBlock(r) {
       body: h('div', null,
         h('label', { class: 'field' }, h('span', null, `Количество${x.unit ? ', ' + x.unit : ''}`), qtyInp),
         h('p', { class: 'hint' }, 'Товар поступит на склад, заявка станет «Получено».')),
-      okText: 'Принять',
+      okText: 'Принять на склад',
       onOk: async () => {
         const n = Number(String(qtyInp.value).replace(',', '.').replace(/\s/g, ''));
         if (!(n > 0)) throw new Error('Укажите количество больше нуля');
@@ -44,7 +44,7 @@ export function orderedBlock(r) {
           return h('li', null,
             h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'}`), h('span', { class: 'num' }, `${qty(x.qty)} ${x.unit}`), h('span', null, x.statusLabel),
             h('span', { class: 'muted' }, [x.invoiceDate ? 'счёт ' + date(x.invoiceDate) : x.requestDate ? 'заявка ' + date(x.requestDate) : '', x.supplier, x.requestedBy].filter(Boolean).join(' · ')),
-            canAccept ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => acceptReq(x) }, 'Принять') : null);
+            canAccept ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => acceptReq(x) }, 'Принять на склад') : null);
         }))
           : h('p', { class: 'muted' }, 'Открытых заявок нет. ', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'Все заявки по позиции →')),
         d.suppliers.length ? h('div', null, h('div', { class: 'section-title' }, 'Поставщики и цены'),
