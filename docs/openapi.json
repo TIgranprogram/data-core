@@ -3454,6 +3454,13 @@
             "schema": {}
           },
           {
+            "name": "contract",
+            "required": false,
+            "in": "query",
+            "description": "none — без договора, has — с договором",
+            "schema": {}
+          },
+          {
             "name": "q",
             "required": false,
             "in": "query",
@@ -3472,15 +3479,6 @@
             "in": "query",
             "description": "через запятую: draft, issued, paid, cancelled",
             "schema": {}
-          },
-          {
-            "name": "contract",
-            "required": false,
-            "in": "query",
-            "description": "none — без договора, has — с договором",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -8319,6 +8317,374 @@
         },
         "tags": [
           "Проектирование"
+        ]
+      }
+    },
+    "/work-tasks": {
+      "get": {
+        "operationId": "WorkController_list",
+        "parameters": [
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "seq | completedAt | createdAt; «-» — по убыванию",
+            "schema": {}
+          },
+          {
+            "name": "doneDays",
+            "required": false,
+            "in": "query",
+            "description": "готовые старше N дней с доски убираются (умолч. 7; 0 — все)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "W-N, № заказа, заказчик, изделие, артикул",
+            "schema": {}
+          },
+          {
+            "name": "assigneeId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "workTypeId",
+            "required": false,
+            "in": "query",
+            "description": "колонка доски: id вида работ текущего шага или generic («Изготовление»)",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "waiting | work | done | cancelled, через запятую (умолч. все, кроме cancelled)",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "до 500 (умолч. 200)",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/people": {
+      "get": {
+        "operationId": "WorkController_people",
+        "parameters": [
+          {
+            "name": "workTypeId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/launch": {
+      "post": {
+        "operationId": "WorkController_launch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/{id}": {
+      "get": {
+        "operationId": "WorkController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      },
+      "delete": {
+        "operationId": "WorkController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/{id}/move": {
+      "post": {
+        "operationId": "WorkController_move",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/{id}/done": {
+      "post": {
+        "operationId": "WorkController_done",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/{id}/cancel": {
+      "post": {
+        "operationId": "WorkController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/{id}/restore": {
+      "post": {
+        "operationId": "WorkController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-routes/{productId}": {
+      "get": {
+        "operationId": "WorkRouteController_get",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      },
+      "put": {
+        "operationId": "WorkRouteController_set",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
         ]
       }
     },
@@ -13358,7 +13724,8 @@
                 "orders",
                 "money",
                 "payroll",
-                "design"
+                "design",
+                "work"
               ]
             }
           },
@@ -13442,7 +13809,8 @@
                 "orders",
                 "money",
                 "payroll",
-                "design"
+                "design",
+                "work"
               ]
             }
           },
@@ -13648,6 +14016,13 @@
             "maximum": 700,
             "example": 340,
             "description": "Ширина панели фильтров"
+          },
+          "chatW": {
+            "type": "number",
+            "minimum": 320,
+            "maximum": 1200,
+            "example": 520,
+            "description": "Ширина окна чата"
           },
           "lastChat": {
             "type": "string",
@@ -15603,6 +15978,96 @@
           "text"
         ]
       },
+      "LaunchDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Заказ (salesorders): запускаются все его позиции"
+          },
+          "lineIds": {
+            "description": "Только эти позиции (incomes); с orderId — должны быть из этого заказа",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "MoveDto": {
+        "type": "object",
+        "properties": {
+          "stepIndex": {
+            "type": "number",
+            "description": "Номер шага маршрута с 0; перевод назад тоже допустим"
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "next",
+              "waiting"
+            ],
+            "description": "next — следующий шаг (с последнего — «Готово»); waiting — вернуть в «Ждёт запуска»"
+          }
+        }
+      },
+      "CancelDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Причина отмены"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "WorkTaskPatchDto": {
+        "type": "object",
+        "properties": {
+          "assigneeId": {
+            "type": "object",
+            "description": "Исполнитель — сотрудник (persons); null — снять"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "RouteStepDto": {
+        "type": "object",
+        "properties": {
+          "workTypeId": {
+            "type": "string",
+            "description": "Вид работ (worktypes)"
+          },
+          "lineId": {
+            "type": "string",
+            "description": "Часть состава изделия (composition[]._id)"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workTypeId"
+        ]
+      },
+      "RouteDto": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteStepDto"
+            }
+          }
+        },
+        "required": [
+          "steps"
+        ]
+      },
       "ShipmentLineDto": {
         "type": "object",
         "properties": {
@@ -16759,11 +17224,13 @@
             "type": "number",
             "minimum": 1,
             "maximum": 999999999
+          },
+          "nextProductCode": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 999999999
           }
-        },
-        "required": [
-          "next"
-        ]
+        }
       },
       "UpdateProductPassportDto": {
         "type": "object",
