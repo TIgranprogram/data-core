@@ -1509,3 +1509,21 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 @media (max-width: 700px) { .ctr-row { min-height: 44px; } .ctr-del, .ctr-head .btn { min-height: 44px; } }
 .invl-contract { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); }
 .contract-field .hint:empty { display: none; }
+
+/* Окно чата поверх экрана (ui/chat-window.js): справа, выше правой панели (.drawer 41), ниже модальных (60) */
+.chat-win { position: fixed; z-index: 55; top: var(--topbar-h); right: 0; bottom: 0; width: min(420px, 100vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); animation: chat-win-in .16s ease-out; }
+@keyframes chat-win-in { from { transform: translateX(24px); opacity: 0; } }
+.chat-win-x { position: absolute; top: var(--s2); right: var(--s2); z-index: 2; border-color: var(--border-strong); background: var(--surface-2); color: var(--text); font-size: 16px; }
+.chat-win-x:hover { background: var(--neutral-soft); }
+.chat-win-body { flex: 1; min-height: 0; padding: var(--s2); }
+.chat-win .cv { display: block; height: 100%; min-height: 0; }
+.chat-win .cv-list, .chat-win .cv-conv { height: 100%; }
+.chat-win .cv.is-conv .cv-list, .chat-win .cv:not(.is-conv) .cv-conv { display: none; }
+.chat-win .cv-back { display: inline-flex; }
+.chat-win .cv-head { padding-right: 44px; }
+.btn.bell.on { background: var(--gold-soft); }
+@media (max-width: 700px) {
+  .chat-win { top: 0; width: 100vw; border-left: 0; }
+  .chat-win .cv-row, .chat-win .cv-back, .chat-win .chat-form .btn-icon, .chat-win-x { min-height: 44px; min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .chat-win { animation: none; } }

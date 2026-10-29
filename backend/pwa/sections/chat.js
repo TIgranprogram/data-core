@@ -1,6 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { go } from '../core/router.js';
+import { go, navInfo } from '../core/router.js';
 import { getPref, setPref } from '../core/prefs.js';
 import { icon } from '../ui/icons.js';
 import { toastError } from '../ui/toast.js';
@@ -10,7 +10,7 @@ import { openZoom } from '../ui/gallery.js';
 import { CHAT_REFRESH } from '../ui/chat-button.js';
 
 /**
- * Страница «Чат» (#chat[/<id|all>], параметр with=): слева «Всем» и сотрудники, справа переписка.
+ * Чат (окно поверх экрана; ссылки #chat[/<id|all>], параметр with=): слева «Всем» и сотрудники, справа переписка.
  * 390 px: сначала список, тап — переписка с «← Назад» (with= нет и list=1 — список). Последний чат хранится в uiPrefs.lastChat.
  * Отправка: Enter (Shift+Enter — новая строка), фото — Ctrl+V, перетаскивание или скрепка. Опрос — раз в 15 с. Сервер: /messages/*.
  */
@@ -19,7 +19,14 @@ const narrow = () => window.matchMedia('(max-width: 720px)').matches;
 const badge = (n) => (n ? h('span', { class: 'bell-badge static' }, n > 9 ? '9+' : String(n)) : null);
 const photoSrc = (p) => PREFIX + (p.thumb || p.url);
 
-function mount(el, { params }) {
+/**
+ * Монтирование чата в любой контейнер (общее для окна поверх экрана ui/chat-window.js и ссылок #chat).
+ * nav = { open(id), list() } — как менять собеседника (по умолчанию адрес #chat); single — всегда «список / переписка по очереди».
+ */
+export function mountChat(el, { params, nav, single } = {}) {
+  const goOpen = nav?.open || ((id) => go('chat', { with: id }, { replace: true }));
+  const goList = nav?.list || (() => go('chat', { list: '1' }, { replace: true }));
+  const isNarrow = () => !!single || narrow();
   const S = { id: undefined, items: [], all: null, users: null, q: '', pics: [], up: 0, sig: '' };
   const listEl = h('aside', { class: 'cv-list' });
   const convEl = h('section', { class: 'cv-conv' });
@@ -55,7 +62,7 @@ function mount(el, { params }) {
   const feed = h('div', { class: 'chat-feed', role: 'log', 'aria-live': 'polite' });
   const title = h('b', { class: 'cv-title' });
   const subt = h('span', { class: 'cv-sub' });
-  const back = h('button', { type: 'button', class: 'btn btn-ghost btn-icon cv-back', 'aria-label': 'Назад к списку', onclick: () => go('chat', { list: '1' }, { replace: true }) }, '←');
+  const back = h('button', { type: 'button', class: 'btn btn-ghost btn-icon cv-back', 'aria-label': 'Назад к списку', onclick: () => goList() }, '←');
   const strip = h('div', { class: 'pf-strip cv-pics', hidden: true });
   const text = h('textarea', { class: 'chat-input', rows: 2, maxlength: 2000, placeholder: 'Сообщение…  Enter — отправить, Shift+Enter — новая строка', 'aria-label': 'Сообщение' });
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
@@ -73,7 +80,8 @@ function mount(el, { params }) {
     text.focus(); text.selectionStart = text.selectionEnd = a + e.length;
     togglePick(false);
   };
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pick.hidden) togglePick(false); });
+  const onEsc = (e) => { if (e.key === 'Escape' && !pick.hidden) { togglePick(false); e.stopImmediatePropagation(); } };
+  document.addEventListener('keydown', onEsc, true);
   const form = h('div', { class: 'chat-form' }, pick, clip, smile, text, send);
   convEl.append(h('div', { class: 'cv-head' }, back, h('span', { class: 'cv-who' }, title, subt)), feed, strip, form, file);
 
@@ -175,11 +183,11 @@ function mount(el, { params }) {
       subt.textContent = id === 'all' ? 'Сообщение увидят все сотрудники' : (S.users?.find((u) => u.id === id)?.role || '');
       feed.replaceChildren(h('div', { class: 'chat-empty' }, 'Загружаем…'));
       setPref('lastChat', id);
-      if (!narrow()) text.focus();
+      if (!isNarrow()) text.focus();
     }
     paintList(); load();
   }
-  function open(id) { go('chat', { with: id }, { replace: true }); }
+  function open(id) { goOpen(id); }
 
   /** Адрес -> собеседник. Нет with: телефон со списком (list=1) остаётся в списке, иначе открывается последний чат или «Всем». */
   async function route(p) {
@@ -188,7 +196,7 @@ function mount(el, { params }) {
       if (p.with !== 'all' && !S.users.some((u) => u.id === p.with)) { open('all'); return; }
       show(p.with); return;
     }
-    if (narrow() && p.list) { show(null); return; }
+    if (isNarrow() && p.list) { show(null); return; }
     if (S.users === null) { try { S.users = (await api('/messages/users')).items || []; } catch { S.users = []; } }
     const last = getPref('lastChat');
     open(last && (last === 'all' || S.users.some((u) => u.id === last)) ? last : 'all');
@@ -197,7 +205,7 @@ function mount(el, { params }) {
   S.users = null; paintList();
   route(params || {});
   timer = setTimeout(tick, EVERY);
-  return { update: (p) => route(p || {}), destroy: () => { clearTimeout(timer); document.removeEventListener('paste', onPaste); } };
+  return { update: (p) => route(p || {}), destroy: () => { clearTimeout(timer); document.removeEventListener('paste', onPaste); document.removeEventListener('keydown', onEsc, true); root.remove(); } };
 }
 
 /** Наборы смайликов чата: [группа, [[смайлик, подсказка]]]. */
@@ -207,5 +215,13 @@ const EMOJI = [
   ['Снабжение и отгрузка', [['📦', 'Упаковано'], ['🚚', 'Отгрузка'], ['🚛', 'Доставка'], ['📋', 'Заявка'], ['🧾', 'Счёт'], ['💰', 'Оплата'], ['📄', 'Паспорт'], ['📞', 'Позвони'], ['⏰', 'Срок'], ['📅', 'Дата'], ['🚧', 'В работе']]],
   ['Ответы', [['👍', 'Ок'], ['👌', 'Принято'], ['✅', 'Готово'], ['❌', 'Нет'], ['⚠️', 'Внимание'], ['❓', 'Вопрос'], ['🙏', 'Спасибо'], ['🤝', 'Договорились'], ['👀', 'Смотрю'], ['😊', 'Улыбка'], ['😅', 'Бывает'], ['🎉', 'Ура']]],
 ];
+
+/** Ссылка #chat[/<id>] открывает окно поверх прежнего экрана; сама «страница» чата сразу закрывается. */
+function mount(el, { params }) {
+  const open = (p) => import('../ui/chat-window.js').then((m) => m.openChatWindow(p || {}));
+  open(params);
+  if (navInfo().canBack) window.history.back(); else go('home', {}, { replace: true });
+  return { update: open, destroy() {} };
+}
 
 export const chat = { id: 'chat', title: 'Чат', mount };

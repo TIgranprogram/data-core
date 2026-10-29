@@ -1,6 +1,7 @@
 import { h } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { icon } from './icons.js';
+import { setBadgePart } from './app-badge.js';
 import { noticeCard, noticeTime, TONE_LABEL } from './notice-card.js';
 import { listNotices, onNotices, markNoticesRead, pruneNotices, removeNotice, clearNotices } from './notices.js';
 
@@ -23,6 +24,7 @@ export function bellButton() {
   const total = () => S.unread.important;
   const paintBadge = () => {
     const n = total();
+    setBadgePart('bell', n);
     badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n);
     btn.classList.toggle('has-new', n > 0);
     btn.title = n ? `Важное: ${n}` : 'Уведомлений нет';
