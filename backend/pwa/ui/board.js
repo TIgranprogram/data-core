@@ -192,15 +192,15 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     for (const row of rows) { const g = board.group(row); const k = g?.key || ''; if (!by.has(k)) by.set(k, { g, rows: [] }); by.get(k).rows.push(row); }
     const list = [...by.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : 0));
     return list.flatMap(([k, { g, rows: rs }]) => {
-      const cards = () => rs.map((row) => { const el = cardEl(row, c); if (k) { paintOrder(el, k); el.classList.add('t-grouped'); } return el; });
-      if (!k || rs.length < 2) return cards(); // одна позиция — обычная карточка (с цветной полосой счёта)
-      return [groupCard(k, g, rs, cards)];
+      // одна позиция — обычная карточка с цветной полосой счёта; внутри карточки счёта полосы нет (цвет уже у счёта)
+      if (!k || rs.length < 2) return rs.map((row) => { const el = cardEl(row, c); if (k) { paintOrder(el, k); el.classList.add('t-grouped'); } return el; });
+      return [groupCard(k, g, rs, () => rs.map((row) => cardEl(row, c)))];
     });
   }
   /** Карточка группы (счёт) как заказ на доске «Проектирование»: ▸/▾ раскрывает позиции; раскрытое помнится до перезагрузки. */
   function groupCard(k, g, rs, cards) {
     const sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
-    const body = h('div', { class: 'db-lines' });
+    const body = h('div', { class: 'db-lines b-glines' });
     const chev = h('button', { type: 'button', class: 'db-chev' });
     const card = paintOrder(h('article', { class: 'db-order' }, h('div', { class: 'db-oh' }, chev,
       h('button', { type: 'button', class: 'db-oname', onclick: () => toggle() }, h('b', null, g.label), g.sub ? h('span', { class: 'db-cust' }, ' · ' + g.sub) : null)),
