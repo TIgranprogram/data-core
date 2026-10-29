@@ -39,8 +39,11 @@ export class AuditService {
     const ids = [...new Set(docs.map((d) => (d.userId ? String(d.userId) : '')).filter((x) => /^[0-9a-f]{24}$/i.test(x)))];
     const map = new Map<string, string>();
     if (!ids.length) return map;
-    const users = await this.userModel.find({ _id: { $in: ids } }, { displayName: 1, fullName: 1, username: 1 }).lean<Array<{ _id: Types.ObjectId; displayName?: string; fullName?: string; username?: string }>>().exec();
-    for (const u of users) map.set(String(u._id), u.displayName || u.fullName || u.username || '');
+    const users = await this.userModel.find({ _id: { $in: ids } }, { displayName: 1, fullName: 1, username: 1, avatar: 1 }).lean<Array<{ _id: Types.ObjectId; displayName?: string; fullName?: string; username?: string; avatar?: string }>>().exec();
+    for (const u of users) {
+      map.set(String(u._id), u.displayName || u.fullName || u.username || '');
+      if (u.avatar) map.set('avatar:' + String(u._id), u.avatar); // аватар автора — для «Истории» приложения
+    }
     return map;
   }
 
@@ -120,7 +123,7 @@ export class AuditService {
       const a = det.after ?? {};
       const title = [a.num ? `№${a.num}` : a.orderNo ? `№${a.orderNo}` : '', a.title ?? a.name ?? a.materialName ?? ''].filter(Boolean).join(' ');
       return { id: String(d._id), createdAt: (d as { createdAt?: Date }).createdAt, action: d.action, entityType: d.entityType,
-        entityId: d.entityId ? String(d.entityId) : det.id ? String(det.id) : null, userName: d.userName ?? null, actorName: this.actorOf(names, d), actionRu: actionRu(d.action, d.entityType), title: title || null };
+        entityId: d.entityId ? String(d.entityId) : det.id ? String(det.id) : null, userName: d.userName ?? null, actorName: this.actorOf(names, d), actorAvatar: d.userId ? names.get('avatar:' + String(d.userId)) ?? null : null, actionRu: actionRu(d.action, d.entityType), title: title || null };
     });
     return { items, total, page, limit };
   }

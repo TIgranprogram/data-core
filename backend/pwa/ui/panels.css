@@ -438,3 +438,17 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 .so-grp > table { margin: 0; }
 .so-more { padding: var(--s2) var(--s3); border-top: 1px solid var(--border); }
 .so-more > summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+
+/* Мой профиль и аватары */
+.pf-profile { display: flex; flex-direction: column; gap: var(--s3); }
+.pf-av-head { display: flex; align-items: center; gap: var(--s3); }
+.pf-av-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s2); margin-top: var(--s1); }
+.pf-av { display: grid; place-items: center; padding: var(--s1); border: 2px solid transparent; border-radius: 50%; background: none; cursor: pointer; }
+.pf-av:hover { background: var(--hover, var(--surface-2)); }
+.pf-av.on { border-color: var(--primary); }
+.pf-av:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pf-av-up { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s2); }
+.avatar-img { display: inline-block; overflow: hidden; background: none; padding: 0; }
+.avatar-img svg { display: block; }
+.avatar-btn.avatar-wrap { background: none; padding: 0; }
+.who-cell { display: inline-flex; align-items: center; gap: var(--s1); }

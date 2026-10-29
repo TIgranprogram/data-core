@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
+import { avatarNode } from '../ui/avatars.js';
 import { actionLabel, changeList } from '../ui/history.js';
 
 /*
@@ -17,6 +18,9 @@ const TYPES = [
 ];
 const T = Object.fromEntries(TYPES.map((t) => [t.value, t]));
 const typeLabel = (t) => T[t]?.label || t;
+const who = (r) => r.actorName || r.userName || '';
+const whoNode = (r) => (who(r) ? h('span', { class: 'who-cell' }, r.actorAvatar ? avatarNode({ avatar: r.actorAvatar, displayName: who(r) }, 20) : null, who(r)) : '—');
+const actLabel = (r) => r.actionRu || actionLabel(r.action);
 const openRecord = (r) => { const of = T[r.entityType]?.of; if (of && r.entityId) go(of, { open: r.entityId }); };
 
 /** Изменения этой записи журнала — из истории самой записи (там посчитано «было → стало»). */
@@ -57,29 +61,29 @@ export const history = {
     rowAction: (r) => (T[r.entityType]?.of && r.entityId ? { label: 'Открыть', title: 'Открыть саму запись', run: (row) => openRecord(row) } : null),
     columns: [
       { key: 'createdAt', label: 'Когда', cls: 'num nowrap', render: (r) => new Date(r.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) },
-      { key: 'userName', label: 'Кто', cls: 'nowrap', render: (r) => r.userName || '—' },
+      { key: 'userName', label: 'Кто', cls: 'nowrap', render: whoNode },
       { key: 'entityType', label: 'Раздел', cls: 'nowrap md-hide', render: (r) => typeLabel(r.entityType) },
-      { key: 'action', label: 'Что', cls: 'nowrap', render: (r) => actionLabel(r.action) },
+      { key: 'action', label: 'Что', cls: 'nowrap', render: (r) => h('span', { title: r.action || '' }, actLabel(r)) },
       { key: 'title', label: 'Запись', cls: 'clip', render: (r) => h('span', { title: r.title || '' }, r.title || h('span', { class: 'muted' }, '—')) },
     ],
     card: {
-      title: (r) => `${actionLabel(r.action)}: ${r.title || typeLabel(r.entityType)}`,
-      sub: (r) => [dateTime(r.createdAt), r.userName, typeLabel(r.entityType)].filter(Boolean).join(' · '),
+      title: (r) => `${actLabel(r)}: ${r.title || typeLabel(r.entityType)}`,
+      sub: (r) => [dateTime(r.createdAt), who(r), typeLabel(r.entityType)].filter(Boolean).join(' · '),
       side: () => [],
     },
   },
 
   card: {
-    heading: (r) => `${actionLabel(r.action)}: ${r.title || typeLabel(r.entityType)}`,
+    heading: (r) => `${actLabel(r)}: ${r.title || typeLabel(r.entityType)}`,
     subheading: (r) => dateTime(r.createdAt),
     view: (r) => [
-      ['Кто', r.userName || '—'],
+      ['Кто', whoNode(r)],
       ['Раздел', typeLabel(r.entityType)],
       ['Запись', T[r.entityType]?.of && r.entityId ? h('a', { href: `#${T[r.entityType].of}?open=${encodeURIComponent(r.entityId)}` }, (r.title || 'открыть') + ' →') : r.title],
     ],
     extra: (r) => changesOf(r),
   },
 
-  searchRow: (r) => ({ title: r.title || typeLabel(r.entityType), sub: actionLabel(r.action), side: '' }),
+  searchRow: (r) => ({ title: r.title || typeLabel(r.entityType), sub: actLabel(r), side: '' }),
   open: (id) => go('history', { open: id }),
 };

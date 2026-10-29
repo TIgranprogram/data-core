@@ -17,6 +17,7 @@ import { lookups } from './sections/lookups.js';
 const FEATURES = { payroll: true };
 // раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
 import { versionLabel, watchUpdates } from './core/update-check.js';
+import { avatarNode } from './ui/avatars.js';
 import { bellButton } from './ui/bell.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
@@ -41,6 +42,7 @@ const LAZY = {
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
   design: [() => import('./sections/design.js'), [['design','design']]],
   designorder: [() => import('./sections/design-order.js'), [['designorder','designOrder']]],
+  profile: [() => import('./sections/profile.js'), [['profile','profile']]],
   designsettings: [() => import('./sections/design-settings.js'), [['designsettings','designSettings']]],
   chat: [() => import('./sections/chat.js'), [['chat','chat']]],
   shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
@@ -91,7 +93,7 @@ function needed(section, params) {
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { salesorder: 'salesorders', designorder: 'design', designsettings: 'design', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests',
+const OWNER = { salesorder: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
@@ -184,7 +186,6 @@ function shell() {
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
-  const initials = (session.name || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
     h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
@@ -213,7 +214,7 @@ function shell() {
     bellButton(),
     seesHistory ? historyButton() : null,
     themeButton(),
-    avatarButton(initials));
+    avatarButton());
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
@@ -256,15 +257,24 @@ function themeButton() {
   return btn;
 }
 
-/** Аватар в шапке → меню: имя, роль, «Выйти». */
-function avatarButton(initials) {
-  const btn = h('button', { class: 'avatar avatar-btn', type: 'button', title: session.name || 'Профиль', 'aria-label': 'Профиль: ' + (session.name || ''), 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+/** Аватар в шапке → меню: имя, роль, «Мой профиль», тема, «Выйти». */
+function avatarButton() {
+  const btn = h('button', { class: 'avatar-btn avatar-wrap', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
     onclick: () => {
       if (isOpenFor(btn)) { closePopMenu(); return; }
       openPopMenu({ anchor: btn, side: 'down', cls: 'pm-user',
         head: h('div', { class: 'pm-who' }, h('b', null, session.name || ''), h('span', null, session.user?.roleLabel || roleName(session.user?.role))),
-        groups: [{ sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] }] });
-    } }, initials);
+        groups: [
+          { items: [{ label: 'Мой профиль', icon: 'admin', onSelect: () => go(current().section, { ...current().params, of: 'profile', open: 'me' }) },
+            { label: 'Тема: ' + (window.dcTheme?.name() || 'как в системе'), icon: 'theme', onSelect: () => window.dcTheme?.cycle() }] },
+          { sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] }] });
+    } });
+  const paint = () => {
+    btn.title = session.name || 'Профиль'; btn.setAttribute('aria-label', 'Профиль: ' + (session.name || ''));
+    btn.replaceChildren(avatarNode(session.user || {}, 32));
+  };
+  paint();
+  window.addEventListener('dc:profile', () => { if (btn.isConnected) paint(); });
   return btn;
 }
 

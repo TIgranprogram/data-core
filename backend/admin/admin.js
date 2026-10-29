@@ -847,8 +847,8 @@
       const tr = el('tr', 'doc-row');
       tr.append(
         el('td', 'small', it.createdAt ? new Date(it.createdAt).toLocaleString('ru-RU') : '—'),
-        el('td', '', it.userName || '—'),
-        el('td', '', actionRu(it.action)),
+        el('td', '', it.actorName || it.userName || '—'),
+        (() => { const td = el('td', '', it.actionRu || actionRu(it.action)); td.title = it.action || ''; return td; })(),
         el('td', '', it.entityType || '—'),
       );
       const idTd = el('td', 'mono small');
