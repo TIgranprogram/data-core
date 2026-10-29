@@ -11,6 +11,15 @@ const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(
 const GROUPS = { type: 'product', deletedAt: null, parentId: { $ne: null } };
 const SECTIONS = { type: 'product', deletedAt: null, parentId: null };
 
+const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Категория паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Своя категория, заданная в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское (DIO)' }, { value: 'DSP', label: 'Спортивное (DSP)' }, { value: 'TRN', label: 'Уличный тренажёр (TRN)' }, { value: 'WRK', label: 'Воркаут (WRK)' }, { value: 'BLG', label: 'Благоустройство (BLG)' }] };
+/** Код категории паспорта из тела запроса: пусто — снять; неизвестный — 400. */
+function ppCode(v: unknown): string | null {
+  const c = s(v);
+  if (!c) return null;
+  if (!PP_FIELD.options!.some((o) => o.value === c)) throw new BadRequestException('Категория паспорта: одна из ' + PP_FIELD.options!.map((o) => o.value).join(', '));
+  return c;
+}
+
 type Ctx = { translit: (t: string) => string };
 
 /** slug и skuPrefix обязательны в схеме CRM (оба уникальны) — подбираем свободные. */
@@ -41,9 +50,10 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       { key: 'name', label: 'Название', required: true, wide: true },
       { key: 'groupNo', label: 'Номер группы', required: true, lockAfterCreate: true, hint: 'Первые две цифры артикула изделий этой группы; менять нельзя — иначе путаница в артикулах' },
       { key: 'parentId', label: 'Раздел', type: 'select', ref: 'productSections', required: true, hint: 'Нет нужного раздела — сначала создайте его в «Разделах изделий»' },
+      PP_FIELD,
     ],
     name: (d) => s(d.name),
-    row: (d) => ({ name: s(d.name), groupNo: s(d.groupNo), parentId: d.parentId ? String(d.parentId) : '' }),
+    row: (d) => ({ name: s(d.name), groupNo: s(d.groupNo), parentId: d.parentId ? String(d.parentId) : '', passportCategory: s(d.passportCategory) }),
     toDoc: async (b, isNew, db, id) => {
       const name = s(b.name);
       if (!name) throw new BadRequestException('Укажите название группы');
@@ -70,8 +80,9 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       if (had && raw !== had) throw new BadRequestException('Номер группы нельзя менять: он уже вошёл в артикулы изделий');
       const dup = await db.collection('categories').findOne({ ...GROUPS, groupNo: raw, ...(id ? { _id: { $ne: new Types.ObjectId(id) } } : {}) }, { projection: { name: 1 } });
       if (dup) throw new ConflictException(`Номер ${raw} уже занят группой «${s(dup.name)}»`);
-      if (!isNew) return { name, parentId, groupNo: raw, updatedAt: new Date() };
-      return { name, ...(await crmKeys(db, name, translit)), type: 'product', parentId, groupNo: raw, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
+      const passportCategory = b.passportCategory === undefined ? (cur?.passportCategory ?? null) : ppCode(b.passportCategory);
+      if (!isNew) return { name, parentId, groupNo: raw, passportCategory, updatedAt: new Date() };
+      return { name, ...(await crmKeys(db, name, translit)), type: 'product', parentId, groupNo: raw, passportCategory, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
     },
     beforeRemove: async (db, d) => {
       const n = await db.collection('products').countDocuments({ deletedAt: null, categoryId: d._id });
@@ -91,14 +102,16 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
     hint: 'Крупные разделы продукции: в них собираются группы изделий («Спорт» → Тренажёры, Воркаут).',
     coll: 'categories', match: SECTIONS,
     columns: [],
-    fields: [{ key: 'name', label: 'Название', required: true, wide: true }],
+    fields: [{ key: 'name', label: 'Название', required: true, wide: true }, { ...PP_FIELD, hint: 'Для групп раздела, у которых своя категория не задана. Пусто — не задана' }],
     name: (d) => s(d.name),
-    row: (d) => ({ name: s(d.name) }),
-    toDoc: async (b, isNew, db) => {
+    row: (d) => ({ name: s(d.name), passportCategory: s(d.passportCategory) }),
+    toDoc: async (b, isNew, db, id) => {
       const name = s(b.name);
       if (!name) throw new BadRequestException('Укажите название раздела');
-      if (!isNew) return { name, updatedAt: new Date() };
-      return { name, ...(await crmKeys(db, name, translit)), type: 'product', parentId: null, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
+      const cur = id ? await db.collection('categories').findOne({ _id: new Types.ObjectId(id) }, { projection: { passportCategory: 1 } }) : null;
+      const passportCategory = b.passportCategory === undefined ? (cur?.passportCategory ?? null) : ppCode(b.passportCategory);
+      if (!isNew) return { name, passportCategory, updatedAt: new Date() };
+      return { name, passportCategory, ...(await crmKeys(db, name, translit)), type: 'product', parentId: null, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
     },
     beforeRemove: async (db, d) => {
       const n = await db.collection('categories').countDocuments({ ...GROUPS, parentId: d._id });

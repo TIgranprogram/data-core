@@ -8,6 +8,7 @@ import {
   Length,
   Matches,
 } from 'class-validator';
+import { PASSPORT_CATEGORY_CODES } from '../../showcase/passport-defaults';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Металлопрокат', description: 'Название категории' })
@@ -40,6 +41,8 @@ export class CreateCategoryDto {
   @IsOptional() @IsString() @Length(0, 512) description?: string;
   @ApiPropertyOptional({ example: '12', description: 'Номер группы изделий (две цифры; пусто — снять). Только у группы-ребёнка type product' })
   @IsOptional() @Matches(/^(d{2})?$/, { message: 'Номер группы — две цифры' }) groupNo?: string;
+  @ApiPropertyOptional({ example: 'BLG', description: 'Категория паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют' })
+  @IsOptional() @IsIn(['', ...PASSPORT_CATEGORY_CODES], { message: 'Категория паспорта: одна из ' + PASSPORT_CATEGORY_CODES.join(', ') }) passportCategory?: string;
   @ApiPropertyOptional({ description: 'Активна ли категория' })
   @IsOptional() @IsBoolean() isActive?: boolean;
 }

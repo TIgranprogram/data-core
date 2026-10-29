@@ -20,7 +20,7 @@ import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { ShowcaseMaterials } from './showcase-materials';
 import { groupNoOf, nextSku, skuOfGroup, skuPrefixError } from './showcase-sku';
-import { passportCategoryFor, tallyValues, withDict, type PpCat } from './form-values';
+import { passportCategoryFor, resolvePassportCategory, tallyValues, withDict, type PpCat } from './form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
 const num = (v: unknown, what: string) => {
@@ -65,9 +65,9 @@ export class ShowcaseService {
 
   private async present(docs: Doc[]) {
     const catIds = [...new Set(docs.map((d) => d.categoryId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
-    const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1 } }).toArray() : [];
-    const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1 } }).toArray();
-    const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)]));
+    const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray() : [];
+    const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1, passportCategory: 1 } }).toArray();
+    const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)])); const parPp = new Map(parents.map((p) => [String(p._id), String(p.passportCategory ?? '')]));
     // БЗ-15: обложки из паспортов — для изделий без своих фото берём overview первого выпущенного паспорта
     const ownPhotoIds = docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? []));
     const noPicDocs = docs.filter((d) => !((d.photoIds as Types.ObjectId[])?.length));
@@ -95,6 +95,8 @@ export class ShowcaseService {
     const ppN = new Map(ppCounts.map((x) => [String(x._id), x.n as number]));
     return docs.map((d) => {
       const c = d.categoryId ? cat.get(String(d.categoryId)) : undefined;
+      const grp = c?.parentId ? String(c.name) : null, typ = c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null;
+      const pp = resolvePassportCategory((d.passportDefaults as PassportDefaults | undefined)?.passportCategory, passportCategoryFor({ group: grp, type: typ }, ppCats, { group: c?.parentId ? String(c.passportCategory ?? '') : '', type: c ? (c.parentId ? parPp.get(String(c.parentId)) ?? '' : String(c.passportCategory ?? '')) : '' }), ppCats);
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
       const ppCoverId = ppCoverMap.get(String(d._id));
       const ppCoverPhoto = ppCoverId ? (ph.get(String(ppCoverId)) ?? null) : null;
@@ -108,8 +110,7 @@ export class ShowcaseService {
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
         passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
-        ppCategory: ((d.passportDefaults as PassportDefaults | undefined)?.passportCategory as string | undefined)
-          || passportCategoryFor({ group: c?.parentId ? String(c.name) : null, type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null }, ppCats)?.code || null };
+        ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
     });
   }
 
@@ -198,11 +199,11 @@ export class ShowcaseService {
     if (!d) throw new NotFoundException('Изделие не найдено');
     const item = (await this.present([d as Doc]))[0];
     const composition = await this.comp.composition(d as Doc);
-    const ppCats = (await this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray()) as unknown as PpCat[];
     const materialsSpec = presentMaterialsSpec(d.materialsSpec);
     return { ...item, materialsSpec, materialsText: await this.mi.text(materialsSpec), orderLines: see.salesorders === false ? [] : await this.orderLines(d as Doc), composition, cost: await this.comp.cost(composition),
       passports: see.passports === false ? { total: 0, items: [] } : await this.passports(d as Doc),
-      passportCategory: passportCategoryFor(item, ppCats),
+      // итог (своя вручную главнее группы) + отдельно own (из passportDefaults) и inherited (от группы/раздела/справочника); ничего нет — null
+      passportCategory: item.ppOwn || item.ppInherited ? { ...(item.ppOwn ? { code: item.ppOwn.code, name: item.ppOwn.name, via: 'изделие (задана вручную)', source: 'own' } : item.ppInherited!), own: item.ppOwn, inherited: item.ppInherited } : null,
       designer: await this.designer(d.designerId as Types.ObjectId | undefined),
       passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
   }

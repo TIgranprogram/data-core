@@ -833,3 +833,5 @@ Write-paths, которые должны быть all-or-nothing, использ
 - `finance_settings` — одна запись `{key:'finance', startDate, openingBalance:{<компания>: ₽}}` — старт учёта.
 - `persons.companyId` — наша компания, платящая зарплату (ставка и график — `salaryKind/salaryRate/payoutScheduleId`, как и раньше).
 - Начисление = ставка × часы (почасовая) или оклад (полный / дни ÷ норма). Календарь: расход = оплаченные заявки (`paid`, `paidAt`) + `payroll_payments`; доход = `incomes.payments`.
+
+**`categories.passportCategory`** (PASSPORT-CATEGORY, 2026-10-29): необязательный код категории паспорта группы/раздела (DIO, DSP, TRN, WRK, BLG). Изделие наследует: своя `products.passportDefaults.passportCategory` (вручную, главнее) → группа → раздел → запасной `passportCategories.catalogNames`. CRM поле не читает.

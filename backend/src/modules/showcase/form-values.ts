@@ -32,15 +32,36 @@ export function withDict(list: Tally[], dict: { value: string; sub?: string }[])
 }
 
 /**
- * Раздел / группа изделия → категория паспорта (ФИ2): по полю «Категории каталога» справочника `passportCategories`.
- * Сначала группа (точнее), потом раздел. Не нашли — null (в карточке подсказка, куда добавить название).
+ * Раздел / группа изделия → категория паспорта. Порядок наследования (PASSPORT-CATEGORY):
+ * группа (categories.passportCategory) → раздел → запасной путь «Категории каталога» (catalogNames справочника, сначала группа, потом раздел).
+ * Не нашли — null. Ручная категория изделия (passportDefaults) сюда не входит — см. resolvePassportCategory.
  */
-export type PpCat = { code: string; name: string; catalogNames: string };
-export function passportCategoryFor(item: { group?: string | null; type?: string | null }, cats: PpCat[]): { code: string; name: string; via: string } | null {
+export type PpCat = { code: string; name: string; catalogNames?: string };
+export type PpSource = 'group' | 'type' | 'dict';
+export type PpFound = { code: string; name: string; via: string; source: PpSource };
+export function passportCategoryFor(
+  item: { group?: string | null; type?: string | null },
+  cats: PpCat[],
+  direct: { group?: string | null; type?: string | null } = {},
+): PpFound | null {
+  const byCode = (code: string) => cats.find((x) => clean(x.code) === code);
+  for (const [name, via, code, source] of [[item.group, 'группа', direct.group, 'group'], [item.type, 'раздел', direct.type, 'type']] as const) {
+    const c = clean(code);
+    if (!c) continue;
+    return { code: c, name: clean(byCode(c)?.name) || c, via: `${via} «${clean(name)}»`, source };
+  }
   for (const [name, via] of [[item.group, 'группа'], [item.type, 'раздел']] as const) {
     if (!clean(name)) continue;
     const c = cats.find((x) => clean(x.catalogNames).split(/[,;\n]/).some((n) => clean(n) && key(n) === key(String(name))));
-    if (c) return { code: clean(c.code), name: clean(c.name), via: `${via} «${clean(name)}»` };
+    if (c) return { code: clean(c.code), name: clean(c.name), via: `${via} «${clean(name)}»`, source: 'dict' };
   }
   return null;
+}
+
+/** Своя категория изделия (вручную, passportDefaults) отдельно от унаследованной; итог — своя, если задана (решение 2026-10-29). */
+export function resolvePassportCategory(own: string | null | undefined, inherited: PpFound | null, cats: PpCat[]) {
+  const code = clean(own);
+  const ownRef = code ? { code, name: clean(cats.find((x) => clean(x.code) === code)?.name) || code } : null;
+  const effective = ownRef ? { ...ownRef, via: 'изделие (задана вручную)', source: 'own' as const } : inherited;
+  return { effective, own: ownRef, inherited };
 }

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { createHash } from 'crypto';
 import { Types } from 'mongoose';
 import { normalizePassportDefaults } from './passport-defaults';
+import { inheritedPassportCategory } from './passport-inherit';
 import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
 import { clean, type Db, type Doc } from './showcase-common';
 
@@ -102,6 +103,9 @@ export class ShowcaseFromPassports {
       .filter((k) => p[k] !== undefined && p[k] !== null && p[k] !== '').map((k) => [k, p[k]]));
     try {
       const defaults = normalizePassportDefaults(pick);
+      // категория, совпавшая с унаследованной от группы, своей не становится (иначе молча перебьёт связь «группа → категория»)
+      const catId = defaults.passportCategory ? (await this.db.collection('products').findOne({ _id: id }, { projection: { categoryId: 1 } }))?.categoryId : null;
+      if (defaults.passportCategory && defaults.passportCategory === (await inheritedPassportCategory(this.db, catId))?.code) delete defaults.passportCategory;
       if (Object.keys(defaults).length) await this.db.collection('products').updateOne({ _id: id }, { $set: { passportDefaults: defaults, source: 'passports' } });
     } catch { /* неверные значения в старом паспорте — изделие без значений по умолчанию */ }
     return id;

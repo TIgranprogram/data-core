@@ -32,6 +32,10 @@ export class Category {
   @Prop({ type: String, default: null })
   groupNo?: string | null;
 
+  /** Категория паспорта группы/раздела (код из справочника passportCategories: DIO, DSP, TRN, WRK, BLG). Необязательное; изделие наследует. CRM поле не читает. */
+  @Prop({ type: String, default: undefined })
+  passportCategory?: string;
+
   @Prop({ default: true })
   isActive!: boolean;
 
