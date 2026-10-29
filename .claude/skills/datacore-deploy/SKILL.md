@@ -27,7 +27,7 @@ description: Безопасный деплой data-core на Synology/Ubuntu VM
 VM `192.168.1.52` напрямую недоступна → вход через VPS: `bash remote-access/deploy.sh` (тот же `release.sh`, `VM=datacore-vm`, ключ `~/.ssh/datacore_work`, ProxyJump через `kppdf-crm.ru`). Настройка ПК и связь — `remote-access/README.md`, `bash remote-access/check.sh`. Если `check.sh` пишет «порт 22 закрыт» — выложить нельзя, скажи пользователю (вариант: интернет с телефона). Отзыв ключа и устройство туннеля — `deploy/synology/README.md` «Выкладка с работы». GitHub Actions/автодеплой через GitHub пользователь **не хочет** (плохой опыт: платно, блокировка) — не предлагать.
 
 ## Перед деплоем
-1. typecheck + юнит зелёные (skill `datacore-verify`), изменения закоммичены.
+1. `release.sh` сам запускает ворота `deploy/synology/preflight.sh`: закоммичено и запушено, tsc + юнит, импорты приложения, метки `Дизайнер:` / `Класс:` (CLAUDE.md). СТОП — чинить причину, не обходить; `--force-urgent` — только если сайт уже сломан.
 2. Секреты (`JWT_*`, `ADMIN_PASSWORD`, `MONGO_*`) в `config.env` заполнены: пустые/`CHANGE_ME` `deploy.py` молча сгенерирует заново → на живых данных backend не подключится к Mongo.
 3. Если меняется схема/данные — свежий бэкап на VM (`bash deploy/synology/backup.sh` там же).
 

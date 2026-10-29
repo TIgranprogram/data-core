@@ -12,7 +12,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 | Уровень | Когда | Что |
 |--|--|--|
 | — | только доки | ничего |
-| smoke | только `backend/pwa/**`, `backend/admin/**` | `node --input-type=module --check < файл` изменённых + `npx jest src/pwa-guards --silent`; QA не пересобирать (pwa/admin смонтированы папками) |
+| smoke | только `backend/pwa/**`, `backend/admin/**` | `node backend/scripts/pwa-import-check.mjs` (синтаксис и импорты всех файлов, 0,4 с) + `npx jest src/pwa-guards --silent`; QA не пересобирать (pwa/admin смонтированы папками) |
 | smoke | `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent` + eslint модуля; e2e — только своего файла |
 | full | перед выкладкой L/XL; класс XL; если с последней строки `docs/TEST-LOG.md` менялся `backend/src`/`backend/test` | весь юнит + e2e (нужен Docker) → строка в TEST-LOG; без изменений с прошлой записи — не повторять |
 
