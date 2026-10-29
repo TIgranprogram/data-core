@@ -104,10 +104,10 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
       expect((await http().get(`/api/stock/items/${itemId}`).set(k).expect(200)).body.quantity).toBe(48);
     });
 
-    it('закрытые разделы — 403 «Раздел … закрыт»: заказы, карточка заказа, деньги, паспорта, контрагенты, позиции', async () => {
+    it('закрытые разделы — 403 «Раздел … закрыт»: заказы, карточка заказа, деньги, паспорта, позиции (список контрагентов — открыт разделам Склад/Заявки, 0ed4195)', async () => {
       const k = as(tok.keeper);
       for (const url of ['/api/salesorders', `/api/salesorders/${orderId}`,
-        '/api/passports', '/api/partners', '/api/incomes', `/api/incomes/${paidLineId}`, '/api/showcase']) {
+        '/api/passports', '/api/incomes', `/api/incomes/${paidLineId}`, '/api/showcase']) {
         const r = await http().get(url).set(k);
         expect({ url, status: r.status, message: r.body.message }).toEqual({ url, status: 403, message: expect.stringMatching(/^Раздел «.+» для вашей роли закрыт$/) });
       }
