@@ -39,9 +39,10 @@ export function mountHome(deps) {
   let pq = null; // очередь паспортов: счётчики для карточки
   let data = null, showAllQ = false, chip = null, dayFilter = null;
   const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
-  const showQuestions = () => { chip = null; dayFilter = null; showAllQ = true; paintAll(); qEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const showQuestions = () => { chip = null; dayFilter = null; showAllQ = !showAllQ || qEl.hidden; paintAll(); qEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const bellBtn = h('button', { type: 'button', class: 'td-bell', title: 'Вопросы ждут ответа — показать', 'aria-label': 'Вопросы ждут ответа', hidden: true, onclick: showQuestions });
-  const feedEl = h('div', { class: 'td-feed' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
+  const urgEl = h('div', { class: 'td-feed' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
+  const planEl = h('div', { class: 'td-feed' });
   const weekEl = h('div', { class: 'td-week' });
   const qEl = h('section', { class: 'td-qcard', hidden: true });
   const tilesEl = h('div', { class: 'td-tiles', hidden: true });
@@ -148,11 +149,17 @@ export function mountHome(deps) {
   const visibleFeed = () => (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c) && (!dayFilter || c.due === dayFilter)
     && (chip === 'shipment' ? c.kind === 'shipment' : chip === 'overdue' ? c.overdueDays > 0 : true));
   const questions = () => (data?.feed || []).filter((c) => c.kind === 'question' && notSnoozed(c));
-  function group(title, items, open) {
+  const expanded = new Set();
+  const PREVIEW = 5;
+  function group(key, title, items, open) {
     if (!items.length) return null;
+    const full = expanded.has(key), rows = full ? items : items.slice(0, PREVIEW);
     return h('details', { class: 'td-group', open }, h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
-      h('div', { class: 'td-rows' }, ...items.map(cardEl)));
+      h('div', { class: 'td-rows' }, ...rows.map(cardEl),
+        items.length > PREVIEW ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-more', onclick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } },
+          full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`) : null));
   }
+  const emptyBox = (t, s2) => h('div', { class: 'td-empty' }, h('b', null, t), s2 ? h('span', null, s2) : null);
   function paintFeed() {
     if (!data) return;
     const all = visibleFeed(), t = isoDay();
@@ -161,29 +168,30 @@ export function mountHome(deps) {
     const week = all.filter((c) => !over.includes(c) && !today.includes(c));
     const fl = dayFilter ? `Дела на ${new Date(dayFilter + 'T00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`
       : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только отгрузки') : '';
-    feedEl.replaceChildren(
-      fl ? h('div', { class: 'td-filter' }, fl,
-        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : null,
-      group('Просрочено', over, true), group('Сегодня', today, true), group('На неделе', week, !!dayFilter),
-      !all.length ? h('div', { class: 'td-empty' }, h('b', null, fl ? 'Ничего не найдено' : 'Сегодня всё спокойно'),
-        h('span', null, 'Срочных дел нет. Можно ', h('a', { href: '#fill' }, 'заполнить недостающие данные'), '.')) : null);
+    const bar = fl ? h('div', { class: 'td-filter' }, fl,
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : null;
+    const urgent = [group('over', 'Просрочено', over, true)];
+    const plan = [group('today', 'Сегодня', today, true), group('week', 'На неделе', week, true)];
+    if (fl && !all.length) plan.unshift(emptyBox('Ничего не найдено', 'По этому условию дел нет — нажмите «Показать все».'));
+    urgEl.replaceChildren(bar, ...urgent, !urgent[0] && !questions().length && !fl ? emptyBox('Срочного нет', 'Просроченных дел и вопросов нет.') : null);
+    planEl.replaceChildren(...plan, !all.length && !fl ? emptyBox('На сегодня и неделю дел нет', 'Можно заполнить недостающие данные: раздел «Заполнить».') : null);
   }
   const paintAll = () => { paintPulse(); paintFeed(); paintQuestions(); paintWeek(); };
 
   // ---------- Пульс: три числа ----------
   function paintPulse() {
-    const p = data?.pulse || {};
     const mk = (key, n, label, title) => h('button', { type: 'button', title, class: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'), 'aria-pressed': String(chip === key),
       onclick: () => { if (key === 'question') { showQuestions(); return; } chip = chip === key ? null : key; dayFilter = null; paintAll(); } },
       h('b', null, String(n || 0)), h('span', null, label));
-    const o = p.overdue || 0, s = p.shipmentsSoon || 0, q = p.questions ?? questions().length;
+    const base = (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c));
+    const o = base.filter((c) => c.overdueDays > 0).length, s = base.filter((c) => c.kind === 'shipment').length, q = questions().length;
     pulseEl.replaceChildren(
       mk('overdue', o, plural(o, 'просроченное дело', 'просроченных дела', 'просроченных дел'), 'Показать только просроченные дела'),
       mk('shipment', s, plural(s, 'заказ к отгрузке', 'заказа к отгрузке', 'заказов к отгрузке'), 'Показать только отгрузки'),
       mk('question', q, plural(q, 'вопрос ждёт ответа', 'вопроса ждут ответа', 'вопросов ждут ответа'), 'Показать вопросы'));
   }
   function paintBell() {
-    const n = data?.pulse?.questions ?? questions().length;
+    const n = questions().length;
     bellBtn.hidden = !n;
     bellBtn.replaceChildren(icon('bell'), n ? h('span', { class: 'td-bell-n' }, String(n)) : null);
   }
@@ -251,7 +259,7 @@ export function mountHome(deps) {
       const b = m.orders.byStage || {};
       out.push(tile('Заказы в работе', String((b.new || 0) + (b.production || 0) + (b.ready || 0)), segBar([{ n: b.new || 0, cls: 's1' }, { n: b.production || 0, cls: 's2' }, { n: b.ready || 0, cls: 's3' }, { n: b.shipped || 0, cls: 's4' }]),
         () => go('salesorders', { filter: 'active' }), 'Новые · в производстве · готовы · отгружены'));
-      out.push(tile('Просрочено', String(m.orders.overdue || 0), null, () => { chip = 'overdue'; dayFilter = null; paintAll(); }, 'Просрочено по сроку отгрузки'));
+      out.push(tile('Заказы с просроченной отгрузкой', String(m.orders.overdue || 0), null, () => go('salesorders', { filter: 'overdue' }), 'Открыть заказы'));
     }
     if (pq?.counts?.hot > 0) out.unshift(tile('Паспорта к сроку · ' + pq.counts.hot, String(pq.counts.hot), segBar([{ n: pq.counts.none || 0, cls: 's1' }, { n: pq.counts.draft || 0, cls: 's2' }, { n: pq.counts.rework || 0, cls: 's3' }]),
       () => go('docs'), 'Позиции, где проектирование готово, а паспорта нет и до отгрузки не больше 3 дней'));
@@ -276,7 +284,7 @@ export function mountHome(deps) {
     } catch (e) {
       if (silent && data) return;
       const fb = failBlock(e, () => load());
-      feedEl.replaceChildren(fb); pulseEl.replaceChildren();
+      urgEl.replaceChildren(fb); planEl.replaceChildren(); pulseEl.replaceChildren();
     }
   }
 
@@ -331,9 +339,10 @@ export function mountHome(deps) {
         h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null,
     pulseEl,
     actions,
-    h('div', { class: 'td-grid' },
-      h('section', { class: 'td-panel' }, h('h2', { class: 'td-ph' }, 'Что сделать сегодня'), h('div', { class: 'td-pb' }, qEl, feedEl)),
-      h('aside', { class: 'td-panel' }, h('h2', { class: 'td-ph' }, 'Показатели'), h('div', { class: 'td-pb td-pb-r' }, tilesEl, weekEl))));
+    h('div', { class: 'td-cols' },
+      h('section', { class: 'td-panel td-urgent' }, h('h2', { class: 'td-ph' }, 'Срочно'), h('div', { class: 'td-pb td-pb-r' }, qEl, urgEl)),
+      h('section', { class: 'td-panel td-plan' }, h('h2', { class: 'td-ph' }, 'План'), h('div', { class: 'td-pb td-pb-r' }, planEl, weekEl))),
+    h('section', { class: 'td-panel td-stats' }, h('h2', { class: 'td-ph' }, 'Показатели'), h('div', { class: 'td-pb td-pb-r' }, tilesEl)));
 
   load();
   return { el, reload: () => load(true), update: () => {} };

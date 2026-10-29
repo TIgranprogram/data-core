@@ -35,11 +35,15 @@ export function buildFeed(items: RawItem[], today: string, limit = 30): { feed: 
   for (const it of items) {
     const left = dayNum(it.due) - t;
     if (!Number.isFinite(left) || left > FEED_WINDOW[it.kind]) continue;
+    // вопрос — не просрочка: ждёт ответа, а не даты (иначе «просрочено» на «Сегодня» не совпадало с отбором)
+    if (it.kind === 'question') { out.push({ ...it, tone: toneOf(0), daysLeft: 0 }); continue; }
     out.push({ ...it, tone: toneOf(left), ...(left < 0 ? { overdueDays: -left } : { daysLeft: left }) });
   }
   // вопросы вам — всегда сверху: ждут ответа человека, а не даты
   out.sort((a, b) => Number(b.kind === 'question') - Number(a.kind === 'question') || a.due.localeCompare(b.due) || KIND_RANK[a.kind] - KIND_RANK[b.kind] || a.title.localeCompare(b.title, 'ru'));
-  return { feed: out.slice(0, limit), total: out.length, all: out };
+  // лимит — только на дела: вопросы не вытесняют их из ленты
+  const qs = out.filter((x) => x.kind === 'question');
+  return { feed: [...qs, ...out.filter((x) => x.kind !== 'question').slice(0, limit)], total: out.length, all: out };
 }
 
 /** Неделя: по дню с `today` на `days` вперёд; просроченное и дальше окна не входит. */
