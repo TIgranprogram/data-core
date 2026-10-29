@@ -8,8 +8,11 @@ export interface UiPrefs {
   sidebarW?: number;
   detailW?: number;
   filterW?: number;
+  /** Чат v2: последний открытый чат — id пользователя или `all`. */
+  lastChat?: string;
 }
 export const UI_PREF_KEYS = ['sidebarW', 'detailW', 'filterW'] as const;
+export const UI_PREF_STR_KEYS = ['lastChat'] as const;
 
 @Schema({ softDelete: false,  collection: 'users', timestamps: true })
 export class User {

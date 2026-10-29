@@ -2,6 +2,14 @@ import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { toastError } from './toast.js';
 
+/** Загрузить одну картинку: POST /photos/upload -> { id, url, thumb }. Общая для drop-зоны и чата. */
+export async function uploadPhoto(f) {
+  const fd = new FormData();
+  fd.append('file', f, f.name && f.name !== 'image.png' ? f.name : `фото-${Date.now()}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`);
+  const ph = await api('/photos/upload', { method: 'POST', body: fd });
+  return { id: String(ph._id || ph.id), url: ph.storageUrl, thumb: ph.variants?.thumb?.storageUrl || ph.storageUrl };
+}
+
 /**
  * Добавление фото в карточке (TASKS З.10): перетащить файлы, вставить из буфера (Ctrl+V — скриншот,
  * картинка из браузера) или выбрать файлом. Каждое фото: POST /photos/upload → attach(photoId, photo) → строка.
@@ -24,10 +32,8 @@ export function photoDrop({ attach, done }) {
     try {
       for (const [i, f] of imgs.entries()) {
         label.textContent = `Загружаю ${i + 1} из ${imgs.length}… `;
-        const fd = new FormData();
-        fd.append('file', f, f.name && f.name !== 'image.png' ? f.name : `фото-${Date.now()}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`);
-        const ph = await api('/photos/upload', { method: 'POST', body: fd });
-        row = await attach(String(ph._id || ph.id), { url: ph.storageUrl, thumb: ph.variants?.thumb?.storageUrl || ph.storageUrl });
+        const { id, ...pic } = await uploadPhoto(f);
+        row = await attach(id, pic);
       }
     } catch (e) { toastError(e); }
     finally {

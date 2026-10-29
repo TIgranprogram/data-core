@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 /**
  * ШП-1 — PATCH /api/auth/me/prefs: ширины панелей «Рабочего места», px.
@@ -27,4 +27,9 @@ export class UiPrefsDto {
   @Min(240)
   @Max(700)
   filterW?: number;
+
+  @ApiPropertyOptional({ example: 'all', description: 'Чат: последний открытый собеседник — id пользователя или all' })
+  @IsOptional()
+  @Matches(/^(all|[a-f0-9]{24})$/, { message: 'lastChat — id пользователя или all' })
+  lastChat?: string;
 }

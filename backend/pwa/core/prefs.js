@@ -17,6 +17,7 @@ const PREFS = {
   detailW: { css: '--detail-w', min: 420, max: 1400, std: null },
   filterW: { css: '--filter-w', min: 240, max: 520, std: 280 },
 };
+const STR = ['lastChat']; // строковые настройки (без CSS): последний открытый чат — 'all' или id пользователя
 const OVER = '--detail-over'; // ширина правой панели в режиме «поверх» (< DOCK_MIN)
 
 let uid = '';
@@ -29,13 +30,14 @@ const storeKey = () => 'dc-ui-' + uid;
 const clean = (o) => {
   const out = {};
   for (const k of Object.keys(PREFS)) if (Number.isFinite(o?.[k])) out[k] = Math.round(o[k]);
+  for (const k of STR) if (typeof o?.[k] === 'string' && o[k]) out[k] = o[k];
   return out;
 };
 /** { ...ширины, _p: [ключи, ещё не ушедшие на сервер] } — чтобы перезагрузка сразу после перетаскивания не потеряла запись. */
 function readLocal() {
   try {
     const o = JSON.parse(localStorage.getItem(storeKey()) || '{}');
-    return { vals: clean(o), pend: Array.isArray(o?._p) ? o._p.filter((k) => k in PREFS) : [] };
+    return { vals: clean(o), pend: Array.isArray(o?._p) ? o._p.filter((k) => k in PREFS || STR.includes(k)) : [] };
   } catch { return { vals: {}, pend: [] }; }
 }
 function writeLocal() {
@@ -104,7 +106,7 @@ export function serverPrefs(uiPrefs) {
   if (!uiPrefs || typeof uiPrefs !== 'object') return;
   const s = clean(uiPrefs);
   let changed = false;
-  for (const k of Object.keys(PREFS)) {
+  for (const k of [...Object.keys(PREFS), ...STR]) {
     if (dirty.has(k) || s[k] === saved[k]) continue;
     // ключа нет на сервере — ширину сбросили «по умолчанию» на другом ПК: сбрасываем и здесь
     if (s[k] === undefined) delete saved[k]; else saved[k] = s[k];
@@ -114,6 +116,17 @@ export function serverPrefs(uiPrefs) {
   writeLocal();
   shown = { ...saved };
   paint(shown);
+}
+
+/** Сохранённая строковая настройка (например lastChat) или ''. */
+export const getPref = (key) => saved[key] || '';
+
+/** Запомнить строковую настройку: в браузере сразу, на сервер — через 1 с. */
+export function setPref(key, val) {
+  if (!uid || (saved[key] || '') === (val || '')) return;
+  if (val) saved[key] = val; else delete saved[key];
+  dirty.add(key); writeLocal();
+  clearTimeout(timer); timer = setTimeout(sendPrefs, 1000);
 }
 
 /** Во время перетаскивания: только CSS-переменная, без записи. */

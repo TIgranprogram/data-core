@@ -983,23 +983,47 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .bell-badge.static { position: static; display: inline-block; }
 .bell-item.is-link { cursor: pointer; }
 .bell-head > span { display: inline-flex; gap: var(--s1); }
-.bell-thread { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 52px; padding: var(--s2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.bell-thread:hover, .bell-thread.is-new { background: var(--surface-2); }
+/* Чат: список слева + переписка справа (390 px — по одному) */
+.cv { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: var(--s3); height: calc(100vh - 150px); min-height: 360px; }
+.cv-list, .cv-conv { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; min-height: 0; padding: var(--s3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.cv-head { display: flex; align-items: center; gap: var(--s2); min-height: 36px; }
+.cv-who { display: flex; flex-direction: column; min-width: 0; }
+.cv-title { color: var(--heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-sub { color: var(--muted); font-size: var(--fs-sm); }
+.cv-back { display: none; }
+.cv-search { width: 100%; }
+.cv-rows { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.cv-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 52px; padding: var(--s2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.cv-row:hover, .cv-row.is-new { background: var(--surface-2); }
+.cv-row:focus-visible, .chat-photo:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.cv-row.on { background: var(--gold-soft); }
 .bt-main { display: flex; flex-direction: column; min-width: 0; }
 .bt-last { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bt-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s1); flex: none; }
 .bt-time { color: var(--muted); font-size: var(--fs-sm); }
-.bell-search { width: 100%; margin-bottom: var(--s2); }
-.chat { display: flex; flex-direction: column; gap: var(--s2); }
-.chat-feed { display: flex; flex-direction: column; gap: var(--s2); max-height: 55vh; min-height: 200px; overflow-y: auto; padding: var(--s2); background: var(--surface-2); border-radius: var(--radius-sm); }
+.chat-feed { display: flex; flex-direction: column; gap: var(--s2); flex: 1; min-height: 0; overflow-y: auto; padding: var(--s2); background: var(--surface-2); border-radius: var(--radius-sm); }
 .chat-msg { align-self: flex-start; max-width: 85%; padding: var(--s2) var(--s3); border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); }
 .chat-msg.mine { align-self: flex-end; background: var(--gold-soft); }
+.chat-from { color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
 .chat-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-photos { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
+.chat-photo { padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; cursor: zoom-in; line-height: 0; overflow: hidden; }
+.chat-photo img { width: 120px; height: 120px; object-fit: cover; }
 .chat-time { margin-top: 2px; color: var(--muted); font-size: var(--fs-sm); }
 .chat-empty { margin: auto; padding: var(--s3); color: var(--muted); text-align: center; }
 .chat-form { display: flex; gap: var(--s2); align-items: flex-end; }
-.chat-input { flex: 1; resize: vertical; min-height: 44px; }
-@media (max-width: 720px) { .bell-tab, .bell-pop .bell-clear { min-height: 44px; } .chat-feed { max-height: 50vh; } .chat-msg { max-width: 92%; } }
+.chat-input { flex: 1; resize: none; min-height: 44px; }
+.cv-pics .cv-up { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: var(--fs-sm); }
+.cv.over .cv-conv { outline: 2px dashed var(--gold); outline-offset: -4px; }
+@media (max-width: 720px) {
+  .cv { display: block; height: calc(100vh - 130px); }
+  .cv-list, .cv-conv { height: 100%; }
+  .cv.is-conv .cv-list, .cv:not(.is-conv) .cv-conv { display: none; }
+  .cv-back { display: inline-flex; }
+  .cv-row, .bell-tab, .bell-pop .bell-clear { min-height: 44px; }
+  .cv-back, .chat-form .btn-icon { min-width: 44px; min-height: 44px; }
+  .chat-msg { max-width: 92%; }
+}
 
 /* Паспорт «воронкой» (ПВ, 2026-10-25): шаги выбора текстов, сводка из изделия, липкая плашка «Осталось сделать», галочки категорий, метки качества */
 .pp-funnel { display: grid; gap: var(--s3); }

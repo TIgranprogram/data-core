@@ -37,6 +37,9 @@ export function carousel(pics, { onAdd, emptyText = 'Добавить фото' 
   return { el, show };
 }
 
+/** Открыть список фото крупно (без карусели). */
+export function openZoom(pics, start = 0) { zoom(pics, start, () => {}); }
+
 /** Крупно на весь экран, со стрелками; синхронизирует выбранное фото с каруселью. */
 function zoom(pics, start, sync) {
   let cur = start;

@@ -66,7 +66,7 @@
 - `modules/salesorders/production-orders.ts` (pure: groupKey, summarize, toProduce, compareProductionNo), `production-orders.service.ts` (list — группировка в памяти, get, setStage), `production-orders.controller.ts`; `salesorders.service.ts` `filters()` (общий с list), `ensureDetachable` (409), `productionAddedAt` в create/update; `common/text/production-seq.ts` (`numberLines`, `loadSeq`) — seqNo в lines-lookup/lookup/design-present/passport-queue; `shipments.service.ts` `shipmentNumber`. e2e `production-orders.e2e-spec.ts` зелёный. openapi не обновлён. коммит: —
 
 ## Уведомления и мини-чат (УВ, 2026-10-28, не закоммичено)
-- `modules/notifications/` (`notification-kind.ts` kindOf/kindFilter/unreadCounts, `notifications.service.ts:notify` — вызывать из других модулей), `modules/messages/` (`messages.service.ts`). Колокольчик в pwa был только в localStorage. e2e не писался, openapi не обновлён. коммит: —
+- `modules/notifications/` (`notification-kind.ts` kindOf/kindFilter/unreadCounts, `notifications.service.ts:notify` — вызывать из других модулей), `modules/messages/` (`messages.service.ts`). Колокольчик в pwa был только в localStorage. Чат v2: messages.service.ts (send/feed/threads/allSummary), messages.controller.ts (`all`, `all/read`), message.schema.ts (MessageRead). e2e не писался. коммит: —
 
 ## Готовность заказа и уведомления (В4, 2026-10-28, не закоммичено)
 - `salesorders/order-readiness.ts` (pure `readinessChecks`, `loadReadinessFacts` — 4 агрегации), `production-orders.service.ts` `readiness`/`evaluate`/`recheck` (order_ready, состояние `orderreadystate`), `setStage` → `warnings`; маршрут `:key/readiness`.

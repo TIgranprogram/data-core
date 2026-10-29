@@ -23,6 +23,19 @@ export class MessagesController {
     return this.svc.threads(user);
   }
 
+  @Get('all')
+  @Roles('admin', 'director', 'manager', 'user', 'accountant')
+  all(@Query() q: Record<string, string>, @CurrentUser() user: AuthenticatedUser) {
+    return this.svc.feed(q, user);
+  }
+
+  @Post('all/read')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user', 'accountant')
+  readAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.svc.markAllRead(user);
+  }
+
   @Get('with/:userId')
   @Roles('admin', 'director', 'manager', 'user', 'accountant')
   with(@Param('userId') userId: string, @Query() q: Record<string, string>, @CurrentUser() user: AuthenticatedUser) {

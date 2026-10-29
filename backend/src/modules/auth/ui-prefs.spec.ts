@@ -24,6 +24,12 @@ const validate = (body: unknown) =>
   pipe.transform(body, { type: 'body', metatype: UiPrefsDto });
 
 describe('UiPrefsDto (ШП-1)', () => {
+  it('lastChat: all или id пользователя — проходит; прочее — 400', async () => {
+    await expect(validate({ lastChat: 'all' })).resolves.toBeDefined();
+    await expect(validate({ lastChat: 'a'.repeat(24) })).resolves.toBeDefined();
+    await expect(validate({ lastChat: 'xyz' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(validate({ lastChat: 5 })).rejects.toBeInstanceOf(BadRequestException);
+  });
   it('границы включительно — проходят', async () => {
     await expect(validate({ sidebarW: 200, detailW: 360, filterW: 280 })).resolves.toBeDefined();
     await expect(validate({ sidebarW: 360, detailW: 1100, filterW: 700 })).resolves.toBeDefined();

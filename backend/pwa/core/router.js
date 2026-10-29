@@ -15,8 +15,12 @@ persist();
 
 export function current() {
   const raw = location.hash.replace(/^#\/?/, '');
-  const [section, qs = ''] = raw.split('?');
-  return { section: section || '', params: Object.fromEntries(new URLSearchParams(qs)) };
+  const [path, qs = ''] = raw.split('?');
+  const params = Object.fromEntries(new URLSearchParams(qs));
+  // ссылка из уведомления: #/chat/<id|all> -> раздел chat, собеседник в with (не open: это открыло бы правую панель)
+  const m = /^chat\/([^/]+)$/.exec(path);
+  if (m) return { section: 'chat', params: { ...params, with: m[1] } };
+  return { section: path || '', params };
 }
 
 function build(section, params) {

@@ -12,7 +12,7 @@ import { Model, Types } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { UI_PREF_KEYS, UiPrefs, User, UserDocument } from './user.schema';
+import { UI_PREF_KEYS, UI_PREF_STR_KEYS, UiPrefs, User, UserDocument } from './user.schema';
 import { userActivityCache } from '../../common/guards/user-activity-cache';
 import { isBaseRole, isBuiltinRole } from '../../common/roles-hierarchy';
 
@@ -249,9 +249,14 @@ export class UserService {
    * `uiPrefs.<ключ>` (не целым объектом): запись с одного ПК не стирает ключи,
    * сохранённые с другого. Пустой набор — ничего не пишет. Возвращает итоговые uiPrefs.
    */
-  async setUiPrefs(id: string, prefs: { [K in keyof UiPrefs]?: number | null }): Promise<UiPrefs> {
-    const $set: Record<string, number> = {};
+  async setUiPrefs(id: string, prefs: { [K in keyof UiPrefs]?: UiPrefs[K] | null }): Promise<UiPrefs> {
+    const $set: Record<string, number | string> = {};
     const $unset: Record<string, ''> = {};
+    for (const key of UI_PREF_STR_KEYS) {
+      const v = prefs[key];
+      if (typeof v === 'string') $set[`uiPrefs.${key}`] = v;
+      else if (v === null) $unset[`uiPrefs.${key}`] = '';
+    }
     for (const key of UI_PREF_KEYS) {
       const v = prefs[key];
       if (typeof v === 'number') $set[`uiPrefs.${key}`] = v;

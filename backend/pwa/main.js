@@ -19,6 +19,7 @@ const FEATURES = { payroll: true };
 import { versionLabel, watchUpdates } from './core/update-check.js';
 import { avatarNode } from './ui/avatars.js';
 import { bellButton } from './ui/bell.js';
+import { chatButton } from './ui/chat-button.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
@@ -217,6 +218,7 @@ function shell() {
     h('div', { class: 'histnav' },
       backBtn, fwdBtn),
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
+    chatButton(),
     bellButton(),
     seesHistory ? historyButton() : null,
     themeButton(),
@@ -351,8 +353,8 @@ function render(c) {
     }));
     else if (sec?.mount) {
       const el = h('div', { class: 'panel' });
-      sec.mount(el, { params, setTitle: (t) => { if (ui.heading) ui.heading.textContent = t; } });
-      list = { el };
+      const handle = sec.mount(el, { params, setTitle: (t) => { if (ui.heading) ui.heading.textContent = t; } });
+      list = { ...(handle || {}), el }; // mount может вернуть { update(params), destroy() }
     } else if (sec) {
       list = mountList(sec, params, {
         onOpen: (row) => openRecord(section, row.id),
@@ -392,7 +394,7 @@ function openRecord(section, id) {
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
 const titleOf = (n) => SECTIONS[n]?.title || NAMES[n] || NAV.find(([id]) => id === n)?.[1];
-const NAMES = { home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', staff: 'Сотрудники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
+const NAMES = { chat: 'Чат', home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', staff: 'Сотрудники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
 function screenTitle(url) {
   const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
   const name = titleOf(sec) || 'Сегодня';

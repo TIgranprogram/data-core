@@ -8360,6 +8360,34 @@
         ]
       }
     },
+    "/messages/all": {
+      "get": {
+        "operationId": "MessagesController_all",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
+    "/messages/all/read": {
+      "post": {
+        "operationId": "MessagesController_readAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сообщения"
+        ]
+      }
+    },
     "/messages/with/{userId}": {
       "get": {
         "operationId": "MessagesController_with",
@@ -13429,6 +13457,11 @@
             "maximum": 700,
             "example": 340,
             "description": "Ширина панели фильтров"
+          },
+          "lastChat": {
+            "type": "string",
+            "example": "all",
+            "description": "Чат: последний открытый собеседник — id пользователя или all"
           }
         }
       },
@@ -15355,17 +15388,25 @@
         "properties": {
           "toUserId": {
             "type": "string",
-            "description": "id получателя (активный пользователь)"
+            "description": "id получателя (активный пользователь); не нужен при toAll"
+          },
+          "toAll": {
+            "type": "boolean",
+            "description": "Написать всем сотрудникам (toUserId не нужен)"
           },
           "text": {
             "type": "string",
-            "maxLength": 2000
+            "maxLength": 2000,
+            "description": "Текст; необязателен, если есть фото"
+          },
+          "photoIds": {
+            "description": "id фото (после POST /photos/upload), до 10",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
-        },
-        "required": [
-          "toUserId",
-          "text"
-        ]
+        }
       },
       "SettingsDto": {
         "type": "object",
