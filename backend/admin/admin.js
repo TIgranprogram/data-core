@@ -1125,15 +1125,31 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       row.append(acts); list.append(row);
     });
     parts.push(list);
-    const n = input('text', '', 'Яндекс-Диск'); const u = input('url', 'https://webdav.yandex.ru'); const lg = input('text', '', 'логин@yandex.ru');
-    const pw = input('password', '', 'пароль приложения'); const f = input('text', 'datacore-backups');
+    // Тип хранилища — подсказки и пример адреса под выбранный вид (любой сервер с WebDAV)
+    const KINDS = [
+      { k: 'nas', name: 'Сетевой диск (Synology, QNAP, роутер с диском)', url: 'https://192.168.1.10:5006', ex: 'https://адрес-диска:5006 — в Synology включите «WebDAV» (Панель управления → Файловые службы или пакет WebDAV Server), порт HTTPS 5006.', login: 'Пользователь диска с правом записи в папку.', pass: 'Пароль этого пользователя.' },
+      { k: 'nextcloud', name: 'Nextcloud / ownCloud', url: 'https://cloud.example.ru/remote.php/dav/files/ЛОГИН', ex: 'https://ваш-адрес/remote.php/dav/files/ЛОГИН — точный адрес: Файлы → Настройки (внизу слева) → WebDAV.', login: 'Логин Nextcloud.', pass: 'Пароль приложения: Настройки → Безопасность → «Создать пароль приложения».' },
+      { k: 'cloud', name: 'Облако с WebDAV (Koofr, 4shared, pCloud и др.)', url: 'https://app.koofr.net/dav/Koofr', ex: 'Адрес WebDAV берите в справке облака. Примеры: Koofr — https://app.koofr.net/dav/Koofr, 4shared — https://webdav.4shared.com.', login: 'Логин (обычно почта) облака.', pass: 'Часто нужен отдельный «пароль приложения» из настроек безопасности облака.' },
+      { k: 'other', name: 'Другой сервер WebDAV', url: 'https://', ex: 'Полный адрес WebDAV, начинается с https://.', login: 'Логин сервера.', pass: 'Пароль сервера.' },
+    ];
+    const kind = el('select'); KINDS.forEach((x) => { const o = el('option', null, x.name); o.value = x.k; kind.append(o); });
+    const n = input('text', '', 'например: Диск в офисе'); const u = input('url', '', KINDS[0].url); const lg = input('text', '', 'логин');
+    const pw = input('password', '', 'пароль'); const f = input('text', 'datacore-backups');
+    const uF = field('Адрес WebDAV', u, KINDS[0].ex), lgF = field('Логин', lg, KINDS[0].login), pwF = field('Пароль', pw, KINDS[0].pass);
+    const hint = (fl, t) => { fl.querySelector('small').textContent = t; };
+    kind.addEventListener('change', () => { const x = KINDS.find((y) => y.k === kind.value); u.placeholder = x.url; hint(uF, x.ex); hint(lgF, x.login); hint(pwF, x.pass); if (!n.value) n.placeholder = x.name; });
     const add = el('details', 'srv-add'); add.append(el('summary', null, '+ Добавить место для копий'));
     const form = el('div', 'srv-form');
-    form.append(field('Название', n), field('Адрес WebDAV', u, 'Яндекс-Диск: https://webdav.yandex.ru. Nextcloud: https://ваш-адрес/remote.php/dav/files/логин. Synology: https://адрес:5006.'),
-      field('Логин', lg, 'Яндекс-Диск — ваш логин Яндекса.'),
-      field('Пароль', pw, 'Яндекс: не пароль от почты, а «пароль приложения» — id.yandex.ru → Безопасность → Пароли приложений → «Файлы WebDAV».'),
+    form.append(
+      el('p', 'muted', 'Подойдёт любое хранилище с WebDAV: сетевой диск, свой облачный сервер или облако. Копия уходит зашифрованной — хранилище её не прочтёт. После добавления нажмите «Проверить связь».'),
+      field('Где хранить', kind), field('Название', n), uF, lgF, pwF,
       field('Папка', f, 'Создастся сама.'),
-      btn('Добавить', 'btn-primary', async () => { await send('/targets', 'POST', { name: n.value, url: u.value, username: lg.value, password: pw.value, folder: f.value }); toast('Место добавлено — нажмите «Проверить связь»'); loadOffsite(); }));
+      btn('Добавить', 'btn-primary', async () => {
+        if (!/^https?:\/\/[^/]+/.test(u.value.trim())) throw new Error('Адрес должен начинаться с https:// — пример под полем');
+        if (!lg.value.trim() || !pw.value) throw new Error('Впишите логин и пароль');
+        await send('/targets', 'POST', { name: n.value.trim() || KINDS.find((y) => y.k === kind.value).name, url: u.value.trim(), username: lg.value.trim(), password: pw.value, folder: f.value });
+        toast('Место добавлено — нажмите «Проверить связь»'); loadOffsite();
+      }));
     add.append(form);
     parts.push(add);
     box.replaceChildren(...parts);
@@ -1162,7 +1178,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
         tb.append(tr);
       });
       table.append(tb);
-      box.replaceChildren(table, prog, el('p', 'muted', 'Копию можно сохранить на любой диск — браузер спросит папку.'));
+      box.replaceChildren(table, prog, el('p', 'muted', 'Копию можно сохранить на любой диск — браузер спросит папку.'), el('p', 'muted', 'Как вернуть данные. Одну запись (заявку, заказ, позицию) — через «Корзину» в приложении: удалённое лежит там, кнопка «Вернуть». Кнопки «откатить всю базу» здесь нет нарочно: база общая с CRM, откат стёр бы всю работу после копии у всех. Полное восстановление (сбой диска, порча базы) делает администратор сервера по инструкции deploy/synology/README.md «Копии вне дома», шаги 4–5 — сначала на проверочной копии.'));
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось получить список копий: ' + e.message)); }
   }
   // ---- Сервер: переносной пакет для переезда (кнопка → файл-запрос → cron хоста → скачивание) ----
