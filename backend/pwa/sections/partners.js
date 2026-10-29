@@ -4,7 +4,7 @@ import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
-import { downloadXlsx } from '../core/xlsx-write.js';
+import { openSide } from '../ui/side-form.js';
 import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { contractsBlock } from './contracts.js';
@@ -156,73 +156,6 @@ function requestsByMonth(items) {
   }));
 }
 
-async function importExcelDialog(r) {
-  let previewRows = null;
-  let previewHash = null;
-  const fileInput = h('input', { type: 'file', accept: '.xlsx,.xls', required: true });
-  const previewWrap = h('div', { class: 'excel-preview', hidden: true });
-  // 2026-10-26: «Кол-во» — сколько заказать в этих единицах (пусто = 1); «Ед. изм.» — шт / м / кг / упак (пусто = шт); «Цена» — за 1 единицу
-  const dlTpl = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Ед. изм.', 'Кол-во', 'Группа', 'Цена'],
-    ['АРТ-001', 'Качели двойные', 'Зелёный', 'шт', 1, 'Качели', 12500], ['АРТ-002', 'Труба 40×20×2', '', 'м', 6, 'Металл', 210]], 'Прайс');
-  const hint = h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. Строки появятся для проверки перед добавлением. ',
-    h('button', { type: 'button', class: 'link-btn', onclick: dlTpl }, '⇩ Шаблон Excel'));
-
-  function renderPreview(rows) {
-    previewRows = rows;
-    const cols = ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'];
-    const th = h('tr', null, ...cols.map((c) => h('th', null, c)));
-    const trs = rows.slice(0, 200).map((rw) => h('tr', null,
-      h('td', null, rw.article), h('td', { class: 'clip' }, rw.name), h('td', null, rw.color),
-      h('td', { class: 'num' }, rw.qty), h('td', null, rw.unit || 'шт'), h('td', null, rw.optGroup),
-      h('td', { class: 'num' }, rw.price != null ? rw.price.toLocaleString('ru') + ' ₽' : '—')));
-    previewWrap.replaceChildren(
-      h('p', { class: 'hint ok' }, `Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`),
-      h('div', { class: 'table-wrap', style: { maxHeight: '300px', overflow: 'auto' } },
-        h('table', { class: 'data-table' }, h('thead', null, th), h('tbody', null, ...trs))));
-    previewWrap.hidden = false;
-  }
-
-  fileInput.addEventListener('change', async () => {
-    if (!fileInput.files?.[0]) return;
-    previewWrap.replaceChildren(h('p', { class: 'hint' }, 'Загружаю предпросмотр…'));
-    previewWrap.hidden = false;
-    try {
-      const fd = new FormData();
-      fd.append('file', fileInput.files[0]);
-      const res = await api(`/supply/suppliers/${r.id}/excel?preview=1`, { method: 'POST', body: fd });
-      previewHash = res.hash;
-      renderPreview(res.rows || []);
-    } catch (ex) {
-      previewWrap.replaceChildren(h('p', { class: 'form-error' }, ex.message || 'Ошибка разбора файла'));
-      previewWrap.hidden = false;
-    }
-  });
-
-  const body = h('div', null,
-    hint,
-    h('label', { class: 'field' }, h('span', null, 'Файл Excel (.xlsx)'), fileInput),
-    previewWrap);
-
-  await modal({
-    title: 'Загрузить прайс от «' + r.name + '»',
-    okText: 'Применить',
-    wide: true,
-    body,
-    onOk: async () => {
-      if (!fileInput.files?.[0]) throw new Error('Выберите файл');
-      if (!previewRows) throw new Error('Дождитесь загрузки предпросмотра');
-      const fd = new FormData();
-      fd.append('file', fileInput.files[0]);
-      const res = await api(`/supply/suppliers/${r.id}/excel`, { method: 'POST', body: fd });
-      if (res.duplicate) {
-        toast('Этот файл уже был загружен ранее — дублей не создано');
-        return;
-      }
-      toast(`Создано заявок: ${res.created ?? 0}, обновлено в каталоге: ${res.catalogUpdated ?? 0}`);
-    },
-  });
-}
-
 export const partners = {
   id: 'partners',
   title: 'Контрагенты',
@@ -281,7 +214,7 @@ export const partners = {
     actions: (r) => [
       r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
       r.kind === 'supplier' && { label: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) },
-      r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: (row) => importExcelDialog(row) },
+      r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: () => openSide('pricelist', 'order:' + r.id) },
     ],
     extra: related,
   },

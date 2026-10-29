@@ -2,7 +2,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { date, money, parseNum, qty } from '../core/format.js';
-import { modal, confirmDlg } from '../ui/dialog.js';
+import { confirmDlg } from '../ui/dialog.js';
+import { openSide, sideForm } from '../ui/side-form.js';
 import { toast, toastError } from '../ui/toast.js';
 import { incomeLookups, todayMsk } from './orders.js';
 
@@ -18,6 +19,43 @@ const curMonth = () => todayMsk().slice(0, 7);
 const shift = (m, n) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
 const label = (m) => { const [y, mo] = m.split('-').map(Number); return `${MONTHS[mo - 1][0].toUpperCase()}${MONTHS[mo - 1].slice(1)} ${y}`; };
 const kpi = (l, v, cls = '') => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, v), h('span', { class: 'sum-l' }, l));
+
+/** «Выплата» — правая панель (П3, было окно): вид, дата, сумма (по умолчанию — остаток); у сотрудника без компании — выбор нашей компании. */
+let live = null; // { month(), reload() } — открытый экран «ФОТ»
+export const payout = sideForm({
+  id: 'payout', title: 'Выплата сотруднику', canEdit: () => session.canPayroll, entityType: 'PayrollPayment', noun: 'выплату',
+  get: async (key) => {
+    const month = live?.month() || curMonth();
+    const [s, l] = await Promise.all([api('/payroll/summary', { query: { month } }), incomeLookups().catch(() => ({ companies: [] }))]);
+    const people = s.items.filter((p) => p.rate || p.paid);
+    return { month, people, companies: l.companies || [], person: key === 'new' ? null : people.find((p) => String(p.id) === String(key)) || null, _key: key };
+  },
+  heading: (r) => (r.person ? 'Выплата: ' + r.person.name : 'Выплата сотруднику'),
+  subheading: (r) => label(r.month),
+  saveLabel: 'Записать выплату',
+  fields: (r) => {
+    const byId = (id) => r.people.find((p) => String(p.id) === String(id));
+    const sync = (fapi) => { const p = byId(r.person ? r.person.id : fapi.get('personId')); fapi.set('companyId', p?.companyId || ''); const lab = fapi.field('companyId'); if (lab) lab.hidden = !!p?.companyId; if (!r.person) fapi.set('amount', p && p.balance > 0 ? String(p.balance).replace('.', ',') : ''); };
+    return [
+      r.person ? null : { key: 'personId', label: 'Сотрудник', type: 'select', required: true, choose: true, wide: true, options: r.people.map((p) => ({ value: String(p.id), label: p.name })), mount: (fapi) => fapi.on('personId', () => sync(fapi)) },
+      { key: 'companyId', label: 'Наша компания (платит)', type: 'select', options: r.companies.map((c) => ({ value: String(c.id), label: c.name })), mount: (fapi) => sync(fapi) },
+      { key: 'kind', label: 'Вид', type: 'select', options: KINDS.map(([value, label]) => ({ value, label })), span: 1 },
+      { key: 'date', label: 'Дата', type: 'date', required: true, span: 1 },
+      { key: 'amount', label: 'Сумма, ₽ на руки', type: 'money', min: 0, required: true },
+    ].filter(Boolean);
+  },
+  toInitial: (r) => ({ personId: '', companyId: r.person?.companyId || '', kind: 'salary', date: todayMsk(), amount: r.person && r.person.balance > 0 ? r.person.balance : null }),
+  toBody: (v, r) => {
+    const p = r.person || r.people.find((x) => String(x.id) === String(v.personId));
+    const a = Number(v.amount) || 0;
+    if (!p) throw new Error('Выберите сотрудника');
+    if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
+    const companyId = p.companyId || v.companyId;
+    if (!companyId) throw new Error('Выберите нашу компанию');
+    return { personId: p.id, companyId, date: v.date, amount: a, kind: v.kind, month: r.month };
+  },
+  save: async (body) => { await api('/payroll/payments', { method: 'POST', body }); toast('Выплата записана'); live?.reload(); return {}; },
+});
 
 export function mountPayroll() {
   if (!session.canPayroll) return { el: h('div', { class: 'panel state' }, 'Раздел доступен только бухгалтеру и руководству.'), reload: () => {}, update: () => {} };
@@ -35,39 +73,8 @@ export function mountPayroll() {
   let data = null;
   let seq = 0;
 
-  /** Окно выплаты: вид, дата, сумма (из строки сотрудника — только эти 3 поля, имя в заголовке) (по умолчанию — остаток); у сотрудника без компании — выбор нашей компании. */
-  async function payDialog(person) {
-    const l = await incomeLookups().catch(() => ({ companies: [] }));
-    const people = data.items.filter((p) => p.rate || p.paid);
-    const who = h('select', null, ...people.map((p) => h('option', { value: p.id }, p.name)));
-    if (person) who.value = person.id;
-    const cur = () => people.find((p) => p.id === who.value);
-    const co = h('select', null, h('option', { value: '' }, '— выберите —'), ...l.companies.map((c) => h('option', { value: c.id }, c.name)));
-    const coField = h('label', { class: 'field' }, h('span', null, 'Наша компания (платит)'), co);
-    const kind = h('select', null, ...KINDS.map(([v, t]) => h('option', { value: v, selected: v === 'salary' }, t)));
-    const dt = h('input', { type: 'date', value: todayMsk() });
-    const sum = h('input', { inputmode: 'decimal', placeholder: '0,00' });
-    const sync = () => { const p = cur(); co.value = p?.companyId || ''; coField.hidden = !!p?.companyId; sum.value = p && p.balance > 0 ? String(p.balance).replace('.', ',') : ''; };
-    who.addEventListener('change', sync); sync();
-    const saved = await modal({
-      title: person ? `Выплата: ${person.name}` : 'Выплата сотруднику',
-      okText: 'Записать выплату',
-      body: h('div', { class: 'form-grid' },
-        person ? null : h('label', { class: 'field' }, h('span', null, 'Сотрудник'), who), coField,
-        h('label', { class: 'field' }, h('span', null, 'Вид'), kind),
-        h('label', { class: 'field' }, h('span', null, 'Дата'), dt),
-        h('label', { class: 'field' }, h('span', null, 'Сумма, ₽ на руки'), sum)),
-      onOk: async () => {
-        const p = cur(); const a = parseNum(sum.value);
-        if (!p) throw new Error('Выберите сотрудника');
-        if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
-        const companyId = p.companyId || co.value;
-        if (!companyId) throw new Error('Выберите нашу компанию');
-        return api('/payroll/payments', { method: 'POST', body: { personId: p.id, companyId, date: dt.value, amount: a, kind: kind.value, month } });
-      },
-    });
-    if (saved) { toast('Выплата записана'); load(); }
-  }
+  const payDialog = (person) => openSide('payout', person ? person.id : 'new');
+  live = { month: () => month, reload: () => load() };
 
   /** Правка табеля в строке: часы (почасовая) или дни/норма (оклад). */
   function sheetInputs(p) {

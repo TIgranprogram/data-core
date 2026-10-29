@@ -5,7 +5,8 @@ import { stepFunnel } from '../ui/step-funnel.js';
 import { catArt } from '../ui/cat-art.js';
 import { current, patch } from '../core/router.js';
 import { attachCombo } from '../ui/combo.js';
-import { modal } from '../ui/dialog.js';
+import { openSide, noteField, sideForm } from '../ui/side-form.js';
+import { downloadXlsx } from '../core/xlsx-write.js';
 import { enhanceSelect } from '../ui/select.js';
 import { openPopMenu } from '../ui/pop-menu.js';
 import { icon } from '../ui/icons.js';
@@ -137,7 +138,7 @@ function topBlock(reload) {
     onclick: () => openPopMenu({ anchor: gear, side: 'down', groups: [
       { items: [
         { label: '⇩ Шаблон Excel', onSelect: () => download('/supply/catalog/template', {}, 'Шаблон_каталога.xlsx') },
-        canWrite() ? { label: 'Загрузить Excel…', onSelect: () => importDialog(reload) } : null,
+        canWrite() ? { label: 'Загрузить Excel…', onSelect: () => openSide('pricelist', current().params.supplierId || 'x') } : null,
         { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
       ] }] }) }, icon('settings'));
   // выход к плиткам категорий и сброс — всегда на виду сверху (жалоба 2026-10-29: «зашёл в категорию — назад не выйти»)
@@ -186,43 +187,83 @@ function previewTable(res) {
   return [head, dup, note, table, rows.length > 300 ? h('p', { class: 'muted small' }, `Показаны первые 300 из ${rows.length}`) : null];
 }
 
-async function importDialog(reload) {
-  const sup = h('select', { 'aria-label': 'Поставщик' }, h('option', { value: '' }, 'Не выбран — поставщик указан в файле'));
-  loadSuppliers().then((list) => { list.forEach((o) => sup.append(h('option', { value: o.value }, o.label))); const cur = current().params.supplierId; if (cur) sup.value = cur; enhanceSelect(sup); });
-  const file = h('input', { type: 'file', accept: '.xlsx' });
-  const out = h('div', { class: 'sc-preview' });
-  let ready = false;
-  const form = () => { const fd = new FormData(); fd.append('file', file.files[0]); if (sup.value) fd.append('supplierId', sup.value); return fd; };
-  async function preview() {
-    ready = false;
-    if (!file.files?.[0]) { out.replaceChildren(); return; }
-    out.replaceChildren(h('p', { class: 'hint' }, 'Проверяю файл…'));
-    try {
-      const res = await api('/supply/catalog/import?preview=1', { method: 'POST', body: form() });
-      out.replaceChildren(...previewTable(res).filter(Boolean));
-      ready = (res.counts?.total || 0) > (res.counts?.error || 0);
-    } catch (e) { out.replaceChildren(h('p', { class: 'form-error' }, e.message || 'Не удалось прочитать файл')); }
-  }
-  file.addEventListener('change', preview);
-  sup.addEventListener('change', preview);
-  const body = h('div', null,
-    h('p', { class: 'hint' }, 'Скачайте шаблон в меню ⚙, заполните и загрузите. Поставщика можно не выбирать, если в файле есть колонка «ИНН поставщика».'),
-    h('label', { class: 'field' }, h('span', null, 'Поставщик (необязательно)'), sup),
-    h('label', { class: 'field' }, h('span', null, 'Файл Excel (.xlsx)'), file),
-    out);
-  await modal({
-    title: 'Загрузить прайс из Excel', okText: 'Загрузить', wide: true, body,
-    onOk: async () => {
-      if (!file.files?.[0]) throw new Error('Выберите файл');
-      if (!ready) throw new Error('Нет строк для загрузки — проверьте файл');
-      const res = await api('/supply/catalog/import', { method: 'POST', body: form() });
-      bust();
-      toast(`Загружено: новых ${res.created ?? 0}, обновлено ${res.updated ?? 0}, без изменений ${res.same ?? 0}${res.errors ? `, пропущено ${res.errors}` : ''}`);
-      reload?.();
-      window.dispatchEvent(new CustomEvent('data-changed'));
-    },
-  });
+/** Предпросмотр «Заказа от поставщика» (создаёт заявки и цены каталога): строки файла. */
+function orderPreview(rows) {
+  const trs = rows.slice(0, 200).map((rw) => h('tr', null,
+    h('td', null, rw.article), h('td', { class: 'clip' }, rw.name), h('td', null, rw.color),
+    h('td', { class: 'num' }, rw.qty), h('td', null, rw.unit || 'шт'), h('td', null, rw.optGroup),
+    h('td', { class: 'num' }, rw.price != null ? rw.price.toLocaleString('ru') + ' ₽' : '—')));
+  return [h('p', { class: 'hint ok' }, `Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`),
+    h('div', { class: 'table-wrap', style: { maxHeight: '300px', overflow: 'auto' } },
+      h('table', { class: 'data-table' }, h('thead', null, h('tr', null, ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'].map((c) => h('th', null, c)))), h('tbody', null, ...trs)))];
 }
+// 2026-10-26: «Кол-во» — сколько заказать в этих единицах (пусто = 1); «Ед. изм.» — шт / м / кг / упак (пусто = шт); «Цена» — за 1 единицу
+const orderTemplate = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Ед. изм.', 'Кол-во', 'Группа', 'Цена'],
+  ['АРТ-001', 'Качели двойные', 'Зелёный', 'шт', 1, 'Качели', 12500], ['АРТ-002', 'Труба 40×20×2', '', 'м', 6, 'Металл', 210]], 'Прайс');
+
+/**
+ * Загрузка Excel — одна правая панель (П3 + Д3; раньше два окна: в каталоге и в контрагенте).
+ * open = <id поставщика>|x — прайс-лист в каталог (preview → apply); order:<id> — «Заказ клиента» от поставщика: заявки + цены каталога.
+ */
+const fileKey = (k) => (String(k).startsWith('order:') ? { mode: 'order', supplierId: String(k).slice(6) } : { mode: 'price', supplierId: k === 'x' ? '' : String(k) });
+let cur = null; // файл и предпросмотр открытой панели «Загрузить прайс»
+export const priceList = sideForm({
+  id: 'pricelist', title: 'Загрузить прайс из Excel', noun: 'файл',
+  canEdit: canWrite,
+  get: async (k) => { const o = fileKey(k); const name = o.mode === 'order' ? (await api(`/partners/${encodeURIComponent(o.supplierId)}`).catch(() => null))?.name || '' : ''; return { ...o, supplierName: name }; },
+  heading: (r) => (r.mode === 'order' ? 'Загрузить прайс от «' + (r.supplierName || 'поставщика') + '»' : 'Загрузить прайс из Excel'),
+  saveLabel: 'Загрузить',
+  fields: async (r) => {
+    const order = r.mode === 'order';
+    const file = h('input', { type: 'file', accept: order ? '.xlsx,.xls' : '.xlsx', 'aria-label': 'Файл Excel' });
+    const out = h('div', { class: 'sc-preview' });
+    let ready = false; let fapi = null;
+    const supplier = () => (order ? r.supplierId : fapi?.get('supplierId') || '');
+    const fd = () => { const x = new FormData(); x.append('file', file.files[0]); if (!order && supplier()) x.append('supplierId', supplier()); return x; };
+    async function preview() {
+      ready = false;
+      if (!file.files?.[0]) { out.replaceChildren(); return; }
+      out.replaceChildren(h('p', { class: 'hint' }, 'Проверяю файл…'));
+      try {
+        if (order) {
+          const res = await api(`/supply/suppliers/${r.supplierId}/excel?preview=1`, { method: 'POST', body: fd() });
+          ready = true; out.replaceChildren(...orderPreview(res.rows || []));
+        } else {
+          const res = await api('/supply/catalog/import?preview=1', { method: 'POST', body: fd() });
+          out.replaceChildren(...previewTable(res).filter(Boolean));
+          ready = (res.counts?.total || 0) > (res.counts?.error || 0);
+        }
+      } catch (e) { out.replaceChildren(h('p', { class: 'form-error' }, e.message || 'Не удалось прочитать файл')); }
+    }
+    file.addEventListener('change', preview);
+    cur = { file, ready: () => ready, fd, order };
+    const note = order
+      ? h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. ', h('button', { type: 'button', class: 'link-btn', onclick: orderTemplate }, '⇩ Шаблон Excel'))
+      : h('p', { class: 'hint' }, 'Скачайте шаблон в меню ⚙ каталога, заполните и загрузите. Поставщика можно не выбирать, если в файле есть колонка «ИНН поставщика».');
+    return [noteField(note),
+      order ? null : { key: 'supplierId', label: 'Поставщик (необязательно)', type: 'select', wide: true, options: await loadSuppliers(), hint: 'Не выбран — поставщик указан в файле' },
+      { key: 'file', label: 'Файл Excel (.xlsx)', type: 'widget', wide: true, widget: () => ({ el: h('div', null, file, out), get value() { return file.files?.[0]?.name || ''; }, set value(_) { /* только ввод */ } }),
+        mount: (f) => { fapi = f; f.on('supplierId', preview); } }].filter(Boolean);
+  },
+  toInitial: (r) => ({ supplierId: r.supplierId || current().params.supplierId || '' }),
+  toBody: () => {
+    if (!cur?.file.files?.[0]) throw new Error('Выберите файл');
+    if (!cur.ready()) throw new Error(cur.order ? 'Дождитесь загрузки предпросмотра' : 'Нет строк для загрузки — проверьте файл');
+    return cur.fd();
+  },
+  save: async (body, r) => {
+    if (r.mode === 'order') {
+      const res = await api(`/supply/suppliers/${r.supplierId}/excel`, { method: 'POST', body });
+      if (res.duplicate) toast('Этот файл уже был загружен ранее — дублей не создано');
+      else toast(`Создано заявок: ${res.created ?? 0}, обновлено в каталоге: ${res.catalogUpdated ?? 0}`);
+      bust(); return {};
+    }
+    const res = await api('/supply/catalog/import', { method: 'POST', body });
+    bust();
+    toast(`Загружено: новых ${res.created ?? 0}, обновлено ${res.updated ?? 0}, без изменений ${res.same ?? 0}${res.errors ? `, пропущено ${res.errors}` : ''}`);
+    return {};
+  },
+});
 
 // ---------- карточка ----------
 /** Поле «Наш материал»: поиск по складу, пусто = связи нет. value — JSON id. */

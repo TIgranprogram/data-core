@@ -226,8 +226,7 @@ async function catLanding({ pick }) {
       onclick: () => (ks.length ? setOpen(secOpen() === t.id ? '' : t.id) : pick(t.id)) }, art, body, ks.length ? h('span', { class: 'sec-chev', 'aria-hidden': 'true' }, '▾') : null);
     const panel = h('div', { class: 'sec-panel', id: pid, inert: '' }, h('div', { class: 'sec-panel-in' },
       h('div', { class: 'sec-panel-head' }, h('h3', null, 'Группы раздела «' + t.name + '»'),
-        h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => pick(t.id) }, 'Весь раздел →'),
-        h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => patch({ all: '1' }) }, 'Все изделия списком')),
+        h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => pick(t.id) }, 'Весь раздел →')), // «Все изделия списком» — один раз, сверху (аудит Д12)
       h('div', { class: 'cat-grid' }, ...ks.map((g) => catTile(g, pick)))));
     items.push({ id: t.id, tile, panel });
     return h('div', { class: 'sec-item' }, tile, ks.length ? panel : null);
@@ -305,21 +304,12 @@ export const products = {
           ...all.filter((g) => g.parentId && !known.has(g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: 'группа' }))];
       },
     },
-    headActions: () => {
-      const drop = h('div', { class: 'gear-drop' }, ...[
-        h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'catalogimport', new: '1', open: undefined }); } }, '⇩ Загрузить каталог'),
-        session.canEdit ? h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'fromorders', new: '1', open: undefined }); } }, 'Из заказов') : null,
-        session.canEdit ? h('button', { class: 'btn', type: 'button', onclick: () => { drop.classList.remove('open'); patch({ of: 'frompassports', new: '1', open: undefined }); } }, 'Из паспортов') : null,
-      ].filter(Boolean));
-      // слушатели закрытия — только пока меню открыто (раньше копились при каждой перерисовке)
-      const close = () => { drop.classList.remove('open'); gearBtn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); };
-      const onKey = (e) => { if (e.key === 'Escape') close(); };
-      const gearBtn = h('button', { class: 'btn btn-icon', type: 'button', title: 'Загрузка и импорт: каталог, из заказов, из паспортов', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
-        onclick: (e) => { e.stopPropagation(); if (drop.classList.contains('open')) return close(); drop.classList.add('open'); gearBtn.setAttribute('aria-expanded', 'true'); document.addEventListener('click', close); document.addEventListener('keydown', onKey); } }, '⚙');
-      drop.setAttribute('role', 'menu');
-      const gear = h('div', { class: 'gear-wrap' }, gearBtn, drop);
-      return [gear, h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`)];
-    },
+    // П2/Д12: в шапке «КП» и главная «+ Изделие»; весь импорт — одним пунктом в «Ещё ▾»
+    headActions: () => [h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`)],
+    moreActions: () => [{ title: 'Импорт', items: [
+      { label: 'Загрузить каталог…', onSelect: () => patch({ of: 'catalogimport', new: '1', open: undefined }) },
+      session.canEdit ? { label: 'Из заказов…', onSelect: () => patch({ of: 'fromorders', new: '1', open: undefined }) } : null,
+      session.canEdit ? { label: 'Из паспортов…', onSelect: () => patch({ of: 'frompassports', new: '1', open: undefined }) } : null] }],
     hints: {},
     rowAction: (r) => ({ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`«${row.name}» в КП — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); return false; } }),
     columns: [

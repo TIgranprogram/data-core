@@ -316,11 +316,11 @@ export function mountHome(deps) {
       act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
       act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined }))] : null,
     seeStock ? [
-      act('Принять машину', 'Приход по счёту', () => go('ops', { mode: 'in' })),
+      act('Принять на склад', 'Приход по счёту', () => go('ops', { mode: 'in' })),
       h('details', { class: 'td-menu' }, h('summary', { class: 'btn' }, 'Ещё'),
         h('div', { class: 'td-menu-pop' },
-          act('− Списать', 'Выдача со склада', () => go('ops', {})),
-          act('Бронь по списку', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))))] : null) : null;
+          act('Выдать со склада', 'Выдача со склада', () => go('ops', {})),
+          act('Забронировать', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))))] : null) : null;
 
   // Диск сервера и целостность данных — админу, только если есть что показать
   // проверки здоровья — не чаще раза в час (ответ в sessionStorage)

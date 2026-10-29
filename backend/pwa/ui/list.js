@@ -10,6 +10,7 @@ import { patch, current } from '../core/router.js';
 import { mountBoard } from './board.js';
 import { icon } from './icons.js';
 import { pager } from './pager.js';
+import { openPopMenu } from './pop-menu.js';
 import { toastError } from './toast.js';
 
 /**
@@ -19,6 +20,7 @@ import { toastError } from './toast.js';
  * section.list = {
  *   toolbarExtra?() → { el, update(P) } — свой элемент в панели инструментов (фильтры по признакам у «Остатков»), extraKeys — его ключи в адресе;
  *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
+ *   moreActions?(reload) → [{ label, title?, onSelect?, href? }] | [{ title?, sep?, items }] — второстепенные действия шапки в меню «Ещё ▾» (вместе с «⇩ Excel»); в шапке остаётся одна главная кнопка (аудит П2),
  *   columns: [{ key, label, sort?, cls?, render(row) }],
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label, hint? }], count?(resp, value) }],
@@ -76,8 +78,19 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin
-  const exportBtn = (L.export === false || (L.export === 'admin' && session.role !== 'admin')) ? null : h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать весь список с текущими фильтрами в Excel',
-    onclick: (e) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, e.currentTarget); } }, '⇩ Excel');
+  const canExport = !(L.export === false || (L.export === 'admin' && session.role !== 'admin'));
+  const doExport = (btn) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, btn); };
+  // «Ещё ▾» (аудит П2): второстепенные действия и «⇩ Excel» — одним меню, в шапке одна главная кнопка
+  const moreBtn = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Остальные действия' }, 'Ещё ▾');
+  const moreGroups = () => {
+    const own = L.moreActions && canEditSection(section) ? L.moreActions(() => load()).filter(Boolean) : [];
+    const groups = own.length && own.every((x) => x.items) ? own : own.length ? [{ items: own }] : [];
+    if (canExport) groups.push({ sep: groups.length > 0, items: [{ label: '⇩ Excel', onSelect: () => doExport(moreBtn) }] });
+    return groups;
+  };
+  moreBtn.onclick = () => openPopMenu({ anchor: moreBtn, side: 'down', groups: moreGroups() });
+  moreBtn.hidden = !canExport && !(L.moreActions && canEditSection(section));
+  const exportBtn = moreBtn;
   // «Выбрать» — явный вход в выбор нескольких строк (на ПК без Ctrl+клик, на телефоне без долгого нажатия)
   const selBtn = L.bulk && !L.bulk.always && canEditSection(section) ? h('button', { class: 'btn btn-ghost', type: 'button', title: 'Отметить несколько строк и изменить их разом (на ПК — Ctrl+клик, на телефоне — долгое нажатие)',
     onclick: () => (bulkMode ? exitBulkMode() : enterBulkMode()) }, 'Выбрать') : null;
@@ -86,8 +99,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     h('span', { class: 'spacer' }),
     viewSwitch,
     selBtn,
-    exportBtn,
     ...(L.headActions && canEditSection(section) ? L.headActions(() => load()) : []),
+    exportBtn,
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
 
   // ---------- Поиск и фильтры (создаются один раз) ----------

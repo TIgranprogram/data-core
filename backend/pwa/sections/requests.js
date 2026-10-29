@@ -10,6 +10,7 @@ import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { quickAdd } from '../ui/quick.js';
+import { openSide, sideForm } from '../ui/side-form.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList, partnerAction } from './lookups.js';
 import { pic } from './stock.js';
@@ -53,41 +54,39 @@ async function setStatus(r, key, ctx) {
   ctx.setRow(saved);
 }
 
-/** Окно «Принять» (2026-10-20): сколько пришло, куда пошло (Цех / Офис / СМР / Под заказ) и ставить ли на склад.
+/** «Принять» — правая панель (П3, было окно; 2026-10-20): сколько пришло, куда пошло (Цех / Офис / СМР / Под заказ) и ставить ли на склад.
  *  Без склада — заявка «Получено» с отметкой, куда ушло (сразу в работу, в офис, на объект): в воздухе ничего не остаётся. */
-export async function receiveDialog(r) {
-  const left = h('input', { name: 'qty', inputmode: 'decimal', value: String(r.qty ?? '') });
-  let cc = r.costCenter || (r.salesOrderId ? 'order' : 'workshop');
-  const obj = h('input', { maxlength: 200, value: r.costObject || '', placeholder: 'объект / адрес' });
-  const objWrap = h('label', { class: 'field' }, h('span', null, 'Объект СМР'), obj);
-  const stock = h('input', { type: 'checkbox' });
-  const stockHint = h('span', { class: 'hint' });
-  const sync = () => {
-    objWrap.hidden = cc !== 'smr';
-    stockHint.textContent = stock.checked ? 'Остаток на складе увеличится.' : 'На склад не ставится — сразу в работу / туда, куда выбрали. Заявка станет «Получено».';
-  };
-  const setCc = (k, auto = true) => { cc = k; seg.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === k)); if (auto) stock.checked = k === 'workshop' || k === 'order'; sync(); };
-  const seg = h('div', { class: 'fseg' }, ...Object.entries(COST_CENTER).map(([k, l]) => h('button', { type: 'button', class: 'fseg-btn', 'data-v': k, onclick: () => setCc(k) }, l)));
-  setCc(cc);
-  stock.addEventListener('change', sync);
-  const saved = await modal({
-    title: 'Принять: ' + name(r),
-    body: h('div', null,
-      h('label', { class: 'field' }, h('span', null, `Количество${r.unit ? ', ' + r.unit : ''}`), left),
-      h('div', { class: 'field' }, h('span', null, 'Куда пошло'), seg),
-      objWrap,
-      h('label', { class: 'check' }, stock, ' Поставить на склад'), stockHint,
-      r.materialName || !stock.checked ? null : h('p', { class: 'hint' }, 'Такой позиции на складе нет — она будет создана.')),
-    okText: 'Принять на склад',
-    onOk: async () => {
-      const n = Number(String(left.value).replace(',', '.').replace(/\s/g, ''));
-      if (!(n > 0)) throw new Error('Укажите количество больше нуля');
-      return api(`/supply/requests/${r.id}/receive`, { method: 'POST', body: { qty: n, toStock: stock.checked, costCenter: cc, ...(cc === 'smr' && obj.value.trim() ? { costObject: obj.value.trim() } : {}) } });
-    },
-  });
-  if (saved) toast(saved.receivedTo === 'direct' ? `Получено — ${COST_CENTER[cc]}, без склада` : 'Принято на склад');
-  return saved;
-}
+export const receiveDialog = (r) => { openSide('reqreceive', r.id); return Promise.resolve(null); };
+export const reqReceive = sideForm({
+  id: 'reqreceive', title: 'Принять заявку', entityType: 'SupplyRequest', noun: 'заявку',
+  get: (id) => api(`/supply/requests/${id}`),
+  heading: (r) => 'Принять: ' + name(r),
+  subheading: (r) => (r.num ? '№' + r.num : ''),
+  saveLabel: 'Принять на склад',
+  fields: (r) => [
+    { key: 'qty', label: `Количество${r.unit ? ', ' + r.unit : ''}`, type: 'number', min: 0, required: true, span: 1 },
+    { key: 'costCenter', label: 'Куда пошло', type: 'segment', wide: true, options: Object.entries(COST_CENTER).map(([value, label]) => ({ value, label })),
+      mount: (fapi) => {
+        const sync = (auto) => {
+          const cc = fapi.get('costCenter');
+          const lab = fapi.field('costObject'); if (lab) lab.hidden = cc !== 'smr';
+          if (auto) fapi.set('toStock', cc === 'workshop' || cc === 'order' ? '1' : '0');
+          const hint = fapi.field('toStock')?.querySelector('.hint'); if (hint) hint.textContent = fapi.get('toStock') === '1' ? 'Остаток на складе увеличится.' + (r.materialName ? '' : ' Такой позиции на складе нет — она будет создана.') : 'На склад не ставится — сразу в работу / туда, куда выбрали. Заявка станет «Получено».';
+        };
+        fapi.on('costCenter', () => sync(true)); fapi.on('toStock', () => sync(false)); sync(false);
+      } },
+    { key: 'costObject', label: 'Объект СМР', max: 200, placeholder: 'объект / адрес', wide: true },
+    { key: 'toStock', label: 'Поставить на склад?', type: 'segment', wide: true, options: [{ value: '1', label: 'Да, на склад' }, { value: '0', label: 'Нет, сразу в работу' }],
+      hint: 'Остаток на складе увеличится.' },
+  ],
+  toInitial: (r) => { const cc = r.costCenter || (r.salesOrderId ? 'order' : 'workshop'); return { qty: r.qty ?? null, costCenter: cc, costObject: r.costObject || '', toStock: cc === 'workshop' || cc === 'order' ? '1' : '0' }; },
+  toBody: (v) => {
+    const n = Number(v.qty);
+    if (!(n > 0)) throw new Error('Укажите количество больше нуля');
+    return { qty: n, toStock: v.toStock === '1', costCenter: v.costCenter, ...(v.costCenter === 'smr' && String(v.costObject || '').trim() ? { costObject: String(v.costObject).trim() } : {}) };
+  },
+  save: async (body, r) => { const saved = await api(`/supply/requests/${r.id}/receive`, { method: 'POST', body }); toast(saved.receivedTo === 'direct' ? `Получено — ${COST_CENTER[body.costCenter]}, без склада` : 'Принято на склад'); return saved; },
+});
 async function receive(r, ctx) { const saved = await receiveDialog(r); if (saved) ctx.setRow(saved); }
 
 async function changeStatus(r, ctx) {
@@ -251,9 +250,10 @@ export const requests = {
     defaults: { status: 'requested' }, // таблица: вход сразу в «Заказать»; чип «Все» снимает
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
-    headActions: () => [
-      h('button', { class: 'btn', type: 'button', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onclick: () => patch({ of: 'pasteorder', new: '1', open: undefined }) }, '+ Из таблицы'),
-      h('button', { class: 'btn', type: 'button', title: 'Счёт, которого не было в заявках: внести уже оплаченный или полученный счёт со всеми позициями', onclick: () => patch({ of: 'invoice', new: '1', open: undefined }) }, 'Счёт без заявок')],
+    // П2: в шапке одна главная «+ Заявка»; остальное — «Ещё ▾»
+    moreActions: () => [
+      { label: 'Заявки из таблицы', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onSelect: () => patch({ of: 'pasteorder', new: '1', open: undefined }) },
+      { label: 'Счёт без заявок', title: 'Счёт, которого не было в заявках: внести уже оплаченный или полученный счёт со всеми позициями', onSelect: () => patch({ of: 'invoice', new: '1', open: undefined }) }],
     searchPlaceholder: 'Поиск: наименование, №, поставщик, заказ…',
     sidebar: true,
     chipsTop: true, // статусы — строкой над списком

@@ -36,10 +36,10 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
-  requests: [() => import('./sections/requests.js'), [['requests','requests']]],
+  requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
   stock: [() => import('./sections/stock.js'), [['stock','stock']]],
   movements: [() => import('./sections/movements.js'), [['movements','movements']]],
-  orders: [() => import('./sections/orders.js'), [['orders','orders']]],
+  orders: [() => import('./sections/orders.js'), [['orders','orders'],['incpay','incPay'],['incprice','incPrice']]],
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
   design: [() => import('./sections/design.js'), [['design','design']]],
   designorder: [() => import('./sections/design-order.js'), [['designorder','designOrder']]],
@@ -59,7 +59,7 @@ const LAZY = {
   passports: [() => import('./sections/passports.js'), [['passports','passports']]],
   docs: [() => import('./sections/docs.js'), [['doctpl','doctpl'],['passarchive','passarchive'],['@mountDocs','mountDocs']]],
   kp: [() => import('./sections/kp.js'), [['kp','kp'],['catalogimport','catalogImport'],['fromorders','fromOrders'],['frompassports','fromPassports']]],
-  suppliercatalog: [() => import('./sections/supplier-catalog.js'), [['suppliercatalog','supplierCatalog']]],
+  suppliercatalog: [() => import('./sections/supplier-catalog.js'), [['suppliercatalog','supplierCatalog'],['pricelist','priceList']]],
   composition: [() => import('./sections/composition.js'), [['composition','composition']]],
   bulkedit: [() => import('./sections/bulk-edit.js'), [['bulkedit','bulkEdit']]],
   stockop: [() => import('./sections/stock-ops.js'), [['stockop','stockOp']]],
@@ -68,8 +68,8 @@ const LAZY = {
   compsug: [() => import('./ui/composition-suggest.js'), [['compsug','compSuggest']]],
   ptext: [() => import('./sections/passport-texts.js'), [['ptext','ptext'],['ptextview','ptextview']]],
   ptnode: [() => import('./sections/passport-tree.js'), [['ptnode','ptnode']]],
-  money: [() => import('./sections/money.js'), [['@mountMoney','mountMoney']]],
-  payroll: [() => import('./sections/payroll.js'), [['@mountPayroll','mountPayroll']]],
+  money: [() => import('./sections/money.js'), [['@mountMoney','mountMoney'],['finstart','finStart']]],
+  payroll: [() => import('./sections/payroll.js'), [['@mountPayroll','mountPayroll'],['payout','payout']]],
   staff: [() => import('./sections/staff.js'), [['@mountStaff','mountStaff'],['staffcard','staffCard'],['zonecard','zoneCard']]],
   trash: [() => import('./sections/trash.js'), [['@mountTrash','mountTrash']]],
   fill: [() => import('./sections/fill.js'), [['@mountFill','mountFill']]],
@@ -77,7 +77,7 @@ const LAZY = {
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract' };
+const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
 const loading = {};
 let warmed = false;
 /** Прогрев (скорость): после входа, в простое, подтянуть частые разделы — первое открытие без ожидания. Один раз, ошибки молча. */
@@ -106,7 +106,7 @@ function needed(section, params) {
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff',
+const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };

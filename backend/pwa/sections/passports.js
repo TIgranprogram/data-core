@@ -98,10 +98,12 @@ export const passports = {
       noImages: 'Паспорта без картинок: перетащите или вставьте (Ctrl+V) общий вид в карточке.',
     },
     hintKey: 'state',
-    headActions: (reload) => [numbersStrip(), h('button', { class: 'btn btn-ghost', type: 'button', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onclick: async (e) => {
-      const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 }); const free = busyBtn(e.currentTarget, null);
-      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); free(); }
-    } }, '⇩ PDF пакетом')],
+    headActions: () => [numbersStrip()],
+    // П2: «⇩ PDF пакетом» — в «Ещё ▾»
+    moreActions: () => [{ label: '⇩ PDF пакетом', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onSelect: async () => {
+      const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 });
+      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); }
+    } }],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
       { key: 'passportNumber', label: '№', sort: 'passportNo', cls: 'nowrap', render: (r) => h('b', null, numberOf(r) || '—') },

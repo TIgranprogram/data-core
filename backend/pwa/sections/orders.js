@@ -6,6 +6,7 @@ import { attachCombo } from '../ui/combo.js';
 import { badge } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
+import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { UNITS, unitList, lookups } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
@@ -89,61 +90,54 @@ async function pickProduct(r) {
   });
 }
 
-/** «Вписать сумму»: цена за единицу (сумма = кол-во × цена) или сумма строки целиком. */
-export async function priceDialog(r) {
-  const price = h('input', { inputmode: 'decimal', placeholder: '0,00', value: r.unitPrice ?? '' });
-  const total = h('input', { inputmode: 'decimal', placeholder: '0,00', value: r.amountManual ?? '' });
-  const out = h('p', { class: 'hint' });
-  const show = () => {
-    const p = parseNum(price.value), s = parseNum(total.value);
-    out.textContent = s > 0 ? `Сумма строки: ${money(s)}` : p > 0 && r.qty ? `Сумма строки: ${qty(r.qty)} × ${money(p)} = ${money(p * r.qty)}` : 'Впишите цену за единицу или сумму целиком.';
-  };
-  price.addEventListener('input', show); total.addEventListener('input', show); show();
-  const saved = await modal({
-    title: 'Сумма: ' + (r.title || ''),
-    okText: 'Сохранить',
-    body: h('div', null,
-      h('p', { class: 'hint' }, `${r.orderNo ? 'Заказ ' + r.orderNo + ' · ' : ''}${r.customer || ''} · ${qty(r.qty)} ${r.unit || ''}`),
-      h('div', { class: 'form-grid' },
-        h('label', { class: 'field' }, h('span', null, 'Цена за единицу, ₽'), price),
-        h('label', { class: 'field' }, h('span', null, 'или сумма целиком, ₽'), total)),
-      out),
-    onOk: async () => {
-      const p = parseNum(price.value), s = parseNum(total.value);
-      if (!(p > 0) && !(s > 0)) throw new Error('Впишите цену или сумму больше нуля');
-      return api(`/incomes/${r.id}`, { method: 'PATCH', body: { unitPrice: p > 0 ? p : null, amountManual: s > 0 ? s : null } });
-    },
-  });
-  if (saved) toast(`Сумма: ${money(saved.amount)}${saved.shipDate ? ' — строка в платёжном календаре' : ''}`);
-  return saved;
-}
+/** «Вписать сумму» — правая панель (П3): цена за единицу или сумма строки целиком. */
+export const priceDialog = (r) => { openSide('incprice', r.id); return Promise.resolve(null); };
+const incomeHint = (r) => `${r.orderNo ? 'Заказ ' + r.orderNo + ' · ' : ''}${r.customer || ''} · ${qty(r.qty)} ${r.unit || ''}`;
+export const incPrice = sideForm({
+  id: 'incprice', title: 'Вписать сумму', canEdit: () => session.canMoney, entityType: 'Income', noun: 'позицию',
+  get: (id) => api(`/incomes/${id}`),
+  heading: (r) => r.title || '—',
+  subheading: incomeHint,
+  saveLabel: 'Сохранить',
+  fields: (r) => {
+    const out = h('p', { class: 'hint' }, 'Впишите цену за единицу или сумму целиком.');
+    const note = h('div', null, h('p', { class: 'hint' }, incomeHint(r)), out);
+    return [noteField(note), { key: 'unitPrice', money: true, label: 'Цена за единицу, ₽', type: 'money', min: 0, mount: (f) => { const show = () => { const p = parseNum(f.get('unitPrice')) || 0, s = parseNum(f.get('amountManual')) || 0; out.textContent = s > 0 ? `Сумма строки: ${money(s)}` : p > 0 && r.qty ? `Сумма строки: ${qty(r.qty)} × ${money(p)} = ${money(p * r.qty)}` : 'Впишите цену за единицу или сумму целиком.'; }; f.on('unitPrice', show); f.on('amountManual', show); show(); } },
+      { key: 'amountManual', money: true, label: 'или сумма целиком, ₽', type: 'money', min: 0 }];
+  },
+  toInitial: (r) => ({ unitPrice: r.unitPrice ?? null, amountManual: r.amountManual ?? null }),
+  toBody: (v) => {
+    const p = Number(v.unitPrice) || 0, s = Number(v.amountManual) || 0;
+    if (!(p > 0) && !(s > 0)) throw new Error('Впишите цену или сумму больше нуля');
+    return { unitPrice: p > 0 ? p : null, amountManual: s > 0 ? s : null };
+  },
+  save: async (body, r) => { const saved = await api(`/incomes/${r.id}`, { method: 'PATCH', body }); toast(`Сумма: ${money(saved.amount)}${saved.shipDate ? ' — строка в платёжном календаре' : ''}`); return saved; },
+});
 
-/** «Платёж»: дата (сегодня по Москве), сумма (по умолчанию = долг), способ. POST /incomes/:id/payments. */
-export async function paymentDialog(r) {
-  const l = await incomeLookups().catch(() => ({ paymentMethods: ['нал', 'безнал', 'карта'] }));
-  const debt = r.debt != null ? r.debt : Math.max(0, (Number(r.amount) || 0) - (Number(r.paidAmount) || 0));
-  const dt = h('input', { type: 'date', value: todayMsk(), required: true });
-  const sum = h('input', { inputmode: 'decimal', placeholder: '0,00', value: debt > 0 ? String(debt).replace('.', ',') : '' });
-  const met = h('select', null, h('option', { value: '' }, '— не указан —'), ...(l.paymentMethods || []).map((m) => h('option', { value: m }, m)));
-  const saved = await modal({
-    title: 'Оплата: ' + (r.title || ''),
-    okText: 'Принять оплату',
-    body: h('div', null,
-      h('p', { class: 'hint' }, `${r.orderNo ? 'Заказ ' + r.orderNo + ' · ' : ''}${r.customer || ''} · сумма ${money(r.amount)} · оплачено ${money(r.paidAmount || 0)} · долг ${money(debt)}`),
-      h('div', { class: 'form-grid' },
-        h('label', { class: 'field' }, h('span', null, 'Дата'), dt),
-        h('label', { class: 'field' }, h('span', null, 'Сумма, ₽'), sum),
-        h('label', { class: 'field' }, h('span', null, 'Способ'), met))),
-    onOk: async () => {
-      const a = parseNum(sum.value);
-      if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
-      if (!dt.value) throw new Error('Укажите дату платежа');
-      return api(`/incomes/${r.id}/payments`, { method: 'POST', body: { date: dt.value, amount: a, ...(met.value ? { method: met.value } : {}) } });
-    },
-  });
-  if (saved) toast(`Оплата принята: ${money(saved.paidAmount)} из ${money(saved.amount)}`);
-  return saved;
-}
+/** «Принять оплату» — правая панель (П3): дата (сегодня по Москве), сумма (по умолчанию = долг), способ. POST /incomes/:id/payments. */
+export const paymentDialog = (r) => { openSide('incpay', r.id); return Promise.resolve(null); };
+export const incPay = sideForm({
+  id: 'incpay', title: 'Принять оплату', canEdit: () => session.canMoney, entityType: 'Income', noun: 'позицию',
+  get: async (id) => ({ ...(await api(`/incomes/${id}`)), _methods: (await incomeLookups().catch(() => ({ paymentMethods: ['нал', 'безнал', 'карта'] }))).paymentMethods || [] }),
+  heading: (r) => r.title || '—',
+  subheading: incomeHint,
+  saveLabel: 'Принять оплату',
+  fields: (r) => {
+    const debt = r.debt != null ? r.debt : Math.max(0, (Number(r.amount) || 0) - (Number(r.paidAmount) || 0));
+    return [noteField(h('p', { class: 'hint' }, `Сумма ${money(r.amount)} · оплачено ${money(r.paidAmount || 0)} · долг ${money(debt)}`)),
+      { key: 'date', label: 'Дата', type: 'date', required: true, span: 1 },
+      { key: 'amount', money: true, label: 'Сумма, ₽', type: 'money', min: 0, required: true, span: 1 },
+      { key: 'method', label: 'Способ', type: 'select', options: (r._methods || []).map((m) => ({ value: m, label: m })) }];
+  },
+  toInitial: (r) => { const debt = r.debt != null ? r.debt : Math.max(0, (Number(r.amount) || 0) - (Number(r.paidAmount) || 0)); return { date: todayMsk(), amount: debt > 0 ? debt : null, method: '' }; },
+  toBody: (v) => {
+    const a = Number(v.amount) || 0;
+    if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
+    if (!v.date) throw new Error('Укажите дату платежа');
+    return { date: v.date, amount: a, ...(v.method ? { method: v.method } : {}) };
+  },
+  save: async (body, r) => { const saved = await api(`/incomes/${r.id}/payments`, { method: 'POST', body }); toast(`Оплата принята: ${money(saved.paidAmount)} из ${money(saved.amount)}`); return saved; },
+});
 
 /** Блок «Оплаты» в карточке позиции: список платежей, «+ Платёж», удаление. */
 function paymentsBlock(r, ctx) {

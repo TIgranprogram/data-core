@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { modal } from '../ui/dialog.js';
+import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { toast } from '../ui/toast.js';
 import { opRow } from '../ui/op-row.js';
 import { forecastView } from './money-forecast.js';
@@ -27,6 +27,44 @@ const store = { get: (k) => { try { return localStorage.getItem(k); } catch { re
 /** Сумма для ячейки: ноль не показываем, минус — красным. */
 const cell = (v, opts = {}) => (v ? h('span', { class: 'num' + (v < 0 && !opts.calm ? ' neg' : '') + (opts.strong ? ' strong' : '') }, money(v).replace(' ₽', '')) : '');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+/** «Старт учёта» — правая панель (П3, было окно): дата и остаток на счетах каждой нашей компании. PUT /finance/settings (только админ). */
+let live = null; // { month(), reload() } — открытый экран «Деньги»
+const ruDate = (v) => v.split('-').reverse().join('.');
+const numOf = (v) => Number(String(v ?? '').trim().replace(/s/g, '').replace(',', '.')) || 0;
+export const finStart = sideForm({
+  id: 'finstart', title: 'Старт учёта', canEdit: () => session.role === 'admin', entityType: 'FinanceSettings', noun: 'настройку',
+  get: async () => ({ ...(await api('/finance/settings')) }),
+  heading: (st) => (st.startDate ? 'Сейчас учёт ведётся с ' + ruDate(st.startDate) : 'Старт учёта не задан'),
+  editTitle: (st) => (st.startDate ? 'Изменить старт учёта' : 'Старт учёта'),
+  saveLabel: 'Сохранить',
+  fields: (st) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date(); const pad = (x) => String(x).padStart(2, '0');
+    const quick = [[`${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`, 'С 1-го числа этого месяца'], [`${now.getFullYear()}-01-01`, 'С 1 января'], ...(live?.month ? [[live.month() + '-01', 'С 1-го числа открытого месяца']] : [])]
+      .filter(([v], i, a) => a.findIndex(([w]) => w === v) === i);
+    const total = h('b', { class: 'num' });
+    const names = st.companies || [];
+    return [
+      noteField(h('p', { class: 'hint' }, 'Укажите день, на который известен остаток на счетах. С этой даты сайт сам считает остаток каждого дня. Операции раньше — серым, в остаток не входят.')),
+      { key: 'startDate', label: 'Дата старта', type: 'date', max: today, hint: st.startDate ? 'Очистите дату и сохраните — старт учёта будет убран' : undefined,
+        mount: (fapi) => { fapi.field('startDate')?.append(h('div', { class: 'chips' }, ...quick.map(([v, l]) => h('button', { type: 'button', class: 'chip', onclick: () => fapi.set('startDate', v) }, l + ' · ' + ruDate(v))))); } },
+      ...names.map((n) => ({ key: 'ob:' + n, label: 'Остаток на начало дня — ' + n + ', ₽', type: 'money', min: 0,
+        mount: (fapi) => { const recount = () => { total.textContent = money(names.reduce((s, x) => s + numOf(fapi.get('ob:' + x)), 0)) + ' ₽'; }; fapi.on('ob:' + n, recount); recount(); if (n === names[names.length - 1]) fapi.field('ob:' + n)?.append(h('p', null, 'Итого на старт: ', total)); } })),
+    ];
+  },
+  toInitial: (st) => ({ startDate: st.startDate || '', ...Object.fromEntries((st.companies || []).map((n) => ['ob:' + n, st.openingBalance?.[n] || null])) }),
+  toBody: (v, st) => {
+    if (!v.startDate && !st.startDate) throw new Error('Выберите дату старта');
+    if (v.startDate && v.startDate > new Date().toISOString().slice(0, 10)) throw new Error('Дата старта не может быть в будущем');
+    return { startDate: v.startDate || null, openingBalance: Object.fromEntries((st.companies || []).map((n) => [n, numOf(v['ob:' + n])])) };
+  },
+  save: async (body) => {
+    const saved = await api('/finance/settings', { method: 'PUT', body });
+    settings = saved; toast(saved.startDate ? 'Учёт ведётся с ' + ruDate(saved.startDate) : 'Старт учёта убран'); live?.reload();
+    return {};
+  },
+});
+
 /** «Старт учёта» с сервера (GET /finance/settings): есть дата — остаток считает сервер, ручной ввод не нужен. */
 let settings = null;
 const hasStart = () => !!settings?.startDate;
@@ -58,44 +96,8 @@ export function mountMoney(params) {
     orgSeg,
     h('label', { class: 'date-f' }, h('span', { class: 'm-open-l' }, 'остаток денег на 1-е'), opening),
     gear);
-  async function startDialog() {
-    const st = await api('/finance/settings');
-    const ru = (v) => v.split('-').reverse().join('.');
-    const num = (inp) => Number(inp.value.trim().replace(/\s/g, '').replace(',', '.')) || 0;
-    const dt = h('input', { type: 'date', value: st.startDate || '', max: new Date().toISOString().slice(0, 10) });
-    const ins = (st.companies || []).map((n) => [n, h('input', { inputmode: 'decimal', placeholder: '0,00', value: st.openingBalance?.[n] ? String(st.openingBalance[n]).replace('.', ',') : '' })]);
-    const total = h('b', { class: 'num' });
-    const recount = () => { total.textContent = money(ins.reduce((t, [, inp]) => t + num(inp), 0)) + ' ₽'; };
-    ins.forEach(([, inp]) => inp.addEventListener('input', recount)); recount();
-    // быстрый выбор: 1-е текущего месяца, 1 января, 1-е выбранного в календаре месяца
-    const now = new Date(); const pad = (x) => String(x).padStart(2, '0');
-    const quick = [[`${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`, 'С 1-го числа этого месяца'], [`${now.getFullYear()}-01-01`, 'С 1 января'], [month() + '-01', 'С 1-го числа открытого месяца']]
-      .filter(([v], i, a) => a.findIndex(([w]) => w === v) === i);
-    const chips = h('div', { class: 'chips' }, ...quick.map(([v, l]) => h('button', { type: 'button', class: 'chip', onclick: () => { dt.value = v; } }, l + ' · ' + ru(v))));
-    const now0 = st.startDate
-      ? h('p', null, 'Сейчас учёт ведётся с ', h('b', null, ru(st.startDate)), '. Выберите новую дату — остаток пересчитается.')
-      : h('p', null, 'Старт учёта не задан. Остаток месяца сейчас вводится вручную.');
-    let clear = false;
-    const saved = await modal({
-      title: st.startDate ? 'Изменить старт учёта' : 'Старт учёта',
-      okText: 'Сохранить',
-      body: h('div', null,
-        now0,
-        h('p', { class: 'hint' }, 'Укажите день, на который известен остаток на счетах. С этой даты сайт сам считает остаток каждого дня. Операции раньше — серым, в остаток не входят.'),
-        chips,
-        h('div', { class: 'form-grid' },
-          h('label', { class: 'field' }, h('span', null, 'Дата старта'), dt),
-          ...ins.map(([n, inp]) => h('label', { class: 'field' }, h('span', null, 'Остаток на начало дня — ' + n + ', ₽'), inp))),
-        h('p', null, 'Итого на старт: ', total),
-        st.startDate ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: (e) => { clear = true; dt.value = ''; e.currentTarget.textContent = 'Старт будет убран после «Сохранить»'; } }, 'Убрать старт учёта') : null),
-      onOk: () => {
-        if (!clear && !dt.value) throw new Error('Выберите дату старта');
-        if (dt.value && dt.value > new Date().toISOString().slice(0, 10)) throw new Error('Дата старта не может быть в будущем');
-        return api('/finance/settings', { method: 'PUT', body: { startDate: dt.value || null, openingBalance: Object.fromEntries(ins.map(([n, inp]) => [n, num(inp)])) } });
-      },
-    });
-    if (saved) { settings = saved; toast(saved.startDate ? 'Учёт ведётся с ' + ru(saved.startDate) : 'Старт учёта убран'); load(); }
-  }
+  const startDialog = () => openSide('finstart', 'x');
+  live = { month, reload: () => load() };
   const body = h('div', { class: 'm-body' });
   const el = h('div', { class: 'money' },
     h('div', { class: 'page-head' }, h('h1', null, 'Деньги'), h('span', { class: 'spacer' }), tabs),

@@ -49,28 +49,16 @@ function recentMoves(r) {
   return h('div', null, h('div', { class: 'section-title' }, 'Последние записи'), ul, more);
 }
 
-/** Кнопки над списком остатков: «Принять», «Выдать», «Забронировать», «ещё ▾» (Списать, Пересчитать) — всё в правой панели; «Вся история» — журнал. */
-// открытое меню «ещё ▾»: закрывается кликом мимо и Esc; слушатели — один раз на модуль, а не на каждую отрисовку
-let moreOpen = null;
-function closeMore() { if (moreOpen) { moreOpen.menu.hidden = true; moreOpen.more.setAttribute('aria-expanded', 'false'); moreOpen = null; } }
-document.addEventListener('click', closeMore);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && moreOpen) { const b = moreOpen.more; closeMore(); b.focus(); e.stopPropagation(); } }, true);
-function stockActions() {
-  const item = (label, op) => h('button', { type: 'button', role: 'menuitem', onclick: () => { closeMore(); openStockOp(op); } }, label);
-  const menu = h('div', { class: 'menu', role: 'menu', hidden: true }, item('Списать', 'writeoff'), item('Пересчитать', 'count'));
-  const more = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => {
-    e.stopPropagation();
-    if (!menu.hidden) { closeMore(); return; }
-    closeMore(); menu.hidden = false; more.setAttribute('aria-expanded', 'true'); moreOpen = { menu, more };
-    menu.querySelector('button')?.focus();
-  } }, 'ещё ▾');
-  return h('div', { class: 'stock-acts' },
-    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять на склад'),
-    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('out') }, 'Выдать'),
-    h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('reserve') }, 'Забронировать'),
-    h('div', { class: 'rel' }, more, menu),
-    h('a', { class: 'btn btn-ghost', href: '#movements', title: 'Журнал всех приходов, списаний и корректировок' }, 'Журнал движений'));
-}
+/** Шапка «Остатков» (аудит П2/Д5): в шапке «Принять на склад» и «Ещё ▾» (Выдать, Забронировать, Списать, Пересчитать, Журнал движений); в строке и карточке — по состоянию. */
+const stockActions = () => h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять на склад');
+const stockMore = () => [
+  { items: [
+    { label: 'Выдать со склада', onSelect: () => openStockOp('out') },
+    { label: 'Забронировать', onSelect: () => openStockOp('reserve') },
+    { label: 'Списать (брак, потеря)', onSelect: () => openStockOp('writeoff') },
+    { label: 'Пересчитать', onSelect: () => openStockOp('count') }] },
+  { sep: true, items: [{ label: 'Журнал движений', href: '#movements' }] },
+];
 
 export const stock = {
   id: 'stock',
@@ -91,6 +79,7 @@ export const stock = {
     query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
     headActions: () => [stockActions()],
+    moreActions: stockMore,
     top: (_reload) => mobileStockDashboard(),
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
