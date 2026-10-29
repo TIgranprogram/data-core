@@ -155,6 +155,24 @@ export const staffCard = {
   },
 };
 
+// СВ-10: что приходит людям зоны — список событий сервера (zone-routing.ts, notifyZone); новой зоне событий нет
+const ZONE_EVENTS = {
+  contracts: ['Заказы', ['новый заказ']],
+  design_dispatch: ['Проектирование', ['задача без исполнителя']],
+  design: ['Проектирование', ['вам назначена задача']],
+  supply: ['Заявки', ['новая заявка', 'вам передана заявка']],
+  stock: ['Склад', []],
+  accounting: ['Деньги', []],
+  passports: ['Паспорта', []],
+  management: ['Все разделы', ['всё, что не назначено в других зонах']],
+};
+function zoneEvents(code) {
+  const [section, events] = ZONE_EVENTS[code] || ['—', []];
+  return h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Что приходит людям зоны'),
+    h('p', null, 'Раздел: ' + section),
+    events.length ? h('ul', null, ...events.map((t) => h('li', null, t))) : h('p', { class: 'hint' }, 'Пока без уведомлений — их добавят позже.'));
+}
+
 // ─── карточка зоны ─────────────────────────────────────────────────────────────────────────────────────
 function zoneEditor(z, everyone, ctx) {
   const name = h('input', { maxlength: 40, value: z.name || '', placeholder: 'Например: Закупки', 'aria-label': 'Название зоны' });
@@ -187,6 +205,7 @@ function zoneEditor(z, everyone, ctx) {
       h('label', { class: 'field' }, h('span', null, 'Подсказка — за что отвечает зона'), hint),
       check('Показывать зону', active, (v) => { active = v; }),
       z.system ? h('p', { class: 'hint' }, 'Базовую зону удалить нельзя — её можно переименовать или скрыть.') : null),
+    zoneEvents(z.code),
     h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Кто отвечает'),
       everyone.length ? h('div', { class: 'st-checks' }, ...everyone.map((p) => check(p.name + (p.hasLogin ? '' : ' (не получит уведомления — нет входа)'), members.has(p.id), (v) => (v ? members.add(p.id) : members.delete(p.id)))))
         : h('p', { class: 'hint' }, 'Сотрудников нет.')),
