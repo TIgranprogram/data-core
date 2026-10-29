@@ -55,6 +55,10 @@ export class WorkTypeService implements OnModuleInit {
     // Виды работ модулей + ссылки из CRM kppdf (единая база, см. catalog-references).
     const moduleRef = await this.model.db.collection('productmodules').findOne({ 'workTypes.workTypeId': doc._id }, { projection: { _id: 1 } });
     if (moduleRef || (await isUsedByCrm(this.model.db, 'workType', doc._id))) throw new ConflictException('WorkType is referenced by catalog history and cannot be archived');
+    // Маршруты изделий («Как делается») и незавершённые задания «В работе»
+    const product = await this.model.db.collection('products').findOne({ 'workTypes.workTypeId': doc._id, deletedAt: null }, { projection: { name: 1, sku: 1 } });
+    if (product) throw new ConflictException(`Вид работ есть в маршруте изделия «${String(product.name || product.sku || '')}» — сначала уберите его оттуда`);
+    if (await this.model.db.collection('worktasks').findOne({ 'route.workTypeId': doc._id, status: { $in: ['waiting', 'work'] }, deletedAt: null }, { projection: { _id: 1 } })) throw new ConflictException('Вид работ нужен незавершённым заданиям «В работе» — сначала закончите их');
     await this.model.updateOne({ _id: doc._id, deletedAt: null }, { $set: { deletedAt: new Date(), isActive: false } }).exec();
   }
 }

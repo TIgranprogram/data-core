@@ -20,6 +20,8 @@ export const APP_SECTIONS = [
   { id: 'payroll', label: 'ФОТ' },
   // «Проектирование»: /api/design-tasks (modules/design, ПРЖ-3).
   { id: 'design', label: 'Проектирование' },
+  // «В работе»: /api/work-tasks, /api/work-routes (modules/work).
+  { id: 'work', label: 'В работе' },
 ] as const;
 
 export type AppSectionId = (typeof APP_SECTIONS)[number]['id'];

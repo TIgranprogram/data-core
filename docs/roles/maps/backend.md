@@ -83,3 +83,8 @@
 
 ## Договоры поставщиков (ДП, 2026-10-29, не закоммичено)
 - `modules/supply/supplier-contract.{schema,service,controller}.ts` + `dto-contract.ts`; счёт: `supply-invoice.service.ts` `checkContract`/`contractInfo` (update, list, get), `contractId` в схеме и `dto-invoice.ts`. Тесты — `supplier-contract.service.spec.ts`, e2e `supplier-contracts.e2e-spec.ts` (зелёный). openapi перегенерирован через docker. Коллекция читается из счёта «сырой» (`db.collection`), поэтому `deletedAt: null` вручную. Роли `supply` нет — только admin/director/manager/user. коммит: —
+
+## «В работе» (AUDIT-PRODUCTION шаги 0–2, 2026-10-29, не закоммичено)
+- `modules/work/`: `work.service.ts` (`list` — доска+колонки, `launch`, `move`/`finish`/`cancel`/`patch`/`people`), `work-flow.ts` (pure: `positionAt`, `mergeColumns`, `planLaunch`), `work-route.service.ts` (маршрут `products.workTypes[]`, подсказка из модулей), `work-present.ts`, `work-task.schema.ts` (`worktasks`, замок `openIncomeId`); контроллеры `work-tasks`, `work-routes`; раздел `work` в `common/app-sections.ts`.
+- Шаг 0: `persons.workTypeIds[]` — `common/catalog/person-work-types.ts`, `dicts.defs.ts` persons (`toDoc` не стирает чужие виды работ при старом одиночном поле). Защита удаления вида работ — `work-type.service.ts` + `catalog-delete-guards.spec.ts`.
+- e2e `test/e2e/work.e2e-spec.ts` НЕ запускался; openapi не обновлён. Уведомления зоне при запуске нет (зоны «Производство» ещё нет — шаг 4). коммит: —

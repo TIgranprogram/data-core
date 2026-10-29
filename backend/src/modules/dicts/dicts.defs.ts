@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
+import { personWorkTypeIds, workTypeFields } from '../../common/catalog/person-work-types';
 import { passportPhrasesDef } from './dicts.passport-phrases';
 import { productGroupDefs } from './dicts.product-groups';
 import { DICT_META } from './dicts.meta';
@@ -493,18 +494,24 @@ const BASE: DictBase[] = [
     name: personName,
     row: (d) => ({
       name: personName(d), lastName: s(d.lastName), firstName: s(d.firstName), patronymic: s(d.patronymic), position: s(d.position), phone: s(d.phone), email: s(d.email), notes: s(d.notes),
-      workTypeId: d.workTypeId ? String(d.workTypeId) : '', payoutScheduleId: d.payoutScheduleId ? String(d.payoutScheduleId) : '',
+      workTypeId: personWorkTypeIds(d)[0] ? String(personWorkTypeIds(d)[0]) : '', workTypeIds: personWorkTypeIds(d).map(String), payoutScheduleId: d.payoutScheduleId ? String(d.payoutScheduleId) : '',
       status: s(d.status) || 'active', statusLabel: ({ active: 'Работает', vacation: 'В отпуске', fired: 'Уволен' } as Record<string, string>)[s(d.status) || 'active'],
       salaryKind: s(d.salaryKind), salaryRate: d.salaryRate ?? null,
       birthDate: d.birthDate ? new Date(d.birthDate as Date).toISOString().slice(0, 10) : '',
     }),
-    toDoc: async (b, isNew) => {
+    toDoc: async (b, isNew, db, id) => {
       const doc: Document = { updatedAt: new Date() };
       for (const k of ['lastName', 'firstName', 'patronymic', 'position', 'phone', 'email', 'notes']) if (b[k] !== undefined) doc[k] = opt(b[k]);
       if (b.status !== undefined) doc.status = ['active', 'vacation', 'fired'].includes(String(b.status)) ? b.status : 'active';
       if (b.salaryKind !== undefined) doc.salaryKind = ['month', 'hour'].includes(String(b.salaryKind)) ? b.salaryKind : null;
       if (b.salaryRate !== undefined) { const n = Number(String(b.salaryRate ?? '').replace(/\s/g, '').replace(',', '.')); doc.salaryRate = Number.isFinite(n) && n > 0 ? n : null; }
-      if (b.workTypeId !== undefined) doc.workTypeId = oidOrNull(b.workTypeId);
+      // несколько видов работ: массив workTypeIds (старое workTypeId пишется синхронно — первым); форма со старым одиночным полем чужие виды работ не стирает
+      if (b.workTypeIds !== undefined) Object.assign(doc, workTypeFields(b.workTypeIds));
+      else if (b.workTypeId !== undefined) {
+        const one = oidOrNull(b.workTypeId);
+        const cur = !isNew && id && Types.ObjectId.isValid(id) ? await db.collection('persons').findOne({ _id: new Types.ObjectId(id) }, { projection: { workTypeId: 1, workTypeIds: 1 } }) : null;
+        if (!cur || String(personWorkTypeIds(cur as Doc)[0] ?? '') !== String(one ?? '')) Object.assign(doc, workTypeFields(one ? [String(one)] : []));
+      }
       if (b.payoutScheduleId !== undefined) doc.payoutScheduleId = oidOrNull(b.payoutScheduleId);
       if (b.birthDate !== undefined) { const t = /^\d{4}-\d{2}-\d{2}$/.test(String(b.birthDate)) ? new Date(String(b.birthDate) + 'T00:00:00Z') : null; doc.birthDate = t; }
       if (isNew) Object.assign(doc, { status: doc.status ?? 'active', deletedAt: null, createdAt: new Date() });
@@ -563,14 +570,19 @@ const BASE: DictBase[] = [
     row: (d) => ({ name: s(d.name), description: s(d.description) }),
     toDoc: async (b, isNew) => ({ name: s(b.name), description: opt(b.description), updatedAt: new Date(), ...(isNew ? { isActive: true, hourlyRate: 0, deletedAt: null, createdAt: new Date() } : {}) }),
     usage: async (db, docs) => {
-      const rows = await db.collection('persons').aggregate([{ $match: { deletedAt: null, workTypeId: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$workTypeId', n: { $sum: 1 } } }]).toArray();
+      const rows = await db.collection('persons').aggregate([{ $match: { deletedAt: null, $or: [{ workTypeId: { $in: docs.map((d) => d._id) } }, { workTypeIds: { $in: docs.map((d) => d._id) } }] } }, { $project: { ids: { $setUnion: [{ $ifNull: ['$workTypeIds', []] }, { $cond: [{ $ifNull: ['$workTypeId', false] }, ['$workTypeId'], []] }] } } }, { $unwind: '$ids' }, { $match: { ids: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$ids', n: { $sum: 1 } } }]).toArray();
       return new Map(rows.map((r) => [String(r._id), r.n as number]));
     },
     related: async (db, d) => {
-      const rows = (await db.collection('persons').find({ deletedAt: null, workTypeId: d._id }).sort({ lastName: 1 }).limit(50).toArray()) as Doc[];
+      const rows = (await db.collection('persons').find({ deletedAt: null, $or: [{ workTypeId: d._id }, { workTypeIds: d._id }] }).sort({ lastName: 1 }).limit(50).toArray()) as Doc[];
       return { title: 'Сотрудники', total: rows.length, items: rows.map((r) => ({ label: personName(r), sub: s(r.position), href: '#dicts?d=persons&of=dict&open=' + String(r._id) })) };
     },
-    reassign: async (db, from, to) => (await db.collection('persons').updateMany({ workTypeId: from._id }, { $set: { workTypeId: to._id } })).modifiedCount,
+    reassign: async (db, from, to) => {
+      const one = (await db.collection('persons').updateMany({ workTypeId: from._id }, { $set: { workTypeId: to._id } })).modifiedCount;
+      await db.collection('persons').updateMany({ workTypeIds: from._id }, { $addToSet: { workTypeIds: to._id } });
+      await db.collection('persons').updateMany({ workTypeIds: from._id }, { $pull: { workTypeIds: from._id } as never });
+      return one;
+    },
     options: (docs) => docs.map((d) => s(d.name)),
   },
   {

@@ -66,7 +66,7 @@ const cases: { title: string; make: Remover; owners: string[]; crm: string[] }[]
   {
     title: 'WorkTypeService',
     make: (m) => new WorkTypeService(m as never),
-    owners: ['productmodules'],
+    owners: ['productmodules', 'products', 'worktasks'],
     crm: ['costcalculations', 'workers'],
   },
 ];
@@ -120,6 +120,9 @@ describe('фильтры поиска ссылок в составе', () => {
     expect(calls.slice(1)).toEqual([
       { name: 'costcalculations', filter: { 'labor.workTypeId': id } },
       { name: 'workers', filter: { workTypeIds: id } },
+      // маршруты изделий и незавершённые задания «В работе»
+      { name: 'products', filter: { 'workTypes.workTypeId': id, deletedAt: null } },
+      { name: 'worktasks', filter: { 'route.workTypeId': id, status: { $in: ['waiting', 'work'] }, deletedAt: null } },
     ]);
   });
 });

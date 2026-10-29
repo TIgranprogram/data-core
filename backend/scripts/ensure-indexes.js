@@ -13,7 +13,7 @@ const { NestFactory } = require(require.resolve('@nestjs/core', { paths: [root] 
 const { getConnectionToken } = require(require.resolve('@nestjs/mongoose', { paths: [root] }));
 
 /** Модели data-core (коллекции, которые пишет data-core): индексы — из их схем. */
-const MODELS = ['Income', 'SalesOrder', 'Shipment', 'DesignTask', 'DesignOrder', 'DesignSticker', 'DesignNote', 'ProductPassport', 'Photo', 'AuditLog', 'ClientError', 'SupplierItem', 'SupplyRequest', 'SupplyInvoice', 'SupplierContract', 'MaterialPrice', 'Notification', 'Message', 'ProductAlias', 'DevlogRelease', 'DevlogCommit', 'DevlogSession', 'DevlogItem', 'DevlogDoc', 'DevlogKit', 'Person', 'Zone', 'ZoneAssignment', 'Handoff'];
+const MODELS = ['Income', 'SalesOrder', 'Shipment', 'DesignTask', 'DesignOrder', 'DesignSticker', 'DesignNote', 'WorkTask', 'ProductPassport', 'Photo', 'AuditLog', 'ClientError', 'SupplierItem', 'SupplyRequest', 'SupplyInvoice', 'SupplierContract', 'MaterialPrice', 'Notification', 'Message', 'ProductAlias', 'DevlogRelease', 'DevlogCommit', 'DevlogSession', 'DevlogItem', 'DevlogDoc', 'DevlogKit', 'Person', 'Zone', 'ZoneAssignment', 'Handoff'];
 /** Индексы без схемы (коллекции читаются напрямую): частые запросы. */
 const RAW = [
   ['photos', { parentPhotoId: 1, variant: 1 }],

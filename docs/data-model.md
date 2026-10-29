@@ -838,3 +838,24 @@ Write-paths, которые должны быть all-or-nothing, использ
 - Начисление = ставка × часы (почасовая) или оклад (полный / дни ÷ норма). Календарь: расход = оплаченные заявки (`paid`, `paidAt`) + `payroll_payments`; доход = `incomes.payments`.
 
 **`categories.passportCategory`** (PASSPORT-CATEGORY, 2026-10-29): необязательный код категории паспорта группы/раздела (DIO, DSP, TRN, WRK, BLG). Изделие наследует: своя `products.passportDefaults.passportCategory` (вручную, главнее) → группа → раздел → запасной `passportCategories.catalogNames`. CRM поле не читает.
+
+### `WorkTask` (задание «В работе») — коллекция `worktasks`, модуль `modules/work` (AUDIT-PRODUCTION шаги 0–2, 2026-10-29)
+Одна карточка на позицию заказа целиком; шаги — виды работ маршрута изделия. Только data-core.
+
+| Поле | Тип | Заметки |
+|--|--|--|
+| seq | number | сквозной номер, код «W-N» (`nextSeq('WorkTask','W')`), unique |
+| status | enum | waiting (ждёт запуска) / work (идёт шаг) / done / cancelled (причина `cancelReason`) |
+| incomeId, orderId, productId | ObjectId | позиция (incomes), заказ, изделие (products) |
+| route | [{workTypeId | null, name, lineId?, note?}] | снимок маршрута на момент запуска; `workTypeId: null` — общая работа «Изготовление» (`generic: true`) |
+| stepIndex | number | null | null — ждёт; 0..n-1 — идёт шаг; n — готово |
+| stepKey | string | колонка текущего шага: id вида работ, `generic` или '' (для фильтра и счётчиков) |
+| assigneeId, note | ObjectId → persons, string | исполнитель (необязательно), примечание |
+| startedAt, completedAt, completedBy | Date, Date, ObjectId | |
+| moves | [{at, by?, from, to}] | история движения, последние 100 |
+| openIncomeId | ObjectId | замок «одно открытое задание на позицию» (= incomeId, пока не done/cancelled/удалено), unique sparse |
+| deletedAt | Date | корзина |
+
+**Новые необязательные поля в общих с CRM коллекциях** (CRM их не читает и не пишет; существующие поля не менялись):
+- `persons.workTypeIds[]` → `worktypes` — несколько видов работ сотрудника. Старое `workTypeId` пишется синхронно первым значением; нового нет — читать старое (`common/catalog/person-work-types.ts`). Правка — `PATCH /dicts/persons/:id` с `workTypeIds: [id…]` (форма со старым одиночным `workTypeId` чужие виды работ не стирает: меняется только если первое значение другое).
+- `products.workTypes[]` = `{workTypeId → worktypes, lineId? → composition[]._id, note?}` — маршрут изделия («Как делается»); порядок массива = порядок работ, вид работ не повторяется. Маршрут модуля (`productmodules.workTypes`) не менялся — только подсказка. Правка — `PUT /work-routes/:productId`.

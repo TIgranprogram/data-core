@@ -57,6 +57,7 @@ import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { DesignModule } from './modules/design/design.module';
+import { WorkModule } from './modules/work/work.module';
 import { MatchingModule } from './modules/matching/matching.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { PartnersModule } from './modules/partners/partners.module';
@@ -178,6 +179,7 @@ import { RequestMethod } from '@nestjs/common';
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     MatchingModule,         // /api/matching — сопоставление позиций договора с изделиями, коллекция productaliases (КМ)
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
+    WorkModule,             // /api/work-tasks, /api/work-routes — «В работе»: карточки позиций по шагам маршрута изделия, коллекция worktasks
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     NotificationsModule,    // /api/notifications — уведомления пользователя (Важные / Система)
     ZonesModule,            // /api/zones, /api/staff — зоны ответственности, сотрудник ↔ вход, адресация уведомлений (ЗО)

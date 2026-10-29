@@ -36,6 +36,10 @@ export class Person {
   @Prop({ type: Types.ObjectId, index: true, sparse: true })
   workTypeId?: Types.ObjectId;
 
+  /** Несколько видов работ (сварщик и маляр). Необязательно; старое `workTypeId` пишется синхронно первым значением, нет нового — читать старое. CRM не читает. */
+  @Prop({ type: [Types.ObjectId], default: undefined })
+  workTypeIds?: Types.ObjectId[];
+
   /** active — работает, vacation — в отпуске, fired — уволен. */
   @Prop()
   status?: string;
