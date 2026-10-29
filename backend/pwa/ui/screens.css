@@ -1474,3 +1474,15 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 
 /* переключатели .seg — 44 px на телефоне (приёмка 2026-10-29) */
 @media (max-width: 700px) { .td-scope .seg button { min-height: 44px; } }
+
+/* ПН: полоска «следующие номера» над списком «Паспорта» (приёмка 2026-10-29) */
+.pn-strip { display: flex; flex-wrap: wrap; gap: var(--s2); width: 100%; }
+.pn-item { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.pn-lab { color: var(--muted); font-size: var(--fs-sm); }
+.pn-num { display: inline-flex; align-items: center; gap: var(--s1); min-height: 32px; padding: 0 var(--s2); font: inherit; font-size: var(--fs-h3); font-weight: 700; color: var(--link); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
+.pn-num:hover { background: var(--primary-soft); border-color: var(--primary); }
+.pn-num:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pn-copy { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+.field-err:empty { display: none; }
+.field-err { color: var(--danger); font-size: var(--fs-sm); }
+@media (max-width: 700px) { .pn-item { flex: 1 1 100%; justify-content: space-between; } .pn-num { min-height: 44px; } }

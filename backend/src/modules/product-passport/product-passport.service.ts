@@ -17,10 +17,11 @@ import { promoteToOwn } from './passport-promote';
 import { standardSchemes } from './passport-schemes';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 import { textsTree } from './passport-texts-tree';
-import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
+import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, assertNotExternal, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
 import { fromIncome, loadQueue } from './passport-queue';
 import { PassportIssue } from './passport-issue';
+import { PassportExternal, type ExternalInput } from './passport-external';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
 import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
@@ -37,7 +38,13 @@ export class ProductPassportService {
     this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
     this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
     this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), snapshot: (id) => this.snapshot(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
+    this.external = new PassportExternal({
+      model, connection, maxOf: (f, s) => this.maxOf(f, s), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session),
+      counter: async (key) => Number((await this.connection.collection('counters').findOne({ entity: 'passport', prefix: key, year: 0 }))?.seq) || 0,
+    });
   }
+  // ПН: номера для паспорта из другой программы — показать следующие / занять
+  private readonly external: PassportExternal;
   private readonly queries: PassportQueries;
   private readonly bulkOps: PassportBulk;
   private readonly issueOps: PassportIssue;
@@ -61,6 +68,11 @@ export class ProductPassportService {
   /** НМ-2: похожие паспорта той же модели (черновик, тот же заказ / покупатель / адрес). */
   /** Очередь «Нужно сделать» (passport-queue.ts). */
   queue(q: Record<string, unknown>) { return loadQueue(this.connection.db!, { due: q.due as string | undefined, search: q.search as string | undefined, limit: Number(q.limit) || undefined }); }
+
+  /** ПН: следующие номера — только показ. */
+  nextNumbers() { return this.external.nextNumbers(); }
+  /** ПН: занять номера для паспорта из другой программы. */
+  createExternal(dto: ExternalInput) { return this.external.create(dto); }
 
   duplicates(q: Record<string, unknown>) { return this.issueOps.duplicates(q); }
 
@@ -193,6 +205,7 @@ export class ProductPassportService {
     const doc = await this.findById(id);
     const cur = doc.toObject() as unknown as Doc;
     if (cur.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
+    if (opts.newRevision) assertNotExternal(cur);
     const set = this.normalize(dto);
     const issued = isIssued(cur);
     if (!issued) { for (const f of ['passportNumber', 'passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; } // у черновика номеров нет
@@ -292,6 +305,7 @@ export class ProductPassportService {
   async snapshot(id: string): Promise<ProductPassportDocument | null> {
     const doc = await this.findById(id);
     const p = doc.toObject() as unknown as Doc;
+    assertNotExternal(p);
     if (!p.passportCategory) return null;
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
     const cat = String(p.passportCategory);

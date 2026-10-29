@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 /** Общая часть «Для всех» паспорта v2 в passporttemplates (отдельно от шаблона «Для всех» PDF v1). */
 export const ALL_V2 = 'ALL_V2';
 
@@ -28,3 +29,8 @@ export const readinessOf = (d: { readiness?: unknown; status?: unknown; passport
 export const NUMBER_FIELDS = ['passportNumber', 'productCode', 'warrantyCode', 'date'] as const;
 export const OID_FIELDS = ['productId', 'customerOrgId', 'salesOrderId', 'incomeId', 'supplierOrgId', 'installationTypeId', 'manufacturerOrgId'] as const;
 export { escapeRe } from '../../common/list-query';
+
+/** ПН: паспорт сделан в другой программе — здесь заняты только номера, печать и пересборка недоступны. */
+export function assertNotExternal(doc: { external?: unknown }): void {
+  if (doc.external) throw new BadRequestException('Паспорт сделан в другой программе — печать и правка здесь недоступны');
+}

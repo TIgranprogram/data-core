@@ -11,6 +11,7 @@ import { resetProducts } from './passports/models.js';
 import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, printDialog } from './passports/dialogs.js';
 import { passportBulkFields } from './passports/bulk.js';
 import { bomBlock, checkBlock, imagesBlock, previewBlock } from './passports/card-blocks.js';
+import { canJournal, numbersStrip, openNumberPanel, passNum } from './passports/number-panel.js';
 import { passportForm } from './passports/form.js';
 import { stepFunnel } from '../ui/step-funnel.js';
 
@@ -31,6 +32,7 @@ function listQuery() {
 
 
 export { issuePassport } from './passports/models.js';
+export { passNum };
 
 export const passports = {
   id: 'passports',
@@ -88,7 +90,7 @@ export const passports = {
         pic: r.thumb ? PREFIX + r.thumb : null,
         title: r.name || 'без названия',
         meta: [numberOf(r) ? `№ ${numberOf(r)}` : 'черновик', date(r.date), r.customerName || r.objectName].filter(Boolean).join(' · '),
-        badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
+        badge: r.external ? h('span', { class: 'badge dim gc-badge' }, 'сделан вне приложения') : statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
       }),
     },
     hints: {
@@ -97,14 +99,14 @@ export const passports = {
       noImages: 'Паспорта без картинок: перетащите или вставьте (Ctrl+V) общий вид в карточке.',
     },
     hintKey: 'state',
-    headActions: () => [h('button', { class: 'btn btn-ghost', type: 'button', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onclick: async (e) => {
+    headActions: (reload) => [numbersStrip(), canJournal() && h('button', { class: 'btn btn-ghost', type: 'button', title: 'Паспорт сделан в другой программе — записать его номера', onclick: () => openNumberPanel(reload) }, 'Записать номер'), h('button', { class: 'btn btn-ghost', type: 'button', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onclick: async (e) => {
       const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 }); const free = busyBtn(e.currentTarget, null);
       try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); free(); }
     } }, '⇩ PDF пакетом')],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
       { key: 'passportNumber', label: '№', sort: 'passportNo', cls: 'nowrap', render: (r) => h('b', null, numberOf(r) || '—') },
-      { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => h('span', null, statusBadge(r), r.manualText?.length ? h('span', { class: 'badge info', title: 'Текст изменён вручную, не из справочника' }, ' изменено вручную') : null) },
+      { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => h('span', null, statusBadge(r), r.external ? h('span', { class: 'badge dim', title: 'Номера записаны вручную' }, ' сделан вне приложения') : null, r.manualText?.length ? h('span', { class: 'badge info', title: 'Текст изменён вручную, не из справочника' }, ' изменено вручную') : null) },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
       { key: 'name', label: 'Наименование', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name || '' }, r.name || h('span', { class: 'muted' }, 'без названия')) },
       { key: 'category', label: 'Категория', sort: 'category', cls: 'md-hide', render: (r) => r.category || h('span', { class: 'muted' }, '—') },

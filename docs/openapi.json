@@ -12051,6 +12051,44 @@
         ]
       }
     },
+    "/passports/next-numbers": {
+      "get": {
+        "operationId": "ProductPassportController_nextNumbers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/external": {
+      "post": {
+        "operationId": "ProductPassportController_createExternal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalPassportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/queue": {
       "get": {
         "operationId": "ProductPassportController_queue",
@@ -14570,7 +14608,7 @@
           },
           "quantity": {
             "type": "number",
-            "minimum": 0.000001
+            "minimum": 1e-06
           },
           "sortOrder": {
             "type": "number",
@@ -14621,7 +14659,7 @@
           },
           "quantity": {
             "type": "number",
-            "minimum": 0.000001
+            "minimum": 1e-06
           },
           "sortOrder": {
             "type": "number",
@@ -16485,6 +16523,34 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
+      },
+      "ExternalPassportDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "salesOrderId": {
+            "type": "string"
+          },
+          "passportNumber": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string",
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "productId"
+        ]
       }
     }
   }
