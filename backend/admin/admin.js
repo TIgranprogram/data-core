@@ -171,7 +171,7 @@
     document.querySelectorAll('.dv-tab').forEach((b) => b.classList.toggle('btn-primary', b.dataset.k === DV.tab));
     root.replaceChildren(el('p', 'muted', 'Загрузка…'));
     const fn = { releases: dvReleases, errors: () => dvItemsTab('error'), tasks: () => dvItemsTab('task'), time: dvTime, docs: dvDocs, kit: dvKit }[DV.tab];
-    Promise.resolve(fn(root)).catch((e) => { root.replaceChildren(el('p', 'error', 'Не удалось загрузить: ' + e.message)); });
+    Promise.resolve(fn(root)).catch((e) => { root.replaceChildren(el('p', 'error', 'Не удалось загрузить. Попробуйте ещё раз.')); });
   }
   async function dvReleases(root) {
     const list = dvItems(await api('/devlog/releases'));
@@ -186,7 +186,7 @@
       const ul = el('ul', 'dv-commits');
       commits.forEach((c) => {
         if (typeof c === 'string') return;
-        const li = el('li'); li.append(el('span', 'dv-tag dv-' + (c.prefix || 'x'), DV_PREFIX[c.prefix] || c.prefix || 'правка'), document.createTextNode(' ' + (c.subject || '')));
+        const li = el('li'); li.append(el('span', 'dv-tag dv-tag-' + (['feat', 'fix'].includes(c.prefix) ? c.prefix : 'x'), DV_PREFIX[c.prefix] || c.prefix || 'правка'), document.createTextNode(' ' + (c.subject || '')));
         if (c.area) li.append(el('span', 'muted small', ' · ' + c.area));
         ul.append(li);
       });
@@ -209,7 +209,7 @@
       const trs = rows.map((r) => {
         const tr = el('tr'), status = r.status || (isErr ? 'new' : 'open');
         const t = el('div'); t.append(el('div', '', r.title || '—'));
-        if (isErr && r.recurred) t.append(el('span', 'dv-tag dv-back', 'вернулась'));
+        if (isErr && r.returned) t.append(el('span', 'dv-tag dv-tag-back', 'вернулась'));
         tr.append(dvTd(t), dvTd(r.area || '—'));
         if (isErr) tr.append(dvTd(r.count ?? r.occurrences ?? 1, 'num'), dvTd(dvDay(r.firstAt || r.createdAt)), dvTd(dvDay(r.lastAt || r.updatedAt)));
         else tr.append(dvTd(dvDay(r.createdAt)), dvTd(r.closedAt ? dvDay(r.closedAt) : '—'));
@@ -225,16 +225,17 @@
       });
       out.replaceChildren(dvTable(isErr ? ['Что случилось', 'Раздел', '#Раз', 'Впервые', 'Последний раз', 'Статус'] : ['Задача', 'Раздел', 'Создана', 'Закрыта', 'Статус'], trs));
     };
-    const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', e.message)));
+    const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', 'Не удалось загрузить. Попробуйте ещё раз.')));
     st.addEventListener('change', safe); q.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(safe, 300); });
     await load();
   }
+  const dvLabel = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); return m ? m[3] + '.' + m[2] : s; };
   function dvBars(data, title) {
-    const box = el('div', 'dv-chart'); box.append(el('h4', '', title));
+    const box = el('div', 'dv-chart'); box.append(el('h3', '', title));
     if (!data.length) { box.append(el('p', 'muted small', 'Нет данных за период.')); return box; }
     const W = 520, H = 180, pad = 24, max = Math.max(...data.map((d) => d.v), 1), bw = (W - pad) / data.length;
     const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H + 36}`); svg.setAttribute('class', 'dv-svg'); svg.setAttribute('role', 'img');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H + 36}`); svg.setAttribute('class', 'dv-svg'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', title + ': ' + data.map((d) => d.l + ' — ' + dvHours(d.v) + ' ч').join('; '));
     const mk = (n, a, t) => { const e = document.createElementNS(NS, n); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (t != null) e.textContent = t; return e; };
     data.forEach((d, i) => {
       const bh = Math.max(2, (d.v / max) * (H - 20)), x = pad + i * bw;
@@ -246,6 +247,7 @@
   async function dvTime(root) {
     const now = new Date(), from = new Date(now.getTime() - 30 * 864e5), iso = (d) => d.toISOString().slice(0, 10);
     const fl = el('div', 'filters'), a = el('input'), b = el('input'), m = el('input'); a.type = 'date'; b.type = 'date'; m.type = 'checkbox'; m.checked = true; a.value = iso(from); b.value = iso(now);
+    a.className = b.className = 'dv-date';
     const ml = el('label', 'dv-chk'); ml.append(m, document.createTextNode(' с ручной правкой часов'));
     fl.append(el('label', '', 'С'), a, el('label', '', 'по'), b, ml);
     const out = el('div'); root.replaceChildren(fl, out);
@@ -256,8 +258,8 @@
       const sessions = dvItems(ss);
       if (!sessions.length && !(st && st.totalHours)) return dvEmpty(out, 'За этот период работы не видно. Выберите другие даты.');
       const tot = el('div', 'dv-total'); tot.append(el('b', '', dvHours(st.totalHours) + ' ч'), el('span', 'muted', ` · сессий: ${st.sessions ?? sessions.length} · правок: ${st.commits ?? 0}`));
-      tot.append(el('div', 'muted small', 'Оценка по правкам, точность ±30–40 %. ' + (st.note || '')));
-      const obj = (v) => Array.isArray(v) ? v.map((x) => ({ l: String(x.week ?? x.area ?? x.key ?? x.label ?? x._id ?? ''), v: Number(x.hours ?? x.value ?? 0) })) : Object.entries(v || {}).map(([l, x]) => ({ l, v: Number(x && typeof x === 'object' ? x.hours : x) || 0 }));
+      tot.append(el('div', 'muted small', st.note || 'Оценка по правкам, точность ±30–40 %.'));
+      const obj = (v) => Array.isArray(v) ? v.map((x) => ({ l: dvLabel(String(x.week ?? x.area ?? x.key ?? x.label ?? x._id ?? '')), v: Number(x.hours ?? x.value ?? 0) })) : Object.entries(v || {}).map(([l, x]) => ({ l: dvLabel(l), v: Number(x && typeof x === 'object' ? x.hours : x) || 0 }));
       const charts = el('div', 'dv-charts'); charts.append(dvBars(obj(st.byWeek), 'Часы по неделям'), dvBars(obj(st.byArea).sort((p, q) => q.v - p.v).slice(0, 8), 'Часы по разделам'));
       const trs = sessions.map((s) => {
         const tr = el('tr'), inp = el('input'); inp.type = 'number'; inp.min = '0'; inp.step = '0.5'; inp.className = 'dv-hours';
@@ -272,9 +274,9 @@
         tr.append(dvTd(dvDay(s.start)), dvTd(dvHours(s.hours), 'num'), dvTd(s.commits ?? '—', 'num'), dvTd(s.place === 'home' ? 'дом' : s.place === 'work' ? 'работа' : '—'), dvTd(cell));
         return tr;
       });
-      out.replaceChildren(tot, charts, el('h4', 'dv-h', 'Рабочие сессии'), trs.length ? dvTable(['День', '#Часы (оценка)', '#Правок', 'Место', 'Ваши часы (если точнее)'], trs) : el('p', 'muted', 'Сессий нет.'));
+      out.replaceChildren(tot, charts, el('h3', 'dv-h', 'Рабочие сессии'), trs.length ? dvTable(['День', '#Часы (оценка)', '#Правок', 'Место', 'Ваши часы (если точнее)'], trs) : el('p', 'muted', 'Сессий нет.'));
     };
-    const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', e.message)));
+    const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', 'Не удалось загрузить. Попробуйте ещё раз.')));
     [a, b, m].forEach((x) => x.addEventListener('change', safe));
     await load();
   }
