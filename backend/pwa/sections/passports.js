@@ -42,7 +42,7 @@ export const passports = {
   get: (id) => api(`/passports/${id}`),
 
   list: {
-    path: '/passports',
+    viewKey: 'passports', path: '/passports',
     sortDefault: '-passportNo',
     createLabel: 'Паспорт',
     // БЗ-9: отметить паспорта галочками → «Изменить выбранные» (общие поля; номера, талоны, названия, картинки — по одному)

@@ -264,7 +264,7 @@ export const products = {
     query: (P) => (P.series ? { series: P.series } : {}),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
-      limit: 100, sort: 'category', lastGroup: 'Без типа',
+      default: true, limit: 100, sort: 'category', lastGroup: 'Без типа',
       groupBy: (r) => [r.type, r.group].filter(Boolean).join(' › ') || 'Без типа',
       card: (r) => ({
         pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,

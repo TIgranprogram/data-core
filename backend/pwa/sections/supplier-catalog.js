@@ -265,7 +265,7 @@ export const supplierCatalog = {
   },
 
   list: {
-    path: '/supply/catalog/items',
+    viewKey: 'catalog', path: '/supply/catalog/items',
     sidebar: true,
     export: false, // выгрузка — в шестерёнке (формат шаблона, можно править и загружать обратно)
     extraKeys: ['catId', 'subId', 'flag', 'ord', 'all'],

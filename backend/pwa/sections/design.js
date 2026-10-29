@@ -173,7 +173,7 @@ export const design = {
   get: (id) => api(`/design-tasks/${id}`),
 
   list: {
-    path: '/design-tasks',
+    viewKey: 'design', path: '/design-tasks',
     sortDefault: 'seq',
     createLabel: 'Задача',
     export: false,

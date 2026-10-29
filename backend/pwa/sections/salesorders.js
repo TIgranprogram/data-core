@@ -264,7 +264,7 @@ export const salesorders = {
   },
 
   list: {
-    path: '/production-orders',
+    viewKey: 'salesorders', path: '/production-orders',
     map: (r) => ({ ...r, id: r.key }),
     export: 'admin',
     sortDefault: 'deadline',
@@ -300,6 +300,7 @@ export const salesorders = {
       side: (r) => [badge(STAGE, r.stage), prio(r)],
     },
     board: {
+      default: true,
       map: (r) => ({ ...r, id: r.key }),
       columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
       card: (r) => ({
