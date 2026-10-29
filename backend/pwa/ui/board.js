@@ -199,7 +199,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   }
   /** Карточка группы (счёт) как заказ на доске «Проектирование»: ▸/▾ раскрывает позиции; раскрытое помнится до перезагрузки. */
   function groupCard(k, g, rs, cards) {
-    const sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
+    let sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
+    if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0)); // у позиций нет цен — сумма самого счёта
     const body = h('div', { class: 'db-lines b-glines' });
     const chev = h('button', { type: 'button', class: 'db-chev' });
     const card = paintOrder(h('article', { class: 'db-order' }, h('div', { class: 'db-oh' }, chev,

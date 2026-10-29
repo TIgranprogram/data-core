@@ -64,7 +64,7 @@ export interface SupplyInput {
 const todayUtc = () => { const d = new Date(); return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); };
 
 /** Поля, по которым можно сортировать список заявок. */
-const SUPPLY_SORT = ['num', 'requestDate', 'invoiceDate', 'title', 'qty', 'priceHint', 'status', 'requestedBy', 'createdAt', 'updatedAt', 'deletedAt'];
+const SUPPLY_SORT = ['num', 'requestDate', 'invoiceDate', 'invoiceNo', 'title', 'qty', 'priceHint', 'status', 'requestedBy', 'createdAt', 'updatedAt', 'deletedAt'];
 
 /**
  * Заявки снабжения на ОБЩЕЙ коллекции CRM `supplyrequests`. Поставщик и «наша компания» —
@@ -88,6 +88,14 @@ export class SupplyService {
     if (!oids.length) return new Map<string, string>();
     const docs = await this.connection.db!.collection(coll).find({ _id: { $in: oids } }, { projection: { name: 1, shortName: 1 } }).toArray();
     return new Map(docs.map((d) => [String(d._id), String(d.shortName || d.name)]));
+  }
+
+  /** Сумма записи счёта: invoiceId → amount (карточка счёта на доске, когда у позиций нет цены). */
+  private async invoiceAmounts(ids: unknown[]) {
+    const oids = [...new Set(ids.filter(Boolean).map(String))].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i));
+    if (!oids.length) return new Map<string, number>();
+    const docs = await this.connection.db!.collection('supplyinvoices').find({ _id: { $in: oids }, deletedAt: null }, { projection: { amount: 1 } }).toArray();
+    return new Map(docs.filter((d) => typeof d.amount === 'number').map((d) => [String(d._id), d.amount as number]));
   }
 
   /** Главное фото позиций склада: materialId → { url, thumb }. */
@@ -118,11 +126,12 @@ export class SupplyService {
 
   /** Вид для клиента: ObjectId → названия, статус и приоритет — подписями. */
   private async present(docs: Array<Record<string, unknown>>) {
-    const [sup, cat, mat, photo] = await Promise.all([
+    const [sup, cat, mat, photo, inv] = await Promise.all([
       this.names('organizations', docs.flatMap((d) => [d.supplierId, d.companyId])),
       this.names('categories', docs.map((d) => d.categoryId)),
       this.names('materials', docs.map((d) => d.materialId)),
       this.materialPhotos(docs.map((d) => d.materialId)),
+      this.invoiceAmounts(docs.map((d) => d.invoiceId)),
     ]);
     // Свои фото заявки (загружены в приложении или из «Справочника») — photoIds, вне схемы CRM
     const ownIds = (d: Record<string, unknown>) => (d.photoIds as Types.ObjectId[] | undefined) ?? [];
@@ -136,6 +145,7 @@ export class SupplyService {
       materialName: d.materialId ? mat.get(String(d.materialId)) ?? null : null,
       statusLabel: labelFromStatus(d.status as string, d.paid as boolean),
       priorityLabel: labelFromPriority(d.priority as string),
+      invoiceAmount: d.invoiceId ? inv.get(String(d.invoiceId)) ?? null : null,
       invoiceType: (d.sheetExtra as { invoiceType?: string } | undefined)?.invoiceType ?? null,
       /** Свои фото заявки: [{ id, url, thumb }] — их можно добавлять и убирать. */
       photos: ownIds(d).filter((p) => own.has(String(p))).map((p) => ({ id: String(p), ...own.get(String(p))! })),
