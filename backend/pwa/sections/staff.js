@@ -19,12 +19,6 @@ const check = (label, checked, onchange, disabled) => {
 };
 const busy = async (e, fn) => { const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true; try { return await fn(); } finally { b.classList.remove('is-busy'); b.disabled = false; } };
 const openPanel = (of, id) => { const c = current(); go('staff', { tab: c.params.tab, of, open: id, new: undefined }, { replace: !!c.params.open, kind: 'card' }); };
-const RU = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch', ы: 'y', э: 'e', ю: 'yu', я: 'ya' };
-/** Код новой зоны из названия (латиница, «_»): человеку он не показывается. */
-const codeOf = (name) => {
-  const s = [...String(name).toLowerCase()].map((c) => RU[c] ?? c).join('').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
-  return /^[a-z]/.test(s) && s.length >= 2 ? s : 'zone_' + (s || Date.now().toString(36)).slice(0, 20);
-};
 
 // ─── экран ─────────────────────────────────────────────────────────────────────────────────────────────
 export function mountStaff(params) {
@@ -65,8 +59,7 @@ export function mountStaff(params) {
       ...items.map((z) => h('li', null, h('button', { type: 'button', class: 'st-row' + (z.active ? '' : ' off'), onclick: () => openPanel('zonecard', z.id) },
         h('span', { class: 'st-main' }, h('b', null, z.name + (z.active ? '' : ' (скрыта)')), h('span', { class: 'muted small' }, z.hint || '')),
         z.empty ? h('span', { class: 'st-none' }, 'Нет людей') : h('span', { class: 'st-zones' }, ...z.people.map((p) => h('span', { class: 'tag dim', title: p.hasLogin ? '' : 'Не связан со входом' }, p.name + (p.hasLogin ? '' : ' ·')))),
-        h('span', { class: 'btn btn-sm' }, 'Назначить')))),
-      h('li', null, h('button', { type: 'button', class: 'btn', onclick: () => openPanel('zonecard', 'new') }, '+ Зона'))));
+        h('span', { class: 'btn btn-sm' }, 'Назначить'))))));
   }
 
   const draw = () => { drawTabs(); drawNote(); if (tab === 'zones') drawZones(); else drawStaff(); };
@@ -140,7 +133,6 @@ export const staffCard = {
 
 // ─── карточка зоны ─────────────────────────────────────────────────────────────────────────────────────
 function zoneEditor(z, everyone, ctx) {
-  const isNew = z.id === 'new';
   const name = h('input', { maxlength: 40, value: z.name || '', placeholder: 'Например: Закупки', 'aria-label': 'Название зоны' });
   const hint = h('textarea', { rows: 2, maxlength: 300, 'aria-label': 'Подсказка' }); hint.value = z.hint || '';
   const members = new Set((z.people || []).map((x) => x.id));
@@ -150,28 +142,26 @@ function zoneEditor(z, everyone, ctx) {
     const nm = name.value.trim();
     if (!nm) { toastError(new Error('Впишите название зоны.')); return; }
     try {
-      let zone = z;
-      if (isNew) zone = await api('/zones', { method: 'POST', body: { code: codeOf(nm), name: nm, hint: hint.value.trim() } });
-      else await api(`/zones/${z.id}`, { method: 'PATCH', body: { name: nm, hint: hint.value.trim(), active } });
+      await api(`/zones/${z.id}`, { method: 'PATCH', body: { name: nm, hint: hint.value.trim(), active } });
       for (const p of everyone) {
         if (members.has(p.id) === was.has(p.id)) continue;
         const codes = new Set(p.zoneCodes || []);
-        if (members.has(p.id)) codes.add(zone.code); else codes.delete(zone.code);
+        if (members.has(p.id)) codes.add(z.code); else codes.delete(z.code);
         await api(`/staff/${p.id}/zones`, { method: 'PUT', body: { zoneCodes: [...codes] } });
       }
-      toast(isNew ? 'Зона добавлена' : 'Зона сохранена');
-      if (isNew) go('staff', { tab: 'zones' }, { replace: true }); else ctx.reload();
+      toast('Зона сохранена');
+      ctx.reload();
     } catch (ex) { toastError(ex, 'сохранить зону'); }
   }) }, 'Сохранить');
-  const del = !isNew && !z.system ? h('button', { type: 'button', class: 'btn btn-danger', onclick: async () => {
+  const del = !z.system ? h('button', { type: 'button', class: 'btn btn-danger', onclick: async () => {
     if (!(await confirmDlg(`Удалить зону «${z.name}»?`, 'Зона исчезнет из списка. Если в ней есть люди, сначала снимите их.', { okText: 'Удалить', danger: true }))) return;
     try { await api(`/zones/${z.id}`, { method: 'DELETE' }); toast('Зона удалена'); go('staff', { tab: 'zones' }, { replace: true }); } catch (ex) { toastError(ex, 'удалить зону'); }
   } }, 'Удалить зону') : null;
   return h('div', { class: 'st-blocks' },
-    h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, isNew ? 'Новая зона' : 'Зона'),
+    h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Зона'),
       h('label', { class: 'field' }, h('span', null, 'Название'), name),
       h('label', { class: 'field' }, h('span', null, 'Подсказка — за что отвечает зона'), hint),
-      isNew ? null : check('Показывать зону', active, (v) => { active = v; }),
+      check('Показывать зону', active, (v) => { active = v; }),
       z.system ? h('p', { class: 'hint' }, 'Базовую зону удалить нельзя — её можно переименовать или скрыть.') : null),
     h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Кто отвечает'),
       everyone.length ? h('div', { class: 'st-checks' }, ...everyone.map((p) => check(p.name + (p.hasLogin ? '' : ' (нет входа)'), members.has(p.id), (v) => (v ? members.add(p.id) : members.delete(p.id)))))
@@ -184,12 +174,12 @@ export const zoneCard = {
   title: 'Зона',
   get: async (id) => {
     const [zs, st] = await Promise.all([api('/zones'), api('/staff')]);
-    const z = id === 'new' ? { id: 'new', name: '', hint: '', people: [], active: true } : (zs.items || []).find((x) => x.id === id);
+    const z = (zs.items || []).find((x) => x.id === id);
     if (!z) throw new Error('Зона не найдена — возможно, её удалили.');
     return { ...z, _staff: st.items || [] };
   },
   card: {
-    heading: (r) => (r.id === 'new' ? 'Новая зона' : r.name),
+    heading: (r) => r.name,
     subheading: (r) => (r.empty ? 'Нет людей — не назначено' : ''),
     noHistory: true,
     view: () => [],
