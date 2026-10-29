@@ -42,17 +42,22 @@ export function substituteRefs(s: string, fig: Map<string, number[]>, tab: Map<s
 
 /** Приложения с рисунками (§3.6): виды → приложение. overview — на обложке, bom_item — в таблице комплектности. */
 export const APPENDIX_GROUPS: Array<{ key: string; title: string; kinds: string[]; perPage: number }> = [
-  { key: 'callouts', title: 'Общий вид и элементы изделия', kinds: ['overview_callouts', 'nameplate'], perPage: 1 },
-  { key: 'dimensions', title: 'Габариты и зона безопасности', kinds: ['dimensions', 'safety_zone'], perPage: 2 },
-  { key: 'foundation', title: 'Схемы установки опор', kinds: ['foundation'], perPage: 1 },
-  { key: 'holes', title: 'Схема скважин и разметки', kinds: ['holes'], perPage: 1 },
-  { key: 'mounting', title: 'Инструкция по монтажу', kinds: ['mounting'], perPage: 1 },
+  { key: 'callouts', title: 'Общий вид и элементы изделия', kinds: ['overview_callouts', 'nameplate'], perPage: 2 },
+  // чертёж с размерами + виды (сетка 2×2 на лист)
+  { key: 'views', title: 'Габаритные размеры и виды', kinds: ['dimensions', 'view_front', 'view_side', 'view_top', 'view_3d'], perPage: 4 },
+  { key: 'safety_zone', title: 'Зона безопасности', kinds: ['safety_zone'], perPage: 2 },
+  // дополнительные «Общий вид» (первый — на обложке)
+  { key: 'overview_more', title: 'Общий вид', kinds: ['overview_more'], perPage: 4 },
+  { key: 'foundation', title: 'Схемы установки опор', kinds: ['foundation'], perPage: 2 },
+  { key: 'holes', title: 'Схема скважин и разметки', kinds: ['holes'], perPage: 2 },
+  { key: 'mounting', title: 'Инструкция по монтажу', kinds: ['mounting'], perPage: 2 },
   { key: 'assembly', title: 'Инструкция по сборке', kinds: ['assembly'], perPage: 2 },
 ];
 const KIND_TITLE: Record<string, string> = {
   overview_callouts: 'Общий вид изделия с обозначением элементов', nameplate: 'Место маркировочной таблички',
-  dimensions: 'Габаритные размеры', safety_zone: 'Зона безопасности', foundation: 'Схема установки опор',
+  dimensions: 'Габаритные размеры', safety_zone: 'Зона безопасности (площадка вокруг изделия)', foundation: 'Схема установки опор',
   holes: 'Схема разметки скважин', safety: 'Требования безопасности при монтаже', mounting: 'Монтаж изделия', assembly: 'Сборка',
+  view_front: 'Вид спереди', view_side: 'Вид сбоку', view_top: 'Вид сверху', view_3d: 'Общий вид 3D', overview_more: 'Общий вид',
 };
 
 export type PlannedFig = { no: number; kind: string; img: PdfImageV2; caption: string };
@@ -68,7 +73,9 @@ export interface FigurePlan {
  * в порядке первой ссылки; в приложения такие рисунки не попадают. Остальные — приложения в порядке первой ссылки
  * в `texts` (например, из таблиц ТО), без ссылки — в конце в порядке видов.
  */
-export function planFigures(texts: string[], images: Partial<Record<string, PdfImageV2[]>>, paraTexts: string[] = []): FigurePlan {
+export function planFigures(texts: string[], rawImages: Partial<Record<string, PdfImageV2[]>>, paraTexts: string[] = []): FigurePlan {
+  // на обложке — первый «Общий вид», остальные не теряем: приложение «Общий вид»
+  const images: Partial<Record<string, PdfImageV2[]>> = { ...rawImages, overview_more: (rawImages.overview || []).slice(1) };
   const all = texts.join('\n');
   const paras = paraTexts.join('\n');
   const firstRef = (kind: string) => { const i = all.indexOf(`{fig:${kind}}`); return i < 0 ? Number.POSITIVE_INFINITY : i; };

@@ -130,7 +130,7 @@ export const passportForm = {
         hint: 'Включается сам, когда начинаете печатать ниже. Новую формулировку лучше добавить в «Справочники → Тексты паспорта»' },
       { key: 'installationMethod', label: 'Монтаж — свой текст', type: 'textarea', wide: true, rows: 3, max: 1000 },
       { key: 'purpose', label: 'Назначение — свой текст', type: 'textarea', wide: true, rows: 3, max: 1000 },
-      { section: 'Описание (раздел 1)', tone: 'info', collapsed: !!r },
+      { section: 'Описание (раздел 1)', tone: 'info', collapsed: true },
       ...(legacy ? [materialsText] : []),
       { key: 'description', label: 'Описание целиком (раздел 1.1 паспорта)', type: 'textarea', wide: true, rows: 5, max: 4000, compose: { from: ['name', 'materials', 'installationMethod', 'purpose'], build: buildDescription },
         hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
@@ -189,7 +189,9 @@ export const passportForm = {
     const shown = new Set(kinds().map(([k]) => k));
     // виды, которых нет в форме, сохраняются как были (safety_zone показан в «Зоне безопасности» — не «чужой»)
     const kept = imagesBody((r?.images || []).filter((i) => !shown.has(kindOf(i))));
-    const images = [...formImages(v, kinds().map(([k]) => k)), ...kept];
+    // подписи картинок не теряем: у картинки паспорта был caption — возвращаем по виду и id
+    const caps = new Map((r?.images || []).filter((i) => i.caption).map((i) => [kindOf(i) + ':' + String(i.photoId), i.caption]));
+    const images = [...formImages(v, kinds().map(([k]) => k)).map((i) => (caps.has(i.kind + ':' + i.photoId) ? { ...i, caption: caps.get(i.kind + ':' + i.photoId) } : i)), ...kept];
     Object.assign(body, v2Body(v), specBody(v, r));
     const fromModel = !r && v._copyFrom && v._imgsFrom === v._copyFrom; // картинки модели уже в форме — список окончательный
     if (images.length || r || fromModel) body.images = images;
@@ -204,7 +206,7 @@ export const passportForm = {
     const pid = v.productId || r?.productId;
     if (v._remember === 'yes' && pid) {
       const b2 = v2Body(v);
-      body._remember = { productId: String(pid), defaults: { ...(b2.passportCategory ? { passportCategory: b2.passportCategory } : {}), elements: b2.elements, materialIds: b2.materialIds,
+      body._remember = { productId: String(pid), defaults: { ...(b2.passportCategory && st.inhCat !== b2.passportCategory ? { passportCategory: b2.passportCategory } : {}), elements: b2.elements, materialIds: b2.materialIds,
         ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), isKit: b2.isKit, textChoices: b2.textChoices, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
         ...(v.warrantyMonths !== null && v.warrantyMonths !== undefined ? { warrantyMonths: v.warrantyMonths } : {}) } };
     }

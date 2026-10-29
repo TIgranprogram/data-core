@@ -29,10 +29,21 @@ export const onVersion = (fn) => { subs.add(fn); fn(); };
 /** Открытая версия (для сборщика ошибок, ОШ2): коммит выкладки или ETag main.js; не узнали — ''. */
 export const currentVersion = () => String(loaded?.v || '');
 
+/** Сообщение service worker'у (свой канал ответа; нет SW / нет ответа за 4 с — null). */
+const askSw = (msg) => new Promise((resolve) => {
+  const w = navigator.serviceWorker?.controller;
+  if (!w) { resolve(null); return; }
+  const ch = new MessageChannel(); const t = setTimeout(() => resolve(null), 4000);
+  ch.port1.onmessage = (e) => { clearTimeout(t); resolve(e.data ?? null); };
+  w.postMessage(msg, [ch.port2]);
+});
+
 export function watchUpdates() {
-  probe().then((r) => {
-    loaded = latest = r; notify();
+  // страница открыта из кэша — «открытая версия» это версия кэша (её знает SW), а не то, что сейчас на сервере
+  Promise.all([probe(), askSw({ type: 'ver' })]).then(([r, own]) => {
+    latest = r; loaded = own?.v ? own : r; notify();
     if (!r?.v) return;
+    r = loaded;
     try {
       const prev = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (prev?.v && prev.v !== r.v) toast(`Приложение обновлено${fmt(r.date) ? ' · версия от ' + fmt(r.date) : ''}`);
@@ -61,6 +72,7 @@ export function watchUpdates() {
 /** Обновить: проверить service worker и перезагрузить. */
 export async function reloadApp() {
   try { const reg = await navigator.serviceWorker?.getRegistration?.(); await reg?.update(); } catch { /* без service worker */ }
+  await askSw({ type: 'apply' }); // SW собирает и включает новую версию целиком — только потом перезагрузка
   location.reload();
 }
 /** Номер версии внизу меню (2026-10-24): «v1.245» — тихо, без дат и призывов; при новой версии рядом ссылка «Обновить систему». */

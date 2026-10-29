@@ -221,20 +221,33 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   for (const [k, list] of figs.inline) if (!placedKinds.has(k)) { placedKinds.add(k); pending.push(...list); }
   if (pending.length) newPage();
   // Приложения с рисунками
-  const figBlock = (f: PlannedFig, maxH: number) => {
-    const capH = textH('gost-i', 9, f.caption) + 4;
+  // ряд рисунков: 1 колонка — рисунок на всю ширину; 2 колонки — сетка (4 на лист), подпись под каждым
+  const figRow = (row: PlannedFig[], maxH: number, cols: number) => {
+    const gap = 10, cw = (CW - gap * (cols - 1)) / cols;
+    const capH = Math.max(...row.map((f) => textH('gost-i', 9, f.caption, cw))) + 4;
     place(maxH + capH + 6, (d, yy) => {
-      try { d.image(f.img.buf, M.l, yy, { fit: [CW, maxH], align: 'center', valign: 'center' }); } catch { d.font('gost-i').fontSize(9).fillColor('#000').text('[картинка не читается]', M.l, yy + maxH / 2, { width: CW, align: 'center' }); }
-      d.font('gost-i').fontSize(9).fillColor('#000').text(f.caption, M.l, yy + maxH + 3, { width: CW, align: 'center' });
+      row.forEach((f, ci) => {
+        const x = M.l + ci * (cw + gap);
+        try { d.image(f.img.buf, x, yy, { fit: [cw, maxH], align: 'center', valign: 'center' }); } catch { d.font('gost-i').fontSize(9).fillColor('#000').text('[картинка не читается]', x, yy + maxH / 2, { width: cw, align: 'center' }); }
+        d.font('gost-i').fontSize(9).fillColor('#000').text(f.caption, x, yy + maxH + 3, { width: cw, align: 'center' });
+      });
     });
   };
   figs.appendices.forEach((a, ai) => {
+    const cols = a.perPage >= 4 ? 2 : 1;
     for (let i = 0; i < a.figs.length; i += a.perPage) {
       if (cur.draws.length) newPage();
-      heading(`Приложение ${ai + 1}${i ? ' (продолжение)' : ''}\n${a.title}`, 11, 0);
+      heading(`Приложение ${ai + 1}${i ? ' (продолжение)' : ''}
+${a.title}`, 11, 0);
       const slice = a.figs.slice(i, i + a.perPage);
+      const rows: PlannedFig[][] = [];
+      for (let r = 0; r < slice.length; r += cols) rows.push(slice.slice(r, r + cols));
       const room = BOTTOM - y - 4;
-      for (const f of slice) figBlock(f, Math.max(60, room / slice.length - textH('gost-i', 9, f.caption) - 12));
+      const capMax = Math.max(...slice.map((f) => textH('gost-i', 9, f.caption, (CW - 10 * (cols - 1)) / cols)));
+      // при рядах из одного рисунка делим лист на perPage/cols рядов (а не на фактическое число — чтобы одиночный не растягивался)
+      const nRows = Math.max(rows.length, a.perPage / cols);
+      const maxH = Math.max(60, room / nRows - capMax - 12);
+      for (const row of rows) figRow(row, maxH, cols);
     }
   });
   // «Для заметок» — только если есть заметка (как v1)

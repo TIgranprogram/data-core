@@ -84,7 +84,7 @@ export function cover(input: PdfV2Input): V2Page {
     }
     const ov = images.overview?.[0];
     const bottom = A5.h - 40;
-    if (ov && bottom - yy > 60) { try { d.image(ov.buf, M.l, yy, { fit: [CW, bottom - yy], align: 'center', valign: 'center' }); } catch { /* битая картинка — без неё */ } }
+    if (ov && bottom - yy > 60) { try { const h = Math.min(bottom - yy, A5.h / 2); d.image(ov.buf, M.l, yy + (bottom - yy - h) / 2, { fit: [CW, h], align: 'center', valign: 'center' }); } catch { /* битая картинка — без неё */ } }
     if (p.certificate?.hasEac) {
       d.lineWidth(1.2).strokeColor('#000').rect(A5.w - M.r - 34, A5.h - 36, 34, 22).stroke();
       d.font('gost').fontSize(12).fillColor('#000').text('EAC', A5.w - M.r - 34, A5.h - 30, { width: 34, align: 'center', lineBreak: false });

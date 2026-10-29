@@ -79,6 +79,14 @@ const LAZY = {
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
 const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract' };
 const loading = {};
+let warmed = false;
+/** Прогрев (скорость): после входа, в простое, подтянуть частые разделы — первое открытие без ожидания. Один раз, ошибки молча. */
+function warmUp() {
+  if (warmed) return;
+  warmed = true;
+  const run = () => { ['salesorders', 'requests', 'stock', 'design', 'products'].forEach((k) => { loadSec(k).catch(() => {}); }); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 5000 }); else setTimeout(run, 2500);
+}
 /** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
 function loadSec(key) {
   const def = LAZY[key];
@@ -460,6 +468,7 @@ async function showApp() {
   ui = shell();
   mounted = null; card = null;
   render(current());
+  warmUp();
   // Свежие данные о пользователе (роль могла измениться)
   // SK-8b: изменились разделы роли — перестроить меню и проверить текущий экран
   api('/auth/me').then((me) => {

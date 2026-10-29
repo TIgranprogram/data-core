@@ -55,12 +55,30 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
   it('рисунки: приложения в порядке первой ссылки, без ссылки — в конце по видам; нумерация сквозная', async () => {
     const b = await png(10, 10, '#fff');
     const plan = planFigures(['см. {fig:foundation}', 'и {fig:dimensions}'], { dimensions: [{ buf: b }, { buf: b }], foundation: [{ buf: b }], overview_callouts: [{ buf: b }], overview: [{ buf: b }], bom_item: [{ buf: b, refCode: 'П-1' }] });
-    expect(plan.appendices.map((a) => a.title)).toEqual(['Схемы установки опор', 'Габариты и зона безопасности', 'Общий вид и элементы изделия']);
+    expect(plan.appendices.map((a) => a.title)).toEqual(['Схемы установки опор', 'Габаритные размеры и виды', 'Общий вид и элементы изделия']);
     expect(plan.fig.get('foundation')).toEqual([1]);
     expect(plan.fig.get('dimensions')).toEqual([2, 3]);
     expect(plan.fig.get('overview_callouts')).toEqual([4]);
     expect(plan.fig.has('overview')).toBe(false);
     expect(plan.fig.has('bom_item')).toBe(false);
+  });
+
+  it('виды: сетка 4 на лист, подписи (caption или название вида), лишние «Общий вид» не теряются', async () => {
+    const b = await png(10, 10, '#fff');
+    const plan = planFigures([], { overview: [{ buf: b }, { buf: b }], dimensions: [{ buf: b }], view_front: [{ buf: b }], view_side: [{ buf: b, caption: 'Сбоку с размером' }], view_top: [{ buf: b }], view_3d: [{ buf: b }], safety_zone: [{ buf: b }], holes: [{ buf: b }] });
+    const views = plan.appendices.find((a) => a.title === 'Габаритные размеры и виды');
+    expect(views?.perPage).toBe(4);
+    expect(views?.figs.map((f) => f.caption)).toEqual(['Рисунок 1 — Габаритные размеры', 'Рисунок 2 — Вид спереди', 'Рисунок 3 — Сбоку с размером', 'Рисунок 4 — Вид сверху', 'Рисунок 5 — Общий вид 3D']);
+    expect(plan.appendices.find((a) => a.title === 'Общий вид')?.figs).toHaveLength(1);
+    expect(plan.appendices.find((a) => a.title === 'Зона безопасности')?.perPage).toBe(2);
+    expect(plan.appendices.find((a) => a.title === 'Схема скважин и разметки')?.perPage).toBe(2);
+  });
+
+  it('PDF с сеткой видов и без картинок собирается', async () => {
+    const img = await png(300, 200, '#cfd8dc');
+    const pdf = await renderPassportPdfV2({ ...BASE, images: { overview: [{ buf: img }, { buf: img }], dimensions: [{ buf: img }], view_front: [{ buf: img }], view_side: [{ buf: img }], view_top: [{ buf: img }], view_3d: [{ buf: img }], holes: [{ buf: img }, { buf: img }, { buf: img }] } });
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+    if (process.env.PROBE_PDF) require('fs').writeFileSync(process.env.PROBE_PDF, pdf);
   });
 
   it('оформление: цвет категории или нейтральный, пиктограммы с {maxUsers}, «нет» — выключено', () => {

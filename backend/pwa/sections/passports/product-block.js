@@ -5,7 +5,8 @@ import { date } from '../../core/format.js';
 import { patch } from '../../core/router.js';
 import { createProductFor } from '../products.js';
 import { modal } from '../../ui/dialog.js';
-import { LATER_CATS, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, dims, num, st } from './common.js';
+import { toastError } from '../../ui/toast.js';
+import { LATER_CATS, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, canEdit, dims, num, st } from './common.js';
 import { mmOf, models, productsAll, resetProducts } from './models.js';
 
 /** Блок «Изделие» формы нового паспорта и подстановка из изделия. */
@@ -16,6 +17,7 @@ import { mmOf, models, productsAll, resetProducts } from './models.js';
  */
 export function productBlock(api, { r, catBy }) {
   const box = api.input('_product')?.el; if (!box) return;
+  st.inhCat = null;
   const formEl = api.root; const block = box.closest('.form-block'); block?.classList.add('pp-first');
   const saveBtn = () => [...(api.root.closest('.drawer')?.querySelectorAll('button.btn-primary') || [])].find((b) => /^(Создать|Выпустить|Сохранить)/.test(b.textContent.trim()));
   let chosen = null; let catInfo = null; let filterCat = api.get('passportCategory') || ''; let q = api.get('_searchName') || '';
@@ -27,17 +29,38 @@ export function productBlock(api, { r, catBy }) {
     const cat = V2_CATS.find((c) => c.value === api.get('passportCategory'))?.label;
     const text = [cat, dims({ height: api.get('height'), length: api.get('length'), width: api.get('width') }), api.get('weight') && api.get('weight') + ' кг'].filter(Boolean).join(' · ');
     const note = [];
-    if (catInfo) {
-      if (catInfo.own) note.push(h('div', { class: 'muted' }, 'Категория задана в изделии · ', h('button', { type: 'button', class: 'link-btn', onclick: () => resetOwn() }, 'Сбросить')));
-      else if (catInfo.inherited) note.push(h('div', { class: 'muted' }, `Категория ${catInfo.inherited.source === 'group' ? `из группы «${catInfo.group}»` : catInfo.inherited.source === 'type' ? `из раздела «${catInfo.type}»` : 'из справочника'}`));
-      else note.push(h('div', { class: 'muted' }, 'Категория не задана — выберите вручную или задайте у группы'));
-    }
+    paintBadge();
     sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'править в изделии'),
-      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'), ...note);
+      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'));
   };
-  const resetOwn = () => {
+  // источник категории — плашка рядом с выбором «Категория паспорта»
+  const badge = h('div', { class: 'pp-cat-src' });
+  const paintBadge = () => {
+    if (!catInfo || !chosen) { badge.replaceChildren(); return; }
+    const cur = api.get('passportCategory'); const base = catInfo.own?.code || catInfo.inherited?.code || '';
+    let kind = 'ok'; let text;
+    if (cur && base && cur !== base) { kind = 'warn'; text = 'выбрана вручную'; }
+    else if (catInfo.own) text = 'задана в изделии';
+    else if (catInfo.inherited?.source === 'group') text = `из группы «${catInfo.group}»`;
+    else if (catInfo.inherited) { kind = 'warn'; text = catInfo.type ? `по разделу «${catInfo.type}» — проверьте` : 'по разделу — проверьте'; }
+    else { kind = 'warn'; text = 'не задана — выберите'; }
+    const canReset = catInfo.own && canEdit();
+    badge.replaceChildren(h('span', { class: 'badge ' + kind }, 'Категория: ' + text),
+      ...(canReset ? [' ', h('button', { type: 'button', class: 'link-btn', onclick: () => resetOwn() }, 'Сбросить')] : []));
+  };
+  const catField = api.field('passportCategory'); if (catField && !r) catField.append(badge);
+  const resetOwn = async () => {
+    const grp = catInfo?.group ? `группы «${catInfo.group}»` : 'группы';
+    const ok = await modal({ title: 'Сбросить категорию изделия', okText: 'Сбросить', body: h('p', null, `Категория изделия будет браться из ${grp}. Сбросить?`),
+      onOk: async () => {
+        const d = { ...(catInfo.defaults || {}) }; delete d.passportCategory;
+        await api(`/showcase/${chosen.id}/passport-defaults`, { method: 'PUT', body: d });
+        return true;
+      } }).catch((e) => { toastError(e); return false; });
+    if (!ok) return;
     const inh = catInfo?.inherited?.code || '';
-    catInfo = { ...catInfo, own: null };
+    catInfo = { ...catInfo, own: null, defaults: Object.fromEntries(Object.entries(catInfo.defaults || {}).filter(([k]) => k !== 'passportCategory')) };
+    st.inhCat = inh;
     if (inh) api.set('passportCategory', inh, { auto: true, src: 'из группы' });
     paintSum();
   };
@@ -64,9 +87,9 @@ export function productBlock(api, { r, catBy }) {
       return;
     }
     const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
-    const seg = h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Категория изделия' },
+    const seg = h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Показать изделия категории' },
       ...[{ value: '', label: 'Все' }, ...cats].map((c) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn' + (filterCat === c.value ? ' on' : ''), 'aria-checked': String(filterCat === c.value),
-        onclick: () => { filterCat = c.value; if (c.value) api.set('passportCategory', c.value); render(); } }, c.label)));
+        onclick: () => { filterCat = c.value; render(); } }, c.label)));
     const input = h('input', { type: 'text', value: q, placeholder: 'Найти изделие: название или артикул — по всем категориям', 'aria-label': 'Найти изделие', autocomplete: 'off' });
     const list = h('ul', { class: 'pp-prod-list', role: 'listbox', 'aria-label': 'Изделия' });
     const add = h('button', { type: 'button', class: 'btn btn-sm' });
@@ -129,7 +152,7 @@ export async function applyProduct(api, p, catBy) {
   const srcText = own ? 'из изделия' : inherited?.source === 'group' ? `из группы «${full.group}»` : inherited?.source === 'type' ? `из раздела «${full.type}»` : 'из справочника';
   // 1. поля изделия
   for (const [k, v] of Object.entries({ name: full.name, article: full.sku, category: full.group || full.type, length: mmOf(full.dimensions?.length, u), width: mmOf(full.dimensions?.width, u),
-    height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '', description: full.description })) {
+    height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '' })) {
     if (k === 'name' && st.keepName && api.get('name') === st.keepName) continue; // название заказчика из позиции заказа не затираем нашим
     put(k, v, 'из изделия');
   }
@@ -152,7 +175,8 @@ export async function applyProduct(api, p, catBy) {
     api.set('_copyFrom', last.values._copyFrom);
   }
   void catBy;
-  return { own, inherited, group: full.group, type: full.type };
+  st.inhCat = inherited?.code || '';
+  return { own, inherited, group: full.group, type: full.type, defaults: d };
 }
 /** НМ-2: перед созданием — черновики того же изделия и выпущенные на тот же заказ / покупателя / адрес. true — создавать дальше. */
 export async function duplicateCheck(productId, get) {

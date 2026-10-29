@@ -1,6 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from './busy.js';
+import { toast } from './toast.js';
 
 /**
  * Воронка текстов паспорта (DESIGN §4 «Шаг-воронка»): по категории — шаги «раздел → 2–3 варианта → (подвариант) → текст».
@@ -146,9 +147,11 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
     refresh,
     setCategory(code) {
       if ((code || '') === cat) return;
+      const had = !!cat && Object.keys(choices).length > 0;
       cat = code || '';
       choices = {}; for (const k of Object.keys(partial)) delete partial[k]; editing.clear();
       fire(); refresh();
+      if (had && cat) toast('Категория сменилась — выберите шаги текста заново');
     },
     stepEl: (rootId) => el.querySelector(`[data-root="${rootId}"]`),
   };

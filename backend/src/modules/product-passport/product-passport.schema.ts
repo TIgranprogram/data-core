@@ -7,7 +7,7 @@ export type ProductPassportDocument = HydratedDocument<ProductPassport>;
 /** Виды картинок паспорта (TASKS ПС.1): общий вид — титул; габариты — прил. 1; зона и монтаж — прил. 2. */
 /** Виды картинок. Первые четыре — как было (v1); остальные — паспорт v2 (БЗ-6, §3.6): выноски элементов, табличка,
  *  зона безопасности/приземления, фундамент, разметка скважин, сборка, картинка строки комплектности. */
-export const PASSPORT_IMAGE_KINDS = ['overview', 'dimensions', 'safety', 'mounting', 'overview_callouts', 'nameplate', 'safety_zone', 'foundation', 'holes', 'assembly', 'bom_item'] as const;
+export const PASSPORT_IMAGE_KINDS = ['overview', 'dimensions', 'safety', 'mounting', 'overview_callouts', 'nameplate', 'safety_zone', 'foundation', 'holes', 'assembly', 'bom_item', 'view_front', 'view_side', 'view_top', 'view_3d'] as const;
 export type PassportImageKind = (typeof PASSPORT_IMAGE_KINDS)[number];
 
 @Schema({ _id: false })

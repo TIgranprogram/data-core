@@ -1,54 +1,101 @@
 /* Service worker «Рабочее место» (CANON §3): кэширует только оболочку — данные всегда с сервера.
- * Оболочка (html/css/js/шрифты/иконки) — по версии выкладки: `version.json` (кладёт release.sh) проверяется при каждом
- * открытии приложения; версия та же — файлы из кэша (мгновенно, без ~70 запросов через туннель), новая — кэш
- * очищается и файлы берутся с сервера. Нет version.json (стенд, локально) — «сеть, иначе кэш», как раньше.
+ * «Сначала кэш, версия — фоном» (аудит скорости 2026-10-29): страница и модули отдаются из кэша сразу, без ожидания сети.
+ * Целостность версии: кэш оболочки носит имя версии (`dc-shell-<v>`, v — из `version.json`, кладёт release.sh).
+ * Указатель `cur` (какой кэш рабочий) и `pend` (новая версия, готовая к переключению) лежат в кэше `dc-app-meta`.
+ *  - Страница открыта на версии A → все её модули берутся только из кэша A (или сети, если файла в кэше нет).
+ *  - Вышла версия B: в фоне собирается кэш B (свежие index.html и ядро), `cur` не трогается — открытая вкладка не мешает смесью.
+ *  - «Обновить» (сообщение `apply`) или свежий запуск без других окон: `cur` = B, остальные кэши удаляются, страница
+ *    грузится целиком из B. Файла нет в B — сеть (а сеть уже на версии B) и кладётся в B.
+ * Нет version.json (стенд, локально) — кэш `dc-shell-nov`: «сеть, иначе кэш», как раньше.
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
  */
-const SHELL = 'dc-app-shell-v28';
 const PHOTOS = 'dc-app-photos-v1';
+const META = 'dc-app-meta';
+const NOV = 'dc-shell-nov';
 const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './ui/list.css', './ui/form.css', './ui/screens.css', './ui/panels.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
-const VER_KEY = './__version';
 
-// Установка не ждёт загрузки оболочки (канал медленный, ≈1 с на файл): сразу активируемся, а файлы кладём в кэш по одному
-// в фоне; сбой одного файла установку не роняет. Остальные модули кэшируются при первом запросе (cache-first по версии).
-self.addEventListener('install', (e) => {
-  e.waitUntil(self.skipWaiting());
-  (async () => {
-    const c = await caches.open(SHELL);
-    for (const f of SHELL_FILES) { try { if (!(await c.match(f))) await c.add(f); } catch { /* файл подтянется при первом запросе */ } }
-  })().catch(() => {});
-});
+const getMeta = async (k) => { try { const hit = await (await caches.open(META)).match('./__' + k); return hit ? await hit.json() : null; } catch { return null; } };
+const setMeta = async (k, v) => (await caches.open(META)).put('./__' + k, new Response(JSON.stringify(v)));
+const delMeta = async (k) => (await caches.open(META)).delete('./__' + k);
+
+self.addEventListener('install', (e) => { e.waitUntil(self.skipWaiting()); });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => ![SHELL, PHOTOS].includes(k)).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
-  );
+  e.waitUntil(cleanup().then(() => self.clients.claim()));
 });
 
-/** Версия выкладки: сверить с сервером, при смене — очистить оболочку. null — версий нет (стенд). */
-async function syncVersion() {
-  const cached = async () => { const hit = await caches.match(VER_KEY); return hit ? hit.text() : null; };
-  let v;
-  try {
-    const r = await fetch('version.json', { cache: 'no-store' });
-    if (!r.ok) return null;
-    v = (await r.json()).v;
-  } catch { return cached(); } // нет сети — работаем тем, что в кэше
-  if (!v) return null;
-  if ((await cached()) !== v) {
-    await caches.delete(SHELL);
-    await (await caches.open(SHELL)).put(VER_KEY, new Response(v));
-  }
-  return v;
+/** Удалить кэши, не нужные ни рабочей, ни новой версии (в т. ч. старый `dc-app-shell-v*`). */
+async function cleanup() {
+  const keep = new Set([META, PHOTOS]);
+  const cur = await getMeta('cur'); const pend = await getMeta('pend');
+  if (cur) keep.add(cur.name);
+  if (pend) keep.add(pend.name);
+  await Promise.all((await caches.keys()).filter((k) => !keep.has(k)).map((k) => caches.delete(k)));
 }
-let ver = null; // проверка версии — одна на открытие приложения (и после перезапуска самого SW)
 
-async function fromNetwork(req) {
+/** Положить файлы оболочки в кэш по одному (канал медленный); сбой файла не страшен — подтянется при запросе. */
+async function fill(name, files, fresh) {
+  const c = await caches.open(name);
+  for (const f of files) {
+    try { if (fresh || !(await c.match(f))) { const r = await fetch(f, { cache: 'reload' }); if (r.ok) await c.put(f, r); } } catch { /* позже */ }
+  }
+}
+
+let checking = null;
+/** Сверить версию с сервером. Первая — становится рабочей; новая — готовится в `pend`. Одна проверка за раз. */
+function check() {
+  return (checking ??= (async () => {
+    let r;
+    try { r = await fetch('version.json', { cache: 'no-store' }); } catch { return; } // нет сети — работаем тем, что есть
+    const cur = await getMeta('cur');
+    if (!r.ok) { if (!cur) await setMeta('cur', { name: NOV, v: null }); return; } // версий нет (стенд)
+    let j; try { j = await r.json(); } catch { return; }
+    const v = j?.v;
+    if (!v) { if (!cur) await setMeta('cur', { name: NOV, v: null }); return; }
+    const name = 'dc-shell-' + v;
+    if (!cur || !cur.v) { // первый запуск (или стенд получил версии): рабочий сразу
+      await setMeta('cur', { name, v, info: j }); await delMeta('pend');
+      cleanup().catch(() => {});
+      fill(name, SHELL_FILES, false).catch(() => {});
+      return;
+    }
+    if (cur.v === v) return;
+    const pend = await getMeta('pend');
+    if (pend?.v === v) return;
+    await delMeta('pend');
+    await caches.delete(name); // недособранный кэш этой версии — с нуля
+    await fill(name, ['./', './index.html', './main.js'], true);
+    const c = await caches.open(name);
+    if (!(await c.match('./index.html'))) return; // страницу не получили — переключаться нельзя
+    await setMeta('pend', { name, v, info: j });
+    cleanup().catch(() => {});
+    fill(name, SHELL_FILES.slice(3), false).catch(() => {});
+  })().catch(() => {}).finally(() => { checking = null; }));
+}
+
+/** Переключить рабочий кэш на новую версию. true — переключили. */
+async function apply() {
+  const pend = await getMeta('pend');
+  if (!pend) return false;
+  await setMeta('cur', pend); await delMeta('pend');
+  await cleanup();
+  return true;
+}
+
+self.addEventListener('message', (e) => {
+  const port = e.ports?.[0];
+  if (e.data?.type === 'ver') { e.waitUntil(getMeta('cur').then((c) => port?.postMessage(c?.info || null))); return; } // версия, из которой открыта страница
+  if (e.data?.type !== 'apply') return;
+  e.waitUntil((async () => {
+    try { await check(); await apply(); } catch { /* перезагрузка пройдёт и так */ }
+    port?.postMessage('done');
+  })());
+});
+
+async function fromNetwork(req, name) {
   try {
     const res = await fetch(req);
-    if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(req, copy)); } // клон — сразу, пока тело не прочитано
+    if (res.ok && name) { const copy = res.clone(); caches.open(name).then((c) => c.put(req, copy)); } // клон — сразу, пока тело не прочитано
     return res;
   } catch {
     return (await caches.match(req)) || (await caches.match('./index.html')) || Response.error();
@@ -78,26 +125,35 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.endsWith('/version.json')) return; // версия — всегда с сервера (её же сверяет update-check)
 
   if (req.mode === 'navigate') {
-    // страница — всегда с сервера; параллельно — сверка версии, чтобы модули после неё брались уже из верного кэша
-    const net = fetch(req);
-    net.catch(() => {}); // ошибка разбирается ниже
-    ver = syncVersion();
     e.respondWith((async () => {
-      await ver.catch(() => null);
+      let cur = await getMeta('cur');
+      if (cur?.v) { // версионный кэш: свежий запуск (других окон нет) подхватывает готовую новую версию
+        const wins = await self.clients.matchAll({ type: 'window' });
+        if (wins.length <= 1 && (await apply())) cur = await getMeta('cur');
+        const c = await caches.open(cur.name);
+        const hit = (await c.match(req, { ignoreSearch: true })) || (await c.match('./index.html'));
+        if (hit) { e.waitUntil(check()); return hit; } // страница из кэша сразу, версия — фоном
+      }
+      // нет кэша (первый заход) или стенд без версий: сеть, версия — параллельно
+      const net = fetch(req); net.catch(() => {});
+      await check();
+      cur = await getMeta('cur');
       try {
         const res = await net;
-        if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(req, copy)); }
+        if (res.ok && cur) { const copy = res.clone(); caches.open(cur.name).then((c) => c.put(req, copy)); }
         return res;
       } catch {
-        return (await caches.match(req)) || (await caches.match('./index.html')) || Response.error();
+        return (await caches.match(req, { ignoreSearch: true })) || (await caches.match('./index.html')) || Response.error();
       }
     })());
     return;
   }
   e.respondWith((async () => {
-    const v = await (ver ??= syncVersion()).catch(() => null);
-    if (!v) return fromNetwork(req);
-    const hit = await caches.match(req);
-    return hit || fromNetwork(req);
+    const cur = await getMeta('cur');
+    if (cur?.v) {
+      const hit = await (await caches.open(cur.name)).match(req);
+      if (hit) return hit;
+    }
+    return fromNetwork(req, cur?.name);
   })());
 });
