@@ -3,6 +3,7 @@
 * text=auto
 # Скрипты для Linux-сервера — всегда LF, иначе bash на VM не запустит
 *.sh text eol=lf
+.githooks/* text eol=lf
 Dockerfile text eol=lf
 # Двоичные
 *.png binary

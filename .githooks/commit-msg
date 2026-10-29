@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Метки коммита для ворот выкладки (RELEASE-GATE, CLAUDE.md «Метки коммита»). Включается сам: preflight.sh ставит core.hooksPath.
+# Коммит с backend/src|test|pwa|admin — нужна строка «Класс: S|M|L|XL»; с backend/pwa|admin — ещё «Дизайнер: принято|не нужно».
+# Слияния, rebase и fixup не проверяются.
+MSG="$1"
+head -1 "$MSG" | grep -qE '^(Merge|Revert|fixup!|squash!)' && exit 0
+[[ -d "$(git rev-parse --git-path rebase-merge)" || -d "$(git rev-parse --git-path rebase-apply)" ]] && exit 0
+FILES="$(git diff --cached --name-only)"
+BODY="$(grep -v '^#' "$MSG")"
+ERR=""
+if grep -qE '^backend/(src|test|pwa|admin)/' <<<"$FILES"; then
+  grep -qE '^Класс: (S|M|L|XL)$' <<<"$BODY" || ERR+="  нужна строка «Класс: S|M|L|XL» (класс задачи по CLAUDE.md)\n"
+fi
+if grep -qE '^backend/(pwa|admin)/' <<<"$FILES"; then
+  grep -qE '^Дизайнер: (принято|не нужно)$' <<<"$BODY" || ERR+="  нужна строка «Дизайнер: принято» (после datacore-designer) или «Дизайнер: не нужно» (только подпись/текст, S)\n"
+fi
+[[ -z "$ERR" ]] && exit 0
+printf "КОММИТ ОТКЛОНЁН — нет меток для ворот выкладки:\n%bДобавь строки перед эстафетой и повтори коммит.\n" "$ERR" >&2
+exit 1

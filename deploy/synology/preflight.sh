@@ -10,6 +10,7 @@
 set -uo pipefail
 URGENT=0; for a in "$@"; do [[ "$a" == "--force-urgent" ]] && URGENT=1; done
 cd "$(git rev-parse --show-toplevel)"
+git config core.hooksPath .githooks # хук меток коммита — на любом ПК (обычно уже включён SessionStart в .claude/settings.json)
 LOG="$(mktemp)"
 stop() { echo "ВОРОТА: СТОП — $1"; rm -f "$LOG"; exit 1; }
 ok() { echo "  ✓ $1"; }
