@@ -71,6 +71,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
+  app.useBodyParser('json', { limit: '1mb' }); // POST /api/devlog/import — тело до 1 МБ
 
   // TZ-OPS-301: mute Nest DI INFO spam (InstanceLoader / RoutesResolver / …).
   // warn/error always pass; NEST_BOOT_VERBOSE=1 or LOG_LEVEL=debug → full dump.

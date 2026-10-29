@@ -79,6 +79,9 @@ if [[ $DROP == 1 ]]; then
     docker exec -w /app -e OUT_DIR=/tmp/archive-export datacore-backend node scripts/drop-archive-collections.js --apply
     mkdir -p $D; docker cp datacore-backend:/tmp/archive-export/. $D/; docker exec datacore-backend rm -rf /tmp/archive-export; ls -la $D | tail -6; rm -f /tmp/drop-archive-collections.js'
 fi
+echo "== 7. История проекта (импорт в devlog; сбой не валит выкладку)"
+node backend/scripts/devlog-import.js prod --apply 2>&1 | tail -15 || echo "импорт истории не прошёл — выкладка не затронута"
+
 echo "== Готово. Публично: https://kppdf-crm.ru/db/app/"
 # пользователь сверяет с меню приложения («v1.N») — то ли он видит (просьба 2026-10-25)
 echo "== Версия приложения: v1.$PWA_N (коммит $(git log -1 --format=%h -- backend/pwa)), сервер — $(git log --oneline -1 | cut -c1-60)"
