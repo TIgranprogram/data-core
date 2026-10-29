@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
-import { oid } from '../../common/list-query';
+import { escapeRe, oid } from '../../common/list-query';
 import { AuditService } from '../audit/audit.service';
 import { aliasKey, isConfident, lineState, suggest, type MatchProduct } from './matching-rules';
 import { ProductAlias, ProductAliasDocument } from './product-alias.schema';
@@ -31,9 +31,7 @@ export class MatchingService {
     const lines = await db.collection('incomes').find({ orderId: id, deletedAt: null }).sort({ lineNo: 1, _id: 1 }).toArray() as Doc[];
     const products = await this.loadProducts();
     const byId = new Map(products.map((p) => [p.id, p]));
-    const keys = [...new Set(lines.map((l) => aliasKey(l.title)).filter(Boolean))];
-    const al = keys.length ? await this.aliases.find({ key: { $in: keys } }).lean().exec() as unknown as Doc[] : [];
-    const aliasOf = new Map(al.map((a) => [String(a.key), String(a.productId)]));
+    const aliasOf = await this.loadAliases(lines);
     let matched = 0;
     const items = lines.map((l) => {
       const state = lineState(l);
@@ -48,6 +46,53 @@ export class MatchingService {
       };
     });
     return { orderId, orderNo: (order.orderNo as string | undefined) ?? '', customer: (order.customer as string | undefined) ?? '', total: items.length, matched, unmatched: items.length - matched, items };
+  }
+
+  /** Справочник соответствий одним запросом: ключ названия → изделие. */
+  private async loadAliases(lines: Doc[]): Promise<Map<string, string>> {
+    const keys = [...new Set(lines.map((l) => aliasKey(l.title)).filter(Boolean))];
+    const al = keys.length ? await this.aliases.find({ key: { $in: keys } }).lean().exec() as unknown as Doc[] : [];
+    return new Map(al.map((a) => [String(a.key), String(a.productId)]));
+  }
+
+  /** Несопоставленные позиции (unmatched/auto) живых договоров: сначала «в производстве», затем по сроку. Подбор — только для строк страницы, пачкой. */
+  async unmatched(q: { page?: number; limit?: number; q?: string; orderId?: string; inProduction?: string }) {
+    const db = this.connection.db!;
+    const limit = Math.min(Math.max(Math.trunc(Number(q.limit)) || 50, 1), 200);
+    const page = Math.max(Math.trunc(Number(q.page)) || 1, 1);
+    const orderFilter: Doc = { deletedAt: null };
+    if (q.orderId) orderFilter._id = oid(q.orderId, 'договора');
+    if (q.inProduction === '1') orderFilter.productionNo = { $nin: [null, ''] };
+    else if (q.inProduction === '0') orderFilter.productionNo = { $in: [null, ''] };
+    const orders = await db.collection('salesorders').find(orderFilter, { projection: { orderNo: 1, customer: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 } }).toArray() as Doc[];
+    const orderBy = new Map(orders.map((o) => [String(o._id), o]));
+    const lines = orders.length ? await db.collection('incomes').find({
+      deletedAt: null, orderId: { $in: orders.map((o) => o._id) },
+      $or: [{ matchStatus: 'auto' }, { matchStatus: { $nin: ['none', 'auto'] }, productId: null }],
+    }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, unit: 1, productId: 1, matchStatus: 1 } }).toArray() as Doc[] : [];
+    const needle = (q.q ?? '').trim();
+    const re = needle ? new RegExp(escapeRe(needle), 'i') : null;
+    const rows = lines.map((l) => ({ l, o: orderBy.get(String(l.orderId))! })).filter((r) => r.o && (!re || [r.l.title, r.o.orderNo, r.o.customer, r.o.productionNo].some((v) => re.test(String(v ?? '')))));
+    const due = (o: Doc) => ((o.productionDeadline ?? o.shipDate) as Date | undefined)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    rows.sort((a, b) => Number(!!b.o.productionNo) - Number(!!a.o.productionNo) || due(a.o) - due(b.o)
+      || String(a.o.orderNo ?? '').localeCompare(String(b.o.orderNo ?? ''), 'ru', { numeric: true }) || Number(a.l.lineNo ?? 0) - Number(b.l.lineNo ?? 0));
+    const slice = rows.slice((page - 1) * limit, page * limit);
+    const [products, aliasOf] = slice.length ? await Promise.all([this.loadProducts(), this.loadAliases(slice.map((r) => r.l))]) : [[] as MatchProduct[], new Map<string, string>()];
+    const items = slice.map(({ l, o }) => {
+      const sg = suggest(String(l.title ?? ''), products, aliasOf.get(aliasKey(l.title)));
+      return {
+        lineId: String(l._id), orderId: String(o._id), orderNo: (o.orderNo as string | undefined) ?? '', customer: (o.customer as string | undefined) ?? '',
+        productionNo: (o.productionNo as string | undefined) || null, title: String(l.title ?? ''), qty: (l.qty as number | undefined) ?? null, unit: (l.unit as string | undefined) ?? null,
+        suggestions: sg, confident: isConfident(sg[0]),
+      };
+    });
+    return { items, total: rows.length, page, limit };
+  }
+
+  /** Счётчик для меню: всего несопоставленных и из них в производстве. */
+  async unmatchedCount() {
+    const [all, inProd] = await Promise.all([this.unmatched({ limit: 1 }), this.unmatched({ limit: 1, inProduction: '1' })]);
+    return { total: all.total, inProduction: inProd.total };
   }
 
   private async loadProducts(): Promise<MatchProduct[]> {

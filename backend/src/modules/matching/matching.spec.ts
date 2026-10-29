@@ -71,6 +71,19 @@ describe('MatchingService (КМ2–КМ3)', () => {
     expect(r.items[0].confident).toBe(true);
     expect(r.items[1].suggestions).toEqual([]);
   });
+  it('unmatched: в производстве первыми, форма {items,total,page,limit}, подбор; count', async () => {
+    const o2 = new Types.ObjectId();
+    rows.salesorders = [{ _id: orderId, orderNo: '12', customer: 'ООО', shipDate: new Date('2026-01-01') }, { _id: o2, orderNo: '5', customer: 'АО', productionNo: 'П-1', shipDate: new Date('2027-01-01') }];
+    rows.incomes = [{ _id: l1, orderId, lineNo: 1, title: 'Скамейка парковая' }, { _id: l2, orderId: o2, lineNo: 1, title: 'Монтаж' }];
+    const r = await svc.unmatched({ limit: 10 });
+    expect(r).toMatchObject({ total: 2, page: 1, limit: 10 });
+    expect(r.items.map((i) => i.lineId)).toEqual([String(l2), String(l1)]);
+    expect(r.items[0]).toMatchObject({ productionNo: 'П-1', orderNo: '5', customer: 'АО' });
+    expect(r.items[1].suggestions[0].productId).toBe(String(prod));
+    expect((await svc.unmatched({ q: 'монтаж' })).total).toBe(1);
+    expect((await svc.unmatched({ limit: 1, page: 2 })).items).toHaveLength(1);
+    expect(await svc.unmatchedCount()).toEqual({ total: 2, inProduction: 2 });
+  });
   it('confirm: пишет productId/matchStatus и алиас (повтор — счётчик)', async () => {
     await svc.confirm(String(l1), String(prod), String(new Types.ObjectId()));
     expect(incUpdate.mock.calls[0][1].$set).toMatchObject({ matchStatus: 'confirmed', productId: prod });

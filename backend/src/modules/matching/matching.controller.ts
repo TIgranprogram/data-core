@@ -22,6 +22,21 @@ export class MatchingController {
     return this.svc.suggest(orderId);
   }
 
+  @Get('unmatched/count')
+  @AppSection('salesorders', 'design')
+  @Roles('admin', 'director', 'manager', 'user')
+  unmatchedCount() {
+    return this.svc.unmatchedCount();
+  }
+
+  @Get('unmatched')
+  @AppSection('salesorders', 'design')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'inProduction', required: false, description: '1 — только в производстве, 0 — только без производственного №' })
+  unmatched(@Query('page') page?: string, @Query('limit') limit?: string, @Query('q') q?: string, @Query('orderId') orderId?: string, @Query('inProduction') inProduction?: string) {
+    return this.svc.unmatched({ page: Number(page), limit: Number(limit), q, orderId, inProduction });
+  }
+
   @Post('confirm')
   @HttpCode(200)
   @Roles('admin', 'manager')

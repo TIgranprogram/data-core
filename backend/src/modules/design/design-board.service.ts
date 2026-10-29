@@ -7,6 +7,7 @@ import { shortProductName } from '../showcase/order-product-name';
 import { loadPhotos } from '../../common/photos';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
 import { DesignTask, type DesignTaskDocument } from './design-task.schema';
+import { isMatched } from '../matching/matching-rules';
 import { orderDeadline, presentTasks } from './design-present';
 import { DesignService } from './design.service';
 import { DesignStickerService } from './design-sticker.service';
@@ -103,7 +104,7 @@ export class DesignBoardService {
     const orderId = oid(orderIdRaw, 'заказа');
     if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
     const incomes = await this.db().collection('incomes').find(
-      { orderId, deletedAt: null }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1, color: 1, size: 1, productId: 1 } },
+      { orderId, deletedAt: null }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1, color: 1, size: 1, productId: 1, matchStatus: 1 } },
     ).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
     const incomeIds = incomes.map((i) => i._id as Oid);
     const taskDocs = incomeIds.length ? await this.tasks.find({ incomeId: { $in: incomeIds }, deletedAt: null }).sort({ seq: 1 }).lean().exec() : [];
@@ -131,7 +132,7 @@ export class DesignBoardService {
           customerTitle: (i.title as string | undefined) ?? null,
           qty: (i.qty as number | undefined) ?? null, unit: (i.unit as string | undefined) ?? null,
           color: (i.color as string | undefined) ?? null, size: (i.size as string | undefined) ?? null,
-          productId: i.productId ? String(i.productId) : null, sku: (prod?.sku as string | undefined) ?? null,
+          productId: i.productId ? String(i.productId) : null, matched: isMatched(i), sku: (prod?.sku as string | undefined) ?? null,
           photo: photo ? photos.get(String(photo))?.thumb ?? null : null,
           task: t ? { id: t.id, code: t.code, status: t.status, assignee: t.assignee, deadline: t.deadline, priority: t.priority, pauseReason: t.pauseReason } : null,
         };
