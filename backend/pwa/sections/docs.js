@@ -5,6 +5,7 @@ import { toast } from '../ui/toast.js';
 import { mountList } from '../ui/list.js';
 import { funnelBox } from '../ui/funnel.js';
 import { passports, issuePassport } from './passports.js';
+import { canJournal, numbersStrip, openNumberPanel } from './passports/number-panel.js';
 import { canEdit as canEditTexts, statusOf } from './passports/common.js';
 import { linkDialog, printDialog } from './passports/dialogs.js';
 import { savePd } from './products.js';
@@ -39,6 +40,8 @@ export const doctpl = {
     createLabel: false,
     export: false,
     searchPlaceholder: 'Поиск: изделие, артикул, серия…',
+    // ПН: следующие номера и «Записать номер» — на виду во вкладке «Паспорта» (пользователь 2026-10-29)
+    headActions: (reload) => [numbersStrip(), canJournal() && h('button', { class: 'btn btn-ghost', type: 'button', title: 'Паспорт сделан в другой программе — записать его номера', onclick: () => openNumberPanel(reload) }, 'Записать номер')],
     emptyText: 'Изделий пока нет.', emptyHint: 'Сначала добавьте их в разделе «Продукция».',
     hints: { '': 'У каждого изделия свой шаблон паспорта: категория и выбранные тексты (монтаж, назначение…). Клик — открыть и поправить; «Выпустить паспорт» в «Продукции» и в заказе подставит его.' },
     columns: [
