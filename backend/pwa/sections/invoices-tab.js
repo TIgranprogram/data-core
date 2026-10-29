@@ -5,6 +5,8 @@ import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
 import { enhanceSelect } from '../ui/select.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
+import { patch } from '../core/router.js';
+import { opThumb } from '../ui/op-row.js';
 
 /**
  * Вкладка «Счета» в «Заявках» (CHAIN-AUDIT З8–З12): список счетов с фильтрами и суммой;
@@ -123,16 +125,20 @@ export function mountInvoicesTab(params = {}) {
 
     const checks = new Map();
     const pending = reqs.filter((x) => x.status !== 'received' && x.status !== 'cancelled');
-    const list = h('ul', { class: 'invl-reqs' }, ...reqs.map((x) => {
+    // строки — как операции в «Деньгах» (ui/op-row.js): фото, «№ · название», подпись; клик — заявка справа
+    const list = h('ul', { class: 'q-list invl-reqs' }, ...reqs.map((x) => {
       const can = pending.includes(x) && canAct && inv.status !== 'draft';
       let cb = null;
       if (can) { cb = h('input', { type: 'checkbox', class: 'invl-cb', checked: true, 'aria-label': 'Принять позицию' }); checks.set(x.id, cb); }
       const price = x.price ?? x.priceHint;
       const sum = price > 0 && x.qty > 0 ? money(price * x.qty) : '';
-      return h('li', null, cb,
-        h('a', { href: '#requests?open=' + x.id }, x.title || x.materialName || x.name || '—'),
-        h('span', { class: 'muted' }, ` · ${x.qty ?? ''} ${x.unit || ''}` + (price > 0 ? ` × ${money(price)}` : '') + (sum ? ` = ${sum}` : '') + ' · '),
-        badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status));
+      const pic = x.photo || x.materialPhoto;
+      const open = () => patch({ of: 'requests', open: x.id });
+      return h('li', { class: 'q-row' + (pic ? ' has-pic' : ''), tabindex: '0', onclick: (e) => { if (!e.target.closest('input')) open(); }, onkeydown: (e) => { if (e.key === 'Enter') open(); } },
+        cb, opThumb(pic?.thumb || pic?.url),
+        h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, (x.num ? `№${x.num} · ` : '') + (x.title || x.materialName || x.name || '—')),
+          h('div', { class: 'q-sub' }, `${x.qty ?? ''} ${x.unit || ''}`.trim() + (price > 0 ? ` × ${money(price)}` : ''))),
+        h('div', { class: 'q-side' }, sum ? h('span', { class: 'num' }, sum) : null, badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status)));
     }));
 
     const files = (inv.files || []).length

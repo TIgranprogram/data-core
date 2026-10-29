@@ -1314,6 +1314,9 @@ table.cal tr.pend th, table.cal tr.pend td { color: var(--muted); font-style: it
 .invl-body { display: flex; flex-direction: column; gap: var(--s2); }
 .invl-body .invl-reqs { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); }
 .invl-body .invl-reqs li { display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; overflow-wrap: anywhere; }
+.invl-body .invl-reqs li.q-row { display: flex; flex-wrap: nowrap; gap: var(--s3); padding: 8px 4px; font-size: var(--fs-base, 14px); }
+.invl-body .invl-reqs .q-main { flex: 1; }
+.invl-body .invl-reqs .q-thumb { width: 48px; height: 48px; }
 .invl-chain-i + .invl-chain-i::before { content: ' · '; }
 .invl-files { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .invl-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
