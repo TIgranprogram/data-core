@@ -75,7 +75,7 @@ const LAZY = {
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff' };
+const LOADER_OF = { salesorder: 'salesorders', passnum: 'passports', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff' };
 const loading = {};
 /** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
 function loadSec(key) {
