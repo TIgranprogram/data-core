@@ -34,6 +34,8 @@ export interface AuthUserPayload {
   permissions: string[];
   phone?: string | null;
   fullName?: string | null;
+  /** `preset:<код>` | `photo:<photoId>` | null */
+  avatar?: string | null;
   /** TZ-238 */
   organizationId?: string | null;
   /** TZ-ACCESS-301: page ACL — visible nav pages from role. */

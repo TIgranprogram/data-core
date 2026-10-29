@@ -4,6 +4,8 @@ import { Model, Types } from 'mongoose';
 import { getCurrentUser } from '../../common/context/user-context';
 import { AuditLog, AuditLogDocument } from './audit-log.schema';
 import { AuditQueryRaw, parseAuditQuery } from './audit-query';
+import { User, UserDocument } from '../user/user.schema';
+import { actionRu } from './action-ru';
 import { sanitizeValue } from '../admin/collection-docs';
 
 export interface LogEntry {
@@ -28,7 +30,24 @@ export class AuditService {
   constructor(
     @InjectModel(AuditLog.name)
     private readonly model: Model<AuditLogDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
+
+  /** Имена авторов одним запросом на страницу: displayName / fullName, иначе логин. */
+  async actorNames(docs: Array<{ userId?: unknown; userName?: string | null }>): Promise<Map<string, string>> {
+    const ids = [...new Set(docs.map((d) => (d.userId ? String(d.userId) : '')).filter((x) => /^[0-9a-f]{24}$/i.test(x)))];
+    const map = new Map<string, string>();
+    if (!ids.length) return map;
+    const users = await this.userModel.find({ _id: { $in: ids } }, { displayName: 1, fullName: 1, username: 1 }).lean<Array<{ _id: Types.ObjectId; displayName?: string; fullName?: string; username?: string }>>().exec();
+    for (const u of users) map.set(String(u._id), u.displayName || u.fullName || u.username || '');
+    return map;
+  }
+
+  /** Имя автора записи: из users, иначе имя в записи журнала. */
+  actorOf(names: Map<string, string>, d: { userId?: unknown; userName?: string | null }): string | null {
+    return (d.userId ? names.get(String(d.userId)) : '') || d.userName || null;
+  }
 
   /**
    * Fire-and-forget log. Reads userId/userName from AsyncLocalStorage
@@ -70,7 +89,11 @@ export class AuditService {
       this.model.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
       this.model.countDocuments(filter).exec(),
     ]);
-    return { items: docs.map((d) => sanitizeValue(d)), total, page, limit };
+    const names = await this.actorNames(docs);
+    return {
+      items: docs.map((d) => ({ ...(sanitizeValue(d) as object), actionRu: actionRu(d.action, d.entityType), actorName: this.actorOf(names, d) })),
+      total, page, limit,
+    };
   }
 
   /** История одной записи (И.1): по entityId (ObjectId) или details.id (строковые id), сначала новые. */
@@ -91,12 +114,13 @@ export class AuditService {
         .sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
       this.model.countDocuments(filter).exec(),
     ]);
+    const names = await this.actorNames(docs);
     const items = docs.map((d) => {
       const det = (d.details ?? {}) as { id?: unknown; after?: Record<string, unknown> };
       const a = det.after ?? {};
       const title = [a.num ? `№${a.num}` : a.orderNo ? `№${a.orderNo}` : '', a.title ?? a.name ?? a.materialName ?? ''].filter(Boolean).join(' ');
       return { id: String(d._id), createdAt: (d as { createdAt?: Date }).createdAt, action: d.action, entityType: d.entityType,
-        entityId: d.entityId ? String(d.entityId) : det.id ? String(det.id) : null, userName: d.userName ?? null, title: title || null };
+        entityId: d.entityId ? String(d.entityId) : det.id ? String(det.id) : null, userName: d.userName ?? null, actorName: this.actorOf(names, d), actionRu: actionRu(d.action, d.entityType), title: title || null };
     });
     return { items, total, page, limit };
   }

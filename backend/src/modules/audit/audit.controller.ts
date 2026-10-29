@@ -65,9 +65,11 @@ export class AuditController {
     if (!entityId?.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
     if (!historyTypesFor(user).includes(entityType)) throw new ForbiddenException(`Раздел «${appSectionLabel(RECORD_TYPE_SECTIONS[entityType][0])}» для вашей роли закрыт`);
     // «было → стало» по полям (И.1) — из соседних снимков; деньги — только деньги-ролям; сами снимки наружу не отдаём
-    const items = withChanges(await this.service.recordLogs(entityType, entityId.trim()) as Array<Record<string, unknown>>, canSeeMoney(user));
+    const raw = await this.service.recordLogs(entityType, entityId.trim());
+    const names = await this.service.actorNames(raw);
+    const items = withChanges(raw as Array<Record<string, unknown>>, canSeeMoney(user));
     return {
-      items: items.map((d) => ({ action: d.action, userName: d.userName ?? null, createdAt: d.createdAt, changes: d.changes, first: d.first })),
+      items: items.map((d) => ({ action: d.action, userName: d.userName ?? null, actorName: this.service.actorOf(names, d as { userId?: unknown; userName?: string }), createdAt: d.createdAt, changes: d.changes, first: d.first })),
       total: items.length,
     };
   }

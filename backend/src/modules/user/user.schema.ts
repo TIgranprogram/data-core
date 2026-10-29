@@ -45,6 +45,10 @@ export class User {
   @Prop()
   phone?: string;
 
+  /** Аватар: `preset:<код>` или `photo:<photoId>`. Поле добавлено (общая с CRM коллекция). */
+  @Prop()
+  avatar?: string;
+
   /** Bumped on logout / change-password to invalidate all refresh tokens. */
   @Prop({ default: 0 })
   refreshTokenVersion!: number;

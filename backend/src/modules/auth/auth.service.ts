@@ -216,6 +216,13 @@ export class AuthService {
     return { uiPrefs: await this.users.setUiPrefs(userId, prefs) };
   }
 
+  /** Свой профиль (имя, телефон, аватар); возвращает обновлённый профиль как GET /auth/me. */
+  async updateProfile(userId: string, dto: { displayName?: string; phone?: string; avatar?: string }): Promise<AuthUserPayload> {
+    await this.findActiveUserOrThrow(userId);
+    await this.users.setProfile(userId, dto);
+    return this.getMe(userId);
+  }
+
   async logout(userId: string): Promise<void> {
     await this.users.incrementRefreshVersion(userId);
     this.logger.log(`User logged out (id=${userId})`);
@@ -336,6 +343,7 @@ export class AuthService {
       // were added to RegisterDto.
       phone: user.phone ?? null,
       fullName: user.fullName ?? null,
+      avatar: user.avatar ?? null,
       // ШП-1: ширины панелей; у старых записей поля нет → {}.
       uiPrefs: user.uiPrefs ?? {},
       organizationId: user.organizationId?.toString() ?? null,

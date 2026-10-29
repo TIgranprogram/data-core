@@ -27,6 +27,7 @@ import { AuthService } from './auth.service';
 import { ConfirmDto } from './dto/confirm.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ProfileDto } from './dto/profile.dto';
 import { UiPrefsDto } from './dto/ui-prefs.dto';
 import { UserService } from '../user/user.service';
 
@@ -121,6 +122,18 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async me(@CurrentUser() me: AuthenticatedUser) {
     return this.auth.getMe(me.id);
+  }
+
+  /** Свой профиль: имя, телефон, аватар. Роль, логин, пароль не меняются (400 на лишние поля). */
+  @Patch('me')
+  @Roles('admin', 'manager', 'user')
+  @ApiOperation({ summary: 'Сохранить свой профиль (displayName, phone, avatar)' })
+  @ApiResponse({ status: 200, description: 'Обновлённый профиль, как GET /auth/me' })
+  @ApiResponse({ status: 400, description: 'Лишнее поле, слишком длинное значение, неверный аватар' })
+  @ApiResponse({ status: 403, description: 'Вход по ключу kppd_' })
+  async updateProfile(@CurrentUser() me: AuthenticatedUser, @Body() dto: ProfileDto) {
+    if (me.keyScope) throw new ForbiddenException('Профиль меняется только из входа в приложение');
+    return this.auth.updateProfile(me.id, dto);
   }
 
   /**

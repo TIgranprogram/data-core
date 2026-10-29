@@ -266,6 +266,29 @@ export class UserService {
     return doc.uiPrefs ?? {};
   }
 
+  /** Свой профиль: только имя, телефон, аватар. Пустая строка в phone/avatar — очистить. Фото аватара должно существовать. */
+  async setProfile(id: string, p: { displayName?: string; phone?: string; avatar?: string }): Promise<void> {
+    const $set: Record<string, string> = {};
+    const $unset: Record<string, ''> = {};
+    if (p.displayName !== undefined) {
+      if (!p.displayName.trim()) throw new BadRequestException('Имя не может быть пустым');
+      $set.displayName = p.displayName.trim();
+    }
+    for (const k of ['phone', 'avatar'] as const) {
+      const v = p[k];
+      if (v === undefined) continue;
+      if (v.trim() === '') $unset[k] = ''; else $set[k] = v.trim();
+    }
+    if (p.avatar?.startsWith('photo:')) {
+      const photo = await this.model.db.collection('photos').findOne({ _id: new Types.ObjectId(p.avatar.slice(6)), deletedAt: null }, { projection: { _id: 1 } });
+      if (!photo) throw new BadRequestException('Фото для аватара не найдено');
+    }
+    const update = { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) };
+    if (!Object.keys(update).length) return;
+    await this.model.updateOne({ _id: id }, update).exec();
+    userActivityCache.invalidate(id);
+  }
+
   async verifyPassword(user: UserDocument, plain: string): Promise<boolean> {
     return bcrypt.compare(plain, user.passwordHash);
   }
