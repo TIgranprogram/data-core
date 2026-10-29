@@ -1,7 +1,8 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
-import { go } from '../core/router.js';
+import { go, patch } from '../core/router.js';
+import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
 import { toast } from '../ui/toast.js';
 import { modal } from '../ui/dialog.js';
@@ -33,6 +34,7 @@ export function unassignedPicker({ onChange } = {}) {
       const cb = h('input', { type: 'checkbox', class: 'ua-cb', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
       return h('label', { class: 'ua-row' }, cb,
         h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (r.orderNo || '—')), h('span', { class: 'muted' }, r.customer ? ' · ' + r.customer : '')),
+        h('span', { class: 'ua-match' }, matchBadge(r), r.canAssign === false ? h('button', { class: 'btn btn-sm', type: 'button', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); openMatching(patch, r.id); } }, 'Сопоставить') : null),
         h('span', { class: 'muted small nowrap' }, [r.date && date(r.date), `${qty(r.lineCount || 0)} поз.`, session.canMoney && r.amount ? money(r.amount) : ''].filter(Boolean).join(' · ')));
     }));
     sync();
@@ -54,7 +56,23 @@ export function unassignedPicker({ onChange } = {}) {
   const el = h('div', { class: 'ua' }, search,
     h('div', { class: 'ua-head' }, h('label', { class: 'ua-all' }, allCb, ' Выбрать все'), info),
     body, more);
-  return { el, ids: () => [...picked], reload: () => load(false), count: () => total };
+  return { el, rows: () => rows, ids: () => [...picked], reload: () => load(false), count: () => total };
+}
+
+/** Блок в окне переноса: ответ 400 «не все позиции сопоставлены» → понятный текст и «Перейти к сопоставлению». */
+export function blockedBox() {
+  const el = h('div', { class: 'ua-blocked', hidden: true });
+  const show = (e) => {
+    const list = e?.data?.unmatched;
+    if (!list?.length) return false;
+    const first = list[0];
+    el.hidden = false;
+    el.replaceChildren(h('p', null, 'Нельзя перенести: в договорах есть позиции без изделия. Сопоставьте их, потом повторите.'),
+      h('ul', null, list.map((x) => h('li', null, `Договор ${x.orderNo || '—'}: не сопоставлено ${qty(x.unmatched)} из ${qty(x.lines)}`))),
+      h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => { el.closest('form')?.querySelector('.modal-foot button[type=button]')?.click(); openMatching(patch, first.orderId); } }, 'Перейти к сопоставлению'));
+    return true;
+  };
+  return { el, show };
 }
 
 /** Перенос: productionNo не задан — новый заказ; задан — в него. Тост и переход к заказу. */
@@ -76,12 +94,13 @@ export async function chooseTarget(ids) {
   const noField = h('label', { class: 'field', hidden: true }, h('span', null, '№ заказа'), no);
   mode.addEventListener('change', () => { noField.hidden = mode.value !== 'old'; if (!noField.hidden) no.focus(); });
   attachCombo(no, { options: () => nums.map((n) => ({ value: n, label: '№ ' + n })), free: false, empty: 'Нет заказов в работе' });
+  const blocked = blockedBox();
   return modal({
     title: `Перенести договоров: ${ids.length}`, okText: 'Перенести',
-    body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Куда'), mode), noField),
+    body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Куда'), mode), noField, blocked.el),
     onOk: async () => {
       if (mode.value === 'old' && !no.value.trim()) throw new Error('Укажите № заказа');
-      return assignContracts(ids, mode.value === 'old' ? no.value.trim() : '');
+      try { return await assignContracts(ids, mode.value === 'old' ? no.value.trim() : ''); } catch (e) { blocked.show(e); throw e; }
     },
   });
 }
@@ -97,8 +116,11 @@ export function unassignedTop(reload) {
   const bar = h('div', { class: 'ua-bar', hidden: true });
   const onChange = (ids) => {
     bar.hidden = !ids.length;
+    const bad = (picker?.rows() || []).filter((r) => ids.includes(r.id) && r.canAssign === false);
     bar.replaceChildren(h('b', null, `Выбрано ${ids.length}`),
-      h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: async () => { if (await chooseTarget(ids)) { reload?.(); picker?.reload(); } } }, 'Перенести в заказ…'));
+      h('button', { class: 'btn btn-primary btn-sm', type: 'button', disabled: bad.length > 0, title: bad.length ? 'Сначала сопоставьте позиции договора с изделиями' : undefined, onclick: async () => { if (await chooseTarget(ids)) { reload?.(); picker?.reload(); } } }, 'В заказ…'),
+      bad.length ? h('span', { class: 'muted small' }, `Не сопоставлены позиции в договорах: ${bad.length}.`) : null,
+      bad.length ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, bad[0].id) }, 'Сопоставить') : null);
   };
   const open = () => {
     box.hidden = !box.hidden;
@@ -115,13 +137,15 @@ export function unassignedTop(reload) {
 /** Карточка заказа: «+ Добавить договор» — несколько договоров без заказа в этот заказ. */
 export function addContractsDialog(productionNo, after) {
   let picker;
+  const blocked = blockedBox();
   return modal({
     title: `Добавить договоры в заказ № ${productionNo}`, okText: 'Добавить выбранные', wide: true,
-    body: (picker = unassignedPicker()).el,
+    body: h('div', null, (picker = unassignedPicker()).el, blocked.el),
     onOk: async () => {
       const ids = picker.ids();
       if (!ids.length) throw new Error('Отметьте хотя бы один договор');
-      const res = await api('/production-orders/assign', { method: 'POST', body: { contractIds: ids, productionNo } });
+      let res;
+      try { res = await api('/production-orders/assign', { method: 'POST', body: { contractIds: ids, productionNo } }); } catch (e) { blocked.show(e); throw e; }
       toast(`Договоры перенесены в заказ № ${res?.productionNo || productionNo}`);
       window.dispatchEvent(new CustomEvent('data-changed'));
       after?.(res);

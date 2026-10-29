@@ -1390,3 +1390,18 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .td-more { margin: 2px 12px 6px; }
 .td-empty { padding: 12px; }
 .td-tiles { margin: 0; }
+
+/* КМ5: сопоставление позиций договора с продукцией */
+.ua-match{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ua-blocked{margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--gold-soft)}
+.ua-blocked ul{margin:6px 0 10px;padding-left:18px}
+.mt-flag{margin-left:8px;text-decoration:none}
+.mt-top{margin-bottom:12px}
+.mt-list,.mt-sug{list-style:none;margin:0;padding:0}
+.mt-row{padding:12px 0;border-bottom:1px solid var(--border)}
+.mt-title{font-weight:600;color:var(--heading)}
+.mt-state{margin:6px 0}
+.mt-sug li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:6px 0}
+.mt-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.mt-pick{margin-top:8px}
+.mt{display:flex;flex-direction:column;gap:8px}

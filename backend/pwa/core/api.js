@@ -105,7 +105,8 @@ async function errorOf(res) {
   let msg = '';
   let fields = null;
   let errorId = '';
-  try { const j = await res.json(); msg = Array.isArray(j.message) ? j.message.join('; ') : j.message || ''; fields = j.missing || j.fields || null; errorId = j.errorId || ''; } catch { /* не JSON */ }
+  let data = null;
+  try { const j = await res.json(); data = j; msg = Array.isArray(j.message) ? j.message.join('; ') : j.message || ''; fields = j.missing || j.fields || null; errorId = j.errorId || ''; } catch { /* не JSON */ }
   // Сервер отдаёт русские сообщения для 400/409; для прочих — общий понятный текст
   const russian = /[а-яё]/i.test(msg);
   // ЧН: сбой сервера — с кодом, по которому его найдут в журнале; ввод остаётся в форме
@@ -115,6 +116,7 @@ async function errorOf(res) {
   const closed = res.status === 403 && russian && /раздел/i.test(msg) && /закрыт/i.test(msg);
   const err = ([400, 409, 422].includes(res.status) && russian) || closed ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
   if (closed) err.sectionClosed = true;
+  if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;
 }
