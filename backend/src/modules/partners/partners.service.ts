@@ -35,6 +35,12 @@ const ORG_REF_FIELDS = ['organizationId', 'supplierId', 'customerId', 'companyId
  * CRM-коллекция `counterparties` пуста и не используется. Объединение дублей: поставщик — заявки переводятся
  * на оставшегося, лишний — в корзину; заказчик — написание заменяется во всех заказах и позициях.
  */
+/** Понятные имена таблиц для сообщения «Контрагент указан в …». */
+const REF_LABELS: Record<string, string> = {
+  supplyrequests: 'заявках', salesorders: 'заказах', incomes: 'позициях заказов', supplyinvoices: 'счетах', reservations: 'бронях',
+  stockmovements: 'движениях склада', storageitems: 'позициях склада', materials: 'материалах', payments: 'платежах', persons: 'сотрудниках',
+};
+
 @Injectable()
 export class PartnersService {
   constructor(@InjectConnection() private readonly connection: Connection) {}
@@ -271,7 +277,12 @@ export class PartnersService {
       const or = ORG_REF_FIELDS.map((f) => ({ [f]: _id }));
       for (const c of await this.db.listCollections({}, { nameOnly: true }).toArray()) {
         if (['organizations', 'auditlogs'].includes(c.name) || c.name.startsWith('system.')) continue;
-        if (await this.db.collection(c.name).findOne({ $or: or }, { projection: { _id: 1 } })) throw new ConflictException(`На контрагента ссылаются записи («${c.name}») — удалить нельзя`);
+        // удалённые записи (deletedAt) удалению не мешают; в ответе — понятное имя и номера (пользователь 2026-10-29)
+        const refs = await this.db.collection(c.name).find({ $or: or, deletedAt: null }, { projection: { num: 1, no: 1, orderNo: 1, name: 1 } }).limit(6).toArray();
+        if (refs.length) {
+          const nums = refs.slice(0, 5).map((r) => r.num ?? r.no ?? r.orderNo ?? r.name).filter((v) => v != null && v !== '').map((v) => `№ ${v}`);
+          throw new ConflictException(`Контрагент указан в: ${REF_LABELS[c.name] ?? c.name}${nums.length ? ' (' + nums.join(', ') + (refs.length > 5 ? ' и др.' : '') + ')' : ''} — уберите его там или «Объединить с…»`);
+        }
       }
     }
     await this.db.collection('organizations').updateOne({ _id }, { $set: { deletedAt: new Date(), editedInApp: true } });
