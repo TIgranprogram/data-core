@@ -41,7 +41,7 @@ export const doctpl = {
     export: false,
     searchPlaceholder: 'Поиск: изделие, артикул, серия…',
     // ПН: следующие номера и «Записать номер» — на виду во вкладке «Паспорта» (пользователь 2026-10-29)
-    headActions: (reload) => [numbersStrip(), canJournal() && h('button', { class: 'btn btn-ghost', type: 'button', title: 'Паспорт сделан в другой программе — записать его номера', onclick: () => openNumberPanel(reload) }, 'Записать номер')],
+    headActions: (reload) => [numbersStrip(), canJournal() && h('button', { class: 'btn btn-primary', type: 'button', title: 'Паспорт сделан в другой программе — записать его номера', onclick: () => openNumberPanel(reload) }, '+ Записать номер')],
     emptyText: 'Изделий пока нет.', emptyHint: 'Сначала добавьте их в разделе «Продукция».',
     hints: { '': 'У каждого изделия свой шаблон паспорта: категория и выбранные тексты (монтаж, назначение…). Клик — открыть и поправить; «Выпустить паспорт» в «Продукции» и в заказе подставит его.' },
     columns: [
