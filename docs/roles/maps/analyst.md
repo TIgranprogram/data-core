@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЗО)
+коммит: не закоммичен (ЗО, ЗД)
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
@@ -54,3 +54,6 @@
 
 ## Зоны ответственности (ЗО, 2026-10-29)
 - ТЗ `docs/roles/tz/RESPONSIBILITY-ZONES.md`. persons — `dicts.defs.ts:474`; `persons.userId` читается в `design.service.ts:101–108`, но не заполняется. Уведомления `notification.schema.ts:13` (только userId). Лента `today.service.ts:54–134`. `supplyrequests.responsible` :114 — на проде пусто у 181/181. Меню `pwa/main.js:102,245`. Вопросы ЗО-1…5. коммит: —
+
+## Быстрые задачи (ЗД, 2026-10-29)
+- ТЗ docs/roles/tz/QUICK-TASKS.md. Новая tasks; чат/design-note/designtasks не годятся. План: pwa/sections/home.js:176,348, лента today/today-feed.ts. Общее для выбора объекта: ui/target-picker.js (orderLines/picBox); step-funnel.js — фильтр списка, не подходит. Вопросы ЗД-1…6. коммит: —
