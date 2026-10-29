@@ -72,6 +72,7 @@ class Coll {
     this.rows.push(row);
     return { ...row, toObject: () => row };
   }
+  distinct = async (k: string, f: Row) => [...new Set(this.rows.filter((d) => match(d, f)).map((d) => d[k]))];
   failUpdate = false;
   updateOne = (f: Row, u: Row, o: Row = {}) => this.chain(() => {
     if (this.failUpdate) throw new Error('mongo недоступен');
@@ -207,7 +208,7 @@ describe('DesignService', () => {
     await service.create({ title: 'Два' });
     await service.update(a.id, { status: 'done' });
     const all = await service.list({});
-    expect(all.counts).toEqual({ queue: 1, work: 0, done: 1, paused: 0, cancelled: 0, all: 2 });
+    expect(all.counts).toEqual({ queue: 1, work: 0, done: 1, paused: 0, cancelled: 0, all: 2, needsAnswer: 0 });
     expect((await service.list({ status: 'queue' })).items.map((i) => i.title)).toEqual(['Два']);
     await expect(service.list({ status: 'xx' })).rejects.toBeInstanceOf(BadRequestException);
   });

@@ -195,7 +195,7 @@ export class ProductionOrdersService {
       const r = field === 'productionNo' ? compareProductionNo(a.docs[0]?.productionNo, b.docs[0]?.productionNo, dir)
         : field === 'deadline' ? cmp(ts(a.deadline), ts(b.deadline))
         : field === 'customer' ? String(a.docs[0]?.customer ?? '').localeCompare(String(b.docs[0]?.customer ?? ''), 'ru') * dir
-        : cmp(created(a), created(b));
+        : cmp(created(a), created(b)) || compareProductionNo(a.docs[0]?.productionNo, b.docs[0]?.productionNo, dir); // импорт: одна дата — свежий «номер-год» выше
       return r || b.key.localeCompare(a.key);
     });
     return { shown, counts, fresh };

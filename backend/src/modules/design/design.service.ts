@@ -45,7 +45,8 @@ export class DesignService {
     if (q.orderId) base.orderId = { $in: oids(q.orderId) };
     if (p.search) base.$or = await this.searchClauses(String(q.search).trim(), p.search);
     const full: Doc = { ...base };
-    if (q.needsAnswer === '1') full._id = { $in: await this.db().collection('designnotes').distinct('taskId', { needsAnswer: true, deletedAt: null }) };
+    const asked = await this.db().collection('designnotes').distinct('taskId', { needsAnswer: true, deletedAt: null });
+    if (q.needsAnswer === '1') full._id = { $in: asked };
     if (q.status) {
       const want = String(q.status).split(',').map((s) => s.trim()).filter(Boolean);
       const bad = want.find((s) => !(DESIGN_STATUSES as readonly string[]).includes(s));
@@ -54,14 +55,17 @@ export class DesignService {
     }
     // «Завершены» — по дате завершения, свежие сверху; остальные — по номеру
     const sort = q.status === 'done' && !q.sort ? { completedAt: -1, _id: -1 } : { ...p.sort, _id: Object.values(p.sort)[0] };
-    const [docs, total, byStatus] = await Promise.all([
+    const [docs, total, byStatus, askedN] = await Promise.all([
       this.model.find(full).setOptions({ includeSoftDeleted: true }).sort(sort as never).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(full).setOptions({ includeSoftDeleted: true }).exec(),
       this.model.aggregate([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]).exec(),
+      // «Есть вопрос без ответа (N)» — при текущих статусе, поиске, исполнителе, заказе
+      this.model.countDocuments({ ...full, _id: { $in: asked } }).setOptions({ includeSoftDeleted: true }).exec(),
     ]);
     const counts: Record<string, number> = Object.fromEntries(DESIGN_STATUSES.map((s) => [s, 0]));
     for (const r of byStatus) counts[String(r._id)] = r.n;
     counts.all = DESIGN_STATUSES.reduce((a, s) => a + counts[s], 0);
+    counts.needsAnswer = askedN;
     return { items: await presentTasks(this.connection, docs as Doc[]), total, page: p.page, limit: p.limit, counts };
   }
 

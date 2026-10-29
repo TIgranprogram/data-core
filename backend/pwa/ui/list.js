@@ -21,7 +21,7 @@ import { toastError } from './toast.js';
  *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
  *   columns: [{ key, label, sort?, cls?, render(row) }],
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
- *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label }], count?(resp, value) }],
+ *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label, hint? }], count?(resp, value) }],
  *   footer?(resp), query?(params),
  *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», ui/design-board.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
@@ -155,7 +155,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         const opts = [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
           const isAll = o.value === ''; const isAct = isAll ? curIsAll : String(o.value) === cur;
           return optBtn(o.label, f.count && lastResp ? f.count(lastResp, o.value) : undefined, isAct,
-            () => { if (isAct && isAll) return; patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }); });
+            () => { if (isAct && isAll) return; patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }); }, '', o.hint || '');
         });
         return [h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), h('div', { class: 'ls-list' }, ...opts))];
       }));
@@ -169,7 +169,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         const isAll = o.value === ''; const isAct = isAll ? curIsAll : String(o.value) === cur;
         const n = f.count && lastResp ? f.count(lastResp, o.value) : undefined;
         return h('button', {
-          type: 'button', class: 'chip' + (isAct ? ' active' : ''),
+          type: 'button', class: 'chip' + (isAct ? ' active' : ''), title: o.hint,
           // активная «Все» — ничего (иначе при defaultValue фильтр возвращался к «В работе»)
           onclick: () => { if (isAct && isAll) return; patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }); },
         }, o.label, n !== undefined ? h('b', null, qty(n)) : null);

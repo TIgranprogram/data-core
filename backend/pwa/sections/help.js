@@ -192,22 +192,20 @@ function scenarioCard(sc) {
     sc.strict ? h('p', { class: 'hp-strict' }, h('b', null, 'Порядок важен: '), sc.strict) : null);
 }
 
-/** Карта: по умолчанию вписана в ширину целиком; «Крупно» — в натуральный размер, двигать мышкой (зажать и тянуть) или прокруткой. */
+/** Карта: по умолчанию вписана в ширину целиком; «Крупнее» — в натуральный размер, полоса прокрутки внизу (или Shift + колесо). Мышь не перехватывается: колесо листает страницу. */
 function mapBox() {
   const svg = mapSvg();
   const box = h('div', { class: 'hp-map is-fit' }, svg);
-  const btn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, '🔍 Крупно');
-  const setFit = (fit) => { box.classList.toggle('is-fit', fit); btn.textContent = fit ? '🔍 Крупно' : '⤢ Вся карта'; if (fit) box.scrollTo(0, 0); };
-  btn.onclick = () => setFit(!box.classList.contains('is-fit'));
-  // перетаскивание мышью в режиме «Крупно»
-  let drag = null;
-  box.addEventListener('pointerdown', (e) => { if (box.classList.contains('is-fit') || e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, l: box.scrollLeft, t: box.scrollTop }; box.setPointerCapture(e.pointerId); box.classList.add('is-drag'); });
-  box.addEventListener('pointermove', (e) => { if (!drag) return; box.scrollLeft = drag.l - (e.clientX - drag.x); box.scrollTop = drag.t - (e.clientY - drag.y); });
-  const end = () => { drag = null; box.classList.remove('is-drag'); };
-  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
-  // клик по карте в режиме «вся карта» — сразу крупно
-  box.addEventListener('dblclick', () => setFit(!box.classList.contains('is-fit')));
-  return h('div', { class: 'hp-mapwrap' }, h('div', { class: 'hp-maptools' }, btn, h('span', { class: 'muted small' }, 'Двойной щелчок — крупно / вся карта; в «Крупно» карту можно тянуть мышкой')), box);
+  const btn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, '🔍 Крупнее');
+  const hint = h('span', { class: 'muted small' }, 'Карта вписана целиком. «Крупнее» — показать в полный размер.');
+  btn.onclick = () => {
+    const fit = !box.classList.contains('is-fit');
+    box.classList.toggle('is-fit', fit);
+    btn.textContent = fit ? '🔍 Крупнее' : '⤢ Вся карта';
+    hint.textContent = fit ? 'Карта вписана целиком. «Крупнее» — показать в полный размер.' : 'Двигать вбок — полосой прокрутки под картой или Shift + колесо мыши.';
+    if (fit) box.scrollLeft = 0;
+  };
+  return h('div', { class: 'hp-mapwrap' }, h('div', { class: 'hp-maptools' }, btn, hint), box);
 }
 
 export const help = {

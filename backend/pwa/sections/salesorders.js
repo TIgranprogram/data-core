@@ -35,6 +35,22 @@ export const STAGE = {
 };
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
 const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружена', shipped: 'Закрыть' };
+const STAGE_ORDER = Object.keys(STAGE);
+/** Подсказка у кнопки следующего этапа: что произойдёт и что дальше. */
+const NEXT_TIP = {
+  new: 'Заказ уйдёт в производство. Дальше — «Готово к отгрузке», когда всё изготовлено.',
+  production: 'Отметьте, когда всё изготовлено. Дальше оформите отгрузку — этап «Частично отгружен» / «Отгружена» поставится сам.',
+  ready: 'Обычно этап ставится сам, когда оформлена отгрузка. Кнопка — если отгрузили без документа.',
+  shipped: 'Закрыть заказ, когда работа и оплата завершены. Закрытый заказ уходит в «Выполненные».',
+};
+/** Откуда этап и что дальше — строка в карточке заказа. */
+const STAGE_NOW = {
+  new: 'Сейчас — проектирование. Дальше — кнопка «В производство».',
+  production: 'Сейчас — производство. Когда всё изготовлено — кнопка «Готово к отгрузке».',
+  ready: 'Готов к отгрузке. Этап «Частично отгружен» / «Отгружена» поставится сам, когда оформите отгрузку.',
+  partly: 'Отгружено частично. Когда отгрузите всё — этап «Отгружена» поставится сам.',
+  shipped: 'Отгружено всё. Закройте заказ, когда работа и оплата завершены.',
+};
 const HINT = {
   new: 'Новые (входящие): ещё не в проектировании, не в производстве и не отгружены. Начните — «В производство» или передайте в проектирование.',
   active: 'Заказы в работе: проектирование, производство, готовые к отгрузке. Красный срок — просрочено.',
@@ -59,10 +75,35 @@ async function setContractStage(r, stage) {
   toast(`Договор ${r.orderNo || ''} → ${STAGE[stage].label}`, { undo: async () => { await api(`/salesorders/${r.id}`, { method: 'PATCH', body: { stage: r.stage } }); window.dispatchEvent(new CustomEvent('data-changed')); } });
   return saved;
 }
-/** Заказ: следующий этап «ко всем договорам» — сервер подтягивает только отстающие. null — отказались. */
+/** Договоры заказа, которые отстают от этапа `stage` (отменённые не в счёт). */
+const lagging = (r, stage) => (r.orders || []).filter((o) => o.stage !== 'cancelled' && STAGE_ORDER.indexOf(o.stage || 'new') < STAGE_ORDER.indexOf(stage));
+/** Выбор договоров галочками: все отстающие отмечены. null — отказались, иначе id выбранных. */
+function pickContracts(r, stage, list) {
+  const cbs = list.map((o) => h('input', { type: 'checkbox', class: 'ua-cb', checked: true, value: o.id }));
+  return modal({
+    title: `${heading(r)}: «${STAGE[stage].label}»`, okText: 'Применить к выбранным',
+    body: h('div', null, h('p', { class: 'muted' }, 'Отметьте договоры, у которых сменится этап. Остальные останутся как есть.'),
+      h('div', { class: 'ua-list' }, ...list.map((o, i) => h('label', { class: 'ua-row' }, cbs[i],
+        h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : '')),
+        h('span', { class: 'muted small nowrap' }, 'сейчас: ' + (STAGE[o.stage || 'new']?.label || o.stage)))))),
+    onOk: async () => { const ids = cbs.filter((c) => c.checked).map((c) => c.value); if (!ids.length) throw new Error('Отметьте хотя бы один договор'); return ids; },
+  });
+}
+/** Заказ: следующий этап. Несколько отстающих договоров — выбор галочками; все выбраны — сервер подтягивает отстающие. null — отказались. */
 async function setStage(r, stage) {
-  const many = (r.orderNos || []).length > 1;
-  if (many && !(await confirmDlg(`${heading(r)}: «${STAGE[stage].label}» — ко всем договорам?`, 'Этап сменится у договоров, которые отстают. Остальные не меняются.', { okText: 'Да, ко всем' }))) return null;
+  // строка списка — без договоров: догрузить карточку, чтобы показать выбор
+  if (!r.orders && (r.orderNos || []).length > 1) r = shape(await api(`/production-orders/${encodeURIComponent(r.key)}`));
+  const list = lagging(r, stage);
+  if (list.length > 1) {
+    const ids = await pickContracts(r, stage, list);
+    if (!ids) return null;
+    if (ids.length < list.length) {
+      for (const id of ids) await api(`/salesorders/${id}`, { method: 'PATCH', body: { stage } });
+      toast(`${heading(r)} → ${STAGE[stage].label} (договоров: ${ids.length} из ${list.length})`);
+      window.dispatchEvent(new CustomEvent('data-changed'));
+      return shape(await api(`/production-orders/${encodeURIComponent(r.key)}`));
+    }
+  }
   const saved = await api(`/production-orders/${encodeURIComponent(r.key)}/stage`, { method: 'POST', body: { stage } });
   toast(`${heading(r)} → ${STAGE[stage].label}${saved?.changed?.length ? ` (договоров: ${saved.changed.length})` : ''}`);
   if (saved?.warnings?.length) toast('Не всё готово', { tone: 'warn', sub: saved.warnings.map((w) => (typeof w === 'string' ? w : w.label || w.hint || '')).filter(Boolean).join('; ') });
@@ -284,11 +325,11 @@ export const salesorders = {
     export: 'admin',
     sortDefault: 'deadline',
     createLabel: false,
-    headActions: () => [h('button', { class: 'btn btn-primary', type: 'button', title: 'Новый договор: № заказа можно взять существующий — договоры объединятся в один заказ', onclick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }, '+ Договор')],
+    headActions: () => [h('button', { class: 'btn btn-primary', type: 'button', title: 'Новый заказ (договор): № заказа можно взять существующий — договоры объединятся в один заказ', onclick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }, '+ Заказ')],
     searchPlaceholder: 'Поиск: № заказа, № договора, заказчик, предмет…',
     extraKeys: ['productId'], query: (P) => ({ productId: P.productId || undefined }),
     emptyText: 'Заказов пока нет.',
-    emptyHint: 'Нажмите «+ Договор»: № заказа, заказчик, срок. Договоры с одним № заказа объединяются в один заказ.',
+    emptyHint: 'Нажмите «+ Заказ»: № заказа, заказчик, срок. Договоры с одним № заказа объединяются в один заказ.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
     filters: [
       // вкладки: Новые → В работе (по умолчанию) → Выполненные → Все в конце (пользователь 2026-10-28)
@@ -298,7 +339,7 @@ export const salesorders = {
     hints: HINT,
     hintKey: 'filter',
     periods: (P) => (P.filter === 'done' ? { date: (r) => r.deadline || r.createdAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
-    rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: (r.orderNos || []).length > 1 ? 'Следующий этап — ко всем договорам заказа' : 'Следующий этап', run: (row) => setStage(row, NEXT[row.stage]) } : null),
+    rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage], run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
       { key: 'productionNo', label: '№ заказа', sort: 'productionNo', cls: 'nowrap', render: (r) => (r.productionNo ? h('b', null, r.productionNo) : h('span', { class: 'muted' }, 'нет №')) },
       { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
@@ -339,12 +380,13 @@ export const salesorders = {
       ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
       ['Срок', r.deadline ? due(r) : ''],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
+      ['Что дальше', STAGE_NOW[r.stage] ? h('span', { class: 'muted' }, STAGE_NOW[r.stage]) : ''],
       ['Этапы по договорам', r.stagesDiffer ? h('span', null, ...(r.orders || []).flatMap((o, i) => [i ? h('br') : '', `${o.orderNo || '—'}: ${STAGE[o.stage]?.label || o.stage}`])) : ''],
     ],
     actions: (r) => {
-      const many = (r.orderNos || []).length > 1;
+      const many = NEXT[r.stage] && lagging(r, NEXT[r.stage]).length > 1;
       return [
-        NEXT[r.stage] && { label: NEXT_LABEL[r.stage] + (many ? ' — всем договорам' : ''), title: many ? 'Этап сменится у договоров, которые отстают' : undefined, primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
+        NEXT[r.stage] && { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage] + (many ? ' Договоры выберете галочками.' : ''), primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
         !closedStage(r) && r.productionNo && session.canEdit && { label: '+ Добавить договор', title: 'Выбрать договоры без заказа и добавить их в этот заказ', run: async (row, ctx) => { if (await addContractsDialog(row.productionNo, null)) { const s = await salesorders.get(row.key || row.id); if (s) ctx.setRow(s); } } },
         !closedStage(r) && { label: '+ Договор в этот заказ', title: 'Новый договор с этим № заказа', run: (row) => patch({ of: 'salesorder', new: '1', productionNo: row.productionNo || '', customer: names(row.customers) && (row.customers || [])[0] || '', open: undefined }, { replace: false }) },
       ];
@@ -399,12 +441,12 @@ export const salesorder = {
       ]);
       return [
         { section: 'Договор', tone: 'main', fixed: true },
-        { key: 'productionNo', label: '№ заказа', type: 'combo', options: nums, max: 50, hint: 'Номер для производства, вид 21-26 (номер-год). Выберите № из списка — договор войдёт в этот заказ. Нет номера — «Взять свободный №».',
+        { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50, hint: 'Номер для производства, вид 21-26 (номер-год). Выберите № из списка — договор войдёт в этот заказ. Нет номера — «Взять свободный №».',
           mount: (fa) => { const inp = fa.input('productionNo'); const b = h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { const r = await api('/salesorders/next-production-no'); fa.set('productionNo', r.value); } catch (e) { toast(errText(e)); } } }, 'Взять свободный №'); (fa.field('productionNo') || inp?.el || inp)?.append?.(b); } },
         { key: 'orderNo', label: '№ договора', required: true, max: 50 },
-        { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
+        { key: 'customer', label: 'Заказчик', type: 'combo', required: true, options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
-        { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name) },
+        { key: 'companyName', label: 'Наша компания', type: 'select', required: true, options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { key: 'stage', label: 'Этап', type: 'select', required: true, options: Object.entries(STAGE).map(([value, s]) => ({ value, label: s.label })) },
         await responsibleField('Кому передан договор. Смена записывается в историю передач.'),
