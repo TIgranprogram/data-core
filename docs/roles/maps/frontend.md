@@ -110,3 +110,4 @@
 
 ## Договоры поставщиков (2026-10-29, не закоммичено)
 - `pwa/sections/contracts.js`: `contractField` (панель счёта, в `request-step.js invoiceBlock`), `contractsBlock` (карточка поставщика, `partners.js related`), секция `contract` (`of=contract`, main.js LAZY/OWNER, param supplierId), `contractView`. `invoices-tab.js`: бейдж договора, фильтр F.contract -> GET ?contract=none|has, строка «Договор» + «Привязать». CSS `.ctr-*` конец screens.css. Карта обновлена.
+- 2026-10-29 Меню «Договоры» (Снабжение): `sections/contracts.js` конец — `contracts` (список /supply/contracts, spread от `contract`), `supplierWidget` (поставщик при создании); main.js LAZY.contract/LOADER_OF/NAV/GROUP_OF/SEC_OF; `api.js sees(contracts)` = requests. Не закоммичено.

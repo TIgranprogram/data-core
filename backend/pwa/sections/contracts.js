@@ -154,6 +154,18 @@ export function contractsBlock(r) {
   return box;
 }
 
+/** Выбор поставщика при создании договора: combo по организациям-поставщикам; значение — id (JSON-строкой, как у widget). */
+function supplierWidget(v) {
+  let id = v ? String(v).replace(/^"|"$/g, '') : '';
+  let list = [];
+  const input = h('input', { autocomplete: 'off', maxlength: 200, placeholder: 'Начните вводить название' });
+  const paint = () => { input.value = list.find((x) => String(x.id) === id)?.name || ''; };
+  api('/partners', { query: { type: 'supplier', limit: 500 } }).then((r) => { list = r.items || []; paint(); }).catch(() => { list = []; });
+  attachCombo(input, { options: () => list.map((x) => ({ label: x.name, x })), onPick: (o) => { id = String(o.x.id); input.value = o.x.name; } });
+  input.addEventListener('change', () => { if (!input.value.trim()) id = ''; else paint(); });
+  return { el: h('div', { class: 'has-combo' }, input), get value() { return JSON.stringify(id); }, set value(_) { /* только показ */ } };
+}
+
 /** Правая панель договора. Открывается из карточки поставщика (#partners?of=contract&open=<id> | &new=1&supplierId=<id>). */
 export const contract = {
   id: 'contract',
@@ -173,7 +185,7 @@ export const contract = {
   },
   form: {
     fields: async (c) => [
-      { key: 'supplierId', type: 'hidden' },
+      c ? { key: 'supplierId', type: 'hidden' } : { key: 'supplierId', label: 'Поставщик', type: 'widget', wide: true, hint: 'Организация-поставщик, с которой заключён договор', widget: supplierWidget },
       { key: 'no', label: '№ договора', required: true, max: 100 },
       { key: 'date', label: 'Дата договора', type: 'date', required: true },
       { key: 'subject', label: 'Предмет', wide: true, max: 300, hint: 'О чём договор — для списка выбора в счёте' },
@@ -188,7 +200,43 @@ export const contract = {
       if (!c) body.supplierId = String(v.supplierId || '');
       return body;
     },
-    create: (body) => { if (!body.supplierId) throw new Error('Откройте договор из карточки поставщика'); if (!body.no) throw new Error('Впишите № договора'); if (!body.date) throw new Error('Укажите дату договора'); const { validTo, ...rest } = body; return api('/supply/contracts', { method: 'POST', body: { ...rest, ...(validTo ? { validTo } : {}) } }); },
+    create: (body) => { if (!body.supplierId) throw new Error('Выберите поставщика из списка'); if (!body.no) throw new Error('Впишите № договора'); if (!body.date) throw new Error('Укажите дату договора'); const { validTo, ...rest } = body; return api('/supply/contracts', { method: 'POST', body: { ...rest, ...(validTo ? { validTo } : {}) } }); },
     update: (id, body) => api(`/supply/contracts/${id}`, { method: 'PATCH', body }),
+  },
+};
+
+const cell = (v) => v || h('span', { class: 'muted' }, '—');
+const isOverdue = (c) => c.status !== 'closed' && c.validTo && String(c.validTo).slice(0, 10) < isoDay();
+
+/** Раздел меню «Договоры» (Снабжение): список всех договоров поставщиков; карточка и форма — те же, что у панели `contract`. */
+export const contracts = {
+  ...contract,
+  id: 'contracts',
+  title: 'Договоры',
+  list: {
+    path: '/supply/contracts',
+    export: false,
+    createLabel: 'Договор',
+    searchPlaceholder: '№ договора, поставщик, предмет…',
+    emptyText: 'Договоров пока нет.',
+    emptyHint: 'Нажмите «+ Договор» — или привяжите договор прямо в счёте заявки.',
+    filters: [
+      { key: 'supplierId', label: 'Поставщик', allLabel: 'Все поставщики', options: async () => ((await api('/partners', { query: { type: 'supplier', limit: 500 } })).items || []).map((x) => ({ value: x.id, label: x.name })) },
+      { key: 'status', label: 'Состояние', allLabel: 'Любое состояние', options: () => [{ value: 'active', label: 'Действует' }, { value: 'closed', label: 'Закрыт' }] },
+    ],
+    columns: [
+      { key: 'no', label: '№ договора', cls: 'nowrap', render: (r) => h('b', null, r.no) },
+      { key: 'date', label: 'Дата', cls: 'nowrap', render: (r) => date(r.date) },
+      { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => cell(r.supplierName) },
+      { key: 'subject', label: 'Предмет', cls: 'clip md-hide', render: (r) => cell(r.subject) },
+      { key: 'validTo', label: 'Действует до', cls: 'nowrap', render: (r) => (r.validTo ? h('span', null, date(r.validTo), isOverdue(r) ? h('span', { class: 'badge warn', style: 'margin-left:6px' }, 'просрочен') : null) : h('span', { class: 'muted' }, 'бессрочный')) },
+      { key: 'invoicesCount', label: 'Счетов', cls: 'num right', render: (r) => String(r.invoicesCount ?? 0) },
+      { key: 'status', label: 'Состояние', cls: 'nowrap', render: (r) => (r.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : h('span', { class: 'badge ok' }, 'действует')) },
+    ],
+    card: {
+      title: (r) => `Договор № ${r.no}`,
+      sub: (r) => [r.supplierName, date(r.date)].filter(Boolean).join(' · '),
+      side: (r) => [r.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : h('span', { class: 'badge ok' }, 'действует')],
+    },
   },
 };
