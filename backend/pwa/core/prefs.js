@@ -16,6 +16,7 @@ const PREFS = {
   sidebarW: { css: '--sidebar-w', min: 200, max: 360, std: 248 },
   detailW: { css: '--detail-w', min: 420, max: 1400, std: null },
   filterW: { css: '--filter-w', min: 240, max: 520, std: 280 },
+  chatW: { css: '--chat-w', min: 320, max: 1200, std: 420 }, // окно чата поверх приложения (ui/chat-window.js)
 };
 const STR = ['lastChat']; // строковые настройки (без CSS): последний открытый чат — 'all' или id пользователя
 const OVER = '--detail-over'; // ширина правой панели в режиме «поверх» (< DOCK_MIN)
@@ -62,6 +63,7 @@ export function limits(key, src = shown) {
   let max = p.max;
   if (key === 'sidebarW') max = Math.min(max, W - MAIN_MIN);
   else if (key === 'detailW') max = W >= DOCK_MIN ? Math.min(max, Math.floor(W * 0.6), W - sideNow(src) - MAIN_MIN) : Math.min(max, W - 24);
+  else if (key === 'chatW') max = Math.min(max, W - 24);
   else if (key === 'filterW') max = Math.min(max, W - sideNow(src) - MAIN_MIN);
   max = Math.max(p.min, max); // нижний предел важнее: панель уже него не бывает
   return { min: p.min, max };

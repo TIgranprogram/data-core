@@ -1,4 +1,5 @@
 import { h } from '../core/dom.js';
+import { makeResizable } from './resizer.js';
 
 /**
  * Окно чата поверх любого экрана (справа, ~420 px; на узком экране — во весь экран). Экран под ним не меняется.
@@ -18,6 +19,7 @@ export async function openChatWindow(params = {}) {
   const el = h('aside', { class: 'chat-win', role: 'dialog', 'aria-label': 'Чат' },
     h('button', { type: 'button', class: 'btn btn-ghost btn-icon chat-win-x', title: 'Закрыть (Esc)', 'aria-label': 'Закрыть чат', onclick: closeChatWindow }, '✕'),
     body);
+  el.append(makeResizable(el, { prefKey: 'chatW', edge: 'left', label: 'Ширина чата' })); // тянуть за левый край, ширина запоминается
   document.body.append(el);
   let inst;
   // внутри окна смена собеседника — без адреса страницы

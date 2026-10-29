@@ -28,6 +28,13 @@ export class UiPrefsDto {
   @Max(700)
   filterW?: number;
 
+  @ApiPropertyOptional({ minimum: 320, maximum: 1200, example: 520, description: 'Ширина окна чата' })
+  @IsOptional()
+  @IsInt()
+  @Min(320)
+  @Max(1200) // как в приложении (core/prefs.js PREFS.chatW)
+  chatW?: number;
+
   @ApiPropertyOptional({ example: 'all', description: 'Чат: последний открытый собеседник — id пользователя или all' })
   @IsOptional()
   @Matches(/^(all|[a-f0-9]{24})$/, { message: 'lastChat — id пользователя или all' })
