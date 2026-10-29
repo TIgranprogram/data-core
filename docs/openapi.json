@@ -894,6 +894,35 @@
         "tags": [
           "Auth"
         ]
+      },
+      "patch": {
+        "operationId": "AuthController_updateProfile",
+        "summary": "Сохранить свой профиль (displayName, phone, avatar)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Обновлённый профиль, как GET /auth/me"
+          },
+          "400": {
+            "description": "Лишнее поле, слишком длинное значение, неверный аватар"
+          },
+          "403": {
+            "description": "Вход по ключу kppd_"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
       }
     },
     "/auth/me/prefs": {
@@ -3688,6 +3717,81 @@
         ]
       }
     },
+    "/supply/catalog/items/{id}": {
+      "get": {
+        "operationId": "SupplyController_catalogItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "patch": {
+        "operationId": "SupplyController_catalogPatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogItemPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "delete": {
+        "operationId": "SupplyController_catalogRemove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/catalog/counts": {
       "get": {
         "operationId": "SupplyController_catalogCounts",
@@ -3785,9 +3889,9 @@
         ]
       }
     },
-    "/supply/catalog/items/{id}": {
-      "patch": {
-        "operationId": "SupplyController_catalogPatch",
+    "/supply/catalog/items/{id}/photos": {
+      "post": {
+        "operationId": "SupplyController_catalogAddPhoto",
         "parameters": [
           {
             "name": "id",
@@ -3803,7 +3907,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CatalogItemPatchDto"
+                "$ref": "#/components/schemas/SupplyPhotoDto"
               }
             }
           }
@@ -3816,12 +3920,22 @@
         "tags": [
           "Снабжение"
         ]
-      },
+      }
+    },
+    "/supply/catalog/items/{id}/photos/{photoId}": {
       "delete": {
-        "operationId": "SupplyController_catalogRemove",
+        "operationId": "SupplyController_catalogRemovePhoto",
         "parameters": [
           {
             "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4302,6 +4416,268 @@
         ]
       }
     },
+    "/zones": {
+      "get": {
+        "operationId": "ZonesController_listZones",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      },
+      "post": {
+        "operationId": "ZonesController_createZone",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateZoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/zones/{id}": {
+      "patch": {
+        "operationId": "ZonesController_updateZone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateZoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      },
+      "delete": {
+        "operationId": "ZonesController_removeZone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/staff": {
+      "get": {
+        "operationId": "ZonesController_staff",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/staff/logins": {
+      "get": {
+        "operationId": "ZonesController_logins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/staff/from-login": {
+      "post": {
+        "operationId": "ZonesController_fromLogin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/staff/{id}": {
+      "get": {
+        "operationId": "ZonesController_person",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/staff/{id}/zones": {
+      "put": {
+        "operationId": "ZonesController_setZones",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonZonesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/staff/{id}/login": {
+      "put": {
+        "operationId": "ZonesController_linkLogin",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
+    "/handoffs/{entity}/{id}": {
+      "get": {
+        "operationId": "ZonesController_handoffs",
+        "parameters": [
+          {
+            "name": "entity",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Зоны"
+        ]
+      }
+    },
     "/salesorders": {
       "get": {
         "operationId": "SalesOrdersController_list",
@@ -4331,6 +4707,13 @@
             "required": false,
             "in": "query",
             "description": "приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low",
+            "schema": {}
+          },
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "description": "договоры, где есть позиция с этим изделием (id через запятую)",
             "schema": {}
           },
           {
@@ -6886,6 +7269,172 @@
         ]
       }
     },
+    "/matching/suggest": {
+      "get": {
+        "operationId": "MatchingController_suggest",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "query",
+            "description": "id договора",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сопоставление позиций"
+        ]
+      }
+    },
+    "/matching/unmatched/count": {
+      "get": {
+        "operationId": "MatchingController_unmatchedCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сопоставление позиций"
+        ]
+      }
+    },
+    "/matching/unmatched": {
+      "get": {
+        "operationId": "MatchingController_unmatched",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inProduction",
+            "required": false,
+            "in": "query",
+            "description": "1 — только в производстве, 0 — только без производственного №",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сопоставление позиций"
+        ]
+      }
+    },
+    "/matching/confirm": {
+      "post": {
+        "operationId": "MatchingController_confirm",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сопоставление позиций"
+        ]
+      }
+    },
+    "/matching/none": {
+      "post": {
+        "operationId": "MatchingController_none",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoneMatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сопоставление позиций"
+        ]
+      }
+    },
+    "/matching/bulk": {
+      "post": {
+        "operationId": "MatchingController_bulk",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkMatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сопоставление позиций"
+        ]
+      }
+    },
     "/design-tasks": {
       "get": {
         "operationId": "DesignController_list",
@@ -7767,6 +8316,13 @@
             "in": "query",
             "description": "Горизонт недели, 1–31 (по умолчанию 7)",
             "schema": {}
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "mine | all — «Моё / Всё» (по умолчанию: зоны человека; Руководство и вход без сотрудника — all)",
+            "schema": {}
           }
         ],
         "responses": {
@@ -8260,6 +8816,216 @@
             "description": ""
           }
         }
+      }
+    },
+    "/devlog/import": {
+      "post": {
+        "operationId": "DevlogController_import",
+        "summary": "Идемпотентный импорт (скрипт devlog-import.js): коммиты, задачи, документы, ошибки",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ commits, items, errors, docs, sessions, releases } — сколько новых записей"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/releases": {
+      "get": {
+        "operationId": "DevlogController_releases",
+        "summary": "Версии с коммитами",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ version, date, summary, commitCount, commits:[{hash,date,prefix,area,subject,place}] }], total, page, limit }"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/sessions": {
+      "get": {
+        "operationId": "DevlogController_sessions",
+        "summary": "Сессии работы (?from&to=ГГГГ-ММ-ДД)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ id, start, end, day, hours, manualHours?, effectiveHours, commits, place }], total, page, limit }"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/sessions/{id}": {
+      "patch": {
+        "operationId": "DevlogController_patchSession",
+        "summary": "Ручная правка часов сессии (null — снять)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSessionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/stats": {
+      "get": {
+        "operationId": "DevlogController_stats",
+        "summary": "Часы по неделям, разделам, префиксам (?from&to&manual=1)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ manual, totalHours, sessions, commits, byWeek:[{week,hours}], byArea:[{area,hours}], byPrefix:[{prefix,hours}], note }"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/items": {
+      "get": {
+        "operationId": "DevlogController_items",
+        "summary": "Ошибки и задачи (?type=error|task&status&area&search)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ id, key, type, title, area, status, count?, firstAt?, lastAt?, version?, returned?, refs?, note?, hours?, manual }], total, page, limit }"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/items/{id}": {
+      "patch": {
+        "operationId": "DevlogController_patchItem",
+        "summary": "Ручная пометка: статус, «исправлена в vN», примечание, часы (запись становится manual)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/docs": {
+      "get": {
+        "operationId": "DevlogController_docs",
+        "summary": "Архив документов: список без текста (?search&kind&path=)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ id, path, title, kind, sha256, importedAt, closedAt }], total, page, limit }; ?path= — точное совпадение для сверки sha256"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/kit/download": {
+      "get": {
+        "operationId": "DevlogController_kitDownload",
+        "summary": "Набор для нового проекта: zip из снимка файлов процесса + START-PROMPT.md",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "application/zip"
+          },
+          "404": {
+            "description": "Снимка нет — сначала импорт"
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
+      }
+    },
+    "/devlog/docs/{id}": {
+      "get": {
+        "operationId": "DevlogController_doc",
+        "summary": "Документ архива с текстом",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "История проекта"
+        ]
       }
     },
     "/client-errors": {
@@ -12211,7 +12977,7 @@
               "accountant",
               "director"
             ],
-            "description": "Права как у: user | manager | accountant | director (только у своей роли)"
+            "description": "Права как у: user | manager | accountant | director (обязателен при создании; в PATCH необязателен)"
           },
           "sortOrder": {
             "type": "number",
@@ -12259,7 +13025,8 @@
           }
         },
         "required": [
-          "label"
+          "label",
+          "baseRole"
         ]
       },
       "UpdateRoleDto": {
@@ -12294,7 +13061,7 @@
               "accountant",
               "director"
             ],
-            "description": "Права как у: user | manager | accountant | director (только у своей роли)"
+            "description": "Права как у: user | manager | accountant | director (обязателен при создании; в PATCH необязателен)"
           },
           "sortOrder": {
             "type": "number",
@@ -12475,6 +13242,11 @@
           "password": {
             "type": "string",
             "description": "Пароль"
+          },
+          "remember": {
+            "type": "boolean",
+            "default": true,
+            "description": "Запомнить меня: refresh 90 дней скользящий; false — до закрытия браузера"
           }
         },
         "required": [
@@ -12489,6 +13261,26 @@
       "ConfirmDto": {
         "type": "object",
         "properties": {}
+      },
+      "ProfileDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Имя для показа"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 30,
+            "description": "Телефон; пустая строка — очистить"
+          },
+          "avatar": {
+            "type": "string",
+            "example": "preset:saturn",
+            "description": "preset:<код> (saturn, uranus, moon, sun, earth, mars, jupiter, neptune, comet, galaxy) или photo:<photoId>; пустая строка — убрать"
+          }
+        }
       },
       "UiPrefsDto": {
         "type": "object",
@@ -13176,6 +13968,10 @@
             "type": "string",
             "description": "Плательщик — наша компания (id организации); \"\" — снять"
           },
+          "supplierId": {
+            "type": "string",
+            "description": "Поставщик (id организации) — сменить, пока счёт не оплачен; переносится во все заявки счёта"
+          },
           "fileIds": {
             "description": "Файлы счёта (id из POST /api/photos/upload) — весь список",
             "type": "array",
@@ -13212,6 +14008,15 @@
       "CatalogItemPatchDto": {
         "type": "object",
         "properties": {}
+      },
+      "SupplyPhotoDto": {
+        "type": "object",
+        "properties": {
+          "photoId": {
+            "type": "string",
+            "description": "id из POST /api/photos/upload"
+          }
+        }
       },
       "SupplyRequestDto": {
         "type": "object",
@@ -13276,6 +14081,10 @@
           "requestedBy": {
             "type": "string"
           },
+          "responsibleId": {
+            "type": "string",
+            "description": "Ответственный — сотрудник (persons.id); \"\" — снять. Текст responsible заполняется ФИО автоматически"
+          },
           "article": {
             "type": "string"
           },
@@ -13327,15 +14136,6 @@
           }
         }
       },
-      "SupplyPhotoDto": {
-        "type": "object",
-        "properties": {
-          "photoId": {
-            "type": "string",
-            "description": "id из POST /api/photos/upload"
-          }
-        }
-      },
       "SupplyReceiveDto": {
         "type": "object",
         "properties": {
@@ -13363,6 +14163,74 @@
             "description": "Частично (ЗП.4): пришло меньше заказанного — заявка остаётся открытой на остаток"
           }
         }
+      },
+      "CreateZoneDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Код: латиница, цифры и «_»; после создания не меняется"
+          },
+          "name": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "UpdateZoneDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          },
+          "order": {
+            "type": "number"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "false — скрыть зону"
+          }
+        }
+      },
+      "PersonUserDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "object",
+            "nullable": true,
+            "description": "Пользователь (users._id); null — снять связь"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "PersonZonesDto": {
+        "type": "object",
+        "properties": {
+          "zoneCodes": {
+            "description": "Коды зон сотрудника (полный список; недостающие снимаются)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "zoneCodes"
+        ]
       },
       "MatchPickDto": {
         "type": "object",
@@ -13464,6 +14332,10 @@
               "low"
             ],
             "description": "urgent | high | normal | low; \"\" — снять (= обычный)"
+          },
+          "responsibleId": {
+            "type": "string",
+            "description": "Ответственный менеджер — сотрудник (persons.id); \"\" — снять"
           },
           "notes": {
             "type": "string"
@@ -13971,6 +14843,65 @@
           }
         }
       },
+      "ConfirmMatchDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "description": "Позиция договора (incomes)"
+          },
+          "productId": {
+            "type": "string",
+            "description": "Изделие (products)"
+          }
+        },
+        "required": [
+          "lineId",
+          "productId"
+        ]
+      },
+      "NoneMatchDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "description": "Позиция договора, которая не является изделием"
+          }
+        },
+        "required": [
+          "lineId"
+        ]
+      },
+      "BulkMatchItemDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "object",
+            "description": "Изделие; null — «не изделие»",
+            "nullable": true
+          }
+        },
+        "required": [
+          "lineId"
+        ]
+      },
+      "BulkMatchDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkMatchItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "FromOrderDto": {
         "type": "object",
         "properties": {
@@ -14425,6 +15356,18 @@
           "url"
         ]
       },
+      "ImportDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PatchSessionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PatchItemDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateClientErrorDto": {
         "type": "object",
         "properties": {
@@ -14869,6 +15812,11 @@
             "example": "12",
             "description": "Номер группы изделий (две цифры; пусто — снять). Только у группы-ребёнка type product"
           },
+          "passportCategory": {
+            "type": "string",
+            "example": "BLG",
+            "description": "Категория паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют"
+          },
           "isActive": {
             "type": "boolean",
             "description": "Активна ли категория"
@@ -14921,6 +15869,11 @@
             "type": "string",
             "example": "12",
             "description": "Номер группы изделий (две цифры; пусто — снять). Только у группы-ребёнка type product"
+          },
+          "passportCategory": {
+            "type": "string",
+            "example": "BLG",
+            "description": "Категория паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют"
           },
           "isActive": {
             "type": "boolean",
