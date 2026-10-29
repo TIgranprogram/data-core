@@ -70,7 +70,7 @@ export const doctpl = {
       const n = Object.keys(d?.textChoices || {}).length;
       return [
         ['Шаблон', hasTpl(d) ? 'задан' : h('span', { class: 'muted' }, 'не задан — «Изменить», чтобы выбрать категорию и тексты')],
-        ['Категория паспорта', r.passportCategory ? `${r.passportCategory.name || r.passportCategory.code}` : h('span', { class: 'muted' }, 'не определена — добавьте раздел или группу изделия в «Категории каталога»')],
+        ['Категория паспорта', r.passportCategory ? `${r.passportCategory.name || r.passportCategory.code}` : h('span', { class: 'muted' }, 'не задана — выберите её в «Продукция → Категории» (поле «Категория паспорта» у группы)')],
         ['Выбрано текстов', n ? String(n) : h('span', { class: 'muted' }, 'нет — при выпуске подставятся варианты «по умолчанию»')],
         ['Выпущено паспортов', r.passports?.total ? String(r.passports.total) : null],
         ['Общие тексты категории', h('a', { href: '#dicts?d=passportPhrases' }, 'Справочники → Тексты паспорта')],

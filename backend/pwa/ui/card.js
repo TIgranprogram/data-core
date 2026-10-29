@@ -117,7 +117,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         content.push(h('div', { class: 'actions' }, kids));
       }
     }
-    content.push(h('dl', { class: 'fields' }, (section.card.view(row) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
+    content.push(h('dl', { class: 'fields' }, (section.card.view(row, actx()) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])));
     if (section.card.extra) content.push(section.card.extra(row, actx()));
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));

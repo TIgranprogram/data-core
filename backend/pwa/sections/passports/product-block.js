@@ -6,7 +6,7 @@ import { patch } from '../../core/router.js';
 import { createProductFor } from '../products.js';
 import { modal } from '../../ui/dialog.js';
 import { LATER_CATS, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, dims, num, st } from './common.js';
-import { categoryByName, mmOf, models, productsAll, resetProducts } from './models.js';
+import { mmOf, models, productsAll, resetProducts } from './models.js';
 
 /** Блок «Изделие» формы нового паспорта и подстановка из изделия. */
 /**
@@ -18,7 +18,7 @@ export function productBlock(api, { r, catBy }) {
   const box = api.input('_product')?.el; if (!box) return;
   const formEl = api.root; const block = box.closest('.form-block'); block?.classList.add('pp-first');
   const saveBtn = () => [...(api.root.closest('.drawer')?.querySelectorAll('button.btn-primary') || [])].find((b) => /^(Создать|Выпустить|Сохранить)/.test(b.textContent.trim()));
-  let chosen = null; let filterCat = api.get('passportCategory') || ''; let q = api.get('_searchName') || '';
+  let chosen = null; let catInfo = null; let filterCat = api.get('passportCategory') || ''; let q = api.get('_searchName') || '';
   const lock = (on) => { formEl.classList.toggle('pp-locked', on); const b = saveBtn(); if (b) { b.disabled = on; b.title = on ? 'Сначала выберите изделие' : ''; let n = b.parentNode.querySelector('.pp-save-hint'); if (on && !n) { n = h('span', { class: 'muted pp-save-hint' }, 'Сначала выберите изделие'); b.after(n); } else if (!on) n?.remove(); } };
   // сводка «из изделия»: поля изделия не показываем полями — одна строка и ссылка «править в изделии» (DESIGN §4 «Сводка из изделия»)
   const sumLine = h('div', { class: 'pp-fromprod' });
@@ -26,8 +26,20 @@ export function productBlock(api, { r, catBy }) {
     if (!chosen) return;
     const cat = V2_CATS.find((c) => c.value === api.get('passportCategory'))?.label;
     const text = [cat, dims({ height: api.get('height'), length: api.get('length'), width: api.get('width') }), api.get('weight') && api.get('weight') + ' кг'].filter(Boolean).join(' · ');
+    const note = [];
+    if (catInfo) {
+      if (catInfo.own) note.push(h('div', { class: 'muted' }, 'Категория задана в изделии · ', h('button', { type: 'button', class: 'link-btn', onclick: () => resetOwn() }, 'Сбросить')));
+      else if (catInfo.inherited) note.push(h('div', { class: 'muted' }, `Категория ${catInfo.inherited.source === 'group' ? `из группы «${catInfo.group}»` : catInfo.inherited.source === 'type' ? `из раздела «${catInfo.type}»` : 'из справочника'}`));
+      else note.push(h('div', { class: 'muted' }, 'Категория не задана — выберите вручную или задайте у группы'));
+    }
     sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'править в изделии'),
-      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'));
+      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'), ...note);
+  };
+  const resetOwn = () => {
+    const inh = catInfo?.inherited?.code || '';
+    catInfo = { ...catInfo, own: null };
+    if (inh) api.set('passportCategory', inh, { auto: true, src: 'из группы' });
+    paintSum();
   };
   formEl.addEventListener('input', paintSum); formEl.addEventListener('change', paintSum);
   const pic = (p) => (p?.photo ? h('img', { class: 'sg-pic', src: PREFIX + (p.photo.thumb || p.photo.url), alt: '' }) : h('div', { class: 'sg-pic sg-pic-none' }));
@@ -36,7 +48,7 @@ export function productBlock(api, { r, catBy }) {
   async function pick(p, { apply = true } = {}) {
     if (apply && !r && !(await duplicateCheck(p.id, api.get))) return; // НМ-2: дубль — открыть существующий
     chosen = p; api.set('productId', p.id); lock(false); render();
-    if (apply) await applyProduct(api, p, catBy);
+    if (apply) { catInfo = await applyProduct(api, p, catBy); paintSum(); }
   }
   function render() {
     if (r) { // правка: изделие только показываем; без изделия — подсказка (привязать — в карточке)
@@ -62,7 +74,7 @@ export function productBlock(api, { r, catBy }) {
       const all = await productsAll();
       const tk = searchTokens(q);
       let rows = tk.length ? all.filter((p) => { const s = normSearch([p.name, p.sku, p.type, p.group, p.series].filter(Boolean).join(' ')); return tk.every((t) => s.includes(t)); })
-        : all.filter((p) => !filterCat || (p.ppCategory || categoryByName(p.name)) === filterCat);
+        : all.filter((p) => !filterCat || p.ppCategory === filterCat);
       rows = rows.sort((a, b) => (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
       const shown = rows.slice(0, 60);
       list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row', role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
@@ -110,7 +122,11 @@ export async function applyProduct(api, p, catBy) {
     if (onlyEmpty && String(cur ?? '').trim() && cur !== '[]' && !api.input(k)?.classList?.contains('is-default')) return;
     api.set(k, Array.isArray(v) ? JSON.stringify(v) : v, { auto: true, src });
   };
-  const ppCat = d.passportCategory || full.passportCategory?.code || p.ppCategory || categoryByName(full.name) || '';
+  const pc = full.passportCategory || null;
+  const own = pc?.own || (d.passportCategory ? { code: d.passportCategory } : null);
+  const inherited = pc?.inherited || (pc && !pc.own ? pc : null);
+  const ppCat = own?.code || inherited?.code || p.ppCategory || '';
+  const srcText = own ? 'из изделия' : inherited?.source === 'group' ? `из группы «${full.group}»` : inherited?.source === 'type' ? `из раздела «${full.type}»` : 'из справочника';
   // 1. поля изделия
   for (const [k, v] of Object.entries({ name: full.name, article: full.sku, category: full.group || full.type, length: mmOf(full.dimensions?.length, u), width: mmOf(full.dimensions?.width, u),
     height: mmOf(full.dimensions?.height, u), weight: full.weightKg ? num(full.weightKg) : '', description: full.description })) {
@@ -119,7 +135,7 @@ export async function applyProduct(api, p, catBy) {
   }
   if ((full.photos || []).length && !JSON.parse(api.get('img_overview') || '[]').length) api.set('img_overview', full.photos.map((x) => ({ id: x.id, url: x.url, thumb: x.thumb })), { auto: true, src: 'из изделия' });
   // 2. значения паспорта по умолчанию у изделия; категория — первой (за ней wireForm подставит умолчания категории в пустое)
-  if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: 'из изделия' });
+  if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: srcText });
   for (const k of ['elements', 'materialIds']) put(k, (d[k] || []).map(String), 'из изделия');
   put('installationTypeId', d.installationTypeId ? String(d.installationTypeId) : '', 'из изделия');
   if (d.textChoices && Object.keys(d.textChoices).length) api.set('textChoices', JSON.stringify(d.textChoices), { auto: true, src: 'из изделия' });
@@ -136,6 +152,7 @@ export async function applyProduct(api, p, catBy) {
     api.set('_copyFrom', last.values._copyFrom);
   }
   void catBy;
+  return { own, inherited, group: full.group, type: full.type };
 }
 /** НМ-2: перед созданием — черновики того же изделия и выпущенные на тот же заказ / покупателя / адрес. true — создавать дальше. */
 export async function duplicateCheck(productId, get) {

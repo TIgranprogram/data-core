@@ -95,6 +95,25 @@ export async function savePd(id, pd) {
   const body = { ...Object.fromEntries(PD_KEYS.filter((k) => prev[k] !== undefined && prev[k] !== null && prev[k] !== '').map((k) => [k, prev[k]])), ...(cat ? { passportCategory: cat } : {}), textChoices: pd.choices };
   await api(`/showcase/${id}/passport-defaults`, { method: 'PUT', body });
 }
+/** Категория паспорта в карточке: что задано в изделии, что унаследовано от группы/раздела, куда идти, если не задано. */
+function passportCatView(r, ctx) {
+  const pc = r.passportCategory;
+  const lbl = (c) => (c ? `${c.name || c.code}` : '');
+  const where = r.group ? `группы «${r.group}»` : r.type ? `раздела «${r.type}»` : '';
+  if (pc?.own) {
+    const inh = pc.inherited;
+    const reset = h('button', { type: 'button', class: 'link-btn', onclick: async () => {
+      const pd = r.passportDefaults || {};
+      const body = { ...Object.fromEntries(PD_KEYS.filter((k) => k !== 'passportCategory' && pd[k] !== undefined && pd[k] !== null && pd[k] !== '').map((k) => [k, pd[k]])), textChoices: pd.textChoices || {} };
+      try { await api(`/showcase/${r.id}/passport-defaults`, { method: 'PUT', body }); toast('Категория сброшена'); ctx?.setRow?.(await api(`/showcase/${r.id}`)); } catch (e) { toast(e.message || 'Не удалось сбросить'); }
+    } }, 'Сбросить');
+    return h('span', null, `${lbl(pc.own)} — задана в самом изделии`, inh && inh.code !== pc.own.code ? ` (${r.group ? `у группы «${r.group}»` : 'по группе'}: ${lbl(inh)})` : '', ' ', reset);
+  }
+  const cur = pc?.inherited || (pc && pc.code ? pc : null);
+  if (cur) return `${cur.name || cur.code}${cur.via ? ` (${cur.via})` : ''}`;
+  if (!where) return null;
+  return h('span', { class: 'muted' }, `У ${where} не задана категория паспорта. Выберите её в «Продукция → Категории» (строка ${r.group ? 'группы' : 'раздела'}, поле «Категория паспорта»)`);
+}
 // заголовок блока в списке полей карточки (стиль .fields-grp в panels.css)
 const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { class: 'fields-grp-end' })];
 const STATUS = { draft: 'черновик · нет цены', active: 'в продаже', new: 'новое', archived: 'архив' };
@@ -328,15 +347,14 @@ export const products = {
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
-    view: (r) => [
+    view: (r, ctx) => [
       grp('Названия и артикул'),
       ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name],
       ['Название в договоре', r.orderName || r.name],
       grp('Классификация'),
       ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Наименование серии', r.series],
       // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
-      ['Категория паспорта', r.passportCategory ? `${r.passportCategory.code} · ${r.passportCategory.name} (${r.passportCategory.via})`
-        : (r.type || r.group) ? h('span', { class: 'muted' }, 'не найдена — добавьте название раздела или группы в «Справочники → Паспорта → Категории паспорта → Категории каталога»') : null],
+      ['Категория паспорта', passportCatView(r, ctx)],
       grp('Статус и цена'),
       ['Статус', STATUS[r.status] || r.status],
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
