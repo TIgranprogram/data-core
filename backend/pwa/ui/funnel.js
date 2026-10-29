@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { failBlock } from './busy.js';
 
 /**
  * Воронка текстов паспорта (DESIGN §4 «Шаг-воронка»): по категории — шаги «раздел → 2–3 варианта → (подвариант) → текст».
@@ -114,7 +115,7 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
 
   function paint() {
     if (!cat) { el.replaceChildren(h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся шаги: монтаж, назначение и другие тексты.')); return; }
-    if (failed) { el.replaceChildren(h('div', { class: 'state is-failed' }, h('div', null, 'Не загрузились варианты текстов.'), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => refresh(true) }, 'Повторить'))); return; }
+    if (failed) { el.replaceChildren(failBlock(failed, () => refresh(true), { text: 'Не загрузились варианты текстов' })); return; }
     if (!data) { el.replaceChildren(h('div', { class: 'state is-loading', role: 'status' }, 'Загружаю варианты…')); return; }
     const secs = (data.sections || []).filter((s) => s.children && s.children.length);
     if (!secs.length) { el.replaceChildren(h('p', { class: 'muted' }, 'Для этой категории вариантов текстов пока нет — они появятся, когда будет заполнен «Справочники → Тексты паспорта».')); return; }
