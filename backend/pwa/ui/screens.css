@@ -1550,7 +1550,9 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .hp-map.is-fit .hp-svg { width: 100%; height: auto; }
 .hp-band { fill: var(--ls); opacity: .6; }
 .hp-band-ref { fill: var(--surface-2); stroke: var(--border-strong); stroke-dasharray: 4 4; opacity: 1; }
-.hp-lane { fill: var(--text); font-size: 14px; font-weight: 700; }
+.hp-lane { fill: var(--lc); font-size: 15px; font-weight: 700; }
+.hp-refhead { fill: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.hp-node.is-ref rect { stroke: var(--border-strong); stroke-width: 1.5; }
 .hp-node rect { fill: var(--surface); stroke: var(--lc); stroke-width: 2; }
 .hp-t { fill: var(--text); font-size: 14px; font-weight: 700; }
 .hp-w { fill: var(--muted); font-size: 12px; }

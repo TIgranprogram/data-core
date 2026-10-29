@@ -64,27 +64,23 @@ export const NODES = [
   { id: 'r7', lane: 'H', n: 7, label: 'Сегодня и уведомления', where: 'Сегодня' },
 ];
 
-/** Связи: сплошная — следующий шаг; dashed — «питает» / можно позже. */
+/** Связи. Внутри дорожки — сплошные слева направо; между дорожками — только смысловые (≤ 8), dashed.
+ *  Справочники (lane H) стрелками не связываются: это отдельная колонка «Используются везде». */
 export const EDGES = [
-  { from: 'o1', to: 'o2' }, { from: 'o2', to: 'd1', label: 'в проектирование' },
+  { from: 'o1', to: 'o2' },
   { from: 'd1', to: 'd2' }, { from: 'd2', to: 'd3' },
-  { from: 'o2', to: 's1', label: 'материал под заказ', dashed: true },
-  { from: 'd2', to: 's1', label: 'нужен материал', dashed: true },
   { from: 's1', to: 's2' }, { from: 's2', to: 's3' }, { from: 's3', to: 's4' }, { from: 's4', to: 's5' },
-  { from: 's2', to: 'w1', label: 'ждём поставку', dashed: true },
-  { from: 's5', to: 'w1', label: 'принять' },
-  { from: 'w1', to: 'w2' }, { from: 'w2', to: 'w3', label: 'из брони' }, { from: 'w1', to: 'w3' },
-  { from: 'd3', to: 'p1', label: 'в производство' },
-  { from: 'w3', to: 'p1', label: 'материал выдан', dashed: true },
+  { from: 'w1', to: 'w2' }, { from: 'w2', to: 'w3' },
   { from: 'p1', to: 'p2' }, { from: 'p2', to: 'p3' }, { from: 'p3', to: 'p4' },
+  { from: 'a1', to: 'a2' },
+  { from: 'm2', to: 'm3' },
+  // между дорожками
+  { from: 'o2', to: 'd1', label: 'в проектирование', dashed: true },
+  { from: 'd2', to: 's1', label: 'нужен материал', dashed: true },
+  { from: 's5', to: 'w1', label: 'принять', dashed: true },
+  { from: 'd3', to: 'p1', label: 'в производство', dashed: true },
   { from: 'p2', to: 'a1', label: 'нет паспорта', dashed: true },
-  { from: 'a1', to: 'a2' }, { from: 'a2', to: 'p3', label: 'паспорт к отгрузке', dashed: true },
-  { from: 's3', to: 'm1', label: 'счёт → выплата', dashed: true }, { from: 's4', to: 'm1', dashed: true },
-  { from: 'p3', to: 'm2', label: 'отгрузка → поступление', dashed: true },
-  { from: 'm1', to: 'm3' }, { from: 'm2', to: 'm3' },
-  { from: 'r1', to: 'o2', dashed: true, label: 'сопоставление' },
-  { from: 'r2', to: 's1', dashed: true },
-  { from: 'r3', to: 's3', dashed: true, label: 'договор в счёте' },
-  { from: 'r5', to: 'r7', dashed: true, label: 'зона → уведомление' },
-  { from: 'r4', to: 'o1', dashed: true },
+  { from: 'a2', to: 'p3', label: 'к отгрузке', dashed: true },
+  { from: 's3', to: 'm1', label: 'к оплате', dashed: true },
+  { from: 'p3', to: 'm2', label: 'оплата покупателя', dashed: true },
 ];

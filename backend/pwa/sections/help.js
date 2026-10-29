@@ -10,71 +10,105 @@ const s = (tag, attrs, ...kids) => {
   return el;
 };
 
-// размеры раскладки
-const LBL_W = 150, NW = 176, NH = 54, GX = 64, GY = 56, PAD = 14, REF_GAP = 80;
-const colX = (n) => PAD + LBL_W + (n - 1) * (NW + GX);
-const rowY = (i) => PAD + i * (NH + GY);
+// размеры раскладки. Ширина колонки — по самому длинному тексту в ней (7.2 px/символ для 12px, 8.2 — для 14px bold).
+const LBL_W = 150, NW_MIN = 176, NH = 54, GX = 72, GY = 72, PAD = 14, REF_GAP = 56, REF_HEAD = 30;
+const nodeW = (n) => Math.max(NW_MIN, Math.ceil(Math.max(n.label.length * 8.2, n.where.length * 7.2) + 24));
+const LBL_PX = 7.6, LBL_H = 16; // подписи рёбер: 12px, 600
 
 const laneTok = (l) => (l.tok ? `var(--sec-${l.tok})` : 'var(--muted)');
 const laneSoft = (l) => (l.tok ? `var(--sec-${l.tok}-soft)` : 'var(--surface-3)');
-const clip = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
 
-/** Положение узла: дорожка = строка, номер шага = колонка; справочники (H) — колонка справа. */
-export function layout() {
-  const rows = LANES.length;
-  const maxN = Math.max(...NODES.filter((n) => n.lane !== 'H').map((n) => n.n));
-  const refX = colX(maxN) + NW + REF_GAP;
-  const pos = {};
-  for (const n of NODES) {
-    if (n.lane === 'H') pos[n.id] = { x: refX, y: rowY(n.n - 1), n, col: maxN + 1 };
-    else pos[n.id] = { x: colX(n.n), y: rowY(LANES.findIndex((l) => l.id === n.lane)), n, col: n.n };
+/** Перенос названия дорожки по словам (≤ max символов в строке). */
+function wrap(t, max) {
+  const out = [];
+  for (const w of t.split(' ')) {
+    const last = out[out.length - 1];
+    if (last && (last + ' ' + w).length <= max) out[out.length - 1] = last + ' ' + w; else out.push(w);
   }
-  const refRows = NODES.filter((n) => n.lane === 'H').length;
-  return { pos, refX, maxN, width: refX + NW + PAD, height: rowY(Math.max(rows, refRows) - 1) + NH + PAD };
+  return out;
+}
+
+/** Положение узлов: дорожка = строка, шаг = колонка; справочники (H) — список справа, без линий. */
+export function layout() {
+  const steps = NODES.filter((n) => n.lane !== 'H'), refsN = NODES.filter((n) => n.lane === 'H').sort((a, b) => a.n - b.n);
+  const maxN = Math.max(...steps.map((n) => n.n));
+  const colW = Array.from({ length: maxN }, (_, i) => Math.max(NW_MIN, ...steps.filter((n) => n.n === i + 1).map(nodeW)));
+  const colX = [PAD + LBL_W];
+  for (let i = 1; i < maxN; i++) colX.push(colX[i - 1] + colW[i - 1] + GX);
+  const rowY = (i) => PAD + i * (NH + GY);
+  const right = colX[maxN - 1] + colW[maxN - 1];
+  const refX = right + REF_GAP, refW = Math.max(NW_MIN, ...refsN.map(nodeW)), refH = 46, refGap = 10;
+  const pos = {};
+  for (const n of steps) {
+    const c = n.n - 1, row = LANES.findIndex((l) => l.id === n.lane);
+    pos[n.id] = { x: colX[c], y: rowY(row), w: colW[c], h: NH, n, col: c, row };
+  }
+  refsN.forEach((n, i) => { pos[n.id] = { x: refX, y: PAD + REF_HEAD + i * (refH + refGap), w: refW, h: refH, n, ref: true }; });
+  const lanesH = rowY(LANES.length - 1) + NH;
+  const refsH = PAD + REF_HEAD + refsN.length * (refH + refGap) - refGap;
+  return { pos, colX, colW, rowY, right, refX, refW, maxN, width: refX + refW + PAD + 4, height: Math.max(lanesH, refsH) + PAD };
 }
 
 /**
- * Ребро идёт только по «коридорам»: горизонтали — в промежутках между рядами, вертикали — в промежутках между колонками.
- * Через узлы линия не проходит. k — номер ребра (небольшой сдвиг, чтобы линии не слипались).
- * Возвращает точки ломаной и позицию подписи.
+ * Ребро идёт только по коридорам: горизонтали — между рядами, вертикали — в промежутках между колонками.
+ * Внутри дорожки — прямая слева направо. k — номер межрядного ребра (сдвиг, чтобы линии не слипались).
  */
 export function route(a, b, k, L) {
-  const off = ((k % 5) - 2) * 4;
-  const ax = a.x, ay = a.y, bx = b.x, by = b.y, laneA = a.n.lane, laneB = b.n.lane;
-  let pts, label;
-  if (laneA === 'H' && laneB === 'H') { // вертикаль справочников: дуга справа
-    const x1 = ax + NW, y1 = ay + NH / 2, y2 = by + NH / 2, x2 = x1 + 30;
-    pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
-    label = { x: x2 + 6, y: (y1 + y2) / 2, anchor: 'start' };
-  } else if (laneA === laneB && bx > ax && bx - ax - NW <= GX + 1) { // соседний шаг: прямая, подпись над линией
-    const y = ay + NH / 2;
-    pts = [[ax + NW, y], [bx, y]];
-    label = { x: (ax + NW + bx) / 2, y: ay - 8, anchor: 'middle' };
-  } else if (laneA === laneB) { // через один шаг: дуга по коридору над рядом
-    const cy = ay - GY / 2 + off, x1 = ax + NW / 2, x2 = bx + NW / 2;
-    pts = [[x1, ay], [x1, cy], [x2, cy], [x2, by]];
-    label = { x: (x1 + x2) / 2, y: cy - 5, anchor: 'middle' };
-  } else if (laneA === 'H') { // справочник: влево по каналу, затем по коридору над целью
-    const chX = L.refX - REF_GAP / 2 + off, yb = by - GY / 2 + off, ex = bx + NW / 2, sy = ay + NH / 2;
-    pts = [[ax, sy], [chX, sy], [chX, yb], [ex, yb], [ex, by]];
-    label = { x: (chX + ex) / 2, y: yb - 5, anchor: 'middle' };
-  } else {
-    const rowA = Math.round((ay - PAD) / (NH + GY)), rowB = Math.round((by - PAD) / (NH + GY));
-    const down = rowB > rowA, sx = ax + NW / 2, ex = bx + NW / 2;
-    const sy = down ? ay + NH : ay, ey = down ? by : by + NH;
-    const ya = down ? ay + NH + GY / 2 + off : ay - GY / 2 + off;
-    const yb = down ? by - GY / 2 + off : by + NH + GY / 2 + off;
-    if (Math.abs(rowA - rowB) === 1) {
-      pts = [[sx, sy], [sx, ya], [ex, ya], [ex, ey]];
-      label = { x: (sx + ex) / 2, y: ya - 5, anchor: 'middle' };
-    } else { // через ряды: вертикаль по каналу между колонками
-      const chX = colX(Math.min(a.col, b.col)) + NW + GX / 2 + off;
-      pts = [[sx, sy], [sx, ya], [chX, ya], [chX, yb], [ex, yb], [ex, ey]];
-      const l1 = Math.abs(chX - sx), l2 = Math.abs(ex - chX);
-      label = l1 >= l2 ? { x: (sx + chX) / 2, y: ya - 5, anchor: 'middle' } : { x: (chX + ex) / 2, y: yb - 5, anchor: 'middle' };
-    }
+  if (a.row === b.row) { const y = a.y + NH / 2; return [[a.x + a.w, y], [b.x, y]]; }
+  const off = ((k % 3) - 1) * 8;
+  const down = b.row > a.row, sx = a.x + a.w / 2 + off, ex = b.x + b.w / 2 - off;
+  const sy = down ? a.y + NH : a.y, ey = down ? b.y : b.y + NH;
+  const ya = down ? a.y + NH + GY / 2 + off : a.y - GY / 2 + off;
+  const yb = down ? b.y - GY / 2 + off : b.y + NH + GY / 2 + off;
+  if (Math.abs(a.row - b.row) === 1) return [[sx, sy], [sx, ya], [ex, ya], [ex, ey]];
+  // через ряды: вертикаль в промежутке между колонками (справа от левой из двух; одна колонка — слева от неё)
+  const c = a.col === b.col ? Math.max(0, a.col - 1) : Math.min(a.col, b.col);
+  const chX = L.colX[c] + L.colW[c] + GX / 2 + off;
+  return [[sx, sy], [sx, ya], [chX, ya], [chX, yb], [ex, yb], [ex, ey]];
+}
+
+// геометрия для проверок: отрезок (оси) × прямоугольник, прямоугольник × прямоугольник
+export const segHitsRect = ([x1, y1], [x2, y2], r) => {
+  if (x1 === x2) return x1 > r.x && x1 < r.x + r.w && Math.max(y1, y2) > r.y && Math.min(y1, y2) < r.y + r.h;
+  return y1 > r.y && y1 < r.y + r.h && Math.max(x1, x2) > r.x && Math.min(x1, x2) < r.x + r.w;
+};
+export const rectsHit = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
+
+/** Вся геометрия карты. Подпись ребра — у его начала в свободном месте (без линий, узлов и других подписей), иначе не рисуется. */
+export function computeMap() {
+  const L = layout();
+  const edges = [];
+  let k = 0;
+  for (const e of EDGES) {
+    const a = L.pos[e.from], b = L.pos[e.to];
+    if (!a || !b || a.ref || b.ref) continue;
+    edges.push({ e, pts: route(a, b, a.row === b.row ? 0 : k++, L) });
   }
-  return { pts, label };
+  const segs = edges.flatMap((ed) => ed.pts.slice(1).map((p, i) => [ed.pts[i], p]));
+  const nodeRects = Object.values(L.pos).map((p) => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
+  const placed = [];
+  const free = (r) => r.x > PAD + LBL_W - 8 && r.x + r.w < L.right + 8 && r.y > 0 && r.y + r.h < L.height
+    && !nodeRects.some((n) => rectsHit(r, n)) && !segs.some(([p, q]) => segHitsRect(p, q, r)) && !placed.some((q) => rectsHit(r, q));
+  for (const ed of edges) {
+    if (!ed.e.label) continue;
+    const w = Math.ceil(ed.e.label.length * LBL_PX) + 6, hh = LBL_H, cands = [];
+    ed.pts.slice(1).forEach((p, i) => {
+      const q = ed.pts[i];
+      if (q[1] === p[1]) {
+        const x0 = Math.min(q[0], p[0]), x1 = Math.max(q[0], p[0]), dir = p[0] >= q[0] ? 1 : -1;
+        for (const t of [0.08, 0.3, 0.55, 0.8]) {
+          const cx = dir > 0 ? x0 + (x1 - x0) * t : x1 - (x1 - x0) * t;
+          for (const dy of [-hh - 3, 3]) cands.push({ x: dir > 0 ? cx : cx - w, y: q[1] + dy });
+        }
+      } else {
+        const y0 = Math.min(q[1], p[1]), y1 = Math.max(q[1], p[1]);
+        for (const t of [0.5, 0.2, 0.8]) for (const dx of [6, -w - 6]) cands.push({ x: q[0] + dx, y: y0 + (y1 - y0) * t - hh / 2 });
+      }
+    });
+    const got = cands.map((c) => ({ x: c.x, y: c.y, w, h: hh })).find(free);
+    if (got) { placed.push(got); ed.label = { ...got, text: ed.e.label }; }
+  }
+  return { L, edges, segs, nodeRects, labels: placed };
 }
 
 /** Ломаная со скруглёнными углами. */
@@ -90,42 +124,39 @@ function pathD(pts, r = 8) {
 }
 
 export function mapSvg() {
-  const L = layout();
+  const { L, edges } = computeMap();
   const laneOf = Object.fromEntries(LANES.map((l) => [l.id, l]));
   laneOf.H = { id: 'H', name: 'Справочники', tok: null };
   const svg = s('svg', { class: 'hp-svg', viewBox: `0 0 ${L.width} ${L.height}`, width: L.width, height: L.height, role: 'img', 'aria-label': 'Схема: как связаны заказ, проектирование, снабжение, склад, отгрузка, паспорт и деньги' });
   svg.append(s('defs', null,
     s('marker', { id: 'hp-arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, s('path', { d: 'M0,0 L10,5 L0,10 z', class: 'hp-arrow' }))));
-  // полосы дорожек и подписи слева
+  // полосы дорожек и название слева (крупно, перенос по словам)
   LANES.forEach((l, i) => {
     const g = s('g', { style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}` });
-    g.append(s('rect', { class: 'hp-band', x: PAD, y: rowY(i) - 6, width: L.refX - PAD - REF_GAP / 2 + 10, height: NH + 12, rx: 10 }));
-    g.append(s('text', { class: 'hp-lane', x: PAD + 12, y: rowY(i) + NH / 2 + 4 }, clip(l.name, 18)));
+    g.append(s('rect', { class: 'hp-band', x: PAD, y: L.rowY(i) - 8, width: L.right - PAD + 12, height: NH + 16, rx: 10 }));
+    const lines = wrap(l.name, 13), y0 = L.rowY(i) + NH / 2 + 5 - (lines.length - 1) * 9;
+    g.append(s('text', { class: 'hp-lane', x: PAD + 12, y: y0 }, lines.map((t, j) => s('tspan', { x: PAD + 12, dy: j ? 18 : 0 }, t))));
     svg.append(g);
   });
-  // колонка справочников
+  // справочники — отдельный список без линий
   const refs = s('g', { style: '--lc:var(--muted);--ls:var(--surface-3)' });
-  refs.append(s('rect', { class: 'hp-band hp-band-ref', x: L.refX - 14, y: PAD - 10, width: NW + 28, height: L.height - 2 * PAD + 20, rx: 10 }));
+  refs.append(s('rect', { class: 'hp-band hp-band-ref', x: L.refX - 12, y: PAD - 8, width: L.refW + 24, height: L.height - 2 * PAD + 14, rx: 10 }));
+  refs.append(s('text', { class: 'hp-refhead', x: L.refX, y: PAD + 14 }, 'Используются везде'));
   svg.append(refs);
-  // рёбра — под узлами; подписи с подложкой
-  const edges = s('g'), labels = s('g');
-  EDGES.forEach((e, k) => {
-    const a = L.pos[e.from], b = L.pos[e.to];
-    if (!a || !b) return;
-    const r = route(a, b, k, L);
-    edges.append(s('path', { class: 'hp-edge' + (e.dashed ? ' is-dashed' : ''), d: pathD(r.pts), 'marker-end': 'url(#hp-arr)' }));
-    if (e.label) labels.append(s('text', { class: 'hp-elabel', x: r.label.x, y: r.label.y, 'text-anchor': r.label.anchor }, e.label));
-  });
-  svg.append(edges, labels);
-  // узлы — поверх линий, с заливкой
+  const eg = s('g'), lg = s('g');
+  for (const ed of edges) {
+    eg.append(s('path', { class: 'hp-edge' + (ed.e.dashed ? ' is-dashed' : ''), d: pathD(ed.pts), 'marker-end': 'url(#hp-arr)' }));
+    if (ed.label) lg.append(s('text', { class: 'hp-elabel', x: ed.label.x + 3, y: ed.label.y + 12 }, ed.label.text));
+  }
+  svg.append(eg, lg);
   for (const id of Object.keys(L.pos)) {
-    const { x, y, n } = L.pos[id];
+    const { x, y, w, h: hh, n, ref } = L.pos[id];
     const l = laneOf[n.lane];
-    svg.append(s('g', { class: 'hp-node', style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}`, 'data-id': id, transform: `translate(${x},${y})` },
+    svg.append(s('g', { class: 'hp-node' + (ref ? ' is-ref' : ''), style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}`, 'data-id': id, transform: `translate(${x},${y})` },
       s('title', null, `${n.label} — Меню: ${n.where}`),
-      s('rect', { width: NW, height: NH, rx: 9 }),
-      s('text', { class: 'hp-t', x: NW / 2, y: 22, 'text-anchor': 'middle' }, clip(n.label, 22)),
-      s('text', { class: 'hp-w', x: NW / 2, y: 40, 'text-anchor': 'middle' }, clip(n.where, 27))));
+      s('rect', { width: w, height: hh, rx: 9 }),
+      s('text', { class: 'hp-t', x: w / 2, y: ref ? 19 : 22, 'text-anchor': 'middle' }, n.label),
+      s('text', { class: 'hp-w', x: w / 2, y: ref ? 36 : 40, 'text-anchor': 'middle' }, n.where)));
   }
   return svg;
 }
