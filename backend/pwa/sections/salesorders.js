@@ -6,6 +6,7 @@ import { go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/badges.js';
 import { toast } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
+import { withConfirm } from '../ui/confirm-password.js';
 import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
@@ -186,6 +187,14 @@ function contractGroup(o, reload) {
   if (session.canEdit) acts.push(h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Изменить договор: № договора, заказчик, этап, срок, примечание', onclick: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }, 'Изменить договор'));
   if (!['closed', 'cancelled', 'new'].includes(o.stage) && canShip()) acts.push(h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => patch({ of: 'shipdo', open: o.id }, { replace: false }) }, 'Отгрузить'));
   if (!closedStage(o) && session.canEdit && session.sees('stock')) acts.push(h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Файл Excel → брони под позиции этого договора', onclick: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) }, 'Спецификация'));
+  // удалить договор прямо из строки (было только в «⋯» карточки — не находили; пользователь 2026-10-29), пароль — как в карточке
+  if (session.canEdit) acts.push(h('button', { class: 'btn btn-ghost btn-sm so-del', type: 'button', title: 'Удалить договор в корзину (нужен ваш пароль)', onclick: async () => {
+    if (!(await confirmDlg('Удалить?', salesorders.remove.text(o) + ' Её можно будет восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
+    try {
+      if ((await withConfirm(async () => { await salesorders.remove.run(o); return true; }, { text: 'Удаление требует вашего пароля.' })) === null) return;
+      toast('Договор удалён'); window.dispatchEvent(new CustomEvent('data-changed')); reload?.();
+    } catch (e) { toast(errText(e)); }
+  } }, 'Удалить'));
   const head = h('div', { class: 'so-grp-head' },
     h('div', { class: 'so-grp-title' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : ''), ' ', badge(STAGE, o.stage), ' ', due(o)),
     acts.length ? h('div', { class: 'so-grp-acts' }, ...acts) : null);

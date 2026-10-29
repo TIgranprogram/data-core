@@ -433,6 +433,7 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 /* Заказ производства: группа договора в карточке заказа (ПЗ-2) */
 .so-grp { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: var(--s3) 0; overflow: hidden; }
 .so-grp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.so-grp-head .so-del { color: var(--danger); }
 .so-grp-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1); min-width: 0; }
 .so-grp-acts { display: flex; flex-wrap: wrap; gap: var(--s1); }
 .so-grp > table { margin: 0; }
