@@ -31,7 +31,7 @@ export const showWarnings = (res) => { for (const w of res?.warnings || []) toas
 /** Поле выбора файла-скана договора: уже загруженные id сохраняются, новые добавляются. */
 function filesField(known = []) {
   const keep = [...known].map(String);
-  const pf = photoField([]);
+  const pf = photoField([], { pdf: true }); // скан договора — PDF или фото
   const el = h('div', null, keep.length ? h('div', { class: 'muted small' }, `Уже загружено файлов: ${keep.length}`) : null, pf.el);
   return { el, ids: () => [...keep, ...pf.ids()] };
 }

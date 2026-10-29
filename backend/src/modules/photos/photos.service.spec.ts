@@ -47,6 +47,21 @@ describe('PhotosService upload variants', () => {
     await rm(uploadDirectory, { recursive: true, force: true });
   });
 
+  it('PDF с сигнатурой: одна запись, без миниатюры', async () => {
+    await writeFile(join(uploadDirectory, 'a.pdf'), '%PDF-1.4 x');
+    const r = await service.upload({ filename: 'a.pdf', originalname: 'счёт.pdf', mimetype: 'application/pdf', size: 10 });
+    expect(model.create).toHaveBeenCalledTimes(1);
+    expect(r.thumb).toBeUndefined();
+    expect(model.create.mock.calls[0][0]).toMatchObject({ mimeType: 'application/pdf' });
+  });
+
+  it('.pdf без сигнатуры — 400 и файл удалён', async () => {
+    await writeFile(join(uploadDirectory, 'b.pdf'), '<html>');
+    await expect(service.upload({ filename: 'b.pdf', originalname: 'b.pdf', mimetype: 'application/pdf', size: 6 })).rejects.toThrow('Это не PDF');
+    await expect(readFile(join(uploadDirectory, 'b.pdf'))).rejects.toThrow();
+    expect(model.create).not.toHaveBeenCalled();
+  });
+
   it('keeps the original and creates a linked 320px thumb', async () => {
     const originalBytes = await sharp({
       create: {

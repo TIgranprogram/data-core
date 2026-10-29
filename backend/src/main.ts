@@ -111,6 +111,13 @@ async function bootstrap() {
   // Static serve for uploaded photos at /uploads/* → ./uploads/
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res: { setHeader(name: string, value: string): void }, path: string) => {
+      if (path.toLowerCase().endsWith('.pdf')) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+      }
+    },
     maxAge: '30d', // фото не перезаписываются по тому же пути — браузер не переспрашивает каждый раз (аудит скорости 2026-10-28)
   });
 

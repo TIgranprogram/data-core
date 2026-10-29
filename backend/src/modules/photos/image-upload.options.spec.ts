@@ -26,3 +26,18 @@ describe('загрузка картинок: тип и расширение (Б�
     expect(uploadFileName('image/jpeg')).toMatch(/\.jpg$/);
   });
 });
+
+describe('PDF-загрузка', () => {
+  const { photoUploadMulterOptions, uploadFileName: name } = require('./image-upload.options');
+  it('pdf проходит фильтр, расширение по типу', () => {
+    const cb = jest.fn();
+    photoUploadMulterOptions.fileFilter({}, { mimetype: 'application/pdf', originalname: 'a.html' }, cb);
+    expect(cb).toHaveBeenCalledWith(null, true);
+    expect(name('application/pdf')).toMatch(/\.pdf$/);
+  });
+  it('html не проходит', () => {
+    const cb = jest.fn();
+    photoUploadMulterOptions.fileFilter({}, { mimetype: 'text/html', originalname: 'a.pdf' }, cb);
+    expect(cb.mock.calls[0][1]).toBe(false);
+  });
+});

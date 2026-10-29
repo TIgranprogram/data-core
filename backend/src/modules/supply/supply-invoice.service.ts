@@ -130,8 +130,8 @@ export class SupplyInvoiceService {
       chain.set(key, e);
     }
     const fids = (inv.fileIds as Types.ObjectId[] | undefined) ?? [];
-    const photos = fids.length ? await this.connection.db!.collection('photos').find({ _id: { $in: fids } }, { projection: { storageUrl: 1, originalName: 1, name: 1 } }).toArray() : [];
-    const files = fids.map((f) => photos.find((p) => String(p._id) === String(f))).filter(Boolean).map((p) => ({ id: String(p!._id), url: String(p!.storageUrl), name: String(p!.originalName ?? p!.name ?? 'Файл счёта') }));
+    const photos = fids.length ? await this.connection.db!.collection('photos').find({ _id: { $in: fids } }, { projection: { storageUrl: 1, originalName: 1, originalFilename: 1, mimeType: 1, name: 1 } }).toArray() : [];
+    const files = fids.map((f) => photos.find((p) => String(p._id) === String(f))).filter(Boolean).map((p) => ({ id: String(p!._id), url: String(p!.storageUrl), name: String(p!.originalFilename ?? p!.originalName ?? p!.name ?? 'Файл счёта'), mime: (p!.mimeType as string | undefined) ?? null }));
     return { ...inv, id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, contractNo: contract?.contractNo ?? null, contractDate: contract?.contractDate ?? null, requests, files, orders: [...chain.values()] };
   }
 
@@ -190,7 +190,12 @@ export class SupplyInvoiceService {
   /** Правка счёта; «выставлен» — только при №, дате и сумме. Копирует поля в заявки, сумму делит по строкам. */
   async update(id: string, dto: PatchInvoiceDto, actorId?: string) {
     const inv = await this.load(id);
-    if (inv.status === 'paid') throw new BadRequestException('Счёт оплачен — править его нельзя');
+    if (inv.status === 'paid') {
+      // у оплаченного можно только прикрепить файлы счёта и привязать договор (пользователь 2026-10-29: «счёт не появляется» — файл было не добавить)
+      const other = Object.entries(dto).filter(([k, v]) => v !== undefined && !['fileIds', 'contractId'].includes(k) && !(k === 'issue' && !v));
+      if (other.length) throw new BadRequestException('Счёт оплачен — менять можно только файлы счёта и договор');
+      return this.updatePaid(inv, dto);
+    }
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const set: Lean = {};
     if (dto.no !== undefined) set.no = dto.no.trim() || undefined;
@@ -293,6 +298,18 @@ export class SupplyInvoiceService {
   }
 
   /** Копия полей счёта в заявки: № и дата, плательщик, сумма — пропорционально lineTotal (иначе priceHint), остаток копеек — последней. */
+  /** Оплаченный счёт: только файлы (добавить/убрать) и договор. */
+  private async updatePaid(inv: Lean, dto: PatchInvoiceDto) {
+    const $set: Lean = {}; const $unset: Lean = {};
+    if (dto.fileIds !== undefined) $set.fileIds = dto.fileIds.map((i) => oid(i, 'файла'));
+    if (dto.contractId) $set.contractId = await this.checkContract(dto.contractId, inv.supplierId, inv.contractId);
+    else if (dto.contractId === '') $unset.contractId = '';
+    if (Object.keys($set).length || Object.keys($unset).length) {
+      await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }).exec();
+    }
+    return this.get(String(inv._id));
+  }
+
   private async copyToRequests(inv: Lean, session: ClientSession) {
     const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null }).sort({ num: 1, _id: 1 }).session(session).lean().exec() as Lean[];
     const shares = splitAmount(Number(inv.amount) || 0, lines.map((l) => Number(l.lineTotal ?? l.priceHint) || 0));

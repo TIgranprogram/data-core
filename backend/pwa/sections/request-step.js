@@ -1,4 +1,4 @@
-import { api, session } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, date } from '../core/format.js';
 import { photoField } from '../ui/photos.js';
@@ -226,9 +226,9 @@ export function invoiceBlock(r, ctx) {
     const amount = h('input', { inputmode: 'decimal', value: inv.amount > 0 ? String(inv.amount) : String(defaultAmount(r) ?? ''), disabled: lock });
     const payer = h('select', { disabled: lock }, h('option', { value: '' }, '— выберите —'), ...companies.map((c) => h('option', { value: c.value }, c.label)));
     payer.value = inv.payerCompanyId ? String(inv.payerCompanyId) : '';
-    const files = photoField([]);
-    const known = (inv.fileIds || []).map(String);
-    const body = () => ({ no: no.value.trim(), date: dt.value, amount: Number(String(amount.value).replace(',', '.').replace(/\s/g, '')) || 0, payerCompanyId: payer.value, fileIds: [...known, ...files.ids()] });
+    // файлы счёта видны всегда (уже загруженные — сразу в поле, можно открыть и убрать); прикрепить можно и к оплаченному
+    const files = photoField((inv.files || []).map((f) => ({ id: f.id, url: f.url, name: f.name, mime: f.mime })), { pdf: true });
+    const body = () => ({ no: no.value.trim(), date: dt.value, amount: Number(String(amount.value).replace(',', '.').replace(/\s/g, '')) || 0, payerCompanyId: payer.value, fileIds: files.ids() });
     const run = async (btn, fn) => { btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); } };
     const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } })); toast('Счёт сохранён'); }) }, 'Сохранить');
     const pay = h('button', { class: 'btn', type: 'button', onclick: () => run(pay, async () => {
@@ -242,14 +242,23 @@ export function invoiceBlock(r, ctx) {
       ? contractField({ supplierId: inv.supplierId, current: inv.contractId ? { id: inv.contractId, no: inv.contractNo || '—', date: inv.contractDate } : null,
         onChange: async (id) => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { contractId: id } })); toast(id ? 'Договор привязан к счёту' : 'Договор снят со счёта'); ctx.changed?.(); } })
       : null;
+    const saveFiles = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveFiles, async () => { await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { fileIds: files.ids() } }); toast('Файлы счёта сохранены'); }) }, 'Сохранить файлы');
+    // оплаченный/выставленный: значения текстом, не «серыми» полями — их всё равно не изменить
+    const ro = (label, val) => h('div', { class: 'field' }, h('span', null, label), h('div', { class: 'inv-ro' }, val || h('span', { class: 'muted' }, '—')));
     const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
     box.replaceChildren(
       h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
-      field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Кто платит (наша компания)', payer), contractRow,
-      lock ? null : h('div', { class: 'field' }, h('span', null, 'Файл счёта' + (known.length ? ` (уже загружено: ${known.length})` : '')), files.el),
+      ...(lock
+        ? [ro('№ счёта', inv.no), ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Кто платит (наша компания)', inv.payerName)]
+        : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Кто платит (наша компания)', payer)]),
+      contractRow,
+      h('div', { class: 'field' }, h('span', null, 'Файл счёта'), session.canEdit ? files.el : null,
+        !session.canEdit && !(inv.files || []).length ? h('span', { class: 'muted' }, 'Файла нет') : null,
+        !session.canEdit ? h('div', null, ...(inv.files || []).map((f) => h('a', { href: PREFIX + f.url, target: '_blank', rel: 'noopener' }, f.name || 'Файл счёта'))) : null,
+        lock && session.canEdit ? h('div', { class: 'inv-actions' }, saveFiles) : null),
       h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '')),
       h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),
-      lock ? h('div', { class: 'muted' }, paid ? 'Счёт оплачен — поля не меняются' : inv.status === 'issued' ? 'Счёт выставлен — поля не меняются' : null) : null,
+      lock ? h('div', { class: 'muted' }, paid ? 'Счёт оплачен — меняются только файлы и договор' : inv.status === 'issued' ? 'Счёт выставлен — меняются только файлы и договор' : null) : null,
       lock ? null : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
   })().catch((e) => box.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')));
   return box;

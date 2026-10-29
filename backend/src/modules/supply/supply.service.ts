@@ -160,8 +160,9 @@ export class SupplyService {
   private async photoOids(ids: string[]) {
     const list = [...new Set(ids.map(String))].map((i) => oid(i, 'фото'));
     if (!list.length) return list;
-    const found = await this.connection.db!.collection('photos').countDocuments({ _id: { $in: list } });
-    if (found !== list.length) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
+    const found = await this.connection.db!.collection('photos').find({ _id: { $in: list } }, { projection: { mimeType: 1 } }).toArray();
+    if (found.length !== list.length) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
+    if (found.some((p) => p.mimeType === 'application/pdf')) throw new BadRequestException('Нужна картинка');
     return list;
   }
 

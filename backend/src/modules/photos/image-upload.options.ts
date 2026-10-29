@@ -10,7 +10,9 @@ export const IMAGE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 // SVG не принимаем (БЗ-6 ЭФ2): файлы отдаются с того же домена `/uploads/*`, SVG со скриптом = XSS.
 export const IMAGE_UPLOAD_MIME = /^image\/(jpeg|png|webp|gif|avif)$/;
 /** Расширение файла на диске — по типу, а не по имени от клиента (иначе `x.html` с типом image/png отдался бы как страница). */
-export const IMAGE_UPLOAD_EXT: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif' };
+export const IMAGE_UPLOAD_EXT: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif', 'application/pdf': '.pdf' };
+export const PDF_MIME = 'application/pdf';
+export const PDF_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 export const uploadFileName = (mimetype: string) => `${randomUUID()}${IMAGE_UPLOAD_EXT[mimetype] ?? ''}`;
 
 const CYRILLIC = /[\u0400-\u04FF]/;
@@ -57,5 +59,19 @@ export const imageUploadMulterOptions: MulterOptions = {
       return;
     }
     cb(null, true);
+  },
+};
+
+/** POST /photos/upload: картинки + PDF (счета, сканы договоров). Хранилище организации остаётся «только картинки». */
+export const photoUploadMulterOptions: MulterOptions = {
+  ...imageUploadMulterOptions,
+  limits: { fileSize: PDF_UPLOAD_MAX_BYTES, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === PDF_MIME) {
+      file.originalname = decodeMulterOriginalName(file.originalname);
+      cb(null, true);
+      return;
+    }
+    imageUploadMulterOptions.fileFilter!(req, file, cb);
   },
 };

@@ -4,11 +4,11 @@ import { join, resolve } from 'path';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import sharp from 'sharp';
 import { shrinkInPlace } from './image-shrink';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Photo, PhotoDocument, PhotoFrame } from './photo.schema';
-import { decodeMulterOriginalName } from './image-upload.options';
+import { decodeMulterOriginalName, IMAGE_UPLOAD_MAX_BYTES, PDF_MIME } from './image-upload.options';
 import { buildRotatedCopy } from './image-orientation';
 
 function uploadDir(): string {
@@ -91,6 +91,11 @@ export class PhotosService {
   async upload(file: UploadedPhotoFile): Promise<PhotoUploadResult> {
     const originalFilename = decodeMulterOriginalName(file.originalname);
     const originalPath = join(uploadDir(), file.filename);
+    if (file.mimetype === PDF_MIME) return this.uploadPdf(file, originalPath, originalFilename);
+    if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+      await fs.unlink(originalPath).catch(() => undefined);
+      throw new BadRequestException('Картинка больше 10 МБ');
+    }
     // тяжёлое фото (> 2560 px или > 3 МБ) облегчаем на месте — дальше его тянут карточки, галереи и PDF
     const shrunk = await shrinkInPlace(originalPath, file.mimetype, file.size);
     const original = await this.create({
@@ -163,6 +168,29 @@ export class PhotosService {
       }
       return { original, ...(full ? { full } : {}) };
     }
+  }
+
+  /** PDF: без миниатюры и обработки; проверяем сигнатуру %PDF- (тип от клиента не доверяем). */
+  private async uploadPdf(file: UploadedPhotoFile, path: string, originalFilename: string): Promise<PhotoUploadResult> {
+    const fh = await fs.open(path, 'r');
+    const buf = Buffer.alloc(5);
+    try {
+      await fh.read(buf, 0, 5, 0);
+    } finally {
+      await fh.close();
+    }
+    if (buf.toString('latin1') !== '%PDF-') {
+      await fs.unlink(path).catch(() => undefined);
+      throw new BadRequestException('Это не PDF');
+    }
+    const original = await this.create({
+      storageUrl: `/uploads/${file.filename}`,
+      originalFilename,
+      mimeType: PDF_MIME,
+      sizeBytes: file.size,
+      variant: 'original',
+    });
+    return { original };
   }
 
   private toThumbSummary(photo: PhotoDocument): PhotoVariantSummary {
