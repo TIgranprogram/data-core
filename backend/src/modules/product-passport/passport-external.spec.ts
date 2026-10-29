@@ -10,7 +10,7 @@ function make(start = { p: 549, c: 2577 }) {
   const seq = { passportNumber: start.p, productCode: start.c };
   const pid = new Types.ObjectId();
   const h = {
-    model: { create: async ([d]: Array<Record<string, unknown>>) => { docs.push(d); }, findById: () => ({ exec: async () => docs[docs.length - 1] }) },
+    model: { create: async ([d]: Array<Record<string, unknown>>) => { docs.push(d); }, findById: (id: unknown) => ({ exec: async () => docs.find((d) => String(d._id) === String(id)) }) },
     connection: { collection: () => ({ findOne: async () => ({ name: 'Турник', category: 'Воркаут' }) }), startSession: async () => ({ withTransaction: (fn: () => Promise<void>) => fn(), endSession: async () => undefined }) },
     maxOf: async () => 0,
     counter: async (k: 'passportNumber' | 'productCode') => seq[k],
@@ -37,8 +37,8 @@ describe('PassportExternal (ПН)', () => {
 
   it('два подряд — разные номера, талон ГГГГМ-№, external', async () => {
     const { ext, pid } = make();
-    const a = (await ext.create({ productId: pid, date: '2026-10-13' })) as unknown as Record<string, unknown>;
-    const b = (await ext.create({ productId: pid, date: '2026-10-13' })) as unknown as Record<string, unknown>;
+    const a = (await ext.create({ productId: pid, date: '2026-10-13' })).items[0] as unknown as Record<string, unknown>;
+    const b = (await ext.create({ productId: pid, date: '2026-10-13' })).items[0] as unknown as Record<string, unknown>;
     expect([a.passportNumber, b.passportNumber]).toEqual(['550', '551']);
     expect(a.warrantyCode).toBe('202610-550');
     expect(a.productCode).not.toBe(b.productCode);
@@ -47,7 +47,7 @@ describe('PassportExternal (ПН)', () => {
 
   it('ведущие нули убираются', async () => {
     const { ext, pid } = make();
-    const a = (await ext.create({ productId: pid, passportNumber: '0701', productCode: '0042' })) as unknown as Record<string, unknown>;
+    const a = (await ext.create({ productId: pid, passportNumber: '0701', productCode: '0042' })).items[0] as unknown as Record<string, unknown>;
     expect([a.passportNumber, a.passportNo, a.productCode]).toEqual(['701', 701, '42']);
   });
 
@@ -66,5 +66,14 @@ describe('PassportExternal (ПН)', () => {
     const { ext, pid } = make();
     await ext.create({ productId: pid, passportNumber: '700', date: '2026-10-13' });
     await expect(ext.create({ productId: pid, passportNumber: '700' })).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('«Сколько паспортов» = 3 — три номера подряд одним сохранением', async () => {
+    const { ext, pid } = make();
+    const r = await ext.create({ productId: pid, date: '2026-10-13', qty: 3 });
+    const nos = r.items.map((x: unknown) => Number((x as unknown as Record<string, unknown>).passportNumber));
+    expect(r.total).toBe(3);
+    expect(nos[1]).toBe(nos[0] + 1);
+    expect(nos[2]).toBe(nos[0] + 2);
   });
 });

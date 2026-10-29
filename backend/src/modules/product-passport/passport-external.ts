@@ -16,7 +16,7 @@ export interface ExternalHost {
   assertFree: (set: Doc, selfId?: Types.ObjectId, session?: ClientSession) => Promise<void>;
 }
 
-export interface ExternalInput { productId: string; date?: string; customerName?: string; salesOrderId?: string; passportNumber?: string; productCode?: string }
+export interface ExternalInput { productId: string; date?: string; customerName?: string; salesOrderId?: string; passportNumber?: string; productCode?: string; qty?: number }
 
 /** ПН: номера для паспорта, который делают в другой программе — показать следующие и занять (выпущенный паспорт без проверки полноты). */
 export class PassportExternal {
@@ -41,28 +41,42 @@ export class PassportExternal {
     if (!product) throw new NotFoundException('Изделие не найдено');
     const date = dto.date ? new Date(dto.date) : dayUtc();
     if (Number.isNaN(date.getTime())) throw new BadRequestException('Неверная дата');
-    const _id = new Types.ObjectId();
+    // «Сколько паспортов»: N штук подряд (заказ отгружен мимо приложения) — первый может взять переданные номера, остальные — следующие
+    const qty = Math.min(50, Math.max(1, Math.floor(Number(dto.qty) || 1)));
+    const orderId = dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId) ? new Types.ObjectId(dto.salesOrderId) : null;
+    let customerName = dto.customerName;
+    if (orderId && !customerName) {
+      const o = await this.h.connection.collection('salesorders').findOne({ _id: orderId }, { projection: { customer: 1 } });
+      if (o?.customer) customerName = String(o.customer);
+    }
+    const ids: Types.ObjectId[] = [];
     const session = await this.h.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        const set: Doc = {};
-        const no = String(dto.passportNumber ?? '').trim();
-        if (no) { if (!/^\d{1,9}$/.test(no)) throw new BadRequestException('№ паспорта — от 1 до 9 цифр'); const n = Number(no); Object.assign(set, { passportNumber: String(n), passportNo: n }); }
-        const code = String(dto.productCode ?? '').trim();
-        if (code) set.productCode = /^\d{1,9}$/.test(code) ? String(Number(code)) : code;
-        await this.h.assertFree(set, undefined, session); // переданное — занято → 409
-        await this.h.allocate(set, date, session);
-        await this.h.assertFree(set, undefined, session); // талон из даты и №
-        await this.h.model.create([{
-          ...set, _id, productId, date, name: product.name, warrantyMonths: product.passportDefaults?.warrantyMonths ?? 12,
-          ...(dto.customerName ? { customerName: dto.customerName } : {}), ...(dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId) ? { salesOrderId: new Types.ObjectId(dto.salesOrderId) } : {}),
-          status: 'issued', issuedAt: new Date(), revision: 1, source: 'external', external: true,
-        }], { session });
+        ids.length = 0;
+        for (let i = 0; i < qty; i++) {
+          const _id = new Types.ObjectId();
+          const set: Doc = {};
+          const no = i === 0 ? String(dto.passportNumber ?? '').trim() : '';
+          if (no) { if (!/^\d{1,9}$/.test(no)) throw new BadRequestException('№ паспорта — от 1 до 9 цифр'); const n = Number(no); Object.assign(set, { passportNumber: String(n), passportNo: n }); }
+          const code = i === 0 ? String(dto.productCode ?? '').trim() : '';
+          if (code) set.productCode = /^\d{1,9}$/.test(code) ? String(Number(code)) : code;
+          await this.h.assertFree(set, undefined, session); // переданное — занято → 409
+          await this.h.allocate(set, date, session);
+          await this.h.assertFree(set, undefined, session); // талон из даты и №
+          await this.h.model.create([{
+            ...set, _id, productId, date, name: product.name, warrantyMonths: product.passportDefaults?.warrantyMonths ?? 12,
+            ...(customerName ? { customerName } : {}), ...(orderId ? { salesOrderId: orderId } : {}),
+            status: 'issued', issuedAt: new Date(), revision: 1, source: 'external', external: true,
+          }], { session });
+          ids.push(_id);
+        }
       });
     } catch (e) {
       if ((e as { code?: number }).code === 11000) throw new ConflictException('Номер уже занят, обновите и попробуйте ещё раз');
       throw e;
     } finally { await session.endSession(); }
-    return this.h.model.findById(_id).exec();
+    const items = await Promise.all(ids.map((id) => this.h.model.findById(id).exec()));
+    return { items, total: items.length };
   }
 }
