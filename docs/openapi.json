@@ -12065,30 +12065,6 @@
         ]
       }
     },
-    "/passports/external": {
-      "post": {
-        "operationId": "ProductPassportController_createExternal",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExternalPassportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
     "/passports/queue": {
       "get": {
         "operationId": "ProductPassportController_queue",
@@ -13115,6 +13091,34 @@
             "description": ""
           }
         }
+      }
+    },
+    "/passports/next-number": {
+      "put": {
+        "operationId": "ProductPassportController_setNextNumber",
+        "summary": "Задать № следующего выпущенного паспорта",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NextPassportNumberDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "409": {
+            "description": "№ уже занят"
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
       }
     }
   },
@@ -16524,32 +16528,17 @@
         "type": "object",
         "properties": {}
       },
-      "ExternalPassportDto": {
+      "NextPassportNumberDto": {
         "type": "object",
         "properties": {
-          "productId": {
-            "type": "string"
-          },
-          "date": {
-            "type": "string"
-          },
-          "customerName": {
-            "type": "string",
-            "maxLength": 300
-          },
-          "salesOrderId": {
-            "type": "string"
-          },
-          "passportNumber": {
-            "type": "string"
-          },
-          "productCode": {
-            "type": "string",
-            "maxLength": 50
+          "next": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 999999999
           }
         },
         "required": [
-          "productId"
+          "next"
         ]
       }
     }

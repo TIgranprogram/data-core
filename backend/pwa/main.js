@@ -54,7 +54,7 @@ const LAZY = {
   dicts: [() => import('./sections/dicts.js'), [['dict','dict'],['@mountDicts','mountDicts']]],
   history: [() => import('./sections/history.js'), [['history','history']]],
   products: [() => import('./sections/products.js'), [['products','products']]],
-  passports: [() => import('./sections/passports.js'), [['passports','passports'],['passnum','passNum']]],
+  passports: [() => import('./sections/passports.js'), [['passports','passports']]],
   docs: [() => import('./sections/docs.js'), [['doctpl','doctpl'],['passarchive','passarchive'],['@mountDocs','mountDocs']]],
   kp: [() => import('./sections/kp.js'), [['kp','kp'],['catalogimport','catalogImport'],['fromorders','fromOrders'],['frompassports','fromPassports']]],
   suppliercatalog: [() => import('./sections/supplier-catalog.js'), [['suppliercatalog','supplierCatalog']]],
@@ -75,7 +75,7 @@ const LAZY = {
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', passnum: 'passports', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff' };
+const LOADER_OF = { salesorder: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff' };
 const loading = {};
 /** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
 function loadSec(key) {

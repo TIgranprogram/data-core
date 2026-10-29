@@ -1483,6 +1483,9 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .pn-num:hover { background: var(--primary-soft); border-color: var(--primary); }
 .pn-num:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .pn-copy { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
-.field-err:empty { display: none; }
-.field-err { color: var(--danger); font-size: var(--fs-sm); }
-@media (max-width: 700px) { .pn-item { flex: 1 1 100%; justify-content: space-between; } .pn-num { min-height: 44px; } }
+.pn-edit { min-height: 32px; padding: 0 var(--s2); font-size: var(--fs-sm); }
+.pn-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.pn-input { width: 120px; min-height: 32px; }
+.pn-err { flex: 1 1 100%; color: var(--danger); font-size: var(--fs-sm); }
+.pn-err:empty { display: none; }
+@media (max-width: 700px) { .pn-item { flex: 1 1 100%; justify-content: space-between; } .pn-num, .pn-edit, .pn-input { min-height: 44px; } .pn-form { flex: 1 1 100%; justify-content: flex-end; } .pn-input { flex: 1 1 100px; } }

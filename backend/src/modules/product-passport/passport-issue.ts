@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { ProductPassportDocument } from './product-passport.schema';
 import { dayUtc } from './passport-rules';
-import { assertNotExternal, escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
+import { escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
 
 /** Что выпуску нужно от сервиса паспортов. */
 export interface IssueHost {
@@ -25,7 +25,6 @@ export class PassportIssue {
    */
   async issue(id: string) {
     const first = (await this.h.findById(id)).toObject() as unknown as Doc;
-    assertNotExternal(first);
     if (isIssued(first)) return this.h.findById(id);
     if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
     const missing = await this.h.readiness(first);

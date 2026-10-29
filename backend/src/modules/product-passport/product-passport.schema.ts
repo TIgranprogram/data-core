@@ -228,9 +228,6 @@ export class ProductPassport {
   @Prop()
   source?: string;
 
-  /** ПН: паспорт сделан в другой программе, здесь заняты только номера (kppdf поле не читает). */
-  @Prop() external?: boolean;
-
   @Prop({ default: true })
   isActive!: boolean;
 

@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import { Types, type Connection } from 'mongoose';
 import sharp from 'sharp';
 import { ProductPassportService } from './product-passport.service';
-import { assertNotExternal, isDraftNumber, isIssued } from './passport-consts';
+import { isDraftNumber, isIssued } from './passport-consts';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
@@ -69,7 +69,6 @@ export class PassportPdfService {
 
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
-    assertNotExternal(raw);
     const p = noDraftNumber(await this.withText(raw));
     const buf = await this.render(p, opts);
     if (isIssued(raw)) await this.passports.markIssued(p._id as Types.ObjectId); // «PDF скачан» — только у выпущенного
@@ -81,7 +80,6 @@ export class PassportPdfService {
    */
   async stand(id: string) {
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
-    assertNotExternal(raw);
     const p = noDraftNumber(await this.withText(raw));
     const { orgIn, asset } = await this.orgOf(p);
     const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: p.textSnapshot as PdfV2Text, style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
@@ -93,7 +91,6 @@ export class PassportPdfService {
     const { items } = await this.passports.list({ ...q, page: 1, limit: 200 }, { full: true });
     const files: Array<{ name: string; data: Buffer }> = [];
     for (const raw of items as Doc[]) {
-      if (raw.external) continue; // ПН: сделан в другой программе — печати здесь нет
       if (!isIssued(raw)) continue; // НМ: в пакет — только выпущенные (черновики и аннулированные — нет)
       const it = await this.withText(raw).catch(() => null);
       if (!it) continue; // без категории PDF не собирается — в архив не попадает

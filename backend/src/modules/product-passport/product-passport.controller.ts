@@ -8,7 +8,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { ProductPassportService } from './product-passport.service';
 import { PassportPdfService } from './passport-pdf.service';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
-import { ExternalPassportDto } from './dto/external-passport.dto';
+import { NextPassportNumberDto } from './dto/next-number.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import type { PassportTemplateContent } from './passport-template.default';
 
@@ -66,12 +66,12 @@ export class ProductPassportController {
     return this.service.nextNumbers();
   }
 
-  /** ПН: паспорт делают в другой программе — занять номера (409, если переданный занят) и сохранить как выпущенный. */
-  @Post('passports/external')
+  /** ПН: задать № следующего выпущенного паспорта (409, если он уже занят). */
+  @Put('passports/next-number')
   @Roles(...EDIT)
-  @AuditAction({ action: 'passport.external', entityType: 'ProductPassport' })
-  createExternal(@Body() dto: ExternalPassportDto) {
-    return this.service.createExternal(dto);
+  @AuditAction({ action: 'passport.nextNumber', entityType: 'ProductPassport' })
+  setNextNumber(@Body() dto: NextPassportNumberDto) {
+    return this.service.setNextNumber(dto.next);
   }
 
   @Get('passports')
