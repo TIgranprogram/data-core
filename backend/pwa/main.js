@@ -47,6 +47,7 @@ const LAZY = {
   matching: [() => import('./sections/salesorders-matching.js'), [['matching','matching']]],
   designsettings: [() => import('./sections/design-settings.js'), [['designsettings','designSettings']]],
   chat: [() => import('./sections/chat.js'), [['chat','chat']]],
+  help: [() => import('./sections/help.js'), [['help','help']]],
   shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
   partners: [() => import('./sections/partners.js'), [['partners','partners']]],
   contract: [() => import('./sections/contracts.js'), [['contract','contract'],['contracts','contracts']]],
@@ -221,6 +222,7 @@ function shell() {
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
     chatButton(),
     bellButton(),
+    h('a', { class: 'btn btn-ghost btn-icon', href: '#help', title: 'Работа с сайтом: с чего начать', 'aria-label': 'Работа с сайтом' }, icon('help')),
     seesHistory ? historyButton() : null,
     themeButton(),
     avatarButton());
