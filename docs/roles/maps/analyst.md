@@ -60,3 +60,6 @@
 
 ## Договоры поставщиков (ДП, 2026-10-29)
 - ТЗ `docs/roles/tz/SUPPLIER-CONTRACTS.md`. Новая `suppliercontracts` (имя `contracts` — след старого counterparty, не брать); `supplyinvoices.contractId`. DTO `supply/dto-invoice.ts:14`; экраны invoice.js:207, request-step.js:138, invoices-tab.js, partners.js. kppdf-репо недоступно с этой машины. Вопросы ДП-1…4. коммит: —
+
+## Аудит «В работе» + воронка (2026-10-29)
+- `docs/audit/AUDIT-PRODUCTION.md`. Есть: `worktypes` (общая; `work-type.schema.ts`), `ProductModule.workTypes[]` (`product-module.schema.ts:66`), `persons.workTypeId` (один). Нет: маршрута у `products`, `persons.workTypeIds[]`, `worktasks`, пункта «Изготовлено» в `order-readiness.ts`. Образец доски — `modules/design`. Вопросы 1–8 в отчёте, в QUESTIONS не перенесены. коммит: —
