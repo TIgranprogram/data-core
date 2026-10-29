@@ -220,6 +220,7 @@ export const orders = {
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/incomes/${r.id}/photos`, { method: 'POST', body: { photoId } }),
     photoRemove: (r, photoId) => api(`/incomes/${r.id}/photos/${photoId}`, { method: 'DELETE' }),
+    photoMain: (r, photoId) => api(`/incomes/${r.id}/photos/${photoId}/main`, { method: 'PUT' }),
     heading,
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплачено', r.paidAmount ? money(r.paidAmount) : '—'], ['Долг', r.amount ? money(r.debt || 0) : '—']] : [])],

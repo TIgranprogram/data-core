@@ -346,6 +346,7 @@ export const products = {
     extra: (r) => h('div', null, warnNote(r), compositionBlock(r), session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
+    photoMain: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [photoId, ...(r.photos || []).map((p) => p.id).filter((x) => x !== photoId)] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r, ctx) => [
       grp('Названия и артикул'),

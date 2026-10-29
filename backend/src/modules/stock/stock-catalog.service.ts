@@ -1,3 +1,4 @@
+import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -123,6 +124,15 @@ export class StockCatalogService {
     const res = await this.materials.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
     await this.materials.updateOne({ _id, $or: [{ mainPhotoId: null }, { mainPhotoId: { $exists: false } }] }, { $set: { mainPhotoId: pid } }).exec();
+    return this.search.getItem(materialId);
+  }
+
+  /** Сделать фото главным: первое в списке и mainPhotoId (его читает CRM). */
+  async mainPhoto(materialId: string, photoId: string) {
+    const _id = oid(materialId, 'позиции'); const pid = oid(photoId, 'фото');
+    await photoToFront((f, u) => this.materials.updateOne(f, u).exec(), { _id, deletedAt: null }, pid);
+    await this.materials.updateOne({ _id }, { $set: { mainPhotoId: pid } }).exec();
+    await this.core.markEdited(_id);
     return this.search.getItem(materialId);
   }
 

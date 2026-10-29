@@ -1,3 +1,4 @@
+import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { createHash } from 'crypto';
@@ -134,6 +135,11 @@ export class SupplierCatalogService {
     if (!(await this.coll('photos').countDocuments({ _id: pid }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
     const r = await this.items.updateOne({ _id: oid(id), deletedAt: null }, { $addToSet: { photoIds: pid }, $set: { updatedAt: new Date() } });
     if (!r.matchedCount) throw new NotFoundException('Позиция каталога не найдена');
+    return this.one(id);
+  }
+
+  async mainPhoto(id: string, photoId: string) {
+    await photoToFront((f, u) => this.items.updateOne(f, u), { _id: oid(id), deletedAt: null }, oid(photoId, 'фото'));
     return this.one(id);
   }
 

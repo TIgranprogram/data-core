@@ -161,6 +161,7 @@ export const stock = {
 
   card: {
     gallery: (r) => r.photos || [],
+    photoMain: (r, photoId) => api(`/stock/items/${r.id}/photos/${photoId}/main`, { method: 'PUT' }),
     // СКФ.5: фото в карточке — только просмотр; добавить / убрать — в «Изменить» (раньше было в двух местах)
     heading: (r) => r.name,
     subheading: (r) => [r.categoryName, r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
@@ -262,6 +263,7 @@ export const stock = {
       const have = new Set((r.photos || []).map((p) => p.id));
       for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });
       for (const p of have) if (photoIds && !photoIds.includes(p)) r = await api(`/stock/items/${id}/photos/${p}`, { method: 'DELETE' });
+      if (photoIds?.[0] && r.photos?.[0]?.id !== photoIds[0]) r = await api(`/stock/items/${id}/photos/${photoIds[0]}/main`, { method: 'PUT' }); // ★ в форме
       lookups.reset(); return r;
     },
   },

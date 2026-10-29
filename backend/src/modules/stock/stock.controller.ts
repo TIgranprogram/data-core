@@ -1,6 +1,6 @@
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
@@ -112,6 +112,11 @@ export class StockController {
   photo(@Param('id') id: string, @Body() dto: StockPhotoDto) {
     return this.stock.addPhoto(id, dto.photoId);
   }
+
+  @Put('items/:id/photos/:photoId/main')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.photo.main', entityType: 'Material', idParam: 'id' })
+  mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.stock.mainPhoto(id, photoId); }
 
   /** Убрать фото позиции (главное — следующее по списку). */
   @Delete('items/:id/photos/:photoId')

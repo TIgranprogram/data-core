@@ -1,3 +1,4 @@
+import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { customerNames } from '../partners/customer-names';
@@ -287,6 +288,12 @@ export class IncomesService {
     if (!(await this.connection.db!.collection('photos').findOne({ _id: pid }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
     const res = await this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid }, $set: { editedInApp: true } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
+    return this.get(id);
+  }
+
+  /** Сделать фото главным (первым). */
+  async mainPhoto(id: string, photoId: string) {
+    await photoToFront((f, u) => this.model.updateOne(f, u).exec(), { _id: oid(id, 'позиции'), deletedAt: null }, oid(photoId, 'фото'));
     return this.get(id);
   }
 

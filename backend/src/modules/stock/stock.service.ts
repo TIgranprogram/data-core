@@ -24,7 +24,7 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  * |-----------------------------------------------------------------------------------------|-------------------------------|
  * | defaultWarehouse, listWarehouses, (loadStorage, markEdited, issuedNames)               | stock-core.service.ts         |
  * | listItems, getItem, openRequests, itemOrdered, categorySummary, totals                  | stock-search.service.ts       |
- * | createItem, updateItem, addPhoto, removePhoto, removeItem, restoreItem, findMaterialByName, autoArticle, skuFor, adoptArticle | stock-catalog.service.ts |
+ * | createItem, updateItem, addPhoto, mainPhoto, removePhoto, removeItem, restoreItem, findMaterialByName, autoArticle, skuFor, adoptArticle | stock-catalog.service.ts |
  * | move, batch, cancelBatch, cancelMovement, listMovements, history, offcut                | stock-movements.service.ts    |
  * | reserveList, listReservations, releaseReservation, releaseGroup, issueReservations, reservationDetail, updateReservation, reservationsByOrder, issueOrder | stock-reservations.service.ts |
  * | specPreview, specApply (спецификация Excel → брони, SK-6)                               | stock-spec.service.ts         |
@@ -67,6 +67,7 @@ export class StockService {
   updateItem(materialId: string, dto: StockItemInput) { return this.catalog.updateItem(materialId, dto); }
   addPhoto(materialId: string, photoId: string) { return this.catalog.addPhoto(materialId, photoId); }
   removePhoto(materialId: string, photoId: string) { return this.catalog.removePhoto(materialId, photoId); }
+  mainPhoto(materialId: string, photoId: string) { return this.catalog.mainPhoto(materialId, photoId); }
   removeItem(materialId: string) { return this.catalog.removeItem(materialId); }
   restoreItem(materialId: string) { return this.catalog.restoreItem(materialId); }
   adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> { return this.catalog.adoptArticle(materialId, incoming, source); }

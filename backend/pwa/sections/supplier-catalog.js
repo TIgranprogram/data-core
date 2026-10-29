@@ -302,6 +302,7 @@ export const supplierCatalog = {
   card: {
     gallery: (r) => r.photos || [],
     photoAdd: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); rowCache.set(x.id, x); return x; },
+    photoMain: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}/main`, { method: 'PUT' }); rowCache.set(x.id, x); return x; },
     photoRemove: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }); rowCache.set(x.id, x); return x; },
     heading: (r) => r.name,
     subheading: (r) => r.supplierName || '',
@@ -337,6 +338,7 @@ export const supplierCatalog = {
   form: {
     closeAfterCreate: true,
     fields: async (r) => {
+      if (!r) suppliersCache = null; // каждый раз свежий список: поставщик мог появиться в «Контрагентах» только что
       const sups = r ? [] : await loadSuppliers();
       return [
         { section: 'Позиция', tone: 'main', fixed: true },

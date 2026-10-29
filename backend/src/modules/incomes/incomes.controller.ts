@@ -1,5 +1,5 @@
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseInterceptors } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -74,6 +74,11 @@ export class IncomesController {
   addPhoto(@Param('id') id: string, @Body() body: { photoId?: string }) {
     return this.incomes.addPhoto(id, String(body?.photoId ?? ''));
   }
+
+  @Put(':id/photos/:photoId/main')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.photo.main', entityType: 'Income', idParam: 'id' })
+  mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.incomes.mainPhoto(id, photoId); }
 
   @Delete(':id/photos/:photoId')
   @Roles('admin', 'manager')

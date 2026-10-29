@@ -1,3 +1,4 @@
+import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
@@ -164,6 +165,11 @@ export class SupplyService {
     const _id = oid(id, 'заявки');
     const [pid] = await this.photoOids([photoId]);
     await this.writePhotos(_id, { $addToSet: { photoIds: pid } });
+    return this.get(id);
+  }
+
+  async mainPhoto(id: string, photoId: string) {
+    await photoToFront((f, u) => this.model.updateOne(f, u).exec(), { _id: oid(id, 'заявки'), deletedAt: null }, oid(photoId, 'фото'));
     return this.get(id);
   }
 

@@ -1,5 +1,5 @@
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -186,6 +186,12 @@ export class SupplyController {
   }
 
   @AppSection('requests', 'suppliercatalog')
+  @Put('catalog/items/:id/photos/:photoId/main')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.catalog.photo.main', entityType: 'SupplierItem', idParam: 'id' })
+  catalogMainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.catalog.mainPhoto(id, photoId); }
+
+  @AppSection('requests', 'suppliercatalog')
   @Delete('catalog/items/:id/photos/:photoId')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.catalog.photo.removed', entityType: 'SupplierItem', idParam: 'id' })
@@ -289,6 +295,11 @@ export class SupplyController {
   addPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto) {
     return this.supply.addPhoto(id, dto.photoId);
   }
+
+  @Put('requests/:id/photos/:photoId/main')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.photo.main', entityType: 'SupplyRequest', idParam: 'id' })
+  mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.supply.mainPhoto(id, photoId); }
 
   /** Убрать фото из заявки (сам файл остаётся в фотохранилище). */
   @Delete('requests/:id/photos/:photoId')

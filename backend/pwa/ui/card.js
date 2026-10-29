@@ -31,10 +31,13 @@ import { DOCK_MIN } from '../core/prefs.js';
  */
 
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
-function gallery(pics, onRemove) {
+function gallery(pics, onRemove, onMain) {
   const big = h('img', { class: 'g-big', src: PREFIX + pics[0].url, alt: '', loading: 'lazy', decoding: 'async' });
   let cur = 0;
-  const show = (i) => { cur = i; big.src = PREFIX + pics[i].url; strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); };
+  // первое фото — главное (обложка в списках); «Сделать главным» ставит выбранное первым
+  const main = onMain && pics.length > 1 ? h('button', { class: 'btn btn-ghost btn-sm g-main', type: 'button', onclick: (e) => { e.stopPropagation(); if (cur) onMain(pics[cur]); } }) : null;
+  const paintMain = () => { if (main) { main.textContent = cur ? '☆ Сделать главным' : '★ Главное фото'; main.disabled = !cur; } };
+  const show = (i) => { cur = i; big.src = PREFIX + pics[i].url; strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); paintMain(); };
   const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', class: i ? '' : 'active', onclick: () => show(i) }))) : h('div');
   big.addEventListener('click', () => {
     const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото' }, h('img', { src: PREFIX + pics[cur].url, alt: '' }));
@@ -44,7 +47,8 @@ function gallery(pics, onRemove) {
     document.body.append(box);
   });
   const del = onRemove ? h('button', { class: 'btn btn-ghost btn-sm g-del', type: 'button', title: 'Убрать это фото из карточки', onclick: (e) => { e.stopPropagation(); onRemove(pics[cur]); } }, 'Убрать фото') : null;
-  return h('div', { class: 'gallery' }, big, strip, del);
+  paintMain();
+  return h('div', { class: 'gallery' }, big, strip, main, del);
 }
 const docked = () => window.innerWidth >= DOCK_MIN;
 export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
@@ -99,6 +103,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (pics.length) content.push(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
       if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из карточки.', { okText: 'Убрать' }))) return;
       try { actx().setRow(await section.card.photoRemove(row, p.id)); toast('Фото убрано'); } catch (e) { toastError(e); }
+    } : null, canEditSection(section) && section.card.photoMain ? async (p) => {
+      try { actx().setRow(await section.card.photoMain(row, p.id)); toast('Главное фото выбрано'); } catch (e) { toastError(e); }
     } : null));
     if (canPhoto) content.push(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }));
     if (section.card.stats) content.push(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))));

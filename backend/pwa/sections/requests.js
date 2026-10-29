@@ -346,6 +346,7 @@ export const requests = {
     // Свои фото заявки; нет своих — фото позиции склада (его меняют в карточке склада)
     gallery: (r) => (r.photos?.length ? r.photos : r.materialPhoto ? [r.materialPhoto] : []),
     photoAdd: (r, photoId) => api(`/supply/requests/${r.id}/photos`, { method: 'POST', body: { photoId } }),
+    photoMain: (r, photoId) => (photoId && r.photos?.length ? api(`/supply/requests/${r.id}/photos/${photoId}/main`, { method: 'PUT' }) : r),
     photoRemove: (r, photoId) => {
       if (!photoId) throw new Error('Это фото позиции склада — поменять его можно в карточке склада');
       return api(`/supply/requests/${r.id}/photos/${photoId}`, { method: 'DELETE' });

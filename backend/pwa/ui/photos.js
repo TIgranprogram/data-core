@@ -76,7 +76,9 @@ export function photoField(initial = []) {
   const strip = h('div', { class: 'pf-strip' });
   const render = () => strip.replaceChildren(...pics.map((p, i) => h('div', { class: 'pf-item' },
     h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
-    h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: () => { pics.splice(i, 1); render(); } }, '×'))));
+    h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: () => { pics.splice(i, 1); render(); } }, '×'),
+    // первое — главное; ★ у другого — поставить его первым
+    pics.length > 1 ? h('button', { type: 'button', class: 'pf-main' + (i ? '' : ' on'), title: i ? 'Сделать главным' : 'Главное фото', 'aria-label': i ? 'Сделать главным' : 'Главное фото', onclick: () => { if (i) { pics.unshift(...pics.splice(i, 1)); render(); } } }, i ? '☆' : '★') : null)));
   const drop = photoDrop({ attach: async (id, p) => { pics.push({ id, ...p }); return pics; }, done: render });
   render();
   return { el: h('div', { class: 'photo-field' }, strip, drop), ids: () => pics.map((p) => p.id), set: (list) => { pics = [...(list || [])]; render(); }, focus: () => drop.focus() };

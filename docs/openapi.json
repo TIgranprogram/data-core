@@ -2875,6 +2875,37 @@
         ]
       }
     },
+    "/stock/items/{id}/photos/{photoId}/main": {
+      "put": {
+        "operationId": "StockController_mainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/items/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "StockController_removePhoto",
@@ -3922,6 +3953,37 @@
         ]
       }
     },
+    "/supply/catalog/items/{id}/photos/{photoId}/main": {
+      "put": {
+        "operationId": "SupplyController_catalogMainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/catalog/items/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "SupplyController_catalogRemovePhoto",
@@ -4238,6 +4300,37 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/requests/{id}/photos/{photoId}/main": {
+      "put": {
+        "operationId": "SupplyController_mainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -5925,6 +6018,37 @@
         "parameters": [
           {
             "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/photos/{photoId}/main": {
+      "put": {
+        "operationId": "IncomesController_mainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
             "required": true,
             "in": "path",
             "schema": {
