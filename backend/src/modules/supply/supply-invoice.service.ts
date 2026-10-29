@@ -8,7 +8,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { MaterialPriceService } from '../material/material-price.service';
 import type { PriceSource } from '../material/material-price.schema';
 import { PatchInvoiceDto } from './dto-invoice';
-import { ISSUED_GATE, ORDERED_GATE, missing, splitAmount } from './supply-invoice-rules';
+import { ISSUED_GATE, ORDERED_GATE, missing, normInvoiceNo, splitAmount } from './supply-invoice-rules';
 import { SupplyInvoice, SupplyInvoiceDocument } from './supply-invoice.schema';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
 import { SupplyService } from './supply.service';
@@ -223,6 +223,16 @@ export class SupplyInvoiceService {
       set.contractId = undefined;
       warnings.push('Договор снят: он относится к прежнему поставщику. Выберите договор нового поставщика');
     }
+    const noNow = 'no' in set ? set.no : inv.no;
+    if ((dto.no !== undefined || set.supplierId) && noNow && supplierNow) {
+      const key = normInvoiceNo(noNow);
+      const same = await this.model.find({ supplierId: supplierNow, deletedAt: null, status: { $ne: 'cancelled' }, _id: { $ne: inv._id } }).lean().exec() as Lean[];
+      const dup = same.find((x) => normInvoiceNo(x.no) === key);
+      if (dup) {
+        if (dup.status === 'paid') throw new ConflictException(`Счёт № ${String(noNow)} у этого поставщика уже оплачен (сумма ${Number(dup.amount) || 0}). Проверьте номер или добавьте позицию к нему вручную`);
+        return this.mergeInto(dup, inv, set, dto, actorId, [...warnings, `Счёт № ${String(dup.no)} у этого поставщика уже есть — позиции добавлены в него`]);
+      }
+    }
     const next = { ...inv, ...set };
     if (dto.issue) {
       const lack = missing(ISSUED_GATE, next);
@@ -246,6 +256,40 @@ export class SupplyInvoiceService {
       await this.notices.toRoles(['admin', 'director', 'accountant'], { type: 'invoice_awaiting_payment', text: `Счёт ${what || 'без номера'} выставлен — ждёт оплаты`, href: `#requests?tab=invoices&open=${id}` }, actorId);
     }
     return warnings.length ? { ...(await this.get(id)), warnings } : this.get(id);
+  }
+
+  /** Склейка дубля: заявки текущего счёта → найденный (сумма складывается, файлы объединяются), текущий удаляется с mergedInto. */
+  private async mergeInto(dup: Lean, inv: Lean, set: Lean, dto: PatchInvoiceDto, actorId: string | undefined, warnings: string[]) {
+    const mine = { ...inv, ...set };
+    const a = dup.amount as number | undefined; const b = mine.amount as number | undefined;
+    const amount = a != null && b != null ? Math.round((a + b) * 100) / 100 : a ?? b;
+    const ids = new Map<string, Types.ObjectId>();
+    for (const f of [...((dup.fileIds as Types.ObjectId[]) ?? []), ...((mine.fileIds as Types.ObjectId[]) ?? [])]) ids.set(String(f), f);
+    const patch: Lean = { fileIds: [...ids.values()], amount };
+    for (const k of ['contractId', 'payerCompanyId', 'date']) if (!dup[k] && mine[k]) patch[k] = mine[k];
+    const next = { ...dup, ...patch };
+    if (dto.issue) {
+      const lack = missing(ISSUED_GATE, next);
+      if (lack.length) throw new BadRequestException(`Счёт нельзя отметить выставленным — не заполнено: ${lack.join(', ')}`);
+      patch.status = 'issued';
+    }
+    const status = (patch.status ?? dup.status) as string;
+    await this.tx(async (session) => {
+      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { invoiceId: dup._id, supplierId: dup.supplierId, editedInApp: true } }, { session }).exec();
+      const $set: Lean = {}; const $unset: Lean = {};
+      for (const [k, v] of Object.entries(patch)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
+      await this.model.updateOne({ _id: dup._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
+      await this.model.updateOne({ _id: inv._id }, { $set: { deletedAt: new Date(), mergedInto: dup._id } }, { session }).exec();
+      if (status === 'issued') {
+        await this.copyToRequests({ ...next, status }, session);
+        if (dup.status !== 'issued') await this.recordPrices({ ...next, status }, 'invoice_issued', session);
+      }
+    });
+    if (status === 'issued' && dup.status !== 'issued') {
+      const what = [next.no ? `№${String(next.no)}` : '', next.supplierName ? `от ${String(next.supplierName)}` : ''].filter(Boolean).join(' ');
+      await this.notices.toRoles(['admin', 'director', 'accountant'], { type: 'invoice_awaiting_payment', text: `Счёт ${what || 'без номера'} выставлен — ждёт оплаты`, href: `#requests?tab=invoices&open=${String(dup._id)}` }, actorId);
+    }
+    return { ...(await this.get(String(dup._id))), warnings };
   }
 
   /** Копия полей счёта в заявки: № и дата, плательщик, сумма — пропорционально lineTotal (иначе priceHint), остаток копеек — последней. */

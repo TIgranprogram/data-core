@@ -46,6 +46,10 @@ export class SupplyInvoice {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   createdBy?: Types.ObjectId;
 
+  /** Счёт, в который этот склеен (дубль № у поставщика); сам удалён мягко. */
+  @Prop({ type: Types.ObjectId })
+  mergedInto?: Types.ObjectId;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
 }

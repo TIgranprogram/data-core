@@ -43,3 +43,7 @@ export function splitAmount(total: number, weights: number[]): number[] {
   out.push(cents - used);
   return out.map((c) => c / 100);
 }
+
+/** № счёта для сравнения: регистр, ё/е, «№», «No», пробелы. Копия в scripts/invoices-from-requests.js — менять синхронно. */
+export const normInvoiceNo = (s: unknown): string =>
+  String(s ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[№#]|\bн[оo]\.?\s/g, '').replace(/\s+/g, '').trim();

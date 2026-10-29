@@ -157,8 +157,11 @@ export const reqStep = {
       if (body._inv) {
         const { _inv, _sup, ...inv } = body;
         if (_sup) inv.supplierId = await ensureSupplierId(_sup); // сервер ставит имя счёта и переносит поставщика во все заявки счёта
-        await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { ...inv, issue: true } });
-        if (session.canMoney) { await api(`/supply/invoices/${_inv}/pay`, { method: 'POST' }); toast('Счёт оплачен'); } else toast('Счёт выставлен — оплату отметит бухгалтер');
+        // счёт с таким № у поставщика уже есть — сервер добавит позицию в него (ответ — тот счёт, id другой)
+        const res = await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { ...inv, issue: true } });
+        showWarnings(res);
+        const invId = res?.id || _inv;
+        if (session.canMoney) { await api(`/supply/invoices/${invId}/pay`, { method: 'POST' }); toast('Счёт оплачен'); } else toast('Счёт выставлен — оплату отметит бухгалтер');
         saved = await api(`/supply/requests/${id}`);
       } else if (body._order) {
         const { _order, ...rest } = body;
@@ -227,10 +230,11 @@ export function invoiceBlock(r, ctx) {
     const known = (inv.fileIds || []).map(String);
     const body = () => ({ no: no.value.trim(), date: dt.value, amount: Number(String(amount.value).replace(',', '.').replace(/\s/g, '')) || 0, payerCompanyId: payer.value, fileIds: [...known, ...files.ids()] });
     const run = async (btn, fn) => { btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); } };
-    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } }); toast('Счёт сохранён'); }) }, 'Сохранить');
+    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } })); toast('Счёт сохранён'); }) }, 'Сохранить');
     const pay = h('button', { class: 'btn', type: 'button', onclick: () => run(pay, async () => {
-      await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } });
-      await api(`/supply/invoices/${inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен');
+      const res = await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } });
+      showWarnings(res);
+      await api(`/supply/invoices/${res?.id || inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен');
     }) }, 'Счёт оплачен');
     const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
     // договор поставщика: выбор/создание сразу пишет в счёт (можно и у оплаченного); без прав — только показ
