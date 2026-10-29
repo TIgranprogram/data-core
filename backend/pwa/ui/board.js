@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { onChange, patch } from '../core/router.js';
 import { failBlock } from './busy.js';
+import { paintOrder } from '../core/order-color.js';
 import { toastError } from './toast.js';
 
 /**
@@ -180,6 +181,20 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     bindDrag(card, row, c.key);
     return card;
   }
+  /**
+   * board.group(row) → { key, label, sub? } | null — карточки одной группы рядом под заголовком, свой цвет (как заказы на доске
+   * «Проектирование», core/order-color.js). Порядок групп — по первой карточке; без группы — внизу, без заголовка.
+   */
+  function groupEls(rows, c) {
+    const by = new Map();
+    for (const row of rows) { const g = board.group(row); const k = g?.key || ''; if (!by.has(k)) by.set(k, { g, rows: [] }); by.get(k).rows.push(row); }
+    const list = [...by.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : 0));
+    return list.map(([k, { g, rows: rs }]) => {
+      const cards = rs.map((row) => { const el = cardEl(row, c); if (k) { paintOrder(el, k); el.classList.add('t-grouped'); } return el; });
+      if (!k) return h('div', { class: 'db-group' }, ...cards);
+      return paintOrder(h('div', { class: 'db-group' }, h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), h('b', null, g.label), g.sub ? h('span', { class: 'muted' }, ' · ' + g.sub) : null, rs.length > 1 ? h('span', { class: 'muted' }, ' · ' + rs.length) : null), ...cards), k);
+    });
+  }
   /** Блок внутри карточки со своими кнопками: нажатие не открывает карточку и не начинает перетаскивание. */
   function quiet(node) {
     for (const t of ['pointerdown', 'click', 'keydown']) node.addEventListener(t, (e) => e.stopPropagation());
@@ -197,9 +212,12 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     col.shown = (append ? col.shown : 0) + r.items.length;
     col.rows = append ? [...col.rows, ...r.items] : [...r.items];
     if (col.all) col.all.textContent = 'Выбрать все';
-    const cards = r.items.map((row) => cardEl(row, c));
-    if (!append) body.replaceChildren(...(cards.length ? cards : [h('div', { class: 'col-more muted' }, typeof c.emptyText === 'function' ? c.emptyText() : c.emptyText || 'Пусто')]));
-    else body.append(...cards);
+    if (board.group && col.rows.length) body.replaceChildren(...groupEls(col.rows, c)); // группы (счёт) — колонка целиком, порция встаёт в свою группу
+    else {
+      const cards = r.items.map((row) => cardEl(row, c));
+      if (!append) body.replaceChildren(...(cards.length ? cards : [h('div', { class: 'col-more muted' }, typeof c.emptyText === 'function' ? c.emptyText() : c.emptyText || 'Пусто')]));
+      else body.append(...cards);
+    }
     const rest = r.total - col.shown;
     col.more = null;
     if (rest > 0) {

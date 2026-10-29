@@ -1,3 +1,4 @@
+import { paintOrder } from '../core/order-color.js';
 import { api, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
@@ -284,6 +285,7 @@ export const requests = {
       { key: 'title', label: 'Наименование', sort: 'title', cls: 'clip', render: (r) => h('span', { title: name(r) }, name(r)) },
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
       { key: 'supplierName', label: 'Поставщик', cls: 'md-hide', render: (r) => r.supplierName || '' },
+      { key: 'invoiceNo', label: 'Счёт', cls: 'nowrap md-hide', render: (r) => (r.invoiceNo ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), '№ ' + r.invoiceNo), String(r.invoiceId || 'n:' + r.invoiceNo)) : '') },
       { key: 'orderTag', label: 'Заказ', cls: 'nowrap md-hide', render: (r) => (r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId, title: r.orderLabel || '' }, orderTag(r)) : '') },
       { key: 'requestedBy', label: 'Кто подал', sort: 'requestedBy', cls: 'nowrap md-hide', render: (r) => r.requestedBy || '' },
       { key: 'priceHint', money: true, label: 'Сумма', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
@@ -318,6 +320,8 @@ export const requests = {
       } };
     },
     board: {
+      // карточки одного счёта — рядом, своим цветом (как заказы на доске «Проектирование»)
+      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: 'Счёт № ' + (r.invoiceNo || '—'), sub: r.supplierName || '' } : null),
       colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
       default: true, // доска — вид по умолчанию; «Таблица» — переключатель, выбор запоминается (viewKey)
       columns: STATUS_ORDER.map((k) => ({
