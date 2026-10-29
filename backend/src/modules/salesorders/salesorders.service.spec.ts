@@ -26,15 +26,17 @@ describe('SalesOrdersService: приоритет и изделие позици�
   let rows: Record<string, Array<Record<string, unknown>>>;
   let model: { find: jest.Mock; findOne: jest.Mock; countDocuments: jest.Mock; aggregate: jest.Mock; updateOne: jest.Mock };
   let incomesUpdateMany: jest.Mock;
+  let distinct: jest.Mock;
   let service: SalesOrdersService;
   const orderId = new Types.ObjectId();
 
   beforeEach(() => {
     rows = {};
     incomesUpdateMany = jest.fn();
+    distinct = jest.fn(async () => [orderId]);
     const coll = (name: string) => {
       const q = { sort: () => q, toArray: async () => rows[name] ?? [] };
-      return { find: jest.fn(() => q), aggregate: jest.fn(() => q), updateMany: incomesUpdateMany };
+      return { find: jest.fn(() => q), aggregate: jest.fn(() => q), updateMany: incomesUpdateMany, distinct };
     };
     const connection = { db: { collection: jest.fn(coll) } };
     model = {
@@ -49,6 +51,14 @@ describe('SalesOrdersService: приоритет и изделие позици�
     const filter = model.find.mock.calls[0][0];
     expect(filter.$and).toContainEqual({ $or: [{ priority: { $in: ['urgent', 'normal'] } }, { priority: null }] });
     await expect(service.list({ priority: 'asap' })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('список: ?productId= — только договоры с позицией этого изделия (КМ1); мусор — 400', async () => {
+    const pid = new Types.ObjectId();
+    await service.list({ productId: String(pid) });
+    expect(distinct).toHaveBeenCalledWith('orderId', { productId: { $in: [pid] }, deletedAt: null, orderId: { $ne: null } });
+    expect(model.find.mock.calls[0][0].$and).toContainEqual({ _id: { $in: [orderId] } });
+    await expect(service.list({ productId: 'zzz' })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('список: сортировка по priority — по рангу (срочные сверху), не по алфавиту', async () => {

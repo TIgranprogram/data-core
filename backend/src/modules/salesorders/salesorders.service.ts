@@ -100,9 +100,19 @@ export class SalesOrdersService {
     return { filter, stages };
   }
 
+  /** КМ1: ?productId= — договоры, у которых есть живая позиция с этим изделием (несколько id через запятую — любое из них). */
+  private async byProduct(filter: Doc, productId: unknown) {
+    const pids = oids(productId);
+    if (!productId) return;
+    if (!pids.length) throw new BadRequestException('Некорректный id изделия');
+    const ids = await this.connection.db!.collection('incomes').distinct('orderId', { productId: { $in: pids }, deletedAt: null, orderId: { $ne: null } });
+    filter.$and = [...((filter.$and as unknown[]) ?? []), { _id: { $in: ids } }];
+  }
+
   async list(q: Record<string, unknown> = {}) {
     const p = parseList(q, { sortable: SORT, defaultSort: '-createdAt', defaultLimit: 25 });
     const { filter, stages } = this.filters(q, p.deleted);
+    await this.byProduct(filter, q.productId);
     const full = { ...filter, ...(stages ? { stage: { $in: stages } } : {}) };
     // № заказа «N-ГГ» — не по алфавиту: год, затем N числом; без № — в конце (Mongo 4.4: $split + $convert)
     const num = (i: number) => ({ $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: ['$productionNo', ''] }, '-'] }, i] }, to: 'int', onError: null, onNull: null } });

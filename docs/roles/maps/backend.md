@@ -71,3 +71,6 @@
 ## Готовность заказа и уведомления (В4, 2026-10-28, не закоммичено)
 - `salesorders/order-readiness.ts` (pure `readinessChecks`, `loadReadinessFacts` — 4 агрегации), `production-orders.service.ts` `readiness`/`evaluate`/`recheck` (order_ready, состояние `orderreadystate`), `setStage` → `warnings`; маршрут `:key/readiness`.
 - `notifications.service.ts` `safe`/`toRoles`; хуки: `supply-invoice.service.ts update` (счёт выставлен), `supply.service.ts afterStatus`+`supply-notices.ts` (заявка вернулась), `design.service.ts notifyAssigned` (нужен `persons.userId`, связи нет — пока не шлётся). openapi не обновлён. коммит: —
+
+## Сопоставление позиций (CONTRACT-MATCHING КМ1–КМ4, КМ6, 2026-10-29, не закоммичено)
+- `modules/matching/` (`matching-rules.ts` suggest/lineState/blockText, `match-facts.ts` loadOrderMatches, `matching.service.ts` suggest/confirm/none/bulk, `product-alias.schema.ts`); блок в `production-orders.service.ts:assign` (400 + `unmatched`, фильтр пропускает `unmatched` — `http-exception.filter.ts`); `salesorders.service.ts` `byProduct` (?productId=); КМ6 — `incomes.service.ts` create/update ставят `matchStatus:auto`. Тесты: `matching.spec.ts`, `production-orders.assign.spec.ts`. e2e не писался, openapi не обновлён. КМ7 (скрипт данных) не делался. коммит: —

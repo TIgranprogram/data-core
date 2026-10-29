@@ -8,6 +8,8 @@ import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, type OrderStage
 import { numberLines, sortLines, sortOrdersByEntry } from '../../common/text/production-seq';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { loadOrderMatches } from '../matching/match-facts';
+import { blockText, isMatched } from '../matching/matching-rules';
 import { ourCompanies } from '../incomes/incomes.service';
 import { loadReadinessFacts, readinessChecks, readinessWarnings, type Readiness } from './order-readiness';
 import { checkAssign, compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
@@ -69,10 +71,12 @@ export class ProductionOrdersService {
       { $match: { orderId: { $in: ids }, deletedAt: null } },
       { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' } } },
     ]).toArray() : [];
+    const facts = await loadOrderMatches(this.connection.db!, ids);
     const sum = new Map(agg.map((a) => [String(a._id), a]));
     const items = docs.map((d) => ({
       id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', customer: (d.customer as string | undefined) ?? '',
       date: (d.contractDate ?? d.createdAt) as Date, amount: sum.get(String(d._id))?.amount ?? 0, lineCount: sum.get(String(d._id))?.lines ?? 0,
+      matchedCount: facts.get(String(d._id))?.matched ?? 0, canAssign: (facts.get(String(d._id))?.total ?? 0) > 0 && facts.get(String(d._id))?.unmatched.length === 0,
     }));
     return { items, total, page: p.page, limit: p.limit };
   }
@@ -85,6 +89,14 @@ export class ProductionOrdersService {
     const { missing, taken } = checkAssign(ids, found);
     if (missing.length) throw new NotFoundException(`Договор не найден: ${missing.join(', ')}`);
     if (taken.length) throw new ConflictException(`Договор уже в заказе ${taken.map((t) => t.productionNo).join(', ')}`);
+    // КМ4: в заказ — только когда все позиции сопоставлены (изделие подтверждено или «не изделие»)
+    const facts = await loadOrderMatches(this.connection.db!, found.map((d) => d._id));
+    const blocked = found.filter((d) => { const m = facts.get(String(d._id))!; return !m.total || m.unmatched.length; });
+    if (blocked.length) {
+      const unmatched = blocked.map((d) => ({ orderId: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', total: facts.get(String(d._id))!.total, unmatched: facts.get(String(d._id))!.unmatched.length, lines: facts.get(String(d._id))!.unmatched.slice(0, 5) }));
+      const text = blocked.map((d) => blockText((d.orderNo as string | undefined) ?? '', facts.get(String(d._id))!)).join('. ');
+      throw new BadRequestException({ statusCode: 400, message: `${text}. Сопоставьте их в разделе Заказы → Без заказа → Сопоставление`, error: 'Bad Request', unmatched });
+    }
     let no = String(productionNo ?? '').trim();
     if (no) {
       if (!(await this.byNo(no)).length) throw new NotFoundException(`Заказ ${no} не найден`);
@@ -197,14 +209,14 @@ export class ProductionOrdersService {
     const lines: ProduceLine[] = [];
     const orders = cards.map((c) => {
       const ls = sortLines(c.lines as never[]) as unknown as Array<Doc & { id: string }>;
-      const withSeq = ls.map((l) => ({ ...l, seqNo: seq.get(l.id) ?? null })) as Array<Doc & { id: string; seqNo: number | null }>;
+      const withSeq = ls.map((l) => ({ ...l, seqNo: seq.get(l.id) ?? null, matched: isMatched(l) })) as Array<Doc & { id: string; seqNo: number | null }>;
       if (c.stage !== 'cancelled') {
         for (const l of withSeq) lines.push({ seqNo: l.seqNo as number, title: String(l.title ?? ''), unit: l.unit as string | undefined, qty: l.qty as number | undefined, productId: l.productId ? String(l.productId) : null, productName: (l.product as { name?: string } | null)?.name });
       }
-      return { ...c, lines: withSeq };
+      return { ...c, lines: withSeq, unmatchedCount: withSeq.filter((l) => !(l as unknown as { matched: boolean }).matched).length };
     });
     const sum = summarize(docs);
-    return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, toProduce: toProduce(lines), ...sum, stageLabel: STAGE_LABELS[sum.stage] };
+    return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, unmatchedCount: orders.reduce((a, o) => a + o.unmatchedCount, 0), toProduce: toProduce(lines), ...sum, stageLabel: STAGE_LABELS[sum.stage] };
   }
 
   private liveIds(docs: Doc[]) { return docs.filter((d) => d.stage !== 'cancelled').map((d) => d._id as Types.ObjectId); }

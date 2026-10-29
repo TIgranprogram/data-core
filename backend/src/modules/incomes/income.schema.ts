@@ -21,6 +21,10 @@ export class Income {
   /** № позиции в заказе (столбец «№» заказ-наряда). */
   /** Изделие из «Продукции» (необязательно, TASKS БЗ-5). Правка изделия описание позиции не меняет — позиция остаётся как в договоре. */
   @Prop({ type: Types.ObjectId, ref: 'Product', index: true, sparse: true }) productId?: Types.ObjectId;
+  /** КМ2: сопоставление с изделием. auto — предложено, не подтверждено; confirmed — подтверждено; none — «не изделие» (монтаж, доставка). CRM не читает. */
+  @Prop({ enum: ['auto', 'confirmed', 'none'] }) matchStatus?: 'auto' | 'confirmed' | 'none';
+  @Prop({ type: Date }) matchedAt?: Date;
+  @Prop({ type: Types.ObjectId, ref: 'User' }) matchedBy?: Types.ObjectId;
   @Prop() lineNo?: number;
   /** № заказа (как в таблице; строка — бывают «34/2»). */
   @Prop({ trim: true, index: true }) orderNo?: string;

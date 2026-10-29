@@ -302,6 +302,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorResponse.missing = (payload as { missing: unknown[] }).missing;
     }
 
+    // КМ4: договоры с несопоставленными позициями ([{ orderId, orderNo, total, unmatched, lines }]) — кнопка «Перейти к сопоставлению»
+    if (typeof payload === 'object' && payload !== null && Array.isArray((payload as { unmatched?: unknown }).unmatched)) {
+      errorResponse.unmatched = (payload as { unmatched: unknown[] }).unmatched;
+    }
+
     // ЧН: код сбоя — пользователь называет его, разработчик находит запись в журнале (docker logs … | grep код)
     const errorId = status >= 500 ? randomBytes(3).toString('hex').toUpperCase() : undefined;
     if (errorId) errorResponse.errorId = errorId;

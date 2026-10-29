@@ -56,6 +56,7 @@ import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { DesignModule } from './modules/design/design.module';
+import { MatchingModule } from './modules/matching/matching.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { DictsModule } from './modules/dicts/dicts.module';
@@ -173,6 +174,7 @@ import { RequestMethod } from '@nestjs/common';
     DiskModule,             // /api/health/disk — место на диске сервера (админ / директор)
     FillAuditModule,        // /api/fill-audit — «Требуют заполнения» по категориям (что, зачем, куда идти)
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
+    MatchingModule,         // /api/matching — сопоставление позиций договора с изделиями, коллекция productaliases (КМ)
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     NotificationsModule,    // /api/notifications — уведомления пользователя (Важные / Система)

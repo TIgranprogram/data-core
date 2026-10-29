@@ -30,6 +30,7 @@ export class SalesOrdersController {
   @ApiQuery({ name: 'filter', required: false, description: 'active (новый / в производстве / готов / частично отгружен) | done (отгружен / закрыт) | all' })
   @ApiQuery({ name: 'stage', required: false, description: 'этапы через запятую: new, production, ready, partly, shipped, closed, cancelled' })
   @ApiQuery({ name: 'companyId', required: false })
+  @ApiQuery({ name: 'productId', required: false, description: 'договоры, где есть позиция с этим изделием (id через запятую)' })
   @ApiQuery({ name: 'priority', required: false, description: 'приоритеты через запятую: urgent, high, normal (включает заказы без приоритета), low' })
   @ApiQuery({ name: 'from', required: false, description: 'по дате отгрузки, ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })

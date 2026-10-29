@@ -244,6 +244,9 @@ export class IncomesService {
     if (dto.productId === undefined) f.productId = await this.productByTitle(String(f.title));
     if (f.orderId) {
       await this.applyHeader(f, f.orderId);
+      // КМ6: позиция добавлена в договор, уже вошедший в заказ производства, — «не сопоставлена» до подтверждения
+      const head = await this.connection.db!.collection("salesorders").findOne({ _id: f.orderId as Types.ObjectId }, { projection: { productionNo: 1 } });
+      if (String(head?.productionNo ?? "").trim()) f.matchStatus = "auto";
       if (f.lineNo === undefined) {
         const last = await this.model.findOne({ orderId: f.orderId, deletedAt: null }).sort({ lineNo: -1 }).lean().exec();
         f.lineNo = (last?.lineNo ?? 0) + 1;
@@ -269,6 +272,8 @@ export class IncomesService {
     if ('title' in f && !f.title) throw new BadRequestException('Наименование не может быть пустым');
     const orderId = 'orderId' in f ? f.orderId : cur.orderId;
     if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
+    // КМ6: название изменили — прежнее сопоставление недействительно, нужно подтвердить заново (пока явно не задано изделие)
+    if ("title" in f && !same("title") && dto.productId === undefined && (cur.matchStatus || cur.productId)) f.matchStatus = "auto";
     const { amount, reportDate } = this.derive(cur as Record<string, unknown>, f);
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
