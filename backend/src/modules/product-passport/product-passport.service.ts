@@ -71,7 +71,7 @@ export class ProductPassportService {
   /** ПН: следующие номера — только показ. */
   nextNumbers() { return this.numbers.nextNumbers(); }
   /** ПН: задать № следующего выпущенного паспорта. */
-  setNextNumber(next: number) { return this.numbers.setNext(next); }
+  setNextNumber(want: { next?: number; nextProductCode?: number }) { return this.numbers.setNext(want); }
 
   duplicates(q: Record<string, unknown>) { return this.issueOps.duplicates(q); }
 

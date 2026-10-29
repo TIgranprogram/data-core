@@ -22,7 +22,7 @@ describe('PassportNumbers (ПН)', () => {
 
   it('next > max — счётчик сдвинут, следующий выпуск получит этот №', async () => {
     const { n, c } = make();
-    const r = await n.setNext(700);
+    const r = await n.setNext({ next: 700 });
     expect(c.passportNumber).toBe(699);
     expect(r.nextPassportNo).toBe(700);
     expect(await nextSeq(({ findOneAndUpdate: async () => ({ seq: c.passportNumber + 1 }) }) as never, 'passportNumber', 549)).toBe(700);
@@ -30,8 +30,17 @@ describe('PassportNumbers (ПН)', () => {
 
   it('next <= max — 409', async () => {
     const { n, c } = make();
-    await expect(n.setNext(549)).rejects.toBeInstanceOf(ConflictException);
-    await expect(n.setNext(10)).rejects.toThrow('не меньше 550');
+    await expect(n.setNext({ next: 549 })).rejects.toBeInstanceOf(ConflictException);
+    await expect(n.setNext({ next: 10 })).rejects.toThrow('не меньше 550');
     expect(c.passportNumber).toBe(549);
+  });
+
+  it('№ изделия: задать следующий; меньше занятого — 409; № паспорта не трогается', async () => {
+    const { n, c } = make();
+    const r = await n.setNext({ nextProductCode: 2600 });
+    expect(c.productCode).toBe(2599);
+    expect(r.nextProductCode).toBe(2600);
+    expect(c.passportNumber).toBe(549);
+    await expect(n.setNext({ nextProductCode: 5 })).rejects.toThrow('№ изделия 5 уже занят');
   });
 });

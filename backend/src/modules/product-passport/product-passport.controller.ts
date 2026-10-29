@@ -71,7 +71,7 @@ export class ProductPassportController {
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.nextNumber', entityType: 'ProductPassport' })
   setNextNumber(@Body() dto: NextPassportNumberDto) {
-    return this.service.setNextNumber(dto.next);
+    return this.service.setNextNumber(dto);
   }
 
   @Get('passports')

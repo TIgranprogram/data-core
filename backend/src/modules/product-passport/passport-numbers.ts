@@ -30,15 +30,21 @@ export class PassportNumbers {
     return { lastPassportNo: p, nextPassportNo: p + 1, nextWarrantyCode: warrantyCodeFor(date, p + 1), lastProductCode: c, nextProductCode: c + 1 };
   }
 
-  /** Следующий выпущенный паспорт получит № `next`: счётчик = next − 1. Не меньше, чем максимум существующих + 1. */
-  async setNext(next: number) {
-    const max = await this.h.maxOf('passportNumber');
-    if (next <= max) throw new ConflictException(`№ ${next} уже занят — следующий может быть не меньше ${max + 1}`);
-    await this.h.connection.collection('counters').updateOne(
-      { entity: 'passport', prefix: 'passportNumber', year: 0 },
-      { $set: { seq: next - 1 } },
-      { upsert: true },
-    );
+  /**
+   * Задать следующие номера: № паспорта (`next`) и/или № изделия (`nextProductCode`) — счётчик = значение − 1.
+   * Не меньше, чем максимум существующих + 1. Талон не задаётся — он из даты и № паспорта.
+   */
+  async setNext(want: { next?: number; nextProductCode?: number }) {
+    const pairs: Array<[Field, number, string]> = [];
+    if (want.next != null) pairs.push(['passportNumber', want.next, '№ паспорта']);
+    if (want.nextProductCode != null) pairs.push(['productCode', want.nextProductCode, '№ изделия']);
+    for (const [field, n, label] of pairs) {
+      const max = await this.h.maxOf(field);
+      if (n <= max) throw new ConflictException(`${label} ${n} уже занят — следующий может быть не меньше ${max + 1}`);
+    }
+    for (const [field, n] of pairs) {
+      await this.h.connection.collection('counters').updateOne({ entity: 'passport', prefix: field, year: 0 }, { $set: { seq: n - 1 } }, { upsert: true });
+    }
     return this.nextNumbers();
   }
 }
