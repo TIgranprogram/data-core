@@ -156,7 +156,7 @@ function specBlock(r) {
   if (!kids.length && !raw) return null;
   return h('section', { class: 'dc-prod' }, h('h3', null, 'Изделие'),
     kids.length ? h('dl', { class: 'kv-grid' }, ...kids) : null,
-    raw ? h('details', { class: 'dc-raw' }, h('summary', null, 'Исходный текст ЗНП'), h('div', { class: 'dc-note' }, raw)) : null);
+    raw ? h('details', { class: 'dc-raw' }, h('summary', null, 'Исходный текст позиции заказа'), h('div', { class: 'dc-note' }, raw)) : null);
 }
 function noteBlock(text) {
   const p = h('div', { class: 'dc-note clip3' }, text);

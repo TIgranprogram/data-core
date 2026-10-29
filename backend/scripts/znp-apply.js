@@ -270,7 +270,7 @@ async function uploadPhoto(file) {
     PARSED[z].rows.forEach((r, i, all) => {
       if (num(r[4]) != null || !clean(r[3])) return;
       const sub = (MATCH[z]?.rows || []).find((m) => m.tasks.length && m.pos.startsWith(r[0] + '.')) || (MATCH[z]?.rows || []).slice().reverse().find((m) => m.tasks.length && Number(m.pos) < Number(r[0])) || (MATCH[z]?.rows || []).find((m) => m.tasks.length);
-      if (sub) ask1(sub.tasks[0], `znp:noqty:${z}:${r[0]}`, `В заказе на производство ${z} позиция ${r[0]} «${clean(r[3])}» без количества. Нужна ли для неё задача проектирования? Если да — укажите количество в ЗНП.`);
+      if (sub) ask1(sub.tasks[0], `znp:noqty:${z}:${r[0]}`, `В заказе на производство ${z} позиция ${r[0]} «${clean(r[3])}» без количества. Нужна ли для неё задача проектирования? Если да — впишите количество: «Заказы» → заказ ${z} → позиция ${r[0]} → «Кол-во».`);
       else problems.push(`ЗНП ${z} поз ${r[0]} без количества: нет задачи для вопроса`);
     });
   }
