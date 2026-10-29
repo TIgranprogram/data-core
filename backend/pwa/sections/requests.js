@@ -322,6 +322,7 @@ export const requests = {
     board: {
       // карточки одного счёта — рядом, своим цветом (как заказы на доске «Проектирование»)
       group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: 'Счёт № ' + (r.invoiceNo || '—'), sub: r.supplierName || '' } : null),
+      groupSum: (r) => r.priceHint, // сумма счёта на карточке группы
       colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
       default: true, // доска — вид по умолчанию; «Таблица» — переключатель, выбор запоминается (viewKey)
       columns: STATUS_ORDER.map((k) => ({

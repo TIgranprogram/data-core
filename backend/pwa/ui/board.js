@@ -19,6 +19,7 @@ import { toastError } from './toast.js';
  *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
  *   columns[].hint — строка «что здесь делать» под названием; columns[].money — сумма колонки (resp.sum) для денежных ролей;
  *   columns[].multi = { label, run(rows) → число переведённых } — чекбоксы на карточках и полоса «Выбрано N · label»;
+ *   group(row) → { key, label, sub? } | null — позиции одной группы (счёт) собраны в карточку ▸/▾, как заказ на доске «Проектирование»; groupSum(row) — сумма группы
  *   card(row, c, { changed }) → ещё { foot — узел внизу карточки (чек-лист и кнопка; клики не открывают карточку) }
  * }
  * Перетаскивание — своё, на pointer-событиях (CANON §2, замечание пользователя 2026-10-19): карточка «поднимается»
@@ -159,6 +160,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   }
 
   // только последний ответ (ПО.2): быстрый поиск-стирание — старый медленный ответ не затирает новый
+  const openGroups = new Set(); // раскрытые группы (счета) — до перезагрузки
   let seq = 0;
   const fetchCol = async (c, page, my) => {
     const q = { query: { ...query, ...c.query, page, limit: c.per || per } };
@@ -189,11 +191,33 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const by = new Map();
     for (const row of rows) { const g = board.group(row); const k = g?.key || ''; if (!by.has(k)) by.set(k, { g, rows: [] }); by.get(k).rows.push(row); }
     const list = [...by.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : 0));
-    return list.map(([k, { g, rows: rs }]) => {
-      const cards = rs.map((row) => { const el = cardEl(row, c); if (k) { paintOrder(el, k); el.classList.add('t-grouped'); } return el; });
-      if (!k) return h('div', { class: 'db-group' }, ...cards);
-      return paintOrder(h('div', { class: 'db-group' }, h('div', { class: 'db-ghead' }, h('i', { class: 'db-dot' }), h('b', null, g.label), g.sub ? h('span', { class: 'muted' }, ' · ' + g.sub) : null, rs.length > 1 ? h('span', { class: 'muted' }, ' · ' + rs.length) : null), ...cards), k);
+    return list.flatMap(([k, { g, rows: rs }]) => {
+      const cards = () => rs.map((row) => { const el = cardEl(row, c); if (k) { paintOrder(el, k); el.classList.add('t-grouped'); } return el; });
+      if (!k || rs.length < 2) return cards(); // одна позиция — обычная карточка (с цветной полосой счёта)
+      return [groupCard(k, g, rs, cards)];
     });
+  }
+  /** Карточка группы (счёт) как заказ на доске «Проектирование»: ▸/▾ раскрывает позиции; раскрытое помнится до перезагрузки. */
+  function groupCard(k, g, rs, cards) {
+    const sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
+    const body = h('div', { class: 'db-lines' });
+    const chev = h('button', { type: 'button', class: 'db-chev' });
+    const card = paintOrder(h('article', { class: 'db-order' }, h('div', { class: 'db-oh' }, chev,
+      h('button', { type: 'button', class: 'db-oname', onclick: () => toggle() }, h('b', null, g.label), g.sub ? h('span', { class: 'db-cust' }, ' · ' + g.sub) : null)),
+    h('div', { class: 'db-ocnt' }, h('span', { class: 'db-cnt' }, `позиций ${rs.length}`), sum && session.canMoney ? h('span', { class: 'db-cnt num' }, money(sum)) : null), body), k);
+    const paint = () => {
+      const open = openGroups.has(k);
+      card.classList.toggle('open', open);
+      chev.textContent = open ? '▾' : '▸';
+      chev.setAttribute('aria-expanded', String(open));
+      chev.setAttribute('aria-label', `${open ? 'Скрыть' : 'Показать'} позиции: ${g.label}`);
+      body.hidden = !open;
+      body.replaceChildren(...(open ? cards() : []));
+    };
+    const toggle = () => { if (openGroups.has(k)) openGroups.delete(k); else openGroups.add(k); paint(); };
+    chev.onclick = toggle;
+    paint();
+    return card;
   }
   /** Блок внутри карточки со своими кнопками: нажатие не открывает карточку и не начинает перетаскивание. */
   function quiet(node) {
