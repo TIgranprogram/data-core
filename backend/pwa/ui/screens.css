@@ -491,7 +491,13 @@ html { scrollbar-gutter: stable; }
 .pg-note:focus { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--surface); }
 .pg-note.saved { background: var(--ok-soft); }
 .pg-held { padding: 0 4px 4px; font-size: 13px; font-weight: 600; color: var(--warn); text-align: center; }
-.pg-reserved { --chip: var(--warn); --chip-soft: var(--warn-soft); }
+.pg-reserved { --chip: var(--warn); --chip-soft: var(--warn-soft); padding: 0; }
+.pg-reserved > summary { display: flex; align-items: center; gap: var(--s2); cursor: pointer; list-style: none; border-bottom: 0; border-radius: var(--radius); }
+.pg-reserved > summary::-webkit-details-marker { display: none; }
+.pg-reserved > summary::before { content: '▸'; transition: transform .15s; }
+.pg-reserved[open] > summary { border-radius: var(--radius) var(--radius) 0 0; border-bottom: 3px solid var(--chip); }
+.pg-reserved[open] > summary::before { transform: rotate(90deg); }
+.pg-reserved > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .pg-table .pg-for { padding: 0 var(--s3); text-align: left; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 720px) { .pg-block { --pg-h1: 40px; } .pg-table .pg-name { width: 110px; font-size: 16px; } .pg-in, .pg-sum { font-size: 16px; } .pg-sum { width: 80px; } }
 /* Выбор позиции: сначала категория */

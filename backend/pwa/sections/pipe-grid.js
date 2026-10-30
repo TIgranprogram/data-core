@@ -117,13 +117,17 @@ function table(block, match) {
       h('tfoot', null, h('tr', null, h('th', { class: 'pg-name', colspan: cols.length + 1 }, 'Всего, м'), foot))));
 }
 
+let reservedOpen = false;
+
 /** Брони одной таблицей: что, сколько, для чего, кто поставил. */
 export function reservedTable(groups, byId, nameOf, unit = 'м') {
   const rows = groups.flatMap((g) => g.lines.filter((l) => byId.has(l.materialId) && left(l) > 0).map((l) => ({ l, g, it: byId.get(l.materialId) })));
   if (!rows.length) return null;
-  return h('section', { class: 'pg-block pg-reserved' }, h('h2', { class: 'pg-title' }, `В брони: ${rows.length}`),
+  const box = h('details', { class: 'pg-block pg-reserved', ontoggle: () => { reservedOpen = box.open; } }, h('summary', { class: 'pg-title' }, `В брони: ${rows.length}`),
     h('table', { class: 'pg-table' }, h('thead', null, h('tr', null, h('th', { class: 'pg-name' }, 'Что'), h('th', null, `Сколько, ${unit}`), h('th', { class: 'pg-for' }, 'Для чего'), h('th', { class: 'pg-for' }, 'Поставил'))),
       h('tbody', null, ...rows.map(({ l, g, it }) => h('tr', null, h('th', { class: 'pg-name', scope: 'row' }, nameOf(it)), h('td', { class: 'pg-sum' }, qty(left(l))), h('td', { class: 'pg-for' }, g.salesOrder || g.name), h('td', { class: 'pg-for' }, g.createdBy || ''))))));
+  box.open = reservedOpen; // свёрнуто, пока не раскроют: иначе длинный список уводит таблицу вниз
+  return box;
 }
 
 export function mountPipeGrid() {
