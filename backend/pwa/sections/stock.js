@@ -1,3 +1,5 @@
+import { stockLookup } from '../core/stock-list.js';
+import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBtn, failBlock } from '../ui/busy.js';
@@ -61,6 +63,12 @@ const stockMore = () => [
     { label: 'Пересчёт', onSelect: () => openStockOp('count') }] },
   { sep: true, items: [{ label: 'Движения', href: '#movements' }] },
 ];
+
+/** Новая позиция: подсказка «уже есть на складе», иначе одно и то же заводится второй раз с другим написанием. */
+const similarOnStock = () => ({
+  suggestTitle: 'Уже есть на складе — проверьте, не дубль ли',
+  suggest: async () => (await stockLookup()).map((x) => ({ label: x.name, sub: `${qty(x.quantity ?? 0)} ${x.unit || ''}`.trim(), cat: x.categoryName || '', search: normSearch(x.name), values: { name: x.name } })),
+});
 
 export const stock = {
   id: 'stock',
@@ -198,7 +206,7 @@ export const stock = {
       const ps = await passportSpecField(row);
       return [
         { section: 'Что за позиция', tone: 'main', fixed: true },
-        { key: 'name', label: 'Короткое название', required: true, max: 300, span: 3, hint: 'Для списков и фильтров, как на складе: «Болт мебельный, M8х40, DIN 603»' },
+        { key: 'name', label: 'Короткое название', required: true, max: 300, span: 3, ...(row ? {} : similarOnStock()), hint: 'Для списков и фильтров, как на складе: «Болт мебельный, M8х40, DIN 603»' },
         // ДМ.2: необязательные — полное и «как в счёте» (поиск находит по всем трём)
         { key: 'fullName', label: 'Длинное название', max: 500, span: 3, hint: 'Для документов и паспорта. Пусто — берётся короткое' },
         { key: 'invoiceName', label: 'Название в счёте', max: 500, span: 3, hint: 'Как пишет поставщик — поиск найдёт позицию и по нему' },
