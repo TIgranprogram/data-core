@@ -70,6 +70,8 @@ export class Income {
   @Prop() sheetKey?: string;
   @Prop() syncHash?: string;
   @Prop() editedInApp?: boolean;
+  /** Ключи повторов POST /incomes/:id/payments (clientUid платежа). */
+  @Prop({ type: [String], default: undefined }) paymentUids?: string[];
   @Prop() source?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User' }) createdBy?: Types.ObjectId;

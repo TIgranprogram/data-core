@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, isoDay, money, parseNum, qty } from '../core/format.js';
+import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { attachCombo } from '../ui/combo.js';
 import { badge } from '../ui/badges.js';
@@ -136,7 +136,7 @@ export const incPay = sideForm({
     if (!v.date) throw new Error('Укажите дату платежа');
     return { date: v.date, amount: a, ...(v.method ? { method: v.method } : {}) };
   },
-  save: async (body, r) => { const saved = await api(`/incomes/${r.id}/payments`, { method: 'POST', body }); toast(`Оплата принята: ${money(saved.paidAmount)} из ${money(saved.amount)}`); return saved; },
+  save: async (body, r) => { const saved = await api(`/incomes/${r.id}/payments`, { method: 'POST', body: { ...body, clientUid: newUid() } }); toast(`Оплата принята: ${money(saved.paidAmount)} из ${money(saved.amount)}`); return saved; },
 });
 
 /** Блок «Оплаты» в карточке позиции: список платежей, «+ Платёж», удаление. */
@@ -149,7 +149,7 @@ function paymentsBlock(r, ctx) {
     list.length ? h('ul', { class: 'q-list' }, list.map((p, i) => h('li', { class: 'q-row' },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, date(p.date)), h('div', { class: 'q-sub' }, [p.method, p.note].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num pos' }, money(p.amount)),
-        canEdit ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Удалить платёж', onclick: async () => { ctx.setRow(await api(`/incomes/${r.id}/payments/${i}`, { method: 'DELETE' })); toast('Оплата удалена'); } }, '✕') : null))))
+        canEdit ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Удалить платёж', onclick: async () => { ctx.setRow(await api(`/incomes/${r.id}/payments/${i}`, { method: 'DELETE', query: { amount: p.amount } })); toast('Оплата удалена'); } }, '✕') : null))))
       : h('p', { class: 'muted' }, Number(r.amount) > 0 ? 'Платежей пока нет.' : 'Сначала впишите сумму позиции.'),
     list.length ? h('p', { class: 'hint' }, `Оплачено ${money(r.paidAmount)} из ${money(r.amount)}; долг ${money(r.debt)}.`) : null);
 }
@@ -240,7 +240,7 @@ export const orders = {
       session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
-      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
+      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { payments: [] } }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгрузить сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js
       session.seesDocs() && r.orderId && { label: 'Паспорт →', title: 'Паспорта по заказу', run: (_row) => { go('docs', { tab: 'archive' }); } },
@@ -273,7 +273,8 @@ export const orders = {
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { section: 'Отгрузка и оплата', tone: 'info' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
-        { key: 'paidDate', label: 'Дата оплаты', type: 'date' },
+        // с платежами дата оплаты считается из них: менять её здесь нельзя (сервер ответит 400)
+        ...(row?.payments?.length ? [] : [{ key: 'paidDate', label: 'Дата оплаты', type: 'date' }]),
         { section: 'Вид, цвет, размер, примечание', tone: 'who', collapsed: true },
         { key: 'kind', label: 'Вид', max: 100 },
         { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
@@ -288,7 +289,7 @@ export const orders = {
       const s = (x) => (x === null ? '' : String(x));
       const body = {
         orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), unit: s(v.unit), companyName: s(v.companyName), paymentForm: s(v.paymentForm),
-        kind: s(v.kind), color: s(v.color), size: s(v.size), notes: s(v.notes), shipDate: v.shipDate || '', paidDate: v.paidDate || '',
+        kind: s(v.kind), color: s(v.color), size: s(v.size), notes: s(v.notes), shipDate: v.shipDate || '', ...(v.paidDate === undefined ? {} : { paidDate: v.paidDate || '' }),
         qty: v.qty, unitPrice: v.unitPrice, amountManual: v.amountManual, orderId: v.orderId || null,
         productId: v.productId || null, // «—» в правке — отвязать; при создании пустое не шлём (сервер подберёт по названию)
       };

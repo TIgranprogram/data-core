@@ -324,13 +324,39 @@ export class PartnersService {
     ]);
     if (!a || !b) throw new NotFoundException('Контрагент не найден');
     if (a.isOurCompany || b.isOurCompany) throw new BadRequestException('Наши компании не объединяются');
-    const r = await this.db.collection('supplyrequests').updateMany({ supplierId: from }, { $set: { supplierId: to, editedInApp: true } });
+    // уникальные ключи: договоры (поставщик + №) и позиции каталога (поставщик + артикул + цвет) не должны столкнуться
+    const clash = async (coll: string, keys: string[], what: string, live = true) => {
+      // уникальный индекс supplieritems без partialFilter: мягко удалённые записи тоже занимают ключ
+      const del = live ? { deletedAt: null } : {};
+      const mine = await this.db.collection(coll).find({ supplierId: from, ...del }, { projection: Object.fromEntries(keys.map((k) => [k, 1])) }).toArray();
+      if (!mine.length) return;
+      const theirs = await this.db.collection(coll).find({ supplierId: to, ...del }, { projection: Object.fromEntries(keys.map((k) => [k, 1])) }).toArray();
+      const key = (d: Doc) => keys.map((k) => String(d[k] ?? '')).join('|');
+      const have = new Set(theirs.map(key));
+      const same = mine.filter((d) => have.has(key(d)));
+      if (same.length) throw new ConflictException(`Объединить нельзя: у обоих поставщиков совпадают ${what} (${same.length}, например «${key(same[0])}»). Сначала переименуйте или удалите дубли`);
+    };
+    await clash('suppliercontracts', ['no'], 'номера договоров');
+    await clash('supplieritems', ['article', 'color'], 'позиции каталога (артикул + цвет)', false);
     const fill: Doc = {};
     for (const k of ['email', 'phone', 'website', 'notes']) if (!b[k] && a[k]) fill[k] = a[k];
     if (!realInn(b.inn) && realInn(a.inn)) fill.inn = a.inn;
-    await this.db.collection('organizations').updateOne({ _id: from }, { $set: { deletedAt: new Date(), mergedInto: to, inn: `${a.inn}-merged-${String(from).slice(-6)}` } });
-    if (Object.keys(fill).length) await this.db.collection('organizations').updateOne({ _id: to }, { $set: fill });
-    return { ...(await this.get(intoId)), moved: r.modifiedCount };
+    const name = String(b.shortName || b.name || '');
+    let moved = 0;
+    // всё переносится одной транзакцией: заявки, счета, договоры, каталог и сами карточки
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const r = await this.db.collection('supplyrequests').updateMany({ supplierId: from }, { $set: { supplierId: to, editedInApp: true } }, { session });
+        moved = r.modifiedCount;
+        await this.db.collection('supplyinvoices').updateMany({ supplierId: from }, { $set: { supplierId: to, supplierName: name } }, { session });
+        await this.db.collection('suppliercontracts').updateMany({ supplierId: from }, { $set: { supplierId: to, supplierName: name } }, { session });
+        await this.db.collection('supplieritems').updateMany({ supplierId: from }, { $set: { supplierId: to } }, { session });
+        await this.db.collection('organizations').updateOne({ _id: from }, { $set: { deletedAt: new Date(), mergedInto: to, inn: `${a.inn}-merged-${String(from).slice(-6)}` } }, { session });
+        if (Object.keys(fill).length) await this.db.collection('organizations').updateOne({ _id: to }, { $set: fill }, { session });
+      });
+    } finally { await session.endSession(); }
+    return { ...(await this.get(intoId)), moved };
   }
 
   private async renameCustomer(from: string, to: string) {

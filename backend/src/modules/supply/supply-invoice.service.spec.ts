@@ -23,7 +23,7 @@ describe('SupplyInvoiceService: приход по счёту', () => {
     supply = { receive: jest.fn(async () => ({})) };
     const model = { findOne: jest.fn(() => chain({ _id: invId, status: 'paid', fileIds: [] })) };
     const requests = { find: jest.fn(() => chain(lines)) };
-    const connection = { db: { collection: () => ({ find: () => ({ toArray: async () => [] }) }) } };
+    const connection = { db: { collection: () => ({ find: () => ({ toArray: async () => [] }), countDocuments: async () => 0 }) } };
     svc = new SupplyInvoiceService(connection as never, model as never, requests as never, supply as never, {} as never, { toRoles: async () => 0 } as never);
     jest.spyOn(svc, 'get').mockResolvedValue({ id: String(invId) } as never);
   });
@@ -108,5 +108,23 @@ describe('SupplyInvoiceService: дубль № у поставщика', () => {
     await svc.update(String(cur._id), { no: '41125' } as never);
     const model = (svc as unknown as { model: { find: jest.Mock } }).model;
     expect(model.find).toHaveBeenCalledWith({ supplierId: sup, deletedAt: null, status: { $ne: 'cancelled' }, _id: { $ne: cur._id } });
+  });
+});
+
+describe('HARDEN-1 п.3: оплата счёта не откатывает «Получено»', () => {
+  it('pay: «ordered» ставится не-полученным, полученным — только paid/paidAt', async () => {
+    const inv = { _id: new Types.ObjectId(), status: 'issued', payerCompanyId: new Types.ObjectId(), fileIds: [] };
+    const calls: Array<[Record<string, unknown>, { $set: Record<string, unknown> }]> = [];
+    const model = { findOne: jest.fn(() => chain(inv)), updateOne: jest.fn(() => chain({})) };
+    const requests = { find: jest.fn(() => ({ session: () => chain([]) })), updateMany: jest.fn((f, u) => { calls.push([f, u]); return chain({}); }) };
+    const connection = { startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }) };
+    const svc = new SupplyInvoiceService(connection as never, model as never, requests as never, {} as never, { record: async () => undefined } as never, { toRoles: async () => 0 } as never);
+    jest.spyOn(svc, 'get').mockResolvedValue({} as never);
+    await svc.pay(String(inv._id));
+    const toOrdered = calls.find(([, u]) => u.$set.status === 'ordered')!;
+    expect(toOrdered[0].status).toEqual({ $nin: ['cancelled', 'received'] });
+    const forReceived = calls.find(([f]) => f.status === 'received')!;
+    expect(forReceived[1].$set).toMatchObject({ paid: true });
+    expect(forReceived[1].$set.status).toBeUndefined();
   });
 });

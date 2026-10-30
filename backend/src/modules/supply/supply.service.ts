@@ -1,5 +1,6 @@
 import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { CounterService } from '../counter/counter.service';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
@@ -79,6 +80,7 @@ export class SupplyService {
     private readonly stock: StockService,
     private readonly notices: NotificationsService,
     private readonly orders: ProductionOrdersService,
+    private readonly counters: CounterService,
     @Optional() private readonly versions?: DataVersionService,
     @Optional() private readonly zones?: ZonesService,
   ) {}
@@ -391,8 +393,10 @@ export class SupplyService {
     }
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {
+      // номер из счётчика, засеянного текущим максимумом: два одновременных создателя не получат одно число (HARDEN-1 п.11)
       const last = await this.model.findOne({ num: { $ne: null } }).sort({ num: -1 }).lean().exec();
-      fields.num = (Number(last?.num) || 0) + 1;
+      await this.counters.setSeqAtLeast('SupplyRequest', 'N', Number(last?.num) || 0);
+      fields.num = await this.counters.nextSeq('SupplyRequest', 'N');
     }
     const doc = await this.model.create({
       status: 'requested', priority: 'normal', qty: 1, paid: false, requestDate: todayUtc(),
@@ -453,9 +457,17 @@ export class SupplyService {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const fields = await this.toFields(dto);
     // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
-    if (fields.status === 'received') {
+    let resetReceipt = false;
+    if (fields.status) {
       const cur = await this.model.findById(id, { status: 1 }).lean().exec();
-      if (cur && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
+      if (cur && fields.status === 'received' && cur.status !== 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется');
+      // принятая заявка не откатывается правкой статуса: приход на складе остался бы без заявки (HARDEN-1 п.3)
+      if (cur && cur.status === 'received' && fields.status !== 'received') {
+        // откат разрешён, только когда приход по заявке уже отменён в «Движениях»; формат ссылки — SupplyRequest:<id>
+        const active = await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${id}`, type: 'in', cancelledAt: null, deletedAt: null });
+        if (active) throw new BadRequestException('Сначала отмените приход в Движениях');
+        resetReceipt = true;
+      }
     }
     const prev = fields.status ? await this.model.findOne({ _id: id, deletedAt: null }, { status: 1, createdBy: 1, num: 1, title: 1, salesOrderId: 1, paid: 1 }).lean().exec() as Record<string, unknown> | null : null;
     const prevResp = dto.responsibleId !== undefined ? ((await this.model.findOne({ _id: id, deletedAt: null }, { responsibleId: 1 }).lean().exec()) as { responsibleId?: unknown } | null)?.responsibleId : undefined;
@@ -463,6 +475,7 @@ export class SupplyService {
     const set: Record<string, unknown> = {}, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(fields)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     set.editedInApp = true;
+    if (resetReceipt) Object.assign(unset, { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' });
     if (fields.paid === false) unset.paidAt = '';
     const res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
@@ -490,6 +503,7 @@ export class SupplyService {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
+    const prevUid = (doc as unknown as { receiveUid?: string }).receiveUid;
     if (doc.status === 'received') {
       if (dto.clientUid && (doc as unknown as { receiveUid?: string }).receiveUid === dto.clientUid) return this.get(id);
       throw new ConflictException('Заявка уже отмечена как полученная');
@@ -515,14 +529,23 @@ export class SupplyService {
     }
     // ЗП.4: пришла часть — приход, заявка остаётся открытой на остаток (qty уменьшается, receivedQty копится)
     if (dto.partial && qty < Number(doc.qty)) {
+      if (dto.clientUid && prevUid === dto.clientUid) return this.get(id); // этот приём уже записан — заявку не трогаем
       await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''} (часть)`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
       const left = Math.round((Number(doc.qty) - qty) * 1000) / 1000;
-      await this.model.updateOne({ _id: doc._id }, { $set: { qty: left, receivedQty: Math.round(((Number((doc as { receivedQty?: number }).receivedQty) || 0) + qty) * 1000) / 1000, editedInApp: true, materialId: new Types.ObjectId(materialId) } }).exec();
+      await this.model.updateOne({ _id: doc._id }, { $set: { qty: left, receivedQty: Math.round(((Number((doc as { receivedQty?: number }).receivedQty) || 0) + qty) * 1000) / 1000, editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
       return this.get(id);
     }
-    await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
+    // ключ приёма включает число отменённых приходов заявки: новый приём после отмены не совпадёт со старым движением
+    const cancelled = dto.clientUid ? 0 : await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${id}`, cancelledAt: { $ne: null } });
+    await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid ?? `receive:${id}:${(doc as { receivedQty?: number }).receivedQty ?? 0}:${cancelled}` }, userId);
     if (doc.article) await this.stock.adoptArticle(materialId, doc.article, `заявка${doc.num ? ' №' + doc.num : ''}`).catch(() => undefined);
-    await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+    const done = await this.model.updateOne({ _id: doc._id, status: { $ne: 'received' } }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+    if (!done.matchedCount) {
+      // параллельный вызов успел раньше: тот же ключ — просто тот же результат, иначе 409 (приход по ключу уже не задвоился в stock.move)
+      const now = await this.model.findById(id, { receiveUid: 1 }).lean().exec() as { receiveUid?: string } | null;
+      if (dto.clientUid && now?.receiveUid === dto.clientUid) return this.get(id);
+      throw new ConflictException('Заявка уже отмечена как полученная');
+    }
     return this.get(id);
   }
 

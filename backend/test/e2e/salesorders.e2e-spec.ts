@@ -128,6 +128,10 @@ describe('Sales orders (заказы заказчиков)', () => {
   it('корзина: заказ уходит вместе с позициями и возвращается вместе с ними', async () => {
     const solo = await http().post('/api/incomes').set(auth()).send({ title: 'Отдельно удалённая', orderId }).expect(201);
     await http().delete(`/api/incomes/${solo.body.id}`).set(auth()).expect(200);
+    // HARDEN-1 п.14: заказ с оплатой в корзину не уходит — сначала убираем платежи позиций
+    const lines = (await http().get(`/api/incomes?orderId=${orderId}`).set(auth()).expect(200)).body.items as Array<{ id: string; paidAmount: number }>;
+    if (lines.some((l) => l.paidAmount > 0)) await http().delete(`/api/salesorders/${orderId}`).set(auth()).expect(409);
+    for (const l of lines.filter((x) => x.paidAmount > 0)) await http().delete(`/api/incomes/${l.id}/payments/0`).set(auth()).expect(200);
     await http().delete(`/api/salesorders/${orderId}`).set(auth()).expect(200);
     await http().get(`/api/salesorders/${orderId}`).set(auth()).expect(404);
     expect((await http().get(`/api/incomes?orderId=${orderId}`).set(auth()).expect(200)).body.total).toBe(0);

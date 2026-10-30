@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import type { Connection, Model } from 'mongoose';
+import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { Material, MaterialDocument } from '../material/material.schema';
@@ -32,7 +32,7 @@ export class StockMovementsService {
    * Движение по позиции. in/out/adjust — как в CRM (остаток в storageitems + запись в stockmovements);
    * reserve/unreserve — reservedQty + reservations. Повтор с тем же clientUid ничего не меняет.
    */
-  async move(materialId: string, dto: MoveInput, userId?: string) {
+  async move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
     if (dto.byWeight) dto = await this.applyWeight(materialId, dto);
     const qty = Number(dto.qty);
@@ -53,9 +53,17 @@ export class StockMovementsService {
     // бронь под заказ / позицию заказа (SK-6): позиция без заказа — заказ берёт сервер; чужая позиция — 400
     const resTarget = dto.type === 'reserve' && (dto.salesOrderId || dto.salesOrderLineId) ? await resolveTarget(this.connection.db!, dto) : {};
 
+    let repeat = false;
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        repeat = false;
+        // повтор проверяется внутри транзакции первой строкой: параллельный двойной вызов не проведёт движение дважды (HARDEN-1 п.5)
+        if (dto.clientUid) {
+          const done = (await this.movements.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec()) || (await this.reservations.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec());
+          if (done) { repeat = true; return; }
+        }
+        if (first) await first(session);
         const item = await this.core.loadStorage(wh._id as Types.ObjectId, matId, session);
         const before = item.quantity ?? 0;
         // «было → стало» у каждого движения (ФИ.5)
@@ -83,6 +91,7 @@ export class StockMovementsService {
           const delta = Math.round((qty - before) * 1000) / 1000;
           if (delta !== 0) {
             item.quantity = qty;
+            item.reservedQty = Math.min(item.reservedQty ?? 0, qty);
             await item.save({ session });
             await movement('adjust', Math.abs(delta), `ADJUST:${note ?? 'пересчёт'}`, delta);
           }
@@ -93,6 +102,7 @@ export class StockMovementsService {
           const why = countGuard(next, before, item.reservedQty ?? 0, dto.force);
           if (why) throw new ConflictException(why);
           item.quantity = next;
+          item.reservedQty = Math.min(item.reservedQty ?? 0, next); // бронь не больше остатка (HARDEN-1 п.7)
           await item.save({ session });
           await movement('adjust', Math.abs(qty), `ADJUST:${note ?? 'корректировка'}`, qty);
         } else if (dto.type === 'reserve') {
@@ -123,7 +133,7 @@ export class StockMovementsService {
     } finally {
       await session.endSession();
     }
-    await this.core.markEdited(matId);
+    if (!repeat) await this.core.markEdited(matId);
     return this.search.getItem(materialId);
   }
 
@@ -157,12 +167,17 @@ export class StockMovementsService {
     const batchId = new Types.ObjectId();
     const now = new Date();
     let moved = 0;
+    let repeatBatch: string | undefined;
     // Под заказ / позицию / сотрудник, причина списания, возврат (SK-5) — одной проверкой, как в одиночном движении
     const soRef = await prepareTarget(this.connection.db!, dto);
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        moved = 0;
+        moved = 0; repeatBatch = undefined;
+        if (dto.clientUid) { // повтор — внутри транзакции первой строкой (HARDEN-1 п.5)
+          const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).session(session).lean().exec();
+          if (prev) { repeatBatch = String((prev as { batchId?: Types.ObjectId }).batchId); return; }
+        }
         const items = new Map<string, StorageItemDocument>();
         for (const id of matIds) items.set(String(id), await this.core.loadStorage(wh._id as Types.ObjectId, id, session));
         if (dto.type === 'out') {
@@ -188,6 +203,7 @@ export class StockMovementsService {
           const delta = dto.type === 'in' ? n : dto.type === 'out' ? -n : Math.round((n - before) * 1000) / 1000;
           if (delta !== 0) {
             item.quantity = Math.round((before + delta) * 1000) / 1000;
+            item.reservedQty = Math.min(item.reservedQty ?? 0, item.quantity); // бронь не больше остатка (HARDEN-1 п.7)
             if (dto.type === 'out' && (item.reservedQty ?? 0) > 0) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - n);
             await item.save({ session });
             const type = dto.type === 'count' ? 'adjust' : dto.type;
@@ -204,6 +220,7 @@ export class StockMovementsService {
     } finally {
       await session.endSession();
     }
+    if (repeatBatch) return this.batchResult(repeatBatch, dto.type);
     await this.connection.db!.collection('materials').updateMany({ _id: { $in: matIds } }, { $set: { editedInApp: true } });
     return { ...(await this.batchResult(String(batchId), dto.type, matIds)), lines: merged.size, moved };
   }
@@ -226,6 +243,9 @@ export class StockMovementsService {
     try {
       await session.withTransaction(async () => {
         for (const mv of list) {
+          // запись занимается первой: параллельная отмена той же операции получит 409, остаток вернётся один раз
+          const claim = await this.movements.updateOne({ _id: mv._id, cancelledAt: null }, { $set: { cancelledAt: now } }, { session }).exec();
+          if (!claim.matchedCount) throw new ConflictException('Операция уже отменена');
           const d = (mv as { delta?: number }).delta ?? 0;
           const item = await this.core.loadStorage(wh._id as Types.ObjectId, mv.materialId as Types.ObjectId, session);
           const next = Math.round(((item.quantity ?? 0) - d) * 1000) / 1000;
@@ -234,6 +254,7 @@ export class StockMovementsService {
             throw new ConflictException(`Нельзя отменить: «${m?.name ?? 'позиция'}» уже израсходована (остаток станет ${next}). Сделайте пересчёт вручную.`);
           }
           item.quantity = next;
+          item.reservedQty = Math.min(item.reservedQty ?? 0, next);
           // выдача по брони отменена — бронь возвращается (TASKS Б.2)
           const resId = (mv as { reservationId?: Types.ObjectId }).reservationId;
           if (resId && d < 0) {
@@ -252,7 +273,6 @@ export class StockMovementsService {
           const back = mv.type === 'adjust' ? 'adjust' : d > 0 ? 'out' : 'in';
           await this.movements.create([{ type: back, date: now, materialId: mv.materialId, warehouseId: wh._id, qty: Math.abs(d), delta: -d,
             documentRef: back === 'adjust' ? 'ADJUST:отмена пересчёта' : undefined, notes: `Отмена: ${MOVE_LABEL[mv.type] ?? mv.type} от ${when}`, createdBy, cancelOf: mv._id }], { session });
-          await this.movements.updateOne({ _id: mv._id }, { $set: { cancelledAt: now } }, { session }).exec();
         }
       });
     } finally {
@@ -265,7 +285,11 @@ export class StockMovementsService {
    * находится или создаётся; приход count шт. Труба (в метрах) — эти метры уходят из родителя (кусок отделили);
    * лист — родитель не меняется (лист уже списан целиком, обрезок — то, что осталось). Пакет — «Отменить» целиком.
    */
-  async offcut(materialId: string, dto: { lengthMm: number; widthMm?: number; count?: number; note?: string }, userId?: string) {
+  async offcut(materialId: string, dto: { lengthMm: number; widthMm?: number; count?: number; note?: string; clientUid?: string }, userId?: string) {
+    if (dto.clientUid) { // повтор (двойной тап, офлайн-очередь) — вернуть прежний результат
+      const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec() as { batchId?: Types.ObjectId; materialId?: Types.ObjectId } | null;
+      if (prev) return this.offcutResult(materialId, String(prev.batchId), String(prev.materialId));
+    }
     const parent = await this.search.getItem(materialId);
     if (parent.offcutOf) throw new BadRequestException('Это уже обрезок — отрежьте от основной позиции');
     if (!parent.metal) throw new BadRequestException('Обрезки — только у труб и листов (категория «…труба…» / «…лист…»)');
@@ -286,11 +310,18 @@ export class StockMovementsService {
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     const batchId = new Types.ObjectId(); const now = new Date();
     const note = dto.note?.trim() || `обрезок ${name.split(' — обрезок ')[1]}`;
+    let repeat: { batchId: string; materialId: string } | undefined;
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        repeat = undefined;
+        if (dto.clientUid) {
+          const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).session(session).lean().exec() as { batchId?: Types.ObjectId; materialId?: Types.ObjectId } | null;
+          if (prev) { repeat = { batchId: String(prev.batchId), materialId: String(prev.materialId) }; return; }
+        }
         if (takeM > 0) {
           const p = await this.core.loadStorage(wh._id as Types.ObjectId, new Types.ObjectId(materialId), session);
+          if ((p.quantity ?? 0) < takeM) throw new BadRequestException(`На складе ${p.quantity ?? 0} м — обрезок ${takeM} м отделить нельзя`);
           p.quantity = Math.round(((p.quantity ?? 0) - takeM) * 1000) / 1000;
           await p.save({ session });
           await this.movements.create([{ type: 'out', date: now, materialId: new Types.ObjectId(materialId), warehouseId: wh._id, qty: takeM, delta: -takeM, notes: `В обрезки: ${note}`, createdBy, batchId }], { session });
@@ -298,12 +329,17 @@ export class StockMovementsService {
         const k = await this.core.loadStorage(wh._id as Types.ObjectId, kid!._id as Types.ObjectId, session);
         k.quantity = (k.quantity ?? 0) + count;
         await k.save({ session });
-        await this.movements.create([{ type: 'in', date: now, materialId: kid!._id, warehouseId: wh._id, qty: count, delta: count, notes: note, createdBy, batchId }], { session });
+        await this.movements.create([{ type: 'in', date: now, materialId: kid!._id, warehouseId: wh._id, qty: count, delta: count, notes: note, createdBy, batchId, clientUid: dto.clientUid }], { session });
       });
     } finally {
       await session.endSession();
     }
-    return { batchId: String(batchId), parent: await this.search.getItem(materialId), offcut: await this.search.getItem(String(kid!._id)) };
+    if (repeat) return this.offcutResult(materialId, repeat.batchId, repeat.materialId);
+    return this.offcutResult(materialId, String(batchId), String(kid!._id));
+  }
+
+  private async offcutResult(parentId: string, batchId: string, offcutId: string) {
+    return { batchId, parent: await this.search.getItem(parentId), offcut: await this.search.getItem(offcutId) };
   }
 
   /**
@@ -422,10 +458,13 @@ export class StockMovementsService {
   async correctMovement(id: string, qty: number, userId?: string) {
     const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }).lean().exec();
     if (!mv) throw new NotFoundException('Движение не найдено');
-    const d = mv as typeof mv & { delta?: number; reason?: string; issuedTo?: string; issuedToPersonId?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId; reservationId?: Types.ObjectId };
+    const d = mv as typeof mv & { cancelledAt?: Date; delta?: number; reason?: string; issuedTo?: string; issuedToPersonId?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId; reservationId?: Types.ObjectId };
     if (mv.type !== 'out') throw new ConflictException('Исправить можно только списание');
     if (d.reservationId) throw new ConflictException('Это выдача по брони — отмените её и выдайте заново');
     const was = Math.abs(Number(d.delta));
+    // остаток проверяется до отмены: иначе старое списание отменится, а новое не пройдёт
+    const have = await this.search.getItem(String(mv.materialId));
+    if (!d.cancelledAt && Number(have.quantity) + was < qty) throw new BadRequestException(`Недостаточно на складе: после отмены будет ${Math.round((Number(have.quantity) + was) * 1000) / 1000}, нужно ${qty}`);
     await this.cancelMovement(id, userId);
     return this.move(String(mv.materialId), {
       type: 'out', qty, note: `Исправлено: было ${was}`, reason: d.reason, writeOff: !!d.reason, issuedTo: d.issuedTo,
@@ -436,7 +475,8 @@ export class StockMovementsService {
   async cancelMovement(id: string, userId?: string) {
     const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }).lean().exec();
     if (!mv) throw new NotFoundException('Движение не найдено');
-    const d = mv as typeof mv & { delta?: number; cancelledAt?: Date; cancelOf?: Types.ObjectId; source?: string };
+    const d = mv as typeof mv & { delta?: number; cancelledAt?: Date; cancelOf?: Types.ObjectId; source?: string; reservationId?: Types.ObjectId };
+    if (d.reservationId && (d.delta ?? 0) < 0) throw new ConflictException('Это выдача по брони — отмените её через «Выдано по брони» (операцию целиком), бронь вернётся сама');
     if (d.source === 'google-sheets') throw new ConflictException('Это запись истории из Google-таблицы: остаток по ней не менялся, отменять нечего');
     if (d.cancelledAt) throw new ConflictException('Движение уже отменено');
     if (d.cancelOf) throw new ConflictException('Это само отмена — проведите новое движение');
@@ -446,9 +486,11 @@ export class StockMovementsService {
     const back: MoveInput = d.delta > 0 ? { type: 'out', qty: d.delta, note } : { type: 'in', qty: -d.delta, note };
     if (mv.type === 'adjust') { back.type = 'adjust'; back.qty = -d.delta; }
     back.cancelOf = mv._id as Types.ObjectId;
-    const item = await this.move(String(mv.materialId), back, userId);
-    await this.movements.updateOne({ _id: mv._id }, { $set: { cancelledAt: new Date() } }).exec();
-    return item;
+    // запись занимается условием cancelledAt: null в той же транзакции, что и обратное движение — двойная отмена остаток не вернёт дважды
+    return this.move(String(mv.materialId), back, userId, async (session) => {
+      const claim = await this.movements.updateOne({ _id: mv._id, cancelledAt: null }, { $set: { cancelledAt: new Date() } }, { session }).exec();
+      if (!claim.matchedCount) throw new ConflictException('Движение уже отменено');
+    });
   }
 
 }

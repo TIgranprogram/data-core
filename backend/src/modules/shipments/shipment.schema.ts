@@ -35,6 +35,8 @@ export class Shipment {
   @Prop({ type: String, trim: true, maxlength: 100 }) docNo?: string;
   /** Кто принял. */
   @Prop({ type: String, trim: true, maxlength: 200 }) receiver?: string;
+  /** Ключ клиента: повтор создания с тем же ключом не делает вторую отгрузку. */
+  @Prop({ type: String, index: true, sparse: true }) clientUid?: string;
   @Prop({ type: Date, default: null }) deletedAt?: Date | null;
   @Prop({ type: Types.ObjectId }) deletedById?: Types.ObjectId;
   @Prop({ type: String, trim: true }) deletedByName?: string;

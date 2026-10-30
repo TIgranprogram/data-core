@@ -405,6 +405,11 @@ export class ShowcaseService {
     const used = await this.db.collection('products').findOne({ deletedAt: null, 'composition.productId': _id }, { projection: { name: 1 } });
     if (used) throw new ConflictException(`Изделие входит в состав «${used.name}» — удалить нельзя`);
     if (await isUsedByCrm(this.connection, 'product', _id)) throw new ConflictException('На изделие ссылаются заказы / документы CRM — удалить нельзя');
+    // CANON: нельзя удалить то, на что ссылаются — позиции заказов, паспорта, задания
+    for (const [coll, what] of [['incomes', 'позициях заказов'], ['productpassports', 'паспортах'], ['designtasks', 'заданиях проектирования'], ['worktasks', 'заданиях «В работе»']] as const) {
+      const n = await this.db.collection(coll).countDocuments({ productId: _id, deletedAt: null });
+      if (n) throw new ConflictException(`Изделие используется в ${what} (${n}) — удалить нельзя`);
+    }
     const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, { $set: { deletedAt: new Date() } });
     if (!r.matchedCount) throw new NotFoundException('Изделие не найдено');
     return { id, deleted: true };

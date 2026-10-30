@@ -6361,6 +6361,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "amount",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -14904,6 +14912,10 @@
           },
           "note": {
             "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не отделяет обрезок второй раз"
           }
         },
         "required": [
@@ -15885,6 +15897,10 @@
           },
           "note": {
             "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор POST /incomes/:id/payments не добавляет второй платёж"
           }
         }
       },
@@ -16429,6 +16445,10 @@
           "receiver": {
             "type": "string",
             "description": "Кто принял"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не создаёт вторую отгрузку"
           }
         },
         "required": [
@@ -16762,6 +16782,10 @@
           },
           "note": {
             "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не создаёт вторую выплату"
           }
         },
         "required": [

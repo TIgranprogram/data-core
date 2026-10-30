@@ -116,6 +116,8 @@ describe('Finance: incomes + cashflow', () => {
     const cf = await http().get('/api/finance/cashflow?from=2026-10-03&to=2026-10-03').set(auth()).expect(200);
     expect(cf.body.days[0].ops.find((o: { title: string }) => o.title.startsWith('Горка'))).toMatchObject({ amount: 300, method: 'нал' });
     expect(cf.body.pending.awaiting.total).toBeGreaterThanOrEqual(700);
+    await http().delete(`/api/incomes/${a.body.id}`).set(auth()).expect(409); // HARDEN-1 п.14: с оплатой удалить нельзя
+    await http().delete(`/api/incomes/${a.body.id}/payments/0`).set(auth()).expect(200);
     await http().delete(`/api/incomes/${a.body.id}`).set(auth()).expect(200); // не мешать сводке и прогнозу
     // ФОТ: ставка + табель → начислено, выплата → в календарь
     const siu = (await db().collection('organizations').findOne({ shortName: 'СИЮ' }))!;

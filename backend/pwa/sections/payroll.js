@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
-import { date, money, parseNum, qty } from '../core/format.js';
+import { date, money, newUid, parseNum, qty } from '../core/format.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { openSide, sideForm } from '../ui/side-form.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -54,7 +54,7 @@ export const payout = sideForm({
     if (!companyId) throw new Error('Выберите нашу компанию');
     return { personId: p.id, companyId, date: v.date, amount: a, kind: v.kind, month: r.month };
   },
-  save: async (body) => { await api('/payroll/payments', { method: 'POST', body }); toast('Выплата записана'); live?.reload(); return {}; },
+  save: async (body) => { await api('/payroll/payments', { method: 'POST', body: { ...body, clientUid: newUid() } }); toast('Выплата записана'); live?.reload(); return {}; },
 });
 
 export function mountPayroll() {

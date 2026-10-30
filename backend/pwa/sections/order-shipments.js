@@ -1,6 +1,6 @@
 import { api, apiFile, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, isoDay, parseNum, qty } from '../core/format.js';
+import { date, isoDay, newUid, parseNum, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -108,7 +108,7 @@ function form(order, ctx) {
       if (partial() && !reason.value.trim()) { toastError(new Error('Впишите причину: отгружается не весь остаток.')); reason.focus(); return; }
       const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
       try {
-        const s = await api(`/salesorders/${order.id}/shipments`, { method: 'POST', body: { date: date0.value || isoDay(), lines: ls.map(({ incomeId, qty: q }) => ({ incomeId, qty: q })),
+        const s = await api(`/salesorders/${order.id}/shipments`, { method: 'POST', body: { clientUid: newUid(), date: date0.value || isoDay(), lines: ls.map(({ incomeId, qty: q }) => ({ incomeId, qty: q })),
           ...(reason.value.trim() ? { reason: reason.value.trim() } : {}), ...(note.value.trim() ? { note: note.value.trim() } : {}), ...(docNo.value.trim() ? { docNo: docNo.value.trim() } : {}), ...(recv.value.trim() ? { receiver: recv.value.trim() } : {}) } });
         toast('Отгрузка записана'); changed();
         if (s?.id) pdf(s);

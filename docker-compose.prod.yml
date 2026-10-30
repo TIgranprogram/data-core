@@ -127,6 +127,9 @@ services:
       dockerfile: Dockerfile
     container_name: datacore-backend
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     depends_on:
       mongo:
         condition: service_healthy

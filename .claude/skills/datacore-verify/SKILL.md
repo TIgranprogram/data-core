@@ -22,7 +22,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 
 ```bash
 npx tsc --noEmit            # норма: exit 0
-npx jest --silent           # норма: все suites passed (160/1598 на 2026-10-26)
+npx jest --silent           # норма: все suites passed (числа — docs/TEST-LOG.md)
 npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
 ```
 
@@ -36,7 +36,7 @@ npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any д�
 ```bash
 MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
 ```
-Норма: все suites passed (36 / 284 на 2026-10-26).
+Норма: все suites passed (числа — docs/TEST-LOG.md).
 `jest-e2e-env.ts` (`setupFiles`) читает оба `.env` (backend/ и корневой) и строит root URI автоматически. Если `.env` нет — передай `MONGO_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 симв.) и `ADMIN_PASSWORD` прямо в команде.
 
 ## 3. Live-smoke (если менял рантайм/админку)
@@ -62,6 +62,10 @@ curl -sf http://localhost:3001/api/health/ready
 6. Снимки на разных ширинах (CANON §2 — 1920, 2560, 1024, 390): `QA_DIR=<scratchpad с qa-login.txt> node backend/scripts/qa-screenshot.mjs 1920 1080 '#requests?view=board' out.png` → открыть png и посмотреть. Встроенный браузер шире своей панели показывает неправильно — для широких экранов только так.
 
 e2e без root-пароля: Mongo-пользователь `datacoretest` (readWrite только на `datacore-test`) и `MONGO_URI=mongodb://datacoretest:<pw>@localhost:27018/datacore-test?authSource=admin&replicaSet=rs0&directConnection=true` + тестовые `JWT_SECRET`/`JWT_REFRESH_SECRET`/`ADMIN_PASSWORD` в команде.
+
+## 3б. Обход всех экранов (код экранов больше ничем не проверяется)
+
+Стенд `:3002` запущен (раздел 3а): `QA_DIR=<папка с qa-login.txt> node backend/scripts/qa-smoke.mjs [ширина]`. Открывает каждый раздел и первую запись, ловит исключения, ответы 5xx и блоки «Не открылось»; только чтение. Обязателен перед выкладкой правки экранов класса L/XL.
 
 ## 4. Если изменился контракт API — openapi
 

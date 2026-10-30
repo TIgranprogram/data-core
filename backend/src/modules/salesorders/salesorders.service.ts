@@ -419,9 +419,20 @@ export class SalesOrdersService {
   /** В корзину вместе с позициями (позиции помечаются, чтобы восстановить ровно их; лист «Заказы» их больше не трогает). */
   async remove(id: string) {
     const cur = await this.findRaw(id);
+    // CANON: нельзя удалить то, на что ссылаются — оплата и отгрузки хранят деньги и склад
+    const paid = await this.incomes().countDocuments({ orderId: cur._id, deletedAt: null, $or: [{ paidAmount: { $gt: 0 } }, { paidDate: { $ne: null } }, { 'payments.0': { $exists: true } }] });
+    if (paid) throw new ConflictException(`В заказе есть оплаты (позиций с оплатой: ${paid}) — сначала уберите платежи в карточке позиции`);
+    const shipped = await this.connection.db!.collection('shipments').countDocuments({ orderId: cur._id, deletedAt: null });
+    if (shipped) throw new ConflictException(`По заказу есть отгрузки (${shipped}) — сначала отмените их на вкладке «Отгрузки»`);
     const now = new Date();
-    await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: now, editedInApp: true } }).exec();
-    await this.incomes().updateMany({ orderId: cur._id, deletedAt: null }, { $set: { deletedAt: now, deletedWithOrder: true, editedInApp: true, updatedAt: now } });
+    // заказ и его позиции — одной транзакцией: не останется заказа в корзине с живыми позициями
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: now, editedInApp: true } }, { session }).exec();
+        await this.incomes().updateMany({ orderId: cur._id, deletedAt: null }, { $set: { deletedAt: now, deletedWithOrder: true, editedInApp: true, updatedAt: now } }, { session });
+      });
+    } finally { await session.endSession(); }
     return { id, deleted: true };
   }
 

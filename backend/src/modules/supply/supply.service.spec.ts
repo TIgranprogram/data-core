@@ -41,6 +41,7 @@ describe('SupplyService', () => {
   let model: { find: jest.Mock; findOne: jest.Mock; findById: jest.Mock; countDocuments: jest.Mock; aggregate: jest.Mock; create: jest.Mock; updateOne: jest.Mock; distinct: jest.Mock };
   let stock: { findMaterialByName: jest.Mock; adoptArticle: jest.Mock; move: jest.Mock; createItem: jest.Mock };
   let service: SupplyService;
+  let counters: { setSeqAtLeast: jest.Mock; nextSeq: jest.Mock };
   /** Текущая заявка (для findOne/findById по _id), последняя по номеру, дубль по clientUid. */
   let current: Record<string, unknown> | null;
   let last: Record<string, unknown> | null;
@@ -76,7 +77,8 @@ describe('SupplyService', () => {
       move: jest.fn(async () => ({})),
       createItem: jest.fn(async () => ({ id: String(new Types.ObjectId()) })),
     };
-    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never);
+    counters = { setSeqAtLeast: jest.fn(async () => undefined), nextSeq: jest.fn(async () => (Number(last?.num) || 0) + 1) };
+    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never);
   });
 
   describe('lookup', () => {
@@ -120,6 +122,7 @@ describe('SupplyService', () => {
       await service.create({ title: 'Болт' });
       const arg = model.create.mock.calls[0][0];
       expect(arg).toMatchObject({ title: 'Болт', status: 'requested', priority: 'normal', qty: 1, paid: false, num: 42 });
+      expect(counters.setSeqAtLeast).toHaveBeenCalledWith('SupplyRequest', 'N', 41); // HARDEN-1 п.11: номер из счётчика, засеян максимумом
       expect(arg.requestDate).toBeInstanceOf(Date);
     });
 
@@ -273,6 +276,32 @@ describe('SupplyService', () => {
       await service.update(String(current._id), { photoIds: [String(pid)] });
       const photoCall = model.updateOne.mock.calls.find((c) => c[1].$set?.photoIds);
       expect(photoCall?.[2]).toEqual({ strict: false });
+    });
+  });
+
+  describe('HARDEN-1 п.3', () => {
+    it('update: статус «Получено» не откатывается правкой статуса', async () => {
+      current = reqDoc({ status: 'received' });
+      colls.stockmovements = [{ type: 'in' }]; // активный приход
+      await expect(service.update(String(current._id), { statusLabel: '⚙️ В работе' } as never)).rejects.toThrow('Сначала отмените приход в Движениях');
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+    it('update: приход отменён — статус меняется, поля приёма сбрасываются', async () => {
+      current = reqDoc({ status: 'received', receivedQty: 10 });
+      await service.update(String(current._id), { statusLabel: '⚙️ В работе' } as never);
+      expect(model.updateOne.mock.calls[0][1].$unset).toMatchObject({ receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' });
+    });
+    it('receive partial: повтор того же clientUid не меняет заявку и не делает второй приход', async () => {
+      current = reqDoc({ materialId: new Types.ObjectId(), qty: 10, receiveUid: 'p1' });
+      await service.receive(String(current._id), { qty: 3, partial: true, clientUid: 'p1' });
+      expect(stock.move).not.toHaveBeenCalled();
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+    it('receive: параллельный приход (заявка стала received между чтением и записью) → 409', async () => {
+      current = reqDoc({ materialId: new Types.ObjectId() });
+      model.updateOne.mockReturnValue(chain({ matchedCount: 0 }));
+      await expect(service.receive(String(current._id), {})).rejects.toBeInstanceOf(ConflictException);
+      expect(model.updateOne.mock.calls[0][0]).toMatchObject({ status: { $ne: 'received' } });
     });
   });
 

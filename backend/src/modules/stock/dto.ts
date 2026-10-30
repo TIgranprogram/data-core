@@ -31,6 +31,7 @@ export class StockOffcutDto {
   @ApiPropertyOptional({ description: 'Ширина (лист), мм' }) @IsOptional() @IsNumber() @Min(1) widthMm?: number;
   @ApiPropertyOptional({ description: 'Сколько таких кусков (по умолчанию 1)' }) @IsOptional() @IsNumber() @Min(1) count?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) note?: string;
+  @ApiPropertyOptional({ description: 'Ключ клиента — повтор не отделяет обрезок второй раз' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
 export class StockMoveDto {

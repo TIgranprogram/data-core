@@ -107,7 +107,7 @@
 2. Расшифровать: `node backend/scripts/backup-decrypt.js datacore-<штамп>.dcb` → спросит пароль шифрования → рядом появится `.zip`. Неверный пароль — «Неверный пароль или файл повреждён».
 3. Поднять сервер с кодом: Ubuntu + Docker, `git clone` репо, `docker compose -f docker-compose.prod.yml up -d` (секреты `.env` — из `CREDENTIALS.md` у владельца; новый пароль Mongo — тоже можно).
 4. Распаковать zip; базу — `docker cp mongo-<штамп> datacore-mongo:/tmp/` и `mongorestore -u <root> -p <пароль> --authenticationDatabase admin --db datacore /tmp/mongo-<штамп>/datacore` (без сжатия, как пишет `backup.sh`; в пустую базу, **без `--drop`**); фото — скопировать `uploads-<штамп>/` в `${DATA_DIR}/uploads/`.
-5. Проверить: `node deploy/synology/verify-restore.js`, `/api/health/ready` = 200, вход в приложение.
+5. Проверить: `/api/health/ready` = 200, вход в приложение, число заказов и паспортов. Учебный прогон копии — `bash deploy/synology/restore-drill.sh` раз в месяц (итог в `backups/drill.log`). Откат выкладки — `bash deploy/synology/rollback.sh` на VM.
 6. Туннель и nginx на VPS — раздел «Публичный доступ» выше.
 Пароли целей и шифрования в базе зашифрованы ключом `BACKUP_SECRET_KEY` (нет — `JWT_SECRET`): сменили ключ — заново впишите пароли в админке.
 

@@ -21,6 +21,7 @@ export class PayoutDto {
   @ApiPropertyOptional({ enum: PAY_KINDS, description: 'advance | salary | bonus | other (умолч. salary)' }) @IsOptional() @IsIn([...PAY_KINDS]) kind?: string;
   @ApiPropertyOptional({ description: 'За какой месяц ГГГГ-ММ (умолч. месяц даты)' }) @IsOptional() @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'Месяц — в формате ГГГГ-ММ' }) month?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) note?: string;
+  @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт вторую выплату' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
 /** Привязка сотрудника к нашей компании (Ф5). */

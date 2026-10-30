@@ -10,7 +10,7 @@
 set -uo pipefail
 URGENT=0; for a in "$@"; do [[ "$a" == "--force-urgent" ]] && URGENT=1; done
 cd "$(git rev-parse --show-toplevel)"
-git config core.hooksPath .githooks # хук меток коммита — на любом ПК (обычно уже включён SessionStart в .claude/settings.json)
+git config core.hooksPath .githooks # хук меток коммита — на любом ПК
 LOG="$(mktemp)"
 stop() { echo "ВОРОТА: СТОП — $1"; rm -f "$LOG"; exit 1; }
 ok() { echo "  ✓ $1"; }
@@ -39,6 +39,7 @@ if [[ $SRC == 1 ]]; then
   (cd backend && npx tsc --noEmit) >"$LOG" 2>&1 || { tail -8 "$LOG"; stop "tsc: ошибки типов"; }
   (cd backend && npx jest --silent) >"$LOG" 2>&1 || { grep -E '●|FAIL|Tests:' "$LOG" | head -8; stop "юнит-тесты упали"; }
   ok "tsc 0; юнит: $(grep -E '^Tests:' "$LOG" | tail -1 | sed 's/^Tests: *//')"
+  node backend/scripts/check-map.mjs >"$LOG" 2>&1 || echo "  ! карта: $(cat "$LOG")" # предупреждение, выкладку не держит
 fi
 
 # 5. экран: синтаксис и импорты всех .js, тесты логики приложения, pwa-guards

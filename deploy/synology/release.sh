@@ -44,24 +44,35 @@ scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
 "${SSH[@]}" 'set -e; TS=$(date +%Y%m%d%H%M); R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
   cp /opt/data-core/deploy/synology/.env $R/deploy/synology/.env 2>/dev/null || true
   cd /opt/data-core; mv backend backend.prev-$TS; mv deploy deploy.prev-$TS; cp docker-compose.prod.yml docker-compose.prod.yml.prev-$TS
-  mv $R/backend backend; mv $R/deploy deploy; cp $R/docker-compose.prod.yml docker-compose.prod.yml; rm -rf $R; echo "заменено, откат: *.prev-$TS"'
+  mv $R/backend backend; mv $R/deploy deploy; cp $R/docker-compose.prod.yml docker-compose.prod.yml; rm -rf $R; echo "заменено, откат: deploy/synology/rollback.sh"
+  ls -1dt backend.prev-* deploy.prev-* docker-compose.prod.yml.prev-* 2>/dev/null | tail -n +10 | xargs -r rm -rf'
 
 echo "== 3. Сборка и перезапуск backend (mongo не трогаем)"
-"${SSH[@]}" 'cd /opt/data-core && docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1 && tail -2 /tmp/dc-build.log && docker compose -f docker-compose.prod.yml up -d --no-deps backend'
+"${SSH[@]}" 'cd /opt/data-core && N=$(docker inspect -f "{{.Config.Image}}" datacore-backend 2>/dev/null) && docker tag "$N" datacore-backend:prev; docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1 && tail -2 /tmp/dc-build.log && docker compose -f docker-compose.prod.yml up -d --no-deps backend'
 
-# 2026-10-24: кэш сборки Docker копился с каждой выкладкой (42 ГБ) — держим только последние 3 суток
-"${SSH[@]}" 'docker builder prune -f --filter until=72h >/dev/null 2>&1; docker image prune -f >/dev/null 2>&1' || true
+# 2026-10-24: кэш сборки Docker копился с каждой выкладкой (42 ГБ) — держим не больше 10 ГБ (2026-10-30: по времени разрослось до 55 ГБ)
+"${SSH[@]}" 'docker builder prune -f --max-used-space 10GB >/dev/null 2>&1; docker image prune -f >/dev/null 2>&1' || true
 
 echo "== 4. Проверка"
-"${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health/ready); [ "$s" = 200 ] && break; sleep 3; done
+CHECK="$("${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health/ready); [ "$s" = 200 ] && break; sleep 3; done
   echo "data-core /api/health/ready: $s"; echo "/app/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/app/)"; echo "/admin/: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/admin/)"
   echo "kppdf :3000: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/)"; docker ps --format "{{.Names}} {{.Status}}" | grep -E "datacore|kppdf"
   echo "место после выкладки: $(df -h /var/lib/datacore | tail -1)"
   # А2 (2026-10-26): смоук оболочки — каждый файл 200 и быстрее 3 с; иначе строка «СБОЙ»
-  bad=0; for u in /api/health /app/index.html /app/main.js /app/ui/base.css /app/ui/panels.css /app/version.json /admin/index.html; do
+  # холодный старт медленный: до трёх попыток с паузой, иначе ложный откат здорового релиза
+  for try in 1 2 3; do bad=0; for u in /api/health /app/index.html /app/main.js /app/ui/base.css /app/ui/panels.css /app/version.json /admin/index.html; do
     r=$(curl -s -o /dev/null -w "%{http_code} %{time_total}" http://127.0.0.1:3001$u); c=${r% *}; t=${r#* }
-    if [ "$c" != 200 ] || awk "BEGIN{exit !($t>3)}"; then echo "СБОЙ $u: $r"; bad=1; fi; done
-  [ $bad = 0 ] && echo "смоук: 7 из 7 в норме" || echo "смоук: есть сбои — смотреть выше"'
+    if [ "$c" != 200 ] || awk "BEGIN{exit !($t>3)}"; then [ "$try" = 3 ] && echo "СБОЙ $u: $r"; bad=1; fi; done
+    [ $bad = 0 ] && break; sleep 5; done
+  [ $bad = 0 ] && echo "смоук: 7 из 7 в норме" || echo "смоук: есть сбои — смотреть выше"' || true)"
+echo "$CHECK"
+# пустой ответ — оборвалась связь, а не проверка: откатывать вслепую нельзя
+if [[ -z "$CHECK" ]]; then echo "СТОП: нет связи с VM при проверке. Новая версия запущена, проверьте вручную: bash remote-access/check.sh"; exit 1; fi
+if ! grep -q 'ready: 200' <<<"$CHECK" || ! grep -q 'смоук: 7 из 7' <<<"$CHECK"; then
+  echo "СТОП: проверка не прошла, возвращаю прошлую версию"
+  "${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/rollback.sh' || echo "ОТКАТ НЕ ПРОШЁЛ: чинить вручную, логи — docker logs datacore-backend"
+  exit 1
+fi
 
 if [[ $DATA == 1 ]]; then
   echo "== 5. Данные (в контейнере datacore-backend, его MONGO_URI)"

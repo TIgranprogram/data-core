@@ -405,3 +405,55 @@ describe('СВ-11 (3): новый платёж у позиции без дого
     expect(await run(null, { payments: [pay] }, { payments: [pay] })).not.toHaveBeenCalled();
   });
 });
+
+describe('HARDEN-1: платежи не теряются', () => {
+  let current: Record<string, unknown>;
+  let upd: jest.Mock;
+  let service: IncomesService;
+  const chain2 = (r: unknown) => { const c: Record<string, jest.Mock> = {}; for (const m of ['lean', 'setOptions']) c[m] = jest.fn(() => c); c.exec = jest.fn(async () => r); return c; };
+  beforeEach(() => {
+    current = { _id: new Types.ObjectId(), title: 'Скамья', qty: 1, unitPrice: 1000, amount: 1000, paidAmount: 300, payments: [{ date: new Date('2026-10-01'), amount: 300 }] };
+    upd = jest.fn(() => chain2({ matchedCount: 1 }));
+    const model = { findOne: jest.fn(() => chain2(current)), updateOne: upd };
+    const conn = { db: { collection: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }) } };
+    service = new IncomesService(conn as never, model as never);
+  });
+  const id = () => String(current._id);
+
+  it('п.1: форма шлёт неизменённый paidDate — аванс остаётся авансом', async () => {
+    await service.update(id(), { title: 'Скамья', paidDate: '' } as never);
+    const u = upd.mock.calls[0][1];
+    expect(u.$set.paidAmount).toBe(300);
+    expect(u.$set.payments).toHaveLength(1);
+  });
+  it('п.1: изменённый paidDate при платежах — 400', async () => {
+    await expect(service.update(id(), { paidDate: '2026-10-05' } as never)).rejects.toThrow('меняйте в платеже');
+    expect(upd).not.toHaveBeenCalled();
+  });
+  it('п.1: payments: [] отменяет оплату', async () => {
+    await service.update(id(), { payments: [], paidDate: '' } as never);
+    expect(upd.mock.calls[0][1].$set.paidAmount).toBe(0);
+  });
+  it('п.2: addPayment пишет с условием на прежнее состояние; не совпало — 409', async () => {
+    await service.addPayment(id(), { date: '2026-10-02', amount: 100 });
+    expect(upd.mock.calls[0][0]).toMatchObject({ paidAmount: 300, payments: { $size: 1 } });
+    upd.mockReturnValue(chain2({ matchedCount: 0 }));
+    await expect(service.addPayment(id(), { date: '2026-10-02', amount: 100 })).rejects.toThrow('Оплату уже изменили');
+  });
+  it('п.2: повтор с тем же clientUid не добавляет платёж', async () => {
+    current.paymentUids = ['u1'];
+    await service.addPayment(id(), { date: '2026-10-02', amount: 100, clientUid: 'u1' });
+    expect(upd).not.toHaveBeenCalled();
+    await service.addPayment(id(), { date: '2026-10-02', amount: 100, clientUid: 'u2' });
+    expect(upd.mock.calls[0][1].$push).toEqual({ paymentUids: 'u2' });
+  });
+  it('п.2: removePayment — сумма не совпала с платежом по номеру → 409', async () => {
+    await expect(service.removePayment(id(), 0, undefined, 999)).rejects.toThrow('Оплату уже изменили');
+    await service.removePayment(id(), 0, undefined, 300);
+    expect(upd.mock.calls[0][0]).toMatchObject({ payments: { $size: 1 } });
+  });
+  it('п.14: позицию с оплатой удалить нельзя — 409, запись не тронута', async () => {
+    await expect(service.remove(id())).rejects.toThrow('есть оплата');
+    expect(upd).not.toHaveBeenCalled();
+  });
+});

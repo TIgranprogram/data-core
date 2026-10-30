@@ -106,9 +106,15 @@ export class ShipmentsService {
   async create(orderId: string, dto: CreateShipmentDto, user: AuthenticatedUser) {
     const o = await this.order(orderId);
     const _id = o._id as Types.ObjectId;
+    if (dto.clientUid) { // повтор (двойной тап, офлайн-очередь) — вернуть прежнюю отгрузку
+      const prev = await this.model.findOne({ clientUid: dto.clientUid, orderId: _id }).lean().exec() as unknown as Doc | null;
+      if (prev) return { ...this.present(prev), orderStage: await this.recalcStage(_id) };
+    }
     if (o.stage === 'closed' || o.stage === 'cancelled') throw new BadRequestException('Заказ закрыт или отменён — отгрузить нельзя');
     const [lines, ships] = await Promise.all([this.incomes(_id), this.live(_id)]);
     if (o.stage === 'shipped' && ships.length === 0) throw new BadRequestException('Заказ отмечен «Отгружен» до учёта отгрузок — смените этап вручную, если нужна новая отгрузка');
+    /** Проверка остатка по позициям и строки отгрузки; зовётся до записи и ещё раз внутри транзакции по свежим отгрузкам. */
+    const plan = (ships: Doc[]) => {
     const rem = new Map(this.rem(lines, ships).map((r) => [r.incomeId, r]));
     const byId = new Map(lines.map((l) => [String(l._id), l]));
     const seen = new Set<string>();
@@ -127,19 +133,37 @@ export class ShipmentsService {
     const sent = new Map(outLines.map((x) => [String(x.incomeId), x.qty]));
     const leftAfter = [...rem.values()].some((r) => r.left - (sent.get(r.incomeId) ?? 0) > 1e-9);
     if (leftAfter && !String(dto.reason ?? '').trim()) throw new BadRequestException('Укажите причину: отгружается не весь остаток');
+    return outLines;
+    };
+    plan(ships);
     const seq = await this.counters.nextSeq('Shipment', String(_id));
-    let doc: ShipmentDocument;
+    const whoName = await this.userName(user);
+    let doc: Doc | undefined;
+    const session = await this.connection.startSession();
     try {
-      doc = await this.model.create({
-        orderId: _id, seq, number: shipmentNumber(o.productionNo, o.orderNo, seq), date: day(dto.date), lines: outLines,
-        whoId: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, whoName: await this.userName(user),
-        reason: dto.reason?.trim() || undefined, note: dto.note?.trim() || undefined, docNo: dto.docNo?.trim() || undefined, receiver: dto.receiver?.trim() || undefined,
+      await session.withTransaction(async () => {
+        doc = undefined;
+        // повтор и остаток проверяются заново внутри транзакции (HARDEN-1 п.12)
+        if (dto.clientUid) {
+          const prev = await this.model.findOne({ clientUid: dto.clientUid, orderId: _id }).session(session).lean().exec() as unknown as Doc | null;
+          if (prev) { doc = prev; return; }
+        }
+        // запись заказа «занимается»: две одновременные отгрузки не пройдут вместе, вторая пересчитает остаток после повтора
+        await this.db().collection('salesorders').updateOne({ _id }, { $set: { updatedAt: new Date() } }, { session });
+        const fresh = await this.model.find({ orderId: _id, deletedAt: null }).session(session).lean().exec() as unknown as Doc[];
+        const outLines = plan(fresh);
+        const [made] = await this.model.create([{
+          orderId: _id, seq, number: shipmentNumber(o.productionNo, o.orderNo, seq), date: day(dto.date), lines: outLines, clientUid: dto.clientUid,
+          whoId: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, whoName,
+          reason: dto.reason?.trim() || undefined, note: dto.note?.trim() || undefined, docNo: dto.docNo?.trim() || undefined, receiver: dto.receiver?.trim() || undefined,
+        }], { session });
+        doc = made.toObject() as unknown as Doc;
       });
     } catch (e) {
       if ((e as { code?: number }).code === 11000) throw new ConflictException('Номер отгрузки занят — повторите');
       throw e;
-    }
-    return { ...this.present(doc.toObject() as unknown as Doc), orderStage: await this.recalcStage(_id) };
+    } finally { await session.endSession(); }
+    return { ...this.present(doc!), orderStage: await this.recalcStage(_id) };
   }
 
   private async find(id: string, deleted = false): Promise<Doc> {

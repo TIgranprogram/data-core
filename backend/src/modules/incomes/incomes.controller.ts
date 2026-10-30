@@ -100,8 +100,8 @@ export class IncomesController {
   @Delete(':id/payments/:index')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'income.payment.removed', entityType: 'Income', idParam: 'id' })
-  removePayment(@Param('id') id: string, @Param('index') index: string, @CurrentUser() user?: AuthenticatedUser) {
-    return this.incomes.removePayment(id, Number(index), user);
+  removePayment(@Param('id') id: string, @Param('index') index: string, @Query('amount') amount?: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.removePayment(id, Number(index), user, amount === undefined || amount === '' ? undefined : Number(amount));
   }
 
   @Post(':id/restore')

@@ -80,3 +80,4 @@
 | 2026-10-30 | дом, рабочее дерево поверх 3778913 (СМ.9: GET /api/me/versions) | full: tsc 0; юнит 212/1972 ✅; e2e 48/356 ✅ (13 skip: sheets-sync, salesorders describe.skip); БД datacore-test-qa; новый me-versions.e2e-spec (2): роль user 200, v.stock, Cache-Control no-store, без токена 401 | /me/versions (live, epoch, v по разделам) |
 | 2026-10-30 | поверх 8d9e95e (корзина, окна удаления, форма оплаты в шапке) | full: tsc 0; юнит 215/1982 ✅; e2e 49/367 ✅ (13 skip: sheets-sync, salesorders describe.skip); БД datacore-test | — |
 | 2026-10-30 | рабочее дерево поверх fd6f2fd (ПРД.4, ЗВ-5, ПНЗ.1, панель заказа, корзина) | full: tsc 0; юнит 215/1982 ✅; e2e 49/367 ✅ (13 skip); экраны — стенд :3002 | — |
+| 2026-10-30 | рабочее дерево поверх 5157e5e (HARDEN-1, инструменты контроля) | full: tsc 0; юнит 222/2019 ✅; e2e 53/403 ✅ (13 skip: sheets-sync, salesorders describe.skip); обход экранов 27/27 на 1280 и 390, стенд :3002; оплата нажатиями на экране ✅ | — |

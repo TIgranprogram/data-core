@@ -45,10 +45,16 @@ export class StockReservationsService {
     const so = line ? (line.salesOrderId as Types.ObjectId) : dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId) ? new Types.ObjectId(dto.salesOrderId) : undefined;
     const short: { materialId: string; need: number; reserved: number }[] = [];
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
+    let repeat: Types.ObjectId | undefined;
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        short.length = 0;
+        short.length = 0; repeat = undefined;
+        // повтор проверяется внутри транзакции первой строкой (HARDEN-1 п.5)
+        if (dto.clientUid) {
+          const prev = await this.reservations.findOne({ clientUid: dto.clientUid }).session(session).lean().exec();
+          if (prev) { repeat = (prev as { batchId?: Types.ObjectId }).batchId; return; }
+        }
         let first = true;
         for (const [id, need] of merged) {
           const matId = oid(id, 'позиции');
@@ -65,6 +71,7 @@ export class StockReservationsService {
         }
       });
     } finally { await session.endSession(); }
+    if (repeat) return this.reservationGroup(String(repeat));
     return { ...(await this.reservationGroup(String(batchId))), short };
   }
 
@@ -118,22 +125,30 @@ export class StockReservationsService {
 
   /** Снять одну бронь (строку): «свободно» на складе снова увеличится. */
   async releaseReservation(id: string) {
-    const r = await this.reservations.findOne({ _id: oid(id, 'брони'), status: 'active', deletedAt: null }).exec();
-    if (!r) throw new NotFoundException('Бронь не найдена или уже снята');
+    const _id = oid(id, 'брони');
+    if (!(await this.reservations.findOne({ _id, status: 'active', deletedAt: null }).exec())) throw new NotFoundException('Бронь не найдена или уже снята');
     const session = await this.connection.startSession();
     try {
-      await session.withTransaction(() => this.releaseWithin(r, session));
+      // бронь перечитывается внутри транзакции: параллельное снятие или выдача не даст вернуть остаток дважды
+      await session.withTransaction(async () => {
+        const r = await this.reservations.findOne({ _id, status: 'active', deletedAt: null }).session(session).exec();
+        if (!r) throw new ConflictException('Бронь уже снята или выдана — обновите страницу');
+        await this.releaseWithin(r, session);
+      });
     } finally { await session.endSession(); }
     return { id, released: true };
   }
 
   /** Снять бронь внутри чужой транзакции (спецификация «заменить»): «свободно» увеличивается. */
   async releaseWithin(r: ReservationDocument, session: ClientSession) {
-    const item = await this.core.loadStorage(r.warehouseId as Types.ObjectId, r.materialId as Types.ObjectId, session);
-    item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - r.qty);
+    const cur = await this.reservations.findOne({ _id: r._id, status: 'active', deletedAt: null }).session(session).exec();
+    if (!cur) throw new ConflictException('Бронь уже снята или выдана — обновите страницу');
+    const item = await this.core.loadStorage(cur.warehouseId as Types.ObjectId, cur.materialId as Types.ObjectId, session);
+    item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - cur.qty);
     await item.save({ session });
+    cur.status = 'released'; cur.isActive = false;
+    await cur.save({ session });
     r.status = 'released'; r.isActive = false;
-    await r.save({ session });
   }
 
   /** Снять всю бронь списка. */
@@ -163,10 +178,16 @@ export class StockReservationsService {
     const batchId = new Types.ObjectId();
     const now = new Date();
     const matIds: Types.ObjectId[] = [];
+    let repeat: Types.ObjectId | undefined;
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        matIds.length = 0;
+        matIds.length = 0; repeat = undefined;
+        // повтор проверяется внутри транзакции первой строкой (HARDEN-1 п.5)
+        if (dto.clientUid) {
+          const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).session(session).lean().exec();
+          if (prev) { repeat = (prev as { batchId?: Types.ObjectId }).batchId; return; }
+        }
         const list = await this.reservations.find({ _id: { $in: [...want.keys()].map((id) => new Types.ObjectId(id)) }, status: 'active', deletedAt: null }).session(session).exec();
         if (list.length !== want.size) throw new ConflictException('Часть броней уже выдана или снята — обновите страницу');
         const mats = await this.materials.find({ _id: { $in: list.map((r) => r.materialId) } }, { name: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
@@ -206,6 +227,7 @@ export class StockReservationsService {
     } finally {
       await session.endSession();
     }
+    if (repeat) return { ...(await this.moves.batchResult(String(repeat), 'issue')), issued: 0 };
     await this.connection.db!.collection('materials').updateMany({ _id: { $in: matIds } }, { $set: { editedInApp: true } });
     return { ...(await this.moves.batchResult(String(batchId), 'issue', matIds)), issued: matIds.length };
   }
@@ -238,6 +260,9 @@ export class StockReservationsService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        // бронь перечитывается в транзакции: выдана или снята параллельно — правка не проходит
+        const fresh = await this.reservations.findOne({ _id: r._id, status: 'active', deletedAt: null }).session(session).exec();
+        if (!fresh) throw new ConflictException('Бронь уже снята или выдана — обновите страницу');
         if (delta !== 0) {
           const item = await this.core.loadStorage(r.warehouseId as Types.ObjectId, r.materialId as Types.ObjectId, session);
           const free = Math.round(((item.quantity ?? 0) - (item.reservedQty ?? 0)) * 1000) / 1000;

@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { parseNum, qty } from '../core/format.js';
+import { newUid, parseNum, qty } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { dictNames } from '../ui/dict-options.js';
@@ -63,7 +63,7 @@ export async function offcutDialog(r, ctx) {
       const l = parseNum(len.value), w = wid ? parseNum(wid.value) : undefined, c = parseNum(cnt.value) || 1;
       if (!(l > 0)) throw new Error('Укажите длину');
       if (sheet && !(w > 0)) throw new Error('Укажите ширину');
-      return api(`/stock/items/${r.id}/offcut`, { method: 'POST', body: { lengthMm: Math.round(l * 1000), ...(w ? { widthMm: Math.round(w * 1000) } : {}), count: c } });
+      return api(`/stock/items/${r.id}/offcut`, { method: 'POST', body: { lengthMm: Math.round(l * 1000), ...(w ? { widthMm: Math.round(w * 1000) } : {}), count: c, clientUid: newUid() } });
     },
   });
   if (done) {

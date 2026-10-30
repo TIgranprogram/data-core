@@ -8,6 +8,7 @@ export class PaymentDto {
   @ApiPropertyOptional({ description: 'Сумма, ₽ (> 0)' }) @IsNumber() @Min(0.01) amount!: number;
   @ApiPropertyOptional({ description: 'Способ: нал | безнал | карта' }) @IsOptional() @IsString() @Length(0, 50) method?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) note?: string;
+  @ApiPropertyOptional({ description: 'Ключ клиента — повтор POST /incomes/:id/payments не добавляет второй платёж' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
 /** Доход (строка заказа). Числа: null — очистить поле. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить. */

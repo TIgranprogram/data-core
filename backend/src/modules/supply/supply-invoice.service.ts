@@ -152,7 +152,11 @@ export class SupplyInvoiceService {
       todo = lines.filter((d) => want.includes(String(d._id)));
     }
     if (!todo.length) throw new ConflictException('Все позиции этого счёта уже приняты на склад');
-    for (const d of todo) await this.supply.receive(String(d._id), { clientUid: `inv-${id}-${String(d._id)}` }, userId);
+    for (const d of todo) {
+      // после отмены прихода ключ меняется (число отменённых), иначе новый приём принят бы за повтор старого
+      const n = await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${String(d._id)}`, cancelledAt: { $ne: null } });
+      await this.supply.receive(String(d._id), { clientUid: `inv-${id}-${String(d._id)}${n ? '-' + n : ''}` }, userId);
+    }
     return { ...(await this.get(id)), receivedCount: todo.length };
   }
 
@@ -341,8 +345,11 @@ export class SupplyInvoiceService {
     const now = new Date();
     await this.tx(async (session) => {
       await this.model.updateOne({ _id: inv._id }, { $set: { status: 'paid', paidAt: now } }, { session }).exec();
-      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } },
+      // «Получено» оплата не откатывает в «Заказано» — только отметка оплаты (HARDEN-1 п.3)
+      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: { $nin: ['cancelled', 'received'] } },
         { $set: { paid: true, paidAt: now, status: 'ordered', editedInApp: true } }, { session }).exec();
+      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: 'received' },
+        { $set: { paid: true, paidAt: now, editedInApp: true } }, { session }).exec();
       await this.recordPrices(inv, 'invoice_paid', session);
     });
     return this.get(id);

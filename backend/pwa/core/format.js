@@ -1,6 +1,9 @@
 /** Форматы по-русски (CANON §2 «Тексты»): 19.10.2026, 12 500,00 ₽, количества без лишних нулей. */
 const two = (n) => String(n).padStart(2, '0');
 
+/** Ключ одной операции (clientUid): повтор запроса при плохой связи не задвоит запись. */
+export const newUid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+
 export function date(v) {
   if (!v) return '';
   const d = new Date(v);

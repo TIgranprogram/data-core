@@ -16,6 +16,7 @@ export class CreateShipmentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(1000) note?: string;
   @ApiPropertyOptional({ description: '№ документа (УПД / ТН)' }) @IsOptional() @IsString() @MaxLength(100) docNo?: string;
   @ApiPropertyOptional({ description: 'Кто принял' }) @IsOptional() @IsString() @MaxLength(200) receiver?: string;
+  @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт вторую отгрузку' }) @IsOptional() @IsString() @MaxLength(100) clientUid?: string;
 }
 
 export class UpdateShipmentDto {

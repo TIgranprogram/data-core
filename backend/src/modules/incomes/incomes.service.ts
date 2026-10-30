@@ -1,5 +1,5 @@
 import { photoToFront } from '../../common/photo-main';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { customerNames } from '../partners/customer-names';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -195,7 +195,12 @@ export class IncomesService {
     const base = { qty: pick<number>('qty'), unitPrice: pick<number>('unitPrice'), amountManual: pick<number>('amountManual'), shipDate: pick<Date>('shipDate') };
     let payments = (cur.payments as IncomePayment[] | undefined) ?? [];
     if ('payments' in f) payments = (f.payments as IncomePayment[]) ?? [];
-    else if ('paidDate' in f) payments = []; // старый вход: paidDate — оплачено целиком, следует за суммой (платежи сбрасываются)
+    else if ('paidDate' in f && payments.length) {
+      // форма позиции шлёт paidDate всегда: неизменённая дата при наличии платежей не трогает платежи (HARDEN-1 п.1)
+      const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : '');
+      if (day(f.paidDate) !== day(cur.paidDate)) throw new BadRequestException('Дату оплаты меняйте в платеже, а не в позиции');
+      delete f.paidDate;
+    } else if ('paidDate' in f) payments = []; // старый вход: paidDate — оплачено целиком, следует за суммой (платежи сбрасываются)
     const legacy = !payments.length && !('payments' in f) ? pick<Date>('paidDate') : undefined;
     const d = incomeDerived({ ...base, payments, paidDate: legacy });
     if ((payments.length || legacy) && !(d.amount > 0)) throw new BadRequestException('Сначала впишите сумму (цену за единицу или сумму строки), потом отмечайте оплату');
@@ -211,19 +216,30 @@ export class IncomesService {
   }
 
   /** Добавить платёж к позиции (кнопка «Принять оплату»: дата, сумма, способ). */
-  async addPayment(id: string, p: { date: string; amount: number; method?: string; note?: string }, actor?: AuthenticatedUser) {
+  async addPayment(id: string, p: { date: string; amount: number; method?: string; note?: string; clientUid?: string }, actor?: AuthenticatedUser) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
-    return this.update(id, { payments: [...this.paymentsView(cur), p] } as IncomeDto, actor);
+    const { clientUid, ...pay } = p;
+    // повтор с тем же ключом (двойной тап, сеть) — без второго платежа
+    if (clientUid && ((cur as { paymentUids?: string[] }).paymentUids ?? []).includes(clientUid)) return this.get(id);
+    return this.update(id, { payments: [...this.paymentsView(cur), pay] } as IncomeDto, actor, { ...this.paymentsGuard(cur), ...(clientUid ? { push: { paymentUids: clientUid } } : {}) });
+  }
+
+  /** Условие записи платежей: прежняя сумма оплат и число платежей (иначе кто-то успел изменить — 409). */
+  private paymentsGuard(cur: Record<string, unknown>) {
+    const n = ((cur.payments as unknown[] | undefined) ?? []).length;
+    return { guard: { paidAmount: (cur.paidAmount as number | undefined) ?? null, ...(n ? { payments: { $size: n } } : { $or: [{ payments: { $exists: false } }, { payments: { $size: 0 } }] }) } as Record<string, unknown> };
   }
 
   /** Убрать платёж по номеру в списке (0 — первый). */
-  async removePayment(id: string, index: number, actor?: AuthenticatedUser) {
+  async removePayment(id: string, index: number, actor?: AuthenticatedUser, amount?: number) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     const have = this.paymentsView(cur);
     if (!Number.isInteger(index) || index < 0 || index >= have.length) throw new NotFoundException('Платежа с таким номером нет');
-    return this.update(id, { payments: have.filter((_, i) => i !== index) } as IncomeDto, actor);
+    // номер в списке мог сдвинуться: сумма в запросе должна совпасть с платежом по этому номеру
+    if (amount !== undefined && Math.abs(have[index].amount - amount) > 0.005) throw new ConflictException('Оплату уже изменили, обновите карточку');
+    return this.update(id, { payments: have.filter((_, i) => i !== index) } as IncomeDto, actor, this.paymentsGuard(cur));
   }
 
   /**
@@ -265,7 +281,7 @@ export class IncomesService {
     return this.get(String(doc._id));
   }
 
-  async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser) {
+  async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser, opts: { guard?: Record<string, unknown>; push?: Record<string, unknown> } = {}) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     const f = await this.toFields(dto);
@@ -282,7 +298,8 @@ export class IncomesService {
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
-    await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+    const res = await this.model.updateOne({ _id: cur._id, ...(opts.guard ?? {}) }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }).exec();
+    if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
     return this.get(id);
   }
@@ -325,9 +342,14 @@ export class IncomesService {
   }
 
   async remove(id: string, actor?: AuthenticatedUser) {
-    if (actor) {
-      const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
-      await this.assertOrderOpen(cur?.orderId, actor);
+    const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
+    if (actor) await this.assertOrderOpen(cur?.orderId, actor);
+    // CANON: нельзя удалить то, на что ссылаются — позицию с оплатой или отгрузкой
+    if (cur) {
+      if (incomePayments(cur as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }).length || Number((cur as { paidAmount?: number }).paidAmount) > 0) {
+        throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
+      }
+      if (await this.connection.db!.collection('shipments').countDocuments({ deletedAt: null, 'lines.incomeId': cur._id })) throw new ConflictException('Позиция отгружена — сначала отмените отгрузку');
     }
     const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Запись дохода не найдена');

@@ -127,7 +127,15 @@ export class PayrollService {
     if (!(await ourCompanies(this.connection)).some((c) => String(c.id) === String(companyId))) throw new BadRequestException('Выберите нашу компанию из списка');
     const doc = { personId, companyId, date, amount: r2(dto.amount), kind: dto.kind || 'salary', month: dto.month || date.toISOString().slice(0, 7), note: dto.note?.trim() || undefined,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined, deletedAt: null, createdAt: new Date() };
-    const res = await this.db.collection('payroll_payments').insertOne(doc);
+    const coll = this.db.collection('payroll_payments');
+    if (dto.clientUid) {
+      // одним атомарным upsert: повтор с тем же ключом возвращает прежнюю выплату, а не создаёт вторую
+      const res = await coll.updateOne({ clientUid: dto.clientUid }, { $setOnInsert: { ...doc, clientUid: dto.clientUid } }, { upsert: true });
+      if (res.upsertedId) return { id: String(res.upsertedId), month: doc.month };
+      const prev = await coll.findOne({ clientUid: dto.clientUid }, { projection: { month: 1 } });
+      return { id: String(prev!._id), month: String(prev!.month) };
+    }
+    const res = await coll.insertOne(doc);
     return { id: String(res.insertedId), month: doc.month };
   }
 

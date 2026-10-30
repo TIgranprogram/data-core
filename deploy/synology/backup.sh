@@ -30,6 +30,10 @@ DATE="$(date +%Y-%m-%d_%H%M%S)"
 BACKUP_ROOT="${DATA_DIR}/backups"
 
 mkdir -p "$BACKUP_ROOT"
+# Сбой посреди копии не оставляет обрезанную папку: пишем в .tmp-*, готовое переносим под настоящее имя.
+TMP_MONGO="${BACKUP_ROOT}/.tmp-mongo-${DATE}"; TMP_UPLOADS="${BACKUP_ROOT}/.tmp-uploads-${DATE}"
+cleanup() { rm -rf "$TMP_MONGO" "$TMP_UPLOADS"; $DOCKER exec "$MONGO_CONTAINER" rm -rf "/tmp/dump-${DATE}" 2>/dev/null || true; }
+trap cleanup EXIT
 
 echo "=== Data Core backup ($(date)) ==="
 echo "    mongo container: ${MONGO_CONTAINER}, db: ${MONGO_DB}"
@@ -41,12 +45,13 @@ $DOCKER exec "$MONGO_CONTAINER" mongodump \
   --authenticationDatabase admin \
   --db "$MONGO_DB" \
   --out "/tmp/dump-${DATE}"
-$DOCKER cp "${MONGO_CONTAINER}:/tmp/dump-${DATE}" "${BACKUP_ROOT}/mongo-${DATE}"
-$DOCKER exec "$MONGO_CONTAINER" rm -rf "/tmp/dump-${DATE}"
+$DOCKER cp "${MONGO_CONTAINER}:/tmp/dump-${DATE}" "$TMP_MONGO"
 
 if [[ -d "${DATA_DIR}/uploads" ]]; then
-  cp -a "${DATA_DIR}/uploads" "${BACKUP_ROOT}/uploads-${DATE}"
+  cp -a "${DATA_DIR}/uploads" "$TMP_UPLOADS"
+  mv "$TMP_UPLOADS" "${BACKUP_ROOT}/uploads-${DATE}"
 fi
+mv "$TMP_MONGO" "${BACKUP_ROOT}/mongo-${DATE}"
 # Дата папки бэкапа = момент бэкапа. Иначе cp -a переносит старую mtime исходной папки
 # (после переноса фото kppdf она старше 14 дней) и ротация ниже сразу удаляет свежую копию.
 touch "${BACKUP_ROOT}/mongo-${DATE}"
@@ -66,9 +71,13 @@ if [[ "$RETENTION_DAYS" -gt 0 ]]; then
   # 2026-10-24: не больше BACKUP_KEEP последних копий каждого вида (выкладка тоже делает бэкап — копии копились десятками)
   KEEP="${BACKUP_KEEP:-10}"
   for kind in mongo uploads; do
-    ls -1dt "$BACKUP_ROOT"/${kind}-20* 2>/dev/null | tail -n +$((KEEP + 1)) | while IFS= read -r dir; do
-      echo "  removing (сверх ${KEEP}): $(basename "$dir")"; rm -rf "$dir"
-    done
+    # выкладки делают по несколько копий в день: новейшая копия каждого дня живёт весь срок хранения
+    i=0; SEEN=" "
+    while IFS= read -r dir; do
+      i=$((i + 1)); day="$(basename "$dir" | sed -E 's/^[a-z]+-([0-9-]{10}).*/\1/')"
+      case "$SEEN" in *" $day "*) first=0 ;; *) first=1; SEEN="$SEEN$day " ;; esac
+      if [[ "$i" -gt "$KEEP" && "$first" == 0 ]]; then echo "  removing (сверх ${KEEP}): $(basename "$dir")"; rm -rf "$dir"; fi
+    done < <(ls -1dt "$BACKUP_ROOT"/${kind}-20* 2>/dev/null)
   done
 else
   echo "=== Rotation disabled (BACKUP_RETENTION_DAYS=0) ==="

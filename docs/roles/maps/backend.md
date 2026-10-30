@@ -1,6 +1,6 @@
 # Карта роли backend
 
-коммит: 627c9bf (+ правки ПВ и DICT 2026-10-25, не закоммичены)
+коммит: 627c9bf (+ HARDEN-1 2026-10-30, не закоммичено)
 
 ## Паспорта «воронкой» (ПВ) — где что
 - Дерево/выбор (pure): `backend/src/common/passport/phrase-tree.ts` — `toNode`, `buildForest(nodes, category)`, `resolveChoices`, `missingChoices`, `checkNode` (запись), `checkChoices`, `parseChoices`, `presentForest`. spec рядом.
@@ -92,3 +92,9 @@
 
 ## КП-1 (коммерческие предложения, 2026-10-30, не закоммичено)
 - `modules/offers/`: `offers.service.ts` (list+counts, CRUD, `setStatus`, `pdf`), `offer-rules.ts` (pure: переходы, суммы), `offer-layout.ts` (pure: зоны и `paginateRows`), `offer-pdf.ts` (pdfkit), `offer-backgrounds.service.ts` (фоны, sharp→JPEG, кэш), `offer.schema.ts` (`commercialoffers`, `offerbackgrounds` с `softDelete:false`), `dto.ts`; встроенные фоны `backend/assets/offers/` (+ COPY в Dockerfile). Разделы: `app-sections.ts` `offers`. Тесты: 3 spec рядом, e2e `offers.e2e-spec.ts` (зелёный). openapi не обновлён. коммит: —
+
+## HARDEN-1 (2026-10-30, не закоммичено)
+- Деньги: `incomes.service.ts` `derive` (paidDate при платежах), `addPayment`/`removePayment`/`paymentsGuard`, `update(…, opts{guard,push})`; `paymentUids` в `income.schema.ts`. Удаление: `incomes.remove`, `salesorders.service.ts:remove`, `showcase.service.ts:remove`, `partners.service.ts:merge`.
+- Склад: `stock-movements.service.ts` `move(…, first)` (clientUid в транзакции, claim отмены), `batch`, `offcut`, `correctMovement`; `stock-reservations.service.ts` (перечитывание брони в tx, clientUid). Снабжение: `supply.service.ts` `receiveRaw`/`update`/`create` (CounterService), `supply-invoice.service.ts:pay`. `shipments.service.ts:create` (tx + clientUid), `payroll.service.ts:addPayment`, `disk.controller.ts` `heavyParts`.
+- Уникальный индекс clientUid на движениях/бронях НЕ создавался (решение: в проде возможны дубли из импорта таблиц — сначала отчёт по дублям).
+- Ловушка: heredoc с обратными кавычками в `bash -c "…"` выполняет их — длинные скрипты писать Write-ом.

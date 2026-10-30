@@ -16,7 +16,7 @@ function setup() {
     findOne: async (q: { _id: Types.ObjectId }) => (name === 'salesorders' ? [order, other].find((o) => o._id.equals(q._id)) : name === 'incomes' ? [lineOk, lineOther].find((o) => o._id.equals(q._id)) : null) ?? null,
   });
   const reservations = {
-    findOne: () => ({ exec: async () => res }),
+    findOne: () => ({ exec: async () => res, session: () => ({ exec: async () => res }) }),
     find: (q: Row) => ({ lean: () => ({ exec: async () => (q._id ? q._id.$in.filter((i: Types.ObjectId) => i.equals(res._id)).map((i: Types.ObjectId) => ({ _id: i })) : [{ _id: res._id }, { _id: id() }]) }) }),
   };
   const movements = { exists: jest.fn(async () => false) };
@@ -83,5 +83,24 @@ describe('StockReservationsService.issueOrder', () => {
   it('часть выбранных броней уже выдана или снята — 409', async () => {
     const t = setup();
     await expect(t.svc.issueOrder({ salesOrderId: String(t.order._id), reservationIds: [String(t.res._id), String(id())] })).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('HARDEN-1 п.6: бронь перечитывается в транзакции', () => {
+  it('releaseReservation: в транзакции бронь уже снята — 409, остаток брони не трогаем', async () => {
+    const t = setup();
+    const svc = t.svc as unknown as { reservations: { findOne: jest.Mock } };
+    svc.reservations.findOne = jest.fn(() => ({ exec: async () => t.res, session: () => ({ exec: async () => null }) }));
+    await expect(t.svc.releaseReservation(String(t.res._id))).rejects.toBeInstanceOf(ConflictException);
+    expect(t.item.reservedQty).toBe(4);
+  });
+  it('п.5 issueReservations: clientUid найден внутри транзакции — второй выдачи нет', async () => {
+    const t = setup();
+    const svc = t.svc as unknown as { movements: { findOne: jest.Mock }; moves: { batchResult: jest.Mock } };
+    svc.movements = { findOne: jest.fn(() => ({ lean: () => ({ exec: async () => null }), session: () => ({ lean: () => ({ exec: async () => ({ batchId: id() }) }) }) })) };
+    svc.moves = { batchResult: jest.fn(async () => ({ items: [] })) };
+    const r = await t.svc.issueReservations({ lines: [{ reservationId: String(t.res._id) }], clientUid: 'x' });
+    expect(r.issued).toBe(0);
+    expect(t.item.quantity).toBe(10);
   });
 });
