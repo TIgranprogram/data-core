@@ -182,3 +182,68 @@ describe('Исправление списания и фильтры трубы (
     await http().post(`/api/stock/movements/${ownOut}/correct`).set(as(tokRound)).send({ qty: 3 }).expect(201);
   });
 });
+
+/** Металл без остатка и заказа (isEmptyMetal, 2026-10-30): нулевая труба скрыта от admin и всех ролей без категории, видна роли со своей категорией. */
+describe('Металл без остатка скрыт, с остатком — виден всем (СМ.6)', () => {
+  let ctx: TestContext | undefined;
+  let app: INestApplication;
+  let admin: AuthTokens;
+  const http = () => request(app.getHttpServer());
+  const as = (t: string) => authHeader(t);
+  const names = (body: { items: Array<{ name?: string }> }) => body.items.map((x) => x.name);
+  let tokRound = '';
+  let tokFree = '';
+
+  beforeAll(async () => {
+    ctx = await createTestApp();
+    app = ctx.app;
+    admin = await loginAsAdmin(app);
+    const t = as(admin.access);
+    const emptyId = (await http().post('/api/stock/items').set(t).send({ name: 'Труба пустая МЕТ', unit: 'шт', categoryName: 'Круглая труба' }).expect(201)).body.id as string;
+    const stockId = (await http().post('/api/stock/items').set(t).send({ name: 'Труба с остатком МЕТ', unit: 'шт', categoryName: 'Круглая труба' }).expect(201)).body.id as string;
+    await http().post('/api/stock/items').set(t).send({ name: 'Болт пустой МЕТ', unit: 'шт', categoryName: 'Крепёж МЕТ' }).expect(201);
+    await http().post('/api/stock/batch').set(t).send({ type: 'in', lines: [{ materialId: stockId, qty: 5 }] }).expect(201);
+    expect(emptyId).toBeTruthy();
+    const cats = (await http().get('/api/stock/categories').set(t).expect(200)).body as Array<{ id: string; name: string }> | { items: Array<{ id: string; name: string }> };
+    const roundCatId = (Array.isArray(cats) ? cats : cats.items).find((c) => c.name === 'Круглая труба')!.id;
+    const role = (await http().post('/api/roles').set(t).send({ label: 'Труба МЕТ', baseRole: 'manager', stockCategoryIds: [roundCatId] }).expect(201)).body;
+    const username = `met-round-${Date.now()}`;
+    await http().post('/api/admin/users').set(t).send({ username, password: 'role-pass-123', role: role.name }).expect(201);
+    tokRound = (await http().post('/api/auth/login').send({ username, password: 'role-pass-123' }).expect(200)).body.access as string;
+    const freeRole = (await http().post('/api/roles').set(t).send({ label: 'Склад МЕТ без скоупа', baseRole: 'manager' }).expect(201)).body;
+    const freeUser = `met-free-${Date.now()}`;
+    await http().post('/api/admin/users').set(t).send({ username: freeUser, password: 'role-pass-123', role: freeRole.name }).expect(201);
+    tokFree = (await http().post('/api/auth/login').send({ username: freeUser, password: 'role-pass-123' }).expect(200)).body.access as string;
+  });
+  afterAll(async () => { await ctx?.cleanup(); });
+
+  it('admin: нулевая труба не видна в /items, /lookup и /categories; с остатком и не-металл — видны', async () => {
+    const a = as(admin.access);
+    const items = names((await http().get('/api/stock/items').set(a).expect(200)).body);
+    expect(items).toContain('Труба с остатком МЕТ');
+    expect(items).toContain('Болт пустой МЕТ');
+    expect(items).not.toContain('Труба пустая МЕТ');
+    const lk = names((await http().get('/api/stock/lookup').set(a).expect(200)).body);
+    expect(lk).toContain('Труба с остатком МЕТ');
+    expect(lk).not.toContain('Труба пустая МЕТ');
+    const cats = (await http().get('/api/stock/categories').set(a).expect(200)).body;
+    const list = (Array.isArray(cats) ? cats : cats.items) as Array<{ name: string; total: number }>;
+    expect(list.find((c) => c.name === 'Круглая труба')?.total).toBe(1);
+  });
+
+  it('роль со своей категорией «Круглая труба»: нулевая труба видна в /items, /lookup и /categories', async () => {
+    const r = as(tokRound);
+    expect(names((await http().get('/api/stock/items').set(r).expect(200)).body)).toEqual(expect.arrayContaining(['Труба пустая МЕТ', 'Труба с остатком МЕТ']));
+    expect(names((await http().get('/api/stock/lookup').set(r).expect(200)).body)).toContain('Труба пустая МЕТ');
+    const cats = (await http().get('/api/stock/categories').set(r).expect(200)).body;
+    const list = (Array.isArray(cats) ? cats : cats.items) as Array<{ name: string; total: number }>;
+    expect(list.find((c) => c.name === 'Круглая труба')?.total).toBe(2);
+  });
+
+  it('роль без категорий: с остатком видна, нулевая скрыта (правило одно для всех без скоупа)', async () => {
+    const f = as(tokFree);
+    const items = names((await http().get('/api/stock/items').set(f).expect(200)).body);
+    expect(items).toContain('Труба с остатком МЕТ');
+    expect(items).not.toContain('Труба пустая МЕТ');
+  });
+});

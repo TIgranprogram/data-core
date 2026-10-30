@@ -45,7 +45,7 @@ export class StockController {
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   list(@Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser) {
     const scope = stockScopeFor(user);
-    return this.stock.listItems(scope ? { ...q, categoryId: narrowCategories(q.categoryId, scope) } : q);
+    return this.stock.listItems(scope ? { ...q, categoryId: narrowCategories(q.categoryId, scope) } : { ...q, hideEmptyMetal: '1' });
   }
 
   /** SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — `{items}`. */

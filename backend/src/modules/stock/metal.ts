@@ -35,6 +35,9 @@ export function mergeDims(current: unknown, patch: Dims) {
   return DIM_TYPES.filter((k) => cur[k]).map((k) => ({ type: k, value: cur[k] as number, isImmutable: false }));
 }
 
+/** Металл без остатка и заказа: виден только ролям «Трубарез» и «Лазер лист» (пользователь 2026-10-30). */
+export const isEmptyMetal = (r: { metal?: MetalKind | null; quantity?: number; reservedQty?: number; ordered?: number }) => !!r.metal && !r.quantity && !r.reservedQty && !r.ordered;
+
 /** «1,2 м» из миллиметров. */
 export const meters = (mm: number) => (Math.round(mm) / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 3 }) + ' м';
 

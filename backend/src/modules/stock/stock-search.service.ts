@@ -8,7 +8,7 @@ import { sameRe } from '../../common/text/same-text';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { normText } from '../../common/text/norm-text';
 import { articleView } from './article';
-import { dimsOf, metalKind } from './metal';
+import { dimsOf, metalKind, isEmptyMetal } from './metal';
 import { StockCoreService } from './stock-core.service';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { ITEM_SORT } from './stock.types';
@@ -58,7 +58,8 @@ export class StockSearchService {
     const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : [])]);
     // Выборка по id (карточка позиции, ответ после записи) — без кэша: версия коллекции растёт по потоку изменений
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
-    const { wh, rows: all } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
+    const { wh, rows: found } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
+    const all = q.hideEmptyMetal ? found.filter((r) => !isEmptyMetal(r)) : found;
     // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
     const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0, ordered: 0 };
     for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; if (r.ordered > 0) counts.ordered++; }
@@ -95,7 +96,7 @@ export class StockSearchService {
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const items = rows
-      .filter((r) => !scope || scope.includes(String(r.categoryId)))
+      .filter((r) => (scope ? scope.includes(String(r.categoryId)) : !isEmptyMetal(r)))
       .map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free }))
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ru'));
     return { items };
@@ -234,7 +235,7 @@ export class StockSearchService {
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
-    const mine = scope ? rows.filter((r) => scope.includes(String(r.categoryId))) : rows;
+    const mine = rows.filter((r) => (scope ? scope.includes(String(r.categoryId)) : !isEmptyMetal(r)));
     for (const i of mine) {
       const id = i.categoryId ?? 'none';
       const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0, ordered: 0 };
