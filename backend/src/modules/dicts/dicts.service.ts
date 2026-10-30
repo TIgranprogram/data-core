@@ -1,3 +1,4 @@
+import { stockScopeFor } from '../../common/stock-scope';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { effectiveRoles } from '../../common/roles-hierarchy';
@@ -31,6 +32,7 @@ export class DictsService {
 
   /** Правка справочника с `editRoles` (группа «Паспорта» — директор и админ); остальные — как раньше (менеджер+ по @Roles). */
   assertCanEdit(key: string, user?: { role?: string; isOwner?: boolean } | null) {
+    if (stockScopeFor(user)) throw new ForbiddenException('Справочники для вашей роли закрыты');
     const roles = this.def(key).editRoles;
     if (!roles || user?.isOwner === true || effectiveRoles(user?.role).some((r) => roles.includes(r))) return;
     throw new ForbiddenException('Этот справочник правят директор и администратор');

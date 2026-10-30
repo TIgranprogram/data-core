@@ -127,6 +127,9 @@ const root = $('#root');
 /** Роли склада: свой экран (таблица как Excel) и фон — котики у «Трубарез», собачки у «Лазер лист». */
 const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
 const isSheetRole = () => session.user?.roleLabel === 'Лазер лист';
+/** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
+const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'movements', 'help']);
+const isStockRole = () => isPipeRole() || isSheetRole();
 
 function showLogin(message) {
   stopRain();
@@ -266,9 +269,9 @@ function settingsButton() {
       const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
       const nav = (id) => ({ label: id === 'dicts' ? 'Справочники' : id === 'trash' ? 'Корзина' : 'История', icon: id, href: '#' + id });
       const sys = [session.role === 'admin' ? { label: 'Администрирование', icon: 'admin', href: PREFIX + '/admin/' } : null,
-        PREFIX ? { label: 'CRM', icon: 'crm', href: '/' } : null].filter(Boolean);
+        PREFIX && !isStockRole() ? { label: 'CRM', icon: 'crm', href: '/' } : null].filter(Boolean);
       openPopMenu({ anchor: btn, side: 'up', cls: 'pm-settings', groups: [
-        { title: 'Данные', items: [nav('dicts'), nav('trash'), seesHistory ? nav('history') : null].filter(Boolean) },
+        isStockRole() ? null : { title: 'Данные', items: [nav('dicts'), nav('trash'), seesHistory ? nav('history') : null].filter(Boolean) },
         sys.length ? { title: 'Система', items: sys } : null,
         { title: 'Приложение', items: [installItem()] },
         { sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] },
@@ -361,7 +364,7 @@ function render(c) {
   }
   // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
   // SK-8b: раздел снят с роли — прямой адрес ведёт на «Сегодня» с подсказкой, без ошибки
-  if (!allowed(section)) {
+  if (!allowed(section) || (isStockRole() && !STOCK_ROLE_SECTIONS.has(section))) {
     toast(`Раздел «${titleOf(OWNER[section] || section) || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
     go(DEFAULT, {}, { replace: true }); return;
   }
