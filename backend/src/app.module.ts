@@ -51,7 +51,7 @@ import { AttributeDefinitionModule } from './modules/attribute-definition/attrib
 import { EntityAttributeValueModule } from './modules/entity-attribute-value/entity-attribute-value.module';
 import { ProductPassportModule } from './modules/product-passport/product-passport.module';
 import { AppDataModule } from './modules/app-data/app-data.module';
-import { SheetsSyncModule } from './modules/sheets-sync/sheets-sync.module';
+// import { SheetsSyncModule } from './modules/sheets-sync/sheets-sync.module'; // отключён 2026-10-30 — Google Sheets более не используются
 import { StockModule } from './modules/stock/stock.module';
 import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
@@ -189,7 +189,7 @@ import { RequestMethod } from '@nestjs/common';
     TodayModule,          // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
     PayrollModule,          // /api/payroll — ФОТ: табель, начисления, выплаты (в календарь и прогноз — через finance)
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
-    SheetsSyncModule,       // /api/admin/sheets-sync — сервер читает Google-таблицы (сервисный аккаунт) → /api/apps
+    // SheetsSyncModule,    // отключён 2026-10-30 — Google Sheets более не используются
     DevlogModule,           // /api/devlog — «Ведение проекта»: версии, время, ошибки, задачи, документы, набор (admin)
     ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
