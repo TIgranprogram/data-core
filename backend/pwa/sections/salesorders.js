@@ -318,7 +318,7 @@ function shape(d) {
   return { ...d, id: d.key, orderNos: os.map((o) => o.orderNo), customers: uniq(os.map((o) => o.customer)), companyNames: uniq(os.map((o) => o.companyName)),
     lineCount: os.reduce((s, o) => s + (o.lineCount ?? (o.lines || []).length), 0), amount: sumOf(os, 'amount'), paidAmount: sumOf(os, 'paidAmount') };
 }
-const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? h('span', { class: 'tag ok', title: 'Все проверки пройдены — можно отметить «Готово к отгрузке»' }, ' Можно отгружать') : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
+const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? h('span', { class: 'tag ok', title: 'Все проверки пройдены, изготовленное готово — можно отметить «Готово к отгрузке»' }, ' Можно отгружать') : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
 const names = (a) => (a || []).join(', ');
 
 export const salesorders = {

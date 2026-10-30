@@ -46,6 +46,8 @@ describe('Shipments (отгрузки)', () => {
     expect(r.body).toMatchObject({ number: 'ОТГ-ОТГ-1-1', orderStage: 'partly', qtyTotal: 5 });
     const list = (await http().get(`/api/salesorders/${orderId}/shipments`).set(auth()).expect(200)).body;
     expect(list.remaining.find((x: { incomeId: string }) => x.incomeId === urnId)).toMatchObject({ qty: 15, shipped: 5, left: 10 });
+    expect(list.remaining.find((x: { incomeId: string }) => x.incomeId === urnId)).toMatchObject({ canShip: true, missing: [], work: null });
+    expect(typeof list.shippable).toBe("number");
     const card = (await http().get(`/api/salesorders/${orderId}`).set(auth()).expect(200)).body;
     expect(card).toMatchObject({ stage: 'partly', stageLabel: 'Частично отгружен', shipmentCount: 1 });
     expect(card.lines.find((l: { id: string }) => l.id === urnId)).toMatchObject({ shipped: 5, left: 10 });

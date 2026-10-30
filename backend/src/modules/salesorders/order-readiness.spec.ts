@@ -1,7 +1,7 @@
 import { EMPTY_FACTS, loadReadinessFacts, readinessChecks, readinessWarnings } from './order-readiness';
 
 describe('готовность заказа', () => {
-  const ok = { lines: 3, openDesign: 0, openRequests: 0, activeReservations: 0 };
+  const ok = { lines: 3, openDesign: 0, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 };
 
   it('все пункты выполнены — ready', () => {
     const r = readinessChecks(ok, '21-26', 'abc');
@@ -17,6 +17,14 @@ describe('готовность заказа', () => {
     expect(r.checks.find((c) => c.key === 'requests')!.href).toBe('#requests?q=21-26');
   });
 
+  it('пункт «Изготовлено» — только если были задания', () => {
+    expect(readinessChecks(ok, 'k', 'id').checks.some((c) => c.key === 'made')).toBe(false);
+    const r = readinessChecks({ ...ok, workTotal: 2, openWork: 1 }, 'k', 'id');
+    expect(r.ready).toBe(false);
+    expect(r.checks.find((c) => c.key === 'made')).toMatchObject({ ok: false, hint: 'Ещё в работе: 1 задание' });
+    expect(readinessChecks({ ...ok, workTotal: 2 }, 'k', 'id').ready).toBe(true);
+  });
+
   it('без позиций — не готов', () => {
     expect(readinessChecks(EMPTY_FACTS, 'k', 'id').ready).toBe(false);
   });
@@ -26,8 +34,8 @@ describe('готовность заказа', () => {
     const calls: string[] = [];
     const db = { collection: (c: string) => ({ aggregate: () => ({ toArray: async () => { calls.push(c); return c === 'designtasks' ? [{ _id: 'b', n: 2 }] : c === 'incomes' ? [{ _id: 'a', n: 1 }, { _id: 'b', n: 4 }] : []; } }) }) };
     const f = await loadReadinessFacts(db as never, new Map([['K1', [ids[0]]], ['K2', [ids[1]]]]));
-    expect(calls.sort()).toEqual(['designtasks', 'incomes', 'reservations', 'supplyrequests']);
-    expect(f.get('K1')).toEqual({ lines: 1, openDesign: 0, openRequests: 0, activeReservations: 0 });
-    expect(f.get('K2')).toEqual({ lines: 4, openDesign: 2, openRequests: 0, activeReservations: 0 });
+    expect(calls.sort()).toEqual(['designtasks', 'incomes', 'reservations', 'supplyrequests', 'worktasks', 'worktasks']);
+    expect(f.get('K1')).toEqual({ lines: 1, openDesign: 0, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 });
+    expect(f.get('K2')).toEqual({ lines: 4, openDesign: 2, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 });
   });
 });

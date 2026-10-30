@@ -158,8 +158,11 @@ export class PassportQueries {
       const d = g.doc as Doc;
       return { id: String(d._id), passportNumber: d.passportNumber, n: g.n, name: d.name, article: d.article ?? '', category: d.category ?? '', productId: d.productId ? String(d.productId) : null,
         ...Object.fromEntries(MODEL_FIELDS.filter((f) => !['productId', 'name', 'category', 'article'].includes(f)).map((f) => [f, d[f] ?? null])),
-        images: d.images ?? [] };
+        images: d.images ?? [],
+        // выпуск по изделию без категории падает 400 — такие уходят в конец с причиной
+        canPassport: !!d.passportCategory, missing: d.passportCategory ? [] : ['Нет категории паспорта — заполните в «Документация → Шаблоны»'] };
     });
+    items.sort((a, b) => Number(!a.canPassport) - Number(!b.canPassport)); // стабильная: порядок по категории/имени сохраняется
     await this.attachThumbs(items);
     return items;
   }

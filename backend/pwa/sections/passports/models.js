@@ -12,7 +12,7 @@ export async function models() {
   if (modelsCache && Date.now() - modelsAt < 60000) return modelsCache;
   const items = await api('/passports/models');
   modelsCache = items.map((r) => ({
-    productId: r.productId || null,
+    productId: r.productId || null, canPassport: r.canPassport !== false, missing: r.missing || [],
     label: r.name, cat: r.category || '', pic: r.thumb ? PREFIX + r.thumb : null,
     sub: [r.passportCategory && (V2_CATS.find((c) => c.value === r.passportCategory)?.label || r.passportCategory), r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${plural(r.n, 'паспорт', 'паспорта', 'паспортов')}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
     // поиск модели (Э5a5): название, артикул, категория каталога, категория паспорта v2
@@ -23,6 +23,7 @@ export async function models() {
       ...(r.passportCategory ? { passportCategory: r.passportCategory, elements: JSON.stringify((r.elements || []).map(String)), materialIds: JSON.stringify((r.materialIds || []).map(String)),
         installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no', ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])) } : {}) },
   }));
+  modelsCache.sort((a, b) => (a.canPassport === false) - (b.canPassport === false));
   modelsAt = Date.now();
   return modelsCache;
 }

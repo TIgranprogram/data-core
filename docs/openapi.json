@@ -1374,7 +1374,7 @@
             "name": "entityType",
             "required": true,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product | WorkTask",
             "schema": {
               "type": "string"
             }
@@ -1443,7 +1443,7 @@
             "name": "entityType",
             "required": false,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product | WorkTask",
             "schema": {}
           }
         ],

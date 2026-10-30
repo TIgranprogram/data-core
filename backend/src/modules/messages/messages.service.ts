@@ -4,13 +4,10 @@ import { Types, type Connection, type Model } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid, parseList } from '../../common/list-query';
 import { loadPhotos } from '../../common/photos';
-import { NotificationsService } from '../notifications/notifications.service';
 import { Message, MessageRead, type MessageDocument, type MessageReadDocument } from './message.schema';
 
 type PhotoView = { id: string; url: string; thumb: string };
 type PresentDoc = { _id: unknown; fromUserId: unknown; toUserId?: unknown; toAll?: boolean; text?: string; photoIds?: Types.ObjectId[]; readAt?: Date | null; createdAt?: Date };
-
-const preview = (t: string) => (t.length > 120 ? t.slice(0, 117) + '…' : t);
 
 /** Мини-чат: писать можно любому активному пользователю и «Всем», читать личное — только свои переписки. */
 @Injectable()
@@ -19,7 +16,6 @@ export class MessagesService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Message.name) private readonly model: Model<MessageDocument>,
     @InjectModel(MessageRead.name) private readonly reads: Model<MessageReadDocument>,
-    private readonly notices: NotificationsService,
   ) {}
 
   private users() { return this.connection.db!.collection('users'); }
@@ -151,10 +147,6 @@ export class MessagesService {
     const target = await this.users().findOne({ _id: to, isActive: { $ne: false }, accountType: { $ne: 'device' } }, { projection: { _id: 1 } });
     if (!target) throw new NotFoundException('Получатель не найден или отключён');
     const doc = await this.model.create({ fromUserId: meId, toUserId: to, text, ...extra });
-    await this.notices.notify({
-      userId: to, fromUserId: user.id, type: 'message', kind: 'important',
-      text: `${myName}: ${preview(text || 'Фото')}`, href: `#/chat/${user.id}`,
-    });
     return this.present(doc.toObject() as never, user.id, photos);
   }
 

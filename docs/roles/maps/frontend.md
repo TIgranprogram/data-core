@@ -124,3 +124,6 @@
 
 ## «Позиции и оплаты» -> «Деньги / Долги» (ORDERS-PAY, 2026-10-30, не закоммичено)
 - `sections/orders.js` конец: `debts` (spread от `orders`, createLabel:false); `money.js` `mountDebts/debtParams/dropDebts` (вкладка `?tab=debts`, mountList, карточка `of=orders`); `salesorders.js contractGroup` `payOn/payCells` (колонки Оплачено/Долг + «Принять оплату» -> `of=incpay`), «+ Позиция» -> `patch({of:"orders",new})`; `main.js` NAV без orders, OWNER incpay/incprice=money, redirect `#orders` в `render`, бейдж на `money`, `needed()` money+debts грузит orders. Карта обновлена.
+
+## Отгрузка: готово / пока нельзя (SHIP-READY, 2026-10-30, не закоммичено)
+- `sections/order-shipments.js` form: ready/blocked по `remaining[].canShip` (нет поля = можно), `.shp-*` конец screens.css; кнопка «Отгрузить (N готово)» из `d.shippable`. `passports/models.js` + `product-block.js`: canPassport/missing, серые в конец. `docs-queue.js`: `r.work` не done -> «Паспорт — после изготовления». Карта обновлена.

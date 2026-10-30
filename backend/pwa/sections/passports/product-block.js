@@ -98,10 +98,10 @@ export function productBlock(api, { r, catBy }) {
       const tk = searchTokens(q);
       let rows = tk.length ? all.filter((p) => { const s = normSearch([p.name, p.sku, p.type, p.group, p.series].filter(Boolean).join(' ')); return tk.every((t) => s.includes(t)); })
         : all.filter((p) => !filterCat || p.ppCategory === filterCat);
-      rows = rows.sort((a, b) => (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
+      rows = rows.sort((a, b) => (a.canPassport === false) - (b.canPassport === false) || (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
       const shown = rows.slice(0, 60);
-      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row', role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
-        pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)))))
+      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row' + (p.canPassport === false ? ' shp-dim' : ''), role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
+        pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)), p.canPassport === false && (p.missing || []).length ? h('small', { class: 'shp-why' }, (p.missing || []).join('; ')) : null)))
         : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
         ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted static' }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
       add.textContent = q ? `+ Создать изделие «${q}»` : '+ Создать изделие';

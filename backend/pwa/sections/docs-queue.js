@@ -32,8 +32,9 @@ export function mountQueueTab(params) {
   };
   const row = (r) => {
     const [stLabel, stTone] = STATE[r.passportState] || STATE.none;
-    const btn = h('button', { type: 'button', class: 'btn btn-sm btn-primary' }, r.passportId ? 'Открыть' : 'Выпустить');
-    btn.addEventListener('click', () => make(r, btn));
+    const wait = !r.passportId && r.work && r.work.status !== 'done'; // позиция в работе, ещё не изготовлена
+    const btn = wait ? h('span', { class: 'muted shp-why' }, 'Паспорт — после изготовления') : h('button', { type: 'button', class: 'btn btn-sm btn-primary' }, r.passportId ? 'Открыть' : 'Выпустить');
+    if (!wait) btn.addEventListener('click', () => make(r, btn));
     return h('tr', { class: r.hot ? 'dq-hot' : '' },
       h('td', { class: 'nowrap' }, r.shipDate ? h('span', { class: r.hot ? 'neg' : '' }, date(r.shipDate)) : h('span', { class: 'muted' }, 'без срока'), r.hot ? h('span', { class: 'badge danger', title: 'До отгрузки не больше 3 дней или срок прошёл' }, 'горит') : null),
       h('td', { class: 'nowrap' }, h('b', null, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), h('div', { class: 'muted' }, r.customer || '')),

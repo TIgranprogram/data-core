@@ -56,7 +56,7 @@ export function mountChat(el, { params, nav, single } = {}) {
   }
   const q = h('input', { type: 'search', class: 'cv-search', placeholder: 'Найти сотрудника…', 'aria-label': 'Найти сотрудника' });
   q.addEventListener('input', () => { S.q = q.value; paintList(); });
-  listEl.append(h('div', { class: 'cv-head' }, h('b', null, 'Сообщения')), q, h('div', { class: 'cv-rows' }));
+  listEl.append(h('div', { class: 'cv-head' }, h('h2', null, 'Сообщения')), q, h('div', { class: 'cv-rows' }));
 
   // ---------- Переписка ----------
   const feed = h('div', { class: 'chat-feed', role: 'log', 'aria-live': 'polite' });
@@ -64,7 +64,7 @@ export function mountChat(el, { params, nav, single } = {}) {
   const subt = h('span', { class: 'cv-sub' });
   const back = h('button', { type: 'button', class: 'btn btn-ghost btn-icon cv-back', 'aria-label': 'Назад к списку', onclick: () => goList() }, '←');
   const strip = h('div', { class: 'pf-strip cv-pics', hidden: true });
-  const text = h('textarea', { class: 'chat-input', rows: 2, maxlength: 2000, placeholder: 'Сообщение…  Enter — отправить, Shift+Enter — новая строка', 'aria-label': 'Сообщение' });
+  const text = h('textarea', { class: 'chat-input', rows: 2, maxlength: 2000, placeholder: 'Сообщение…', title: 'Enter — отправить, Shift+Enter — новая строка', 'aria-label': 'Сообщение. Enter — отправить, Shift+Enter — новая строка' });
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
   const clip = h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Добавить фото (можно вставить Ctrl+V или перетащить)', 'aria-label': 'Добавить фото', onclick: () => file.click() }, icon('clip'));
   const send = h('button', { type: 'button', class: 'btn btn-primary', onclick: () => submit() }, 'Отправить');

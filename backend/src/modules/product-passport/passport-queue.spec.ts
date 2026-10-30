@@ -17,6 +17,11 @@ describe('очередь паспортов', () => {
     expect(r.items[1].hot).toBe(false);
     expect(r.counts).toEqual({ none: 2, draft: 0, rework: 0, hot: 1 });
   });
+  it('задание «В работе» попадает в строку', () => {
+    const r = buildQueue({ ...base, works: [{ _id: 'w1', incomeId: 'i1', status: 'work', route: [{ name: 'Сварка' }], stepIndex: 0 }] }, {}, NOW);
+    expect(r.items.find((i) => i.incomeId === 'i1')!.work).toEqual({ id: 'w1', status: 'work', currentStep: 'Сварка' });
+    expect(r.items.find((i) => i.incomeId === 'i2')!.work).toBeNull();
+  });
   it('без проектирования или без изделия — не попадает', () => {
     expect(ids(buildQueue({ ...base, tasks: [task('i1')] }, {}, NOW))).toEqual(['i1']);
     expect(ids(buildQueue({ ...base, incomes: [income('i1', 'o1', null), income('i2', 'o2')] }, {}, NOW))).toEqual(['i2']);

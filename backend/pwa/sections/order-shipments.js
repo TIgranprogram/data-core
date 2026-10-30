@@ -34,7 +34,7 @@ export function shipmentsBlock(order, onChange) {
           try { await api(`/shipments/${s.id}`, { method: 'DELETE' }); toast('Отгрузка отменена'); changed(); onChange?.(); } catch (er) { toastError(er, 'отменить отгрузку'); b.classList.remove('is-busy'); b.disabled = false; }
         } }, 'Отменить') : null)))
         : (d.legacyShipped ? null : emptyState({ title: 'Отгрузок пока нет', hint: open ? 'Нажмите «Отгрузить» — выберите позиции и количество.' : '' })),
-      open ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) }, 'Отгрузить')) : null);
+      open ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) }, typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить')) : null);
   }).catch((e) => body.replaceChildren(failBlock(e)));
   load();
   return h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Отгрузки'), body);
@@ -70,8 +70,12 @@ function form(order, ctx) {
   api(`/salesorders/${order.id}/shipments`).then((d) => {
     const rem = new Map((d.remaining || []).map((x) => [String(x.incomeId), x]));
     const lines = (order.lines || []).filter((l) => (rem.get(String(l.id))?.left ?? l.left ?? 0) > 0);
+    const ok = (l) => rem.get(String(l.id))?.canShip !== false; // старый сервер без canShip — можно всё
+    const why = (l) => rem.get(String(l.id)) || {};
+    const blocked = lines.filter((l) => !ok(l));
+    const ready = lines.filter(ok);
     if (!lines.length) { root.replaceChildren(emptyState({ title: 'Отгружать нечего', hint: 'Остаток по всем позициям нулевой или у позиций не указано количество — укажите его в позиции.' })); return; }
-    const rows = lines.map((l) => {
+    const rows = ready.map((l) => {
       const left = rem.get(String(l.id))?.left ?? l.left;
       const inp = h('input', { type: 'text', inputmode: 'decimal', value: String(left), 'aria-label': 'Сколько: ' + l.title });
       const on = h('input', { type: 'checkbox', checked: true, 'aria-label': 'Отгрузить: ' + l.title });
@@ -88,6 +92,15 @@ function form(order, ctx) {
     const sync = () => { reasonBox.hidden = !partial(); };
     rows.forEach((r) => { r.inp.addEventListener('input', sync); r.on.addEventListener('change', sync); });
     sync();
+    const blockedBox = blocked.length ? h('div', { class: 'shp-blocked' }, h('div', { class: 'section-title' }, 'Пока нельзя'),
+      ...blocked.map((l) => { const w = why(l); return h('div', { class: 'shp-row shp-dim' }, h('b', null, l.title), h('span', { class: 'muted' }, (w.missing || []).join('; ') || 'Не готово'),
+        ...(w.links || []).map((k) => h('a', { href: k.href }, k.label))); })) : null;
+    if (!rows.length) {
+      const w = why(blocked[0]);
+      const lk = (w.links || [])[0];
+      root.replaceChildren(emptyState({ title: 'Отгружать пока нечего', hint: (w.missing || [])[0] || 'Позиции ещё не готовы.' }), lk ? h('p', null, h('a', { href: lk.href }, lk.label + ' →')) : null, blockedBox);
+      return;
+    }
     const send = h('button', { type: 'button', class: 'btn btn-primary', onclick: async (e) => {
       const ls = picked().filter((x) => x.qty > 0);
       if (!ls.length) { toastError(new Error('Выберите позиции и впишите «Сколько».')); return; }
@@ -103,11 +116,13 @@ function form(order, ctx) {
       } catch (er) { toastError(er, 'отгрузить'); b.classList.remove('is-busy'); b.disabled = false; }
     } }, 'Отгрузить');
     root.replaceChildren(
+      h('div', { class: 'section-title' }, 'Можно отгрузить'),
       h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', null, 'Позиция'), h('th', { class: 'num' }, 'Осталось'), h('th', null, 'Сколько'))),
         h('tbody', null, ...rows.map((r) => h('tr', null, h('td', null, r.on), h('td', null, r.l.title), h('td', { class: 'num nowrap' }, `${qty(r.left)} ${r.l.unit || ''}`), h('td', null, r.inp))))),
       h('div', { class: 'form-grid' },
         h('label', { class: 'field' }, h('span', null, 'Дата'), date0), h('label', { class: 'field' }, h('span', null, 'Получатель'), recv),
         h('label', { class: 'field' }, h('span', null, '№ документа'), docNo), h('label', { class: 'field' }, h('span', null, 'Примечание'), note), reasonBox),
+      blockedBox,
       h('div', { class: 'actions' }, send, h('button', { type: 'button', class: 'btn', onclick: () => ctx.close() }, 'Отмена')));
   }).catch((e) => root.replaceChildren(failBlock(e)));
   return root;

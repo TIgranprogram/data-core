@@ -716,7 +716,7 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gal-n { color: var(--muted); font-size: var(--fs-sm); font-weight: 500; }
 .gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--s4); }
 .gc-price { font-weight: 700; color: var(--text); }
-.gal-head { font-size: var(--fs-lg); }
+.gal-head { font-size: var(--fs-h3); }
 .gcard { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font: inherit; min-width: 0; }
 .gcard:hover, .gcard:focus-visible { border-color: var(--border-strong); background: var(--surface-2); }
 .gcard.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
@@ -985,8 +985,8 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .bell-item.is-link { cursor: pointer; }
 .bell-head > span { display: inline-flex; gap: var(--s1); }
 /* Чат: список слева + переписка справа (390 px — по одному) */
-.cv { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: var(--s3); height: calc(100vh - 150px); min-height: 360px; }
-.cv-list, .cv-conv { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; min-height: 0; padding: var(--s3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.cv-list, .cv-conv { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; min-height: 0; padding: var(--s2); background: var(--surface); }
+.cv-head h2 { margin: 0; font-size: var(--fs-h2); color: var(--heading); }
 .cv-head { display: flex; align-items: center; gap: var(--s2); min-height: 36px; }
 .cv-who { display: flex; flex-direction: column; min-width: 0; }
 .cv-title { color: var(--heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -995,7 +995,9 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .cv-search { width: 100%; }
 .cv-rows { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
 .cv-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 52px; padding: var(--s2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.cv-row:hover, .cv-row.is-new { background: var(--surface-2); }
+.cv-row:hover { background: var(--surface-2); }
+.cv-row.is-new { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+.cv-row.is-new .bt-main b { font-weight: 700; }
 .cv-row:focus-visible, .chat-photo:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .cv-row.on { background: var(--gold-soft); }
 .bt-main { display: flex; flex-direction: column; min-width: 0; }
@@ -1024,12 +1026,9 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .cv-pics .cv-up { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: var(--fs-sm); }
 .cv.over .cv-conv { outline: 2px dashed var(--gold); outline-offset: -4px; }
 @media (max-width: 720px) {
-  .cv { display: block; height: calc(100vh - 130px); }
-  .cv-list, .cv-conv { height: 100%; }
-  .cv.is-conv .cv-list, .cv:not(.is-conv) .cv-conv { display: none; }
-  .cv-back { display: inline-flex; }
   .cv-row, .bell-tab, .bell-pop .bell-clear { min-height: 44px; }
-  .cv-back, .chat-form .btn-icon { min-width: 44px; min-height: 44px; }
+  .cv-back, .chat-form .btn, .chat-form .btn-icon { min-width: 44px; min-height: 44px; }
+  .chat-emoji-btn { width: 44px; height: 44px; }
   .chat-msg { max-width: 92%; }
 }
 
@@ -1134,7 +1133,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .sec-art { border-bottom: 1px solid var(--border); display: grid; place-items: center; padding: var(--s3); }
 .sec-art svg { width: 100%; height: 100%; }
 .sec-body { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) 44px var(--s4) var(--s4); }
-.sec-name { font-weight: 600; font-size: var(--fs-lg); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sec-name { font-weight: 600; font-size: var(--fs-h3); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sec-n { color: var(--muted); font-size: var(--fs-sm); }
 .sec-chev { position: absolute; right: var(--s3); bottom: var(--s3); color: var(--muted); transition: transform .18s; }
 .sec-tile.active .sec-chev { transform: rotate(180deg); color: var(--sec, var(--primary)); }
@@ -1516,7 +1515,10 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 @keyframes chat-win-in { from { transform: translateX(24px); opacity: 0; } }
 .chat-win-x { position: absolute; top: var(--s2); right: var(--s2); z-index: 2; border-color: var(--border-strong); background: var(--surface-2); color: var(--text); font-size: 16px; }
 .chat-win-x:hover { background: var(--neutral-soft); }
-.chat-win-body { flex: 1; min-height: 0; padding: var(--s2); }
+.chat-win-body { flex: 1; min-height: 0; padding: 0; }
+/* правая панель открыта: на широком экране чат встаёт левее неё, на узком уходит под неё (кнопки панели не закрыты) */
+body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
+@media (min-width: 1300px) { body:has(.drawer:not(.docked)) .chat-win { z-index: 55; right: min(760px, 100vw); } }
 .chat-win .cv { display: block; height: 100%; min-height: 0; }
 .chat-win .cv-list, .chat-win .cv-conv { height: 100%; }
 .chat-win .cv.is-conv .cv-list, .chat-win .cv:not(.is-conv) .cv-conv { display: none; }
@@ -1649,3 +1651,9 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 @media (max-width: 720px) { .today-actions { display: none; } .td-fold-body .td-days { gap: 2px; } }
 /* Позиции заказа: с колонками «Оплачено» / «Долг» таблица шире телефона — прокрутка внутри таблицы, не страницы */
 @media (max-width: 720px) { .so-lines { display: block; max-width: 100%; overflow-x: auto; } }
+
+/* Отгрузка: готово / пока нельзя (SHIP-READY) */
+.shp-blocked { margin-top: var(--s4); }
+.shp-row { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
+.shp-dim { color: var(--muted); background: var(--surface-2); padding-inline: var(--s2); }
+.shp-why { display: block; color: var(--muted); }

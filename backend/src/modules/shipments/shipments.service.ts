@@ -5,6 +5,7 @@ import type { AuthenticatedUser } from '../../common/decorators/current-user.dec
 import { oid } from '../../common/list-query';
 import type { OrderStage } from '../../common/text/order-key';
 import { remaining, stageAfterShipments, type RemainRow } from '../../common/text/shipment-calc';
+import { loadShipFacts, shipReadiness } from '../../common/text/shipment-ready';
 import { CounterService } from '../counter/counter.service';
 import type { CreateShipmentDto, UpdateShipmentDto } from './dto';
 import { Shipment, type ShipmentDocument } from './shipment.schema';
@@ -70,8 +71,17 @@ export class ShipmentsService {
     const items = deleted
       ? (await this.model.find({ orderId: _id, deletedAt: { $ne: null } }).sort({ deletedAt: -1 }).lean().exec() as unknown as Doc[]).map((s) => ({ ...this.present(s), deletedByName: s.deletedByName ?? null }))
       : ships.map((s) => this.present(s));
+    const rem = this.rem(lines, ships);
+    const facts = await loadShipFacts(this.db(), _id, lines.map((l) => ({ id: String(l._id), productId: l.productId ? String(l.productId) : null })));
+    const byId = new Map(lines.map((l) => [String(l._id), l]));
+    // готовность — подсказка экрану; позиция без остатка не «готова» (отгружать нечего)
+    const rows = rem.map((r) => {
+      const l = byId.get(r.incomeId)!;
+      const ready = shipReadiness({ id: r.incomeId, productId: l.productId ? String(l.productId) : null }, String(_id), facts.get(r.incomeId) ?? {});
+      return { ...r, ...ready, canShip: ready.canShip && r.left > 0 };
+    });
     return {
-      items, total: items.length, remaining: this.rem(lines, ships),
+      items, total: items.length, remaining: rows, shippable: rows.filter((r) => r.canShip).length,
       stage: o.stage ?? 'new',
       // этап «отгружен» стоял до учёта отгрузок — остаток по такому заказу не считаем «к отгрузке»
       legacyShipped: o.stage === 'shipped' && ships.length === 0,

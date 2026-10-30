@@ -13,6 +13,8 @@ export interface QueueItem {
   incomeId: string; orderId: string; orderNo: string | null; productionNo: string | null; customer: string | null; lineNo: number | null; seqNo: number | null; title: string;
   productId: string; productName: string | null; shipDate: Date | null; priority: string; designDoneAt: Date | null;
   passportId: string | null; passportState: QueueState; hot: boolean;
+  /** Задание «В работе» по позиции (последнее живое); паспорт — после изготовления, пока status ≠ done. */
+  work: { id: string; status: string; currentStep: string | null } | null;
 }
 
 const RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
@@ -22,7 +24,7 @@ const mskToday = (now: Date) => new Date(new Date(now.getTime() + 3 * 3600000).t
 const days = (ship: Date | null, today: Date) => (ship ? Math.round((new Date(ship).getTime() - today.getTime()) / 86400000) : null);
 
 /** seq — сквозной № позиции по заказу производства (id позиции → №); нет записи — позиция договора без № заказа. */
-interface Inputs { tasks: Doc[]; incomes: Doc[]; orders: Doc[]; passports: Doc[]; products: Doc[]; seq?: Map<string, { seqNo: number }> }
+interface Inputs { works?: Doc[]; tasks: Doc[]; incomes: Doc[]; orders: Doc[]; passports: Doc[]; products: Doc[]; seq?: Map<string, { seqNo: number }> }
 
 /**
  * Очередь паспортов (чистая функция): позиция попадает, если заказ жив и не закрыт/отменён, есть изделие, проектирование завершено
@@ -37,6 +39,11 @@ export function buildQueue(inp: Inputs, q: { due?: string; search?: string; limi
   for (const t of inp.tasks) {
     const k = String(t.incomeId), at = (t.completedAt ?? t.updatedAt ?? null) as Date | null;
     if (!doneAt.has(k) || (at && at > doneAt.get(k)!)) doneAt.set(k, at as Date);
+  }
+  const work = new Map<string, QueueItem['work']>();
+  for (const w of inp.works ?? []) { // порядок — по созданию, последнее перекрывает
+    const route = (w.route as Array<{ name: string }> | undefined) ?? [], si = (w.stepIndex as number | null | undefined) ?? null;
+    work.set(String(w.incomeId), { id: String(w._id), status: String(w.status), currentStep: si !== null && si < route.length ? route[si].name : null });
   }
   const exact = new Map<string, Doc[]>();
   const pool = new Map<string, Doc[]>();
@@ -68,7 +75,7 @@ export function buildQueue(inp: Inputs, q: { due?: string; search?: string; limi
       title: String(inc.title ?? ''), productId: String(inc.productId), productName: (prod.get(String(inc.productId))?.name as string | undefined) ?? null,
       shipDate: o.shipDate ?? null, priority: o.priority ?? 'normal', designDoneAt: doneAt.get(String(inc._id)) ?? null,
       passportId: pick ? String(pick._id) : null, passportState: !pick ? 'none' : readinessOf(pick) === 'rework' ? 'rework' : 'draft',
-      hot: d !== null && d <= HOT_DAYS,
+      hot: d !== null && d <= HOT_DAYS, work: work.get(String(inc._id)) ?? null,
     });
   }
   const words = String(q.search ?? '').toLowerCase().replace(/ё/g, 'е').split(/\s+/).filter(Boolean);
@@ -101,7 +108,8 @@ export async function loadQueue(db: Db, q: { due?: string; search?: string; limi
     { deletedAt: null, status: { $ne: 'annulled' }, $or: [{ incomeId: { $in: incomes.map((i) => i._id) } }, { salesOrderId: { $in: liveOrders }, incomeId: null }] },
     { projection: { incomeId: 1, salesOrderId: 1, productId: 1, readiness: 1, status: 1, passportNumber: 1 } }).toArray() : [];
   const products = incomes.length ? await db.collection('products').find({ _id: { $in: [...new Set(incomes.map((i) => String(i.productId)))].map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray() : [];
-  return buildQueue({ tasks, incomes, orders, passports, products, seq: await loadSeq(db, orderIds) }, q);
+  const works = incomeIds.length ? await db.collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, route: 1, stepIndex: 1 } }).sort({ createdAt: 1 }).toArray() : [];
+  return buildQueue({ works, tasks, incomes, orders, passports, products, seq: await loadSeq(db, orderIds) }, q);
 }
 
 /** Паспорт «из очереди»: по позиции подставляются заказ, № заказа, изделие, заказчик (явно переданное не затирается). */

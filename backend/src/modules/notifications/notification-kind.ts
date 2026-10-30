@@ -2,14 +2,17 @@
 export const NOTICE_KINDS = ['important', 'system'] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
-/** Типы, которые требуют действия человека: сообщение, задача, счёт ждёт оплаты, заявка вернулась. */
-export const IMPORTANT_TYPES = ['message', 'task_assigned', 'invoice_awaiting_payment', 'request_returned', 'zone_unassigned', 'reservation_due', 'stock_below_min', 'income_no_contract', 'passport_missing'] as const;
+/** Типы, которые требуют действия человека: задача, счёт ждёт оплаты, заявка вернулась. */
+export const IMPORTANT_TYPES = ['task_assigned', 'invoice_awaiting_payment', 'request_returned', 'zone_unassigned', 'reservation_due', 'stock_below_min', 'income_no_contract', 'passport_missing'] as const;
 
 /** Вид по типу; записи без вида (старые) — «Система», кроме известных типов действий. */
 export function kindOf(type: string | undefined | null, stored?: string | null): NoticeKind {
   if (stored === 'important' || stored === 'system') return stored;
   return (IMPORTANT_TYPES as readonly string[]).includes(String(type ?? '')) ? 'important' : 'system';
 }
+
+/** Чат — отдельно от колокольчика: старые записи type:'message' не показываем и не считаем. */
+export const HIDDEN_TYPE = 'message';
 
 /** Фильтр Mongo по виду (учитывает старые записи без `kind`). */
 export function kindFilter(kind: NoticeKind): Record<string, unknown> {

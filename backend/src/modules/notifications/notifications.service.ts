@@ -3,7 +3,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type Connection, type Model } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid, parseList } from '../../common/list-query';
-import { kindFilter, kindOf, unreadCounts, type NoticeKind } from './notification-kind';
+import { HIDDEN_TYPE, kindFilter, kindOf, unreadCounts, type NoticeKind } from './notification-kind';
 import { Notification, type NotificationDocument } from './notification.schema';
 
 export interface NewNotice {
@@ -75,7 +75,7 @@ export class NotificationsService {
 
   async unread(user: AuthenticatedUser) {
     const rows = await this.model.aggregate([
-      { $match: { userId: oid(user.id, 'пользователя'), readAt: null } },
+      { $match: { userId: oid(user.id, 'пользователя'), readAt: null, type: { $ne: HIDDEN_TYPE } } },
       { $group: { _id: { kind: '$kind', type: '$type' }, n: { $sum: 1 } } },
     ]).exec();
     return unreadCounts(rows);
@@ -84,7 +84,7 @@ export class NotificationsService {
   async list(q: Record<string, unknown>, user: AuthenticatedUser) {
     const p = parseList(q, { sortable: ['createdAt'], defaultSort: '-createdAt', maxLimit: 100, defaultLimit: 30 });
     const kind = NotificationsService.kindParam(q.kind);
-    const where: Record<string, unknown> = { userId: oid(user.id, 'пользователя'), ...(kind ? kindFilter(kind) : {}) };
+    const where: Record<string, unknown> = { userId: oid(user.id, 'пользователя'), type: { $ne: HIDDEN_TYPE }, ...(kind ? kindFilter(kind) : {}) };
     if (q.unread === '1' || q.unread === 'true') where.readAt = null;
     const [docs, total, counts] = await Promise.all([
       this.model.find(where).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
@@ -108,7 +108,7 @@ export class NotificationsService {
   /** Прочитать все свои (по виду — если задан). */
   async readAll(q: Record<string, unknown>, user: AuthenticatedUser) {
     const kind = NotificationsService.kindParam(q.kind);
-    await this.model.updateMany({ userId: oid(user.id, 'пользователя'), readAt: null, ...(kind ? kindFilter(kind) : {}) }, { $set: { readAt: new Date() } }).exec();
+    await this.model.updateMany({ userId: oid(user.id, 'пользователя'), readAt: null, type: { $ne: HIDDEN_TYPE }, ...(kind ? kindFilter(kind) : {}) }, { $set: { readAt: new Date() } }).exec();
     return this.unread(user);
   }
 }

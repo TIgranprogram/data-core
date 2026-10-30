@@ -29,9 +29,8 @@ function make(opts: { target?: unknown; readAt?: Date | null; userCreatedAt?: Da
     find: jest.fn(() => ({ toArray: async () => [] })),
   };
   const connection = { db: { collection: (n: string) => (n === 'photos' ? photosColl : usersColl) } };
-  const notices = { notify: jest.fn(async () => ({})) };
-  const svc = new MessagesService(connection as never, model as never, reads as never, notices as never);
-  return { svc, model, reads, notices, created, queries, usersColl };
+  const svc = new MessagesService(connection as never, model as never, reads as never);
+  return { svc, model, reads, created, queries, usersColl };
 }
 
 describe('MessagesService', () => {
@@ -44,12 +43,11 @@ describe('MessagesService', () => {
     await expect(svc.send({ toUserId: String(B), text: '   ' }, me)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.send({ toUserId: String(B), text: 'привет' }, me)).rejects.toBeInstanceOf(NotFoundException);
   });
-  it('отправка создаёт сообщение и важное уведомление получателю', async () => {
-    const { svc, notices, created } = make({ target: { _id: B, displayName: 'Борис' } });
+  it('отправка создаёт сообщение, колокольчик не трогает', async () => {
+    const { svc, created } = make({ target: { _id: B, displayName: 'Борис' } });
     const r = await svc.send({ toUserId: String(B), text: 'привет' }, me);
     expect(created[0]).toMatchObject({ text: 'привет' });
     expect(r.mine).toBe(true);
-    expect(notices.notify).toHaveBeenCalledWith(expect.objectContaining({ userId: B, type: 'message', kind: 'important' }));
   });
   it('переписка и прочтение ограничены участниками (я + собеседник)', async () => {
     const { svc, queries } = make();
@@ -78,12 +76,11 @@ describe('MessagesService', () => {
     const { svc } = make({ target: { _id: B }, photosFound: 0 });
     await expect(svc.send({ toUserId: String(B), photoIds: [String(new Types.ObjectId())] }, me)).rejects.toBeInstanceOf(BadRequestException);
   });
-  it('«Всем»: без получателя, без уведомлений, подпись отправителя', async () => {
-    const { svc, notices, created } = make({ target: { _id: A, displayName: 'Анна' } });
+  it('«Всем»: без получателя, подпись отправителя', async () => {
+    const { svc, created } = make({ target: { _id: A, displayName: 'Анна' } });
     const r = await svc.send({ toAll: true, text: 'всем привет' }, me);
     expect(created[0]).toMatchObject({ toAll: true, text: 'всем привет' });
     expect(created[0]).not.toHaveProperty('toUserId');
-    expect(notices.notify).not.toHaveBeenCalled();
     expect(r).toMatchObject({ toAll: true, toUserId: null, mine: true, fromName: 'Анна' });
   });
   it('без toAll и без получателя — 400', async () => {
