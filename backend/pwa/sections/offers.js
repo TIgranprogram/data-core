@@ -29,28 +29,31 @@ const lineSum = (l) => Math.round(num(l.quantity) * num(l.unitPrice) * 100) / 10
 let bgP = null;
 const backgrounds = () => (bgP ||= api('/offers/backgrounds').then((r) => (Array.isArray(r) ? r : r?.items || [])).catch(() => { bgP = null; return []; }));
 
-/** Выбор фона страницы + «Загрузить свой». Значение — id фона (пусто — встроенный). */
-function bgWidget(page, initial) {
-  const sel = h('select', { 'aria-label': page === 1 ? 'Фон первой страницы' : 'Фон второй и следующих страниц' });
+/** Выбор фона страницы + «Загрузить бланк». Значение — id фона; пусто — бланк выбранной компании (К11), иначе общий. */
+function bgWidget(page, initial, companies) {
+  const sel = h('select', { 'aria-label': page === 1 ? 'Бланк первой страницы' : 'Бланк второй и следующих страниц' });
+  const owner = h('select', { 'aria-label': 'Чей бланк загружаем' }, h('option', { value: '' }, 'Все компании'), ...companies.map((c) => h('option', { value: c.id }, c.name)));
+  const ownerName = (id) => companies.find((c) => c.id === id)?.name;
   const fill = async (keep) => {
     const all = (await backgrounds()).filter((b) => Number(b.page) === page);
-    sel.replaceChildren(h('option', { value: '' }, 'Встроенный (по умолчанию)'), ...all.map((b) => h('option', { value: b.id }, b.name + (b.isDefault ? ' · по умолчанию' : ''))));
+    sel.replaceChildren(h('option', { value: '' }, 'Бланк компании (по умолчанию)'), ...all.map((b) => h('option', { value: b.id }, [b.name, ownerName(b.companyId), b.isDefault ? 'по умолчанию' : ''].filter(Boolean).join(' · '))));
     sel.value = all.some((b) => b.id === keep) ? keep : '';
   };
   fill(initial);
   const file = h('input', { type: 'file', accept: 'image/png,image/jpeg', hidden: true });
-  const up = h('button', { type: 'button', class: 'btn btn-sm', title: 'PNG или JPG до 5 МБ, размер страницы А4' }, '+ Загрузить свой фон');
+  const up = h('button', { type: 'button', class: 'btn btn-sm', title: 'PNG или JPG до 5 МБ, размер страницы А4' }, '+ Загрузить бланк');
   up.addEventListener('click', () => file.click());
   file.addEventListener('change', async () => {
     const f = file.files[0]; if (!f) return;
     up.disabled = true; up.classList.add('is-busy');
     try {
       const fd = new FormData(); fd.append('file', f); fd.append('name', f.name.replace(/\.[^.]+$/, '').slice(0, 80)); fd.append('page', String(page));
+      if (owner.value) { fd.append('companyId', owner.value); fd.append('isDefault', 'true'); }
       const saved = await api('/offers/backgrounds', { method: 'POST', body: fd });
-      bgP = null; await fill(saved?.id); toast('Фон загружен');
+      bgP = null; await fill(owner.value ? '' : saved?.id); toast('Бланк загружен');
     } catch (e) { toastError(e, 'загрузить фон'); } finally { up.disabled = false; up.classList.remove('is-busy'); file.value = ''; }
   });
-  return { el: h('div', { class: 'of-bg' }, sel, up, file), get value() { return sel.value; }, set value(_) { /* только показ */ } };
+  return { el: h('div', { class: 'of-bg' }, sel, h('span', { class: 'muted' }, 'Загрузить для:'), owner, up, file), get value() { return sel.value; }, set value(_) { /* только показ */ } };
 }
 
 // ---------- строки ----------
@@ -131,8 +134,8 @@ const fields = async () => {
     { key: 'terms', label: 'Условия', type: 'textarea', wide: true, hint: 'Оплата, гарантия, монтаж — попадёт в PDF' },
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     { section: 'Фон PDF', tone: 'who', collapsed: true },
-    { key: 'bg1Id', label: 'Фон 1-й страницы', type: 'widget', wide: true, widget: (v) => bgWidget(1, v) },
-    { key: 'bg2Id', label: 'Фон 2-й и следующих', type: 'widget', wide: true, widget: (v) => bgWidget(2, v), hint: 'Подпись и печать — часть фона: текст в них не заходит' },
+    { key: 'bg1Id', label: 'Бланк 1-й страницы', type: 'widget', wide: true, widget: (v) => bgWidget(1, v, il.companies || []) },
+    { key: 'bg2Id', label: 'Бланк 2-й и следующих', type: 'widget', wide: true, widget: (v) => bgWidget(2, v, il.companies || []), hint: 'Подпись и печать — часть фона: текст в них не заходит' },
   ];
 };
 const numOrNull = (v) => (v === null || v === undefined || v === '' ? undefined : Number(v));

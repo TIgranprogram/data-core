@@ -46,5 +46,6 @@ export class OfferStatusDto {
 export class UploadBackgroundDto {
   @ApiProperty() @IsString() @MaxLength(100) name!: string;
   @ApiProperty({ enum: [1, 2], description: '1 — первая страница, 2 — вторая и следующие' }) @Type(() => Number) @IsInt() @IsIn([1, 2], { message: 'Страница — 1 или 2' }) page!: number;
+  @ApiPropertyOptional({ description: 'Наша компания: бланк этой компании; пусто — общий фон' }) @IsOptional() @IsObjectId() companyId?: string;
   @ApiPropertyOptional({ description: 'Сделать фоном по умолчанию для этой страницы' }) @IsOptional() @Transform(({ value }) => value === true || value === 'true' || value === '1') @IsBoolean() isDefault?: boolean;
 }

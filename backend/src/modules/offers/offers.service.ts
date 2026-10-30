@@ -170,7 +170,7 @@ export class OffersService {
   async pdf(id: string) {
     const o = await this.find(id);
     const [companyName, bg1, bg2, photos] = await Promise.all([
-      this.companyName(o.companyId), this.bgs.resolve(1, o.bg1Id), this.bgs.resolve(2, o.bg2Id),
+      this.companyName(o.companyId), this.bgs.resolve(1, o.bg1Id, o.companyId), this.bgs.resolve(2, o.bg2Id, o.companyId),
       Promise.all((o.items as Doc[]).map((i) => this.photoForItem(i))),
     ]);
     const buf = await renderOfferPdf({

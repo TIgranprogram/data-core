@@ -206,7 +206,9 @@ export class StockController {
   @Patch('reservations/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.updated', entityType: 'Reservation', idParam: 'id' })
-  updateReservation(@Param('id') id: string, @Body() dto: StockReservationUpdateDto) {
+  async updateReservation(@Param('id') id: string, @Body() dto: StockReservationUpdateDto, @CurrentUser() user?: AuthenticatedUser) {
+    const scope = stockScopeFor(user);
+    if (scope) await this.stock.assertReservationsInScope({ ids: [id] }, scope);
     return this.stock.updateReservation(id, dto);
   }
 
@@ -215,7 +217,9 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.released', entityType: 'StockMovement' })
-  releaseReservation(@Param('id') id: string) {
+  async releaseReservation(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    const scope = stockScopeFor(user);
+    if (scope) await this.stock.assertReservationsInScope({ ids: [id] }, scope);
     return this.stock.releaseReservation(id);
   }
 

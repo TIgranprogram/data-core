@@ -73,5 +73,7 @@ export class OfferBackground {
   @Prop({ type: Number, required: true, enum: [1, 2] }) page!: 1 | 2;
   @Prop({ type: String, required: true }) file!: string;
   @Prop({ type: Boolean, default: false }) isDefault!: boolean;
+  /** Бланк нашей компании (К11): нет — общий фон. «По умолчанию» — своё у каждой компании. */
+  @Prop({ type: Types.ObjectId, default: null }) companyId?: Types.ObjectId | null;
 }
 export const OfferBackgroundSchema = SchemaFactory.createForClass(OfferBackground);

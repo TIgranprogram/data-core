@@ -26,7 +26,7 @@ const BUILTIN: Record<1 | 2, { id: string; name: string; file: string }> = {
   2: { id: 'builtin-2', name: 'Стандартный фон, страницы 2+', file: 'kp-2str.png' },
 };
 
-export interface BgItem { id: string; name: string; page: number; url: string | null; isDefault: boolean; builtin: boolean }
+export interface BgItem { id: string; name: string; page: number; url: string | null; isDefault: boolean; builtin: boolean; companyId: string | null }
 
 /** Фоны КП: загруженные (`offerbackgrounds`) и встроенные; перекодирование в лёгкий JPEG с кэшем в памяти. */
 @Injectable()
@@ -35,8 +35,8 @@ export class OfferBackgroundsService {
 
   constructor(@InjectModel(OfferBackground.name) private readonly model: Model<OfferBackgroundDocument>) {}
 
-  private present(b: { _id: unknown; name: string; page: number; file: string; isDefault?: boolean }): BgItem {
-    return { id: String(b._id), name: b.name, page: b.page, url: b.file, isDefault: !!b.isDefault, builtin: false };
+  private present(b: { _id: unknown; name: string; page: number; file: string; isDefault?: boolean; companyId?: unknown }): BgItem {
+    return { id: String(b._id), name: b.name, page: b.page, url: b.file, isDefault: !!b.isDefault, builtin: false, companyId: b.companyId ? String(b.companyId) : null };
   }
 
   /** `{ items, total }`: загруженные + встроенные для страниц, где нет загруженного «по умолчанию». */
@@ -44,8 +44,8 @@ export class OfferBackgroundsService {
     const docs = (await this.model.find().sort({ page: 1, createdAt: 1 }).lean().exec()) as unknown as Array<Parameters<OfferBackgroundsService['present']>[0]>;
     const items = docs.map((d) => this.present(d));
     for (const p of [1, 2] as const) {
-      const hasDefault = items.some((x) => x.page === p && x.isDefault);
-      items.push({ id: BUILTIN[p].id, name: BUILTIN[p].name, page: p, url: null, isDefault: !hasDefault, builtin: true });
+      const hasDefault = items.some((x) => x.page === p && x.isDefault && !x.companyId);
+      items.push({ id: BUILTIN[p].id, name: BUILTIN[p].name, page: p, url: null, isDefault: !hasDefault, builtin: true, companyId: null });
     }
     items.sort((a, b) => a.page - b.page || Number(a.builtin) - Number(b.builtin));
     return { items, total: items.length };
@@ -62,8 +62,9 @@ export class OfferBackgroundsService {
     const name = `${randomUUID()}${MIME_EXT[file.mimetype]}`;
     await fs.writeFile(join(dir, name), file.buffer);
     const page = dto.page as 1 | 2;
-    if (dto.isDefault) await this.model.updateMany({ page, isDefault: true }, { $set: { isDefault: false } }).exec();
-    const doc = await this.model.create({ name: dto.name.trim(), page, file: `/uploads/offers/${name}`, isDefault: !!dto.isDefault });
+    const companyId = dto.companyId ? oid(dto.companyId, 'компании') : null;
+    if (dto.isDefault) await this.model.updateMany({ page, isDefault: true, companyId }, { $set: { isDefault: false } }).exec();
+    const doc = await this.model.create({ name: dto.name.trim(), page, file: `/uploads/offers/${name}`, isDefault: !!dto.isDefault, companyId });
     const ratio = meta.width && meta.height ? meta.width / meta.height : A4_RATIO;
     const warning = Math.abs(ratio / A4_RATIO - 1) > 0.02 ? 'Пропорции фона не А4 — картинка растянется на всю страницу' : null;
     return { ...this.present(doc.toObject()), warning };
@@ -79,16 +80,18 @@ export class OfferBackgroundsService {
     return { id, deleted: true };
   }
 
-  /** JPEG фона для страницы (1 / 2+): выбранный → «по умолчанию» → встроенный; `none` у стр. 2 — белая (null). */
-  async resolve(page: 1 | 2, id?: string | null): Promise<Buffer | null> {
+  /** JPEG фона для страницы (1 / 2+): выбранный → бланк компании → общий «по умолчанию» → встроенный; `none` у стр. 2 — белая (null). */
+  async resolve(page: 1 | 2, id?: string | null, companyId?: unknown): Promise<Buffer | null> {
     if (page === 2 && id === 'none') return null;
     if (id && /^[a-f\d]{24}$/i.test(id)) {
       const b = await this.model.findById(id).lean().exec();
       if (b) { const buf = await this.jpeg(String(b._id), safeUploadPath(b.file)); if (buf) return buf; }
     }
     if (id !== `builtin-${page}`) {
-      const def = await this.model.findOne({ page, isDefault: true }).lean().exec();
-      if (def) { const buf = await this.jpeg(String(def._id), safeUploadPath(def.file)); if (buf) return buf; }
+      for (const owner of companyId ? [companyId, null] : [null]) {
+        const def = await this.model.findOne({ page, isDefault: true, companyId: owner }).lean().exec();
+        if (def) { const buf = await this.jpeg(String(def._id), safeUploadPath(def.file)); if (buf) return buf; }
+      }
     }
     return this.jpeg(BUILTIN[page].id, join(assetsDir(), BUILTIN[page].file));
   }
