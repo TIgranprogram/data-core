@@ -209,7 +209,7 @@ export const work = {
     createLabel: false, // карточки создаёт «Запустить в работу» в заказе
     export: false,
     searchPlaceholder: 'Поиск: W-12, изделие, № заказа, заказчик, артикул…',
-    emptyText: 'Заданий пока нет. Откройте заказ и нажмите «Запустить в работу».',
+    emptyText: 'Заданий пока нет.', emptyHint: 'Откройте заказ и нажмите «Запустить в работу».',
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'waiting,work',
         options: () => [{ value: 'waiting,work', label: 'Открытые' }, { value: 'waiting', label: STATUS.waiting.label }, { value: 'work', label: STATUS.work.label }, { value: 'done', label: STATUS.done.label }, { value: 'cancelled', label: STATUS.cancelled.label }, { value: 'waiting,work,done', label: 'Все' }],

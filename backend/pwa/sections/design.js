@@ -178,7 +178,7 @@ export const design = {
     createLabel: 'Задача',
     export: false,
     searchPlaceholder: 'Поиск: D-12, название, № заказа, заказчик, артикул…',
-    emptyText: 'Задач проектирования пока нет. Добавьте заказ на доске или нажмите «Передать в проектирование» в карточке заказа.',
+    emptyText: 'Задач проектирования пока нет.', emptyHint: 'Добавьте заказ на доске или нажмите «Передать в проектирование» в карточке заказа.',
     query: (P) => ({ status: P.status || 'queue,work' }),
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'queue,work',

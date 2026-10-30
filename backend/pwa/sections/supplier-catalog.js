@@ -320,7 +320,7 @@ export const supplierCatalog = {
     landing: { when: (P) => !P.supplierId && !P.catId && !P.subId && !P.q && !P.flag && !P.all, render: catLanding },
     createLabel: 'Новая позиция',
     searchPlaceholder: 'Артикул, название, примечание…',
-    emptyText: 'В каталоге пока пусто. Загрузите прайс поставщика по шаблону: шестерёнка → «⇩ Шаблон Excel», затем «Загрузить Excel…».',
+    emptyText: 'В каталоге пока пусто.', emptyHint: 'Загрузите прайс поставщика по шаблону: шестерёнка → «⇩ Шаблон Excel», затем «Загрузить Excel…».',
     columns: [
       { key: 'photo', label: '', render: (r) => thumb(r) },
       { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },

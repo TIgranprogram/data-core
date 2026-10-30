@@ -233,7 +233,7 @@ function contractGroup(o, reload) {
   if (!closedStage(o) && session.canEdit && session.sees('stock')) acts.push(h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Файл Excel → брони под позиции этого договора', onclick: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) }, 'Спецификация'));
   // удалить договор прямо из строки (было только в «⋯» карточки — не находили; пользователь 2026-10-29), пароль — как в карточке
   if (session.canEdit) acts.push(h('button', { class: 'btn btn-ghost btn-sm so-del', type: 'button', title: 'Удалить договор в корзину (нужен ваш пароль)', onclick: async () => {
-    if (!(await confirmDlg('Удалить?', salesorders.remove.text(o) + ' Её можно будет восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
+    if (!(await confirmDlg('Удалить?', salesorders.remove.text(o) + ' Можно восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
     try {
       if ((await withConfirm(async () => { await salesorders.remove.run(o); return true; }, { text: 'Удаление требует вашего пароля.' })) === null) return;
       toast('Договор с заказчиком удалён'); window.dispatchEvent(new CustomEvent('data-changed')); reload?.();
@@ -501,7 +501,7 @@ export const salesorder = {
   },
 
   remove: { password: true,
-    text: (r) => `Удалить договор ${r.orderNo || ''} (${r.customer || 'без заказчика'})? Позиции останутся в «Позициях заказов», заявки и брони тоже. Отменённый договор остаётся в списке; удаление — в корзину.`,
+    text: (r) => `Удалить договор ${r.orderNo || ''} (${r.customer || 'без заказчика'})? Его позиции уйдут в корзину вместе с ним и вернутся при восстановлении. Заявки и брони останутся. Сорвавшийся заказ не удаляют: поставьте этап «Отменён», он останется в списке.`,
     run: (r) => api(`/salesorders/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/salesorders/${r.id}/restore`, { method: 'POST' }),
   },

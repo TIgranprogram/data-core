@@ -9,6 +9,11 @@ import { orders } from './orders.js';
 import { salesorder as salesorders } from './salesorders.js';
 import { stock } from './stock.js';
 import { partners } from './partners.js';
+import { products } from './products.js';
+import { passports } from './passports.js';
+import { offers } from './offers.js';
+import { design } from './design.js';
+import { work } from './work.js';
 
 
 /** Корзина (CANON §2 «Удаление»): всё удалённое, «Восстановить». */
@@ -18,6 +23,11 @@ const SOURCES = [
   { id: 'salesorders', section: salesorders, title: 'Заказы', path: '/salesorders' },
   { id: 'orders', section: orders, title: 'Позиции заказов', path: '/incomes' },
   { id: 'partners', section: partners, title: 'Контрагенты', path: '/partners' },
+  { id: 'products', section: products, title: 'Изделия', path: '/showcase' },
+  { id: 'passports', section: passports, title: 'Паспорта', path: '/passports' },
+  { id: 'offers', section: offers, title: 'Коммерческие предложения', path: '/offers' },
+  { id: 'design', section: design, title: 'Задачи проектирования', path: '/design-tasks' },
+  { id: 'work', section: work, title: 'Задания в работе', path: '/work-tasks' },
 ];
 
 export function mountTrash() {

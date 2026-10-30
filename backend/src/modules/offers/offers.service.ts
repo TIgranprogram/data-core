@@ -67,7 +67,7 @@ export class OffersService {
 
   /** `{ items, total, page, limit, counts }`; counts — по статусам для поиска `q` (без фильтра статуса) + `all`. */
   async list(q: Record<string, unknown>) {
-    const p = parseList({ ...q, search: q.q ?? q.search }, { sortable: ['date', 'number', 'total', 'customer', 'createdAt'], defaultSort: '-date', defaultLimit: 50 });
+    const p = parseList({ ...q, search: q.q ?? q.search }, { sortable: ['date', 'number', 'total', 'customer', 'createdAt', 'deletedAt'], defaultSort: '-date', defaultLimit: 50 });
     const base: Doc = p.deleted ? { deletedAt: { $ne: null } } : { deletedAt: null };
     if (p.search) base.$or = [{ number: p.search }, { customer: p.search }, { title: p.search }];
     const filter: Doc = { ...base };
@@ -135,6 +135,13 @@ export class OffersService {
     const cur = await this.find(id);
     await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: new Date() } }).exec();
     return { id, deleted: true };
+  }
+
+  /** Вернуть из корзины. */
+  async restore(id: string) {
+    const r = await this.model.updateOne({ _id: oid(id, 'КП'), deletedAt: { $ne: null } }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
+    if (!r.matchedCount) throw new NotFoundException('В корзине такого КП нет');
+    return this.get(id);
   }
 
   async setStatus(id: string, to: string, user: AuthenticatedUser) {

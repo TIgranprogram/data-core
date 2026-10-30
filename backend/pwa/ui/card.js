@@ -205,7 +205,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   async function doRemove() {
     const why = section.remove.blocked ? section.remove.blocked(row) : null;
     if (why) { toast(why, { error: true }); return; }
-    if (!(await confirmDlg('Удалить?', section.remove.text(row) + ' Можно восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
+    if (!(await confirmDlg('Удалить?', section.remove.text(row) + (section.remove.noTrash ? ' Вернуть можно сразу: кнопка «Отменить» после удаления.' : ' Можно восстановить из корзины.'), { okText: 'Удалить', danger: true }))) return;
     try {
       // ТИ-4: не-админ вводит свой пароль (раздел помечен remove.password)
       if (section.remove.password) { if ((await withConfirm(async () => { await section.remove.run(row); return true; }, { text: 'Удаление требует вашего пароля.' })) === null) return; }

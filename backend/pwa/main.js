@@ -97,6 +97,8 @@ function loadSec(key) {
   const def = LAZY[key];
   if (!def) return Promise.resolve();
   return (loading[key] ??= def[0]().then((m) => {
+    // старый файл из кэша рядом с новым main.js: без этой проверки — «FN.… is not a function» и бесконечная перерисовка
+    if (def[1].some(([, exp]) => m[exp] === undefined)) throw new Error('Приложение обновилось. Обновите страницу (F5).');
     for (const [name, exp] of def[1]) { if (name[0] === '@') FN[name.slice(1)] = m[exp]; else SECTIONS[name] = m[exp]; }
   }).catch((e) => { delete loading[key]; throw e; }));
 }

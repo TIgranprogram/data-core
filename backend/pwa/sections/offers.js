@@ -243,6 +243,7 @@ export const offers = {
   remove: {
     text: (r) => `Удалить КП ${r.number}?`,
     run: (r) => api(`/offers/${r.id}`, { method: 'DELETE' }),
+    restore: (r) => api(`/offers/${r.id}/restore`, { method: 'POST' }),
   },
   open: (id) => go('offers', { open: id }),
   searchRow: (r) => ({ title: [r.number, r.customer].filter(Boolean).join(' · '), sub: date(r.date), side: badge(STATUS, r.status) }),

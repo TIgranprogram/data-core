@@ -141,7 +141,7 @@ export function mountDicts(params) {
     try { u = await api(`/dicts/${key}/${r.id}/usage`); } catch (e) { fin(); toastError(e, 'Удалить'); return; }
     fin();
     if (!u.tracked || !u.busy) {
-      if (!(await confirmDlg(`Удалить «${r.name}»?`, 'Значение уйдёт в корзину. Вернуть можно из корзины.', { okText: 'Удалить', danger: true }))) return;
+      if (!(await confirmDlg(`Удалить «${r.name}»?`, 'Значение пропадёт из списка. Вернуть можно сразу: кнопка «Отменить» после удаления.', { okText: 'Удалить', danger: true }))) return;
       try {
         await api(`/dicts/${key}/${r.id}`, { method: 'DELETE' });
         lookups.reset?.();
@@ -373,8 +373,8 @@ export const dict = {
     create: (b) => api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
     update: (id, b) => api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); if (r?.moved > 0) toast('Название изменено везде'); return r; }),
   },
-  remove: {
-    text: (r) => `«${r.name}» из справочника «${r.dictInfo?.title || ''}».`,
+  remove: { noTrash: true, // значения справочников на экране «Корзина» не показываются: у каждого справочника свой адрес
+    text: (r) => `Удалить «${r.name}» из справочника «${r.dictInfo?.title || ''}»?`,
     run: (r) => api(`/dicts/${dictKey()}/${r.id}`, { method: 'DELETE' }).then(() => lookups.reset?.()),
     restore: (r) => api(`/dicts/${dictKey()}/${r.id}/restore`, { method: 'POST' }).then(() => lookups.reset?.()),
   },

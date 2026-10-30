@@ -39,7 +39,7 @@ export class DesignService {
   private userOid(userId?: string) { return userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined; }
 
   async list(q: Record<string, unknown> = {}) {
-    const p = parseList(q, { sortable: ['seq', 'completedAt', 'createdAt'], defaultSort: 'seq', defaultLimit: 100, maxLimit: 500 });
+    const p = parseList(q, { sortable: ['seq', 'completedAt', 'createdAt', 'deletedAt'], defaultSort: 'seq', defaultLimit: 100, maxLimit: 500 });
     const base: Doc = { deletedAt: p.deleted ? { $ne: null } : null };
     if (q.assigneeId) base.assigneeId = { $in: oids(q.assigneeId) };
     if (q.orderId) base.orderId = { $in: oids(q.orderId) };

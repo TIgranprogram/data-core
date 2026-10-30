@@ -180,7 +180,7 @@ export const passports = {
   form: passportForm,
 
   remove: {
-    text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.name || 'без названия'}) в корзину? На нумерацию это не влияет.`,
+    text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.name || 'без названия'})? На нумерацию это не влияет.`,
     blocked: (r) => (statusOf(r) !== 'draft' ? 'Выпущенный паспорт не удаляется — «Аннулировать…» (номер останется занятым)' : null),
     run: (r) => api(`/passports/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/passports/${r.id}/restore`, { method: 'POST' }),

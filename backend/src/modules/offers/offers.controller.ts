@@ -82,6 +82,15 @@ export class OffersController {
     return this.offers.remove(id);
   }
 
+  /** Вернуть из корзины. */
+  @Post(':id/restore')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.restored', entityType: 'CommercialOffer', idParam: 'id' })
+  restore(@Param('id') id: string) {
+    return this.offers.restore(id);
+  }
+
   /** Смена статуса: draft → sent → accepted → paid; rejected / cancelled — из любого, кроме paid. */
   @Post(':id/status')
   @HttpCode(200)

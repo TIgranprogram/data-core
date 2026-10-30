@@ -105,4 +105,12 @@ describe('Offers (КП)', () => {
     await http().get(`/api/offers/${id}`).set(auth()).expect(404);
     expect((await http().get('/api/offers').set(auth()).expect(200)).body.total).toBe(1);
   });
+
+  it('корзина: КП виден с deleted=1 и возвращается', async () => {
+    const trash = (await http().get('/api/offers').query({ deleted: 1, sort: '-deletedAt' }).set(auth()).expect(200)).body;
+    expect(trash.items.map((x: { id: string }) => x.id)).toContain(id);
+    await http().post(`/api/offers/${id}/restore`).set(auth()).expect(200);
+    await http().get(`/api/offers/${id}`).set(auth()).expect(200);
+    await http().post(`/api/offers/${id}/restore`).set(auth()).expect(404);
+  });
 });

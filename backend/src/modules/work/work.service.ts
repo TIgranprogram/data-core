@@ -55,7 +55,7 @@ export class WorkService {
    * Готовые старше `doneDays` (умолч. 7) с доски убираются; отменённые — только по status=cancelled.
    */
   async list(q: Record<string, unknown> = {}) {
-    const p = parseList(q, { sortable: ['seq', 'completedAt', 'createdAt'], defaultSort: 'seq', defaultLimit: 200, maxLimit: 500 });
+    const p = parseList(q, { sortable: ['seq', 'completedAt', 'createdAt', 'deletedAt'], defaultSort: 'seq', defaultLimit: 200, maxLimit: 500 });
     const scope: Doc[] = [{ deletedAt: p.deleted ? { $ne: null } : null }];
     if (q.orderId) scope.push({ orderId: { $in: oids(q.orderId) } });
     if (q.assigneeId) scope.push({ assigneeId: { $in: oids(q.assigneeId) } });

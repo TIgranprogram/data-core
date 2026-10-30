@@ -176,7 +176,7 @@ export const orders = {
     sortDefault: '-reportDate',
     createLabel: 'Позиция заказа',
     searchPlaceholder: 'Поиск: № заказа, заказчик, наименование…',
-    emptyText: 'Позиций нет. Добавьте заказ в разделе «Заказы» — его позиции появятся здесь.',
+    emptyText: 'Позиций пока нет.', emptyHint: 'Добавьте заказ в разделе «Заказы» — его позиции появятся здесь.',
     hints: STATUS_HINT,
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', options: () => Object.entries(INCOME_STATUS).filter(([v]) => (session.canMoney ? v !== 'shipped' : v === 'draft' || v === 'shipped')).map(([value, s]) => ({ value, label: s.label })), count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) },
@@ -322,6 +322,6 @@ export const debts = {
   list: {
     ...orders.list,
     createLabel: false,
-    emptyText: 'Позиций нет. Позиции появляются из заказов (раздел «Заказы»).',
+    emptyText: 'Позиций пока нет.', emptyHint: 'Они появляются из заказов (раздел «Заказы»).',
   },
 };

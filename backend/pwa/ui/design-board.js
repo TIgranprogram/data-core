@@ -299,7 +299,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     document.body.append(inp); inp.click();
   }
   async function trash(t, title) {
-    if (!(await confirmDlg('Удалить задачу?', `Удалить задачу ${t.code || ''} «${title}»?`, { okText: 'Удалить', danger: true }))) return;
+    if (!(await confirmDlg('Удалить задачу?', `Задача ${t.code || ''} «${title}» уйдёт в корзину. Можно восстановить из корзины.`, { okText: 'Удалить', danger: true }))) return;
     try { await api(`/design-tasks/${t.id}`, { method: 'DELETE' }); } catch (e) { toastError(e, 'удалить задачу'); return; }
     toast('Задача удалена', { undo: async () => { await api(`/design-tasks/${t.id}/restore`, { method: 'POST' }); changed(); } });
     load(true);

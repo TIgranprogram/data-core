@@ -124,7 +124,7 @@ export const passarchive = {
     ...passports.list,
     createLabel: false,
     bulk: undefined,
-    emptyText: 'Паспортов пока нет — они появятся здесь, когда вы выпустите паспорт на вкладке «Паспорта» или «Нужно сделать паспорт».',
+    emptyText: 'Паспортов пока нет.', emptyHint: 'Они появятся здесь, когда вы выпустите паспорт на вкладке «Паспорта» или «Нужно сделать паспорт».',
     hints: { ...passports.list.hints, '': 'Журнал паспортов: выпущенные здесь и перенесённые старые. Клик — карточка, «⇩ PDF и печать…». Новый паспорт выпускается на вкладке «Паспорта» или «Нужно сделать паспорт».' },
     columns: passports.list.columns.map((c) => (c.key === 'status'
       ? { ...c, render: (r) => h('span', null, c.render(r), oldBadge(r) ? ' ' : null, oldBadge(r)) } : c)),

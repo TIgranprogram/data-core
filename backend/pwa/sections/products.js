@@ -267,7 +267,7 @@ export const products = {
       restore: (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } }) }),
       extra: [{ label: 'В КП', run: (_ids, rows) => { rows.forEach(kpAdd); toast(`В КП: ${rows.length} изд. — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); } }] }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
-    emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
+    emptyText: 'Изделий пока нет.', emptyHint: 'Нажмите «⇩ Загрузить каталог»: Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
     // левая панель (NAV F3): поиск → «Тип · Группа изделий» → «Серия» → «Состояние»; цену и габариты не фильтруем
     sidebar: true,
     chipsTop: true, // «Состояние» — строкой над списком, слева — только «что ищем»

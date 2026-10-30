@@ -59,7 +59,7 @@ export const movements = {
     sortDefault: '-date',
     createLabel: false,
     searchPlaceholder: 'Поиск: позиция или примечание…',
-    emptyText: 'Движений пока нет. Приход и списание делаются в карточке позиции на «Складе».',
+    emptyText: 'Движений пока нет.', emptyHint: 'Они появятся после кнопок «Принять», «Выдать» и «Списать» на складе.',
     filters: [
       { key: 'type', label: 'Операция', type: 'chips', options: () => [{ value: 'in', label: 'Приход' }, { value: 'out', label: 'Списание' }, { value: 'adjust', label: 'Корректировка' }] },
       { key: 'from', label: 'С даты', short: 'с', type: 'date' },

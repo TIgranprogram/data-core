@@ -2,7 +2,7 @@
 export const ALL_V2 = 'ALL_V2';
 
 export type Doc = Record<string, unknown>;
-export const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt'];
+export const SORT = ['passportNo', 'date', 'name', 'category', 'customerName', 'createdAt', 'updatedAt', 'deletedAt'];
 /** Поля модели — переходят в копию паспорта и подставляются из выбранной модели (ПС.5). */
 export const MODEL_FIELDS = ['productId', 'name', 'category', 'article', 'height', 'length', 'width', 'weight', 'seatWidth', 'seatHeight', 'supports', 'shipVolume', 'materials', 'purpose', 'installationMethod', 'description', 'supplierOrgId', 'supplier', 'warrantyMonths', 'bom',
   // v2 (БЗ-6): поля модели — копия на ту же модель и выбор модели переносят их

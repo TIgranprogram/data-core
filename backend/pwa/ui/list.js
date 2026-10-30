@@ -52,7 +52,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const L = { ...section.list, columns: section.list.columns.filter((c) => !c.money || session.canMoney) };
   let P = { ...params };
   const t0 = performance.now(); // замер первой отрисовки (SPEED-2): > 2 с — запись «Медленно» в ошибки сайта
-  let timed = false;
+  let timed = document.hidden; // скрытая вкладка — не «медленно»: браузер её тормозит нарочно
+  const stopTiming = () => { timed = true; };
+  document.addEventListener('visibilitychange', stopTiming, { once: true });
   // L.defaults: фильтры по умолчанию — только при входе в раздел без параметров в адресе; «Все» их снимает и они не возвращаются
   if (L.defaults && !Object.keys(params).length) {
     P = { ...L.defaults };
@@ -417,7 +419,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }
     if (my !== seq) return;
     loaded = true;
-    if (!timed) { timed = true; const ms = performance.now() - t0; if (ms > 2000) reportSlow(ms); }
+    if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - t0; if (ms > 2000) reportSlow(ms); }
     panel.classList.remove('loading');
     lastResp = resp;
     countEl.textContent = qty(resp.total);
