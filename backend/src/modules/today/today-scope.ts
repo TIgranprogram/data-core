@@ -2,8 +2,8 @@ import type { FeedKind } from './today-feed';
 import type { ZoneScope } from '../zones/zones.service';
 import { MANAGEMENT } from '../zones/zone-routing';
 
-/** Зона ответственности по виду дела ленты. Отгрузка — «Договоры» (до появления отдельной зоны). */
-export const ZONE_OF: Record<FeedKind, string> = { delivery: 'supply', shipment: 'contracts', design: 'design', question: 'design', payment: 'accounting' };
+/** Зона ответственности по виду дела ленты. Отгрузка — «Договоры» (до появления отдельной зоны). «В работе» — тоже «Проектирование»: зоны «Производство» ещё нет, дело без исполнителя видят проектировщики. */
+export const ZONE_OF: Record<FeedKind, string> = { delivery: 'supply', shipment: 'contracts', design: 'design', work: 'design', question: 'design', payment: 'accounting' };
 
 export type ScopeMode = 'mine' | 'all';
 export interface ScopeInfo {

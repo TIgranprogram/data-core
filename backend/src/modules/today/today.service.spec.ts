@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { TodayService } from './today.service';
 
 /** Поддельная база: каждая коллекция отдаёт заданные строки, любой запрос — как есть. */
@@ -46,5 +47,36 @@ describe('TodayService', () => {
 
   it('неверный горизонт — 400', async () => {
     await expect(make().svc.get({ role: 'admin' }, { days: '99' }, NOW)).rejects.toThrow('Горизонт');
+  });
+  describe('«В работе»', () => {
+    const oid = () => new Types.ObjectId();
+    const ord = oid(), noDl = oid();
+    const mk = (extra: Record<string, unknown>) => ({ _id: oid(), seq: 1, status: 'work', route: [{ name: 'Сварка' }, { name: 'Покраска' }], stepIndex: 0, incomeId: oid(), ...extra });
+    const wdata = {
+      salesorders: [
+        { _id: ord, orderNo: '34', productionNo: '77', customer: 'ООО Ромашка', shipDate: new Date('2026-10-29T00:00:00Z') },
+        { _id: noDl, orderNo: '35', customer: 'ООО' },
+      ],
+      worktasks: [mk({ orderId: ord, assigneeId: 'p1' }), mk({ orderId: ord, assigneeId: 'p2' }), mk({ orderId: noDl, assigneeId: 'p1' })],
+    };
+    const build = () => {
+      const zones = { scopeOf: jest.fn().mockResolvedValue({ personId: 'p1', zoneCodes: [], management: false }) };
+      const svc = new TodayService(fakeDb(wdata), { forecast: jest.fn() } as never, { listItems: jest.fn().mockResolvedValue({ counts: { ok: 0, low: 0, none: 0 } }) } as never, zones as never);
+      return svc;
+    };
+
+    it('задание со сроком заказа — дело work с исполнителем; без срока — нет', async () => {
+      const r = await build().get({ role: 'admin' }, { scope: 'all' }, NOW);
+      const w = r.feed.filter((f) => f.kind === 'work');
+      expect(w).toHaveLength(2);
+      expect(w[0]).toMatchObject({ kind: 'work', personId: 'p1', due: '2026-10-29', actions: [], sub: 'ООО Ромашка · заказ № 77' });
+      expect(w[0].title).toContain('· Сварка');
+      expect(r.metrics.work).toBe(0);
+    });
+
+    it('«Моё» оставляет только свои задания', async () => {
+      const r = await build().get({ role: 'user' }, { scope: 'mine' }, NOW);
+      expect(r.feed.filter((f) => f.kind === 'work').map((f) => f.personId)).toEqual(['p1']);
+    });
   });
 });

@@ -2,7 +2,8 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
-import { go, patch } from '../core/router.js';
+import { current, go, patch } from '../core/router.js';
+import { mountList } from '../ui/list.js';
 import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { toast } from '../ui/toast.js';
 import { opRow } from '../ui/op-row.js';
@@ -104,7 +105,7 @@ export function mountMoney(params) {
     controls, body);
 
   function renderChrome(companies) {
-    tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
+    tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
       h('button', { type: 'button', class: tab() === k ? 'active' : '', onclick: () => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }, l)));
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = tab() === 'summary' ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
@@ -113,7 +114,7 @@ export function mountMoney(params) {
     opening.value = store.get(openKey()) || '';
     controls.querySelector('.m-month').hidden = tab() === 'forecast'; // прогноз — с сегодня, месяц не листается
     controls.querySelector('.m-open-l').textContent = tab() === 'forecast' ? 'остаток денег на сегодня' : 'остаток денег на 1-е';
-    controls.hidden = tab() === 'fill';
+    controls.hidden = tab() === 'fill' || tab() === 'debts';
     nextBtn.disabled = tab() === 'summary' ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
     nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
     opening.parentElement.hidden = (tab() !== 'calendar' && tab() !== 'forecast') || hasStart();
@@ -257,7 +258,7 @@ export function mountMoney(params) {
         kpi(`выплаты за ${year}`, money(exp), '', vs(exp, pExp)),
         inc ? kpi('финансовый результат', money(inc - exp), inc - exp < 0 ? 'neg' : 'pos', pInc ? vs(inc - exp, pInc - pExp) : null) : kpi('финансовый результат', '—', 'muted'),
         kpi('месяцев с операциями', String(shown.filter((m) => sum(m.byCompany, 'income') || sum(m.byCompany, 'expense')).length))),
-      inc ? null : h('p', { class: 'hint' }, 'Доходов пока нет: у позиций заказов не вписаны суммы («Позиции и оплаты» → «Без суммы» → «Вписать сумму»). Как только появятся — посчитается финансовый результат.'),
+      inc ? null : h('p', { class: 'hint' }, 'Доходов пока нет: у позиций заказов не вписаны суммы («Долги» → «Без суммы» → «Вписать сумму»). Как только появятся — посчитается финансовый результат.'),
       hasPrev ? null : h('p', { class: 'hint' }, `Сравнение с ${py} годом появится, когда в базе будут операции ${py} года за тот же период (сейчас их нет).`),
       h('div', { class: 'dash-grid' },
         shares('Куда тратили', 'Цех / офис / СМР / заказы', (s.expensesByCostCenter || []).map((x) => ({ label: x.center, total: x.total }))),
@@ -270,11 +271,37 @@ export function mountMoney(params) {
     ];
   }
 
+  // ---------- Долги: тот же список позиций, что был в «Позиции и оплаты» (ui/list.js), карточка справа — of=orders ----------
+  let debts = null;
+  const dropDebts = () => { debts?.destroy?.(); debts = null; };
+  /** Параметры внутреннего списка: без вкладки и панели справа (иначе открытие карточки перезагружало бы список). */
+  const debtParams = (p) => {
+    const { tab: _t, of, month: _m, org: _o, days: _d, ...rest } = p;
+    return { ...rest, open: of === 'orders' ? p.open : undefined, new: undefined };
+  };
+  async function mountDebts(my) {
+    try {
+      const mod = await import('./orders.js');
+      if (my !== seq) return;
+      dropDebts();
+      debts = mountList(mod.debts, debtParams(P), {
+        onOpen: (row) => go('money', { ...current().params, of: 'orders', open: row.id, new: undefined }, { replace: !!current().params.open, kind: 'card' }),
+        onCreate: () => {},
+        onChanged: () => {},
+      });
+      body.replaceChildren(debts.el);
+    } catch (e) {
+      if (my === seq) body.replaceChildren(failBlock(e, load, { cls: 'panel state' }));
+    } finally { if (my === seq) el.classList.remove('loading'); }
+  }
+
   let seq = 0;
   async function load() {
     const my = ++seq;
     renderChrome();
     el.classList.add('loading');
+    if (tab() === 'debts') { await mountDebts(my); return; }
+    dropDebts();
     try {
       const m = month();
       const end = `${m}-${String(lastDay(m)).padStart(2, '0')}`;
@@ -319,12 +346,14 @@ export function mountMoney(params) {
 
   return {
     el,
-    reload: load,
+    reload: () => (tab() === 'debts' && debts ? debts.reload?.() : load()),
+    destroy: dropDebts,
     /** Смена вкладки/месяца/компании — без пересоздания экрана; открытая карточка — без перезагрузки данных. */
     update(next) {
       const changed = ['tab', 'month', 'org', 'days'].some((k) => (next[k] || '') !== (P[k] || ''));
       P = { ...next };
       if (changed) load();
+      else if (tab() === 'debts' && debts) debts.update?.(debtParams(P));
     },
     canEdit: session.canEdit,
   };

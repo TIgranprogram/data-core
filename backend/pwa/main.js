@@ -102,12 +102,13 @@ function needed(section, params) {
   const add = (n) => { const k = LOADER_OF[n] || n; if (LAZY[k]) keys.add(k); };
   add(section); add(params?.of);
   if (section === 'requests') keys.add('reqtabs');
+  if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['orders', 'Позиции и оплаты', 'money'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
+const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
@@ -211,7 +212,7 @@ function shell() {
     group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
-    session.canMoney ? group('Деньги', navLinks.orders, navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,
+    session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
     h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
   netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
@@ -304,8 +305,8 @@ async function refreshCounts(only) {
   // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
   const get = (id, path) => (session.sees(id) && (!only || only.has(id)) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
   try {
-    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('orders', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
-    if (o) set('orders', o.counts?.awaiting || 0);
+    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('money', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
+    if (o) set('money', o.counts?.awaiting || 0); // «ждём оплату» — на пункте «Платёжный календарь»
     if (so) set('salesorders', so.counts?.active || 0);
     if (dz) set('design', (dz.counts?.queue || 0) + (dz.counts?.work || 0));
     if (wk) set('work', (wk.counts?.waiting || 0) + (wk.counts?.work || 0));
@@ -326,6 +327,8 @@ const screenKey = (section, params) => (section === 'passports' ? 'docs' : secti
 function render(c) {
   const { section, params } = c;
   if (!section) { go(DEFAULT, {}, { replace: true }); return; }
+  // старый раздел «Позиции и оплаты» (#orders) ушёл из меню: список — «Деньги → Долги», карточка позиции — справа (of=orders)
+  if (section === 'orders') { const { open, new: isNew, ...rest } = params; go('money', { ...rest, tab: 'debts', ...(open || isNew ? { of: 'orders', ...(open ? { open } : { new: isNew }) } : {}) }, { replace: true }); return; }
   // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render
   const miss = allowed(section) ? needed(section, params) : [];
   if (miss.length) {
@@ -492,14 +495,14 @@ let lastRow = null;       // запись из ответа последней �
 let rowsMixed = false;    // за окно склейки было больше одной записи — обновляем всё
 const countsOf = new Set();
 const LOOKUP_PATH = /^\/(partners|dicts|materials|supply\/catalog|supply\/lookups)(\/|$|\?)/;
-const COUNT_SECTION = [[/^\/supply\/(requests|invoices)/, 'requests'], [/^\/stock/, 'stock'], [/^\/incomes/, 'orders'], [/^\/(salesorders|production-orders)/, 'salesorders'], [/^\/design-tasks/, 'design'], [/^\/work-tasks/, 'work']];
+const COUNT_SECTION = [[/^\/supply\/(requests|invoices)/, 'requests'], [/^\/stock/, 'stock'], [/^\/incomes/, 'money'], [/^\/(salesorders|production-orders)/, 'salesorders'], [/^\/design-tasks/, 'design'], [/^\/work-tasks/, 'work']];
 function onDataChanged(e) {
   const d = e?.detail;
   const path = d?.path || '';
   if (!path || LOOKUP_PATH.test(path)) lookups.reset(); // справочники сбрасываем только при записи в них
   // счётчики меню — только затронутых разделов и не чаще раза в 2 с
   const hit = path ? COUNT_SECTION.filter(([re]) => re.test(path)).map(([, id]) => id) : [];
-  if (!path) ['requests', 'stock', 'orders', 'salesorders', 'design', 'work'].forEach((id) => countsOf.add(id)); else hit.forEach((id) => countsOf.add(id));
+  if (!path) ['requests', 'stock', 'money', 'salesorders', 'design', 'work'].forEach((id) => countsOf.add(id)); else hit.forEach((id) => countsOf.add(id));
   if (countsOf.size && !countsTimer) countsTimer = setTimeout(() => { countsTimer = 0; const ids = new Set(countsOf); countsOf.clear(); refreshCounts(ids); }, 2000);
   const one = d?.method === 'PATCH' && d.result && d.result.id && !d.result.items ? d.result : null;
   if (changedTimer) rowsMixed = true;

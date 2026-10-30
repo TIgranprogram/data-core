@@ -1,6 +1,6 @@
 /** «Сегодня» — чистая сборка ленты дел и недели из готовых записей (без базы; тесты — today-feed.spec.ts). */
 
-export type FeedKind = 'delivery' | 'shipment' | 'design' | 'question' | 'payment';
+export type FeedKind = 'delivery' | 'shipment' | 'design' | 'work' | 'question' | 'payment';
 export type FeedTone = 'danger' | 'warn' | 'info';
 export interface FeedAction { id: string; label: string }
 
@@ -15,7 +15,7 @@ export interface FeedItem extends RawItem {
 }
 
 /** За сколько дней до срока дело попадает в ленту (решение по СГД-1). */
-export const FEED_WINDOW: Record<FeedKind, number> = { delivery: 1, shipment: 3, design: 2, question: 0, payment: 1 };
+export const FEED_WINDOW: Record<FeedKind, number> = { delivery: 1, shipment: 3, design: 2, work: 2, question: 0, payment: 1 };
 
 const DAY = 86400000;
 export const dayNum = (iso: string) => Math.floor(Date.parse(iso + 'T00:00:00Z') / DAY);
@@ -26,7 +26,7 @@ function toneOf(left: number): FeedTone {
   return left < 0 ? 'danger' : left === 0 ? 'warn' : 'info';
 }
 
-const KIND_RANK: Record<FeedKind, number> = { delivery: 0, shipment: 1, design: 2, question: 3, payment: 4 };
+const KIND_RANK: Record<FeedKind, number> = { delivery: 0, shipment: 1, design: 2, work: 3, question: 4, payment: 5 };
 
 /** Лента: только то, что в окне своего вида; сортировка — просрочено (дольше всех первым) → сегодня → завтра. */
 export function buildFeed(items: RawItem[], today: string, limit = 30): { feed: FeedItem[]; total: number; all: FeedItem[] } {

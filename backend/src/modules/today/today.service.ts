@@ -4,6 +4,7 @@ import type { Connection } from 'mongoose';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { FinanceService } from '../finance/finance.service';
+import { presentWork } from '../work/work-present';
 import { StockService } from '../stock/stock.service';
 import { ZonesService } from '../zones/zones.service';
 import { isMine, pickScope, ZONE_OF } from './today-scope';
@@ -43,16 +44,17 @@ export class TodayService {
     const upto = new Date(horizon + 'T23:59:59.999Z');
     const none = Promise.resolve(null);
 
-    const [supply, orders, design, questions, stock, forecast] = await Promise.all([
+    const [supply, orders, design, work, questions, stock, forecast] = await Promise.all([
       see('requests') ? this.supply(db, upto) : none,
       see('salesorders') ? this.orders(db, upto, today) : none,
       see('design') ? this.design(db, upto, today) : none,
+      see('work') ? this.work(db, upto) : none,
       see('design') ? this.questions(db) : none,
       see('stock') ? this.stockCounts() : none,
       money ? this.finance.forecast({ days: 14, today }) : none,
     ]);
 
-    const items: RawItem[] = [...(supply?.items ?? []), ...(orders?.items ?? []), ...(design?.items ?? []), ...(questions?.items ?? [])];
+    const items: RawItem[] = [...(supply?.items ?? []), ...(orders?.items ?? []), ...(design?.items ?? []), ...(work?.items ?? []), ...(questions?.items ?? [])];
     const payments: RawItem[] = (forecast?.days ?? []).filter((d) => d.expense > 0).map((d) => ({
       kind: 'payment' as const, id: d.date, title: `К оплате ${Math.round(d.expense).toLocaleString('ru-RU')} ₽`, sub: '', due: d.date,
       actions: [{ id: 'open', label: 'Открыть' }],
@@ -69,6 +71,7 @@ export class TodayService {
     if (orders) metrics.orders = { byStage: orders.byStage, overdue: orders.overdue };
     if (stock) metrics.stock = stock;
     if (design) metrics.design = { counts: design.counts };
+    if (work) metrics.work = work.inWork;
     if (forecast) metrics.money = { days: forecast.days.map((d) => ({ date: d.date, balance: d.closing })) };
     return { today, scope, pulse: buildPulse(all), feed, feedTotal: total, week: buildWeek(shown, today, days), metrics };
   }
@@ -131,17 +134,38 @@ export class TodayService {
     return { counts, items };
   }
 
+  /** Задания «В работе» (ждут запуска и идут) со сроком заказа: без срока в ленту не идут. Метрика — число заданий в работе. */
+  private async work(db: NonNullable<Connection['db']>, upto: Date) {
+    const base = { deletedAt: null };
+    const [inWork, rows] = await Promise.all([
+      db.collection('worktasks').countDocuments({ ...base, status: 'work' }),
+      db.collection('worktasks').find({ ...base, status: { $in: ['waiting', 'work'] } }, { sort: { seq: 1 }, limit: LIMIT }).toArray(),
+    ]);
+    const shown = await presentWork(this.connection, rows);
+    const items = shown.flatMap((w) => {
+      const due = iso(w.deadline);
+      if (!due || new Date(due + 'T00:00:00Z') > upto) return [];
+      return [{
+        kind: 'work' as const, id: w.id, title: w.currentStep ? `${w.title} · ${w.currentStep}` : w.title,
+        sub: [w.customer, w.productionNo ? `заказ № ${w.productionNo}` : ''].filter(Boolean).join(' · '), due, actions: [],
+        ...(w.assigneeId ? { personId: w.assigneeId } : {}),
+      }];
+    });
+    return { inWork, items };
+  }
+
   /** Открытые вопросы по задачам проектирования: срок — день вопроса (ждёт ответа «сегодня и дольше»). */
   private async questions(db: NonNullable<Connection['db']>) {
     const rows = await db.collection('designnotes').find({ needsAnswer: true, deletedAt: null },
       { projection: { taskId: 1, text: 1, createdAt: 1 }, sort: { createdAt: 1 }, limit: 50 }).toArray();
-    const tasks = rows.length ? await db.collection('designtasks').find({ _id: { $in: rows.map((r) => r.taskId) } }, { projection: { seq: 1, title: 1 } }).toArray() : [];
+    const tasks = rows.length ? await db.collection('designtasks').find({ _id: { $in: rows.map((r) => r.taskId) } }, { projection: { seq: 1, title: 1, assigneeId: 1 } }).toArray() : [];
     const t = new Map(tasks.map((x) => [String(x._id), x]));
     const items = rows.map((r) => {
       const task = t.get(String(r.taskId));
       return {
         kind: 'question' as const, id: String(r._id), taskId: String(r.taskId), title: String(r.text ?? '').slice(0, 120), sub: String(task?.title || (task ? `Задача D-${task.seq}` : '')), due: iso(r.createdAt) || '9999-12-31',
         actions: [{ id: 'answer', label: 'Ответить' }],
+        ...(task?.assigneeId ? { personId: String(task.assigneeId) } : {}),
       };
     });
     return { items };

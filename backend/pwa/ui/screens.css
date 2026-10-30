@@ -1623,3 +1623,29 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .wk-rt-main select, .wk-rt-main input[type="text"], .wk-rt-main .sel-wrap { width: 100%; min-width: 0; box-sizing: border-box; }
 .wk-rt-btns { display: flex; gap: 2px; }
 @media (max-width: 720px) { .wk-rt-row { grid-template-columns: 24px minmax(0, 1fr); } .wk-rt-btns { grid-column: 2; } }
+
+/* «Сегодня» по ролям (TODAY-UI): свёрнутые «Неделя»/«Показатели», паспорта и договоры списком, пустая строка блока */
+.td-weekfold { margin: 0 0 var(--s3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.td-weekfold[hidden] { display: none; }
+.td-weekfold > summary { display: flex; align-items: center; min-height: 44px; padding: 8px 14px; cursor: pointer; font-size: var(--fs-h3); font-weight: 600; color: var(--heading); list-style: none; }
+.td-weekfold > summary::-webkit-details-marker { display: none; }
+.td-weekfold > summary::after { content: '▾'; margin-left: auto; color: var(--muted); }
+.td-weekfold[open] > summary::after { content: '▴'; }
+.td-fold-body { padding: var(--s3); border-top: 1px solid var(--border); min-width: 0; }
+.td-fold-body .td-tiles { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.td-passports { display: flex; flex-direction: column; min-width: 0; }
+.td-pass { display: flex; flex-direction: column; gap: 2px; min-height: 44px; padding: 6px 12px; text-align: left; font: inherit; color: var(--text); background: transparent; border: 0; border-top: 1px solid var(--border); cursor: pointer; min-width: 0; }
+.td-pass:first-child { border-top: 0; }
+.td-pass:hover { background: var(--row-hover); }
+.td-pass .td-title, .td-pass .td-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-pass.hot .td-title { color: var(--danger); }
+.td-more-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; }
+.td-none { padding: var(--s2) var(--s3); color: var(--muted); font-size: var(--fs-table); }
+.td-ph .td-gn { margin-left: 8px; }
+.td-money .td-tile { width: 100%; }
+.td-filterwrap:empty { display: none; }
+.td-filterwrap { margin: 0 0 var(--s3); }
+.td-b-fill { margin: 0; }
+@media (max-width: 720px) { .today-actions { display: none; } .td-fold-body .td-days { gap: 2px; } }
+/* Позиции заказа: с колонками «Оплачено» / «Долг» таблица шире телефона — прокрутка внутри таблицы, не страницы */
+@media (max-width: 720px) { .so-lines { display: block; max-width: 100%; overflow-x: auto; } }

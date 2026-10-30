@@ -1,22 +1,37 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
-import { icon } from '../ui/icons.js';
 import { modal } from '../ui/dialog.js';
-import { isoDay } from '../core/format.js';
+import { isoDay, date } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
 import { unmatchedCount } from './matching-queue.js';
+import { fillToday } from './fill.js';
 
 /**
- * «Сегодня» — утренний бриф (docs/roles/tz/TODAY.md, этап 1): шапка с пульсом дня и колокольчиком,
- * лента дел с действием в один клик, неделя полосой, диаграммы SVG, быстрые действия.
- * Данные — один запрос GET /today?days=7. deps: { open(of, id), refreshCounts() }.
+ * «Сегодня» — утренний бриф по ролям (docs/audit/AUDIT-TODAY.md §3): у каждой роли свои 3–6 блоков,
+ * лента дел с действием в один клик, неделя и показатели — свёрнуты. Данные — GET /today?days=7.
+ * deps: { open(of, id), refreshCounts() }.
  */
 const SNOOZE_KEY = 'dc-today-snooze';
-const SEC_OF = { delivery: 'requests', shipment: 'salesorders', design: 'design' };
-const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка', design: 'Проектирование', question: 'Вопрос', payment: 'Оплата' };
+const SEC_OF = { delivery: 'requests', shipment: 'salesorders', design: 'design', work: 'work' };
+const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка', design: 'Проектирование', question: 'Вопрос', payment: 'Оплата', work: 'В работе' };
 const SVGNS = 'http://www.w3.org/2000/svg';
+
+// Блоки по ролям, сверху вниз: [ключ, заголовок]. Роль не из списка — «Срочно» + «План».
+const DIRECTOR = [['urgent', 'Срочно: просрочено'], ['work', 'В работе'], ['shipment', 'Отгрузки'], ['questions', 'Вопросы проектирования'], ['fill', ''], ['money', 'Деньги']];
+const PLAN = {
+  user: [['delivery', 'Поставки: ждут приёмки'], ['work', 'Мои задания в работе'], ['shipment', 'Выдать и отгрузить'], ['contracts', 'Договоры поставщиков: истекают']],
+  manager: [['urgent', 'Срочно: просрочено'], ['work', 'В работе: просроченные и без исполнителя'], ['questions', 'Вопросы проектирования'], ['shipment', 'Отгрузки'], ['passports', 'Паспорта к выдаче']],
+  accountant: [['payment', 'К оплате'], ['fill', ''], ['money', 'Деньги'], ['unmatched', 'Не сопоставлено позиций']],
+  director: DIRECTOR,
+  admin: DIRECTOR,
+};
+const DEFAULT_PLAN = [['urgent', 'Срочно'], ['plan', 'План']];
+const LISTED = ['delivery', 'work', 'shipment', 'payment']; // блоки-списки: ключ = вид дела в ленте
+const EMPTY = {
+  delivery: 'Нет поставок, которые ждут приёмки', work: 'Нет заданий со сроком в ближайшие дни — все задания на доске «В работе»', shipment: 'Нет отгрузок на ближайшие дни', payment: 'Нет платежей к оплате',
+};
 
 function svg(tag, attrs = {}, ...kids) {
   const n = document.createElementNS(SVGNS, tag);
@@ -36,30 +51,45 @@ export function mountHome(deps) {
   const first = (session.name || '').split(' ')[0];
   const dayText = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const seeReq = session.sees('requests'), seeStock = session.sees('stock');
+  const role = session.role;
 
-  let pq = null; // очередь паспортов: счётчики для карточки
+  // какие блоки доступны этой роли
+  const AVAILABLE = {
+    delivery: () => session.sees('requests'), work: () => session.sees('work'), shipment: () => session.sees('salesorders'), payment: () => session.canMoney,
+    questions: () => session.sees('design'), passports: () => session.seesDocs(), contracts: () => session.sees('contracts'),
+    fill: () => true, // «fill» — не пункт меню: сервер сам отдаёт только группы открытых роли разделов
+    money: () => session.canMoney,
+  };
+  const plan = (PLAN[role] || DEFAULT_PLAN).filter(([k]) => !AVAILABLE[k] || AVAILABLE[k]());
+  const has = (k) => plan.some(([key]) => key === k);
+  const ownKinds = new Set(plan.map(([k]) => k).filter((k) => LISTED.includes(k)));
+  const showWeek = role !== 'user' && role !== 'accountant' && !has('plan');
+
+  let pq = null; // очередь паспортов: строки для блока «Паспорта к выдаче» и счётчики для плитки
+  let contractsSoon = [];
   let data = null, showAllQ = false, chip = null, dayFilter = null;
   let mode = null; // «Моё» / «Всё»: первый раз — как скажет сервер (scope.defaultMode)
+  let unmatchedN = 0;
   const scopeEl = h('div', { class: 'td-scope', hidden: true });
   const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
-  const showQuestions = () => { chip = null; dayFilter = null; showAllQ = !showAllQ || qEl.hidden; paintAll(); qEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-  const bellBtn = h('button', { type: 'button', class: 'td-bell', title: 'Вопросы ждут ответа — показать', 'aria-label': 'Вопросы ждут ответа', hidden: true, onclick: showQuestions });
-  const urgEl = h('div', { class: 'td-feed' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
-  const planEl = h('div', { class: 'td-feed' });
+  const filterEl = h('div', { class: 'td-filterwrap' });
+  const blocksEl = h('div', { class: 'td-cols' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
   const weekEl = h('div', { class: 'td-week' });
-  const qEl = h('section', { class: 'td-qcard', hidden: true });
   const tilesEl = h('div', { class: 'td-tiles', hidden: true });
+  const moneyTileSlot = h('div', { class: 'td-money' });
+  const fill = has('fill') ? fillToday() : null;
 
   // ---------- Действия ----------
   const openRec = (c) => {
-    if (c.kind === 'payment') { go(session.sees('money') ? 'money' : 'orders'); return; }
+    if (c.kind === 'payment') { go('money', { tab: 'debts' }); return; }
+    if (c.kind === 'work') { go('work', { open: c.id }); return; }
     deps.open(SEC_OF[c.kind], c.id);
   };
   const dropCard = (c) => {
     if (!data) return;
     data.feed = data.feed.filter((x) => !(x.kind === c.kind && x.id === c.id));
     data.feedTotal = Math.max(0, (data.feedTotal || 0) - 1);
-    paintFeed(); paintBell();
+    paintFeed();
   };
   const done = (c) => { dropCard(c); deps.refreshCounts?.(); load(true); };
 
@@ -113,7 +143,7 @@ export function mountHome(deps) {
     toast('Карточка вернётся завтра', { undo: () => { const k = readSnooze(); delete k[c.kind + ':' + c.id]; writeSnooze(k); load(true); } });
   }
 
-  // ---------- Лента: группы ----------
+  // ---------- Лента: карточки и списки ----------
   const dueText = (c) => {
     if (c.overdueDays > 0) return `просрочено ${c.overdueDays} ${plural(c.overdueDays, 'день', 'дня', 'дней')}`;
     if (c.daysLeft === 0 || (c.due && c.due === isoDay())) return 'сегодня';
@@ -150,77 +180,153 @@ export function mountHome(deps) {
   }
   const notSnoozed = (c) => { const m = readSnooze(); return !(m[c.kind + ':' + c.id] > isoDay()); };
   const visibleFeed = () => (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c) && (!dayFilter || c.due === dayFilter)
-    && (chip === 'shipment' ? c.kind === 'shipment' : chip === 'overdue' ? c.overdueDays > 0 : true));
+    && (chip === 'workover' ? c.kind === 'work' && c.overdueDays > 0 : chip === 'overdue' ? c.overdueDays > 0 : true));
   const questions = () => (data?.feed || []).filter((c) => c.kind === 'question' && notSnoozed(c));
   const expanded = new Set();
   const PREVIEW = 5;
+  /** Карточки списка + кнопка «ещё N» (первые PREVIEW). */
+  function rowsOf(key, items) {
+    const full = expanded.has(key), rows = full ? items : items.slice(0, PREVIEW);
+    return [...rows.map(cardEl),
+      items.length > PREVIEW ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-more', onclick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } },
+        full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`) : null];
+  }
   function group(key, title, items, open) {
     if (!items.length) return null;
-    const full = expanded.has(key), rows = full ? items : items.slice(0, PREVIEW);
     return h('details', { class: 'td-group', open }, h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
-      h('div', { class: 'td-rows' }, ...rows.map(cardEl),
-        items.length > PREVIEW ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-more', onclick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } },
-          full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`) : null));
+      h('div', { class: 'td-rows' }, ...rowsOf(key, items)));
   }
   const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
   const emptyBox = (t, s2) => h('div', { class: 'td-empty' }, h('b', null, t), s2 ? h('span', null, s2) : null);
+  const emptyLine = (t) => h('div', { class: 'td-none' }, t);
+
+  // ---------- Блоки ----------
+  /** Каркас блока: рамка с заголовком (и числом) и телом. */
+  function shell(key, title) {
+    const head = h('h2', { class: 'td-ph' });
+    const body = h('div', { class: 'td-pb td-pb-r' });
+    const el = h('section', { class: 'td-panel td-b-' + key }, head, body);
+    const set = (n, ...kids) => { head.replaceChildren(title, n ? h('b', { class: 'td-gn' }, String(n)) : null); body.replaceChildren(...kids); return n; };
+    return { el, set, head, body };
+  }
+  const BLOCK = {
+    list(key, title) { // delivery / work / shipment / payment
+      const s = shell(key, title);
+      return { el: s.el, counted: true, paint() {
+        const items = visibleFeed().filter((c) => c.kind === key);
+        if (key === 'work') items.sort((a, b) => (b.overdueDays || 0) - (a.overdueDays || 0) || (a.personId ? 1 : 0) - (b.personId ? 1 : 0));
+        return s.set(items.length, items.length ? h('div', { class: 'td-feed' }, ...rowsOf(key, items)) : emptyLine(EMPTY[key]));
+      } };
+    },
+    urgent(key, title) {
+      const s = shell(key, title);
+      s.el.classList.add('td-urgent');
+      return { el: s.el, counted: true, paint() {
+        const over = visibleFeed().filter((c) => c.overdueDays > 0 && !ownKinds.has(c.kind));
+        const um = unmatchedRow();
+        return s.set(over.length, over.length || um ? h('div', { class: 'td-feed' }, ...rowsOf('over', over), um) : emptyLine('Нет просроченных дел')) + (um ? 1 : 0);
+      } };
+    },
+    plan(key, title) {
+      const s = shell(key, title);
+      return { el: s.el, counted: true, paint() {
+        const all = visibleFeed(), t = isoDay();
+        const over = all.filter((c) => c.overdueDays > 0);
+        const today = all.filter((c) => !(c.overdueDays > 0) && (c.daysLeft === 0 || c.due === t));
+        const week = all.filter((c) => !over.includes(c) && !today.includes(c));
+        const rows = [group('today', 'Сегодня', today, true), group('week', 'На неделе', week, true)];
+        return s.set(today.length + week.length, rows[0] || rows[1] ? h('div', { class: 'td-feed' }, ...rows) : emptyLine('Нет дел на сегодня и неделю'));
+      } };
+    },
+    questions(key, title) {
+      const s = shell(key, title);
+      return { el: s.el, counted: true, paint() {
+        const qs = questions();
+        const rows = showAllQ ? qs : qs.slice(0, 2);
+        return s.set(qs.length, qs.length ? h('div', { class: 'td-qcard' },
+          ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
+            h('button', { type: 'button', class: 'btn btn-sm btn-primary td-btn', onclick: () => answer(c) }, 'Ответить'))),
+          qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn', onclick: () => { showAllQ = !showAllQ; paintFeed(); } },
+            showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`) : null) : emptyLine('Нет вопросов без ответа'));
+      } };
+    },
+    passports(key, title) {
+      const s = shell(key, title);
+      return { el: s.el, counted: true, paint() {
+        const items = (pq?.items || []).slice(0, 5);
+        const left = Math.max(0, (pq?.total ?? items.length) - items.length);
+        return s.set(items.length, items.length ? h('div', { class: 'td-passports' },
+          ...items.map((r) => h('button', { type: 'button', class: 'td-pass' + (r.hot ? ' hot' : ''), onclick: () => go('docs') },
+            h('span', { class: 'td-title' }, `№ ${r.productionNo || r.orderNo || '—'} · ${r.productName || r.title || ''}`),
+            h('span', { class: 'td-sub' }, [r.customer, r.shipDate ? 'отгрузка ' + date(r.shipDate) : 'без срока', r.passportId ? 'есть черновик' : 'нет паспорта'].filter(Boolean).join(' · ')))),
+          left ? h('a', { class: 'td-more-link', href: '#docs', onclick: (e) => { e.preventDefault(); go('docs'); } }, `Все (ещё ${left}) →`) : null) : emptyLine('Нет паспортов, которые пора выдать'));
+      } };
+    },
+    contracts(key, title) {
+      const s = shell(key, title);
+      return { el: s.el, counted: true, paint() {
+        const items = contractsSoon;
+        return s.set(items.length, items.length ? h('div', { class: 'td-passports' },
+          ...items.slice(0, 5).map((c) => h('button', { type: 'button', class: 'td-pass' + (String(c.validTo).slice(0, 10) < isoDay() ? ' hot' : ''), onclick: () => patch({ of: 'contract', open: c.id || c._id }) },
+            h('span', { class: 'td-title' }, `Договор № ${c.no || '—'}`),
+            h('span', { class: 'td-sub' }, [c.supplierName, (String(c.validTo).slice(0, 10) < isoDay() ? 'истёк ' : 'до ') + date(c.validTo)].filter(Boolean).join(' · '))))) : emptyLine('Нет договоров, которые скоро истекают'));
+      } };
+    },
+    unmatched(key, title) {
+      const s = shell(key, title);
+      return { el: s.el, counted: true, paint() {
+        return s.set(unmatchedN, unmatchedN ? h('div', { class: 'td-unm' }, h('a', { href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Сопоставить позиции договоров: ' + unmatchedN)) : emptyLine('Нет несопоставленных позиций'));
+      } };
+    },
+    money(key, title) {
+      const s = shell(key, title);
+      return { el: s.el, counted: false, paint() { s.set(0, moneyTileSlot.childNodes.length ? moneyTileSlot : emptyLine('Нет данных по деньгам')); return 0; } };
+    },
+    fill() { return { el: fill.el, counted: false, paint() { return 0; } }; },
+  };
+  const blocks = plan.map(([key, title]) => {
+    const make = LISTED.includes(key) ? BLOCK.list : BLOCK[key];
+    return make ? make(key, title) : null;
+  }).filter(Boolean);
+
   function paintFeed() {
     if (!data) return;
-    const all = visibleFeed(), t = isoDay();
-    const over = all.filter((c) => c.overdueDays > 0);
-    const today = all.filter((c) => !(c.overdueDays > 0) && (c.daysLeft === 0 || c.due === t));
-    const week = all.filter((c) => !over.includes(c) && !today.includes(c));
     const fl = dayFilter ? `Дела на ${new Date(dayFilter + 'T00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`
-      : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только отгрузки') : '';
-    const bar = fl ? h('div', { class: 'td-filter' }, fl,
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : null;
-    const urgent = [group('over', 'Просрочено', over, true), unmatchedRow()];
-    const plan = [group('today', 'Сегодня', today, true), group('week', 'На неделе', week, true)];
-    if (fl && !all.length) plan.unshift(emptyBox('Ничего не найдено', 'По этому условию дел нет — нажмите «Показать все».'));
-    urgEl.replaceChildren(bar, ...urgent, !urgent[0] && !urgent[1] && !questions().length && !fl ? emptyBox('Срочного нет', 'Просроченных дел и вопросов нет.') : null);
-    planEl.replaceChildren(...plan, !all.length && !fl ? emptyBox('На сегодня и неделю дел нет', 'Можно заполнить недостающие данные: раздел «Заполнить».') : null);
+      : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только просроченные в работе') : '';
+    filterEl.replaceChildren(fl ? h('div', { class: 'td-filter' }, fl,
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : '');
+    let total = 0;
+    for (const b of blocks) { const n = b.paint(); if (b.counted) total += n || 0; }
+    if (!total && !has('fill') && !has('money')) {
+      blocksEl.replaceChildren(fl ? emptyBox('Ничего не найдено', 'По этому условию дел нет — нажмите «Показать все».') : emptyBox('Всё спокойно', 'Просроченных дел и вопросов нет. Можно заполнить недостающие данные: раздел «Заполнить».'));
+    } else blocksEl.replaceChildren(...blocks.map((b) => b.el));
   }
-  const paintAll = () => { paintPulse(); paintFeed(); paintQuestions(); paintWeek(); };
+  const paintAll = () => { paintPulse(); paintFeed(); paintWeek(); };
 
-  // ---------- Пульс: три числа ----------
+  // ---------- Пульс: числа ----------
   function paintPulse() {
+    const showQ = has('questions'), showW = has('work');
     const mk = (key, n, label, title) => h('button', { type: 'button', title, class: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'), 'aria-pressed': String(chip === key),
-      onclick: () => { if (key === 'question') { showQuestions(); return; } chip = chip === key ? null : key; dayFilter = null; paintAll(); } },
+      onclick: () => {
+        if (key === 'question') { showAllQ = !showAllQ; paintFeed(); blocks.find((b) => b.el.classList.contains('td-b-questions'))?.el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+        chip = chip === key ? null : key; dayFilter = null; paintAll();
+      } },
       h('b', null, String(n || 0)), h('span', null, label));
     const base = (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c));
-    const o = base.filter((c) => c.overdueDays > 0).length, s = base.filter((c) => c.kind === 'shipment').length, q = questions().length;
+    const o = base.filter((c) => c.overdueDays > 0).length, w = base.filter((c) => c.kind === 'work' && c.overdueDays > 0).length, q = questions().length;
     pulseEl.replaceChildren(
       mk('overdue', o, plural(o, 'просроченное дело', 'просроченных дела', 'просроченных дел'), 'Показать только просроченные дела'),
-      mk('shipment', s, plural(s, 'заказ к отгрузке', 'заказа к отгрузке', 'заказов к отгрузке'), 'Показать только отгрузки'),
-      mk('question', q, plural(q, 'вопрос ждёт ответа', 'вопроса ждут ответа', 'вопросов ждут ответа'), 'Показать вопросы'));
-  }
-  function paintBell() {
-    const n = questions().length;
-    bellBtn.hidden = !n;
-    bellBtn.replaceChildren(icon('bell'), n ? h('span', { class: 'td-bell-n' }, String(n)) : null);
+      showW ? mk('workover', w, plural(w, 'задание просрочено', 'задания просрочено', 'заданий просрочено'), 'Показать просроченные задания в работе') : null,
+      showQ ? mk('question', q, plural(q, 'вопрос ждёт ответа', 'вопроса ждут ответа', 'вопросов ждут ответа'), 'Показать вопросы') : null);
   }
 
-  // ---------- Вопросы: одна карточка ----------
-  function paintQuestions() {
-    const qs = questions();
-    if (!qs.length) { qEl.replaceChildren(); qEl.hidden = true; return; }
-    qEl.hidden = false;
-    const rows = showAllQ ? qs : qs.slice(0, 2);
-    qEl.replaceChildren(
-      h('h3', { class: 'td-qh' }, `Вопросы ждут ответа · ${qs.length}`),
-      ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
-        h('button', { type: 'button', class: 'btn btn-sm btn-primary td-btn', onclick: () => answer(c) }, 'Ответить'))),
-      qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn', onclick: () => { showAllQ = !showAllQ; paintQuestions(); } },
-        showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`) : null);
-  }
-
-  // ---------- Неделя ----------
+  // ---------- Неделя (свёрнута) ----------
   function paintWeek() {
     const days = data?.week || [];
     if (!days.length) { weekEl.replaceChildren(); return; }
     const today = isoDay();
     const any = days.some((d) => d.events.length);
-    weekEl.replaceChildren(h('h3', { class: 'td-h' }, 'Неделя'), h('div', { class: 'td-days' }, ...days.map((d) => {
+    weekEl.replaceChildren(h('div', { class: 'td-days' }, ...days.map((d) => {
       const dt = new Date(d.date + 'T00:00');
       return h('button', {
         type: 'button', class: 'td-day' + (d.date === today ? ' today' : '') + (dayFilter === d.date ? ' on' : ''),
@@ -263,17 +369,20 @@ export function mountHome(deps) {
       const b = m.orders.byStage || {};
       out.push(tile('Заказы в работе', String((b.new || 0) + (b.production || 0) + (b.ready || 0)), segBar([{ n: b.new || 0, cls: 's1' }, { n: b.production || 0, cls: 's2' }, { n: b.ready || 0, cls: 's3' }, { n: b.shipped || 0, cls: 's4' }]),
         () => go('salesorders', { filter: 'active' }), 'Новые · в производстве · готовы · отгружены'));
-      out.push(tile('Заказы с просроченной отгрузкой', String(m.orders.overdue || 0), null, () => go('salesorders', { filter: 'overdue' }), 'Открыть заказы'));
     }
-    if (pq?.counts?.hot > 0) out.unshift(tile('Паспорта к сроку · ' + pq.counts.hot, String(pq.counts.hot), segBar([{ n: pq.counts.none || 0, cls: 's1' }, { n: pq.counts.draft || 0, cls: 's2' }, { n: pq.counts.rework || 0, cls: 's3' }]),
+    if (m.work != null && session.sees('work')) out.push(tile('Задания в работе', String(m.work), null, () => go('work'), 'Открыть доску «В работе»'));
+    if (pq?.counts?.hot > 0 && !has('passports')) out.unshift(tile('Паспорта к сроку · ' + pq.counts.hot, String(pq.counts.hot), segBar([{ n: pq.counts.none || 0, cls: 's1' }, { n: pq.counts.draft || 0, cls: 's2' }, { n: pq.counts.rework || 0, cls: 's3' }]),
       () => go('docs'), 'Позиции, где проектирование готово, а паспорта нет и до отгрузки не больше 3 дней'));
     const days = m.money?.days;
+    moneyTileSlot.replaceChildren();
     if (days?.length && session.canMoney) {
       const last = days[days.length - 1].balance;
-      out.push(tile('Деньги, 14 дн.', Math.round(last).toLocaleString('ru-RU') + ' ₽', spark(days), () => go('money'), 'Остаток денег на 14 дней'));
+      const mt = tile('Деньги, 14 дн.', Math.round(last).toLocaleString('ru-RU') + ' ₽', spark(days), () => go('money'), 'Остаток денег на 14 дней');
+      if (has('money')) moneyTileSlot.append(mt); else out.push(mt);
     }
     tilesEl.replaceChildren(...out);
     tilesEl.hidden = !out.length;
+    statsFold.hidden = !out.length;
   }
 
   // ---------- Моё / Всё (ЗО-4) ----------
@@ -289,28 +398,31 @@ export function mountHome(deps) {
   }
 
   // ---------- Загрузка ----------
-  let unmatchedN = 0;
+  const soon = () => { const d = new Date(); d.setDate(d.getDate() + 14); return isoDay(d); };
   async function load(silent = false) {
     try {
-      const [d, q] = await Promise.all([
+      const [d, q, ct] = await Promise.all([
         api('/today', { query: { days: 7, ...(mode ? { scope: mode } : {}) } }),
-        session.seesDocs() ? api('/passports/queue', { query: { due: 'soon', limit: 1 } }).catch(() => pq) : Promise.resolve(pq),
+        has('passports') || session.seesDocs() ? api('/passports/queue', { query: { due: 'soon', limit: 5 } }).catch(() => pq) : Promise.resolve(pq),
+        has('contracts') ? api('/supply/contracts', { query: { status: 'active', limit: 200 } }).catch(() => null) : Promise.resolve(null),
       ]);
       data = d; pq = q;
+      if (ct) contractsSoon = (ct.items || []).filter((c) => c.validTo && String(c.validTo).slice(0, 10) <= soon()).sort((a, b) => String(a.validTo).localeCompare(String(b.validTo)));
       if (!mode) mode = d.scope?.defaultMode === 'mine' ? 'mine' : 'all';
       paintScope();
-      unmatchedN = (await unmatchedCount()).total || 0;
-      paintBell(); paintTiles(); paintAll();
+      fill?.load();
+      unmatchedN = (has('urgent') || has('unmatched')) ? (await unmatchedCount()).total || 0 : 0;
+      paintTiles(); paintAll();
     } catch (e) {
       if (silent && data) return;
-      const fb = failBlock(e, () => load());
-      urgEl.replaceChildren(fb); planEl.replaceChildren(); pulseEl.replaceChildren();
+      blocksEl.replaceChildren(failBlock(e, () => load())); pulseEl.replaceChildren();
     }
   }
 
-  // ---------- Быстрые действия ----------
+  // ---------- Быстрые действия (склад и снабжение; на телефоне — крупные плитки) ----------
+  const quick = ['user', 'manager'].includes(role) && (seeReq || seeStock);
   const act = (label, title, onclick) => h('button', { type: 'button', class: 'btn', title, onclick }, label);
-  const actions = session.canEdit && (seeReq || seeStock) ? h('div', { class: 'today-actions' },
+  const actions = quick ? h('div', { class: 'today-actions' },
     seeReq ? [
       act('+ Заявка', 'Новая заявка — форма справа', () => patch({ of: 'requests', new: '1', open: undefined })),
       act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
@@ -321,8 +433,13 @@ export function mountHome(deps) {
         h('div', { class: 'td-menu-pop' },
           act('Выдать со склада', 'Выдача со склада', () => go('ops', {})),
           act('Забронировать', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))))] : null) : null;
+  const goTiles = quick ? h('div', { class: 'go-tiles' },
+    seeReq ? h('button', { type: 'button', class: 'go-tile', onclick: () => patch({ of: 'requests', new: '1', open: undefined }) },
+      h('b', null, '+ Заявка'), h('span', null, 'закончилось — что, сколько')) : null,
+    seeStock ? [h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
+      h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null;
 
-  // Диск сервера и целостность данных — админу, только если есть что показать
+  // Диск сервера и целостность данных — только админу и только если есть что показать (под блоками)
   // проверки здоровья — не чаще раза в час (ответ в sessionStorage)
   const hourly = async (path) => {
     const k = 'dc.health.' + path;
@@ -332,7 +449,7 @@ export function mountHome(deps) {
     return v;
   };
   const diskNote = h('p', { class: 'hint disk-note', hidden: true });
-  if (session.role === 'admin' || session.user?.isOwner) {
+  if (role === 'admin' || session.user?.isOwner) {
     hourly('/health/disk').then((d) => {
       if (d.level === 'ok') return;
       diskNote.hidden = false;
@@ -346,23 +463,21 @@ export function mountHome(deps) {
     }).catch(() => {});
   }
 
+  const fold = (cls, title, body, hidden) => h('details', { class: 'td-weekfold ' + cls, hidden }, h('summary', null, title), h('div', { class: 'td-fold-body' }, body));
+  const statsFold = fold('td-stats', 'Показатели', tilesEl, true);
+
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head td-head' },
       h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${dayText}`)),
-      h('div', { class: 'td-bellwrap' }, scopeEl, bellBtn)),
-    diskNote,
-    // на телефоне — три задачи «на ходу» крупно
-    session.canEdit && (seeReq || seeStock) ? h('div', { class: 'go-tiles' },
-      seeReq ? h('button', { type: 'button', class: 'go-tile', onclick: () => patch({ of: 'requests', new: '1', open: undefined }) },
-        h('b', null, '+ Заявка'), h('span', null, 'закончилось — что, сколько')) : null,
-      seeStock ? [h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
-        h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null,
+      h('div', { class: 'td-bellwrap' }, scopeEl)),
+    goTiles,
     pulseEl,
     actions,
-    h('div', { class: 'td-cols' },
-      h('section', { class: 'td-panel td-urgent' }, h('h2', { class: 'td-ph' }, 'Срочно'), h('div', { class: 'td-pb td-pb-r' }, qEl, urgEl)),
-      h('section', { class: 'td-panel td-plan' }, h('h2', { class: 'td-ph' }, 'План'), h('div', { class: 'td-pb td-pb-r' }, planEl, weekEl))),
-    h('section', { class: 'td-panel td-stats' }, h('h2', { class: 'td-ph' }, 'Показатели'), h('div', { class: 'td-pb td-pb-r' }, tilesEl)));
+    filterEl,
+    blocksEl,
+    showWeek ? fold('td-wk', 'Неделя по дням', weekEl) : null,
+    statsFold,
+    diskNote);
 
   load();
   return { el, reload: () => load(true), update: () => {} };

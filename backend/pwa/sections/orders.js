@@ -164,7 +164,7 @@ const toInitial = (r) => ({
 
 export const orders = {
   id: 'orders',
-  title: 'Позиции и оплаты',
+  title: 'Позиции заказов',
   newTitle: 'Новая строка заказа',
   entityType: 'Income',
   historyLabels: { 'income.created': 'Создана', 'income.updated': 'Изменена', 'income.deleted': 'Удалена', 'income.restored': 'Восстановлена' },
@@ -233,7 +233,7 @@ export const orders = {
       ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
       ['Примечание', r.notes],
       ['В календаре', r.reportDate ? `${date(r.reportDate)} (${r.paidDate ? 'по дате оплаты' : 'по дате отгрузки'})` : h('span', { class: 'muted' }, 'не попадает — нет даты отгрузки или оплаты')],
-      ['Весь заказ', r.orderNo ? h('a', { href: '#orders?orderNo=' + encodeURIComponent(r.orderNo) }, `все строки заказа ${r.orderNo} →`) : ''],
+      ['Весь заказ', r.orderId ? h('a', { href: '#salesorders?open=' + encodeURIComponent(String(r.orderId)) }, `все строки заказа ${r.orderNo || ''} →`) : ''],
     ],
     actions: (r) => [
       session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
@@ -310,5 +310,19 @@ export const orders = {
   },
 
   searchRow: (r) => ({ title: heading(r), sub: [r.customer, money(r.amount)].filter(Boolean).join(' · '), side: badge(INCOME_STATUS, r.status) }),
-  open: (id) => go('orders', { open: id }),
+  open: (id) => go('money', { tab: 'debts', of: 'orders', open: id }),
+};
+
+/**
+ * Список «Деньги → Долги»: тот же список позиций (чипы статусов, компания, даты, итог «долг», экспорт),
+ * но без создания строк — новые позиции добавляются только из карточки заказа. Карточка — `of=orders`.
+ */
+export const debts = {
+  ...orders,
+  title: 'Долги',
+  list: {
+    ...orders.list,
+    createLabel: false,
+    emptyText: 'Позиций нет. Позиции появляются из заказов (раздел «Заказы»).',
+  },
 };
