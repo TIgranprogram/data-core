@@ -1,11 +1,12 @@
 /**
  * Зелёные котики и собачки падают на фоне, как в «Матрице» (пользователь 2026-10-30): котики — у роли «Трубарез», собачки — у «Лазер лист».
+ * Пасхалка: после 16:00 у котиков и собачек глаза горят красным и мерцают, как звёзды.
  * Фигурка рисуется один раз на отдельном холсте и дальше только копируется: так глаза вырезаются чисто, а кадр лёгкий.
  * Холст под интерфейсом, клики не перехватывает; вкладка скрыта или в системе убрана анимация — не рисует.
  */
 const FPS = 15, SPACE = 46, MIN_ALPHA = 0.14, MAX_ALPHA = 0.3;
 const CELL = 180, UNIT = 42; // размер заготовки и радиус фигурки в ней, px
-let canvas = null, timer = 0, falling = [], sprites = [], spritesFor = '', kinds = [];
+let canvas = null, timer = 0, falling = [], sprites = [], spritesFor = '', kinds = [], eyes = [], spark = null, tick = 0;
 
 const cut = (c, draw) => { c.globalCompositeOperation = 'destination-out'; draw(); c.globalCompositeOperation = 'source-over'; };
 const dot = (c, x, y, rx, ry = rx, a = 0) => { c.beginPath(); c.ellipse(x, y, rx, ry, a, 0, Math.PI * 2); c.fill(); };
@@ -88,6 +89,32 @@ const DOGS = [
   paw,
 ];
 const SETS = { cats: CATS, dogs: DOGS };
+/** Где глаза у каждой фигурки, в радиусах от центра: как в рисунках выше. */
+const EYES = {
+  cats: [[[-0.42, -0.08], [0.42, -0.08]], [[-0.29, -1], [0.29, -1]], [[-1.34, -0.25], [-0.76, -0.25]], []],
+  dogs: [[[-0.4, -0.2], [0.4, -0.2]], [[-0.27, -1.09], [0.27, -1.09]], [], []],
+};
+const EVENING = 16;
+
+/** Искра глаза: мягкое красное свечение, яркая середина и тонкая четырёхлучевая звезда. */
+function makeSpark() {
+  const s = document.createElement('canvas');
+  s.width = s.height = 128;
+  const c = s.getContext('2d');
+  c.translate(64, 64);
+  const halo = c.createRadialGradient(0, 0, 2, 0, 0, 44);
+  halo.addColorStop(0, 'rgba(255,60,40,.95)'); halo.addColorStop(0.35, 'rgba(255,30,20,.45)'); halo.addColorStop(1, 'rgba(255,0,0,0)');
+  c.fillStyle = halo; c.beginPath(); c.arc(0, 0, 44, 0, Math.PI * 2); c.fill();
+  c.fillStyle = 'rgba(255,120,95,.95)';
+  for (let i = 0; i < 4; i++) {
+    c.rotate(Math.PI / 2);
+    c.beginPath(); c.moveTo(-4, 0); c.quadraticCurveTo(-0.6, -8, 0, -62); c.quadraticCurveTo(0.6, -8, 4, 0); c.fill();
+  }
+  const core = c.createRadialGradient(0, 0, 0, 0, 0, 9);
+  core.addColorStop(0, 'rgba(255,250,235,1)'); core.addColorStop(1, 'rgba(255,90,60,0)');
+  c.fillStyle = core; c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill();
+  return s;
+}
 
 /** Заготовки фигурок: цвет темы меняется — перерисовываются. */
 function prepare(color) {
@@ -125,6 +152,8 @@ function frame() {
   if (document.hidden) return;
   const c = canvas.getContext('2d');
   c.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  const glow = new Date().getHours() >= EVENING;
+  tick++;
   prepare(getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#0f7d55');
   falling.forEach((k, i) => {
     const size = (k.r / UNIT) * CELL;
@@ -133,6 +162,14 @@ function frame() {
     c.translate(k.x + Math.sin(k.y * k.wave + k.phase) * k.sway * 10, k.y);
     c.rotate(k.tilt + Math.sin(k.y * k.wave) * 0.12);
     c.drawImage(sprites[k.sprite], -size / 2, -size / 2, size, size);
+    if (glow) {
+      (eyes[k.sprite] || []).forEach(([x, y], n) => {
+        const beat = Math.sin(tick * 0.3 + k.phase * 3 + n * 1.7); // у каждого глаза свой ритм, как у звёзд
+        const r = k.r * (1.15 + beat * 0.35);
+        c.globalAlpha = 0.65 + beat * 0.35;
+        c.drawImage(spark, x * k.r - r / 2, y * k.r - r / 2, r, r);
+      });
+    }
     c.restore();
     k.y += k.speed;
     if (k.y > window.innerHeight + 40) falling[i] = spawn(false);
@@ -143,6 +180,8 @@ function frame() {
 export function startRain(set) {
   if (canvas || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   kinds = SETS[set];
+  eyes = EYES[set];
+  spark ||= makeSpark();
   spritesFor = '';
   canvas = document.createElement('canvas');
   canvas.className = 'cat-rain';
