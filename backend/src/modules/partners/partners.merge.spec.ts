@@ -39,4 +39,11 @@ describe('HARDEN-1: каталог поставщика — конфликт к�
     const t = setup((from, to) => ({ supplieritems: [{ supplierId: from, article: 'A', color: '' }, { supplierId: to, article: 'A', color: '', deletedAt: new Date() }] }));
     await expect(t.svc.merge(String(t.from), String(t.to))).rejects.toThrow('позиции каталога');
   });
+
+  it('чужой уникальный индекс (CRM) — 409 вместо 500', async () => {
+    const t = setup();
+    const conn = (t.svc as unknown as { connection: { startSession: () => Promise<unknown> } }).connection;
+    jest.spyOn(conn, 'startSession').mockResolvedValue({ withTransaction: async () => { throw Object.assign(new Error('E11000'), { code: 11000 }); }, endSession: async () => undefined });
+    await expect(t.svc.merge(String(t.from), String(t.to))).rejects.toBeInstanceOf(ConflictException);
+  });
 });

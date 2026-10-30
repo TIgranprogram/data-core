@@ -355,6 +355,10 @@ export class PartnersService {
         await this.db.collection('organizations').updateOne({ _id: from }, { $set: { deletedAt: new Date(), mergedInto: to, inn: `${a.inn}-merged-${String(from).slice(-6)}` } }, { session });
         if (Object.keys(fill).length) await this.db.collection('organizations').updateOne({ _id: to }, { $set: fill }, { session });
       });
+    } catch (e) {
+      // индексы CRM на общих коллекциях (например, supplieritems: поставщик + артикул поставщика + организация) проверкой выше не покрыты; транзакция откатилась
+      if ((e as { code?: number }).code === 11000) throw new ConflictException('Объединить нельзя: у обоих поставщиков совпадают позиции каталога. Сначала переименуйте или удалите дубли');
+      throw e;
     } finally { await session.endSession(); }
     return { ...(await this.get(intoId)), moved };
   }
