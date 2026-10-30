@@ -209,6 +209,7 @@ export const orders = {
   },
 
   card: {
+    zones: { extra: 'side' }, // УПР-3: оплаты — боковой колонкой
     extra: (r, ctx) => paymentsBlock(r, ctx),
     parent: (r) => (r.orderId ? { label: `Заказ № ${r.orderNo || '—'}`, run: () => go('salesorders', { open: String(r.orderId) }) } : null),
     gallery: (r) => r.photos || [],

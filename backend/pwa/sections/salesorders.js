@@ -414,6 +414,7 @@ export const salesorders = {
         !closedStage(r) && { label: '+ Договор с заказчиком в этот заказ', title: 'Новый договор с этим № заказа', run: (row) => patch({ of: 'salesorder', new: '1', productionNo: row.productionNo || '', customer: names(row.customers) && (row.customers || [])[0] || '', open: undefined }, { replace: false }) },
       ];
     },
+    zones: { extra: 'wide' }, // УПР-3: позиции и договоры — широким блоком
     extra: (r) => details(r),
   },
 };

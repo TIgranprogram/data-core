@@ -151,6 +151,7 @@ export const staffCard = {
     subheading: (r) => [r.position, r.statusLabel].filter(Boolean).join(' · '),
     noHistory: true,
     view: (r) => [['Телефон', r.phone], ['Вход', r.login ? `${r.login.displayName || r.login.username} (${r.login.username})` : '']],
+    zones: { extra: 'side' }, // УПР-3: вход и зоны — боковой колонкой
     extra: (r, ctx) => h('div', { class: 'st-blocks' }, loginBlock(r, r._logins, ctx), zonesBlock(r, r._zones, ctx), historyBlock(r)),
   },
 };

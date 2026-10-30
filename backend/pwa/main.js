@@ -117,6 +117,8 @@ const OWNER = { salesorder: 'salesorders', designorder: 'design', designsettings
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', offers: 'products', orders: 'money', money: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
+/** Куда ведёт группа в крошках: первый раздел по цепочке. */
+const GROUP_FIRST = { 'Производство': 'salesorders', 'Продукция': 'products', 'Склад': 'stock', 'Снабжение': 'requests', 'Деньги': 'money', 'Управление': 'staff' };
 const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', products: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
@@ -376,7 +378,7 @@ function render(c) {
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
 
   const key = screenKey(section, params);
-  if (!mounted || mounted.key !== key) { const own = OWNER[section] || section; setCrumbs({ group: GROUP_OF[own] || '', title: titleOf(own) || '', href: '#' + own }); }
+  if (!mounted || mounted.key !== key) { const own = OWNER[section] || section; const group = GROUP_OF[own] || ''; const first = GROUP_FIRST[group]; setCrumbs({ group, groupHref: first && first !== own && session.sees(first) ? '#' + first : '', title: titleOf(own) || '', href: '#' + own }); }
   const sec = SECTIONS[section];
   if (!mounted || mounted.key !== key) {
     mounted?.list?.destroy?.();

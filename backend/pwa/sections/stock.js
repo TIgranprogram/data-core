@@ -188,6 +188,7 @@ export const stock = {
       { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
     ],
     // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
+    zones: { extra: 'side' }, // УПР-3: заказано, паспорт и движения — боковой колонкой
     extra: (r) => h('div', null, orderedBlock(r), passportSpecView(r), recentMoves(r)),
   },
 
