@@ -101,20 +101,16 @@ function table(block, match) {
   const cols = colsOf(block.kind);
   const rows = block.rows.filter(match);
   if (!rows.length) return null;
-  const foot = h('td', { class: 'pg-sum' });
-  const sumAll = () => { foot.textContent = qty(rows.reduce((s, r) => s + rowMeters(r), 0)); };
   const head = block.kind === 'steel'
     ? [h('tr', null, h('th', { class: 'pg-name' }, 'Сечение'), ...cols.map((c) => h('th', null, c.m ? `${c.m} м, шт` : 'Куски, м')), h('th', null, 'Итого, м'))]
     : [h('tr', null, h('th', { class: 'pg-name', rowspan: 2 }, 'Сечение'), h('th', { colspan: 2, class: 'k-washed' }, 'Мытая'), h('th', { colspan: 2, class: 'k-raw' }, 'Не мытая'), h('th', { rowspan: 2 }, 'Итого, м')),
       h('tr', null, ...cols.map((c) => h('th', { class: c.washed ? 'k-washed' : 'k-raw' }, `${c.m} м, шт`)))];
-  sumAll();
   return h('section', { class: 'pg-block k-' + block.kind }, h('h2', { class: 'pg-title' }, block.title),
     h('table', { class: 'pg-table' }, h('thead', null, ...head),
       h('tbody', null, ...rows.map((row) => {
         const sum = h('td', { class: 'pg-sum' }, qty(rowMeters(row)));
-        return h('tr', null, h('th', { class: 'pg-name', scope: 'row' }, row.label), ...cols.map((c) => cell(row, c, () => { sum.textContent = qty(rowMeters(row)); sumAll(); })), sum);
-      })),
-      h('tfoot', null, h('tr', null, h('th', { class: 'pg-name', colspan: cols.length + 1 }, 'Всего, м'), foot))));
+        return h('tr', null, h('th', { class: 'pg-name', scope: 'row' }, row.label), ...cols.map((c) => cell(row, c, () => { sum.textContent = qty(rowMeters(row)); })), sum);
+      }))));
 }
 
 let reservedOpen = false;

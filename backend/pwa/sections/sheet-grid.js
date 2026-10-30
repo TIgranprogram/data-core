@@ -66,18 +66,14 @@ async function saveSheets(it, text) {
 function table(block, match) {
   const rows = block.rows.filter(match);
   if (!rows.length) return null;
-  const foot = h('td', { class: 'pg-sum' });
-  const sumAll = () => { foot.textContent = qty(rows.reduce((s, it) => s + (it.quantity || 0), 0)); };
-  sumAll();
   return h('section', { class: 'pg-block ' + (TONE[block.grade] || 'k-round') }, h('h2', { class: 'pg-title' }, block.title),
     h('table', { class: 'pg-table' },
       h('thead', null, h('tr', null, h('th', { class: 'pg-name' }, 'Толщина, мм'), h('th', { class: 'pg-for' }, 'Формат, мм'), h('th', null, 'Листов'), h('th', null, 'В брони'), h('th', { class: 'pg-for' }, 'Обрезки'), h('th', { class: 'pg-for' }, 'Примечание'))),
       h('tbody', null, ...rows.map((it) => h('tr', null,
         h('th', { class: 'pg-name', scope: 'row' }, qty(it.dims?.thickness ?? 0)), h('td', { class: 'pg-for' }, sizeOf(it)),
-        h('td', { class: 'pg-c' }, field('pg-in', `Листов, ${it.name}`, String(it.quantity ?? 0), async (v) => { await saveSheets(it, v); sumAll(); })),
+        h('td', { class: 'pg-c' }, field('pg-in', `Листов, ${it.name}`, String(it.quantity ?? 0), (v) => saveSheets(it, v))),
         h('td', { class: 'pg-held' }, it.reservedQty ? qty(it.reservedQty) : ''), h('td', { class: 'pg-for' }, offcutsOf(it)),
-        h('td', { class: 'pg-c' }, field('pg-note', `Примечание, ${it.name}`, noteOf(it), (v) => api(`/stock/items/${it.materialId || it.id}`, { method: 'PATCH', body: { notes: v } })))))),
-      h('tfoot', null, h('tr', null, h('th', { class: 'pg-name', colspan: 2 }, 'Всего листов'), foot, h('td', { colspan: 3 })))));
+        h('td', { class: 'pg-c' }, field('pg-note', `Примечание, ${it.name}`, noteOf(it), (v) => api(`/stock/items/${it.materialId || it.id}`, { method: 'PATCH', body: { notes: v } }))))))));
 }
 
 export function mountSheetGrid() {
