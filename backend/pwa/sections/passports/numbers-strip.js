@@ -20,7 +20,22 @@ export function numbersStrip() {
     if (canEdit()) el.append(h('button', { type: 'button', class: 'btn btn-ghost pn-edit', title: HINT, onclick: () => edit(n, el, f) }, '✎ Изменить'));
     return el;
   };
-  const nextPiece = (n) => editable(n, PASS);
+  /** +1: следующий паспорт, талон и номер изделия сдвигаются вместе — номера ушли в другую программу. */
+  const bump = async (n, btn) => {
+    btn.disabled = true;
+    try {
+      const r = await api('/passports/next-number', { method: 'PUT', body: { next: n.nextPassportNo + 1, nextProductCode: n.nextProductCode + 1 } });
+      render(r); toast(`Следующий паспорт № ${r.nextPassportNo}, изделие № ${r.nextProductCode}`);
+    } catch (e) { toast(e.message || 'Не удалось сохранить', { error: true }); btn.disabled = false; }
+  };
+  const nextPiece = (n) => {
+    const el = editable(n, PASS);
+    if (canEdit()) {
+      const plus = h('button', { type: 'button', class: 'btn btn-ghost pn-edit pn-plus', title: 'Следующий номер, талон и номер изделия +1', 'aria-label': 'Прибавить один к номерам', onclick: () => bump(n, plus) }, '+1');
+      el.insertBefore(plus, el.querySelector('.pn-edit:not(.pn-plus)'));
+    }
+    return el;
+  };
   const codePiece = (n) => editable(n, CODE);
   const edit = (n, el, f) => {
     const inp = h('input', { type: 'text', inputmode: 'numeric', 'aria-label': f[0], title: HINT, class: 'pn-input', value: n[f[1]] ?? '' });

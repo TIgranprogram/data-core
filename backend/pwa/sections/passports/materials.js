@@ -3,6 +3,7 @@ import { h } from '../../core/dom.js';
 import { toast } from '../../ui/toast.js';
 import { confirmDlg } from '../../ui/dialog.js';
 import { materialsSpec, specSummary } from '../../ui/materials-spec.js';
+import { fillFromType } from './product-types.js';
 
 /*
  * МИ.4: материалы в форме паспорта (невыпущенного) — таблица вместо меток «Материалы» и свободного текста.
@@ -26,7 +27,7 @@ export function materialsFields({ r, md, ctx }) {
   return [
     { key: 'materialIds', type: 'widget', label: '', widget: (v) => hiddenList(v), summary: () => '' },
     { key: '_mspec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
-      widget: (v) => (ctx.ms = materialsSpec({ value: v, dicts: md, preview: false, scope: () => ctx.cat(), actions: [{ label: 'Подставить из изделия', busy: 'Загружаю…', title: 'Таблица материалов из карточки изделия', run: (w) => fromProduct(w, ctx) }] })),
+      widget: (v) => (ctx.ms = materialsSpec({ value: v, dicts: md, preview: false, scope: () => ctx.cat(), actions: [{ label: 'Подставить из изделия', busy: 'Загружаю…', title: 'Таблица материалов из карточки изделия', run: (w) => fromProduct(w, ctx) }, { label: 'Подставить по типу', title: 'Части и материалы по типу изделия', run: (w) => fillFromType(w, { name: ctx.api?.get('name'), dicts: md }) }] })),
       hint: 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). Метки материалов паспорта заполняются из таблицы',
       mount: (api) => wireMaterials(api, { r, md, ctx }) },
   ];

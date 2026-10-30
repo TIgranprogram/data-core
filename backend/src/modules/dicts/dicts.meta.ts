@@ -32,6 +32,7 @@ export const DICT_META: Record<string, DictMeta> = {
   colors: { sections: ['Остатки', 'Заявки', 'Позиции и оплаты'], refBy: 'name' },
   metalAssortments: { sections: ['Остатки'], refBy: 'name' },
   steelGrades: { sections: ['Остатки'], refBy: 'name' },
+  passportTypes: { sections: ['Документация'], refBy: 'id' },
   persons: { sections: ['Заявки', 'Остатки', 'ФОТ'], refBy: 'name' },
   worktypes: { sections: ['ФОТ', 'Остатки'], refBy: 'id' },
   payoutSchedules: { sections: ['ФОТ'], refBy: 'id' },
