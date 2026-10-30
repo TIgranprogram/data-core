@@ -81,6 +81,8 @@ export class StockService {
   offcut(materialId: string, dto: Parameters<StockMovementsService['offcut']>[1], userId?: string) { return this.moves.offcut(materialId, dto, userId); }
   history(materialId: string, limit?: number) { return this.moves.history(materialId, limit); }
   listMovements(q: Record<string, unknown> = {}) { return this.moves.listMovements(q); }
+  movementMaterialId(id: string) { return this.moves.movementMaterialId(id); }
+  correctMovement(id: string, qty: number, userId?: string) { return this.moves.correctMovement(id, qty, userId); }
   cancelMovement(id: string, userId?: string) { return this.moves.cancelMovement(id, userId); }
 
   // --- брони

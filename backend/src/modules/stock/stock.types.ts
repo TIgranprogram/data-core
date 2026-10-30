@@ -19,6 +19,7 @@ export interface StockItemInput {
   invoiceName?: string;
   /** Металл (СМ.1): сортамент / сечение, марка стали, размеры в мм (null — стереть). */
   assortment?: string | null;
+  washed?: boolean | null;
   materialGrade?: string | null;
   dims?: Dims;
 }

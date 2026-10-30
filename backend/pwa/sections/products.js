@@ -374,7 +374,7 @@ export const products = {
         printDialog(await api(`/passports/${row.passports.items[0].id}`));
       } }] : []),
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js (панель паспорта)
-      ...(session.seesDocs() ? [{ label: 'Паспорт →', title: 'Список паспортов этого изделия', run: (row) => { patch({ of: 'passarchive', productId: String(row.id), new: undefined, open: undefined }); } }] : []),
+      ...(session.seesDocs() ? [{ label: 'Паспорт →', title: 'Список паспортов этого изделия', run: (row) => { go('docs', { tab: 'archive', q: row.name }); } }] : []),
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
       ...(session.canEdit ? [{ label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
         const chk = await api(`/showcase/${row.id}/assign-sku`, { method: 'POST', body: {} });

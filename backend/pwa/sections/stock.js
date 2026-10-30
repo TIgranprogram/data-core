@@ -7,6 +7,7 @@ import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
+import { facetLabel, pipeKey } from '../core/facets.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog } from './metal.js';
 import { orderedBlock, orderItem } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
@@ -86,9 +87,10 @@ export const stock = {
     filters: [
       { key: 'status', label: 'Состояние', type: 'chips',
         options: () => [
+          { value: 'ok,low,reserved', label: 'В наличии' },
+          { value: 'none', label: 'Нет на складе' },
           { value: 'low,none', label: 'Требуют внимания' },
           { value: 'low', label: 'Ниже минимума' },
-          { value: 'none', label: 'Нет на складе' },
           { value: 'ordered', label: 'Ждут поставку' },
           { value: 'reserved', label: 'В брони' },
           { value: 'ok', label: 'В норме' },
@@ -122,9 +124,11 @@ export const stock = {
     },
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => pic(r.photos?.[0]) },
-      { key: 'name', label: 'Название', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
+      { key: 'name', label: 'Название', sort: 'name', cls: 'clip', render: (r) => (r.metal === 'pipe' && r.assortment
+        ? h('span', { title: r.name }, h('b', null, facetLabel('pipe', pipeKey(r))), /нерж/i.test(r.name) ? h('span', { class: 'badge', style: { marginLeft: '6px' } }, 'нерж.') : null, r.washed == null ? null : h('span', { class: 'badge ' + (r.washed ? 'info' : 'warn'), style: { marginLeft: '6px' } }, r.washed ? 'Мытая' : 'Не мытая'))
+        : h('span', { title: r.name }, r.name)) },
       { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
-      { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => h('b', null, qty(r.quantity)) },
+      { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => h('span', { class: 'nowrap' }, h('b', null, qty(r.quantity), r.metal === 'pipe' ? ' м' : ''), r.metal === 'pipe' && r.dims?.length ? h('span', { class: 'muted' }, ` · ${qty(Math.floor(r.quantity * 1000 / r.dims.length))} шт`) : null) },
       { key: 'unit', label: 'Ед. изм.', render: unit },
       { key: 'reservedQty', label: 'В брони', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },

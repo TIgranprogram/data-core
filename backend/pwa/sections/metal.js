@@ -21,6 +21,7 @@ export function metalView(r) {
   return [
     ['Сортамент / сечение', r.assortment],
     ['Марка стали', r.materialGrade],
+    ['Мойка', r.washed == null ? '' : r.washed ? 'Мытая' : 'Не мытая'],
     ['Размеры', size],
     ['Обрезки', (r.offcuts || []).length ? h('span', null, ...r.offcuts.flatMap((o, i) => [i ? ', ' : '', h('a', { href: '#stock?open=' + o.id }, `${o.name.split(' — обрезок ')[1] || o.name} × ${qty(o.qty)}`)]), h('span', { class: 'muted' }, ' — берите сначала их')) : ''],
     ['Обрезок от', r.offcutOf ? h('a', { href: '#stock?open=' + r.offcutOf }, 'основная позиция →') : ''],
@@ -35,13 +36,14 @@ export const metalFields = () => [
   { key: 'materialGrade', label: 'Марка стали', type: 'combo', max: 100, span: 2, load: dictNames('steelGrades'), placeholder: 'Ст3, 09Г2С, AISI 304' },
   { key: 'thickness', label: 'Толщина, мм', type: 'number', min: 0, span: 1 },
   { key: 'lengthM', label: 'Длина, м', type: 'number', min: 0, span: 1 },
+  { key: 'wash', label: 'Мойка трубы', type: 'select', span: 1, options: [{ value: '', label: '—' }, { value: '1', label: 'Мытая' }, { value: '0', label: 'Не мытая' }] },
   { key: 'widthM', label: 'Ширина, м', type: 'number', min: 0, span: 1 },
-  { note: 'Толщина — стенка трубы или лист. Труба обычно 6 м; ширина — только для листа.' },
+  { note: 'Толщина — стенка трубы или лист. Длина трубы — 6 или 12 м; ширина — только для листа.' },
 ];
-export const metalInitial = (r) => ({ thickness: r.dims?.thickness ?? null, lengthM: r.dims?.length ? r.dims.length / 1000 : null, widthM: r.dims?.width ? r.dims.width / 1000 : null });
+export const metalInitial = (r) => ({ thickness: r.dims?.thickness ?? null, lengthM: r.dims?.length ? r.dims.length / 1000 : null, widthM: r.dims?.width ? r.dims.width / 1000 : null, wash: r.washed == null ? '' : r.washed ? '1' : '0' });
 /** В тело запроса: метры → мм; пусто — стереть. */
 export const metalBody = (v) => ({
-  assortment: v.assortment || null, materialGrade: v.materialGrade || null,
+  assortment: v.assortment || null, materialGrade: v.materialGrade || null, washed: v.wash === '' || v.wash == null ? null : v.wash === '1',
   dims: { thickness: v.thickness || null, length: v.lengthM ? Math.round(v.lengthM * 1000) : null, width: v.widthM ? Math.round(v.widthM * 1000) : null },
 });
 

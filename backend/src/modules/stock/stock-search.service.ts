@@ -55,7 +55,7 @@ export class StockSearchService {
     const tokens = q.search ? searchTokens(q.search) : [];
     // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
     const make = () => this.itemRows(q, p.deleted, tokens);
-    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens]);
+    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : [])]);
     // Выборка по id (карточка позиции, ответ после записи) — без кэша: версия коллекции растёт по потоку изменений
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
     const { wh, rows: all } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
@@ -111,8 +111,11 @@ export class StockSearchService {
     // металл (СМ.1): марка, сечение, толщина — фильтры «Остатков»
     // без учёта регистра и лишних пробелов: в фильтре одно написание, в позициях бывают разные (SPR-1)
     if (q.grade) filter.materialGrade = sameRe(q.grade);
+    else if (q.noGrade) filter.materialGrade = null; // чёрная труба: у нержавеющей те же сечения
     if (q.section) filter.assortment = sameRe(q.section);
-    if (q.thickness && Number(q.thickness) > 0) filter.dimensions = { $elemMatch: { type: 'thickness', value: Number(q.thickness) } };
+    const sizes = [['thickness', q.thickness], ['length', q.pipeLength]].filter(([, v]) => Number(v) > 0);
+    if (sizes.length) filter.dimensions = { $all: sizes.map(([type, value]) => ({ $elemMatch: { type, value: Number(value) } })) };
+    if (q.wash === '1' || q.wash === '0') filter.washed = q.wash === '1';
     const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
       .filter((m) => matchesAll(tokens, m.name, (m as { fullName?: string }).fullName, (m as { invoiceName?: string }).invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
     const ids = mats.map((m) => m._id as Types.ObjectId);
@@ -155,7 +158,7 @@ export class StockSearchService {
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
         notes: m.notes, fullName: (m as { fullName?: string }).fullName ?? null, invoiceName: (m as { invoiceName?: string }).invoiceName ?? null, quantity, reservedQty, free: freeQty(quantity, reservedQty), minQuantity,
         ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
-        assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, dims: dimsOf(m.dimensions),
+        assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, washed: (m as { washed?: boolean }).washed ?? null, dims: dimsOf(m.dimensions),
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),
         offcutOf: (m as { offcutOf?: Types.ObjectId }).offcutOf ? String((m as { offcutOf?: Types.ObjectId }).offcutOf) : null,
         offcuts: offcutsOf.get(String(m._id)) ?? [],

@@ -86,6 +86,7 @@ export class StockCatalogService {
       ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
       ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
       ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
+      ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
     });
     if (dto.weightG !== undefined) await this.core.setWeightG(mat._id as Types.ObjectId, dto.weightG);
     const wh = await this.core.defaultWarehouse();
@@ -117,6 +118,7 @@ export class StockCatalogService {
     if (dto.invoiceName !== undefined) set.invoiceName = dto.invoiceName.trim() || null;
     if (dto.weightKg !== undefined) set.weightKg = dto.weightKg;
     for (const k of ['assortment', 'materialGrade'] as const) if (dto[k] !== undefined) set[k] = dto[k]?.trim() || null;
+    if (dto.washed !== undefined) set.washed = dto.washed;
     if (dto.dims) set.dimensions = mergeDims(mat.dimensions, dto.dims);
     if (dto.categoryId && Types.ObjectId.isValid(dto.categoryId)) set.categoryId = new Types.ObjectId(dto.categoryId);
     else if (dto.categoryName) set.categoryId = await new CategoryResolver(this.connection).resolve(dto.categoryName);

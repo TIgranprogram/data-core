@@ -56,6 +56,10 @@ export class Material {
   @Prop({ index: true, sparse: true })
   materialGrade?: string;
 
+  /** Труба: мытая / не мытая (СМ.5); поле только data-core, CRM его не читает. */
+  @Prop({ type: Boolean, default: undefined })
+  washed?: boolean;
+
   @Prop({ type: Number, min: 0 })
   weightKg?: number;
 

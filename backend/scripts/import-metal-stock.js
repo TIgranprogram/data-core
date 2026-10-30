@@ -6,7 +6,7 @@
  * Файлы: --sheets <csv> (лист), --pipes <csv> (труба); по умолчанию — «для анализа/» в корне репо.
  * Только через API и только через deploy/synology/api.sh (пароль скрипт не видит): GET /api/stock/items, POST /api/stock/items, POST /api/stock/batch, POST /api/stock/items/:id/offcut.
  * Оформление — как в форме склада: короткое и длинное название, категория, единица, сортамент, марка, размеры; недостающие сортамент и марки — в справочники.
- * Лист — в листах, труба — в метрах (СМ.2). Мытая и не мытая труба — разные позиции. Нержавеющая труба — по столбцу «Итого».
+ * Лист — в листах, труба — в метрах (СМ.2). Сечение + мойка + длина — своя позиция, как столбцы таблицы; у нержавеющей ещё «куски».
  * Роли «Трубарез» и «Лазер лист» (СМ.4): только раздел «Остатки» и свои категории. Роль уже есть — не меняется.
  * Строки с нулём не создаются (--with-zero — создать). Остаток-обрезок с размером («640х500») — позиция-обрезок;
  * без размера («0.5 ост») — только примечание и строка «уточнить» в отчёте.
@@ -75,12 +75,12 @@ function parseSection(raw) {
   return { round: false, a: p[0], b: p[1], wall: p[2], label: p.map(ru).join('×') };
 }
 
-const pipeRow = (src, section, grade, suffix, metres, length, note) => {
+const pipeRow = (src, section, grade, suffix, metres, length, note, washed) => {
   const x = parseSection(section);
   const kind = x.round ? 'круглая' : 'профильная';
   const base = `Труба ${kind} ${grade ? 'нерж. ' : ''}${x.label}`;
   return {
-    src, cat: x.round ? CAT.round : CAT.rect, unit: 'м', qty: metres, name: `${base}${suffix ? ', ' + suffix : ''}`, fullName: `Труба ${grade ? 'нержавеющая' : 'стальная'} ${kind} ${x.label} мм`, assortment: `Труба ${x.label}`,
+    src, cat: x.round ? CAT.round : CAT.rect, unit: 'м', qty: metres, name: [base, suffix, length ? `${length / 1000} м` : ''].filter(Boolean).join(', '), oldName: [base, suffix === 'куски' ? '' : suffix].filter(Boolean).join(', '), washed, fullName: `Труба ${grade ? 'нержавеющая' : 'стальная'} ${kind} ${x.label} мм`, assortment: `Труба ${x.label}`,
     materialGrade: grade || undefined, dims: { ...(x.wall ? { thickness: x.wall } : {}), ...(x.diameter ? { diameter: x.diameter } : {}), ...(length ? { length } : {}) }, note, check: '',
   };
 };
@@ -101,17 +101,16 @@ function parsePipes(text) {
       const total = num(c[5]), bits = num(c[6]);
       const whole = m2 * 2 + m4 * 4 + m6 * 6 + m3 * 3;
       if (total < whole || total > whole + bits * 2) warn.push(`${src} ${c[0]}: Итого ${total} м, по штукам ${whole} м + кусков ${bits}`);
-      const note = [m2 && `${m2} шт по 2 м`, m4 && `${m4} шт по 4 м`, m6 && `${m6} шт по 6 м`, m3 && `${m3} шт по 3 м`, bits && `кусков более 1 м: ${bits}`].filter(Boolean).join(', ');
-      out.push(pipeRow(src, c[0], 'Нержавеющая сталь', '', total, 0, note));
+      for (const [pcs, m] of [[m2, 2], [m3, 3], [m4, 4], [m6, 6]]) if (pcs) out.push(pipeRow(src, c[0], 'Нержавеющая сталь', '', pcs * m, m * 1000, `${pcs} шт по ${m} м`));
+      if (total > whole) out.push(pipeRow(src, c[0], 'Нержавеющая сталь', 'куски', total - whole, 0, `кусков более 1 м: ${bits}`));
+      if (!total) out.push(pipeRow(src, c[0], 'Нержавеющая сталь', '', 0, 0, ''));
       continue;
     }
     const [w6, w12, r6, r12] = [c[1], c[2], c[3], c[4]].map(num);
     const washed = w6 * 6 + w12 * 12, raw = r6 * 6 + r12 * 12, total = num(c[5]);
     if (washed + raw !== total) warn.push(`${src} ${c[0]}: Итого ${total} м, по штукам ${washed + raw} м`);
-    const note = (a, b) => [a && `${a} шт по 6 м`, b && `${b} шт по 12 м`].filter(Boolean).join(', ');
-    const len = (a, b) => (b && !a ? 12000 : 6000);
-    if (washed) out.push(pipeRow(src, c[0], '', 'мытая', washed, len(w6, w12), note(w6, w12)));
-    if (raw || !washed) out.push(pipeRow(src, c[0], '', 'не мытая', raw, len(r6, r12), note(r6, r12)));
+    for (const [pcs, m, isWashed] of [[w6, 6, true], [w12, 12, true], [r6, 6, false], [r12, 12, false]]) if (pcs) out.push(pipeRow(src, c[0], '', isWashed ? 'мытая' : 'не мытая', pcs * m, m * 1000, `${pcs} шт по ${m} м`, isWashed));
+    if (!total) out.push(pipeRow(src, c[0], '', 'не мытая', 0, 6000, '', false));
   }
   return { rows: out, warn };
 }
@@ -182,7 +181,7 @@ async function main() {
   }
   const lines_ = [];
   for (const r of p.create) {
-    const item = await api('POST', '/api/stock/items', { name: r.name, fullName: r.fullName, unit: r.unit, categoryName: r.cat, assortment: r.assortment, materialGrade: r.materialGrade, dims: r.dims, notes: r.note ? `Таблица учёта на ${AS_OF}: ${r.note}` : undefined });
+    const item = await api('POST', '/api/stock/items', { name: r.name, fullName: r.fullName, unit: r.unit, categoryName: r.cat, assortment: r.assortment, materialGrade: r.materialGrade, dims: r.dims, washed: r.washed, notes: r.note ? `Таблица учёта на ${AS_OF}: ${r.note}` : undefined });
     done.createdIds.push(item.id); save();
     r.id = item.id;
     if (r.qty) lines_.push({ materialId: item.id, qty: r.qty, ...(r.note ? { note: r.note.slice(0, 500) } : {}) });
@@ -210,4 +209,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { parseSheets, parsePipes, parseSection, plan };
+module.exports = { parseSheets, parsePipes, parseSection, plan, api, all, DIR, AS_OF };

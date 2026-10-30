@@ -110,3 +110,75 @@ describe('Склад по роли (СМ.4)', () => {
     expect(names((await http().get('/api/stock/items').set(as(admin.access)).expect(200)).body)).toEqual(expect.arrayContaining(['Труба скоупа A', 'Лист скоупа B']));
   });
 });
+
+/** СМ.5 — исправление списания (correct) и фильтры трубы: wash=1|0, pipeLength (мм). */
+describe('Исправление списания и фильтры трубы (СМ.5)', () => {
+  let ctx: TestContext | undefined;
+  let app: INestApplication;
+  let admin: AuthTokens;
+  const http = () => request(app.getHttpServer());
+  const as = (t: string) => authHeader(t);
+  const names = (body: { items: Array<{ name?: string }> }) => body.items.map((x) => x.name);
+  let pipeId = '';
+  let plainId = '';
+  let otherId = '';
+  let tokRound = '';
+
+  beforeAll(async () => {
+    ctx = await createTestApp();
+    app = ctx.app;
+    admin = await loginAsAdmin(app);
+    const t = as(admin.access);
+    pipeId = (await http().post('/api/stock/items').set(t).send({ name: 'Труба мытая СМ5', unit: 'шт', categoryName: 'Круглая труба', washed: true, dims: { length: 6000 } }).expect(201)).body.id;
+    plainId = (await http().post('/api/stock/items').set(t).send({ name: 'Труба немытая СМ5', unit: 'шт', categoryName: 'Круглая труба', washed: false, dims: { length: 12000 } }).expect(201)).body.id;
+    otherId = (await http().post('/api/stock/items').set(t).send({ name: 'Лист СМ5', unit: 'шт', categoryName: 'Скоуп СМ5' }).expect(201)).body.id;
+    await http().post('/api/stock/batch').set(t).send({ type: 'in', lines: [{ materialId: pipeId, qty: 20 }, { materialId: plainId, qty: 4 }, { materialId: otherId, qty: 10 }] }).expect(201);
+    const cats = (await http().get('/api/stock/categories').set(t).expect(200)).body as Array<{ id: string; name: string }> | { items: Array<{ id: string; name: string }> };
+    const roundCatId = (Array.isArray(cats) ? cats : cats.items).find((c) => c.name === 'Круглая труба')!.id;
+    const role = (await http().post('/api/roles').set(t).send({ label: 'Труба СМ5', baseRole: 'manager', stockCategoryIds: [roundCatId] }).expect(201)).body;
+    const username = `sm5-round-${Date.now()}`;
+    await http().post('/api/admin/users').set(t).send({ username, password: 'role-pass-123', role: role.name }).expect(201);
+    tokRound = (await http().post('/api/auth/login').send({ username, password: 'role-pass-123' }).expect(200)).body.access as string;
+  });
+  afterAll(async () => { await ctx?.cleanup(); });
+
+  it('wash=1 и pipeLength=6000 — по одной верной; вместе — одна; wash в строке', async () => {
+    const a = as(admin.access);
+    expect(names((await http().get('/api/stock/items').query({ wash: '1' }).set(a).expect(200)).body)).toEqual(['Труба мытая СМ5']);
+    expect(names((await http().get('/api/stock/items').query({ pipeLength: '6000' }).set(a).expect(200)).body)).toEqual(['Труба мытая СМ5']);
+    expect(names((await http().get('/api/stock/items').query({ wash: '1', pipeLength: '6000' }).set(a).expect(200)).body)).toEqual(['Труба мытая СМ5']);
+    expect(names((await http().get('/api/stock/items').query({ wash: '0', pipeLength: '12000' }).set(a).expect(200)).body)).toEqual(['Труба немытая СМ5']);
+    expect(names((await http().get('/api/stock/items').query({ wash: '0', pipeLength: '6000' }).set(a).expect(200)).body)).toEqual([]);
+    const rows = (await http().get('/api/stock/items').query({ wash: '1' }).set(a).expect(200)).body.items as Array<{ id: string; washed?: boolean | null }>;
+    expect(rows.find((r) => r.id === pipeId)?.washed).toBe(true);
+  });
+
+  it('correct: списание 5 → верно 3; остаток 20 − 3 = 17; старое отменено; новое с примечанием «было 5»', async () => {
+    const a = as(admin.access);
+    await http().post(`/api/stock/items/${pipeId}/move`).set(a).send({ type: 'out', qty: 5, reason: 'Брак', writeOff: true }).expect(201);
+    expect((await http().get(`/api/stock/items/${pipeId}`).set(a).expect(200)).body.quantity).toBe(15);
+    const outId = (await http().get('/api/stock/movements').query({ materialId: pipeId, type: 'out' }).set(a).expect(200)).body.items[0].id as string;
+    await http().post(`/api/stock/movements/${outId}/correct`).set(a).send({ qty: 3 }).expect(201);
+    expect((await http().get(`/api/stock/items/${pipeId}`).set(a).expect(200)).body.quantity).toBe(17);
+    const mv = (await http().get('/api/stock/movements').query({ materialId: pipeId, limit: 100 }).set(a).expect(200)).body.items as Array<{ id: string; type: string; note: string; cancelledAt: unknown; issuedTo: string | null; reason: string | null }>;
+    expect(mv.find((m) => m.id === outId)?.cancelledAt).toBeTruthy();
+    const fresh = mv.find((m) => m.type === 'out' && m.note === 'Исправлено: было 5');
+    expect(fresh).toBeDefined();
+    expect(fresh?.issuedTo).toBeNull();
+    expect(fresh?.reason).toBe('Брак');
+  });
+
+  it('correct на приход — 409', async () => {
+    const inId = (await http().get('/api/stock/movements').query({ materialId: pipeId, type: 'in' }).set(as(admin.access)).expect(200)).body.items[0].id as string;
+    await http().post(`/api/stock/movements/${inId}/correct`).set(as(admin.access)).send({ qty: 1 }).expect(409);
+  });
+
+  it('correct чужой категории ролью — 403; своя категория — 201', async () => {
+    const a = as(admin.access);
+    await http().post(`/api/stock/items/${otherId}/move`).set(a).send({ type: 'out', qty: 2, reason: 'Брак', writeOff: true }).expect(201);
+    const otherOut = (await http().get('/api/stock/movements').query({ materialId: otherId, type: 'out' }).set(a).expect(200)).body.items[0].id as string;
+    await http().post(`/api/stock/movements/${otherOut}/correct`).set(as(tokRound)).send({ qty: 1 }).expect(403);
+    const ownOut = (await http().get('/api/stock/movements').query({ materialId: pipeId, type: 'out' }).set(a).expect(200)).body.items[0].id as string;
+    await http().post(`/api/stock/movements/${ownOut}/correct`).set(as(tokRound)).send({ qty: 3 }).expect(201);
+  });
+});

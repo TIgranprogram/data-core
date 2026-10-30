@@ -2,7 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, dateTime, qty } from '../core/format.js';
 import { go } from '../core/router.js';
-import { confirmDlg } from '../ui/dialog.js';
+import { confirmDlg, modal } from '../ui/dialog.js';
 import { targetNote, targetShort } from '../ui/target-picker.js';
 import { toast, toastError } from '../ui/toast.js';
 
@@ -22,6 +22,15 @@ export function dayLabel(d) {
 export const moveLabel = (m) => (m.cancelOf ? 'Отмена' : TYPE_LABEL[m.type] || m.type);
 const typeBadge = (m) => h('span', { class: 'badge ' + (m.cancelOf ? 'dim' : TYPE_TONE[m.type] || 'dim') }, moveLabel(m));
 const deltaCell = (m) => h('span', { class: 'num ' + (m.delta > 0 ? 'pos' : m.delta < 0 ? 'neg' : '') }, `${m.delta > 0 ? '+' : ''}${qty(m.delta)} ${m.unit || ''}`.trim());
+
+/** Исправить списание (СМ.5): верное количество; старое отменяется, новое проводится с теми же «кому» и «под что». */
+export async function correctMovement(m) {
+  const input = h('input', { inputmode: 'decimal', value: String(Math.abs(m.delta ?? m.qty)) });
+  const qtyNow = () => Number(input.value.replace(',', '.'));
+  const ok = await modal({ title: 'Исправить списание', okText: 'Исправить', body: h('div', null, h('p', { class: 'hint' }, `${m.materialName || m.name || ''}. Укажите, сколько выдано на самом деле.`), h('label', { class: 'field' }, h('span', null, `Количество${m.unit ? ', ' + m.unit : ''}`), input)), onOk: () => { if (!(qtyNow() > 0)) throw new Error('Укажите количество больше нуля'); return true; } });
+  if (!ok) return null;
+  try { const item = await api(`/stock/movements/${m.id}/correct`, { method: 'POST', body: { qty: qtyNow() } }); toast('Списание исправлено'); return item; } catch (e) { toastError(e); return null; }
+}
 
 /** Отменить движение (подтверждение → обратное движение). Возвращает позицию склада после отмены или null. */
 export async function cancelMovement(m) {
@@ -66,7 +75,7 @@ export const movements = {
       const plus = ms.filter((m) => m.delta > 0 && !m.cancelledAt).length, minus = ms.filter((m) => m.delta < 0 && !m.cancelledAt).length;
       return h('span', { class: 'g-tot' }, plus ? h('span', { class: 'pos' }, `приход ${plus}`) : null, minus ? h('span', { class: 'neg' }, `расход ${minus}`) : null);
     },
-    rowAction: (m) => (m.canCancel ? { label: 'Отменить', title: 'Провести обратное движение', run: (row) => cancelMovement(row) } : null),
+    rowAction: (m) => (m.canCancel ? [...(m.type === 'out' && !m.reservationId ? [{ label: 'Исправить', title: 'Указать верное количество', run: (row) => correctMovement(row) }] : []), { label: 'Отменить', title: 'Провести обратное движение', run: (row) => cancelMovement(row) }] : null),
     columns: [
       { key: 'date', label: 'Дата', sort: 'date', cls: 'num md-hide', render: (m) => date(m.date) },
       { key: 'materialName', label: 'Позиция', cls: 'clip', render: (m) => h('span', { title: m.materialName }, m.materialName) },
@@ -103,6 +112,7 @@ export const movements = {
       ['Отменено', m.cancelledAt ? dateTime(m.cancelledAt) : ''],
     ],
     actions: (m) => [
+      m.canCancel && m.type === 'out' && !m.reservationId && { label: 'Исправить списание', primary: true, run: async (row, ctx) => { if (await correctMovement(row)) { ctx.changed(); ctx.reload(); } } },
       m.canCancel && { label: 'Отменить движение', run: async (row, ctx) => { if (await cancelMovement(row)) { ctx.changed(); ctx.reload(); } } },
       m.batchId && !m.cancelledAt && { label: 'Отменить всю операцию', run: async (row, ctx) => { await api(`/stock/batch/${row.batchId}/cancel`, { method: 'POST' }); toast('Операция отменена целиком'); ctx.changed(); ctx.reload(); } },
       { label: 'Открыть позицию', run: (row) => go('stock', { open: row.materialId }) },

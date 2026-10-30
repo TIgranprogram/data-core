@@ -445,6 +445,38 @@ html { scrollbar-gutter: stable; }
 .ff-checks.ff-cols { display: grid; grid-template-columns: 1fr 1fr; }
 .ff-checks.ff-cols3 { grid-template-columns: 1fr 1fr 1fr; column-gap: 8px; }
 .ff-inline .ff-gl { color: var(--muted); } /* ТИ-5: заголовки групп в тон зелёному */
+/* Кнопки фильтра: цвет полосы — группа (СМ.5) */
+.ff-chips { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; }
+.ff-chip { position: relative; align-items: center; gap: 6px; min-height: 34px; padding: 4px 10px; border: 1px solid var(--border); border-left: 4px solid var(--chip); border-radius: 6px; background: var(--surface); }
+.ff-chip:hover { background: var(--chip-soft); }
+.ff-chip:focus-within { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ff-chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ff-sub { margin: 4px 0; font-size: var(--fs-label); font-weight: 600; color: var(--chip); }
+.k-washed { --chip: var(--info); --chip-soft: var(--info-soft); }
+.k-raw { --chip: var(--warn); --chip-soft: var(--warn-soft); }
+.k-rect { --chip: var(--sec-products); --chip-soft: var(--sec-products-soft); }
+.k-round { --chip: var(--sec-stock); --chip-soft: var(--sec-stock-soft); }
+.k-steel { --chip: var(--sec-orders); --chip-soft: var(--sec-orders-soft); }
+/* Трубы как таблица Excel (СМ.5) */
+.pg-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+.pg-top h1 { margin: 0; }
+.pg-search { flex: 1 1 180px; max-width: 280px; }
+.pg-chips { display: flex; gap: 6px; }
+.pg-block { margin-top: var(--s4); }
+.pg-title { margin: 0 0 var(--s2); font-size: 16px; color: var(--chip); }
+.pg-table { border-collapse: collapse; background: var(--surface); width: 100%; }
+.pg-table th, .pg-table td { border: 1px solid var(--border-strong); padding: 0; text-align: center; }
+.pg-table thead th { position: sticky; top: var(--topbar-h); z-index: 1; padding: 6px 8px; background: var(--chip-soft, var(--surface-2)); color: var(--chip, var(--text)); font-size: var(--fs-label); }
+.pg-table thead tr + tr th { top: calc(var(--topbar-h) + 30px); }
+.pg-table .pg-name { padding: 6px 10px; text-align: left; white-space: nowrap; font-weight: 600; color: var(--text); background: var(--surface-2); }
+.pg-c { background: var(--surface); }
+.pg-c:focus-within { background: var(--chip-soft); }
+.pg-in { width: 100%; min-width: 56px; height: 34px; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; text-align: center; }
+.pg-in:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pg-in.saving { opacity: .5; }
+.pg-in.saved { background: var(--ok-soft); }
+.pg-sum { padding: 6px 10px; font-weight: 700; background: var(--surface-2); white-space: nowrap; }
+.cat-rain { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 .ff-check { display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 6px 0; cursor: pointer; overflow-wrap: anywhere; }
 .ff-check input { margin-top: 2px; flex: none; width: 18px; height: 18px; accent-color: var(--primary); }
 /* ТИ-6: крошки выбранных фильтров в inline-панели */

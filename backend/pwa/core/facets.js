@@ -33,9 +33,23 @@ export function facetsOf(name) {
   };
 }
 
-export const FACETS = [['type', 'Тип'], ['thread', 'Резьба'], ['length', 'Длина, мм'], ['std', 'Стандарт'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм']];
+export const FACETS = [['wash', 'Мойка'], ['pipe', 'Труба'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм'], ['type', 'Тип'], ['thread', 'Резьба'], ['length', 'Длина, мм'], ['std', 'Стандарт']];
 /** Признаки металла (СМ.1) — из полей позиции, а не из названия; в «Остатках» уходят на сервер отдельными фильтрами. */
-export const METAL_FACETS = new Set(['section', 'grade', 'thick']);
+/** Вид трубы для кнопки и цвета: профильная, круглая, нержавеющая. */
+export const PIPE_KINDS = [['rect', 'Профильная'], ['round', 'Круглая'], ['steel', 'Нержавейка']];
+const pipeKind = (it) => (/нерж/i.test(it.name || '') ? 'steel' : it.dims?.diameter ? 'round' : 'rect');
+/** Значение кнопки трубы: вид|сортамент|длина, мм (0 — куски). У чёрной и нержавеющей сечения совпадают, поэтому вид в значении. */
+export const pipeKey = (it) => `${pipeKind(it)}|${it.assortment}|${it.dims?.length || 0}`;
+export const pipeParts = (v) => { const [kind, section, len] = String(v).split('|'); return { kind, section, len: Number(len) }; };
+/** Подпись значения: без лишних слов — «80×80×3 6м», «Ø57×3,5 12м», лист «3 мм». */
+export const facetLabel = (key, v) => {
+  if (key === 'section') return String(v).replace(/^(Труба|Лист)\s+/i, '');
+  if (key !== 'pipe') return v;
+  const { section, len } = pipeParts(v);
+  return `${section.replace(/^Труба\s+/i, '').replace(/\s*\(.*\)$/, '')} ${len ? len / 1000 + 'м' : 'куски'}`;
+};
+const sizes = (v) => (String(v).match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(',', '.')));
+const bySize = (a, b) => { const x = sizes(a), y = sizes(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0); return 0; };
 
 /** Подготовить позиции: признаки + строка для поиска (один раз после загрузки). */
 export function index(items) {
@@ -50,7 +64,9 @@ export function index(items) {
   };
   const section = one('assortment'), grade = one('materialGrade');
   for (const it of items) {
-    it._f = { ...facetsOf(it.name), section: section(it.assortment), grade: grade(it.materialGrade), thick: it.dims?.thickness ? String(it.dims.thickness) : null };
+    const isPipe = it.metal === 'pipe' && !!it.assortment;
+    it._f = isPipe ? { pipe: pipeKey(it), wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая' }
+      : { ...(it.metal ? {} : facetsOf(it.name)), section: section(it.assortment), grade: grade(it.materialGrade), thick: it.dims?.thickness ? String(it.dims.thickness) : null };
     it._s = normSearch([it.name, it.article, it.sku, it.categoryName].filter(Boolean).join(' '));
   }
   return items;
@@ -69,5 +85,6 @@ export function facetValues(items, key) {
   const m = new Map();
   for (const it of items) { const v = it._f[key]; if (v) m.set(v, (m.get(v) || 0) + 1); }
   const num = (v) => parseFloat(String(v).replace(/^M/, ''));
+  if (key === 'pipe' || key === 'section') return [...m].sort((a, b) => bySize(a[0].split('|')[1] ?? a[0], b[0].split('|')[1] ?? b[0]) || (pipeParts(a[0]).len || 0) - (pipeParts(b[0]).len || 0));
   return [...m].sort((a, b) => (key === 'type' ? b[1] - a[1] || a[0].localeCompare(b[0], 'ru') : num(a[0]) - num(b[0]) || a[0].localeCompare(b[0])));
 }

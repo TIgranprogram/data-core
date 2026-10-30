@@ -41,6 +41,12 @@
 .ff-cv { flex: 1; min-width: 0; }
 .ff-cn { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 1100px) { .ls-grid { grid-template-columns: var(--filter-w, 240px) minmax(0, 1fr); gap: var(--s3); } }
+/* Вертикальный экран у станка: фильтры сверху строками, таблица под ними (СМ.5) */
+@media (orientation: portrait) and (min-width: 721px) {
+  .ls-grid { display: block; }
+  .list-side { position: static; max-height: none; margin-bottom: var(--s3); }
+  .list-side .ff-checks, .list-side .ff-checks.ff-cols { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
+}
 @media (max-width: 720px) {
   .ls-grid { display: block; }
   .ls-open-btn { display: inline-flex; }

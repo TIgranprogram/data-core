@@ -2,7 +2,7 @@ import { stockList } from '../core/stock-list.js';
 import { h } from '../core/dom.js';
 import { busyBlock } from './busy.js';
 import { patch } from '../core/router.js';
-import { facetValues, FACETS, index, pick } from '../core/facets.js';
+import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } from '../core/facets.js';
 import { searchBox } from './searchbox.js';
 import { makeResizable } from './resizer.js';
 
@@ -21,10 +21,17 @@ export function ftQuery(s) {
   const sel = parseFt(s);
   return [sel.type, sel.thread, sel.length ? 'х' + sel.length : '', sel.std].filter(Boolean).join(' ');
 }
+/** Кнопка трубы: сечение + длина + чёрная или нержавеющая (сечения совпадают). */
+const pipeParams = (v) => {
+  if (!v) return {};
+  const { kind, section, len } = pipeParts(v);
+  return { section, ...(len ? { pipeLength: len } : {}), ...(kind === 'steel' ? { grade: 'Нержавеющая сталь' } : { noGrade: 1 }) };
+};
 /** Металл (СМ.1): марка, сечение, толщина — отдельными параметрами списка (сервер фильтрует по полям позиции). */
 export function ftParams(s) {
   const sel = parseFt(s);
-  return { ...(sel.grade ? { grade: sel.grade } : {}), ...(sel.section ? { section: sel.section } : {}), ...(sel.thick ? { thickness: sel.thick } : {}) };
+  return { ...(sel.grade ? { grade: sel.grade } : {}), ...(sel.section ? { section: sel.section } : {}), ...(sel.thick ? { thickness: sel.thick } : {}),
+    ...(sel.wash ? { wash: sel.wash === 'Мытая' ? '1' : '0' } : {}), ...pipeParams(sel.pipe) };
 }
 
 const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
@@ -69,7 +76,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); renderPop(); } },
           h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
         open ? h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v]) => h('label', { class: 'ff-check' },
-          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, v)))) : null);
+          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, checked: sel[key] === v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', {}, facetLabel(key, v))))) : null);
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted' }, 'В этой категории признаков нет')]));
     body.scrollTop = keep;
@@ -99,6 +106,18 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
  * первый из них раскрыт («следующий шаг»), остальные свёрнуты. У значений — число позиций; показываются лишь варианты,
  * у которых есть позиции при уже выбранном. Выбор в группе один, повторный клик снимает.
  */
+/** Кнопки вместо списка: мойка и трубы по видам, цвет — группа. */
+function chipsOf(key, vals, label, set) {
+  const chip = ([v, n], cls) => h('label', { class: 'ff-check ff-chip ' + cls },
+    h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, facetLabel(key, v)), h('b', { class: 'ff-cn' }, String(n)));
+  const row = (list, cls) => h('div', { class: 'ff-chips', role: 'radiogroup', 'aria-label': label }, ...list.map((x) => chip(x, cls)));
+  if (key === 'wash') return h('div', { class: 'ff-chips', role: 'radiogroup', 'aria-label': label }, ...vals.map((x) => chip(x, x[0] === 'Мытая' ? 'k-washed' : 'k-raw')));
+  return h('div', null, ...PIPE_KINDS.flatMap(([kind, title]) => {
+    const list = vals.filter(([v]) => pipeParts(v).kind === kind);
+    return list.length ? [h('div', { class: 'ff-sub k-' + kind }, title), row(list, 'k-' + kind)] : [];
+  }));
+}
+
 function inlineFilter(categoryKey) {
   let items = null; let src = null; let P = {}; let seq = 0;
   const folded = new Map();
@@ -119,20 +138,20 @@ function inlineFilter(categoryKey) {
     crumbs.hidden = !selEntries.length;
     crumbs.replaceChildren(...selEntries.map(([k, v]) =>
       h('button', { type: 'button', class: 'ff-step', title: 'Убрать: ' + names[k], 'data-fk': 'x:' + k, onclick: () => set(k, v) },
-        h('span', { class: 'ff-step-l' }, names[k]), h('span', { class: 'ff-step-v' }, v), h('span', { class: 'ff-step-x', 'aria-hidden': 'true' }, '×'))));
+        h('span', { class: 'ff-step-l' }, names[k]), h('span', { class: 'ff-step-v' }, facetLabel(k, v)), h('span', { class: 'ff-step-x', 'aria-hidden': 'true' }, '×'))));
     let first = true;
     const groups = FACETS.map(([key, label]) => {
       if (sel[key]) return null; // выбранный шаг — уже строкой сверху
-      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel }), key).slice(0, key === 'type' ? 30 : 40);
+      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel }), key).slice(0, key === 'pipe' ? 200 : key === 'type' ? 30 : 40);
       if (vals.length < 2) return null; // один вариант — выбирать нечего
-      const open = folded.has(key) ? folded.get(key) : first;
+      const open = folded.has(key) ? folded.get(key) : first || key === 'wash' || key === 'pipe';
       first = false;
       const colCls = key === 'type' ? '' : vals.length > 16 ? ' ff-cols ff-cols3' : vals.length > 8 ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
           h('span', { class: 'ff-gl' }, label), h('span', { class: 'ff-gn' }, String(vals.length)), h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
-        open ? h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v, n]) => h('label', { class: 'ff-check' },
-          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, v), h('b', { class: 'ff-cn' }, String(n))))) : null);
+        !open ? null : key === 'wash' || key === 'pipe' ? chipsOf(key, vals, label, set) : h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v, n]) => h('label', { class: 'ff-check' },
+          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, facetLabel(key, v)), h('b', { class: 'ff-cn' }, String(n))))));
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, selEntries.length ? 'Уточнять больше нечего' : 'В этой категории признаков нет')]));
     if (fk) [...el.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });

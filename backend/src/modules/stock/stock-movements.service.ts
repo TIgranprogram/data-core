@@ -411,6 +411,28 @@ export class StockMovementsService {
    * Отменить ошибочное движение: проводится обратное (история не стирается), исходное помечается отменённым.
    * Записи из Google-таблицы не отменяются — остаток по ним не менялся.
    */
+  /** Позиция движения — для проверки категорий роли (СМ.4). */
+  async movementMaterialId(id: string) {
+    const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }, { materialId: 1 }).lean().exec();
+    if (!mv?.materialId) throw new NotFoundException('Движение не найдено');
+    return String(mv.materialId);
+  }
+
+  /** Исправить списание (СМ.5): старое отменяется обратным движением, новое проводится с теми же «кому» и «под что». */
+  async correctMovement(id: string, qty: number, userId?: string) {
+    const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }).lean().exec();
+    if (!mv) throw new NotFoundException('Движение не найдено');
+    const d = mv as typeof mv & { delta?: number; reason?: string; issuedTo?: string; issuedToPersonId?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId; reservationId?: Types.ObjectId };
+    if (mv.type !== 'out') throw new ConflictException('Исправить можно только списание');
+    if (d.reservationId) throw new ConflictException('Это выдача по брони — отмените её и выдайте заново');
+    const was = Math.abs(Number(d.delta));
+    await this.cancelMovement(id, userId);
+    return this.move(String(mv.materialId), {
+      type: 'out', qty, note: `Исправлено: было ${was}`, reason: d.reason, writeOff: !!d.reason, issuedTo: d.issuedTo,
+      personId: d.issuedToPersonId ? String(d.issuedToPersonId) : undefined, salesOrderId: d.salesOrderId ? String(d.salesOrderId) : undefined, salesOrderLineId: d.salesOrderLineId ? String(d.salesOrderLineId) : undefined,
+    } as MoveInput, userId);
+  }
+
   async cancelMovement(id: string, userId?: string) {
     const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }).lean().exec();
     if (!mv) throw new NotFoundException('Движение не найдено');

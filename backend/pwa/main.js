@@ -1,3 +1,4 @@
+import { startCats, stopCats } from './ui/cat-rain.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, canEditSection, events, login, PREFIX, session, trackLoad } from './core/api.js';
@@ -38,6 +39,7 @@ const FN = {};         // имя функции монтирования -> фу
 const LAZY = {
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
   stock: [() => import('./sections/stock.js'), [['stock','stock']]],
+  pipegrid: [() => import('./sections/pipe-grid.js'), [['@mountPipeGrid','mountPipeGrid']]],
   movements: [() => import('./sections/movements.js'), [['movements','movements']]],
   orders: [() => import('./sections/orders.js'), [['orders','orders'],['incpay','incPay'],['incprice','incPrice']]],
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
@@ -121,7 +123,11 @@ const allowed = (section) => { const id = OWNER[section] || section; return !NAV
 const root = $('#root');
 
 // ---------- Вход ----------
+/** Роль «Трубарез»: свой экран склада (таблица как Excel) и котики. */
+const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
+
 function showLogin(message) {
+  stopCats();
   let last = ''; try { last = localStorage.getItem('dca_last_user') || ''; } catch { /* приватный режим */ }
   closeCard();
   const err = h('div', { class: 'form-error', hidden: !message }, message || '');
@@ -371,7 +377,8 @@ function render(c) {
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
-    if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
+    if (section === 'stock' && isPipeRole()) list = FN.mountPipeGrid();
+    else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
     else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
       onOpen: (row) => openRecord(section, row.id),
       onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
@@ -482,6 +489,7 @@ function syncCard(section, params) {
 
 async function showApp() {
   startPrefs(session.user); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
+  if (isPipeRole()) startCats(); else stopCats();
   ui = shell();
   mounted = null; card = null;
   render(current());

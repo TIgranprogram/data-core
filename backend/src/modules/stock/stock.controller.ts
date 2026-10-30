@@ -7,7 +7,7 @@ import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockBatchDto, StockCompositionAcceptDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
+import { StockCorrectDto, StockBatchDto, StockCompositionAcceptDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
 import { narrowCategories, stockScopeFor } from '../../common/stock-scope';
 import { StockService } from './stock.service';
 
@@ -77,12 +77,22 @@ export class StockController {
     return this.stock.listMovements(scope ? { ...q, scopeCategoryId: scope.join(',') } : q);
   }
 
+  /** Исправить списание (СМ.5): отмена + новое списание с тем же «кому» и «под что». */
+  @Post('movements/:id/correct')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.movement.corrected', entityType: 'StockMovement', idParam: 'id' })
+  async correctMovement(@Param('id') id: string, @Body() dto: StockCorrectDto, @CurrentUser() user?: AuthenticatedUser) {
+    if (stockScopeFor(user)) await this.ownOnly(user, [await this.stock.movementMaterialId(id)]);
+    return this.stock.correctMovement(id, dto.qty, user?.id);
+  }
+
   /** Отменить движение: проводится обратное, исходное помечается отменённым. */
   @Post('movements/:id/cancel')
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.movement.cancelled', entityType: 'StockMovement', idParam: 'id' })
-  cancelMovement(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+  async cancelMovement(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    if (stockScopeFor(user)) await this.ownOnly(user, [await this.stock.movementMaterialId(id)]);
     return this.stock.cancelMovement(id, user?.id);
   }
 

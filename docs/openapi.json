@@ -2712,6 +2712,39 @@
         ]
       }
     },
+    "/stock/movements/{id}/correct": {
+      "post": {
+        "operationId": "StockController_correctMovement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockCorrectDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/movements/{id}/cancel": {
       "post": {
         "operationId": "StockController_cancelMovement",
@@ -14350,6 +14383,18 @@
         "type": "object",
         "properties": {}
       },
+      "StockCorrectDto": {
+        "type": "object",
+        "properties": {
+          "qty": {
+            "type": "number",
+            "description": "Верное количество > 0"
+          }
+        },
+        "required": [
+          "qty"
+        ]
+      },
       "StockItemDto": {
         "type": "object",
         "properties": {
@@ -14401,6 +14446,10 @@
           "materialGrade": {
             "type": "object",
             "description": "Марка стали (Ст3, AISI 304); null — стереть"
+          },
+          "washed": {
+            "type": "object",
+            "description": "Труба: мытая (true) / не мытая (false); null — стереть"
           },
           "dims": {
             "type": "object",
