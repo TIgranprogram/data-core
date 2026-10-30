@@ -16,7 +16,7 @@ const SOURCES = [
   { id: 'requests', section: requests, title: 'Заявки', path: '/supply/requests' },
   { id: 'stock', section: stock, title: 'Позиции склада', path: '/stock/items' },
   { id: 'salesorders', section: salesorders, title: 'Заказы', path: '/salesorders' },
-  { id: 'orders', section: orders, title: 'Строки заказов', path: '/incomes' },
+  { id: 'orders', section: orders, title: 'Позиции заказов', path: '/incomes' },
   { id: 'partners', section: partners, title: 'Контрагенты', path: '/partners' },
 ];
 

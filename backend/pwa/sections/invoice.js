@@ -243,7 +243,7 @@ export const pasteOrder = {
   newTitle: 'Заявки из таблицы',
   card: { heading: () => 'Заявки из таблицы' },
   get: async () => ({}),
-  form: { build: () => buildInvoiceForm({ paste: true }), toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Внести', closeAfterCreate: true },
+  form: { build: () => buildInvoiceForm({ paste: true }), toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Сохранить', closeAfterCreate: true },
 };
 
 export const invoice = {
@@ -256,7 +256,7 @@ export const invoice = {
     build: () => buildInvoiceForm(),
     toBody: (v) => v,
     create: (v) => v.save(),
-    saveLabel: 'Внести',
+    saveLabel: 'Сохранить',
     closeAfterCreate: true,
   },
 };

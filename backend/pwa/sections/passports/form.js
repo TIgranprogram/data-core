@@ -151,7 +151,7 @@ export const passportForm = {
       { section: 'Заполняется после печати — можно от руки', tone: 'info', collapsed: !(r && (r.saleDate || r.customerName || r.orderNo || r.objectName || r.installedBy || r.installedAt || r.note)) },
       { key: '_afterHint', type: 'widget', wide: true, label: '', widget: () => ({ el: h('p', { class: 'hint' }, 'Если заполнить — подставится в паспорт. Пусто — в PDF будет линия, впишут ручкой при продаже и монтаже. Выпуск не задерживает.'), value: '' }), summary: () => '' },
       { key: 'saleDate', label: 'Дата продажи', type: 'date', span: 1 },
-      { key: 'customerName', label: 'Покупатель (заказчик)', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
+      { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value), max: 300 },
       { key: 'orderNo', label: '№ договора', max: 50, span: 1, suggest: orders, suggestTitle: 'Заказы — выбор подставит покупателя', hint: 'Начните печатать номер или заказчика' },
       { key: 'objectName', label: 'Адрес установки', wide: true, max: 500 },
       { key: 'installedBy', label: 'Монтаж выполнил', type: 'combo', max: 300, load: personNames, hint: 'Сотрудник из списка или свой вариант (подрядчик)' },

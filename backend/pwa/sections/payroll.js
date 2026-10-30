@@ -32,7 +32,7 @@ export const payout = sideForm({
   },
   heading: (r) => (r.person ? 'Выплата: ' + r.person.name : 'Выплата сотруднику'),
   subheading: (r) => label(r.month),
-  saveLabel: 'Записать выплату',
+  saveLabel: 'Сохранить выплату',
   fields: (r) => {
     const byId = (id) => r.people.find((p) => String(p.id) === String(id));
     const sync = (fapi) => { const p = byId(r.person ? r.person.id : fapi.get('personId')); fapi.set('companyId', p?.companyId || ''); const lab = fapi.field('companyId'); if (lab) lab.hidden = !!p?.companyId; if (!r.person) fapi.set('amount', p && p.balance > 0 ? String(p.balance).replace('.', ',') : ''); };

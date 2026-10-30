@@ -26,7 +26,7 @@ export const INCOME_STATUS = {
   shipped: { label: 'Отгружен', tone: 'dim' }, // роль без прав на деньги: оплату не видно (сервер, MoneyMask)
 };
 const STATUS_HINT = {
-  '': 'Строки заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено» (платёж можно принять частями). Сумма и даты нужны для платёжного календаря.',
+  '': 'Позиции заказов = доходы. Кнопка в строке — следующий шаг: «Отгружено» → «Оплачено» (платёж можно принять частями). Сумма и даты нужны для платёжного календаря.',
   draft: 'Ещё не отгружено. Отгрузили — отметьте дату отгрузки.',
   awaiting: 'Отгружено, деньги ещё не пришли. Пришли — «Оплачено»: откроется окно платежа.',
   partial: 'Часть денег пришла, остаток (долг) ещё нет. Кнопка «Принять оплату» — принять следующий платёж.',
@@ -174,7 +174,7 @@ export const orders = {
     path: '/incomes',
     export: 'admin',
     sortDefault: '-reportDate',
-    createLabel: 'Строка заказа',
+    createLabel: 'Позиция заказа',
     searchPlaceholder: 'Поиск: № заказа, заказчик, наименование…',
     emptyText: 'Позиций нет. Добавьте заказ в разделе «Заказы» — его позиции появятся здесь.',
     hints: STATUS_HINT,
@@ -303,7 +303,7 @@ export const orders = {
   duplicate: (r) => ({ orderNo: r.orderNo, customer: r.customer, companyName: r.companyName, paymentForm: r.paymentForm, unit: 'шт', shipDate: r.shipDate ? String(r.shipDate).slice(0, 10) : '' }),
 
   remove: {
-    text: (r) => `Удалить строку «${heading(r)}»?`,
+    text: (r) => `Удалить позицию «${heading(r)}»?`,
     run: (r) => api(`/incomes/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/incomes/${r.id}/restore`, { method: 'POST' }),
   },

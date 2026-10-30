@@ -24,7 +24,7 @@ export function orderedBlock(r) {
       title: `Принять на склад: №${x.num ?? '—'}`,
       body: h('div', null,
         h('label', { class: 'field' }, h('span', null, `Количество${x.unit ? ', ' + x.unit : ''}`), qtyInp),
-        h('p', { class: 'hint' }, 'Товар поступит на склад, заявка станет «Получено».')),
+        h('p', { class: 'hint' }, 'Позиция поступит на склад, заявка станет «Получено».')),
       okText: 'Принять на склад',
       onOk: async () => {
         const n = Number(String(qtyInp.value).replace(',', '.').replace(/\s/g, ''));

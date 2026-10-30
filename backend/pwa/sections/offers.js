@@ -193,7 +193,7 @@ export const offers = {
     export: false,
     createLabel: 'КП',
     searchPlaceholder: 'Поиск: номер, заказчик…',
-    emptyText: 'КП ещё нет.',
+    emptyText: 'КП пока нет.',
     emptyHint: 'Добавьте изделия из «Продукции» кнопкой «В КП» или нажмите «+ КП».',
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', options: () => ORDER.map((k) => ({ value: k, label: STATUS[k].label })),
