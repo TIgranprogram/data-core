@@ -287,16 +287,18 @@ export class QuestionsService implements OnModuleInit {
 
     // 4. снимок «до» → исполнение через существующий сервис → отпечаток «после»
     let undoId: Types.ObjectId | null = null;
+    let executed = false; // действие прошло: снимок нужен, текст «данные не изменены» уже неверен
     try {
       if (act.risk === 'reversible' && b.pv.touched?.length) undoId = await this.snapshot(q, act.id, b.pv.touched, now);
       const res = await act.execute(b.params, { opId, actor });
+      executed = true;
       if (undoId) await st.undo().updateOne({ _id: undoId }, { $set: { afterHash: await this.fingerprint(await this.readDocs(b.pv.touched!)) } });
       await st.questions().updateOne({ _id: q._id }, { $set: { status: 'done', active: false, closeReason: 'executed', 'exec.state': 'done', 'exec.leaseUntil': null, 'exec.undoId': undoId ? String(undoId) : null, decision: { by: actor.name || actor.id, at: now, option: code } } });
       await st.log(q, 'done', actor, 'executing', 'done', res.message, { planHash: b.planHash, opId, undoId: undoId ? String(undoId) : null }, now);
       await this.audit?.log({ action: 'control.executed', entityType: 'ControlQuestion', entityId: String(q._id), details: { meta: { action: act.id, params: b.params, opId } } });
     } catch (e) {
-      if (undoId) await st.undo().deleteOne({ _id: undoId }).catch(() => undefined);
-      const text = humanError(e);
+      if (undoId && !executed) await st.undo().deleteOne({ _id: undoId }).catch(() => undefined);
+      const text = executed ? 'Действие выполнено, но итог не записан. Проверьте данные перед повтором.' : humanError(e);
       await st.questions().updateOne({ _id: q._id }, { $set: { status: 'failed', 'exec.state': 'failed', 'exec.leaseUntil': null, 'exec.error': text } });
       await st.log(q, 'failed', actor, 'executing', 'failed', text, { opId }, now);
     }

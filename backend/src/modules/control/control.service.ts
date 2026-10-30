@@ -20,6 +20,8 @@ export const COL_MONTHLY = 'app_control_monthly';
 export const DAILY_SCHEMA_V = 1;
 /** Время снимка дня по часам сервера. */
 export const SNAPSHOT_AT = '23:30';
+/** После сбоя суточный сбор не повторяется чаще: он тяжёлый для одного ядра VM. */
+const RETRY_MS = 15 * 60_000;
 
 /**
  * CC-10…13: показатели сайта по дням. Коллекции — без Mongoose и плагинов (soft-delete, аудит):
@@ -32,6 +34,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   private busy = false;
   /** За какое число снимок уже сделан этим процессом (чтобы не ходить в базу каждую минуту). */
   private doneDay = '';
+  private lastTry = 0;
 
   constructor(
     @InjectConnection() private readonly connection: Connection,
@@ -65,8 +68,9 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     await this.questions?.housekeeping(now).catch((e: Error) => this.log.warn(`«Разбор», ежеминутные дела: ${e.message}`));
     const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const today = ymd(now);
-    if (hm < SNAPSHOT_AT || this.doneDay === today || this.busy) return;
+    if (hm < SNAPSHOT_AT || this.doneDay === today || this.busy || now.getTime() - this.lastTry < RETRY_MS) return;
     this.busy = true;
+    this.lastTry = now.getTime();
     try {
       // сначала «Разбор» (сбор, проверка), потом снимок: показатели вопросов в нём уже свежие
       await this.questions?.daily(now).catch((e: Error) => this.log.warn(`«Разбор», суточный сбор: ${e.message}`));
