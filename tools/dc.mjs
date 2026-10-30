@@ -208,6 +208,23 @@ function cmdStatus() {
   return bad ? 1 : 0;
 }
 
+/** Состояние ночного прогона: идёт (есть lock.json) или итог последнего summary.json. */
+function nightLine() {
+  const dir = path.join(ROOT, 'tools', '.night');
+  if (fs.existsSync(path.join(dir, 'lock.json'))) return 'идёт сейчас';
+  try {
+    const runs = fs.readdirSync(path.join(dir, 'runs')).sort();
+    for (const r of runs.reverse()) {
+      const f = path.join(dir, 'runs', r, 'summary.json');
+      if (!fs.existsSync(f)) continue;
+      const steps = JSON.parse(fs.readFileSync(f, 'utf8')).steps || [];
+      const red = steps.filter((s) => s.code !== 0).length;
+      return `последний ${r}: зелёных ${steps.length - red}, красных ${red}`;
+    }
+  } catch { /* прогонов ещё нет */ }
+  return 'ещё не запускался';
+}
+
 function cmdStart() {
   let code = 0;
   const hp = run('git', ['config', 'core.hooksPath']).stdout.trim();
