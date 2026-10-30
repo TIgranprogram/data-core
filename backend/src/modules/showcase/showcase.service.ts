@@ -374,7 +374,7 @@ export class ShowcaseService {
         const bad = g && skuPrefixError(g.groupNo, sku);
         if (bad) throw new BadRequestException(bad);
       }
-      const dup = await this.db.collection('products').findOne({ _id: { $ne: _id }, sku: skuRegex(sku) }, { projection: { sku: 1, name: 1 } });
+      const dup = await this.db.collection('products').findOne({ _id: { $ne: _id }, sku: skuRegex(sku), deletedAt: null }, { projection: { sku: 1, name: 1 } });
       if (dup) throw new ConflictException(`Артикул ${dup.sku} уже у другого изделия: «${dup.name ?? ''}»`);
       set.sku = sku;
     }
