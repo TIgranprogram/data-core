@@ -482,6 +482,9 @@ html { scrollbar-gutter: stable; }
 .pg-in.saving { opacity: .5; }
 .pg-in.saved { background: var(--ok-soft); }
 .pg-sum { padding: 6px 10px; font-weight: 700; background: var(--surface-2); white-space: nowrap; }
+.pg-note { width: 100%; min-width: 120px; height: 34px; padding: 0 8px; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; }
+.pg-note:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pg-note.saved { background: var(--ok-soft); }
 .pg-held { padding: 0 4px 3px; font-size: var(--fs-label); font-weight: 600; color: var(--warn); }
 .pg-reserved { --chip: var(--warn); --chip-soft: var(--warn-soft); }
 .pg-table .pg-for { padding: 6px 10px; text-align: left; }

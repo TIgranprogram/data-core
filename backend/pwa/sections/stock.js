@@ -10,6 +10,7 @@ import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
 import { facetLabel, pipeKey } from '../core/facets.js';
 
 export { mountPipeGrid } from './pipe-grid.js';
+export { mountSheetGrid } from './sheet-grid.js';
 import { metalBody, metalFields, metalInitial, metalView, offcutDialog } from './metal.js';
 import { orderedBlock, orderItem } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';

@@ -1,76 +1,149 @@
 /**
- * Зелёные котики падают на фоне, как в «Матрице» (пользователь 2026-10-30): только у роли «Трубарез».
- * Котики разные и падают вразнобой. Холст под интерфейсом, клики не перехватывает; вкладка скрыта или в системе убрана анимация — не рисует.
+ * Зелёные котики и собачки падают на фоне, как в «Матрице» (пользователь 2026-10-30): котики — у роли «Трубарез», собачки — у «Лазер лист».
+ * Фигурка рисуется один раз на отдельном холсте и дальше только копируется: так глаза вырезаются чисто, а кадр лёгкий.
+ * Холст под интерфейсом, клики не перехватывает; вкладка скрыта или в системе убрана анимация — не рисует.
  */
-const FPS = 15, SPACE = 42, MIN_ALPHA = 0.1, MAX_ALPHA = 0.24;
-let canvas = null, timer = 0, cats = [];
+const FPS = 15, SPACE = 46, MIN_ALPHA = 0.14, MAX_ALPHA = 0.3;
+const CELL = 180, UNIT = 42; // размер заготовки и радиус фигурки в ней, px
+let canvas = null, timer = 0, falling = [], sprites = [], spritesFor = '', kinds = [];
 
-const earsHead = (c, r) => {
+const cut = (c, draw) => { c.globalCompositeOperation = 'destination-out'; draw(); c.globalCompositeOperation = 'source-over'; };
+const dot = (c, x, y, rx, ry = rx, a = 0) => { c.beginPath(); c.ellipse(x, y, rx, ry, a, 0, Math.PI * 2); c.fill(); };
+const line = (c, w, pts) => { c.lineWidth = w; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(...pts[0]); for (const p of pts.slice(1)) c.lineTo(...p); c.stroke(); };
+
+function catHead(c, r) {
   c.beginPath();
-  c.arc(0, 0, r, 0, Math.PI * 2);
-  c.moveTo(-r, -r * 0.2); c.lineTo(-r * 0.85, -r * 1.5); c.lineTo(-r * 0.2, -r * 0.95);
-  c.moveTo(r, -r * 0.2); c.lineTo(r * 0.85, -r * 1.5); c.lineTo(r * 0.2, -r * 0.95);
+  c.moveTo(-r, r * 0.05);
+  c.quadraticCurveTo(-r * 1.08, -r * 0.7, -r * 0.88, -r * 1.4);
+  c.quadraticCurveTo(-r * 0.58, -r * 1.02, -r * 0.3, -r * 0.86);
+  c.quadraticCurveTo(0, -r * 0.96, r * 0.3, -r * 0.86);
+  c.quadraticCurveTo(r * 0.58, -r * 1.02, r * 0.88, -r * 1.4);
+  c.quadraticCurveTo(r * 1.08, -r * 0.7, r, r * 0.05);
+  c.quadraticCurveTo(r * 0.92, r * 0.92, 0, r * 0.96);
+  c.quadraticCurveTo(-r * 0.92, r * 0.92, -r, r * 0.05);
   c.fill();
+  cut(c, () => {
+    for (const s of [-1, 1]) dot(c, s * r * 0.42, -r * 0.08, r * 0.2, r * 0.13, s * -0.3); // глаза
+    c.beginPath(); c.moveTo(-r * 0.09, r * 0.24); c.lineTo(r * 0.09, r * 0.24); c.lineTo(0, r * 0.36); c.fill(); // нос
+    for (const s of [-1, 1]) line(c, r * 0.05, [[0, r * 0.36], [s * r * 0.18, r * 0.5]]);
+  });
+  for (const s of [-1, 1]) for (const k of [-0.12, 0.1]) line(c, r * 0.05, [[s * r * 0.95, r * 0.3], [s * r * 1.5, r * (0.3 + k)]]); // усы
+}
+
+function dogHead(c, r) {
+  dot(c, 0, 0, r * 0.95, r);
+  for (const s of [-1, 1]) dot(c, s * r * 1.02, r * 0.18, r * 0.36, r * 0.9, s * -0.2); // висячие уши
+  dot(c, 0, r * 0.6, r * 0.6, r * 0.46);
+  cut(c, () => {
+    for (const s of [-1, 1]) dot(c, s * r * 0.4, -r * 0.2, r * 0.15);
+    dot(c, 0, r * 0.38, r * 0.2, r * 0.14); // нос
+    line(c, r * 0.05, [[0, r * 0.5], [0, r * 0.72]]);
+    for (const s of [-1, 1]) line(c, r * 0.05, [[0, r * 0.72], [s * r * 0.26, r * 0.82]]);
+  });
+}
+
+function sittingBody(c, r) {
+  c.beginPath();
+  c.moveTo(-r * 0.5, -r * 0.2);
+  c.bezierCurveTo(-r * 1.25, r * 0.7, -r * 1.1, r * 2, -r * 0.55, r * 2);
+  c.lineTo(r * 0.6, r * 2);
+  c.bezierCurveTo(r * 1.15, r * 2, r * 1.2, r * 0.7, r * 0.5, -r * 0.2);
+  c.closePath(); c.fill();
+  cut(c, () => line(c, r * 0.06, [[0, r * 1.1], [0, r * 2]])); // передние лапы
+}
+
+const paw = (c, r) => {
+  dot(c, 0, r * 0.3, r * 0.78, r * 0.62);
+  for (const [x, y] of [[-r * 0.85, -r * 0.3], [-r * 0.3, -r * 0.8], [r * 0.3, -r * 0.8], [r * 0.85, -r * 0.3]]) dot(c, x, y, r * 0.27, r * 0.33);
 };
-const eyes = (c, r, y = 0) => {
-  c.globalCompositeOperation = 'destination-out';
-  c.beginPath(); c.arc(-r * 0.4, y, r * 0.17, 0, Math.PI * 2); c.arc(r * 0.4, y, r * 0.17, 0, Math.PI * 2); c.fill();
-  c.globalCompositeOperation = 'source-over';
-};
-const tail = (c, x, y, r, bend) => {
-  c.lineWidth = r * 0.32; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + r * 1.6, y + r * bend, x + r * 1.2, y - r * 1.4); c.stroke();
-};
-const KINDS = [
-  (c, r) => { earsHead(c, r); eyes(c, r); }, // мордочка
-  (c, r) => { // сидит
-    c.beginPath(); c.ellipse(0, r * 1.1, r * 0.9, r * 1.2, 0, 0, Math.PI * 2); c.fill();
-    c.save(); c.translate(0, -r * 0.5); earsHead(c, r * 0.72); eyes(c, r * 0.72); c.restore();
-    tail(c, r * 0.7, r * 1.9, r, 0.6);
+
+const CATS = [
+  (c, r) => catHead(c, r),
+  (c, r) => { // сидит, хвост обвивает лапы
+    c.save(); c.translate(0, -r * 0.55); sittingBody(c, r * 0.8);
+    c.restore();
+    line(c, r * 0.22, [[r * 0.55, r * 0.95], [r * 1.15, r * 0.9], [r * 1.3, r * 0.35]]);
+    c.save(); c.translate(0, -r * 0.95); catHead(c, r * 0.68); c.restore();
   },
-  (c, r) => { // лежит, вытянулся
-    c.beginPath(); c.ellipse(0, 0, r * 1.6, r * 0.75, 0, 0, Math.PI * 2); c.fill();
-    c.save(); c.translate(-r * 1.4, -r * 0.45); earsHead(c, r * 0.68); eyes(c, r * 0.68); c.restore();
-    tail(c, r * 1.4, 0, r, -0.8);
+  (c, r) => { // лежит и вытянулся
+    dot(c, r * 0.3, r * 0.2, r * 1.35, r * 0.68);
+    line(c, r * 0.22, [[r * 1.5, r * 0.3], [r * 1.95, r * 0.1], [r * 1.85, -r * 0.45]]);
+    c.save(); c.translate(-r * 1.05, -r * 0.2); catHead(c, r * 0.68); c.restore();
   },
-  (c, r) => { // лапка
-    c.beginPath(); c.ellipse(0, r * 0.3, r * 0.75, r * 0.6, 0, 0, Math.PI * 2); c.fill();
-    for (const [x, y] of [[-r * 0.8, -r * 0.35], [-r * 0.28, -r * 0.8], [r * 0.28, -r * 0.8], [r * 0.8, -r * 0.35]]) { c.beginPath(); c.arc(x, y, r * 0.27, 0, Math.PI * 2); c.fill(); }
-  },
+  paw,
 ];
+
+const DOGS = [
+  (c, r) => dogHead(c, r),
+  (c, r) => { // сидит, хвост вверх
+    c.save(); c.translate(0, -r * 0.55); sittingBody(c, r * 0.8);
+    c.restore();
+    line(c, r * 0.24, [[r * 0.6, r * 0.9], [r * 1.2, r * 0.6], [r * 1.35, r * 0.05]]);
+    c.save(); c.translate(0, -r * 0.95); dogHead(c, r * 0.68); c.restore();
+  },
+  (c, r) => { // косточка
+    line(c, r * 0.56, [[-r, 0], [r, 0]]);
+    for (const [x, y] of [[-r * 1.25, -r * 0.36], [-r * 1.25, r * 0.36], [r * 1.25, -r * 0.36], [r * 1.25, r * 0.36]]) dot(c, x, y, r * 0.42);
+  },
+  paw,
+];
+const SETS = { cats: CATS, dogs: DOGS };
+
+/** Заготовки фигурок: цвет темы меняется — перерисовываются. */
+function prepare(color) {
+  if (spritesFor === color) return;
+  spritesFor = color;
+  sprites = kinds.map((draw) => {
+    const s = document.createElement('canvas');
+    s.width = s.height = CELL;
+    const c = s.getContext('2d');
+    c.fillStyle = color; c.strokeStyle = color;
+    c.translate(CELL / 2, CELL / 2);
+    draw(c, UNIT);
+    return s;
+  });
+}
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 function spawn(onScreen) {
+  const h = window.innerHeight;
   return {
-    x: rnd(0, canvas.width), y: onScreen ? rnd(0, canvas.height) : rnd(-160, -30), draw: KINDS[Math.floor(Math.random() * KINDS.length)],
-    r: rnd(9, 16), speed: rnd(0.5, 2.2), alpha: rnd(MIN_ALPHA, MAX_ALPHA), angle: rnd(0, Math.PI * 2), turn: rnd(-0.03, 0.03), sway: rnd(0, 1.4), phase: rnd(0, 6), wave: rnd(0.02, 0.06),
+    x: rnd(0, window.innerWidth), y: onScreen ? rnd(0, h) : rnd(-160, -40), sprite: Math.floor(Math.random() * kinds.length),
+    r: rnd(11, 18), speed: rnd(0.5, 2.2), alpha: rnd(MIN_ALPHA, MAX_ALPHA), tilt: rnd(-0.35, 0.35), sway: rnd(0, 1.4), phase: rnd(0, 6), wave: rnd(0.02, 0.05),
   };
 }
 
 function layout() {
-  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-  cats = Array.from({ length: Math.ceil(canvas.width / SPACE) }, () => spawn(true));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
+  canvas.style.width = '100vw'; canvas.style.height = '100vh';
+  canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  falling = Array.from({ length: Math.ceil(window.innerWidth / SPACE) }, () => spawn(true));
 }
 
 function frame() {
   if (document.hidden) return;
   const c = canvas.getContext('2d');
-  c.clearRect(0, 0, canvas.width, canvas.height);
-  const color = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#0f7d55';
-  cats.forEach((k, i) => {
+  c.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  prepare(getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#0f7d55');
+  falling.forEach((k, i) => {
+    const size = (k.r / UNIT) * CELL;
     c.save();
-    c.globalAlpha = k.alpha; c.fillStyle = color; c.strokeStyle = color;
+    c.globalAlpha = k.alpha;
     c.translate(k.x + Math.sin(k.y * k.wave + k.phase) * k.sway * 10, k.y);
-    c.rotate(k.angle);
-    k.draw(c, k.r);
+    c.rotate(k.tilt + Math.sin(k.y * k.wave) * 0.12);
+    c.drawImage(sprites[k.sprite], -size / 2, -size / 2, size, size);
     c.restore();
-    k.y += k.speed; k.angle += k.turn;
-    if (k.y > canvas.height + 40) cats[i] = spawn(false);
+    k.y += k.speed;
+    if (k.y > window.innerHeight + 40) falling[i] = spawn(false);
   });
 }
 
-export function startCats() {
+/** set: 'cats' | 'dogs'. */
+export function startRain(set) {
   if (canvas || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  kinds = SETS[set];
+  spritesFor = '';
   canvas = document.createElement('canvas');
   canvas.className = 'cat-rain';
   canvas.setAttribute('aria-hidden', 'true');
@@ -80,7 +153,7 @@ export function startCats() {
   timer = setInterval(frame, 1000 / FPS);
 }
 
-export function stopCats() {
+export function stopRain() {
   if (!canvas) return;
   clearInterval(timer);
   window.removeEventListener('resize', layout);

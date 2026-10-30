@@ -1,4 +1,4 @@
-import { startCats, stopCats } from './ui/cat-rain.js';
+import { startRain, stopRain } from './ui/cat-rain.js';
 import { startLiveSync, stopLiveSync } from './core/live-sync.js';
 import { isDragging } from './ui/drag.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
@@ -40,7 +40,7 @@ const FN = {};         // имя функции монтирования -> фу
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
-  stock: [() => import('./sections/stock.js'), [['stock','stock'], ['@mountPipeGrid','mountPipeGrid']]],
+  stock: [() => import('./sections/stock.js'), [['stock','stock'], ['@mountPipeGrid','mountPipeGrid'], ['@mountSheetGrid','mountSheetGrid']]],
   movements: [() => import('./sections/movements.js'), [['movements','movements']]],
   orders: [() => import('./sections/orders.js'), [['orders','orders'],['incpay','incPay'],['incprice','incPrice']]],
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
@@ -124,11 +124,12 @@ const allowed = (section) => { const id = OWNER[section] || section; return !NAV
 const root = $('#root');
 
 // ---------- Вход ----------
-/** Роль «Трубарез»: свой экран склада (таблица как Excel) и котики. */
+/** Роли склада: свой экран (таблица как Excel) и фон — котики у «Трубарез», собачки у «Лазер лист». */
 const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
+const isSheetRole = () => session.user?.roleLabel === 'Лазер лист';
 
 function showLogin(message) {
-  stopCats();
+  stopRain();
   stopLiveSync();
   let last = ''; try { last = localStorage.getItem('dca_last_user') || ''; } catch { /* приватный режим */ }
   closeCard();
@@ -380,6 +381,7 @@ function render(c) {
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
     if (section === 'stock' && isPipeRole()) list = FN.mountPipeGrid();
+    else if (section === 'stock' && isSheetRole()) list = FN.mountSheetGrid();
     else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
     else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
       onOpen: (row) => openRecord(section, row.id),
@@ -491,7 +493,7 @@ function syncCard(section, params) {
 
 async function showApp() {
   startPrefs(session.user); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
-  if (isPipeRole()) startCats(); else stopCats();
+  if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain();
   startLiveSync({ busy: isBusy, onChange: onVersions });
   ui = shell();
   mounted = null; card = null;
