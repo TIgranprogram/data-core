@@ -427,17 +427,11 @@ export function mountHome(deps) {
       act('+ Заявка', 'Новая заявка — форма справа', () => patch({ of: 'requests', new: '1', open: undefined })),
       act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
       act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined }))] : null,
-    seeStock ? [
-      act('Принять на склад', 'Приход по счёту', () => go('ops', { mode: 'in' })),
-      h('details', { class: 'td-menu' }, h('summary', { class: 'btn' }, 'Ещё'),
-        h('div', { class: 'td-menu-pop' },
-          act('Выдать со склада', 'Выдача со склада', () => go('ops', {})),
-          act('Забронировать', 'Спецификация → бронь на складе', () => go('ops', { mode: 'reserve' }))))] : null) : null;
+    null) : null; // УПР-1/Д5: кнопки склада убраны с «Сегодня» — они в «Складе»
   const goTiles = quick ? h('div', { class: 'go-tiles' },
     seeReq ? h('button', { type: 'button', class: 'go-tile', onclick: () => patch({ of: 'requests', new: '1', open: undefined }) },
       h('b', null, '+ Заявка'), h('span', null, 'закончилось — что, сколько')) : null,
-    seeStock ? [h('a', { class: 'go-tile', href: '#ops?mode=in' }, h('b', null, 'Принять машину'), h('span', null, 'открыть счёт и отметить, что пришло')),
-      h('a', { class: 'go-tile', href: '#ops' }, h('b', null, 'Выдать со склада'), h('span', null, 'найти позицию, сколько и кому'))] : null) : null;
+    seeStock ? h('a', { class: 'go-tile', href: '#stock' }, h('b', null, 'Склад'), h('span', null, 'остатки и движения')) : null) : null;
 
   // Диск сервера и целостность данных — только админу и только если есть что показать (под блоками)
   // проверки здоровья — не чаще раза в час (ответ в sessionStorage)

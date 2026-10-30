@@ -5,6 +5,9 @@ import { patch } from '../core/router.js';
 import { toastError } from '../ui/toast.js';
 import { openMatching } from './salesorders-matching.js';
 
+// УПР-1/Д9: re-export matching panel section (used as ?of=matching right panel)
+export { matching } from './salesorders-matching.js';
+
 /**
  * Очередь «Несопоставленные позиции» (над списком «Заказов»): все позиции договоров без связи с продукцией.
  * Сервер: GET /matching/unmatched | /matching/unmatched/count, POST /matching/confirm | none | bulk.
@@ -105,4 +108,37 @@ export function unmatchedTop() {
   window.addEventListener('data-changed', () => { if (!el.isConnected) return; setCount(); if (!box.hidden) load(false); });
   setCount();
   return el;
+}
+
+/**
+ * УПР-1/Д9: Самостоятельный экран «Сопоставление» (#matching) с двумя вкладками:
+ * «Позиции» — очередь несопоставленных позиций заказов; «Без договора» — договоры без заказа.
+ */
+export function mountMatchingQueue(params) {
+  const tab = params?.tab || 'positions';
+  const tabs = h('div', { class: 'tabs' },
+    h('a', { class: 'tab' + (tab !== 'unassigned' ? ' active' : ''), href: '#matching' }, 'Позиции'),
+    h('a', { class: 'tab' + (tab === 'unassigned' ? ' active' : ''), href: '#matching?tab=unassigned' }, 'Без договора'));
+  const body = h('div', { class: 'mq-screen-body' });
+  const el = h('div', { class: 'panel matching-screen' },
+    h('div', { class: 'page-head' }, h('h1', null, 'Сопоставление')),
+    tabs, body);
+  if (tab === 'unassigned') {
+    import('./salesorders-unassigned.js').then(({ unassignedPicker, chooseTarget }) => {
+      const bar = h('div', { class: 'ua-bar', hidden: true });
+      const picker = unassignedPicker({
+        onChange: (ids) => {
+          bar.hidden = !ids.length;
+          bar.replaceChildren(
+            h('b', null, `Выбрано ${ids.length}`),
+            h('button', { class: 'btn btn-primary btn-sm', type: 'button',
+              onclick: async () => { if (await chooseTarget(ids)) { picker.reload(); bar.hidden = true; } } }, 'В заказ…'));
+        },
+      });
+      body.replaceChildren(bar, picker.el);
+    }).catch((e) => { body.replaceChildren(h('p', { class: 'neg' }, 'Не загрузилось: ' + (e?.message || e))); });
+  } else {
+    body.replaceChildren(unmatchedTop());
+  }
+  return { el, update: (p) => { if ((p?.tab || 'positions') !== tab) { body.replaceChildren(); } } };
 }

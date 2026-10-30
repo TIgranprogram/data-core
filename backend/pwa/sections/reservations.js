@@ -46,7 +46,7 @@ export function reservationsPanel({ onChange }) {
           session.canEdit && l.canIssue ? h('span', { class: 'res-acts' },
             h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(l.id) }, 'Изменить'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => issue(`Выдать: ${l.name}`, [{ id: l.id, name: l.name, unit: l.unit, qty: l.left }]) }, 'Выдать'),
-            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await changed(); } }, 'снять')) : h('span'))),
+            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await changed(); } }, 'Снять')) : h('span'))),
         d.issues.length ? h('div', null, h('div', { class: 'section-title' }, 'Выдано'),
           h('ul', { class: 'timeline' }, ...d.issues.map((x) => h('li', null, h('span', { class: 'when' }, date(x.date)), `${x.name} — ${qty(x.qty)} ${x.unit}`, h('span', { class: 'muted' }, x.to ? ` · ${x.to}` : ' · кому — не указано'))))) : null,
         d.requests.length ? h('div', null, h('div', { class: 'section-title' }, 'Заказано недостающее'),

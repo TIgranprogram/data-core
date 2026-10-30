@@ -49,15 +49,13 @@ function recentMoves(r) {
   return h('div', null, h('div', { class: 'section-title' }, 'Последние записи'), ul, more);
 }
 
-/** Шапка «Остатков» (аудит П2/Д5): в шапке «Принять на склад» и «Ещё ▾» (Выдать, Забронировать, Списать, Пересчитать, Журнал движений); в строке и карточке — по состоянию. */
+/** Шапка «Остатков» (УПР-1/Д5): одна синяя «Принять на склад» + «Ещё ▾» (Бронь по списку, Пересчёт, Движения; ⇩ Excel добавляет list.js автоматически). */
 const stockActions = () => h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять на склад');
 const stockMore = () => [
   { items: [
-    { label: 'Выдать со склада', onSelect: () => openStockOp('out') },
-    { label: 'Забронировать', onSelect: () => openStockOp('reserve') },
-    { label: 'Списать (брак, потеря)', onSelect: () => openStockOp('writeoff') },
-    { label: 'Пересчитать', onSelect: () => openStockOp('count') }] },
-  { sep: true, items: [{ label: 'Журнал движений', href: '#movements' }] },
+    { label: 'Бронь по списку', onSelect: () => openStockOp('reserve') },
+    { label: 'Пересчёт', onSelect: () => openStockOp('count') }] },
+  { sep: true, items: [{ label: 'Движения', href: '#movements' }] },
 ];
 
 export const stock = {
@@ -108,13 +106,12 @@ export const stock = {
       ok: 'Хватает. Делать ничего не нужно.',
     },
     rowAction: (r) => {
-      const order = { label: 'Заказать', title: 'Создать заявку на эту позицию', run: (row) => { orderItem(row); return false; } };
-      // ждёт поставку — «Принять»: окно прихода само предложит закрыть заявку (receiveField)
-      const inc = r.ordered > 0 ? { label: 'Принять на склад', title: 'Приехала поставка: принять на склад и закрыть заявку', run: (row) => { openStockOp('in', row.id); return false; } } : { label: '+ Приход', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
-      const out = { label: '− Выдать', title: 'Выдача / расход: кому и под что — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } };
-      const fromRes = { label: 'Из брони', title: 'Выдать забронированное: количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } };
-      const base = r.status === 'none' ? [order, inc] : r.status === 'low' ? [order, inc, out] : [inc, out];
-      return r.reservedQty > 0 ? [fromRes, ...base.filter((a) => a !== out || r.free > 0)] : base;
+      // УПР-1/Д5: ≤ 2 кнопки. Главная — «Выдать» (если есть бронь) или «Забронировать»; вторая — «+ Принять». «Списать» только в карточке.
+      const inc = { label: '+ Принять', title: 'Поступление на склад', run: (row) => { openStockOp('in', row.id); return false; } };
+      const main = r.reservedQty > 0
+        ? { label: 'Выдать', title: 'Выдать из брони', run: (row) => { openStockOp('fromres', row.id); return false; } }
+        : { label: 'Забронировать', title: 'Забронировать под заказ', run: (row) => { openStockOp('reserve', row.id); return false; } };
+      return [main, inc];
     },
     tiles: {
       key: 'categoryId', title: 'Категории',

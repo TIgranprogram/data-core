@@ -1,6 +1,15 @@
+import { existsSync } from 'fs';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { fontDir } from '../product-passport/passport-pdf';
+
+/** Кандидаты шрифтов: сначала системный sans-serif с кириллицей (Ubuntu), затем ГОСТ. */
+function offerFontPath(dir: string): string {
+  for (const p of ['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSans.ttf']) {
+    if (existsSync(p)) return p;
+  }
+  return join(dir, 'gost-a.ttf');
+}
 import { PAGE_H as H, PAGE_W as W, paginateRows, placeBlock, zoneOf } from './offer-layout';
 
 export interface OfferPdfInput {
@@ -43,7 +52,7 @@ const qty = (n: number) => String(Math.round(n * 1000) / 1000).replace('.', ',')
 export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   const dir = fontDir();
   const d = new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Коммерческое предложение № ${i.number}`, Author: i.companyName || '' } });
-  d.registerFont('gost', join(dir, 'gost-a.ttf'));
+  d.registerFont('gost', offerFontPath(dir));
   const chunks: Buffer[] = [];
   d.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok, fail) => { d.on('end', () => ok(Buffer.concat(chunks))); d.on('error', fail); });

@@ -155,11 +155,23 @@ export class OffersService {
     } catch { return null; }
   }
 
+  /** Фото для строки КП: сначала сохранённый photoUrl, затем главное фото изделия по productId. */
+  private async photoForItem(item: Doc): Promise<Buffer | null> {
+    if (item.photoUrl) return this.photo(item.photoUrl as string);
+    if (!item.productId) return null;
+    const prod = await this.db().collection('showcaseitems').findOne(
+      { _id: item.productId, deletedAt: null },
+      { projection: { 'photo.thumb': 1, 'photo.url': 1 } },
+    );
+    const url = (prod as Doc | null)?.photo?.thumb || (prod as Doc | null)?.photo?.url;
+    return url ? this.photo(url as string) : null;
+  }
+
   async pdf(id: string) {
     const o = await this.find(id);
     const [companyName, bg1, bg2, photos] = await Promise.all([
       this.companyName(o.companyId), this.bgs.resolve(1, o.bg1Id), this.bgs.resolve(2, o.bg2Id),
-      Promise.all((o.items as Doc[]).map((i) => this.photo(i.photoUrl))),
+      Promise.all((o.items as Doc[]).map((i) => this.photoForItem(i))),
     ]);
     const buf = await renderOfferPdf({
       number: o.number, date: o.date, validUntil: o.validUntil, customer: o.customer, companyName: companyName ?? undefined,

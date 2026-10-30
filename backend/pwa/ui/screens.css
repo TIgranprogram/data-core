@@ -1666,18 +1666,17 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 .shp-why { display: block; color: var(--muted); }
 
 /* КП (KP-1) */
-.of-lines { display: flex; flex-direction: column; gap: var(--s3); }
-.of-line { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
-.of-l1 { display: flex; gap: var(--s2); align-items: center; }
-.of-l1 input { flex: 1; min-width: 0; }
-.of-n { color: var(--muted); min-width: 1.5em; }
-.of-l2 { display: grid; grid-template-columns: minmax(0,1fr) 70px minmax(0,1fr) auto; gap: var(--s2); align-items: center; }
-.of-l3 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.of-lines { display: flex; flex-direction: column; gap: var(--s2); }
+.of-line { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s2); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+/* [N] [name—flex] [qty 56] [unit 52] [price 88] [sum 76] [× 28] */
+.of-l1 { display: grid; grid-template-columns: 1.5em minmax(0,1fr) 56px 52px 88px 76px 28px; gap: var(--s1); align-items: center; }
+.of-n { color: var(--muted); text-align: center; }
+.of-l3 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1); padding-left: calc(1.5em + var(--s1)); }
 .of-line input.has-error { border-color: var(--danger); }
-.of-sum { min-width: 80px; text-align: right; }
-.of-add { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); }
+.of-sum { text-align: right; font-size: .875em; }
+.of-add { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s1); }
 .of-total { font-weight: 600; }
 .of-bg { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
 .of-bg select { flex: 1; min-width: 160px; }
-@media (max-width: 720px) { .of-l2 { grid-template-columns: minmax(0,1fr) 70px minmax(0,1fr); } .of-l2 .of-sum, .of-cap span:last-child { grid-column: 1 / -1; } .of-cap span:last-child { display: none; } }
+@media (max-width: 600px) { .of-l1 { grid-template-columns: 1.5em minmax(0,1fr) 28px; } .of-l1 > input { display: none; } .of-l1 > .of-sum { display: none; } .of-l3 { grid-template-columns: 1fr 1fr; } }
 .of-items { margin: 0; padding-left: var(--s5); display: flex; flex-direction: column; gap: var(--s2); }

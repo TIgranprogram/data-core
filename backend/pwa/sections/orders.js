@@ -11,7 +11,7 @@ import { UNITS, unitList, lookups } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
-import { issuePassport, passports } from './passports.js';
+// УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 
 /**
  * Раздел «Заказы» (PRODUCT §4, TASKS Ф.3/Ф.6) — строки заказов = доходы, коллекция incomes (/api/incomes).
@@ -241,10 +241,8 @@ export const orders = {
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '' } }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгрузить сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
-      session.seesDocs() && passports.canEdit() && { label: 'Выпустить паспорт', run: async (row) => {
-        const found = await issuePassport({ productId: row.productId ? String(row.productId) : '', name: row.title, orderNo: row.orderNo || '', salesOrderId: row.orderId ? String(row.orderId) : '', customerName: row.customer || '', customerTitle: row.title || '' });
-        if (!found) toast('Модель не найдена по названию — выберите её в поле «Название» или заполните паспорт');
-      } },
+      // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js
+      session.seesDocs() && r.orderId && { label: 'Паспорт →', title: 'Паспорта по заказу', run: (_row) => { go('docs', { tab: 'archive' }); } },
     ],
   },
 

@@ -9,7 +9,7 @@ import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 import { suggestLink } from '../ui/composition-suggest.js';
-import { issuePassport, passports } from './passports.js';
+// УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 import { printDialog } from './passports/dialogs.js';
 import { openBulk } from './bulk-edit.js';
 import { dictNames } from '../ui/dict-options.js';
@@ -373,9 +373,8 @@ export const products = {
       ...(session.seesDocs() && r.passports?.items?.[0] ? [{ label: 'Печать паспорта', title: 'Последний выпущенный паспорт этого изделия: PDF и печать', run: async (row) => {
         printDialog(await api(`/passports/${row.passports.items[0].id}`));
       } }] : []),
-      ...(session.seesDocs() && passports.canEdit() ? [{ label: 'Выпустить паспорт', run: async (row) => {
-        if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
-      } }] : []),
+      // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js (панель паспорта)
+      ...(session.seesDocs() ? [{ label: 'Паспорт →', title: 'Список паспортов этого изделия', run: (row) => { patch({ of: 'passarchive', productId: String(row.id), new: undefined, open: undefined }); } }] : []),
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
       ...(session.canEdit ? [{ label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
         const chk = await api(`/showcase/${row.id}/assign-sku`, { method: 'POST', body: {} });

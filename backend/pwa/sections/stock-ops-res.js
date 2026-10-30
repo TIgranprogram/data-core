@@ -88,7 +88,7 @@ export async function buildUnreserve(materialId) {
           if (!(await confirmDlg('Снять бронь?', `«${where(r)}» — ${qty(r.qty)} ${r.unit} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return;
           e.currentTarget.disabled = true;
           try { await api(`/stock/reservations/${r.id}/release`, { method: 'POST' }); toast('Бронь снята'); window.dispatchEvent(new CustomEvent('data-changed')); rows = rows.filter((x) => x !== r); draw(); } catch (er) { toast(errText(er), { error: true }); e.target.disabled = false; }
-        } }, 'снять')))))] : []));
+        } }, 'Снять')))))] : []));
   draw();
   const el = h('div', null,
     h('p', { class: 'hint' }, `${it.name}: в брони ${qty(it.reservedQty)} ${unit}. Снятое возвращается в свободный остаток; на складе ничего не списывается. Конкретную бронь можно снять кнопкой в списке ниже.`),

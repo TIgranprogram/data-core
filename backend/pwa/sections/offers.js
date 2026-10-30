@@ -60,6 +60,7 @@ function itemsWidget(initial) {
   const box = h('div', { class: 'of-lines' });
   const total = h('div', { class: 'of-total num' });
   const sum = () => { total.textContent = `Итого: ${money(rows.reduce((s, l) => s + lineSum(l), 0))}`; };
+  let dlSeed = 0;
   const paint = () => {
     sum();
     box.replaceChildren(...rows.map((l, i) => {
@@ -71,14 +72,20 @@ function itemsWidget(initial) {
       const sumEl = h('span', { class: 'of-sum num' });
       const sumRow = () => { sumEl.textContent = lineSum(l) ? money(lineSum(l)) : ''; sum(); };
       const name = inp('productName', 'Название *', { max: 300 });
-      const q = inp('quantity', 'Кол-во *', { dec: true, ph: 'Кол-во *' });
+      const q = inp('quantity', 'Кол-во', { dec: true, ph: 'Кол' });
       const price = inp('unitPrice', 'Цена, ₽', { dec: true, ph: 'Цена' });
+      const unitInp = inp('unit', 'Ед.', { ph: 'шт', max: 20 });
+      const uid = `of-u-${++dlSeed}`;
+      unitInp.setAttribute('list', uid);
+      const unitDl = h('datalist', { id: uid }, ...['шт', 'компл.', 'пар', 'м', 'м²', 'кг'].map((u) => h('option', { value: u })));
       l._name = name; l._qty = q;
       sumRow();
       return h('div', { class: 'of-line' },
-        h('div', { class: 'of-l1' }, h('b', { class: 'of-n' }, String(i + 1)), name, h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать строку', 'aria-label': 'Убрать строку', onclick: () => { rows.splice(i, 1); paint(); } }, '×')),
-        i === 0 ? h('div', { class: 'of-l2 of-cap muted small', 'aria-hidden': 'true' }, h('span', null, 'Кол-во *'), h('span', null, 'Ед.'), h('span', null, 'Цена, ₽'), h('span', null, 'Сумма')) : null,
-        h('div', { class: 'of-l2' }, q, inp('unit', 'Ед.', { ph: 'шт', max: 20 }), price, sumEl),
+        h('div', { class: 'of-l1' },
+          h('b', { class: 'of-n' }, String(i + 1)), name,
+          q, unitInp, price, sumEl,
+          h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать строку', 'aria-label': 'Убрать строку', onclick: () => { rows.splice(i, 1); paint(); } }, '×'),
+          unitDl),
         h('div', { class: 'of-l3' }, inp('color', 'Цвет', { max: 80 }), inp('size', 'Размер', { max: 80 })));
     }), h('div', { class: 'of-add' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { rows.push({ productName: '', quantity: '1', unit: 'шт', unitPrice: '' }); paint(); rows.at(-1)._name.focus(); } }, '+ Строка'), total));
   };

@@ -21,7 +21,7 @@ const KEY = 'dc-kp';
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const save = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch { /* приватный режим */ } };
 export const kpCount = () => load().length;
-export function kpAdd(r) { const a = load(); const x = a.find((y) => y.id === r.id); if (x) x.qty += 1; else a.push({ id: r.id, sku: r.sku, name: r.name, price: r.price ?? 0, qty: 1 }); save(a); }
+export function kpAdd(r) { const a = load(); const x = a.find((y) => y.id === r.id); if (x) x.qty += 1; else a.push({ id: r.id, sku: r.sku, name: r.name, price: r.price ?? 0, qty: 1, photoUrl: r.photo?.thumb || r.photo?.url || null }); save(a); }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const rub = (n) => esc(money(n));
@@ -106,7 +106,7 @@ async function buildKpForm() {
       if (!customer.value.trim()) { customer.focus(); throw new Error('Впишите заказчика'); }
       const day = (add) => { const t = new Date(); t.setDate(t.getDate() + add); return t.toISOString().slice(0, 10); };
       const offer = await createOffer({ companyId: company.value || undefined, customer: customer.value.trim(), date: day(0), validUntil: day(14), terms: note.value.trim() || undefined,
-        items: lines.map((l) => ({ productId: l.id, productSku: l.sku, productName: l.name, quantity: Number(l.qty) || 1, unit: 'шт', ...(Number(l.price) > 0 ? { unitPrice: Number(l.price) } : {}) })) });
+        items: lines.map((l) => ({ productId: l.id, productSku: l.sku, productName: l.name, quantity: Number(l.qty) || 1, unit: 'шт', ...(Number(l.price) > 0 ? { unitPrice: Number(l.price) } : {}), ...(l.photoUrl ? { photoUrl: l.photoUrl } : {}) })) });
       if (offer) { save([]); go('offers', { open: offer.id }); return { id: offer.id, stay: true }; }
       // старый сервер без /offers — прежняя печать
       const d = await api('/showcase/kp', { method: 'POST', body: { items: lines.map((l) => ({ id: l.id, qty: Number(l.qty) || 1, price: Number(l.price) || 0 })), companyId: company.value || undefined, customer: customer.value.trim() || undefined, note: note.value.trim() || undefined } });
