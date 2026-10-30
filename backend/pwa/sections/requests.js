@@ -216,7 +216,7 @@ function stepFoot(r, ctx) {
   const st = nextStep(r);
   if (!st) return null;
   const miss = st.kind === 'receive' ? [] : missingFor(r, st.to);
-  const btn = h('button', { class: 'btn btn-sm t-step', type: 'button', title: st.kind === 'receive' ? 'Оприходовать на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onclick: async () => {
+  const btn = h('button', { class: 'btn btn-sm t-step', type: 'button', title: st.kind === 'receive' ? 'Принять на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onclick: async () => {
     btn.disabled = true; btn.classList.add('is-busy');
     try {
       if (st.kind === 'receive') { if (await receiveDialog(r)) ctx.changed(); }
@@ -309,7 +309,7 @@ export const requests = {
       requested: 'Нужно заказать у поставщика. Заказали — «Заказал у поставщика».',
       ordered: 'Заказано, ждём счёт и оплату. Оплатили — «Счёт оплачен» (понадобятся № и дата счёта).',
       paid: 'Оплачено, ждём поставку. Пришло — «Принять»: товар встанет на склад.',
-      received: 'Получено и оприходовано на склад. Делать ничего не нужно.',
+      received: 'Получено и принято на склад. Делать ничего не нужно.',
       cancelled: 'Отменённые заявки — в расчёты не идут.',
     },
     bulk: { always: true, label: 'Заказал у поставщика', can: (r) => supplyKey(r) === 'requested' && session.canEdit, open: (ids, { done, rows }) => { bulkOrder(rows).then((n) => { if (n) done(); }); } }, // флажки в таблице, как на доске
@@ -317,7 +317,7 @@ export const requests = {
       const k = supplyKey(r);
       const st = nextStep(r);
       if (!st) return null;
-      if (st.kind === 'receive') return { label: st.verb, title: 'Оприходовать на склад', run: async (row) => !!(await receiveDialog(row)) };
+      if (st.kind === 'receive') return { label: st.verb, title: 'Принять на склад', run: async (row) => !!(await receiveDialog(row)) };
       return { label: st.verb, title: 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', run: async (row) => {
         if (!(await advance(row, st.to, patchStatus))) return false; // не хватает данных — открылась панель «Следующий шаг»
         toast(`${heading(row)} → ${SUPPLY_STATUS[st.to].label}`, { undo: async () => { await patchStatus(row, k); window.dispatchEvent(new Event('data-changed')); } });
@@ -342,7 +342,7 @@ export const requests = {
         side: r.priceHint && session.canMoney ? money(r.priceHint) : '',
         foot: session.canEdit ? stepFoot(r, ctx) : null,
       }),
-      /** Перетаскивание в колонку: «Получено» — через оприходование на склад, не хватает данных — панель «Следующий шаг», остальное — смена статуса. */
+      /** Перетаскивание в колонку: «Получено» — через приём на склад, не хватает данных — панель «Следующий шаг», остальное — смена статуса. */
       move: async (r, to) => {
         if (to === 'received') return !!(await receiveDialog(r));
         if (!(await advance(r, to, patchStatus))) return false;
@@ -404,13 +404,13 @@ export const requests = {
       ['Примечание', r.notes],
       ['Короткое (склад)', r.materialId && r.materialName && r.materialName !== r.title ? r.materialName : ''],
       ['Позиция склада', r.materialId ? h('a', { href: '#stock?open=' + r.materialId }, r.materialName || 'открыть') : ''],
-      ['Оприходовано', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
+      ['Принято', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
     ],
     extra: (r, ctx) => h('div', null, handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
     actions: (r) => {
       const k = supplyKey(r);
       return [
-        !['received', 'cancelled'].includes(k) && { label: 'Оприходовать на склад', primary: true, run: receive },
+        !['received', 'cancelled'].includes(k) && { label: 'Принять на склад', primary: true, run: receive },
         stepAct(r),
         { label: 'Сменить статус…', run: changeStatus },
       ];

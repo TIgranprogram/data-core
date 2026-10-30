@@ -103,7 +103,7 @@ export const stock = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {
-      '': 'Все позиции склада. В строке: «+ Приход», «− Выдать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
+      '': 'Все позиции склада. В строке: «+ Принять», «− Выдать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
       ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',
@@ -178,7 +178,7 @@ export const stock = {
     actions: (r) => [
       r.reservedQty > 0 && { label: 'Выдать из брони', primary: true, title: 'Количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } },
       // все действия — в правой панели «Склад» (SK-9): закрыли панель — вернулись к этой позиции
-      { label: '+ Приход', primary: !(r.reservedQty > 0), run: (row) => { openStockOp('in', row.id); return false; } },
+      { label: '+ Принять', primary: !(r.reservedQty > 0), run: (row) => { openStockOp('in', row.id); return false; } },
       { label: '− Выдать', title: 'Кому и под что выдано — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } },
       { label: 'Списать (брак, потеря)', title: 'Причина из списка', run: (row) => { openStockOp('writeoff', row.id); return false; } },
       { label: 'Забронировать под заказ', run: (row) => { openStockOp('reserve', row.id); return false; } },
@@ -241,7 +241,7 @@ export const stock = {
       // начальный остаток — штуками или по весу (НО.2): приход в штуках, расчёт — в примечании
       if (initial?.byWeight || initial?.qty > 0) {
         try { r = await api(`/stock/items/${r.id}/move`, { method: 'POST', body: { type: 'in', qty: initial.qty || 1, note: 'Ввод начального остатка', ...(initial.byWeight ? { byWeight: initial.byWeight } : {}) } }); }
-        catch (e) { toast(`Позиция создана, но начальный остаток не записан: ${errText(e)}. Сделайте «+ Приход» в карточке.`, { error: true }); }
+        catch (e) { toast(`Позиция создана, но начальный остаток не записан: ${errText(e)}. Сделайте «+ Принять» в карточке.`, { error: true }); }
       }
       for (const photoId of photoIds || []) {
         try { r = await api(`/stock/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); }
