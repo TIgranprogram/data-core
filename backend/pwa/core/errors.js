@@ -54,13 +54,20 @@ export function reportError(err, { kind = 'action', action, status, url } = {}) 
 
 /** Медленный экран (SPEED-2): первая отрисовка списка дольше 2 с → запись «Медленно: <раздел> <мс> мс», kind=slow. Не чаще раза в 5 минут на раздел. */
 const slowAt = new Map();
-export function reportSlow(ms) {
+/** Самые долгие запросы за время замера: всего / очередь браузера / ожидание ответа. Только путь, без query. */
+export function slowDetail(entries, since) {
+  const path = (u) => { try { return new URL(u, location.origin).pathname; } catch { return '?'; } };
+  return entries.filter((e) => e.responseEnd >= since).sort((a, b) => b.duration - a.duration).slice(0, 8)
+    .map((e) => `${Math.round(e.duration)} мс · очередь ${Math.round(Math.max(0, e.requestStart - e.startTime))} · ответ ${Math.round(Math.max(0, e.responseStart - e.requestStart))} · ${path(e.name)}`)
+    .join('\n');
+}
+export function reportSlow(ms, since = 0) {
   if (off || !session.access) return;
   const section = sectionNow();
   const now = Date.now();
   if (now - (slowAt.get(section) || 0) < 300000) return;
   slowAt.set(section, now);
-  const body = { message: `Медленно: ${section} ${Math.round(ms)} мс`, name: 'SlowScreen', section: cut(section, 60), action: 'открыть экран', kind: 'slow', version: cut(currentVersion(), 40), ua: cut(navigator.userAgent, 300) };
+  const body = { message: `Медленно: ${section} ${Math.round(ms)} мс`, name: 'SlowScreen', stack: cut(scrub(slowDetail(performance.getEntriesByType('resource'), since)), 4000), section: cut(section, 60), action: 'открыть экран', kind: 'slow', version: cut(currentVersion(), 40), ua: cut(navigator.userAgent, 300) };
   if (navigator.onLine === false) { keep(body); return; }
   send(body);
 }

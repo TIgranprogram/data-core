@@ -419,7 +419,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }
     if (my !== seq) return;
     loaded = true;
-    if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - t0; if (ms > 2000) reportSlow(ms); }
+    if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - t0; if (ms > 2000) reportSlow(ms, t0); }
     panel.classList.remove('loading');
     lastResp = resp;
     countEl.textContent = qty(resp.total);
