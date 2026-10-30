@@ -75,11 +75,11 @@ export async function orderItem(r) {
 }
 
 /** Поле «Закрыть заявку» в окне прихода (ЗП.4): { el, value() → заявка | null }. */
-export function receiveField(r) {
+export function receiveField(r, onOnly) {
   if (!(r.ordered > 0)) return null;
   const sel = h('select', null, h('option', { value: '' }, '— приход без заявки —'));
   const list = [];
-  ordered(r.id).then((d) => { for (const x of d.open) { list.push(x); sel.append(h('option', { value: x.id }, `№${x.num ?? '—'} · ${qty(x.qty)} ${x.unit} · ${x.statusLabel}`)); } if (list.length === 1) sel.value = list[0].id; enhanceSelect(sel); }).catch(() => {});
+  ordered(r.id).then((d) => { for (const x of d.open) { list.push(x); sel.append(h('option', { value: x.id }, `№${x.num ?? '—'} · ${qty(x.qty)} ${x.unit} · ${x.statusLabel}`)); } if (list.length === 1) { sel.value = list[0].id; onOnly?.(list[0]); } enhanceSelect(sel); }).catch(() => {});
   return { el: h('label', { class: 'field wide' }, h('span', null, 'Закрыть заявку'), sel), value: () => list.find((x) => x.id === sel.value) || null };
 }
 

@@ -63,9 +63,11 @@ async function build() {
   const clearDraft = () => { try { localStorage.removeItem(KEY); } catch { /* приватный режим */ } };
   // строка; для прихода позиции, которая уже заказана, — выбор заявки, которую закрыть (ЗП.4)
   const newLine = (it, q, nt) => {
-    const recv = op === 'in' ? receiveField(it) : null;
-    if (recv) recv.el.style.gridColumn = '1 / -1';
-    return { it, qty: q ?? (op === 'count' ? '' : '1'), note: nt || '', recv };
+    const line = { it, qty: q ?? (op === 'count' ? '' : '1'), note: nt || '' };
+    // заявка одна — закрываем её и берём её количество, иначе приход 1 шт. оставил бы заявку открытой
+    line.recv = op === 'in' ? receiveField(it, (req) => { if (q == null) { line.qty = String(req.qty); saveDraft(); render(); } }) : null;
+    if (line.recv) line.recv.el.style.gridColumn = '1 / -1';
+    return line;
   };
   let resCache = null; // брони — один запрос, только когда понадобились (пересчёт ниже брони)
   const ordersOf = async (materialId) => { resCache ??= api('/stock/reservations').then((r) => r.items || []).catch(() => []); return (await resCache).filter((g) => g.lines.some((l) => l.materialId === materialId)).map((g) => (g.salesOrder && !String(g.name).includes(g.salesOrder) ? `${g.name} (заказ ${g.salesOrder})` : g.name)); };
@@ -185,7 +187,8 @@ async function build() {
   if (retOn) retOn.addEventListener('change', () => { retBox.hidden = !retOn.checked; touched = true; });
   const resTp = op === 'reserve' ? targetPicker({ mode: 'reserve' }) : null; // заказ → позиция; заказы грузятся по первому нажатию
 
-  const arrivals = op === 'in' ? arrivalsBlock(() => { window.dispatchEvent(new CustomEvent('data-changed')); }) : null;
+  // из строки позиции — только она: блок счетов и старый черновик здесь не нужны, иначе позиция скрыта под ними
+  const arrivals = op === 'in' && !P.materialId ? arrivalsBlock(() => { window.dispatchEvent(new CustomEvent('data-changed')); }) : null;
   arrivals?.load();
   const resPanel = op === 'reserve' ? reservationsPanel({ onChange: () => {} }) : null;
   resPanel?.load();
@@ -231,9 +234,9 @@ async function build() {
     resPanel?.el);
 
   // позиция из карточки / строки списка: сразу в списке
-  if (P.materialId) api('/stock/items/' + P.materialId).then((it) => { if (it?.id && !lines.length) { lines.push(newLine(it)); render(); } }).catch(() => {});
+  if (P.materialId) api('/stock/items/' + P.materialId).then((it) => { if (it?.id) { lines = [newLine(it)]; render(); } }).catch((e) => toastError(e, 'открыть позицию'));
   render();
-  const draft = readDraft();
+  const draft = P.materialId ? [] : readDraft();
   if (draft.length) stockList().then((all2) => { for (const d of draft) { const it = all2.find((x) => x.id === d.id); if (it && !lines.some((l) => l.it.id === it.id)) lines.push(newLine(it, d.qty, d.note)); } render(); }).catch(() => {});
 
   // пересчёт: expected — остаток, который видел человек (изменился на сервере — 409, не перетираем чужое)
@@ -261,6 +264,7 @@ async function build() {
   }
 
   async function save() {
+    if (op === 'in' && arrivals && manualSection.hidden) throw new Error('Счёт принимается кнопкой «Принять…» в его строке. Без счёта — откройте «+ Принять без счёта»');
     const ls = ready();
     if (!ls.length) throw new Error(op === 'count' ? 'Впишите, сколько лежит, хотя бы у одной позиции' : 'Добавьте позицию и впишите количество больше нуля');
     const text = note.value.trim();
