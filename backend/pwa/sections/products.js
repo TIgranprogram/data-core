@@ -333,6 +333,7 @@ export const products = {
     heading: (r) => r.name,
     subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
     editTop: true,
+    zones: { extra: 'side' },
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
     extra: (r) => h('div', null, warnNote(r), compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
