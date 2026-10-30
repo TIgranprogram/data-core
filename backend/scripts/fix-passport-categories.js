@@ -1,6 +1,9 @@
 /* ПЧ-1 (2026-10-30): исправление passportCategory у ≈30 паспортов — аудит AUDIT-PASSPORT-PARTS §4.4.
  * Источник: разбор картинок 342 паспортов; списки номеров проверены вручную.
  *
+ * Меняются код (passportCategory) и название (category): карточка и галерея показывают название.
+ * Название — самое частое у паспортов этой категории вне списка правок.
+ *
  * Три группы:
  *   А) TRN → WRK: воркаут и спортивное оборудование (турники, брусья, скамьи, баскетбол, волейбол)
  *   Б) TRN → BLG: благоустройство (урна, стела, калитка)
@@ -32,13 +35,20 @@ const CHANGES = [
 
     console.log(`${apply ? '== ЗАПИСЬ ==' : '== ПЛАН (ничего не пишем) =='}`);
     let totalPlan = 0, totalDone = 0;
+    const listed = CHANGES.flatMap((g) => g.numbers.map(String));
+    const nameOf = async (code) => (await pp.aggregate([
+      { $match: { passportCategory: code, deletedAt: null, passportNumber: { $nin: listed }, category: { $type: 'string', $ne: '' } } },
+      { $group: { _id: '$category', n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 1 },
+    ]).toArray())[0]?._id;
 
     for (const g of CHANGES) {
       const nums = g.numbers.map(String);
       const docs = await pp.find(
         { passportNumber: { $in: nums }, passportCategory: g.from, deletedAt: null },
-        { projection: { passportNumber: 1, passportCategory: 1 } }
+        { projection: { passportNumber: 1, passportCategory: 1, category: 1 } }
       ).toArray();
+      const name = await nameOf(g.to);
+      if (!name) throw new Error(`Нет названия для категории ${g.to}`);
 
       const notFound = nums.filter((n) => !docs.find((d) => d.passportNumber === n));
       const wrongCat = await pp.find(
@@ -46,7 +56,7 @@ const CHANGES = [
         { projection: { passportNumber: 1, passportCategory: 1 } }
       ).toArray();
 
-      console.log(`\n${g.from} → ${g.to} (${g.reason}):`);
+      console.log(`\n${g.from} → ${g.to} «${name}» (${g.reason}):`);
       console.log(`  Найдено с нужной категорией: ${docs.length} — ${docs.map((d) => d.passportNumber).join(', ') || 'нет'}`);
       if (wrongCat.length) console.log(`  Уже другая категория: ${wrongCat.map((d) => `${d.passportNumber}(${d.passportCategory})`).join(', ')}`);
       if (notFound.length) console.log(`  Не найдено / уже удалены: ${notFound.join(', ')}`);
@@ -56,7 +66,7 @@ const CHANGES = [
         const ids = docs.map((d) => d._id);
         const r = await pp.updateMany(
           { _id: { $in: ids } },
-          { $set: { passportCategory: g.to, updatedAt: now } }
+          { $set: { passportCategory: g.to, category: name, updatedAt: now } }
         );
         totalDone += r.modifiedCount;
         console.log(`  → Записано: ${r.modifiedCount}`);
