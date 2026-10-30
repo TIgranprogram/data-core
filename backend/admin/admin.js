@@ -841,7 +841,7 @@
   // ---- Роли (SK-8a, SK-8c): название, «права как у» у своих ролей, разделы «Рабочего места» в меню ----
   // Разделы пусто — как раньше (по старшинству роли); admin видит всё, галочек у него нет.
   // Ввод — в раскрывающейся строке (как «Таблицы»), без окна: в админке нет правой панели.
-  const roleState = { sections: [] };
+  const roleState = { sections: [], stockCats: [] };
   const ROLE_COLS = 4;
   async function loadRoles() {
     const tbody = $('#roles-table tbody');
@@ -853,6 +853,8 @@
         loadRoleList(true),
       ]);
       roleState.sections = secs.items || [];
+      const cats = await api('/categories').catch(() => []);
+      roleState.stockCats = (Array.isArray(cats) ? cats : cats.items || []).filter((c) => c.type === 'material');
       tbody.replaceChildren();
       const list = roleList.items;
       if (!list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ролей нет'); td.colSpan = ROLE_COLS; tr.append(td); tbody.append(tr); return; }
@@ -901,7 +903,7 @@
       lBase.append(base); fields.append(lBase);
     }
     wrap.append(fields);
-    let box = null;
+    let box = null, stockBox = null;
     if (r.name !== 'admin') {
       wrap.append(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству («права как у»).'));
       box = el('div', 'sec-checks');
@@ -911,12 +913,23 @@
         lb.append(cb, el('span', '', s.label)); box.append(lb);
       });
       wrap.append(box);
+      if (roleState.stockCats.length) {
+        wrap.append(el('p', 'muted small', 'Склад: отметьте категории, которые роль видит и меняет. Ничего не отмечено — весь склад.'));
+        stockBox = el('div', 'sec-checks');
+        const onCat = new Set(r.stockCategoryIds || []);
+        roleState.stockCats.forEach((c) => {
+          const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = c.id; cb.checked = onCat.has(c.id);
+          lb.append(cb, el('span', '', c.name)); stockBox.append(lb);
+        });
+        wrap.append(stockBox);
+      }
     }
-    return { wrap, name, base, box, own };
+    return { wrap, name, base, box, stockBox, own };
   }
   function roleBody(f) {
     const body = { label: f.name.value.trim() };
     if (f.box) body.appSections = [...f.box.querySelectorAll('input:checked')].map((c) => c.value);
+    if (f.stockBox) body.stockCategoryIds = [...f.stockBox.querySelectorAll('input:checked')].map((c) => c.value);
     if (f.base) body.baseRole = f.base.value;
     return body;
   }

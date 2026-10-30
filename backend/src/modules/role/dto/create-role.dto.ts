@@ -10,8 +10,7 @@ import {
   IsString,
   Length,
   Matches,
-  Min,
-} from 'class-validator';
+  Min, IsMongoId } from 'class-validator';
 import { APP_SECTION_IDS } from '../../../common/app-sections';
 import { BASE_ROLES } from '../../../common/roles-hierarchy';
 
@@ -81,6 +80,15 @@ export class CreateRoleDto {
   @ArrayUnique({ message: 'Раздел указан дважды' })
   @IsIn(APP_SECTION_IDS, { each: true, message: `Неизвестный раздел. Допустимо: ${APP_SECTION_IDS.join(', ')}` })
   appSections?: string[];
+
+  /** СМ.4: категории склада роли; пусто — весь склад. */
+  @ApiPropertyOptional({ type: [String], description: 'Категории склада, которые видит и меняет роль; пусто — весь склад' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50, { message: 'Категорий не больше 50' })
+  @ArrayUnique({ message: 'Категория указана дважды' })
+  @IsMongoId({ each: true, message: 'Некорректная категория' })
+  stockCategoryIds?: string[];
 
   @IsOptional()
   @IsBoolean()

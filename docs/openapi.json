@@ -9593,170 +9593,6 @@
         ]
       }
     },
-    "/admin/sheets-sync": {
-      "get": {
-        "operationId": "SheetsSyncController_status",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/admin/sheets-sync/sources": {
-      "post": {
-        "operationId": "SheetsSyncController_add",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddSheetSourceDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/admin/sheets-sync/sources/{id}": {
-      "delete": {
-        "operationId": "SheetsSyncController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/admin/sheets-sync/run": {
-      "post": {
-        "operationId": "SheetsSyncController_run",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/photos": {
-      "get": {
-        "operationId": "PhotosController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      },
-      "post": {
-        "operationId": "PhotosController_create",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}": {
-      "get": {
-        "operationId": "PhotosController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      },
-      "delete": {
-        "operationId": "PhotosController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/upload": {
-      "post": {
-        "operationId": "PhotosController_upload",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}/frame": {
-      "patch": {
-        "operationId": "PhotosController_updateFrame",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/devlog/import": {
       "post": {
         "operationId": "DevlogController_import",
@@ -10538,6 +10374,95 @@
         ],
         "responses": {
           "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos": {
+      "get": {
+        "operationId": "PhotosController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "operationId": "PhotosController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}": {
+      "get": {
+        "operationId": "PhotosController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "operationId": "PhotosController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/upload": {
+      "post": {
+        "operationId": "PhotosController_upload",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}/frame": {
+      "patch": {
+        "operationId": "PhotosController_updateFrame",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         }
@@ -13998,6 +13923,13 @@
               ]
             }
           },
+          "stockCategoryIds": {
+            "description": "Категории склада, которые видит и меняет роль; пусто — весь склад",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "isSystem": {
             "type": "boolean",
             "description": "Системная роль (нельзя удалить)"
@@ -14082,6 +14014,13 @@
                 "work",
                 "offers"
               ]
+            }
+          },
+          "stockCategoryIds": {
+            "description": "Категории склада, которые видит и меняет роль; пусто — весь склад",
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
           "isSystem": {
@@ -16728,18 +16667,6 @@
             "nullable": true
           }
         }
-      },
-      "AddSheetSourceDto": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "description": "Ссылка на Google-таблицу (https://docs.google.com/spreadsheets/d/…) или её ID"
-          }
-        },
-        "required": [
-          "url"
-        ]
       },
       "ImportDto": {
         "type": "object",

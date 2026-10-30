@@ -1,6 +1,7 @@
 import { photoToFront } from '../../common/photo-main';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { normText } from '../../common/text/norm-text';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
@@ -48,6 +49,23 @@ export class StockCatalogService {
   }
 
   /** Новая позиция: материал + строка остатка (0). Позиция с тем же наименованием не дублируется. */
+  /** СМ.4: все позиции — из категорий роли, иначе 403. */
+  async assertInScope(materialIds: string[], scope: string[]) {
+    const ids = [...new Set(materialIds)].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const mats = await this.materials.find({ _id: { $in: ids } }, { categoryId: 1 }).lean().exec();
+    if (mats.some((m) => !scope.includes(String(m.categoryId)))) throw new ForbiddenException('Эта позиция не из вашего раздела склада');
+  }
+
+  /** СМ.4: новая позиция роли — только в её категории; категория не указана — первая своя. */
+  async scopeNewItem(dto: StockItemInput, scope: string[]): Promise<StockItemInput> {
+    if (dto.categoryId) { if (scope.includes(String(dto.categoryId))) return dto; throw new ForbiddenException('Эта категория не из вашего раздела склада'); }
+    if (!dto.categoryName?.trim()) return { ...dto, categoryId: scope[0] };
+    const own = await this.connection.db!.collection('categories').find({ _id: { $in: scope.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray();
+    const hit = own.find((c) => normText(c.name) === normText(dto.categoryName));
+    if (!hit) throw new ForbiddenException('Эта категория не из вашего раздела склада');
+    return { ...dto, categoryId: String(hit._id) };
+  }
+
   async createItem(dto: StockItemInput) {
     const name = String(dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Укажите наименование');

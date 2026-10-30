@@ -5,7 +5,9 @@
  *   node scripts/import-metal-stock.js <local|prod> [--with-zero] --apply --out откат.json - запись
  * Файлы: --sheets <csv> (лист), --pipes <csv> (труба); по умолчанию — «для анализа/» в корне репо.
  * Только через API и только через deploy/synology/api.sh (пароль скрипт не видит): GET /api/stock/items, POST /api/stock/items, POST /api/stock/batch, POST /api/stock/items/:id/offcut.
+ * Оформление — как в форме склада: короткое и длинное название, категория, единица, сортамент, марка, размеры; недостающие сортамент и марки — в справочники.
  * Лист — в листах, труба — в метрах (СМ.2). Мытая и не мытая труба — разные позиции. Нержавеющая труба — по столбцу «Итого».
+ * Роли «Трубарез» и «Лазер лист» (СМ.4): только раздел «Остатки» и свои категории. Роль уже есть — не меняется.
  * Строки с нулём не создаются (--with-zero — создать). Остаток-обрезок с размером («640х500») — позиция-обрезок;
  * без размера («0.5 ост») — только примечание и строка «уточнить» в отчёте.
  * Идемпотентно: позиция с тем же названием не создаётся и не приходуется, приход защищён clientUid.
@@ -28,7 +30,8 @@ const DIR = path.join(__dirname, '../../для анализа');
 const API_SH = path.join(__dirname, '../../deploy/synology/api.sh').split(path.sep).join('/');
 const AS_OF = '10.10.2026';
 const CLIENT_UID = 'metal-import-2026-10-10';
-const CAT = { sheet: 'Лист металлический', rect: 'Труба профильная', round: 'Труба круглая' };
+const CAT = { sheet: 'Листовой металл', rect: 'Профильная труба', round: 'Круглая труба' };
+const ROLES = [{ label: 'Трубарез', cats: [CAT.rect, CAT.round] }, { label: 'Лазер лист', cats: [CAT.sheet] }];
 const GRADE = { 'st 3': 'Ст3', 'asi 304': 'AISI 304', 'asi 430': 'AISI 430', amg2: 'АМг2', zn: 'Оцинкованная сталь' };
 
 const num = (v) => { const n = Number(String(v ?? '').replace(',', '.').trim()); return Number.isFinite(n) ? n : 0; };
@@ -54,7 +57,8 @@ function parseSheets(text) {
     const rest = /рефл/i.test(note) ? '' : note;
     const off = rest.match(/(\d{3,4})\s*[xх×]\s*(\d{3,4})/i);
     out.push({
-      src: `лист:${i + 1}`, cat: CAT.sheet, unit: 'лист', qty: num(qty), name: `${kind} ${grade} ${ru(thickness)} мм${size}`,
+      src: `лист:${i + 1}`, cat: CAT.sheet, unit: 'лист', qty: num(qty), name: `${kind} ${grade}, ${ru(thickness)} мм${format ? `,${size}` : ''}`,
+      fullName: `${kind} ${grade} толщиной ${ru(thickness)} мм${format ? `, ${w}×${l} мм` : ''}`,
       assortment: `${kind} ${ru(thickness)} мм`, materialGrade: grade, dims: { thickness, ...(format ? { width: w, length: l } : {}) },
       note: rest, check: rest ? `${rest}` : '', ...(off ? { offcut: { lengthMm: +off[1], widthMm: +off[2] } } : {}),
     });
@@ -73,9 +77,10 @@ function parseSection(raw) {
 
 const pipeRow = (src, section, grade, suffix, metres, length, note) => {
   const x = parseSection(section);
-  const base = `Труба ${grade ? 'нерж. ' : ''}${x.label}`;
+  const kind = x.round ? 'круглая' : 'профильная';
+  const base = `Труба ${kind} ${grade ? 'нерж. ' : ''}${x.label}`;
   return {
-    src, cat: x.round ? CAT.round : CAT.rect, unit: 'м', qty: metres, name: `${base}${suffix ? ' ' + suffix : ''}`, assortment: `Труба ${x.label}`,
+    src, cat: x.round ? CAT.round : CAT.rect, unit: 'м', qty: metres, name: `${base}${suffix ? ', ' + suffix : ''}`, fullName: `Труба ${grade ? 'нержавеющая' : 'стальная'} ${kind} ${x.label} мм`, assortment: `Труба ${x.label}`,
     materialGrade: grade || undefined, dims: { ...(x.wall ? { thickness: x.wall } : {}), ...(x.diameter ? { diameter: x.diameter } : {}), ...(length ? { length } : {}) }, note, check: '',
   };
 };
@@ -165,11 +170,19 @@ async function main() {
   if (warn.length) { console.log('\nНе сходится «Итого»:'); for (const w of warn) console.log('  ' + w); }
   if (!APPLY) { console.log('\nНичего не записано (план). Записать: --apply --out откат.json'); return; }
 
-  const done = { createdIds: [], batchId: null, offcuts: [] };
+  const done = { createdIds: [], batchId: null, offcuts: [], dicts: [], roles: [] };
   const save = () => fs.writeFileSync(OUT, JSON.stringify(done, null, 2));
+  for (const [dict, values] of [['steelGrades', p.create.map((r) => r.materialGrade)], ['metalAssortments', p.create.map((r) => r.assortment)]]) {
+    const have = new Set(((await api('GET', `/api/dicts/${dict}`)).items || []).map((d) => norm(d.name)));
+    for (const name of new Set(values.filter(Boolean))) {
+      if (have.has(norm(name))) continue;
+      await api('POST', `/api/dicts/${dict}`, { name });
+      done.dicts.push(`${dict}: ${name}`); save();
+    }
+  }
   const lines_ = [];
   for (const r of p.create) {
-    const item = await api('POST', '/api/stock/items', { name: r.name, unit: r.unit, categoryName: r.cat, assortment: r.assortment, materialGrade: r.materialGrade, dims: r.dims, notes: r.note ? `Таблица учёта на ${AS_OF}: ${r.note}` : undefined });
+    const item = await api('POST', '/api/stock/items', { name: r.name, fullName: r.fullName, unit: r.unit, categoryName: r.cat, assortment: r.assortment, materialGrade: r.materialGrade, dims: r.dims, notes: r.note ? `Таблица учёта на ${AS_OF}: ${r.note}` : undefined });
     done.createdIds.push(item.id); save();
     r.id = item.id;
     if (r.qty) lines_.push({ materialId: item.id, qty: r.qty, ...(r.note ? { note: r.note.slice(0, 500) } : {}) });
@@ -182,7 +195,18 @@ async function main() {
     await api('POST', `/api/stock/items/${r.id}/offcut`, { ...r.offcut, note: `Таблица учёта на ${AS_OF}` });
     done.offcuts.push(r.name); save();
   }
-  console.log(`\nСоздано позиций: ${done.createdIds.length}, строк прихода: ${lines_.length}, обрезков: ${done.offcuts.length}. Пачка: ${done.batchId}. Откат: ${OUT}`);
+  const stock = await all('/api/stock/items');
+  const catId = (name) => stock.find((m) => m.categoryName === name)?.categoryId;
+  const rolesNow = await api('GET', '/api/roles');
+  const haveRoles = new Set((Array.isArray(rolesNow) ? rolesNow : rolesNow.items || []).map((r) => norm(r.label)));
+  for (const r of ROLES) {
+    if (haveRoles.has(norm(r.label))) { console.log(`Роль «${r.label}» уже есть — не менял`); continue; }
+    const ids = r.cats.map(catId).filter(Boolean);
+    if (!ids.length) { console.log(`Роль «${r.label}»: нет позиций её категорий — не создана`); continue; }
+    await api('POST', '/api/roles', { label: r.label, baseRole: 'manager', appSections: ['stock'], stockCategoryIds: ids, permissions: [] });
+    done.roles.push(r.label); save();
+  }
+  console.log(`\nСоздано позиций: ${done.createdIds.length}, строк прихода: ${lines_.length}, обрезков: ${done.offcuts.length}, в справочники: ${done.dicts.length}, ролей: ${done.roles.length}. Пачка: ${done.batchId}. Откат: ${OUT}`);
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });

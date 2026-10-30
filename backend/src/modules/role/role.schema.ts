@@ -38,6 +38,10 @@ export class Role {
   @Prop({ type: [String], default: undefined })
   appSections?: string[];
 
+  /** СМ.4: категории склада (categories.id, тип material), которые видит и меняет роль; пусто — весь склад. */
+  @Prop({ type: [String], default: undefined })
+  stockCategoryIds?: string[];
+
   /**
    * SK-8c: своя роль — «права как у» встроенной (user|manager|accountant|director,
    * не admin). У встроенных и старых ролей поля нет. Права = права baseRole

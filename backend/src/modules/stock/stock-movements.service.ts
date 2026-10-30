@@ -356,6 +356,12 @@ export class StockMovementsService {
     const range = dateRange(q.from, q.to);
     if (range) filter.date = range;
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
+    if (q.scopeCategoryId) { // СМ.4: журнал только по категориям роли
+      const ids = oids(q.scopeCategoryId);
+      const own = await this.materials.find({ categoryId: { $in: [...ids, ...ids.map(String)] } }, { _id: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+      const wanted = q.materialId ? new Set(oids(q.materialId).map(String)) : null;
+      filter.materialId = { $in: own.map((m) => m._id).filter((id) => !wanted || wanted.has(String(id))) };
+    }
     // кому выдано / под какой заказ (карточка сотрудника, карточка заказчика)
     if (q.personId) filter.issuedToPersonId = oid(q.personId, 'сотрудника');
     if (q.salesOrderId) filter.salesOrderId = { $in: oids(q.salesOrderId) };

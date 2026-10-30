@@ -53,10 +53,10 @@ export class StockService {
 
   // --- чтение позиций
   listItems(q: Parameters<StockSearchService['listItems']>[0] = {}) { return this.search.listItems(q); }
-  lookup() { return this.search.lookup(); }
+  lookup(scope?: string[] | null) { return this.search.lookup(scope); }
   openRequests(mats: { _id: Types.ObjectId; name?: string }[]) { return this.search.openRequests(mats); }
   itemOrdered(materialId: string, canMoney: boolean) { return this.search.itemOrdered(materialId, canMoney); }
-  categorySummary() { return this.search.categorySummary(); }
+  categorySummary(scope?: string[] | null) { return this.search.categorySummary(scope); }
   getItem(materialId: string) { return this.search.getItem(materialId); }
 
   // --- карточка позиции
@@ -64,6 +64,8 @@ export class StockService {
   autoArticle() { return this.catalog.autoArticle(); }
   skuFor(categoryId?: Types.ObjectId) { return this.catalog.skuFor(categoryId); }
   createItem(dto: StockItemInput) { return this.catalog.createItem(dto); }
+  assertInScope(materialIds: string[], scope: string[]) { return this.catalog.assertInScope(materialIds, scope); }
+  scopeNewItem(dto: StockItemInput, scope: string[]) { return this.catalog.scopeNewItem(dto, scope); }
   updateItem(materialId: string, dto: StockItemInput) { return this.catalog.updateItem(materialId, dto); }
   addPhoto(materialId: string, photoId: string) { return this.catalog.addPhoto(materialId, photoId); }
   removePhoto(materialId: string, photoId: string) { return this.catalog.removePhoto(materialId, photoId); }

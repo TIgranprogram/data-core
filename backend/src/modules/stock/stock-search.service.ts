@@ -90,11 +90,12 @@ export class StockSearchService {
    * SK-8d: короткий список позиций для поиска из соседних разделов (заявка, состав изделия) — GET /stock/lookup.
    * Только поля для выбора, без фото, бронирований, заявок; строки — тот же кэш, что у полного списка без фильтров.
    */
-  async lookup() {
+  async lookup(scope?: string[] | null) {
     const key = JSON.stringify([false, null, [], null, null, null, []]); // = ключ listItems({}) — общий кэш
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const items = rows
+      .filter((r) => !scope || scope.includes(String(r.categoryId)))
       .map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free }))
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ru'));
     return { items };
@@ -224,13 +225,14 @@ export class StockSearchService {
   }
 
   /** Сводка по категориям (плитки «Склада»): сколько позиций, сколько к закупке и сколько нет на складе. */
-  async categorySummary() {
+  async categorySummary(scope?: string[] | null) {
     // строки — из общего кэша (тот же ключ, что у listItems({}) и lookup): без сортировки, фото и «висящей» брони
     const key = JSON.stringify([false, null, [], null, null, null, []]);
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
-    for (const i of rows) {
+    const mine = scope ? rows.filter((r) => scope.includes(String(r.categoryId))) : rows;
+    for (const i of mine) {
       const id = i.categoryId ?? 'none';
       const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0, ordered: 0 };
       c.total++;
@@ -240,7 +242,7 @@ export class StockSearchService {
       by.set(id, c);
     }
     const items = [...by.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'ru'));
-    return { items, total: rows.length };
+    return { items, total: mine.length };
   }
 
   async getItem(materialId: string) {
