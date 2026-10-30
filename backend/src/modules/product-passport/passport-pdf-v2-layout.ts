@@ -4,6 +4,15 @@ import { substituteRefs, PlannedFig, planFigures, maintenanceColumns } from './p
 import { M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './passport-pdf-v2-common';
 import { shortPage, cover } from './passport-pdf-v2-cover';
 
+/** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
+export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
+  const added = [p.seatWidth, p.seatHeight, p.supports, p.shipVolume].some(has);
+  if (p.status !== 'draft' && !added) return [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Вес, кг', p.weight]];
+  const volume = p.shipVolume ?? (p.length && p.width && p.height ? Math.round((p.length * p.width * p.height) / 1e7) / 100 : undefined);
+  return [['Длина (L), мм', p.length], ['Ширина (B), мм', p.width], ['Высота (H), мм', p.height], ['Ширина посадки (Bп), мм', p.seatWidth], ['Высота посадки (Hп), мм', p.seatHeight],
+    ['Количество опор, шт', p.supports], ['Объём перевозки (V), куб. м', volume], ['Вес, кг', p.weight]];
+}
+
 export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: string): V2Page[] {
   const { passport: p, text: t, images } = input;
   const sections = (t.sections || []).filter((s) => s.items?.length || s.title);
@@ -13,8 +22,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const rules = (t.rules || []).map((x) => String(x).trim()).filter(Boolean);
   const descr = lines(t.description || p.description);
   const purpose = lines(t.purpose);
-  const specs: string[][] = [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Вес, кг', p.weight]]
-    .filter(([, v]) => has(v)).map(([k, v]) => [String(k), num(v)]);
+  const specs = specRows(p).filter(([, v]) => has(v)).map(([k, v]) => [String(k), num(v)]);
 
   // Номера разделов: снимок даёт свои (обычно с 3 — 1 и 2 были «Описание» и «Техданные» v1). Свободные 1…start-1 — под описание/правила.
   const start = parseInt(sections[0]?.number ?? '', 10) || 1;

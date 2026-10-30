@@ -170,10 +170,14 @@ function buildCategory(row, ctx, onSaved) {
 
 function buildParams(row, ctx, onSaved) {
   const FIELDS = [
-    { key: 'height', label: 'Высота, мм' },
-    { key: 'length', label: 'Длина, мм' },
-    { key: 'width',  label: 'Ширина, мм' },
+    { key: 'length', label: 'Длина (L), мм' },
+    { key: 'width',  label: 'Ширина (B), мм' },
+    { key: 'height', label: 'Высота (H), мм' },
     { key: 'weight', label: 'Вес, кг' },
+    { key: 'seatWidth', label: 'Ширина посадки (Bп), мм' },
+    { key: 'seatHeight', label: 'Высота посадки (Hп), мм' },
+    { key: 'supports', label: 'Количество опор, шт' },
+    { key: 'shipVolume', label: 'Объём перевозки, куб. м (пусто — посчитается)' },
   ];
   const inputs = {};
   const grid = h('div', { class: 'pw-fields' });

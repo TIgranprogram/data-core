@@ -121,6 +121,19 @@ export class ProductPassport {
   @Prop()
   weight?: number;
 
+  /** ПЧ-4: схема размеров буквами — ширина (Bп) и высота (Hп) посадки, мм; опоры, шт; объём перевозки, м³. */
+  @Prop()
+  seatWidth?: number;
+
+  @Prop()
+  seatHeight?: number;
+
+  @Prop()
+  supports?: number;
+
+  @Prop()
+  shipVolume?: number;
+
   /** Описание (раздел 1.1) — собирается из частей (наименование, материалы, установка, назначение), правится вручную. */
   @Prop()
   description?: string;

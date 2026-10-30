@@ -114,10 +114,14 @@ export const passportForm = {
         suggest: r ? undefined : models, suggestKeep: true, suggestTitle: 'Взять из прошлого паспорта (запасной путь): подставится всё, кроме заказчика и даты; поправленное вами не затрётся', suggestFocus: 'customerName' },
       { key: 'category', label: 'Раздел каталога (как в «Продукции»)', type: 'combo', options: cats, max: 200, hint: 'Только для списков и поиска; на разделы паспорта не влияет' },
       { key: 'article', label: 'Артикул', max: 50 },
-      { key: 'height', label: 'Высота, мм', type: 'number', min: 0, span: 1 },
-      { key: 'length', label: 'Длина, мм', type: 'number', min: 0, span: 1 },
-      { key: 'width', label: 'Ширина, мм', type: 'number', min: 0, span: 1 },
+      { key: 'length', label: 'Длина (L), мм', type: 'number', min: 0, span: 1 },
+      { key: 'width', label: 'Ширина (B), мм', type: 'number', min: 0, span: 1 },
+      { key: 'height', label: 'Высота (H), мм', type: 'number', min: 0, span: 1 },
       { key: 'weight', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
+      { key: 'seatWidth', label: 'Ширина посадки (Bп), мм', type: 'number', min: 0, span: 1 },
+      { key: 'seatHeight', label: 'Высота посадки (Hп), мм', type: 'number', min: 0, span: 1 },
+      { key: 'supports', label: 'Количество опор, шт', type: 'number', min: 0, span: 1 },
+      { key: 'shipVolume', label: 'Объём перевозки, куб. м', type: 'number', min: 0, span: 1, hint: 'Пусто — посчитается из L × B × H' },
       ...v2Fields, remember,
       // ПП: выпуск — дата (номер талона), поставщик, гарантия; кому и куда — в «после печати» (можно от руки)
       { section: 'Выпуск', tone: 'who' },
@@ -178,7 +182,7 @@ export const passportForm = {
       customerName: s(v.customerName), orderNo: s(v.orderNo), objectName: s(v.objectName), note: s(v.note),
       saleDate: v.saleDate || null, installedBy: s(v.installedBy), installedAt: v.installedAt || null, // ПП: после печати
       ...(v.supplierOrgId ? { supplierOrgId: v.supplierOrgId } : {}),
-      ...Object.fromEntries(['height', 'length', 'width', 'weight', 'warrantyMonths'].filter((k) => v[k] !== null && v[k] !== undefined).map((k) => [k, v[k]])),
+      ...Object.fromEntries(['height', 'length', 'width', 'weight', 'seatWidth', 'seatHeight', 'supports', 'shipVolume', 'warrantyMonths'].filter((k) => v[k] !== null && v[k] !== undefined).map((k) => [k, v[k]])),
     };
     const forDesc = { ...body, installationMethod: s(v.installationMethod), purpose: s(v.purpose) }; // описание собирается и из полей, которые сервер берёт из выбора
     body.description = s(v.description) || buildDescription(forDesc);

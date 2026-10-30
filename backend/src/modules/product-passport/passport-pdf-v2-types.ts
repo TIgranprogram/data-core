@@ -4,6 +4,8 @@ import { InstallParts, MaintenanceTable } from './passport-compose-parts';
 
 export interface PdfImageV2 extends PdfImage { refCode?: string }
 export interface PdfPassportV2 extends PdfPassport {
+  status?: string;
+  seatWidth?: number; seatHeight?: number; supports?: number; shipVolume?: number;
   passportCategory?: string;
   ageFrom?: number | null; ageTo?: number | null; heightMin?: number | null; heightMax?: number | null;
   weightMax?: number | null; maxUsers?: number | null; fallHeight?: number | null; serviceLifeYears?: number | null;

@@ -24,6 +24,10 @@ export class CreateProductPassportDto {
   @IsOptional() @IsNumber() @Min(0) length?: number;
   @IsOptional() @IsNumber() @Min(0) width?: number;
   @IsOptional() @IsNumber() @Min(0) weight?: number;
+  @IsOptional() @IsNumber() @Min(0) seatWidth?: number;
+  @IsOptional() @IsNumber() @Min(0) seatHeight?: number;
+  @IsOptional() @IsNumber() @Min(0) supports?: number;
+  @IsOptional() @IsNumber() @Min(0) shipVolume?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
 
   @IsOptional() @IsString() materials?: string;
