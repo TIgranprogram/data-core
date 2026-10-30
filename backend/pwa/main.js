@@ -501,12 +501,20 @@ async function showApp() {
   warmUp();
   // Свежие данные о пользователе (роль могла измениться)
   // SK-8b: изменились разделы роли — перестроить меню и проверить текущий экран
-  api('/auth/me').then((me) => {
+  refreshMe();
+}
+
+/** Свежие данные о себе: разделы роли — перестроить меню, аватар и имя — перерисовать шапку (иначе после смены на другом ПК нужен второй F5). */
+function refreshMe() {
+  return api('/auth/me').then((me) => {
     if (!(me?.id || me?.username)) return;
     const was = JSON.stringify(session.user?.sections ?? null);
+    const face = (u) => `${u?.avatar ?? ''}|${u?.displayName ?? ''}`;
+    const wasFace = face(session.user);
     session.user = { ...session.user, ...me };
     serverPrefs(me.uiPrefs); // ШП: с сервера перекрывают локальные (с другого ПК)
     if (JSON.stringify(session.user?.sections ?? null) !== was) { closeCard(); ui = shell(); mounted = null; render(current()); }
+    else if (face(session.user) !== wasFace) window.dispatchEvent(new CustomEvent('dc:profile'));
   }).catch(() => {});
 }
 onChange((c) => { if (ui && session.refresh) render(c); });
@@ -546,6 +554,7 @@ const isBusy = () => isDragging() || !!document.querySelector('.modal-back') || 
 const SHOWS = { requests: ['requests', 'stock'], stock: ['stock'], movements: ['stock'], salesorders: ['salesorders', 'money'], orders: ['money'], money: ['money', 'requests'], design: ['design', 'salesorders'], work: ['work', 'salesorders'], products: ['products'], docs: ['passports', 'products'], offers: ['products'] };
 /** Изменились данные у других: экран — если он их показывает, числа в меню — всегда. */
 function onVersions(keys) {
+  if (keys.has('users')) { refreshMe(); keys.delete('users'); if (!keys.size) return; }
   const shows = SHOWS[current().section];
   if (!shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }
   refreshCounts(new Set([...keys].filter((k) => k !== 'passports' && k !== 'products')));

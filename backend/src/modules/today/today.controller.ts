@@ -23,7 +23,7 @@ export class TodayController {
 /** Раздел приложения → коллекции, чьи изменения он показывает. */
 const VERSION_GROUPS = {
   requests: ['supplyrequests', 'supplyinvoices'], stock: ['materials', 'storageitems', 'stockmovements', 'reservations', 'categories'], money: ['incomes'],
-  salesorders: ['salesorders', 'productionorders', 'shipments'], design: ['designtasks', 'designnotes'], work: ['worktasks'], passports: ['productpassports'], products: ['products'],
+  salesorders: ['salesorders', 'productionorders', 'shipments'], design: ['designtasks', 'designnotes'], work: ['worktasks'], passports: ['productpassports'], products: ['products'], users: ['users'],
 } as const;
 
 /** Числа на пунктах меню одним запросом; разделы, закрытые роли, в ответе отсутствуют. */
