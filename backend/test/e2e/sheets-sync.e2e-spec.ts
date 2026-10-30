@@ -14,7 +14,8 @@ import { SheetsSyncService } from '../../src/modules/sheets-sync/sheets-sync.ser
  * Проверяем: без дублей при повторе, правка ячейки, удаление строки, защита от очистки,
  * записи приложения не трогаются, позиция склада из приложения подхватывается по имени.
  */
-describe('Sheets sync (Google service account)', () => {
+// SheetsSyncModule отключён (a7a9176): вернут модуль — снять skip
+describe.skip('Sheets sync (Google service account)', () => {
   let ctx: TestContext | undefined;
   let app: INestApplication;
   let token: AuthTokens;

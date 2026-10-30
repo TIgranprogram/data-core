@@ -150,8 +150,8 @@ export class StockController {
   /** Активные брони по названиям. */
   @Get('reservations')
   @Roles('admin', 'director', 'manager', 'user')
-  reservations() {
-    return this.stock.listReservations();
+  reservations(@CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.listReservations(stockScopeFor(user));
   }
 
   /** Карточка брони: что забронировано, сколько выдано и кому, под какой заказ, заявки на недостающее. key — batchId или id брони. */
@@ -166,7 +166,9 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.issued', entityType: 'StockMovement' })
-  issueReservations(@Body() dto: StockIssueDto, @CurrentUser() user?: AuthenticatedUser) {
+  async issueReservations(@Body() dto: StockIssueDto, @CurrentUser() user?: AuthenticatedUser) {
+    const scope = stockScopeFor(user);
+    if (scope) await this.stock.assertReservationsInScope({ ids: dto.lines.map((l) => l.reservationId) }, scope);
     return this.stock.issueReservations(dto, user?.id);
   }
 
@@ -184,7 +186,9 @@ export class StockController {
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } })
   @AuditAction({ action: 'stock.reserve.issued.order', entityType: 'StockMovement' })
-  issueOrder(@Body() dto: StockIssueOrderDto, @CurrentUser() user?: AuthenticatedUser) {
+  async issueOrder(@Body() dto: StockIssueOrderDto, @CurrentUser() user?: AuthenticatedUser) {
+    const scope = stockScopeFor(user);
+    if (scope) await this.stock.assertReservationsInScope({ ids: dto.lines?.map((l) => l.reservationId) ?? dto.reservationIds, salesOrderId: dto.salesOrderId }, scope);
     return this.stock.issueOrder(dto, user?.id);
   }
 

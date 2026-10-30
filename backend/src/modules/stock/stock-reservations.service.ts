@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -69,10 +69,20 @@ export class StockReservationsService {
   }
 
   /** Активные брони, сгруппированные по названию (для «Бронь по списку»). */
-  async listReservations() {
-    const docs = await this.reservations.find({ status: 'active', isActive: true, deletedAt: null }).sort({ createdAt: -1 }).limit(2000).lean().exec();
-    const mats = await this.materials.find({ _id: { $in: docs.map((d) => d.materialId).filter(Boolean) } }, { name: 1, unit: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+  /** СМ.4: брони — из категорий роли, иначе 403. Нет списка, но есть заказ — все активные брони заказа. */
+  async assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: string[]) {
+    const filter = q.ids?.length ? { _id: { $in: q.ids.map((x) => new Types.ObjectId(x)) } } : { salesOrderId: new Types.ObjectId(q.salesOrderId), status: 'active', deletedAt: null };
+    const list = await this.reservations.find(filter, { materialId: 1 }).lean().exec();
+    const mats = await this.materials.find({ _id: { $in: list.map((d) => d.materialId).filter(Boolean) } }, { categoryId: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    if (mats.some((m) => !scope.includes(String(m.categoryId)))) throw new ForbiddenException('Эта бронь не из вашего раздела склада');
+  }
+
+  async listReservations(scope?: string[] | null) {
+    const found = await this.reservations.find({ status: 'active', isActive: true, deletedAt: null }).sort({ createdAt: -1 }).limit(2000).lean().exec();
+    const mats = await this.materials.find({ _id: { $in: found.map((d) => d.materialId).filter(Boolean) } }, { name: 1, unit: 1, categoryId: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
     const nm = new Map(mats.map((m) => [String(m._id), m]));
+    // СМ.4: роль видит брони только своих категорий
+    const docs = scope ? found.filter((d) => scope.includes(String(nm.get(String(d.materialId))?.categoryId))) : found;
     // Кто поставил и под какой заказ — чтобы на «Сегодня» было видно, чья бронь и для чего
     type Extra = { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date; createdBy?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId };
     const ex = docs as (typeof docs[number] & Extra)[];

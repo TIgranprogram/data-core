@@ -85,7 +85,8 @@ export class StockService {
 
   // --- брони
   reserveList(dto: Parameters<StockReservationsService['reserveList']>[0], userId?: string) { return this.resv.reserveList(dto, userId); }
-  listReservations() { return this.resv.listReservations(); }
+  listReservations(scope?: string[] | null) { return this.resv.listReservations(scope); }
+  assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: string[]) { return this.resv.assertReservationsInScope(q, scope); }
   releaseReservation(id: string) { return this.resv.releaseReservation(id); }
   releaseGroup(batchId: string) { return this.resv.releaseGroup(batchId); }
   issueReservations(dto: Parameters<StockReservationsService['issueReservations']>[0], userId?: string) { return this.resv.issueReservations(dto, userId); }

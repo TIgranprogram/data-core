@@ -142,7 +142,8 @@ describe('Sales orders (заказы заказчиков)', () => {
     await http().get('/api/salesorders').expect(401);
   });
 
-  describe('лист «Заказы» → шапка заказа (З.2)', () => {
+  // SheetsSyncModule отключён (a7a9176): вернут модуль — снять skip
+  describe.skip('лист «Заказы» → шапка заказа (З.2)', () => {
     const map = SHEET_MAPS.find((m) => m.target === 'incomes')!;
     const SID = 'TEST_ORDERS_SHEET_0123456789';
     const head = ['№ заказа', 'Дата отгрузки', 'Дата оплаты', 'Заказчик', 'Наша компания', 'Форма оплаты', 'Наименование', 'Кол-во', 'Ед.изм.', 'Цена за ед.'];
