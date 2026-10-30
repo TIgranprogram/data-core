@@ -72,9 +72,12 @@ async function build() {
   let all = null; let loading = false; // склад целиком — по первому нажатию в поле «Позиция»
 
   // ---------- Выбор позиции ----------
-  const pickIn = h('input', { placeholder: 'Например: м10 гайка · din 933 · подшипник', 'aria-label': 'Найти позицию' });
-  const pickBox = h('label', { class: 'field wide' }, h('span', null, 'Добавить позицию'), pickIn);
-  const opts = () => (all || []).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() }));
+  const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' });
+  const pickCat = h('select', { 'aria-label': 'Категория', onchange: () => { pickIn.value = ''; pickIn.focus(); combo.refresh(); } }, h('option', { value: '' }, 'Все категории'));
+  api('/stock/categories').then((r) => pickCat.append(...(r.items || []).filter((c) => c.id !== 'none').map((c) => h('option', { value: c.id }, c.name)))).catch(() => {});
+  const pickLabel = h('span', null, 'Добавить позицию');
+  const pickBox = h('div', { class: 'field wide' }, pickLabel, h('div', { class: 'sop-pick' }, pickCat, h('div', { class: 'sop-pick-in' }, pickIn)));
+  const opts = () => (all || []).filter((i) => !pickCat.value || i.categoryId === pickCat.value).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() }));
   const combo = attachCombo(pickIn, {
     options: opts,
     empty: () => (loading ? 'Загружаю склад…' : ''),
@@ -111,7 +114,8 @@ async function build() {
   }
   function render() {
     count.textContent = lines.length ? `Позиций: ${lines.length}` : '';
-    if (!lines.length) { linesBox.replaceChildren(h('div', { class: 'ops-empty muted sop-empty' }, 'Позиций пока нет — найдите их в поле выше.')); return; }
+    pickLabel.textContent = lines.length ? 'Добавить ещё позицию' : 'Добавить позицию';
+    if (!lines.length) { linesBox.replaceChildren(h('div', { class: 'ops-empty muted sop-empty' }, 'Позиций пока нет — выберите категорию и позицию ниже.')); return; }
     linesBox.replaceChildren(...lines.map((l) => {
       const it = l.it;
       const inp = h('input', { inputmode: 'decimal', value: l.qty, placeholder: op === 'count' ? 'факт' : '0', 'aria-label': 'Количество' });
@@ -206,10 +210,10 @@ async function build() {
 
   // «Принять без счёта» — ручной ввод; скрыт когда есть список счетов
   const manualSection = h('div', { class: 'sop-manual', hidden: !!arrivals },
-    h('div', { class: 'form-grid' }, pickBox),
     h('div', { class: 'sop-head' }, h('div', { class: 'section-title' }, 'Что ' + (op === 'in' ? 'принимаем' : op === 'out' ? 'выдаём' : op === 'reserve' ? 'бронируем' : op === 'count' ? 'пересчитываем' : 'списываем')), count),
     takeAllBtn,
     linesBox,
+    h('div', { class: 'form-grid' }, pickBox),
     h('div', { class: 'form-grid sop-foot' },
       issueTo?.el,
       retOn ? h('div', { class: 'field wide' }, h('label', { class: 'check' }, retOn, h('span', null, 'Возврат под позицию (вернули со сборки)')), retBox) : null,

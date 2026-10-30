@@ -9293,6 +9293,20 @@
         ]
       }
     },
+    "/me/versions": {
+      "get": {
+        "operationId": "MeCountersController_liveVersions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ live, epoch, v: { раздел: число } } — изменилось число, значит изменились данные раздела"
+          }
+        },
+        "tags": [
+          "Сегодня"
+        ]
+      }
+    },
     "/me/counters": {
       "get": {
         "operationId": "MeCountersController_counters",
@@ -16405,6 +16419,10 @@
               2
             ],
             "description": "1 — первая страница, 2 — вторая и следующие"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания: бланк этой компании; пусто — общий фон"
           },
           "isDefault": {
             "type": "boolean",

@@ -8,3 +8,4 @@
 - 2026-10-24 · ключ kppd_ для пользователя без desktop:admin · в e2e `app.get(DesktopPairingKeyService).issue({id, username, …}, {label})` — ключ на нужного владельца · app-sections.e2e-spec.ts
 - 2026-10-30 · списание через correct / move: reason (брак) и issuedTo (текст «кому») взаимоисключающие — 400 «Списание оформляется без заказа и сотрудника» · тест — списание только с reason, issuedTo = null · источник: stock-target.ts:79
 - 2026-10-30 · e2e на параллельной БД: `MONGO_DB_TEST=datacore-test-qa npx jest --config ./test/jest-e2e.json --runInBand --forceExit` — root-URI подставляет харнесс из .env сам, отдельно передавать пароль не нужно · источник: карта qa.md
+- 2026-10-30 · задача «тест рядом с /me/counters» — такого e2e не было (grep `me/counters` и `counters` по test/ — пусто): сначала grep по пути контроллера, потом решать, куда класть; новый спек — отдельный файл

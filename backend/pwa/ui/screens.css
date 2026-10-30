@@ -482,6 +482,13 @@ html { scrollbar-gutter: stable; }
 .pg-in.saving { opacity: .5; }
 .pg-in.saved { background: var(--ok-soft); }
 .pg-sum { padding: 6px 10px; font-weight: 700; background: var(--surface-2); white-space: nowrap; }
+.pg-held { padding: 0 4px 3px; font-size: var(--fs-label); font-weight: 600; color: var(--warn); }
+.pg-reserved { --chip: var(--warn); --chip-soft: var(--warn-soft); }
+.pg-table .pg-for { padding: 6px 10px; text-align: left; }
+/* Выбор позиции: сначала категория */
+.sop-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--s2); }
+.sop-pick select, .sop-pick-in input { width: 100%; }
+@media (max-width: 720px) { .sop-pick { grid-template-columns: 1fr; } }
 .cat-rain { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 .ff-check { display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 6px 0; cursor: pointer; overflow-wrap: anywhere; }
 .ff-check input { margin-top: 2px; flex: none; width: 18px; height: 18px; accent-color: var(--primary); }

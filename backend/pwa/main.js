@@ -1,4 +1,6 @@
 import { startCats, stopCats } from './ui/cat-rain.js';
+import { startLiveSync, stopLiveSync } from './core/live-sync.js';
+import { isDragging } from './ui/drag.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, canEditSection, events, login, PREFIX, session, trackLoad } from './core/api.js';
@@ -127,6 +129,7 @@ const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
 
 function showLogin(message) {
   stopCats();
+  stopLiveSync();
   let last = ''; try { last = localStorage.getItem('dca_last_user') || ''; } catch { /* приватный режим */ }
   closeCard();
   const err = h('div', { class: 'form-error', hidden: !message }, message || '');
@@ -489,6 +492,7 @@ function syncCard(section, params) {
 async function showApp() {
   startPrefs(session.user); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
   if (isPipeRole()) startCats(); else stopCats();
+  startLiveSync({ busy: isBusy, onChange: onVersions });
   ui = shell();
   mounted = null; card = null;
   render(current());
@@ -533,6 +537,16 @@ function onDataChanged(e) {
     rowsMixed = false; lastRow = null;
     mounted?.list?.reload?.(row);
   }, 300);
+}
+/** Человек вводит данные или тащит карточку — обновление подождёт (СМ.9). */
+const isBusy = () => isDragging() || !!document.querySelector('.modal-back') || !!card?.handle?.isDirty?.() || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+/** Какие разделы данных показывает экран. */
+const SHOWS = { requests: ['requests', 'stock'], stock: ['stock'], movements: ['stock'], salesorders: ['salesorders', 'money'], orders: ['money'], money: ['money', 'requests'], design: ['design', 'salesorders'], work: ['work', 'salesorders'], products: ['products'], docs: ['passports', 'products'], offers: ['products'] };
+/** Изменились данные у других: экран — если он их показывает, числа в меню — всегда. */
+function onVersions(keys) {
+  const shows = SHOWS[current().section];
+  if (!shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }
+  refreshCounts(new Set([...keys].filter((k) => k !== 'passports' && k !== 'products')));
 }
 window.addEventListener('data-changed', onDataChanged);
 document.addEventListener('dc:changed', onDataChanged);

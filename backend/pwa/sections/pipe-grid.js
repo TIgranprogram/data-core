@@ -33,6 +33,7 @@ export function buildGrid(items) {
   return PIPE_KINDS.map(([kind, title]) => ({ kind, title, rows: [...rows.values()].filter((r) => r.kind === kind).sort(bySize) })).filter((b) => b.rows.length);
 }
 
+const left = (l) => Math.max(0, (l.qty || 0) - (l.issued || 0));
 const rowMeters = (row) => Object.values(row.cells).reduce((s, it) => s + (it.quantity || 0), 0);
 const pieces = (it, c) => (!it ? '' : c.m ? String(Math.round((it.quantity / c.m) * 100) / 100) : String(it.quantity));
 
@@ -91,7 +92,8 @@ function cell(row, c, onSaved) {
     else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); input.blur(); move(input, 0, e.key === 'ArrowDown' ? 1 : -1); }
     else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && input.selectionStart === (e.key === 'ArrowRight' ? input.value.length : 0)) { e.preventDefault(); input.blur(); move(input, e.key === 'ArrowRight' ? 1 : -1, 0); }
   });
-  return h('td', { class: 'pg-c ' + (c.washed == null ? '' : c.washed ? 'k-washed' : 'k-raw') }, input);
+  const held = it?.reservedQty > 0 ? h('div', { class: 'pg-held', title: 'Отложено под бронь' }, `бронь ${qty(it.reservedQty)} м`) : null;
+  return h('td', { class: 'pg-c ' + (c.washed == null ? '' : c.washed ? 'k-washed' : 'k-raw') }, input, held);
 }
 
 function table(block, match) {
@@ -114,13 +116,23 @@ function table(block, match) {
       h('tfoot', null, h('tr', null, h('th', { class: 'pg-name', colspan: cols.length + 1 }, 'Всего, м'), foot))));
 }
 
+/** Брони труб одной таблицей: что, сколько, для чего, кто поставил. */
+function reservedTable(groups, byId) {
+  const rows = groups.flatMap((g) => g.lines.filter((l) => byId.has(l.materialId) && left(l) > 0).map((l) => ({ l, g, it: byId.get(l.materialId) })));
+  if (!rows.length) return null;
+  const pipe = (it) => [facetLabel('pipe', pipeKey(it)), it.washed == null ? '' : it.washed ? 'мытая' : 'не мытая'].filter(Boolean).join(' · ');
+  return h('section', { class: 'pg-block pg-reserved' }, h('h2', { class: 'pg-title' }, `В брони: ${rows.length}`),
+    h('table', { class: 'pg-table' }, h('thead', null, h('tr', null, h('th', { class: 'pg-name' }, 'Труба'), h('th', null, 'Сколько, м'), h('th', { class: 'pg-for' }, 'Для чего'), h('th', { class: 'pg-for' }, 'Поставил'))),
+      h('tbody', null, ...rows.map(({ l, g, it }) => h('tr', null, h('th', { class: 'pg-name', scope: 'row' }, pipe(it)), h('td', { class: 'pg-sum' }, qty(left(l))), h('td', { class: 'pg-for' }, g.salesOrder || g.name), h('td', { class: 'pg-for' }, g.createdBy || ''))))));
+}
+
 export function mountPipeGrid() {
-  let blocks = [], q = '', only = '';
+  let blocks = [], groups = [], byId = new Map(), q = '', only = '';
   const body = h('div', { class: 'pg-body' }, h('p', { class: 'muted' }, 'Загружаю трубы…'));
   const paint = () => {
     const words = q.toLowerCase().replace(/[xх*]/g, '×').split(/\s+/).filter(Boolean);
     const match = (r) => words.every((w) => r.label.toLowerCase().includes(w)) && (!only || (only === 'in' ? rowMeters(r) > 0 : rowMeters(r) === 0));
-    const list = blocks.map((b) => table(b, match)).filter(Boolean);
+    const list = [!q && !only ? reservedTable(groups, byId) : null, ...blocks.map((b) => table(b, match))].filter(Boolean);
     body.replaceChildren(...(list.length ? list : [h('p', { class: 'muted' }, blocks.length ? 'Ничего не найдено. Очистите поиск или фильтр.' : 'Труб на складе пока нет.')]));
   };
   const chip = (value, label) => h('button', { type: 'button', class: 'chip' + (only === value ? ' active' : ''), onclick: () => { only = value; chips.replaceChildren(...chipList()); paint(); } }, label);
@@ -128,13 +140,15 @@ export function mountPipeGrid() {
   const chips = h('div', { class: 'pg-chips' }, ...chipList());
   const search = h('input', { type: 'search', class: 'pg-search', placeholder: '80×80×3', 'aria-label': 'Найти сечение', oninput: (e) => { q = e.target.value.trim(); paint(); } });
   const load = async () => {
-    const r = await api('/stock/items', { query: { limit: 10000, sort: 'name' } });
+    const [r, res] = await Promise.all([api('/stock/items', { query: { limit: 10000, sort: 'name' } }), api('/stock/reservations').catch(() => ({ items: [] }))]);
     blocks = buildGrid(r.items || []);
+    byId = new Map(blocks.flatMap((b) => b.rows.flatMap((row) => Object.values(row.cells))).map((it) => [it.materialId || it.id, it]));
+    groups = res.items || [];
     paint();
   };
   const el = h('div', { class: 'pg' },
     h('div', { class: 'pg-top' }, h('h1', null, 'Трубы'), search, chips, h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => go('movements') }, 'Журнал движений')),
     h('p', { class: 'hint' }, 'Впишите штуки в ячейку и нажмите Enter. Сохраняется сразу.'), body);
   load().catch((e) => toastError(e, 'загрузить трубы'));
-  return { el, reload: () => {}, update: () => {} };
+  return { el, reload: () => load().catch(() => {}), update: () => {} };
 }

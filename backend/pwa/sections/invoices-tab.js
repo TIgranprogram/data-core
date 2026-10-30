@@ -135,8 +135,10 @@ export function mountInvoicesTab(params = {}) {
       const can = pending.includes(x) && canAct && inv.status !== 'draft';
       let cb = null;
       if (can) { cb = h('input', { type: 'checkbox', class: 'invl-cb', checked: true, 'aria-label': 'Принять позицию' }); checks.set(x.id, cb); }
-      const price = x.price ?? x.priceHint;
-      const sum = price > 0 && x.qty > 0 ? money(price * x.qty) : '';
+      // priceHint — сумма по строке, а не цена за штуку (СМ.8)
+      const total = x.price > 0 ? x.price * (x.qty || 0) : Number(x.priceHint) || 0;
+      const price = total > 0 && x.qty > 0 ? total / x.qty : 0;
+      const sum = total > 0 ? money(total) : '';
       const pic = x.photo || x.materialPhoto;
       const open = () => patch({ of: 'requests', open: x.id });
       return h('li', { class: 'q-row' + (pic ? ' has-pic' : ''), tabindex: '0', onclick: (e) => { if (!e.target.closest('input')) open(); }, onkeydown: (e) => { if (e.key === 'Enter') open(); } },

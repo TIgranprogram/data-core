@@ -60,6 +60,12 @@ export class DataVersionService implements OnApplicationBootstrap, OnModuleDestr
     this.timer = setTimeout(() => { this.timer = undefined; this.start(); }, 30000);
   }
 
+  /** Версии разделов для экрана (сумма версий их коллекций); `live: false` — поток не работает, сравнивать нечего. */
+  snapshot(groups: Record<string, readonly string[]>) {
+    const v = Object.fromEntries(Object.entries(groups).map(([k, colls]) => [k, colls.reduce((s, c) => s + (this.ver.get(c) ?? 0), 0)]));
+    return { live: this.live, epoch: this.epoch, v };
+  }
+
   /** Ключ «версии коллекций»; null — кэш выключен. */
   key(colls: readonly string[]): string | null {
     return this.live ? `${this.epoch}:${colls.map((c) => this.ver.get(c) ?? 0).join('.')}` : null;
