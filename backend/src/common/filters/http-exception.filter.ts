@@ -307,6 +307,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorResponse.unmatched = (payload as { unmatched: unknown[] }).unmatched;
     }
 
+    // CC-14: «Разбор» — данные изменились после предпросмотра, в ответе новый предпросмотр (planHash и строки плана)
+    if (typeof payload === 'object' && payload !== null && typeof (payload as { preview?: unknown }).preview === 'object' && (payload as { preview?: unknown }).preview !== null) {
+      errorResponse.preview = (payload as { preview: unknown }).preview;
+    }
+
     // ЧН: код сбоя — пользователь называет его, разработчик находит запись в журнале (docker logs … | grep код)
     const errorId = status >= 500 ? randomBytes(3).toString('hex').toUpperCase() : undefined;
     if (errorId) errorResponse.errorId = errorId;

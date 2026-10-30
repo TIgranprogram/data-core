@@ -36,6 +36,8 @@ export const PERMISSIONS = [
   { key: 'app-data:read', section: 'app-data', action: 'read', description: 'Read app data (/api/apps)' },
   { key: 'app-data:write', section: 'app-data', action: 'write', description: 'Create/edit/soft-delete app data' },
   { key: 'app-data:admin', section: 'app-data', action: 'admin', description: 'Hard-delete app data documents' },
+  /** CC-14: поставить вопрос в «Разбор» (POST /control/questions) — для ключа ИИ-помощника с ПК; читает и отвечает только admin. */
+  { key: 'control:write', section: 'control', action: 'write', description: 'Post questions to the Razbor queue (AI key)' },
 ] as const;
 
 /**

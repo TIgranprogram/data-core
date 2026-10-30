@@ -10040,6 +10040,247 @@
         ]
       }
     },
+    "/control/questions": {
+      "get": {
+        "operationId": "QuestionsController_list",
+        "summary": "Список вопросов: сначала важные и просроченные. Фильтры status (через запятую), severity, type",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "open | executing | done | failed | waiting_agent | snoozed | dismissed | resolved_auto | expired (можно через запятую)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "severity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items:[вопрос], total, page, limit, counts:{статус:число}, types:[{type,title}] }"
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      },
+      "post": {
+        "operationId": "QuestionsController_create",
+        "summary": "Поставить вопрос (ИИ/скрипт с ПК). Лимит: 20 новых в сутки на источник, 200 открытых; сверх — один сводный",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateQuestionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ id, created, overflow }"
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      }
+    },
+    "/control/questions/{id}": {
+      "get": {
+        "operationId": "QuestionsController_get",
+        "summary": "Один вопрос",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      }
+    },
+    "/control/questions/{id}/preview": {
+      "post": {
+        "operationId": "QuestionsController_preview",
+        "summary": "Предпросмотр действия: что изменится и хеш плана (planHash) для подтверждения",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ questionId, optionCode, label, risk, reversible, lines:[текст], planHash }"
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      }
+    },
+    "/control/questions/{id}/answer": {
+      "post": {
+        "operationId": "QuestionsController_answer",
+        "summary": "Ответить: действие (с planHash), «Не проблема», «Отложить» (snoozeUntil), ответ текстом. Другой план — 409 с новым предпросмотром",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Вопрос после ответа"
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      }
+    },
+    "/control/questions/{id}/undo": {
+      "post": {
+        "operationId": "QuestionsController_undo",
+        "summary": "Отменить выполненное действие, если затронутые записи не менялись после него",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      }
+    },
+    "/control/questions/{id}/events": {
+      "get": {
+        "operationId": "QuestionsController_events",
+        "summary": "Журнал вопроса: кто, что и когда",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ id, at, by, kind, before, after, note, data }], total, page, limit }"
+          }
+        },
+        "tags": [
+          "Разбор"
+        ]
+      }
+    },
     "/client-errors": {
       "post": {
         "operationId": "ClientErrorsController_create",
@@ -17045,6 +17286,88 @@
           "red",
           "failed",
           "steps"
+        ]
+      },
+      "CreateQuestionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "merge_partners",
+            "description": "merge_partners | merge_dict_values | restore_trash | free_text"
+          },
+          "sourceName": {
+            "type": "string",
+            "description": "Кто прислал (для лимита 20 в сутки); по умолчанию — имя ключа"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "description": "Параметры типа: fromId/intoId (контрагенты, значения), dict, id, target = partner|dict"
+          },
+          "what": {
+            "type": "string",
+            "description": "Текст вопроса (обязателен для free_text; для остальных типов пишет сервер)"
+          },
+          "need": {
+            "type": "string"
+          },
+          "advice": {
+            "type": "string",
+            "description": "Совет: почему помощник так считает"
+          },
+          "subjectIds": {
+            "description": "Для free_text: что считать «тем же вопросом» (повтор = count++)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "PreviewDto": {
+        "type": "object",
+        "properties": {
+          "optionCode": {
+            "type": "string",
+            "description": "Какой ответ смотреть; по умолчанию — первый с действием"
+          }
+        }
+      },
+      "AnswerDto": {
+        "type": "object",
+        "properties": {
+          "optionCode": {
+            "type": "string"
+          },
+          "planHash": {
+            "type": "string",
+            "description": "Хеш плана из предпросмотра (обязателен для действий)"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "snoozeUntil": {
+            "type": "string",
+            "example": "2026-11-15",
+            "description": "Для «Отложить до даты»"
+          }
+        },
+        "required": [
+          "optionCode"
         ]
       },
       "CreateClientErrorDto": {

@@ -1,6 +1,6 @@
 # Карта роли backend
 
-коммит: 627c9bf (+ HARDEN-1 2026-10-30, не закоммичено)
+коммит: 627c9bf (+ HARDEN-1, CC-14…16 2026-10-31, не закоммичено)
 
 ## Паспорта «воронкой» (ПВ) — где что
 - Дерево/выбор (pure): `backend/src/common/passport/phrase-tree.ts` — `toNode`, `buildForest(nodes, category)`, `resolveChoices`, `missingChoices`, `checkNode` (запись), `checkChoices`, `parseChoices`, `presentForest`. spec рядом.
@@ -98,3 +98,8 @@
 - Склад: `stock-movements.service.ts` `move(…, first)` (clientUid в транзакции, claim отмены), `batch`, `offcut`, `correctMovement`; `stock-reservations.service.ts` (перечитывание брони в tx, clientUid). Снабжение: `supply.service.ts` `receiveRaw`/`update`/`create` (CounterService), `supply-invoice.service.ts:pay`. `shipments.service.ts:create` (tx + clientUid), `payroll.service.ts:addPayment`, `disk.controller.ts` `heavyParts`.
 - Уникальный индекс clientUid на движениях/бронях НЕ создавался (решение: в проде возможны дубли из импорта таблиц — сначала отчёт по дублям).
 - Ловушка: heredoc с обратными кавычками в `bash -c "…"` выполняет их — длинные скрипты писать Write-ом.
+
+## «Разбор» (CC-14…16, 2026-10-31, не закоммичено)
+- `modules/control/questions/`: реестр `question.registry.ts:9` (тип без recheck — ошибка), типы `question.kinds.ts:buildRegistry`, действия `question.actions.ts:buildActions` (partners.merge/dicts.merge/partners.restore/dicts.restore), сбор `question.sources.ts`, дедуп `question.store.ts:upsert`, цикл `questions.service.ts` (`create` лимиты, `answer`/`execute` хеш плана + захват `executing`, `undo` отпечаток `afterHash`), сутки/минута `question.daily.ts`. Вызов — `control.service.ts:tick`. Показатели — `control.collect.ts` (control.*).
+- Право `control:write` (не `control:questions`: схема `permissions.action` — enum read|write|admin); POST — `@Roles('user') @Permissions('control:write')`. Фильтр ошибок пропускает `preview` (`http-exception.filter.ts`). Dict merge — необратим (нет списка затронутых id до вызова).
+- Ловушки: `mongodb` не импортируется напрямую — только `Types.ObjectId` из mongoose; fake-db в spec копирует ObjectId сам (structuredClone ломает). e2e на стенде: `dc stand up`, root-пароль в tools/.night/stand.env (скрипт в scratchpad), stock-scope.e2e под полной нагрузкой иногда краснеет (по одному зелёный).

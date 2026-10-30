@@ -11,6 +11,7 @@ import {
 } from './control.rollup';
 import { runId, runKeepUntil, runMetrics, type RunDoc } from './control.runs';
 import type { ControlRangeQuery, CreateRunDto } from './dto/control.dto';
+import { QuestionsService } from './questions/questions.service';
 
 export const COL_RUNS = 'app_control_runs';
 export const COL_DAILY = 'app_control_daily';
@@ -36,6 +37,7 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     @InjectConnection() private readonly connection: Connection,
     @Optional() private readonly fill?: FillAuditService,
     @Optional() private readonly integrity?: IntegrityService,
+    @Optional() private readonly questions?: QuestionsService,
   ) {}
 
   private get db() { return this.connection.db!; }
@@ -60,11 +62,14 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
 
   /** Раз в минуту: после 23:30 один раз за сутки делаем снимок. Ошибка не роняет сервер. */
   async tick(now = new Date()) {
+    await this.questions?.housekeeping(now).catch((e: Error) => this.log.warn(`«Разбор», ежеминутные дела: ${e.message}`));
     const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const today = ymd(now);
     if (hm < SNAPSHOT_AT || this.doneDay === today || this.busy) return;
     this.busy = true;
     try {
+      // сначала «Разбор» (сбор, проверка), потом снимок: показатели вопросов в нём уже свежие
+      await this.questions?.daily(now).catch((e: Error) => this.log.warn(`«Разбор», суточный сбор: ${e.message}`));
       await this.snapshotDay(now);
       this.doneDay = today;
     } catch (e) { this.log.warn(`снимок дня: ${(e as Error).message}`); } finally { this.busy = false; }

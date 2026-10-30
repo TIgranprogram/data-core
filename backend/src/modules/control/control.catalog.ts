@@ -82,10 +82,10 @@ export const METRICS: readonly MetricDef[] = [
   m('code.files_over_400', 'Файлов длиннее 400 строк', 'code', 'шт', 'none', 'шаг подсчёта в прогоне'),
   m('code.vuln_high', 'Серьёзных уязвимостей', 'code', 'шт', 'none', 'шаг аудита зависимостей'),
 
-  m('control.questions_open', 'Открытых вопросов в «Разборе»', 'control', 'шт', 'none', 'этап 4 — модуль «Разбор»'),
-  m('control.age_median_d', 'Возраст вопроса, типичный', 'control', 'дн', 'none', 'этап 4 — модуль «Разбор»'),
-  m('control.overdue', 'Просроченных вопросов', 'control', 'шт', 'none', 'этап 4 — модуль «Разбор»'),
-  m('control.failed_actions', 'Сбоев кнопок', 'control', 'шт', 'none', 'этап 4 — модуль «Разбор»'),
+  m('control.questions_open', 'Открытых вопросов в «Разборе»', 'control', 'шт', 'now'),
+  m('control.age_median_d', 'Возраст вопроса, типичный', 'control', 'дн', 'now'),
+  m('control.overdue', 'Просроченных вопросов', 'control', 'шт', 'now'),
+  m('control.failed_actions', 'Сбоев кнопок', 'control', 'шт', 'now'),
 ];
 
 export const METRIC_KEYS: readonly string[] = METRICS.map((x) => x.key);

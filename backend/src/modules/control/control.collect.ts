@@ -3,6 +3,9 @@ import path from 'path';
 import type { Connection } from 'mongoose';
 import { dirSize, exists } from '../disk/disk-fs';
 import { DAY_MS, emptyMetrics, type Metrics } from './control.rollup';
+import { median } from './questions/question.rules';
+import { COL_QUESTIONS } from './questions/question.store';
+import { HUMAN_STATUSES } from './questions/question.types';
 import type { LatencySnapshot } from '../../common/interceptors/latency-histogram';
 
 type Db = NonNullable<Connection['db']>;
@@ -71,6 +74,15 @@ export async function collectNow(d: CollectDeps): Promise<Metrics> {
     ['business.stock_moves', () => db.collection('stockmovements').countDocuments({ createdAt: { $gte: since } })],
     ['business.users_active', async () => ((await db.collection('auditlogs').distinct('userId', { createdAt: { $gte: since } })) as unknown[]).length],
     ['business.passports_issued', () => db.collection('productpassports').countDocuments({ ...alive, issuedAt: { $gte: since } })],
+    // «Разбор»: вопросы, которые ждут человека (открытые и со сбоем кнопки)
+    ['control.questions_open', () => db.collection(COL_QUESTIONS).countDocuments({ status: { $in: [...HUMAN_STATUSES] } })],
+    ['control.age_median_d', async () => {
+      const rows = await db.collection(COL_QUESTIONS).find({ status: { $in: [...HUMAN_STATUSES] } }, { projection: { 'seen.first': 1 } }).toArray();
+      const m = median(rows.map((r) => (now.getTime() - (r.seen.first as Date).getTime()) / DAY_MS));
+      return m === null ? null : Math.round(m * 10) / 10;
+    }],
+    ['control.overdue', () => db.collection(COL_QUESTIONS).countDocuments({ status: { $in: [...HUMAN_STATUSES] }, dueAt: { $lt: now } })],
+    ['control.failed_actions', () => db.collection(COL_QUESTIONS).countDocuments({ status: 'failed' })],
     ['storage.db_bytes', async () => {
       const s = await db.stats();
       return Number(s.storageSize ?? 0) + Number(s.indexSize ?? 0);

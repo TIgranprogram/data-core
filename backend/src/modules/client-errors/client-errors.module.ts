@@ -8,5 +8,6 @@ import { ClientErrorsController } from './client-errors.controller';
   imports: [MongooseModule.forFeature([{ name: ClientError.name, schema: ClientErrorSchema }])],
   controllers: [ClientErrorsController],
   providers: [ClientErrorsService],
+  exports: [ClientErrorsService],
 })
 export class ClientErrorsModule {}
