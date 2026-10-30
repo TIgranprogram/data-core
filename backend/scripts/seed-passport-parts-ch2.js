@@ -35,8 +35,8 @@ const NEW_SORTAMENT = [
   // Труба нержавеющая
   { material: 'PIPE_STAINLESS',     name: '∅33,7×3',   incomplete: false },
   // Профильная труба — новые полные размеры
-  { material: 'PIPE_STEEL_PROFILE', name: '20×40×2',   incomplete: false },
-  { material: 'PIPE_STEEL_PROFILE', name: '40×60×2',   incomplete: false },
+  { material: 'PIPE_STEEL_PROFILE', name: '40×20×2',   incomplete: false },
+  { material: 'PIPE_STEEL_PROFILE', name: '60×40×2',   incomplete: false },
   // Профиль 80×80 — неполный (без стенки; 13 паспортов)
   { material: 'PIPE_STEEL_PROFILE', name: '80×80',      incomplete: true },
   // Двутавр / тавр — из текстов «тавр 100×200», «двутавр 100×200»
