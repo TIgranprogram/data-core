@@ -76,7 +76,7 @@ export function normOrder(o) {
 /** Позиция заказа (с задачей или без) → единый вид. */
 export function normLine(l, order) {
   const t = l.task ? normTask({ matched: l.matched ?? l.task.matched ?? null, ...l.task, incomeId: l.incomeId ?? l.id, lineNo: l.seqNo ?? l.lineNo, title: l.task.title ?? l.title, productName: l.productName, sku: l.sku, photo: l.photo }, order) : null;
-  return { matched: l.matched ?? null, incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.seqNo ?? l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
+  return { matched: l.matched ?? null, incomeId: String(l.incomeId ?? l.id ?? ''), lineNo: l.seqNo ?? l.lineNo ?? null, title: clean(l.title) || clean(l.productName) || 'Без названия', qty: l.qty ?? null, unit: l.unit ?? null, productId: l.productId || null, sku: clean(l.sku) || null, photo: l.photo || null, task: t };
 }
 /** Задача (из открытых задач или вложенная в позицию) → вид, который понимают moveTask и карточка. */
 export function normTask(t, order) {

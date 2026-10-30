@@ -488,3 +488,10 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 @container dz (min-width: 680px) { .dz-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 /* Пункты меню «⋯» на телефоне — палец (44 px) */
 @media (max-width: 720px) { .menu button { min-height: 44px; } }
+/* Полоса этапов заявки: пройденное приглушено, текущее — главный акцент */
+.stage-strip { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 6px; font-size: var(--fs-sm); color: var(--muted); }
+.stage-strip li + li::before { content: '›'; margin-right: 6px; color: var(--muted); }
+.stage-strip .is-done { color: var(--text); }
+.stage-strip .is-now { color: var(--primary); font-weight: 600; }
+/* Корзина на телефоне: дата уступает место кнопке «Восстановить» */
+@media (max-width: 720px) { .trash-when { display: none; } }

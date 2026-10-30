@@ -27,7 +27,7 @@ export function mountQueueTab(params) {
   const make = async (r, btn) => {
     if (r.passportId) { go('docs', { tab: 'archive', of: 'passports', open: r.passportId }); return; }
     btn.classList.add('is-busy'); btn.disabled = true;
-    try { await issuePassport({ productId: r.productId, name: r.productName, salesOrderId: r.orderId, orderNo: r.orderNo, customerName: r.customer, incomeId: r.incomeId }); }
+    try { await issuePassport({ productId: r.productId, name: r.productName, salesOrderId: r.orderId, orderNo: r.orderNo, customerName: r.customer, customerTitle: r.title, incomeId: r.incomeId }); }
     catch (e) { toastError(e, 'выпустить паспорт'); } finally { btn.classList.remove('is-busy'); btn.disabled = false; }
   };
   const row = (r) => {

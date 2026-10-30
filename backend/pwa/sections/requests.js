@@ -18,7 +18,7 @@ import { dictNames } from '../ui/dict-options.js';
 import { joinRef, orderLabel, orderOptions, splitRef } from './salesorders.js';
 import { wireFill } from './request-fill.js';
 import { ordersLookup } from '../core/orders-lookup.js';
-import { advance, bulkOrder, invoiceBlock, missingFor, nextStep } from './request-step.js';
+import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
 import { acceptRequests } from './ops.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
@@ -373,7 +373,7 @@ export const requests = {
     editTitle: (r) => 'Заявка — ' + name(r),
     subheading: (r) => [date(r.requestDate || r.createdAt), r.requestedBy && `подал(а): ${r.requestedBy}`].filter(Boolean).join(' · '),
     view: (r) => [
-      ['Статус', h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), ' ', r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
+      ['Статус', h('div', null, stageStrip(r) || badge(SUPPLY_STATUS, supplyKey(r)), r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
       ['Количество', `${qty(r.qty)} ${r.unit || ''}`.trim()],
       ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''],
       ['В каталоге сейчас', session.canMoney && r.catalogCurrentPrice != null

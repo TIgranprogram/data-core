@@ -343,13 +343,6 @@ export const products = {
     photoMain: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [photoId, ...(r.photos || []).map((p) => p.id).filter((x) => x !== photoId)] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
     view: (r, ctx) => [
-      grp('Названия и артикул'),
-      ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name],
-      ['Название в договоре', r.orderName || r.name],
-      grp('Классификация'),
-      ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Название серии', r.series],
-      // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
-      ['Категория паспорта', passportCatView(r, ctx)],
       grp('Статус и цена'),
       ['Статус', STATUS[r.status] || r.status],
       ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
@@ -360,6 +353,13 @@ export const products = {
         session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', style: 'margin-left:.5rem',
           title: 'Скопировать фото из паспорта в карточку изделия — станет «своим»',
           onclick: async () => { await api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [r.photo.id] } }); patch({}); } }, '← своей обложкой') : null)] : null,
+      grp('Названия и артикул'),
+      ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name],
+      ['Название в договоре', r.orderName || r.name],
+      grp('Классификация'),
+      ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Название серии', r.series],
+      // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
+      ['Категория паспорта', passportCatView(r, ctx)],
       grp('Проектирование'),
       ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
       grp('Описание и материалы'),
@@ -370,7 +370,10 @@ export const products = {
       ['Описание', r.description],
       ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
     ],
-    actions: (r) => [...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
+    // главное → связанное → редкое в «⋯» (ПРД.4)
+    actions: (r) => [{ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
+      ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
+      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) },
       ...(session.seesDocs() && r.passports?.items?.[0] ? [{ label: 'Печать паспорта', title: 'Последний выпущенный паспорт этого изделия: PDF и печать', run: async (row) => {
         printDialog(await api(`/passports/${row.passports.items[0].id}`));
       } }] : []),
@@ -378,7 +381,7 @@ export const products = {
       { label: 'Техническое описание', title: 'PDF для заказчика: фото, части, материалы и допуски', run: (row) => openTechSheet(row) },
       ...(session.seesDocs() ? [{ label: 'Паспорт →', title: 'Список паспортов этого изделия', run: (row) => { go('docs', { tab: 'archive', q: row.name }); } }] : []),
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
-      ...(session.canEdit ? [{ label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
+      ...(session.canEdit ? [{ label: 'Присвоить артикул группы', more: true, title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
         const chk = await api(`/showcase/${row.id}/assign-sku`, { method: 'POST', body: {} });
         if (!chk.confirmRequired) { toast(chk.changed ? `Артикул: ${chk.sku}` : `Артикул ${chk.sku} уже по номеру группы`); return; }
         if (!(await confirmDlg('Присвоить новый артикул?', `Сейчас: ${chk.sku || 'нет'}. ${chk.warning || ''}`, { okText: 'Присвоить' }))) return;
@@ -386,14 +389,13 @@ export const products = {
         toast(`Новый артикул: ${res.sku}`); ctx.changed(); ctx.reload();
       } }] : []),
       // копия изделия целиком (поля, фото, настройки паспорта) — быстрый способ сделать похожее; откроется копия
-      ...(session.canEdit ? [{ label: 'Клонировать', title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
+      ...(session.canEdit ? [{ label: 'Клонировать', more: true, title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
         const c = await api(`/showcase/${row.id}/clone`, { method: 'POST' });
         ctx.changed();
         toast('Копия создана — проверьте название, размеры и артикул', { ms: 8000 });
         patch({ open: c.id, of: undefined, new: undefined });
       } }] : []),
-      { label: 'В коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
-      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) }],
+    ],
   },
 
   form: {

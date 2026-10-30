@@ -34,13 +34,15 @@ function linesBlock(row, ctx) {
     return h('li', { class: 'db-prow' },
       l.photo ? h('img', { class: 'db-pic sm', src: PREFIX + l.photo, alt: '', loading: 'lazy' }) : h('span', { class: 'db-pic sm none' }),
       h('div', { class: 'db-pmain' },
-        h('div', { class: 't-title' }, ((l.seqNo ?? l.lineNo) != null ? `поз. ${l.seqNo ?? l.lineNo} · ` : '') + l.title),
-        h('div', { class: 't-sub' }, [l.sku && '№ ' + l.sku, t?.assignee?.name].filter(Boolean).join(' · ')),
-        h('div', { class: 'db-pstate' }, t ? [badge(DESIGN_STATUS, t.status), ' ', h('a', { href: '#design?open=' + t.id, title: 'Открыть изделие справа' }, 'Открыть')] : h('span', { class: 'muted' }, 'ещё не взято')),
+        h('div', { class: 't-title' }, t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть изделие справа' }, lineTitle(l)) : lineTitle(l)),
+        h('div', { class: 't-sub' }, [l.sku && '№ ' + l.sku, l.qty != null && `${qty(l.qty)} ${l.unit || ''}`.trim(), t?.assignee?.name].filter(Boolean).join(' · ')),
+        h('div', { class: 'db-pstate' }, t ? badge(DESIGN_STATUS, t.status) : h('span', { class: 'muted' }, 'ещё не взято')),
         acts.length ? h('div', { class: 'db-pacts' }, acts) : null));
   });
   return block('Изделия к проектированию', true, rows.length ? h('ul', { class: 'db-plist' }, rows) : h('div', { class: 'db-hint' }, 'В заказе нет позиций.'));
 }
+
+const lineTitle = (l) => ((l.seqNo ?? l.lineNo) != null ? `поз. ${l.seqNo ?? l.lineNo} · ` : '') + l.title;
 
 function progressBlock(row) {
   const c = row.counts;

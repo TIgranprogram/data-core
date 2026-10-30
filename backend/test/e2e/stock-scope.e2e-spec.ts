@@ -2,6 +2,7 @@ import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
+import { signConfirmToken } from '../../src/common/confirm-token';
 
 /** СМ.4 — склад по роли: roles.stockCategoryIds режет чтение и запись склада; пусто — весь склад. */
 describe('Склад по роли (СМ.4)', () => {
@@ -82,7 +83,10 @@ describe('Склад по роли (СМ.4)', () => {
   it('PATCH и DELETE позиции: чужая — 403', async () => {
     const a = as(tokA);
     await http().patch(`/api/stock/items/${itemB}`).set(a).send({ note: 'x' }).expect(403);
-    await http().delete(`/api/stock/items/${itemB}`).set(a).expect((r) => { if (r.status !== 403) throw new Error(`ожидался 403, пришёл ${r.status}`); });
+    // токен подтверждения снимает проверку пароля: 403 ниже — именно отказ по роли
+    const me = (await http().get('/api/auth/me').set(a).expect(200)).body;
+    const denied = await http().delete(`/api/stock/items/${itemB}`).set(a).set('x-confirm-token', signConfirmToken(me.id)).expect(403);
+    expect(JSON.stringify(denied.body)).not.toContain('CONFIRM_REQUIRED');
     await http().patch(`/api/stock/items/${itemA}`).set(a).send({ note: 'своя' }).expect(200);
   });
 

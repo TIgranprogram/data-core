@@ -28,10 +28,12 @@ export function productBlock(api, { r, catBy }) {
     if (!chosen) return;
     const cat = V2_CATS.find((c) => c.value === api.get('passportCategory'))?.label;
     const text = [cat, dims({ height: api.get('height'), length: api.get('length'), width: api.get('width') }), api.get('weight') && api.get('weight') + ' кг'].filter(Boolean).join(' · ');
-    const note = [];
+    // ПНЗ.1: паспорт из заказа — название как в заказе; видно, откуда оно, и можно взять наше
+    const fromOrder = !r && st.keepName && api.get('name') === st.keepName && st.keepName !== chosen.name;
     paintBadge();
     sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'править в изделии'),
-      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'));
+      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'),
+      fromOrder ? h('div', null, 'Название — как в заказе · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.set('name', chosen.name); paintSum(); } }, 'взять из изделия')) : null);
   };
   // источник категории — плашка рядом с выбором «Категория паспорта»
   const badge = h('div', { class: 'pp-cat-src' });

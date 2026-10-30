@@ -19,6 +19,15 @@ import { canContract, contractField, contractView, showWarnings } from './contra
  * Заказ идёт через счёт: POST /supply/invoices {requestIds}.
  */
 const text = (v) => !!String(v ?? '').trim();
+
+const STAGES = ['requested', 'ordered', 'paid', 'received'];
+/** Полоса этапов заявки в правой панели; «Ожидает» и «Отменено» вне цепочки — полосы нет. */
+export function stageStrip(r) {
+  const now = STAGES.indexOf(supplyKey(r));
+  if (now < 0) return null;
+  return h('ol', { class: 'stage-strip', 'aria-label': 'Этапы заявки' }, STAGES.map((k, i) => h('li', { class: i === now ? 'is-now' : i < now ? 'is-done' : '', 'aria-current': i === now ? 'step' : undefined }, SUPPLY_STATUS[k].label)));
+}
+
 export const GATES = [
   { to: 'ordered', fields: [
     { key: 'supplierName', label: 'Поставщик', ok: (r) => !!r.supplierId || text(r.supplierName) },
@@ -116,6 +125,7 @@ export const reqStep = {
     startEdit: (r) => r._to === 'paid' || (r._miss || []).length > 0,
     view: () => [],
     extra: (r, ctx) => h('div', null,
+      stageStrip(r),
       h('p', { class: 'hint' }, (r._miss || []).length ? 'Заполните поля и нажмите «Сохранить и перевести».' : 'Всё заполнено — можно переводить.'),
       (r._miss || []).length || !r._to ? null : h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
         if (r._to === 'ordered') await api('/supply/invoices', { method: 'POST', body: { requestIds: [r.id] } });

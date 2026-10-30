@@ -43,8 +43,8 @@ export function mountTrash() {
   function block(src) {
     const body = h('tbody', null, h('tr', null, busyBlock('', { tag: 'td', cls: 'muted' })));
     const panel = h('div', { class: 'panel' }, h('h3', null, src.title),
-      h('div', { class: 'table-wrap', style: { display: 'block' } }, h('table', { class: 'list' },
-        h('thead', null, h('tr', null, h('th', null, 'Запись'), h('th', null, 'Удалено'), h('th', null, ''))), body)));
+      h('div', { class: 'table-wrap', style: { display: 'block' } }, h('table', { class: 'list', style: { tableLayout: 'fixed' } }, // длинное название переносится, кнопка всегда видна
+        h('thead', null, h('tr', null, h('th', null, 'Запись'), h('th', { class: 'trash-when', style: { width: '150px' } }, 'Удалено'), h('th', { style: { width: '150px' } }, ''))), body)));
     api(src.path, { query: { deleted: 1, sort: '-deletedAt', limit: 100 } }).then((r) => {
       if (!r.items.length) { body.replaceChildren(h('tr', null, h('td', { class: 'muted', colspan: 3 }, 'Корзина пуста. Удалённое хранится здесь, его можно вернуть.'))); return; }
       body.replaceChildren(...r.items.map((row) => {
@@ -53,8 +53,8 @@ export function mountTrash() {
           e.currentTarget.disabled = true;
           try { const go = () => src.section.remove.restore(row); if (src.section.remove.password) { if ((await withConfirm(go, { text: 'Восстановление требует вашего пароля.' })) === null) { e.target.disabled = false; return; } } else await go(); toast('Восстановлено'); load(); } catch (ex) { toastError(ex); e.target.disabled = false; }
         } }, 'Восстановить') : null;
-        return h('tr', { class: 'static' }, h('td', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
-          h('td', { class: 'num' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));
+        return h('tr', { class: 'static' }, h('td', { style: { whiteSpace: 'normal', overflowWrap: 'anywhere' } }, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
+          h('td', { class: 'num trash-when' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));
       }));
     }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, failBlock(e, load)))));
     return panel;
