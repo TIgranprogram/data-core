@@ -40,7 +40,7 @@ describe('справочник «Формы оплаты» и цвета (SPR-2)
     const names = (await d.candidates!(db)).map((c) => c.name);
     expect(names).toEqual(expect.arrayContaining(['б/р', 'нал', 'карта']));
     expect(await d.reassign(db, doc, { _id: new Types.ObjectId(), name: 'б/р 30 %' })).toBe(1);
-    expect(updateMany.mock.calls[0][0]).toBe('incomes');
+    expect(updateMany.mock.calls.map((c) => c[0])).toEqual(['salesorders', 'incomes']);
   });
 
   it('colors: «используется» суммирует склад, позиции заказов и заявки', async () => {

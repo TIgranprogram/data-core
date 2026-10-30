@@ -216,7 +216,11 @@ function paymentFormsList(): DictBase {
       const [rows, total] = await Promise.all([db.collection('incomes').find(q).sort({ _id: -1 }).limit(15).project({ orderNo: 1, title: 1, orderId: 1 }).toArray(), db.collection('incomes').countDocuments(q)]);
       return { title: 'Позиции заказов', total, items: rows.map((r) => ({ label: `${s(r.orderNo)} ${s(r.title)}`.trim(), href: '#orders?open=' + String(r.orderId ?? r._id) })) };
     },
-    reassign: async (db, from, to) => (await db.collection('incomes').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), updatedAt: new Date() } })).modifiedCount,
+    // шапка заказа — истина, строки — её кэш: меняем обе, иначе деньги и заказ расходятся
+    reassign: async (db, from, to) => {
+      await db.collection('salesorders').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), editedInApp: true, updatedAt: new Date() } });
+      return (await db.collection('incomes').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), updatedAt: new Date() } })).modifiedCount;
+    },
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
       for (const v of PAYMENT_FORMS) add(found, v, 0, 'обычные');

@@ -49,12 +49,13 @@ describe('справочники: каскад переименования (ref
     expect(r.moved).toBe(6);
   });
 
-  it('формы оплаты: incomes.paymentForm', async () => {
+  it('формы оплаты: шапка заказа и строки', async () => {
     const id = oid();
     const { svc, calls } = fake({ dict_values: [{ _id: id, dict: 'paymentForms', name: 'б/р 30%' }] });
     await svc.update('paymentForms', String(id), { name: 'безнал 30%' });
-    expect(cascade(calls).map((c) => c.coll)).toEqual(['incomes']);
+    expect(cascade(calls).map((c) => c.coll)).toEqual(['salesorders', 'incomes']);
     expect(setOf(cascade(calls)[0]).paymentForm).toBe('безнал 30%');
+    expect(setOf(cascade(calls)[1]).paymentForm).toBe('безнал 30%');
     expect(calls[calls.length - 1]).toMatchObject({ coll: 'dict_values', op: 'updateOne' });
   });
 
