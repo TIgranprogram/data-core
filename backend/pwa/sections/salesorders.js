@@ -214,7 +214,7 @@ function orderPassports(r) {
   api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
     const items = (d.items || []).filter((p) => p.status !== 'annulled');
     const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
-    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Выпустить паспорт» в позиции заказа');
+    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Нужно сделать паспорт»');
   }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
   return h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Паспорта'), val);
 }

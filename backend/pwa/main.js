@@ -187,7 +187,6 @@ function shell() {
   // SK-8b: только разделы, отмеченные у роли (нет отметок — все, как раньше)
   navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, label, ico)]));
   const group = (title, ...links) => (links.some(Boolean) ? [h('div', { class: 'side-group' }, title), ...links] : null);
-  const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
   let gsb;
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
   // ПО.1: стёрли строку — назад на экран, с которого начали искать (без новой записи истории); 1 знак — не ищем
@@ -255,6 +254,7 @@ function settingsButton() {
     onclick: () => {
       if (isOpenFor(btn)) { closePopMenu(); return; }
       shellEl.classList.remove('nav-open');
+      const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
       const nav = (id) => ({ label: id === 'dicts' ? 'Справочники' : id === 'trash' ? 'Корзина' : 'История', icon: id, href: '#' + id });
       const sys = [session.role === 'admin' ? { label: 'Администрирование', icon: 'admin', href: PREFIX + '/admin/' } : null,
         PREFIX ? { label: 'CRM', icon: 'crm', href: '/' } : null].filter(Boolean);
@@ -382,7 +382,7 @@ function render(c) {
       const el = h('div', { class: 'panel' });
       const handle = sec.mount(el, { params, setTitle: (t) => { if (ui.heading) ui.heading.textContent = t; } });
       list = { ...(handle || {}), el }; // mount может вернуть { update(params), destroy() }
-    } else if (sec) {
+    } else if (sec?.list) { // «Сопоставление»: sec — только правая панель, экран — mountMatchingQueue ниже
       list = mountList(sec, params, {
         onOpen: (row) => openRecord(section, row.id),
         onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),

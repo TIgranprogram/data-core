@@ -59,7 +59,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
   const pager = h('div', { class: 'do-pager' });
   const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search, chips),
     h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, h('span', { class: 'badge ' + x.cls }, x.label), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
-      h('span', { class: 'muted' }, 'Новый паспорт выпускается из заказа.')), list, pager);
+      h('span', { class: 'muted' }, 'Новый паспорт: вкладка «Нужно сделать паспорт» или «Паспорта».')), list, pager);
   let timer = 0, seq = 0;
 
   const drawChips = () => chips.replaceChildren(...[['', 'Все'], ...Object.entries(READINESS).map(([k, s]) => [k, s.label])].map(([k, label]) =>
@@ -107,7 +107,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
     drawChips();
     const items = data?.items || [];
     list.replaceChildren(...(items.length ? items.map(group) : [h('p', { class: 'muted' },
-      state.search || state.readiness ? 'Ничего не найдено — снимите фильтр или поиск.' : 'Паспортов к заказам ещё нет. Откройте позицию заказа и нажмите «Выпустить паспорт» — он появится здесь.')]));
+      state.search || state.readiness ? 'Ничего не найдено — снимите фильтр или поиск.' : 'Паспортов к заказам ещё нет. Выпустите паспорт на вкладке «Нужно сделать паспорт» — он появится здесь.')]));
     const pages = Math.max(1, Math.ceil((data?.total || 0) / limit));
     pager.replaceChildren(...(pages > 1 ? [
       h('button', { class: 'btn btn-sm', type: 'button', disabled: state.page <= 1, onclick: () => { state.page--; load(); } }, '← Назад'),

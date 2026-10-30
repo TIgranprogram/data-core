@@ -604,7 +604,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     el,
     update,
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
-    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); return st().board && board ? (row ? board.reloadFor(row) : board.reload()) : load(); },
+    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load(); },
     focusSearch: () => sb.focus(),
     destroy: () => document.removeEventListener('keydown', onKey),
   };

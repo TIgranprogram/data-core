@@ -157,7 +157,7 @@ function compositionBlock(r) {
 // «Паспорта» (БЗ-5): выпущенные паспорта этого изделия — по ссылке или по названию
 function passportsBlock(r) {
   const p = r.passports;
-  if (!p?.total) return h('p', { class: 'muted' }, 'Паспортов пока нет — «Выпустить паспорт» в действиях карточки');
+  if (!p?.total) return h('p', { class: 'muted' }, 'Паспортов пока нет — «Документация → Паспорта» → изделие → «Выпустить паспорт»');
   return h('div', null, h('div', { class: 'section-title' }, `Паспорта (${p.total})`),
     h('ul', { class: 'timeline' }, ...p.items.map((x) => h('li', null,
       h('a', { href: '#passports?open=' + x.id }, `№ ${x.passportNumber || '—'}`),

@@ -43,7 +43,7 @@ export const doctpl = {
     // ПН: полоска номеров во вкладке «Паспорта»
     headActions: () => [numbersStrip()],
     emptyText: 'Изделий пока нет.', emptyHint: 'Сначала добавьте их в разделе «Продукция».',
-    hints: { '': 'У каждого изделия свой шаблон паспорта: категория и выбранные тексты (монтаж, назначение…). Клик — открыть и поправить; «Выпустить паспорт» в «Продукции» и в заказе подставит его.' },
+    hints: { '': 'У каждого изделия свой шаблон паспорта: категория и выбранные тексты (монтаж, назначение…). Клик — открыть, поправить и нажать «Выпустить паспорт»: шаблон подставится в паспорт.' },
     columns: [
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
       { key: 'name', label: 'Изделие', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
@@ -89,7 +89,7 @@ export const doctpl = {
       const fb = funnelBox({ value: JSON.stringify(r.passportDefaults?.textChoices || {}), category: sel.value, canEditText: canEditTexts() });
       sel.addEventListener('change', () => fb.setCategory(sel.value));
       const el = h('div', { class: 'form-grid' },
-        h('p', { class: 'hint wide' }, `Шаблон паспорта изделия «${r.name}». Он подставляется, когда вы выпускаете паспорт из «Продукции» или из заказа; выданные паспорта не меняются.`),
+        h('p', { class: 'hint wide' }, `Шаблон паспорта изделия «${r.name}». Он подставляется, когда вы выпускаете паспорт; выданные паспорта не меняются.`),
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,
           h('div', { class: 'hint' }, 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже.')),
         h('div', { class: 'field wide' }, h('span', null, 'Тексты паспорта — выбор (монтаж, назначение…)'), fb.el));
@@ -124,8 +124,8 @@ export const passarchive = {
     ...passports.list,
     createLabel: false,
     bulk: undefined,
-    emptyText: 'Паспортов пока нет — они появятся здесь, когда вы выпустите паспорт из «Продукции» или заказа.',
-    hints: { ...passports.list.hints, '': 'Журнал паспортов: выпущенные здесь и перенесённые старые. Клик — карточка, «⇩ PDF и печать…». Новый паспорт выпускается из изделия («Продукция» или заказ).' },
+    emptyText: 'Паспортов пока нет — они появятся здесь, когда вы выпустите паспорт на вкладке «Паспорта» или «Нужно сделать паспорт».',
+    hints: { ...passports.list.hints, '': 'Журнал паспортов: выпущенные здесь и перенесённые старые. Клик — карточка, «⇩ PDF и печать…». Новый паспорт выпускается на вкладке «Паспорта» или «Нужно сделать паспорт».' },
     columns: passports.list.columns.map((c) => (c.key === 'status'
       ? { ...c, render: (r) => h('span', null, c.render(r), oldBadge(r) ? ' ' : null, oldBadge(r)) } : c)),
   },
