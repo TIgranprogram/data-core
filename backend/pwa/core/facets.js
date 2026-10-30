@@ -85,6 +85,6 @@ export function facetValues(items, key) {
   const m = new Map();
   for (const it of items) { const v = it._f[key]; if (v) m.set(v, (m.get(v) || 0) + 1); }
   const num = (v) => parseFloat(String(v).replace(/^M/, ''));
-  if (key === 'pipe' || key === 'section') return [...m].sort((a, b) => bySize(a[0].split('|')[1] ?? a[0], b[0].split('|')[1] ?? b[0]) || (pipeParts(a[0]).len || 0) - (pipeParts(b[0]).len || 0));
+  if (key === 'pipe' || key === 'section') return [...m].sort((a, b) => bySize(a[0].split('|')[1] ?? a[0], b[0].split('|')[1] ?? b[0]) || (pipeParts(a[0]).len || 1e9) - (pipeParts(b[0]).len || 1e9));
   return [...m].sort((a, b) => (key === 'type' ? b[1] - a[1] || a[0].localeCompare(b[0], 'ru') : num(a[0]) - num(b[0]) || a[0].localeCompare(b[0])));
 }

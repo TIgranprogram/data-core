@@ -38,8 +38,7 @@ const FN = {};         // имя функции монтирования -> фу
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
-  stock: [() => import('./sections/stock.js'), [['stock','stock']]],
-  pipegrid: [() => import('./sections/pipe-grid.js'), [['@mountPipeGrid','mountPipeGrid']]],
+  stock: [() => import('./sections/stock.js'), [['stock','stock'], ['@mountPipeGrid','mountPipeGrid']]],
   movements: [() => import('./sections/movements.js'), [['movements','movements']]],
   orders: [() => import('./sections/orders.js'), [['orders','orders'],['incpay','incPay'],['incprice','incPrice']]],
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],

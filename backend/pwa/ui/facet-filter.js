@@ -108,13 +108,18 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
  */
 /** Кнопки вместо списка: мойка и трубы по видам, цвет — группа. */
 function chipsOf(key, vals, label, set) {
-  const chip = ([v, n], cls) => h('label', { class: 'ff-check ff-chip ' + cls },
-    h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, facetLabel(key, v)), h('b', { class: 'ff-cn' }, String(n)));
-  const row = (list, cls) => h('div', { class: 'ff-chips', role: 'radiogroup', 'aria-label': label }, ...list.map((x) => chip(x, cls)));
-  if (key === 'wash') return h('div', { class: 'ff-chips', role: 'radiogroup', 'aria-label': label }, ...vals.map((x) => chip(x, x[0] === 'Мытая' ? 'k-washed' : 'k-raw')));
+  const chip = ([v, n]) => {
+    const text = facetLabel(key, v);
+    const cut = key === 'pipe' ? text.lastIndexOf(' ') : -1;
+    return h('label', { class: 'ff-check ff-chip' },
+      h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }),
+      h('span', { class: 'ff-cv' }, cut > 0 ? [h('span', { class: 'ff-sec' }, text.slice(0, cut)), h('span', { class: 'ff-len' }, text.slice(cut + 1))] : text), h('b', { class: 'ff-cn' }, String(n)));
+  };
+  const grid = (list) => h('div', { class: 'ff-grid', role: 'radiogroup', 'aria-label': label }, ...list.map(chip));
+  if (key === 'wash') return h('div', { class: 'ff-grid' }, ...vals.map((x) => h('div', { class: 'ff-grid1 ' + (x[0] === 'Мытая' ? 'k-washed' : 'k-raw') }, chip(x))));
   return h('div', null, ...PIPE_KINDS.flatMap(([kind, title]) => {
     const list = vals.filter(([v]) => pipeParts(v).kind === kind);
-    return list.length ? [h('div', { class: 'ff-sub k-' + kind }, title), row(list, 'k-' + kind)] : [];
+    return list.length ? [h('div', { class: 'k-' + kind }, h('div', { class: 'ff-sub' }, title), grid(list))] : [];
   }));
 }
 
