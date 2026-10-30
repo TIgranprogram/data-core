@@ -19,6 +19,7 @@ import { joinRef, orderLabel, orderOptions, splitRef } from './salesorders.js';
 import { wireFill } from './request-fill.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep } from './request-step.js';
+import { acceptRequests } from './ops.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
@@ -312,7 +313,14 @@ export const requests = {
       received: 'Получено и принято на склад. Делать ничего не нужно.',
       cancelled: 'Отменённые заявки — в расчёты не идут.',
     },
-    bulk: { always: true, label: 'Заказал у поставщика', can: (r) => supplyKey(r) === 'requested' && session.canEdit, open: (ids, { done, rows }) => { bulkOrder(rows).then((n) => { if (n) done(); }); } }, // флажки в таблице, как на доске
+    // флажки в таблице, как на доске: отмечаем «Заказать» или оплаченное; смешанный выбор не разрешён — действие у строк одно
+    bulk: { always: true, can: (r) => ['requested', 'paid'].includes(supplyKey(r)) && session.canEdit,
+      disabled: (rows) => new Set(rows.map(supplyKey)).size > 1,
+      label: (rows) => (new Set(rows.map(supplyKey)).size > 1 ? 'Отметьте один статус: «Заказать» или «Оплачено»' : rows.every((r) => supplyKey(r) === 'paid') ? 'Принять на склад' : 'Заказал у поставщика'),
+      open: (ids, { done, rows }) => {
+        const paid = rows.filter((r) => supplyKey(r) === 'paid');
+        (paid.length ? acceptRequests(`Принять на склад: ${paid.length}`, paid) : bulkOrder(rows)).then((n) => { if (n) done(); });
+      } },
     rowAction: (r) => {
       const k = supplyKey(r);
       const st = nextStep(r);

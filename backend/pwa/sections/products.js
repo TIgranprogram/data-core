@@ -11,6 +11,7 @@ import { setCompositionTarget } from './composition.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 import { printDialog } from './passports/dialogs.js';
+import { openTechSheet } from './tech-sheet.js';
 import { openBulk } from './bulk-edit.js';
 import { dictNames } from '../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-spec.js';
@@ -374,6 +375,7 @@ export const products = {
         printDialog(await api(`/passports/${row.passports.items[0].id}`));
       } }] : []),
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js (панель паспорта)
+      { label: 'Техническое описание', title: 'PDF для заказчика: фото, части, материалы и допуски', run: (row) => openTechSheet(row) },
       ...(session.seesDocs() ? [{ label: 'Паспорт →', title: 'Список паспортов этого изделия', run: (row) => { go('docs', { tab: 'archive', q: row.name }); } }] : []),
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
       ...(session.canEdit ? [{ label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {

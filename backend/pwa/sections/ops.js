@@ -29,9 +29,17 @@ export function arrivalsBlock(onDone) {
         h('button', { class: 'btn btn-sm', type: 'button', onclick: () => acceptGroup(key, rs) }, 'Принять…')))));
   }
   async function acceptGroup(key, rs) {
+    if (await acceptRequests('Приёмка: ' + key, rs)) { await load(); onDone(); }
+  }
+  box.hidden = true;
+  return { el: box, load };
+}
+
+/** Принять несколько заявок разом: галочка — приехало, количество правится. Возвращает, сколько принято. */
+export async function acceptRequests(title, rs) {
     const rows = rs.map((r) => ({ r, on: h('input', { type: 'checkbox', checked: true }), q: h('input', { inputmode: 'decimal', value: String(r.qty ?? ''), class: 'ops-arr-q' }) }));
     const done = await modal({
-      title: 'Приёмка: ' + key,
+      title,
       okText: 'Принять отмеченное',
       body: h('div', null,
         h('p', { class: 'hint' }, 'Снимите галочку с того, что не приехало; поправьте количество, если пришло меньше. Отмеченное поступит на склад, заявки станут «Получено».'),
@@ -51,8 +59,6 @@ export function arrivalsBlock(onDone) {
         return ok;
       },
     });
-    if (done) { toast(`Принято на склад: ${done} ${plural(done, 'позиция', 'позиции', 'позиций')}`); await load(); onDone(); }
-  }
-  box.hidden = true;
-  return { el: box, load };
+    if (done) toast(`Принято на склад: ${done} ${plural(done, 'позиция', 'позиции', 'позиций')}`);
+    return done || 0;
 }

@@ -1,3 +1,6 @@
+import sharp from 'sharp';
+import { safeUploadPath } from '../../common/uploads/safe-path';
+import { renderTechSheetPdf } from './tech-sheet-pdf';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection } from '@nestjs/mongoose';
@@ -194,6 +197,17 @@ export class ShowcaseService {
   }
 
   /** Карточка изделия. SK-8d: see.* = false (раздел закрыт для роли) — «в заказах» (salesorders) и паспорта (passports) пустые. */
+  /** Техническое описание: строки приходят из окна, фото — главное фото изделия. */
+  async techSheet(id: string, b: { title?: string; rows?: { name?: string; text?: string }[] }) {
+    const p = await this.get(id);
+    const rows = (b?.rows ?? []).slice(0, 100).map((r) => ({ name: String(r?.name ?? '').slice(0, 200), text: String(r?.text ?? '').slice(0, 2000) })).filter((r) => r.name || r.text);
+    if (!rows.length) throw new BadRequestException('Добавьте хотя бы одну строку');
+    const path = p.photo?.url ? safeUploadPath(p.photo.url) : null;
+    const photo = path ? await sharp(path).flatten({ background: '#ffffff' }).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer().catch(() => null) : null;
+    const title = String(b?.title || p.name).slice(0, 300);
+    return { buf: await renderTechSheetPdf({ title, rows, photo }), filename: `ТО ${title.replace(/[^p{L}p{N} ._-]+/gu, ' ').trim()}.pdf` };
+  }
+
   async get(id: string, see: { salesorders?: boolean; passports?: boolean } = {}) {
     const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') });
     if (!d) throw new NotFoundException('Изделие не найдено');

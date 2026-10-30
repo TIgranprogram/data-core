@@ -500,6 +500,11 @@ html { scrollbar-gutter: stable; }
 .pg-reserved > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .pg-table .pg-for { padding: 0 var(--s3); text-align: left; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 720px) { .pg-block { --pg-h1: 40px; } .pg-table .pg-name { width: 110px; font-size: 16px; } .pg-in, .pg-sum { font-size: 16px; } .pg-sum { width: 80px; } }
+/* Окно «Техническое описание» */
+.ts-rows { display: grid; gap: var(--s2); margin: var(--s1) 0 var(--s2); }
+.ts-head { margin-top: var(--s3); font-size: var(--fs-label); font-weight: 600; color: var(--muted); }
+.ts-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto; gap: var(--s2); align-items: start; }
+@media (max-width: 720px) { .ts-head { display: none; } .ts-row { grid-template-columns: 1fr auto; } .ts-row textarea { grid-column: 1 / -1; grid-row: 2; } }
 /* Выбор позиции: сначала категория */
 .sop-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--s2); }
 .sop-pick select, .sop-pick-in input { width: 100%; }

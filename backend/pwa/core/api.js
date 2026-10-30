@@ -139,12 +139,13 @@ async function errorOf(res) {
 export async function apiFile(path, opts = {}) {
   return fileGet(path, opts).catch((e) => failed(e, path, 'GET'));
 }
-async function fileGet(path, { query, fallback = 'file', timeout = 180000 } = {}) {
+async function fileGet(path, { query, fallback = 'file', timeout = 180000, method, body } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
-  let res = await raw(path + qs, { timeout }, session.access);
+  const init = { timeout, ...(method ? { method, body } : {}) };
+  let res = await raw(path + qs, init, session.access);
   if (res.status === 401 && session.refresh) {
     try { await refreshAccess(); } catch (e) { if (e instanceof AuthError) events.onAuthLost(); throw e; }
-    res = await raw(path + qs, { timeout }, session.access);
+    res = await raw(path + qs, init, session.access);
   }
   if (!res.ok) throw await errorOf(res);
   const cd = res.headers.get('content-disposition') || '';

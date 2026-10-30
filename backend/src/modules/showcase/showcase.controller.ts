@@ -1,8 +1,9 @@
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CounterModule } from '../counter/counter.module';
@@ -91,6 +92,17 @@ export class ShowcaseController {
   get(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
     const open = openSectionsFor(user);
     return this.s.get(id, { salesorders: sectionOpen(open, 'salesorders'), passports: sectionOpen(open, 'passports') });
+  }
+
+  /** Техническое описание: PDF по строкам из окна, ничего не хранит. */
+  @AppSection('products', 'passports')
+  @Post(':id/tech-sheet')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user')
+  async techSheet(@Param('id') id: string, @Body() b: { title?: string; rows?: { name?: string; text?: string }[] }, @Res({ passthrough: true }) res: Response) {
+    const r = await this.s.techSheet(id, b);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="tech-sheet.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
+    return new StreamableFile(r.buf);
   }
 
   /**
