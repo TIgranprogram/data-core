@@ -65,9 +65,9 @@ e2e без root-пароля: Mongo-пользователь `datacoretest` (rea
 
 ## 4. Если изменился контракт API — openapi
 
-```bash
 В Git Bash на Windows перед обеими командами — `MSYS_NO_PATHCONV=1`: иначе путь `/app/openapi.json` искажается и файл не находится.
 
+```bash
 docker compose exec backend node dist/src/export-openapi.js /app/openapi.json
 docker compose cp backend:/app/openapi.json docs/openapi.json
 ```
