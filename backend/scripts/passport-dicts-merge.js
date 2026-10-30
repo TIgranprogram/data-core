@@ -5,7 +5,7 @@
  *   node scripts/passport-dicts-merge.js <local|prod> --apply --out откат.json - запись
  * Только через deploy/synology/api.sh: объединение как кнопка «Объединить» в приложении, ссылки изделий и черновиков
  * переходят на оставшуюся запись, выпущенные паспорта не меняются, дубль — в корзину.
- * Сортамент: запятая, «×», «∅», большая сторона первой (AUDIT-PASSPORT-PARTS §4.2). Части, которых нет, пропускаются.
+ * Сортамент: запятая, «×», «∅»; большая сторона первой — только у профильной трубы (у доски «толщина × ширина», у балок свой порядок). Части, которых нет, пропускаются.
  */
 const fs = require('fs');
 const os = require('os');
@@ -22,13 +22,13 @@ const API_SH = path.join(__dirname, '../../deploy/synology/api.sh').split(path.s
 // дубль → оставшаяся запись; null — удалить как мусор
 const PARTS = [['наполнение', null], ['фланец', 'Опорная пятка'], ['Фланцы', 'Опорная пятка'], ['Рама', 'Несущая рама'], ['Рукоять', 'Ручка']];
 
-/** Единое написание размера: «∅33.5х2.8» → «∅33,5×2,8», «40×80×2» → «80×40×2». */
-function canon(name) {
+/** Единое написание размера: «∅33.5х2.8» → «∅33,5×2,8»; у профиля «40×80×2» → «80×40×2». */
+function canon(name, material = '') {
   const s = String(name).trim().replace(/\s+/g, '').replace(/\./g, ',').replace(/[xхX*]/gi, '×').replace(/^[øØ⌀dD]/, '∅');
   const round = s.startsWith('∅');
   const p = s.replace(/^∅/, '').split('×');
   const n = (v) => Number(v.replace(',', '.'));
-  if (!round && p.length >= 2 && p.slice(0, 2).every((v) => Number.isFinite(n(v))) && n(p[0]) < n(p[1])) [p[0], p[1]] = [p[1], p[0]];
+  if (!round && /PROFILE/.test(material) && p.length >= 2 && p.slice(0, 2).every((v) => Number.isFinite(n(v))) && n(p[0]) < n(p[1])) [p[0], p[1]] = [p[1], p[0]];
   return (round ? '∅' : '') + p.join('×');
 }
 
@@ -51,7 +51,7 @@ function planParts(items, pairs = PARTS) {
 function planSortament(items) {
   const groups = new Map();
   for (const d of items) {
-    const k = `${d.material || ''}|${canon(d.name)}`;
+    const k = `${d.material || ''}|${canon(d.name, d.material)}`;
     groups.set(k, [...(groups.get(k) || []), d]);
   }
   const merge = [], rename = [];
