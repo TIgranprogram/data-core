@@ -51,6 +51,7 @@ describe('nextSku', () => {
 import { subtreeIds } from './showcase.service';
 describe('ПРД.5: поддерево категорий', () => {
   it('берёт все уровни и не зацикливается', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Types } = require('mongoose');
     const [a, b, c, d] = [0, 1, 2, 3].map(() => new Types.ObjectId());
     const cats = [{ _id: a }, { _id: b, parentId: a }, { _id: c, parentId: b }, { _id: d, parentId: c }, { _id: a, parentId: d }];

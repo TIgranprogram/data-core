@@ -28,6 +28,7 @@ describe('загрузка картинок: тип и расширение (Б�
 });
 
 describe('PDF-загрузка', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { photoUploadMulterOptions, uploadFileName: name } = require('./image-upload.options');
   it('pdf проходит фильтр, расширение по типу', () => {
     const cb = jest.fn();

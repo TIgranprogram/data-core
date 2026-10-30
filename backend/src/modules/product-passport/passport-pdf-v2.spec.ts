@@ -78,6 +78,7 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     const img = await png(300, 200, '#cfd8dc');
     const pdf = await renderPassportPdfV2({ ...BASE, images: { overview: [{ buf: img }, { buf: img }], dimensions: [{ buf: img }], view_front: [{ buf: img }], view_side: [{ buf: img }], view_top: [{ buf: img }], view_3d: [{ buf: img }], holes: [{ buf: img }, { buf: img }, { buf: img }] } });
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     if (process.env.PROBE_PDF) require('fs').writeFileSync(process.env.PROBE_PDF, pdf);
   });
 

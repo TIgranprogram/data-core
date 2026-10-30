@@ -5,6 +5,7 @@ import {
   MAX_LIMIT,
   mongoCollectionName,
   parseFilter,
+  assertAppName,
   parseMongoCollectionName,
   parseObjectId,
   parsePagination,
@@ -41,6 +42,11 @@ describe('app-data validation (P1)', () => {
 
     it('принимает 40 символов', () => {
       expect(() => mongoCollectionName('a'.repeat(40), 'b'.repeat(40))).not.toThrow();
+    });
+
+    it('служебное приложение control закрыто', () => {
+      expect(() => assertAppName('control')).toThrow(BadRequestException);
+      expect(parseMongoCollectionName('app_control_daily')).toBeNull();
     });
 
     it('parseMongoCollectionName игнорирует чужие имена', () => {

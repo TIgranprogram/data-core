@@ -12,6 +12,8 @@ import { Types } from 'mongoose';
  * `app_<app>_<collection>` неоднозначно (`a_b`+`c` и `a`+`b_c` → `app_a_b_c`).
  */
 export const APP_NAME_RE = /^[a-z][a-z0-9]{0,39}$/;
+/** Служебные коллекции сервера (`app_control_*`): через универсальное API недоступны. */
+const RESERVED_APPS = new Set(['control']);
 /** Имя коллекции внутри приложения. */
 export const COLLECTION_NAME_RE = /^[a-z][a-z0-9_]{0,39}$/;
 
@@ -30,7 +32,7 @@ export const FILTER_OPERATORS = ['$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$i
 const FILTER_OPS = new Set<string>(FILTER_OPERATORS);
 
 export function assertAppName(app: string): void {
-  if (typeof app !== 'string' || !APP_NAME_RE.test(app)) {
+  if (typeof app !== 'string' || !APP_NAME_RE.test(app) || RESERVED_APPS.has(app)) {
     throw new BadRequestException(
       `Некорректное имя приложения «${String(app)}»: нужно ^[a-z][a-z0-9]{0,39}$ (без подчёркивания)`,
     );
@@ -57,7 +59,7 @@ export function parseMongoCollectionName(name: string): { app: string; collectio
   if (!name.startsWith(APP_COLLECTION_PREFIX)) return null;
   const rest = name.slice(APP_COLLECTION_PREFIX.length);
   const sep = rest.indexOf('_');
-  if (sep <= 0) return null;
+  if (sep <= 0 || RESERVED_APPS.has(rest.slice(0, sep))) return null;
   const app = rest.slice(0, sep);
   const collection = rest.slice(sep + 1);
   if (!APP_NAME_RE.test(app) || !COLLECTION_NAME_RE.test(collection)) return null;

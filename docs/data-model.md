@@ -161,6 +161,8 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 
 **Коллекция `clienterrors` (только data-core).** Журнал ошибок «Рабочего места»; без мягкого удаления, TTL 30 дней по `createdAt`. Данных форм, параметров адресов и токенов нет (сервер вырезает/маскирует).
 
+**Коллекции `app_control_runs`, `app_control_daily`, `app_control_monthly` (только data-core, CC-10…13).** Состояние сайта; без мягкого удаления и аудита (запись драйвером). `runs`: прогон с ПК (`date, commit, node, total/green/red, failed[], steps[{step,code,ms,ok,signature,tail≤4 КБ}], receivedAt, keepUntil`), TTL по `keepUntil` (90 дней, с провалом — год). `daily`: `_id` = ГГГГ-ММ-ДД, `m:{ключ каталога: число|null}` (null = нет данных, не 0), `schemaV`, `meta`; 400 дней. `monthly`: `_id` = ГГГГ-ММ, `m:{ключ:{min,max,avg,last,n}}`, `days`; всегда. Каталог ключей — `modules/control/control.catalog.ts`.
+
 | Поле | Тип | Комментарий |
 |------|-----|-------------|
 | `sig` | `string` | Ключ группировки: sha1(name + message без чисел/id + section + url), 16 hex |

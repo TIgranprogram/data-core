@@ -97,5 +97,5 @@ export class DiskController {
   }
 }
 
-@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController, OffsiteController], providers: [DiskService, IntegrityService, OffsiteService] })
+@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController, OffsiteController], providers: [DiskService, IntegrityService, OffsiteService], exports: [IntegrityService] })
 export class DiskModule {}

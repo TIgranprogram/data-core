@@ -5,7 +5,7 @@ describe('FillAuditService: product-check', () => {
   it('ищет изделия по префиксу «⚠ Проверить» в notes', async () => {
     const queries: Array<[string, Record<string, unknown>]> = [];
     const col = (name: string) => ({
-      find: (q: Record<string, unknown>) => ({ sort: () => ({ limit: () => ({ toArray: async () => (name === 'products' ? [{ _id: 'p1', name: 'Горка', notes: '⚠ Проверить цену' }] : []) }) }), toArray: async () => [] }),
+      find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => (name === 'products' ? [{ _id: 'p1', name: 'Горка', notes: '⚠ Проверить цену' }] : []) }) }), toArray: async () => [] }),
       countDocuments: async (q: Record<string, unknown>) => { queries.push([name, q]); return name === 'products' ? 1 : 0; },
       aggregate: () => ({ toArray: async () => [] }),
     });
@@ -48,7 +48,7 @@ describe('FillAuditService: exp-noinvoice', () => {
     let seen: Record<string, unknown> | null = null;
     const row = { _id: 'r1', num: 7, title: 'Труба', status: 'received', requestDate: new Date('2026-10-20T00:00:00Z') };
     const col = (name: string) => ({
-      find: (q: Record<string, unknown>) => ({ sort: () => ({ limit: () => ({ toArray: async () => (name === 'supplyrequests' ? [row] : []) }) }), toArray: async () => [] }),
+      find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => (name === 'supplyrequests' ? [row] : []) }) }), toArray: async () => [] }),
       countDocuments: async (q: Record<string, unknown>) => { if (name === 'supplyrequests') seen = q; return name === 'supplyrequests' ? 1 : 0; },
       aggregate: () => ({ toArray: async () => [] }),
     });

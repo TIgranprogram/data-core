@@ -11,7 +11,6 @@ import {
   IsMongoId,
   IsOptional,
   IsString,
-  IsUrl,
   Length,
   Max,
   Min,

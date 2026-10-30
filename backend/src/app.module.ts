@@ -39,6 +39,7 @@ import { DictionaryLabelModule } from './modules/dictionary-label/dictionary-lab
 import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
 import { DevlogModule } from './modules/devlog/devlog.module';
 import { ClientErrorsModule } from './modules/client-errors/client-errors.module';
+import { ControlModule } from './modules/control/control.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerBehindAuthGuard } from './common/guards/throttler-behind-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -191,6 +192,7 @@ import { RequestMethod } from '@nestjs/common';
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     // SheetsSyncModule,    // отключён 2026-10-30 — Google Sheets более не используются
     DevlogModule,           // /api/devlog — «Ведение проекта»: версии, время, ошибки, задачи, документы, набор (admin)
+    ControlModule,          // /api/control — показатели сайта по дням и месяцам, приём ночных прогонов (admin)
     ClientErrorsModule,     // /api/client-errors — ошибки приложения (ОШ2): приём и топ для админа
     MetaModule,             // /api/meta/{schema,openapi.json,guide} — самоописание API для клиентов и ИИ
 // ─── Канонические справочники (VISION #4) ─────────────────────────

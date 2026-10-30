@@ -9904,6 +9904,142 @@
         ]
       }
     },
+    "/control/catalog": {
+      "get": {
+        "operationId": "ControlController_catalog",
+        "summary": "Каталог показателей: ключ, подпись, группа, единица, есть ли источник",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ key, label, group, groupLabel, unit, source, sourceNote, needs? }], total, page, limit, groups }"
+          }
+        },
+        "tags": [
+          "Состояние сайта"
+        ]
+      }
+    },
+    "/control/daily": {
+      "get": {
+        "operationId": "ControlController_daily",
+        "summary": "Дневные точки показателей (до 400 дней). null = «нет данных», не 0",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ date, m:{ключ:число|null}, schemaV, meta }], total, page, limit }"
+          }
+        },
+        "tags": [
+          "Состояние сайта"
+        ]
+      }
+    },
+    "/control/monthly": {
+      "get": {
+        "operationId": "ControlController_monthly",
+        "summary": "Месячные свёртки показателей (хранятся всегда): min/max/avg/last/n",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items:[{ month, m:{ключ:{min,max,avg,last,n}}, days }], total, page, limit }"
+          }
+        },
+        "tags": [
+          "Состояние сайта"
+        ]
+      }
+    },
+    "/control/runs": {
+      "post": {
+        "operationId": "ControlController_ingestRun",
+        "summary": "Принять summary.json ночного прогона (повтор того же прогона заменяет запись)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRunDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ id, created }"
+          }
+        },
+        "tags": [
+          "Состояние сайта"
+        ]
+      }
+    },
     "/client-errors": {
       "post": {
         "operationId": "ClientErrorsController_create",
@@ -16816,6 +16952,100 @@
       "PatchItemDto": {
         "type": "object",
         "properties": {}
+      },
+      "RunStepDto": {
+        "type": "object",
+        "properties": {
+          "step": {
+            "type": "string",
+            "example": "unit"
+          },
+          "code": {
+            "type": "number"
+          },
+          "ms": {
+            "type": "number",
+            "description": "Длительность шага, мс"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "timedOut": {
+            "type": "boolean"
+          },
+          "signature": {
+            "type": "object",
+            "nullable": true,
+            "description": "Сигнатура провала «шаг:хеш»; у зелёного шага null"
+          },
+          "tail": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Хвост вывода (последние 4 КБ)"
+          }
+        },
+        "required": [
+          "step",
+          "code",
+          "ms",
+          "ok"
+        ]
+      },
+      "CreateRunDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-10-31T01:00:00.000Z",
+            "description": "Когда начался прогон (ISO)"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "quick": {
+            "type": "boolean"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "green": {
+            "type": "number"
+          },
+          "red": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunStepDto"
+            }
+          },
+          "node": {
+            "type": "string",
+            "example": "home-pc",
+            "description": "Какой компьютер гонял (по умолчанию «pc»)"
+          }
+        },
+        "required": [
+          "date",
+          "total",
+          "green",
+          "red",
+          "failed",
+          "steps"
+        ]
       },
       "CreateClientErrorDto": {
         "type": "object",

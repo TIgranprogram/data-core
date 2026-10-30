@@ -26,7 +26,7 @@ describe('Ошибки API по-русски (замечание пользов�
 /** ОШ.4: страж — каждый английский текст ошибки в коде сервера переводится словарём или шаблоном (иначе человек видит лишь общий текст). */
 describe('английские тексты исключений — все с переводом', () => {
   it('нет английских throw без перевода в src/', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const fs = require('fs') as typeof import('fs'); const path = require('path') as typeof import('path');
     const root = path.join(__dirname, '..', '..');
     const files: string[] = [];
