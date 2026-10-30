@@ -97,7 +97,7 @@ async function main() {
 
   const done = [];
   const save = (x) => { done.push(x); fs.writeFileSync(OUT, JSON.stringify(done, null, 2)); };
-  for (const r of sort.rename) { await api('PATCH', `/api/dicts/passportSortament/${r.item.id}`, { name: r.name }); save({ rename: r.item.id, from: r.item.name, to: r.name }); }
+  for (const r of sort.rename) { await api('PATCH', `/api/dicts/passportSortament/${r.item.id}`, { name: r.name, material: r.item.material }); save({ rename: r.item.id, from: r.item.name, to: r.name }); }
   for (const [key, list] of [['passportSortament', sort.merge], ['passportParts', parts.merge]]) {
     for (const m of list) { await api('POST', `/api/dicts/${key}/${m.from.id}/merge`, { intoId: m.to.id }); save({ merged: m.from.id, name: m.from.name, into: m.to.id }); }
   }
