@@ -25,7 +25,7 @@
 | Поля сущностей | [docs/data-model.md](docs/data-model.md) (ориентир), истина — `*.schema.ts` | — |
 | Схема таблиц / контракт для клиента | живой API: `GET /api/meta/schema`, `/api/meta/openapi.json`, `/api/meta/guide` (модуль `modules/meta`); в админке — вкладка «Подключение» | — |
 | Точный контракт эндпоинта | `docs/openapi.json` — **только grep по пути**, файл 175 КБ | целиком |
-| Что делать / открытые задачи | [docs/TASKS.md](docs/TASKS.md) (бэклог) — Grep по коду задачи или первый `[ ]`, не целиком; [ROADMAP.md](ROADMAP.md) (план) | TASKS целиком |
+| Что делать / открытые задачи | [docs/BACKLOG.md](docs/BACKLOG.md) — приоритеты и порядок, начинать отсюда; [docs/TASKS.md](docs/TASKS.md) (бэклог) — Grep по коду задачи или первый `[ ]`, не целиком; [ROADMAP.md](ROADMAP.md) (план) | TASKS целиком |
 | Архитектура: циклы модулей, общие коллекции, DTO, рефакторинг | [docs/ARCH-PLAN.md](docs/ARCH-PLAN.md) — ТЗ и чек-листы (М — мелкие, АБЗ — большие) | — |
 | Команда агентов: роли, границы, ТЗ, поток задачи | [docs/roles/README.md](docs/roles/README.md), агенты — `.claude/agents/` | — |
 | Вопросы, ждущие решения пользователя | [docs/QUESTIONS.md](docs/QUESTIONS.md) — новые вопросы записывать туда; мёртвый код не оставлять | — |
