@@ -22,6 +22,8 @@ export const APP_SECTIONS = [
   { id: 'design', label: 'Проектирование' },
   // «В работе»: /api/work-tasks, /api/work-routes (modules/work).
   { id: 'work', label: 'В работе' },
+  // «КП»: /api/offers (modules/offers).
+  { id: 'offers', label: 'КП' },
 ] as const;
 
 export type AppSectionId = (typeof APP_SECTIONS)[number]['id'];

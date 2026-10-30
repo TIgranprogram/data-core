@@ -859,3 +859,11 @@ Write-paths, которые должны быть all-or-nothing, использ
 **Новые необязательные поля в общих с CRM коллекциях** (CRM их не читает и не пишет; существующие поля не менялись):
 - `persons.workTypeIds[]` → `worktypes` — несколько видов работ сотрудника. Старое `workTypeId` пишется синхронно первым значением; нового нет — читать старое (`common/catalog/person-work-types.ts`). Правка — `PATCH /dicts/persons/:id` с `workTypeIds: [id…]` (форма со старым одиночным `workTypeId` чужие виды работ не стирает: меняется только если первое значение другое).
 - `products.workTypes[]` = `{workTypeId → worktypes, lineId? → composition[]._id, note?}` — маршрут изделия («Как делается»); порядок массива = порядок работ, вид работ не повторяется. Маршрут модуля (`productmodules.workTypes`) не менялся — только подсказка. Правка — `PUT /work-routes/:productId`.
+
+### `CommercialOffer` (Коммерческое предложение) — коллекция `commercialoffers`, модуль `modules/offers` (КП-1)
+
+Только data-core (CRM-овские `quotations` не трогаем). `number` («КП-год-n»), `date`, `validUntil?`, `companyId` (наша компания), `customer` + `counterpartyId?`, `title?`, `status` (`draft|sent|accepted|paid|rejected|cancelled`), `items[]` {`productId?`, `productName`, `productSku?`, `description?`, `color?`, `size?`, `photoUrl?`, `quantity`, `unit`, `unitPrice?`, `total`}, `total`, `prepaymentPercent?`, `productionDays?`, `deliveryDays?`, `terms?`, `notes?`, `bg1Id?`/`bg2Id?`, `orderId?` (этап 2), `statusHistory[]` {status, at, by}, `deletedAt`.
+
+### `OfferBackground` (Фон КП) — коллекция `offerbackgrounds`
+
+`name`, `page` (1 — первая страница, 2 — вторая и следующие), `file` (`/uploads/offers/<uuid>.png|jpg`), `isDefault`. Без записей действуют встроенные фоны `backend/assets/offers/`.

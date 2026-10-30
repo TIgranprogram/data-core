@@ -8879,6 +8879,232 @@
         ]
       }
     },
+    "/offers": {
+      "get": {
+        "operationId": "OffersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      },
+      "post": {
+        "operationId": "OffersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/backgrounds": {
+      "get": {
+        "operationId": "OffersController_backgrounds",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      },
+      "post": {
+        "operationId": "OffersController_uploadBackground",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadBackgroundDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/backgrounds/{id}": {
+      "delete": {
+        "operationId": "OffersController_removeBackground",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/{id}": {
+      "get": {
+        "operationId": "OffersController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      },
+      "patch": {
+        "operationId": "OffersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOfferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      },
+      "delete": {
+        "operationId": "OffersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/{id}/status": {
+      "post": {
+        "operationId": "OffersController_status",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/{id}/pdf": {
+      "get": {
+        "operationId": "OffersController_pdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
     "/messages/users": {
       "get": {
         "operationId": "MessagesController_users",
@@ -13767,7 +13993,8 @@
                 "money",
                 "payroll",
                 "design",
-                "work"
+                "work",
+                "offers"
               ]
             }
           },
@@ -13852,7 +14079,8 @@
                 "money",
                 "payroll",
                 "design",
-                "work"
+                "work",
+                "offers"
               ]
             }
           },
@@ -16175,6 +16403,205 @@
             "type": "string"
           }
         }
+      },
+      "UploadBackgroundDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1 — первая страница, 2 — вторая и следующие"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Сделать фоном по умолчанию для этой страницы"
+          }
+        },
+        "required": [
+          "name",
+          "page"
+        ]
+      },
+      "OfferItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "id изделия каталога"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productSku": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string",
+            "description": "/uploads/…"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string",
+            "default": "шт"
+          },
+          "unitPrice": {
+            "type": "number",
+            "description": "Цена за единицу; для статуса «Отправлено» обязательна"
+          }
+        },
+        "required": [
+          "productName",
+          "quantity"
+        ]
+      },
+      "CreateOfferDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания (organizations)"
+          },
+          "customer": {
+            "type": "string"
+          },
+          "counterpartyId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "description": "ГГГГ-ММ-ДД, умолч. сегодня"
+          },
+          "validUntil": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferItemDto"
+            }
+          },
+          "prepaymentPercent": {
+            "type": "number"
+          },
+          "productionDays": {
+            "type": "number"
+          },
+          "deliveryDays": {
+            "type": "number"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "bg1Id": {
+            "type": "string",
+            "description": "Фон стр. 1: id из GET /offers/backgrounds; пусто — по умолчанию"
+          },
+          "bg2Id": {
+            "type": "string",
+            "description": "Фон стр. 2+: id; «none» — белая; пусто — по умолчанию"
+          }
+        },
+        "required": [
+          "companyId",
+          "customer",
+          "items"
+        ]
+      },
+      "UpdateOfferDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания (organizations)"
+          },
+          "customer": {
+            "type": "string"
+          },
+          "counterpartyId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "description": "ГГГГ-ММ-ДД, умолч. сегодня"
+          },
+          "validUntil": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferItemDto"
+            }
+          },
+          "prepaymentPercent": {
+            "type": "number"
+          },
+          "productionDays": {
+            "type": "number"
+          },
+          "deliveryDays": {
+            "type": "number"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "bg1Id": {
+            "type": "string",
+            "description": "Фон стр. 1: id из GET /offers/backgrounds; пусто — по умолчанию"
+          },
+          "bg2Id": {
+            "type": "string",
+            "description": "Фон стр. 2+: id; «none» — белая; пусто — по умолчанию"
+          }
+        }
+      },
+      "OfferStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "accepted",
+              "paid",
+              "rejected",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "SendMessageDto": {
         "type": "object",

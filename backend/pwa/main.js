@@ -43,6 +43,7 @@ const LAZY = {
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder']]],
   design: [() => import('./sections/design.js'), [['design','design']]],
   work: [() => import('./sections/work.js'), [['work','work']]],
+  offers: [() => import('./sections/offers.js'), [['offers','offers']]],
   designorder: [() => import('./sections/design-order.js'), [['designorder','designOrder']]],
   profile: [() => import('./sections/profile.js'), [['profile','profile']]],
   matching: [() => import('./sections/salesorders-matching.js'), [['matching','matching']]],
@@ -105,15 +106,15 @@ function needed(section, params) {
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { salesorder: 'salesorders', matching: 'salesorders', designorder: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
-const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', orders: 'money', money: 'money' };
+const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', offers: 'products', orders: 'money', money: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
-const GROUP_OF = { salesorders: 'Производство', design: 'Производство', work: 'Производство', products: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
+const GROUP_OF = { salesorders: 'Производство', design: 'Производство', work: 'Производство', products: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -209,7 +210,7 @@ function shell() {
     navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
-    group('Продукция', navLinks.products, session.canEdit ? navLinks.docs : null),
+    group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,

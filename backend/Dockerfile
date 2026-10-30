@@ -24,6 +24,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/admin ./admin
 # Веб-приложение «Снабжение / Склад» (PWA, /app), без сборки.
 COPY --from=build /app/pwa ./pwa
+# Встроенные фоны PDF коммерческих предложений (assets/offers).
+COPY --from=build /app/assets ./assets
 COPY package.json ./
 EXPOSE 3000
 CMD ["node", "dist/src/main.js"]
