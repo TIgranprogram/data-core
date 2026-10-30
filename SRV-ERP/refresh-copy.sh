@@ -58,7 +58,7 @@ docker exec datacore-mongo sh -c 'mongo --quiet -u "$0" -p "$1" --authentication
 docker exec datacore-mongo rm -rf /tmp/restore /tmp/before
 
 echo "== Фото: только новые"
-cp -an "$U/." /var/lib/datacore/uploads/
+cp -a --update=none "$U/." /var/lib/datacore/uploads/
 echo "файлов фото: $(ls /var/lib/datacore/uploads | wc -l)"
 
 echo "== Запуск backend"
