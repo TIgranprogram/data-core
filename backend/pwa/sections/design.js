@@ -133,7 +133,7 @@ function topBlock(r, ctx) {
     : h('span', { class: 'kv-warn' }, 'не указано ', can ? h('button', { type: 'button', class: 'link-btn', onclick: ask }, 'Уточнить у менеджера') : null);
   const grid = h('dl', { class: 'kv-grid' },
     ...pair('Изготовить', made, 'kv-full'),
-    ...pair('Арт.', clean(r.sku)),
+    ...pair('Артикул', clean(r.sku)),
     ...pair('№ заказа / поз.', znpText ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, znpText) : znpText) : ''),
     ...pair('Заказчик', clean(r.customerTitle), 'kv-full'),
     ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
@@ -160,7 +160,7 @@ function specBlock(r) {
 }
 function noteBlock(text) {
   const p = h('div', { class: 'dc-note clip3' }, text);
-  const btn = h('button', { type: 'button', class: 'link-btn', onclick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать' : 'Свернуть'; } }, 'Показать');
+  const btn = h('button', { type: 'button', class: 'link-btn', onclick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать полностью' : 'Свернуть'; } }, 'Показать полностью');
   return h('details', { class: 'db-blk' }, h('summary', null, 'Примечание'), h('div', { class: 'db-blk-body' }, p, btn));
 }
 
@@ -182,7 +182,7 @@ export const design = {
     query: (P) => ({ status: P.status || 'queue,work' }),
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'queue,work',
-        options: () => [{ value: 'queue,work', label: 'Открытые' }, ...STATUS_OPTS.map((o) => ({ value: o.value, label: o.label })), { value: 'queue,work,done,paused', label: 'Все' }],
+        options: () => [{ value: 'queue,work', label: 'Открытые' }, ...STATUS_OPTS.map((o) => ({ value: o.value, label: o.label })), { value: 'queue,work,done,paused', label: 'Без отменённых' }],
         count: (resp, v) => (v === 'queue,work' ? (resp.counts?.queue || 0) + (resp.counts?.work || 0) : v === 'queue,work,done,paused' ? resp.counts?.all : resp.counts?.[v]) },
       { key: 'needsAnswer', label: 'Вопросы', type: 'chips',
         options: () => [{ value: '1', label: 'Есть вопрос без ответа', hint: 'В задаче задан вопрос — ответьте в обсуждении карточки' }],
@@ -221,7 +221,7 @@ export const design = {
       ],
       card: (r, c) => ({ body: boardBody(r, c) }),
       move: async (r, to) => !!(await moveTask(r, to)),
-      addLabel: '+ Добавить задачу',
+      addLabel: '+ Задача',
       add: (key) => go('design', { ...current().params, new: '1', dstatus: key, open: undefined }, { replace: true }),
     },
   },
@@ -248,7 +248,7 @@ export const design = {
     },
     actions: (r) => {
       const go2 = (to, label, primary, more) => ({ label, primary, more, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
-      const cancel = go2('cancelled', 'Отменить (снята)', false, true);
+      const cancel = go2('cancelled', 'Отменить задачу', false, true);
       if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить', false, true), cancel];
       if (r.status === 'work') return [go2('done', 'Завершить', true), go2('paused', 'Приостановить', false, true), go2('queue', 'Вернуть на распределение', false, true), cancel];
       if (r.status === 'paused') return [go2(r.assigneeId ? 'work' : 'queue', r.assigneeId ? 'Возобновить' : 'Вернуть на распределение', true), go2('done', 'Завершить'), cancel];

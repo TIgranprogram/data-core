@@ -75,7 +75,7 @@ export const designOrder = {
       ].filter(Boolean);
     },
     view: (r) => [
-      ['Заказ', h('a', { href: '#salesorders?open=' + r.orderId }, (r.productionNo ? 'Заказ № ' + r.productionNo : 'Заказ, нет №'))],
+      ['Заказ', h('a', { href: '#salesorders?open=' + r.orderId }, 'Открыть заказ')],
       ['Заказчик', r.customer],
       ['Срок', r.deadline ? dueNode({ deadline: r.deadline, status: 'queue' }) : 'без срока'],
       ['Приоритет', ORDER_PRIORITY[r.priority]?.label],

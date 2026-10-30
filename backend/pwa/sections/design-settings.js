@@ -17,7 +17,7 @@ function editor(st, onDone) {
   const isNew = !st;
   let kind = st?.kind || 'number';
   const name = h('input', { maxlength: 60, value: st?.label || '', placeholder: 'Например: Сложность', 'aria-label': 'Название стикера' });
-  const unit = h('input', { maxlength: 12, value: st?.unit || '', placeholder: 'шт., ч, кг', 'aria-label': 'Единица' });
+  const unit = h('input', { maxlength: 12, value: st?.unit || '', placeholder: 'шт., ч, кг', 'aria-label': 'Ед. изм.' });
   const kindSel = h('select', { 'aria-label': 'Вид стикера', disabled: !isNew }, h('option', { value: 'number' }, 'Число'), h('option', { value: 'state' }, 'Набор состояний'));
   kindSel.value = kind;
   const states = (st?.states || []).map((s) => ({ ...s }));
@@ -72,7 +72,7 @@ function listView(list, ctx, edit) {
   const rows = list.map((s, i) => h('li', { class: 'stk-set-row' + (s.visible === false ? ' off' : '') },
     h('label', { class: 'stk-set-vis', title: 'Показывать на карточках доски' },
       h('input', { type: 'checkbox', checked: s.visible !== false, 'aria-label': 'Показывать на доске: ' + s.label, onchange: (e) => patch(s.id, { visible: e.target.checked }, 'переключить стикер') })),
-    h('div', { class: 'stk-set-main' }, h('div', { class: 't-title' }, s.label), h('div', { class: 't-sub' }, KIND[s.kind] || s.kind, s.unit ? ' · ' + s.unit : '', s.kind === 'state' ? ' · ' + (s.states || []).length : '')),
+    h('div', { class: 'stk-set-main' }, h('div', { class: 't-title' }, s.label), h('div', { class: 't-sub' }, KIND[s.kind] || s.kind, s.unit ? ' · ' + s.unit : '', s.kind === 'state' ? ' · ' + (s.states || []).length + ' сост.' : '')),
     h('div', { class: 'stk-set-acts' },
       h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Выше', 'aria-label': 'Выше: ' + s.label, disabled: i === 0, onclick: () => move(i, -1) }, '↑'),
       h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Ниже', 'aria-label': 'Ниже: ' + s.label, disabled: i === list.length - 1, onclick: () => move(i, 1) }, '↓'),

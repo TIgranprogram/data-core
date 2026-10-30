@@ -104,7 +104,7 @@ export function discussionBlock(row, ctx, openGallery) {
     const q = open();
     flag.hidden = !q.length;
     flag.replaceChildren(...(q.length ? [h('b', null, 'Без ответа: '), questionsText(q.length), ' ',
-      h('button', { type: 'button', class: 'link-btn', onclick: () => document.getElementById('dn-' + q[0].id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 'Показать')] : []));
+      h('button', { type: 'button', class: 'link-btn', onclick: () => document.getElementById('dn-' + q[0].id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 'К вопросу')] : []));
   };
 
   async function remove(n) {
