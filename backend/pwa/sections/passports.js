@@ -14,6 +14,7 @@ import { bomBlock, checkBlock, imagesBlock, previewBlock } from './passports/car
 import { numbersStrip } from './passports/numbers-strip.js';
 import { passportForm } from './passports/form.js';
 import { stepFunnel } from '../ui/step-funnel.js';
+import { passportWizard } from './passports/passport-wizard.js';
 
 /**
  * Раздел «Паспорта изделий» (TASKS ПС.4–ПС.5): паспорт = экземпляр (№, талон, номер изделия, дата, заказчик/объект),
@@ -166,10 +167,14 @@ export const passports = {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
     ],
-    extra: (r, ctx) => h('div', null,
-      r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null),
-      imagesBlock(r, ctx), bomBlock(r),
-      r.passportCategory ? previewBlock(r, ctx) : null),
+    extra: (r, ctx) => {
+      const draft = statusOf(r) === 'draft';
+      return h('div', null,
+        draft && canEdit() ? passportWizard(r, ctx) : null,
+        !draft || !canEdit() ? (r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null)) : null,
+        imagesBlock(r, ctx), bomBlock(r),
+        r.passportCategory ? previewBlock(r, ctx) : null);
+    },
   },
 
   form: passportForm,

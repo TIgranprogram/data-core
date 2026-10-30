@@ -1680,3 +1680,28 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 .of-bg select { flex: 1; min-width: 160px; }
 @media (max-width: 600px) { .of-l1 { grid-template-columns: 1.5em minmax(0,1fr) 28px; } .of-l1 > input { display: none; } .of-l1 > .of-sum { display: none; } .of-l3 { grid-template-columns: 1fr 1fr; } }
 .of-items { margin: 0; padding-left: var(--s5); display: flex; flex-direction: column; gap: var(--s2); }
+
+/* === Мастер заполнения паспорта === */
+.pw-wizard { margin-bottom: var(--s4); }
+
+.pw-steps { display: flex; gap: var(--s1); overflow-x: auto; padding-bottom: var(--s1); margin-bottom: var(--s3); }
+.pw-step { display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 72px; padding: var(--s1) var(--s2); border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface-2);
+  cursor: pointer; font-size: .75em; color: var(--muted); }
+.pw-step[data-done] { border-color: var(--ok, #2a7); color: var(--ok, #2a7); }
+.pw-step[data-active] { border-color: var(--accent); background: var(--accent-subtle, var(--surface-3)); color: var(--fg); font-weight: 600; }
+.pw-step-num { font-size: 1.2em; font-weight: 700; }
+.pw-step[data-done] .pw-step-num::after { content: ' ✓'; }
+
+.pw-body { padding: var(--s3); border: 1px solid var(--accent); border-radius: var(--radius); background: var(--surface-2); }
+.pw-step-title { font-size: 1.05em; font-weight: 600; margin-bottom: var(--s3); }
+.pw-actions { display: flex; gap: var(--s2); margin-top: var(--s3); justify-content: flex-end; }
+.pw-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+@media (max-width: 600px) { .pw-fields { grid-template-columns: 1fr; } }
+
+.pw-suggest { list-style: none; margin: 2px 0 0; padding: 0; position: absolute; left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); z-index: 20; max-height: 240px; overflow-y: auto; }
+.pw-suggest-item { padding: var(--s1) var(--s2); cursor: pointer; }
+.pw-suggest-item:hover { background: var(--surface-2); }
