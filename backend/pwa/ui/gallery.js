@@ -21,7 +21,7 @@ export function carousel(pics, { onAdd, emptyText = 'Добавить фото' 
   const strip = many || onAdd ? h('div', { class: 'pgal-strip' }, ...(many ? thumbs : []), onAdd ? h('button', { type: 'button', class: 'pgal-th pgal-add', onclick: onAdd, 'aria-label': 'Добавить фото' }, '+ Фото') : null) : null;
   function show(i) {
     cur = (i + pics.length) % pics.length;
-    big.src = PREFIX + pics[cur].url;
+    big.src = PREFIX + (pics[cur].medium || pics[cur].url);
     count.textContent = many ? `${cur + 1} / ${pics.length}` : '';
     thumbs.forEach((t, j) => { if (j === cur) { t.setAttribute('aria-current', 'true'); t.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); } else t.removeAttribute('aria-current'); });
   }

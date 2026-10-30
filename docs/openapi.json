@@ -4186,6 +4186,34 @@
         ]
       }
     },
+    "/supply/requests/lookup": {
+      "get": {
+        "operationId": "SupplyController_lookup",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "≤500, по умолчанию 50",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/requests/{id}": {
       "get": {
         "operationId": "SupplyController_get",
@@ -8999,6 +9027,20 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        },
+        "tags": [
+          "Сегодня"
+        ]
+      }
+    },
+    "/me/counters": {
+      "get": {
+        "operationId": "MeCountersController_counters",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ requests, stockLow, awaiting, salesorders, design, work } — числа; ключ закрытого раздела отсутствует"
           }
         },
         "tags": [
@@ -16318,9 +16360,10 @@
             "enum": [
               "action",
               "background",
-              "unhandled"
+              "unhandled",
+              "slow"
             ],
-            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная"
+            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная, slow — медленный экран (message «Медленно: <раздел> <мс> мс»)"
           },
           "status": {
             "type": "number",

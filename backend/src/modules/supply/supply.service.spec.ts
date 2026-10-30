@@ -78,6 +78,21 @@ describe('SupplyService', () => {
     service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never);
   });
 
+  describe('lookup', () => {
+    it('одна строка на название: лёгкие поля, имена поставщика и категории, количество заказов', async () => {
+      const sid = new Types.ObjectId(), cid = new Types.ObjectId(), id = new Types.ObjectId();
+      colls.organizations = [{ _id: sid, name: 'Поставщик' }];
+      colls.categories = [{ _id: cid, name: 'Крепёж' }];
+      model.aggregate.mockReturnValue(chain([{ _id: 'болт м10', count: 3, last: { _id: id, title: 'Болт М10', unit: 'шт', article: 'B10', categoryId: cid, supplierId: sid, priceHint: 12 } }]));
+      const r = await service.lookup({ search: 'болт', limit: '5' });
+      expect(r.total).toBe(1);
+      expect(r.items[0]).toMatchObject({ id: String(id), title: 'Болт М10', unit: 'шт', article: 'B10', categoryId: String(cid), categoryName: 'Крепёж', supplierName: 'Поставщик', priceHint: 12, count: 3 });
+      const pipe = model.aggregate.mock.calls[0][0];
+      expect(pipe.find((x: Record<string, unknown>) => x.$limit)).toEqual({ $limit: 5 });
+      expect(pipe[0].$match.$and).toHaveLength(1);
+    });
+  });
+
   describe('create', () => {
     it('без наименования и без позиции склада → BadRequest', async () => {
       await expect(service.create({ qty: 1 })).rejects.toThrow('Укажите наименование');

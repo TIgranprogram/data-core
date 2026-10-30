@@ -523,6 +523,34 @@ export class SupplyService {
 
   aliases() { return new SupplierAliases(this.connection); }
 
+  /**
+   * Лёгкая подсказка «уже заказывали»: по одной строке на название (последняя заявка), без фото и `present`.
+   * count — сколько раз заказывали. search — слова через И по названию и артикулу.
+   */
+  async lookup(q: Record<string, unknown> = {}) {
+    const limit = Math.min(Math.max(parseInt(String(q.limit ?? ''), 10) || 50, 1), 500);
+    const and = searchTokens(q.search).map((tk) => { const re = tokenRegex(tk); return { $or: [{ title: re }, { article: re }] }; });
+    const rows = await this.model.aggregate<Record<string, unknown>>([
+      { $match: { deletedAt: null, title: { $nin: [null, ''] }, ...(and.length ? { $and: and } : {}) } },
+      { $sort: { requestDate: -1, _id: -1 } },
+      { $group: { _id: { $toLower: '$title' }, last: { $first: '$$ROOT' }, count: { $sum: 1 } } },
+      { $sort: { 'last.requestDate': -1, _id: 1 } },
+      { $limit: limit },
+      { $project: { count: 1, 'last._id': 1, 'last.title': 1, 'last.unit': 1, 'last.article': 1, 'last.categoryId': 1, 'last.supplierId': 1, 'last.priceHint': 1, 'last.materialId': 1 } },
+    ]).exec();
+    const [sup, cat] = await Promise.all([this.names('organizations', rows.map((r) => (r.last as Doc).supplierId)), this.names('categories', rows.map((r) => (r.last as Doc).categoryId))]);
+    const items = rows.map((r) => {
+      const d = r.last as Doc;
+      return {
+        id: String(d._id), title: d.title, unit: d.unit ?? null, article: d.article ?? null,
+        categoryId: d.categoryId ? String(d.categoryId) : null, categoryName: d.categoryId ? cat.get(String(d.categoryId)) ?? null : null,
+        supplierName: d.supplierId ? sup.get(String(d.supplierId)) ?? null : null, priceHint: d.priceHint ?? null,
+        materialId: d.materialId ? String(d.materialId) : null, count: r.count,
+      };
+    });
+    return { items, total: items.length };
+  }
+
   /** Названия поставщиков и «наших компаний» — для подсказок в форме. */
   async lookups() {
     const orgs = await this.connection.db!.collection('organizations')

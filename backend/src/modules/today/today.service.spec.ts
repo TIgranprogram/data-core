@@ -45,6 +45,12 @@ describe('TodayService', () => {
     expect(r.week.some((d) => d.events.some((e) => e.kind === 'payment'))).toBe(false);
   });
 
+  it('счётчики меню: все разделы админу; без денег — нет «ждём оплату»', async () => {
+    const { svc } = make();
+    expect(await svc.counters({ role: 'admin' })).toEqual({ requests: 0, stockLow: 3, awaiting: 0, salesorders: 0, design: 0, work: 0 });
+    expect(await svc.counters({ role: 'user' })).not.toHaveProperty('awaiting');
+  });
+
   it('неверный горизонт — 400', async () => {
     await expect(make().svc.get({ role: 'admin' }, { days: '99' }, NOW)).rejects.toThrow('Горизонт');
   });

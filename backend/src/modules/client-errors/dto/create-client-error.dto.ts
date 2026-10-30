@@ -48,7 +48,7 @@ export class CreateClientErrorDto {
   @IsString()
   action?: string;
 
-  @ApiProperty({ enum: CLIENT_ERROR_KINDS, description: 'action — действие человека, background — фоновая загрузка, unhandled — необработанная' })
+  @ApiProperty({ enum: CLIENT_ERROR_KINDS, description: 'action — действие человека, background — фоновая загрузка, unhandled — необработанная, slow — медленный экран (message «Медленно: <раздел> <мс> мс»)' })
   @IsIn(CLIENT_ERROR_KINDS as unknown as string[])
   kind!: ClientErrorKind;
 

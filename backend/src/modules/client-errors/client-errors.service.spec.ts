@@ -37,6 +37,11 @@ const userId = new Types.ObjectId().toHexString();
 beforeAll(() => jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined));
 
 describe('CreateClientErrorDto', () => {
+  it('kind slow — медленный экран принимается', async () => {
+    const { errors } = await check({ message: 'Медленно: stock 2500 мс', kind: 'slow', section: '#stock' });
+    expect(errors).toHaveLength(0);
+  });
+
   it('минимальное тело — message + kind', async () => {
     const { errors } = await check({ message: 'x', kind: 'action' });
     expect(errors).toHaveLength(0);

@@ -69,3 +69,6 @@
 
 ## Аудит паспортов: содержание (2026-10-29)
 - `docs/audit/AUDIT-PASSPORTS-CONTENT.md`. Части изделия: в сиде 25 (`data-mi-dicts.js:67`), нет базовых (каркас, поручень, закладная…); у WRK нет норматива (56440 не добавлен); нет ИИ в рантайме; `spec-import.js` = брони, не паспорт; разборщик «Труба 89х3» — `data-mi-dicts.js parseMaterials`. Вопросы В-1…В-7 в отчёте, в QUESTIONS не перенесены. коммит: —
+
+## Аудит КП (2026-10-30)
+- `docs/audit/AUDIT-KP.md`. Образец kppdf `quotation.schema.ts`, `convert-to-order` :833 (без цен, только из accepted). В data-core заказ = `salesorders`+`incomes` (не CRM `orders`) → своя коллекция `commercialoffers`, PDF на pdfkit (`shipments/shipment-pdf.ts`). Фоны kp-1str/2str: подпись и печать запечены, нужны «поля» безопасной зоны. Вопросы 1–4 в отчёте, в QUESTIONS не перенесены. коммит: —

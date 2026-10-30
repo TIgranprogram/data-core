@@ -34,12 +34,12 @@ import { DOCK_MIN, getPref, setPref } from '../core/prefs.js';
 
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
 function gallery(pics, onRemove, onMain) {
-  const big = h('img', { class: 'g-big', src: PREFIX + pics[0].url, alt: '', loading: 'lazy', decoding: 'async' });
+  const big = h('img', { class: 'g-big', src: PREFIX + (pics[0].medium || pics[0].url), alt: '', loading: 'lazy', decoding: 'async' });
   let cur = 0;
   // первое фото — главное (обложка в списках); «Сделать главным» ставит выбранное первым
   const main = onMain && pics.length > 1 ? h('button', { class: 'btn btn-ghost btn-sm g-main', type: 'button', onclick: (e) => { e.stopPropagation(); if (cur) onMain(pics[cur]); } }) : null;
   const paintMain = () => { if (main) { main.textContent = cur ? '☆ Сделать главным' : '★ Главное фото'; main.disabled = !cur; } };
-  const show = (i) => { cur = i; big.src = PREFIX + pics[i].url; strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); paintMain(); };
+  const show = (i) => { cur = i; big.src = PREFIX + (pics[i].medium || pics[i].url); strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); paintMain(); };
   const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', class: i ? '' : 'active', onclick: () => show(i) }))) : h('div');
   big.addEventListener('click', () => {
     const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото' }, h('img', { src: PREFIX + pics[cur].url, alt: '' }));

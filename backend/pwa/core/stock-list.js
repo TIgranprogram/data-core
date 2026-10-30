@@ -21,13 +21,13 @@ export function stockList() {
 /**
  * SK-8d: короткий список склада для поиска позиции из других разделов (заявка, состав изделия, «уже заказано»):
  * GET /stock/lookup — только id, materialId, name, article, unit, categoryName, quantity, free; открыт и для «Заявок», «Каталога».
- * Полный /stock/items — только в разделе «Склад» (stockList). Сервер ещё без lookup (404) — прежний полный запрос.
+ * Полный /stock/items — только в разделе «Склад» (stockList).
  */
 let cachedLookup = null; let atLookup = 0;
 export function stockLookup() {
   if (!cachedLookup || Date.now() - atLookup > TTL) {
     atLookup = Date.now();
-    const p = api('/stock/lookup').then((r) => r.items || [], (e) => { if (e?.status === 404) return stockList(); throw e; });
+    const p = api('/stock/lookup').then((r) => r.items || []);
     cachedLookup = p;
     p.catch(() => { if (cachedLookup === p) cachedLookup = null; });
   }

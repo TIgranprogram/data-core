@@ -127,3 +127,6 @@
 
 ## Отгрузка: готово / пока нельзя (SHIP-READY, 2026-10-30, не закоммичено)
 - `sections/order-shipments.js` form: ready/blocked по `remaining[].canShip` (нет поля = можно), `.shp-*` конец screens.css; кнопка «Отгрузить (N готово)» из `d.shippable`. `passports/models.js` + `product-block.js`: canPassport/missing, серые в конец. `docs-queue.js`: `r.work` не done -> «Паспорт — после изготовления». Карта обновлена.
+
+## SPEED-2 (2026-10-30, не закоммичено)
+- `main.js refreshCounts` — GET /me/counters (404 -> `noCounters`, старые 6 запросов). `requests.js loadPast` — /supply/requests/lookup (404 -> старый). `salesorders.js activeOrderNos` — кэш 90 с. `core/errors.js reportSlow` + `ui/list.js` (t0/timed, >2000 мс, kind:slow, «Медленно: раздел N мс»). Фото: `card.js gallery`, `gallery.js carousel` крупно = `medium||url`, zoom — оригинал. Удалены `ui/bulk.js`, `ui/quick-order.js`, 404-ветки в orders-lookup/stock-list. Карта обновлена.

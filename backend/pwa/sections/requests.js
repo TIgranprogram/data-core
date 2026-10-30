@@ -115,7 +115,11 @@ export function pastItems() {
 }
 async function loadPast() {
   const [reqs, stockRes] = await Promise.all([
-    api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch((e) => { if (e.status === 403) toast('Нет доступа к прошлым заявкам', { error: true }); return { items: [] }; }),
+    // SPEED-2: лёгкая подсказка /supply/requests/lookup; сервер без неё (404) — прежний полный список
+    api('/supply/requests/lookup', { query: { limit: 2000 } }).catch((e) => {
+      if (e.status !== 404) { if (e.status === 403) toast('Нет доступа к прошлым заявкам', { error: true }); return { items: [] }; }
+      return api('/supply/requests', { query: { limit: 2000, sort: '-requestDate' } }).catch((e2) => { if (e2.status === 403) toast('Нет доступа к прошлым заявкам', { error: true }); return { items: [] }; });
+    }),
     stockLookup().catch(() => []), // короткий список склада (/stock/lookup, SK-8d) — общий кэш (core/stock-list.js); pastItems зовут по действию
   ]);
   const by = new Map();
@@ -132,7 +136,7 @@ async function loadPast() {
       x.values = { ...x.values, unit: x.values.unit || r.unit, categoryName: x.values.categoryName || r.categoryName, supplierName: r.supplierName, article: x.values.article || r.article, materialId: x.values.materialId || r.materialId };
       if (!x.cat) x.cat = r.categoryName || '';
     }
-    x.n = (x.n || 0) + 1;
+    x.n = (x.n || 0) + (r.count || 1); // lookup — одна строка на название, count = сколько раз заказывали
     by.set(k, x);
   }
   const dup = new Map(); for (const x of by.values()) { const k = key(x.label); dup.set(k, (dup.get(k) || 0) + 1); }

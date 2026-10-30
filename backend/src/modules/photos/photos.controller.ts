@@ -69,6 +69,7 @@ export class PhotosController {
       ...result.original.toObject(),
       variants: {
         ...(result.thumb ? { thumb: result.thumb } : {}),
+        ...(result.medium ? { medium: result.medium } : {}),
         ...(result.full ? { full: result.full } : {}),
       },
       /** Только если есть повёрнутая по EXIF копия: что показывать вместо оригинала. */

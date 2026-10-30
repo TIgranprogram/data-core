@@ -43,7 +43,7 @@ export interface UploadedPhotoFile {
 export interface PhotoVariantSummary {
   _id: string;
   storageUrl: string;
-  variant: 'thumb';
+  variant: 'thumb' | 'medium';
   mimeType?: string;
   sizeBytes?: number;
   widthPx?: number;
@@ -53,6 +53,8 @@ export interface PhotoVariantSummary {
 export interface PhotoUploadResult {
   original: PhotoDocument;
   thumb?: PhotoVariantSummary;
+  /** Средний вариант для крупного показа (webp, длинная сторона ≤ 1000 px); сбой не фатален. */
+  medium?: PhotoVariantSummary;
   /** Повёрнутая по EXIF копия (только если у оригинала Orientation ≠ 1). */
   full?: Omit<PhotoVariantSummary, 'variant'> & { variant: 'full' };
 }
@@ -155,8 +157,9 @@ export class PhotosService {
         heightPx: output.height,
         parentPhotoId: original._id.toString(),
       });
+      const medium = await this.makeMedium(originalPath, originalFilename, original._id.toString());
 
-      return { original, thumb: this.toThumbSummary(thumb), ...(full ? { full } : {}) };
+      return { original, thumb: this.toThumbSummary(thumb), ...(medium ? { medium } : {}), ...(full ? { full } : {}) };
     } catch (error) {
       this.logger.warn(
         `Failed to generate thumb for ${file.filename}: ${(error as Error).message}`,
@@ -167,6 +170,24 @@ export class PhotosService {
         // No partial thumb is expected when sharp fails, but cleanup is best effort.
       }
       return { original, ...(full ? { full } : {}) };
+    }
+  }
+
+  /** Средний вариант (webp ≤ 1000 px, качество как у thumb); сбой не мешает загрузке — клиент возьмёт оригинал. */
+  private async makeMedium(originalPath: string, originalFilename: string, parentId: string): Promise<PhotoVariantSummary | undefined> {
+    const filename = `${randomUUID()}-medium.webp`;
+    const path = join(uploadDir(), filename);
+    try {
+      const output = await sharp(originalPath).rotate().resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 }).toFile(path);
+      const doc = await this.create({
+        storageUrl: `/uploads/${filename}`, originalFilename, variant: 'medium', mimeType: 'image/webp',
+        sizeBytes: output.size, widthPx: output.width, heightPx: output.height, parentPhotoId: parentId,
+      });
+      return { ...this.toThumbSummary(doc), variant: 'medium' };
+    } catch (error) {
+      this.logger.warn(`Failed to generate medium for ${originalFilename}: ${(error as Error).message}`);
+      await fs.unlink(path).catch(() => undefined);
+      return undefined;
     }
   }
 

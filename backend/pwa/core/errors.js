@@ -52,6 +52,19 @@ export function reportError(err, { kind = 'action', action, status, url } = {}) 
   send(body);
 }
 
+/** Медленный экран (SPEED-2): первая отрисовка списка дольше 2 с → запись «Медленно: <раздел> <мс> мс», kind=slow. Не чаще раза в 5 минут на раздел. */
+const slowAt = new Map();
+export function reportSlow(ms) {
+  if (off || !session.access) return;
+  const section = sectionNow();
+  const now = Date.now();
+  if (now - (slowAt.get(section) || 0) < 300000) return;
+  slowAt.set(section, now);
+  const body = { message: `Медленно: ${section} ${Math.round(ms)} мс`, name: 'SlowScreen', section: cut(section, 60), action: 'открыть экран', kind: 'slow', version: cut(currentVersion(), 40), ua: cut(navigator.userAgent, 300) };
+  if (navigator.onLine === false) { keep(body); return; }
+  send(body);
+}
+
 function send(body) {
   apiQuiet('/client-errors', body)
     .then((st) => { if (st === 404) { off = true; queue.length = 0; save(); } })

@@ -1,4 +1,4 @@
-import { api, PREFIX, session } from '../core/api.js';
+import { api, PREFIX, session, writeHooks } from '../core/api.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum, qty } from '../core/format.js';
@@ -311,6 +311,13 @@ function details(r) {
 }
 
 const uniq = (a) => [...new Set(a.filter(Boolean))];
+/** Номера активных заказов для поля «№ заказа»: кэш 90 с (SPEED-2), сбрасывается любой записью в заказы. */
+let nosP = null; let nosAt = 0;
+const activeOrderNos = () => {
+  if (!nosP || Date.now() - nosAt > 90000) { nosAt = Date.now(); const p = api('/production-orders', { query: { filter: 'active', limit: 200, sort: '-createdAt' } }).then((r) => uniq((r.items || []).map((x) => x.productionNo))); nosP = p; p.catch(() => { if (nosP === p) nosP = null; }); }
+  return nosP;
+};
+writeHooks.push((path) => { if (/^\/(salesorders|production-orders)(\/|$)/.test(path)) nosP = null; });
 const sumOf = (os, k) => os.reduce((s, o) => s + (Number(o[k]) || 0), 0);
 /** Карточка заказа с сервера → вид строки раздела (id = key). */
 function shape(d) {
@@ -453,7 +460,7 @@ export const salesorder = {
     fields: async (row) => {
       const [l, nums] = await Promise.all([
         incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'б/р 30%', 'б/р 50%', 'нал'] })),
-        api('/production-orders', { query: { filter: 'active', limit: 200, sort: '-createdAt' } }).then((r) => uniq((r.items || []).map((x) => x.productionNo))).catch(() => []),
+        activeOrderNos().catch(() => []),
       ]);
       return [
         { section: 'Договор с заказчиком', tone: 'main', fixed: true },

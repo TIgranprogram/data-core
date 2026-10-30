@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { ACTIVE_STAGES } from '../../common/text/order-key';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { FinanceService } from '../finance/finance.service';
 import { presentWork } from '../work/work-present';
@@ -74,6 +75,28 @@ export class TodayService {
     if (work) metrics.work = work.inWork;
     if (forecast) metrics.money = { days: forecast.days.map((d) => ({ date: d.date, balance: d.closing })) };
     return { today, scope, pulse: buildPulse(all), feed, feedTotal: total, week: buildWeek(shown, today, days), metrics };
+  }
+
+  /**
+   * Числа на пунктах меню одним запросом (GET /api/me/counters). Те же значения, что давали списки с limit=1.
+   * Ключ раздела, закрытого роли, в ответе отсутствует; «ждём оплату» — только денежным ролям.
+   */
+  async counters(user: { id?: string; role?: string; isOwner?: boolean } | undefined) {
+    const open = openSectionsFor(user);
+    const see = (id: string) => sectionOpen(open, id);
+    const db = this.connection.db!;
+    const live = { deletedAt: null };
+    const count = (coll: string, filter: Record<string, unknown>) => db.collection(coll).countDocuments({ ...live, ...filter });
+    const out: Record<string, number> = {};
+    await Promise.all([
+      see('requests') && count('supplyrequests', { status: { $in: ['requested', 'in_progress', 'ordered', null] } }).then((n) => { out.requests = n; }),
+      see('stock') && this.stockCounts().then((c) => { out.stockLow = c.low + c.none; }),
+      see('money') && canSeeMoney(user) && count('incomes', { paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } }).then((n) => { out.awaiting = n; }),
+      see('salesorders') && count('salesorders', { stage: { $in: [...ACTIVE_STAGES, null] } }).then((n) => { out.salesorders = n; }),
+      see('design') && count('designtasks', { status: { $in: ['queue', 'work'] } }).then((n) => { out.design = n; }),
+      see('work') && count('worktasks', { status: { $in: ['waiting', 'work'] } }).then((n) => { out.work = n; }),
+    ]);
+    return out;
   }
 
   private async supply(db: NonNullable<Connection['db']>, upto: Date) {

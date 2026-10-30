@@ -300,10 +300,21 @@ function avatarButton() {
 }
 
 /** Счётчики в меню: активные заявки; позиции к закупке и без остатка. */
+let noCounters = false;
 async function refreshCounts(only) {
   const set = (id, n) => { const c = navLinks[id]?.querySelector('.cnt'); if (c) { c.textContent = String(n); c.hidden = !n; } };
   // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
   const get = (id, path) => (session.sees(id) && (!only || only.has(id)) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
+  // SPEED-2: один лёгкий запрос; сервер без /me/counters (404) — прежние шесть
+  if (!noCounters) {
+    try {
+      const c = await api('/me/counters');
+      const put = (id, key, n) => { if ((!only || only.has(id)) && n != null) set(id, n); };
+      put('requests', 'requests', c.requests); put('stock', 'stockLow', c.stockLow); put('money', 'awaiting', c.awaiting);
+      put('salesorders', 'salesorders', c.salesorders); put('design', 'design', c.design); put('work', 'work', c.work);
+      return;
+    } catch (e) { if (e?.status === 404) noCounters = true; /* иное — пробуем по-старому */ }
+  }
   try {
     const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('money', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
     if (o) set('money', o.counts?.awaiting || 0); // «ждём оплату» — на пункте «Платёжный календарь»

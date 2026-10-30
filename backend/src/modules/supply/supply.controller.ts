@@ -248,6 +248,15 @@ export class SupplyController {
     return this.supply.lookups();
   }
 
+  /** Подсказка «уже заказывали» для формы: одна строка на название, без фото и лишних полей. */
+  @AppSection('requests', 'stock')
+  @Get('requests/lookup')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤500, по умолчанию 50' })
+  lookup(@Query() q: Record<string, string>) {
+    return this.supply.lookup(q);
+  }
+
   @Get('requests/:id')
   @Roles('admin', 'director', 'manager', 'user')
   get(@Param('id') id: string) {
