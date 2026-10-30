@@ -3,10 +3,9 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { DataVersionService } from '../../common/data-version/data-version.service';
-import { escapeRe, oid, oids, parseList } from '../../common/list-query';
+import { oid, oids, parseList } from '../../common/list-query';
 import { sameRe } from '../../common/text/same-text';
 import { Material, MaterialDocument } from '../material/material.schema';
-import { normText } from '../../common/text/norm-text';
 import { articleView } from './article';
 import { dimsOf, metalKind, isEmptyMetal } from './metal';
 import { StockCoreService } from './stock-core.service';
@@ -181,14 +180,12 @@ export class StockSearchService {
   async openRequests(mats: { _id: Types.ObjectId; name?: string }[]) {
     const out = new Map<string, { id: string; num: number | null; title: string; qty: number; unit: string; status: string; paid: boolean; invoiceDate: Date | null; requestDate: Date | null; requestedBy: string | null; supplierId: Types.ObjectId | null }[]>();
     if (!mats.length) return out;
-    const byName = new Map(mats.map((m) => [normText(String(m.name ?? '')), String(m._id)]));
     const ids = mats.map((m) => m._id);
     const docs = await this.connection.db!.collection('supplyrequests').find({ deletedAt: null, status: { $in: ['in_progress', 'requested', 'ordered'] },
-      $or: [{ materialId: { $in: ids } }, { materialId: null }, { materialId: { $exists: false } }] },
+      materialId: { $in: ids } },
     { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, invoiceDate: 1, requestDate: 1, requestedBy: 1, supplierId: 1, materialId: 1 } }).toArray();
     for (const d of docs) {
-      const key = d.materialId ? String(d.materialId) : byName.get(normText(String(d.title ?? '')));
-      if (!key) continue;
+      const key = String(d.materialId);
       const list = out.get(key) ?? [];
       list.push({ id: String(d._id), num: (d.num as number) ?? null, title: String(d.title ?? ''), qty: Number(d.qty) || 0, unit: String(d.unit ?? ''), status: String(d.status), paid: !!d.paid,
         invoiceDate: (d.invoiceDate as Date) ?? null, requestDate: (d.requestDate as Date) ?? null, requestedBy: (d.requestedBy as string) ?? null, supplierId: (d.supplierId as Types.ObjectId) ?? null });
@@ -206,7 +203,7 @@ export class StockSearchService {
     if (!mat) throw new NotFoundException('Позиция не найдена');
     const open = (await this.openRequests([mat as { _id: Types.ObjectId; name?: string }])).get(String(mat._id)) ?? [];
     const db = this.connection.db!;
-    const got = await db.collection('supplyrequests').find({ deletedAt: null, status: 'received', $or: [{ materialId: mat._id }, { title: { $regex: `^\\s*${escapeRe(String(mat.name))}\\s*$`, $options: 'i' } }] },
+    const got = await db.collection('supplyrequests').find({ deletedAt: null, status: 'received', materialId: mat._id },
       { projection: { qty: 1, priceHint: 1, supplierId: 1, receivedAt: 1, invoiceDate: 1, requestDate: 1 } }).sort({ receivedAt: -1, invoiceDate: -1 }).limit(200).toArray();
     const orgIds = [...open.map((r) => r.supplierId), ...got.map((g) => g.supplierId)].filter(Boolean) as Types.ObjectId[];
     const orgs = orgIds.length ? await db.collection('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1 } }).toArray() : [];

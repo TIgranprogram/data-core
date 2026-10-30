@@ -1,5 +1,5 @@
 import { photoToFront } from '../../common/photo-main';
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
@@ -383,6 +383,11 @@ export class SupplyService {
     if (!fields.title && fields.materialId) {
       const m = await this.connection.db!.collection('materials').findOne({ _id: fields.materialId as Types.ObjectId }, { projection: { name: 1, invoiceName: 1 } });
       if (m) fields.title = materialRequestTitle(m as { name?: string; invoiceName?: string });
+    }
+    // единый источник (CANON §5): название совпало с позицией склада — заявка сразу ссылается на неё
+    if (!fields.materialId && fields.title) {
+      const same = await this.stock.findMaterialByName(String(fields.title));
+      if (same) fields.materialId = same._id;
     }
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {

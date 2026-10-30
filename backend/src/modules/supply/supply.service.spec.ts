@@ -39,7 +39,7 @@ describe('supply-labels', () => {
 describe('SupplyService', () => {
   let colls: Record<string, Array<Record<string, unknown>>>;
   let model: { find: jest.Mock; findOne: jest.Mock; findById: jest.Mock; countDocuments: jest.Mock; aggregate: jest.Mock; create: jest.Mock; updateOne: jest.Mock; distinct: jest.Mock };
-  let stock: { adoptArticle: jest.Mock; move: jest.Mock; createItem: jest.Mock };
+  let stock: { findMaterialByName: jest.fn().mockResolvedValue(null), adoptArticle: jest.Mock; move: jest.Mock; createItem: jest.Mock };
   let service: SupplyService;
   /** Текущая заявка (для findOne/findById по _id), последняя по номеру, дубль по clientUid. */
   let current: Record<string, unknown> | null;
