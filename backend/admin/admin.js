@@ -141,13 +141,14 @@
 
   // ---- Ведение проекта (devlog): версии, ошибки, задачи, время, документы, набор ----
   const DV = { tab: 'releases', built: false };
-  const DV_TABS = [['releases', 'Версии'], ['errors', 'Ошибки'], ['tasks', 'Задачи'], ['time', 'Время'], ['docs', 'Документы'], ['kit', 'Набор']];
+  const DV_TABS = [['releases', 'Версии'], ['errors', 'Ошибки'], ['tasks', 'Задачи'], ['time', 'Время'], ['docs', 'Документы'], ['kit', 'Шаблоны']];
   const DV_PREFIX = { feat: 'новое', fix: 'исправление', docs: 'документы', chore: 'служебное', perf: 'ускорение', refactor: 'порядок в коде', test: 'проверки', style: 'оформление' };
   const DV_ERR = { new: 'новая', in_progress: 'в работе', fixed: 'исправлена', not_bug: 'не ошибка' };
   const DV_TASK = { open: 'открыта', in_progress: 'в работе', done: 'сделана', not_bug: 'не нужна' };
   const dvItems = (r) => (Array.isArray(r) ? r : (r && r.items) || []);
   const dvQs = (o) => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== '' && v != null) p.set(k, v); }); const s = p.toString(); return s ? '?' + s : ''; };
   const dvDay = (s) => s ? new Date(s).toLocaleDateString('ru-RU') : '—';
+  const dvDateTime = (s) => s ? new Date(s).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
   const dvHours = (n) => (Number(n) || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
   function dvEmpty(box, text) { box.replaceChildren(el('p', 'muted dv-empty', text)); }
   function dvTable(heads, rows) {
@@ -180,7 +181,7 @@
     list.forEach((r) => {
       const commits = r.commits || [];
       const d = el('details', 'dv-card'), s = el('summary');
-      s.append(el('b', '', r.version), el('span', 'muted', ' · ' + dvDay(r.date)), el('span', 'dv-sum', r.summary ? ' — ' + r.summary : ''));
+      s.append(el('b', '', r.version), el('span', 'muted', ' · ' + dvDateTime(r.date)), el('span', 'dv-sum', r.summary ? ' — ' + r.summary : ''));
       d.append(s);
       if (!commits.length) d.append(el('p', 'muted small', 'Список правок не сохранён.'));
       const ul = el('ul', 'dv-commits');
@@ -240,7 +241,7 @@
     data.forEach((d, i) => {
       const bh = Math.max(2, (d.v / max) * (H - 20)), x = pad + i * bw;
       const r = mk('rect', { x: x + 3, y: H - bh, width: Math.max(4, bw - 8), height: bh, rx: 3, class: 'dv-bar' }); r.append(mk('title', {}, `${d.l}: ${dvHours(d.v)} ч`));
-      svg.append(r, mk('text', { x: x + bw / 2, y: H - bh - 4, 'text-anchor': 'middle', class: 'dv-val' }, dvHours(d.v)), mk('text', { x: x + bw / 2, y: H + 14, 'text-anchor': 'middle', class: 'dv-lbl' }, d.l.length > 9 ? d.l.slice(0, 8) + '…' : d.l));
+      svg.append(r, mk('text', { x: x + bw / 2, y: H - bh - 4, 'text-anchor': 'middle', class: 'dv-val' }, dvHours(d.v) + ' ч'), mk('text', { x: x + bw / 2, y: H + 14, 'text-anchor': 'middle', class: 'dv-lbl' }, d.l.length > 9 ? d.l.slice(0, 8) + '…' : d.l));
     });
     box.append(svg); return box;
   }
@@ -271,7 +272,7 @@
           catch (e) { toast(e.message); save.disabled = false; }
         });
         const cell = el('div', 'dv-edit'); cell.append(inp, save);
-        tr.append(dvTd(dvDay(s.start)), dvTd(dvHours(s.hours), 'num'), dvTd(s.commits ?? '—', 'num'), dvTd(s.place === 'home' ? 'дом' : s.place === 'work' ? 'работа' : '—'), dvTd(cell));
+        tr.append(dvTd(dvDateTime(s.start)), dvTd(dvHours(s.hours), 'num'), dvTd(s.commits ?? '—', 'num'), dvTd(s.place === 'home' ? 'дом' : s.place === 'work' ? 'работа' : '—'), dvTd(cell));
         return tr;
       });
       out.replaceChildren(tot, charts, el('h3', 'dv-h', 'Рабочие сессии'), trs.length ? dvTable(['День', '#Часы (оценка)', '#Правок', 'Место', 'Ваши часы (если точнее)'], trs) : el('p', 'muted', 'Сессий нет.'));
@@ -302,9 +303,9 @@
   }
   function dvKit(root) {
     const box = el('div', 'dv-kit');
-    box.append(el('p', '', 'Набор для нового проекта: роли агентов, процессы (скиллы), шаблоны CLAUDE.md и AGENTS.md, образцы законов и дизайн-системы и готовый стартовый промт.'),
+    box.append(el('p', '', 'Шаблоны для нового проекта: роли агентов, процессы (скиллы), шаблоны CLAUDE.md и AGENTS.md, образцы законов и дизайн-системы и готовый стартовый промт.'),
       el('p', 'muted small', 'Без данных, паролей, адресов серверов и кода. Только то, что переносится как есть.'));
-    const btn = el('button', 'btn btn-primary', 'Скачать набор'), note = el('span', 'muted small');
+    const btn = el('button', 'btn btn-primary', 'Скачать шаблоны проекта'), note = el('span', 'muted small');
     btn.addEventListener('click', async () => {
       btn.disabled = true; note.textContent = 'Готовим…';
       try {
