@@ -72,3 +72,6 @@
 
 ## Аудит КП (2026-10-30)
 - `docs/audit/AUDIT-KP.md`. Образец kppdf `quotation.schema.ts`, `convert-to-order` :833 (без цен, только из accepted). В data-core заказ = `salesorders`+`incomes` (не CRM `orders`) → своя коллекция `commercialoffers`, PDF на pdfkit (`shipments/shipment-pdf.ts`). Фоны kp-1str/2str: подпись и печать запечены, нужны «поля» безопасной зоны. Вопросы 1–4 в отчёте, в QUESTIONS не перенесены. коммит: —
+
+## Аудит паспортов: части и материалы по картинкам (2026-10-30)
+- `docs/audit/AUDIT-PASSPORT-PARTS.md`. 342 паспорта ≈ 24 группы изделий (≈ 20 типов состава). Составные части (~29) лежат в `passportElements`, не в `passportParts` (там 35, из них мусор «наполнение», «фланец», «Фланцы»). Нет: диск-отягощение, весовой стек, дуга, зацеп, ферма, кольцо баскетбольное, лебёдка, стакан; сортамент: 40×80×2 vs 80×40×2, лист 14. Структура «Тип изделия → части» поверх `materialsSpec` (`common/catalog/materials-table.ts`). Вопросы В-1…В-7 в отчёте, в QUESTIONS не перенесены. коммит: —
