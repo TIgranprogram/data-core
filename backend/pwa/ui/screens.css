@@ -464,30 +464,36 @@ html { scrollbar-gutter: stable; }
 .k-round { --chip: var(--sec-stock); --chip-soft: var(--sec-stock-soft); }
 .k-steel { --chip: var(--sec-orders); --chip-soft: var(--sec-orders-soft); }
 /* Трубы как таблица Excel (СМ.5) */
-.pg-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+.pg-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s3); }
 .pg-top h1 { margin: 0; }
-.pg-search { flex: 1 1 180px; max-width: 280px; }
+.pg-search { flex: 1 1 180px; max-width: 320px; }
 .pg-chips { display: flex; gap: 6px; }
-.pg-block { margin-top: var(--s4); }
-.pg-title { margin: 0 0 var(--s2); font-size: 16px; color: var(--chip); }
-.pg-table { border-collapse: collapse; background: var(--surface); width: 100%; }
-.pg-table th, .pg-table td { border: 1px solid var(--border-strong); padding: 0; text-align: center; }
-.pg-table thead th { position: sticky; top: var(--topbar-h); z-index: 1; padding: 6px 8px; background: var(--chip-soft, var(--surface-2)); color: var(--chip, var(--text)); font-size: var(--fs-label); }
-.pg-table thead tr + tr th { top: calc(var(--topbar-h) + 30px); }
-.pg-table .pg-name { padding: 6px 10px; text-align: left; white-space: nowrap; font-weight: 600; color: var(--text); background: var(--surface-2); }
+.pg-block { --pg-h1: 44px; margin-top: var(--s5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0 0 var(--s2); }
+.pg-title { margin: 0; padding: var(--s3) var(--s4); font-size: var(--fs-h2); font-weight: 700; letter-spacing: .01em; color: var(--chip, var(--heading)); border-bottom: 3px solid var(--chip, var(--border-strong)); border-radius: var(--radius) var(--radius) 0 0; background: var(--chip-soft, var(--surface-2)); }
+.pg-table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; background: var(--surface); font-variant-numeric: tabular-nums; }
+.pg-table th, .pg-table td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0; text-align: center; }
+.pg-table th:last-child, .pg-table td:last-child { border-right: 0; }
+.pg-table thead th { position: sticky; top: var(--topbar-h); z-index: 2; height: var(--pg-h1); padding: 0 var(--s2); background: var(--chip-soft, var(--surface-2)); color: var(--chip, var(--heading)); font-family: var(--font); font-size: 14px; font-weight: 700; line-height: 1.2; border-bottom: 2px solid var(--border-strong); }
+.pg-table thead tr + tr th { top: calc(var(--topbar-h) + var(--pg-h1)); z-index: 1; }
+.pg-table .pg-name { width: 150px; padding: 0 var(--s4); text-align: left; white-space: nowrap; font-size: 18px; font-weight: 700; color: var(--heading); background: var(--surface-2); }
+.pg-table thead .pg-name { font-size: 14px; background: var(--surface-2); color: var(--muted); }
+.pg-table tbody tr:nth-child(even) .pg-c, .pg-table tbody tr:nth-child(even) .pg-for { background: var(--surface-2); }
+.pg-table tbody tr:hover > td, .pg-table tbody tr:hover > th { background: var(--row-hover); }
 .pg-c { background: var(--surface); }
 .pg-c:focus-within { background: var(--chip-soft); }
-.pg-in { width: 100%; min-width: 56px; height: 34px; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; text-align: center; }
-.pg-in:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pg-in { width: 100%; min-width: 0; height: 48px; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; }
+.pg-in:focus { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--surface); }
 .pg-in.saving { opacity: .5; }
 .pg-in.saved { background: var(--ok-soft); }
-.pg-sum { padding: 6px 10px; font-weight: 700; background: var(--surface-2); white-space: nowrap; }
-.pg-note { width: 100%; min-width: 120px; height: 34px; padding: 0 8px; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; }
-.pg-note:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pg-sum { width: 110px; padding: 0 var(--s3); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; color: var(--heading); background: var(--surface-2); white-space: nowrap; }
+.pg-table tfoot th, .pg-table tfoot td { border-top: 2px solid var(--border-strong); border-bottom: 0; height: 48px; background: var(--surface-3); }
+.pg-note { width: 100%; min-width: 0; height: 48px; padding: 0 var(--s3); border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; }
+.pg-note:focus { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--surface); }
 .pg-note.saved { background: var(--ok-soft); }
-.pg-held { padding: 0 4px 3px; font-size: var(--fs-label); font-weight: 600; color: var(--warn); }
+.pg-held { padding: 0 4px 4px; font-size: 13px; font-weight: 600; color: var(--warn); text-align: center; }
 .pg-reserved { --chip: var(--warn); --chip-soft: var(--warn-soft); }
-.pg-table .pg-for { padding: 6px 10px; text-align: left; }
+.pg-table .pg-for { padding: 0 var(--s3); text-align: left; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) { .pg-block { --pg-h1: 40px; } .pg-table .pg-name { width: 110px; font-size: 16px; } .pg-in, .pg-sum { font-size: 16px; } .pg-sum { width: 80px; } }
 /* Выбор позиции: сначала категория */
 .sop-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--s2); }
 .sop-pick select, .sop-pick-in input { width: 100%; }
