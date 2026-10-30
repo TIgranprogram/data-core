@@ -174,6 +174,12 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none 
 .g-strip { display: flex; gap: 6px; margin-top: 6px; overflow-x: auto; }
 .g-strip img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 2px solid transparent; cursor: pointer; flex: none; }
 .g-strip img.active { border-color: var(--gold); }
+.g-th { position: relative; flex: none; line-height: 0; }
+.g-th img { display: block; }
+.g-th .pf-main { top: 2px; left: 2px; } /* лента с прокруткой обрезает выступ */
+.g-th .pf-main::before { content: ''; position: absolute; inset: -6px; }
+.g-th .pf-main:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+@media (max-width: 720px) { .g-strip { padding: 4px 0; } .g-th .pf-main::before { inset: -11px; } } /* касание — 44 px */
 .lightbox { position: fixed; inset: 0; z-index: 95; background: rgba(10, 12, 18, .86); display: grid; place-items: center; cursor: zoom-out; padding: 24px; }
 .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
 .pic { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--surface-3); display: block; }

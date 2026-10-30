@@ -36,11 +36,10 @@ import { DOCK_MIN, getPref, setPref } from '../core/prefs.js';
 function gallery(pics, onRemove, onMain) {
   const big = h('img', { class: 'g-big', src: PREFIX + (pics[0].medium || pics[0].url), alt: '', loading: 'lazy', decoding: 'async' });
   let cur = 0;
-  // первое фото — главное (обложка в списках); «Сделать главным» ставит выбранное первым
-  const main = onMain && pics.length > 1 ? h('button', { class: 'btn btn-ghost btn-sm g-main', type: 'button', onclick: (e) => { e.stopPropagation(); if (cur) onMain(pics[cur]); } }) : null;
-  const paintMain = () => { if (main) { main.textContent = cur ? '☆ Сделать главным' : '★ Главное фото'; main.disabled = !cur; } };
-  const show = (i) => { cur = i; big.src = PREFIX + (pics[i].medium || pics[i].url); strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); paintMain(); };
-  const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', class: i ? '' : 'active', onclick: () => show(i) }))) : h('div');
+  // первое фото — главное (обложка в списках); ☆ на миниатюре ставит это фото первым — без лишнего шага
+  const star = (p, i) => (onMain ? h('button', { type: 'button', class: 'pf-main' + (i ? '' : ' on'), title: i ? 'Сделать главным' : 'Главное фото', 'aria-label': i ? 'Сделать главным' : 'Главное фото', onclick: (e) => { e.stopPropagation(); if (i) onMain(p); } }, i ? '☆' : '★') : null);
+  const show = (i) => { cur = i; big.src = PREFIX + (pics[i].medium || pics[i].url); strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); };
+  const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('div', { class: 'g-th' }, h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', class: i ? '' : 'active', onclick: () => show(i) }), star(p, i)))) : h('div');
   big.addEventListener('click', () => {
     const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото' }, h('img', { src: PREFIX + pics[cur].url, alt: '' }));
     const close = (e) => { if (!e || e.type === 'click' || e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', close, true); e?.stopPropagation?.(); } };
@@ -49,8 +48,7 @@ function gallery(pics, onRemove, onMain) {
     document.body.append(box);
   });
   const del = onRemove ? h('button', { class: 'btn btn-ghost btn-sm g-del', type: 'button', title: 'Убрать это фото из карточки', onclick: (e) => { e.stopPropagation(); onRemove(pics[cur]); } }, 'Убрать фото') : null;
-  paintMain();
-  return h('div', { class: 'gallery' }, big, strip, main, del);
+  return h('div', { class: 'gallery' }, big, strip, del);
 }
 export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
 const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
