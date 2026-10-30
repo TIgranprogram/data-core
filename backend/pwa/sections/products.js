@@ -263,7 +263,8 @@ export const products = {
         const rest = Object.fromEntries(Object.entries(set).filter(([k]) => !k.startsWith('pd.')));
         return api('/showcase/bulk', { method: 'POST', body: { ids, set: { ...rest, ...(Object.keys(pd).length ? { passportDefaults: pd } : {}) }, arrays } });
       },
-      restore: (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } }) }) }, // права — canEditSection в списке
+      restore: (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } }) }),
+      extra: [{ label: 'В КП', run: (_ids, rows) => { rows.forEach(kpAdd); toast(`В КП: ${rows.length} изд. — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); } }] }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
     emptyText: 'Изделий пока нет. «⇩ Загрузить каталог» — Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
     // левая панель (NAV F3): поиск → «Тип · Группа изделий» → «Серия» → «Состояние»; цену и габариты не фильтруем

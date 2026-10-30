@@ -60,10 +60,33 @@ async function buildKpForm() {
   const note = h('textarea', { rows: 3, placeholder: 'Срок изготовления, условия оплаты и доставки…' });
   const list = h('div', { class: 'kp-lines' });
   const total = h('div', { class: 'kp-total num' });
+  const searchInput = h('input', { placeholder: 'Добавить изделие: название или артикул…', class: 'kp-search-input' });
+  const searchDrop = h('div', { class: 'kp-search-drop' });
+  const searchBox = h('div', { class: 'kp-search-box' }, searchInput, searchDrop);
+  let searchTimer;
+  const clearSearch = () => { searchDrop.replaceChildren(); searchInput.value = ''; };
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = searchInput.value.trim();
+    if (q.length < 2) { searchDrop.replaceChildren(); return; }
+    searchTimer = setTimeout(async () => {
+      const data = await api(`/showcase?search=${encodeURIComponent(q)}&limit=10`).catch(() => null);
+      const items = data?.items || [];
+      if (!items.length) { searchDrop.replaceChildren(h('div', { class: 'kp-search-empty' }, 'Не найдено')); return; }
+      searchDrop.replaceChildren(...items.map((r) => {
+        const btn = h('button', { type: 'button', class: 'kp-search-item' },
+          r.sku ? h('span', { class: 'muted small' }, r.sku + ' · ') : null, r.name,
+          r.price ? h('span', { class: 'muted small' }, ' — ' + money(r.price) + ' ₽') : null);
+        btn.onclick = () => { kpAdd(r); lines = load(); render(); clearSearch(); };
+        return btn;
+      }));
+    }, 300);
+  });
+  searchInput.addEventListener('blur', () => setTimeout(() => searchDrop.replaceChildren(), 200));
   const render = () => {
     save(lines);
     total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}`;
-    if (!lines.length) { list.replaceChildren(h('p', { class: 'muted' }, 'КП пусто — в «Продукции» нажмите «В КП» у нужных изделий.')); return; }
+    if (!lines.length) { list.replaceChildren(h('p', { class: 'muted' }, 'КП пусто — найдите изделие выше или нажмите «В КП» в разделе «Продукция».')); return; }
     list.replaceChildren(...lines.map((l, i) => {
       const q = h('input', { inputmode: 'decimal', value: String(l.qty), 'aria-label': 'Количество' });
       const p = h('input', { inputmode: 'decimal', value: l.price ? String(l.price) : '', placeholder: 'цена', 'aria-label': 'Цена' });
@@ -75,7 +98,7 @@ async function buildKpForm() {
     }));
   };
   render();
-  const el = h('div', { class: 'kp-form' }, list, total, h('div', { class: 'form-grid' }, field('Наша компания', company), field('Заказчик', custBox), field('Условия, примечание', note, 'wide')));
+  const el = h('div', { class: 'kp-form' }, searchBox, list, total, h('div', { class: 'form-grid' }, field('Наша компания', company), field('Заказчик', custBox), field('Условия, примечание', note, 'wide')));
   return {
     el, focus: () => customer.focus(), dirty: () => false,
     read: () => ({ values: { save: async () => {

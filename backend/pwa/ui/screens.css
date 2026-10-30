@@ -688,6 +688,13 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .kp-name { display: flex; flex-direction: column; min-width: 0; }
 .kp-name b { overflow-wrap: anywhere; }
 .kp-total { text-align: right; font-weight: 700; color: var(--text); margin-bottom: var(--s4); }
+.kp-search-box { position: relative; margin-bottom: var(--s3); }
+.kp-search-input { width: 100%; }
+.kp-search-drop { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,.12)); display: flex; flex-direction: column; }
+.kp-search-drop:empty { display: none; }
+.kp-search-item { text-align: left; padding: var(--s2) var(--s3); background: none; border: none; cursor: pointer; color: var(--text); }
+.kp-search-item:hover { background: var(--hover, var(--surface-alt)); }
+.kp-search-empty { padding: var(--s2) var(--s3); color: var(--muted); }
 .imp-report ul { margin: var(--s2) 0; }
 @media (max-width: 720px) { .kp-line { grid-template-columns: 1fr 1fr auto; } .kp-name { grid-column: 1 / -1; } }
 

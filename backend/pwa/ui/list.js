@@ -225,8 +225,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     // полоса видна весь режим выбора (и при 0 отмеченных): иначе из режима не выйти
     bulkBar.hidden = always ? !picked.size : (!bulkMode && !picked.size);
     if (selBtn) selBtn.classList.toggle('active', bulkMode);
+    const pickedRows = () => rows.filter((r) => picked.has(r.id));
     bulkBar.replaceChildren(h('b', null, picked.size ? `Выбрано: ${qty(picked.size)}` : 'Отметьте строки — клик по строке или галочке'),
-      picked.size ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: rows.filter((r) => picked.has(r.id)) }) }, L.bulk.label || 'Изменить выбранные') : null,
+      picked.size ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: pickedRows() }) }, L.bulk.label || 'Изменить выбранные') : null,
+      ...(picked.size ? (L.bulk.extra || []).map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => a.run([...picked], pickedRows()) }, a.label)) : []),
       h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять' : 'Готово'));
     const all = headPick(); if (all) { const ids = rows.filter(canPick).map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
   };
