@@ -205,6 +205,7 @@ function cmdStatus() {
   const head = run('git', ['rev-parse', '--short', 'HEAD']).stdout.trim();
   if (vj && head && vj.v !== head) say(`HEAD локально ${head} — на сайте другой коммит`);
   try { say('Последний полный прогон: ' + (lastTestLog(fs.readFileSync(path.join(ROOT, 'docs', 'TEST-LOG.md'), 'utf8')) || 'нет записей')); } catch { say('TEST-LOG не прочитан'); }
+  say('Ночной прогон: ' + nightLine());
   return bad ? 1 : 0;
 }
 
