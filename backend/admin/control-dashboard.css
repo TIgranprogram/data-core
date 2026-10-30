@@ -1,0 +1,36 @@
+/* Вкладка «Состояние» (CC-22). Только токены. */
+.cc-pbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.cc-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.cc-range { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cc-month { flex: none; width: 160px; }
+.cc-headline { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; color: var(--heading); }
+.cc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; margin-bottom: 18px; }
+.cc-cards .cc-stat { margin-bottom: 0; padding: 12px 14px; }
+.cc-big { font-size: var(--fs-h2); font-weight: 700; color: var(--heading); margin: 4px 0; overflow-wrap: anywhere; }
+.cc-nodata { color: var(--muted); font-weight: 500; font-size: var(--fs-h3); }
+.cc-none { margin: 0; padding: 8px 0; }
+.cc-group { padding-bottom: 8px; }
+.cc-row { display: grid; grid-template-columns: minmax(200px, 1.6fr) 130px minmax(90px, .7fr) minmax(150px, 1fr); gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.cc-group h3 + .cc-row { border-top: 0; }
+.cc-label { color: var(--text); }
+.cc-val { font-weight: 600; color: var(--heading); text-align: right; font-variant-numeric: tabular-nums; }
+.cc-chg { color: var(--muted); }
+.cc-delta { color: var(--text); }
+.cc-spark { width: 120px; height: 32px; display: block; }
+.cc-line { fill: none; stroke: var(--primary); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.cc-dot { fill: var(--primary); }
+.cc-spark-empty { border-bottom: 1px dashed var(--border-strong); height: 16px; }
+.cc-idle summary { cursor: pointer; font-weight: 600; color: var(--heading); }
+.cc-idle summary:focus-visible { outline: 3px solid var(--primary-soft); outline-offset: 2px; }
+.cc-idle-list { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.cc-empty { max-width: 560px; }
+.cc-runs td, .cc-runs th { white-space: nowrap; }
+@media (max-width: 900px) {
+  .cc-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .cc-label { grid-column: 1 / -1; }
+  .cc-spark { width: 100%; max-width: 160px; }
+  .cc-val { text-align: right; }
+  .cc-chg { grid-column: 1 / -1; }
+  .cc-seg .btn, .cc-month, .cc-range .btn { min-height: 44px; }
+  .cc-idle summary { min-height: 44px; display: flex; align-items: center; }
+}

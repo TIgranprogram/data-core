@@ -8,6 +8,8 @@
   <script src="../app/theme.js"></script>
   <link rel="stylesheet" href="../app/ui/tokens.css" />
   <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="control-dashboard.css" />
+  <link rel="stylesheet" href="control-questions.css" />
 </head>
 <body>
   <!-- ================= LOGIN ================= -->
@@ -37,6 +39,9 @@
         <button class="tab active" data-tab="users"><span class="ico" aria-hidden="true">👥</span><span class="lbl">Пользователи</span></button>
         <button class="tab" data-tab="roles"><span class="ico" aria-hidden="true">🎭</span><span class="lbl">Роли</span></button>
         <button class="tab" data-tab="keys"><span class="ico" aria-hidden="true">🔑</span><span class="lbl">API-ключи</span></button>
+        <div class="side-group">Контроль</div>
+        <button class="tab" data-tab="questions"><span class="ico" aria-hidden="true">🧩</span><span class="lbl">Разбор</span></button>
+        <button class="tab" data-tab="control"><span class="ico" aria-hidden="true">📈</span><span class="lbl">Состояние</span></button>
         <div class="side-group">База</div>
         <button class="tab" data-tab="tables"><span class="ico" aria-hidden="true">🗂</span><span class="lbl">Таблицы</span></button>
         <button class="tab" data-tab="audit"><span class="ico" aria-hidden="true">📜</span><span class="lbl">Журнал</span></button>
@@ -298,6 +303,18 @@
       <div id="bundle-box" class="srv"><p class="muted">Нажмите кнопку, чтобы загрузить.</p></div>
     </main>
 
+    <main id="tab-questions" class="tab-panel" hidden>
+      <div class="panel-head"><h2>Разбор</h2></div>
+      <p class="panel-note">Вопросы, на которые нужен ваш ответ: что нашёл помощник и что с этим сделать. Каждое действие сначала показывается, потом выполняется.</p>
+      <div id="questions-root"></div>
+    </main>
+
+    <main id="tab-control" class="tab-panel" hidden>
+      <div class="panel-head"><h2>Состояние</h2></div>
+      <p class="panel-note">Как чувствует себя сайт: скорость, ошибки, копии, диск и ночные проверки. Показатели записываются каждую ночь.</p>
+      <div id="control-root"></div>
+    </main>
+
     <main id="tab-devlog" class="tab-panel" hidden>
       <div class="panel-head"><h2>Ведение проекта</h2></div>
       <p class="panel-note">Что сделано, какие были ошибки, сколько времени ушло и архив документов.</p>
@@ -366,6 +383,8 @@
     </div>
   </section>
 
+  <script src="control-dashboard.js"></script>
+  <script src="control-questions.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

@@ -41,7 +41,7 @@ export const METRICS: readonly MetricDef[] = [
   m('errors.total', 'Ошибок у пользователей', 'errors', 'шт', 'now'),
   m('errors.new_kinds', 'Новых видов ошибок', 'errors', 'шт', 'now'),
   m('errors.unhandled', 'Необработанных ошибок', 'errors', 'шт', 'now'),
-  m('errors.http5xx', 'Сбоев сервера (5xx)', 'errors', 'шт', 'now'),
+  m('errors.http5xx', 'Сбоев сервера', 'errors', 'шт', 'now'),
 
   m('data.fill_total', 'Записей, которые нужно заполнить', 'data', 'шт', 'now'),
   m('data.fill_top', 'Самая большая группа незаполненного', 'data', 'шт', 'now'),

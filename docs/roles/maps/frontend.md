@@ -132,3 +132,6 @@
 
 ## SPEED-2 (2026-10-30, не закоммичено)
 - `main.js refreshCounts` — GET /me/counters (404 -> `noCounters`, старые 6 запросов). `requests.js loadPast` — /supply/requests/lookup (404 -> старый). `salesorders.js activeOrderNos` — кэш 90 с. `core/errors.js reportSlow` + `ui/list.js` (t0/timed, >2000 мс, kind:slow, «Медленно: раздел N мс»). Фото: `card.js gallery`, `gallery.js carousel` крупно = `medium||url`, zoom — оригинал. Удалены `ui/bulk.js`, `ui/quick-order.js`, 404-ветки в orders-lookup/stock-list. Карта обновлена.
+
+## Разбор в админке (CC-18, 2026-10-31, не закоммичено)
+- `backend/admin/control-questions.js` (window.dcQuestions.open) + `control-questions.css` (.cc-sum/.cc-qtable/.cc-drawer): сводка-чипы, таблица, правая панель (предпросмотр, красное необратимое с галочкой, 409 -> новый план, отложить, ответ, отмена, журнал). `admin.js api()` кидает Error с `.status/.body`. index.html: вкладка `questions`, `#questions-root`. DESIGN §8 стр.289. Карта обновлена.

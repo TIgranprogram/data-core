@@ -47,9 +47,10 @@
   async function api(path, opts = {}) {
     const res = await authFetch(path, opts);
     if (!res.ok) {
-      let msg = `HTTP ${res.status}`;
-      try { const j = await res.json(); msg = j.message || j.error || msg; if (Array.isArray(msg)) msg = msg.join('; '); } catch { /* ignore */ }
-      throw new Error(msg);
+      let msg = `HTTP ${res.status}`, body = null;
+      try { const j = await res.json(); body = j; msg = j.message || j.error || msg; if (Array.isArray(msg)) msg = msg.join('; '); } catch { /* ignore */ }
+      const err = new Error(msg); err.status = res.status; err.body = body;
+      throw err;
     }
     return res.status === 204 ? null : res.json();
   }
@@ -332,6 +333,8 @@
     if (t.dataset.tab === 'audit') { auditState.page = 1; loadAudit(); }
     if (t.dataset.tab === 'server') serverIdle();
     if (t.dataset.tab === 'devlog') openDevlog();
+    if (t.dataset.tab === 'questions' && window.dcQuestions) window.dcQuestions.open($('#questions-root'), { api, el, toast });
+    if (t.dataset.tab === 'control' && window.dcControl) window.dcControl.open($('#control-root'), { api, el, toast });
   }));
 
   // ---- Users ----
