@@ -1,0 +1,66 @@
+# Ночной стенд dc: отдельный проект dcnight, свой Mongo и своя БД datacore-night.
+# Не пересекается с datacore-* (порты 3001/3002/27018 не используются). Секреты — из tools/.night/stand.env.
+# Запуск только через `dc stand up` (node tools/dc.mjs stand up): там проверки имени БД и портов.
+name: dcnight
+services:
+  keyfile:
+    image: mongo:4.4
+    restart: "no"
+    environment:
+      KF: ${NIGHT_KEYFILE:?}
+    volumes:
+      - secrets:/secrets
+    entrypoint: >-
+      sh -c "mkdir -p /secrets && printf '%s' \"$$KF\" > /secrets/mongo-keyfile
+      && chown 999:999 /secrets/mongo-keyfile && chmod 600 /secrets/mongo-keyfile"
+
+  mongo:
+    image: mongo:4.4
+    container_name: dcnight-mongo
+    restart: "no"
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--auth", "--keyFile", "/run/secrets/mongo-keyfile"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${NIGHT_ROOT_PW:?}
+    ports:
+      - "127.0.0.1:${NIGHT_MONGO_PORT:-27118}:27017"
+    volumes:
+      - mongo-data:/data/db
+      - secrets:/run/secrets:ro
+    depends_on:
+      keyfile:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "mongo --quiet -u root -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build: ${NIGHT_SRC:?}/backend
+    image: dcnight-backend:latest
+    container_name: dcnight-backend
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${NIGHT_API_PORT:-3102}:3000"
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      DISABLE_THROTTLE: "1"
+      SHEETS_SYNC_INTERVAL_MIN: "0"
+      MONGO_DB: ${NIGHT_DB:?}
+      MONGO_URI: mongodb://dcnight:${NIGHT_APP_PW:?}@mongo:27017/${NIGHT_DB}?authSource=admin&replicaSet=rs0
+      JWT_SECRET: ${NIGHT_JWT:?}
+      JWT_REFRESH_SECRET: ${NIGHT_JWT_REFRESH:?}
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: ${NIGHT_ADMIN_PW:?}
+    volumes:
+      - ${NIGHT_SRC}/backend/admin:/app/admin:ro
+      - ${NIGHT_SRC}/backend/pwa:/app/pwa:ro
+
+volumes:
+  secrets:
+  mongo-data:

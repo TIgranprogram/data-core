@@ -47,3 +47,6 @@ docs/samples/*.xls
 release.tgz
 
 tools/logs/
+
+# Ночной стенд и прогоны dc night (секреты стенда, worktree, итоги)
+tools/.night/

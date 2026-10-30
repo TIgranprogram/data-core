@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // dc — одна команда вместо россыпи шагов. Без зависимостей, на обоих ПК.
 //   node tools/dc.mjs start | errors [часы] | check | data | status | logs [имя]
+//                     stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
 // Полный вывод — tools/logs/<дата-время>-<команда>.log, в консоль — короткий итог (до 15 строк).
 // Коды выхода: 0 норма · 1 есть находки · 2 сбой инструмента.
 // Прод — только чтение через deploy/synology/api.sh. Записи на прод и выкладки здесь нет.
@@ -9,6 +10,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { cmdStand, cmdNight } from './night.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOGS = path.join(ROOT, 'tools', 'logs');
@@ -235,7 +237,7 @@ function cmdLogs(name) {
   process.exit(0);
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, arg] = argv;
   try {
     if (cmd === 'logs') return cmdLogs(arg);
@@ -245,12 +247,14 @@ function main(argv) {
       check: () => cmdCheck(),
       data: () => cmdData(),
       status: () => cmdStatus(),
+      stand: () => cmdStand(arg, { log, say }),
+      night: () => cmdNight({ quick: argv.includes('--quick') }, { log, say }),
     };
     if (!table[cmd]) {
-      console.log('dc start | errors [часы] | check | data | status | logs [имя]\nКоды выхода: 0 норма · 1 находки · 2 сбой инструмента');
+      console.log('dc start | errors [часы] | check | data | status | logs [имя] | stand [up|down|status] | night [--quick]\nКоды выхода: 0 норма · 1 находки · 2 сбой инструмента');
       process.exit(cmd ? 2 : 0);
     }
-    finish(cmd, table[cmd]());
+    finish(cmd, await table[cmd]());
   } catch (e) {
     say('Сбой инструмента dc: ' + e.message);
     log(e.stack || '');
