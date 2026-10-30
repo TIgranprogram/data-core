@@ -1,3 +1,5 @@
 connect.txt
 *.tar.gz
 *.tgz
+access-package/
+access-package.zip

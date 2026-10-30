@@ -45,3 +45,5 @@ docs/samples/*.xls
 
 # архив деплоя (создаётся datacore-deploy, не хранить в git)
 release.tgz
+
+tools/logs/
