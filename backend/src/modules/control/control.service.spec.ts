@@ -1,6 +1,6 @@
 import { emptyMetrics, type Metrics } from './control.rollup';
 import { ControlService, COL_DAILY, COL_MONTHLY, COL_RUNS } from './control.service';
-import { collectNow } from './control.collect';
+import { collectNow, poolMap } from './control.collect';
 import { LatencyHistogram, latency } from '../../common/interceptors/latency-histogram';
 import type { CreateRunDto } from './dto/control.dto';
 
@@ -37,12 +37,13 @@ function fakeCollection() {
     countDocuments: async (f: Doc = {}) => [...rows.values()].filter((r) => match(r, f)).length,
     updateOne: async (f: Doc, u: Doc, o: Doc = {}) => {
       const found = [...rows.values()].find((r) => match(r, f));
-      if (!found && !o.upsert) return { upsertedCount: 0 };
+      if (!found && !o.upsert) return { upsertedCount: 0, modifiedCount: 0 };
+      if (!found && rows.has(f._id)) throw Object.assign(new Error('dup'), { code: 11000 });
       const row: Doc = found ?? { _id: f._id, ...(u.$setOnInsert ?? {}) };
       const upserted = found ? 0 : 1;
       Object.assign(row, structuredClone(u.$set ?? {}));
       rows.set(row._id, row);
-      return { upsertedCount: upserted };
+      return { upsertedCount: upserted, modifiedCount: found ? 1 : 0 };
     },
     deleteMany: async (f: Doc) => { let n = 0; for (const [k, r] of rows) if (match(r, f)) { rows.delete(k); n++; } return { deletedCount: n }; },
   };
@@ -246,5 +247,28 @@ describe('collectNow: сбой источника = null, не 0', () => {
     expect(m['speed.p95_ms']).toBeNull();
     expect(m['data.fill_total']).toBe(4);
     expect(m['data.integrity_issues']).toBe(0);
+  });
+
+  it('замок дня: второй процесс пропускает, снятый замок берётся снова', async () => {
+    const { svc } = makeService();
+    const t = new Date(2026, 9, 31, 23, 30);
+    expect(await svc.tryLock('day:x', 900_000, t)).toBe(true);
+    expect(await svc.tryLock('day:x', 900_000, new Date(t.getTime() + 1000))).toBe(false);
+    expect(await svc.tryLock('day:x', 900_000, new Date(t.getTime() + 16 * 60_000))).toBe(true);
+  });
+
+  it('tick: замок занят другим процессом — снимок не делаем', async () => {
+    const { svc } = makeService();
+    const spy = jest.spyOn(svc, 'snapshotDay').mockResolvedValue({ date: 'x', created: true });
+    await svc.tryLock('day:2026-10-31', 900_000, new Date(2026, 9, 31, 23, 29));
+    await svc.tick(new Date(2026, 9, 31, 23, 30));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('poolMap: порядок сохраняется, параллельность не выше лимита', async () => {
+    let now = 0, peak = 0;
+    const r = await poolMap([1, 2, 3, 4, 5, 6, 7], 3, async (x) => { peak = Math.max(peak, ++now); await new Promise((ok) => setTimeout(ok, 5)); now--; return x * 2; });
+    expect(r).toEqual([2, 4, 6, 8, 10, 12, 14]);
+    expect(peak).toBeLessThanOrEqual(3);
   });
 });

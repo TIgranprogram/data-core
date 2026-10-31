@@ -124,7 +124,19 @@ export async function collectNow(d: CollectDeps): Promise<Metrics> {
       return at.length ? hoursSince(new Date(Math.max(...at)), now) : null;
     }],
   ];
-  const vals = await Promise.all(jobs.map(([, fn]) => safe(fn)));
+  const vals = await poolMap(jobs, PROBE_PARALLEL, ([, fn]) => safe(fn));
   jobs.forEach(([k], i) => { m[k] = vals[i]; });
   return m;
+}
+
+/** Сколько проб снимка идут одновременно: 28 разом в 23:30 — пик для одного ядра VM. */
+export const PROBE_PARALLEL = 4;
+
+/** `Promise.all` с ограничением параллельности; порядок результатов сохраняется. */
+export async function poolMap<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i]); } };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
 }

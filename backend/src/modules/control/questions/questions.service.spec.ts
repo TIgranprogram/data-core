@@ -98,7 +98,9 @@ describe('CC-14: постановка и дедупликация', () => {
     expect(h.qs().filter((q) => q.type === 'overflow')).toHaveLength(1);
     expect(h.qs().find((q) => q.type === 'overflow')!.what).toContain('2 вопроса');
     // другой источник не затронут
-    expect((await h.svc.create({ type: 'free_text', what: 'Свой', sourceName: 'Другой' }, ADMIN, NOW)).overflow).toBe(false);
+    expect((await h.svc.create({ type: 'free_text', what: 'Свой', sourceName: 'Другой' }, { ...ADMIN, id: 'u2' }, NOW)).overflow).toBe(false);
+    // смена sourceName тем же ключом лимит не обходит
+    expect((await h.svc.create({ type: 'free_text', what: 'Обход', sourceName: 'Новое имя' }, ADMIN, NOW)).overflow).toBe(true);
     // повтор уже открытого вопроса лимитом не считается
     expect((await h.svc.create({ type: 'free_text', what: 'Вопрос 0', sourceName: 'ИИ' }, ADMIN, NOW)).overflow).toBe(false);
   });

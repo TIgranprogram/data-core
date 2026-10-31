@@ -30,7 +30,9 @@ export interface QuestionDoc {
   key: string;
   active: boolean;
   type: string;
-  source: { kind: 'system' | 'ai' | 'script'; name: string; runId?: string };
+  source: { kind: 'system' | 'ai' | 'script'; name: string; runId?: string; by?: string };
+  /** Когда базе стереть закрытый вопрос (TTL). У открытых поля нет или null — они не стираются. */
+  expireAt?: Date | null;
   severity: Severity;
   severityRank: number;
   escalated?: boolean;
@@ -58,6 +60,8 @@ export interface EventDoc {
   questionId: ObjectId;
   at: Date;
   by: string;
+  /** TTL: событие стирается через 400 дней. */
+  expireAt?: Date;
   kind: string;
   before?: string;
   after?: string;

@@ -129,7 +129,7 @@ export class QuestionsService implements OnModuleInit {
 
   // ─────────────────────────── постановка вопроса (CC-14, лимиты) ───────────────────────────
 
-  /** POST /control/questions: вопрос от ИИ или скрипта. Тип и параметры проверяет сервер; лимиты — 20 в сутки на источник, 200 всего. */
+  /** POST /control/questions: вопрос от ИИ или скрипта. Тип и параметры проверяет сервер; лимиты — 20 в сутки на ключ/пользователя (не на имя источника), 200 всего. */
   async create(dto: CreateQuestionDto, actor: ActorInfo, now = new Date()) {
     const def = this.reg.type(dto.type);
     if (!def || !def.external) throw new BadRequestException('Такого типа вопроса нет. Доступные: ' + this.reg.allTypes().filter((t) => t.external).map((t) => t.type).join(', '));
@@ -157,7 +157,7 @@ export class QuestionsService implements OnModuleInit {
     }
     const subjectIds = [...subject.ids].sort();
     const cand: Candidate = {
-      type: dto.type, source: { kind: 'ai', name: sourceName, ...(dto.runId ? { runId: String(dto.runId).slice(0, 80) } : {}) },
+      type: dto.type, source: { kind: 'ai', name: sourceName, by: actor.id, ...(dto.runId ? { runId: String(dto.runId).slice(0, 80) } : {}) },
       ...(dto.severity && SEVERITIES.includes(dto.severity) ? { severity: dto.severity } : {}),
       subject: { kind: subject.kind, ids: subjectIds }, params, what: what.slice(0, 600), need: need.slice(0, 600), advice: (dto.advice ?? '').trim().slice(0, 600),
       evidence: hashOf(subjectIds),
@@ -169,20 +169,20 @@ export class QuestionsService implements OnModuleInit {
     if (!(await col.findOne({ key, active: true }, { projection: { _id: 1 } }))) {
       const since = new Date(now.getTime() - DAY);
       const [mine, open] = await Promise.all([
-        col.countDocuments({ 'source.name': sourceName, type: { $ne: 'overflow' }, 'seen.first': { $gte: since } }),
+        col.countDocuments({ 'source.by': actor.id, type: { $ne: 'overflow' }, 'seen.first': { $gte: since } }),
         col.countDocuments({ active: true, type: { $ne: 'overflow' } }),
       ]);
-      if (mine >= NEW_PER_SOURCE_PER_DAY || open >= OPEN_MAX) return this.overflow(sourceName, mine >= NEW_PER_SOURCE_PER_DAY, now);
+      if (mine >= NEW_PER_SOURCE_PER_DAY || open >= OPEN_MAX) return this.overflow(sourceName, actor.id, mine >= NEW_PER_SOURCE_PER_DAY, now);
     }
     const r = await this.store.upsert(cand, now);
     return { ...r, overflow: false };
   }
 
   /** Сверх лимита — один сводный вопрос на источник, счётчик растёт. */
-  private async overflow(source: string, perSource: boolean, now: Date) {
+  private async overflow(source: string, byId: string, perSource: boolean, now: Date) {
     const text = (n: number) => `Источник «${source}» прислал больше вопросов, чем можно показать. Не показано: ${plural(n, ['вопрос', 'вопроса', 'вопросов'])}.`;
     const r = await this.store.upsert({
-      type: 'overflow', source: { kind: 'system', name: 'Лимит вопросов' }, subject: { kind: 'source', ids: [source] },
+      type: 'overflow', source: { kind: 'system', name: 'Лимит вопросов' }, subject: { kind: 'source', ids: [byId] },
       what: text(1),
       need: perSource ? `Источник может прислать не больше ${NEW_PER_SOURCE_PER_DAY} новых вопросов в сутки. Закройте ненужные вопросы — остальное он пришлёт позже.` : `Открытых вопросов уже ${OPEN_MAX}. Разберите или закройте ненужные — остальное придёт позже.`,
       advice: 'Начните с вопросов вверху списка: там самое важное и просроченное.',
@@ -351,7 +351,7 @@ export class QuestionsService implements OnModuleInit {
       await st.undo().updateOne({ _id: u._id }, { $set: { usedAt: null } });
       throw e;
     }
-    const reopen = { status: 'open' as const, active: true, closeReason: null, 'exec.undoId': null };
+    const reopen = { status: 'open' as const, active: true, closeReason: null, expireAt: null, 'exec.undoId': null };
     try {
       await st.questions().updateOne({ _id: q._id }, { $set: reopen });
     } catch (e) {

@@ -16,6 +16,7 @@ import { QuestionsService } from './questions/questions.service';
 export const COL_RUNS = 'app_control_runs';
 export const COL_DAILY = 'app_control_daily';
 export const COL_MONTHLY = 'app_control_monthly';
+export const COL_LOCKS = 'app_control_locks';
 /** Версия формата дневной точки: растёт, когда меняется смысл ключей. */
 export const DAILY_SCHEMA_V = 1;
 /** Время снимка дня по часам сервера. */
@@ -61,6 +62,30 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
   async ensureIndexes() {
     await this.runs().createIndex({ keepUntil: 1 }, { expireAfterSeconds: 0 });
     await this.runs().createIndex({ receivedAt: -1 });
+    await this.db.collection(COL_LOCKS).createIndex({ lockedUntil: 1 }, { expireAfterSeconds: 86_400 });
+  }
+
+  /**
+   * Атомарный замок суточных дел: при нескольких backend делает их один процесс.
+   * Живой замок → вставка с тем же `_id` падает по уникальности (11000) → пропускаем.
+   */
+  async tryLock(name: string, ttlMs: number, now = new Date()): Promise<boolean> {
+    try {
+      const r = await this.db.collection<{ _id: string; lockedUntil: Date }>(COL_LOCKS).updateOne(
+        { _id: name, lockedUntil: { $lt: now } },
+        { $set: { lockedUntil: new Date(now.getTime() + ttlMs), takenAt: now } },
+        { upsert: true },
+      );
+      return r.upsertedCount + r.modifiedCount > 0;
+    } catch (e) {
+      if ((e as { code?: number }).code === 11000) return false;
+      throw e;
+    }
+  }
+
+  /** Сдвинуть замок: после успеха — до конца суток (другие процессы пропустят), после сбоя — снять. */
+  private async setLock(name: string, until: Date) {
+    await this.db.collection(COL_LOCKS).updateOne({ _id: name } as never, { $set: { lockedUntil: until } }).catch(() => undefined);
   }
 
   /** Раз в минуту: после 23:30 один раз за сутки делаем снимок. Ошибка не роняет сервер. */
@@ -71,12 +96,21 @@ export class ControlService implements OnModuleInit, OnModuleDestroy {
     if (hm < SNAPSHOT_AT || this.doneDay === today || this.busy || now.getTime() - this.lastTry < RETRY_MS) return;
     this.busy = true;
     this.lastTry = now.getTime();
+    const lock = `day:${today}`;
+    let locked = false;
     try {
+      locked = await this.tryLock(lock, RETRY_MS, now);
+      if (!locked) { this.doneDay = today; return; } // другой процесс делает или уже сделал
+
       // сначала «Разбор» (сбор, проверка), потом снимок: показатели вопросов в нём уже свежие
       await this.questions?.daily(now).catch((e: Error) => this.log.warn(`«Разбор», суточный сбор: ${e.message}`));
       await this.snapshotDay(now);
       this.doneDay = today;
-    } catch (e) { this.log.warn(`снимок дня: ${(e as Error).message}`); } finally { this.busy = false; }
+      await this.setLock(lock, new Date(now.getTime() + DAY_MS));
+    } catch (e) {
+      this.log.warn(`снимок дня: ${(e as Error).message}`);
+      if (locked) await this.setLock(lock, new Date(0));
+    } finally { this.busy = false; }
   }
 
   private deps(now: Date): CollectDeps {

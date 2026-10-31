@@ -15,6 +15,9 @@ export const COL_EVENTS = 'app_control_events';
 export const COL_UNDO = 'app_control_undo';
 /** Снимки для отката живут 90 дней. */
 export const UNDO_KEEP_DAYS = 90;
+/** Закрытые вопросы живут год, события — 400 дней (TTL-индексы по `expireAt`). */
+export const CLOSED_KEEP_DAYS = 365;
+export const EVENT_KEEP_DAYS = 400;
 
 export interface UndoDoc {
   _id: ObjectId;
@@ -45,10 +48,16 @@ export class QuestionStore {
     await q.createIndex({ dueAt: 1 });
     await this.events().createIndex({ questionId: 1, at: 1 });
     await this.undo().createIndex({ keepUntil: 1 }, { expireAfterSeconds: 0 });
+    await q.createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 });
+    await this.events().createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 });
+    // старые записи без срока: закрытым — год, событиям — 400 дней от даты (открытые не трогаем)
+    const now = new Date();
+    await q.updateMany({ active: false, expireAt: { $exists: false } }, { $set: { expireAt: new Date(now.getTime() + CLOSED_KEEP_DAYS * DAY) } });
+    await this.events().updateMany({ expireAt: { $exists: false } }, [{ $set: { expireAt: { $add: ['$at', EVENT_KEEP_DAYS * DAY] } } }]);
   }
 
   async log(q: Pick<QuestionDoc, '_id'>, kind: string, by: ActorInfo | 'system', before?: string, after?: string, note?: string, data?: Record<string, unknown>, now = new Date()) {
-    await this.events().insertOne({ _id: new ObjectId(), questionId: q._id, at: now, by: actorName(by), kind, ...(before ? { before } : {}), ...(after ? { after } : {}), ...(note ? { note } : {}), ...(data ? { data } : {}) });
+    await this.events().insertOne({ _id: new ObjectId(), questionId: q._id, at: now, expireAt: new Date(now.getTime() + EVENT_KEEP_DAYS * DAY), by: actorName(by), kind, ...(before ? { before } : {}), ...(after ? { after } : {}), ...(note ? { note } : {}), ...(data ? { data } : {}) });
   }
 
   async load(id: string): Promise<QuestionDoc> {
@@ -70,7 +79,7 @@ export class QuestionStore {
   }
 
   async close(q: QuestionDoc, status: QStatus, closeReason: string, by: ActorInfo | 'system', note?: string, extra: Record<string, unknown> = {}, now = new Date()) {
-    const r = await this.questions().updateOne({ _id: q._id, status: q.status }, { $set: { status, active: isActiveStatus(status), closeReason, ...extra } });
+    const r = await this.questions().updateOne({ _id: q._id, status: q.status }, { $set: { status, active: isActiveStatus(status), closeReason, expireAt: isActiveStatus(status) ? null : new Date(now.getTime() + CLOSED_KEEP_DAYS * DAY), ...extra } });
     if (!r.matchedCount) throw new ConflictException('Вопрос уже изменён другим действием: обновите список');
     await this.log(q, status, by, q.status, status, note, undefined, now);
   }
@@ -90,7 +99,7 @@ export class QuestionStore {
     const bump = async (q: QuestionDoc, reopen = false) => {
       const same = opts.sameDayOnce && ymd(q.seen.last) === ymd(now) && !reopen;
       const set: Record<string, unknown> = { 'seen.last': now };
-      if (reopen) Object.assign(set, { status: 'open', active: true, evidenceHash, dueAt: new Date(now.getTime() + def.dueDays * DAY), escalated: false, severity: c.severity ?? def.severity, severityRank: severityRank(c.severity ?? def.severity), what: c.what, need: c.need, advice: c.advice, closeReason: null, snoozeUntil: null });
+      if (reopen) Object.assign(set, { status: 'open', active: true, evidenceHash, dueAt: new Date(now.getTime() + def.dueDays * DAY), escalated: false, severity: c.severity ?? def.severity, severityRank: severityRank(c.severity ?? def.severity), what: c.what, need: c.need, advice: c.advice, closeReason: null, snoozeUntil: null, expireAt: null });
       const count = q.seen.count + (same ? 0 : 1);
       Object.assign(set, same ? {} : { 'seen.count': count }, opts.patchOnBump?.(count) ?? {});
       await col.updateOne({ _id: q._id }, { $set: set });
