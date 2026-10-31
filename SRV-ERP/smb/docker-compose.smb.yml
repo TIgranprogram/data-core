@@ -1,0 +1,6 @@
+# Добавка к docker-compose.prod.yml: backend пишет файлы доступа к SMB в общий каталог хоста.
+# Запуск: docker compose -f docker-compose.prod.yml -f SRV-ERP/smb/docker-compose.smb.yml up -d --no-deps backend
+services:
+  backend:
+    volumes:
+      - /var/lib/datacore/smb:/var/lib/datacore/smb

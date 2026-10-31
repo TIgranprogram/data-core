@@ -1,0 +1,3 @@
+# Одноразовый клиент SMB для отправки копий: docker run --rm --network host datacore-smbclient smbclient ...
+FROM alpine:3.20
+RUN apk add --no-cache samba-client

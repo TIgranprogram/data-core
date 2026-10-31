@@ -60,12 +60,16 @@ if [[ $CODE == 1 ]]; then
   ls -dt prev/deploy.* | tail -n +3 | xargs -r rm -rf
 fi
 
+echo "== Сохранение своих SMB-целей и настроек копий (до замены базы)"
+docker exec datacore-mongo sh -c 'rm -f /tmp/smbkeep.json; mongoexport --quiet -u "$0" -p "$1" --authenticationDatabase admin -d datacore -c backuptargets -q "{\"\$or\":[{\"kind\":\"smb\"},{\"_id\":\"settings\"}]}" --out /tmp/smbkeep.json' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD" || echo "нет целей SMB для сохранения"
 echo "== Остановка backend, замена базы"
 docker stop datacore-backend >/dev/null
 docker exec datacore-mongo rm -rf /tmp/restore
 docker cp "$M" datacore-mongo:/tmp/restore >/dev/null
 docker exec datacore-mongo sh -c 'mongorestore --quiet -u "$0" -p "$1" --authenticationDatabase admin --drop --db datacore /tmp/restore' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
 docker exec datacore-mongo sh -c 'mongo --quiet -u "$0" -p "$1" --authenticationDatabase admin datacore --eval "var r=db.backuptargets.updateMany({_id:{\$ne:\"settings\"}},{\$set:{enabled:false}}); print(\"целей копий выключено: \"+r.matchedCount)"' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
+# вернуть свои SMB-цели и настройки копий srv-erp (перезаписывают чужие из бэкапа дома; пароли шифруются ключом BACKUP_SECRET_KEY из .env srv-erp)
+docker exec datacore-mongo sh -c '[ -s /tmp/smbkeep.json ] && mongoimport --quiet -u "$0" -p "$1" --authenticationDatabase admin -d datacore -c backuptargets --mode upsert --file /tmp/smbkeep.json && echo "SMB-цели возвращены"; rm -f /tmp/smbkeep.json; true' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
 # в бэкапе дома записано «главный» — у копии роль запасного, иначе она сочтёт себя главной
 docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"normal\",job:null}})"' >/dev/null
 mkdir -p /var/lib/datacore/switch; date -u +%Y-%m-%dT%H:%M:%SZ > /var/lib/datacore/switch/last-refresh

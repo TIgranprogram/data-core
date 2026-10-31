@@ -1333,7 +1333,8 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       const row = el('div', 'srv-target');
       const st = t.last ? `${t.last.ok ? '✔' : '✖'} ${new Date(t.last.at).toLocaleString('ru-RU')} — ${t.last.message}${t.last.bytes ? ' · ' + gb(t.last.bytes) : ''}` : 'Ещё не отправляли';
       const res = el('span', 'muted');
-      row.append(el('b', null, t.name + (t.enabled ? '' : ' (выключено)')), el('div', 'muted', `${t.url} · ${t.username} · папка «${t.folder || '/'}» · пароль ${t.hasSecret ? 'задан' : 'не задан'}`), el('div', t.last && !t.last.ok ? 'error' : 'muted', st));
+      const smbT = t.kind === 'smb';
+      row.append(el('b', null, t.name + (smbT ? ' · сетевая папка' : '') + (t.enabled ? '' : ' (выключено)')), el('div', 'muted', `${t.url} · ${t.username} · папка «${t.folder || '/'}»${smbT ? ` · хранить ${t.keep}` : ''} · пароль ${t.hasSecret ? 'задан' : 'не задан'}`), el('div', t.last && !t.last.ok ? 'error' : 'muted', st + (t.pending ? ' · ожидает сервер копий…' : '')));
       const acts = el('div', 'srv-btns');
       acts.append(
         btn('Проверить связь', '', async () => { res.textContent = 'Проверяю…'; const r = await send(`/targets/${t.id}/test`, 'POST'); res.textContent = r.message; res.className = r.ok ? 'ok' : 'error'; }),
@@ -1356,18 +1357,40 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     const uF = field('Адрес WebDAV', u, KINDS[0].ex), lgF = field('Логин', lg, KINDS[0].login), pwF = field('Пароль', pw, KINDS[0].pass);
     const hint = (fl, t) => { fl.querySelector('small').textContent = t; };
     kind.addEventListener('change', () => { const x = KINDS.find((y) => y.k === kind.value); u.placeholder = x.url; hint(uF, x.ex); hint(lgF, x.login); hint(pwF, x.pass); if (!n.value) n.placeholder = x.name; });
+    const addWebdav = async () => {
+      if (!/^https?:\/\/[^/]+/.test(u.value.trim())) throw new Error('Адрес должен начинаться с https:// — пример под полем');
+      if (!lg.value.trim() || !pw.value) throw new Error('Впишите логин и пароль');
+      await send('/targets', 'POST', { name: n.value.trim() || KINDS.find((y) => y.k === kind.value).name, url: u.value.trim(), username: lg.value.trim(), password: pw.value, folder: f.value });
+      toast('Место добавлено — нажмите «Проверить связь»'); loadOffsite();
+    };
     const add = el('details', 'srv-add'); add.append(el('summary', null, '+ Добавить место для копий'));
     const form = el('div', 'srv-form');
     form.append(
       el('p', 'muted', 'Подойдёт любое хранилище с WebDAV: сетевой диск, свой облачный сервер или облако. Копия уходит зашифрованной — хранилище её не прочтёт. После добавления нажмите «Проверить связь».'),
       field('Где хранить', kind), field('Название', n), uF, lgF, pwF,
       field('Папка', f, 'Создастся сама.'),
-      btn('Добавить', 'btn-primary', async () => {
-        if (!/^https?:\/\/[^/]+/.test(u.value.trim())) throw new Error('Адрес должен начинаться с https:// — пример под полем');
+      btn('Добавить', 'btn-primary', addWebdav));
+    if (d.smbEnabled) {
+      // Тип места: сетевая папка (SMB) — отправляет сервер копий, результат появится в строке места через минуту
+      const type = el('select'); [['webdav', 'WebDAV (по интернету)'], ['smb', 'Сетевая папка (SMB)']].forEach(([v, name]) => { const o = el('option', null, name); o.value = v; type.append(o); });
+      const smbHint = el('p', 'muted', 'Сетевая папка: адрес вида //192.168.88.2/ИмяПапки (без «$»), логин и пароль пользователя диска. Копию отправляет сервер копий, результат появится в строке места в течение минуты.');
+      const smbKeep = input('number', 14); smbKeep.min = 1; smbKeep.max = 60; const keepF = field('Хранить копий', smbKeep, 'Старые удаляются, остаются последние N.');
+      const sync = () => {
+        const smb = type.value === 'smb';
+        smbHint.hidden = !smb; keepF.hidden = !smb; kind.closest('label').hidden = smb;
+        hint(uF, smb ? 'Например: //192.168.88.2/ERPBak' : KINDS.find((y) => y.k === kind.value).ex); u.placeholder = smb ? '//адрес-диска/папка' : KINDS.find((y) => y.k === kind.value).url;
+        uF.querySelector('span').textContent = smb ? 'Адрес сетевой папки' : 'Адрес WebDAV'; f.value = smb ? 'srv-erp' : 'datacore-backups';
+      };
+      type.addEventListener('change', sync);
+      form.prepend(field('Тип', type), smbHint, keepF); sync();
+      form.lastElementChild.replaceWith(btn('Добавить', 'btn-primary', async () => {
+        if (type.value !== 'smb') return addWebdav();
+        if (!/^\/\/[^/\s]+\/[^/\s]+$/.test(u.value.trim())) throw new Error('Адрес должен быть вида //192.168.88.2/ИмяПапки');
         if (!lg.value.trim() || !pw.value) throw new Error('Впишите логин и пароль');
-        await send('/targets', 'POST', { name: n.value.trim() || KINDS.find((y) => y.k === kind.value).name, url: u.value.trim(), username: lg.value.trim(), password: pw.value, folder: f.value });
+        await send('/targets', 'POST', { kind: 'smb', name: n.value.trim() || 'Сетевая папка', url: u.value.trim(), username: lg.value.trim(), password: pw.value, folder: f.value, keep: Number(smbKeep.value) });
         toast('Место добавлено — нажмите «Проверить связь»'); loadOffsite();
       }));
+    }
     add.append(form);
     parts.push(add);
     box.replaceChildren(...parts);

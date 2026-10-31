@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDes
 import { InjectConnection } from '@nestjs/mongoose';
 import archiver from 'archiver';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'crypto';
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { join as pjoin } from 'path';
 import { Readable, Transform } from 'stream';
 import { Types, type Connection } from 'mongoose';
 import { backupDirs, backupsRoot, latestBackupDate, STAMP_RE } from './backups';
@@ -40,7 +42,12 @@ export function encryptStream(password: string): Transform {
 }
 
 // ─── WebDAV ─────────────────────────────────────────────────────────────────────────────────────
-export interface Target { _id: Types.ObjectId; name: string; url: string; username: string; secret?: string; folder?: string; enabled: boolean; last?: { at: Date; ok: boolean; message: string; bytes?: number } }
+/** Сетевая папка (SMB): включается OFFSITE_SMB=1; отправку делает хост (одноразовый контейнер smbclient), сервер хранит цель и authfile. */
+export const smbOn = () => process.env.OFFSITE_SMB === '1';
+const smbAuthDir = () => process.env.OFFSITE_SMB_AUTH_DIR || '/var/lib/datacore/smb';
+export const smbAuthPath = (id: string) => pjoin(smbAuthDir(), `auth.${id}`);
+const SMB_URL_RE = /^\/\/[^/\s\\]+\/[^/\s\\]+$/;
+export interface Target { kind?: 'smb'; keep?: number; requestTest?: boolean; requestRun?: boolean; lastResult?: string; lastError?: string | null; lastAt?: Date; _id: Types.ObjectId; name: string; url: string; username: string; secret?: string; folder?: string; enabled: boolean; last?: { at: Date; ok: boolean; message: string; bytes?: number } }
 const join = (base: string, ...parts: string[]) => [base.replace(/\/+$/, ''), ...parts.map((p) => p.replace(/^\/+|\/+$/g, '')).filter(Boolean)].join('/');
 const auth = (t: Target) => 'Basic ' + Buffer.from(`${t.username}:${t.secret ? openSecret(t.secret) : ''}`).toString('base64');
 async function dav(t: Target, method: string, path: string, body?: BodyInit | Readable, extra: Record<string, string> = {}) {
@@ -83,9 +90,19 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
     const targets = (await this.coll.find({ _id: { $ne: 'settings' as never } }).sort({ name: 1 }).toArray()) as unknown as Target[];
     return {
       settings: { time: s.time, keep: s.keep, hasPassword: !!s.password, lastAuto: s.lastAuto },
-      targets: targets.map((t) => ({ id: String(t._id), name: t.name, url: t.url, username: t.username, folder: t.folder ?? '', enabled: t.enabled, hasSecret: !!t.secret, last: t.last ?? null })),
+      targets: targets.map((t) => ({
+        id: String(t._id), name: t.name, url: t.url, username: t.username, folder: t.folder ?? '', enabled: t.enabled, hasSecret: !!t.secret, last: t.kind === 'smb' ? this.smbLast(t) : t.last ?? null,
+        ...(t.kind === 'smb' ? { kind: 'smb', keep: t.keep ?? 14, pending: !!(t.requestTest || t.requestRun) } : {}),
+      })),
       latestBackup: (await latestBackupDate(backupsRoot())) ?? null,
+      ...(smbOn() ? { smbEnabled: true } : {}),
     };
+  }
+
+  /** Итог хоста для SMB-цели: lastResult / lastError / lastAt → общий вид `last`. */
+  private smbLast(t: Target) {
+    if (!t.lastAt) return null;
+    return { at: t.lastAt, ok: !t.lastError, message: t.lastError || t.lastResult || '' };
   }
 
   async saveSettings(b: { time?: unknown; keep?: unknown; password?: unknown }) {
@@ -98,28 +115,70 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
   }
 
   async saveTarget(id: string | null, b: Record<string, unknown>) {
+    const old = id ? await this.target(id) : null;
+    const smb = old ? old.kind === 'smb' : b.kind === 'smb';
+    if (smb && !smbOn()) throw new BadRequestException('Сетевая папка (SMB) на этом сервере не включена');
     const set: Record<string, unknown> = {};
     if (b.name !== undefined) set.name = String(b.name).trim().slice(0, 100) || 'Копии';
-    if (b.url !== undefined) { const u = String(b.url).trim(); if (!/^https:\/\//i.test(u)) throw new BadRequestException('Адрес WebDAV — https://…'); set.url = u; }
+    if (b.url !== undefined) {
+      const u = String(b.url).trim();
+      if (smb) { if (!SMB_URL_RE.test(u)) throw new BadRequestException('Адрес сетевой папки — //сервер/папка'); }
+      else if (!/^https:\/\//i.test(u)) throw new BadRequestException('Адрес WebDAV — https://…');
+      set.url = u;
+    }
     if (b.username !== undefined) set.username = String(b.username).trim().slice(0, 200);
     if (b.password !== undefined && String(b.password)) set.secret = sealSecret(String(b.password));
     if (b.folder !== undefined) set.folder = String(b.folder).trim().replace(/^\/+|\/+$/g, '').slice(0, 200);
     if (b.enabled !== undefined) set.enabled = !!b.enabled;
-    if (id) {
-      const r = await this.coll.updateOne({ _id: this.oid(id) as never }, { $set: set });
-      if (!r.matchedCount) throw new NotFoundException('Цель не найдена');
+    if (smb) {
+      if (b.keep !== undefined) { const k = Number(b.keep); if (!Number.isInteger(k) || k < 1 || k > 60) throw new BadRequestException('Хранить — от 1 до 60 копий'); set.keep = k; }
+      if (/[\r\n]/.test(String(b.username ?? '') + String(b.password ?? ''))) throw new BadRequestException('Логин и пароль — в одну строку');
+    }
+    let targetId: string;
+    if (old) {
+      await this.coll.updateOne({ _id: old._id as never }, { $set: set });
+      targetId = String(old._id);
     } else {
       if (!set.url || !set.username) throw new BadRequestException('Нужны адрес и логин');
-      await this.coll.insertOne({ name: 'Копии', folder: 'datacore-backups', enabled: true, ...set });
+      const base = smb ? { kind: 'smb', folder: 'srv-erp', keep: 14 } : { folder: 'datacore-backups' };
+      targetId = String((await this.coll.insertOne({ name: 'Копии', enabled: true, ...base, ...set })).insertedId);
     }
+    if (smb && (set.username !== undefined || set.secret !== undefined)) await this.writeAuthFile(targetId);
     return this.view();
   }
 
-  async removeTarget(id: string) { await this.coll.deleteOne({ _id: this.oid(id) as never }); return this.view(); }
+  /** authfile для smbclient -A: права 600; пароль не попадает ни в журнал, ни в командную строку. */
+  private async writeAuthFile(id: string) {
+    const t = await this.target(id);
+    try {
+      mkdirSync(smbAuthDir(), { recursive: true, mode: 0o700 });
+      const f = smbAuthPath(id);
+      writeFileSync(f, `username=${t.username}\npassword=${t.secret ? openSecret(t.secret) : ''}\ndomain=WORKGROUP\n`, { mode: 0o600 });
+      chmodSync(f, 0o600);
+    } catch (e) {
+      this.log.warn(`файл доступа цели ${id} не записан: ${(e as NodeJS.ErrnoException).code ?? 'ошибка'}`);
+      throw new BadRequestException('Не удалось записать файл доступа к сетевой папке');
+    }
+  }
+
+  async removeTarget(id: string) {
+    const o = this.oid(id);
+    await this.coll.deleteOne({ _id: o as never });
+    if (smbOn()) rmSync(smbAuthPath(String(o)), { force: true });
+    return this.view();
+  }
+
+  /** SMB отправляет хост: ставим флаг, итог хост запишет в цель (lastResult / lastError / lastAt). */
+  private async smbRequest(t: Target, flag: 'requestTest' | 'requestRun', message: string) {
+    if (!smbOn()) throw new BadRequestException('Сетевая папка (SMB) на этом сервере не включена');
+    await this.coll.updateOne({ _id: t._id as never }, { $set: { [flag]: true } });
+    return { ok: true, message };
+  }
 
   /** «Проверить связь»: папка + маленький файл туда и обратно. */
   async test(id: string) {
     const t = await this.target(id);
+    if (t.kind === 'smb') return this.smbRequest(t, 'requestTest', 'Проверка запрошена — результат появится в течение минуты');
     try {
       await ensureFolder(t);
       const name = join(t.folder ?? '', `datacore-test-${Date.now()}.txt`);
@@ -133,13 +192,17 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
   /** Отправить последнюю копию во все включённые цели (или в одну). */
   async runAll(onlyId?: string) {
     if (this.running) throw new BadRequestException('Отправка уже идёт');
+    if (onlyId) {
+      const one = await this.target(onlyId);
+      if (one.kind === 'smb') { const r = await this.smbRequest(one, 'requestRun', 'Отправка запрошена — результат появится в течение нескольких минут'); return { stamp: '', results: [{ name: one.name, ...r }] }; }
+    }
     const s = await this.settings();
     if (!s.password) throw new BadRequestException('Сначала задайте пароль шифрования');
     const latest = await latestBackupDate(backupsRoot());
     if (!latest) throw new BadRequestException('Копий на сервере нет');
     const stamp = latest.replace('T', '_').replace(/:/g, '').slice(0, 17);
     if (!STAMP_RE.test(stamp)) throw new BadRequestException('Не разобрать имя копии');
-    const targets = ((await this.coll.find({ _id: { $ne: 'settings' as never }, enabled: true }).toArray()) as unknown as Target[]).filter((t) => !onlyId || String(t._id) === onlyId);
+    const targets = ((await this.coll.find({ _id: { $ne: 'settings' as never }, enabled: true }).toArray()) as unknown as Target[]).filter((t) => t.kind !== 'smb').filter((t) => !onlyId || String(t._id) === onlyId);
     if (!targets.length) throw new BadRequestException('Нет включённых целей');
     this.running = true;
     const out: Array<{ name: string; ok: boolean; message: string }> = [];
