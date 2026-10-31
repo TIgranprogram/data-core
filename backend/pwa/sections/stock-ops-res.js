@@ -85,9 +85,10 @@ export async function buildUnreserve(materialId) {
       h('span', { class: 'res-acts' },
         h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(r.id) }, 'Изменить'),
         h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => {
+          const btn = e.currentTarget; // после await в событии currentTarget уже null
           if (!(await confirmDlg('Снять бронь?', `«${where(r)}» — ${qty(r.qty)} ${r.unit} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return;
-          e.currentTarget.disabled = true;
-          try { await api(`/stock/reservations/${r.id}/release`, { method: 'POST' }); toast('Бронь снята'); window.dispatchEvent(new CustomEvent('data-changed')); rows = rows.filter((x) => x !== r); draw(); } catch (er) { toast(errText(er), { error: true }); e.target.disabled = false; }
+          btn.disabled = true;
+          try { await api(`/stock/reservations/${r.id}/release`, { method: 'POST' }); toast('Бронь снята'); window.dispatchEvent(new CustomEvent('data-changed')); rows = rows.filter((x) => x !== r); draw(); } catch (er) { toast(errText(er), { error: true }); btn.disabled = false; }
         } }, 'Снять')))))] : []));
   draw();
   const el = h('div', null,
