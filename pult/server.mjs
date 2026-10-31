@@ -11,7 +11,7 @@ import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
 import * as defaultCatalog from './catalog.mjs';
-import { advise, LEVELS, todoDone } from './advisor.mjs';
+import { advise, LEVELS, runKey, todoDone } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
@@ -101,6 +101,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       last: (text[text.length - 1] || '').slice(0, 200),
       bad: text.filter((l) => l.startsWith('✗')).slice(0, 3).map((l) => l.slice(0, 200)),
     };
+    // команда с полями (какой скрипт) — ещё и под ключом с ними: пункт дел со своим скриптом закрывается только своим запуском
+    const pk = runKey(job.cmdId, job.params); if (pk !== job.cmdId) runs[pk] = runs[job.cmdId];
     fs.writeFileSync(runsFile, JSON.stringify(runs, null, 1));
   }
 
@@ -220,7 +222,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (live.some((j) => j.cmdId === id)) return { status: 409, error: 'Эта команда уже идёт' };
     const busy = live.find((j) => NEEDS_CONFIRM.has(j.risk));
     if (NEEDS_CONFIRM.has(cmd.risk) && busy) return { status: 409, error: `Сначала дождитесь: ${busy.title}` };
-    return { job: summary(startJob(cmd, spec)) };
+    const job = startJob(cmd, spec); job.params = values;
+    return { job: summary(job) };
   }
 
   const json = (res, status, body) => {

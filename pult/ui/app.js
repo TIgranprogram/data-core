@@ -105,7 +105,8 @@ function card(c) {
   if (c.blocked.length) box.append(el('div', 'why', c.blocked[0]));
   const b = el('button', `${buttonClass(c)} run`, c.kind === 'job' ? 'Запустить' : 'Открыть');
   b.disabled = c.blocked.length > 0;
-  b.onclick = () => press(c);
+  // пункт дел со своими значениями (например, какой скрипт) — подставить их; окно подтверждения их покажет
+  b.onclick = () => { if (item.params) S.values[c.id] = { ...(S.values[c.id] || {}), ...item.params }; press(c); };
   box.append(b);
   return box;
 }

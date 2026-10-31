@@ -14,10 +14,13 @@ const POST_CHECK_AFTER = HOUR;
 const cut = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
-/** Поручение выполнено: отмечено кнопкой «Сделано» или его команда прошла после постановки. */
+/** Ключ запуска: команда, а с полями (например, скрипт) — «команда?значения». */
+export const runKey = (cmd, params) => (params && Object.keys(params).length ? `${cmd}?${Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('&')}` : cmd);
+
+/** Поручение выполнено: отмечено кнопкой «Сделано» или его команда (с его полями) прошла после постановки. */
 export function todoDone(t, runs) {
   if (runs[`todo:${t.id}`]) return true;
-  const r = t.cmd && runs[t.cmd];
+  const r = t.cmd && runs[runKey(t.cmd, t.params)];
   return !!r && r.code === 0 && r.at >= Date.parse(t.added);
 }
 
@@ -37,7 +40,7 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
   const open = todo.filter((t) => !todoDone(t, runs));
   for (const t of open) {
     if (t.after && open.some((x) => x.id === t.after)) continue; // сначала предыдущий шаг
-    items.push({ level: 'you', cmd: t.cmd, why: t.why, title: t.title, todo: t.id, link: !!t.link });
+    items.push({ level: 'you', cmd: t.cmd, why: t.why, title: t.title, todo: t.id, link: !!t.link, ...(t.params ? { params: t.params } : {}) }); // params — значения полей команды (скрипт и т. п.)
   }
 
   if (gateFiles.length) add('soon', 'git-status', `Файлов без коммита: ${gateFiles.length}. Обычно это работа Claude, она ещё идёт. Нажимать не нужно. Выкладка откроется после коммита.`);

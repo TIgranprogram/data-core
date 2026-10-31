@@ -3,22 +3,42 @@
     "id": "series-fill",
     "added": "2026-10-31",
     "title": "Серии: заполнить справочник",
-    "why": "Пульт → «Скрипт: записать» → выберите series-dict-fill. В справочник попадёт серия CHOICE SHADOW (4 изделия). Перед записью сделается копия базы.",
-    "cmd": "script-apply"
+    "why": "Скрипт series-dict-fill: в справочник попадёт серия CHOICE SHADOW (4 изделия). Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "series-dict-fill"
+    }
   },
   {
     "id": "categories-fix",
     "added": "2026-10-31",
-    "title": "Категории: изделия и паспорта",
-    "why": "Пульт → «Скрипт: записать». Сначала выберите products-category-from-passports (25 изделий получат категорию своих выданных паспортов), затем passports-category-from-product (паспорт «Перголы Г-образной» станет «Благоустройство»). Перед записью сделается копия базы.",
-    "cmd": "script-apply"
+    "title": "Категории: изделия по выданным паспортам",
+    "why": "Скрипт products-category-from-passports: 25 изделий получат категорию своих выданных паспортов. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "products-category-from-passports"
+    }
+  },
+  {
+    "id": "categories-fix-2",
+    "added": "2026-10-31",
+    "after": "categories-fix",
+    "title": "Категории: паспорт перголы",
+    "cmd": "script-apply",
+    "params": {
+      "script": "passports-category-from-product"
+    },
+    "why": "Скрипт passports-category-from-product: паспорт «Перголы Г-образной» станет «Благоустройство». Перед записью сделается копия базы."
   },
   {
     "id": "products-fill",
     "added": "2026-10-31",
     "title": "Изделия: заполнить «Название в договоре» и фото",
-    "why": "Пульт → «Скрипт: записать» → выберите products-fill-defaults. 468 изделий получат название в договоре, 192 — фото из паспорта. Заполненное не меняется. Перед записью сделается копия базы.",
-    "cmd": "script-apply"
+    "why": "Скрипт products-fill-defaults: 468 изделий получат название в договоре, 192 — фото из паспорта. Заполненное не меняется. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "products-fill-defaults"
+    }
   },
   {
     "id": "reservation-deleted-order",
