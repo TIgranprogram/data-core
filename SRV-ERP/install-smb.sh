@@ -30,8 +30,9 @@ LINES=("* * * * * bash $DIR/offsite-smb.sh --poll >> $DATA_DIR/smb/poll.log 2>&1
 [[ $WITH_BACKUP == 1 ]] && LINES+=("$BACKUP_AT bash $DIR/backup-erp.sh >> $DATA_DIR/backups/backup-erp.log 2>&1")
 CUR="$(crontab -l 2>/dev/null || true)"
 for L in "${LINES[@]}"; do
-  key="$(echo "$L" | grep -oE "bash $DIR/[a-z-]+\.sh( --poll)?")"
-  CUR="$(printf '%s\n' "$CUR" | grep -vF "$key" || true)"
+  # дубль — строка с той же командой (без времени и журнала); «offsite-smb.sh» и «offsite-smb.sh --poll» — разные
+  cmd="$(echo "$L" | cut -d' ' -f6- | sed 's/ >>.*//')"
+  CUR="$(printf '%s\n' "$CUR" | awk -v c="$cmd" '{ x = $0; sub(/^([^ ]+ ){5}/, "", x); sub(/ >>.*/, "", x); if (x != c) print }')"
   CUR="$(printf '%s\n%s\n' "$CUR" "$L")"
 done
 printf '%s\n' "$CUR" | sed '/^$/d' | crontab -
