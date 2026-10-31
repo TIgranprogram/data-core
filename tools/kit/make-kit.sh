@@ -23,6 +23,8 @@ M="$HOME/.claude/projects/D--data-core/memory"; [[ -d "$M" ]] && cp -a "$M/." "$
 cp tools/kit/README-чемоданчик.md "$W/"
 
 echo "Придумайте пароль архива: не короче 16 знаков. Без него архив не открыть."
-( cd "$W" && "$Z" a -t7z -mhe=on -p "$(cygpath -w "$OUT/$NAME")" . >/dev/null )
-"$Z" t -p "$(cygpath -w "$OUT/$NAME")" >/dev/null || { echo "СТОП: архив не проверился"; exit 1; }
+rm -f "$OUT/$NAME"
+( cd "$W" && "$Z" a -t7z -mhe=on -p -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" . )
+echo "Проверка: введите тот же пароль ещё раз."
+"$Z" t -p -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" || { echo "СТОП: архив не проверился. Запустите скрипт снова."; exit 1; }
 echo "Готово: D:\\datacore-kit\\$NAME ($(du -h "$OUT/$NAME" | cut -f1)). Файлов: $(find "$W" -type f | wc -l)."
