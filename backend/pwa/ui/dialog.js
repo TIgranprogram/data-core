@@ -21,7 +21,7 @@ export function modal({ title, body, okText = 'OK', cancelText = 'Отмена',
     });
     document.addEventListener('keydown', onKey, true);
     document.body.append(back);
-    (form.querySelector('input, select, textarea') || ok).focus();
+    // ИЗ-13: без автофокуса на поле при открытии окна (Esc — обработчик выше)
   });
 }
 

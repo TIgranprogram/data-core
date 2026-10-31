@@ -62,7 +62,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     picking = false;
-    if (multi) { input.focus(); render(false); } else close(); // multi: список остаётся — можно выбрать ещё
+    close(); if (multi) input.focus(); // ИЗ-12: после выбора список закрывается всегда; multi — курсор в поле, клик или ввод откроет снова
     onPick?.(o);
   }
   input.addEventListener('focus', () => { active = -1; }); // сам фокус список не открывает (форма ставит его на первое поле): только нажатие, ввод или стрелка

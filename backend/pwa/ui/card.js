@@ -279,7 +279,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     };
     // form.readonly — только просмотр (нет права записи): одна кнопка «Закрыть»
     if (form.readonly) { cancel.textContent = 'Закрыть'; foot.replaceChildren(cancel); } else foot.replaceChildren(save, cancel);
-    form.focus?.();
+    // ИЗ-13: без автофокуса при открытии — курсор ставит сам человек (фокус только на поле с ошибкой)
   }
 
   // «Требуют заполнения» (TASKS ТЗ.3): fill=<ключ поля> — сразу правка, нужное поле подсвечено, раскрыто и в фокусе
