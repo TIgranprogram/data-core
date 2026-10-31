@@ -17,6 +17,8 @@
 
 ИИ на вопрос «что дальше» начинает с этого списка.
 
+0. [ ] **Вы:** решить про CRM kppdf на VM: она ещё используется? От ответа зависит кнопка «Переключить сейчас»: CRM пишет в базу VM мимо паузы записи.
+0а. [ ] Вы и ИИ, после решения: `bash SRV-ERP/setup-switch.sh` → `bash SRV-ERP/refresh-copy.sh --code` → `bash SRV-ERP/setup-switch.sh --enable` → перезапуск backend → учебное переключение ночью (SW-7). Боевые ssh, rsync и nginx ещё не проверялись.
 1. [ ] ИИ: `git pull`, затем `tools/dc.cmd start`. Проверить вход на прод: файл `access.env` на рабочем ПК.
 2. [ ] **Вы:** один раз `node tools/allow-ai.mjs`.
 3. [ ] **Вы:** один раз `tools\setup.cmd`. ИИ смотрит, что готово: Docker, Edge, копия бэкапа (CC-8).
