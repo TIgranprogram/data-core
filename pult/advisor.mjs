@@ -40,7 +40,9 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
   const open = todo.filter((t) => !todoDone(t, runs));
   for (const t of open) {
     if (t.after && open.some((x) => x.id === t.after)) continue; // сначала предыдущий шаг
-    items.push({ level: 'you', cmd: t.cmd, why: t.why, title: t.title, todo: t.id, link: !!t.link, ...(t.params ? { params: t.params } : {}) }); // params — значения полей команды (скрипт и т. п.)
+    // next — сколько шагов цепочки (after) ждут за этим пунктом: для кнопки «Выполнить все по очереди»
+    let next = 0; for (let cur = t.id, n; (n = open.find((x) => x.after === cur)); cur = n.id) next++;
+    items.push({ level: 'you', cmd: t.cmd, why: t.why, title: t.title, todo: t.id, link: !!t.link, ...(t.params ? { params: t.params } : {}), ...(next ? { next } : {}) }); // params — значения полей команды (скрипт и т. п.)
   }
 
   if (gateFiles.length) add('soon', 'git-status', `Файлов без коммита: ${gateFiles.length}. Обычно это работа Claude, она ещё идёт. Нажимать не нужно. Выкладка откроется после коммита.`);

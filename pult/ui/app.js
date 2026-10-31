@@ -187,8 +187,9 @@ function renderNow() {
       const sec = el('section', 'now-level');
       sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint));
       // цепочка: два и больше пунктов, которые можно запустить подряд без слова
-      if (level.id === 'you' && chainItems().length > 1) {
-        const all = el('button', 'primary warn', chainOn ? 'Выполняю по очереди…' : `Выполнить все по очереди (${chainItems().length})`);
+      const chainN = chainItems().reduce((n, x) => n + 1 + (x.next || 0), 0); // видимые + скрытые следующие шаги цепочек
+      if (level.id === 'you' && chainN > 1) {
+        const all = el('button', 'primary warn', chainOn ? 'Выполняю по очереди…' : `Выполнить все по очереди (${chainN})`);
         all.disabled = chainOn; all.onclick = runChain;
         sec.append(all);
       }
@@ -260,7 +261,8 @@ const waitJob = (id) => new Promise((ok) => { const t = setInterval(() => { cons
 async function runChain() {
   const list = chainItems();
   if (!list.length || chainOn) return;
-  const msg = [`Выполнить по очереди (${list.length}):`, '', ...list.map((x, i) => `${i + 1}. ${x.title}`), '', 'Перед записью данных каждый раз делается копия базы. Ошибка — остановка.'].join('\n');
+  const more = list.reduce((n, x) => n + (x.next || 0), 0);
+  const msg = [`Выполнить по очереди (${list.length + more}):`, '', ...list.map((x, i) => `${i + 1}. ${x.title}${x.next ? ` (и следующие шаги: ${x.next})` : ''}`), '', 'Перед записью данных каждый раз делается копия базы. Ошибка — остановка.'].join('\n');
   if (!confirm(msg)) return;
   chainOn = true; render();
   const seen = new Set();
