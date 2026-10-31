@@ -115,6 +115,13 @@ test('pult/todo.json корректен: кнопка есть, шаги свя�
   }
 });
 
+test('запущенные стенды видны с кнопкой остановки', () => {
+  const items = plan({ nightStand: true, localSite: true }, allFresh);
+  assert.equal(find(items, 'night-down').level, 'soon');
+  assert.equal(find(items, 'stand-down').level, 'soon');
+  assert.ok(!find(plan({}, allFresh), 'night-down'));
+});
+
 test('у команд с ритмом есть причина', () => {
   for (const c of COMMANDS.filter((x) => x.every)) assert.ok(c.why, c.id);
 });

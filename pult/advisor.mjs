@@ -55,6 +55,9 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
     if (!doctor || doctor.at < release.at) add('today', 'prod-doctor', 'После выкладки нужен осмотр сайта.');
   }
 
+  if (s.nightStand) add('soon', 'night-down', 'Стенд на копии базы запущен и занимает память ПК. Закончили проверку — остановите.');
+  if (s.localSite) add('soon', 'stand-down', 'Локальный сайт запущен и занимает память ПК. Не нужен — остановите, данные останутся.');
+
   for (const c of commands) {
     if (!c.every) continue;
     const last = runs[c.id];
