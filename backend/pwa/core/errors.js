@@ -74,12 +74,18 @@ export function reportError(err, { kind = 'action', action, status, url } = {}) 
 
 /** Медленный экран (SPEED-2): первая отрисовка списка дольше 2 с → запись «Медленно: <раздел> <мс> мс», kind=slow. Не чаще раза в 5 минут на раздел. */
 const slowAt = new Map();
+// буфер замеров запросов по умолчанию 250: 100 фото в списке его заполняют, и в «Медленно» не попадало ни одного запроса
+try { performance.setResourceTimingBufferSize(2000); } catch { /* старый браузер — как было */ }
 /** Самые долгие запросы за время замера: всего / очередь браузера / ожидание ответа. Только путь, без query. */
 export function slowDetail(entries, since) {
   const path = (u) => { try { return new URL(u, location.origin).pathname; } catch { return '?'; } };
-  return entries.filter((e) => e.responseEnd >= since).sort((a, b) => b.duration - a.duration).slice(0, 8)
-    .map((e) => `${Math.round(e.duration)} мс · очередь ${Math.round(Math.max(0, e.requestStart - e.startTime))} · ответ ${Math.round(Math.max(0, e.responseStart - e.requestStart))} · ${path(e.name)}`)
-    .join('\n');
+  const all = entries.filter((e) => e.responseEnd >= since);
+  // картинки — одной строкой (их десятки, они вытесняли запросы данных), запросы — по одному
+  const imgs = all.filter((e) => e.initiatorType === 'img');
+  const rows = all.filter((e) => e.initiatorType !== 'img').sort((a, b) => b.duration - a.duration).slice(0, 8)
+    .map((e) => `${Math.round(e.duration)} мс · очередь ${Math.round(Math.max(0, e.requestStart - e.startTime))} · ответ ${Math.round(Math.max(0, e.responseStart - e.requestStart))} · ${path(e.name)}`);
+  if (imgs.length) rows.push(`картинок ${imgs.length} · последняя пришла через ${Math.round(Math.max(...imgs.map((e) => e.responseEnd)) - since)} мс · самая долгая ${Math.round(Math.max(...imgs.map((e) => e.duration)))} мс`);
+  return rows.join('\n');
 }
 export function reportSlow(ms, since = 0) {
   if (off || !session.access) return;
