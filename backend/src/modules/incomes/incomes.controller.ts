@@ -6,7 +6,8 @@ import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
-import { IncomeDto, PaymentDto } from './dto';
+import { CancelIncomeDto, IncomeDto, MoveIncomeDto, PaymentDto } from './dto';
+import { IncomeCancelService } from './income-cancel.service';
 import { IncomesService } from './incomes.service';
 
 /** Доходы — строки заказов (лист «Заказы»). Смотреть — все роли, менять — admin и manager (как снабжение). */
@@ -15,7 +16,7 @@ import { IncomesService } from './incomes.service';
 @AppSection('orders', 'salesorders')
 @Controller('incomes')
 export class IncomesController {
-  constructor(private readonly incomes: IncomesService) {}
+  constructor(private readonly incomes: IncomesService, private readonly cancels: IncomeCancelService) {}
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
@@ -64,6 +65,33 @@ export class IncomesController {
   @AuditAction({ action: 'income.deleted', entityType: 'Income', idParam: 'id' })
   remove(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
     return this.incomes.remove(id, user);
+  }
+
+  /** Отмена позиции с причиной: позиция остаётся серой строкой, в суммы и производство не идёт. Без cascade при бронях/задачах — 409 со списком. */
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.cancelled', entityType: 'Income', idParam: 'id' })
+  cancel(@Param('id') id: string, @Body() dto: CancelIncomeDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.cancels.cancel(id, dto.reason, dto.cascade === true, user);
+  }
+
+  /** Вернуть отменённую позицию. */
+  @Post(':id/restore-cancelled')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.cancel.restored', entityType: 'Income', idParam: 'id' })
+  restoreCancelled(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.cancels.restoreCancelled(id, user);
+  }
+
+  /** Перенос позиции в другой договор со ссылками (проектирование, работа, брони, заявки, паспорта). */
+  @Post(':id/move')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'income.moved', entityType: 'Income', idParam: 'id' })
+  move(@Param('id') id: string, @Body() dto: MoveIncomeDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.cancels.move(id, dto.toOrderId, user);
   }
 
   /** Фото позиции: photoId из POST /api/photos/upload (перетаскивание / вставка / файл в карточке). */

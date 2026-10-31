@@ -67,7 +67,7 @@ export class DesignBoardService {
     const shownIds = shown.map((o) => o._id as Oid);
 
     const lineCounts = shownIds.length ? await this.db().collection('incomes').aggregate([
-      { $match: { orderId: { $in: shownIds }, deletedAt: null } }, { $group: { _id: '$orderId', n: { $sum: 1 } } },
+      { $match: { orderId: { $in: shownIds }, deletedAt: null, cancelledAt: null } }, { $group: { _id: '$orderId', n: { $sum: 1 } } },
     ]).toArray() : [];
     const linesOf = new Map(lineCounts.map((r) => [String(r._id), r.n as number]));
 
@@ -104,7 +104,7 @@ export class DesignBoardService {
     const orderId = oid(orderIdRaw, 'заказа');
     if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
     const incomes = await this.db().collection('incomes').find(
-      { orderId, deletedAt: null }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1, color: 1, size: 1, productId: 1, matchStatus: 1, photoIds: 1 } },
+      { orderId, deletedAt: null, cancelledAt: null }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1, color: 1, size: 1, productId: 1, matchStatus: 1, photoIds: 1 } },
     ).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
     const incomeIds = incomes.map((i) => i._id as Oid);
     const taskDocs = incomeIds.length ? await this.tasks.find({ incomeId: { $in: incomeIds }, deletedAt: null }).sort({ seq: 1 }).lean().exec() : [];

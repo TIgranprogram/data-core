@@ -77,6 +77,10 @@ export class Income {
   @Prop({ type: Types.ObjectId, ref: 'User' }) createdBy?: Types.ObjectId;
   /** Фото позиции (из Excel «Вид» или добавленные в карточке). */
   @Prop({ type: [Types.ObjectId], default: undefined }) photoIds?: Types.ObjectId[];
+  /** Этап 3 заказов: отменённая позиция не удаляется, а остаётся серой строкой с причиной; в суммы, долги и производство не идёт. CRM коллекцию не читает. */
+  @Prop({ type: Date, index: true, sparse: true }) cancelledAt?: Date | null;
+  @Prop({ trim: true }) cancelReason?: string;
+  @Prop({ type: Types.ObjectId, ref: 'User' }) cancelledBy?: Types.ObjectId;
   @Prop({ type: Date, default: null, index: true }) deletedAt?: Date | null;
   @Prop({ type: Date }) createdAt?: Date;
   @Prop({ type: Date }) updatedAt?: Date;

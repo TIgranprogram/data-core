@@ -69,7 +69,7 @@ export class ProductionOrdersService {
     ]);
     const ids = docs.map((d) => d._id);
     const agg = ids.length ? await this.connection.db!.collection('incomes').aggregate([
-      { $match: { orderId: { $in: ids }, deletedAt: null } },
+      { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
       { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' } } },
     ]).toArray() : [];
     const facts = await loadOrderMatches(this.connection.db!, ids);
@@ -119,6 +119,25 @@ export class ProductionOrdersService {
     return { productionNo: no, orderIds: ids };
   }
 
+  /**
+   * Перенос договора из одного заказа производства в другой (этап 3). Нельзя, если по договору уже есть выдачи со склада или отгрузки
+   * (`ensureDetachable`). Позиции и связи едут вместе с договором: они привязаны к самому договору, а не к № заказа.
+   */
+  async moveContract(fromKey: string, contractId: string, toProductionNo: string) {
+    const to = String(toProductionNo ?? '').trim();
+    if (!to) throw new BadRequestException('Укажите заказ, в который переносим');
+    const cur = await this.model.findOne({ _id: new Types.ObjectId(contractId), deletedAt: null }).lean().exec() as Doc | null;
+    if (!cur) throw new NotFoundException('Договор не найден');
+    const from = String(cur.productionNo ?? '').trim();
+    if (!from || from !== String(fromKey).trim()) throw new ConflictException(`Договор не входит в заказ ${fromKey}`);
+    if (from === to) throw new ConflictException('Договор уже в этом заказе');
+    if (!(await this.byNo(to)).length) throw new NotFoundException(`Заказ ${to} не найден`);
+    await this.orders.ensureDetachable(cur._id as Types.ObjectId);
+    await this.model.updateOne({ _id: cur._id }, { $set: { productionNo: to, productionAddedAt: new Date(), editedInApp: true } }).exec();
+    await this.audit.log({ action: 'salesorder.updated', entityType: 'SalesOrder', entityId: String(cur._id), details: { partial: true, before: { productionNo: from }, after: { productionNo: to }, meta: { via: 'production-orders.move-contract' } } as never });
+    return { contractId, from, productionNo: to };
+  }
+
   async list(q: Record<string, unknown> = {}) {
     const p = parseList(q, { sortable: SORT, defaultSort: '-createdAt', defaultLimit: 25 });
     // группы, счётчики вкладок и порядок не зависят от страницы — считаются один раз на версию данных и фильтр
@@ -135,7 +154,7 @@ export class ProductionOrdersService {
     const ids = page.flatMap((g) => g.docs.map((d) => d._id as Types.ObjectId));
     // обложка заказа — фото первой позиции, у которой оно есть (своё или изделия); позиции пачкой на всю страницу
     const cover = new Map<string, { url: string; thumb: string } | null>();
-    const covLines = ids.length ? await this.connection.db!.collection('incomes').find({ orderId: { $in: ids }, deletedAt: null }, { projection: { orderId: 1, photoIds: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() : [];
+    const covLines = ids.length ? await this.connection.db!.collection('incomes').find({ orderId: { $in: ids }, deletedAt: null, cancelledAt: null }, { projection: { orderId: 1, photoIds: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() : [];
     const covPhotos = await loadLinePhotos(this.connection.db!, covLines);
     for (const g of page) {
       for (const d of g.docs) {
@@ -145,7 +164,7 @@ export class ProductionOrdersService {
     }
     const [agg, companies] = await Promise.all([
       ids.length ? this.connection.db!.collection('incomes').aggregate([
-        { $match: { orderId: { $in: ids }, deletedAt: null } },
+        { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
         { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
       ]).toArray() : [],
       ourCompanies(this.connection),

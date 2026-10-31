@@ -106,11 +106,11 @@ export class FillAuditService {
       { key: 'exp-category', area: 'Аналитика расходов', title: 'Не указана категория', why: '«На что тратили» — по категориям', section: 'requests', field: 'categoryName', money: true,
         coll: 'supplyrequests', q: { ...inExpenses, ...empty('categoryId') }, item: reqItem, sort: { invoiceDate: -1 } },
       { key: 'inc-amount', area: 'Деньги', title: 'Позиции заказов без суммы', why: 'Не попадают в поступления и в выручку', section: 'orders', field: 'unitPrice', money: true,
-        coll: 'incomes', q: { deletedAt: null, $or: [{ amount: null }, { amount: { $exists: false } }, { amount: { $lte: 0 } }] }, sort: { orderNo: -1 },
+        coll: 'incomes', q: { deletedAt: null, cancelledAt: null, $or: [{ amount: null }, { amount: { $exists: false } }, { amount: { $lte: 0 } }] }, sort: { orderNo: -1 },
         item: (r) => { const it = incItem(r); return { ...it, sub: [it.sub, r.qty != null ? `кол-во ${r.qty}${r.unit ? ' ' + r.unit : ''}` : ''].filter(Boolean).join(' · '), values: { unitPrice: Number(r.unitPrice) > 0 ? Number(r.unitPrice) : null } }; },
         quick: ['unitPrice'], quickPath: '/incomes' },
       { key: 'inc-company', area: 'Деньги', title: 'Позиции заказов без нашей компании', why: 'Поступление не встаёт в календарь нужной компании', section: 'orders', field: 'companyName', money: true,
-        coll: 'incomes', q: { deletedAt: null, ...noCompany }, item: incItem, sort: { orderNo: -1 } },
+        coll: 'incomes', q: { deletedAt: null, cancelledAt: null, ...noCompany }, item: incItem, sort: { orderNo: -1 } },
       // ── Заявки и склад (видят все) ──
       { key: 'req-supplier', area: 'Заявки', title: 'Заказано, но не указан поставщик', why: 'Непонятно, у кого ждать поставку и кому платить', section: 'requests', field: 'supplierName', money: false,
         coll: 'supplyrequests', q: { deletedAt: null, status: { $in: ['ordered', 'paid'] }, ...empty('supplierId') }, item: reqItem, sort: { requestDate: -1 } },

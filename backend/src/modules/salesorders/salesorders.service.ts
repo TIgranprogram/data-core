@@ -1,5 +1,6 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
@@ -54,7 +55,7 @@ export class SalesOrdersService {
     // сводка по позициям: сколько строк, на какую сумму и сколько оплачено
     const ids = docs.map((d) => d._id as Types.ObjectId);
     const agg = ids.length ? await this.incomes().aggregate([
-      { $match: { orderId: { $in: ids }, deletedAt: null } },
+      { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
       { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
     ]).toArray() : [];
     const sum = new Map(agg.map((a) => [String(a._id), a]));
@@ -109,7 +110,7 @@ export class SalesOrdersService {
     const pids = oids(productId);
     if (!productId) return;
     if (!pids.length) throw new BadRequestException('Некорректный id изделия');
-    const ids = await this.connection.db!.collection('incomes').distinct('orderId', { productId: { $in: pids }, deletedAt: null, orderId: { $ne: null } });
+    const ids = await this.connection.db!.collection('incomes').distinct('orderId', { productId: { $in: pids }, deletedAt: null, cancelledAt: null, orderId: { $ne: null } });
     filter.$and = [...((filter.$and as unknown[]) ?? []), { _id: { $in: ids } }];
   }
 
@@ -203,7 +204,7 @@ export class SalesOrdersService {
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
       ...header,
-      lines: fix(lines.map((l) => ({ ...l, status: l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft' }))),
+      lines: fix(lines.map((l) => ({ ...l, status: l.cancelledAt ? 'cancelled' : l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft' }))),
       supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements), issuedByLine,
       reservations: [...resGroups.values()].map((g) => ({ ...g, left: Math.round(g.left * 1000) / 1000, issued: Math.round(g.issued * 1000) / 1000 })),
     };
@@ -231,7 +232,7 @@ export class SalesOrdersService {
     const byOrder = new Map<string, Doc[]>();
     const seq = withLines && docs.length ? await loadSeq(this.connection.db!, docs.map((d) => d._id)) : new Map<string, { seqNo: number }>();
     if (withLines && docs.length) {
-      const lines = await this.incomes().find({ orderId: { $in: docs.map((d) => d._id) }, deletedAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+      const lines = await this.incomes().find({ orderId: { $in: docs.map((d) => d._id) }, deletedAt: null, cancelledAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
       const photos = await loadLinePhotos(this.connection.db!, lines);
       for (const l of lines) {
         const list = byOrder.get(String(l.orderId)) ?? [];
@@ -256,7 +257,7 @@ export class SalesOrdersService {
     const order = await this.findRaw(id);
     const db = this.connection.db!;
     const seq = await loadSeq(db, [order._id]);
-    const lines = await this.incomes().find({ orderId: order._id, deletedAt: null }, { projection: { lineNo: 1, title: 1, productId: 1, photoIds: 1, qty: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+    const lines = await this.incomes().find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { lineNo: 1, title: 1, productId: 1, photoIds: 1, qty: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
     const allProdIds = [...new Map(lines.filter((l) => l.productId).map((l) => [String(l.productId), l.productId as Types.ObjectId])).values()];
     const prodInfo = new Map<string, { name?: string; sku?: string; firstPhoto?: Types.ObjectId }>();
     if (allProdIds.length) {
@@ -370,8 +371,24 @@ export class SalesOrdersService {
     } catch { /* уведомление не ломает создание */ }
   }
 
-  async update(id: string, dto: SalesOrderDto, userId?: string) {
+  /**
+   * Этап 3: шаг назад (и выход из «закрыт» / «отменён») — только администратор и только с причиной.
+   * Вперёд можно любым путём; отгрузка сама переставляет этап напрямую (`stageAfterShipments`) и сюда не попадает.
+   */
+  private checkStageMove(cur: Doc, dto: SalesOrderDto, actor?: AuthenticatedUser) {
+    if (dto.stage === undefined || !actor || actor.keyScope) return;
+    const from = String(cur.stage || 'new'), to = dto.stage;
+    if (from === to) return;
+    const ORDER = ['new', 'production', 'ready', 'partly', 'shipped', 'closed'];
+    const back = from === 'cancelled' || (to !== 'cancelled' && ORDER.indexOf(to) < ORDER.indexOf(from));
+    if (!back) return;
+    if (actor.role !== 'admin') throw new ForbiddenException('Вернуть заказ на прежний этап может только администратор');
+    if (String(dto.stageReason ?? '').trim().length < 3) throw new BadRequestException('Укажите причину возврата на прежний этап');
+  }
+
+  async update(id: string, dto: SalesOrderDto, userId?: string, actor?: AuthenticatedUser) {
     const cur = await this.findRaw(id);
+    this.checkStageMove(cur as Doc, dto, actor);
     const { f, companyShort } = await this.toFields(dto);
     if (dto.requireFields) this.checkRequired(f, cur as Doc);
     if ('orderNo' in f && !f.orderNo) throw new BadRequestException('№ договора не может быть пустым');
@@ -396,7 +413,7 @@ export class SalesOrdersService {
   }
 
   /** Договор можно вывести из заказа, только если по нему нет выдач со склада и отгрузок. */
-  private async ensureDetachable(orderId: Types.ObjectId) {
+  async ensureDetachable(orderId: Types.ObjectId) {
     const db = this.connection.db!;
     const [issued, shipped] = await Promise.all([
       db.collection('stockmovements').countDocuments({ salesOrderId: orderId, deletedAt: null, cancelledAt: null }, { limit: 1 }),
@@ -454,7 +471,7 @@ export class SalesOrdersService {
   /** ПРЖ-4: подбор изделий для позиций без productId. Без apply — предложения; с apply — запись picks (productId=null — снять). */
   async matchProducts(id: string, apply = false, picks: { lineId: string; productId: string | null }[] = []) {
     const order = await this.findRaw(id);
-    const lines = await this.incomes().find({ orderId: order._id, deletedAt: null, productId: null }, { projection: { lineNo: 1, title: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    const lines = await this.incomes().find({ orderId: order._id, deletedAt: null, cancelledAt: null, productId: null }, { projection: { lineNo: 1, title: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
     if (!apply) {
       const prods = (await this.connection.db!.collection('products').find({ deletedAt: null }, { projection: { name: 1, fullName: 1, orderName: 1, sku: 1 } }).toArray())
         .map((p) => ({ id: String(p._id), name: p.name as string, fullName: p.fullName as string, orderName: p.orderName as string, sku: p.sku as string }));

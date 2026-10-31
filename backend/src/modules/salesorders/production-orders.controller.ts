@@ -5,7 +5,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { Roles } from '../../common/decorators/roles.decorator';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
-import { AssignOrdersDto, ProductionStageDto } from './dto';
+import { AssignOrdersDto, MoveContractDto, ProductionStageDto } from './dto';
 import { ProductionOrdersService } from './production-orders.service';
 
 /**
@@ -44,6 +44,14 @@ export class ProductionOrdersController {
   @Roles('admin', 'manager')
   assign(@Body() dto: AssignOrdersDto) {
     return this.svc.assign(dto.contractIds, dto.productionNo);
+  }
+
+  /** Перенести договор в другой заказ производства (нельзя при выдачах со склада и отгрузках). */
+  @Post(':key/move-contract')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  moveContract(@Param('key') key: string, @Body() dto: MoveContractDto) {
+    return this.svc.moveContract(key, dto.contractId, dto.toProductionNo);
   }
 
   @Get(':key')

@@ -86,9 +86,9 @@ export class FinanceService {
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
         { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }] },
         { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, photoIds: 1, paid: 1, paidAt: 1 } }).toArray(),
-      db.collection('incomes').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, $or: [{ 'payments.date': range }, { paidDate: range }] },
+      db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, $or: [{ 'payments.date': range }, { paidDate: range }] },
         { projection: { orderNo: 1, title: 1, amount: 1, paidDate: 1, payments: 1, companyId: 1, customer: 1 } }).toArray(),
-      db.collection('incomes').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, paidDate: null, shipDate: { $ne: null, $lt: end } },
+      db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, paidDate: null, shipDate: { $ne: null, $lt: end } },
         { projection: { orderNo: 1, title: 1, amount: 1, shipDate: 1, payments: 1, paidDate: 1, companyId: 1, customer: 1 } }).toArray(),
       this.payroll.paidOps(from, to, companyIds),
       db.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
@@ -131,7 +131,7 @@ export class FinanceService {
         { priceHint: { $gt: 0 }, $or: [{ invoiceDate: null }, { invoiceDate: { $exists: false } }] }, { paid: true, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] }, // оплачено без суммы — в календарь не попало
         { invoiceDate: { $ne: null }, priceHint: { $gt: 0 }, ...noCompany },
       ] }, { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1 } }).sort({ invoiceDate: -1, num: -1 }).limit(limit).toArray(),
-      db.collection('incomes').find({ deletedAt: null, $or: [{ amount: { $lte: 0 } }, { reportDate: null }, { reportDate: { $exists: false } }, ...noCompany.$or] },
+      db.collection('incomes').find({ deletedAt: null, cancelledAt: null, $or: [{ amount: { $lte: 0 } }, { reportDate: null }, { reportDate: { $exists: false } }, ...noCompany.$or] },
         { projection: { orderNo: 1, title: 1, amount: 1, reportDate: 1, companyId: 1 } }).limit(limit).toArray(),
     ]);
     const has = (id: unknown) => !!id && ours.some((o) => String(o) === String(id));
@@ -193,7 +193,7 @@ export class FinanceService {
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids },
         $or: [{ invoiceDate: { $gte: stale } }, { invoiceDate: null, status: { $in: ['in_progress', 'requested', 'ordered'] } }, { invoiceDate: { $exists: false }, status: { $in: ['in_progress', 'requested', 'ordered'] } }] },
       { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1, photoIds: 1 } }).toArray(),
-      db.collection('incomes').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, paidDate: null },
+      db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, paidDate: null },
       { projection: { title: 1, amount: 1, companyId: 1, paymentForm: 1, shipDate: 1, orderId: 1, orderNo: 1, customer: 1, createdAt: 1, payments: 1, paidDate: 1 } }).toArray(),
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
       this.payroll.dueItems(today, to, ids),

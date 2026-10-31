@@ -224,7 +224,7 @@ export class DesignService {
     const orderId = oid(dto.orderId, 'заказа');
     if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
     const want = dto.lineIds?.length ? oids(dto.lineIds.join(',')) : undefined;
-    const lines = await this.db().collection('incomes').find({ orderId, deletedAt: null, ...(want ? { _id: { $in: want } } : {}) }, { projection: { productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+    const lines = await this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null, ...(want ? { _id: { $in: want } } : {}) }, { projection: { productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
     if (want && lines.length !== new Set(want.map(String)).size) throw new BadRequestException('Некоторые позиции не из этого заказа или удалены');
     const open = await this.model.find({ openIncomeId: { $in: lines.map((l) => l._id) } }, { openIncomeId: 1 }).lean().exec();
     const taken = new Set(open.map((t) => String(t.openIncomeId)));

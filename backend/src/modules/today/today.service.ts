@@ -91,7 +91,7 @@ export class TodayService {
     await Promise.all([
       see('requests') && count('supplyrequests', { status: { $in: ['requested', 'in_progress', 'ordered', null] } }).then((n) => { out.requests = n; }),
       see('stock') && this.stockCounts().then((c) => { out.stockLow = c.low + c.none; }),
-      see('money') && canSeeMoney(user) && count('incomes', { paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } }).then((n) => { out.awaiting = n; }),
+      see('money') && canSeeMoney(user) && count('incomes', { cancelledAt: null, paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } }).then((n) => { out.awaiting = n; }),
       see('salesorders') && count('salesorders', { stage: { $in: [...ACTIVE_STAGES, null] } }).then((n) => { out.salesorders = n; }),
       see('design') && count('designtasks', { status: { $in: ['queue', 'work'] } }).then((n) => { out.design = n; }),
       see('work') && count('worktasks', { status: { $in: ['waiting', 'work'] } }).then((n) => { out.work = n; }),

@@ -46,7 +46,7 @@ export async function loadReadinessFacts(db: Db, groups: Map<string, ObjectId[]>
     for (const r of rows) { const f = out.get(owner.get(String(r._id)) ?? ''); if (f) f[into] += r.n as number; }
   };
   await Promise.all([
-    count('incomes', 'orderId', {}, 'lines'),
+    count('incomes', 'orderId', { cancelledAt: null }, 'lines'),
     count('designtasks', 'orderId', { status: { $in: ['queue', 'work', 'paused'] } }, 'openDesign'),
     count('worktasks', 'orderId', { status: { $ne: 'cancelled' } }, 'workTotal'),
     count('worktasks', 'orderId', { status: { $in: ['waiting', 'work'] } }, 'openWork'),

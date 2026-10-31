@@ -56,7 +56,7 @@ describe('SalesOrdersService: приоритет и изделие позици�
   it('список: ?productId= — только договоры с позицией этого изделия (КМ1); мусор — 400', async () => {
     const pid = new Types.ObjectId();
     await service.list({ productId: String(pid) });
-    expect(distinct).toHaveBeenCalledWith('orderId', { productId: { $in: [pid] }, deletedAt: null, orderId: { $ne: null } });
+    expect(distinct).toHaveBeenCalledWith('orderId', { productId: { $in: [pid] }, deletedAt: null, cancelledAt: null, orderId: { $ne: null } });
     expect(model.find.mock.calls[0][0].$and).toContainEqual({ _id: { $in: [orderId] } });
     await expect(service.list({ productId: 'zzz' })).rejects.toBeInstanceOf(BadRequestException);
   });

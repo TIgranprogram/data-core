@@ -100,7 +100,7 @@ export function buildQueue(inp: Inputs, q: { due?: string; search?: string; limi
 export async function loadQueue(db: Db, q: { due?: string; search?: string; limit?: number }) {
   const tasks = await db.collection('designtasks').find({ status: 'done', deletedAt: null, incomeId: { $ne: null } }, { projection: { incomeId: 1, completedAt: 1, updatedAt: 1 } }).toArray();
   const incomeIds = [...new Set(tasks.map((t) => String(t.incomeId)))].map((x) => new Types.ObjectId(x));
-  const incomes = incomeIds.length ? await db.collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null, productId: { $ne: null } }, { projection: { orderId: 1, lineNo: 1, title: 1, productId: 1 } }).toArray() : [];
+  const incomes = incomeIds.length ? await db.collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null, cancelledAt: null, productId: { $ne: null } }, { projection: { orderId: 1, lineNo: 1, title: 1, productId: 1 } }).toArray() : [];
   const orderIds = [...new Set(incomes.map((i) => String(i.orderId)).filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
   const orders = orderIds.length ? await db.collection('salesorders').find({ _id: { $in: orderIds }, deletedAt: null, stage: { $nin: ['closed', 'cancelled'] } }, { projection: { orderNo: 1, productionNo: 1, customer: 1, shipDate: 1, priority: 1 } }).toArray() : [];
   const liveOrders = orders.map((o) => o._id);

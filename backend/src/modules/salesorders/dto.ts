@@ -18,6 +18,7 @@ export class SalesOrderDto {
   @ApiPropertyOptional({ description: 'Срок изготовления' }) @IsOptional() @IsString() @Length(0, 30) productionDeadline?: string;
   @ApiPropertyOptional({ description: 'Окончание поставки' }) @IsOptional() @IsString() @Length(0, 30) deliveryDeadline?: string;
   @ApiPropertyOptional({ enum: ORDER_STAGES, description: 'new | production | ready | partly | shipped | closed | cancelled' }) @IsOptional() @IsIn(ORDER_STAGES as unknown as string[]) stage?: OrderStage;
+  @ApiPropertyOptional({ description: 'Причина возврата на прежний этап (обязательна при шаге назад; только admin)' }) @IsOptional() @IsString() @Length(0, 500) stageReason?: string;
   @ApiPropertyOptional({ enum: ORDER_PRIORITIES, description: 'urgent | high | normal | low; "" — снять (= обычный)' }) @IsOptional() @IsIn([...ORDER_PRIORITIES, '']) priority?: OrderPriority | '';
   @ApiPropertyOptional({ description: 'Ответственный менеджер — сотрудник (persons.id); "" — снять' }) @IsOptional() @IsString() @Length(0, 30) responsibleId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 5000) notes?: string;
@@ -45,4 +46,10 @@ export class ProductionStageDto {
 export class AssignOrdersDto {
   @ApiPropertyOptional({ description: 'id договоров без № заказа' }) @IsArray() @ArrayMaxSize(200) @IsMongoId({ each: true }) contractIds!: string[];
   @ApiPropertyOptional({ description: '№ существующего заказа; нет — создаётся новый' }) @IsOptional() @IsString() @Length(0, 50) productionNo?: string;
+}
+
+/** Перенос договора в другой заказ производства. */
+export class MoveContractDto {
+  @ApiPropertyOptional({ description: 'id переносимого договора' }) @IsMongoId() contractId!: string;
+  @ApiPropertyOptional({ description: '№ заказа, в который переносим (должен существовать)' }) @IsString() @Length(1, 50) toProductionNo!: string;
 }

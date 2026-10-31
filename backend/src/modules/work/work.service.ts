@@ -113,7 +113,7 @@ export class WorkService {
    */
   async launch(dto: LaunchDto, userId?: string) {
     if (!dto.orderId && !dto.lineIds?.length) throw new BadRequestException('Укажите заказ или позиции для запуска');
-    const filter: Doc = { deletedAt: null };
+    const filter: Doc = { deletedAt: null, cancelledAt: null };
     if (dto.orderId) {
       const orderId = oid(dto.orderId, 'заказа');
       if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');

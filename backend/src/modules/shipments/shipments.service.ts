@@ -44,7 +44,7 @@ export class ShipmentsService {
   }
 
   private incomes(orderId: Types.ObjectId) {
-    return this.db().collection('incomes').find({ orderId, deletedAt: null }, { projection: { title: 1, unit: 1, qty: 1, lineNo: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
+    return this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null }, { projection: { title: 1, unit: 1, qty: 1, lineNo: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
   }
 
   private live(orderId: Types.ObjectId) { return this.model.find({ orderId, deletedAt: null }).sort({ date: -1, seq: -1 }).lean().exec() as unknown as Promise<Doc[]>; }

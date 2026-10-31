@@ -1811,3 +1811,7 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 .shp-pics { display: inline-flex; gap: 4px; vertical-align: middle; }
 .shp-row .mt-picbtn, .shp-row .pic { flex: none; }
 @media (max-width: 720px) { .spec-row.res-order-row { grid-template-columns: 36px minmax(0, 1fr) auto; } }
+
+/* Отменённая позиция заказа: серая строка с зачёркнутым названием и причиной (этап 3) */
+table.so-lines tr.so-cancelled { cursor: default; opacity: .75; background: var(--surface-2, transparent); }
+table.so-lines tr.so-cancelled s { color: var(--muted); }

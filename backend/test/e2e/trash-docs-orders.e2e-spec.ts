@@ -57,11 +57,13 @@ describe('Корзина заказов и паспорта по заказам'
     const line = (await http().post('/api/incomes').set(as(manager)).send({ orderId, title: 'Скамья', qty: 2 }).expect(201)).body.id as string; // этап new — свободно
     await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ qty: 3 }).expect(200);
     await http().patch(`/api/salesorders/${orderId}`).set(as(admin.access)).send({ stage: 'production' }).expect(200);
-    const denied = await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ title: 'Другое' }).expect(403);
-    expect(JSON.stringify(denied.body)).toContain('Заказ уже в работе');
-    await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ qty: 9 }).expect(403);
-    await http().post('/api/incomes').set(as(manager)).send({ orderId, title: 'Новая' }).expect(403);
-    await http().delete(`/api/incomes/${line}`).set(as(manager)).expect(403);
+    await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ qty: 4 }).expect(200); // ORDERS-3: в производстве менеджер ещё меняет
+    await http().patch(`/api/salesorders/${orderId}`).set(as(admin.access)).send({ stage: 'ready' }).expect(200);
+    const denied = await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ title: 'Другое' }).expect(409);
+    expect(JSON.stringify(denied.body)).toContain('только администратор');
+    await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ qty: 9 }).expect(409);
+    await http().post('/api/incomes').set(as(manager)).send({ orderId, title: 'Новая' }).expect(409);
+    await http().delete(`/api/incomes/${line}`).set(as(manager)).expect(409);
     await http().patch(`/api/incomes/${line}`).set(as(manager)).send({ color: 'красный', notes: 'ок' }).expect(200);
     await http().patch(`/api/incomes/${line}`).set(as(admin.access)).send({ title: 'Скамья парковая' }).expect(200);
   });

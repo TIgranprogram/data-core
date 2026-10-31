@@ -23,6 +23,7 @@ import { orderWork } from './order-work.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
+import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLines } from './order-line-actions.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
@@ -197,6 +198,11 @@ function orderPassports(r) {
 }
 
 const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
+/** Отменённая позиция: серая строка с причиной и «Вернуть»; в суммы не входит. */
+const cancelledRow = (l, i, o, dots) => h('tr', { class: 'so-cancelled', title: 'Позиция отменена: ' + (l.cancelReason || '') },
+  h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
+  h('td', { class: 'muted', colspan: session.canMoney ? 7 : 4 }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))),
+  session.canEditOrders ? h('td', { class: 'nowrap' }, dots) : null);
 const seq = (l, i) => l.seqNo ?? l.lineNo ?? i + 1;
 const closedStage = (o) => ['closed', 'cancelled'].includes(o.stage);
 
@@ -234,6 +240,8 @@ function contractGroup(o, reload) {
   const menu = [
     !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
+    can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toast(errText(e))) },
+    session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toast(errText(e))) },
     can && { label: 'Удалить договор', danger: true, onSelect: remove },
   ].filter(Boolean);
   const dots = h('button', { class: 'btn btn-ghost btn-sm so-dots', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Ещё действия по договору', title: 'Ещё: ' + menu.map((m) => m.label.toLowerCase()).join(', ') }, '⋯');
@@ -247,6 +255,15 @@ function contractGroup(o, reload) {
     acts.length ? h('div', { class: 'so-grp-acts' }, ...acts) : null);
   // «Оплачено» / «Долг» и «Принять оплату» — только с правом на деньги (приём оплаты — панель incpay, она же из карточки позиции)
   const payOn = session.canMoney && can;
+  const lineAct = (l) => canChangeLines(o) && !closedStage(o) && can;
+  const done = (r) => { if (r) reload?.(); };
+  const lineMenu = (l, btn) => {
+    const items = l.cancelledAt
+      ? [{ label: 'Вернуть позицию', onSelect: () => restoreLine(l).then(done).catch((e) => toast(errText(e))) }]
+      : [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toast(errText(e))) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toast(errText(e))) }];
+    if (isOpenFor(btn)) closePopMenu(true); else openPopMenu({ anchor: btn, side: 'down', groups: [{ items }] });
+  };
+  const rowDots = (l) => { const b = h('button', { class: 'btn btn-ghost btn-sm so-dots', type: 'button', 'aria-haspopup': 'menu', 'aria-label': 'Действия с позицией', title: 'Отменить или перенести позицию', onclick: (e) => { e.stopPropagation(); lineMenu(l, b); } }, '⋯'); return b; };
   const paidOf = (l) => (Number(l.paidAmount) || (l.paidDate ? Number(l.amount) || 0 : 0));
   const payCells = (l) => {
     if (!session.canMoney) return [];
@@ -258,14 +275,14 @@ function contractGroup(o, reload) {
     ];
   };
   const table = lines.length
-    ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Название'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null, session.canMoney ? h('th', { class: 'num' }, 'Оплачено') : null, session.canMoney ? h('th', { class: 'num' }, 'Долг') : null, payOn ? h('th', null, '') : null)),
-      h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
+    ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Название'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null, session.canMoney ? h('th', { class: 'num' }, 'Оплачено') : null, session.canMoney ? h('th', { class: 'num' }, 'Долг') : null, payOn ? h('th', null, '') : null, can ? h('th', null, '') : null)),
+      h('tbody', null, ...lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
         h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, 'lg')), h('td', null, l.title, ourLine(l), l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
-        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l)))))
+        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null))))
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
   const add = can && !closedStage(o)
-    ? (o.stage === 'new' || session.role === 'admin'
+    ? (canChangeLines(o)
       ? h('div', { class: 'so-add' }, h('button', { class: 'btn btn-sm', type: 'button', title: 'Новая позиция: все поля — в правой панели', onclick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) }, '+ Позиция'))
       : h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.'))
     : null;
@@ -592,8 +609,6 @@ export const salesorder = {
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
         { key: 'companyName', label: 'Наша компания', type: 'select', required: true, choose: true, hint: 'Выбирайте каждый раз — от компании зависят документы.', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
-        // этап: кнопка в карточке и воронка; поле — только админу (до этапа 3 это единственный путь назад)
-        ...(session.role === 'admin' ? [{ key: 'stage', label: 'Этап (только администратор)', type: 'select', required: true, options: Object.entries(STAGE).map(([value, s]) => ({ value, label: s.label })), hint: 'Обычно этап меняют кнопкой в карточке. Поле нужно, чтобы вернуть заказ назад или исправить ошибку.' }] : []),
         await responsibleField('Кому передан договор. Смена записывается в историю передач.'),
         { key: 'priority', label: 'Приоритет', type: 'select', required: true, options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
         { section: 'Сроки', tone: 'info' },

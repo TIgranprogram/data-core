@@ -263,7 +263,7 @@ export class ShowcaseService {
     const name = clean(d.name);
     const or: Record<string, unknown>[] = [{ productId: d._id }];
     if (name) or.push({ title: sameName(name) });
-    const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, $or: or }).sort({ shipDate: -1 }).limit(30).toArray();
+    const lines = await this.db.collection('incomes').find({ ...LIVE, cancelledAt: null, orderId: { $ne: null }, $or: or }).sort({ shipDate: -1 }).limit(30).toArray();
     return lines.map((l) => ({ id: String(l._id), orderId: String(l.orderId), orderNo: l.orderNo ?? null, customer: l.customer ?? null, qty: l.qty ?? null, color: l.color ?? null, size: l.size ?? null, shipDate: l.shipDate ?? null, linked: !!l.productId }));
   }
 

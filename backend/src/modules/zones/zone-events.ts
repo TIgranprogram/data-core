@@ -83,7 +83,7 @@ export async function scanPassports(db: Db, notify: Notify, now = new Date()): P
   const orders = (await db.collection('salesorders').find({ deletedAt: null, stage: { $in: ACTIVE_STAGES }, shipDate: { $ne: null, $lte: limit } }).limit(2000).toArray()) as Doc[];
   let n = 0;
   for (const o of orders) {
-    const hasItems = await db.collection('incomes').findOne({ orderId: o._id, deletedAt: null, productId: { $ne: null }, matchStatus: { $ne: 'none' } }, { projection: { _id: 1 } });
+    const hasItems = await db.collection('incomes').findOne({ orderId: o._id, deletedAt: null, cancelledAt: null, productId: { $ne: null }, matchStatus: { $ne: 'none' } }, { projection: { _id: 1 } });
     if (!hasItems) continue;
     const issued = await db.collection('productpassports').findOne({ salesOrderId: o._id, status: 'issued', deletedAt: null }, { projection: { _id: 1 } });
     if (issued) continue;

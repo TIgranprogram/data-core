@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { IncomesService } from './incomes.service';
 import { incomeDerived, incomePayments } from './income.schema';
@@ -78,28 +78,37 @@ describe('IncomesService', () => {
     service = new IncomesService(connection as never, model as never);
   });
 
+  describe('менеджер в производстве (этап 3)', () => {
+    it('на этапе «В производстве» менеджер меняет title/qty', async () => {
+      const orderId = new Types.ObjectId();
+      colls.salesorders = [{ _id: orderId, stage: 'production', orderNo: '5' }];
+      current = { _id: new Types.ObjectId(), orderId, title: 'Скамья', qty: 2, deletedAt: null };
+      await expect(service.update(String(current!._id), { title: 'Другое', qty: 5 } as never, { id: 'm', username: 'm', role: 'manager' })).resolves.toBeDefined();
+    });
+  });
+
   describe('защита состава заказа (этап ≠ new)', () => {
     const orderId = new Types.ObjectId();
     const manager = { id: 'm', username: 'm', role: 'manager' };
-    const MSG = 'Заказ уже в работе. Менять позиции может только администратор.';
+    const MSG = 'позиции меняет только администратор';
     beforeEach(() => {
-      colls.salesorders = [{ _id: orderId, stage: 'production', orderNo: '5' }];
+      colls.salesorders = [{ _id: orderId, stage: 'ready', orderNo: '5' }];
       current = { _id: new Types.ObjectId(), orderId, title: 'Скамья', qty: 2, deletedAt: null };
     });
 
-    it('менеджер: title/qty → 403 по-русски, productId/color/notes → можно', async () => {
+    it('менеджер: title/qty → отказ по-русски (этап «Готов»), productId/color/notes → можно', async () => {
       await expect(service.update(String(current!._id), { title: 'Другое' } as never, manager)).rejects.toThrow(MSG);
-      await expect(service.update(String(current!._id), { qty: 5 } as never, manager)).rejects.toThrow(ForbiddenException);
+      await expect(service.update(String(current!._id), { qty: 5 } as never, manager)).rejects.toThrow(ConflictException);
       await expect(service.update(String(current!._id), { productId: String(new Types.ObjectId()), color: 'красный', notes: 'x' } as never, manager)).resolves.toBeDefined();
     });
     it('неизменённое значение title (форма шлёт всё) — не блокирует', async () => {
       await expect(service.update(String(current!._id), { title: 'Скамья', qty: 2 } as never, manager)).resolves.toBeDefined();
     });
-    it('менеджер: добавить / удалить позицию → 403', async () => {
+    it('менеджер: добавить / удалить позицию → отказ', async () => {
       await expect(service.create({ title: 'Новая', orderId: String(orderId) } as never, undefined, manager)).rejects.toThrow(MSG);
       await expect(service.remove(String(current!._id), manager)).rejects.toThrow(MSG);
     });
-    it('менеджер: restore позиции в сформированный заказ → 403, admin — можно', async () => {
+    it('менеджер: restore позиции в заказ «Готов» → отказ, admin — можно', async () => {
       await expect(service.restore(String(current!._id), manager)).rejects.toThrow(MSG);
       await expect(service.restore(String(current!._id), { ...manager, role: 'admin' })).resolves.toBeDefined();
     });

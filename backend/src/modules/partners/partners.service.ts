@@ -86,7 +86,7 @@ export class PartnersService {
       { $group: { _id: '$customer', n: { $sum: 1 }, active: { $sum: { $cond: [{ $in: [{ $ifNull: ['$stage', 'new'] }, ['new', 'production', 'ready', 'partly']] }, 1, 0] } }, last: { $max: '$shipDate' } } },
     ]).toArray();
     const sums = await this.db.collection('incomes').aggregate([
-      { $match: { deletedAt: null, customer: { $nin: [null, ''] } } },
+      { $match: { deletedAt: null, cancelledAt: null, customer: { $nin: [null, ''] } } },
       { $group: { _id: '$customer', sum: { $sum: { $ifNull: ['$amount', 0] } } } },
     ]).toArray();
     const sum = new Map(sums.map((x) => [String(x._id), x.sum as number]));
@@ -116,7 +116,7 @@ export class PartnersService {
         .project({ orderNo: 1, stage: 1, shipDate: 1, title: 1 }).toArray();
       // по каждому заказу — позиций, сумма и оплачено (как в «Заказах»); деньги скрывает MoneyMaskInterceptor
       const agg = orders.length ? await this.db.collection('incomes').aggregate([
-        { $match: { orderId: { $in: orders.map((o) => o._id) }, deletedAt: null } },
+        { $match: { orderId: { $in: orders.map((o) => o._id) }, deletedAt: null, cancelledAt: null } },
         { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
       ]).toArray() : [];
       const s = new Map(agg.map((a) => [String(a._id), a]));

@@ -297,6 +297,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     ) {
       errorResponse.code = (payload as { code: string }).code;
     }
+    // Подробности отказа (отмена позиции: что мешает и что зависит) — клиент показывает списком
+    if (typeof payload === 'object' && payload !== null && 'details' in payload) errorResponse.details = (payload as { details?: unknown }).details;
     // ПП / ОШ: список полей, которых не хватает ([{ label, key }]) — форма подсветит
     if (typeof payload === 'object' && payload !== null && Array.isArray((payload as { missing?: unknown }).missing)) {
       errorResponse.missing = (payload as { missing: unknown[] }).missing;

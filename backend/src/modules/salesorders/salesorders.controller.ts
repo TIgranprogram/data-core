@@ -8,6 +8,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { IncomeCancelService } from '../incomes/income-cancel.service';
 import { MatchProductsDto, SalesOrderDto } from './dto';
 import { SalesOrdersService } from './salesorders.service';
 
@@ -20,7 +21,7 @@ import { SalesOrdersService } from './salesorders.service';
 @AppSection('salesorders')
 @Controller('salesorders')
 export class SalesOrdersController {
-  constructor(private readonly orders: SalesOrdersService) {}
+  constructor(private readonly orders: SalesOrdersService, private readonly cancels: IncomeCancelService) {}
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
@@ -104,11 +105,18 @@ export class SalesOrdersController {
     return this.orders.create(dto, user?.id);
   }
 
+  /** Что зависит от договора и каждой его позиции: брони, задачи, заявки, паспорта, отгрузки, оплаты. Нужно окну «Отменить позицию». */
+  @Get(':id/dependencies')
+  @Roles('admin', 'director', 'manager', 'user')
+  dependencies(@Param('id') id: string) {
+    return this.cancels.dependencies(id);
+  }
+
   @Patch(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'salesorder.updated', entityType: 'SalesOrder', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: SalesOrderDto, @CurrentUser() user?: AuthenticatedUser) {
-    return this.orders.update(id, dto, user?.id);
+    return this.orders.update(id, dto, user?.id, user);
   }
 
   @Delete(':id')

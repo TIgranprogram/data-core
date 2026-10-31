@@ -13,6 +13,7 @@ import { tokensFilter } from '../../common/text/search-norm';
 import { normText } from '../../common/text/norm-text';
 import { sameKey } from '../../common/text/same-text';
 import { ourProductLabel, productShortName, type Named } from '../../common/catalog/names';
+import { STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { Income, IncomeDocument, IncomePayment, incomeDerived, incomePayments } from './income.schema';
@@ -93,6 +94,9 @@ export class IncomesService {
     if (q.companyId) filter.companyId = { $in: oids(q.companyId) };
     if (q.orderNo) filter.orderNo = String(q.orderNo);
     if (q.orderId) filter.orderId = { $in: oids(q.orderId) };
+    // отменённые позиции видны только в карточке заказа (orderId) или по запросу cancelled=1; в суммы и счётчики не входят никогда
+    if (!q.orderId && String(q.cancelled) !== '1') filter.cancelledAt = null;
+    const live = { cancelledAt: null };
     const range = dateRange(q.from, q.to);
     if (range) filter[money ? 'reportDate' : 'shipDate'] = range;
     // поиск «как на складе»; в $and — чтобы статус «Без суммы» (свой $or) не затирал поиск
@@ -113,8 +117,8 @@ export class IncomesService {
     const [docs, total, agg, counts] = await Promise.all([
       this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, orderNo: -1, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(full).setOptions({ includeSoftDeleted: true }).exec(),
-      this.model.aggregate([{ $match: full }, { $group: { _id: null, sum: { $sum: '$amount' }, paid: { $sum: '$paidAmount' } } }]).exec(),
-      Promise.all(Object.entries(statusCond).map(async ([k, c]) => [k, await this.model.countDocuments({ ...filter, ...c }).setOptions({ includeSoftDeleted: true }).exec()] as const)),
+      this.model.aggregate([{ $match: { ...full, ...live } }, { $group: { _id: null, sum: { $sum: '$amount' }, paid: { $sum: '$paidAmount' } } }]).exec(),
+      Promise.all(Object.entries(statusCond).map(async ([k, c]) => [k, await this.model.countDocuments({ ...filter, ...live, ...c }).setOptions({ includeSoftDeleted: true }).exec()] as const)),
     ]);
     const byStatus = Object.fromEntries(counts) as Record<string, number>;
     return {
@@ -243,15 +247,19 @@ export class IncomesService {
   }
 
   /**
-   * Состав сформированного заказа (этап ≠ new) — только admin (Ф-4). Машинный ключ kppd_ (keyScope) — как раньше, не блокируем
-   * внешних клиентов. Без actor (вызов из кода) защита не применяется.
+   * Состав договора после «Новый». Админ — всегда. Менеджер — пока заказ «Новый» или «В производстве» (этап 3, решение 2026-10-31);
+   * с «Готов к отгрузке» — только админ (409 с причиной). Машинный ключ kppd_ (keyScope) не блокируем.
+   * Без actor (вызов из кода) защита не применяется.
    */
-  private async assertOrderOpen(orderId: unknown, actor: AuthenticatedUser | undefined) {
+  async assertCanChange(orderId: unknown, actor: AuthenticatedUser | undefined) {
     if (!actor || !orderId || actor.role === 'admin' || actor.keyScope) return;
     const o = await this.connection.db!.collection('salesorders').findOne({ _id: orderId as Types.ObjectId }, { projection: { stage: 1 } });
     const stage = String(o?.stage || 'new');
-    if (o && stage !== 'new') throw new ForbiddenException('Заказ уже в работе. Менять позиции может только администратор.');
+    if (o && !['new', 'production'].includes(stage)) {
+      throw new ConflictException(`Заказ уже на этапе «${STAGE_LABELS[stage as OrderStage] ?? stage}» — позиции меняет только администратор`);
+    }
   }
+  private assertOrderOpen(orderId: unknown, actor: AuthenticatedUser | undefined) { return this.assertCanChange(orderId, actor); }
 
   async create(dto: IncomeDto, userId?: string, actor?: AuthenticatedUser) {
     if (dto.clientUid) {

@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 /** Платёж по позиции заказа. */
 export class PaymentDto {
@@ -34,4 +34,15 @@ export class IncomeDto {
   @ApiPropertyOptional({ description: 'Платежи (заменяют весь список). paidDate без payments = оплачено целиком (старый способ); paidDate "" — снять оплату', type: [PaymentDto] }) @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => PaymentDto) payments?: PaymentDto[];
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) notes?: string;
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+}
+
+/** Отмена позиции. */
+export class CancelIncomeDto {
+  @ApiPropertyOptional({ description: 'Причина (обязательна, от 3 знаков)' }) @IsString() @Length(3, 500) reason!: string;
+  @ApiPropertyOptional({ description: 'true — снять брони и закрыть задачи проектирования и работы; false — при них будет 409 со списком' }) @IsOptional() @IsBoolean() cascade?: boolean;
+}
+
+/** Перенос позиции в другой договор. */
+export class MoveIncomeDto {
+  @ApiPropertyOptional({ description: 'Договор (salesorders), в который переносим' }) @IsMongoId() toOrderId!: string;
 }
