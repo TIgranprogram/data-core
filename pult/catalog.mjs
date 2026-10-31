@@ -129,28 +129,22 @@ export const COMMANDS = [
     hint: 'Тесты dc, ночного прогона и этого пульта. Покажет новые скрипты, которых нет на кнопках.' },
 
   // ---------- Стенды ----------
-  { id: 'stand-up', section: 'stand', sub: 'Локальный сайт', title: 'Локальный сайт: запустить', risk: 'local', time: '2–5 мин', needs: ['docker'], run: { docker: ['compose', 'up', '-d', '--build'] },
-    hint: 'Поднимает Mongo и backend на этом ПК. Адрес: http://localhost:3001.' },
-  { id: 'stand-ps', section: 'stand', sub: 'Локальный сайт', title: 'Локальный сайт: состояние', risk: 'read', time: '5 с', needs: ['docker'], run: { docker: ['compose', 'ps'] },
-    hint: 'Какие локальные контейнеры запущены.' },
-  { id: 'stand-down', section: 'stand', sub: 'Локальный сайт', title: 'Локальный сайт: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: { docker: ['compose', 'stop'] },
+  // Запуск и остановка стендов — одна карточка SWITCHES, отдельных кнопок нет (hidden).
+  { id: 'stand-up', section: 'stand', hidden: true, title: 'Локальный сайт: запустить', risk: 'local', time: '2–5 мин', needs: ['docker'], run: { docker: ['compose', 'up', '-d', '--build'] },
+    hint: 'Поднимает Mongo и backend на этом ПК.' },
+  { id: 'stand-down', section: 'stand', hidden: true, title: 'Локальный сайт: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: { docker: ['compose', 'stop'] },
     hint: 'Останавливает локальные контейнеры. Данные остаются.' },
-  { id: 'night-status', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной стенд: состояние', risk: 'read', time: '5 с', needs: ['docker'], run: dc('stand', 'status'),
-    hint: 'Запущен ли стенд на копии прода.' },
-  { id: 'night-up', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной стенд: запустить', risk: 'local', time: '3–10 мин', needs: ['docker'], run: dc('stand', 'up'),
-    hint: 'Поднимает стенд из свежей копии базы. Нужна папка копий (D:\\datacore-backups или DC_BACKUPS).' },
-  { id: 'night-down', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной стенд: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: dc('stand', 'down'),
+  { id: 'night-up', section: 'stand', hidden: true, title: 'Стенд на копии базы: запустить', risk: 'local', time: '3–10 мин', needs: ['docker'], run: dc('stand', 'up'),
+    hint: 'Поднимает стенд из свежей копии базы.' },
+  { id: 'night-down', section: 'stand', hidden: true, title: 'Стенд на копии базы: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: dc('stand', 'down'),
     hint: 'Останавливает стенд на копии.' },
-  { id: 'night-quick', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной прогон: быстрый', risk: 'local', time: '10–20 мин', needs: ['docker'], run: dc('night', '--quick'),
-    hint: 'Короткий прогон проверок в отдельной копии кода. Рабочую папку не трогает.' },
-  { id: 'night-full', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной прогон: полный', risk: 'local', time: 'до 3 ч', needs: ['docker'], run: dc('night'),
-    hint: 'То же, что запускается в 23:30 по расписанию. Отчёт появится в журналах.' },
-  { id: 'sportin-copy', section: 'stand', sub: 'Копия на Sportin', title: 'Копия на Sportin: база и фото', risk: 'local', time: '10–30 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh'] },
+  { id: 'night-run', section: 'stand', title: 'Ночной прогон проверок', risk: 'local', time: '10 мин – 3 ч', needs: ['docker'], run: dc('night', '{mode}'),
+    params: [{ name: 'mode', label: 'Какой', type: 'select', default: '--quick', options: [{ value: '--quick', label: 'Быстрый, 10–20 мин' }, { value: '', label: 'Полный, до 3 ч' }] }],
+    hint: 'Все проверки в отдельной копии кода. Рабочую папку не трогает. Полный идёт и по расписанию в 23:30.' },
+  { id: 'sportin-copy', section: 'stand', title: 'Обновить копию на Sportin', risk: 'local', time: '10–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh', '{mode}'] },
+    params: [{ name: 'mode', label: 'Что обновить', type: 'select', default: '', options: [{ value: '', label: 'База и фото' }, { value: '--code', label: 'База, фото и код' }] }],
     confirm: 'Копия на Sportin будет заменена свежим бэкапом. Всё, что изменено в копии, пропадёт. Прод не меняется.',
-    hint: 'Обновляет копию на сервере Sportin из свежего бэкапа. Прод не затрагивает. Правки в копии затрутся.' },
-  { id: 'sportin-code', section: 'stand', sub: 'Копия на Sportin', title: 'Копия на Sportin: плюс код', risk: 'local', time: '15–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh', '--code'] },
-    confirm: 'Копия на Sportin будет заменена свежим бэкапом и текущим кодом. Всё, что изменено в копии, пропадёт. Прод не меняется.',
-    hint: 'То же, плюс код из текущего коммита и сборка backend на Sportin.' },
+    hint: 'Копия на сервере Sportin из свежего бэкапа. Прод не затрагивает.' },
 
   // ---------- Git ----------
   { id: 'git-status', section: 'git', title: 'Что изменено', risk: 'read', time: '2 с', run: { git: ['status', '--short', '--branch'] },
@@ -194,6 +188,14 @@ export const COMMANDS = [
     hint: 'Полный вывод каждого запуска кнопки.' },
   { id: 'link-commands', section: 'links', title: 'Справка по кнопкам', risk: 'read', time: 'сразу', run: { folder: 'pult/docs' },
     hint: 'Папка с файлом КОМАНДЫ.md. Он собирается из каталога автоматически.' },
+];
+
+// Стенды: одна карточка со статусом и одной кнопкой. state — поле из readStatus, start и stop — команды каталога.
+export const SWITCHES = [
+  { id: 'sw-local', section: 'stand', title: 'Локальный сайт', state: 'localSite', start: 'stand-up', stop: 'stand-down', link: 'http://localhost:3001/app/',
+    hint: 'Сайт на этом ПК для проверки кода. Адрес: localhost:3001. Данные при остановке остаются.' },
+  { id: 'sw-night', section: 'stand', title: 'Стенд на копии базы', state: 'nightStand', start: 'night-up', stop: 'night-down', link: 'http://localhost:3102/app/',
+    hint: 'Копия рабочего сайта для проверки на реальных данных. Адрес: localhost:3102. Нужна скачанная копия базы.' },
 ];
 
 // Подсказки к результату: текст вывода → что делать. Показываются под журналом запуска.

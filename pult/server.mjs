@@ -122,6 +122,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     return {
       groups: catalog.GROUPS,
       levels: LEVELS,
+      switches: catalog.SWITCHES || [],
       sections: catalog.SECTIONS,
       risks: catalog.RISKS,
       problems: auditProblems(auditCatalog(catalog, root)),

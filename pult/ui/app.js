@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const CONFIRM_RISKS = new Set(['prod-write', 'danger']);
 const STATE_TEXT = { running: 'Идёт', ok: 'Готово', found: 'Есть находки', fail: 'Ошибка', stopped: 'Остановлено' };
 
-const S = { catalog: null, section: 'now', query: '', jobs: new Map(), order: [], current: null, values: {}, advice: null, runs: {} };
+const S = { status: null, catalog: null, section: 'now', query: '', jobs: new Map(), order: [], current: null, values: {}, advice: null, runs: {} };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -42,7 +42,7 @@ function renderNav() {
   for (const g of S.catalog.groups) {
     if (g.title) box.append(el('div', 'nav-group', g.title));
     for (const s of S.catalog.sections.filter((x) => x.group === g.id)) {
-      const count = S.catalog.commands.filter((c) => c.section === s.id).length;
+      const count = S.catalog.commands.filter((c) => c.section === s.id && !c.hidden).length + S.catalog.switches.filter((w) => w.section === s.id).length;
       const b = el('button', `nav-item${s.id === S.section && !S.query ? ' on' : ''}`);
       b.title = s.hint;
       const n = s.id === 'now' ? el('span', `n${todo.length ? ' alert' : ''}`, todo.length ? String(todo.length) : '') : el('span', 'n', String(count));
@@ -65,8 +65,9 @@ function renderLegend() {
 
 function visible() {
   const q = S.query.trim().toLowerCase();
-  if (!q) return S.catalog.commands.filter((c) => c.section === S.section);
-  return S.catalog.commands.filter((c) => `${c.title} ${c.hint}`.toLowerCase().includes(q));
+  const shown = S.catalog.commands.filter((c) => !c.hidden);
+  if (!q) return shown.filter((c) => c.section === S.section);
+  return shown.filter((c) => `${c.title} ${c.hint}`.toLowerCase().includes(q));
 }
 
 function paramValue(c, p) {
@@ -104,6 +105,24 @@ function card(c) {
   if (c.blocked.length) box.append(el('div', 'why', c.blocked[0]));
   const b = el('button', `${buttonClass(c)} run`, c.kind === 'job' ? 'Запустить' : 'Открыть');
   b.disabled = c.blocked.length > 0;
+  b.onclick = () => press(c);
+  box.append(b);
+  return box;
+}
+
+function switchCard(w) {
+  const on = S.status ? !!S.status[w.state] : null;
+  const live = [...S.jobs.values()].find((j) => [w.start, w.stop].includes(j.cmdId) && j.state === 'running');
+  const c = S.catalog.commands.find((x) => x.id === (on ? w.stop : w.start));
+  const box = el('article', `card switch${on ? ' on' : ''}`);
+  const head = el('div', 'sw-head');
+  const text = live ? 'Выполняется…' : on === null ? 'Проверяю…' : on ? 'Запущен' : 'Остановлен';
+  head.append(el('h3', '', w.title), el('span', `sw-state${on && !live ? ' on' : ''}`, text));
+  box.append(head, el('p', '', w.hint));
+  const blocked = c.blocked[0] || (S.status && !S.status.docker ? 'Docker выключен: сначала запустите Docker Desktop' : '');
+  if (blocked) box.append(el('div', 'why', blocked));
+  const b = el('button', `${on ? 'ghost' : 'primary'} run`, live ? 'Идёт…' : on ? 'Остановить' : 'Запустить');
+  b.disabled = !!live || !!blocked || on === null;
   b.onclick = () => press(c);
   box.append(b);
   return box;
@@ -195,7 +214,7 @@ function render() {
   $('subtitle').textContent = S.query ? `По запросу «${S.query}»` : sec.hint;
   const list = visible();
   const box = $('cards');
-  const nodes = [];
+  const nodes = S.query ? [] : S.catalog.switches.filter((w) => w.section === S.section).map(switchCard);
   let sub = null;
   for (const c of list) {
     if (!S.query && c.sub && c.sub !== sub) nodes.push(el('h2', 'sub-head', c.sub));
@@ -331,7 +350,7 @@ function onEvent(ev) {
   if (ev.type === 'start') {
     addJob({ ...ev.job, lines: [] });
     renderTabs();
-    if (S.section === 'now' && !S.query) render();
+    if (!S.query && ['now', 'stand'].includes(S.section)) render();
   } else if (ev.type === 'line') {
     const j = S.jobs.get(ev.id);
     if (!j) return;
@@ -380,9 +399,10 @@ function pill(kind, text, title) {
 async function loadStatus() {
   let s;
   try { s = await api('/api/status'); } catch { return; }
+  S.status = s;
   S.advice = s.advice;
   S.runs = s.runs;
-  if (S.section === 'now' && !S.query) render(); else renderNav();
+  if (S.query || !['now', 'stand'].includes(S.section)) renderNav(); else render();
   const list = [
     s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Рабочий сайт → Осмотр сайта»'),
     s.gateFiles.length

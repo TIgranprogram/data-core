@@ -19,6 +19,10 @@ test('справка собрана из текущего каталога', () 
   assert.equal(now, renderDoc(), 'запустите: node pult/gen-docs.mjs');
 });
 
+test('стенды: у каждой карточки есть команды запуска и остановки', () => {
+  for (const w of catalog.SWITCHES) for (const id of [w.start, w.stop]) assert.ok(COMMANDS.some((c) => c.id === id && c.hidden), id);
+});
+
 test('записи каталога заполнены', () => {
   const ids = COMMANDS.map((c) => c.id);
   assert.equal(new Set(ids).size, ids.length, 'повтор id');
