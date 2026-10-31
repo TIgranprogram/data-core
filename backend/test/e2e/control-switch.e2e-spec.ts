@@ -25,7 +25,7 @@ describe('Переключение сервера (SW-2…SW-5)', () => {
     await fs.writeFile(path.join(dir, 'alive'), '');
     await fs.writeFile(path.join(dir, 'secret'), 'E2ESECRET\n');
     process.env.HA_SWITCH_DIR = dir;
-    delete process.env.HA_SELF; // сначала приложение с выключенным механизмом
+    process.env.HA_SELF = ''; // пустая строка, а не delete: .env из окружения теста не перезапишет; сначала приложение с выключенным механизмом
     ctx = await createTestApp();
     app = ctx.app;
     sw = app.get(SwitchService);
@@ -41,7 +41,7 @@ describe('Переключение сервера (SW-2…SW-5)', () => {
   }, 120_000);
 
   it('без HA_SELF: все маршруты 404, запись работает', async () => {
-    await http().get(S).set(as(admin.access)).expect(404);
+    expect((await http().get(S).set(as(admin.access)).expect(200)).body.enabled).toBe(false); // обзор доступен и без HA_SELF
     await http().post(`${S}/start`).set(as(admin.access)).send({ confirm: true }).expect(404);
     await http().post(`${S}/report`).send({ id: 'peer' }).expect(404);
     await http().post('/api/client-errors').set(as(admin.access)).send({ message: 'проверка', kind: 'action' }).expect(204);

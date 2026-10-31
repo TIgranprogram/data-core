@@ -175,7 +175,7 @@ describe('Разбор: вопросы и действия (CC-14…16)', () => 
     const o2 = (await http().post(Q).set(as(service)).send({ type: 'free_text', what: 'Лимит лишний 2', sourceName: 'болтун' }).expect(201)).body;
     expect(o1.overflow && o2.overflow).toBe(true);
     expect(o1.id).toBe(o2.id);
-    expect(await db().collection('app_control_questions').countDocuments({ type: 'overflow', 'subject.ids': 'болтун' })).toBe(1);
+    expect(await db().collection('app_control_questions').countDocuments({ type: 'overflow', active: true })).toBe(1);
   });
 
   it('индексы и показатели: уникальный ключ активного вопроса, TTL откатов, числа в снимке дня', async () => {
