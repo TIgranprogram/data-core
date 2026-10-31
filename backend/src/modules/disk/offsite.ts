@@ -103,7 +103,7 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
   /** Итог хоста для SMB-цели: lastResult / lastError / lastAt → общий вид `last`. */
   private smbLast(t: Target) {
     if (!t.lastAt) return null;
-    return { at: t.lastAt, ok: !t.lastError, message: t.lastError || t.lastResult || '' };
+    return { at: t.lastAt, ok: !t.lastError, message: t.lastError || (t.lastResult === 'ok' ? 'успешно' : t.lastResult) || '' };
   }
 
   async saveSettings(b: { time?: unknown; keep?: unknown; password?: unknown }) {

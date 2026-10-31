@@ -43,8 +43,10 @@ export async function listBackups(root: string) {
 export async function latestBackupDate(root: string): Promise<string | null | undefined> {
   let names: string[];
   try { names = await fs.readdir(root); } catch { return undefined; }
-  const last = names.filter((n) => n.startsWith('mongo-') && isStamp(n.slice(6))).map((n) => n.slice(6)).sort().pop();
-  return last ? stampDate(last) : null;
+  const last = names.filter((n) => n.startsWith('mongo-') && isStamp(n.slice(6))).map((n) => stampDate(n.slice(6)));
+  // второй сервер (SRV-ERP/backup-erp.sh) пишет один архив srv-erp-20261031-1901.tgz
+  for (const n of names) { const m = /^srv-erp-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})\.tgz$/.exec(n); if (m) last.push(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00`); }
+  return last.length ? last.sort().pop()! : null;
 }
 
 /** Папки для архива: [путь на диске, имя внутри архива]. Только реальные каталоги (не симлинки). */
