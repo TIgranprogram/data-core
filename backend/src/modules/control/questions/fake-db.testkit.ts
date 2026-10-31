@@ -83,8 +83,16 @@ export class FakeColl {
       if (r[flag] === true && this.rows.some((x) => x !== r && x[flag] === true && x[field] === r[field])) throw Object.assign(new Error('E11000 duplicate key'), { code: 11000 });
     }
   }
-  async updateOne(f: Doc, u: Doc) {
+  async updateOne(f: Doc, u: Doc, o: { upsert?: boolean } = {}) {
     const r = this.rows.find((x) => match(x, f));
+    if (!r && o.upsert) {
+      // upsert: поля-равенства из фильтра + $setOnInsert + $set
+      const d: Doc = {};
+      for (const [k, v] of Object.entries(f)) if (!(v && typeof v === 'object' && Object.keys(v).some((x) => x.startsWith('$')))) setPath(d, k, this.clone(v));
+      for (const [k, v] of Object.entries(u.$setOnInsert ?? {})) setPath(d, k, this.clone(v));
+      this.rows.push(d); this.apply(d, u);
+      return { matchedCount: 0, modifiedCount: 0, upsertedCount: 1 };
+    }
     if (!r) return { matchedCount: 0, modifiedCount: 0 };
     const before = this.clone(r);
     try { this.apply(r, u); } catch (e) { Object.keys(r).forEach((k) => delete r[k]); Object.assign(r, before); throw e; }

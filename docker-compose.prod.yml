@@ -158,12 +158,15 @@ services:
       TRUST_PROXY: "${TRUST_PROXY:-1}"
       # 1 — только стенд без HTTPS (SRV-ERP): без upgrade-insecure-requests и HSTS; на проде пусто
       HTTP_STAND: "${HTTP_STAND:-}"
+      # home|office — включает кнопку «Переключить сейчас» (HA-TWO-SERVERS); пусто — механизма нет, 404 и без проверок
+      HA_SELF: "${HA_SELF:-}"
     volumes:
       - ${DATA_DIR}/uploads:/app/uploads
       - ./secrets:/app/secrets:ro   # ключ сервисного аккаунта Google (google-sa.json) — чтение Google-таблиц
       - ${DATA_DIR}:/host-data:ro   # только чтение: место на диске, размер фото и бэкапов (/api/health/disk, ДИ.1)
       - ${DATA_DIR}/bundles:/host-bundles   # готовые переносные пакеты (bundle-watch.sh): список, скачивание и удаление в админке
       - ${DATA_DIR}/bundle-requests:/host-requests   # запись: только файл-запрос и status.json моста bundle-watch.sh (cron на хосте)
+      - ${DATA_DIR}/switch:/host-switch   # заявка и секрет моста switch-watch.sh (deploy/ha/switch); без HA_SELF не используется
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]
       interval: 15s

@@ -7,12 +7,15 @@ import { FillAuditModule } from '../fill-audit/fill-audit.module';
 import { PartnersModule } from '../partners/partners.module';
 import { ControlController } from './control.controller';
 import { ControlService } from './control.service';
+import { SwitchController } from './switch/switch.controller';
+import { SwitchService } from './switch/switch.service';
 import { QuestionsController } from './questions/questions.controller';
 import { QuestionsService } from './questions/questions.service';
 
 @Module({
   imports: [FillAuditModule, DiskModule, AuditModule, ClientErrorsModule, DictsModule, PartnersModule],
-  controllers: [ControlController, QuestionsController],
-  providers: [ControlService, QuestionsService],
+  controllers: [ControlController, QuestionsController, SwitchController],
+  providers: [ControlService, QuestionsService, SwitchService],
+  exports: [SwitchService],
 })
 export class ControlModule {}

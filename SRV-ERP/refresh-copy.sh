@@ -12,6 +12,9 @@ SSH=(ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=
 
 cd "$(git rev-parse --show-toplevel)"
 [[ "$("${SSH[@]}" hostname)" == "srv-erp" ]] || { echo "СТОП: это не сервер srv-erp"; exit 2; }
+# HA-TWO-SERVERS SW-5: если Sportin сейчас главный (после «Переключить сейчас»), копию из бэкапа дома поверх него лить нельзя
+ROLE="$("${SSH[@]}" 'cd /opt/data-core && set -a && . ./.env && set +a && docker exec datacore-mongo mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "var d=db.app_control_state.findOne({_id:\"switch\"}); print(d?d.role:\"\")"' 2>/dev/null | tr -d "[:space:]")"
+[[ "$ROLE" != "main" ]] || { echo "СТОП: Sportin сейчас ГЛАВНЫЙ сервер (кнопка «Переключить сейчас»). Обновление копии отменено, данные не тронуты."; exit 3; }
 TGZ="$(ls -t "$BACKUPS"/datacore-*.tgz | head -1)"; STAMP="$(basename "$TGZ" .tgz)"; STAMP="${STAMP#datacore-}"
 gzip -t "$TGZ" || { echo "СТОП: архив бэкапа повреждён: $TGZ"; exit 2; }
 echo "== Бэкап: $(basename "$TGZ")"
@@ -55,6 +58,9 @@ docker exec datacore-mongo rm -rf /tmp/restore
 docker cp "$M" datacore-mongo:/tmp/restore >/dev/null
 docker exec datacore-mongo sh -c 'mongorestore --quiet -u "$0" -p "$1" --authenticationDatabase admin --drop --db datacore /tmp/restore' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
 docker exec datacore-mongo sh -c 'mongo --quiet -u "$0" -p "$1" --authenticationDatabase admin datacore --eval "var r=db.backuptargets.updateMany({_id:{\$ne:\"settings\"}},{\$set:{enabled:false}}); print(\"целей копий выключено: \"+r.matchedCount)"' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
+# в бэкапе дома записано «главный» — у копии роль запасного, иначе она сочтёт себя главной
+docker exec datacore-mongo sh -c 'mongo --quiet -u "$0" -p "$1" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"normal\",job:null}})"' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD" >/dev/null
+mkdir -p /var/lib/datacore/switch; date -u +%Y-%m-%dT%H:%M:%SZ > /var/lib/datacore/switch/last-refresh
 docker exec datacore-mongo rm -rf /tmp/restore /tmp/before
 
 echo "== Фото: только новые"

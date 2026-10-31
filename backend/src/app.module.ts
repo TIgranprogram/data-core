@@ -40,6 +40,7 @@ import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
 import { DevlogModule } from './modules/devlog/devlog.module';
 import { ClientErrorsModule } from './modules/client-errors/client-errors.module';
 import { ControlModule } from './modules/control/control.module';
+import { SwitchMiddleware } from './modules/control/switch/switch.middleware';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerBehindAuthGuard } from './common/guards/throttler-behind-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -268,6 +269,8 @@ import { RequestMethod } from '@nestjs/common';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
+    // HA-TWO-SERVERS SW-2: режим «только чтение» на время переключения; без HA_SELF в .env ничего не делает
+    consumer.apply(SwitchMiddleware).forRoutes('*');
     // TZ-247.A: mount the idempotency middleware on MUTATING verbs only.
     // GET / HEAD / OPTIONS requests pass through unchanged; the
     // middleware itself additionally excludes /auth/login|register|refresh|logout

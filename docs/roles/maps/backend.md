@@ -1,6 +1,6 @@
 # Карта роли backend
 
-коммит: 627c9bf (+ HARDEN-1, CC-14…16 2026-10-31, не закоммичено)
+коммит: 627c9bf (+ HARDEN-1, CC-14…16, SW-2…5 2026-10-31, не закоммичено)
 
 ## Паспорта «воронкой» (ПВ) — где что
 - Дерево/выбор (pure): `backend/src/common/passport/phrase-tree.ts` — `toNode`, `buildForest(nodes, category)`, `resolveChoices`, `missingChoices`, `checkNode` (запись), `checkChoices`, `parseChoices`, `presentForest`. spec рядом.
@@ -103,3 +103,9 @@
 - `modules/control/questions/`: реестр `question.registry.ts:9` (тип без recheck — ошибка), типы `question.kinds.ts:buildRegistry`, действия `question.actions.ts:buildActions` (partners.merge/dicts.merge/partners.restore/dicts.restore), сбор `question.sources.ts`, дедуп `question.store.ts:upsert`, цикл `questions.service.ts` (`create` лимиты, `answer`/`execute` хеш плана + захват `executing`, `undo` отпечаток `afterHash`), сутки/минута `question.daily.ts`. Вызов — `control.service.ts:tick`. Показатели — `control.collect.ts` (control.*).
 - Право `control:write` (не `control:questions`: схема `permissions.action` — enum read|write|admin); POST — `@Roles('user') @Permissions('control:write')`. Фильтр ошибок пропускает `preview` (`http-exception.filter.ts`). Dict merge — необратим (нет списка затронутых id до вызова).
 - Ловушки: `mongodb` не импортируется напрямую — только `Types.ObjectId` из mongoose; fake-db в spec копирует ObjectId сам (structuredClone ломает). e2e на стенде: `dc stand up`, root-пароль в tools/.night/stand.env (скрипт в scratchpad), stock-scope.e2e под полной нагрузкой иногда краснеет (по одному зелёный).
+
+## «Переключить сейчас» (HA-TWO-SERVERS SW-2…SW-5, 2026-10-31, не закоммичено)
+- `modules/control/switch/`: правила `switch.rules.ts`, сервис `switch.service.ts:refresh` (кэш 2 с, брошенная работа), `:acquire` (захват одним updateOne), `:report` (секрет из файла + нет X-Forwarded-For), middleware `switch.middleware.ts` (подключён `app.module.ts` configure; без HA_SELF — 404 на /control/switch), контроллер/DTO рядом. Тесты: 2 spec + e2e `control-switch.e2e-spec.ts` (зелёный на стенде). `fake-db.testkit.ts` научился upsert/$setOnInsert.
+- Хост: `deploy/ha/switch/switch-watch.sh` (мост, проверен на заглушках в scratchpad: успех, расхождение, rsync, VPS-отказ с откатом соседа, аварийный, восстановление), `dc-switch.sh` (проверен), `SRV-ERP/setup-switch.sh` (НЕ запускался; nginx-блок проверен на заглушках), `SRV-ERP/refresh-copy.sh` (проверка role=main, роль standby после восстановления, маркер last-refresh).
+- Порт 4222 на VPS уже занят туннелем `datacore-ssh-tunnel` (ssh VM) — Sportin→VM идёт через него. Compose: `HA_SELF`, том `${DATA_DIR}/switch`.
+- Ловушки: `grep -q` в конвейере под pipefail даёт ложную неудачу (SIGPIPE) — брать `[[ "$(…)" == *x* ]]`; `String.replace` со строкой, где есть `$'`/`$&`, портит текст — только функция-замена; heredoc с `EOF` внутри JS в bash ломается — JS писать Write-ом.
