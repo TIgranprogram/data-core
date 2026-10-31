@@ -371,6 +371,16 @@ export class SalesOrdersService {
     } catch { /* уведомление не ломает создание */ }
   }
 
+  /** Договор без живых позиций нельзя отправить в производство и дальше (заказ 22-26 ушёл «пустым»). */
+  async assertHasLines(docs: Doc[], target?: string) {
+    if (!target || ORDER_STAGES.indexOf(target as OrderStage) < ORDER_STAGES.indexOf('production') || target === 'cancelled') return;
+    const fresh = docs.filter((d) => (d.stage || 'new') === 'new');
+    for (const d of fresh) {
+      const n = await this.incomes().countDocuments({ orderId: d._id, deletedAt: null, cancelledAt: null }, { limit: 1 });
+      if (!n) throw new ConflictException(`В договоре ${d.orderNo || ''} нет позиций — добавьте позиции, потом переводите в производство`);
+    }
+  }
+
   /**
    * Этап 3: шаг назад (и выход из «закрыт» / «отменён») — только администратор и только с причиной.
    * Вперёд можно любым путём; отгрузка сама переставляет этап напрямую (`stageAfterShipments`) и сюда не попадает.
@@ -388,6 +398,7 @@ export class SalesOrdersService {
 
   async update(id: string, dto: SalesOrderDto, userId?: string, actor?: AuthenticatedUser) {
     const cur = await this.findRaw(id);
+    await this.assertHasLines([cur as Doc], dto.stage);
     this.checkStageMove(cur as Doc, dto, actor);
     const { f, companyShort } = await this.toFields(dto);
     if (dto.requireFields) this.checkRequired(f, cur as Doc);

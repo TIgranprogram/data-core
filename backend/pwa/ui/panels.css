@@ -458,7 +458,7 @@ button.stg-in { cursor: pointer; }
 button.stg-in:hover { background: var(--surface-2); color: var(--text); }
 button.stg-in:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .stg-mark { font-weight: 700; }
-.stg-lbl { overflow-wrap: anywhere; line-height: 1.25; }
+.stg-lbl { overflow-wrap: normal; word-break: normal; hyphens: manual; line-height: 1.25; font-size: 12px; }
 .stg-sub { font-size: var(--fs-sm); color: var(--warn); font-weight: 600; }
 .stg-step.done .stg-in { border-top-color: var(--ok); background: var(--ok-soft); color: var(--text); }
 .stg-step.done .stg-mark { color: var(--ok); }

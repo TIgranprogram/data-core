@@ -291,6 +291,7 @@ export class ProductionOrdersService {
     if (stage === 'cancelled') throw new BadRequestException('Отменить можно только договор — откройте его и отмените там');
     const docs = await this.members(key);
     const target = ORDER_STAGES.indexOf(stage as OrderStage);
+    await this.orders.assertHasLines(docs as never, stage);
     const todo = docs.filter((d) => d.stage !== 'cancelled' && ORDER_STAGES.indexOf((d.stage as OrderStage) || 'new') < target);
     for (const d of todo) {
       await this.model.updateOne({ _id: d._id }, { $set: { stage, editedInApp: true } }).exec();

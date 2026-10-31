@@ -121,4 +121,16 @@ describe('Заказы: отмена и перенос позиций', () => {
     await http().patch(`/api/salesorders/${o}`).set(A()).send({ stage: 'production', stageReason: 'ошиблись с этапом' }).expect(200);
     await http().patch(`/api/salesorders/${o}`).set(M()).send({ stage: 'ready' }).expect(200);
   });
+
+  it('пустой договор нельзя отправить в производство: PATCH и /production-orders/:key/stage — 409', async () => {
+    const o = await order('ОК-8', 'new');
+    await http().patch(`/api/salesorders/${o}`).set(A()).send({ stage: 'production' }).expect(409).expect((r) => expect(r.body.message).toMatch(/нет позиций/));
+    await db().collection('salesorders').updateOne({ _id: new Types.ObjectId(o) }, { $set: { productionNo: '95-26' } });
+    await http().post('/api/production-orders/95-26/stage').set(A()).send({ stage: 'production' }).expect(409);
+    const l = await line(o, 'Единственная');
+    await http().post(`/api/incomes/${l}/cancel`).set(A()).send({ reason: 'отмена единственной' }).expect(200);
+    await http().patch(`/api/salesorders/${o}`).set(A()).send({ stage: 'production' }).expect(409); // отменённая позиция не считается
+    await http().post(`/api/incomes/${l}/restore-cancelled`).set(A()).expect(200);
+    await http().patch(`/api/salesorders/${o}`).set(A()).send({ stage: 'production' }).expect(200);
+  });
 });

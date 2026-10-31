@@ -480,7 +480,7 @@ export const salesorders = {
       ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
       ['Срок', r.deadline ? due(r) : ''],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
-      ['Что дальше', STAGE_NOW[r.stage] ? h('span', { class: 'muted' }, STAGE_NOW[r.stage]) : ''],
+      ['Что дальше', r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? h('span', { class: 'neg' }, 'В заказе нет позиций — «В производство» не сработает. Сначала добавьте позиции.') : STAGE_NOW[r.stage] ? h('span', { class: 'muted' }, STAGE_NOW[r.stage]) : ''],
       ['Этапы по договорам', r.stagesDiffer ? h('span', null, ...(r.orders || []).flatMap((o, i) => [i ? h('br') : '', `${o.orderNo || '—'}: ${STAGE[o.stage]?.label || o.stage}`])) : ''],
     ],
     // воронка этапов и крошки «Заказ № … ›»; шаг открывает нужный блок, этап не меняет
