@@ -115,7 +115,7 @@ export const stock = {
       low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
       none: 'Закончилось — закажите, если позиция ещё нужна.',
       ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',
-      reserved: 'Отложено под заказы. Выдать — «Из брони» в строке.',
+      reserved: 'Отложено под заказы. Выдать — кнопка «Выдать» в строке. Снять бронь — откройте позицию, кнопка «Снять бронь».',
       ok: 'Хватает. Делать ничего не нужно.',
     },
     rowAction: (r) => {
@@ -149,8 +149,8 @@ export const stock = {
           r.status === 'none' && r.ordered
             ? h('span', { class: 'badge warn', title: `Нет на складе, в заявках: ${qty(r.ordered)} ${unit(r)}` }, `нет (заказано ${qty(r.ordered)})`)
             : [badge(STOCK_STATUS, r.status), r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  зак. ${qty(r.ordered)}`) : null],
-          r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы — «Из брони» в строке' }, `бронь ${qty(r.reservedQty)}`) : null,
-          r.hangingQty ? h('span', { class: 'tag tag-hang', title: 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Снимите бронь в «Забронировать» → «Активные брони»' }, `висит ${qty(r.hangingQty)}`) : null) },
+          r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы. Снять — откройте позицию, кнопка «Снять бронь»' }, `бронь ${qty(r.reservedQty)}`) : null,
+          r.hangingQty ? h('span', { class: 'tag tag-hang', title: 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Откройте позицию, кнопка «Снять бронь»' }, `висит ${qty(r.hangingQty)}`) : null) },
     ],
     card: {
       thumb: photoThumb,
