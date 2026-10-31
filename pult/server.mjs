@@ -305,7 +305,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       const status = await statusFn(machine, runs);
       const brief = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, { at: v.at, code: v.code }]));
       // код пульта изменился (правка Claude): ничего не идёт — перезапуск сам, окно перезагрузится; идёт — после команды
-      const restarting = codeStamp() !== STAMP && running().length === 0 && !restartAt;
+      // окно ведёт цепочку «Выполнить все по очереди» (заголовок X-Pult-Chain) — не перезапускаться между шагами
+      const restarting = codeStamp() !== STAMP && running().length === 0 && !restartAt && !req.headers['x-pult-chain'];
       if (restarting) { restartAt = Date.now(); setTimeout(() => { respawn(port); process.exit(0); }, 300); }
       return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt });
     }

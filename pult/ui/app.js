@@ -16,7 +16,7 @@ function el(tag, cls, text) {
 async function api(path, body) {
   const r = await fetch(path, {
     method: body ? 'POST' : 'GET',
-    headers: { 'X-Pult-Token': token, 'Content-Type': 'application/json' },
+    headers: { 'X-Pult-Token': token, 'Content-Type': 'application/json', ...(chainOn ? { 'X-Pult-Chain': '1' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await r.json().catch(() => ({}));
