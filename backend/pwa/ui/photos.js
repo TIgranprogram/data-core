@@ -19,9 +19,10 @@ export async function uploadPhoto(f) {
 export function photoDrop({ attach, done, pdf = false }) {
   // pdf: true — ещё и PDF (файл счёта, скан договора); фото заявок/изделий — только картинки
   const input = h('input', { type: 'file', accept: pdf ? 'image/*,application/pdf' : 'image/*', multiple: true, hidden: true });
-  const label = h('span', null, pdf ? 'Перетащите файл (PDF или фото) сюда, вставьте Ctrl+V или ' : 'Перетащите фото сюда, вставьте Ctrl+V или ');
-  const pick = h('button', { type: 'button', class: 'link-btn', onclick: () => input.click() }, 'выберите файл');
-  const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), h('span', null, label, pick), input);
+  const idle = pdf ? 'Перетащите файл (PDF или фото) сюда или вставьте Ctrl+V' : 'Перетащите фото сюда или вставьте Ctrl+V';
+  const label = h('span', { class: 'pd-text' }, idle);
+  const pick = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => input.click() }, 'Выбрать файл');
+  const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), label, pick, input);
   let busy = false;
 
   async function upload(files) {
@@ -39,7 +40,7 @@ export function photoDrop({ attach, done, pdf = false }) {
     } catch (e) { toastError(e); }
     finally {
       busy = false; zone.classList.remove('busy');
-      label.textContent = 'Перетащите фото сюда, вставьте Ctrl+V или ';
+      label.textContent = idle;
       if (row) done(row);
     }
   }
@@ -77,16 +78,18 @@ export function photoDrop({ attach, done, pdf = false }) {
  * Фото внутри формы (новая запись / правка): миниатюры с «×» + зона добавления.
  * Файлы загружаются сразу, к записи привязываются при сохранении формы.
  *   const p = photoField([{ id, url, thumb }]);  p.el, p.ids() → ['…'], p.set([{ id, url, thumb }]) — заменить (картинки модели), p.focus()
+ *   main: true — на первом фото подпись «главное» (фото изделия)
  */
 export const isPdf = (p) => p?.mime === 'application/pdf' || /\.pdf$/i.test(String(p?.url || ''));
 
-export function photoField(initial = [], { pdf = false } = {}) {
+export function photoField(initial = [], { pdf = false, main = false } = {}) {
   let pics = [...initial];
   const strip = h('div', { class: 'pf-strip' });
   const render = () => strip.replaceChildren(...pics.map((p, i) => h('div', { class: 'pf-item' },
     isPdf(p)
       ? h('a', { class: 'pf-pdf', href: PREFIX + p.url, target: '_blank', rel: 'noopener', title: 'Открыть PDF' }, h('span', { 'aria-hidden': 'true' }, '📄'), h('span', { class: 'pf-pdf-name' }, p.name || 'PDF'))
       : h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
+    main && !i ? h('span', { class: 'pf-tag' }, 'главное') : null,
     h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: () => { pics.splice(i, 1); render(); } }, '×'),
     // первое — главное; ★ у другого — поставить его первым
     pics.length > 1 ? h('button', { type: 'button', class: 'pf-main' + (i ? '' : ' on'), title: i ? 'Сделать главным' : 'Главное фото', 'aria-label': i ? 'Сделать главным' : 'Главное фото', onclick: () => { if (i) { pics.unshift(...pics.splice(i, 1)); render(); } } }, i ? '☆' : '★') : null)));

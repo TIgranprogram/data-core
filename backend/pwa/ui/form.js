@@ -77,7 +77,7 @@ export function buildForm(fields, initial = {}) {
     }
     if (f.type === 'photos') {
       // Фото: значение — список id; файлы грузятся сразу, привязка — при сохранении
-      const pf = photoField(Array.isArray(v) ? v : []);
+      const pf = photoField(Array.isArray(v) ? v : [], { main: f.main });
       // value = JSON id; присвоить можно список [{ id, url, thumb }] (или его JSON) — картинки модели в паспорте (ФП)
       input = { el: pf.el, get value() { return JSON.stringify(pf.ids()); }, set value(x) { let l = x; try { if (typeof x === 'string') l = JSON.parse(x || '[]'); } catch { l = []; } pf.set((Array.isArray(l) ? l : []).filter((p) => p && typeof p === 'object' && p.id)); }, focus: pf.focus };
       const err = h('div', { class: 'err', hidden: true });

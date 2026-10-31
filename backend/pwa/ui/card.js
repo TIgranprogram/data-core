@@ -48,7 +48,8 @@ function gallery(pics, onRemove, onMain) {
     document.body.append(box);
   });
   const del = onRemove ? h('button', { class: 'btn btn-ghost btn-sm g-del', type: 'button', title: 'Убрать это фото из карточки', onclick: (e) => { e.stopPropagation(); onRemove(pics[cur]); } }, 'Убрать фото') : null;
-  return h('div', { class: 'gallery' }, big, strip, del);
+  const mainHint = onMain && pics.length > 1 ? h('p', { class: 'hint' }, 'Первое фото — главное. Чтобы выбрать другое, нажмите ☆ на миниатюре.') : null;
+  return h('div', { class: 'gallery' }, big, strip, mainHint, del);
 }
 export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
 const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };

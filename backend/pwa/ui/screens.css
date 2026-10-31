@@ -313,6 +313,12 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 .g-del { margin-top: 6px; }
 /* Фото в форме: миниатюры с «×» над зоной добавления */
 .photo-field .photo-drop { margin: 0; }
+.photo-drop { flex-wrap: wrap; }
+.photo-drop .pd-text { flex: 1; min-width: 150px; }
+.photo-drop .btn { flex: none; }
+.photo-field .pf-main::before { content: ''; position: absolute; inset: -11px; }
+@media (max-width: 720px) { .photo-drop .btn { height: 44px; min-height: 44px; } }
+.pf-tag { position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 0; border-radius: 0 0 6px 6px; background: var(--primary); color: var(--on-primary); font-size: 11px; line-height: 1.3; text-align: center; pointer-events: none; }
 .pf-strip { display: flex; flex-wrap: wrap; gap: 8px; }
 .pf-strip:not(:empty) { margin-bottom: 8px; }
 .pf-item { position: relative; width: 72px; height: 72px; flex: none; }

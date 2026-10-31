@@ -432,6 +432,7 @@ export const products = {
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
       return [
       { section: 'Изделие', tone: 'main', fixed: true },
+      { key: 'photos', label: 'Фото изделия', type: 'photos', main: true, hint: 'Первое фото — главное: оно на обложке в списках. Чтобы выбрать другое, нажмите ☆ на нужном фото.' },
       { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken, hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
       { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров и поиска' },
       // ДМ.2: полное и «как в заказе» — необязательные; паспорт на заказ берёт название из заказа (ПНЗ)
@@ -442,7 +443,7 @@ export const products = {
       { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt) },
       { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
         hint: 'С ценой черновик сам становится «в продаже»' },
-      { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Фото и состав — в карточке сразу после «Создать»' },
+      { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Состав — в карточке сразу после «Создать»' },
       { key: 'notes', label: 'Примечание', type: 'textarea', wide: true, rows: 2, max: 2000 },
       { key: 'designerName', label: 'Кто проектировал', type: 'combo', options: people, strict: true, strictText: 'Выберите сотрудника из списка или оставьте пустым', hint: 'К кому идти, если в паспорте не хватает данных. В паспорт не входит' },
       { section: 'Характеристики', tone: 'info' },
@@ -476,7 +477,7 @@ export const products = {
     toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
-    toBody: (v, r) => ({ ...specBody(v, r), sku: v.sku, name: v.name, fullName: v.fullName || '', orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '', notes: v.notes || '',
+    toBody: (v, r) => ({ ...specBody(v, r), photoIds: v.photos || [], sku: v.sku, name: v.name, fullName: v.fullName || '', orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '', notes: v.notes || '',
       designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
