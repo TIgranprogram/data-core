@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Страховочный чемоданчик: всё, чего нет в GitHub, в зашифрованный архив. Запускает пользователь, из корня репо:
 #   bash tools/kit/make-kit.sh
-# 7-Zip спросит пароль дважды. Содержимое файлов на экран не выводится. Рабочая папка стирается в конце.
+#   --open — обычный zip без пароля: кто получит файл, получит все доступы.
+# Без флага 7-Zip спросит пароль. Содержимое файлов на экран не выводится. Рабочая папка стирается в конце.
 set -euo pipefail
 Z="/c/Program Files/7-Zip/7z.exe"
 [[ -x "$Z" ]] || { echo "СТОП: нет 7-Zip"; exit 2; }
@@ -22,6 +23,13 @@ done
 M="$HOME/.claude/projects/D--data-core/memory"; [[ -d "$M" ]] && cp -a "$M/." "$W/claude-memory/"
 cp tools/kit/README-чемоданчик.md "$W/"
 
+if [[ "${1:-}" == "--open" ]]; then
+  NAME="${NAME%.7z}.zip"; rm -f "$OUT/$NAME"
+  ( cd "$W" && "$Z" a -tzip -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" . )
+  "$Z" t -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" || { echo "СТОП: архив не проверился"; exit 1; }
+  echo "Готово: D:\datacore-kit\$NAME ($(du -h "$OUT/$NAME" | cut -f1)). Файлов: $(find "$W" -type f | wc -l). Архив без пароля: храните как ключи."
+  exit 0
+fi
 echo "Придумайте пароль архива: не короче 16 знаков. Без него архив не открыть."
 rm -f "$OUT/$NAME"
 ( cd "$W" && "$Z" a -t7z -mhe=on -p -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" . )
