@@ -215,7 +215,7 @@ export class ProductPassportService {
     set.date = date;
     // НМ: новый паспорт — черновик без номера, талона и номера изделия; номер передан явно (перенос) — сразу выпущен
     if (set.passportNumber) { await this.allocate(set, date); set.status = 'issued'; set.issuedAt = new Date(); set.revision = 1; }
-    else { for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft'; Object.assign(set, await this.fromProductDiff({ ...set })); }
+    else { for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft'; const ownName = set.name; Object.assign(set, await this.fromProductDiff({ ...set })); if (ownName) set.name = ownName; } // ПНЗ: название из заказа или введённое — важнее названия изделия
     if (!set.description) set.description = buildDescription(set as never) || undefined;
     if (!set.bom) set.bom = DEFAULT_BOM;
     set.source = set.source || 'app';
