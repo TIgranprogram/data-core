@@ -29,9 +29,20 @@ export class DiskService {
   private heavy?: { at: number; key: string; parts: Record<string, number | null> };
   private static readonly HEAVY_TTL_MS = 3600_000;
 
-  private async heavyParts(mounted: boolean, host: string, uploadsDir: string) {
+  private heavyRun?: Promise<Record<string, number | null>>;
+  /** Обход папок после запуска шёл > 20 с — клиент обрывал запрос (ошибки «Медленно: products», 2026-10-31).
+   *  Теперь ответ не ждёт обхода: старое значение (или null) сразу, пересчёт в фоне. */
+  private heavyParts(mounted: boolean, host: string, uploadsDir: string): Record<string, number | null> {
     const key = `${mounted}:${host}`;
-    if (this.heavy && this.heavy.key === key && Date.now() - this.heavy.at < DiskService.HEAVY_TTL_MS) return this.heavy.parts;
+    const fresh = this.heavy && this.heavy.key === key && Date.now() - this.heavy.at < DiskService.HEAVY_TTL_MS;
+    if (!fresh && !this.heavyRun) {
+      this.heavyRun = this.computeHeavy(mounted, host, uploadsDir, key).catch(() => ({})).finally(() => { this.heavyRun = undefined; });
+    }
+    return this.heavy && this.heavy.key === key ? this.heavy.parts
+      : { mongoBytes: null, uploadsBytes: null, uploadsFiles: null, backupsBytes: null, backupCount: null };
+  }
+
+  private async computeHeavy(mounted: boolean, host: string, uploadsDir: string, key: string) {
     const [db, uploads, backups] = await Promise.all([
       this.connection.db!.stats().catch(() => null),
       dirSize(mounted ? path.join(host, 'uploads') : uploadsDir),
@@ -60,7 +71,7 @@ export class DiskService {
     const history = await hist.find({}, { projection: { _id: 0 } }).sort({ date: -1 }).limit(60).toArray();
     const state = diskState(total, free, history, today);
     await hist.updateOne({ _id: today }, { $set: { date: today, usedBytes: state.usedBytes, totalBytes: total } }, { upsert: true });
-    const parts = await this.heavyParts(mounted, host, uploadsDir);
+    const parts = this.heavyParts(mounted, host, uploadsDir);
     return {
       ...state,
       volume: mounted ? 'данные сервера (DATA_DIR)' : 'папка приложения (том с данными не подключён)',

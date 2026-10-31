@@ -8,6 +8,9 @@ describe('HARDEN-1 п.18: диск — тяжёлые части раз в ча�
   it('второй запрос подряд не обходит папки заново', async () => {
     const coll = { find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }) }) }), updateOne: async () => ({}) };
     const svc = new DiskService({ db: { collection: () => coll, stats: async () => ({ storageSize: 1, indexSize: 2 }) } } as never);
+    const first = await svc.usage();
+    expect(first.parts.mongoBytes).toBeNull(); // ответ не ждёт обхода папок
+    await new Promise((r) => setImmediate(r));
     const a = await svc.usage();
     const calls = dirSize.mock.calls.length;
     const b = await svc.usage();
@@ -19,6 +22,7 @@ describe('HARDEN-1 п.18: диск — тяжёлые части раз в ча�
     const coll = { find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }) }) }), updateOne: async () => ({}) };
     const svc = new DiskService({ db: { collection: () => coll, stats: async () => ({}) } } as never);
     await svc.usage();
+    await new Promise((r) => setImmediate(r));
     const calls = dirSize.mock.calls.length;
     const now = Date.now();
     jest.spyOn(Date, 'now').mockReturnValue(now + 3600_001);
