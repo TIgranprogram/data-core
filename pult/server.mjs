@@ -133,7 +133,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
         blocked: missingNeeds(c, machine),
         kind: run.open ? 'link' : run.folder ? 'folder' : 'job',
         params: (c.params || []).map((p) => (p.from === 'prodScripts'
-          ? { ...p, options: scripts.map((s) => ({ value: s, label: s })) } : p)),
+          // первым — «не выбран»: без явного выбора запись не начнётся (раньше по умолчанию брался первый скрипт)
+          ? { ...p, options: [{ value: '', label: '— выберите скрипт —' }, ...scripts.map((s) => ({ value: s, label: s }))] } : p)),
       })),
     };
   }

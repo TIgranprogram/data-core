@@ -27,3 +27,10 @@ test('совет передаёт params пункта в интерфейс', ()
   const { items } = advise(s, {}, COMMANDS, Date.now(), [{ id: 'x', added: '2026-10-31', cmd: 'script-apply', params: { script: 'series-dict-fill' }, title: 't', why: 'w' }]);
   assert.deepEqual(items.find((i) => i.todo === 'x')?.params, { script: 'series-dict-fill' });
 });
+
+test('скрипт не выбран — запуск отклоняется понятной ошибкой', async () => {
+  const { validateParams } = await import('../dispatch.mjs');
+  const cmd = COMMANDS.find((c) => c.id === 'script-apply');
+  assert.throws(() => validateParams(cmd, {}, ['add-our-company', 'series-dict-fill']), /Выберите/);
+  assert.deepEqual(validateParams(cmd, { script: 'series-dict-fill' }, ['add-our-company', 'series-dict-fill']), { script: 'series-dict-fill' });
+});

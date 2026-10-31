@@ -62,6 +62,7 @@ export function validateParams(cmd, given = {}, scripts = []) {
   const values = {};
   for (const p of known) {
     const v = given[p.name] ?? p.default;
+    if (p.from === 'prodScripts' && !v) throw new Error(`Выберите «${p.label}» в списке`);
     const allowed = p.from === 'prodScripts' ? scripts : p.options.map((o) => o.value);
     if (!allowed.includes(v)) throw new Error(`Недопустимое значение параметра «${p.label}»`);
     values[p.name] = v;
