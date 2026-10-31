@@ -1,0 +1,36 @@
+/* Вкладка «Серверы» (SW-4). Только токены. Правая панель — как в «Разборе». */
+.sw-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; margin-bottom: 16px; max-width: 900px; }
+.sw-card { padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow); }
+.sw-card.main { border-color: var(--primary); }
+.sw-ch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.sw-ch h3 { margin: 0; font-size: var(--fs-h3); color: var(--heading); flex: 1; }
+.sw-tag { padding: 1px 8px; border-radius: 999px; font-size: var(--fs-label); font-weight: 600; background: var(--surface-3); color: var(--muted); }
+.sw-tag.ok { background: var(--ok-soft); color: var(--ok); }
+.sw-tag.you { background: var(--primary-soft); color: var(--primary); }
+.sw-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+.sw-kv dt { color: var(--muted); font-size: var(--fs-sm); }
+.sw-kv dd { margin: 0; overflow-wrap: anywhere; }
+.sw-kv dd.ok { color: var(--ok); font-weight: 600; }
+.sw-kv dd.warn { color: var(--warn); font-weight: 600; }
+.sw-kv dd.bad { color: var(--danger); font-weight: 600; }
+.sw-job { max-width: 900px; margin: 0 0 16px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.sw-jt { margin: 0 0 10px; font-size: var(--fs-h3); color: var(--heading); }
+.sw-jt.ok { color: var(--ok); } .sw-jt.bad { color: var(--danger); }
+.sw-steps { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 8px; }
+.sw-step { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.sw-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-3); font-size: var(--fs-sm); font-weight: 700; flex: none; }
+.sw-step.done { color: var(--text); } .sw-step.done .sw-mark { background: var(--ok-soft); color: var(--ok); }
+.sw-step.now { color: var(--heading); font-weight: 600; } .sw-step.now .sw-mark { background: var(--primary-soft); color: var(--primary); }
+.sw-step.fail { color: var(--danger); font-weight: 600; } .sw-step.fail .sw-mark { background: var(--danger-soft); color: var(--danger); }
+.sw-danger { max-width: 900px; margin-top: 22px; padding: 14px 16px; border: 1px solid var(--danger); border-radius: var(--radius); background: var(--danger-soft); }
+.sw-danger h3 { margin: 0 0 6px; font-size: var(--fs-h3); color: var(--danger); }
+.sw-danger p { margin: 0 0 10px; }
+.sw-hint { margin-top: 18px; max-width: 900px; }
+.sw-box .cc-acts { margin-bottom: 12px; }
+.sw-back { position: fixed; inset: 0; background: rgba(16, 20, 28, .32); z-index: 40; }
+.sw-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--surface); z-index: 41; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); border-left: 1px solid var(--border-strong); }
+.sw-back[hidden], .sw-drawer[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  .sw-drawer .btn, .sw-box .btn, .sw-drawer input, .sw-box input { min-height: 44px; }
+}

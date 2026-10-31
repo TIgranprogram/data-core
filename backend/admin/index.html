@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="admin.css" />
   <link rel="stylesheet" href="control-dashboard.css" />
   <link rel="stylesheet" href="control-questions.css" />
+  <link rel="stylesheet" href="control-switch.css" />
 </head>
 <body>
   <!-- ================= LOGIN ================= -->
@@ -42,6 +43,7 @@
         <div class="side-group">Контроль</div>
         <button class="tab" data-tab="questions"><span class="ico" aria-hidden="true">🧩</span><span class="lbl">Разбор</span></button>
         <button class="tab" data-tab="control"><span class="ico" aria-hidden="true">📈</span><span class="lbl">Состояние</span></button>
+        <button class="tab" data-tab="switch"><span class="ico" aria-hidden="true">🔀</span><span class="lbl">Серверы</span></button>
         <div class="side-group">База</div>
         <button class="tab" data-tab="tables"><span class="ico" aria-hidden="true">🗂</span><span class="lbl">Таблицы</span></button>
         <button class="tab" data-tab="audit"><span class="ico" aria-hidden="true">📜</span><span class="lbl">Журнал</span></button>
@@ -315,6 +317,12 @@
       <div id="control-root"></div>
     </main>
 
+    <main id="tab-switch" class="tab-panel" hidden>
+      <div class="panel-head"><h2>Серверы</h2></div>
+      <p class="panel-note">Какой сервер сейчас главный и как переключить работу на второй. Во время переключения запись на 1–2 минуты на паузе.</p>
+      <div id="switch-root"></div>
+    </main>
+
     <main id="tab-devlog" class="tab-panel" hidden>
       <div class="panel-head"><h2>Ведение проекта</h2></div>
       <p class="panel-note">Что сделано, какие были ошибки, сколько времени ушло и архив документов.</p>
@@ -385,6 +393,7 @@
 
   <script src="control-dashboard.js"></script>
   <script src="control-questions.js"></script>
+  <script src="control-switch.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

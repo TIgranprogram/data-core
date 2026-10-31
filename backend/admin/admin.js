@@ -335,6 +335,7 @@
     if (t.dataset.tab === 'devlog') openDevlog();
     if (t.dataset.tab === 'questions' && window.dcQuestions) window.dcQuestions.open($('#questions-root'), { api, el, toast });
     if (t.dataset.tab === 'control' && window.dcControl) window.dcControl.open($('#control-root'), { api, el, toast });
+    if (t.dataset.tab === 'switch' && window.dcSwitch) window.dcSwitch.open($('#switch-root'), { api, el, toast });
   }));
 
   // ---- Users ----

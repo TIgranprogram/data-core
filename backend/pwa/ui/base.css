@@ -179,3 +179,5 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 .do-acts { margin-left: auto; display: flex; gap: 6px; }
 .do-foot { padding: 0 12px 10px; }
 .do-pager { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 8px; }
+
+.net-off.wait { background: var(--warn-soft); color: var(--warn); font-weight: 600; }

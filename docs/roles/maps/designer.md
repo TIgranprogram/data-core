@@ -1,6 +1,6 @@
 # Карта роли designer
 
-коммит: fdfe3a8 + «Продукция» UI (2026-10-27)
+коммит: b0b3298 + вкладка «Серверы» (control-switch.js/css, admin.js:338), полоса write-retry (main.js:263–270, api.js)
 - Каталог поставщиков + крошки + вкладки счетов (аудит 28.10): ТЗ docs/roles/tz/SUPPLIER-CATALOG-UX.md; supplier-catalog.js:55–95,220–240, requests-tabs.js:16–20, invoices-tab.js:93, screens.css:1236–1239,1304–1310, main.js:90–96,188–193.
 
 - Паспорт: форма backend/pwa/sections/passports/form.js (поля), wire-form.js:110–150 (готовность к выпуску, check), product-block.js (выбор изделия), стили ui/base.css классы pp-* около 303–312.

@@ -1,3 +1,5 @@
+import { isBackgroundPath, newKey, withWriteRetry } from './write-retry.js';
+
 /** Связь с сервером: JWT + обновление сессии, понятные русские ошибки (CANON §2 «Тексты»). */
 export const PREFIX = location.pathname.replace(/\/app(\/.*)?$/, ''); // '' локально или '/db' за nginx
 const API = PREFIX + '/api';
@@ -51,7 +53,13 @@ export class ApiError extends Error {
 export class AuthError extends ApiError {}
 
 /** Слушатели: потеря сессии (показать вход), связь (полоса «нет связи»), сбой запроса (ОШ2: core/errors.js → /client-errors). */
-export const events = { onAuthLost: () => {}, onNet: (_ok) => {}, onFail: (_err, _ctx) => {} };
+export const events = { onAuthLost: () => {}, onNet: (_ok) => {}, onFail: (_err, _ctx) => {}, onWait: (_on, _restored) => {} };
+/** SW-6: сколько записей сейчас ждут сервер (полоса «Нет соединения… запрос сохранён» — пока больше нуля). */
+let waiters = 0, restoredAny = false;
+const waitHook = {
+  onStart() { if (++waiters === 1) events.onWait(true, false); },
+  onEnd(ok) { if (ok) restoredAny = true; if (--waiters <= 0) { waiters = 0; events.onWait(false, restoredAny); restoredAny = false; } },
+};
 /** Сбой (сеть, 5xx, ответ не разобрался) — сообщить сборщику; ответы 4xx — не сбой. Ошибку бросить дальше как есть. */
 function failed(e, url, method) {
   if (!(e instanceof ApiError) || e.status === 0 || e.status >= 500) { try { events.onFail(e, { url, method }); } catch { /* сборщик не мешает */ } }
@@ -131,6 +139,7 @@ async function errorOf(res) {
   const err = ([400, 409, 422].includes(res.status) && russian) || closed ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
   if (closed) err.sectionClosed = true;
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
+  if (data?.code === 'READ_ONLY') err.readOnly = true; // SW-6: идёт переключение сервера, запись на паузе
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;
 }
@@ -141,7 +150,7 @@ export async function apiFile(path, opts = {}) {
 }
 async function fileGet(path, { query, fallback = 'file', timeout = 180000, method, body } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
-  const init = { timeout, ...(method ? { method, body } : {}) };
+  const init = { timeout, ...(method ? { method, body } : {}), ...(method && method !== 'GET' ? { headers: { 'Idempotency-Key': newKey() } } : {}) };
   let res = await raw(path + qs, init, session.access);
   if (res.status === 401 && session.refresh) {
     try { await refreshAccess(); } catch (e) { if (e instanceof AuthError) events.onAuthLost(); throw e; }
@@ -196,17 +205,24 @@ export function trackLoad(p) {
   Promise.resolve(p).then(end, end);
   return p;
 }
-async function call(path, { method = 'GET', body, query } = {}) {
+async function call(path, { method = 'GET', body, query, noWait } = {}) {
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   // одинаковые GET, пока первый ещё в пути (меню и «Сегодня» просят одни и те же счётчики), — один запрос к серверу;
   // разбор — у каждого свой, чтобы правка ответа одним местом не задела другое
-  if (method !== 'GET') { const out = parse(await send(path + qs, method, body)); for (const f of writeHooks) f(path, method); announceChange(path, method, out); return out; }
+  if (method !== 'GET') { const out = parse(await writeSend(path + qs, method, body, noWait)); for (const f of writeHooks) f(path, method); announceChange(path, method, out); return out; }
   const key = path + qs;
   let p = inflight.get(key);
   if (!p) { p = sendRetry(key).finally(() => inflight.delete(key)); inflight.set(key, p); }
   return parse(await p);
 }
 const inflight = new Map();
+/** SW-6: запись шлёт Idempotency-Key (один на все повторы) и, если сервер на паузе или нет связи, ждёт до 3 минут (core/write-retry.js). Фон — noWait или служебный путь. */
+function writeSend(url, method, body, noWait) {
+  const key = newKey();
+  const once = () => send(url, method, body, key);
+  if (noWait || isBackgroundPath(url)) return once();
+  return withWriteRetry(once, waitHook);
+}
 /** Единое «данные изменились»: после успешной записи (не GET) — dc:changed {path, method}. Слушают main.js (список, счётчики, «Сегодня», кэши) и ui/list.js. */
 function announceChange(path, method, result) {
   if (typeof document === 'undefined' || /^\/(auth|meta|client|prefs)(\/|$|\?)|\/me(\/|$|\?)|ui-?prefs/i.test(path)) return;
@@ -235,13 +251,14 @@ function expiresSoon(token) {
 }
 
 /** Запрос с продлением входа по 401; тело ответа — текстом (пустое — null). */
-async function send(url, method, body) {
+async function send(url, method, body, key) {
+  const headers = key ? { 'Idempotency-Key': key } : undefined;
   // срок входа истёк или вот-вот — продлить до запроса, а не после пачки отказов 401 (при открытии их ~20)
   if (session.refresh && expiresSoon(session.access)) await refreshAccess().catch(() => {});
-  let res = await raw(url, { method, body }, session.access);
+  let res = await raw(url, { method, body, headers }, session.access);
   if (res.status === 401 && session.refresh) {
     try { await refreshAccess(); } catch (e) { if (e instanceof AuthError) events.onAuthLost(); throw e; }
-    res = await raw(url, { method, body }, session.access);
+    res = await raw(url, { method, body, headers }, session.access);
   }
   if (res.status === 401) { events.onAuthLost(); throw new AuthError('Сессия завершена — войдите снова', 401); }
   if (!res.ok) throw await errorOf(res);

@@ -231,7 +231,7 @@ function shell() {
     session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
     h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
-  netBar = h('div', { class: 'net-off', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
+  netBar = h('div', { class: 'net-off', role: 'status', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
   // ‹ › (НВ.3): неактивны, когда некуда; подсказка — куда ведут («Назад: Склад»)
   const backBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Назад', onclick: () => window.history.back() }, '‹');
   const fwdBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Вперёд', onclick: () => window.history.forward() }, '›');
@@ -260,7 +260,13 @@ function shell() {
   return { main, gs, gsb };
 }
 const roleName = (r) => ({ admin: 'администратор', director: 'руководитель', manager: 'менеджер', user: 'просмотр' })[r] || r || '';
-events.onNet = (ok) => { if (netBar) netBar.hidden = ok; };
+// SW-6: запись ждёт сервер (переключение, обрыв) — полоса другим текстом: запрос не потерян, повторится сам
+const NET_OFF = 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.';
+const NET_WAIT = 'Нет соединения с сервером. Подождите, повторяем запрос.';
+let writeWaiting = false, netUp = true;
+const paintNet = () => { if (!netBar) return; netBar.textContent = writeWaiting ? NET_WAIT : NET_OFF; netBar.classList.toggle('wait', writeWaiting); netBar.hidden = !writeWaiting && netUp; };
+events.onNet = (ok) => { netUp = ok; paintNet(); };
+events.onWait = (on, restored) => { writeWaiting = on; paintNet(); if (!on && restored) toast('Соединение восстановлено'); };
 
 const logout = () => { session.clear(); showLogin(); };
 
