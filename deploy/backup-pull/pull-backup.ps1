@@ -70,7 +70,8 @@ try {
         $scpExit = $LASTEXITCODE
         & ssh.exe @SshOpts $Target "rm -f $remoteTmp" | Out-Null
         if ($scpExit -ne 0 -or -not (Test-Path $tmp)) { throw "scp failed (exit $scpExit)" }
-        & tar.exe -tzf $tmp | Out-Null
+        # System tar: the Git Bash tar on PATH reads "D:" as a remote host.
+        & (Join-Path $env:SystemRoot "System32	ar.exe") -tzf $tmp | Out-Null
         if ($LASTEXITCODE -ne 0) { Remove-Item $tmp -Force; throw "downloaded archive is corrupt" }
         Move-Item $tmp $file -Force
         $kb = [math]::Round((Get-Item $file).Length / 1KB)
