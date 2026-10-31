@@ -96,6 +96,18 @@ describe('MatchingService (КМ2–КМ3)', () => {
     expect((await svc.unmatched({ limit: 1, page: 2 })).items).toHaveLength(1);
     expect(await svc.unmatchedCount()).toEqual({ total: 2, inProduction: 2 });
   });
+  it('unmatched: фильтры заказа, договора и этапа; варианты не зависят от выбранного', async () => {
+    const o2 = new Types.ObjectId();
+    rows.salesorders = [{ _id: orderId, orderNo: '12', stage: 'new' }, { _id: o2, orderNo: '5', productionNo: 'П-1', stage: 'production' }];
+    rows.incomes = [{ _id: l1, orderId, lineNo: 1, title: 'Скамейка парковая' }, { _id: l2, orderId: o2, lineNo: 1, title: 'Монтаж' }];
+    const r = await svc.unmatched({ productionNo: 'П-1' });
+    expect(r.items.map((i) => i.lineId)).toEqual([String(l2)]);
+    expect(r.items[0].stage).toBe('production');
+    expect(r.facets).toEqual({ orders: [{ value: '-', n: 1 }, { value: 'П-1', n: 1 }], contracts: [{ value: '5', n: 1 }, { value: '12', n: 1 }], stages: [{ value: 'new', n: 1 }, { value: 'production', n: 1 }] });
+    expect((await svc.unmatched({ productionNo: '-' })).items.map((i) => i.lineId)).toEqual([String(l1)]);
+    expect((await svc.unmatched({ orderNo: '12' })).total).toBe(1);
+    expect((await svc.unmatched({ stage: 'production', orderNo: '12' })).total).toBe(0);
+  });
   it('confirm: пишет productId/matchStatus и алиас (повтор — счётчик)', async () => {
     await svc.confirm(String(l1), String(prod), String(new Types.ObjectId()));
     expect(incUpdate.mock.calls[0][1].$set).toMatchObject({ matchStatus: 'confirmed', productId: prod });

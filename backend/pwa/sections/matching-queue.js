@@ -2,7 +2,9 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
+import { enhanceSelect } from '../ui/select.js';
 import { toastError } from '../ui/toast.js';
+import { STAGE } from './order-stage.js';
 import { matchPic, openMatching } from './salesorders-matching.js';
 
 // УПР-1/Д9: re-export matching panel section (used as ?of=matching right panel)
@@ -44,7 +46,19 @@ export function unmatchedTop() {
   const box = h('div', { class: 'ua-box', hidden: true });
   const el = h('div', { class: 'ua-top' }, btn, box);
   let items = [], total = 0, q = '', onlyProd = false, loaded = false;
-  const search = h('input', { type: 'search', placeholder: 'Поиск: № договора, заказчик, позиция…', 'aria-label': 'Поиск несопоставленных позиций' });
+  const filter = { productionNo: '', orderNo: '', stage: '' };
+  const search = h('input', { type: 'search', placeholder: 'Поиск: № заказа, № договора, заказчик, позиция…', 'aria-label': 'Поиск несопоставленных позиций' });
+  const select = (key, label) => { const s = h('select', { class: 'mq-f', 'aria-label': label, onchange: () => { filter[key] = s.value; load(false); } }, h('option', { value: '' }, label + ': все')); return s; };
+  const orderSel = select('productionNo', 'Заказ'), contractSel = select('orderNo', 'Договор'), stageSel = select('stage', 'Этап заказа');
+  const fill = (s, key, label, list, name) => {
+    const cur = filter[key];
+    // поиск убрал выбранное значение из вариантов — оставляем пункт, иначе фильтр работает невидимо и его не сбросить
+    const all = list || [];
+    const opts = cur && !all.some((o) => o.value === cur) ? [{ value: cur, n: 0 }, ...all] : all;
+    s.replaceChildren(h('option', { value: '' }, label + ': все'), ...opts.map((o) => h('option', { value: o.value }, `${name(o.value)} · ${qty(o.n)}`)));
+    s.value = cur;
+    enhanceSelect(s);
+  };
   const prod = h('input', { type: 'checkbox' });
   const bulkBtn = h('button', { class: 'btn btn-primary btn-sm', type: 'button', hidden: true });
   const body = h('div', { class: 'mq-body' });
@@ -68,8 +82,8 @@ export function unmatchedTop() {
       h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, it.orderId) }, 'Выбрать…'),
       h('button', { class: 'btn btn-sm btn-ghost', type: 'button', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })); } }, 'Не изделие')) : null;
     return h('tr', null,
+      h('td', { class: 'nowrap' }, it.productionNo ? h('b', null, it.productionNo) : h('span', { class: 'muted' }, 'нет №'), h('div', { class: 't-sub' }, STAGE[it.stage]?.label || '')),
       h('td', null, h('b', null, it.orderNo || '—'), h('div', { class: 't-sub' }, it.customer || '')),
-      h('td', null, it.productionNo ? h('span', { class: 'badge warn', title: 'Заказ уже в производстве' }, 'в производстве · ' + it.productionNo) : h('span', { class: 'muted' }, '—')),
       h('td', null, h('div', { class: 'mq-item' }, matchPic(it.photo), h('div', { class: 'mq-item-main' }, it.title))),
       h('td', { class: 'num nowrap' }, `${qty(it.qty)} ${it.unit || ''}`.trim()),
       h('td', null, s ? h('div', { class: 'mq-item' }, matchPic(s.photo), h('div', { class: 'mq-item-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `совпадение ${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`))) : h('span', { class: 'muted' }, write ? 'Похожих изделий нет. Нажмите «Выбрать…»' : 'Похожих изделий нет')),
@@ -80,16 +94,19 @@ export function unmatchedTop() {
     bulkBtn.hidden = !write || !n;
     bulkBtn.textContent = `Подтвердить все уверенные (${n})`;
     body.replaceChildren(items.length
-      ? h('table', { class: 'so-lines static mq-table' }, h('thead', null, h('tr', null, h('th', null, 'Договор'), h('th', null, 'В производстве'), h('th', null, 'Что в договоре'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Похожее изделие'), h('th', null, ''))), h('tbody', null, ...items.map(rowEl)))
-      : h('p', { class: 'muted' }, loaded ? 'Всё сопоставлено — несопоставленных позиций нет.' : 'Загрузка…'));
+      ? h('table', { class: 'so-lines static mq-table' }, h('thead', null, h('tr', null, h('th', null, 'Заказ'), h('th', null, 'Договор'), h('th', null, 'Что в договоре'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Похожее изделие'), h('th', null, ''))), h('tbody', null, ...items.map(rowEl)))
+      : h('p', { class: 'muted' }, !loaded ? 'Загрузка…' : q || filter.productionNo || filter.orderNo || filter.stage || onlyProd ? 'По этим условиям позиций нет. Сбросьте фильтр или поиск.' : 'Всё сопоставлено — несопоставленных позиций нет.'));
     more.hidden = items.length >= total;
   };
   const load = async (append) => {
     try {
       const page = append ? Math.floor(items.length / LIMIT) + 1 : 1;
-      const d = await api('/matching/unmatched', { query: { page, limit: LIMIT, q: q || undefined, inProduction: onlyProd ? 1 : undefined } });
+      const d = await api('/matching/unmatched', { query: { page, limit: LIMIT, q: q || undefined, inProduction: onlyProd ? 1 : undefined, productionNo: filter.productionNo || undefined, orderNo: filter.orderNo || undefined, stage: filter.stage || undefined } });
       items = append ? items.concat(d.items || []) : (d.items || []);
       total = d.total ?? items.length; loaded = true;
+      fill(orderSel, 'productionNo', 'Заказ', d.facets?.orders, (v) => (v === '-' ? 'Без № заказа' : v));
+      fill(contractSel, 'orderNo', 'Договор', d.facets?.contracts, (v) => v);
+      fill(stageSel, 'stage', 'Этап заказа', d.facets?.stages, (v) => STAGE[v]?.label || v);
     } catch (e) { toastError(e, 'загрузить несопоставленные позиции'); }
     paint();
   };
@@ -99,7 +116,7 @@ export function unmatchedTop() {
   more.addEventListener('click', () => load(true));
   bulkBtn.addEventListener('click', (e) => { e.currentTarget.classList.add('is-busy'); const list = sure(); run(() => api('/matching/bulk', { method: 'POST', body: { items: list.map((x) => ({ lineId: x.lineId, productId: best(x).productId })) } })); });
   box.append(h('p', { class: 'hint' }, write ? 'Здесь строки договоров, которые ещё не связаны с изделием из «Продукции». Сравните картинки слева и справа. Совпало — подтвердите. Нет — выберите другое изделие.' : 'Только просмотр: сопоставлять могут администратор и менеджер.'),
-    h('div', { class: 'mq-bar' }, bulkBtn, h('label', { class: 'field' }, search), h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
+    h('div', { class: 'mq-bar' }, bulkBtn, h('label', { class: 'field' }, search), orderSel, contractSel, stageSel, h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
   btn.addEventListener('click', () => {
     box.hidden = !box.hidden;
     btn.setAttribute('aria-expanded', String(!box.hidden));

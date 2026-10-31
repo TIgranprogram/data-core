@@ -1,3 +1,4 @@
+import { STAGE } from './order-stage.js';
 import { api, PREFIX, session, writeHooks } from '../core/api.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
@@ -25,15 +26,7 @@ import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
  * (заявки) и что отпущено со склада. Закрытые сворачиваются по месяцам отгрузки (фаза М).
  */
-export const STAGE = {
-  new: { label: 'Проектирование', tone: 'primary' },
-  production: { label: 'Производство', tone: 'info' },
-  ready: { label: 'Готово к отгрузке', tone: 'warn' },
-  partly: { label: 'Частично отгружен', tone: 'warn' },
-  shipped: { label: 'Отгружен', tone: 'ok' },
-  closed: { label: 'Закрыт', tone: 'dim' },
-  cancelled: { label: 'Отменён', tone: 'danger' },
-};
+export { STAGE };
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
 const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружен', shipped: 'Закрыть' };
 const STAGE_ORDER = Object.keys(STAGE);

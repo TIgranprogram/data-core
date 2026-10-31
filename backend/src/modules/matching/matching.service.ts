@@ -10,6 +10,7 @@ import { ProductAlias, ProductAliasDocument } from './product-alias.schema';
 type Doc = Record<string, unknown>;
 type Pick = { lineId: string; productId: string | null };
 type Photo = { url: string; thumb: string };
+const NO_ORDER = '-'; // значение фильтра «заказ без №»
 
 /**
  * Сопоставление позиций договора с изделиями (КМ2–КМ3): подбор, подтверждение, «не изделие», пачкой.
@@ -75,7 +76,7 @@ export class MatchingService {
   }
 
   /** Несопоставленные позиции (unmatched/auto) живых договоров: сначала «в производстве», затем по сроку. Подбор — только для строк страницы, пачкой. */
-  async unmatched(q: { page?: number; limit?: number; q?: string; orderId?: string; inProduction?: string }) {
+  async unmatched(q: { page?: number; limit?: number; q?: string; orderId?: string; inProduction?: string; productionNo?: string; orderNo?: string; stage?: string }) {
     const db = this.connection.db!;
     const limit = Math.min(Math.max(Math.trunc(Number(q.limit)) || 50, 1), 200);
     const page = Math.max(Math.trunc(Number(q.page)) || 1, 1);
@@ -83,7 +84,7 @@ export class MatchingService {
     if (q.orderId) orderFilter._id = oid(q.orderId, 'договора');
     if (q.inProduction === '1') orderFilter.productionNo = { $nin: [null, ''] };
     else if (q.inProduction === '0') orderFilter.productionNo = { $in: [null, ''] };
-    const orders = await db.collection('salesorders').find(orderFilter, { projection: { orderNo: 1, customer: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 } }).toArray() as Doc[];
+    const orders = await db.collection('salesorders').find(orderFilter, { projection: { orderNo: 1, customer: 1, productionNo: 1, productionDeadline: 1, shipDate: 1, stage: 1 } }).toArray() as Doc[];
     const orderBy = new Map(orders.map((o) => [String(o._id), o]));
     const lines = orders.length ? await db.collection('incomes').find({
       deletedAt: null, orderId: { $in: orders.map((o) => o._id) },
@@ -91,7 +92,16 @@ export class MatchingService {
     }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, unit: 1, productId: 1, matchStatus: 1, photoIds: 1 } }).toArray() as Doc[] : [];
     const needle = (q.q ?? '').trim();
     const re = needle ? new RegExp(escapeRe(needle), 'i') : null;
-    const rows = lines.map((l) => ({ l, o: orderBy.get(String(l.orderId))! })).filter((r) => r.o && (!re || [r.l.title, r.o.orderNo, r.o.customer, r.o.productionNo].some((v) => re.test(String(v ?? '')))));
+    const found = lines.map((l) => ({ l, o: orderBy.get(String(l.orderId))! })).filter((r) => r.o && (!re || [r.l.title, r.o.orderNo, r.o.customer, r.o.productionNo].some((v) => re.test(String(v ?? '')))));
+    // Варианты фильтров считаются до самих фильтров: выбор заказа не убирает остальные пункты списка
+    const prodOf = (o: Doc) => String(o.productionNo || NO_ORDER), contractOf = (o: Doc) => String(o.orderNo ?? ''), stageOf = (o: Doc) => String(o.stage || 'new');
+    const tally = (of: (o: Doc) => string) => {
+      const n = new Map<string, number>();
+      for (const r of found) { const k = of(r.o); if (k) n.set(k, (n.get(k) ?? 0) + 1); }
+      return [...n].map(([value, count]) => ({ value, n: count })).sort((a, b) => a.value.localeCompare(b.value, 'ru', { numeric: true }));
+    };
+    const facets = { orders: tally(prodOf), contracts: tally(contractOf), stages: tally(stageOf) };
+    const rows = found.filter(({ o }) => (!q.productionNo || prodOf(o) === q.productionNo) && (!q.orderNo || contractOf(o) === q.orderNo) && (!q.stage || stageOf(o) === q.stage));
     const due = (o: Doc) => ((o.productionDeadline ?? o.shipDate) as Date | undefined)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     rows.sort((a, b) => Number(!!b.o.productionNo) - Number(!!a.o.productionNo) || due(a.o) - due(b.o)
       || String(a.o.orderNo ?? '').localeCompare(String(b.o.orderNo ?? ''), 'ru', { numeric: true }) || Number(a.l.lineNo ?? 0) - Number(b.l.lineNo ?? 0));
@@ -101,11 +111,11 @@ export class MatchingService {
       const sg = suggest(String(l.title ?? ''), products, aliasOf.get(aliasKey(l.title)));
       return {
         lineId: String(l._id), orderId: String(o._id), orderNo: (o.orderNo as string | undefined) ?? '', customer: (o.customer as string | undefined) ?? '',
-        productionNo: (o.productionNo as string | undefined) || null, title: String(l.title ?? ''), qty: (l.qty as number | undefined) ?? null, unit: (l.unit as string | undefined) ?? null,
+        productionNo: (o.productionNo as string | undefined) || null, stage: stageOf(o), title: String(l.title ?? ''), qty: (l.qty as number | undefined) ?? null, unit: (l.unit as string | undefined) ?? null,
         suggestions: sg, confident: isConfident(sg[0]),
       };
     });
-    return { items: await this.withPhotos(slice.map((r) => r.l), items), total: rows.length, page, limit };
+    return { items: await this.withPhotos(slice.map((r) => r.l), items), total: rows.length, page, limit, facets };
   }
 
   /** Счётчик для меню: всего несопоставленных и из них в производстве. */

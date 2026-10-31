@@ -1533,6 +1533,9 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .mq-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:var(--s3)}
 .mq-bar .field{flex:1;min-width:200px;margin:0}
 .mq-acts{display:flex;gap:6px;flex-wrap:wrap}
+.mq-bar select,.mq-bar .mq-f{width:190px;max-width:100%}
+.mq-bar .check{margin:0}
+@media (max-width:720px){.mq-bar .sel-wrap,.mq-bar .mq-f{width:100%}}
 .mq-body{overflow-x:auto}
 .td-unm{padding:8px 14px;font-size:var(--fs-h3)}
 

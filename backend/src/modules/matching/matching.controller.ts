@@ -33,8 +33,11 @@ export class MatchingController {
   @AppSection('salesorders', 'design')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'inProduction', required: false, description: '1 — только в производстве, 0 — только без производственного №' })
-  unmatched(@Query('page') page?: string, @Query('limit') limit?: string, @Query('q') q?: string, @Query('orderId') orderId?: string, @Query('inProduction') inProduction?: string) {
-    return this.svc.unmatched({ page: Number(page), limit: Number(limit), q, orderId, inProduction });
+  @ApiQuery({ name: 'productionNo', required: false, description: '№ заказа; «-» — заказы без №' })
+  @ApiQuery({ name: 'orderNo', required: false, description: '№ договора' })
+  @ApiQuery({ name: 'stage', required: false, description: 'этап договора: new | production | ready | partly | shipped | closed | cancelled' })
+  unmatched(@Query('page') page?: string, @Query('limit') limit?: string, @Query('q') q?: string, @Query('orderId') orderId?: string, @Query('inProduction') inProduction?: string, @Query('productionNo') productionNo?: string, @Query('orderNo') orderNo?: string, @Query('stage') stage?: string) {
+    return this.svc.unmatched({ page: Number(page), limit: Number(limit), q, orderId, inProduction, productionNo, orderNo, stage });
   }
 
   @Post('confirm')
