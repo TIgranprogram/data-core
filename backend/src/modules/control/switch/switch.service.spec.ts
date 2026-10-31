@@ -43,12 +43,46 @@ describe('SwitchService и режим «только чтение»', () => {
     await sw.onModuleInit();
     expect(sw.enabled).toBe(false);
     expect(call(sw, 'POST', '/api/orders').next).toHaveBeenCalled();
-    const c = call(sw, 'GET', '/api/control/switch');
+    expect(call(sw, 'GET', '/api/control/switch').next).toHaveBeenCalled(); // обзор отвечает
+    expect(call(sw, 'GET', '/api/control/switch/ping').next).toHaveBeenCalled();
+    const c = call(sw, 'POST', '/api/control/switch/start');
     expect(c.r.code).toBe(404);
     expect(c.next).not.toHaveBeenCalled();
-    await expect(sw.status()).rejects.toThrow('Not Found');
     await expect(sw.start()).rejects.toThrow('Not Found');
     expect(db.colls.size).toBe(0);
+  });
+
+  it('без HA_SELF обзор: оба сервера, понятные причины, без кнопки и без базы', async () => {
+    delete process.env.HA_SELF; delete process.env.HA_PEER_URL;
+    const { sw, db } = make();
+    const s = await sw.status() as { enabled: boolean; canStart: boolean; blockers: string[]; peer: { configured: boolean } };
+    expect(s.enabled).toBe(false);
+    expect(s.canStart).toBe(false);
+    expect(s.peer.configured).toBe(false);
+    expect(s.blockers.join(' ')).toMatch(/адрес второго сервера/);
+    expect(s.blockers.join(' ')).not.toMatch(/[A-Z_]{4,}/); // без служебных кодов
+    expect(db.colls.size).toBe(0);
+  });
+
+  it('обзор спрашивает соседа по HA_PEER_URL; копия на этом сервере — из файла last-refresh', async () => {
+    delete process.env.HA_SELF;
+    process.env.HA_PEER_URL = 'http://peer.test/';
+    await fs.writeFile(path.join(dir, 'last-refresh'), new Date(Date.now() - 30 * 60_000).toISOString());
+    const spy = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ self: null, role: null, version: 'v1.400', copyAt: null }) } as never);
+    try {
+      const { sw } = make();
+      const s = await sw.status() as { peer: { healthy: boolean; version: string; copyAgeMin: number }; selfIsCopy: boolean; blockers: string[] };
+      expect(spy.mock.calls[0][0]).toBe('http://peer.test/api/control/switch/ping');
+      expect(s.peer.healthy).toBe(true);
+      expect(s.peer.version).toBe('v1.400');
+      expect(s.selfIsCopy).toBe(true);
+      expect(s.peer.copyAgeMin).toBe(30);
+      expect(s.blockers.join(' ')).not.toMatch(/не отвечает|копию/);
+      spy.mockRejectedValue(new Error('timeout'));
+      const s2 = await sw.status() as { peer: { healthy: boolean }; blockers: string[] };
+      expect(s2.peer.healthy).toBe(false);
+      expect(s2.blockers).toContain('Второй сервер не отвечает.');
+    } finally { spy.mockRestore(); delete process.env.HA_PEER_URL; }
   });
 
   it('readonly: запись 503 READ_ONLY, чтение и исключения проходят', async () => {

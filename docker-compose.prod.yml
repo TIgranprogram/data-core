@@ -160,6 +160,7 @@ services:
       HTTP_STAND: "${HTTP_STAND:-}"
       # home|office — включает кнопку «Переключить сейчас» (HA-TWO-SERVERS); пусто — механизма нет, 404 и без проверок
       HA_SELF: "${HA_SELF:-}"
+      HA_PEER_URL: "${HA_PEER_URL:-}"   # адрес второго сервера для экрана «Серверы» (обзор без включения переключения)
     volumes:
       - ${DATA_DIR}/uploads:/app/uploads
       - ./secrets:/app/secrets:ro   # ключ сервисного аккаунта Google (google-sa.json) — чтение Google-таблиц

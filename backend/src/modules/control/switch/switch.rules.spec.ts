@@ -1,4 +1,4 @@
-import { blockedWhenReadOnly, copyAgeMin, isSwitchPath, parseSelf, routePath, secretMatches, staleReason, type SwitchJob } from './switch.rules';
+import { blockedWhenReadOnly, copyAgeMin, isSwitchPath, parseSelf, readinessBlockers, routePath, secretMatches, staleReason, type SwitchJob } from './switch.rules';
 
 const job = (over: Partial<SwitchJob> = {}): SwitchJob => ({ id: 'a', direction: 'home->office', step: 'dump', state: 'running', startedAt: new Date(0).toISOString(), ...over });
 
@@ -55,5 +55,18 @@ describe('переключение: правила', () => {
     expect(copyAgeMin('2026-10-31T11:30:00Z', now)).toBe(30);
     expect(copyAgeMin(undefined, now)).toBeNull();
     expect(copyAgeMin('мусор', now)).toBeNull();
+  });
+});
+
+describe('readinessBlockers', () => {
+  const ok = { self: 'home' as const, peerUrlSet: true, peerHealthy: true, copyAgeMin: 60, bridgeAlive: true };
+  it('всё готово — пусто', () => expect(readinessBlockers(ok)).toEqual([]));
+  it('старая копия, молчащий сосед, нет моста — три причины', () => {
+    expect(readinessBlockers({ ...ok, peerHealthy: false, copyAgeMin: 3000, bridgeAlive: false })).toHaveLength(3);
+  });
+  it('нет адреса соседа — про адрес, а не «не отвечает»', () => {
+    const r = readinessBlockers({ ...ok, peerUrlSet: false, peerHealthy: null });
+    expect(r.join(' ')).toMatch(/адрес/);
+    expect(r.join(' ')).not.toMatch(/не отвечает/);
   });
 });

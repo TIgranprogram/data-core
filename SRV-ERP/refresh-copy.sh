@@ -55,6 +55,8 @@ if [[ $CODE == 1 ]]; then
   mkdir -p prev; mv backend "prev/backend.$S"; mv deploy "prev/deploy.$S"; cp docker-compose.prod.yml "prev/compose.$S"
   cp -a "$W/code/backend" "$W/code/deploy" .; cp "$W/code/docker-compose.prod.yml" .
   grep -q '^HTTP_STAND=' .env || echo 'HTTP_STAND=1' >> .env
+  # экран «Серверы»: копия спрашивает главный сервер о его состоянии (только справка /control/switch/ping)
+  grep -q '^HA_PEER_URL=' .env || echo 'HA_PEER_URL=https://kppdf-crm.ru/db' >> .env
   docker compose -f docker-compose.prod.yml build backend 2>&1 | tail -2
   ls -dt prev/backend.* | tail -n +3 | xargs -r rm -rf
   ls -dt prev/deploy.* | tail -n +3 | xargs -r rm -rf
