@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { patch } from '../core/router.js';
+import { go, patch } from '../core/router.js';
 import { enhanceSelect } from '../ui/select.js';
 import { toastError } from '../ui/toast.js';
 import { STAGE } from './order-stage.js';
@@ -40,11 +40,11 @@ export function unmatchedOrders(r) {
   return (r.orders || []).map((o) => ({ id: o.id, n: (o.lines || []).filter((l) => l.matched === false).length })).filter((x) => x.n);
 }
 
-/** Блок над списком: кнопка «Несопоставленные · N» (скрыта при 0) и раскрывающаяся таблица. */
-export function unmatchedTop() {
+/** Блок над списком: кнопка «Несопоставленные · N» (скрыта при 0) и раскрывающаяся таблица; open — сразу таблица, без кнопки (экран «Сопоставление»). */
+export function unmatchedTop({ open = false } = {}) {
   const btn = h('button', { class: 'btn btn-ghost', type: 'button', hidden: true, 'aria-expanded': 'false' }, 'Несопоставленные');
-  const box = h('div', { class: 'ua-box', hidden: true });
-  const el = h('div', { class: 'ua-top' }, btn, box);
+  const box = h('div', { class: 'ua-box', hidden: !open });
+  const el = h('div', { class: 'ua-top' }, open ? null : btn, box);
   let items = [], total = 0, q = '', onlyProd = false, loaded = false;
   const filter = { productionNo: '', orderNo: '', stage: '' };
   const search = h('input', { type: 'search', placeholder: 'Поиск: № заказа, № договора, заказчик, позиция…', 'aria-label': 'Поиск несопоставленных позиций' });
@@ -60,7 +60,7 @@ export function unmatchedTop() {
     enhanceSelect(s);
   };
   const prod = h('input', { type: 'checkbox' });
-  const bulkBtn = h('button', { class: 'btn btn-primary btn-sm', type: 'button', hidden: true });
+  const bulkBtn = h('button', { class: 'btn btn-primary mq-bulk', type: 'button', hidden: true });
   const body = h('div', { class: 'mq-body' });
   const more = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Показать ещё');
   const write = canWrite();
@@ -116,7 +116,7 @@ export function unmatchedTop() {
   more.addEventListener('click', () => load(true));
   bulkBtn.addEventListener('click', (e) => { e.currentTarget.classList.add('is-busy'); const list = sure(); run(() => api('/matching/bulk', { method: 'POST', body: { items: list.map((x) => ({ lineId: x.lineId, productId: best(x).productId })) } })); });
   box.append(h('p', { class: 'hint' }, write ? 'Здесь строки договоров, которые ещё не связаны с изделием из «Продукции». Сравните картинки слева и справа. Совпало — подтвердите. Нет — выберите другое изделие.' : 'Только просмотр: сопоставлять могут администратор и менеджер.'),
-    h('div', { class: 'mq-bar' }, bulkBtn, h('label', { class: 'field' }, search), orderSel, contractSel, stageSel, h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
+    bulkBtn, h('div', { class: 'mq-bar' }, h('label', { class: 'field' }, search), orderSel, contractSel, stageSel, h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
   btn.addEventListener('click', () => {
     box.hidden = !box.hidden;
     btn.setAttribute('aria-expanded', String(!box.hidden));
@@ -125,38 +125,55 @@ export function unmatchedTop() {
   });
   window.addEventListener('data-changed', () => { if (!el.isConnected) return; setCount(); if (!box.hidden) load(false); });
   setCount();
+  if (open) load(false);
   return el;
 }
 
 /**
  * УПР-1/Д9: Самостоятельный экран «Сопоставление» (#matching) с двумя вкладками:
- * «Позиции» — очередь несопоставленных позиций заказов; «Без договора» — договоры без заказа.
+ * «Позиции» — очередь несопоставленных позиций заказов; «Договоры без заказа» — выбор договоров для переноса в заказ.
  */
+const TABS = [['positions', 'Позиции'], ['unassigned', 'Договоры без заказа']];
+const tabOf = (p) => (p?.tab === 'unassigned' ? 'unassigned' : 'positions');
+
 export function mountMatchingQueue(params) {
-  const tab = params?.tab || 'positions';
-  const tabs = h('div', { class: 'tabs' },
-    h('a', { class: 'tab' + (tab !== 'unassigned' ? ' active' : ''), href: '#matching' }, 'Позиции'),
-    h('a', { class: 'tab' + (tab === 'unassigned' ? ' active' : ''), href: '#matching?tab=unassigned' }, 'Без договора'));
-  const body = h('div', { class: 'mq-screen-body' });
-  const el = h('div', { class: 'panel matching-screen' },
-    h('div', { class: 'page-head' }, h('h1', null, 'Сопоставление')),
-    tabs, body);
-  if (tab === 'unassigned') {
-    import('./salesorders-unassigned.js').then(({ unassignedPicker, chooseTarget }) => {
-      const bar = h('div', { class: 'ua-bar', hidden: true });
-      const picker = unassignedPicker({
-        onChange: (ids) => {
-          bar.hidden = !ids.length;
-          bar.replaceChildren(
-            h('b', null, `Выбрано ${ids.length}`),
-            h('button', { class: 'btn btn-primary btn-sm', type: 'button',
-              onclick: async () => { if (await chooseTarget(ids)) { picker.reload(); bar.hidden = true; } } }, 'В заказ…'));
-        },
-      });
-      body.replaceChildren(bar, picker.el);
-    }).catch((e) => { body.replaceChildren(h('p', { class: 'neg' }, 'Не загрузилось: ' + (e?.message || e))); });
-  } else {
-    body.replaceChildren(unmatchedTop());
-  }
-  return { el, update: (p) => { if ((p?.tab || 'positions') !== tab) { body.replaceChildren(); } } };
+  let tab = tabOf(params);
+  const counts = { positions: null, unassigned: null };
+  const tabs = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Сопоставление' });
+  const body = h('div', { class: 'panel mq-screen-body' });
+  const el = h('div', { class: 'matching-screen' }, h('div', { class: 'page-head' }, h('h1', null, 'Сопоставление')), tabs, body);
+
+  const drawTabs = () => tabs.replaceChildren(...TABS.map(([k, label]) => h('button', {
+    type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '',
+    onclick: () => { if (tab !== k) go('matching', k === 'unassigned' ? { tab: k } : {}, { replace: true }); },
+  }, counts[k] == null ? label : `${label} · ${qty(counts[k])}`)));
+  const loadCounts = async () => {
+    const [c, u] = await Promise.all([unmatchedCount(), api('/production-orders/unassigned', { query: { limit: 1 } }).catch(() => null)]);
+    counts.positions = c.total ?? 0;
+    counts.unassigned = u?.total ?? counts.unassigned;
+    drawTabs();
+  };
+
+  let seq = 0; // быстрая смена вкладок: модуль вкладки мог приехать, когда она уже закрыта
+  const mountTab = () => {
+    const my = ++seq;
+    drawTabs();
+    if (tab === 'positions') { body.replaceChildren(unmatchedTop({ open: true })); return; }
+    body.replaceChildren(h('p', { class: 'muted' }, 'Загрузка…'));
+    import('./salesorders-unassigned.js').then(({ unassignedPicker, unassignedBar }) => {
+      if (my !== seq) return;
+      let picker = null;
+      const { bar, onChange } = unassignedBar(() => picker);
+      picker = unassignedPicker({ onChange });
+      body.replaceChildren(h('p', { class: 'hint' }, 'Здесь договоры, которые ещё не вошли в заказ. Отметьте договоры и нажмите «В заказ…». Договор с несопоставленными позициями сначала сопоставьте.'), bar, picker.el);
+    }).catch((e) => { if (my === seq) body.replaceChildren(h('p', { class: 'neg' }, 'Не загрузилось: ' + (e?.message || e))); });
+  };
+  window.addEventListener('data-changed', loadCounts);
+  mountTab();
+  loadCounts();
+  return {
+    el,
+    update: (p) => { if (tabOf(p) !== tab) { tab = tabOf(p); mountTab(); } },
+    destroy: () => window.removeEventListener('data-changed', loadCounts),
+  };
 }

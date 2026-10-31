@@ -1537,6 +1537,14 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .mq-bar .check{margin:0}
 @media (max-width:720px){.mq-bar .sel-wrap,.mq-bar .mq-f{width:100%}}
 .mq-body{overflow-x:auto}
+.mq-bulk{display:block;margin-bottom:var(--s3)}
+.mq-bulk[hidden]{display:none}
+body[data-sec] .matching-screen .page-head{border-bottom:0;padding-bottom:0;margin-bottom:var(--s2)}
+.matching-screen .tabs{margin-bottom:var(--s3)}
+@media (max-width:720px){.mq-screen-body .btn{min-height:44px}}
+.mq-screen-body{padding:var(--s4)}
+.mq-screen-body .ua-top{margin:0}
+.mq-screen-body .ua-box{margin:0;padding:0;border:0;background:none}
 .td-unm{padding:8px 14px;font-size:var(--fs-h3)}
 
 /* метка «не сопоставлено» — кликабельная (DESIGN §4.1) */

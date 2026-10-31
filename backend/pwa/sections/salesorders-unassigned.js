@@ -105,6 +105,20 @@ export async function chooseTarget(ids) {
   });
 }
 
+/** Полоса действий над выбором договоров: «В заказ…»; договор с несопоставленными позициями переносить нельзя. */
+export function unassignedBar(getPicker, afterMove) {
+  const bar = h('div', { class: 'ua-bar', hidden: true });
+  const onChange = (ids) => {
+    bar.hidden = !ids.length;
+    const bad = (getPicker()?.rows() || []).filter((r) => ids.includes(r.id) && r.canAssign === false);
+    bar.replaceChildren(h('b', null, `Выбрано ${ids.length}`),
+      h('button', { class: 'btn btn-primary btn-sm', type: 'button', disabled: bad.length > 0, title: bad.length ? 'Сначала сопоставьте позиции договора с изделиями' : undefined, onclick: async () => { if (await chooseTarget(ids)) { afterMove?.(); getPicker()?.reload(); } } }, 'В заказ…'),
+      bad.length ? h('span', { class: 'muted small' }, `Не сопоставлены позиции в договорах: ${bad.length}.`) : null,
+      bad.length ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, bad[0].id) }, 'Сопоставить') : null);
+  };
+  return { bar, onChange };
+}
+
 /** Блок над списком «Заказов»: плашка «Договоры без заказа (N)» → раскрывается выбор с полосой действий. */
 export function unassignedTop(reload) {
   const btn = h('button', { class: 'btn btn-ghost', type: 'button', 'aria-expanded': 'false' }, 'Договоры без заказа');
@@ -113,15 +127,7 @@ export function unassignedTop(reload) {
   let picker = null;
   const setCount = (n) => { btn.textContent = `Договоры без заказа${n == null ? '' : ` (${qty(n)})`}`; btn.classList.toggle('active', !box.hidden); };
   api('/production-orders/unassigned', { query: { limit: 1 } }).then((d) => setCount(d.total ?? 0)).catch(() => {});
-  const bar = h('div', { class: 'ua-bar', hidden: true });
-  const onChange = (ids) => {
-    bar.hidden = !ids.length;
-    const bad = (picker?.rows() || []).filter((r) => ids.includes(r.id) && r.canAssign === false);
-    bar.replaceChildren(h('b', null, `Выбрано ${ids.length}`),
-      h('button', { class: 'btn btn-primary btn-sm', type: 'button', disabled: bad.length > 0, title: bad.length ? 'Сначала сопоставьте позиции договора с изделиями' : undefined, onclick: async () => { if (await chooseTarget(ids)) { reload?.(); picker?.reload(); } } }, 'В заказ…'),
-      bad.length ? h('span', { class: 'muted small' }, `Не сопоставлены позиции в договорах: ${bad.length}.`) : null,
-      bad.length ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, bad[0].id) }, 'Сопоставить') : null);
-  };
+  const { bar, onChange } = unassignedBar(() => picker, reload);
   const open = () => {
     box.hidden = !box.hidden;
     btn.setAttribute('aria-expanded', String(!box.hidden));
