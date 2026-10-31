@@ -1,5 +1,8 @@
 # Карта роли backend
 
+## Позиции заказа (ORDER-LINES шаги 1–4, 2026-10-31, не закоммичено)
+- `modules/product-requests/` (schema `productrequests`, service: `attachIncome`/`recalc`/`confirm`/`reject`, controller, `product-request-rules.ts` + spec), `incomes/line-type.ts` (`checkLine`) + `incomes.service.ts` `checkType`/`markService`/`syncRequest`, `matching-rules.ts` `request`/`isUnassigned`, `salesorders.service.ts` `UNASSIGNED`/`unassignedCount`. `ShowcaseModule` теперь экспортирует ShowcaseService. Тесты не запускались; e2e не писался, openapi не обновлён.
+
 коммит: 627c9bf (+ HARDEN-1, CC-14…16, SW-2…5 2026-10-31, не закоммичено)
 
 ## Паспорта «воронкой» (ПВ) — где что

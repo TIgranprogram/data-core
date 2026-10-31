@@ -61,6 +61,7 @@ import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { DesignModule } from './modules/design/design.module';
 import { WorkModule } from './modules/work/work.module';
 import { MatchingModule } from './modules/matching/matching.module';
+import { ProductRequestsModule } from './modules/product-requests/product-requests.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { OffersModule } from './modules/offers/offers.module';
 import { PartnersModule } from './modules/partners/partners.module';
@@ -181,6 +182,7 @@ import { RequestMethod } from '@nestjs/common';
     FillAuditModule,        // /api/fill-audit — «Требуют заполнения» по категориям (что, зачем, куда идти)
     SalesOrdersModule,      // /api/salesorders — заказы заказчиков (шапки), коллекция salesorders; позиции — incomes
     MatchingModule,         // /api/matching — сопоставление позиций договора с изделиями, коллекция productaliases (КМ)
+    ProductRequestsModule,  // /api/product-requests — заявки на создание нового изделия, коллекция productrequests (ORDER-LINES)
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     WorkModule,             // /api/work-tasks, /api/work-routes — «В работе»: карточки позиций по шагам маршрута изделия, коллекция worktasks
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments

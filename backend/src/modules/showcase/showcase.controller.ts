@@ -169,5 +169,5 @@ export class ShowcaseController {
   restore(@Param('id') id: string) { return this.s.restore(id); }
 }
 
-@Module({ imports: [CounterModule], controllers: [ShowcaseController], providers: [ShowcaseService] })
+@Module({ imports: [CounterModule], controllers: [ShowcaseController], providers: [ShowcaseService], exports: [ShowcaseService] })
 export class ShowcaseModule {}

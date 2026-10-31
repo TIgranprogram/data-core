@@ -87,7 +87,7 @@ export class MatchingService {
     const orders = await db.collection('salesorders').find(orderFilter, { projection: { orderNo: 1, customer: 1, productionNo: 1, productionDeadline: 1, shipDate: 1, stage: 1 } }).toArray() as Doc[];
     const orderBy = new Map(orders.map((o) => [String(o._id), o]));
     const lines = orders.length ? await db.collection('incomes').find({
-      deletedAt: null, cancelledAt: null, orderId: { $in: orders.map((o) => o._id) },
+      deletedAt: null, cancelledAt: null, lineType: { $ne: 'service' }, orderId: { $in: orders.map((o) => o._id) },
       $or: [{ matchStatus: 'auto' }, { matchStatus: { $nin: ['none', 'auto'] }, productId: null }],
     }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, unit: 1, productId: 1, matchStatus: 1, photoIds: 1 } }).toArray() as Doc[] : [];
     const needle = (q.q ?? '').trim();
@@ -126,7 +126,7 @@ export class MatchingService {
     if (!orders.length) return { total: 0, inProduction: 0 };
     const inProdIds = new Set(orders.filter((o) => o.productionNo).map((o) => String(o._id)));
     const lines = await db.collection('incomes').find({
-      deletedAt: null, cancelledAt: null, orderId: { $in: orders.map((o) => o._id) },
+      deletedAt: null, cancelledAt: null, lineType: { $ne: 'service' }, orderId: { $in: orders.map((o) => o._id) },
       $or: [{ matchStatus: 'auto' }, { matchStatus: { $nin: ['none', 'auto'] }, productId: null }],
     }, { projection: { orderId: 1 } }).toArray() as Doc[];
     return { total: lines.length, inProduction: lines.filter((l) => inProdIds.has(String(l.orderId))).length };

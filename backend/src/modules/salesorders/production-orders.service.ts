@@ -96,7 +96,7 @@ export class ProductionOrdersService {
     if (blocked.length) {
       const unmatched = blocked.map((d) => ({ orderId: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', total: facts.get(String(d._id))!.total, unmatched: facts.get(String(d._id))!.unmatched.length, lines: facts.get(String(d._id))!.unmatched.slice(0, 5) }));
       const text = blocked.map((d) => blockText((d.orderNo as string | undefined) ?? '', facts.get(String(d._id))!)).join('. ');
-      throw new BadRequestException({ statusCode: 400, message: `${text}. Сопоставьте их в разделе Заказы → Без заказа → Сопоставление`, error: 'Bad Request', unmatched });
+      throw new BadRequestException({ statusCode: 400, message: `${text}. Есть позиции без подтверждённого изделия — сопоставьте их в разделе Заказы → Без заказа → Сопоставление`, error: 'Bad Request', unmatched });
     }
     let no = String(productionNo ?? '').trim();
     if (no) {

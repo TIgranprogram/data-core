@@ -19,12 +19,15 @@ import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-ke
 import { loadSeq } from '../../common/text/production-seq';
 import { suggestProducts } from '../../common/catalog/product-match';
 import { ORDER_CACHE_FIELDS } from './order-link';
+import { isUnassigned } from '../matching/matching-rules';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
 type Doc = Record<string, unknown>;
 const SORT = ['orderNo', 'productionNo', 'customer', 'stage', 'shipDate', 'productionDeadline', 'deliveryDeadline', 'contractDate', 'createdAt', 'updatedAt', 'deletedAt', 'priority'];
 const TEXT = ['orderNo', 'customer', 'title', 'paymentForm', 'contractNo', 'productionNo', 'notes'] as const;
 /** Порядок «срочные сверху»: нет приоритета = обычный. */
+/** Mongo-выражение «Не распределена» (то же, что isUnassigned): нет изделия, не услуга и не «не изделие». */
+const UNASSIGNED = { $and: [{ $eq: [{ $ifNull: ['$productId', null] }, null] }, { $ne: [{ $ifNull: ['$lineType', ''] }, 'service'] }, { $ne: [{ $ifNull: ['$matchStatus', ''] }, 'none'] }] };
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const DATES = [['contractDate', 'Дата контракта'], ['shipDate', 'Дата отгрузки'], ['productionDeadline', 'Срок изготовления'], ['deliveryDeadline', 'Окончание поставки']] as const;
 
@@ -56,7 +59,7 @@ export class SalesOrdersService {
     const ids = docs.map((d) => d._id as Types.ObjectId);
     const agg = ids.length ? await this.incomes().aggregate([
       { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
-      { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
+      { $group: { _id: '$orderId', lines: { $sum: 1 }, unassigned: { $sum: { $cond: [UNASSIGNED, 1, 0] } }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
     ]).toArray() : [];
     const sum = new Map(agg.map((a) => [String(a._id), a]));
     return docs.map((d) => {
@@ -66,7 +69,7 @@ export class SalesOrdersService {
         ...d, id: String(d._id), _id: String(d._id),
         companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
         stage, stageLabel: STAGE_LABELS[stage] ?? stage,
-        lineCount: s?.lines ?? 0, amount: s?.amount ?? 0, paidAmount: s?.paid ?? 0,
+        lineCount: s?.lines ?? 0, unassignedCount: s?.unassigned ?? 0, amount: s?.amount ?? 0, paidAmount: s?.paid ?? 0,
       };
     });
   }
@@ -204,7 +207,7 @@ export class SalesOrdersService {
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
       ...header,
-      lines: fix(lines.map((l) => ({ ...l, status: l.cancelledAt ? 'cancelled' : l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft' }))),
+      lines: fix(lines.map((l) => ({ ...l, status: l.cancelledAt ? 'cancelled' : l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft', unassigned: !l.cancelledAt && isUnassigned(l as Doc) }))),
       supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements), issuedByLine,
       reservations: [...resGroups.values()].map((g) => ({ ...g, left: Math.round(g.left * 1000) / 1000, issued: Math.round(g.issued * 1000) / 1000 })),
     };

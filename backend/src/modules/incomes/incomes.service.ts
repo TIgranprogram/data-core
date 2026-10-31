@@ -6,6 +6,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { INCOME_NO_CONTRACT_DEDUPE_DAYS, incomeNoContractText, noContract } from '../zones/zone-events';
+import { ProductRequestsService } from '../product-requests/product-requests.service';
 import { ZonesService } from '../zones/zones.service';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
@@ -16,6 +17,7 @@ import { ourProductLabel, productShortName, type Named } from '../../common/cata
 import { STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
+import { LINE_CHECK_FIELDS, checkLine, type LineType } from './line-type';
 import { Income, IncomeDocument, IncomePayment, incomeDerived, incomePayments } from './income.schema';
 
 /** Способы оплаты (подсказка формы платежа; в базе — свободный текст до 50 знаков). */
@@ -52,6 +54,7 @@ export class IncomesService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Income.name) private readonly model: Model<IncomeDocument>,
     @Optional() private readonly zones?: ZonesService,
+    @Optional() private readonly requests?: ProductRequestsService,
   ) {}
 
   private async present(docs: Array<Record<string, unknown>>) {
@@ -158,6 +161,9 @@ export class IncomesService {
     if (dto.lineNo !== undefined) f.lineNo = dto.lineNo === null ? undefined : Number(dto.lineNo);
     if (dto.orderId !== undefined) f.orderId = dto.orderId ? oid(dto.orderId, 'заказа') : undefined;
     if (dto.productId !== undefined) f.productId = dto.productId ? oid(dto.productId, 'изделия') : undefined;
+    if (dto.lineType !== undefined) f.lineType = dto.lineType || undefined;
+    if (dto.workTypeId !== undefined) f.workTypeId = dto.workTypeId ? oid(dto.workTypeId, 'вида работ') : undefined;
+    if (dto.productRequestId !== undefined) f.productRequestId = dto.productRequestId ? oid(dto.productRequestId, 'заявки') : undefined;
     if (dto.companyId) f.companyId = new Types.ObjectId(dto.companyId);
     else if (dto.companyName !== undefined) {
       const name = normText(dto.companyName);
@@ -180,6 +186,25 @@ export class IncomesService {
     const h = await this.connection.db!.collection('salesorders').findOne({ _id: orderId as Types.ObjectId, deletedAt: null });
     if (!h) throw new BadRequestException('Заказ не найден — выберите из списка');
     for (const k of HEADER_CACHE) f[k] = h[k] ?? undefined;
+  }
+
+  /**
+   * ORDER-LINES: обязательные поля по типу позиции (изделие / новое изделие / услуга). Только если тип задан и менялось
+   * что-то из его полей — старые позиции без lineType и платежи не затрагиваются.
+   */
+  private async checkType(f: Record<string, unknown>, cur?: Record<string, unknown>) {
+    if (!LINE_CHECK_FIELDS.some((k) => k in f)) return;
+    const val = (k: string) => (k in f ? f[k] : cur?.[k]);
+    const type = val('lineType') as LineType | undefined;
+    if (!type) return;
+    const wt = type === 'service' && val('workTypeId') ? await this.connection.db!.collection('worktypes').findOne({ _id: val('workTypeId') as Types.ObjectId, deletedAt: null }, { projection: { name: 1 } }) : null;
+    checkLine(type, val, wt ? String(wt.name ?? '') : null);
+  }
+
+  /** Услуга — не изделие: сопоставление «не изделие», чтобы очереди склада, паспортов и «В работе» её пропускали. */
+  private markService(f: Record<string, unknown>, cur?: Record<string, unknown>) {
+    if (f.lineType === 'service') { f.matchStatus = 'none'; f.matchedAt = new Date(); }
+    else if ('lineType' in f && cur?.lineType === 'service') f.matchStatus = undefined;
   }
 
   /** Изделие «Продукции» с тем же коротким названием (как «Из заказов») — привязать новую позицию сразу. */
@@ -269,7 +294,9 @@ export class IncomesService {
     const f = await this.toFields(dto);
     await this.assertOrderOpen(f.orderId, actor);
     if (!f.title) throw new BadRequestException('Укажите наименование');
-    if (dto.productId === undefined) f.productId = await this.productByTitle(String(f.title));
+    await this.checkType(f);
+    // новое изделие и услугу по названию к изделию не привязываем
+    if (dto.productId === undefined && !f.lineType) f.productId = await this.productByTitle(String(f.title));
     if (f.orderId) {
       await this.applyHeader(f, f.orderId);
       // КМ6: позиция добавлена в договор, уже вошедший в заказ производства, — «не сопоставлена» до подтверждения
@@ -280,12 +307,15 @@ export class IncomesService {
         f.lineNo = (last?.lineNo ?? 0) + 1;
       }
     }
+    this.markService(f);
     const { amount, reportDate } = this.derive({}, f);
     const doc = await this.model.create({
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
       amount, reportDate, clientUid: dto.clientUid,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
+    // новое изделие → заявка проектировщику (та же заявка на то же название)
+    if (f.lineType === 'new_product') await this.requests?.attachIncome(doc.toObject() as unknown as Record<string, unknown>, userId);
     return this.get(String(doc._id));
   }
 
@@ -302,6 +332,10 @@ export class IncomesService {
     if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
     // КМ6: название изменили — прежнее сопоставление недействительно, нужно подтвердить заново (пока явно не задано изделие)
     if ("title" in f && !same("title") && dto.productId === undefined && (cur.matchStatus || cur.productId)) f.matchStatus = "auto";
+    // выбрали существующее изделие у «нового» — позиция становится обычной
+    if (dto.productId && dto.lineType === undefined && cur.lineType === 'new_product') f.lineType = 'product';
+    await this.checkType(f, cur as Record<string, unknown>);
+    this.markService(f, cur as Record<string, unknown>);
     const { amount, reportDate } = this.derive(cur as Record<string, unknown>, f);
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
@@ -309,7 +343,18 @@ export class IncomesService {
     const res = await this.model.updateOne({ _id: cur._id, ...(opts.guard ?? {}) }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }).exec();
     if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
+    await this.syncRequest(cur as Record<string, unknown>, f, actor?.id);
     return this.get(id);
+  }
+
+  /** ORDER-LINES: после правки позиции — привязать к заявке (новое изделие) или пересчитать количество заявки. */
+  private async syncRequest(cur: Record<string, unknown>, f: Record<string, unknown>, userId?: string) {
+    if (!this.requests) return;
+    const type = 'lineType' in f ? f.lineType : cur.lineType;
+    const titleChanged = 'title' in f && String(f.title ?? '') !== String(cur.title ?? '');
+    if (type === 'new_product' && (!cur.productRequestId || cur.lineType !== 'new_product' || titleChanged)) {
+      await this.requests.attachIncome({ ...cur, ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)) }, userId);
+    } else if (cur.productRequestId && ('qty' in f || 'lineType' in f)) await this.requests.recalc(cur.productRequestId);
   }
 
   /** СВ-11 (3): появился новый платёж у позиции без договора — сообщить Бухгалтерии (один раз на позицию). */
@@ -361,6 +406,7 @@ export class IncomesService {
     }
     const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Запись дохода не найдена');
+    if (cur?.productRequestId) await this.requests?.recalc(cur.productRequestId);
     return { id, deleted: true };
   }
 
