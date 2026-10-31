@@ -77,10 +77,13 @@ export class SupplierCatalogService {
   private async present(docs: Doc[]) {
     const orgIds = [...new Set(docs.map((d) => String(d.supplierId)))].filter((s) => Types.ObjectId.isValid(s)).map((s) => new Types.ObjectId(s));
     const matIds = [...new Set(docs.map((d) => d.materialId && String(d.materialId)).filter(Boolean))].map((s) => new Types.ObjectId(s as string));
-    const [orgs, mats] = await Promise.all([
+    const [orgs, mats, stock] = await Promise.all([
       orgIds.length ? this.coll('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1, inn: 1 } }).toArray() : [],
       matIds.length ? this.coll('materials').find({ _id: { $in: matIds } }, { projection: { name: 1, article: 1, stockQty: 1 } }).toArray() : [],
+      // остаток — из storageitems (ДМ.5); materials.stockQty — запасной, если записей нет
+      matIds.length ? this.coll('storageitems').aggregate([{ $match: { materialId: { $in: matIds }, deletedAt: null } }, { $group: { _id: '$materialId', qty: { $sum: '$quantity' } } }]).toArray() : [],
     ]);
+    const sq = new Map(stock.map((x) => [String(x._id), Number(x.qty) || 0]));
     const pu = await this.photoUrls(docs.flatMap((d) => (d.photoIds as Types.ObjectId[] | undefined) ?? []));
     const on = new Map(orgs.map((o) => [String(o._id), o]));
     const mn = new Map(mats.map((m) => [String(m._id), m]));
@@ -97,7 +100,7 @@ export class SupplierCatalogService {
         priceDate: priceDate instanceof Date ? priceDate.toISOString() : null,
         optGroup: d.optGroup ? String(d.optGroup) : '', note: d.note ? String(d.note) : '', source: d.source ?? 'excel',
         materialId: d.materialId ? String(d.materialId) : null, materialName: m ? String(m.name) : '', materialArticle: m ? String(m.article ?? '') : '',
-        stockQty: m && typeof m.stockQty === 'number' ? m.stockQty : null,
+        stockQty: d.materialId && sq.has(String(d.materialId)) ? sq.get(String(d.materialId))! : m && typeof m.stockQty === 'number' ? m.stockQty : null,
         categoryId: d.categoryId ? String(d.categoryId) : null, inStock: d.inStock ?? null, photoUrl: d.photoUrl ?? '',
         priceHistory: (d.priceHistory ?? []).map((h: Doc) => ({ price: h.price, date: h.date instanceof Date ? h.date.toISOString() : null, source: h.source })),
         updatedAt: d.updatedAt instanceof Date ? d.updatedAt.toISOString() : null,

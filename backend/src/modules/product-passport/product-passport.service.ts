@@ -328,11 +328,11 @@ export class ProductPassportService {
   }
 
   /** Действующий шаблон категории; своей нет — «Для всех»; в базе пусто — встроенный (версия 0, по образцу №549). */
-  async template(category?: string): Promise<PassportTemplateContent & { version: number; id?: string; updatedAt?: Date; category: PassportCategory }> {
+  async template(category?: string): Promise<PassportTemplateContent & { version: number; id?: string; updatedAt?: Date; materialsSpec?: StoredSpec | null; category: PassportCategory }> {
     const cat = normalizeCategory(category);
     const t = (await this.ownDoc(cat)) ?? (cat === 'ALL' ? null : await this.ownDoc('ALL'));
     if (!t) return { version: 0, category: 'ALL', ...DEFAULT_PASSPORT_TEMPLATE };
-    return { version: t.version, category: normalizeCategory(t.category), id: String(t._id), sections: t.sections, tables: t.tables, updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt };
+    return { version: t.version, category: normalizeCategory(t.category), id: String(t._id), sections: t.sections, tables: t.tables, materialsSpec: t.materialsSpec ?? null, updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt };
   }
 
   /**
@@ -481,15 +481,18 @@ export class ProductPassportService {
   }
 
   /** Правка шаблона — новая версия в пределах категории, прежняя остаётся в истории. */
-  async saveTemplate(body: Partial<PassportTemplateContent> & { category?: string }, userId?: string) {
+  async saveTemplate(body: Partial<PassportTemplateContent> & { category?: string; materialsSpec?: unknown }, userId?: string) {
     const cat = normalizeCategory(body.category);
     const base = await this.template(cat); // содержимое по умолчанию — действующее (для категории без версии — «Для всех»)
     const own = await this.ownDoc(cat);
     const sections = body.sections ?? base.sections, tables = body.tables ?? base.tables;
     if (!Array.isArray(sections) || !sections.every((s) => s && typeof s.title === 'string' && Array.isArray(s.paragraphs))) throw new BadRequestException('Тексты: ожидается список разделов sections: [{ key, title, paragraphs[] }]');
+    // МЦ-5: таблица материалов шаблона; не прислали — как была, прислали null/пусто — очистить
+    const spec = 'materialsSpec' in body ? parseMaterialsSpec(body.materialsSpec) : (own?.materialsSpec ?? null);
+    if (spec) await this.mi.check(spec);
     const same = cat === 'ALL' ? { category: { $in: [null, 'ALL'] } } : { category: cat };
     await this.templates.updateMany({ isActive: true, ...same }, { $set: { isActive: false } }).exec();
-    await this.templates.create({ version: (own?.version ?? 0) + 1, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections, tables, ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
+    await this.templates.create({ version: (own?.version ?? 0) + 1, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections, tables, ...(spec ? { materialsSpec: spec } : {}), ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
     return this.template(cat);
   }
 

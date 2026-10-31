@@ -141,7 +141,7 @@ export class ProductPassportController {
   @Put('passports/template')
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
-  saveTemplate(@Body() body: Partial<PassportTemplateContent> & { category?: string }, @CurrentUser() user?: AuthenticatedUser) {
+  saveTemplate(@Body() body: Partial<PassportTemplateContent> & { category?: string; materialsSpec?: unknown },@CurrentUser() user?: AuthenticatedUser) {
     return this.service.saveTemplate(body, user?.id);
   }
 

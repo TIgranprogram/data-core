@@ -5336,6 +5336,29 @@
         ]
       }
     },
+    "/salesorders/{id}/dependencies": {
+      "get": {
+        "operationId": "SalesOrdersController_dependencies",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
     "/salesorders/{id}/restore": {
       "post": {
         "operationId": "SalesOrdersController_restore",
@@ -5494,6 +5517,39 @@
         ]
       }
     },
+    "/production-orders/{key}/move-contract": {
+      "post": {
+        "operationId": "ProductionOrdersController_moveContract",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
     "/production-orders/{key}": {
       "get": {
         "operationId": "ProductionOrdersController_get",
@@ -5570,6 +5626,473 @@
         },
         "tags": [
           "Заказы производства"
+        ]
+      }
+    },
+    "/incomes": {
+      "get": {
+        "operationId": "IncomesController_list",
+        "parameters": [
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — корзина",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "по дате в отчёт (оплаты, иначе отгрузки), ГГГГ-ММ-ДД",
+            "schema": {}
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "description": "позиции заказа (salesorders), id через запятую",
+            "schema": {}
+          },
+          {
+            "name": "orderNo",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "draft (не отгружено) | awaiting (отгружено, ждём оплату) | partial (оплачено частично) | paid",
+            "schema": {}
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "lineNo | orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "№ заказа, заказчик, наименование, примечание, вид, цвет",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      },
+      "post": {
+        "operationId": "IncomesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/lookups": {
+      "get": {
+        "operationId": "IncomesController_lookups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}": {
+      "get": {
+        "operationId": "IncomesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      },
+      "patch": {
+        "operationId": "IncomesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      },
+      "delete": {
+        "operationId": "IncomesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/cancel": {
+      "post": {
+        "operationId": "IncomesController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelIncomeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/restore-cancelled": {
+      "post": {
+        "operationId": "IncomesController_restoreCancelled",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/move": {
+      "post": {
+        "operationId": "IncomesController_move",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveIncomeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/photos": {
+      "post": {
+        "operationId": "IncomesController_addPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/photos/{photoId}/main": {
+      "put": {
+        "operationId": "IncomesController_mainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/photos/{photoId}": {
+      "delete": {
+        "operationId": "IncomesController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/payments": {
+      "post": {
+        "operationId": "IncomesController_addPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/payments/{index}": {
+      "delete": {
+        "operationId": "IncomesController_removePayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "amount",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/restore": {
+      "post": {
+        "operationId": "IncomesController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
         ]
       }
     },
@@ -6023,384 +6546,6 @@
         },
         "tags": [
           "Справочники — Материалы"
-        ]
-      }
-    },
-    "/incomes": {
-      "get": {
-        "operationId": "IncomesController_list",
-        "parameters": [
-          {
-            "name": "deleted",
-            "required": false,
-            "in": "query",
-            "description": "1 — корзина",
-            "schema": {}
-          },
-          {
-            "name": "to",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "from",
-            "required": false,
-            "in": "query",
-            "description": "по дате в отчёт (оплаты, иначе отгрузки), ГГГГ-ММ-ДД",
-            "schema": {}
-          },
-          {
-            "name": "orderId",
-            "required": false,
-            "in": "query",
-            "description": "позиции заказа (salesorders), id через запятую",
-            "schema": {}
-          },
-          {
-            "name": "orderNo",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "companyId",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "draft (не отгружено) | awaiting (отгружено, ждём оплату) | partial (оплачено частично) | paid",
-            "schema": {}
-          },
-          {
-            "name": "sort",
-            "required": false,
-            "in": "query",
-            "description": "lineNo | orderNo | customer | title | qty | unitPrice | amount | shipDate | paidDate | reportDate | createdAt; «-» — по убыванию (умолч. -reportDate)",
-            "schema": {}
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "№ заказа, заказчик, наименование, примечание, вид, цвет",
-            "schema": {}
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      },
-      "post": {
-        "operationId": "IncomesController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IncomeDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/lookups": {
-      "get": {
-        "operationId": "IncomesController_lookups",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}": {
-      "get": {
-        "operationId": "IncomesController_get",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      },
-      "patch": {
-        "operationId": "IncomesController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IncomeDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      },
-      "delete": {
-        "operationId": "IncomesController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}/photos": {
-      "post": {
-        "operationId": "IncomesController_addPhoto",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}/photos/{photoId}/main": {
-      "put": {
-        "operationId": "IncomesController_mainPhoto",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "photoId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}/photos/{photoId}": {
-      "delete": {
-        "operationId": "IncomesController_removePhoto",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "photoId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}/payments": {
-      "post": {
-        "operationId": "IncomesController_addPayment",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaymentDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}/payments/{index}": {
-      "delete": {
-        "operationId": "IncomesController_removePayment",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "index",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "amount",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
-        ]
-      }
-    },
-    "/incomes/{id}/restore": {
-      "post": {
-        "operationId": "IncomesController_restore",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Доходы (заказы)"
         ]
       }
     },
@@ -10315,10 +10460,22 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, canStart, canEmergency }"
-          },
-          "404": {
-            "description": "Механизм выключен (нет HA_SELF)"
+            "description": "{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canEmergency }; без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL"
+          }
+        },
+        "tags": [
+          "Переключение сервера"
+        ]
+      }
+    },
+    "/control/switch/ping": {
+      "get": {
+        "operationId": "SwitchController_ping",
+        "summary": "Служебный: короткая справка для второго сервера — роль, версия, время копии. Без данных",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ self:home|office|null, role:main|standby|null, version, copyAt }"
           }
         },
         "tags": [
@@ -14020,6 +14177,29 @@
         ]
       }
     },
+    "/salesorders/{id}/passports/draft-all": {
+      "post": {
+        "operationId": "ProductPassportController_draftAll",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/{id}/snapshot-item": {
       "patch": {
         "operationId": "ProductPassportController_editSnapshotItem",
@@ -14861,6 +15041,11 @@
             "type": "string",
             "example": "two",
             "description": "Вид правой панели: one | two | wide"
+          },
+          "viewScale": {
+            "type": "string",
+            "example": "large",
+            "description": "Вид экрана: normal | large (крупный)"
           }
         }
       },
@@ -15985,6 +16170,10 @@
             ],
             "description": "new | production | ready | partly | shipped | closed | cancelled"
           },
+          "stageReason": {
+            "type": "string",
+            "description": "Причина возврата на прежний этап (обязательна при шаге назад; только admin)"
+          },
           "priority": {
             "type": "string",
             "enum": [
@@ -16028,6 +16217,19 @@
           }
         }
       },
+      "MoveContractDto": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "id переносимого договора"
+          },
+          "toProductionNo": {
+            "type": "string",
+            "description": "№ заказа, в который переносим (должен существовать)"
+          }
+        }
+      },
       "ProductionStageDto": {
         "type": "object",
         "properties": {
@@ -16043,6 +16245,143 @@
               "cancelled"
             ],
             "description": "new | production | ready | partly | shipped | closed"
+          }
+        }
+      },
+      "PaymentDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Дата платежа ГГГГ-ММ-ДД / ДД.ММ.ГГГГ"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Сумма, ₽ (> 0)"
+          },
+          "method": {
+            "type": "string",
+            "description": "Способ: нал | безнал | карта"
+          },
+          "note": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор POST /incomes/:id/payments не добавляет второй платёж"
+          }
+        }
+      },
+      "IncomeDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "object",
+            "description": "Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать",
+            "nullable": true
+          },
+          "lineNo": {
+            "type": "object",
+            "description": "№ позиции в заказе (умолч. — следующий)",
+            "nullable": true
+          },
+          "orderNo": {
+            "type": "string",
+            "description": "№ заказа"
+          },
+          "customer": {
+            "type": "string",
+            "description": "Заказчик"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания по id (organizations)"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Наша компания по названию: СИЮ / ССЮ"
+          },
+          "paymentForm": {
+            "type": "string",
+            "description": "Форма оплаты: б/р, нал…"
+          },
+          "title": {
+            "type": "string",
+            "description": "Наименование (обязательно при создании)"
+          },
+          "productId": {
+            "type": "object",
+            "description": "Изделие из «Продукции» (products); не указано при создании — подбирается по названию; null — отвязать",
+            "nullable": true
+          },
+          "size": {
+            "type": "string",
+            "description": "Размер (вариант изделия)"
+          },
+          "qty": {
+            "type": "object"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Вид"
+          },
+          "color": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "object",
+            "description": "Цена за единицу"
+          },
+          "amountManual": {
+            "type": "object",
+            "description": "Доход вручную (важнее кол-во × цена)"
+          },
+          "shipDate": {
+            "type": "string",
+            "description": "Дата отгрузки"
+          },
+          "paidDate": {
+            "type": "string",
+            "description": "Дата оплаты"
+          },
+          "payments": {
+            "description": "Платежи (заменяют весь список). paidDate без payments = оплачено целиком (старый способ); paidDate \"\" — снять оплату",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentDto"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ клиента — повтор не создаёт дубль"
+          }
+        }
+      },
+      "CancelIncomeDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Причина (обязательна, от 3 знаков)"
+          },
+          "cascade": {
+            "type": "boolean",
+            "description": "true — снять брони и закрыть задачи проектирования и работы; false — при них будет 409 со списком"
+          }
+        }
+      },
+      "MoveIncomeDto": {
+        "type": "object",
+        "properties": {
+          "toOrderId": {
+            "type": "string",
+            "description": "Договор (salesorders), в который переносим"
           }
         }
       },
@@ -16395,121 +16734,6 @@
           "notes": {
             "type": "string",
             "description": "Заметки"
-          }
-        }
-      },
-      "PaymentDto": {
-        "type": "object",
-        "properties": {
-          "date": {
-            "type": "string",
-            "description": "Дата платежа ГГГГ-ММ-ДД / ДД.ММ.ГГГГ"
-          },
-          "amount": {
-            "type": "number",
-            "description": "Сумма, ₽ (> 0)"
-          },
-          "method": {
-            "type": "string",
-            "description": "Способ: нал | безнал | карта"
-          },
-          "note": {
-            "type": "string"
-          },
-          "clientUid": {
-            "type": "string",
-            "description": "Ключ клиента — повтор POST /incomes/:id/payments не добавляет второй платёж"
-          }
-        }
-      },
-      "IncomeDto": {
-        "type": "object",
-        "properties": {
-          "orderId": {
-            "type": "object",
-            "description": "Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать",
-            "nullable": true
-          },
-          "lineNo": {
-            "type": "object",
-            "description": "№ позиции в заказе (умолч. — следующий)",
-            "nullable": true
-          },
-          "orderNo": {
-            "type": "string",
-            "description": "№ заказа"
-          },
-          "customer": {
-            "type": "string",
-            "description": "Заказчик"
-          },
-          "companyId": {
-            "type": "string",
-            "description": "Наша компания по id (organizations)"
-          },
-          "companyName": {
-            "type": "string",
-            "description": "Наша компания по названию: СИЮ / ССЮ"
-          },
-          "paymentForm": {
-            "type": "string",
-            "description": "Форма оплаты: б/р, нал…"
-          },
-          "title": {
-            "type": "string",
-            "description": "Наименование (обязательно при создании)"
-          },
-          "productId": {
-            "type": "object",
-            "description": "Изделие из «Продукции» (products); не указано при создании — подбирается по названию; null — отвязать",
-            "nullable": true
-          },
-          "size": {
-            "type": "string",
-            "description": "Размер (вариант изделия)"
-          },
-          "qty": {
-            "type": "object"
-          },
-          "unit": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "description": "Вид"
-          },
-          "color": {
-            "type": "string"
-          },
-          "unitPrice": {
-            "type": "object",
-            "description": "Цена за единицу"
-          },
-          "amountManual": {
-            "type": "object",
-            "description": "Доход вручную (важнее кол-во × цена)"
-          },
-          "shipDate": {
-            "type": "string",
-            "description": "Дата отгрузки"
-          },
-          "paidDate": {
-            "type": "string",
-            "description": "Дата оплаты"
-          },
-          "payments": {
-            "description": "Платежи (заменяют весь список). paidDate без payments = оплачено целиком (старый способ); paidDate \"\" — снять оплату",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PaymentDto"
-            }
-          },
-          "notes": {
-            "type": "string"
-          },
-          "clientUid": {
-            "type": "string",
-            "description": "Ключ клиента — повтор не создаёт дубль"
           }
         }
       },

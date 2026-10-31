@@ -40,8 +40,10 @@ export class MaterialService {
     }
     const colors = this.normalizeColors(dto.colors);
     try {
+      // остаток — только storageitems (ДМ.5): stockQty из запроса игнорируем, при создании 0
       return await this.model.create({
         ...dto,
+        stockQty: 0,
         article,
         sku,
         ...(colors !== undefined ? { colors } : {}),
@@ -186,6 +188,7 @@ export class MaterialService {
     // findOneAndUpdate — тот же баг photoIds/VersionError, что у Product (TZ-CATALOG-339).
     const $set: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(dto as Record<string, unknown>)) {
+      if (key === 'stockQty') continue; // остаток — только storageitems (ДМ.5)
       if (value !== undefined) $set[key] = value;
     }
     if (colors !== undefined) $set.colors = colors;

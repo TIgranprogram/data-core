@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import type { StoredSpec } from '../../common/catalog/materials-table';
 import type { TemplateSection, TemplateTable } from './passport-template.default';
 
 export type PassportTemplateDocument = HydratedDocument<PassportTemplate>;
@@ -25,6 +26,10 @@ export class PassportTemplate {
   /** Категория блока текста (ALL/DIO/DSP/TRN/WRK/BLG); нет поля = «Для всех» (БЗ-6 Э2b). */
   @Prop({ type: String })
   category?: string;
+
+  /** МЦ-5: шаблон таблицы материалов категории — тот же формат, что `products.materialsSpec` (common/catalog/materials-table.ts). */
+  @Prop({ type: Object, default: undefined })
+  materialsSpec?: StoredSpec | null;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   updatedBy?: Types.ObjectId;

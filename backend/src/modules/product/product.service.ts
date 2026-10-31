@@ -34,7 +34,8 @@ export class ProductService {
 
   async create(dto: CreateProductDto, organizationId?: string | null): Promise<ProductDocument> {
     const sku = this.normalizeRequiredCode(dto.sku, 'Артикул изделия');
-    const { attributes, ...rest } = dto;
+    // остаток — только storageitems (ДМ.5): stockQty из запроса игнорируем, при создании 0 (CRM ждёт поле)
+    const { attributes, stockQty: _ignoredStock, ...rest } = dto; void _ignoredStock;
     // WAVE-NX-CATALOG-PHOTOS P2: photoIds → ObjectId; main ∈ photoIds (после normalize) или null.
     const photoObjectIds = rest.photoIds?.map((pid) => new Types.ObjectId(String(pid)));
     let mainObjectId: Types.ObjectId | null | undefined;
@@ -50,6 +51,7 @@ export class ProductService {
     try {
       const doc = await this.model.create({
         ...rest,
+        stockQty: 0,
         ...(photoObjectIds ? { photoIds: photoObjectIds } : {}),
         ...(mainObjectId !== undefined ? { mainPhotoId: mainObjectId } : {}),
         sku,
@@ -146,7 +148,8 @@ export class ProductService {
 
   async update(id: string, dto: UpdateProductDto, organizationId?: string | null): Promise<ProductDocument> {
     const doc = await this.findActive(id, organizationId);
-    const { attributes, expectedVersion, ...rest } = dto;
+    // остаток — только storageitems (ДМ.5): stockQty молча выбрасываем
+    const { attributes, expectedVersion, stockQty: _ignoredStock, ...rest } = dto as typeof dto & { stockQty?: number }; void _ignoredStock;
     if (dto.sku !== undefined) rest.sku = this.normalizeRequiredCode(dto.sku, 'Артикул изделия');
 
     // findOneAndUpdate — не doc.save(): массив photoIds + legacy optimisticLockPlugin
@@ -251,8 +254,9 @@ export class ProductService {
       hasDrawing: source.hasDrawing,
       purpose: source.purpose,
       installation: source.installation,
-      productModuleIds: [...(source.productModuleIds ?? [])],
-      composition: this.cloneComposition(source.composition),
+      // legacy-модули переезжают в composition; productModuleIds в копии пуст (CRM поле ждёт)
+      productModuleIds: [],
+      composition: this.duplicateComposition(source),
       copiedFromProductId: source._id,
       stockQty: 0,
       status: 'draft',
@@ -340,6 +344,16 @@ export class ProductService {
   private organizationWrite(organizationId?: string | null): Record<string, unknown> { if (!organizationId) return {}; if (!Types.ObjectId.isValid(organizationId)) throw new BadRequestException('Invalid organization scope'); return { organizationId: new Types.ObjectId(organizationId) }; }
   private versionedCompositionFilter(doc: ProductDocument): Record<string, unknown> { return { _id: doc._id, $or: [{ __v: doc.__v ?? 0 }, { __v: { $exists: false } }] }; }
   private plainCompositionLine(line: CompositionLineDocumentShape): CompositionLineDocumentShape { return { _id: line._id, lineType: line.lineType, refId: line.refId, quantity: Number(line.quantity), sortOrder: Number(line.sortOrder ?? 0), unit: line.unit, overrideDimensions: line.overrideDimensions, isPurchased: line.isPurchased, sourcePosition: line.sourcePosition, sourceCode: line.sourceCode, notes: line.notes }; }
+  private duplicateComposition(source: ProductDocument): CompositionLineDocumentShape[] {
+    const lines = this.cloneComposition(source.composition);
+    const have = new Set(lines.filter((l) => l.lineType === 'module').map((l) => String(l.refId)));
+    const legacy = (source.productModuleIds ?? [])
+      .map((m) => String((m as { _id?: unknown })._id ?? m))
+      .filter((m) => Types.ObjectId.isValid(m) && !have.has(m))
+      .map((m, i) => ({ _id: new Types.ObjectId(), lineType: 'module' as const, refId: new Types.ObjectId(m), quantity: 1, sortOrder: lines.length + i }));
+    return [...lines, ...legacy] as unknown as CompositionLineDocumentShape[];
+  }
+
   private cloneComposition(lines: Product['composition']): CompositionLineDocumentShape[] {
     return (lines ?? []).map((line) => {
       const candidate = line as CompositionLineDocumentShape & {
