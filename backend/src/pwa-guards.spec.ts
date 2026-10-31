@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+import { spawnSync } from 'child_process';
 
 /**
  * Защита «Рабочего места» (TASKS НВ.1): импорт с именем глобального объекта браузера перекрывает его в модуле —
@@ -46,5 +47,15 @@ describe('pwa: core/dom.js оборачивает нативные append/replac
     const src = readFileSync(join(ROOT, 'core', 'dom.js'), 'utf8');
     for (const n of ['append', 'prepend', 'replaceChildren', 'before', 'after']) expect(src).toContain(`'${n}'`);
     expect(src).toContain('__clean');
+  });
+});
+
+/** DESIGN-KIT K-0.2: линтер дизайна (R1–R7 против baseline) — любое новое нарушение валит тест, значит и ворота выкладки. */
+describe('pwa: design-lint', () => {
+  it('нет новых нарушений дизайна', () => {
+    const root = join(__dirname, '..', '..');
+    const r = spawnSync(process.execPath, [join('backend', 'scripts', 'design-lint.mjs')], { cwd: root, encoding: 'utf8' });
+    expect(r.stdout.split('\n').filter((l) => l.includes('\t')).join('\n')).toBe('');
+    expect(r.status).toBe(0);
   });
 });

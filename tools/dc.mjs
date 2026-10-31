@@ -183,6 +183,9 @@ function cmdCheck() {
   const imp = step('импорты приложения', process.execPath, ['backend/scripts/pwa-import-check.mjs']);
   say(imp.code === 0 ? 'импорты pwa/admin: ок — ' + cut(imp.out.trim().split('\n').pop(), 80) : 'импорты pwa/admin: ОШИБКА — ' + cut(imp.out.trim().split('\n')[0], 110));
   if (imp.code) bad++;
+  const dsg = step('дизайн', process.execPath, ['backend/scripts/design-lint.mjs']);
+  say(dsg.code === 0 ? 'дизайн (design-lint): ок' : 'дизайн (design-lint): ОШИБКИ — ' + cut(dsg.out.trim().split('\n').slice(-3)[0] || '', 110) + ' (tools/logs)');
+  if (dsg.code) bad++;
   const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;
