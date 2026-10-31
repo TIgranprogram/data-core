@@ -27,7 +27,7 @@ const SORT = ['orderNo', 'productionNo', 'customer', 'stage', 'shipDate', 'produ
 const TEXT = ['orderNo', 'customer', 'title', 'paymentForm', 'contractNo', 'productionNo', 'notes'] as const;
 /** Порядок «срочные сверху»: нет приоритета = обычный. */
 /** Mongo-выражение «Не распределена» (то же, что isUnassigned): нет изделия, не услуга и не «не изделие». */
-const UNASSIGNED = { $and: [{ $eq: [{ $ifNull: ['$productId', null] }, null] }, { $ne: [{ $ifNull: ['$lineType', ''] }, 'service'] }, { $ne: [{ $ifNull: ['$matchStatus', ''] }, 'none'] }] };
+export const UNASSIGNED = { $and: [{ $eq: [{ $ifNull: ['$productId', null] }, null] }, { $ne: [{ $ifNull: ['$lineType', ''] }, 'service'] }, { $ne: [{ $ifNull: ['$matchStatus', ''] }, 'none'] }] };
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const DATES = [['contractDate', 'Дата контракта'], ['shipDate', 'Дата отгрузки'], ['productionDeadline', 'Срок изготовления'], ['deliveryDeadline', 'Окончание поставки']] as const;
 

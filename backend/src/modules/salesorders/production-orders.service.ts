@@ -15,7 +15,7 @@ import { ourCompanies } from '../incomes/incomes.service';
 import { loadReadinessFacts, readinessChecks, readinessWarnings, type Readiness } from './order-readiness';
 import { checkAssign, compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
-import { SalesOrdersService, nextProductionNo } from './salesorders.service';
+import { SalesOrdersService, nextProductionNo, UNASSIGNED } from './salesorders.service';
 
 type Doc = Record<string, unknown>;
 type See = { requests?: boolean; stock?: boolean };
@@ -165,7 +165,7 @@ export class ProductionOrdersService {
     const [agg, companies] = await Promise.all([
       ids.length ? this.connection.db!.collection('incomes').aggregate([
         { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
-        { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
+        { $group: { _id: '$orderId', lines: { $sum: 1 }, unassigned: { $sum: { $cond: [UNASSIGNED, 1, 0] } }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
       ]).toArray() : [],
       ourCompanies(this.connection),
     ]);
@@ -173,6 +173,9 @@ export class ProductionOrdersService {
     const facts = await loadReadinessFacts(this.connection.db!, new Map(page.map((g) => [g.key, this.liveIds(g.docs)])));
     const cname = new Map(companies.map((c) => [String(c.id), c.name]));
     const uniq = (v: unknown[]) => [...new Set(v.filter(Boolean).map(String))];
+    // отгрузки — числом (не distinct заказов), одним запросом на страницу
+    const shipRows = ids.length ? await this.connection.db!.collection('shipments').aggregate([{ $match: { orderId: { $in: ids }, deletedAt: null } }, { $group: { _id: '$orderId', n: { $sum: 1 } } }]).toArray() : [];
+    const ships = new Map(shipRows.map((r) => [String(r._id), r.n as number]));
     const items = page.map((g) => {
       const part = g.docs.map((d) => sum.get(String(d._id)));
       return {
@@ -183,6 +186,8 @@ export class ProductionOrdersService {
         deadline: g.deadline, stage: g.stage, stageLabel: STAGE_LABELS[g.stage], stagesDiffer: g.stagesDiffer, priority: g.priority,
         createdAt: new Date(created(g)), coverPhoto: cover.get(g.key) ?? null,
         readiness: { ready: readinessChecks(facts.get(g.key)!, g.key, String(g.docs[0]._id)).ready },
+        unassignedCount: part.reduce((a, s) => a + (s?.unassigned ?? 0), 0),
+        counts: { design: facts.get(g.key)!.openDesign, requests: facts.get(g.key)!.openRequests, inWork: facts.get(g.key)!.openWork, reservations: facts.get(g.key)!.activeReservations, shipments: g.docs.reduce((a, d) => a + (ships.get(String(d._id)) ?? 0), 0) },
       };
     });
     return { items, total: shown.length, page: p.page, limit: p.limit, counts: { all: n(ORDER_STAGES), active: n(ACTIVE_STAGES), done: n(DONE_STAGES), ...counts, fresh } };
