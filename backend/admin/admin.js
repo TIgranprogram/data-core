@@ -1337,7 +1337,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       row.append(el('b', null, t.name + (smbT ? ' · сетевая папка' : '') + (t.enabled ? '' : ' (выключено)')), el('div', 'muted', `${t.url} · ${t.username} · папка «${t.folder || '/'}»${smbT ? ` · хранить ${t.keep}` : ''} · пароль ${t.hasSecret ? 'задан' : 'не задан'}`), el('div', t.last && !t.last.ok ? 'error' : 'muted', st + (t.pending ? ' · ожидает сервер копий…' : '')));
       const acts = el('div', 'srv-btns');
       acts.append(
-        btn('Проверить связь', '', async () => { res.textContent = 'Проверяю…'; const r = await send(`/targets/${t.id}/test`, 'POST'); res.textContent = r.message; res.className = r.ok ? 'ok' : 'error'; }),
+        btn('Проверить связь', '', async () => { res.textContent = 'Проверяю…'; const r = await send(`/targets/${t.id}/test`, 'POST'); res.textContent = r.message; res.className = r.ok ? 'ok' : 'error'; if (smbT) loadOffsite(); }),
         btn('Отправить сейчас', '', async () => { res.textContent = 'Отправляю — архив и выгрузка, это долго…'; const r = await send('/run', 'POST', { id: t.id }); res.textContent = r.results.map((x) => x.message).join('; '); loadOffsite(); }),
         btn(t.enabled ? 'Выключить' : 'Включить', '', async () => { await send(`/targets/${t.id}`, 'PATCH', { enabled: !t.enabled }); loadOffsite(); }),
         btn('Удалить', 'btn-danger', async () => { if (!confirm(`Удалить место «${t.name}»? Копии в нём останутся.`)) return; await send(`/targets/${t.id}`, 'DELETE'); loadOffsite(); }), res);
@@ -1399,6 +1399,9 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     add.append(form);
     parts.push(add);
     box.replaceChildren(...parts);
+    // сетевую папку проверяет сервер копий раз в минуту — пока он не ответил, строка обновляется сама
+    clearTimeout(loadOffsite.timer);
+    if (d.targets.some((t) => t.pending)) loadOffsite.timer = setTimeout(() => { if (box.isConnected) loadOffsite(); }, 10000);
   }
   async function loadBackups() {
     const box = $('#backups-box');
