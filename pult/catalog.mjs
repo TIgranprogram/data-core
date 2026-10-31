@@ -105,9 +105,10 @@ export const COMMANDS = [
   { id: 'script-plan', section: 'scripts', title: 'Скрипт: показать план', risk: 'read', time: '1–5 мин', needs: ['bash', 'vm'], run: { bash: ['remote-access/run-script.sh', '{script}'] },
     params: [{ name: 'script', label: 'Скрипт', type: 'select', from: 'prodScripts' }],
     hint: 'Запускает скрипт на сервере без записи и показывает, что он изменит. В списке только скрипты с режимом плана (--apply). Всегда нажимайте до записи.' },
-  { id: 'script-apply', section: 'scripts', title: 'Скрипт: записать', risk: 'danger', time: '1–10 мин', needs: ['bash', 'vm'], run: { bash: ['remote-access/run-script.sh', '{script}', '--apply'] },
+  { id: 'script-apply', section: 'scripts', title: 'Скрипт: записать', risk: 'prod-write', time: '1–10 мин', needs: ['bash', 'vm'], run: { bash: ['remote-access/run-script.sh', '{script}', '--apply'] },
     params: [{ name: 'script', label: 'Скрипт', type: 'select', from: 'prodScripts' }],
-    confirm: 'Скрипт изменит рабочие данные. Сначала сделается копия базы. Нет копии — запись не начнётся.', word: 'ЗАПИСАТЬ',
+    // без слова (решение пользователя 2026-10-31): перед записью всегда копия базы; слово — только для отката и срочной выкладки
+    confirm: 'Скрипт изменит рабочие данные. Сначала сделается копия базы. Нет копии — запись не начнётся.',
     hint: 'Только после просмотра плана. Скрипт идёт в контейнер и на сервере не остаётся.' },
 
   // ---------- Проверка кода ----------

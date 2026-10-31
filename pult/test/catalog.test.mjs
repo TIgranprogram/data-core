@@ -45,7 +45,7 @@ test('выкладка и команды на сервере не помечен
   for (const c of COMMANDS) {
     if (c.run.deploy) assert.notEqual(c.risk, 'read', c.id);
     if (c.run.vm && c.risk === 'read') assert.ok(readOnlyVm.has(c.id), c.id);
-    if (JSON.stringify(c.run).includes('--apply')) assert.equal(c.risk, 'danger', c.id);
+    if (JSON.stringify(c.run).includes('--apply')) assert.ok(['danger', 'prod-write'].includes(c.risk) && c.confirm, c.id); // запись данных — всегда с подтверждением (2026-10-31: слово не нужно, есть копия базы)
   }
 });
 
