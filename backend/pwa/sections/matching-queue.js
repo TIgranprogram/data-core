@@ -79,7 +79,7 @@ export function unmatchedTop({ open = false } = {}) {
     const s = best(it);
     const acts = write ? h('div', { class: 'mq-acts' },
       s ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: s.productId } })); } }, 'Подтвердить') : null,
-      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, it.orderId) }, 'Выбрать…'),
+      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, it.orderId, it.lineId) }, 'Выбрать…'),
       h('button', { class: 'btn btn-sm btn-ghost', type: 'button', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })); } }, 'Не изделие')) : null;
     return h('tr', null,
       h('td', { class: 'nowrap' }, it.productionNo ? h('b', null, it.productionNo) : h('span', { class: 'muted' }, 'нет №'), h('div', { class: 't-sub' }, STAGE[it.stage]?.label || '')),

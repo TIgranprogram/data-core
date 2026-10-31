@@ -8,6 +8,7 @@ import { current, patch } from '../core/router.js';
 
 /**
  * Правая панель «Сопоставление» (`?of=matching&open=<id договора>`): позиции договора ↔ изделия из продукции.
+ * `open=<id договора>.<id позиции>` — только эта позиция, список изделий открыт сразу; после выбора панель закрывается.
  * Сервер: GET /matching/suggest, POST /matching/confirm | none | bulk. Менять могут admin и manager; остальные — только просмотр.
  */
 const STATE = {
@@ -39,10 +40,17 @@ export function matchPic(photo) {
     h('img', { class: 'pic pic-lg', src: PREFIX + (photo.thumb || photo.url), alt: '', loading: 'lazy', onerror: (e) => e.currentTarget.parentElement.replaceWith(none()) }));
 }
 
-/** Открыть панель сопоставления договора. */
-export function openMatching(patch, orderId) { patch({ of: 'matching', open: orderId, new: undefined }, { replace: false }); }
+/** Открыть панель сопоставления договора; lineId — только одна позиция договора. */
+export function openMatching(patch, orderId, lineId) { patch({ of: 'matching', open: lineId ? `${orderId}.${lineId}` : orderId, new: undefined }, { replace: false }); }
 
-function lineRow(it, run, write) {
+/** Панель выезжает: список, открытый в движении, встанет не на месте. Ждём, пока поле замрёт. */
+function whenStill(el, fn, last = null, tries = 0) {
+  const x = el.getBoundingClientRect().left;
+  if ((el.isConnected && x === last) || tries > 20) { fn(); return; }
+  setTimeout(() => whenStill(el, fn, x, tries + 1), 50);
+}
+
+function lineRow(it, run, write, single) {
   const st = STATE[it.state] || STATE.unmatched;
   const acts = h('div', { class: 'mt-acts' });
   const pickBox = h('div', { class: 'mt-pick', hidden: true });
@@ -57,7 +65,7 @@ function lineRow(it, run, write) {
     if (it.state === 'auto' && it.productId) acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => confirm(it.productId) }, 'Подтвердить'));
     const input = h('input', { type: 'search', placeholder: 'Название или артикул изделия', 'aria-label': 'Поиск изделия' });
     let ready = false;
-    acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async () => {
+    const togglePick = async () => {
       pickBox.hidden = !pickBox.hidden;
       if (pickBox.hidden || ready) return;
       ready = true;
@@ -65,9 +73,11 @@ function lineRow(it, run, write) {
         const opts = await products();
         pickBox.replaceChildren(h('label', { class: 'field' }, input));
         attachCombo(input, { options: () => opts, onPick: (o) => confirm(o.value), free: false, empty: () => 'Такого изделия нет' });
-        input.focus();
+        whenStill(input, () => { input.focus(); input.click(); }); // click раскрывает список
       } catch (e) { ready = false; toastError(e, 'загрузить изделия'); }
-    } }, 'Выбрать другое изделие'));
+    };
+    if (single) togglePick();
+    else acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: togglePick }, 'Выбрать другое изделие'));
     // подходящего нет — создать изделие из названия позиции; после «Создать» позиция сопоставляется с ним и панель возвращается сюда
     acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async () => {
       const { createProductFor } = await import('./products.js'); // форма изделия — только по нажатию (не грузим при старте)
@@ -92,8 +102,9 @@ export const matching = {
   id: 'matching',
   title: 'Сопоставление',
   get: async (id) => {
-    const d = await api('/matching/suggest', { query: { orderId: id } });
-    return { ...d, id };
+    const [orderId, lineId] = String(id).split('.');
+    const d = await api('/matching/suggest', { query: { orderId } });
+    return { ...d, id, orderId, lineId };
   },
   card: {
     heading: (r) => `Договор ${r.orderNo || '—'}`,
@@ -102,17 +113,27 @@ export const matching = {
     view: () => [],
     extra: (r, ctx) => {
       const write = canWrite();
-      const items = r.items || [];
-      const run = async (fn) => { try { await fn(); changed(); ctx.reload(); } catch (e) { toastError(e, 'сохранить сопоставление'); } };
+      const all = r.items || [];
+      const one = r.lineId ? all.filter((x) => String(x.lineId) === r.lineId) : [];
+      const single = one.length === 1;
+      const items = single ? one : all;
+      const run = async (fn) => {
+        try {
+          await fn(); changed();
+          if (single) patch({ of: undefined, open: undefined }); else ctx.reload();
+        } catch (e) { toastError(e, 'сохранить сопоставление'); }
+      };
       const sure = items.filter((x) => x.confident && x.state !== 'confirmed' && x.state !== 'none' && (x.suggestions?.[0]?.productId || x.productId));
-      const bulk = write && sure.length
+      const bulk = write && !single && sure.length
         ? h('button', { type: 'button', class: 'btn btn-primary', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/bulk', { method: 'POST', body: { items: sure.map((x) => ({ lineId: x.lineId, productId: x.suggestions?.[0]?.productId || x.productId })) } })); } }, `Подтвердить все уверенные (${sure.length})`)
         : null;
       return h('div', { class: 'mt' },
-        h('div', { class: 'mt-top' }, h('b', null, `Сопоставлено ${qty(r.matched ?? 0)} из ${qty(r.total ?? items.length)}`), r.unmatched ? h('span', { class: 'muted' }, ` · осталось ${qty(r.unmatched)}`) : null),
+        single
+          ? h('div', { class: 'mt-top' }, h('b', null, 'Выбор изделия для позиции'), h('span', { class: 'muted' }, ' · '), h('button', { type: 'button', class: 'link-btn', onclick: () => openMatching(patch, r.orderId) }, 'Весь договор'))
+          : h('div', { class: 'mt-top' }, h('b', null, `Сопоставлено ${qty(r.matched ?? 0)} из ${qty(r.total ?? items.length)}`), r.unmatched ? h('span', { class: 'muted' }, ` · осталось ${qty(r.unmatched)}`) : null),
         write ? null : h('p', { class: 'hint' }, 'Только просмотр: сопоставлять могут администратор и менеджер.'),
         bulk,
-        items.length ? h('ul', { class: 'mt-list' }, items.map((it) => lineRow(it, run, write))) : h('p', { class: 'muted' }, 'В договоре нет позиций.'));
+        items.length ? h('ul', { class: 'mt-list' }, items.map((it) => lineRow(it, run, write, single))) : h('p', { class: 'muted' }, 'В договоре нет позиций.'));
     },
   },
 };
