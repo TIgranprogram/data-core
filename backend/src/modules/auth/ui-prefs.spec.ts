@@ -24,6 +24,10 @@ const validate = (body: unknown) =>
   pipe.transform(body, { type: 'body', metatype: UiPrefsDto });
 
 describe('UiPrefsDto (ШП-1)', () => {
+  it('viewScale: normal / large — проходит; прочее — 400', async () => {
+    for (const v of ['normal', 'large']) await expect(validate({ viewScale: v })).resolves.toBeDefined();
+    await expect(validate({ viewScale: 'huge' })).rejects.toBeInstanceOf(BadRequestException);
+  });
   it('panelLayout: one / two / wide — проходит; прочее — 400', async () => {
     for (const v of ['one', 'two', 'wide']) await expect(validate({ panelLayout: v })).resolves.toBeDefined();
     await expect(validate({ panelLayout: 'xyz' })).rejects.toBeInstanceOf(BadRequestException);

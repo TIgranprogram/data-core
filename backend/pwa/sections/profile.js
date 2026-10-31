@@ -2,10 +2,12 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { toast, toastError } from '../ui/toast.js';
 import { AVATAR_PRESETS, avatarNode, presetNode } from '../ui/avatars.js';
+import { getPref, setPref } from '../core/prefs.js';
 
 /**
  * Правая панель «Мой профиль» (`?of=profile&open=me`): имя, телефон, аватар (10 пресетов или своё фото).
  * Сервер: GET/PATCH /auth/me. После сохранения шапка перерисовывается событием dc:profile.
+ * «Вид экрана» (ИЗ-19) — сразу, без «Сохранить»: uiPrefs.viewScale (core/prefs.js), у каждого свой, на любом устройстве.
  */
 const photoOf = (a) => (String(a || '').startsWith('photo:') ? a : null);
 
@@ -54,6 +56,11 @@ export const profile = {
           ctx.reload?.();
         } catch (ex) { toastError(ex, 'сохранить профиль'); } finally { btn.classList.remove('is-busy'); btn.disabled = false; }
       } }, 'Сохранить');
+      // ИЗ-19: крупный вид — сразу на экране, сохраняется у пользователя
+      const VIEWS = [{ v: 'normal', label: 'Обычный' }, { v: 'large', label: 'Крупный' }];
+      const viewBtns = VIEWS.map((o) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', onclick: () => { setPref('viewScale', o.v === 'large' ? 'large' : ''); paintView(); } }, o.label));
+      const paintView = () => { const cur = getPref('viewScale') === 'large' ? 'large' : 'normal'; viewBtns.forEach((b, i) => { const on = VIEWS[i].v === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); };
+      paintView();
       paint();
       return h('div', { class: 'pf-profile' },
         h('div', { class: 'pf-av-head' }, preview, h('div', null, h('b', null, r.displayName || r.username || ''), h('div', { class: 'muted' }, r.roleLabel || ''))),
@@ -61,6 +68,8 @@ export const profile = {
         h('label', { class: 'field' }, h('span', null, 'Телефон'), phone),
         h('div', { class: 'field' }, h('span', null, 'Аватар'), grid,
           h('div', { class: 'pf-av-up' }, upBtn, photoOf(avatar) ? h('span', { class: 'muted' }, 'Выбрано своё фото') : null), file),
+        h('div', { class: 'field' }, h('span', null, 'Вид экрана'), h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Вид экрана' }, viewBtns),
+          h('small', { class: 'muted' }, 'Крупный — фото, текст, поля и кнопки больше. Меняется сразу, сохраняется для вас на любом устройстве.')),
         h('div', { class: 'actions' }, save));
     },
   },

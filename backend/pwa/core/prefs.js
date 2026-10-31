@@ -18,7 +18,7 @@ const PREFS = {
   filterW: { css: '--filter-w', min: 240, max: 520, std: 280 },
   chatW: { css: '--chat-w', min: 320, max: 1200, std: 420 }, // окно чата поверх приложения (ui/chat-window.js)
 };
-const STR = ['lastChat', 'panelLayout']; // строковые настройки (без CSS): lastChat — 'all' или id пользователя; panelLayout — 'two' | 'wide' (нет значения = 'one', ui/card.js)
+const STR = ['lastChat', 'panelLayout', 'viewScale']; // строковые настройки (без CSS): lastChat — 'all' или id пользователя; panelLayout — 'two' | 'wide' (нет значения = 'one', ui/card.js)
 const OVER = '--detail-over'; // ширина правой панели в режиме «поверх» (< DOCK_MIN)
 
 let uid = '';
@@ -72,6 +72,8 @@ export function limits(key, src = shown) {
 /** Применить значения к странице (CSS-переменные на <html>), ограничив их по окну. */
 function paint(src) {
   const st = document.documentElement.style;
+  // ИЗ-19: крупный вид — атрибут на <html>, размеры — в ui/tokens.css
+  if (src.viewScale === 'large') document.documentElement.dataset.scale = 'large'; else delete document.documentElement.dataset.scale;
   const off = window.innerWidth <= NARROW;
   for (const [key, p] of Object.entries(PREFS)) {
     const v = src[key];
@@ -128,6 +130,7 @@ export function setPref(key, val) {
   if (!uid || (saved[key] || '') === (val || '')) return;
   if (val) saved[key] = val; else delete saved[key];
   dirty.add(key); writeLocal();
+  shown = { ...shown, [key]: saved[key] }; paint(shown);
   clearTimeout(timer); timer = setTimeout(sendPrefs, 1000);
 }
 

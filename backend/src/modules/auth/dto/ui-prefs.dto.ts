@@ -44,4 +44,9 @@ export class UiPrefsDto {
   @IsOptional()
   @Matches(/^(one|two|wide)$/, { message: 'panelLayout — one, two или wide' })
   panelLayout?: string;
+
+  @ApiPropertyOptional({ example: 'large', description: 'Вид экрана: normal | large (крупный)' })
+  @IsOptional()
+  @Matches(/^(normal|large)$/, { message: 'viewScale — normal или large' })
+  viewScale?: string;
 }

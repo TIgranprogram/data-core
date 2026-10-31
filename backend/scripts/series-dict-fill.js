@@ -48,12 +48,14 @@ function printPlan(plan, log = console.log) {
 
 module.exports = { buildPlan, applyPlan, printPlan };
 
-if (require.main === module) (async () => {
+// require.main нет при запуске через stdin (remote-access/run-script.sh: node -)
+if (require.main === module || String(module.id).includes('[stdin]')) (async () => {
   const uri = process.env.MONGO_URI;
   if (!uri) throw new Error('MONGO_URI не задан');
   const apply = process.argv.includes('--apply');
-  const i = process.argv.indexOf('--out'); const outFile = i > 0 ? process.argv[i + 1] : null;
-  if (apply && !outFile) throw new Error('Для --apply укажите --out файл.json — выгрузка для отката');
+  const i = process.argv.indexOf('--out'); let outFile = i > 0 ? process.argv[i + 1] : null;
+  // --apply без --out (run-script.sh): выгрузка для отката — в /tmp контейнера; полный бэкап базы run-script делает сам
+  if (apply && !outFile) outFile = '/tmp/series-dict-fill-' + Date.now() + '.json';
   const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
   const client = await MongoClient.connect(uri);
   try {

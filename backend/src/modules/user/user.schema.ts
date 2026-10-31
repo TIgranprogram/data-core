@@ -14,9 +14,11 @@ export interface UiPrefs {
   lastChat?: string;
   /** Вид правой панели: one | two | wide (одна колонка / две / две и широкий блок снизу). */
   panelLayout?: string;
+  /** ИЗ-19: вид экрана — normal | large (крупный: всё чуть больше, фото заметно больше). */
+  viewScale?: string;
 }
 export const UI_PREF_KEYS = ['sidebarW', 'detailW', 'filterW', 'chatW'] as const;
-export const UI_PREF_STR_KEYS = ['lastChat', 'panelLayout'] as const;
+export const UI_PREF_STR_KEYS = ['lastChat', 'panelLayout', 'viewScale'] as const;
 
 @Schema({ softDelete: false,  collection: 'users', timestamps: true })
 export class User {

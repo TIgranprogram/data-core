@@ -194,3 +194,12 @@
 
 @media (max-width: 1100px) { :root { --gutter: 20px; } }
 @media (max-width: 720px) { :root { --gutter: 12px; --fs-h1: 21px; --fs-h2: 17px; --fs-h3: 15px; --topbar-h: 56px; } }
+
+/* ИЗ-19: «Крупный» вид (Мой профиль → Вид экрана; атрибут ставит core/prefs.js).
+   Весь экран чуть крупнее (текст, поля, кнопки), фото в списках — заметно крупнее. */
+html[data-scale="large"] body { zoom: 1.12; }
+html[data-scale="large"] .pic { width: 60px; height: 60px; }
+html[data-scale="large"] .pic-lg { width: 120px; height: 120px; }
+html[data-scale="large"] table.list td.pic-cell { width: 68px; }
+html[data-scale="large"] table.list td.pic-cell:has(.pic-lg) { width: 132px; height: 132px; }
+html[data-scale="large"] .gal-box img, html[data-scale="large"] .gc-pic { min-height: 200px; }
