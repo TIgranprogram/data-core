@@ -151,7 +151,8 @@ export const passports = {
       // НМ: черновик — «Выпустить» (номер — сейчас, последним шагом); PDF черновика — с пометкой «ЧЕРНОВИК»
       statusOf(r) === 'draft' && canEdit() && { label: 'Выпустить', primary: true, run: (row, ctx) => issueAction(row, ctx),
         ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },
-      { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
+      !r.passportCategory ? { label: '⇩ PDF — нет категории', disabled: true, title: canEdit() ? 'Нет категории паспорта — нажмите «Выбрать категорию»' : 'Нет категории паспорта — её указывает директор или администратор', run: () => {} }
+        : { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
       isIssued(r) && canEdit() && { label: 'Новая редакция', title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { st.revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
       isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
       isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },

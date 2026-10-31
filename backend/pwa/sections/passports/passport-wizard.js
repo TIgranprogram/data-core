@@ -82,11 +82,13 @@ function buildProductSearch(row, ctx, onSaved) {
         const items = Array.isArray(res) ? res : (res.items || []);
         clear(dropList);
         items.forEach((p) => {
-          const li = h('li', { class: 'pw-suggest-item', onclick: () => {
+          const bad = p.canPassport === false;
+          const li = h('li', { class: 'pw-suggest-item' + (bad ? ' shp-dim' : ''), 'aria-disabled': bad ? 'true' : null, title: bad ? 'Нет категории паспорта — заполните в «Продукции»' : null, onclick: () => {
+            if (bad) return;
             picked = p.id;
             inp.value = p.name || String(p.id);
             dropList.style.display = 'none';
-          } }, p.name || String(p.id));
+          } }, p.name || String(p.id), bad ? h('small', { class: 'shp-why' }, ' Нет категории паспорта — заполните в «Продукции»') : null);
           dropList.appendChild(li);
         });
         dropList.style.display = items.length ? '' : 'none';

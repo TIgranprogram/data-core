@@ -119,8 +119,8 @@ export function productBlock(api, { r, catBy }) {
         : all.filter((p) => !filterCat || p.ppCategory === filterCat);
       rows = rows.sort((a, b) => (a.canPassport === false) - (b.canPassport === false) || (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
       const shown = rows.slice(0, 60);
-      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row' + (p.canPassport === false ? ' shp-dim' : ''), role: 'option', tabindex: '0', onclick: () => pick(p), onkeydown: (e) => { if (e.key === 'Enter') pick(p); } },
-        pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)), p.canPassport === false && (p.missing || []).length ? h('small', { class: 'shp-why' }, (p.missing || []).join('; ')) : null)))
+      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row' + (p.canPassport === false ? ' shp-dim' : ''), role: 'option', tabindex: '0', 'aria-disabled': p.canPassport === false ? 'true' : null, title: p.canPassport === false ? 'Нет категории паспорта — заполните в «Продукции»' : null, onclick: () => { if (p.canPassport !== false) pick(p); }, onkeydown: (e) => { if (e.key === 'Enter' && p.canPassport !== false) pick(p); } },
+        pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)), p.canPassport === false ? h('small', { class: 'shp-why' }, 'Нет категории паспорта — заполните в «Продукции»') : null)))
         : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
         ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted static' }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
       add.textContent = q ? `+ Создать изделие «${q}»` : '+ Создать изделие';
