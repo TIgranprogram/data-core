@@ -231,6 +231,25 @@ export class ProductPassportService {
     }
   }
 
+  /**
+   * Черновики паспортов на все позиции заказа без живого паспорта (не удалён, не аннулирован); название — из позиции.
+   * Повтор ничего не дублирует: наличие проверяется перед каждым созданием. Уникального индекса по incomeId нет (на проде не добавляем).
+   */
+  async createDraftsForOrder(orderId: string): Promise<{ created: number; skipped: number; items: Array<{ incomeId: string; passportId: string }> }> {
+    const oid = this.oid(orderId);
+    const db = this.connection.db!;
+    if (!(await db.collection('salesorders').findOne({ _id: oid, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
+    const incomes = await db.collection('incomes').find({ orderId: oid, deletedAt: null, cancelledAt: null, productId: { $ne: null } }, { projection: { title: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    const items: Array<{ incomeId: string; passportId: string }> = [];
+    let skipped = 0;
+    for (const inc of incomes) {
+      if (await this.model.exists({ incomeId: inc._id, status: { $ne: 'annulled' } })) { skipped++; continue; }
+      const doc = await this.create({ incomeId: String(inc._id), ...(inc.title ? { name: String(inc.title) } : {}) } as CreateProductPassportDto);
+      items.push({ incomeId: String(inc._id), passportId: String(doc._id) });
+    }
+    return { created: items.length, skipped, items };
+  }
+
   /** Копия на ту же модель: поля модели и картинки, новые номера, дата — сегодня, заказчик — пустой. */
   async copy(id: string, over: Partial<CreateProductPassportDto> = {}) {
     const src = (await this.findById(id)).toObject() as unknown as Doc;

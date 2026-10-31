@@ -3,11 +3,12 @@ import { skuKey } from '../../common/text/search-norm';
  * Разбор каталога изделий (TASKS БЗ-4): строки таблицы в любом порядке колонок, как лист «Перечень изделий 2026»
  * (Тип · Группа · Артикул · Наименование · Серия; цена — необязательно). Чистая функция — юнит-тесты catalog-rows.spec.ts.
  */
-export interface CatalogRow { type: string | null; group: string | null; sku: string; name: string; series: string | null; price: number | null; line: number }
+export interface CatalogRow { type: string | null; group: string | null; sku: string; name: string; series: string | null; price: number | null; orderName: string | null; line: number }
 
 const HEAD: Record<string, keyof CatalogRow> = {
   'тип': 'type', 'раздел': 'type', 'группа': 'group', 'подраздел': 'group', 'артикул': 'sku', 'арт': 'sku', 'код': 'sku',
   'наименование': 'name', 'название': 'name', 'изделие': 'name', 'серия': 'series', 'цена': 'price', 'стоимость': 'price', 'цена, руб': 'price', 'цена, ₽': 'price',
+  'короткое название': 'name', 'название в договоре': 'orderName',
 };
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const num = (s: unknown) => { const t = clean(s).replace(/\s/g, '').replace(',', '.').replace(/[^\d.]/g, ''); const n = Number(t); return t && Number.isFinite(n) && n > 0 ? n : null; };
@@ -32,7 +33,7 @@ export function parseCatalog(text: string) {
     const k = skuKey(r.sku); // тот же артикул, что и при проверке дубля
     if (seen.has(k)) { errors.push(`Строка ${line}: артикул ${r.sku} уже был в строке ${seen.get(k)} — взята первая`); return; }
     seen.set(k, line);
-    rows.push({ type, group, sku: r.sku, name: r.name, series: r.series || null, price: num(r.price), line });
+    rows.push({ type, group, sku: r.sku, name: r.name, series: r.series || null, price: num(r.price), orderName: r.orderName || null, line });
   });
   return { rows, errors };
 }

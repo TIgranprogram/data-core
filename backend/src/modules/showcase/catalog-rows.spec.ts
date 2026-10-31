@@ -12,9 +12,9 @@ describe('catalog-rows (БЗ-4): разбор каталога изделий', 
     const { rows, errors } = parseCatalog(text);
     expect(errors).toEqual([]);
     expect(rows).toEqual([
-      { type: 'Детское оборудование', group: 'Качели', sku: '1001', name: 'Качели «Гнездо»', series: 'Сказка', price: 125000, line: 3 },
-      { type: 'Детское оборудование', group: 'Качели', sku: '1002', name: 'Качели двойные', series: 'Сказка', price: null, line: 4 },
-      { type: 'Спорт', group: 'Воркаут', sku: '2001', name: 'Турник', series: null, price: 35000.5, line: 5 },
+      { type: 'Детское оборудование', group: 'Качели', sku: '1001', name: 'Качели «Гнездо»', series: 'Сказка', price: 125000, orderName: null, line: 3 },
+      { type: 'Детское оборудование', group: 'Качели', sku: '1002', name: 'Качели двойные', series: 'Сказка', price: null, orderName: null, line: 4 },
+      { type: 'Спорт', group: 'Воркаут', sku: '2001', name: 'Турник', series: null, price: 35000.5, orderName: null, line: 5 },
     ]);
   });
   it('ошибки по строкам: нет артикула, нет наименования, повтор артикула; нет заголовка', () => {
@@ -22,5 +22,9 @@ describe('catalog-rows (БЗ-4): разбор каталога изделий', 
     expect(rows.map((r) => r.sku)).toEqual(['5']);
     expect(errors).toEqual(['Строка 2: нет артикула («Без артикула»)', 'Строка 3: нет наименования (арт. 77)', 'Строка 5: артикул 5 уже был в строке 4 — взята первая']);
     expect(parseCatalog('a\tb').errors[0]).toContain('Нет строки заголовков');
+  });
+  it('«Название в договоре» и «Короткое название» — необязательные колонки в конце', () => {
+    const { rows } = parseCatalog('Артикул\tКороткое название\tНазвание в договоре\n1\tКачели\tКачели 2-местные\n2\tТурник\t');
+    expect(rows.map((r) => [r.name, r.orderName])).toEqual([['Качели', 'Качели 2-местные'], ['Турник', null]]);
   });
 });

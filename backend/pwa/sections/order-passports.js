@@ -30,19 +30,13 @@ export function orderPassportActions(order, existing, onChange) {
   btnAll.addEventListener('click', async () => {
     if (!(await confirmDlg('Паспорта на весь заказ', `Создать ${todo.length} ${plural(todo.length, 'черновик', 'черновика', 'черновиков')}?`, { okText: 'Создать' }))) return;
     btnAll.classList.add('is-busy'); btnAll.disabled = true;
-    let done = 0; const failed = [];
-    const progress = (i) => { hint.textContent = `Создаю ${i} из ${todo.length}…`; };
-    for (const l of todo) {
-      progress(done + failed.length + 1);
-      try {
-        await api('/passports', { method: 'POST', body: { productId: String(l.productId), salesOrderId: String(order.id), incomeId: String(l.id),
-          ...(order.orderNo ? { orderNo: String(order.orderNo) } : {}), ...(order.customer ? { customerName: order.customer } : {}), ...(l.title ? { name: l.title } : {}) } });
-        done++;
-      } catch (e) { failed.push(l.title || 'позиция'); }
-    }
+    hint.textContent = `Создаю ${todo.length} ${plural(todo.length, 'черновик', 'черновика', 'черновиков')}…`;
+    try {
+      // один запрос: сервер создаёт только недостающие, повтор ничего не дублирует
+      const r = await api(`/salesorders/${order.id}/passports/draft-all`, { method: 'POST' });
+      toast(`Создано черновиков: ${r.created}${r.skipped ? `, уже были: ${r.skipped}` : ''}`);
+    } catch (e) { toastError(e, 'создать черновики паспортов'); }
     btnAll.classList.remove('is-busy'); hint.textContent = '';
-    if (failed.length) toast(`Создано ${done} из ${todo.length}. Не вышло: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`, { error: true });
-    else toast(`Создано черновиков: ${done}`);
     onChange?.();
   });
 

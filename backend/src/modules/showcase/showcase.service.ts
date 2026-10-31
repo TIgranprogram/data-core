@@ -434,21 +434,21 @@ export class ShowcaseService {
   async import(text: string, apply: boolean) {
     const { rows, errors } = parseCatalog(text);
     // сверка по тому же правилу, что и проверка дубля (регистр, похожие буквы): иначе «ab-1» при «AB-1» в базе шёл как новый и загрузка падала на 409
-    const existing = rows.length ? await this.db.collection('products').find({ sku: { $in: rows.map((r) => skuRegex(r.sku)) } }, { projection: { sku: 1, name: 1, series: 1, listPrice: 1, deletedAt: 1 } }).toArray() : [];
+    const existing = rows.length ? await this.db.collection('products').find({ sku: { $in: rows.map((r) => skuRegex(r.sku)) } }, { projection: { sku: 1, name: 1, series: 1, listPrice: 1, orderName: 1, deletedAt: 1 } }).toArray() : [];
     const by = new Map(existing.map((e) => [skuKey(e.sku), e]));
     const plan = rows.map((r) => {
       const e = by.get(skuKey(r.sku));
-      const action = !e ? 'new' : e.deletedAt ? 'deleted' : (clean(e.name) !== r.name || (e.series ?? null) !== r.series || (r.price && !(Number(e.listPrice) > 0))) ? 'update' : 'same';
+      const action = !e ? 'new' : e.deletedAt ? 'deleted' : (clean(e.name) !== r.name || (e.series ?? null) !== r.series || (r.orderName && clean(e.orderName) !== r.orderName) || (r.price && !(Number(e.listPrice) > 0))) ? 'update' : 'same';
       return { ...r, action };
     });
     const count = (a: string) => plan.filter((p) => p.action === a).length;
     const report = { total: rows.length, new: count('new'), update: count('update'), same: count('same'), deleted: count('deleted'), errors, preview: plan.slice(0, 30) };
     if (!apply) return { ...report, applied: false };
     for (const p of plan) {
-      if (p.action === 'new') await this.create({ sku: p.sku, name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price ? { price: p.price } : {}) });
+      if (p.action === 'new') await this.create({ sku: p.sku, name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price ? { price: p.price } : {}), ...(p.orderName ? { orderName: p.orderName } : {}) });
       else if (p.action === 'update') {
         const e = by.get(skuKey(p.sku))!;
-        await this.update(String(e._id), { name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price && !(Number(e.listPrice) > 0) ? { price: p.price } : {}) });
+        await this.update(String(e._id), { name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price && !(Number(e.listPrice) > 0) ? { price: p.price } : {}), ...(p.orderName ? { orderName: p.orderName } : {}) });
       }
     }
     return { ...report, applied: true };

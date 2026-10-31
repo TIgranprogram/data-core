@@ -231,6 +231,15 @@ export class ProductPassportController {
     return new StreamableFile(r.buf);
   }
 
+  /** Черновики паспортов на все позиции заказа без живого паспорта → { created, skipped, items:[{incomeId, passportId}] }. Тела нет; повтор безопасен. */
+  @Post('salesorders/:id/passports/draft-all')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.created', entityType: 'ProductPassport', details: () => ({ meta: { draftAll: true } }) })
+  draftAll(@Param('id') id: string) {
+    return this.service.createDraftsForOrder(id);
+  }
+
   @Post('passports')
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.created', entityType: 'ProductPassport' })
