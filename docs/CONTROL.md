@@ -14,6 +14,7 @@
 | Экраны открываются? | `QA_DIR=… node backend/scripts/qa-smoke.mjs [ширина]` | стенд `:3002`, skill `datacore-verify` §3а–3б |
 | Выкладка безопасна? | `release.sh`: ворота, бэкап, откат при красной проверке | `bash remote-access/deploy.sh` с работы |
 | Копия восстановится? | `bash deploy/synology/restore-drill.sh` | на VM, раз в месяц, запускает пользователь |
+| Какие команды есть и что они делают? | Окно `pult/Pult.cmd`, справка `pult/docs/КОМАНДЫ.md` | у пользователя, кнопками |
 | Карта кода не отстала? | `node backend/scripts/check-map.mjs` | сам идёт в preflight |
 
 ## Цепочки и их тесты

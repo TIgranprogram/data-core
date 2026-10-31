@@ -5,6 +5,12 @@
       "name": "data-core",
       "port": 3001,
       "url": "http://localhost:3001"
+    },
+    {
+      "name": "pult",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["pult/server.mjs", "--no-open"],
+      "port": 47811
     }
   ]
 }

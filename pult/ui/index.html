@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="pult-token" content="__TOKEN__">
+  <title>Пульт DataCore</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="/icon.svg" alt="" width="28" height="28"><div><b>Пульт DataCore</b><small>Кнопки вместо команд в PowerShell</small></div></div>
+    <div class="pills" id="pills" aria-live="polite"></div>
+    <button class="ghost" id="refresh" title="Обновить состояние">Обновить</button>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+  <div class="layout">
+    <nav class="nav" aria-label="Разделы">
+      <input id="search" type="search" placeholder="Поиск команды…" aria-label="Поиск команды">
+      <div id="nav"></div>
+      <div class="legend" id="legend"></div>
+    </nav>
+    <main class="main">
+      <div class="head"><h1 id="title"></h1><p id="subtitle"></p></div>
+      <div class="cards" id="cards"></div>
+    </main>
+    <aside class="console" aria-label="Журнал запусков">
+      <div class="tabs" id="tabs"></div>
+      <div class="job-head" id="jobHead" hidden>
+        <div><b id="jobTitle"></b><span id="jobState" class="state"></span></div>
+        <div class="job-actions">
+          <button class="ghost" id="copyBtn">Копировать</button>
+          <button class="ghost danger" id="stopBtn" hidden>Остановить</button>
+        </div>
+      </div>
+      <div class="advice" id="advice" hidden></div>
+      <pre class="out" id="out"></pre>
+      <div class="empty" id="empty"><b>Здесь появится ход выполнения</b><span>Нажмите «Запустить» на любой карточке слева. Полный вывод останется в папке pult/logs.</span></div>
+    </aside>
+  </div>
+  <dialog id="confirm">
+    <form method="dialog" id="confirmForm">
+      <h2 id="cTitle"></h2>
+      <span class="badge" id="cRisk"></span>
+      <p id="cText"></p>
+      <p class="params-line" id="cParams" hidden></p>
+      <label id="cWordBox" hidden>Введите слово <b id="cWordHint"></b>
+        <input id="cWord" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="dlg-actions">
+        <button type="button" class="ghost" id="cCancel">Отмена</button>
+        <button type="submit" class="primary" id="cOk">Запустить</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
