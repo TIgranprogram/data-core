@@ -4,6 +4,7 @@ import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { failBlock } from '../ui/busy.js';
+import { posPic } from '../ui/pos-pic.js';
 
 import { toast, toastError } from '../ui/toast.js';
 import { editReservation } from './reservations.js';
@@ -31,9 +32,9 @@ export function orderReservations(order, onChanged) {
     // что выдавать и сколько — в правой панели (SK-6c); здесь только список и кнопка
     const can = items.filter((x) => x.onHand > 0 && x.qty > 0).length;
     const act = h('button', { type: 'button', class: 'btn btn-primary btn-sm', disabled: !can, onclick: () => patch({ of: 'resedit', new: '1', op: 'issueorder', orderId: order.id, open: undefined }, { replace: false }) }, 'Выдать по заказу…');
-    const lineLabel = (x) => (x.salesOrderLineId ? `${order.productionNo || order.orderNo || ''}${(order.productionNo && order.seqBy?.get(String(x.salesOrderLineId))) || x.lineNo ? '-' + ((order.productionNo && order.seqBy?.get(String(x.salesOrderLineId))) || x.lineNo) : ''} · ${x.lineTitle || 'позиция заказа'}` : 'весь заказ');
+    const lineLabel = (x) => { if (!x.salesOrderLineId) return 'весь заказ'; const n = order.seqBy?.get(String(x.salesOrderLineId)) ?? x.lineNo; return `${n ? 'поз. ' + n + ' · ' : ''}${x.lineTitle || 'позиция заказа'}`; };
     const rows = items.map((x) => {
-      return h('li', { class: 'spec-row res-order-row' }, h('span'),
+      return h('li', { class: 'spec-row res-order-row' }, posPic(x.photo, 'sm'),
         h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: x.name }, x.name),
           h('small', { class: x.canIssue ? 'muted' : 'neg' }, lineLabel(x) + (x.issued ? ` · уже выдано ${qty(x.issued)} ${x.unit}` : '') + (x.canIssue ? '' : x.onHand > 0 ? ` · на складе только ${qty(x.onHand)} ${x.unit}` : ' · на складе нет'))),
         h('span', { class: 'num nowrap', title: 'Осталось в брони' }, `${qty(x.qty)} ${x.unit}`),

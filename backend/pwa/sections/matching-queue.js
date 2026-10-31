@@ -5,7 +5,8 @@ import { go, patch } from '../core/router.js';
 import { enhanceSelect } from '../ui/select.js';
 import { toastError } from '../ui/toast.js';
 import { STAGE } from './order-stage.js';
-import { matchPic, openMatching } from './salesorders-matching.js';
+import { openMatching } from './salesorders-matching.js';
+import { posPic } from '../ui/pos-pic.js';
 
 // УПР-1/Д9: re-export matching panel section (used as ?of=matching right panel)
 export { matching } from './salesorders-matching.js';
@@ -84,9 +85,9 @@ export function unmatchedTop({ open = false } = {}) {
     return h('tr', null,
       h('td', { class: 'nowrap' }, it.productionNo ? h('b', null, it.productionNo) : h('span', { class: 'muted' }, 'нет №'), h('div', { class: 't-sub' }, STAGE[it.stage]?.label || '')),
       h('td', null, h('b', null, it.orderNo || '—'), h('div', { class: 't-sub' }, it.customer || '')),
-      h('td', null, h('div', { class: 'mq-item' }, matchPic(it.photo), h('div', { class: 'mq-item-main' }, it.title))),
+      h('td', null, h('div', { class: 'mq-item' }, posPic(it.photo), h('div', { class: 'mq-item-main' }, it.title))),
       h('td', { class: 'num nowrap' }, `${qty(it.qty)} ${it.unit || ''}`.trim()),
-      h('td', null, s ? h('div', { class: 'mq-item' }, matchPic(s.photo), h('div', { class: 'mq-item-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `совпадение ${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`))) : h('span', { class: 'muted' }, write ? 'Похожих изделий нет. Нажмите «Выбрать…»' : 'Похожих изделий нет')),
+      h('td', null, s ? h('div', { class: 'mq-item' }, posPic(s.photo), h('div', { class: 'mq-item-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `совпадение ${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`))) : h('span', { class: 'muted' }, write ? 'Похожих изделий нет. Нажмите «Выбрать…»' : 'Похожих изделий нет')),
       h('td', { class: 'mq-act-cell' }, acts));
   };
   const paint = () => {

@@ -3,6 +3,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
+import { loadLinePhotos } from '../../common/photos';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
@@ -299,8 +300,9 @@ export class StockReservationsService {
     const [mats, stocks, lines] = await Promise.all([
       this.materials.find({ _id: { $in: matIds } }, { name: 1, unit: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec(),
       db.collection('storageitems').find({ warehouseId: wh._id, materialId: { $in: matIds }, deletedAt: null }, { projection: { materialId: 1, quantity: 1 } }).toArray(),
-      lineIds.length ? db.collection('incomes').find({ _id: { $in: lineIds } }, { projection: { lineNo: 1, title: 1 } }).toArray() : [],
+      lineIds.length ? db.collection('incomes').find({ _id: { $in: lineIds } }, { projection: { lineNo: 1, title: 1, photoIds: 1, productId: 1 } }).toArray() : [],
     ]);
+    const photos = await loadLinePhotos(db, lines);
     const nm = new Map(mats.map((m) => [String(m._id), m]));
     const onHand = new Map<string, number>();
     for (const s of stocks) onHand.set(String(s.materialId), (onHand.get(String(s.materialId)) ?? 0) + (Number(s.quantity) || 0));
@@ -309,7 +311,8 @@ export class StockReservationsService {
       const m = nm.get(String(d.materialId)), have = onHand.get(String(d.materialId)) ?? 0, l = d.salesOrderLineId ? ln.get(String(d.salesOrderLineId)) : undefined;
       return { id: String(d._id), materialId: String(d.materialId), name: m?.name ?? '(позиция удалена)', unit: m?.unit ?? '', qty: d.qty, issued: (d as { issuedQty?: number }).issuedQty ?? 0,
         onHand: have, canIssue: d.qty > 0 && have >= d.qty, groupName: d.groupName ?? d.orderId ?? '', batchId: d.batchId ? String(d.batchId) : null,
-        salesOrderLineId: d.salesOrderLineId ? String(d.salesOrderLineId) : null, lineNo: l ? (l.lineNo as number) ?? null : null, lineTitle: l ? String(l.title ?? '') : null };
+        salesOrderLineId: d.salesOrderLineId ? String(d.salesOrderLineId) : null, lineNo: l ? (l.lineNo as number) ?? null : null, lineTitle: l ? String(l.title ?? '') : null,
+        photo: l ? photos.get(String(l._id)) ?? null : null };
     });
     return { order: { id: String(order._id), label: [order.orderNo, order.title].filter(Boolean).join(' · '), customer: order.customer ?? null, stage: order.stage ?? null },
       hanging: hangingReason(order, order._id), items, total: items.length };

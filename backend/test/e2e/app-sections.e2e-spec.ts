@@ -95,7 +95,7 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
       const so = (await http().get('/api/salesorders/lookup').query({ filter: 'all', lines: '1' }).set(k).expect(200)).body;
       const o = so.items.find((x: { id: string }) => x.id === orderId);
       expect(Object.keys(o).sort()).toEqual(['customer', 'id', 'lines', 'orderNo', 'productionNo', 'shipDate', 'stage', 'title']);
-      expect(Object.keys(o.lines[0]).sort()).toEqual(['id', 'lineNo', 'productId', 'qty', 'seqNo', 'title']);
+      expect(Object.keys(o.lines[0]).sort()).toEqual(['id', 'lineNo', 'photo', 'productId', 'qty', 'seqNo', 'title']);
       const ll = (await http().get(`/api/salesorders/${orderId}/lines-lookup`).set(k).expect(200)).body;
       const lines = Array.isArray(ll) ? ll : ll.items;
       expect(lines.length).toBe(3);

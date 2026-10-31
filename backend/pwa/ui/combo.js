@@ -24,7 +24,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
   mount();
   input.setAttribute('autocomplete', 'off');
   input.classList.add('combo-input');
-  let shown = []; let active = 0; let picking = false; let suppressed = false;
+  let shown = []; let active = 0; let picking = false;
   const all = () => (typeof options === 'function' ? options() : options) || [];
   const close = () => { box.hidden = true; };
   // multi: «графит, зел» → вписаны [графит], ищем «зел»
@@ -65,7 +65,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
     if (multi) { input.focus(); render(false); } else close(); // multi: список остаётся — можно выбрать ещё
     onPick?.(o);
   }
-  input.addEventListener('focus', () => { if (suppressed) { suppressed = false; return; } active = -1; render(false); });
+  input.addEventListener('focus', () => { active = -1; }); // сам фокус список не открывает (форма ставит его на первое поле): только нажатие, ввод или стрелка
   input.addEventListener('click', () => { if (box.hidden) render(false); });
   input.addEventListener('input', () => { if (!picking) { active = -1; render(true); } });
   input.addEventListener('blur', () => setTimeout(close, 120));
@@ -77,5 +77,5 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
     else if (e.key === 'Tab') close();
   });
   input.addEventListener('change', () => { input.title = input.value; });
-  return { close, suppress: () => { suppressed = true; }, refresh: () => { if (!box.hidden) render(true); } };
+  return { close, refresh: () => { if (!box.hidden) render(true); } };
 }

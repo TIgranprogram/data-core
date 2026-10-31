@@ -2,7 +2,7 @@ import { STAGE, crumbTrail } from './order-stage.js';
 import { stageBar } from '../ui/stage-bar.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/pop-menu.js';
 import { sideForm, openSide, sideNote } from '../ui/side-form.js';
-import { api, PREFIX, session, writeHooks } from '../core/api.js';
+import { api, session, writeHooks } from '../core/api.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
@@ -22,6 +22,7 @@ import { orderDesign } from './order-design.js';
 import { orderWork } from './order-work.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
+import { posPic } from '../ui/pos-pic.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
@@ -174,8 +175,9 @@ function issuedBlock(d, sec) {
   const lines = d.lines || [];
   const groups = new Map();
   for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
-  const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `${d.productionNo || d.orderNo || ''}-${lines[i].seqNo ?? lines[i].lineNo ?? i + 1} · ${lines[i].title}`; };
+  const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `поз. ${lines[i].seqNo ?? lines[i].lineNo ?? i + 1} · ${lines[i].title}`; };
   return sec(`Выдано со склада по позициям (${groups.size})`, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', i ? { class: 'tl-cont' } : null,
+    i === 0 ? posPic(x.photo, 'sm') : null,
     i === 0 ? h('span', { class: 'tl-line', title: title(k) }, title(k)) : null, h('span', null, x.materialName || 'позиция'),
     h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || '')),
     h('span', { class: 'muted' }, `выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`),
@@ -258,7 +260,7 @@ function contractGroup(o, reload) {
   const table = lines.length
     ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Название'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null, session.canMoney ? h('th', { class: 'num' }, 'Оплачено') : null, session.canMoney ? h('th', { class: 'num' }, 'Долг') : null, payOn ? h('th', null, '') : null)),
       h('tbody', null, ...lines.map((l, i) => h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
-        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, l.photo ? h('img', { class: 'pic so-pic', src: PREFIX + (l.photo.thumb || l.photo.url), alt: '', loading: 'lazy', title: 'Открыть фото', onclick: (e) => { e.stopPropagation(); window.open(PREFIX + l.photo.url, '_blank'); }, onerror: (e) => e.target.remove() }) : null), h('td', null, l.title, ourLine(l), l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
+        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, 'lg')), h('td', null, l.title, ourLine(l), l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
         h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l)))))
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
@@ -324,8 +326,8 @@ function produceBlock(d) {
   const t = d.toProduce || [];
   if (!t.length) return null;
   return sec(`К производству (${t.length})`,
-    h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, 'Изделие'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Ед. изм.'), h('th', null, 'Из позиций'))),
-      h('tbody', null, ...t.map((x, i) => h('tr', null, h('td', { class: 'muted' }, i + 1), h('td', null, x.title), h('td', { class: 'num nowrap' }, qty(x.qty)), h('td', { class: 'muted' }, x.unit || ''), h('td', { class: 'muted' }, (x.seqNos || []).join(', ')))))),
+    h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Изделие'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Ед. изм.'), h('th', null, 'Из позиций'))),
+      h('tbody', null, ...t.map((x, i) => h('tr', null, h('td', { class: 'muted' }, i + 1), h('td', { class: 'pic-cell' }, posPic(x.photo, 'lg')), h('td', null, x.title), h('td', { class: 'num nowrap' }, qty(x.qty)), h('td', { class: 'muted' }, x.unit || ''), h('td', { class: 'muted' }, (x.seqNos || []).join(', ')))))),
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
 }
 
@@ -417,6 +419,7 @@ export const salesorders = {
     periods: (P) => (['shipped', 'closed'].includes(P.filter) ? { date: (r) => r.deadline || r.createdAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
     rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage], run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
+      { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => posPic(r.coverPhoto, 'sm') },
       { key: 'productionNo', label: '№ заказа', sort: 'productionNo', cls: 'nowrap', render: (r) => (r.productionNo ? h('b', null, r.productionNo) : h('span', { class: 'muted' }, 'нет №')) },
       { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: names(r.customers) }, names(r.customers)) },
@@ -431,12 +434,14 @@ export const salesorders = {
       title: (r) => `№ ${prodNo(r)} · ${names(r.customers)}`,
       sub: (r) => [(r.orderNos || []).length && 'договоры ' + names(r.orderNos), `${r.lineCount} поз.`, r.deadline ? 'срок ' + date(r.deadline) : ''].filter(Boolean).join(' · '),
       side: (r) => [badge(STAGE, r.stage), prio(r)],
+      thumb: (r) => posPic(r.coverPhoto, 'sm'),
     },
     board: {
       default: true,
       map: (r) => ({ ...r, id: r.key }),
       columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
       card: (r) => ({
+        pic: r.coverPhoto || undefined,
         title: `№ ${prodNo(r)} · ${names(r.customers)}`,
         meta: [(r.orderNos || []).length ? h('span', { class: 'muted' }, 'договоры ' + names(r.orderNos)) : null, h('span', null, `${r.lineCount} поз.`), r.deadline ? due(r) : null, r.stagesDiffer ? h('span', { class: 'muted' }, 'разные этапы') : null, prio(r), unmatchedOrders(r)[0] ? unmatchedFlag(unmatchedOrders(r)[0].id) : null].filter(Boolean),
         side: r.amount && session.canMoney ? money(r.amount) : '',

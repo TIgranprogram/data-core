@@ -12,6 +12,7 @@ import type { SalesOrderDto } from './dto';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, orderKey, type OrderStage } from '../../common/text/order-key';
 import { netIssuedByLine } from '../../common/issued-net';
 import { remaining } from '../../common/text/shipment-calc';
+import { loadLinePhotos, type LinePhoto } from '../../common/photos';
 import { HISTORY_TYPES, loadOrderHistory, type HistoryAccess } from './order-history';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-key';
 import { loadSeq } from '../../common/text/production-seq';
@@ -173,7 +174,7 @@ export class SalesOrdersService {
       m.issuedToLabel = [m.issuedToPersonId ? pName.get(String(m.issuedToPersonId)) : null, m.issuedTo].filter(Boolean).join(' · ') || null;
     }
     // «Выдано под позицию» (SK-5): нетто = выдано − возвращено, по позиции заказа и материалу
-    const issuedByLine = netIssuedByLine(stockMovements as never).map((r) => ({ ...r, materialName: (matName.get(r.materialId)?.name as string | undefined) ?? null, unit: (matName.get(r.materialId)?.unit as string | undefined) ?? null }));
+    const issuedByLine = netIssuedByLine(stockMovements as never).map((r) => ({ ...r, photo: null as LinePhoto, materialName: (matName.get(r.materialId)?.name as string | undefined) ?? null, unit: (matName.get(r.materialId)?.unit as string | undefined) ?? null }));
     const resGroups = new Map<string, { key: string; name: string; createdAt: unknown; lines: number; left: number; issued: number }>();
     for (const r of reservations) {
       const key = String(r.batchId ?? r._id);
@@ -185,13 +186,10 @@ export class SalesOrdersService {
     }
     const ST: Record<string, string> = { in_progress: 'Ожидает', requested: 'Заказать', ordered: 'В работе', received: 'Получено', cancelled: 'Отменено' };
     for (const s of supplyRequests as Doc[]) s.statusLabel = s.status === 'ordered' && s.paid ? 'Оплачено' : ST[String(s.status)] ?? s.status;
-    // Фото позиций (из Excel «Вид» или загруженные): первое — превью в карточке заказа
-    const phIds = lines.flatMap((l) => ((l.photoIds as Types.ObjectId[] | undefined) ?? []).slice(0, 1));
-    const ph = phIds.length ? await db.collection('photos').find({ _id: { $in: phIds } }, { projection: { storageUrl: 1 } }).toArray() : [];
-    const thumbs = phIds.length ? await db.collection('photos').find({ parentPhotoId: { $in: phIds }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray() : [];
-    const phUrl = new Map(ph.map((p) => [String(p._id), String(p.storageUrl)]));
-    const thUrl = new Map(thumbs.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
-    for (const l of lines as Doc[]) { const id = String(((l.photoIds as unknown[]) ?? [])[0] ?? ''); if (phUrl.has(id)) l.photo = { url: phUrl.get(id), thumb: thUrl.get(id) ?? phUrl.get(id) }; }
+    // Фото позиции: своё (из Excel «Вид» или загруженное), иначе главное фото изделия, иначе null — превью в карточке заказа
+    const linePh = await loadLinePhotos(db, lines);
+    for (const l of lines as Doc[]) l.photo = linePh.get(String(l._id)) ?? null;
+    for (const r of issuedByLine) r.photo = linePh.get(r.salesOrderLineId) ?? null;
     // Изделие каждой позиции одним $in (образец — incomes.present): {id, name, sku, photoId}; фото — products.photoIds[0], как в витрине
     const prodIds = [...new Set(lines.map((l) => l.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
     const prods = prodIds.length ? await db.collection('products').find({ _id: { $in: prodIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray() : [];
@@ -233,10 +231,11 @@ export class SalesOrdersService {
     const byOrder = new Map<string, Doc[]>();
     const seq = withLines && docs.length ? await loadSeq(this.connection.db!, docs.map((d) => d._id)) : new Map<string, { seqNo: number }>();
     if (withLines && docs.length) {
-      const lines = await this.incomes().find({ orderId: { $in: docs.map((d) => d._id) }, deletedAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+      const lines = await this.incomes().find({ orderId: { $in: docs.map((d) => d._id) }, deletedAt: null }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+      const photos = await loadLinePhotos(this.connection.db!, lines);
       for (const l of lines) {
         const list = byOrder.get(String(l.orderId)) ?? [];
-        list.push({ id: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, seqNo: seq.get(String(l._id))?.seqNo ?? null, title: l.title ?? '', qty: (l.qty as number | undefined) ?? null, productId: l.productId ? String(l.productId) : null });
+        list.push({ id: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, seqNo: seq.get(String(l._id))?.seqNo ?? null, title: l.title ?? '', qty: (l.qty as number | undefined) ?? null, productId: l.productId ? String(l.productId) : null, photo: photos.get(String(l._id)) ?? null });
         byOrder.set(String(l.orderId), list);
       }
     }

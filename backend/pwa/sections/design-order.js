@@ -1,7 +1,8 @@
-import { api, PREFIX, session } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
+import { posPic } from '../ui/pos-pic.js';
 import { askAssignee, changed, COL_LABEL, createTask, distributeOrder, dropOrder, fetchBoardOrder, loadLines } from '../ui/design-board.js';
 import { toastError } from '../ui/toast.js';
 import { dueNode, moveTask, people } from './design.js';
@@ -32,7 +33,7 @@ function linesBlock(row, ctx) {
       }, 'назначить исполнителя') }, t.assignee ? 'Сменить исполнителя' : 'Назначить'));
     }
     return h('li', { class: 'db-prow' },
-      l.photo ? h('img', { class: 'db-pic sm', src: PREFIX + l.photo, alt: '', loading: 'lazy' }) : h('span', { class: 'db-pic sm none' }),
+      posPic(l.photo ? { url: l.photo, thumb: l.photo } : null, 'sm'),
       h('div', { class: 'db-pmain' },
         h('div', { class: 't-title' }, t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть изделие справа' }, lineTitle(l)) : lineTitle(l)),
         h('div', { class: 't-sub' }, [l.sku && '№ ' + l.sku, l.qty != null && `${qty(l.qty)} ${l.unit || ''}`.trim(), t?.assignee?.name].filter(Boolean).join(' · ')),

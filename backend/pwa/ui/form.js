@@ -104,10 +104,9 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       };
       load().then(() => {
         const cats = [...new Set(items.map((x) => x.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-        let itemCombo;
-        attachCombo(cat, { options: () => cats.map((c) => ({ label: c, value: c })), onPick: (o) => { setCat(o.value); item.value = ''; itemCombo?.suppress(); item.focus(); } });
+        attachCombo(cat, { options: () => cats.map((c) => ({ label: c, value: c })), onPick: (o) => { setCat(o.value); item.value = ''; item.focus(); } });
         cat.addEventListener('change', () => { const v = cat.value.trim(); setCat(cats.find((c) => c.toLowerCase() === v.toLowerCase()) || ''); });
-        itemCombo = attachCombo(item, {
+        attachCombo(item, {
           options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
           empty: () => (catSel ? null : (cat.classList.add('need'), setTimeout(() => cat.classList.remove('need'), 1600), '← Сначала выберите категорию — тогда здесь будут её позиции')),
           onPick: (o) => {

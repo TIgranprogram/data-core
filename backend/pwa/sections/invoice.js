@@ -96,10 +96,9 @@ async function buildInvoiceForm(opts = {}) {
       if (name) loadItems();
       title.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию';
     };
-    let titleCombo;
-    attachCombo(cat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })), onPick: (o) => { setCat(o.label); title.value = ''; row.extra = {}; titleCombo?.suppress(); title.focus(); } });
+    attachCombo(cat, { options: () => (lk.categories || []).map((c) => ({ label: c.name })), onPick: (o) => { setCat(o.label); title.value = ''; row.extra = {}; title.focus(); } });
     cat.addEventListener('change', () => { const v = cat.value.trim(); const c = (lk.categories || []).find((x) => x.name.toLowerCase() === v.toLowerCase()); setCat(c ? c.name : ''); });
-    titleCombo = attachCombo(title, {
+    attachCombo(title, {
       options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
       empty: () => (catSel ? null : (needCat(cat), '← Сначала выберите категорию — тогда здесь будут её позиции')),
       onPick: (o) => { const v = o.x.values || {}; row.picked = o.label; if (v.unit) unit.value = v.unit; row.extra = { article: v.article }; if (!sup.value && v.supplierName) sup.value = v.supplierName; dupe.check(o.label); },

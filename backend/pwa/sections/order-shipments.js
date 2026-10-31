@@ -6,6 +6,7 @@ import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { failBlock } from '../ui/busy.js';
 import { emptyState } from '../ui/empty.js';
+import { posPic } from '../ui/pos-pic.js';
 
 /**
  * Отгрузки заказа и история (ТЗ ОТГ/ИСТ). Блоки в карточке заказа + правая панель «Отгрузить» (`of=shipdo&open=<orderId>`).
@@ -25,6 +26,7 @@ export function shipmentsBlock(order, onChange) {
       d.legacyShipped ? h('p', { class: 'hint' }, 'Отгружено до учёта — остаток по позициям не считается.') : null,
       items.length ? h('ul', { class: 'timeline' }, ...items.map((s) => h('li', null,
         h('span', { class: 'when' }, date(s.date)), h('b', null, s.number || ''),
+        h('span', { class: 'shp-pics' }, ...(s.lines || []).slice(0, 3).map((l) => posPic(l.photo, 'sm'))),
         h('span', null, `${qty(s.qtyTotal)} шт. · ${(s.lines || []).map((l) => `${l.title} ×${qty(l.qty)}`).join(', ')}`),
         h('span', { class: 'muted' }, [s.who?.name, s.receiver && 'принял: ' + s.receiver, s.docNo && '№ ' + s.docNo, s.reason && 'причина: ' + s.reason, s.note].filter(Boolean).join(' · ')),
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => pdf(s) }, 'Накладная'),
@@ -93,7 +95,7 @@ function form(order, ctx) {
     rows.forEach((r) => { r.inp.addEventListener('input', sync); r.on.addEventListener('change', sync); });
     sync();
     const blockedBox = blocked.length ? h('div', { class: 'shp-blocked' }, h('div', { class: 'section-title' }, 'Пока нельзя'),
-      ...blocked.map((l) => { const w = why(l); return h('div', { class: 'shp-row shp-dim' }, h('b', null, l.title), h('span', { class: 'muted' }, (w.missing || []).join('; ') || 'Не готово'),
+      ...blocked.map((l) => { const w = why(l); return h('div', { class: 'shp-row shp-dim' }, posPic(w.photo, 'sm'), h('b', null, l.title), h('span', { class: 'muted' }, (w.missing || []).join('; ') || 'Не готово'),
         ...(w.links || []).map((k) => h('a', { href: k.href }, k.label))); })) : null;
     if (!rows.length) {
       const w = why(blocked[0]);
@@ -117,8 +119,8 @@ function form(order, ctx) {
     } }, 'Отгрузить');
     root.replaceChildren(
       h('div', { class: 'section-title' }, 'Можно отгрузить'),
-      h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', null, 'Позиция'), h('th', { class: 'num' }, 'Осталось'), h('th', null, 'Сколько'))),
-        h('tbody', null, ...rows.map((r) => h('tr', null, h('td', null, r.on), h('td', null, r.l.title), h('td', { class: 'num nowrap' }, `${qty(r.left)} ${r.l.unit || ''}`), h('td', null, r.inp))))),
+      h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', null, ''), h('th', null, 'Позиция'), h('th', { class: 'num' }, 'Осталось'), h('th', null, 'Сколько'))),
+        h('tbody', null, ...rows.map((r) => h('tr', null, h('td', null, r.on), h('td', { class: 'pic-cell' }, posPic(rem.get(String(r.l.id))?.photo, 'sm')), h('td', null, r.l.title), h('td', { class: 'num nowrap' }, `${qty(r.left)} ${r.l.unit || ''}`), h('td', null, r.inp))))),
       h('div', { class: 'form-grid' },
         h('label', { class: 'field' }, h('span', null, 'Дата'), date0), h('label', { class: 'field' }, h('span', null, 'Получатель'), recv),
         h('label', { class: 'field' }, h('span', null, '№ документа'), docNo), h('label', { class: 'field' }, h('span', null, 'Примечание'), note), reasonBox),

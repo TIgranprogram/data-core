@@ -28,8 +28,8 @@ export function summarize(orders: Doc[]): { deadline: Date | null; stage: OrderS
   return { deadline, stage, stagesDiffer: new Set(pool).size > 1, priority: orders.length ? priority : 'normal' };
 }
 
-export type ProduceLine = { seqNo: number; title: string; unit?: string | null; qty?: number | null; productId?: string | null; productName?: string | null };
-export type ProduceRow = { key: string; productId: string | null; title: string; unit: string | null; qty: number; seqNos: number[] };
+export type ProduceLine = { seqNo: number; title: string; unit?: string | null; qty?: number | null; productId?: string | null; productName?: string | null; photo?: { url: string; thumb: string } | null };
+export type ProduceRow = { key: string; productId: string | null; title: string; unit: string | null; qty: number; seqNos: number[]; photo: { url: string; thumb: string } | null };
 
 /**
  * «К производству»: одинаковые позиции суммируются. Ключ — productId, нет — название (trim, регистр, пробелы, ё=е);
@@ -40,7 +40,8 @@ export function toProduce(lines: ProduceLine[]): ProduceRow[] {
   for (const l of lines) {
     const unit = String(l.unit ?? '').trim().toLowerCase();
     const key = `${l.productId ? `p:${l.productId}` : `t:${normTitle(l.title)}`}|${unit}`;
-    const r = rows.get(key) ?? { key, productId: l.productId ?? null, title: String(l.productName || l.title || '').trim(), unit: String(l.unit ?? '').trim() || null, qty: 0, seqNos: [] };
+    const r = rows.get(key) ?? { key, productId: l.productId ?? null, title: String(l.productName || l.title || '').trim(), unit: String(l.unit ?? '').trim() || null, qty: 0, seqNos: [], photo: null };
+    r.photo = r.photo ?? l.photo ?? null; // фото — первой позиции группы, у которой оно есть
     r.qty = Math.round((r.qty + (Number(l.qty) || 0)) * 1000) / 1000;
     r.seqNos.push(l.seqNo);
     rows.set(key, r);

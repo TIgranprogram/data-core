@@ -3,6 +3,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type Connection, type Model } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid } from '../../common/list-query';
+import { loadLinePhotos, type LinePhoto } from '../../common/photos';
 import type { OrderStage } from '../../common/text/order-key';
 import { remaining, stageAfterShipments, type RemainRow } from '../../common/text/shipment-calc';
 import { loadShipFacts, shipReadiness } from '../../common/text/shipment-ready';
@@ -43,7 +44,7 @@ export class ShipmentsService {
   }
 
   private incomes(orderId: Types.ObjectId) {
-    return this.db().collection('incomes').find({ orderId, deletedAt: null }, { projection: { title: 1, unit: 1, qty: 1, lineNo: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
+    return this.db().collection('incomes').find({ orderId, deletedAt: null }, { projection: { title: 1, unit: 1, qty: 1, lineNo: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
   }
 
   private live(orderId: Types.ObjectId) { return this.model.find({ orderId, deletedAt: null }).sort({ date: -1, seq: -1 }).lean().exec() as unknown as Promise<Doc[]>; }
@@ -52,8 +53,8 @@ export class ShipmentsService {
     return remaining(lines.map((l) => ({ id: String(l._id), qty: l.qty })), ships.map((s) => ({ lines: (s.lines as Doc[]).map((x) => ({ incomeId: String(x.incomeId), qty: x.qty })) })));
   }
 
-  private present(s: Doc) {
-    const lines = (s.lines as Doc[]).map((l) => ({ incomeId: String(l.incomeId), title: l.title ?? '', unit: l.unit ?? '', qty: l.qty }));
+  private present(s: Doc, photos?: Map<string, LinePhoto>) {
+    const lines = (s.lines as Doc[]).map((l) => ({ incomeId: String(l.incomeId), title: l.title ?? '', unit: l.unit ?? '', qty: l.qty, ...(photos ? { photo: photos.get(String(l.incomeId)) ?? null } : {}) }));
     return {
       id: String(s._id), orderId: String(s.orderId), number: s.number, seq: s.seq, date: s.date, lines,
       lineCount: lines.length, qtyTotal: Math.round(lines.reduce((a, l) => a + Number(l.qty || 0), 0) * 1000) / 1000,
@@ -68,9 +69,10 @@ export class ShipmentsService {
     const o = await this.order(orderId);
     const _id = o._id as Types.ObjectId;
     const [lines, ships] = await Promise.all([this.incomes(_id), this.live(_id)]);
+    const photos = await loadLinePhotos(this.db(), lines as Array<{ _id: unknown }>);
     const items = deleted
-      ? (await this.model.find({ orderId: _id, deletedAt: { $ne: null } }).sort({ deletedAt: -1 }).lean().exec() as unknown as Doc[]).map((s) => ({ ...this.present(s), deletedByName: s.deletedByName ?? null }))
-      : ships.map((s) => this.present(s));
+      ? (await this.model.find({ orderId: _id, deletedAt: { $ne: null } }).sort({ deletedAt: -1 }).lean().exec() as unknown as Doc[]).map((s) => ({ ...this.present(s, photos), deletedByName: s.deletedByName ?? null }))
+      : ships.map((s) => this.present(s, photos));
     const rem = this.rem(lines, ships);
     const facts = await loadShipFacts(this.db(), _id, lines.map((l) => ({ id: String(l._id), productId: l.productId ? String(l.productId) : null })));
     const byId = new Map(lines.map((l) => [String(l._id), l]));
@@ -78,7 +80,7 @@ export class ShipmentsService {
     const rows = rem.map((r) => {
       const l = byId.get(r.incomeId)!;
       const ready = shipReadiness({ id: r.incomeId, productId: l.productId ? String(l.productId) : null }, String(_id), facts.get(r.incomeId) ?? {});
-      return { ...r, ...ready, canShip: ready.canShip && r.left > 0 };
+      return { ...r, ...ready, photo: photos.get(r.incomeId) ?? null, canShip: ready.canShip && r.left > 0 };
     });
     return {
       items, total: items.length, remaining: rows, shippable: rows.filter((r) => r.canShip).length,

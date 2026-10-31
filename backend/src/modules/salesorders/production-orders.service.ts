@@ -4,6 +4,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { parseList } from '../../common/list-query';
+import { loadLinePhotos } from '../../common/photos';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { numberLines, sortLines, sortOrdersByEntry } from '../../common/text/production-seq';
 import { AuditService } from '../audit/audit.service';
@@ -132,6 +133,16 @@ export class ProductionOrdersService {
 
     // сводка по позициям и названия компаний — по одному запросу на страницу
     const ids = page.flatMap((g) => g.docs.map((d) => d._id as Types.ObjectId));
+    // обложка заказа — фото первой позиции, у которой оно есть (своё или изделия); позиции пачкой на всю страницу
+    const cover = new Map<string, { url: string; thumb: string } | null>();
+    const covLines = ids.length ? await this.connection.db!.collection('incomes').find({ orderId: { $in: ids }, deletedAt: null }, { projection: { orderId: 1, photoIds: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() : [];
+    const covPhotos = await loadLinePhotos(this.connection.db!, covLines);
+    for (const g of page) {
+      for (const d of g.docs) {
+        const hit = covLines.find((l) => String(l.orderId) === String(d._id) && covPhotos.get(String(l._id)));
+        if (hit) { cover.set(g.key, covPhotos.get(String(hit._id))!); break; }
+      }
+    }
     const [agg, companies] = await Promise.all([
       ids.length ? this.connection.db!.collection('incomes').aggregate([
         { $match: { orderId: { $in: ids }, deletedAt: null } },
@@ -151,7 +162,7 @@ export class ProductionOrdersService {
         customers: uniq(g.docs.map((d) => d.customer)), companyNames: uniq(g.docs.map((d) => (d.companyId ? cname.get(String(d.companyId)) : null))),
         lineCount: part.reduce((a, s) => a + (s?.lines ?? 0), 0), amount: part.reduce((a, s) => a + (s?.amount ?? 0), 0), paidAmount: part.reduce((a, s) => a + (s?.paid ?? 0), 0),
         deadline: g.deadline, stage: g.stage, stageLabel: STAGE_LABELS[g.stage], stagesDiffer: g.stagesDiffer, priority: g.priority,
-        createdAt: new Date(created(g)),
+        createdAt: new Date(created(g)), coverPhoto: cover.get(g.key) ?? null,
         readiness: { ready: readinessChecks(facts.get(g.key)!, g.key, String(g.docs[0]._id)).ready },
       };
     });
@@ -211,7 +222,7 @@ export class ProductionOrdersService {
       const ls = sortLines(c.lines as never[]) as unknown as Array<Doc & { id: string }>;
       const withSeq = ls.map((l) => ({ ...l, seqNo: seq.get(l.id) ?? null, matched: isMatched(l) })) as Array<Doc & { id: string; seqNo: number | null }>;
       if (c.stage !== 'cancelled') {
-        for (const l of withSeq) lines.push({ seqNo: l.seqNo as number, title: String(l.title ?? ''), unit: l.unit as string | undefined, qty: l.qty as number | undefined, productId: l.productId ? String(l.productId) : null, productName: (l.product as { name?: string } | null)?.name });
+        for (const l of withSeq) lines.push({ seqNo: l.seqNo as number, title: String(l.title ?? ''), unit: l.unit as string | undefined, qty: l.qty as number | undefined, productId: l.productId ? String(l.productId) : null, productName: (l.product as { name?: string } | null)?.name, photo: l.photo as ProduceLine['photo'] });
       }
       return { ...c, lines: withSeq, unmatchedCount: withSeq.filter((l) => !(l as unknown as { matched: boolean }).matched).length };
     });

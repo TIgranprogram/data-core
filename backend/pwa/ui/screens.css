@@ -298,7 +298,9 @@ table.so-lines tbody tr:hover { background: var(--row-hover); }
 table.so-lines .num { text-align: right; }
 
 .so-pic { width: 48px; height: 48px; cursor: zoom-in; }
-table.so-lines .pic-cell { width: 56px; }
+table.so-lines .pic-cell { width: 84px; padding-right: 0; }
+table.so-lines .pic-cell + td, table.so-lines th:nth-child(3) { min-width: 200px; }
+.so-pane { overflow-x: auto; }
 
 /* Сводка денег: строки по компаниям */
 table.sum-tbl tr.sub td { color: var(--muted); font-size: var(--fs-sm); padding-top: 4px; padding-bottom: 4px; }
@@ -1800,3 +1802,12 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
   box-shadow: var(--shadow-lg); z-index: 20; max-height: 240px; overflow-y: auto; }
 .pw-suggest-item { padding: var(--s1) var(--s2); cursor: pointer; }
 .pw-suggest-item:hover { background: var(--surface-2); }
+
+/* Фото позиций заказа (ORDERS-2): ui/pos-pic.js; «нет фото» в маленькой рамке мельче */
+.pic.mt-nopic:not(.pic-lg) { font-size: 9px; line-height: 1.1; padding: 2px; }
+.ord-lrow { display: flex; align-items: center; gap: var(--s2); }
+.ord-lrow .mt-picbtn, .ord-lrow .pic { flex: none; }
+.spec-row.res-order-row { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
+.shp-pics { display: inline-flex; gap: 4px; vertical-align: middle; }
+.shp-row .mt-picbtn, .shp-row .pic { flex: none; }
+@media (max-width: 720px) { .spec-row.res-order-row { grid-template-columns: 36px minmax(0, 1fr) auto; } }

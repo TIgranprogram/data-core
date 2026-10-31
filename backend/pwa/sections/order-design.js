@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { toastError, toast } from '../ui/toast.js';
 import { DESIGN_STATUS as STATUS } from '../ui/badges.js';
+import { posPic } from '../ui/pos-pic.js';
 
 /*
  * «Проектирование» в карточке заказа (ПРЖ-5): по каждой позиции — задача «D-81 · В работе» (ссылка) или галочка «передать».
@@ -39,7 +40,7 @@ export function orderDesign(order, lines) {
       const cb = can && free.includes(l) ? h('input', { type: 'checkbox', 'aria-label': 'Передать позицию в проектирование', checked: picked.has(String(l.id)),
         onchange: (e) => { if (e.target.checked) picked.add(String(l.id)); else picked.delete(String(l.id)); paint(); } }) : h('span');
       return h('li', { class: 'spec-row' }, cb,
-        h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: l.title }, `${l.seqNo ?? l.lineNo ?? i + 1}. ${l.title || "Без названия"}`)),
+        h('div', { class: 'spec-main ord-lrow' }, posPic(l.photo, 'sm'), h('div', { class: 'clip', title: l.title }, `поз. ${l.seqNo ?? l.lineNo ?? i + 1} · ${l.title || "Без названия"}`)),
         t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть задачу проектирования' }, `${t.code} · ${STATUS[t.status]?.label || t.status}`) : h('span', { class: 'muted' }, 'нет задачи'),
         h('span'));
     });
