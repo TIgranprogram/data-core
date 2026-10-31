@@ -1277,6 +1277,38 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       box.replaceChildren(head, bar, el('p', 'panel-note', forecast), dl, el('p', 'muted', 'Проверено: ' + new Date(d.checkedAt).toLocaleString('ru-RU')));
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось узнать место на диске: ' + e.message)); }
   }
+  // ---- Сервер: подозрительные запросы, входы и действия ----
+  function simpleTable(head, rows) {
+    const wrap = el('div', 'table-wrap'), t = el('table', 'table'), tr = el('tr');
+    head.forEach((h) => tr.append(el('th', null, h)));
+    t.append(el('thead')); t.firstChild.append(tr);
+    const tb = el('tbody');
+    rows.forEach((r) => { const x = el('tr'); r.forEach((c) => x.append(el('td', null, String(c ?? '—')))); tb.append(x); });
+    t.append(tb); wrap.append(t); return wrap;
+  }
+  const fmtDt = (v) => (v ? new Date(v).toLocaleString('ru-RU') : '—');
+  async function loadSecurity(days = 1) {
+    const box = $('#security-box');
+    try {
+      const d = await api('/health/security?days=' + days);
+      const sw = el('div', 'srv-btns');
+      [[1, 'Сутки'], [7, 'Неделя']].forEach(([n, t]) => { const b = el('button', 'btn' + (n === days ? ' btn-primary' : ''), t); b.type = 'button'; b.addEventListener('click', () => { b.disabled = true; loadSecurity(n); }); sw.append(b); });
+      const body = d.items.length
+        ? simpleTable(['Адрес', 'Всего отказов', 'Нет входа (401)', 'Запрещено (403)', 'Не найдено (404)', 'Неудачных входов'], d.items.map((i) => [i.ip, i.total, i.c401, i.c403, i.c404, i.loginFail]))
+        : el('p', 'muted', 'Подозрительных запросов нет');
+      box.replaceChildren(sw, body);
+    } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось загрузить: ' + e.message)); }
+  }
+  async function loadVisits() {
+    const box = $('#visits-box');
+    try {
+      const d = await api('/health/visits?days=7');
+      const a = el('h4', null, 'Последний вход'), b = el('h4', null, 'Действия за 7 дней (только записи)');
+      const logins = d.logins.length ? simpleTable(['Пользователь', 'Роль', 'Последний вход'], d.logins.map((u) => [u.name ? `${u.name} (${u.username})` : u.username, u.role, fmtDt(u.lastLoginAt)])) : el('p', 'muted', 'Входов нет');
+      const acts = d.activity.length ? simpleTable(['Пользователь', 'Действий', 'Последнее', 'Разделы'], d.activity.map((u) => [u.user, u.actions, fmtDt(u.lastAt), (u.sections || []).join(', ')])) : el('p', 'muted', 'Действий нет');
+      box.replaceChildren(a, logins, b, acts);
+    } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось загрузить: ' + e.message)); }
+  }
   // ---- Сервер: резервные копии (список + скачивание ZIP) ----
   const PART_RU = { all: 'Всё', mongo: 'База', uploads: 'Фото' };
   async function saveBackup(stamp, part, prog, single) {
@@ -1540,6 +1572,8 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   }
   function serverIdle() {
     idleBox('#server-box', { what: 'Сколько места занято на диске сервера.', wait: 'Обычно до 10 секунд.' }, 'Проверить место на диске', loadServer);
+    idleBox('#security-box', { what: 'Кто и с какого адреса получал отказы и ошибки входа.', wait: 'Обычно пара секунд.' }, 'Показать подозрительные запросы', () => loadSecurity(1));
+    idleBox('#visits-box', { what: 'Кто последним входил и что менял за неделю.', wait: 'Обычно пара секунд.' }, 'Показать входы и действия', loadVisits);
     idleBox('#backups-box', { what: 'Список ночных копий базы и фото — для скачивания.', wait: 'Обычно до 10 секунд.' }, 'Показать копии', loadBackups);
     idleBox('#offsite-box', { what: 'Куда и когда отправлять зашифрованные копии вне дома.', wait: 'Обычно пара секунд.' }, 'Настроить копии вне дома', loadOffsite);
     idleBox('#bundle-box', { what: 'Один файл для переезда на другой сервер. Сборка — по кнопке, занимает 5–10 минут.', wait: 'Читаю состояние, до 10 секунд.' }, 'Показать пакеты', () => loadBundle());

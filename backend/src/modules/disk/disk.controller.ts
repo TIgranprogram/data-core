@@ -1,4 +1,5 @@
-import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
+import { Controller, Get, Injectable, MiddlewareConsumer, Module, NestModule, Query } from '@nestjs/common';
+import { SecurityMiddleware, SecurityService } from './security';
 import { InjectConnection } from '@nestjs/mongoose';
 import { ApiTags } from '@nestjs/swagger';
 import { promises as fs } from 'fs';
@@ -86,7 +87,21 @@ export class DiskService {
 @ApiTags('Сервер')
 @Controller('health')
 export class DiskController {
-  constructor(private readonly disk: DiskService, private readonly integrity: IntegrityService) {}
+  constructor(private readonly disk: DiskService, private readonly integrity: IntegrityService, private readonly security: SecurityService) {}
+
+  /** БЗ-19: GET /api/health/security?days=1 — адреса с множеством 401/403/404 и неудачных входов (days 1–30). */
+  @Get('security')
+  @Roles('admin')
+  securityTop(@Query('days') days?: string) {
+    return this.security.report(Math.min(30, Math.max(1, Number(days) || 1)));
+  }
+
+  /** БЗ-19: GET /api/health/visits?days=7 — входы и действия по пользователям. */
+  @Get('visits')
+  @Roles('admin')
+  visits(@Query('days') days?: string) {
+    return this.security.visits(Math.min(90, Math.max(1, Number(days) || 7)));
+  }
 
   @Get('disk')
   @Roles('admin', 'director')
@@ -109,5 +124,9 @@ export class DiskController {
   }
 }
 
-@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController, OffsiteController], providers: [DiskService, IntegrityService, OffsiteService], exports: [IntegrityService] })
-export class DiskModule {}
+@Module({ imports: [AuditModule], controllers: [DiskController, BackupsController, BundleController, OffsiteController], providers: [DiskService, IntegrityService, OffsiteService, SecurityService], exports: [IntegrityService] })
+export class DiskModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SecurityMiddleware).forRoutes('*');
+  }
+}
