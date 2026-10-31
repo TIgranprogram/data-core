@@ -94,6 +94,9 @@ export const COMMANDS = [
   { id: 'deploy-urgent', section: 'deploy', title: 'Срочная выкладка', risk: 'danger', time: '5–10 мин', needs: ['bash', 'vm'], run: { deploy: ['--force-urgent'] },
     confirm: 'Только когда сайт уже сломан. Пропускает приёмку дизайнера и полный прогон. Остальные ворота работают.', word: 'СРОЧНО',
     hint: 'Для аварии. Коммит, GitHub и тесты всё равно проверяются.' },
+  { id: 'deploy-archive', section: 'deploy', title: 'Архив документов на сервер', risk: 'prod-write', time: '1–3 мин', run: { node: ['scripts/devlog-import.js', 'prod', '--apply'], cwd: 'backend' },
+    confirm: 'Законченные документы и задачи уйдут в архив «Ведение проекта» на сервере. Рабочие данные сайта не меняются.',
+    hint: 'То же делает каждая выкладка (шаг 7). Отдельно — когда документы перенесены в docs/archive и выкладки не будет. В конце — список файлов, которые можно удалить из проекта.' },
   { id: 'deploy-post', section: 'deploy', title: 'Проверка после выкладки', risk: 'read', time: '15 с', needs: ['bash'], run: { bash: ['deploy/synology/post-check.sh'] },
     hint: 'Нажмите через 1–2 часа после выкладки. Покажет новые ошибки с сайта на этой версии.' },
 
