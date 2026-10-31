@@ -12,9 +12,29 @@ import { currentVersion } from './update-check.js';
 
 const SAME_MS = 30000;
 const QUEUE_MAX = 20;
+const STORE_KEY = 'dc-client-errors';
 let off = false;            // сервер без /client-errors — молчим до перезагрузки
 const last = new Map();     // sig → когда отправлена
-const queue = [];
+const queue = (() => {      // неотправленное с прошлого открытия вкладки
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+    return Array.isArray(saved) ? saved.slice(0, QUEUE_MAX) : [];
+  } catch { return []; }
+})();
+
+function save() {
+  try {
+    if (queue.length) localStorage.setItem(STORE_KEY, JSON.stringify(queue));
+    else localStorage.removeItem(STORE_KEY);
+  } catch { /* приватный режим — только до закрытия вкладки */ }
+}
+
+/** В очередь на повтор; очередь полна — новая запись отбрасывается. */
+function keep(body) {
+  if (queue.length >= QUEUE_MAX) return;
+  queue.push(body);
+  save();
+}
 
 const cut = (s, n) => (s == null || s === '' ? undefined : String(s).slice(0, n));
 const norm = (s) => String(s || '').replace(/[0-9a-f]{24}/gi, '#').replace(/\d+/g, '#');
