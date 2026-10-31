@@ -158,3 +158,26 @@ describe('CategoryService (CATALOG-377)', () => {
     });
   });
 });
+
+describe('CategoryService: порядок категорий', () => {
+  function setup(bulkWrite: jest.Mock) {
+    const session = { withTransaction: jest.fn(async (fn: () => Promise<void>) => { await fn(); }), endSession: jest.fn() };
+    const svc = new CategoryService({ bulkWrite, db: { startSession: async () => session } } as never);
+    jest.spyOn(svc, 'findAll').mockResolvedValue([]);
+    return { svc, session };
+  }
+  it('reorder пишет одной транзакцией и закрывает сессию', async () => {
+    const bulkWrite = jest.fn();
+    const { svc, session } = setup(bulkWrite);
+    await svc.reorder(['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']);
+    expect(session.withTransaction).toHaveBeenCalledTimes(1);
+    expect(bulkWrite.mock.calls[0][0].map((o: { updateOne: { update: unknown } }) => o.updateOne.update)).toEqual([{ $set: { sortOrder: 0 } }, { $set: { sortOrder: 1 } }]);
+    expect(bulkWrite.mock.calls[0][1]).toEqual({ session });
+    expect(session.endSession).toHaveBeenCalledTimes(1);
+  });
+  it('сбой записи уходит наверх, сессия всё равно закрывается', async () => {
+    const { svc, session } = setup(jest.fn().mockRejectedValue(new Error('нет связи')));
+    await expect(svc.reorder(['507f1f77bcf86cd799439011'])).rejects.toThrow('нет связи');
+    expect(session.endSession).toHaveBeenCalledTimes(1);
+  });
+});

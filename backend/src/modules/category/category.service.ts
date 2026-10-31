@@ -141,12 +141,14 @@ export class CategoryService {
   async reorder(categoryIds: string[], organizationId?: string | null): Promise<CategoryDocument[]> {
     const invalid = categoryIds.find((id) => !Types.ObjectId.isValid(id));
     if (invalid) throw new BadRequestException(`Invalid category id: ${invalid}`);
-    const session = await this.model.db.startSession(); session.startTransaction();
-    try {
-      const ops = categoryIds.map((id, index) => ({ updateOne: { filter: { _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }, update: { $set: { sortOrder: index } } } }));
-      await this.model.bulkWrite(ops, { session }); await session.commitTransaction();
-    } catch (e) { await session.abortTransaction(); throw e; } finally { session.endSession(); }
+    await this.bulkInTransaction(categoryIds.map((id, index) => ({ updateOne: { filter: { _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }, update: { $set: { sortOrder: index } } } })));
     return this.findAll(undefined, organizationId);
+  }
+
+  /** Запись одной транзакцией; withTransaction сам повторяет её при смене главного узла. */
+  private async bulkInTransaction(ops: Parameters<Model<CategoryDocument>['bulkWrite']>[0]) {
+    const session = await this.model.db.startSession();
+    try { await session.withTransaction(async () => { await this.model.bulkWrite(ops, { session }); }); } finally { await session.endSession(); }
   }
 
   async reorderChildren(parentId: string | null, childIds: string[], organizationId?: string | null): Promise<CategoryDocument[]> {
@@ -157,7 +159,7 @@ export class CategoryService {
     const existing = await this.model.find({ _id: { $in: childIds.map((id) => new Types.ObjectId(id)) }, ...filter, deletedAt: null, ...this.organizationFilter(organizationId) }).select('_id').exec();
     const validIds = new Set(existing.map((d: CategoryDocument) => d._id.toString()));
     const ops = childIds.filter((id) => validIds.has(id)).map((id, index) => ({ updateOne: { filter: { _id: new Types.ObjectId(id) }, update: { $set: { sortOrder: index } } } }));
-    if (ops.length > 0) { const session = await this.model.db.startSession(); session.startTransaction(); try { await this.model.bulkWrite(ops, { session }); await session.commitTransaction(); } catch (e) { await session.abortTransaction(); throw e; } finally { session.endSession(); } }
+    if (ops.length > 0) await this.bulkInTransaction(ops);
     return this.findAll(undefined, organizationId);
   }
 
