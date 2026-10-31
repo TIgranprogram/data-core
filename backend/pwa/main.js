@@ -77,6 +77,7 @@ const LAZY = {
   money: [() => import('./sections/money.js'), [['@mountMoney','mountMoney'],['finstart','finStart']]],
   payroll: [() => import('./sections/payroll.js'), [['@mountPayroll','mountPayroll'],['payout','payout']]],
   staff: [() => import('./sections/staff.js'), [['@mountStaff','mountStaff'],['staffcard','staffCard'],['zonecard','zoneCard']]],
+  kit: [() => import('./sections/kit.js'), [['kit','kit']]],
   trash: [() => import('./sections/trash.js'), [['@mountTrash','mountTrash']]],
   fill: [() => import('./sections/fill.js'), [['@mountFill','mountFill']]],
   search: [() => import('./sections/search.js'), [['@mountSearch','mountSearch']]],

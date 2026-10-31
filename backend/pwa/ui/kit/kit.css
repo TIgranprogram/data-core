@@ -1,0 +1,14 @@
+/* kit.css — только модификаторы эталонов (k-…), цвета — токены. Базовые классы живут в base/list/panels.css. */
+/* Цветная полоса слева по tone (neutral — без полосы); --tone задают .tone-info/.tone-warn/.tone-ok/.tone-danger из base.css */
+.k-toned { border-left: 4px solid var(--tone, var(--border)); }
+.db-order.k-toned { border-left-width: 6px; border-left-color: var(--tone, var(--muted)); }
+/* Подвал и бейджи карточки */
+.k-badges { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.k-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+/* Карточка-плитка S: заголовок в одну строку, мета под ним */
+.tile.k-s { min-width: 0; }
+/* Витрина #kit: подписи и сетки образцов */
+.k-sample { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: flex-start; margin-bottom: var(--s4); }
+.k-sample > .tile, .k-sample > .tcard, .k-sample > .db-order { width: 260px; }
+.k-note { color: var(--muted); font-size: var(--fs-sm); margin: var(--s1) 0 var(--s2); }
+.k-board-demo .board { min-height: 0; }
