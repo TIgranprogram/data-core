@@ -1,4 +1,5 @@
 import { STAGE, crumbTrail } from './order-stage.js';
+import { nextStep, orderCounts } from './salesorders-next.js';
 import { stageBar } from '../ui/stage-bar.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/pop-menu.js';
 import { sideForm, openSide, sideNote } from '../ui/side-form.js';
@@ -402,6 +403,22 @@ function shape(d) {
 }
 const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? h('span', { class: 'tag ok', title: 'Все проверки пройдены, изготовленное готово — можно отметить «Готово к отгрузке»' }, ' Можно отгружать') : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
 const names = (a) => (a || []).join(', ');
+const COL_HINT = { new: 'проектирование', production: 'изготовление', ready: 'ждёт отгрузки', partly: 'досдать остаток', shipped: 'закрыть заказ' };
+/** Низ карточки доски: «что дальше», чипы счётчиков, одна кнопка (ORDERS-BOARD). Поля счётчиков с сервера необязательны. */
+function nextFoot(r) {
+  const s = nextStep(r);
+  if (!s.text) return null;
+  const n = orderCounts(r);
+  const chips = [[n.unassigned, 'не распределено', 'badge warn'], [n.design, 'проектирование', 'badge'], [n.requests, 'заявки', 'badge'], [n.work, 'в работе', 'badge'], [n.reserved, 'брони', 'badge'], [n.shipments, 'отгрузок', 'badge']]
+    .filter(([v]) => v > 0).map(([v, t, cls]) => h('span', { class: cls }, `${t} ${v}`));
+  const b = s.btn;
+  const canBtn = b && (b.href || session.canEditOrders);
+  return h('div', { class: 'so-next' },
+    h('div', { class: s.tone === 'neg' ? 'neg' : s.tone === 'ok' ? 'pos' : 'muted' }, s.text),
+    s.late ? h('div', { class: 'neg small' }, s.late) : null,
+    chips.length ? h('div', { class: 'so-next-chips' }, ...chips) : null,
+    canBtn ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { if (b.href) location.hash = b.href; else setStage(r, b.stage); } }, b.label) : null);
+}
 
 export const salesorders = {
   id: 'salesorders',
@@ -464,12 +481,13 @@ export const salesorders = {
     board: {
       default: true,
       map: (r) => ({ ...r, id: r.key }),
-      columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
+      columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, hint: COL_HINT[k], tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
       card: (r) => ({
         pic: r.coverPhoto || undefined,
         title: `№ ${prodNo(r)} · ${names(r.customers)}`,
         meta: [(r.orderNos || []).length ? h('span', { class: 'muted' }, 'договоры ' + names(r.orderNos)) : null, h('span', null, `${r.lineCount} поз.`), r.deadline ? due(r) : null, r.stagesDiffer ? h('span', { class: 'muted' }, 'разные этапы') : null, prio(r), unmatchedOrders(r)[0] ? unmatchedFlag(unmatchedOrders(r)[0].id) : null].filter(Boolean),
         side: r.amount && session.canMoney ? money(r.amount) : '',
+        foot: nextFoot(r),
       }),
       canMove: () => session.canEditOrders,
       move: async (r, to) => !!(await setStage(r, to)),
