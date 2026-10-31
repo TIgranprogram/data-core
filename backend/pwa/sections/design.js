@@ -10,6 +10,7 @@ import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { toast, toastError } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
+import { withRequestsTab } from './design-requests.js';
 import { activeOrders, orderLabel, STAGE } from './salesorders.js';
 
 /**
@@ -209,7 +210,7 @@ export const design = {
     board: {
       default: true,
       alt: 'flat', // ?view=flat — прежняя плоская доска (запасной путь на время приёмки)
-      mount: (b, path, q, o) => (current().params.view === 'flat' ? mountBoard : mountDesignBoard)(b, path, q, o),
+      mount: withRequestsTab((b, path, q, o) => (current().params.view === 'flat' ? mountBoard : mountDesignBoard)(b, path, q, o)),
       env: { people, moveTask: (r, to) => moveTask(r, to), dueNode, activeOrders, stageLabel: (s) => STAGE[s]?.label || 'Другой этап' },
       headCount: true,
       cls: 'board-pics',

@@ -12,6 +12,7 @@ import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
 import { crumbTrail } from './order-stage.js';
+import { lineTypeFields, lineBody, lineMark } from './order-lines.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 
 /**
@@ -233,6 +234,7 @@ export const orders = {
       ['Цвет', r.color],
       ['Размер', r.size],
       ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
+      ['Состояние', lineMark(r) || ''],
       ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
       ['Примечание', r.notes],
       ['В календаре', r.reportDate ? `${date(r.reportDate)} (${r.paidDate ? 'по дате оплаты' : 'по дате отгрузки'})` : h('span', { class: 'muted' }, 'не попадает — нет даты отгрузки или оплаты')],
@@ -258,8 +260,10 @@ export const orders = {
         const o = await api(`/salesorders/${row.orderId}`).catch(() => null);
         locked = !!o && (o.stage || 'new') !== 'new';
       }
+      const isNew = !row?.id && !locked;
       const all = [
         { section: locked ? 'Позиция заказа — название, количество и цену менять может администратор' : 'Позиция заказа', tone: 'main', fixed: true },
+        ...(isNew ? await lineTypeFields() : []),
         { key: 'orderId', label: 'Заказ', type: 'select', options: await import('./salesorders.js').then((m) => m.activeOrders()).then((os) => os.map((o) => ({ value: o.id, label: m2(o) }))).catch(() => []), hint: 'Позиция попадёт в карточку заказа; № и заказчик возьмутся из заказа', wide: true },
         { key: 'orderNo', label: '№ договора (если без карточки заказа)', max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
@@ -285,7 +289,7 @@ export const orders = {
       ];
       return locked ? all.filter((f) => !LOCKED_KEYS.includes(f.key)) : all;
     },
-    initial: () => ({ unit: 'шт', paymentForm: 'б/р' }),
+    initial: () => ({ unit: 'шт', paymentForm: 'б/р', lineType: 'product' }),
     toInitial,
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
@@ -296,7 +300,7 @@ export const orders = {
         productId: v.productId || null, // «—» в правке — отвязать; при создании пустое не шлём (сервер подберёт по названию)
       };
       if (locked) for (const k of LOCKED_KEYS) delete body[k];
-      return body;
+      return v.lineType ? lineBody(body, v) : body; // тип есть только у новой позиции
     },
     create: async (body) => { if (!body.productId) delete body.productId; const r = await api('/incomes', { method: 'POST', body }); incomeLookups.reset(); return r; },
     update: async (id, body) => { const r = await api(`/incomes/${id}`, { method: 'PATCH', body }); incomeLookups.reset(); return r; },

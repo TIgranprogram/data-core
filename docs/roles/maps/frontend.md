@@ -1,6 +1,7 @@
 # Карта роли frontend
 
 коммит: 1cab104 (+ незакоммиченная работа «Паспорт воронкой», 2026-10-25)
+- 2026-10-31 ORDER-LINES 5–6: `sections/order-lines.js` (lineTypeFields, lineBody, lineMark, countOf, distribBlock), `orders.js` form (isNew ~262, toBody ~300, view «Состояние»), `salesorders.js` (distribBlock в табе Позиции ~299, колонка Поз., view «Не распределено»), CSS конец screens.css `.ol-*`. Не закоммичено.
 - 2026-10-27 Продукция: `ui/list.js` — `L.defaults` (начало mountList), явный `view` в кнопках видов (~70), `gallery.card().price`; `products.js catLanding` (.sec-tile), CSS конец `ui/screens.css`. Не закоммичено.
 - 2026-10-30 УПР-1 (Д5,Д6,Д9,Д10,Д11,Д12): `stock.js` stockMore/rowAction; `home.js` убраны кнопки склада; `main.js` matching в NAV/sidebar/SEC_OF/GROUP_OF, history→Settings; `matching-queue.js` mountMatchingQueue+re-export matching; `reservations.js`/`order-reservations.js`/`stock-ops-res.js` «Снять»; `products.js`/`orders.js` «Паспорт→» вместо «Выпустить паспорт». Не закоммичено.
 

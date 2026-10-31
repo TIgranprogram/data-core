@@ -25,6 +25,7 @@ import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './
 import { posPic } from '../ui/pos-pic.js';
 import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLines } from './order-line-actions.js';
 import { orderPassportActions } from './order-passports.js';
+import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
@@ -257,7 +258,7 @@ function contractGroup(o, reload) {
     menu.length ? dots : null,
   ].filter(Boolean);
   const head = h('div', { class: 'so-grp-head' },
-    h('div', { class: 'so-grp-title' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : ''), ' ', badge(STAGE, o.stage), ' ', due(o)),
+    h('div', { class: 'so-grp-title' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : ''), ' ', badge(STAGE, o.stage), ' ', due(o), ' ', countBadge(countOf(o))),
     acts.length ? h('div', { class: 'so-grp-acts' }, ...acts) : null);
   // «Оплачено» / «Долг» и «Принять оплату» — только с правом на деньги (приём оплаты — панель incpay, она же из карточки позиции)
   const payOn = session.canMoney && can;
@@ -283,7 +284,7 @@ function contractGroup(o, reload) {
   const table = lines.length
     ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Название'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null, session.canMoney ? h('th', { class: 'num' }, 'Оплачено') : null, session.canMoney ? h('th', { class: 'num' }, 'Долг') : null, payOn ? h('th', null, '') : null, can ? h('th', null, '') : null)),
       h('tbody', null, ...lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
-        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, 'lg')), h('td', null, l.title, ourLine(l), l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
+        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, 'lg')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', { class: 'ol-mark' }, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
         h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null))))
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
@@ -296,7 +297,7 @@ function contractGroup(o, reload) {
   const hasShip = o.stage !== 'new' || lines.some((l) => l.shipped);
   // вкладки без данных не показываем: нет доступа к разделу, нет позиций или этап ещё не дошёл
   const defs = [
-    ['pos', `Позиции (${lines.length})`, true, () => h('div', null, table, add)],
+    ['pos', `Позиции (${lines.length})`, true, () => h('div', null, distribBlock(o, reload), table, add)],
     ['design', 'Проектирование', session.sees('design') && lines.length > 0, () => orderDesign({ id: o.id, orderNo: o.productionNo || o.orderNo }, lines)],
     ['work', 'Работа', session.sees('work') && lines.length > 0 && !closedStage(o), () => orderWork([o])],
     ['stock', 'Склад', seeReq || seeStock, () => h('div', null,
@@ -448,7 +449,7 @@ export const salesorders = {
       { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: names(r.customers) }, names(r.customers)) },
       { key: 'companyName', label: 'Наша компания', cls: 'md-hide', render: (r) => names(r.companyNames) || h('span', { class: 'muted' }, '—') },
-      { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => qty(r.lineCount) },
+      { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => h('span', null, qty(r.lineCount), countOf(r) ? h('span', { class: 'ol-count' }, ' ', countBadge(countOf(r))) : null) },
       { key: 'deadline', label: 'Срок', sort: 'deadline', cls: 'nowrap', render: due },
       { key: 'amount', money: true, label: 'Сумма', cls: 'num right md-hide', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, '—')) },
       { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prio(r) || '' },
@@ -487,6 +488,7 @@ export const salesorders = {
       ['Срок', r.deadline ? due(r) : ''],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
       ['Что дальше', r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? h('span', { class: 'neg' }, 'В заказе нет позиций — «В производство» не сработает. Сначала добавьте позиции.') : STAGE_NOW[r.stage] ? h('span', { class: 'muted' }, STAGE_NOW[r.stage]) : ''],
+      ['Не распределено', countOf(r) ? h('span', { class: 'neg' }, `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят (выбрать изделие, новое изделие или услуга).`) : ''],
       ['Этапы по договорам', r.stagesDiffer ? h('span', null, ...(r.orders || []).flatMap((o, i) => [i ? h('br') : '', `${o.orderNo || '—'}: ${STAGE[o.stage]?.label || o.stage}`])) : ''],
     ],
     // воронка этапов и крошки «Заказ № … ›»; шаг открывает нужный блок, этап не меняет

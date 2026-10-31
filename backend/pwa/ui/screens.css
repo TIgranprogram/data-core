@@ -1822,3 +1822,19 @@ table.so-lines tr.so-cancelled s { color: var(--muted); }
 
 /* Паспорт: поля из изделия — только чтение */
 .pp-readonly { opacity: .65; }
+
+/* Позиции заказа: «Распределение» и метки (ORDER-LINES) */
+.ol-box { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2, transparent); }
+.ol-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ol-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.ol-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ol-name { min-width: 0; overflow-wrap: anywhere; }
+.ol-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.ol-mark .badge { white-space: normal; }
+@media (max-width: 600px) { .ol-acts { width: 100%; } .ol-acts .btn { flex: 1 1 auto; } }
+/* Проектирование: заявки на создание изделия */
+.dr-wrap { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; }
+.dr-tabs { flex: none; }
+.dr-view, .dr-holder { min-width: 0; }
+.dr-bar { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; margin-bottom: var(--s3); }
+.dr-bar input { flex: 1 1 220px; min-width: 0; }
