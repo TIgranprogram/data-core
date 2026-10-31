@@ -241,6 +241,7 @@ const toInitial = (r) => ({ ...r, photos: r.photos || [], salesOrderRef: joinRef
 
 export const requests = {
   id: 'requests',
+  kind: 'Заявка снабжения',
   title: 'Заявки',
   newTitle: 'Новая заявка',
   entityType: 'SupplyRequest',

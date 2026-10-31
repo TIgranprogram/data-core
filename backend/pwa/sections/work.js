@@ -197,6 +197,7 @@ function cancelBlock(r, ctx) {
 
 export const work = {
   id: 'work',
+  kind: 'Задача в работе',
   title: 'В работе',
   noun: 'задание',
   entityType: 'WorkTask',

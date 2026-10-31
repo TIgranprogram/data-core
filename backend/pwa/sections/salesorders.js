@@ -381,6 +381,7 @@ const names = (a) => (a || []).join(', ');
 
 export const salesorders = {
   id: 'salesorders',
+  kind: 'Заказ',
   title: 'Заказы',
   entityType: 'SalesOrder',
   canEdit: () => session.canEditOrders, // директор и бухгалтер только смотрят: сервер им откажет
@@ -535,6 +536,7 @@ export const orderEdit = sideForm({
 /** Договор (`salesorders`): правка шапки, отмена, удаление. Открывается из группы в карточке заказа. */
 export const salesorder = {
   id: 'salesorder',
+  kind: 'Договор с заказчиком',
   title: 'Договор с заказчиком',
   newTitle: 'Новый договор',
   entityType: 'SalesOrder',

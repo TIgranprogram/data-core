@@ -58,13 +58,15 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let row = null;
   let form = null;
   const titleEl = h('h2');
+  // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
+  const kindEl = h('div', { class: 'drawer-kind', hidden: !section.kind }, section.kind || '');
   const subEl = h('div', { class: 'muted small' });
   const upEl = h('button', { class: 'btn btn-sm drawer-up', type: 'button', hidden: true }); // ТИ-2: явный возврат «← Заказ №…»
   const menuBox = h('div', { class: 'rel' });
   const body = h('div', { class: 'drawer-body' });
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
-    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, titleEl, subEl), menuBox,
+    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, titleEl, subEl), menuBox,
       h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot);
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП

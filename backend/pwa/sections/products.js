@@ -245,6 +245,7 @@ async function catLanding({ pick }) {
 
 export const products = {
   id: 'products',
+  kind: 'Изделие',
   title: 'Продукция',
   newTitle: 'Новое изделие',
   entityType: 'Product',

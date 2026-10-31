@@ -165,6 +165,7 @@ const toInitial = (r) => ({
 
 export const orders = {
   id: 'orders',
+  kind: 'Позиция заказа',
   title: 'Позиции заказов',
   newTitle: 'Новая строка заказа',
   entityType: 'Income',

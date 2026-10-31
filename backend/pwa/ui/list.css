@@ -71,6 +71,7 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 .drawer-head { display: flex; align-items: flex-start; gap: var(--s2); padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
 .drawer-head .t { flex: 1; min-width: 0; }
 .drawer-head h2 { overflow-wrap: anywhere; }
+.drawer-kind { margin-bottom: 2px; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
 .drawer-head .t > .muted, .drawer-head .t > .small { margin-top: 4px; }
 .drawer-body { flex: 1; overflow-y: auto; padding: 18px 24px; }
 .drawer-foot { display: flex; gap: var(--s2); padding: 12px 24px; border-top: 1px solid var(--border); flex-wrap: wrap; background: var(--surface-2); }

@@ -135,7 +135,7 @@ function topBlock(r, ctx) {
     ...pair('Изготовить', made, 'kv-full'),
     ...pair('Артикул', clean(r.sku)),
     ...pair('№ заказа / поз.', znpText ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, znpText) : znpText) : ''),
-    ...pair('Заказчик', clean(r.customerTitle), 'kv-full'),
+    ...pair('Название в договоре', clean(r.customerTitle), 'kv-full'),
     ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
     ...pair('Исполнитель', who));
   const gal = carousel(taskPics(r), { onAdd: can ? () => {
@@ -166,6 +166,7 @@ function noteBlock(text) {
 
 export const design = {
   id: 'design',
+  kind: 'Задача проектирования',
   title: 'Проектирование',
   newTitle: 'Новая задача',
   entityType: 'DesignTask',
@@ -269,7 +270,9 @@ export const design = {
           { note: 'Название, фото, срок и приоритет возьмутся из позиции и заказа. Задача без заказа — впишите название ниже.' },
         ] : []),
         { section: 'Задача', tone: row ? 'main' : 'info', fixed: true },
-        { key: 'title', label: 'Название', wide: true, max: 300, hint: row ? undefined : 'Можно оставить пустым, если выбрана позиция: «Чертежи 3410 ЗНП 20-26 поз 7».' },
+        // у задачи с изделием заголовок — название изделия: правка своего поля на экране не была бы видна
+        ...(row?.productName ? [{ key: '_name', type: 'widget', label: 'Название', wide: true, summary: () => '', widget: () => h('div', { class: 'hint' }, 'Название берётся из изделия. Изменить его можно в «Продукции»: ', row.productId ? h('a', { href: `#products?open=${row.productId}` }, clean(row.productName)) : clean(row.productName)) }] : []),
+        ...(row?.productName ? [] : [{ key: 'title', label: 'Название', wide: true, max: 300, hint: row ? undefined : 'Можно оставить пустым, если выбрана позиция: «Чертежи 3410 ЗНП 20-26 поз 7».' }]),
         { key: 'assigneeId', label: 'Исполнитель', type: 'select', options: ppl },
         { key: 'status', label: 'Статус', type: 'select', required: true, options: STATUS_OPTS },
         { key: 'pauseReason', label: 'Причина (пауза / отмена)', wide: true, max: 500,
@@ -303,7 +306,7 @@ export const design = {
       }
       // правка: уходят только изменённые поля (срок и приоритет «из заказа» случайно своими не станут)
       const was = toInitial(row), body = {};
-      for (const k of ['title', 'assigneeId', 'status', 'pauseReason', 'deadline', 'priority', 'note']) {
+      for (const k of [...(row.productName ? [] : ['title']), 'assigneeId', 'status', 'pauseReason', 'deadline', 'priority', 'note']) {
         if (norm(v[k]) === norm(was[k])) continue;
         body[k] = k === 'assigneeId' ? v[k] || null : norm(v[k]);
       }
