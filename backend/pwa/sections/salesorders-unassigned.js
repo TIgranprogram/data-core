@@ -20,17 +20,23 @@ export function unassignedPicker({ onChange } = {}) {
   let rows = [];
   let total = 0;
   let q = '';
+  let who = ''; // фильтр по заказчику — среди уже загруженных строк
   const search = h('input', { type: 'search', placeholder: 'Поиск: № договора, заказчик…', 'aria-label': 'Поиск договоров' });
+  const whoIn = h('input', { placeholder: 'Заказчик: все', autocomplete: 'off', 'aria-label': 'Заказчик' });
+  const whoAll = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Выбрать всех этого заказчика');
+  const shown = () => (who ? rows.filter((r) => (r.customer || '') === who) : rows);
   const allCb = h('input', { type: 'checkbox', class: 'ua-cb', 'aria-label': 'Выбрать все' });
   const body = h('div', { class: 'ua-list' });
   const info = h('span', { class: 'muted small' });
   const more = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Показать ещё');
-  const sync = () => { allCb.checked = rows.length > 0 && rows.every((r) => picked.has(r.id)); onChange?.([...picked]); };
+  const sync = () => { const v = shown(); allCb.checked = v.length > 0 && v.every((r) => picked.has(r.id)); onChange?.([...picked]); };
   const paint = () => {
-    info.textContent = total ? `Показано ${qty(rows.length)} из ${qty(total)}` : '';
+    const view = shown();
+    info.textContent = total ? `Показано ${qty(view.length)} из ${qty(total)}` : '';
     more.hidden = rows.length >= total;
-    if (!rows.length) { body.replaceChildren(h('p', { class: 'muted' }, q ? 'Ничего не найдено.' : EMPTY)); sync(); return; }
-    body.replaceChildren(...rows.map((r) => {
+    whoAll.hidden = !who;
+    if (!view.length) { body.replaceChildren(h('p', { class: 'muted' }, q || who ? 'Ничего не найдено.' : EMPTY)); sync(); return; }
+    body.replaceChildren(...view.map((r) => {
       const cb = h('input', { type: 'checkbox', class: 'ua-cb', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
       return h('label', { class: 'ua-row' }, cb,
         h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (r.orderNo || '—')), h('span', { class: 'muted' }, r.customer ? ' · ' + r.customer : '')),
@@ -50,10 +56,16 @@ export function unassignedPicker({ onChange } = {}) {
   };
   let t;
   search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { q = search.value.trim(); load(false); }, 300); });
-  allCb.addEventListener('change', () => { for (const r of rows) { if (allCb.checked) picked.add(r.id); else picked.delete(r.id); } paint(); });
+  allCb.addEventListener('change', () => { for (const r of shown()) { if (allCb.checked) picked.add(r.id); else picked.delete(r.id); } paint(); });
+  attachCombo(whoIn, { options: () => [...new Set(rows.map((r) => r.customer).filter(Boolean))].sort().map((c) => ({ value: c, label: c })), free: false, empty: 'Заказчиков нет в загруженных' });
+  const setWho = () => { const v = whoIn.value.trim(); who = rows.some((r) => r.customer === v) ? v : ''; paint(); };
+  whoIn.addEventListener('change', setWho);
+  whoIn.addEventListener('input', () => { if (!whoIn.value.trim() && who) setWho(); });
+  whoAll.addEventListener('click', () => { for (const r of shown()) picked.add(r.id); paint(); });
   more.addEventListener('click', () => load(true));
   load(false);
   const el = h('div', { class: 'ua' }, search,
+    h('div', { class: 'ua-head' }, whoIn, whoAll),
     h('div', { class: 'ua-head' }, h('label', { class: 'ua-all' }, allCb, ' Выбрать все'), info),
     body, more);
   return { el, rows: () => rows, ids: () => [...picked], reload: () => load(false), count: () => total };

@@ -11,6 +11,7 @@ import { UNITS, unitList, lookups } from './lookups.js';
 import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
+import { crumbTrail } from './order-stage.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 
 /**
@@ -211,7 +212,7 @@ export const orders = {
   card: {
     zones: { extra: 'side' }, // УПР-3: оплаты — боковой колонкой
     extra: (r, ctx) => paymentsBlock(r, ctx),
-    parent: (r) => (r.orderId ? { label: `Заказ № ${r.orderNo || '—'}`, run: () => go('salesorders', { open: String(r.orderId) }) } : null),
+    parent: (r) => (r.orderId ? (crumbTrail([r.productionNo ? `Заказ № ${r.productionNo}` : null, r.orderNo ? `Договор ${r.orderNo}` : null, `Позиция ${r.seqNo ?? r.lineNo ?? ''}`.trim()]), { label: `Заказ № ${r.orderNo || '—'}`, run: () => go('salesorders', { open: String(r.orderId) }) }) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/incomes/${r.id}/photos`, { method: 'POST', body: { photoId } }),
     photoRemove: (r, photoId) => api(`/incomes/${r.id}/photos/${photoId}`, { method: 'DELETE' }),

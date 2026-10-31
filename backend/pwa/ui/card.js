@@ -65,7 +65,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
     h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, titleEl, subEl), menuBox,
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot);
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
   const back = h('div', { class: 'drawer-back', onclick: () => tryClose() });

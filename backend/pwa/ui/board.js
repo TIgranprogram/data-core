@@ -31,7 +31,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   let query = initialQuery;
   const el = h('div', { class: 'board' + (board.cls ? ' ' + board.cls : '') });
   const per = board.perColumn || 30;
-  const canMove = !!board.move && session.canEdit;
+  const canMove = !!board.move && (board.canMove ? board.canMove() : session.canEdit);
   // board.canDrop(row, toKey) — можно ли бросить эту карточку на колонку (доска «В работе»: колонки, которых нет в маршруте изделия, не принимают)
 
   const cols = board.columns.map((c) => {

@@ -116,6 +116,8 @@ describe('Sales orders (заказы заказчиков)', () => {
     expect(all.body).toMatchObject({ total: 4, page: 1, limit: 25, counts: { all: 4, active: 1, done: 2, new: 0, production: 1, shipped: 1, closed: 1, cancelled: 1 } });
     expect((await http().get('/api/salesorders?filter=active').set(auth()).expect(200)).body.total).toBe(1);
     expect((await http().get('/api/salesorders?filter=done').set(auth()).expect(200)).body.total).toBe(2);
+    expect((await http().get('/api/salesorders?filter=shipped').set(auth()).expect(200)).body.total).toBe(1);
+    expect((await http().get('/api/salesorders?filter=closed').set(auth()).expect(200)).body.total).toBe(1);
     expect((await http().get('/api/salesorders?stage=closed,cancelled').set(auth()).expect(200)).body.total).toBe(2);
     expect((await http().get('/api/salesorders?search=сахаджи').set(auth()).expect(200)).body.items[0].orderNo).toBe('5');
     expect((await http().get(`/api/salesorders?companyId=${siu}`).set(auth()).expect(200)).body.total).toBe(2);

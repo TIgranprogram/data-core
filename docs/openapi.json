@@ -5038,7 +5038,7 @@
             "name": "filter",
             "required": false,
             "in": "query",
-            "description": "active (новый / в производстве / готов / частично отгружен) | done (отгружен / закрыт) | all",
+            "description": "active (новый / в производстве / готов / частично отгружен) | shipped (отгружен) | closed (закрыт) | done (отгружен / закрыт) | all",
             "schema": {}
           },
           {
@@ -5397,7 +5397,7 @@
             "name": "filter",
             "required": false,
             "in": "query",
-            "description": "active | done | all — по этапу заказа (самый отстающий договор)",
+            "description": "active | shipped | closed | done | all — по этапу заказа (самый отстающий договор)",
             "schema": {}
           },
           {

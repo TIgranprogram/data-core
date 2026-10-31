@@ -18,7 +18,7 @@ describe('Supplier catalog UX', () => {
   beforeAll(async () => {
     ctx = await createTestApp(); app = ctx.app; token = await loginAsAdmin(app);
     for (const c of ['supplieritems', 'categories', 'photos']) await db().collection(c).deleteMany({});
-    await db().collection('categories').insertMany([{ _id: root, name: 'Металл', kind: 'material' }, { _id: child, name: 'Трубы', kind: 'material', parentId: root }]);
+    await db().collection('categories').insertMany([{ _id: root, name: 'Металл', skuPrefix: 'SCU1', kind: 'material' }, { _id: child, name: 'Трубы', skuPrefix: 'SCU2', kind: 'material', parentId: root }]);
     await db().collection('photos').insertOne({ _id: photo, storageUrl: '/uploads/p.jpg' });
     const base = { supplierId: sup, deletedAt: null, priceHistory: [] };
     await db().collection('supplieritems').insertMany([

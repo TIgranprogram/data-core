@@ -27,7 +27,7 @@ export class SalesOrdersController {
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false, description: '№ заказа, заказчик, предмет, № контракта, № на производство, примечание' })
   @ApiQuery({ name: 'sort', required: false, description: 'orderNo | customer | stage | priority | shipDate | productionDeadline | deliveryDeadline | contractDate | createdAt | updatedAt; «-» — по убыванию (умолч. -createdAt)' })
-  @ApiQuery({ name: 'filter', required: false, description: 'active (новый / в производстве / готов / частично отгружен) | done (отгружен / закрыт) | all' })
+  @ApiQuery({ name: 'filter', required: false, description: 'active (новый / в производстве / готов / частично отгружен) | shipped (отгружен) | closed (закрыт) | done (отгружен / закрыт) | all' })
   @ApiQuery({ name: 'stage', required: false, description: 'этапы через запятую: new, production, ready, partly, shipped, closed, cancelled' })
   @ApiQuery({ name: 'companyId', required: false })
   @ApiQuery({ name: 'productId', required: false, description: 'договоры, где есть позиция с этим изделием (id через запятую)' })

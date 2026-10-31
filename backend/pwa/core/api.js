@@ -27,6 +27,8 @@ export const session = {
   /** Может ли менять данные (как на сервере: admin, manager). */
   // Иерархия ролей (backend common/roles-hierarchy.ts): директор ⊃ бухгалтер ⊃ менеджер ⊃ наблюдатель
   get canEdit() { return ['admin', 'director', 'accountant', 'manager'].includes(this.role) || this.user?.isOwner === true; },
+  /** Править заказы, договоры, позиции и брони (как canShip): админ, менеджер, владелец. Директор и бухгалтер — только смотрят. */
+  get canEditOrders() { return ['admin', 'manager'].includes(this.role) || this.user?.isOwner === true; },
   /** Суммы, доходы, платёжный календарь — только админ / директор / бухгалтер (сервер всё равно скрывает). */
   get canMoney() { return ['admin', 'director', 'accountant', 'manager'].includes(this.role) || this.user?.isOwner === true; },
   get canPayroll() { return ['admin', 'director', 'accountant'].includes(this.role) || this.user?.isOwner === true; },

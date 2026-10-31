@@ -24,7 +24,7 @@ export class ProductionOrdersController {
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false, description: 'как у /salesorders; заказ находится, если подошёл любой его договор' })
   @ApiQuery({ name: 'sort', required: false, description: 'productionNo | deadline | customer | createdAt; «-» — по убыванию (умолч. -createdAt)' })
-  @ApiQuery({ name: 'filter', required: false, description: 'active | done | all — по этапу заказа (самый отстающий договор)' })
+  @ApiQuery({ name: 'filter', required: false, description: 'active | shipped | closed | done | all — по этапу заказа (самый отстающий договор)' })
   @ApiQuery({ name: 'stage', required: false }) @ApiQuery({ name: 'companyId', required: false }) @ApiQuery({ name: 'priority', required: false })
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false })
   list(@Query() q: Record<string, string>) {
