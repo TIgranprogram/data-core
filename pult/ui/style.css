@@ -133,7 +133,9 @@ dialog label { display: flex; flex-direction: column; gap: 6px; margin-top: 8px;
 .now-hint { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
 .todo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; box-shadow: var(--shadow); }
 .todo.urgent { border-left-color: var(--bad); }
+.todo.you { border-left-color: var(--ok); }
 .todo.today { border-left-color: var(--warn); }
+.todo-acts { display: flex; flex: none; gap: 6px; }
 .todo.soon { border-left-color: var(--accent); }
 .todo-main { flex: 1; min-width: 0; }
 .todo-main b { display: block; font-size: 15px; }

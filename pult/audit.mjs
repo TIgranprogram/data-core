@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './dispatch.mjs';
 
-const WATCHED = ['deploy/synology', 'remote-access', 'SRV-ERP', 'tools', 'tools/kit'];
+const WATCHED = ['deploy/backup-pull', 'deploy/synology', 'remote-access', 'SRV-ERP', 'tools', 'tools/kit'];
 const SCRIPT = /\.(sh|cmd|ps1|mjs|js|py)$/;
 
 export function scriptsOnDisk(root = ROOT) {

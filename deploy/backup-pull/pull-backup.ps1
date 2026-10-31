@@ -35,16 +35,22 @@ function Get-Cfg([string]$key) {
 }
 
 try {
-    if (-not (Test-Path $ConfigFile)) { throw "config.env not found: $ConfigFile" }
-    $VmHost = Get-Cfg "DEPLOY_HOST"
-    $VmUser = Get-Cfg "DEPLOY_USER"
-    $Key = Get-Cfg "DEPLOY_SSH_KEY"
-    if ($Key -like "~*") { $Key = $Key -replace "^~", $env:USERPROFILE }
-    if (-not $VmHost -or -not $VmUser) { throw "DEPLOY_HOST / DEPLOY_USER missing in config.env" }
+    # VM and KEY in the environment: login from the work PC through the VPS (the same names as release.sh).
+    if ($env:VM) {
+        $Target = $env:VM
+        $Key = $env:KEY
+    } else {
+        if (-not (Test-Path $ConfigFile)) { throw "config.env not found: $ConfigFile" }
+        $VmHost = Get-Cfg "DEPLOY_HOST"
+        $VmUser = Get-Cfg "DEPLOY_USER"
+        $Key = Get-Cfg "DEPLOY_SSH_KEY"
+        if ($Key -like "~*") { $Key = $Key -replace "^~", $env:USERPROFILE }
+        if (-not $VmHost -or -not $VmUser) { throw "DEPLOY_HOST / DEPLOY_USER missing in config.env" }
+        $Target = "$VmUser@$VmHost"
+    }
 
     $SshOpts = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHostKeyChecking=accept-new")
     if ($Key) { $SshOpts += @("-i", $Key) }
-    $Target = "$VmUser@$VmHost"
 
     $latest = (& ssh.exe @SshOpts $Target "ls -1d /var/lib/datacore/backups/mongo-* 2>/dev/null | tail -1").Trim()
     if ($LASTEXITCODE -ne 0 -or -not $latest) { throw "cannot list backups on VM (ssh exit $LASTEXITCODE)" }

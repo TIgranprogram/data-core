@@ -11,7 +11,7 @@ import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
 import * as defaultCatalog from './catalog.mjs';
-import { advise, LEVELS } from './advisor.mjs';
+import { advise, LEVELS, todoDone } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
@@ -79,6 +79,11 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   let idleTimer = null;
   const prodScripts = () => listProdScripts(root);
   const runsFile = path.join(logDir, 'runs.json');
+
+  /** Поручения Claude пользователю. Файл в git: одинаков дома и на работе. */
+  function readTodo() {
+    try { return JSON.parse(fs.readFileSync(path.join(root, 'pult', 'todo.json'), 'utf8')); } catch { return []; }
+  }
 
   /** Когда и чем кончился последний запуск каждой команды: основа экрана «Что делать сейчас». */
   function readRuns() {
@@ -262,12 +267,26 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       const runs = readRuns();
       const status = await statusFn(machine, runs);
       const brief = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, { at: v.at, code: v.code }]));
-      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS) });
+      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()) });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
     if (req.method === 'POST' && url.pathname === '/api/run') {
       const out = runCommand(await readBody(req));
       return json(res, out.status || 200, out);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/todo') {
+      const { id, action } = await readBody(req);
+      const t = readTodo().find((x) => x.id === id);
+      if (!t) return json(res, 404, { error: 'Такого поручения нет' });
+      if (action === 'open' && t.link) { openExternal(t.link); return json(res, 200, { ok: true }); }
+      if (action === 'done') {
+        const runs = readRuns();
+        runs[`todo:${t.id}`] = { at: Date.now(), code: 0 };
+        fs.mkdirSync(logDir, { recursive: true });
+        fs.writeFileSync(runsFile, JSON.stringify(runs, null, 1));
+        return json(res, 200, { ok: true, done: todoDone(t, runs) });
+      }
+      return json(res, 400, { error: 'Неизвестное действие' });
     }
     if (req.method === 'POST' && url.pathname === '/api/close') {
       const { ids } = await readBody(req);

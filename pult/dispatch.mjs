@@ -83,12 +83,13 @@ function sshArgs(m) {
 /** Запись каталога + значения → { file, args, cwd } либо { open } / { folder }. */
 export function buildRun(cmd, values, m, root = ROOT) {
   const run = cmd.run;
+  const env = run.vmEnv && m.route === 'work' ? { VM: 'datacore-vm', KEY: path.join(m.home, '.ssh', 'datacore_work') } : undefined;
   const cwd = run.cwd ? path.join(root, run.cwd) : root;
   const a = (list) => list.map((x) => fill(x, values));
   if (run.open) return { open: run.open };
   if (run.folder) return { folder: path.join(root, run.folder) };
   if (run.node) return { file: process.execPath, args: a(run.node), cwd };
-  if (run.bash) return { file: m.bash, args: a(run.bash), cwd, env: run.vmEnv && m.route === 'work' ? { VM: 'datacore-vm', KEY: path.join(m.home, '.ssh', 'datacore_work') } : undefined };
+  if (run.bash) return { file: m.bash, args: a(run.bash), cwd, env };
   if (run.deploy) {
     const script = m.route === 'work' ? 'remote-access/deploy.sh' : 'deploy/synology/release.sh';
     return { file: m.bash, args: [script, ...a(run.deploy)], cwd };
@@ -101,7 +102,7 @@ export function buildRun(cmd, values, m, root = ROOT) {
   if (run.docker) return { file: 'docker', args: a(run.docker), cwd };
   if (run.npx) return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/c', 'npx', ...a(run.npx)], cwd };
   if (run.cmd) return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/c', ...a(run.cmd)], cwd };
-  if (run.powershell) return { file: 'powershell.exe', args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ...a(run.powershell)], cwd };
+  if (run.powershell) return { file: 'powershell.exe', args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ...a(run.powershell)], cwd, env };
   throw new Error(`Неизвестный способ запуска: ${cmd.id}`);
 }
 

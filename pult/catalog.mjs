@@ -171,6 +171,8 @@ export const COMMANDS = [
     hint: 'Один раз на ПК. Дописывает узкий список разрешений. Запись на прод в него не входит.' },
   { id: 'setup-work', section: 'setup', title: 'Подготовить рабочий ПК', risk: 'local', time: '20 с', needs: ['bash'], run: { bash: ['remote-access/setup-work-pc.sh'] },
     hint: 'Один раз. Кладёт ключ в ~/.ssh и настраивает вход на сервер. Нужна папка remote-access/secret с флешки.' },
+  { id: 'setup-backup', section: 'setup', title: 'Скачать копию базы на этот ПК', risk: 'local', time: '5–15 мин', needs: ['vm'], run: { powershell: ['deploy/backup-pull/pull-backup.ps1'], vmEnv: true },
+    hint: 'Кладёт свежий бэкап в D:\\datacore-backups. Нужен ночному стенду и проверке на реальных данных. В архиве рабочие данные: папку никому не передавайте.' },
   { id: 'setup-shortcut', section: 'setup', title: 'Ярлык пульта на рабочий стол', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore'] },
     hint: 'Создаёт ярлык «Пульт DataCore». Ярлык сам просит права администратора.' },
   { id: 'setup-bundle', section: 'setup', title: 'Переносной пакет сервера', risk: 'local', time: 'до 1 ч', needs: ['bash', 'vm'], run: { bash: ['deploy/synology/bundle-pc.sh', '{step}'], vmEnv: true },
@@ -210,6 +212,7 @@ export const ADVICE = [
 // Скрипты проекта, которых нарочно нет на кнопках. Новый скрипт вне каталога и вне этого списка роняет проверку;
 // то же для новой подкоманды tools/dc.mjs (pult/audit.mjs): так пульт и справка не отстают от проекта.
 export const NOT_ON_BUTTONS = {
+  'deploy/backup-pull/register-task.ps1': 'разовая настройка расписания на домашнем ПК',
   'deploy/synology/api.sh': 'вход для агента datacore-access; запрос собирается вручную',
   'deploy/synology/backup.sh': 'идёт на сервере; кнопка prod-backup вызывает его по ssh',
   'deploy/synology/bundle.cmd': 'меню в консоли; кнопка зовёт bundle-pc.sh напрямую',

@@ -1,7 +1,8 @@
 // «Что делать сейчас»: правила на выдуманном состоянии.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { test } from 'node:test';
-import { advise, LEVELS } from '../advisor.mjs';
+import { advise, LEVELS, todoDone } from '../advisor.mjs';
 import { COMMANDS } from '../catalog.mjs';
 
 const NOW = new Date(2026, 9, 31, 12, 0).getTime();
@@ -79,6 +80,39 @@ test('одна команда — один пункт, самый важный',
 test('сделанное сегодня попадает в итог', () => {
   const { done } = advise(calm, { 'day-status': { at: NOW - 1000, code: 0 }, 'git-log': { at: NOW - 2 * DAY, code: 0 } }, COMMANDS, NOW);
   assert.deepEqual(done.map((d) => d.cmd), ['day-status']);
+});
+
+test('поручение с кнопкой уходит после успешного запуска, следующий шаг появляется', () => {
+  const todo = [
+    { id: 'a', added: '2026-10-31', title: 'Скачать', why: 'w', cmd: 'setup-backup' },
+    { id: 'b', added: '2026-10-31', after: 'a', title: 'Стенд', why: 'w', cmd: 'night-up' },
+  ];
+  const you = (runs) => advise(calm, runs, COMMANDS, NOW, todo).items.filter((x) => x.level === 'you').map((x) => x.todo);
+  assert.deepEqual(you(allFresh), ['a']);
+  assert.deepEqual(you({ ...allFresh, 'setup-backup': { at: new Date('2026-10-20').getTime(), code: 0 } }), ['a'], 'старый запуск не считается');
+  assert.deepEqual(you({ ...allFresh, 'setup-backup': { at: NOW, code: 1 } }), ['a'], 'сбой не считается');
+  assert.deepEqual(you({ ...allFresh, 'setup-backup': { at: NOW, code: 0 } }), ['b']);
+});
+
+test('ручное поручение закрывается кнопкой «Сделано»', () => {
+  const t = { id: 'm', added: '2026-10-31', title: 'Снять', why: 'w', link: 'https://x' };
+  assert.equal(todoDone(t, {}), false);
+  assert.equal(todoDone(t, { 'todo:m': { at: NOW, code: 0 } }), true);
+  const [item] = advise(calm, allFresh, COMMANDS, NOW, [t]).items;
+  assert.equal(item.cmd, undefined);
+  assert.equal(item.link, true);
+});
+
+test('pult/todo.json корректен: кнопка есть, шаги связаны', () => {
+  const todo = JSON.parse(fs.readFileSync(new URL('../todo.json', import.meta.url), 'utf8'));
+  assert.equal(new Set(todo.map((t) => t.id)).size, todo.length);
+  for (const t of todo) {
+    assert.ok(t.title && t.why && !Number.isNaN(Date.parse(t.added)), t.id);
+    assert.ok(t.cmd || t.link, `${t.id}: нужна кнопка или ссылка`);
+    if (t.cmd) assert.ok(COMMANDS.some((c) => c.id === t.cmd), t.cmd);
+    if (t.after) assert.ok(todo.some((x) => x.id === t.after), t.after);
+    if (t.link) assert.match(t.link, /^https:\/\//);
+  }
 });
 
 test('у команд с ритмом есть причина', () => {

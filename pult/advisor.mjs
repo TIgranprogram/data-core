@@ -1,8 +1,9 @@
 // Экран «Что делать сейчас»: состояние проекта + журнал запусков → список дел с причиной и кнопкой.
-// Чистая функция: сеть и диск не трогает. Ритм команд — поле every в catalog.mjs.
+// Чистая функция: сеть и диск не трогает. Ритм команд — поле every в catalog.mjs, поручения Claude — pult/todo.json.
 
 export const LEVELS = [
   { id: 'urgent', title: 'Сначала это', hint: 'Что-то сломано. Остальное подождёт' },
+  { id: 'you', title: 'Нужно от вас', hint: 'Claude сам этого сделать не может. Нажмите кнопку' },
   { id: 'today', title: 'Сегодня', hint: 'Дела на сегодня и то, что мешает выкладке' },
   { id: 'soon', title: 'Рекомендуется', hint: 'Подошёл срок. Можно сделать, когда будет время' },
 ];
@@ -13,8 +14,15 @@ const POST_CHECK_AFTER = HOUR;
 const cut = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
-/** s — состояние из readStatus, runs — { id команды: { at, code, last, bad, commit } }. */
-export function advise(s, runs, commands, now = Date.now()) {
+/** Поручение выполнено: отмечено кнопкой «Сделано» или его команда прошла после постановки. */
+export function todoDone(t, runs) {
+  if (runs[`todo:${t.id}`]) return true;
+  const r = t.cmd && runs[t.cmd];
+  return !!r && r.code === 0 && r.at >= Date.parse(t.added);
+}
+
+/** s — состояние из readStatus, runs — { id команды: { at, code, last, bad, commit } }, todo — поручения. */
+export function advise(s, runs, commands, now = Date.now(), todo = []) {
   const items = [];
   const add = (level, cmd, why) => { if (!items.some((x) => x.cmd === cmd)) items.push({ level, cmd, why }); };
   const gateFiles = s.gateFiles || [];
@@ -25,6 +33,12 @@ export function advise(s, runs, commands, now = Date.now()) {
   const release = runs['deploy-release'];
   if (release && release.code !== 0) add('urgent', 'deploy-release', `Выкладка не прошла: ${cut(release.last || 'причина в журнале', 130)}`);
   if (s.route === null) add('urgent', 'setup-work', 'На этом ПК нет ключа входа на сервер. Кнопки сервера не работают.');
+
+  const open = todo.filter((t) => !todoDone(t, runs));
+  for (const t of open) {
+    if (t.after && open.some((x) => x.id === t.after)) continue; // сначала предыдущий шаг
+    items.push({ level: 'you', cmd: t.cmd, why: t.why, title: t.title, todo: t.id, link: !!t.link });
+  }
 
   if (gateFiles.length) add('today', 'git-status', `Файлов без коммита: ${gateFiles.length}. Пока они не в коммите, выкладка закрыта. Попросите Claude закоммитить.`);
   if (s.behind) add('today', 'git-pull', `В GitHub есть новые коммиты: ${s.behind}. Заберите их до начала работы.`);

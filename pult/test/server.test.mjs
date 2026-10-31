@@ -144,6 +144,10 @@ test('вкладка закрывается, идущая команда ост�
   await finished(live.id);
 });
 
+test('поручения: чужой id отклоняется', async () => {
+  assert.equal((await api('/api/todo', { id: 'нет такого', action: 'done' })).status, 404);
+});
+
 test('в каталоге для страницы нет способа запуска', async () => {
   const text = (await api('/api/catalog')).text;
   assert.ok(!text.includes('"run"'));

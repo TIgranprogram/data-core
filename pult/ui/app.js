@@ -118,11 +118,31 @@ function whenText(at) {
   return `${days} дн. назад`;
 }
 
+async function todoAction(id, action) {
+  try {
+    await api('/api/todo', { id, action });
+    if (action === 'done') loadStatus();
+  } catch (e) { toast(e.message); }
+}
+
 function todoRow(item, level) {
   const c = S.catalog.commands.find((x) => x.id === item.cmd);
   const row = el('article', `todo ${level.id}`);
   const main = el('div', 'todo-main');
-  main.append(el('b', '', c.title), el('span', '', item.why));
+  main.append(el('b', '', item.title || c.title), el('span', '', item.why));
+  if (!c) {
+    const acts = el('div', 'todo-acts');
+    if (item.link) {
+      const open = el('button', 'primary', 'Открыть');
+      open.onclick = () => todoAction(item.todo, 'open');
+      acts.append(open);
+    }
+    const done = el('button', 'ghost', 'Сделано');
+    done.onclick = () => todoAction(item.todo, 'done');
+    acts.append(done);
+    row.append(main, acts);
+    return row;
+  }
   if (c.blocked.length) main.append(el('span', 'why', c.blocked[0]));
   const live = [...S.jobs.values()].some((j) => j.cmdId === c.id && j.state === 'running');
   const b = el('button', buttonClass(c), live ? 'Идёт…' : 'Запустить');
