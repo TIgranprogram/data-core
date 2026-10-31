@@ -276,12 +276,80 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     if (fetch) { el.dispatchEvent(new Event('input', { bubbles: true })); preview(); }
   }
 
+  // «Скопировать таблицу из изделия»: строки выбранного изделия добавляются в конец, части, что уже есть в таблице, пропускаются
+  const copyIn = h('input', { class: 'ms-copy-in', placeholder: 'Изделие: название или артикул', 'aria-label': 'Изделие, из которого копировать' });
+  const copyBox = h('div', { class: 'ms-copy', hidden: true }, copyIn, h('span', { class: 'hint' }, 'Выберите изделие — его строки добавятся в таблицу, поправить можно до сохранения'));
+  let products = null;
+  attachCombo(copyIn, {
+    options: () => (products || []).map((p) => ({ value: String(p.id), label: p.name, sub: p.sku || '' })),
+    empty: () => (products ? 'Изделий не найдено' : 'Загружаю…'),
+  });
+  copyIn.addEventListener('change', async () => {
+    const t = copyIn.value.trim(); const hit = (products || []).find((p) => p.name === t);
+    if (!hit) return;
+    copyIn.value = ''; copyBox.hidden = true;
+    try {
+      const sp = parseSpec((await api(`/showcase/${hit.id}`)).materialsSpec);
+      if (!sp.rows.length && !sp.coatingIds.length) { toast(`У изделия «${hit.name}» таблица материалов не заполнена`, { ms: 6000 }); return; }
+      const have = new Set(rows.flatMap((r) => r.parts.map((p) => p.id).filter(Boolean)));
+      const fresh = sp.rows.filter((r) => !(r.partIds || []).length || (r.partIds || []).some((id) => !have.has(String(id))));
+      const cur = parseSpec(w.value);
+      const room = MAX_ROWS - cur.rows.length;
+      const take = fresh.map((r) => ({ ...r, partIds: (r.partIds || []).filter((id) => !have.has(String(id))) })).slice(0, Math.max(room, 0));
+      w.set({ rows: [...cur.rows, ...take], coatingIds: [...new Set([...cur.coatingIds, ...sp.coatingIds])] });
+      toast(take.length ? `Добавлено строк: ${take.length} — проверьте и сохраните` : 'Все части уже есть в таблице — ничего не добавлено');
+    } catch (e) { toastError(e); }
+  });
+  const copyBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Добавить строки таблицы другого изделия', onclick: async (e) => {
+    const b = e.currentTarget;
+    if (!copyBox.hidden) { copyBox.hidden = true; return; }
+    b.classList.add('is-busy');
+    try { if (!products) products = (await api('/showcase?limit=200')).items || []; } catch (er) { toastError(er); b.classList.remove('is-busy'); return; }
+    b.classList.remove('is-busy'); copyBox.hidden = false; copyIn.focus();
+  } }, 'Скопировать таблицу из изделия');
+
+  // «Шаблон по категории»: строки шаблона категории добавляются так же, как при копировании из изделия
+  const mergeSpec = (sp) => {
+    const have = new Set(rows.flatMap((r) => r.parts.map((p) => p.id).filter(Boolean)));
+    const cur = parseSpec(w.value);
+    const take = sp.rows.filter((r) => !(r.partIds || []).length || (r.partIds || []).some((id) => !have.has(String(id))))
+      .map((r) => ({ ...r, partIds: (r.partIds || []).filter((id) => !have.has(String(id))) })).slice(0, Math.max(MAX_ROWS - cur.rows.length, 0));
+    w.set({ rows: [...cur.rows, ...take], coatingIds: [...new Set([...cur.coatingIds, ...sp.coatingIds])] });
+    return take.length;
+  };
+  const tplUrl = () => '/passports/template?category=' + encodeURIComponent(scope());
+  const busy = async (b, fn) => { b.disabled = true; b.classList.add('is-busy'); try { await fn(); } catch (er) { toastError(er); } finally { b.disabled = false; b.classList.remove('is-busy'); } };
+  const tplBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, title: 'Подставить строки шаблона категории изделия', onclick: (e) => busy(e.currentTarget, async () => {
+    const sp = parseSpec((await api(tplUrl())).materialsSpec);
+    if (!sp.rows.length) { tplBtn.hidden = true; toast('У категории нет шаблона таблицы'); return; }
+    const n = mergeSpec(sp);
+    toast(n ? `Добавлено строк из шаблона: ${n} — проверьте и сохраните` : 'Все части шаблона уже есть в таблице');
+  }) }, 'Шаблон по категории');
+  const tplSave = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, title: 'Запомнить текущую таблицу как шаблон для всех изделий этой категории', onclick: (e) => busy(e.currentTarget, async () => {
+    const sp = spec();
+    if (!sp?.rows.length) { toast('Таблица пуста — шаблон не из чего собрать'); return; }
+    await api('/passports/template', { method: 'PUT', body: { category: scope(), materialsSpec: sp } }); // категория — в теле: query сервер не читает
+    tplBtn.hidden = false;
+    toast('Таблица сохранена как шаблон категории');
+  }) }, 'Сохранить как шаблон категории');
+  // категорию узнаём при показе (она может смениться в форме); шаблон проверяется один раз на категорию
+  let tplFor = null;
+  const tplCheck = async () => {
+    let c = ""; try { c = scope() || ""; } catch {} tplSave.hidden = !c || !canDict;
+    if (!c) { tplBtn.hidden = true; tplFor = null; return; }
+    if (tplFor === c) return; tplFor = c;
+    try { tplBtn.hidden = !parseSpec((await api(tplUrl())).materialsSpec).rows.length; } catch { tplBtn.hidden = true; }
+  };
+  el.addEventListener('focusin', tplCheck);
+  setTimeout(tplCheck, 300);
+
   el.append(
     h('div', { class: 'rt-wrap' }, h('table', { class: 'rt-table ms-table' },
       h('thead', null, h('tr', null, h('th', { class: 'rt-n' }, '№'), h('th', { class: 'ms-c-mat' }, 'Материал'), h('th', { class: 'ms-c-z' }, 'Размеры'), h('th', { class: 'ms-c-p' }, 'Из чего'), h('th'))),
       body)),
     h('div', { class: 'rt-acts' },
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { addRow()?.matIn.focus(); changed(); } }, '+ Строка'),
+      copyBtn, tplBtn, tplSave,
       ...actions.map((a) => h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: a.title || '', onclick: async (e) => {
         const b = e.currentTarget; const label = b.textContent;
         b.disabled = true; b.classList.add('is-busy'); b.textContent = a.busy || 'Готовлю…';
@@ -289,7 +357,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
       } }, a.label)),
       h('span', { class: 'spacer' }),
       h('span', { class: 'hint' }, 'Размер — Enter; из Excel — Ctrl+V: Материал · Размеры · Из чего')),
-    newBox, coatBox, textBox);
+    copyBox, newBox, coatBox, textBox);
 
   const w = {
     el,

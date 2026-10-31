@@ -521,7 +521,7 @@ export const orderEdit = sideForm({
       { key: '_note', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote(`Изменения запишутся во все договоры заказа (${(row?.orders || []).length}): ${names((row?.orders || []).map((o) => o.orderNo || '—'))}.`), get value() { return ''; }, set value(_) { /* только показ */ } }) },
       { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50, hint: 'Номер для производства, например 21-26. Выберете № другого заказа — договоры объединятся с ним.' },
       { key: 'deadline', label: 'Срок (дата отгрузки)', type: 'date', hint: 'Запишется в «Дата отгрузки» каждого договора. Пусто — срок не меняется.' },
-      { key: 'priority', label: 'Приоритет', type: 'select', required: true, options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
+      { key: 'priority', label: 'Приоритет', type: 'select', options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
     ];
   },
   toInitial: (r) => ({ productionNo: r.productionNo || '', deadline: r.deadline ? String(r.deadline).slice(0, 10) : '', priority: r.priority || 'normal' }),
@@ -616,7 +616,7 @@ export const salesorder = {
         { key: 'companyName', label: 'Наша компания', type: 'select', required: true, choose: true, hint: 'Выбирайте каждый раз — от компании зависят документы.', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         await responsibleField('Кому передан договор. Смена записывается в историю передач.'),
-        { key: 'priority', label: 'Приоритет', type: 'select', required: true, options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
+        { key: 'priority', label: 'Приоритет', type: 'select', options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
         { section: 'Сроки', tone: 'info' },
         { key: 'productionDeadline', label: 'Срок изготовления', type: 'date' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },

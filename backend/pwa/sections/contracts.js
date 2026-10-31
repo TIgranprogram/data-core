@@ -185,7 +185,7 @@ export const contract = {
   },
   form: {
     fields: async (c) => [
-      c ? { key: 'supplierId', type: 'hidden' } : { key: 'supplierId', label: 'Поставщик', type: 'widget', wide: true, hint: 'Организация-поставщик, с которой заключён договор', widget: supplierWidget },
+      c ? { key: 'supplierId', type: 'hidden' } : { key: 'supplierId', label: 'Поставщик', required: true, type: 'widget', wide: true, hint: 'Организация-поставщик, с которой заключён договор', widget: supplierWidget },
       { key: 'no', label: '№ договора', required: true, max: 100 },
       { key: 'date', label: 'Дата договора', type: 'date', required: true },
       { key: 'subject', label: 'Предмет', wide: true, max: 300, hint: 'О чём договор — для списка выбора в счёте' },

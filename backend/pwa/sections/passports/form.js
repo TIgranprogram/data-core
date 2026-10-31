@@ -63,7 +63,7 @@ export const passportForm = {
     const funnelFields = [
       { section: 'Паспорт: категория и тексты', tone: 'main', fixed: true },
       // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
-      { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && st.newCat === c.value)), wide: true,
+      { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', required: !r, options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && st.newCat === c.value)), wide: true,
         hint: 'От неё зависят шаги ниже, нормативы, обязательные рисунки и поля',
         mount: (api) => wireForm(api, { r, w, catBy, stdName, inst, cats }) },
       { key: 'textChoices', label: 'Тексты паспорта — ваш выбор', type: 'widget', wide: true, summary: () => '',
@@ -218,6 +218,7 @@ export const passportForm = {
   },
   create: async (body) => {
     const { _copyFrom, _imagesFinal, _remember, ...rest } = body;
+    if (!rest.passportCategory) throw new Error('Выберите категорию паспорта');
     if (_remember) await saveDefaults(_remember);
     // ПП: карточке после сохранения — полный паспорт («не хватает», строгий выпуск), а не голый ответ создания
     const full = async (doc) => (doc?.id || doc?._id ? api(`/passports/${doc.id || doc._id}`) : doc);

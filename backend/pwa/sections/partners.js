@@ -228,7 +228,7 @@ export const partners = {
       { key: 'name', label: r?.kind === 'customer' ? 'Название (во всех заказах)' : 'Название', required: true, wide: true, max: 300,
         hint: r?.kind === 'customer' ? 'Поменяется во всех заказах и позициях этого заказчика' : undefined },
       ...(r?.kind === 'customer' ? [] : [{ key: 'fullName', label: 'Полное наименование (в документах)', wide: true, max: 500, hint: 'Как в уставе: Общество с ограниченной ответственностью «…». Пусто — в документах будет «Название»' }]),
-      { key: 'inn', label: 'ИНН', max: 12, hint: '10 цифр — организация, 12 — ИП' },
+      { key: 'inn', label: 'ИНН', max: 12, hint: '10 цифр — организация, 12 — ИП. Желательно заполнить: нужен для счетов и паспортов' },
       { key: 'kpp', label: 'КПП', max: 9 },
       { key: 'legalAddress', label: 'Адрес', wide: true, max: 500 },
       { section: 'Связь', tone: 'who' },

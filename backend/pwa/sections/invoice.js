@@ -47,7 +47,10 @@ async function buildInvoiceForm(opts = {}) {
   const ccBox = h('div', { class: 'fseg' }, ...Object.entries(COST_CENTER).map(([k, l]) => h('button', { type: 'button', class: 'fseg-btn' + (k === cc ? ' on' : ''), onclick: (e) => { cc = k; ccBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); } }, l)));
   // по умолчанию выкл. (пользователь 2026-10-28): приход оформляет кладовщик, а не тот, кто вносит счёт
   const toStock = h('input', { type: 'checkbox', checked: false });
-  const stateBox = h('div', { class: 'fseg' }, ...STATE.map((s) => h('button', { type: 'button', class: 'fseg-btn' + (s.value === state ? ' on' : ''), onclick: (e) => { state = s.value; stateBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); } }, s.label)));
+  const stateBox = h('div', { class: 'fseg' }, ...STATE.map((s) => h('button', { type: 'button', class: 'fseg-btn' + (s.value === state ? ' on' : ''), onclick: (e) => { state = s.value; stateBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); syncStars(); } }, s.label)));
+  const noStar = h('span', { class: 'req' }, ' *'); const coStar = h('span', { class: 'req' }, ' *');
+  function syncStars() { noStar.hidden = state === 'ordered'; coStar.hidden = state !== 'paid'; }
+  syncStars();
   const lines = h('div', { class: 'inv-lines' });
   const totalEl = h('b', { class: 'num' });
   const rows = [];
@@ -191,7 +194,7 @@ async function buildInvoiceForm(opts = {}) {
       ? 'Заявки сразу на много позиций — из таблицы поставщика или корзины сайта. Найденное в базе подставится, остальное станет новыми позициями.'
       : 'Счёт, которого не было в заявках (уже оплатили / уже привезли). На каждую позицию будет заявка с этим счётом — расходы и склад посчитаются как обычно.'),
     pasteBox,
-    h('div', { class: 'form-grid inv-head' }, field(opts.paste ? '№ счёта (если уже есть)' : '№ счёта *', no), field('Дата счёта', date), field('Поставщик', h('div', { class: 'has-combo' }, sup)), field('Наша компания', company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — сразу поставить на склад (обычно приход оформляет кладовщик)')),
+    h('div', { class: 'form-grid inv-head' }, field(h('span', null, opts.paste ? '№ счёта (если уже есть)' : '№ счёта', noStar), no), field('Дата счёта', date), field(h('span', null, 'Поставщик', h('span', { class: 'req' }, ' *')), h('div', { class: 'has-combo' }, sup)), field(h('span', null, 'Наша компания', coStar), company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — сразу поставить на склад (обычно приход оформляет кладовщик)')),
     h('div', { class: 'section-title' }, 'Позиции счёта'),
     lines,
     h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ Строка счёта'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
@@ -205,6 +208,8 @@ async function buildInvoiceForm(opts = {}) {
   async function save() {
     const invoiceNo = no.value.trim();
     if (!invoiceNo && state !== 'ordered') throw new Error('впишите № счёта (для «Оплачено» / «Получено» он нужен)');
+    if (!sup.value.trim()) throw new Error('выберите поставщика');
+    if (state === 'paid' && !company.value) throw new Error('выберите нашу компанию (для «Оплачено» она нужна)');
     const list = rows.filter((r) => r.title.value.trim());
     if (!list.length) throw new Error('добавьте хотя бы одну позицию');
     for (const r of list) if (!r.cat.value.trim()) throw new Error(`выберите категорию для «${r.title.value.trim()}»`);

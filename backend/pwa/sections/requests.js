@@ -163,7 +163,7 @@ const fields = async (r) => {
     { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
     { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(lk), max: 30, span: 1 },
-    { key: 'priority', label: 'Приоритет', type: 'segment', required: true, options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
+    { key: 'priority', label: 'Приоритет', type: 'segment', options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
     { section: 'Детали товара', tone: 'info', collapsed: true },
     { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
     { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
@@ -173,7 +173,7 @@ const fields = async (r) => {
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     { section: 'Поставщик и счёт', tone: 'money' },
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
-    { key: 'status', label: 'Статус', type: 'select', required: true, options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
+    { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
     inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
     { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
