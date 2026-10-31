@@ -27,7 +27,7 @@ if [[ "${1:-}" == "--open" ]]; then
   NAME="${NAME%.7z}.zip"; rm -f "$OUT/$NAME"
   ( cd "$W" && "$Z" a -tzip -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" . )
   "$Z" t -bso0 -bsp0 "$(cygpath -w "$OUT/$NAME")" || { echo "СТОП: архив не проверился"; exit 1; }
-  echo "Готово: D:\datacore-kit\$NAME ($(du -h "$OUT/$NAME" | cut -f1)). Файлов: $(find "$W" -type f | wc -l). Архив без пароля: храните как ключи."
+  echo "Готово: D:\\datacore-kit\\$NAME ($(du -h "$OUT/$NAME" | cut -f1)). Файлов: $(find "$W" -type f | wc -l). Архив без пароля: храните как ключи."
   exit 0
 fi
 echo "Придумайте пароль архива: не короче 16 знаков. Без него архив не открыть."
