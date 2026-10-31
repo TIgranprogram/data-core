@@ -11,7 +11,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const { randomUUID } = require('crypto');
-const root = path.join(__dirname, '..');
+const root = require('fs').existsSync(path.join(__dirname, '..', 'node_modules')) ? path.join(__dirname, '..') : process.cwd(); // через stdin (пульт) __dirname = «.» — берём /app
 const sharp = require(require.resolve('sharp', { paths: [root] }));
 const { MongoClient } = require(require.resolve('mongoose', { paths: [root] })).mongo;
 

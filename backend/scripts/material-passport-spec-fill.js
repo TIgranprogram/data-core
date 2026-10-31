@@ -54,7 +54,7 @@ if (require.main === module) (async () => {
   const apply = process.argv.includes('--apply');
   const i = process.argv.indexOf('--out'); const outFile = i > 0 ? process.argv[i + 1] : null;
   if (apply && !outFile) throw new Error('Для --apply укажите --out файл.json — выгрузка для отката');
-  const root = path.join(__dirname, '..');
+  const root = require('fs').existsSync(path.join(__dirname, '..', 'node_modules')) ? path.join(__dirname, '..') : process.cwd(); // через stdin (пульт, run-script.sh) __dirname = «.» — берём /app
   const { specFromComposition } = require(path.join(root, 'dist/src/common/catalog/materials-text'));
   const { MongoClient, ObjectId } = require(require.resolve('mongoose', { paths: [process.cwd(), root] })).mongo;
   const client = await MongoClient.connect(uri);

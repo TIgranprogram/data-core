@@ -8,7 +8,7 @@
  *   Создать:   docker exec datacore-backend node scripts/ensure-indexes.js --apply
  */
 const path = require('path');
-const root = path.join(__dirname, '..');
+const root = require('fs').existsSync(path.join(__dirname, '..', 'node_modules')) ? path.join(__dirname, '..') : process.cwd(); // через stdin (пульт, run-script.sh) __dirname = «.» — берём /app
 const { NestFactory } = require(require.resolve('@nestjs/core', { paths: [root] }));
 const { getConnectionToken } = require(require.resolve('@nestjs/mongoose', { paths: [root] }));
 

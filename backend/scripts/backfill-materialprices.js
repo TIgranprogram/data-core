@@ -6,7 +6,7 @@
  *   docker exec datacore-backend node scripts/backfill-materialprices.js [--apply]
  */
 const path = require('path');
-const root = path.join(__dirname, '..');
+const root = require('fs').existsSync(path.join(__dirname, '..', 'node_modules')) ? path.join(__dirname, '..') : process.cwd(); // через stdin (пульт, run-script.sh) __dirname = «.» — берём /app
 const { MongoClient } = require(require.resolve('mongodb', { paths: [root] }));
 const apply = process.argv.includes('--apply');
 const VAT = 20;
