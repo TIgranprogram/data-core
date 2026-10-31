@@ -21,7 +21,7 @@ export const session = {
   get refresh() { return store.get('dca_refresh'); }, set refresh(v) { store.set('dca_refresh', v); },
   get user() { try { return JSON.parse(store.get('dca_user') || 'null'); } catch { return null; } },
   set user(v) { store.set('dca_user', v ? JSON.stringify(v) : ''); },
-  clear() { this.access = ''; this.refresh = ''; this.user = null; },
+  clear() { this.access = ''; this.refresh = ''; this.user = null; try { Object.keys(localStorage).filter((k) => k.startsWith('dca_dict:')).forEach((k) => localStorage.removeItem(k)); } catch { /* приватный режим */ } }, // кэш справочников (ui/dict-options.js)
   /** SK-8c: роль для прав — у своей роли («Кладовщик») это её «права как у» (baseRole), у встроенной — она сама. */
   get role() { const u = this.user; return u?.baseRole || u?.role; },
   /** Может ли менять данные (как на сервере: admin, manager). */
