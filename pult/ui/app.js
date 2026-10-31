@@ -105,8 +105,7 @@ function card(c) {
   if (c.blocked.length) box.append(el('div', 'why', c.blocked[0]));
   const b = el('button', `${buttonClass(c)} run`, c.kind === 'job' ? 'Запустить' : 'Открыть');
   b.disabled = c.blocked.length > 0;
-  // пункт дел со своими значениями (например, какой скрипт) — подставить их; окно подтверждения их покажет
-  b.onclick = () => { if (item.params) S.values[c.id] = { ...(S.values[c.id] || {}), ...item.params }; press(c); };
+  b.onclick = () => press(c);
   box.append(b);
   return box;
 }
@@ -168,7 +167,8 @@ function todoRow(item, level, first) {
   const live = [...S.jobs.values()].some((j) => j.cmdId === c.id && j.state === 'running');
   const b = el('button', buttonClass(c), live ? 'Идёт…' : 'Запустить');
   b.disabled = live || c.blocked.length > 0;
-  b.onclick = () => press(c);
+  // пункт дел со своими значениями (например, какой скрипт) — подставить их; окно подтверждения их покажет
+  b.onclick = () => { if (item.params) S.values[c.id] = { ...(S.values[c.id] || {}), ...item.params }; press(c); };
   row.append(main, b);
   return row;
 }
