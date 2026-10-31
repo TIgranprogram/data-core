@@ -1,0 +1,43 @@
+name: halab
+# Макет HA (ТЗ HA-TWO-SERVERS, HA-1). Только тестовые данные, сеть изолирована, прод не затрагивается.
+# Запуск: docker compose -p halab --env-file .env.lab up -d --build ; снос: docker compose -p halab down -v
+x-node: &node
+  build: .
+  cap_add: [NET_ADMIN]
+  environment:
+    LAB_KEY: ${LAB_KEY}
+    LAB_EXTRA: ${LAB_EXTRA:-}
+networks:
+  labnet:
+    ipam:
+      config: [{ subnet: 172.29.77.0/24 }]
+services:
+  dc1:
+    <<: *node
+    container_name: halab-dc1
+    hostname: dc1
+    networks: { labnet: { ipv4_address: 172.29.77.11, aliases: [dc1] } }
+    ports: ["127.0.0.1:28101:27017"]
+    volumes: [dc1data:/data/db]
+  dc2:
+    <<: *node
+    container_name: halab-dc2
+    hostname: dc2
+    networks: { labnet: { ipv4_address: 172.29.77.12, aliases: [dc2] } }
+    ports: ["127.0.0.1:28102:27017"]
+    volumes: [dc2data:/data/db]
+  dcarb:
+    <<: *node
+    container_name: halab-dcarb
+    hostname: dcarb
+    networks: { labnet: { ipv4_address: 172.29.77.13, aliases: [dcarb] } }
+    ports: ["127.0.0.1:28103:27017"]
+    volumes: [dcarbdata:/data/db]
+  cli:
+    # клиент нагрузки: образ бэкенда (там mongoose 8 / драйвер как в проде), без запуска приложения
+    image: data-core-backend:latest
+    container_name: halab-cli
+    entrypoint: ["sleep", "infinity"]
+    networks: { labnet: { ipv4_address: 172.29.77.20 } }
+    volumes: ["./:/lab:ro"]
+volumes: { dc1data: {}, dc2data: {}, dcarbdata: {} }
