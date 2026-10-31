@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsMongoId, IsOptional, IsString, Length, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsDateString, IsInt, IsMongoId, IsOptional, IsString, Length, Max, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 /** Запуск в работу: все позиции заказа или выбранные. Нужен хотя бы один из двух. */
 export class LaunchDto {
@@ -33,4 +33,11 @@ export class RouteStepDto {
 /** Маршрут изделия целиком: порядок элементов = порядок работ; пустой список — маршрут убран. */
 export class RouteDto {
   @ApiProperty({ type: [RouteStepDto] }) @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => RouteStepDto) steps!: RouteStepDto[];
+}
+
+/** Ручной план шага (Гант): начало и/или длительность в днях. */
+export class PlanDto {
+  @ApiProperty({ description: 'Номер шага маршрута с 0' }) @IsInt() @Min(0) stepIndex!: number;
+  @ApiPropertyOptional({ description: 'Начало шага (ISO-дата)' }) @IsOptional() @IsDateString() start?: string;
+  @ApiPropertyOptional({ description: 'Длительность, дней (1..365)' }) @IsOptional() @IsInt() @Min(1) @Max(365) days?: number;
 }

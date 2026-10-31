@@ -4,7 +4,7 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CancelDto, LaunchDto, MoveDto, WorkTaskPatchDto } from './dto/work.dto';
+import { CancelDto, LaunchDto, MoveDto, PlanDto, WorkTaskPatchDto } from './dto/work.dto';
 import { WorkService } from './work.service';
 
 /**
@@ -77,6 +77,13 @@ export class WorkController {
   @AuditAction({ action: 'worktask.cancelled', entityType: 'WorkTask', idParam: 'id' })
   cancel(@Param('id') id: string, @Body() dto: CancelDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.work.cancel(id, dto, user?.id);
+  }
+
+  @Patch(':id/plan')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'worktask.plan', entityType: 'WorkTask', idParam: 'id' })
+  plan(@Param('id') id: string, @Body() dto: PlanDto) {
+    return this.work.setPlan(id, dto);
   }
 
   @Patch(':id')

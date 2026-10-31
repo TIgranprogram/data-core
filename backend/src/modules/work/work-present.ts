@@ -3,7 +3,8 @@ import { loadPhotos } from '../../common/photos';
 import { loadSeq } from '../../common/text/production-seq';
 import { orderDeadline, personView } from '../design/design-present';
 import { shortProductName } from '../showcase/order-product-name';
-import type { WorkStep } from './work-task.schema';
+import { computePlan } from './work-plan';
+import type { WorkMove, WorkStep } from './work-task.schema';
 
 type Doc = Record<string, unknown>;
 type Oid = Types.ObjectId;
@@ -25,13 +26,16 @@ export async function presentWork(connection: Connection, docs: Doc[]) {
   if (!docs.length) return [];
   const db = connection.db!;
   const orderIds = uniq(docs.map((d) => d.orderId)), incomeIds = uniq(docs.map((d) => d.incomeId)), personIds = uniq(docs.map((d) => d.assigneeId)), productIds = uniq(docs.map((d) => d.productId));
-  const [orders, incomes, persons, products, seqOf] = await Promise.all([
+  const typeIds = uniq(docs.flatMap((d) => ((d.route as WorkStep[] | undefined) ?? []).map((s) => s.workTypeId)));
+  const [orders, incomes, persons, products, seqOf, types] = await Promise.all([
     orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1, priority: 1, customer: 1 } }).toArray() : [],
     incomeIds.length ? db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { lineNo: 1, title: 1, qty: 1, unit: 1 } }).toArray() : [],
     personIds.length ? db.collection('persons').find({ _id: { $in: personIds } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [],
     productIds.length ? db.collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1, sku: 1, photoIds: 1 } }).toArray() : [],
     loadSeq(db, orderIds),
+    typeIds.length ? db.collection('worktypes').find({ _id: { $in: typeIds } }, { projection: { days: 1 } }).toArray() : [],
   ]);
+  const daysByType = new Map(types.map((t) => [String(t._id), Number(t.days) || 0] as [string, number]).filter(([, n]) => n > 0));
   const order = new Map(orders.map((o) => [String(o._id), o as Doc]));
   const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
   const person = new Map(persons.map((p) => [String(p._id), personView(p as Doc)]));
@@ -60,6 +64,8 @@ export async function presentWork(connection: Connection, docs: Doc[]) {
       generic: !!d.generic, stepIndex, stepKey: (d.stepKey as string | undefined) ?? '',
       currentStep: stepIndex !== null && stepIndex < route.length ? route[stepIndex].name : null,
       route: presentRoute(route, stepIndex),
+      moves: ((d.moves as WorkMove[] | undefined) ?? []).map((m) => ({ at: m.at, to: m.to })),
+      plan: computePlan(route, (inc?.qty as number | undefined) ?? null, daysByType, (d.startedAt as Date | undefined) ?? new Date()),
       orderId: d.orderId ? String(d.orderId) : null, orderNo: (o?.orderNo as string | undefined) ?? null, productionNo, customer: (o?.customer as string | undefined) ?? null,
       incomeId: String(d.incomeId), lineNo, seqNo, qty: (inc?.qty as number | undefined) ?? null, unit: (inc?.unit as string | undefined) ?? null,
       productId: d.productId ? String(d.productId) : null, sku, productName, customerTitle,

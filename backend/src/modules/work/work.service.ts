@@ -6,7 +6,7 @@ import { personWorkTypeIds } from '../../common/catalog/person-work-types';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
 import { personView } from '../design/design-present';
-import type { CancelDto, LaunchDto, MoveDto, WorkTaskPatchDto } from './dto/work.dto';
+import type { CancelDto, LaunchDto, MoveDto, PlanDto, WorkTaskPatchDto } from './dto/work.dto';
 import { DONE_DAYS, mergeColumns, nextIndex, planLaunch, positionAt, stepKeyOf, type LaunchProduct } from './work-flow';
 import { presentWork } from './work-present';
 import { WorkRouteService } from './work-route.service';
@@ -89,6 +89,18 @@ export class WorkService {
       { key: 'done', title: 'Готово', workTypeId: null, count: counts.done },
     ];
     return { items: await presentWork(this.connection, docs as Doc[]), total, page: p.page, limit: p.limit, counts, columns };
+  }
+
+  /** Ручной план шага (Гант): сохраняет начало/длительность; пропущенное берётся из текущего расчёта. */
+  async setPlan(id: string, dto: PlanDto) {
+    const cur = await this.findRaw(id);
+    const route = (cur.route as WorkStep[] | undefined) ?? [];
+    if (dto.stepIndex >= route.length) throw new BadRequestException('Такого шага в маршруте нет');
+    if (dto.start === undefined && dto.days === undefined) throw new BadRequestException('Укажите начало или длительность шага');
+    const calc = (await presentWork(this.connection, [cur]))[0].plan[dto.stepIndex];
+    const plan = { start: dto.start ? new Date(dto.start) : calc.start, days: dto.days ?? calc.days };
+    await this.model.updateOne({ _id: cur._id }, { $set: { [`route.${dto.stepIndex}.plan`]: plan } } as never).exec();
+    return this.get(id);
   }
 
   private async findRaw(id: string, deleted = false) {
