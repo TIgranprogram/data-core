@@ -317,6 +317,8 @@ table.sum-tbl tr.sub td:first-child { padding-left: 28px; }
 .photo-field .photo-drop { margin: 0; }
 .photo-drop { flex-wrap: wrap; }
 .photo-drop .pd-text { flex: 1; min-width: 150px; }
+.photo-drop > span { min-width: 0; overflow-wrap: anywhere; }
+.photo-drop .link-btn { max-width: 100%; text-align: left; overflow-wrap: anywhere; }
 .photo-drop .btn { flex: none; }
 .photo-field .pf-main::before { content: ''; position: absolute; inset: -11px; }
 @media (max-width: 720px) { .photo-drop .btn { height: 44px; min-height: 44px; } }

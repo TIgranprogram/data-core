@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { activeOrders, orderLabel } from '../sections/salesorders.js';
-import { peopleByWork, withOrders } from '../sections/issue.js';
+import { peopleByWork, withOrders, lastTo, saveTo } from '../sections/issue.js';
 import { attachCombo } from './combo.js';
 import { errText } from './errors.js';
 import { enhanceSelect } from './select.js';
@@ -177,10 +177,15 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
   const freePanel = h('div', { class: 'tp-panel' }, h('label', { class: 'field wide' }, h('span', null, 'Куда выдано'), freeIn));
   withOrders(freeIn); // после freePanel: freeIn должен иметь родителя до attachCombo
 
+  const init = { p: '', f: '' }; // подставленное само — не «несохранённое»
   if (seg) {
     el.append(h('div', { class: 'field wide' }, h('span', { class: 'tp-label' }, 'Кому / под что'), seg), orderPanel, personPanel, freePanel);
     seg.addEventListener('click', () => { if (kind === 'person') loadPeople(); });
     setKind('free');
+    // ВЫД.3: выдают пачкой одному — подставить последнего получателя (сотрудник или текст), на 2 часа
+    const last = mode === 'out' ? lastTo() : null;
+    if (last?.personId) { setKind('person'); loadPeople(); peopleByWork().then(() => { personSel.value = last.personId; init.p = personSel.value; }).catch(() => {}); }
+    else if (last?.issuedTo) { freeIn.value = last.issuedTo; init.f = last.issuedTo; }
   } else {
     el.append(orderPanel);
   }
@@ -216,11 +221,11 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
     },
     value: () => {
       if (kind === 'order' && order) return { salesOrderId: order.id, ...(line ? { salesOrderLineId: line.id } : {}), ...(personSel2?.value ? { personId: personSel2.value } : {}) };
-      if (kind === 'person' && personSel.value) return { personId: personSel.value };
-      if (kind === 'free' && freeIn.value.trim()) return { issuedTo: freeIn.value.trim() };
+      if (kind === 'person' && personSel.value) { const v = { personId: personSel.value }; if (mode === 'out') saveTo(v); return v; }
+      if (kind === 'free' && freeIn.value.trim()) { const v = { issuedTo: freeIn.value.trim() }; if (mode === 'out') saveTo(v); return v; }
       return {};
     },
-    dirty: () => !!(order || personSel.value || freeIn.value.trim()),
+    dirty: () => !!(order || personSel.value !== init.p || freeIn.value.trim() !== init.f),
     /** Подставить заказ и позицию (правка брони): позиции берутся с сервера. */
     preset: (o, lineId) => { if (!o?.id) return; chooseOrder({ id: o.id, label: o.label, orderNo: o.orderNo, customer: o.customer }, null, lineId || null); },
     reset: () => { order = null; lines = null; line = null; whole = false; personSel.value = ''; if (personSel2) personSel2.value = ''; freeIn.value = ''; renderOrder(); },

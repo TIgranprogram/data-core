@@ -50,8 +50,8 @@ export function withOrders(input) {
 
 /** ВЫД.1: последний «Кому выдано» — на 2 часа в этой вкладке: следующая выдача подставляет его сама (выдают пачкой одному). */
 const LAST_KEY = 'dc-issue-to';
-const lastTo = () => { try { const v = JSON.parse(sessionStorage.getItem(LAST_KEY) || 'null'); return v && Date.now() - v.at < 2 * 3600e3 ? v : null; } catch { return null; } };
-const saveTo = (v) => { try { sessionStorage.setItem(LAST_KEY, JSON.stringify({ ...v, at: Date.now() })); } catch { /* приватный режим */ } };
+export const lastTo = () => { try { const v = JSON.parse(sessionStorage.getItem(LAST_KEY) || 'null'); return v && Date.now() - v.at < 2 * 3600e3 ? v : null; } catch { return null; } };
+export const saveTo = (v) => { try { sessionStorage.setItem(LAST_KEY, JSON.stringify({ ...v, at: Date.now() })); } catch { /* приватный режим */ } };
 
 /** Поля «Кому выдано»: { el, value() → { personId?, issuedTo? } }; issuedTo — подставить (объект брони); пусто — последний выбор. */
 export function issueToFields(issuedTo = '') {

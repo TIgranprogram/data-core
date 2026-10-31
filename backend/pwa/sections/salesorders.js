@@ -24,6 +24,7 @@ import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
 import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLines } from './order-line-actions.js';
+import { orderPassportActions } from './order-passports.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
 /**
@@ -189,12 +190,17 @@ function issuedBlock(d, sec) {
 function orderPassports(r) {
   if (!session.seesDocs()) return null;
   const val = h('span', { class: 'muted' }, 'загрузка…');
-  api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
+  const box = h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Паспорта'), val);
+  const load = () => api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
     const items = (d.items || []).filter((p) => p.status !== 'annulled');
+    box.querySelector('.op-act')?.remove();
+    const act = orderPassportActions(r, items, load);
+    if (act) { act.classList.add('op-act'); box.append(act); }
     const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
     val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Нужно сделать паспорт»');
   }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
-  return h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Паспорта'), val);
+  load();
+  return box;
 }
 
 const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);

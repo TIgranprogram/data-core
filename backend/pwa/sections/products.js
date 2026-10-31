@@ -207,6 +207,35 @@ const catTile = (g, pick) => {
 const SEC_KEY = 'dc-prod-sec'; // раскрытый раздел — «назад» из галереи видит то же
 const secOpen = () => { try { return sessionStorage.getItem(SEC_KEY) || ''; } catch { return ''; } };
 const secSave = (id) => { try { if (id) sessionStorage.setItem(SEC_KEY, id); else sessionStorage.removeItem(SEC_KEY); } catch { /* приватный режим */ } };
+/** ПРД.6: самый глубокий выбранный шаг воронки (раздел → группа → подгруппа) — это groupId для сервера (он берёт всё поддерево). */
+const deepGroup = (P) => P.sub || P.grp || P.sec || '';
+
+/** ПРД.6: воронка «Раздел → Группа → Подгруппа → Серия», у значений — число изделий. Числа групп — /showcase/groups, серий — facets. */
+function prodFunnel() {
+  let tree = null; let treeAt = 0;
+  const groups = async () => { if (!tree || Date.now() - treeAt > 30000) { treeAt = Date.now(); tree = api('/showcase/groups').catch(() => { tree = null; return []; }); } return tree; };
+  const kids = (all, pid) => all.filter((g) => (pid ? g.parentId === pid : !g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count }));
+  const f = stepFunnel({
+    title: 'Раздел → серия',
+    steps: [{ key: 'sec', label: 'Раздел' }, { key: 'grp', label: 'Группа', when: (P) => P.sec }, { key: 'sub', label: 'Подгруппа', when: (P) => P.grp }, { key: 'series', label: 'Серия' }],
+    load: async (P) => {
+      const all = await groups();
+      const r = await api('/showcase', { query: { facets: 1, limit: 1, ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}), ...(P.status ? { status: P.status } : {}), ...(P.q ? { search: P.q } : {}) } });
+      return { sec: kids(all, null), grp: P.sec ? kids(all, P.sec) : [], sub: P.grp ? kids(all, P.grp) : [], series: r.facets?.series || [] };
+    },
+  });
+  return { el: f.el, update: async (P) => {
+    // старая ссылка #products?groupId=… или выбор с плиток раздела: раскладываем путь по шагам
+    if (P.groupId && !deepGroup(P)) {
+      const all = await groups(); const path = []; let cur = all.find((g) => g.id === P.groupId);
+      while (cur && path.length < 3) { path.unshift(cur.id); cur = all.find((g) => g.id === cur.parentId); }
+      patch({ groupId: undefined, sec: path[0], grp: path[1], sub: path[2], page: undefined });
+      return;
+    }
+    f.update(P);
+  } };
+}
+
 async function catLanding({ pick }) {
   const all = await api('/showcase/groups').catch(() => null);
   if (!all?.length) return h('div', { class: 'state' }, h('div', null, 'Разделов пока нет — изделия покажутся списком.'),
@@ -277,21 +306,15 @@ export const products = {
     // левая панель (NAV F3): поиск → «Тип · Группа изделий» → «Серия» → «Состояние»; цену и габариты не фильтруем
     sidebar: true,
     chipsTop: true, // «Состояние» — строкой над списком, слева — только «что ищем»
-    toolbarExtra: () => stepFunnel({
-      steps: [{ key: 'series', label: 'Серия' }],
-      load: async (P) => {
-        const r = await api('/showcase', { query: { facets: 1, limit: 1, ...(P.groupId ? { groupId: P.groupId } : {}), ...(P.status ? { status: P.status } : {}), ...(P.q ? { search: P.q } : {}), ...(P.series ? { series: P.series } : {}) } });
-        return { series: r.facets?.series || [] };
-      },
-    }),
+    extraKeys: ['sec', 'grp', 'sub'],
+    toolbarExtra: prodFunnel,
     filters: [
-      { key: 'groupId', label: 'Тип · Группа', type: 'hidden' }, // выбирается деревом «Тип · Группа изделий»
-      { key: 'series', label: 'Серия', type: 'hidden' }, // Б1: шаг воронки слева (toolbarExtra), числа — при выбранной группе
+      { key: 'series', label: 'Серия', type: 'hidden' }, // ПРД.6: последний шаг воронки слева (toolbarExtra)
       { key: 'status', label: 'Статус', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
     ],
     limit: 100, // таблица: по умолчанию 100 строк, меньше — выбор внизу
     // серия — точное совпадение на сервере (query series)
-    query: (P) => (P.series ? { series: P.series } : {}),
+    query: (P) => ({ ...(P.series ? { series: P.series } : {}), ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}) }),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
       default: true, limit: 100, sort: 'category', lastGroup: 'Без типа',
@@ -304,16 +327,7 @@ export const products = {
         badge: r.status === 'archived' ? h('span', { class: 'badge dim gc-badge' }, 'архив') : !r.price ? h('span', { class: 'badge warn gc-badge', title: 'Нет цены — изделие в черновиках' }, 'черновик') : null,
       }),
     },
-    landing: { when: (P) => !P.groupId && !P.q && !P.series && !P.status && !P.all, render: catLanding },
-    tiles: {
-      key: 'groupId', title: 'Тип · Группа изделий',
-      // раздел — заголовок, под ним его группы; группа без известного раздела — в конце с подписью
-      load: async () => {
-        const all = await api('/showcase/groups'); const tops = all.filter((g) => !g.parentId); const known = new Set(tops.map((g) => g.id));
-        return [...tops.flatMap((t) => [{ value: t.id, label: t.name, n: t.count, head: true }, ...all.filter((g) => g.parentId === t.id).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: ' ' }))]),
-          ...all.filter((g) => g.parentId && !known.has(g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count, sub: 'группа' }))];
-      },
-    },
+    landing: { when: (P) => !deepGroup(P) && !P.groupId && !P.q && !P.series && !P.status && !P.all, render: catLanding },
     // П2/Д12: в шапке «КП» и главная «+ Изделие»; весь импорт — одним пунктом в «Ещё ▾»
     headActions: () => [h('button', { class: 'btn kp-open', type: 'button', title: 'Собранное коммерческое предложение', onclick: () => patch({ of: 'kp', new: '1', open: undefined }) }, `КП (${kpCount()})`)],
     moreActions: () => [{ title: 'Импорт', items: [
