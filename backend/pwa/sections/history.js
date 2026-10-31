@@ -29,8 +29,9 @@ function changesOf(r) {
   if (!r.entityId) { box.replaceChildren(); return box; }
   api('/audit-logs/record', { query: { entityType: r.entityType, entityId: r.entityId } }).then((res) => {
     const x = res.items.find((i) => i.createdAt === r.createdAt);
+    const list = changeList(x?.changes, {}, x?.first);
     box.replaceChildren(h('div', { class: 'section-title' }, 'Что изменилось'),
-      x?.changes?.length ? h('ul', { class: 'timeline' }, h('li', null, changeList(x.changes, {}, x.first))) : h('p', { class: 'muted' }, 'Подробностей по полям нет (действие без изменения полей или запись старше журнала).'));
+      list ? h('ul', { class: 'timeline' }, h('li', null, list)) : h('p', { class: 'muted' }, 'Подробностей по полям нет (действие без изменения полей или запись старше журнала).'));
   }).catch((e) => box.replaceChildren(failBlock(e, null, { text: 'Подробности недоступны' })));
   return box;
 }

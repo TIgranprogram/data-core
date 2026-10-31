@@ -38,12 +38,25 @@ const show = (v, field) => {
   return String(v);
 };
 
-/** Список изменений одной записи журнала; first — первое известное состояние (без «было»). */
+const isId = (v) => typeof v === 'string' && /^[0-9a-f]{24}$/.test(v);
+const isServiceValue = (v) => isId(v) || (v !== null && typeof v === 'object');
+
+/** Только то, что понятно человеку: поле с русской подписью и значение без служебных кодов. */
+export function usefulChanges(changes, names = {}) {
+  return (changes || []).filter((c) => (names[c.field] || FIELD[c.field]) && !isServiceValue(c.to) && !isServiceValue(c.from));
+}
+
+/** Запись истории нужна: изменение с понятными полями или действие без полей (создано, удалено, восстановлено). */
+export function usefulEntry(x, names = {}) {
+  return !String(x.action || '').endsWith('updated') || (!x.first && usefulChanges(x.changes, names).length > 0);
+}
+
+/** Список изменений одной записи журнала. Первое состояние не показывается: оно и так видно в карточке. */
 export function changeList(changes, names = {}, first = false) {
-  if (!changes?.length) return null;
-  const label = (k) => names[k] || FIELD[k] || (/^[a-z]/i.test(k) ? 'Другое поле' : k);
+  const list = first ? [] : usefulChanges(changes, names);
+  if (!list.length) return null;
   const max = 8;
-  return h('ul', { class: 'changes' }, ...changes.slice(0, max).map((c) => h('li', null, h('span', { class: 'muted' }, label(c.field) + ': '),
-    first ? h('b', null, show(c.to, c.field)) : [h('s', { class: 'muted' }, show(c.from, c.field)), ' → ', h('b', null, show(c.to, c.field))])),
-    changes.length > max ? h('li', { class: 'muted' }, `…и ещё ${changes.length - max}`) : null);
+  return h('ul', { class: 'changes' }, ...list.slice(0, max).map((c) => h('li', null, h('span', { class: 'muted' }, (names[c.field] || FIELD[c.field]) + ': '),
+    h('s', { class: 'muted' }, show(c.from, c.field)), ' → ', h('b', null, show(c.to, c.field)))),
+    list.length > max ? h('li', { class: 'muted' }, `…и ещё ${list.length - max}`) : null);
 }
