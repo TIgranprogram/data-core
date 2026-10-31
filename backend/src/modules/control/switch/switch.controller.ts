@@ -6,7 +6,7 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { EmergencySwitchDto, StartSwitchDto, SwitchReportDto } from './switch.dto';
 import { SwitchService } from './switch.service';
 
-/** «Переключить сейчас»: какой сервер главный, запуск переключения. Без HA_SELF в .env все маршруты отвечают 404. */
+/** «Переключить сейчас»: какой сервер главный, запуск переключения. Без HA_SELF в .env GET / и /ping — обзор (enabled:false, blockers), остальные маршруты 404. */
 @ApiTags('Переключение сервера')
 @Controller('control/switch')
 export class SwitchController {
@@ -15,10 +15,18 @@ export class SwitchController {
   @Get()
   @Roles('admin')
   @ApiOperation({ summary: 'Состояние переключения: кто главный, режим, работа, готовность второго сервера' })
-  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, canStart, canEmergency }' })
-  @ApiResponse({ status: 404, description: 'Механизм выключен (нет HA_SELF)' })
+  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canEmergency }; без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL' })
+  
   status() {
     return this.service.status();
+  }
+
+  @Get('ping')
+  @Public()
+  @ApiOperation({ summary: 'Служебный: короткая справка для второго сервера — роль, версия, время копии. Без данных' })
+  @ApiResponse({ status: 200, description: '{ self:home|office|null, role:main|standby|null, version, copyAt }' })
+  ping() {
+    return this.service.ping();
   }
 
   @Post('start')

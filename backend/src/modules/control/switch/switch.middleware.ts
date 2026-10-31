@@ -1,11 +1,11 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
-import { READ_ONLY_MESSAGE, RETRY_AFTER_SEC, blockedWhenReadOnly, isSwitchPath, routePath } from './switch.rules';
+import { READ_ONLY_MESSAGE, RETRY_AFTER_SEC, blockedWhenReadOnly, isOverviewPath, isSwitchPath, routePath } from './switch.rules';
 import { SwitchService } from './switch.service';
 
 /**
  * Режим «только чтение» на время переключения: запись → 503 READ_ONLY, чтение и вход работают.
- * Без HA_SELF — ничего не проверяет (кроме 404 на /control/switch: механизм выключен).
+ * Без HA_SELF — ничего не проверяет (кроме 404 на /control/switch/*: механизм выключен; обзор GET /control/switch и /ping отвечают).
  * Решает по памяти (кэш обновляет таймер сервиса), к базе не обращается.
  */
 @Injectable()
@@ -14,7 +14,8 @@ export class SwitchMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction): void {
     if (!this.sw.enabled) {
-      if (isSwitchPath(routePath(req.originalUrl || req.url))) {
+      const p = routePath(req.originalUrl || req.url);
+      if (isSwitchPath(p) && !isOverviewPath(req.method, p)) {
         res.status(404).json({ statusCode: 404, message: 'Not Found' });
         return;
       }

@@ -106,3 +106,30 @@ export function staleReason(job: SwitchJob | null | undefined, now: number, brid
   if (job.state === 'running' && !bridgeAlive) return 'Мост переключения перестал отвечать. Сервер вернулся в обычный режим.';
   return null;
 }
+
+/** Обзор без включённого переключения: GET /control/switch и /control/switch/ping отвечают и тогда. */
+export const isOverviewPath = (method: string, path: string) =>
+  method.toUpperCase() === 'GET' && (path === '/control/switch' || path === '/control/switch/ping');
+
+/** Копия на втором сервере старше суток с запасом — переключать на неё рано. */
+export const COPY_MAX_AGE_MIN = 26 * 60;
+
+export interface ReadinessInput {
+  self: SwitchSelf | null;
+  peerUrlSet: boolean;
+  peerHealthy: boolean | null;
+  copyAgeMin: number | null;
+  bridgeAlive: boolean;
+}
+
+/** Что мешает включить переключение — словами менеджера; пустой список — всё готово. */
+export function readinessBlockers(i: ReadinessInput): string[] {
+  const out: string[] = [];
+  if (!i.self) out.push('Этому серверу не задано, какой он: домашний или офисный.');
+  if (!i.peerUrlSet) out.push('Не задан адрес второго сервера: его состояние не проверить.');
+  else if (i.peerHealthy === false) out.push('Второй сервер не отвечает.');
+  if (i.copyAgeMin === null) out.push('Неизвестно, когда второй сервер получил копию данных.');
+  else if (i.copyAgeMin > COPY_MAX_AGE_MIN) out.push('Копия данных на втором сервере старше суток.');
+  if (!i.bridgeAlive) out.push('Служебный мост переключения на этом сервере не запущен.');
+  return out;
+}

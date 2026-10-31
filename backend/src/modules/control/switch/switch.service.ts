@@ -6,7 +6,7 @@ import type { Connection } from 'mongoose';
 import path from 'path';
 import type { SwitchReportDto } from './switch.dto';
 import {
-  CACHE_MS, COL_STATE, STATE_ID, copyAgeMin, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason,
+  CACHE_MS, COL_STATE, STATE_ID, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason,
   type SwitchDoc, type SwitchJob, type SwitchMode, type SwitchRole, type SwitchSelf,
 } from './switch.rules';
 
@@ -83,12 +83,70 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     try { return Date.now() - (await fs.stat(path.join(this.dir, 'alive'))).mtimeMs < BRIDGE_ALIVE_MS; } catch { return false; }
   }
 
+  /** Время последнего обновления копии на этом сервере (файл пишет SRV-ERP/refresh-copy.sh); нет — null. */
+  private async lastRefresh(): Promise<string | null> {
+    try {
+      const s = (await fs.readFile(path.join(this.dir, 'last-refresh'), 'utf8')).trim();
+      return Number.isNaN(Date.parse(s)) ? null : s;
+    } catch { return null; }
+  }
+
+  /** Публичная короткая справка для соседа: без данных, только роль, версия и возраст копии. */
+  async ping() {
+    const self = this.self;
+    let role: SwitchRole | null = null;
+    if (self) { try { role = (await this.refresh())?.role ?? null; } catch { role = null; } }
+    return { self, role, version: process.env.APP_VERSION?.trim() || null, copyAt: await this.lastRefresh() };
+  }
+
+  /** Спросить соседа по HA_PEER_URL (4 с). Нет адреса — null; не ответил — healthy:false. */
+  async probePeer(): Promise<{ healthy: boolean; self?: string | null; role?: string | null; version?: string | null; copyAt?: string | null } | null> {
+    const base = process.env.HA_PEER_URL?.trim().replace(/\/+$/, '');
+    if (!base) return null;
+    try {
+      const r = await fetch(`${base}/api/control/switch/ping`, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return { healthy: false };
+      const b = (await r.json()) as Record<string, string | null>;
+      return { healthy: true, self: b.self ?? null, role: b.role ?? null, version: b.version ?? null, copyAt: b.copyAt ?? null };
+    } catch { return { healthy: false }; }
+  }
+
+  /** Переключение не включено: всё равно показываем оба сервера и что мешает включить. */
+  private async overview() {
+    const [peer, alive, ownCopy] = await Promise.all([this.probePeer(), this.bridgeAlive(), this.lastRefresh()]);
+    // копия у того, кто запасной: у соседа, а если этот сервер сам обновляется из бэкапа — у себя
+    const copyAt = ownCopy ?? peer?.copyAt ?? undefined;
+    const age = copyAgeMin(copyAt ?? undefined, Date.now());
+    return {
+      enabled: false,
+      self: null,
+      selfIsCopy: !!ownCopy,
+      version: process.env.APP_VERSION?.trim() || null,
+      peer: {
+        configured: !!peer,
+        healthy: peer ? peer.healthy : null,
+        version: peer?.version ?? null,
+        role: peer?.role ?? null,
+        copyAgeMin: age,
+        checkedAt: peer ? new Date().toISOString() : null,
+      },
+      bridge: { alive },
+      blockers: readinessBlockers({ self: null, peerUrlSet: !!peer, peerHealthy: peer ? peer.healthy : null, copyAgeMin: age, bridgeAlive: alive }),
+      canStart: false,
+      canEmergency: false,
+    };
+  }
+
   async status() {
-    const self = this.assertEnabled();
+    const self = this.self;
+    if (!self) return this.overview();
     const doc = (await this.refresh())!;
     const alive = await this.bridgeAlive();
     const busy = jobBusy(doc.job);
+    const age = copyAgeMin(doc.peerCopyAt, Date.now());
+    const blockers = readinessBlockers({ self, peerUrlSet: true, peerHealthy: doc.peerHealthy ?? null, copyAgeMin: age, bridgeAlive: alive });
     return {
+      blockers,
       enabled: true,
       self,
       role: doc.role,
@@ -97,7 +155,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       peer: {
         name: peerOf(self),
         version: doc.peerVersion ?? null,
-        copyAgeMin: copyAgeMin(doc.peerCopyAt, Date.now()),
+        copyAgeMin: age,
         healthy: doc.peerHealthy ?? null,
         checkedAt: doc.peerCheckedAt ?? null,
       },

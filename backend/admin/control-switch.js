@@ -115,9 +115,7 @@
           try { await post('/control/switch/start', { confirm: true }); closeDrawer(); toast('Переключение началось'); await load(); }
           catch (e) { err.textContent = failText(e, 'Переключение'); err.hidden = false; go.classList.remove('is-busy'); }
         });
-        const hint = el('p', 'muted', 'Введите фразу: кнопка станет активной.');
-        inp.addEventListener('input', () => { hint.hidden = inp.value.trim() === PHRASE; });
-        acts.append(go, no); b.append(err, hint, acts);
+        acts.append(go, no); b.append(err, acts);
       }, btn);
     }
 
@@ -143,10 +141,51 @@
       }, btn);
     }
 
+    const reasons = (list) => {
+      const w = el('div', 'cc-note warn');
+      w.append(el('strong', '', 'Кнопка «Переключить» появится, когда будет готово:'));
+      const ul = el('ul', '');
+      list.forEach((t) => ul.append(el('li', '', t)));
+      w.append(ul);
+      return w;
+    };
+
+    /** Переключение ещё не включено: состояние обоих серверов и что мешает. */
+    function overview(d) {
+      const p = d.peer || {};
+      const meName = d.selfIsCopy ? 'office' : 'home';
+      const mk = (name, mine) => {
+        const main = mine ? !d.selfIsCopy : d.selfIsCopy;
+        const c = el('section', 'sw-card' + (main ? ' main' : '') + (mine ? ' mine' : ''));
+        const h = el('div', 'sw-ch');
+        h.append(el('h3', '', NAME[name]), el('span', 'sw-tag ' + (main ? 'ok' : ''), main ? 'Главный' : 'Копия'));
+        if (mine) h.append(el('span', 'sw-tag you', 'Вы здесь'));
+        const rows = el('dl', 'sw-kv');
+        const row = (k, v, cls) => { rows.append(el('dt', '', k), el('dd', cls || '', v)); };
+        if (mine) {
+          row('Работает', 'Да', 'ok');
+          row('Версия', d.version || 'нет данных');
+        } else if (!p.configured) {
+          row('Работает', 'Не проверяется: адрес не задан', 'warn');
+        } else {
+          row('Работает', p.healthy ? 'Да' : 'Не отвечает', p.healthy ? 'ok' : 'bad');
+          row('Версия', p.version || 'нет данных');
+        }
+        if (!main) row('Копия данных', ageText(p.copyAgeMin), p.copyAgeMin != null && p.copyAgeMin <= 26 * 60 ? 'ok' : 'warn');
+        c.append(h, rows);
+        return c;
+      };
+      const cards = el('div', 'sw-cards');
+      cards.append(mk(meName, true), mk(meName === 'home' ? 'office' : 'home', false));
+      const parts = [cards, el('p', 'muted', 'Сейчас главный сервер работает, второй хранит копию данных. Копия обновляется раз в сутки.')];
+      if (d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
+      return parts;
+    }
+
     function draw() {
       const d = data;
       if (!d) return;
-      if (d.enabled === false) { box.replaceChildren(el('p', 'cc-note', 'Переключение ещё не включено на этом сервере. Оно включается настройкой сервера; пока всё работает как раньше.')); return; }
+      if (d.enabled === false) { box.replaceChildren(...overview(d)); return; }
       const cards = el('div', 'sw-cards');
       cards.append(card('home', d), card('office', d));
       const parts = [cards];
@@ -161,6 +200,7 @@
       if (busy) acts.append(el('span', 'muted', 'Идёт переключение, подождите.'));
       else if (!d.canStart) acts.append(el('span', 'muted', d.role === 'standby' ? 'Кнопка доступна на главном сервере.' : d.bridge && !d.bridge.alive ? 'Нет связи со служебным мостом.' : 'Сейчас переключить нельзя.'));
       parts.push(acts);
+      if (!busy && d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
       if (d.bridge && !d.bridge.alive) parts.push(el('p', 'cc-note warn', 'Служебный мост на сервере не отвечает: переключение недоступно, пока его не запустят.'));
       if (d.canEmergency) {
         const z = el('div', 'sw-danger');
