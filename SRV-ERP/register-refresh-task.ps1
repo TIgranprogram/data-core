@@ -5,7 +5,10 @@
 # ASCII only: Windows PowerShell 5.1 misreads UTF-8 without BOM.
 $Bash = 'C:\Program Files\Git\bin\bash.exe'
 if (-not (Test-Path $Bash)) { throw "Git Bash not found: $Bash" }
-$Run = 'cd /d/data-core && bash SRV-ERP/refresh-copy.sh >> /d/datacore-backups/refresh.log 2>&1'
+# Repo root = folder above this script, as a Git Bash path (D:\a\b -> /d/a/b)
+$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$RootSh = '/' + $Root.Substring(0,1).ToLower() + ($Root.Substring(2) -replace '\\','/')
+$Run = "cd '$RootSh' && bash SRV-ERP/refresh-copy.sh >> /d/datacore-backups/refresh.log 2>&1"
 $Action = New-ScheduledTaskAction -Execute $Bash -Argument "-lc `"$Run`""
 $Trigger = New-ScheduledTaskTrigger -Daily -At 11:00
 $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
