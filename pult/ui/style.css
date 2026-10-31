@@ -43,6 +43,8 @@ h1, h2, p { margin: 0; }
 .nav-item { display: flex; gap: 9px; align-items: center; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; }
 .nav-item .ico { width: 20px; text-align: center; }
 .nav-item .n { margin-left: auto; color: var(--muted); font-size: 12px; }
+.nav-item .n.alert { padding: 0 7px; border-radius: 999px; background: var(--bad); color: var(--panel); font-weight: 700; }
+.nav-group { margin: 12px 0 3px; padding: 0 10px; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .nav-item:hover { background: var(--panel-2); }
 .nav-item.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .legend { margin-top: auto; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
@@ -96,6 +98,7 @@ h1, h2, p { margin: 0; }
 .tab.running::before { color: #6db3ff; }
 .tab.ok::before { color: #5fd39a; }
 .tab.fail::before, .tab.stopped::before { color: #ff8d84; }
+.tab.found::before { color: #f1c35a; }
 .job-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #ffffff1f; flex: none; }
 .job-head .ghost { background: transparent; color: var(--term-text); border-color: #ffffff40; padding: 3px 10px; font-size: 12.5px; }
 .job-head .ghost:hover { background: #ffffff1a; }
@@ -104,6 +107,7 @@ h1, h2, p { margin: 0; }
 .state { margin-left: 8px; font-size: 12.5px; color: #a9b7c9; }
 .state.ok { color: #5fd39a; }
 .state.fail, .state.stopped { color: #ff8d84; }
+.state.found { color: #f1c35a; }
 .advice { padding: 8px 12px; background: #3d3115; color: #f7dc9c; font-size: 13px; flex: none; }
 .advice div + div { margin-top: 4px; }
 .out { flex: 1; min-height: 0; margin: 0; padding: 10px 12px; overflow: auto; font: 12.5px/1.5 Consolas, "Cascadia Mono", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -121,6 +125,22 @@ dialog label { display: flex; flex-direction: column; gap: 6px; margin-top: 8px;
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: 80vw; padding: 9px 16px; border-radius: 9px; background: var(--text); color: var(--panel); box-shadow: 0 4px 16px rgba(0, 0, 0, .3); z-index: 5; }
 .none { color: var(--muted); padding: 24px 0; }
+.neg { color: var(--bad); }
+.sub-head { grid-column: 1 / -1; margin: 10px 0 0; color: var(--muted); font-size: 14px; font-weight: 600; }
+.sub-head:first-child { margin-top: 0; }
+.now-level { margin-bottom: 18px; }
+.now-level h2 { font-size: 16px; }
+.now-hint { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
+.todo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; box-shadow: var(--shadow); }
+.todo.urgent { border-left-color: var(--bad); }
+.todo.today { border-left-color: var(--warn); }
+.todo.soon { border-left-color: var(--accent); }
+.todo-main { flex: 1; min-width: 0; }
+.todo-main b { display: block; font-size: 15px; }
+.todo-main span { display: block; color: var(--muted); font-size: 13px; }
+.todo-main .why { color: var(--warn); }
+.todo button { flex: none; }
+.now-clear { padding: 18px; background: var(--ok-soft); color: var(--ok); border-radius: 10px; font-weight: 600; }
 
 @media (max-width: 1050px) {
   .layout { grid-template-columns: 200px 1fr; grid-template-rows: 1fr 40%; }

@@ -16,6 +16,7 @@ const fake = {
   COMMANDS: [
     { id: 'hello', section: 's', title: 'Привет', hint: 'h', time: '1', risk: 'read', run: say("console.log('привет'); console.log('A_PASSWORD=qwe')") },
     { id: 'fail', section: 's', title: 'Сбой', hint: 'h', time: '1', risk: 'read', run: say("console.log('СТОП'); process.exit(3)") },
+    { id: 'soft', section: 's', title: 'Находки', hint: 'h', time: '1', risk: 'read', run: { ...say("console.log('✗ плохо'); process.exit(1)"), soft: true } },
     { id: 'long', section: 's', title: 'Долго', hint: 'h', time: '1', risk: 'read', run: say('setTimeout(()=>{}, 60000)') },
     { id: 'write', section: 's', title: 'Запись', hint: 'h', time: '1', risk: 'prod-write', confirm: 'да?', run: say('setTimeout(()=>{}, 60000)') },
     { id: 'write2', section: 's', title: 'Запись 2', hint: 'h', time: '1', risk: 'prod-write', confirm: 'да?', run: say("console.log('w2')") },
@@ -97,6 +98,14 @@ test('код ошибки и подсказка', async () => {
   assert.equal(j.state, 'fail');
   assert.equal(j.code, 3);
   assert.deepEqual(j.advice, ['совет']);
+});
+
+test('код 1 у команды с находками — не сбой, запуск запомнен', async () => {
+  const { job } = (await api('/api/run', { id: 'soft' })).json();
+  assert.equal((await finished(job.id)).state, 'found');
+  const runs = JSON.parse(fs.readFileSync(path.join(logDir, 'runs.json'), 'utf8'));
+  assert.equal(runs.soft.code, 0);
+  assert.deepEqual(runs.soft.bad, ['✗ плохо']);
 });
 
 test('запись без подтверждения не стартует — проверяет сервер', async () => {

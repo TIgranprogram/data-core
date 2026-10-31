@@ -183,7 +183,7 @@ function cmdCheck() {
   const imp = step('импорты приложения', process.execPath, ['backend/scripts/pwa-import-check.mjs']);
   say(imp.code === 0 ? 'импорты pwa/admin: ок — ' + cut(imp.out.trim().split('\n').pop(), 80) : 'импорты pwa/admin: ОШИБКА — ' + cut(imp.out.trim().split('\n')[0], 110));
   if (imp.code) bad++;
-  const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs']);
+  const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;
   if (tsc.err || jest.err) { say('Сбой запуска npx: ' + (tsc.err || jest.err).message); return 2; }

@@ -12,6 +12,8 @@
 //           скрипт сам ходит на сервер по VM и KEY: добавьте vmEnv: true, иначе с работы он пойдёт домашним адресом
 //           аргумент-заполнитель '{имя}' подставляется из params
 //   needs   ['bash','docker','vm','key-home'] — без этого кнопка серая с причиной
+//   every   ритм в днях (1, 7, 30) и why — причина: команда сама попадёт на экран «Что делать сейчас»
+//   sub     подзаголовок внутри раздела, если карточек много
 //   params  [{ name, label, type:'select', options:[{value,label}] | from:'prodScripts', default }]
 //   confirm текст окна подтверждения; word — слово, которое надо ввести (для danger обязательно)
 
@@ -22,23 +24,33 @@ export const RISKS = {
   danger: { label: 'Опасно', hint: 'Меняет рабочий сайт или данные. Для запуска надо ввести слово' },
 };
 
-export const SECTIONS = [
-  { id: 'day', title: 'Каждый день', icon: '☀', hint: 'Обзор проекта и сайта. Начинайте отсюда' },
-  { id: 'deploy', title: 'Выкладка', icon: '🚀', hint: 'Новая версия на сайт и всё, что её окружает' },
-  { id: 'prod', title: 'Рабочий сайт', icon: '🌐', hint: 'Осмотр сайта и сервера, копии, откат' },
-  { id: 'scripts', title: 'Разовые скрипты', icon: '🧾', hint: 'Скрипты правки данных на рабочем сервере: сначала план, потом запись' },
-  { id: 'code', title: 'Проверка кода', icon: '🧪', hint: 'Типы, тесты, сборка. Сайт не затрагивают' },
-  { id: 'stand', title: 'Стенды', icon: '🧰', hint: 'Локальный сайт, ночной стенд и копия на Sportin' },
-  { id: 'git', title: 'Git', icon: '🌿', hint: 'Обмен кодом между домом, работой и GitHub' },
-  { id: 'setup', title: 'Настройка ПК', icon: '⚙', hint: 'Разовая подготовка компьютера и переносной пакет' },
-  { id: 'links', title: 'Ссылки и папки', icon: '🔗', hint: 'Сайт, админка, документы и рабочие папки' },
+export const GROUPS = [
+  { id: 'start', title: '' },
+  { id: 'site', title: 'Работа с сайтом' },
+  { id: 'dev', title: 'Разработка' },
+  { id: 'pc', title: 'Этот компьютер' },
 ];
 
-const dc = (...args) => ({ node: ['tools/dc.mjs', ...args] });
+// Раздел now — экран «Что делать сейчас» (advisor.mjs), своих карточек у него нет.
+export const SECTIONS = [
+  { id: 'now', group: 'start', title: 'Что делать сейчас', icon: '🧭', hint: 'Пульт сам смотрит на проект и подсказывает очерёдность' },
+  { id: 'day', group: 'site', title: 'Каждый день', icon: '☀', hint: 'Обзор проекта и сайта' },
+  { id: 'deploy', group: 'site', title: 'Выкладка', icon: '🚀', hint: 'Новая версия на сайт и всё, что её окружает' },
+  { id: 'prod', group: 'site', title: 'Рабочий сайт', icon: '🌐', hint: 'Осмотр сайта и сервера, копии, откат' },
+  { id: 'scripts', group: 'site', title: 'Разовые скрипты', icon: '🧾', hint: 'Скрипты правки данных на рабочем сервере: сначала план, потом запись' },
+  { id: 'code', group: 'dev', title: 'Проверка кода', icon: '🧪', hint: 'Типы, тесты, сборка. Сайт не затрагивают' },
+  { id: 'stand', group: 'dev', title: 'Стенды', icon: '🧰', hint: 'Локальный сайт, ночной стенд и копия на Sportin' },
+  { id: 'git', group: 'dev', title: 'Git', icon: '🌿', hint: 'Обмен кодом между домом, работой и GitHub' },
+  { id: 'setup', group: 'pc', title: 'Настройка ПК', icon: '⚙', hint: 'Разовая подготовка компьютера и переносной пакет' },
+  { id: 'links', group: 'pc', title: 'Ссылки и папки', icon: '🔗', hint: 'Сайт, админка, документы и рабочие папки' },
+];
+
+// soft: код выхода 1 значит «есть находки», а не сбой (так договорено в dc и doctor.sh).
+const dc = (...args) => ({ node: ['tools/dc.mjs', ...args], soft: true });
 
 export const COMMANDS = [
   // ---------- Каждый день ----------
-  { id: 'day-start', section: 'day', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'),
+  { id: 'day-start', section: 'day', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: новые ошибки сайта и состояние кода',
     hint: 'Первая кнопка за день. Покажет ветку, отставание от GitHub, незакоммиченное и ошибки сайта за сутки.' },
   { id: 'day-status', section: 'day', title: 'Состояние проекта', risk: 'read', time: '20 с', needs: ['bash'], run: dc('status'),
     hint: 'Сайт жив или нет, возраст копии базы, версия на сервере, последний полный прогон тестов.' },
@@ -46,7 +58,7 @@ export const COMMANDS = [
     params: [{ name: 'hours', label: 'За какой срок', type: 'select', default: '24', options: [
       { value: '2', label: '2 часа' }, { value: '24', label: 'Сутки' }, { value: '72', label: '3 дня' }, { value: '168', label: 'Неделя' }] }],
     hint: 'Какие ошибки видели люди на сайте и на каких экранах. Новые ошибки чините первыми.' },
-  { id: 'day-data', section: 'day', title: 'Что заполнить в данных', risk: 'read', time: '15 с', needs: ['bash'], run: dc('data'),
+  { id: 'day-data', section: 'day', title: 'Что заполнить в данных', risk: 'read', time: '15 с', needs: ['bash'], run: dc('data'), every: 7, why: 'Раз в неделю: сколько записей ждут заполнения',
     hint: 'Сводка «Требуют заполнения»: сколько записей без важных полей и в каких разделах.' },
   { id: 'day-logs', section: 'day', title: 'Прошлые журналы', risk: 'read', time: '1 с', run: dc('logs'),
     hint: 'Список полных журналов команд dc. Полезно, когда короткого итога мало.' },
@@ -69,7 +81,7 @@ export const COMMANDS = [
     hint: 'Нажмите через 1–2 часа после выкладки. Покажет новые ошибки с сайта на этой версии.' },
 
   // ---------- Рабочий сайт ----------
-  { id: 'prod-doctor', section: 'prod', title: 'Осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'] },
+  { id: 'prod-doctor', section: 'prod', title: 'Осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
     hint: 'Полный осмотр: диск, копии, целостность, скорость. Итог ✓ норма, ⚠ посмотреть, ✗ чинить сейчас. Раз в неделю и после выкладки.' },
   { id: 'prod-containers', section: 'prod', title: 'Что запущено на сервере', risk: 'read', time: '10 с', needs: ['bash', 'vm'], run: { vm: "docker ps --format '{{.Names}}  {{.Status}}'" },
     hint: 'Список контейнеров на сервере и как давно они работают.' },
@@ -82,7 +94,7 @@ export const COMMANDS = [
   { id: 'prod-backup', section: 'prod', title: 'Сделать копию базы', risk: 'prod-write', time: '2–5 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/backup.sh' },
     confirm: 'На сервере появится внеплановая копия базы и файлов. Рабочие данные не меняются. Нужно свободное место.',
     hint: 'Внеплановая копия. Обычно она не нужна: копии идут по расписанию и перед каждой выкладкой.' },
-  { id: 'prod-drill', section: 'prod', title: 'Учебное восстановление', risk: 'prod-write', time: '5–15 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/restore-drill.sh' },
+  { id: 'prod-drill', section: 'prod', title: 'Учебное восстановление', risk: 'prod-write', time: '5–15 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/restore-drill.sh' }, every: 30, why: 'Раз в месяц: проверка, что копия восстанавливается',
     confirm: 'Последняя копия развернётся во временную базу, числа сверятся, база удалится. Рабочая база не меняется.',
     hint: 'Раз в месяц. Доказывает, что копия восстанавливается. Итог виден в «Осмотре сайта».' },
   { id: 'prod-rollback', section: 'prod', title: 'Откат на прошлую версию', risk: 'danger', time: '2 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/rollback.sh' },
@@ -117,26 +129,26 @@ export const COMMANDS = [
     hint: 'Тесты dc, ночного прогона и этого пульта. Покажет новые скрипты, которых нет на кнопках.' },
 
   // ---------- Стенды ----------
-  { id: 'stand-up', section: 'stand', title: 'Локальный сайт: запустить', risk: 'local', time: '2–5 мин', needs: ['docker'], run: { docker: ['compose', 'up', '-d', '--build'] },
+  { id: 'stand-up', section: 'stand', sub: 'Локальный сайт', title: 'Локальный сайт: запустить', risk: 'local', time: '2–5 мин', needs: ['docker'], run: { docker: ['compose', 'up', '-d', '--build'] },
     hint: 'Поднимает Mongo и backend на этом ПК. Адрес: http://localhost:3001.' },
-  { id: 'stand-ps', section: 'stand', title: 'Локальный сайт: состояние', risk: 'read', time: '5 с', needs: ['docker'], run: { docker: ['compose', 'ps'] },
+  { id: 'stand-ps', section: 'stand', sub: 'Локальный сайт', title: 'Локальный сайт: состояние', risk: 'read', time: '5 с', needs: ['docker'], run: { docker: ['compose', 'ps'] },
     hint: 'Какие локальные контейнеры запущены.' },
-  { id: 'stand-down', section: 'stand', title: 'Локальный сайт: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: { docker: ['compose', 'stop'] },
+  { id: 'stand-down', section: 'stand', sub: 'Локальный сайт', title: 'Локальный сайт: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: { docker: ['compose', 'stop'] },
     hint: 'Останавливает локальные контейнеры. Данные остаются.' },
-  { id: 'night-status', section: 'stand', title: 'Ночной стенд: состояние', risk: 'read', time: '5 с', needs: ['docker'], run: dc('stand', 'status'),
+  { id: 'night-status', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной стенд: состояние', risk: 'read', time: '5 с', needs: ['docker'], run: dc('stand', 'status'),
     hint: 'Запущен ли стенд на копии прода.' },
-  { id: 'night-up', section: 'stand', title: 'Ночной стенд: запустить', risk: 'local', time: '3–10 мин', needs: ['docker'], run: dc('stand', 'up'),
+  { id: 'night-up', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной стенд: запустить', risk: 'local', time: '3–10 мин', needs: ['docker'], run: dc('stand', 'up'),
     hint: 'Поднимает стенд из свежей копии базы. Нужна папка копий (D:\\datacore-backups или DC_BACKUPS).' },
-  { id: 'night-down', section: 'stand', title: 'Ночной стенд: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: dc('stand', 'down'),
+  { id: 'night-down', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной стенд: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: dc('stand', 'down'),
     hint: 'Останавливает стенд на копии.' },
-  { id: 'night-quick', section: 'stand', title: 'Ночной прогон: быстрый', risk: 'local', time: '10–20 мин', needs: ['docker'], run: dc('night', '--quick'),
+  { id: 'night-quick', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной прогон: быстрый', risk: 'local', time: '10–20 мин', needs: ['docker'], run: dc('night', '--quick'),
     hint: 'Короткий прогон проверок в отдельной копии кода. Рабочую папку не трогает.' },
-  { id: 'night-full', section: 'stand', title: 'Ночной прогон: полный', risk: 'local', time: 'до 3 ч', needs: ['docker'], run: dc('night'),
+  { id: 'night-full', section: 'stand', sub: 'Ночной стенд на копии прода', title: 'Ночной прогон: полный', risk: 'local', time: 'до 3 ч', needs: ['docker'], run: dc('night'),
     hint: 'То же, что запускается в 23:30 по расписанию. Отчёт появится в журналах.' },
-  { id: 'sportin-copy', section: 'stand', title: 'Копия на Sportin: база и фото', risk: 'local', time: '10–30 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh'] },
+  { id: 'sportin-copy', section: 'stand', sub: 'Копия на Sportin', title: 'Копия на Sportin: база и фото', risk: 'local', time: '10–30 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh'] },
     confirm: 'Копия на Sportin будет заменена свежим бэкапом. Всё, что изменено в копии, пропадёт. Прод не меняется.',
     hint: 'Обновляет копию на сервере Sportin из свежего бэкапа. Прод не затрагивает. Правки в копии затрутся.' },
-  { id: 'sportin-code', section: 'stand', title: 'Копия на Sportin: плюс код', risk: 'local', time: '15–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh', '--code'] },
+  { id: 'sportin-code', section: 'stand', sub: 'Копия на Sportin', title: 'Копия на Sportin: плюс код', risk: 'local', time: '15–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh', '--code'] },
     confirm: 'Копия на Sportin будет заменена свежим бэкапом и текущим кодом. Всё, что изменено в копии, пропадёт. Прод не меняется.',
     hint: 'То же, плюс код из текущего коммита и сборка backend на Sportin.' },
 

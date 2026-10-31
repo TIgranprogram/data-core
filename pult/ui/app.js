@@ -2,9 +2,9 @@
 const token = document.querySelector('meta[name="pult-token"]').content;
 const $ = (id) => document.getElementById(id);
 const CONFIRM_RISKS = new Set(['prod-write', 'danger']);
-const STATE_TEXT = { running: 'Идёт', ok: 'Готово', fail: 'Ошибка', stopped: 'Остановлено' };
+const STATE_TEXT = { running: 'Идёт', ok: 'Готово', found: 'Есть находки', fail: 'Ошибка', stopped: 'Остановлено' };
 
-const S = { catalog: null, section: 'day', query: '', jobs: new Map(), order: [], current: null, values: {} };
+const S = { catalog: null, section: 'now', query: '', jobs: new Map(), order: [], current: null, values: {}, advice: null, runs: {} };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -38,13 +38,18 @@ function toast(text) {
 function renderNav() {
   const box = $('nav');
   box.replaceChildren();
-  for (const s of S.catalog.sections) {
-    const count = S.catalog.commands.filter((c) => c.section === s.id).length;
-    const b = el('button', `nav-item${s.id === S.section && !S.query ? ' on' : ''}`);
-    b.title = s.hint;
-    b.append(el('span', 'ico', s.icon), el('span', '', s.title), el('span', 'n', String(count)));
-    b.onclick = () => { S.section = s.id; S.query = ''; $('search').value = ''; render(); };
-    box.append(b);
+  const todo = (S.advice?.items || []).filter((x) => x.level !== 'soon');
+  for (const g of S.catalog.groups) {
+    if (g.title) box.append(el('div', 'nav-group', g.title));
+    for (const s of S.catalog.sections.filter((x) => x.group === g.id)) {
+      const count = S.catalog.commands.filter((c) => c.section === s.id).length;
+      const b = el('button', `nav-item${s.id === S.section && !S.query ? ' on' : ''}`);
+      b.title = s.hint;
+      const n = s.id === 'now' ? el('span', `n${todo.length ? ' alert' : ''}`, todo.length ? String(todo.length) : '') : el('span', 'n', String(count));
+      b.append(el('span', 'ico', s.icon), el('span', '', s.title), n);
+      b.onclick = () => { S.section = s.id; S.query = ''; $('search').value = ''; render(); };
+      box.append(b);
+    }
   }
 }
 
@@ -80,6 +85,8 @@ function card(c) {
   box.append(el('h3', '', c.title), el('p', '', c.hint));
   const meta = el('div', 'meta');
   meta.append(el('span', `badge ${c.risk}`, S.catalog.risks[c.risk].label), el('span', '', `≈ ${c.time}`));
+  const last = S.runs[c.id];
+  if (last) meta.append(el('span', last.code === 0 ? '' : 'neg', `Запуск: ${whenText(last.at)}${last.code === 0 ? '' : ', ошибка'}`));
   box.append(meta);
   for (const p of c.params) {
     const label = el('label', 'param', p.label);
@@ -102,14 +109,77 @@ function card(c) {
   return box;
 }
 
+function whenText(at) {
+  const d = new Date(at);
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86400000);
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  if (days === 0) return `сегодня ${time}`;
+  if (days === 1) return `вчера ${time}`;
+  return `${days} дн. назад`;
+}
+
+function todoRow(item, level) {
+  const c = S.catalog.commands.find((x) => x.id === item.cmd);
+  const row = el('article', `todo ${level.id}`);
+  const main = el('div', 'todo-main');
+  main.append(el('b', '', c.title), el('span', '', item.why));
+  if (c.blocked.length) main.append(el('span', 'why', c.blocked[0]));
+  const live = [...S.jobs.values()].some((j) => j.cmdId === c.id && j.state === 'running');
+  const b = el('button', buttonClass(c), live ? 'Идёт…' : 'Запустить');
+  b.disabled = live || c.blocked.length > 0;
+  b.onclick = () => press(c);
+  row.append(main, b);
+  return row;
+}
+
+function renderNow() {
+  const box = el('div', 'now');
+  const a = S.advice;
+  if (!a) box.append(el('div', 'none', 'Смотрю состояние проекта…'));
+  else {
+    for (const level of S.catalog.levels) {
+      const items = a.items.filter((x) => x.level === level.id);
+      if (!items.length) continue;
+      const sec = el('section', 'now-level');
+      sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint), ...items.map((x) => todoRow(x, level)));
+      box.append(sec);
+    }
+    if (!a.items.length) box.append(el('div', 'now-clear', 'Срочных и плановых дел нет. Можно работать спокойно.'));
+    if (a.done.length) {
+      const sec = el('section', 'now-level');
+      sec.append(el('h2', '', 'Сделано сегодня'));
+      const names = a.done.map((d) => `${S.catalog.commands.find((c) => c.id === d.cmd)?.title} · ${whenText(d.at).replace('сегодня ', '')}`);
+      sec.append(el('p', 'now-hint', names.join('   ·   ')));
+      box.append(sec);
+    }
+  }
+  $('cards').replaceChildren();
+  $('now').replaceChildren(box);
+}
+
 function render() {
   renderNav();
+  if (S.section === 'now' && !S.query) {
+    const s = S.catalog.sections.find((x) => x.id === 'now');
+    $('title').textContent = `${s.icon} ${s.title}`;
+    $('subtitle').textContent = s.hint;
+    renderNow();
+    return;
+  }
+  $('now').replaceChildren();
   const sec = S.catalog.sections.find((s) => s.id === S.section);
   $('title').textContent = S.query ? 'Поиск' : `${sec.icon} ${sec.title}`;
   $('subtitle').textContent = S.query ? `По запросу «${S.query}»` : sec.hint;
   const list = visible();
   const box = $('cards');
-  box.replaceChildren(...(list.length ? list.map(card) : [el('div', 'none', 'Ничего не найдено. Попробуйте другое слово.')]));
+  const nodes = [];
+  let sub = null;
+  for (const c of list) {
+    if (!S.query && c.sub && c.sub !== sub) nodes.push(el('h2', 'sub-head', c.sub));
+    sub = c.sub;
+    nodes.push(card(c));
+  }
+  box.replaceChildren(...(nodes.length ? nodes : [el('div', 'none', 'Ничего не найдено. Попробуйте другое слово.')]));
 }
 
 // ---------- запуск ----------
@@ -238,6 +308,7 @@ function onEvent(ev) {
   if (ev.type === 'start') {
     addJob({ ...ev.job, lines: [] });
     renderTabs();
+    if (S.section === 'now' && !S.query) render();
   } else if (ev.type === 'line') {
     const j = S.jobs.get(ev.id);
     if (!j) return;
@@ -286,6 +357,9 @@ function pill(kind, text, title) {
 async function loadStatus() {
   let s;
   try { s = await api('/api/status'); } catch { return; }
+  S.advice = s.advice;
+  S.runs = s.runs;
+  if (S.section === 'now' && !S.query) render(); else renderNav();
   const list = [
     s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Рабочий сайт → Осмотр сайта»'),
     s.gateFiles.length

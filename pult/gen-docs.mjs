@@ -30,11 +30,11 @@ export function renderDoc() {
     ...Object.values(RISKS).map((r) => `| ${r.label} | ${r.hint} |`),
     '',
   ];
-  for (const s of SECTIONS) {
-    out.push(`## ${s.title}`, '', s.hint, '', '| Кнопка | Когда нажимать | Отметка | Время | Что запускает |', '|--|--|--|--|--|');
+  for (const s of SECTIONS.filter((x) => COMMANDS.some((c) => c.section === x.id))) {
+    out.push(`## ${s.title}`, '', s.hint, '', '| Кнопка | Когда нажимать | Отметка | Время | Ритм | Что запускает |', '|--|--|--|--|--|--|');
     for (const c of COMMANDS.filter((x) => x.section === s.id)) {
       const word = c.word ? ` (слово ${c.word})` : '';
-      out.push(`| ${cell(c.title)} | ${cell(c.hint)} | ${RISKS[c.risk].label}${word} | ${c.time} | \`${cell(runText(c.run))}\` |`);
+      out.push(`| ${cell(c.title)} | ${cell(c.hint)} | ${RISKS[c.risk].label}${word} | ${c.time} | ${c.every ? `${c.every} дн.` : '—'} | \`${cell(runText(c.run))}\` |`);
     }
     out.push('');
   }

@@ -11,6 +11,7 @@ import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
 import * as defaultCatalog from './catalog.mjs';
+import { advise, LEVELS } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
@@ -32,8 +33,16 @@ async function fetchJson(url) {
   } catch { return { ok: false, code: 0, json: null }; }
 }
 
+/** Сколько коммитов кода после версии на сайте и после последней выкладки с пульта: меньшее из двух. */
+async function countUndeployed(bases) {
+  const list = bases.filter((b) => /^[0-9a-f]{6,40}$/.test(b || ''));
+  const counts = await Promise.all(list.map((b) => sh('git', ['rev-list', '--count', `${b}..HEAD`, '--', 'backend', 'deploy', 'docker-compose.prod.yml'])));
+  const ok = counts.filter((c) => c.ok).map((c) => Number(c.out.trim()));
+  return ok.length ? Math.min(...ok) : 0;
+}
+
 /** Полоса состояния вверху окна. Только чтение. */
-async function readStatus(machine) {
+async function readStatus(machine, runs = {}) {
   const [branch, counts, gate, all, docker, admin, ready, version] = await Promise.all([
     sh('git', ['rev-parse', '--abbrev-ref', 'HEAD']),
     sh('git', ['rev-list', '--left-right', '--count', 'HEAD...@{u}']),
@@ -46,6 +55,7 @@ async function readStatus(machine) {
   ]);
   const [ahead, behind] = counts.out.trim().split(/\s+/).map(Number);
   const lines = (s) => s.split(/\r?\n/).filter(Boolean);
+  const undeployed = await countUndeployed([version.json?.v, runs['deploy-release']?.code === 0 ? runs['deploy-release'].commit : null]);
   return {
     branch: branch.out.trim() || '?',
     ahead: ahead || 0,
@@ -55,6 +65,7 @@ async function readStatus(machine) {
     docker: !!docker.ok,
     admin: !!admin.ok,
     route: machine.route ? ROUTE_LABEL[machine.route] : null,
+    undeployed,
     site: ready.ok,
     version: version.json?.v ? `${version.json.v}` : null,
   };
@@ -67,6 +78,24 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   let port = 0;
   let idleTimer = null;
   const prodScripts = () => listProdScripts(root);
+  const runsFile = path.join(logDir, 'runs.json');
+
+  /** Когда и чем кончился последний запуск каждой команды: основа экрана «Что делать сейчас». */
+  function readRuns() {
+    try { return JSON.parse(fs.readFileSync(runsFile, 'utf8')); } catch { return {}; }
+  }
+
+  function saveRun(job) {
+    if (job.state === 'stopped') return;
+    const runs = readRuns();
+    const text = job.lines.filter((l) => l.trim());
+    runs[job.cmdId] = {
+      at: job.endedAt, code: job.state === 'found' ? 0 : job.code, commit: job.commit,
+      last: (text[text.length - 1] || '').slice(0, 200),
+      bad: text.filter((l) => l.startsWith('✗')).slice(0, 3).map((l) => l.slice(0, 200)),
+    };
+    fs.writeFileSync(runsFile, JSON.stringify(runs, null, 1));
+  }
 
   const send = (event) => {
     const data = `data: ${JSON.stringify(event)}\n\n`;
@@ -84,6 +113,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   function publicCatalog() {
     const scripts = prodScripts();
     return {
+      groups: catalog.GROUPS,
+      levels: LEVELS,
       sections: catalog.SECTIONS,
       risks: catalog.RISKS,
       problems: auditProblems(auditCatalog(catalog, root)),
@@ -110,6 +141,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     const log = fs.createWriteStream(logFile);
     const job = { id, cmdId: cmd.id, title: cmd.title, risk: cmd.risk, state: 'running', startedAt: Date.now(), lines: [], code: null, advice: [], logFile: path.relative(root, logFile) };
     jobs.set(id, job);
+    sh('git', ['rev-parse', 'HEAD']).then((r) => { job.commit = r.out.trim(); });
     send({ type: 'start', job: summary(job) });
 
     const child = spawn(spec.file, spec.args, { cwd: spec.cwd, env: { ...childEnv(machine), ...spec.env }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -140,11 +172,12 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       closed = true;
       if (pending) { emit(pending); pending = ''; }
       job.code = code;
-      job.state = job.stopped ? 'stopped' : code === 0 ? 'ok' : 'fail';
+      job.state = job.stopped ? 'stopped' : code === 0 ? 'ok' : cmd.run.soft && code === 1 ? 'found' : 'fail';
       job.endedAt = Date.now();
       job.advice = adviceFor(job.lines.join('\n'), catalog.ADVICE);
       log.end();
       rotateLogs();
+      saveRun(job);
       send({ type: 'end', job: summary(job) });
       checkIdle();
     }
@@ -225,7 +258,12 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       return undefined;
     }
     if (req.method === 'GET' && url.pathname === '/api/catalog') return json(res, 200, publicCatalog());
-    if (req.method === 'GET' && url.pathname === '/api/status') return json(res, 200, await statusFn(machine));
+    if (req.method === 'GET' && url.pathname === '/api/status') {
+      const runs = readRuns();
+      const status = await statusFn(machine, runs);
+      const brief = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, { at: v.at, code: v.code }]));
+      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS) });
+    }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
     if (req.method === 'POST' && url.pathname === '/api/run') {
       const out = runCommand(await readBody(req));
