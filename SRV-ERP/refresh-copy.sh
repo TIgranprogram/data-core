@@ -58,8 +58,10 @@ if [[ $CODE == 1 ]]; then
   # экран «Серверы»: копия спрашивает главный сервер о его состоянии (только справка /control/switch/ping)
   grep -q '^HA_PEER_URL=' .env || echo 'HA_PEER_URL=https://kppdf-crm.ru/db' >> .env
   docker compose -f docker-compose.prod.yml build backend 2>&1 | tail -2
-  ls -dt prev/backend.* | tail -n +3 | xargs -r rm -rf
-  ls -dt prev/deploy.* | tail -n +3 | xargs -r rm -rf
+  # старые копии кода: файлы, созданные контейнером (root), обычный пользователь не удалит — удаляем через контейнер; сбой уборки не валит обновление
+  for d in $(ls -dt prev/backend.* | tail -n +3; ls -dt prev/deploy.* | tail -n +3); do
+    rm -rf "$d" 2>/dev/null || docker run --rm -v "$PWD/prev:/p" alpine:3.20 rm -rf "/p/$(basename "$d")" 2>/dev/null || echo "не удалена старая копия кода $d — не мешает"
+  done
 fi
 
 echo "== Сохранение своих SMB-целей и настроек копий (до замены базы)"
