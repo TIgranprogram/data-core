@@ -74,15 +74,19 @@ function isClosed(text) {
   return boxes.length > 0 && boxes.every((b) => b === 'x' || b === '-');
 }
 
+/** docs/archive/<путь> — закрыт всегда; на сервере хранится под исходным путём docs/<путь>: по нему ищет `dc doc`. */
+const ARCHIVE = /^docs\/archive\//;
 function readDocs() {
-  const files = git('ls-files', 'docs').split('\n').filter((p) => /\.md$/.test(p) && !WORKING.test(p) && /(CHECKLIST|audit|AUDIT|\/tz\/)/.test(p));
+  const files = git('-c', 'core.quotepath=off', 'ls-files', 'docs').split('\n')
+    .filter((p) => /\.md$/.test(p) && !WORKING.test(p) && (ARCHIVE.test(p) || /(CHECKLIST|audit|AUDIT|\/tz\/)/.test(p)));
   const docs = [], open = [];
   for (const rel of files) {
     const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
     if (text.length > 600_000) { console.warn(`  пропуск (больше 600 КБ): ${rel}`); continue; }
-    if (!isClosed(text)) { open.push(rel); continue; }
+    if (!ARCHIVE.test(rel) && !isClosed(text)) { open.push(rel); continue; }
+    const orig = rel.replace(ARCHIVE, 'docs/');
     const title = (text.match(/^#\s+(.+)$/m) || [, path.basename(rel)])[1].slice(0, 300);
-    docs.push({ path: rel, title, kind: docKind(rel), text, sha: sha(text) });
+    docs.push({ path: orig, local: rel, title, kind: /HISTORY/.test(orig) ? 'history' : docKind(orig), text, sha: sha(text) });
   }
   return { docs, open };
 }
@@ -149,13 +153,13 @@ async function api(method, p, body) {
   for (const b of batches(commits, 300, (c) => JSON.stringify(c).length)) add(await api('POST', '/api/devlog/import', { commits: b }));
   for (const b of batches(items, 500, (i) => JSON.stringify(i).length)) add(await api('POST', '/api/devlog/import', { items: b }));
   for (const b of batches(kit, 80, (k) => k.text.length)) add(await api('POST', '/api/devlog/import', { kit: b.map(({ path: p, text }) => ({ path: p, text })), kitVersion }));
-  for (const b of batches(docs, 20, (d) => d.text.length)) add(await api('POST', '/api/devlog/import', { docs: b.map(({ sha: _s, ...d }) => d) }));
+  for (const b of batches(docs, 20, (d) => d.text.length)) add(await api('POST', '/api/devlog/import', { docs: b.map(({ sha: _s, local: _l, ...d }) => d) }));
   add(await api('POST', '/api/devlog/import', { syncErrors: true }));
   console.log('  новых записей на сервере:', JSON.stringify(total));
   const ok = [], bad = [];
   for (const d of docs) {
     const r = await api('GET', `/api/devlog/docs?path=${encodeURIComponent(d.path)}`);
-    ((r.items || [])[0] && r.items[0].sha256 === d.sha ? ok : bad).push(d.path);
+    ((r.items || [])[0] && r.items[0].sha256 === d.sha ? ok : bad).push(d.local);
   }
   console.log(`  сверка sha256: совпало ${ok.length}, не совпало ${bad.length}`);
   if (bad.length) console.log('  НЕ удалять:\n    ' + bad.join('\n    '));

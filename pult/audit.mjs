@@ -41,8 +41,8 @@ export function auditCatalog({ COMMANDS, NOT_ON_BUTTONS }, root = ROOT) {
   return {
     noButton: disk.filter((s) => !used.has(s) && !(s in NOT_ON_BUTTONS)),
     staleButton: [...used].filter((s) => !fs.existsSync(path.join(root, s))),
-    staleExcuse: Object.keys(NOT_ON_BUTTONS).filter((s) => !fs.existsSync(path.join(root, s))),
-    noDcButton: dcSubcommands(root).filter((s) => !dcButtons.has(s)),
+    staleExcuse: Object.keys(NOT_ON_BUTTONS).filter((s) => !fs.existsSync(path.join(root, s.split(' ')[0]))),
+    noDcButton: dcSubcommands(root).filter((s) => !dcButtons.has(s) && !(`tools/dc.mjs ${s}` in NOT_ON_BUTTONS)),
   };
 }
 

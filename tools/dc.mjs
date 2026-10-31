@@ -275,6 +275,50 @@ function cmdStart() {
   return code;
 }
 
+// ---------- архив на сервере (devlog): законченные ТЗ, аудиты, старый журнал и задачи ----------
+
+/** dc find <слово>: где встречается — рабочие доки (git grep) и архив на сервере (поиск по тексту). */
+function cmdFind(words) {
+  const q = words.join(' ').trim();
+  if (!q) { say('Укажите слово: dc find <слово>'); return 2; }
+  const loc = run('git', ['-c', 'core.quotepath=off', 'grep', '-n', '-i', '-F', q, '--', 'docs', 'AGENTS.md', 'CLAUDE.md', ':!docs/archive', ':!docs/openapi.json']);
+  const hits = loc.stdout.split('\n').filter(Boolean);
+  log(loc.stdout);
+  say(`В рабочих доках: ${hits.length}`);
+  for (const h of hits.slice(0, 5)) say('  ' + cut(h, 150));
+  const r = prodGet(`/api/devlog/docs?limit=10&search=${encodeURIComponent(q)}`);
+  log(r.text);
+  let items = null;
+  try { items = JSON.parse(r.text).items; } catch { /* ниже — сбой */ }
+  if (!r.ok || !items) { say('Архив на сервере: сбой — ' + cut(r.text.trim(), 120)); return 2; }
+  say(`В архиве на сервере: ${items.length}${items.length === 10 ? '+' : ''}`);
+  for (const d of items.slice(0, 7)) say(`  ${d.path} — ${cut(d.title, 70)}`);
+  if (items.length) say('Текст: dc doc <путь>');
+  return hits.length || items.length ? 0 : 1;
+}
+
+/** dc doc <путь> [слово]: файл из репо, а нет — из архива на сервере. Со словом — только строки рядом с ним. */
+function cmdDoc(p, word) {
+  if (!p) { say('Укажите путь: dc doc docs/roles/tz/SK-5a.md [слово]'); return 2; }
+  let text = '';
+  if (fs.existsSync(path.join(ROOT, p))) text = fs.readFileSync(path.join(ROOT, p), 'utf8');
+  else {
+    const list = prodGet(`/api/devlog/docs?path=${encodeURIComponent(p)}`);
+    let id;
+    try { id = JSON.parse(list.text).items[0]?.id; } catch { /* нет */ }
+    if (!id) { say(`Нет ни в репо, ни в архиве: ${p}. Поиск: dc find <слово>`); return 1; }
+    const one = prodGet(`/api/devlog/docs/${id}`);
+    try { text = JSON.parse(one.text).text || ''; } catch { say('Сбой чтения архива — ' + cut(one.text, 120)); return 2; }
+  }
+  const all = text.split(/\r?\n/);
+  const pick = word ? all.flatMap((l, i) => (l.toLowerCase().includes(word.toLowerCase()) ? [i] : []))
+    .flatMap((i) => all.slice(Math.max(0, i - 2), i + 3).concat('…')) : all;
+  // итог dc обрезается до 14 строк: документ печатаем целиком сразу, в лог — тоже
+  log(pick.join('\n'));
+  console.log(pick.join('\n'));
+  return 0;
+}
+
 function cmdLogs(name) {
   const files = fs.existsSync(LOGS) ? fs.readdirSync(LOGS).filter((f) => f.endsWith('.log') && (!name || f.includes(name))).sort() : [];
   if (!files.length) { console.log('Логов нет' + (name ? ` по имени «${name}»` : '')); process.exit(1); }
@@ -296,9 +340,11 @@ async function main(argv) {
       status: () => cmdStatus(),
       stand: () => cmdStand(arg, { log, say }),
       night: () => cmdNight({ quick: argv.includes('--quick') }, { log, say }),
+      find: () => cmdFind(argv.slice(1)),
+      doc: () => cmdDoc(arg, argv[2]),
     };
     if (!table[cmd]) {
-      console.log('dc start | errors [часы] | check | data | status | logs [имя] | stand [up|down|status] | night [--quick]\nКоды выхода: 0 норма · 1 находки · 2 сбой инструмента');
+      console.log('dc start | errors [часы] | check | data | status | find <слово> | doc <путь> [слово] | logs [имя] | stand [up|down|status] | night [--quick]\nКоды выхода: 0 норма · 1 находки · 2 сбой инструмента');
       process.exit(cmd ? 2 : 0);
     }
     finish(cmd, await table[cmd]());

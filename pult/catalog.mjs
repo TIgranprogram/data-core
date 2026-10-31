@@ -280,6 +280,8 @@ export const NOT_ON_BUTTONS = {
   'deploy/smb/install-smb.sh': 'установка копий по SMB на сервере — кнопки smb-install-home и sportin-smb',
   'SRV-ERP/setup-tunnel.sh': 'настройка стенда Sportin, запускается на нём',
   'tools/dc.cmd': 'обёртка над tools/dc.mjs',
+  'tools/dc.mjs find': 'поиск для ИИ по докам и архиву на сервере; слово вводится в команде',
+  'tools/dc.mjs doc': 'чтение дока из архива на сервере для ИИ; путь вводится в команде',
   'tools/kit/make-kit.sh': 'просит пароль в терминале; без пароля выдал бы архив со всеми доступами',
   'tools/night.mjs': 'библиотека dc: кнопки зовут tools/dc.mjs',
   'tools/setup-task.ps1': 'вызывается из tools/setup.cmd task',
