@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import * as defaultCatalog from './catalog.mjs';
 import { advise, LEVELS, runKey, todoDone } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
+import { KINDS, SAFE_RISKS, WEEKDAYS, cleanRule, isDue, lastSlot, mergeRules, nextSlot, ruleText } from './schedule.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
 const UI_DIR = path.join(ROOT, 'pult', 'ui');
@@ -93,7 +94,7 @@ async function readStatus(machine, runs = {}) {
   };
 }
 
-export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), onIdle = null, statusFn = readStatus } = {}) {
+export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), onIdle = null, statusFn = readStatus, now = () => new Date() } = {}) {
   const token = crypto.randomBytes(24).toString('hex');
   const jobs = new Map();
   let restartAt = 0; // время, когда пульт ушёл на перезапуск после обновления кода
@@ -102,6 +103,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   let idleTimer = null;
   const prodScripts = () => listProdScripts(root);
   const runsFile = path.join(logDir, 'runs.json');
+  const scheduleFile = path.join(logDir, 'schedule.json'); // правки автозапуска — у каждого ПК свои
+  const autoTried = {}; // id → срок, на который уже пробовали: не повторять каждую минуту, если команда не запустилась
 
   /** Поручения Claude пользователю. Файл в git: одинаков дома и на работе. */
   function readTodo() {
@@ -165,13 +168,13 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     for (const f of files.slice(0, Math.max(0, files.length - KEEP_LOGS))) fs.unlinkSync(path.join(logDir, f));
   }
 
-  function startJob(cmd, spec) {
+  function startJob(cmd, spec, auto = false) {
     fs.mkdirSync(logDir, { recursive: true });
     const stamp = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().replace(/\D/g, '').slice(0, 14);
     const id = crypto.randomBytes(6).toString('hex');
     const logFile = path.join(logDir, `${stamp}-${cmd.id}.log`);
     const log = fs.createWriteStream(logFile);
-    const job = { id, cmdId: cmd.id, title: cmd.title, risk: cmd.risk, state: 'running', startedAt: Date.now(), lines: [], code: null, advice: [], logFile: path.relative(root, logFile) };
+    const job = { id, cmdId: cmd.id, title: auto ? `⏰ ${cmd.title}` : cmd.title, auto, risk: cmd.risk, state: 'running', startedAt: Date.now(), lines: [], code: null, advice: [], logFile: path.relative(root, logFile) };
     jobs.set(id, job);
     sh('git', ['rev-parse', 'HEAD']).then((r) => { job.commit = r.out.trim(); });
     send({ type: 'start', job: summary(job) });
@@ -229,7 +232,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   }
 
   /** Одна кнопка: проверки → запуск. Ошибка — { status, error }. */
-  function runCommand({ id, params, confirmed, word }) {
+  function runCommand({ id, params, confirmed, word, auto = false }) {
     const cmd = catalog.COMMANDS.find((c) => c.id === id);
     if (!cmd) return { status: 404, error: 'Такой команды нет в каталоге' };
     const blocked = missingNeeds(cmd, machine);
@@ -244,8 +247,55 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (live.some((j) => j.cmdId === id)) return { status: 409, error: 'Эта команда уже идёт' };
     const busy = live.find((j) => NEEDS_CONFIRM.has(j.risk));
     if (NEEDS_CONFIRM.has(cmd.risk) && busy) return { status: 409, error: `Сначала дождитесь: ${busy.title}` };
-    const job = startJob(cmd, spec); job.params = values;
+    const job = startJob(cmd, spec, auto); job.params = values;
     return { job: summary(job) };
+  }
+
+  // ---------- автозапуск (schedule.mjs) ----------
+  function readRules() {
+    let saved = {};
+    try { saved = JSON.parse(fs.readFileSync(scheduleFile, 'utf8')); } catch { /* нет правок — умолчания */ }
+    return mergeRules(catalog.SCHEDULE || [], saved);
+  }
+
+  function scheduleView() {
+    const runs = readRuns(), t = now();
+    return {
+      kinds: KINDS, weekdays: WEEKDAYS,
+      items: readRules().map((r) => {
+        const c = catalog.COMMANDS.find((x) => x.id === r.id);
+        return { ...r, title: c?.title || r.id, hint: c?.hint || '', section: c?.section, text: ruleText(r), next: r.enabled ? nextSlot(r, t).getTime() : null, last: runs[r.id] || null, blocked: c ? missingNeeds(c, machine) : ['Команды нет в каталоге'] };
+      }),
+    };
+  }
+
+  function saveRule(id, patch) {
+    const base = (catalog.SCHEDULE || []).find((r) => r.id === id);
+    if (!base) throw new Error('Такой команды нет в автозапуске');
+    const cur = readRules().find((r) => r.id === id);
+    const rule = cleanRule(base, { ...cur, ...patch });
+    let saved = {};
+    try { saved = JSON.parse(fs.readFileSync(scheduleFile, 'utf8')); } catch { /* первый раз */ }
+    saved[id] = rule;
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.writeFileSync(scheduleFile, JSON.stringify(saved, null, 1));
+    return rule;
+  }
+
+  /** Раз в минуту: одна просроченная команда за раз и только когда ничего не идёт — ручной запуск не толкается с автоматическим. */
+  function tickAuto() {
+    if (running().length) return null;
+    const runs = readRuns(), t = now();
+    for (const r of readRules()) {
+      const slot = lastSlot(r, t).getTime();
+      if (!isDue(r, runs[r.id]?.at, t) || autoTried[r.id] === slot) continue;
+      autoTried[r.id] = slot;
+      const cmd = catalog.COMMANDS.find((c) => c.id === r.id);
+      if (!cmd || !SAFE_RISKS.has(cmd.risk) || cmd.confirm) continue; // запись на сайт — только руками
+      const out = runCommand({ id: r.id, params: r.params || {}, auto: true });
+      if (out.job) return out.job;
+    }
+    return null;
   }
 
   const json = (res, status, body) => {
@@ -311,8 +361,15 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
+    if (req.method === 'GET' && url.pathname === '/api/schedule') return json(res, 200, scheduleView());
+    if (req.method === 'POST' && url.pathname === '/api/schedule') {
+      const { id, ...patch } = await readBody(req);
+      try { saveRule(id, patch); } catch (e) { return json(res, 400, { error: e.message }); }
+      return json(res, 200, scheduleView());
+    }
     if (req.method === 'POST' && url.pathname === '/api/run') {
-      const out = runCommand(await readBody(req));
+      const { auto, ...body } = await readBody(req); // auto — только у таймера, не со страницы
+      const out = runCommand(body);
       return json(res, out.status || 200, out);
     }
     if (req.method === 'POST' && url.pathname === '/api/todo') {
@@ -353,6 +410,9 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     server,
     token,
     jobs,
+    tickAuto,
+    /** Таймер автозапуска: раз в минуту; первая проверка — через минуту после открытия, окно успеет загрузиться. */
+    startAuto: () => { const t = setInterval(tickAuto, 60_000); t.unref(); return t; },
     listen: (p) => new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(p, '127.0.0.1', () => { port = server.address().port; resolve(port); });
@@ -394,7 +454,7 @@ async function main() {
       if (r.json.stamp && r.json.stamp !== STAMP) {
         const up = await fetch(`${url}api/upgrade`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stamp: STAMP }) }).catch(() => null);
         if (up?.ok) {
-          for (let i = 0; i < 20; i++) { await new Promise((ok) => setTimeout(ok, 250)); try { await pult.listen(port); console.log(`Пульт обновлён: ${url}`); if (!noOpen) openWindow(url); return; } catch { /* порт ещё занят */ } }
+          for (let i = 0; i < 20; i++) { await new Promise((ok) => setTimeout(ok, 250)); try { await pult.listen(port); pult.startAuto(); console.log(`Пульт обновлён: ${url}`); if (!noOpen) openWindow(url); return; } catch { /* порт ещё занят */ } }
         }
       }
       if (!noOpen) openWindow(url); return;
@@ -402,6 +462,7 @@ async function main() {
     throw new Error(`Порт ${port} занят другой программой. Задайте PULT_PORT.`);
   }
   console.log(`Пульт: ${url}`);
+  pult.startAuto();
   if (!noOpen) openWindow(url);
 }
 

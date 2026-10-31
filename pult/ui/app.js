@@ -4,7 +4,13 @@ const $ = (id) => document.getElementById(id);
 const CONFIRM_RISKS = new Set(['prod-write', 'danger']);
 const STATE_TEXT = { running: 'Идёт', ok: 'Готово', found: 'Есть находки', fail: 'Ошибка', stopped: 'Остановлено' };
 
-const S = { status: null, catalog: null, section: 'now', query: '', jobs: new Map(), order: [], current: null, values: {}, advice: null, runs: {} };
+const S = { status: null, catalog: null, section: 'now', query: '', jobs: new Map(), order: [], current: null, values: {}, advice: null, runs: {}, schedule: null };
+
+/** Цвет группы раздела: полоса в меню и на карточках. */
+const colorOf = (sectionId) => {
+  const sec = S.catalog.sections.find((x) => x.id === sectionId);
+  return S.catalog.groups.find((g) => g.id === sec?.group)?.color || 'start';
+};
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -40,10 +46,12 @@ function renderNav() {
   box.replaceChildren();
   const todo = (S.advice?.items || []).filter((x) => x.level !== 'soon');
   for (const g of S.catalog.groups) {
-    if (g.title) box.append(el('div', 'nav-group', g.title));
+    if (g.title) { const h = el('div', 'nav-group', g.title); h.dataset.color = g.color; box.append(h); }
     for (const s of S.catalog.sections.filter((x) => x.group === g.id)) {
-      const count = S.catalog.commands.filter((c) => c.section === s.id && !c.hidden).length + S.catalog.switches.filter((w) => w.section === s.id).length;
+      const count = s.id === 'auto' && S.schedule ? S.schedule.items.filter((r) => r.enabled).length
+        : S.catalog.commands.filter((c) => c.section === s.id && !c.hidden).length + S.catalog.switches.filter((w) => w.section === s.id).length;
       const b = el('button', `nav-item${s.id === S.section && !S.query ? ' on' : ''}`);
+      b.dataset.color = g.color;
       b.title = s.hint;
       const n = s.id === 'now' ? el('span', `n${todo.length ? ' alert' : ''}`, todo.length ? String(todo.length) : '') : el('span', 'n', String(count));
       b.append(el('span', 'ico', s.icon), el('span', '', s.title), n);
@@ -83,11 +91,14 @@ function buttonClass(c) {
 function card(c) {
   const box = el('article', `card${c.blocked.length ? ' off' : ''}`);
   box.dataset.id = c.id;
+  box.dataset.color = colorOf(c.section);
+  const auto = S.schedule?.items.find((r) => r.id === c.id && r.enabled);
   box.append(el('h3', '', c.title), el('p', '', c.hint));
   const meta = el('div', 'meta');
   meta.append(el('span', `badge ${c.risk}`, S.catalog.risks[c.risk].label), el('span', '', `≈ ${c.time}`));
   const last = S.runs[c.id];
   if (last) meta.append(el('span', last.code === 0 ? '' : 'neg', `Запуск: ${whenText(last.at)}${last.code === 0 ? '' : ', ошибка'}`));
+  if (auto) meta.append(el('span', 'auto-tag', `⏰ ${auto.text.toLowerCase()}`));
   box.append(meta);
   for (const p of c.params) {
     const label = el('label', 'param', p.label);
@@ -115,6 +126,7 @@ function switchCard(w) {
   const live = [...S.jobs.values()].find((j) => [w.start, w.stop].includes(j.cmdId) && j.state === 'running');
   const c = S.catalog.commands.find((x) => x.id === (on ? w.stop : w.start));
   const box = el('article', `card switch${on ? ' on' : ''}`);
+  box.dataset.color = colorOf(w.section);
   const head = el('div', 'sw-head');
   const text = live ? 'Выполняется…' : on === null ? 'Проверяю…' : on ? 'Запущен' : 'Остановлен';
   head.append(el('h3', '', w.title), el('span', `sw-state${on && !live ? ' on' : ''}`, text));
@@ -218,6 +230,7 @@ function render() {
     return;
   }
   $('now').replaceChildren();
+  if (S.section === 'auto' && !S.query) renderAuto();
   const sec = S.catalog.sections.find((s) => s.id === S.section);
   $('title').textContent = S.query ? 'Поиск' : `${sec.icon} ${sec.title}`;
   $('subtitle').textContent = S.query ? `По запросу «${S.query}»` : sec.hint;
@@ -232,6 +245,69 @@ function render() {
   }
   box.replaceChildren(...(nodes.length ? nodes : [el('div', 'none', 'Ничего не найдено. Попробуйте другое слово.')]));
 }
+
+// ---------- автозапуск ----------
+
+function whenNext(at) {
+  const d = new Date(at);
+  const days = Math.round((new Date(at).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  if (days === 0) return `сегодня ${time}`;
+  if (days === 1) return `завтра ${time}`;
+  return `${d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`;
+}
+
+async function saveRule(id, patch) {
+  try { S.schedule = await api('/api/schedule', { id, ...patch }); toast('Расписание сохранено'); } catch (e) { toast(e.message); }
+  render();
+}
+
+function autoRow(r) {
+  const row = el('div', `auto-row${r.enabled ? '' : ' off'}`);
+  row.dataset.color = colorOf(r.section);
+  const sw = el('input');
+  sw.type = 'checkbox';
+  sw.checked = r.enabled;
+  sw.title = r.enabled ? 'Выключить' : 'Включить';
+  sw.setAttribute('aria-label', `Автозапуск: ${r.title}`);
+  sw.onchange = () => saveRule(r.id, { enabled: sw.checked });
+  const main = el('div', 'auto-main');
+  main.append(el('b', '', r.title), el('span', '', r.hint));
+  if (r.blocked.length) main.append(el('span', 'why', r.blocked[0]));
+  const ctl = el('div', 'auto-ctl');
+  const kind = el('select');
+  for (const [v, t] of Object.entries(S.schedule.kinds)) { const o = el('option', '', t); o.value = v; kind.append(o); }
+  kind.value = r.kind;
+  kind.onchange = () => saveRule(r.id, { kind: kind.value, day: kind.value === 'daily' ? undefined : r.day || 1 });
+  ctl.append(kind);
+  if (r.kind !== 'daily') {
+    const day = el('select');
+    const opts = r.kind === 'weekly' ? S.schedule.weekdays.map((w, i) => [i + 1, w]) : Array.from({ length: 28 }, (_, i) => [i + 1, `${i + 1}-го`]);
+    for (const [v, t] of opts) { const o = el('option', '', t); o.value = String(v); day.append(o); }
+    day.value = String(r.day || 1);
+    day.onchange = () => saveRule(r.id, { day: Number(day.value) });
+    ctl.append(day);
+  }
+  const time = el('input');
+  time.type = 'time';
+  time.value = r.time;
+  time.onchange = () => { if (time.value) saveRule(r.id, { time: time.value }); };
+  ctl.append(time);
+  const when = el('div', 'auto-when');
+  when.append(el('span', '', r.next ? `Следующий: ${whenNext(r.next)}` : 'Выключено'));
+  if (r.last) when.append(el('span', r.last.code === 0 ? '' : 'neg', `Прошлый: ${whenText(r.last.at)}${r.last.code === 0 ? '' : ', ошибка'}`));
+  row.append(sw, main, ctl, when);
+  return row;
+}
+
+function renderAuto() {
+  const box = el('div', 'auto');
+  box.append(el('p', 'now-hint', 'Пока пульт открыт, он сам запускает эти команды. ПК спал или пульт был закрыт — пропущенное пойдёт при следующем открытии. Команды идут по одной и не мешают ручным. Запись на рабочий сайт сама не запускается никогда.'));
+  if (!S.schedule) box.append(el('div', 'none', 'Загружаю расписание…'));
+  else box.append(...S.schedule.items.map(autoRow));
+  $('now').replaceChildren(box);
+}
+
 
 // ---------- запуск ----------
 
@@ -390,7 +466,7 @@ function onEvent(ev) {
   if (ev.type === 'start') {
     addJob({ ...ev.job, lines: [] });
     renderTabs();
-    if (!S.query && ['now', 'stand'].includes(S.section)) render();
+    if (!S.query && ['now', 'stand', 'auto'].includes(S.section)) render();
   } else if (ev.type === 'line') {
     const j = S.jobs.get(ev.id);
     if (!j) return;
@@ -447,9 +523,10 @@ async function loadStatus() {
   S.status = s;
   S.advice = s.advice;
   S.runs = s.runs;
-  if (S.query || !['now', 'stand'].includes(S.section)) renderNav(); else render();
+  S.schedule = await api('/api/schedule').catch(() => S.schedule);
+  if (S.query || !['now', 'stand', 'auto'].includes(S.section)) renderNav(); else render();
   const list = [
-    s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Рабочий сайт → Осмотр сайта»'),
+    s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Сервер сайта → Осмотр сайта»'),
     s.gateFiles.length
       ? pill('warn', `Выкладка закрыта: файлов без коммита ${s.gateFiles.length}`, s.gateFiles.join('\n'))
       : pill('ok', 'Незакоммиченного кода нет', 'Ворота проверяют backend, deploy, docker-compose.prod.yml'),
@@ -463,6 +540,7 @@ async function loadStatus() {
 
 async function start() {
   S.catalog = await api('/api/catalog');
+  S.schedule = await api('/api/schedule').catch(() => null);
   renderLegend();
   render();
   const { problems } = S.catalog;

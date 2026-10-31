@@ -5,6 +5,8 @@
   --ok: #17794a; --ok-soft: #dff3e8; --warn: #8a5a00; --warn-soft: #fbefd2; --bad: #b3261e; --bad-soft: #fbe4e2;
   --term-bg: #10151e; --term-text: #dbe3ee;
   --shadow: 0 1px 2px rgba(20, 30, 50, .08);
+  /* цвета групп: что с чем связано (catalog.mjs GROUPS.color) */
+  --g-start: #6b7686; --g-site: #1f6fd1; --g-copies: #0f8a7e; --g-dev: #7a4fc9; --g-pc: #b4661a;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -14,6 +16,7 @@
     --ok: #5fd39a; --ok-soft: #173a2a; --warn: #f1c35a; --warn-soft: #3d3115; --bad: #ff8d84; --bad-soft: #452120;
     --term-bg: #0b0f15; --term-text: #dbe3ee;
     --shadow: none;
+    --g-start: #9daabb; --g-site: #5b9bff; --g-copies: #3cc7b6; --g-dev: #b08cff; --g-pc: #f0a35a;
   }
 }
 * { box-sizing: border-box; }
@@ -154,3 +157,29 @@ dialog label[hidden] { display: none; }
   .layout { grid-template-columns: 200px 1fr; grid-template-rows: 1fr 40%; }
   .console { grid-column: 1 / -1; }
 }
+
+/* ---------- цвета групп ---------- */
+[data-color="start"] { --g: var(--g-start); }
+[data-color="site"] { --g: var(--g-site); }
+[data-color="copies"] { --g: var(--g-copies); }
+[data-color="dev"] { --g: var(--g-dev); }
+[data-color="pc"] { --g: var(--g-pc); }
+.nav-group[data-color] { display: flex; align-items: center; gap: 7px; color: var(--g); }
+.nav-group[data-color]::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--g); }
+.nav-item[data-color] { border-left: 3px solid transparent; }
+.nav-item.on[data-color] { border-left-color: var(--g); background: color-mix(in srgb, var(--g) 14%, transparent); color: var(--g); }
+.card[data-color] { border-top: 3px solid var(--g); }
+.auto-tag { padding: 1px 8px; border-radius: 6px; background: var(--panel-2); color: var(--text); }
+
+/* ---------- автозапуск ---------- */
+.auto { margin-bottom: 18px; }
+.auto-row { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "sw main ctl" "sw main when"; gap: 4px 12px; align-items: center; margin-bottom: 8px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--g, var(--muted)); border-radius: 10px; box-shadow: var(--shadow); }
+.auto-row.off { opacity: .65; }
+.auto-row > input[type=checkbox] { grid-area: sw; width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+.auto-main { grid-area: main; min-width: 0; }
+.auto-main b { display: block; font-size: 15px; }
+.auto-main span { display: block; color: var(--muted); font-size: 12.5px; }
+.auto-main .why { color: var(--warn); }
+.auto-ctl { grid-area: ctl; display: flex; gap: 6px; justify-content: flex-end; }
+.auto-ctl select, .auto-ctl input { padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
+.auto-when { grid-area: when; display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; color: var(--muted); }
