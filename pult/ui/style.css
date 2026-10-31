@@ -137,6 +137,8 @@ dialog label { display: flex; flex-direction: column; gap: 6px; margin-top: 8px;
 .todo.today { border-left-color: var(--warn); }
 .todo-acts { display: flex; flex: none; gap: 6px; }
 .todo.soon { border-left-color: var(--accent); }
+.todo.first { border-width: 2px; border-left-width: 6px; border-color: var(--accent); }
+.todo-first { display: block; margin-bottom: 2px; color: var(--accent); font-size: 12.5px; font-style: normal; font-weight: 700; }
 .todo-main { flex: 1; min-width: 0; }
 .todo-main b { display: block; font-size: 15px; }
 .todo-main span { display: block; color: var(--muted); font-size: 13px; }

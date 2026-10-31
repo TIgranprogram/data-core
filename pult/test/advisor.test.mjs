@@ -38,7 +38,7 @@ test('находка осмотра не уходит, пока осмотр е�
 
 test('незакоммиченный код закрывает выкладку и не советует её', () => {
   const items = plan({ gateFiles: ['backend/a.ts'], undeployed: 3 }, allFresh);
-  assert.ok(find(items, 'git-status'));
+  assert.equal(find(items, 'git-status').level, 'soon', 'работа Claude не считается делом пользователя');
   assert.ok(!find(items, 'deploy-release'));
 });
 

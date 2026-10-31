@@ -125,10 +125,11 @@ async function todoAction(id, action) {
   } catch (e) { toast(e.message); }
 }
 
-function todoRow(item, level) {
+function todoRow(item, level, first) {
   const c = S.catalog.commands.find((x) => x.id === item.cmd);
-  const row = el('article', `todo ${level.id}`);
+  const row = el('article', `todo ${level.id}${first ? ' first' : ''}`);
   const main = el('div', 'todo-main');
+  if (first) main.append(el('em', 'todo-first', 'Начните с этого'));
   main.append(el('b', '', item.title || c.title), el('span', '', item.why));
   if (!c) {
     const acts = el('div', 'todo-acts');
@@ -157,14 +158,16 @@ function renderNow() {
   const a = S.advice;
   if (!a) box.append(el('div', 'none', 'Смотрю состояние проекта…'));
   else {
+    // одно главное дело: самое важное, что ждёт человека; плановое «Рекомендуется» главным не бывает
+    const main = S.catalog.levels.filter((l) => l.id !== 'soon').flatMap((l) => a.items.filter((x) => x.level === l.id))[0];
+    if (!main) box.append(el('div', 'now-clear', 'Сейчас от вас ничего не нужно.'));
     for (const level of S.catalog.levels) {
       const items = a.items.filter((x) => x.level === level.id);
       if (!items.length) continue;
       const sec = el('section', 'now-level');
-      sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint), ...items.map((x) => todoRow(x, level)));
+      sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint), ...items.map((x) => todoRow(x, level, x === main)));
       box.append(sec);
     }
-    if (!a.items.length) box.append(el('div', 'now-clear', 'Срочных и плановых дел нет. Можно работать спокойно.'));
     if (a.done.length) {
       const sec = el('section', 'now-level');
       sec.append(el('h2', '', 'Сделано сегодня'));
