@@ -188,6 +188,10 @@ export const COMMANDS = [
     hint: 'Всё приложение одним архивом для переезда. В архиве секреты. Папка: C:\\datacore-bundles.' },
 
   // ---------- Ссылки и папки ----------
+  { id: 'link-srv-synology', section: 'links', title: 'Сервер Synology', risk: 'read', time: 'сразу', run: { open: 'https://kppdf-crm.ru/db/app/' },
+    hint: 'Главный сервер (дом). Адрес: kppdf-crm.ru/db/app/' },
+  { id: 'link-srv-windows', section: 'links', title: 'Сервер Windows', risk: 'read', time: 'сразу', run: { open: 'http://31.222.224.247:8080/app/' },
+    hint: 'Второй сервер (Sportin). Адрес: 31.222.224.247:8080/app/ — домен netcraze с портом 8080 не открывается.' },
   { id: 'link-site', section: 'links', title: 'Рабочее место', risk: 'read', time: 'сразу', run: { open: 'https://kppdf-crm.ru/db/app/' },
     hint: 'Приложение на рабочем сайте.' },
   { id: 'link-admin', section: 'links', title: 'Админка', risk: 'read', time: 'сразу', run: { open: 'https://kppdf-crm.ru/db/admin/' },
