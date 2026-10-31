@@ -28,6 +28,7 @@ import { reportSlow } from '../core/errors.js';
  *   footer?(resp), query?(params),
  *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», ui/design-board.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
+ *   limit?: число строк таблицы по умолчанию (25); выбор 25/50/100 — внизу.
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, price?, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
@@ -66,7 +67,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const st = () => {
     const sv = !P.view ? savedView() : '';
     return {
-      limit: Number(P.limit) || 25,
+      limit: Number(P.limit) || L.limit || 25,
       page: Math.max(1, Number(P.page) || 1),
       sort: P.sort || L.sortDefault,
       board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
@@ -476,7 +477,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     foot.replaceChildren(...[
       h('span', null, resp.total ? `${from}–${to} из ${qty(resp.total)}` : ''),
       L.footer ? L.footer(resp) : null,
-      resp.total > 25 ? pager({ page, limit, total: resp.total, onPage: (p) => patch({ page: p > 1 ? p : undefined }), onLimit: (n) => patch({ limit: n === 25 ? undefined : n, page: undefined }) }) : null].filter(Boolean));
+      resp.total > 25 ? pager({ page, limit, total: resp.total, onPage: (p) => patch({ page: p > 1 ? p : undefined }), onLimit: (n) => patch({ limit: n === (L.limit || 25) ? undefined : n, page: undefined }) }) : null].filter(Boolean));
   }
 
   /* ---------- Галерея: карточки с фото по группам (ПС: паспорта по категориям) ---------- */

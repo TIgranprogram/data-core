@@ -284,6 +284,7 @@ export const products = {
       { key: 'series', label: 'Серия', type: 'hidden' }, // Б1: шаг воронки слева (toolbarExtra), числа — при выбранной группе
       { key: 'status', label: 'Статус', type: 'chips', allLabel: 'Все', options: () => [{ value: 'draft', label: 'Черновики (нет цены)' }, { value: 'archived', label: 'Архив' }] },
     ],
+    limit: 100, // таблица: по умолчанию 100 строк, меньше — выбор внизу
     // серия — точное совпадение на сервере (query series)
     query: (P) => (P.series ? { series: P.series } : {}),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
