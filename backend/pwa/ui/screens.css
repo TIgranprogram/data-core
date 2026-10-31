@@ -1518,6 +1518,14 @@ a.crumb:hover { color: var(--text); text-decoration: underline; }
 .mt-sug li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:6px 0}
 .mt-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .mt-pick{margin-top:8px}
+.mt-head,.mq-item{display:flex;gap:var(--s3);align-items:flex-start}
+.mt-head-main,.mt-sug-main,.mq-item-main{flex:1;min-width:0}
+.mq-item{min-width:220px}
+.mt-picbtn{display:block;flex:none;padding:0;border:0;background:none;border-radius:var(--radius);cursor:zoom-in}
+.mt-picbtn:hover .pic{border-color:var(--primary)}
+.mt-picbtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.pic.mt-nopic{flex:none;font-size:var(--fs-sm);text-align:center;background:var(--surface-2);border:1px dashed var(--border-strong)}
+@media (max-width:720px){.mt-sug li{flex-wrap:wrap}.mt-sug-main{flex-basis:calc(100% - 82px)}}
 .mt{display:flex;flex-direction:column;gap:8px}
 
 /* Очередь несопоставленных позиций */

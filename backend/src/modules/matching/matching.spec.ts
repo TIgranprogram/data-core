@@ -71,6 +71,18 @@ describe('MatchingService (КМ2–КМ3)', () => {
     expect(r.items[0].confident).toBe(true);
     expect(r.items[1].suggestions).toEqual([]);
   });
+  it('картинки: у позиции и у предложенного изделия, превью вместо оригинала; без фото — null', async () => {
+    const lp = new Types.ObjectId(), pp = new Types.ObjectId();
+    rows.incomes[0].photoIds = [lp];
+    rows.products[0].photoIds = [pp];
+    rows.photos = [{ _id: lp, storageUrl: '/uploads/l.png', parentPhotoId: pp, variant: 'thumb' }, { _id: pp, storageUrl: '/uploads/p.png' }];
+    const r = await svc.suggest(String(orderId));
+    expect(r.items[0].photo).toEqual({ url: '/uploads/l.png', thumb: '/uploads/l.png' });
+    expect(r.items[0].suggestions[0].photo).toEqual({ url: '/uploads/p.png', thumb: '/uploads/l.png' });
+    expect(r.items[1].photo).toBeNull();
+    rows.photos = [];
+    expect((await svc.unmatched({ limit: 10 })).items[0].suggestions[0].photo).toBeNull();
+  });
   it('unmatched: в производстве первыми, форма {items,total,page,limit}, подбор; count', async () => {
     const o2 = new Types.ObjectId();
     rows.salesorders = [{ _id: orderId, orderNo: '12', customer: 'ООО', shipDate: new Date('2026-01-01') }, { _id: o2, orderNo: '5', customer: 'АО', productionNo: 'П-1', shipDate: new Date('2027-01-01') }];

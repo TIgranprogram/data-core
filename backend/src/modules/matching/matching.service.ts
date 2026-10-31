@@ -4,11 +4,12 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
 import { AuditService } from '../audit/audit.service';
-import { aliasKey, isConfident, lineState, suggest, type MatchProduct } from './matching-rules';
+import { aliasKey, isConfident, lineState, suggest, type MatchProduct, type Suggestion } from './matching-rules';
 import { ProductAlias, ProductAliasDocument } from './product-alias.schema';
 
 type Doc = Record<string, unknown>;
 type Pick = { lineId: string; productId: string | null };
+type Photo = { url: string; thumb: string };
 
 /**
  * Сопоставление позиций договора с изделиями (КМ2–КМ3): подбор, подтверждение, «не изделие», пачкой.
@@ -45,7 +46,25 @@ export class MatchingService {
         suggestions: sg, confident: isConfident(sg[0]),
       };
     });
-    return { orderId, orderNo: (order.orderNo as string | undefined) ?? '', customer: (order.customer as string | undefined) ?? '', total: items.length, matched, unmatched: items.length - matched, items };
+    return { orderId, orderNo: (order.orderNo as string | undefined) ?? '', customer: (order.customer as string | undefined) ?? '', total: items.length, matched, unmatched: items.length - matched, items: await this.withPhotos(lines, items) };
+  }
+
+  /** Картинки для сравнения: у позиции — первое фото (Excel «Вид» или загруженное), у предложений — первое фото изделия. Одним запросом на страницу. */
+  private async withPhotos<T extends { suggestions: Suggestion[] }>(lines: Doc[], items: T[]) {
+    const db = this.connection.db!;
+    const first = (d?: Doc) => ((d?.photoIds as Types.ObjectId[] | undefined) ?? [])[0];
+    const pids = [...new Set(items.flatMap((it) => it.suggestions.map((s) => s.productId)))].map((x) => new Types.ObjectId(x));
+    const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids } }, { projection: { photoIds: 1 } }).toArray() : [];
+    const prodPhoto = new Map(prods.map((p) => [String(p._id), first(p)]));
+    const ids = [...lines.map(first), ...prodPhoto.values()].filter(Boolean) as Types.ObjectId[];
+    const [ph, th] = ids.length ? await Promise.all([
+      db.collection('photos').find({ _id: { $in: ids } }, { projection: { storageUrl: 1 } }).toArray(),
+      db.collection('photos').find({ parentPhotoId: { $in: ids }, variant: 'thumb' }, { projection: { storageUrl: 1, parentPhotoId: 1 } }).toArray(),
+    ]) : [[], []];
+    const thumb = new Map(th.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
+    const photos = new Map<string, Photo>(ph.map((p) => [String(p._id), { url: String(p.storageUrl), thumb: thumb.get(String(p._id)) ?? String(p.storageUrl) }]));
+    const at = (id?: Types.ObjectId) => (id ? photos.get(String(id)) ?? null : null);
+    return items.map((it, i) => ({ ...it, photo: at(first(lines[i])), suggestions: it.suggestions.map((s) => ({ ...s, photo: at(prodPhoto.get(s.productId)) })) }));
   }
 
   /** Справочник соответствий одним запросом: ключ названия → изделие. */
@@ -69,7 +88,7 @@ export class MatchingService {
     const lines = orders.length ? await db.collection('incomes').find({
       deletedAt: null, orderId: { $in: orders.map((o) => o._id) },
       $or: [{ matchStatus: 'auto' }, { matchStatus: { $nin: ['none', 'auto'] }, productId: null }],
-    }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, unit: 1, productId: 1, matchStatus: 1 } }).toArray() as Doc[] : [];
+    }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, unit: 1, productId: 1, matchStatus: 1, photoIds: 1 } }).toArray() as Doc[] : [];
     const needle = (q.q ?? '').trim();
     const re = needle ? new RegExp(escapeRe(needle), 'i') : null;
     const rows = lines.map((l) => ({ l, o: orderBy.get(String(l.orderId))! })).filter((r) => r.o && (!re || [r.l.title, r.o.orderNo, r.o.customer, r.o.productionNo].some((v) => re.test(String(v ?? '')))));
@@ -86,7 +105,7 @@ export class MatchingService {
         suggestions: sg, confident: isConfident(sg[0]),
       };
     });
-    return { items, total: rows.length, page, limit };
+    return { items: await this.withPhotos(slice.map((r) => r.l), items), total: rows.length, page, limit };
   }
 
   /** Счётчик для меню: всего несопоставленных и из них в производстве. */

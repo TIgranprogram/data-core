@@ -1,7 +1,8 @@
-import { api, session } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { attachCombo } from '../ui/combo.js';
+import { openZoom } from '../ui/gallery.js';
 import { toast, toastError } from '../ui/toast.js';
 import { current, patch } from '../core/router.js';
 
@@ -30,6 +31,14 @@ export function matchBadge(r) {
   return h('span', { class: 'badge ' + (done >= total ? 'ok' : 'warn') }, `сопоставлено ${qty(done)} из ${qty(total)}`);
 }
 
+/** Картинка для сравнения: нажатие — крупно; фото нет — подпись в той же рамке, чтобы столбцы не прыгали. */
+export function matchPic(photo) {
+  const none = () => h('span', { class: 'pic pic-lg empty mt-nopic' }, 'нет фото');
+  if (!photo) return none();
+  return h('button', { type: 'button', class: 'mt-picbtn', title: 'Открыть фото крупно', 'aria-label': 'Открыть фото крупно', onclick: () => openZoom([{ url: photo.url }]) },
+    h('img', { class: 'pic pic-lg', src: PREFIX + (photo.thumb || photo.url), alt: '', loading: 'lazy', onerror: (e) => e.currentTarget.parentElement.replaceWith(none()) }));
+}
+
 /** Открыть панель сопоставления договора. */
 export function openMatching(patch, orderId) { patch({ of: 'matching', open: orderId, new: undefined }, { replace: false }); }
 
@@ -40,7 +49,7 @@ function lineRow(it, run, write) {
   const confirm = (productId) => run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId } }));
   const sugg = (it.suggestions || []).slice(0, 3);
   const sugList = !it.matched && sugg.length
-    ? h('ul', { class: 'mt-sug' }, sugg.map((s) => h('li', null,
+    ? h('ul', { class: 'mt-sug' }, sugg.map((s) => h('li', null, matchPic(s.photo),
       h('div', { class: 'mt-sug-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
       write ? h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: (e) => confirm(s.productId) && e.currentTarget.classList.add('is-busy') }, 'Подтвердить') : null)))
     : null;
@@ -71,9 +80,10 @@ function lineRow(it, run, write) {
     if (it.state !== 'none') acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })) }, 'Не изделие (монтаж, доставка)'));
   }
   return h('li', { class: 'mt-row' + (it.matched ? '' : ' mt-open') },
-    h('div', { class: 'mt-head' },
-      h('div', { class: 'mt-title' }, (it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title),
-      h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim())),
+    h('div', { class: 'mt-head' }, matchPic(it.photo),
+      h('div', { class: 'mt-head-main' },
+        h('div', { class: 'mt-title' }, (it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title),
+        h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim()))),
     h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? h('span', { class: 'muted' }, ' → ' + it.productName) : null),
     sugList, acts.childNodes.length ? acts : null, pickBox);
 }

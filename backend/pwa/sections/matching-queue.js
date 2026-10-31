@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { toastError } from '../ui/toast.js';
-import { openMatching } from './salesorders-matching.js';
+import { matchPic, openMatching } from './salesorders-matching.js';
 
 // УПР-1/Д9: re-export matching panel section (used as ?of=matching right panel)
 export { matching } from './salesorders-matching.js';
@@ -70,9 +70,9 @@ export function unmatchedTop() {
     return h('tr', null,
       h('td', null, h('b', null, it.orderNo || '—'), h('div', { class: 't-sub' }, it.customer || '')),
       h('td', null, it.productionNo ? h('span', { class: 'badge warn', title: 'Заказ уже в производстве' }, 'в производстве · ' + it.productionNo) : h('span', { class: 'muted' }, '—')),
-      h('td', null, it.title),
+      h('td', null, h('div', { class: 'mq-item' }, matchPic(it.photo), h('div', { class: 'mq-item-main' }, it.title))),
       h('td', { class: 'num nowrap' }, `${qty(it.qty)} ${it.unit || ''}`.trim()),
-      h('td', null, s ? h('span', null, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`)) : h('span', { class: 'muted' }, 'нет вариантов')),
+      h('td', null, s ? h('div', { class: 'mq-item' }, matchPic(s.photo), h('div', { class: 'mq-item-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `совпадение ${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`))) : h('span', { class: 'muted' }, write ? 'Похожих изделий нет. Нажмите «Выбрать…»' : 'Похожих изделий нет')),
       h('td', { class: 'mq-act-cell' }, acts));
   };
   const paint = () => {
@@ -80,7 +80,7 @@ export function unmatchedTop() {
     bulkBtn.hidden = !write || !n;
     bulkBtn.textContent = `Подтвердить все уверенные (${n})`;
     body.replaceChildren(items.length
-      ? h('table', { class: 'so-lines mq-table' }, h('thead', null, h('tr', null, h('th', null, 'Договор'), h('th', null, 'В производстве'), h('th', null, 'Позиция'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Лучший вариант'), h('th', null, ''))), h('tbody', null, ...items.map(rowEl)))
+      ? h('table', { class: 'so-lines static mq-table' }, h('thead', null, h('tr', null, h('th', null, 'Договор'), h('th', null, 'В производстве'), h('th', null, 'Что в договоре'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Похожее изделие'), h('th', null, ''))), h('tbody', null, ...items.map(rowEl)))
       : h('p', { class: 'muted' }, loaded ? 'Всё сопоставлено — несопоставленных позиций нет.' : 'Загрузка…'));
     more.hidden = items.length >= total;
   };
@@ -98,7 +98,8 @@ export function unmatchedTop() {
   prod.addEventListener('change', () => { onlyProd = prod.checked; load(false); });
   more.addEventListener('click', () => load(true));
   bulkBtn.addEventListener('click', (e) => { e.currentTarget.classList.add('is-busy'); const list = sure(); run(() => api('/matching/bulk', { method: 'POST', body: { items: list.map((x) => ({ lineId: x.lineId, productId: best(x).productId })) } })); });
-  box.append(h('div', { class: 'mq-bar' }, bulkBtn, h('label', { class: 'field' }, search), h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
+  box.append(h('p', { class: 'hint' }, write ? 'Здесь строки договоров, которые ещё не связаны с изделием из «Продукции». Сравните картинки слева и справа. Совпало — подтвердите. Нет — выберите другое изделие.' : 'Только просмотр: сопоставлять могут администратор и менеджер.'),
+    h('div', { class: 'mq-bar' }, bulkBtn, h('label', { class: 'field' }, search), h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
   btn.addEventListener('click', () => {
     box.hidden = !box.hidden;
     btn.setAttribute('aria-expanded', String(!box.hidden));
