@@ -80,11 +80,19 @@ h1, h2, p { margin: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .console { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--term-bg); color: var(--term-text); }
-.tabs { display: flex; gap: 4px; padding: 6px; overflow-x: auto; background: #0005; flex: none; }
-.tabs:empty { display: none; }
-.tab { flex: none; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border: 0; border-radius: 6px; background: #ffffff14; color: var(--term-text); cursor: pointer; font-size: 12.5px; }
+.tabbar { display: flex; align-items: center; gap: 6px; padding: 6px; background: #0005; flex: none; }
+.tabbar[hidden] { display: none; }
+.tabbar .ghost { flex: none; padding: 3px 10px; background: transparent; color: var(--term-text); border-color: #ffffff40; font-size: 12.5px; white-space: nowrap; }
+.tabbar .ghost:hover { background: #ffffff1a; }
+.tabbar .ghost[hidden] { display: none; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+.tab { flex: none; display: inline-flex; align-items: center; max-width: 210px; padding-left: 10px; border-radius: 6px; background: #ffffff14; color: var(--term-text); font-size: 12.5px; }
 .tab.on { background: #ffffff33; }
-.tab::before { content: "● "; color: #8fa2bb; }
+.tab::before { content: "●"; margin-right: 5px; color: #8fa2bb; }
+.tab-name { min-width: 0; padding: 4px 6px 4px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: none; color: inherit; cursor: pointer; }
+.tab.running .tab-name { padding-right: 10px; }
+.tab-x { flex: none; width: 22px; height: 22px; margin-right: 3px; padding: 0; border: 0; border-radius: 4px; background: none; color: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.tab-x:hover { background: #ffffff33; }
 .tab.running::before { color: #6db3ff; }
 .tab.ok::before { color: #5fd39a; }
 .tab.fail::before, .tab.stopped::before { color: #ff8d84; }

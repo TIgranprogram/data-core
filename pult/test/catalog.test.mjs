@@ -99,6 +99,8 @@ test('секреты закрываются маской', () => {
   const cases = [
     ['ключ kppd_abc123DEF конец', 'ключ kppd_*** конец'],
     ['ADMIN_PASSWORD=qwerty', 'ADMIN_PASSWORD=***'],
+    ['"cookie":"__Host-device=abc; b=c","x":1', '"cookie":***,"x":1'],
+    ['set-cookie: sid=abc', 'set-cookie: ***'],
     ['Authorization: Bearer abc.def', 'Authorization: Bearer ***'],
     ['mongodb://root:s3cr3t@mongo:27017/x', 'mongodb://root:***@mongo:27017/x'],
     ['eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.abcdefgh', '***jwt***'],

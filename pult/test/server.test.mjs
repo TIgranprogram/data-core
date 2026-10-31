@@ -119,6 +119,22 @@ test('две записи на сайт разом и повтор команд�
   assert.equal((await api('/api/run', { id: 'write2', confirmed: true })).status, 200);
 });
 
+test('вкладка закрывается, идущая команда остаётся', async () => {
+  const done = (await api('/api/run', { id: 'hello' })).json().job;
+  await finished(done.id);
+  const live = (await api('/api/run', { id: 'long' })).json().job;
+  const one = (await api('/api/close', { ids: [done.id, live.id] })).json();
+  assert.deepEqual(one.closed, [done.id]);
+  assert.ok(!pult.jobs.has(done.id));
+  const other = (await api('/api/run', { id: 'hello' })).json().job;
+  await finished(other.id);
+  const all = (await api('/api/close', {})).json();
+  assert.ok(all.closed.includes(other.id));
+  assert.ok(pult.jobs.has(live.id) && all.running === 1);
+  await api('/api/stop', { id: live.id });
+  await finished(live.id);
+});
+
 test('в каталоге для страницы нет способа запуска', async () => {
   const text = (await api('/api/catalog')).text;
   assert.ok(!text.includes('"run"'));

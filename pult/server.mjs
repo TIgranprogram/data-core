@@ -231,6 +231,13 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       const out = runCommand(await readBody(req));
       return json(res, out.status || 200, out);
     }
+    if (req.method === 'POST' && url.pathname === '/api/close') {
+      const { ids } = await readBody(req);
+      const closed = [...jobs.values()].filter((j) => j.state !== 'running' && (!ids || ids.includes(j.id))).map((j) => j.id);
+      closed.forEach((id) => jobs.delete(id));
+      send({ type: 'closed', ids: closed });
+      return json(res, 200, { closed, running: running().length });
+    }
     if (req.method === 'POST' && url.pathname === '/api/stop') {
       const job = jobs.get((await readBody(req)).id);
       if (!job || job.state !== 'running') return json(res, 404, { error: 'Команда уже завершена' });

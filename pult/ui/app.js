@@ -172,11 +172,36 @@ function renderTabs() {
   const box = $('tabs');
   box.replaceChildren(...S.order.map((id) => {
     const j = S.jobs.get(id);
-    const t = el('button', `tab ${j.state}${id === S.current ? ' on' : ''}`, j.title);
-    t.title = `${j.title}: ${STATE_TEXT[j.state]}`;
-    t.onclick = () => select(id);
+    const t = el('div', `tab ${j.state}${id === S.current ? ' on' : ''}`);
+    const name = el('button', 'tab-name', j.title);
+    name.title = `${j.title}: ${STATE_TEXT[j.state]}`;
+    name.onclick = () => select(id);
+    t.append(name);
+    if (j.state !== 'running') {
+      const x = el('button', 'tab-x', '×');
+      x.title = 'Закрыть вкладку';
+      x.setAttribute('aria-label', `Закрыть вкладку: ${j.title}`);
+      x.onclick = () => closeTabs([id]);
+      t.append(x);
+    }
     return t;
   }));
+  $('tabbar').hidden = !S.order.length;
+  $('closeAll').hidden = !S.order.some((id) => S.jobs.get(id).state !== 'running');
+}
+
+async function closeTabs(ids) {
+  try {
+    const r = await api('/api/close', { ids });
+    if (!ids && r.running) toast(`Идущие команды остались открыты: ${r.running}`);
+  } catch (e) { toast(e.message); }
+}
+
+function forget(ids) {
+  for (const id of ids) S.jobs.delete(id);
+  S.order = S.order.filter((id) => S.jobs.has(id));
+  if (!S.jobs.has(S.current)) select(S.order[S.order.length - 1] ?? null);
+  else renderTabs();
 }
 
 function duration(j) {
@@ -188,7 +213,7 @@ function renderHead() {
   const j = S.jobs.get(S.current);
   $('empty').hidden = !!j;
   $('jobHead').hidden = !j;
-  if (!j) return;
+  if (!j) { $('advice').hidden = true; return; }
   $('jobTitle').textContent = j.title;
   const st = $('jobState');
   st.className = `state ${j.state}`;
@@ -205,7 +230,7 @@ function select(id) {
   renderTabs();
   renderHead();
   const j = S.jobs.get(id);
-  $('out').textContent = j.lines.length ? `${j.lines.join('\n')}\n` : '';
+  $('out').textContent = j?.lines.length ? `${j.lines.join('\n')}\n` : '';
   $('out').scrollTop = $('out').scrollHeight;
 }
 
@@ -223,6 +248,8 @@ function onEvent(ev) {
       out.append(`${ev.line}\n`);
       if (stick) out.scrollTop = out.scrollHeight;
     }
+  } else if (ev.type === 'closed') {
+    forget(ev.ids);
   } else if (ev.type === 'end') {
     addJob(ev.job);
     renderTabs();
@@ -230,6 +257,8 @@ function onEvent(ev) {
     loadStatus();
   }
 }
+
+$('closeAll').onclick = () => closeTabs();
 
 $('stopBtn').onclick = async () => {
   const j = S.jobs.get(S.current);

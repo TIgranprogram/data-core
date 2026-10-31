@@ -26,7 +26,10 @@
       <div class="cards" id="cards"></div>
     </main>
     <aside class="console" aria-label="Журнал запусков">
-      <div class="tabs" id="tabs"></div>
+      <div class="tabbar" id="tabbar" hidden>
+        <div class="tabs" id="tabs"></div>
+        <button class="ghost" id="closeAll" title="Закрыть все завершённые вкладки. Журналы останутся в папке pult/logs">Закрыть все</button>
+      </div>
       <div class="job-head" id="jobHead" hidden>
         <div><b id="jobTitle"></b><span id="jobState" class="state"></span></div>
         <div class="job-actions">

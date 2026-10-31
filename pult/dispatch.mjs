@@ -120,6 +120,7 @@ const SECRET_PATTERNS = [
   [/kppd_[A-Za-z0-9_-]+/g, 'kppd_***'],
   [/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+/g, '***jwt***'],
   [/(Bearer\s+)\S+/gi, '$1***'],
+  [/("?(?:set-)?cookie"?\s*[:=]\s*)("[^"]*"|\S+)/gi, '$1***'],
   [/(mongodb(?:\+srv)?:\/\/[^:\s/]+:)[^@\s]+@/gi, '$1***@'],
   [/\b([A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY)[A-Z0-9_]*\s*[=:]\s*)\S+/gi, '$1***'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)/g, '***ключ***'],
