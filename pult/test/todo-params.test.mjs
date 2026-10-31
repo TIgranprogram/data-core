@@ -34,3 +34,7 @@ test('скрипт не выбран — запуск отклоняется п�
   assert.throws(() => validateParams(cmd, {}, ['add-our-company', 'series-dict-fill']), /Выберите/);
   assert.deepEqual(validateParams(cmd, { script: 'series-dict-fill' }, ['add-our-company', 'series-dict-fill']), { script: 'series-dict-fill' });
 });
+
+test('todo.json: время постановки не в будущем — иначе пункт никогда не закроется запуском', () => {
+  for (const t of TODO) assert.ok(Date.parse(t.added) <= Date.now(), `${t.id}: added ${t.added} в будущем`);
+});
