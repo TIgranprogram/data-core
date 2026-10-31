@@ -4,18 +4,21 @@ import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
 import { mountBoard } from '../ui/board.js';
-import { askAssignee, askReason, mountDesignBoard } from '../ui/design-board.js';
+import { layout } from '../ui/kit/index.js';
+import { designSide } from './design-side.js';
+import { taskMenu } from './design-menu.js';
+import { askAssignee, askReason } from './design-data.js';
 import { carousel } from '../ui/gallery.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
-import { photosBlock, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
+import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { toast, toastError } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
 import { withRequestsTab } from './design-requests.js';
-import { activeOrders, orderLabel, STAGE } from './salesorders.js';
+import { activeOrders, orderLabel } from './salesorders.js';
 
 /**
  * Раздел «Проектирование» (ПРЖ-5): задачи чертёжного отдела по позициям заказов.
- * Доска заказов (ui/design-board.js: заказы слева, статусы справа; вид по умолчанию), таблица (?view=table) и прежняя плоская доска (?view=flat, запасной путь).
+ * Доска — эталон kit.board (колонки статусов, карточка .tcard, стикеры; вид по умолчанию) и таблица (?view=table). Данные заказов и окна — sections/design-data.js.
  * Двигает задачи менеджер (права записи — как везде); исполнитель — сотрудник из «Справочников».
  * Срок и приоритет по умолчанию берутся из заказа (серым «из заказа»), их можно заменить своими.
  */
@@ -47,17 +50,19 @@ const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.ass
 const subLine = (r, withCode = true) => [clean(r.sku) && '№ ' + clean(r.sku), (r.seqNo ?? r.lineNo) != null && 'поз. ' + (r.seqNo ?? r.lineNo), clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), withCode && r.code].filter(Boolean).join(' · ');
 const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) }) : h('div', { class: 't-pic-none' }, 'нет фото'));
 
+let stk = []; // видимые стикеры доски (грузятся один раз; пока нет — на карточке срок, приоритет, исполнитель)
+const footOf = (r) => (stk.length ? stickerRow(r, stk) : h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r)));
 function boardBody(r, c) {
   if (c.compact) {
     return [pic(r), h('div', { class: 't-main' },
       h('div', { class: 't-title', title: title(r) }, title(r)),
       h('div', { class: 't-sub', title: r.pauseReason || '' }, [c.key === 'paused' && r.pauseReason, subLine(r)].filter(Boolean).join(' · ')),
-      h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r)))];
+      footOf(r))];
   }
   return [pic(r),
     h('div', { class: 't-title', title: title(r) }, title(r)),
     h('div', { class: 't-sub' }, subLine(r)),
-    h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r))];
+    footOf(r)];
 }
 
 // ---------- перенос между стадиями ----------
@@ -209,11 +214,23 @@ export const design = {
     },
     board: {
       default: true,
-      alt: 'flat', // ?view=flat — прежняя плоская доска (запасной путь на время приёмки)
-      mount: withRequestsTab((b, path, q, o) => (current().params.view === 'flat' ? mountBoard : mountDesignBoard)(b, path, q, o)),
-      env: { people, moveTask: (r, to) => moveTask(r, to), dueNode, activeOrders, stageLabel: (s) => STAGE[s]?.label || 'Другой этап' },
+      mount: withRequestsTab((b, path, q, o) => {
+        const inner = mountBoard(b, path, q, o);
+        if (!stk.length) visibleStickers().then((l) => { if (l.length) { stk = l; inner.reload(); } });
+        const side = designSide({ query: q, env: b.env, onBoard: () => inner.reload() });
+        return {
+          ...inner, el: layout.split({ side: side.el, main: inner.el, sideLabel: 'Заказы в проектировании' }),
+          reload: () => { inner.reload(); side.reload(); },
+          reloadFor: (row) => { inner.reloadFor?.(row); side.reload(); },
+          setQuery: (qq) => { inner.setQuery(qq); side.setQuery(qq); },
+        };
+      }),
+      env: { people, activeOrders },
       headCount: true,
-      cls: 'board-pics',
+      density: 'pics',
+      groupOpen: true,
+      group: (r) => (r.orderId ? { key: String(r.orderId), label: clean(r.productionNo) ? '№ ' + clean(r.productionNo) : 'Заказ, нет №', sub: clean(r.customer) } : null),
+      cardMenu: (r) => taskMenu(r, { people, moveTask }),
       columns: [
         { key: 'queue', label: STATUS.queue.label, tone: 'dim', emptyText: 'Пусто. Задачи приходят из заказов: кнопка «Передать в проектирование»', query: { status: 'queue', sort: 'seq' } },
         { key: 'work', label: STATUS.work.label, tone: 'info', query: { status: 'work', sort: 'seq' } },
@@ -221,7 +238,7 @@ export const design = {
         { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
         { key: 'cancelled', label: STATUS.cancelled.label, tone: 'dim', compact: true, portion: true, per: 20, emptyText: 'Пусто. Сюда — снятые задачи (расторжение договора и т. п.)', query: { status: 'cancelled', sort: '-createdAt' } },
       ],
-      card: (r, c) => ({ body: boardBody(r, c) }),
+      card: (r, c) => ({ body: boardBody(r, c), orderKey: r.orderId || '' }),
       move: async (r, to) => !!(await moveTask(r, to)),
       addLabel: '+ Задача',
       add: (key) => go('design', { ...current().params, new: '1', dstatus: key, open: undefined }, { replace: true }),

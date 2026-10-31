@@ -19,7 +19,7 @@ export function noticeCard({ tone = 'info', title, sub, time, actions, onClose, 
       h('div', { class: 'ntf-title' }, title),
       sub ? h('div', { class: 'ntf-sub' }, sub) : null,
       time ? h('div', { class: 'ntf-time' }, time) : null),
-    acts.length ? h('div', { class: 'ntf-acts' }, ...acts.map((a) => h('button', { type: 'button', class: 'ntf-btn', onclick: a.run }, a.label))) : null,
+    acts.length ? h('div', { class: 'ntf-acts' }, ...acts.map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: a.run }, a.label))) : null,
     onClose ? h('button', { type: 'button', class: 'ntf-x', 'aria-label': 'Убрать уведомление', title: 'Убрать', onclick: onClose }, '×') : null);
 }
 

@@ -156,7 +156,7 @@ function assignBlock(r, ctx) {
   const note = h('textarea', { rows: 3, maxlength: 500, 'aria-label': 'Примечание', placeholder: 'Примечание (необязательно)' });
   note.value = r.note || '';
   const hint = h('div', { class: 'hint' });
-  const all = h('button', { type: 'button', class: 'link-btn', hidden: true, onclick: () => fill(true) }, 'Показать всех сотрудников');
+  const all = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, onclick: () => fill(true) }, 'Показать всех сотрудников');
   async function fill(everyone) {
     let list;
     try { list = everyone || !wt?.workTypeId ? await people() : (await api('/work-tasks/people', { query: { workTypeId: wt.workTypeId } })).items.map((p) => ({ value: p.id, label: p.name })); }

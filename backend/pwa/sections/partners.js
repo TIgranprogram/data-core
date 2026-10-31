@@ -50,7 +50,7 @@ function lazyPreview(cur, label, del) {
   const box = h('div', { class: 'stamp-pic' });
   const show = () => box.replaceChildren(h('div', { class: 'stamp-prev', title: 'Так выглядит на талоне; клетка — прозрачные места' },
     h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), h('span', null, 'Продавец: ________')), del);
-  box.append(h('span', { class: 'badge ok' }, `${label}: загружена ✓`), h('button', { type: 'button', class: 'link-btn', onclick: show }, 'Показать'), del);
+  box.append(h('span', { class: 'badge ok' }, `${label}: загружена ✓`), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: show }, 'Показать'), del);
   return box;
 }
 
@@ -67,12 +67,12 @@ function stampBlock(r, ctx) {
     };
     input.addEventListener('change', () => { upload(input.files[0]); input.value = ''; });
     const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Перетащите файл, вставьте Ctrl+V или нажмите' },
-      h('span', null, cur ? 'Заменить: перетащите, Ctrl+V или ' : 'Перетащите, вставьте Ctrl+V или '), h('button', { type: 'button', class: 'link-btn', onclick: () => input.click() }, 'выберите файл'), input);
+      h('span', null, cur ? 'Заменить: перетащите, Ctrl+V или ' : 'Перетащите, вставьте Ctrl+V или '), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => input.click() }, 'выберите файл'), input);
     zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('over'));
     zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('over'); upload(e.dataTransfer?.files?.[0]); });
     zone.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file')?.getAsFile(); if (f) { e.preventDefault(); upload(f); } });
-    const del = cur ? h('button', { type: 'button', class: 'link-btn', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
+    const del = cur ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
     return h('div', { class: 'pp-kind stamp-slot' },
       h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ' · ' + tip)),
       cur ? lazyPreview(cur, label, del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),

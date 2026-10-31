@@ -226,7 +226,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     const vals = () => Object.fromEntries(c.from.map((k) => [k, inputs.get(k)?.input.value ?? '']));
     let auto = c.build(vals());
     const manual = () => x.input.value.trim() !== '' && x.input.value !== auto;
-    const again = h('button', { type: 'button', class: 'link-btn ph-btn', onclick: () => { auto = c.build(vals()); x.input.value = auto; x.input.dispatchEvent(new Event('input', { bubbles: true })); again.hidden = true; } }, '↻ Собрать заново из полей выше');
+    const again = h('button', { type: 'button', class: 'btn btn-ghost btn-sm ph-btn', onclick: () => { auto = c.build(vals()); x.input.value = auto; x.input.dispatchEvent(new Event('input', { bubbles: true })); again.hidden = true; } }, '↻ Собрать заново из полей выше');
     x.input.insertAdjacentElement('afterend', again);
     again.hidden = !manual();
     if (!x.input.value.trim()) x.input.value = auto;

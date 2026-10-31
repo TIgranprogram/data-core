@@ -71,7 +71,7 @@ export function weightCount({ qtyInput, unit = 'шт', unitWeightG = null, label
 
   function renderKnown() {
     knownLine.replaceChildren(pos(unitWeightG)
-      ? h('span', null, `Из карточки: ${g(unitWeightG)} `, h('button', { type: 'button', class: 'link-btn', onclick: () => { useSample = !useSample; renderKnown(); recalc(); } }, useSample ? 'взять из карточки' : 'взвесить образец'))
+      ? h('span', null, `Из карточки: ${g(unitWeightG)} `, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { useSample = !useSample; renderKnown(); recalc(); } }, useSample ? 'взять из карточки' : 'взвесить образец'))
       : h('span', { class: 'wc-sub' }, 'Веса 1 шт. в карточке нет — взвесьте образец (10 шт и больше — точнее)'));
     sampleBox.hidden = !useSample;
   }

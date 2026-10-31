@@ -6,6 +6,7 @@ import { failBlock } from '../busy.js';
 import { paintOrder } from '../../core/order-color.js';
 import { toastError } from '../toast.js';
 import { draggable } from '../drag.js';
+import { openPopMenu } from '../pop-menu.js';
 
 /**
  * Доска — колонки слева направо (по статусу). Один компонент на все разделы с доской.
@@ -24,6 +25,9 @@ import { draggable } from '../drag.js';
  *   group(row) → { key, label, sub? } | null — позиции одной группы (счёт) собраны в карточку ▸/▾, как заказ на доске «Проектирование»; groupSum(row) — сумма группы
 
  * density?: 'normal'|'compact'|'pics' — плотность карточек доски (kit)
+ *   cardMenu?(row, column) → [{ label, run(row) → false|… , danger?, sep? }] — кнопка «⋯» на карточке (общее меню действий); после run доска перечитывается
+ *   groupOpen? — группы (group) раскрыты по умолчанию
+ *   card(row, c) → ещё { orderKey — id заказа: карточка получает цвет и полосу заказа }
  *   card(row, c, { changed }) → ещё { foot — узел внизу карточки (чек-лист и кнопка; клики не открывают карточку) }
  * }
  * Перетаскивание — общее для всех досок, `ui/drag.js` (карточка едет за курсором, на месте пунктир, колонка-цель `.drop`;
@@ -95,6 +99,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
 
   // только последний ответ (ПО.2): быстрый поиск-стирание — старый медленный ответ не затирает новый
   const openGroups = new Set(); // раскрытые группы (счета) — до перезагрузки
+  const seenGroups = new Set(); // группы, которые уже показывали: при groupOpen новая группа раскрыта один раз
   let seq = 0;
   const fetchCol = async (c, page, my) => {
     const q = { query: { ...query, ...c.query, page, limit: c.per || per } };
@@ -114,6 +119,9 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null)]),
     v.foot ? quiet(v.foot) : null);
     if (multi && sel.has(row.id)) card.classList.add('selected');
+    const items = board.cardMenu && !multi ? board.cardMenu(row, c) : null;
+    if (items && items.some((i) => i && !i.sep)) card.append(menuBtn(items, row));
+    if (v.orderKey) { paintOrder(card, v.orderKey); card.classList.add('t-grouped'); } // цветная полоса заказа (карточка → {orderKey})
     bindDrag(card, row, c.key);
     return card;
   }
@@ -133,6 +141,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   }
   /** Карточка группы (счёт) как заказ на доске «Проектирование»: ▸/▾ раскрывает позиции; раскрытое помнится до перезагрузки. */
   function groupCard(k, g, rs, cards) {
+    if (board.groupOpen && !seenGroups.has(k)) { seenGroups.add(k); openGroups.add(k); }
     let sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
     if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0)); // у позиций нет цен — сумма самого счёта
     const body = h('div', { class: 'db-lines b-glines' });
@@ -153,6 +162,21 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     chev.onclick = toggle;
     paint();
     return card;
+  }
+  /** Кнопка «⋯» на карточке: общее всплывающее меню (ui/pop-menu.js). Клики по ней не открывают карточку и не начинают перетаскивание. */
+  function menuBtn(items, row) {
+    const b = h('button', { type: 'button', class: 'btn btn-ghost btn-icon k-menu-btn', 'aria-haspopup': 'menu', 'aria-label': 'Действия', title: 'Действия' }, '⋯');
+    b.addEventListener('click', () => {
+      const groups = []; let cur = [];
+      const flush = () => { if (cur.length) groups.push({ sep: groups.length > 0, items: cur }); cur = []; };
+      for (const it of items.filter(Boolean)) {
+        if (it.sep) { flush(); continue; }
+        cur.push({ label: it.label, danger: it.danger, onSelect: () => Promise.resolve(it.run(row)).then((ok) => { if (ok !== false) onChanged(); }).catch((ex) => toastError(ex)) });
+      }
+      flush();
+      openPopMenu({ anchor: b, groups, side: 'down' });
+    });
+    return quiet(b);
   }
   /** Блок внутри карточки со своими кнопками: нажатие не открывает карточку и не начинает перетаскивание. */
   function quiet(node) {

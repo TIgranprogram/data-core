@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
 import { posPic } from '../ui/pos-pic.js';
-import { askAssignee, changed, COL_LABEL, createTask, distributeOrder, dropOrder, fetchBoardOrder, loadLines } from '../ui/design-board.js';
+import { askAssignee, changed, COL_LABEL, createTask, distributeOrder, dropOrder, fetchBoardOrder, loadLines } from './design-data.js';
 import { toastError } from '../ui/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';

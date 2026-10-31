@@ -12,7 +12,7 @@ export function attachPhrases(input, { load, context = () => '', title = 'Вар
   let all = null; let scope = 'cat'; let active = 0; let shown = [];
   const box = h('div', { class: 'suggest phrase-list', hidden: true, role: 'listbox' });
   const count = h('span', { class: 'ph-n' });
-  const btn = h('button', { type: 'button', class: 'link-btn ph-btn', 'aria-haspopup': 'listbox', onmousedown: (e) => { e.preventDefault(); box.hidden ? open(true) : close(); } }, '▾ ', title, ' ', count);
+  const btn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm ph-btn', 'aria-haspopup': 'listbox', onmousedown: (e) => { e.preventDefault(); box.hidden ? open(true) : close(); } }, '▾ ', title, ' ', count);
   input.parentElement.classList.add('has-suggest');
   input.insertAdjacentElement('afterend', box);
   box.insertAdjacentElement('afterend', btn);

@@ -79,6 +79,7 @@ function requestsView(onCount) {
 export function withRequestsTab(mountInner) {
   return (b, path, q, o) => {
     const inner = mountInner(b, path, q, o);
+    const canSettings = session.role === 'admin' || session.user?.isOwner === true;
     const tabs = h('div', { class: 'tabs dr-tabs', role: 'tablist', 'aria-label': 'Раздел проектирования' });
     const holder = h('div', { class: 'dr-holder', hidden: true });
     const el = h('div', { class: 'dr-wrap' }, tabs, inner.el, holder);
@@ -89,7 +90,8 @@ export function withRequestsTab(mountInner) {
       const req = isReq();
       tabs.replaceChildren(
         h('button', { type: 'button', role: 'tab', class: req ? '' : 'active', 'aria-selected': String(!req), onclick: () => pick(false) }, 'Задачи'),
-        h('button', { type: 'button', role: 'tab', class: req ? 'active' : '', 'aria-selected': String(req), onclick: () => pick(true) }, `Заявки на создание изделия (${n})`));
+        h('button', { type: 'button', role: 'tab', class: req ? 'active' : '', 'aria-selected': String(req), onclick: () => pick(true) }, `Заявки на создание изделия (${n})`),
+        canSettings ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Какие стикеры показывать на карточках', onclick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } }, 'Настройки доски') : null);
     }
     function show() {
       const req = isReq();

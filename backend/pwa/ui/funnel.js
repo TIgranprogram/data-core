@@ -79,7 +79,7 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
     const full = plain(leaf.text);
     if (!full) return h('p', { class: 'hint' }, 'У этого варианта текст пока пустой — впишите его в «Справочники → Тексты паспорта».');
     const p = h('p', { class: 'pp-ftext clamp', id: `ft-${s.id}` }, full);
-    const more = h('button', { type: 'button', class: 'link-btn', 'aria-expanded': 'false', 'aria-controls': p.id, onclick: () => {
+    const more = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-expanded': 'false', 'aria-controls': p.id, onclick: () => {
       const on = p.classList.toggle('clamp'); more.setAttribute('aria-expanded', String(!on)); more.textContent = on ? 'Развернуть' : 'Свернуть';
     } }, 'Развернуть');
     return h('div', { class: 'pp-ftext-box' }, p, h('div', { class: 'pp-ftext-act' }, full.length > 110 ? more : null,
@@ -95,7 +95,7 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
       const many = s.children.length > 1 || path.length > 1;
       wrap.append(h('div', { class: 'pp-step-sum' }, h('span', null, h('b', null, s.name + ': '), path.map((n) => n.name).join(' › ')),
         auto ? h('span', { class: 'muted' }, ' · подставлено') : null,
-        many ? h('button', { type: 'button', class: 'link-btn', onclick: () => { editing.add(s.id); paint(); } }, 'Изменить') : null), textBlock(s, leaf));
+        many ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { editing.add(s.id); paint(); } }, 'Изменить') : null), textBlock(s, leaf));
       return wrap;
     }
     const head = h('h3', { class: 'pp-step-h' }, s.name, s.required ? h('span', { class: 'req' }, ' *') : null,

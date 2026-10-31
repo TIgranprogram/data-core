@@ -20,7 +20,7 @@ export function tagPick({ options, value, label }) {
     b.dataset.v = String(o.value);
     return { o, b, note };
   });
-  const more = h('button', { type: 'button', class: 'link-btn', hidden: true, onclick: () => { showAll = !showAll; paint(); } });
+  const more = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, onclick: () => { showAll = !showAll; paint(); } });
   const paint = () => {
     let hidden = 0;
     for (const { o, b, note } of items) {

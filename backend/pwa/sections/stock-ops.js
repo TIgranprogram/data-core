@@ -225,7 +225,7 @@ async function build() {
       noteBox,
       op === 'in' ? h('label', { class: 'field wide' }, h('span', null, 'Документ'), doc) : null));
   // кнопка разворота — только для «Принять» с блоком счетов
-  const toggleManual = arrivals ? h('button', { type: 'button', class: 'link-btn sop-toggle-manual', style: { margin: 'var(--s2) 0 var(--s1)', fontSize: '0.85em' }, onclick() { manualSection.hidden = !manualSection.hidden; this.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }, '+ Принять без счёта') : null;
+  const toggleManual = arrivals ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm sop-toggle-manual', onclick() { manualSection.hidden = !manualSection.hidden; this.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }, '+ Принять без счёта') : null;
   const el = h('div', { class: 'sop' },
     h('p', { class: 'hint' }, cfg.hint),
     arrivals?.el,

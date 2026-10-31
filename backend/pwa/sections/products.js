@@ -109,7 +109,7 @@ function passportCatView(r, ctx) {
   const where = r.group ? `группы «${r.group}»` : r.type ? `раздела «${r.type}»` : '';
   if (pc?.own) {
     const inh = pc.inherited;
-    const reset = h('button', { type: 'button', class: 'link-btn', onclick: async () => {
+    const reset = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => {
       const pd = r.passportDefaults || {};
       const body = { ...Object.fromEntries(PD_KEYS.filter((k) => k !== 'passportCategory' && pd[k] !== undefined && pd[k] !== null && pd[k] !== '').map((k) => [k, pd[k]])), textChoices: pd.textChoices || {} };
       try { await api(`/showcase/${r.id}/passport-defaults`, { method: 'PUT', body }); toast('Категория сброшена'); ctx?.setRow?.(await api(`/showcase/${r.id}`)); } catch (e) { toast(e.message || 'Не удалось сбросить'); }

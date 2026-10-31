@@ -81,6 +81,15 @@ export function boardStatic({ columns, density = 'normal' }) {
       h('div', { class: 'col-body' }, ...(c.cards.length ? c.cards : [h('div', { class: 'col-more muted' }, c.empty || 'Пусто')])))));
 }
 
+/** layout.split({ side, main, sideLabel }) → доска с боковым списком: слева колонка фиксированной ширины, справа main; на телефоне список сворачивается за кнопку сверху */
+export const layout = {
+  split({ side, main, sideLabel = 'Список' }) {
+    const toggle = h('button', { type: 'button', class: 'btn btn-sm k-split-toggle', 'aria-expanded': 'false', onclick: () => { toggle.setAttribute('aria-expanded', String(el.classList.toggle('side-open'))); } }, sideLabel);
+    const el = h('div', { class: 'k-split' }, toggle, h('aside', { class: 'k-split-side', 'aria-label': sideLabel }, side), h('div', { class: 'k-split-main' }, main));
+    return el;
+  },
+};
+
 // ---- Реэкспорт существующих эталонов ----
 export { modal, confirmDlg } from '../dialog.js';
 export { toast, toastError } from '../toast.js';
@@ -93,3 +102,5 @@ export { tagPick } from '../tag-pick.js';
 export { stepFunnel } from '../step-funnel.js';
 export { facetFilter, parseFt, ftQuery, ftParams } from '../facet-filter.js';
 export { SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY, PRIORITY, supplyKey } from '../badges.js';
+export { openPopMenu } from '../pop-menu.js';
+export { draggable, afterDrag } from '../drag.js';

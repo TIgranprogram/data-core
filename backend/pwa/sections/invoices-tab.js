@@ -161,7 +161,7 @@ export function mountInvoicesTab(params = {}) {
     // договор счёта: «Привязать» открывает заявку счёта справа — там поле «Договор»
     const firstReq = reqs[0]?.id;
     const contractLine = h('div', { class: 'invl-contract' }, h('span', { class: 'muted' }, 'Договор поставщика: '), contractView(inv),
-      firstReq && canContract() && inv.status !== 'cancelled' ? h('button', { type: 'button', class: 'link-btn', onclick: () => patch({ of: 'requests', open: firstReq }) }, inv.contractId ? 'Изменить' : 'Привязать') : null);
+      firstReq && canContract() && inv.status !== 'cancelled' ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ of: 'requests', open: firstReq }) }, inv.contractId ? 'Изменить' : 'Привязать') : null);
 
     const actions = [];
     if (canAct && inv.status === 'draft') {

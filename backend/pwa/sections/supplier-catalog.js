@@ -238,7 +238,7 @@ export const priceList = sideForm({
     file.addEventListener('change', preview);
     cur = { file, ready: () => ready, fd, order };
     const note = order
-      ? h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. ', h('button', { type: 'button', class: 'link-btn', onclick: orderTemplate }, '⇩ Шаблон Excel'))
+      ? h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. ', h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: orderTemplate }, '⇩ Шаблон Excel'))
       : h('p', { class: 'hint' }, 'Скачайте шаблон в меню ⚙ каталога, заполните и загрузите. Поставщика можно не выбирать, если в файле есть колонка «ИНН поставщика».');
     return [noteField(note),
       order ? null : { key: 'supplierId', label: 'Поставщик (необязательно)', type: 'select', wide: true, options: await loadSuppliers(), hint: 'Не выбран — поставщик указан в файле' },

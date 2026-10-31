@@ -121,7 +121,7 @@ export const matching = {
         : null;
       return h('div', { class: 'mt' },
         single
-          ? h('div', { class: 'mt-top' }, h('b', null, 'Выбор изделия для позиции'), h('span', { class: 'muted' }, ' · '), h('button', { type: 'button', class: 'link-btn', onclick: () => openMatching(patch, r.orderId) }, 'Весь договор'))
+          ? h('div', { class: 'mt-top' }, h('b', null, 'Выбор изделия для позиции'), h('span', { class: 'muted' }, ' · '), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => openMatching(patch, r.orderId) }, 'Весь договор'))
           : h('div', { class: 'mt-top' }, h('b', null, `Сопоставлено ${qty(r.matched ?? 0)} из ${qty(r.total ?? items.length)}`), r.unmatched ? h('span', { class: 'muted' }, ` · осталось ${qty(r.unmatched)}`) : null),
         write ? null : h('p', { class: 'hint' }, 'Только просмотр: сопоставлять могут администратор и менеджер.'),
         bulk,

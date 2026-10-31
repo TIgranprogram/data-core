@@ -12,3 +12,18 @@
 .k-sample > .tile, .k-sample > .tcard, .k-sample > .db-order { width: 260px; }
 .k-note { color: var(--muted); font-size: var(--fs-sm); margin: var(--s1) 0 var(--s2); }
 .k-board-demo .board { min-height: 0; }
+/* layout.split: боковой список + основное */
+.k-split { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--s3); align-items: start; }
+.k-split-toggle { display: none; }
+.k-split-side { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; max-height: calc(100vh - 160px); overflow-y: auto; }
+.k-split-side > .k-side-item { display: flex; flex-direction: column; gap: var(--s2); }
+.k-split-main { min-width: 0; }
+@media (max-width: 720px) {
+  .k-split { grid-template-columns: minmax(0, 1fr); }
+  .k-split-toggle { display: inline-flex; width: 100%; min-height: 44px; }
+  .k-split-side { display: none; max-height: none; }
+  .k-split.side-open .k-split-side { display: flex; }
+}
+/* кнопка «⋯» на карточке доски */
+.k-menu-btn { position: absolute; top: 2px; right: 2px; z-index: 2; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
+.tcard:has(.k-menu-btn) .t-title { padding-right: 30px; }

@@ -58,7 +58,7 @@ function wireMaterials(api, { r, md, ctx }) {
   let auto = '';
   // текст «наш» (его можно заменять собранным): пусто, подставлен программой или совпал с собранным; правка человека — не наш
   let ours = !String(ta.value || '').trim();
-  const again = h('button', { type: 'button', class: 'link-btn', onclick: () => { if (!auto) return; ours = true; api.set('materials', auto); paint(); } }, '↻ Собрать заново из таблицы');
+  const again = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { if (!auto) return; ours = true; api.set('materials', auto); paint(); } }, '↻ Собрать заново из таблицы');
   const note = h('div', { class: 'ms-auto', hidden: true });
   (api.field('materials') || ta.parentElement)?.append(note);
   const hid = api.field('materialIds'); if (hid) hid.hidden = true; // служебное поле: метки — из таблицы
