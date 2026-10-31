@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Connection } from 'mongoose';
+import { latestBackupDate } from '../disk/backups';
 import { dirSize, exists } from '../disk/disk-fs';
 import { DAY_MS, emptyMetrics, type Metrics } from './control.rollup';
 import { median } from './questions/question.rules';
@@ -113,14 +114,13 @@ export async function collectNow(d: CollectDeps): Promise<Metrics> {
     }],
     ['backups.local_age_h', async () => {
       if (!mounted) return null;
-      const names = (await fs.readdir(path.join(host, 'backups'))).filter((n) => n.startsWith('mongo-'));
-      if (!names.length) return null;
-      const times = await Promise.all(names.map(async (n) => (await fs.stat(path.join(host, 'backups', n))).mtime));
-      return hoursSince(new Date(Math.max(...times.map((t) => t.getTime()))), now);
+      const last = await latestBackupDate(path.join(host, 'backups')); // mongo-* дома и srv-erp-*.tgz второго сервера
+      return last ? hoursSince(new Date(last), now) : null;
     }],
     ['backups.offsite_age_h', async () => {
-      const ok = await db.collection('backuptargets').find({ 'last.ok': true }, { projection: { 'last.at': 1 } }).toArray();
-      const at = ok.map((t) => (t.last?.at as Date | undefined)?.getTime()).filter((x): x is number => typeof x === 'number');
+      // WebDAV пишет last{ok,at}; сетевую папку (SMB) хост-скрипт отмечает lastAt/lastError в корне цели
+      const ok = await db.collection('backuptargets').find({ $or: [{ 'last.ok': true }, { kind: 'smb', lastResult: 'ok', lastError: null }] }, { projection: { 'last.at': 1, lastAt: 1, kind: 1 } }).toArray();
+      const at = ok.map((t) => ((t.kind === 'smb' ? t.lastAt : t.last?.at) as Date | undefined)?.getTime()).filter((x): x is number => typeof x === 'number');
       return at.length ? hoursSince(new Date(Math.max(...at)), now) : null;
     }],
   ];

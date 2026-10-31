@@ -8,6 +8,7 @@ import { AuditModule } from '../audit/audit.module';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { diskState, type DiskSnapshot } from './disk-usage';
 import { dirSize, exists } from './disk-fs';
+import { backupStamps } from './backups';
 import { BackupsController } from './backups.controller';
 import { BundleController } from './bundle.controller';
 import { IntegrityService } from './integrity';
@@ -49,7 +50,7 @@ export class DiskService {
       mounted ? dirSize(path.join(host, 'backups')) : Promise.resolve(null),
     ]);
     let backupCount: number | null = null;
-    if (mounted) backupCount = (await fs.readdir(path.join(host, 'backups')).catch(() => [] as string[])).filter((n) => n.startsWith('mongo-')).length;
+    if (mounted) backupCount = backupStamps(await fs.readdir(path.join(host, 'backups')).catch(() => [] as string[])).size;
     const parts = {
       mongoBytes: db ? Number(db.storageSize ?? 0) + Number(db.indexSize ?? 0) : null,
       uploadsBytes: uploads.bytes, uploadsFiles: uploads.files,

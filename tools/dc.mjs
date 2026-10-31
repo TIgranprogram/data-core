@@ -229,6 +229,31 @@ function nightLine() {
   return 'ещё не запускался';
 }
 
+/** Возраст копий: дом и Sportin — из открытого /api/health (backup), ПК — свежий файл в D:\datacore-backups. Старше 30 ч — находка. */
+export const BACKUP_SOURCES = [['дом', 'https://kppdf-crm.ru/db/api/health'], ['Sportin', 'http://31.222.224.247:8080/api/health']];
+export function backupWord(body) {
+  try {
+    const j = JSON.parse(body); const b = (j.details || j.info || {}).backup || (j.error || {}).backup;
+    if (!b) return { bad: true, text: 'нет данных' };
+    if (b.ageHours != null) return { bad: b.status !== 'up', text: `${b.ageHours} ч` + (b.status !== 'up' ? ' — СТАРАЯ' : '') };
+    return { bad: b.status !== 'up', text: b.message || b.note || b.status };
+  } catch { return { bad: true, text: 'не отвечает' }; }
+}
+function backupsLine() {
+  let bad = false; const parts = [];
+  for (const [name, url] of BACKUP_SOURCES) {
+    const r = run('curl', ['-s', '-m', '15', url], { timeout: 20000 });
+    const w = backupWord(r.stdout); bad ||= w.bad; parts.push(`${name} ${w.text}`);
+    log(`${name} ${url}: ${r.stdout.slice(0, 400)}`);
+  }
+  const dir = process.env.DC_BACKUPS || 'D:/datacore-backups';
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.tgz')).map((f) => fs.statSync(path.join(dir, f)).mtimeMs) : [];
+  const pcH = files.length ? Math.round((Date.now() - Math.max(...files)) / 36e5) : null;
+  parts.push(`ПК ${pcH == null ? 'нет' : pcH + ' ч'}`);
+  say('Копии: ' + parts.join(' · ') + (bad ? '  ← проверить бэкап' : ''));
+  return bad;
+}
+
 function cmdStart() {
   let code = 0;
   const hp = run('git', ['config', 'core.hooksPath']).stdout.trim();
@@ -244,6 +269,7 @@ function cmdStart() {
   say(st.changed || st.untracked ? `Незакоммиченное: изменено ${st.changed}, новых ${st.untracked}` : 'Незакоммиченного нет');
   if (st.changed) code = 1;
   if (ab?.behind) { code = 1; say('Отстаёт от origin: нужен git pull (чужие правки — сначала спросить)'); }
+  if (backupsLine()) code = Math.max(code, 1);
   const e = cmdErrors(24);
   if (e.code === 2) code = 2; else if (e.count) code = Math.max(code, 1);
   return code;

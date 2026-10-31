@@ -4,7 +4,9 @@ import archiver from 'archiver';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from '../audit/audit.service';
-import { archiveName, backupDirs, backupsRoot, isStamp, listBackups, parsePart } from './backups';
+import { createReadStream } from 'fs';
+import path from 'path';
+import { archiveName, backupDirs, backupsRoot, backupTgz, isStamp, listBackups, parsePart } from './backups';
 
 /** Резервные копии (cron backup.sh): список и скачивание ZIP «на лету». Только администратор и директор. */
 @ApiTags('Сервер')
@@ -24,6 +26,13 @@ export class BackupsController {
   async download(@Param('stamp') stamp: string, @Query('part') partRaw: string | undefined, @Res() res: Response) {
     const part = parsePart(partRaw);
     if (!isStamp(stamp) || !part) throw new BadRequestException('Неверная копия или часть (mongo, uploads, all)');
+    const tgz = await backupTgz(backupsRoot(), stamp);
+    if (tgz) { // копия второго сервера — один архив, отдаём как есть
+      await this.audit.log({ action: 'backup.download', entityType: 'Backup', details: { meta: { stamp, part: 'all' } } });
+      res.set({ 'Content-Type': 'application/gzip', 'Content-Disposition': `attachment; filename="${path.basename(tgz)}"`, 'Cache-Control': 'no-store', 'Access-Control-Expose-Headers': 'Content-Disposition' });
+      createReadStream(tgz).on('error', () => res.destroy()).pipe(res);
+      return;
+    }
     const dirs = await backupDirs(backupsRoot(), stamp, part);
     if (!dirs.length) throw new NotFoundException('Такой копии нет на сервере');
     await this.audit.log({ action: 'backup.download', entityType: 'Backup', details: { meta: { stamp, part } } });

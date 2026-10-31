@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { archiveName, backupDirs, isStamp, latestBackupDate, listBackups, parsePart } from './backups';
+import { archiveName, backupDirs, backupStamps, backupTgz, isStamp, latestBackupDate, listBackups, parsePart } from './backups';
 
 describe('резервные копии', () => {
   let root: string;
@@ -47,5 +47,12 @@ describe('резервные копии', () => {
     expect(await latestBackupDate(root)).toBe('2026-10-25T03:00:00');
     writeFileSync(path.join(root, 'srv-erp-20261031-1901.tgz'), 'x');
     expect(await latestBackupDate(root)).toBe('2026-10-31T19:01:00');
+  });
+  it('архив второго сервера в списке: один файл, скачивание целиком', async () => {
+    const l = await listBackups(root);
+    expect(l![0]).toMatchObject({ stamp: '2026-10-31_190100', single: true, uploadsBytes: null, totalBytes: 1 });
+    expect(await backupTgz(root, '2026-10-31_190100')).toMatch(/srv-erp-20261031-1901\.tgz$/);
+    expect(await backupTgz(root, '2026-10-25_030000')).toBeNull();
+    expect(backupStamps(['mongo-2026-10-25_030000', 'srv-erp-20261031-1901.tgz', 'srv-erp-x.tgz']).size).toBe(2);
   });
 });

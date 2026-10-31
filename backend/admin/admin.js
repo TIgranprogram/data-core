@@ -1279,13 +1279,13 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   }
   // ---- Сервер: резервные копии (список + скачивание ZIP) ----
   const PART_RU = { all: 'Всё', mongo: 'База', uploads: 'Фото' };
-  async function saveBackup(stamp, part, prog) {
-    const name = `datacore-backup-${stamp}${part === 'all' ? '' : '-' + part}.zip`;
+  async function saveBackup(stamp, part, prog, single) {
+    const name = single ? `srv-erp-${stamp.replace(/[-_]/g, '').replace(/^(\d{8})(\d{4})\d{2}$/, '$1-$2')}.tgz` : `datacore-backup-${stamp}${part === 'all' ? '' : '-' + part}.zip`;
     const mb = (n) => (n / 1024 ** 2).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' МБ';
     let file = null;
     try {
       // окно выбора папки открываем сразу по клику — иначе браузер его не разрешит
-      if (window.showSaveFilePicker) file = await window.showSaveFilePicker({ suggestedName: name, startIn: 'documents', types: [{ description: 'ZIP-архив', accept: { 'application/zip': ['.zip'] } }] });
+      if (window.showSaveFilePicker) file = await window.showSaveFilePicker({ suggestedName: name, startIn: 'documents', types: single ? [{ description: 'Архив', accept: { 'application/gzip': ['.tgz'] } }] : [{ description: 'ZIP-архив', accept: { 'application/zip': ['.zip'] } }] });
     } catch (e) { if (e.name === 'AbortError') { toast('Скачивание отменено'); return; } file = null; }
     let w = null;
     try {
@@ -1417,13 +1417,13 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       d.items.forEach((it) => {
         const tr = el('tr');
         const btns = el('td', 'srv-btns');
-        ['all', 'mongo', 'uploads'].forEach((part) => {
+        (it.single ? ['all'] : ['all', 'mongo', 'uploads']).forEach((part) => { // single — один архив второго сервера
           const b = el('button', 'btn small', PART_RU[part]); b.type = 'button';
           if (part === 'uploads' && it.uploadsBytes == null) b.disabled = true;
-          b.addEventListener('click', async () => { table.querySelectorAll('button').forEach((x) => { x.disabled = true; }); await saveBackup(it.stamp, part, prog); table.querySelectorAll('button').forEach((x) => { x.disabled = false; }); });
+          b.addEventListener('click', async () => { table.querySelectorAll('button').forEach((x) => { x.disabled = true; }); await saveBackup(it.stamp, part, prog, it.single); table.querySelectorAll('button').forEach((x) => { x.disabled = false; }); });
           btns.append(b);
         });
-        tr.append(el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.mongoBytes)), el('td', null, it.uploadsBytes == null ? 'нет' : gb(it.uploadsBytes)), btns);
+        tr.append(el('td', null, new Date(it.date).toLocaleString('ru-RU')), el('td', null, gb(it.mongoBytes)), el('td', null, it.single ? 'в архиве' : it.uploadsBytes == null ? 'нет' : gb(it.uploadsBytes)), btns);
         tb.append(tr);
       });
       table.append(tb);

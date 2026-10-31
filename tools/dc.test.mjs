@@ -47,3 +47,10 @@ test('fmtTime: неверная дата', () => {
   assert.equal(fmtTime('мусор'), '—');
   assert.match(fmtTime('2026-10-30T13:32:00Z'), /^\d\d\.10 \d\d:\d\d$/);
 });
+
+test('backupWord: возраст копии из /api/health', async () => {
+  const { backupWord } = await import('./dc.mjs');
+  assert.deepEqual(backupWord(JSON.stringify({ details: { backup: { status: 'up', ageHours: 5 } } })), { bad: false, text: '5 ч' });
+  assert.equal(backupWord(JSON.stringify({ error: { backup: { status: 'down', ageHours: 40 } } })).bad, true);
+  assert.equal(backupWord('').text, 'не отвечает');
+});
