@@ -10,7 +10,10 @@
 # Что меняется на VPS: ставится /usr/local/bin/dc-switch, три ключа с ограничениями, в блоке /db/ файла kppdf-proxy
 # `proxy_pass http://127.0.0.1:4201/` → `http://datacore_db/` (upstream в /etc/nginx/datacore-upstream.conf, значение 4201 —
 # то же, что было). Перед правкой — копия kppdf-proxy.bak-switch-<время>; nginx -t; ошибка — откат. `location /` kppdf не трогается.
-# Ключи: dc_switch (VPS: ТОЛЬКО dc-switch), dc_hop (VPS: только проброс на 127.0.0.1:4222 → ssh VM), dc_transfer (VM↔Sportin, restrict).
+# Ключи: dc_switch (VPS: ТОЛЬКО dc-switch), dc_hop (VPS: только проброс на 127.0.0.1:4222 → ssh VM), dc_transfer (VM↔Sportin).
+# ЧЕСТНО про dc_transfer: передача выполняет разные команды (cat > файл, docker exec, rsync, bash -s), поэтому жёсткий command= невозможен.
+# Сужено только то, что можно: `restrict` (без проброса портов, агента, X11, pty); Sportin→VM принимается лишь из туннеля (from="127.0.0.1").
+# Это всё равно ключ с правом выполнять команды от имени пользователя на втором сервере: хранить как пароль, отзывается удалением строки dc-transfer-* из authorized_keys.
 set -uo pipefail
 ENABLE=0; [[ "${1:-}" == "--enable" ]] && ENABLE=1
 cd "$(git rev-parse --show-toplevel)"
@@ -132,12 +135,16 @@ EOF
 
 # ---------- 5. bridge.env ----------
 say "== bridge.env на серверах"
+# имена хостов: мост перед восстановлением сверяет, что на том конце именно этот сервер
+VM_HOST="$("${VM[@]}" hostname | tr -d '[:space:]')"; ERP_HOSTNAME="$("${ERP[@]}" hostname | tr -d '[:space:]')"
+[[ -n "$VM_HOST" && -n "$ERP_HOSTNAME" ]] || { say "СТОП: не получены имена хостов"; exit 2; }
 on_vm <<EOF
 set -e
 d=/var/lib/datacore/switch; mkdir -p "\$d"; chmod 1777 "\$d"
 cat > "\$d/bridge.env" <<E2
 HA_SELF=home
 HA_PEER_SSH=$ERP_HOST
+HA_PEER_HOST=$ERP_HOSTNAME
 HA_PEER_KEY=\$HOME/.ssh/dc_transfer
 HA_VPS_SSH=$TARGET
 HA_VPS_KEY=\$HOME/.ssh/dc_switch
@@ -150,6 +157,7 @@ d=/var/lib/datacore/switch; mkdir -p "\$d"; chmod 1777 "\$d"
 cat > "\$d/bridge.env" <<E2
 HA_SELF=office
 HA_PEER_SSH=tiit@127.0.0.1
+HA_PEER_HOST=$VM_HOST
 HA_PEER_PORT=4222
 HA_PEER_KEY=\$HOME/.ssh/dc_transfer
 HA_PEER_PROXY="ssh -i \$HOME/.ssh/dc_hop -o BatchMode=yes -o StrictHostKeyChecking=accept-new -W %h:%p $TARGET"

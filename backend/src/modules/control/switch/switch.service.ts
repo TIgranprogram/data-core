@@ -67,7 +67,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const self = this.self;
     if (!self) return null;
     let doc = await this.load(self);
-    const reason = staleReason(doc.job, Date.now());
+    const reason = jobBusy(doc.job) ? staleReason(doc.job, Date.now(), await this.bridgeAlive()) : null;
     if (reason && doc.job) {
       const set: Record<string, unknown> = { 'job.state': 'failed', 'job.error': reason, 'job.finishedAt': new Date().toISOString() };
       if (doc.role === 'main') set.mode = 'normal'; // главный не должен остаться в «только чтение» навсегда
@@ -176,7 +176,12 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       set.peerCheckedAt = now.toISOString();
     }
     const doc = await this.load(self);
-    if (dto.id !== 'peer') {
+    if (dto.id === 'self') {
+      // вернувшийся старый главный: мост, увидев домен не у нас, просит стать запасным (работы при этом нет)
+      if (jobBusy(doc.job)) throw new ConflictException('Идёт переключение');
+      if (dto.role) set.role = dto.role;
+      if (dto.mode) set.mode = dto.mode;
+    } else if (dto.id !== 'peer') {
       const job = doc.job;
       if (!job || job.id !== dto.id) throw new ConflictException('Это отчёт о другой работе');
       const state = dto.state ?? 'running';
@@ -184,12 +189,13 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       if (dto.step) set['job.step'] = dto.step;
       set['job.state'] = state;
       if (state === 'failed') set['job.error'] = (dto.error ?? 'Переключение не удалось').slice(0, 2000);
+      else if (dto.error) set['job.error'] = dto.error.slice(0, 2000); // предупреждение, не провал
       if (state !== 'running') set['job.finishedAt'] = now.toISOString();
       if (state === 'failed' && doc.role === 'main') set.mode = 'normal'; // неудача до переключения: сайт снова пишет
       if (dto.role) set.role = dto.role;
       if (dto.mode) set.mode = dto.mode;
     }
-    const filter = dto.id === 'peer' ? this.filter() : this.filter({ 'job.id': dto.id });
+    const filter = dto.id === 'peer' || dto.id === 'self' ? this.filter() : this.filter({ 'job.id': dto.id });
     const r = await this.col().updateOne(filter, { $set: set } as never);
     if (r.matchedCount !== 1) throw new ConflictException('Работа изменилась во время отчёта');
     const fresh = (await this.col().findOne(this.filter()))! as SwitchDoc;

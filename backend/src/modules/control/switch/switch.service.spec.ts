@@ -134,6 +134,24 @@ describe('SwitchService и режим «только чтение»', () => {
     await sw.start(); // после провала можно запускать снова
   });
 
+  it('вернувшийся старый главный: id=self меняет роль, пока нет работы', async () => {
+    const { sw, doc } = make();
+    await sw.report({ id: 'self', role: 'standby', mode: 'readonly' }, 'S3CRET', false);
+    expect(doc()).toMatchObject({ role: 'standby', mode: 'readonly' });
+    expect(sw.isReadOnly()).toBe(true);
+    doc().role = 'main'; doc().mode = 'normal';
+    await sw.refresh();
+    await sw.start();
+    await expect(sw.report({ id: 'self', role: 'standby' }, 'S3CRET', false)).rejects.toThrow('Идёт переключение');
+  });
+
+  it('предупреждение моста попадает в job.error без провала', async () => {
+    const { sw, doc } = make();
+    const { job } = await sw.start();
+    await sw.report({ id: job.id, step: 'preflight', state: 'running', error: 'CRM kppdf запущена' }, 'S3CRET', false);
+    expect(doc().job).toMatchObject({ state: 'running', error: 'CRM kppdf запущена' });
+  });
+
   it('сведения о втором сервере принимаются без работы', async () => {
     const { sw } = make();
     await sw.report({ id: 'peer', peer: { version: 'v1.390', copyAt: new Date(Date.now() - 3 * 60_000).toISOString(), healthy: true } }, 'S3CRET', false);
@@ -142,11 +160,14 @@ describe('SwitchService и режим «только чтение»', () => {
     expect(st).toMatchObject({ self: 'home', role: 'main', canStart: true, canEmergency: false });
   });
 
-  it('брошенная работа снимает режим «только чтение» на главном', async () => {
+  it('идущая работа при живом мосте не бросается по возрасту; без моста — снимает «только чтение»', async () => {
     const { sw, doc } = make();
     const { job } = await sw.start();
     await sw.report({ id: job.id, step: 'readonly', mode: 'readonly' }, 'S3CRET', false);
-    doc().job.startedAt = new Date(Date.now() - 100 * 60_000).toISOString();
+    doc().job.startedAt = new Date(Date.now() - 600 * 60_000).toISOString();
+    await sw.refresh();
+    expect(doc()).toMatchObject({ mode: 'readonly', job: { state: 'running' } }); // мост жив — ждём
+    await fs.rm(path.join(dir, 'alive'));
     await sw.refresh();
     expect(doc()).toMatchObject({ mode: 'normal', job: { state: 'failed' } });
     expect(sw.isReadOnly()).toBe(false);

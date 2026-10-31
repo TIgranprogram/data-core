@@ -34,8 +34,6 @@ export interface SwitchDoc {
 export const CACHE_MS = 2000;
 /** Запрос не подхвачен мостом — считаем, что моста нет. */
 export const QUEUED_MAX_MS = 10 * 60_000;
-/** Переключение дольше этого брошено (мост упал): режим «только чтение» снимается сам. */
-export const JOB_MAX_MS = 90 * 60_000;
 /** Подсказка клиенту, через сколько повторить запись. */
 export const RETRY_AFTER_SEC = 30;
 export const READ_ONLY_MESSAGE = 'Идёт переключение сервера. Подождите минуту.';
@@ -96,14 +94,15 @@ export function copyAgeMin(copyAt: string | undefined, now: number): number | nu
 export const jobBusy = (job: SwitchJob | null | undefined): boolean => !!job && (job.state === 'queued' || job.state === 'running');
 
 /**
- * Брошена ли работа: запрос ждёт моста дольше 10 минут или идёт дольше 90.
+ * Брошена ли работа: запрос ждёт моста дольше 10 минут, либо работа идёт, а мост молчит (файл alive старше 3 минут).
+ * По возрасту идущая работа НЕ бросается: мост сам ограничивает «только чтение» десятью минутами.
  * Возвращает текст причины или null.
  */
-export function staleReason(job: SwitchJob | null | undefined, now: number): string | null {
+export function staleReason(job: SwitchJob | null | undefined, now: number, bridgeAlive = true): string | null {
   if (!job || !jobBusy(job)) return null;
   const age = isoAge(job.startedAt, now);
   if (age === null) return 'Нет времени начала';
   if (job.state === 'queued' && age > QUEUED_MAX_MS) return 'Мост переключения не откликнулся за 10 минут. Проверьте cron на сервере.';
-  if (age > JOB_MAX_MS) return 'Переключение не завершилось за 90 минут. Сервер вернулся в обычный режим.';
+  if (job.state === 'running' && !bridgeAlive) return 'Мост переключения перестал отвечать. Сервер вернулся в обычный режим.';
   return null;
 }

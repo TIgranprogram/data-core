@@ -33,7 +33,7 @@ export class PeerInfoDto {
 
 /** Отчёт хост-моста. Принимается только по секрету из файла и только с самого хоста. */
 export class SwitchReportDto {
-  @ApiProperty({ description: 'Номер работы; "peer" — только сведения о втором сервере, без работы' })
+  @ApiProperty({ description: 'Номер работы; "peer" — только сведения о втором сервере; "self" — смена роли без работы (старый главный становится запасным)' })
   @IsString() @MaxLength(64)
   id!: string;
 

@@ -12,9 +12,17 @@ SSH=(ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=
 
 cd "$(git rev-parse --show-toplevel)"
 [[ "$("${SSH[@]}" hostname)" == "srv-erp" ]] || { echo "СТОП: это не сервер srv-erp"; exit 2; }
-# HA-TWO-SERVERS SW-5: если Sportin сейчас главный (после «Переключить сейчас»), копию из бэкапа дома поверх него лить нельзя
-ROLE="$("${SSH[@]}" 'cd /opt/data-core && set -a && . ./.env && set +a && docker exec datacore-mongo mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "var d=db.app_control_state.findOne({_id:\"switch\"}); print(d?d.role:\"\")"' 2>/dev/null | tr -d "[:space:]")"
-[[ "$ROLE" != "main" ]] || { echo "СТОП: Sportin сейчас ГЛАВНЫЙ сервер (кнопка «Переключить сейчас»). Обновление копии отменено, данные не тронуты."; exit 3; }
+# HA-TWO-SERVERS SW-5: копию из бэкапа дома можно лить, только если Sportin — запасной и нет активной работы переключения.
+# Ответ сервера: NODOC (HA не включали — можно) или role|jobState. Пустой ответ (нет связи, сбой) = СТОП. Пароль в argv не идёт (docker exec -e).
+STATE="$("${SSH[@]}" bash -s 2>/dev/null <<'CHECK' | tr -d "[:space:]"
+cd /opt/data-core && set -a && . ./.env && set +a && docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "var d=db.app_control_state.findOne({_id:\"switch\"}); print(d?(d.role+\"|\"+(d.job?d.job.state:\"\")):\"NODOC\")"'
+CHECK
+)"
+[[ -n "$STATE" ]] || { echo "СТОП: не удалось узнать роль Sportin (нет связи или сбой). Обновление копии отменено, данные не тронуты."; exit 3; }
+if [[ "$STATE" != "NODOC" ]]; then
+  [[ "${STATE%%|*}" == "standby" ]] || { echo "СТОП: Sportin сейчас не запасной (${STATE%%|*}): кнопка «Переключить сейчас». Обновление копии отменено, данные не тронуты."; exit 3; }
+  [[ "${STATE#*|}" != "queued" && "${STATE#*|}" != "running" ]] || { echo "СТОП: на Sportin идёт переключение. Обновление копии отменено."; exit 3; }
+fi
 TGZ="$(ls -t "$BACKUPS"/datacore-*.tgz | head -1)"; STAMP="$(basename "$TGZ" .tgz)"; STAMP="${STAMP#datacore-}"
 gzip -t "$TGZ" || { echo "СТОП: архив бэкапа повреждён: $TGZ"; exit 2; }
 echo "== Бэкап: $(basename "$TGZ")"
@@ -59,7 +67,7 @@ docker cp "$M" datacore-mongo:/tmp/restore >/dev/null
 docker exec datacore-mongo sh -c 'mongorestore --quiet -u "$0" -p "$1" --authenticationDatabase admin --drop --db datacore /tmp/restore' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
 docker exec datacore-mongo sh -c 'mongo --quiet -u "$0" -p "$1" --authenticationDatabase admin datacore --eval "var r=db.backuptargets.updateMany({_id:{\$ne:\"settings\"}},{\$set:{enabled:false}}); print(\"целей копий выключено: \"+r.matchedCount)"' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD"
 # в бэкапе дома записано «главный» — у копии роль запасного, иначе она сочтёт себя главной
-docker exec datacore-mongo sh -c 'mongo --quiet -u "$0" -p "$1" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"normal\",job:null}})"' "$MONGO_ROOT_USER" "$MONGO_ROOT_PASSWORD" >/dev/null
+docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"normal\",job:null}})"' >/dev/null
 mkdir -p /var/lib/datacore/switch; date -u +%Y-%m-%dT%H:%M:%SZ > /var/lib/datacore/switch/last-refresh
 docker exec datacore-mongo rm -rf /tmp/restore /tmp/before
 

@@ -39,12 +39,13 @@ describe('переключение: правила', () => {
     expect(secretMatches('', '')).toBe(false);
   });
 
-  it('брошенная работа: ждёт моста 10 мин или идёт 90 мин', () => {
+  it('брошенная работа: ждёт моста 10 мин или мост молчит; по возрасту не бросается', () => {
     const t0 = Date.parse(job().startedAt);
     expect(staleReason(job({ state: 'queued' }), t0 + 5 * 60_000)).toBeNull();
     expect(staleReason(job({ state: 'queued' }), t0 + 11 * 60_000)).toContain('Мост');
     expect(staleReason(job(), t0 + 60 * 60_000)).toBeNull();
-    expect(staleReason(job(), t0 + 91 * 60_000)).toContain('90');
+    expect(staleReason(job(), t0 + 600 * 60_000, true)).toBeNull(); // долго, но мост жив
+    expect(staleReason(job(), t0 + 5 * 60_000, false)).toContain('перестал отвечать');
     expect(staleReason(job({ state: 'done' }), t0 + 999 * 60_000)).toBeNull();
     expect(staleReason(null, t0)).toBeNull();
   });
