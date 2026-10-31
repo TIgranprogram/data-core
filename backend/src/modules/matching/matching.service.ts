@@ -30,7 +30,7 @@ export class MatchingService {
     const db = this.connection.db!;
     const order = await db.collection('salesorders').findOne({ _id: id, deletedAt: null }, { projection: { orderNo: 1, customer: 1 } });
     if (!order) throw new NotFoundException('Договор не найден');
-    const lines = await db.collection('incomes').find({ orderId: id, deletedAt: null }).sort({ lineNo: 1, _id: 1 }).toArray() as Doc[];
+    const lines = await db.collection('incomes').find({ orderId: id, deletedAt: null, cancelledAt: null }).sort({ lineNo: 1, _id: 1 }).toArray() as Doc[];
     const products = await this.loadProducts();
     const byId = new Map(products.map((p) => [p.id, p]));
     const aliasOf = await this.loadAliases(lines);
@@ -43,7 +43,7 @@ export class MatchingService {
       const p = l.productId ? byId.get(String(l.productId)) : undefined;
       return {
         lineId: String(l._id), lineNo: (l.lineNo as number | undefined) ?? null, title: String(l.title ?? ''), qty: (l.qty as number | undefined) ?? null, unit: (l.unit as string | undefined) ?? null,
-        state, matched: ok, productId: l.productId ? String(l.productId) : null, productName: p ? (p.name || p.orderName || p.sku) : null,
+        state, matched: ok, productId: l.productId ? String(l.productId) : null, productName: p ? (p.name || p.orderName || p.sku) : null, productSku: p?.sku ?? null,
         suggestions: sg, confident: isConfident(sg[0]),
       };
     });
@@ -87,7 +87,7 @@ export class MatchingService {
     const orders = await db.collection('salesorders').find(orderFilter, { projection: { orderNo: 1, customer: 1, productionNo: 1, productionDeadline: 1, shipDate: 1, stage: 1 } }).toArray() as Doc[];
     const orderBy = new Map(orders.map((o) => [String(o._id), o]));
     const lines = orders.length ? await db.collection('incomes').find({
-      deletedAt: null, orderId: { $in: orders.map((o) => o._id) },
+      deletedAt: null, cancelledAt: null, orderId: { $in: orders.map((o) => o._id) },
       $or: [{ matchStatus: 'auto' }, { matchStatus: { $nin: ['none', 'auto'] }, productId: null }],
     }, { projection: { orderId: 1, lineNo: 1, title: 1, qty: 1, unit: 1, productId: 1, matchStatus: 1, photoIds: 1 } }).toArray() as Doc[] : [];
     const needle = (q.q ?? '').trim();

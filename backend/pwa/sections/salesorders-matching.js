@@ -86,7 +86,7 @@ function lineRow(it, run, write, single) {
       h('div', { class: 'mt-head-main' },
         h('div', { class: 'mt-title' }, (it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title),
         h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim()))),
-    h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? h('span', { class: 'muted' }, ' → ' + it.productName) : null),
+    h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? h('span', { class: 'muted' }, ' → ' + it.productName + (it.productSku ? ` · арт. ${it.productSku}` : '')) : null),
     sugList, acts.childNodes.length ? acts : null, pickBox);
 }
 
