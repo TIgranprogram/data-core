@@ -44,7 +44,10 @@ describe('БКП: сетевая папка (SMB)', () => {
   const body = { kind: 'smb', name: 'NAS', url: '//192.168.88.2/ERPBak', username: 'bak', password: 'сек-ретный-пароль' };
   afterEach(() => { delete process.env.OFFSITE_SMB; delete process.env.OFFSITE_SMB_AUTH_DIR; });
 
-  it('без флага: smb -> 400, в ответе нет smbEnabled', async () => {
+  it('SMB есть на любом сервере (без флага); OFFSITE_SMB=0 — выключено явно', async () => {
+    process.env.OFFSITE_SMB_AUTH_DIR = mkdtempSync(join(tmpdir(), 'smb-'));
+    expect((await makeSvc().svc.view())).toMatchObject({ smbEnabled: true, smbAgentAt: null });
+    process.env.OFFSITE_SMB = '0';
     const { svc } = makeSvc();
     await expect(svc.saveTarget(null, body)).rejects.toThrow('не включена');
     expect((await svc.view()).smbEnabled).toBeUndefined();

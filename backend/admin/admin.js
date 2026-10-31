@@ -1382,7 +1382,12 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
         uF.querySelector('span').textContent = smb ? 'Адрес сетевой папки' : 'Адрес WebDAV'; f.value = smb ? 'srv-erp' : 'datacore-backups';
       };
       type.addEventListener('change', sync);
-      form.prepend(field('Тип', type), smbHint, keepF); sync();
+      // отправка по SMB на этом сервере установлена? (хост отмечается раз в минуту)
+      const agentOk = d.smbAgentAt && Date.now() - new Date(d.smbAgentAt).getTime() < 5 * 60000;
+      const agentHint = el('p', agentOk ? 'muted' : 'warn', agentOk ? 'Отправка по SMB на этом сервере работает.' : 'На этом сервере отправка по SMB ещё не установлена: пульт → «Копии на NAS: установить». Место можно добавить сейчас — копии пойдут после установки.');
+      const syncAgent = () => { agentHint.hidden = type.value !== 'smb'; };
+      type.addEventListener('change', syncAgent);
+      form.prepend(field('Тип', type), smbHint, agentHint, keepF); sync(); syncAgent();
       form.lastElementChild.replaceWith(btn('Добавить', 'btn-primary', async () => {
         if (type.value !== 'smb') return addWebdav();
         if (!/^\/\/[^/\s]+\/[^/\s]+$/.test(u.value.trim())) throw new Error('Адрес должен быть вида //192.168.88.2/ИмяПапки');

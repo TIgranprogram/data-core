@@ -42,8 +42,9 @@ export function encryptStream(password: string): Transform {
 }
 
 // ─── WebDAV ─────────────────────────────────────────────────────────────────────────────────────
-/** Сетевая папка (SMB): включается OFFSITE_SMB=1; отправку делает хост (одноразовый контейнер smbclient), сервер хранит цель и authfile. */
-export const smbOn = () => process.env.OFFSITE_SMB === '1';
+/** Сетевая папка (SMB): есть на любом сервере (2026-10-31: сервера одинаковые). Отправку делает хост (deploy/smb/offsite-smb.sh, одноразовый контейнер smbclient),
+ * сервер хранит цель и authfile. Установлена ли отправка на этом сервере — по отметке хоста `settings.smbAgentAt` (раз в минуту). */
+export const smbOn = () => process.env.OFFSITE_SMB !== '0'; // 0 — выключить явно
 const smbAuthDir = () => process.env.OFFSITE_SMB_AUTH_DIR || '/var/lib/datacore/smb';
 export const smbAuthPath = (id: string) => pjoin(smbAuthDir(), `auth.${id}`);
 const SMB_URL_RE = /^\/\/[^/\s\\]+\/[^/\s\\]+$/;
@@ -81,7 +82,7 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
 
   async settings() {
     const s: Record<string, unknown> = (await this.coll.findOne({ _id: 'settings' as never })) ?? {};
-    return { time: String(s.time ?? '04:30'), keep: Number(s.keep ?? 7), password: (s.password as string) ?? null, lastAuto: (s.lastAuto as string) ?? null };
+    return { time: String(s.time ?? '04:30'), keep: Number(s.keep ?? 7), password: (s.password as string) ?? null, lastAuto: (s.lastAuto as string) ?? null, smbAgentAt: (s.smbAgentAt as Date) ?? null };
   }
 
   /** Для админки: секреты — только «задан / нет». */
@@ -95,7 +96,7 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
         ...(t.kind === 'smb' ? { kind: 'smb', keep: t.keep ?? 14, pending: !!(t.requestTest || t.requestRun) } : {}),
       })),
       latestBackup: (await latestBackupDate(backupsRoot())) ?? null,
-      ...(smbOn() ? { smbEnabled: true } : {}),
+      ...(smbOn() ? { smbEnabled: true, smbAgentAt: s.smbAgentAt } : {}),
     };
   }
 

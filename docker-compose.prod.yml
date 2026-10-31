@@ -166,6 +166,7 @@ services:
       - ${DATA_DIR}:/host-data:ro   # только чтение: место на диске, размер фото и бэкапов (/api/health/disk, ДИ.1)
       - ${DATA_DIR}/bundles:/host-bundles   # готовые переносные пакеты (bundle-watch.sh): список, скачивание и удаление в админке
       - ${DATA_DIR}/bundle-requests:/host-requests   # запись: только файл-запрос и status.json моста bundle-watch.sh (cron на хосте)
+      - ${DATA_DIR}/smb:/var/lib/datacore/smb   # файлы доступа к сетевым папкам (SMB) для отправки копий — deploy/smb (одинаково на обоих серверах)
       - ${DATA_DIR}/switch:/host-switch   # заявка и секрет моста switch-watch.sh (deploy/ha/switch); без HA_SELF не используется
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]

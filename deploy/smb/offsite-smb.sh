@@ -109,6 +109,9 @@ run_send() {
   if o="$(do_send "$SENDFILE" 2>&1)"; then report "$ID" ok "Отправлено: $(basename "$SENDFILE")"; else report "$ID" error "$(fail_msg "$o")"; fi
 }
 
+# отметка «отправка по SMB на этом сервере установлена и работает» — админка показывает её (offsite.ts smbAgentAt)
+[[ "$MODE" == poll ]] && mq "db.backuptargets.updateOne({_id:'settings'},{\$set:{smbAgentAt:new Date()}},{upsert:true})" >/dev/null || true
+
 while IFS=$'\t' read -r ID EN RT RR URLFIELD FOLDER KEEP; do
   [[ -n "$ID" ]] || continue
   if [[ "$MODE" == poll ]]; then

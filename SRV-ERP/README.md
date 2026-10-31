@@ -185,16 +185,17 @@ ssh -i ~/.ssh/erp_server erpadmin@sportin.netcraze.pro
 
 ---
 
-## Копии на NAS по SMB (срез 2026-10-31)
+## Копии на NAS по SMB (2026-10-31)
 
-Цель «Сетевая папка (SMB)» в админке «Копии вне дома». Работает только при `OFFSITE_SMB=1` в `.env`.
-Установка на сервере: `bash /opt/data-core/SRV-ERP/install-smb.sh --with-backup` (на доме без `--with-backup`: там свой `backup.sh`).
+Одинаково на обоих серверах (дом и Sportin): код, админка, скрипты — общие, в `deploy/smb/`. Включателей нет.
+Место «Сетевая папка (SMB)» добавляется в админке: Сервер → Копии вне дома. Админка сама видит, установлена ли отправка на этом сервере (отметка `smbAgentAt`, раз в минуту).
 
-| Переменная `.env` | Смысл |
+| Что | Где |
 |--|--|
-| `OFFSITE_SMB=1` | включает цель SMB в backend и админке (install-smb.sh ставит сам) |
-| `OFFSITE_SMB_AUTH_DIR` | каталог файлов доступа `auth.<id>` (умолч. `/var/lib/datacore/smb`, права 700; монтируется в backend через `smb/docker-compose.smb.yml`) |
-| `BACKUP_SECRET_KEY` | ключ шифрования паролей целей; без него после обновления копии пароли не расшифровать. Сохранить вместе с `.env` |
+| Установка на Sportin (с ночным бэкапом `SRV-ERP/backup-erp.sh`) | пульт → «Копии на NAS: установить на Sportin» (`SRV-ERP/push-smb.sh`) |
+| Установка на доме (бэкап — свой `backup.sh`, не меняется) | пульт → «Копии на NAS: установить на домашнем сервере» |
+| Отправка 04:00, «Проверить» / «Отправить сейчас» — раз в минуту | `deploy/smb/offsite-smb.sh` (cron), логи `/var/lib/datacore/smb/*.log` |
+| Файлы доступа `auth.<id>` (600) | `/var/lib/datacore/smb`, монтирует `docker-compose.prod.yml` |
+| Выключить SMB на сервере явно | `OFFSITE_SMB=0` в `.env` |
 
-Скрипты: `backup-erp.sh` (бэкап 03:30), `offsite-smb.sh` (отправка 04:00; `--poll` каждую минуту выполняет «Проверить» и «Отправить сейчас»). Логи — `/var/lib/datacore/smb/*.log`.
-`refresh-copy.sh` сохраняет и возвращает SMB-цели и настройки копий srv-erp.
+`refresh-copy.sh` сохраняет и возвращает SMB-цели и настройки копий Sportin.
