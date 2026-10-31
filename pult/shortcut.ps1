@@ -2,6 +2,7 @@
 # The shortcut opens Pult.cmd, which asks for admin rights itself.
 param([string]$Name = 'Pult DataCore')
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $desktop = [Environment]::GetFolderPath('Desktop')
 $link = Join-Path $desktop ($Name + '.lnk')
 $shell = New-Object -ComObject WScript.Shell
