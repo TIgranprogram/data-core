@@ -1,18 +1,7 @@
 [
   {
-    "id": "sportin-code",
-    "added": "2026-10-31T17:30:00",
-    "title": "Sportin: обновить код и базу",
-    "why": "Нужно для копий на NAS: на второй сервер придёт код с «Сетевой папкой (SMB)». Прод не меняется. 10–40 минут.",
-    "cmd": "sportin-copy",
-    "params": {
-      "mode": "--code"
-    }
-  },
-  {
     "id": "sportin-smb",
     "added": "2026-10-31T17:30:00",
-    "after": "sportin-code",
     "title": "Sportin: установить копии на NAS",
     "why": "Ночной бэкап второго сервера и отправка на NAS. Потом в админке второго сервера: Сервер → Копии вне дома → Добавить место → Сетевая папка (SMB): адрес //192.168.88.2/ERPBak, логин и пароль NAS → «Проверить».",
     "cmd": "sportin-smb"
@@ -28,6 +17,17 @@
     }
   },
   {
+    "id": "products-fill",
+    "added": "2026-10-31",
+    "title": "Изделия: заполнить «Название в договоре» и фото",
+    "why": "Скрипт products-fill-defaults: 468 изделий получат название в договоре, 192 — фото из паспорта. Заполненное не меняется. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "products-fill-defaults"
+    },
+    "after": "series-fill"
+  },
+  {
     "id": "categories-fix",
     "added": "2026-10-31",
     "title": "Категории: изделия по выданным паспортам",
@@ -35,7 +35,8 @@
     "cmd": "script-apply",
     "params": {
       "script": "products-category-from-passports"
-    }
+    },
+    "after": "products-fill"
   },
   {
     "id": "categories-fix-2",
@@ -47,16 +48,6 @@
       "script": "passports-category-from-product"
     },
     "why": "Скрипт passports-category-from-product: паспорт «Перголы Г-образной» станет «Благоустройство». Перед записью сделается копия базы."
-  },
-  {
-    "id": "products-fill",
-    "added": "2026-10-31",
-    "title": "Изделия: заполнить «Название в договоре» и фото",
-    "why": "Скрипт products-fill-defaults: 468 изделий получат название в договоре, 192 — фото из паспорта. Заполненное не меняется. Перед записью сделается копия базы.",
-    "cmd": "script-apply",
-    "params": {
-      "script": "products-fill-defaults"
-    }
   },
   {
     "id": "reservation-deleted-order",

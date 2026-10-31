@@ -16,6 +16,26 @@ import { auditCatalog, auditProblems } from './audit.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
 const UI_DIR = path.join(ROOT, 'pult', 'ui');
+
+/** Отпечаток кода пульта (имена и время изменения файлов pult/*.mjs и pult/ui/*). Изменился — пульт перезапускается сам. */
+export function codeStamp() {
+  const dirs = [path.join(ROOT, 'pult'), UI_DIR];
+  const parts = [];
+  for (const d of dirs) {
+    for (const f of fs.readdirSync(d).sort()) {
+      if (d !== UI_DIR && !f.endsWith('.mjs')) continue;
+      const st = fs.statSync(path.join(d, f)); if (st.isFile()) parts.push(`${f}:${st.mtimeMs}`);
+    }
+  }
+  return crypto.createHash('sha1').update(parts.join('|')).digest('hex').slice(0, 12);
+}
+const STAMP = codeStamp();
+const SELF = fileURLToPath(import.meta.url);
+/** Новый процесс пульта на том же порту (окно не открывать: старое окно перезагрузится само). */
+function respawn(port) {
+  const child = spawn(process.execPath, [SELF, '--no-open', '--respawned'], { cwd: ROOT, detached: true, stdio: 'ignore', env: { ...process.env, PULT_PORT: String(port) } });
+  child.unref();
+}
 const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
 const PROD_URL = 'https://kppdf-crm.ru/db';
 const MAX_JOB_LINES = 20000;
@@ -76,6 +96,7 @@ async function readStatus(machine, runs = {}) {
 export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), onIdle = null, statusFn = readStatus } = {}) {
   const token = crypto.randomBytes(24).toString('hex');
   const jobs = new Map();
+  let restartAt = 0; // время, когда пульт ушёл на перезапуск после обновления кода
   const clients = new Set();
   let port = 0;
   let idleTimer = null;
@@ -246,7 +267,16 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (origin && !allowed.includes(origin.replace(/^http:\/\//, ''))) return json(res, 403, { error: 'Чужая страница' });
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    if (url.pathname === '/api/ping') return json(res, 200, { app: 'datacore-pult' });
+    if (url.pathname === '/api/ping') return json(res, 200, { app: 'datacore-pult', stamp: STAMP });
+    // запущен новый пульт, а этот — со старым кодом: уступить порт, если ничего не идёт (отпечаток — доказательство, что просит тот же проект)
+    if (req.method === 'POST' && url.pathname === '/api/upgrade') {
+      const { stamp } = await readBody(req);
+      if (stamp === STAMP || stamp !== codeStamp()) return json(res, 409, { error: 'Не нужно' });
+      if (running().length) return json(res, 409, { error: 'Идёт команда — пульт обновится после неё' });
+      json(res, 200, { ok: true });
+      setTimeout(() => process.exit(0), 200);
+      return undefined;
+    }
     if (url.pathname === '/') {
       const html = fs.readFileSync(path.join(UI_DIR, 'index.html'), 'utf8').replace('__TOKEN__', token);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
@@ -274,7 +304,10 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       const runs = readRuns();
       const status = await statusFn(machine, runs);
       const brief = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, { at: v.at, code: v.code }]));
-      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()) });
+      // код пульта изменился (правка Claude): ничего не идёт — перезапуск сам, окно перезагрузится; идёт — после команды
+      const restarting = codeStamp() !== STAMP && running().length === 0 && !restartAt;
+      if (restarting) { restartAt = Date.now(); setTimeout(() => { respawn(port); process.exit(0); }, 300); }
+      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
     if (req.method === 'POST' && url.pathname === '/api/run') {
@@ -348,13 +381,23 @@ async function main() {
   const noOpen = process.argv.includes('--no-open');
   const port = Number(process.env.PULT_PORT) || 47811;
   const url = `http://127.0.0.1:${port}/`;
-  const pult = createPult({ onIdle: noOpen ? null : () => process.exit(0) });
+  // --respawned: перезапуск после обновления — окно уже открыто, и закрытие окна, как обычно, гасит пульт
+  const pult = createPult({ onIdle: noOpen && !process.argv.includes('--respawned') ? null : () => process.exit(0) });
   try {
     await pult.listen(port);
   } catch (e) {
     if (e.code !== 'EADDRINUSE') throw e;
     const r = await fetchJson(`${url}api/ping`);
-    if (r.json?.app === 'datacore-pult') { if (!noOpen) openWindow(url); return; }
+    if (r.json?.app === 'datacore-pult') {
+      // работает старый пульт: попросить уступить порт и занять его новым кодом (если там идёт команда — открыть старый)
+      if (r.json.stamp && r.json.stamp !== STAMP) {
+        const up = await fetch(`${url}api/upgrade`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stamp: STAMP }) }).catch(() => null);
+        if (up?.ok) {
+          for (let i = 0; i < 20; i++) { await new Promise((ok) => setTimeout(ok, 250)); try { await pult.listen(port); console.log(`Пульт обновлён: ${url}`); if (!noOpen) openWindow(url); return; } catch { /* порт ещё занят */ } }
+        }
+      }
+      if (!noOpen) openWindow(url); return;
+    }
     throw new Error(`Порт ${port} занят другой программой. Задайте PULT_PORT.`);
   }
   console.log(`Пульт: ${url}`);

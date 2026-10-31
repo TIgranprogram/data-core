@@ -399,7 +399,12 @@ function pill(kind, text, title) {
 
 async function loadStatus() {
   let s;
-  try { s = await api('/api/status'); } catch { return; }
+  try { s = await api('/api/status'); } catch (e) {
+    // пульт перезапустился с новым кодом: старый ключ сессии не подходит или сервер ещё поднимается — перезагрузить окно
+    if (/401|ключа сессии|Failed to fetch|NetworkError/i.test(String(e.message))) setTimeout(() => location.reload(), 1500);
+    return;
+  }
+  if (s.restarting) { toast('Пульт обновился — перезагружаю окно…'); setTimeout(() => location.reload(), 2500); }
   S.status = s;
   S.advice = s.advice;
   S.runs = s.runs;
