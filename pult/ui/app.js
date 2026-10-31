@@ -185,7 +185,14 @@ function renderNow() {
       const items = a.items.filter((x) => x.level === level.id);
       if (!items.length) continue;
       const sec = el('section', 'now-level');
-      sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint), ...items.map((x) => todoRow(x, level, x === main)));
+      sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint));
+      // цепочка: два и больше пунктов, которые можно запустить подряд без слова
+      if (level.id === 'you' && chainItems().length > 1) {
+        const all = el('button', 'primary warn', chainOn ? 'Выполняю по очереди…' : `Выполнить все по очереди (${chainItems().length})`);
+        all.disabled = chainOn; all.onclick = runChain;
+        sec.append(all);
+      }
+      sec.append(...items.map((x) => todoRow(x, level, x === main)));
       box.append(sec);
     }
     if (a.done.length) {
@@ -239,8 +246,38 @@ async function press(c) {
 async function launch(c, extra) {
   try {
     const r = await api('/api/run', { id: c.id, params: paramsOf(c), ...extra });
-    if (r.job) { addJob({ ...r.job, lines: [] }); select(r.job.id); }
+    if (r.job) { addJob({ ...r.job, lines: [] }); select(r.job.id); return r.job.id; }
   } catch (e) { toast(e.message); }
+  return null;
+}
+
+// ---------- цепочка «Выполнить всё по очереди» (2026-10-31) ----------
+// Пункты «Нужно от вас» с командой и без слова-подтверждения: одно подтверждение, дальше сами, по одному; ошибка — стоп.
+let chainOn = false;
+const chainCmd = (x) => { const c = x.cmd && S.catalog.commands.find((k) => k.id === x.cmd); return c && c.kind === 'job' && !c.word && !c.blocked.length ? c : null; };
+const chainItems = () => (S.advice?.items || []).filter((x) => x.level === 'you' && chainCmd(x));
+const waitJob = (id) => new Promise((ok) => { const t = setInterval(() => { const j = S.jobs.get(id); if (j && j.state !== 'running') { clearInterval(t); ok(j); } }, 1000); });
+async function runChain() {
+  const list = chainItems();
+  if (!list.length || chainOn) return;
+  const msg = [`Выполнить по очереди (${list.length}):`, '', ...list.map((x, i) => `${i + 1}. ${x.title}`), '', 'Перед записью данных каждый раз делается копия базы. Ошибка — остановка.'].join('\n');
+  if (!confirm(msg)) return;
+  chainOn = true; render();
+  const seen = new Set();
+  try {
+    for (;;) {
+      await loadStatus();
+      const x = chainItems()[0];
+      if (!x || seen.has(x.todo)) break; // кончились; или пункт не закрылся — не крутить его снова
+      seen.add(x.todo);
+      const c = chainCmd(x);
+      if (x.params) S.values[c.id] = { ...(S.values[c.id] || {}), ...x.params };
+      const id = await launch(c, { confirmed: true });
+      if (!id) break;
+      const j = await waitJob(id);
+      if (j.state === 'fail') { toast(`Остановлено: ошибка в «${x.title}»`); break; }
+    }
+  } finally { chainOn = false; await loadStatus(); }
 }
 
 function askConfirm(c) {
