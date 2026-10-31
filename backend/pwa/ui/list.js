@@ -70,7 +70,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       limit: Number(P.limit) || L.limit || 25,
       page: Math.max(1, Number(P.page) || 1),
       sort: P.sort || L.sortDefault,
-      board: !!L.board && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
+      gantt: !!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt')),
+      board: !!L.board && !(!!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt'))) && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
       gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view && sv !== 'table') || (!P.view && sv === 'gallery')),
     };
   };
@@ -78,10 +79,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
-  const btnTable = h('button', { type: 'button', onclick: () => { saveView(L.board?.default || L.gallery?.default ? 'table' : ''); patch({ view: 'table', page: undefined }); } }, icon('table'), 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
+  const btnTable = h('button', { type: 'button', onclick: () => { saveView(L.board?.default || L.gallery?.default ? 'table' : ''); patch({ view: 'table', page: undefined }); } }, icon('table'), L.gantt ? 'Список' : 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
   const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: 'board', page: undefined, status: undefined }); } }, icon('board'), 'Доска');
   const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
-  const viewSwitch = L.board || L.gallery ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null) : null;
+  const btnGantt = L.gantt ? h('button', { type: 'button', onclick: () => { saveView('gantt'); patch({ view: 'gantt', page: undefined }); } }, 'Гант') : null;
+  const viewSwitch = L.board || L.gallery || L.gantt ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null, btnGantt) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin
   const canExport = !(L.export === false || (L.export === 'admin' && session.role !== 'admin'));
@@ -245,7 +247,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   topBox?.onParams?.(P); // top может следить за адресом (крошки)
   const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !sideChips ? chipsBox : null, topBox, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
-  let board = null;
+  const ganttBox = h('div', { hidden: true });
+  let board = null; let gantt = null;
   const enterBulkMode = (id) => { if (!bulkOn) return; bulkMode = true; panel.classList.add('bulk-mode'); if (id) picked.add(id); syncPicks(); paintBulk(); };
   const togglePick = (id) => { if (picked.has(id)) picked.delete(id); else picked.add(id); syncPicks(); paintBulk(); };
   const exitBulkMode = () => { bulkMode = always; if (!always) panel.classList.remove('bulk-mode'); picked.clear(); syncPicks(); paintBulk(); };
@@ -331,12 +334,12 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   function openSheet() { side.classList.add('open'); shade.hidden = false; openBtn.setAttribute('aria-expanded', 'true'); }
   function closeSheet() { side.classList.remove('open'); shade.hidden = true; openBtn.setAttribute('aria-expanded', 'false'); }
   const el = side
-    ? h('div', { class: 'list-screen has-side' }, head, h('div', { class: 'ls-grid' }, side, h('div', { class: 'ls-main' }, panel, boardBox)), shade)
-    : h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox);
+    ? h('div', { class: 'list-screen has-side' }, head, h('div', { class: 'ls-grid' }, side, h('div', { class: 'ls-main' }, panel, boardBox, ganttBox)), shade)
+    : h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox, ganttBox);
 
   // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
-    const { board: isBoard, gallery: isGallery } = st();
+    const { board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     sb.set(P.q || '');
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
     const nOpt = otherFilters.filter((f) => P[f.key]).length;
@@ -346,11 +349,12 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     btnTable.classList.toggle('active', !isBoard);
     btnBoard.classList.toggle('active', isBoard);
     btnGallery.classList.toggle('active', isGallery);
-    btnTable.classList.toggle('active', !isBoard && !isGallery);
-    tableBox.hidden = isBoard || isGallery; foot.hidden = isBoard; galleryBox.hidden = !isGallery;
-    if (quickBox) quickBox.hidden = isBoard;
-    panel.classList.toggle('compact', isBoard);
-    boardBox.hidden = !isBoard;
+    btnGantt?.classList.toggle('active', isGantt);
+    btnTable.classList.toggle('active', !isBoard && !isGallery && !isGantt);
+    tableBox.hidden = isBoard || isGallery || isGantt; foot.hidden = isBoard || isGantt; galleryBox.hidden = !isGallery;
+    if (quickBox) quickBox.hidden = isBoard || isGantt;
+    panel.classList.toggle('compact', isBoard || isGantt);
+    boardBox.hidden = !isBoard; ganttBox.hidden = !isGantt;
     renderHead(); renderChips(); renderTiles();
     const hint = L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
     // banner(P) → { text, keys } — особая выборка (пришли по ссылке «Все →»): пометка + «Показать все» (снимает keys)
@@ -387,11 +391,17 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     return query;
   }
   async function load() {
-    let { limit, page, sort, board: isBoard, gallery: isGallery } = st();
+    let { limit, page, sort, board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
     const query = currentQuery(isBoard);
     const per = L.periods ? L.periods(P) : null;
     if (per && !isBoard) { limit = 2000; page = 1; }
+    if (isGantt) {
+      countEl.textContent = '';
+      if (!gantt) { gantt = L.gantt.mount(L.gantt, L.path, query, { onOpen, onChanged: () => gantt.reload(), onTotal: (n) => { if (st().gantt) countEl.textContent = qty(n); } }); ganttBox.replaceChildren(gantt.el); }
+      else gantt.setQuery(query);
+      return;
+    }
     if (isBoard) {
       countEl.textContent = '';
       if (!board) { board = (L.board.mount || mountBoard)(L.board, L.path, query, { onOpen, onChanged: () => board.reload(), onTotal: (n) => { if (st().board) countEl.textContent = qty(n); } }); boardBox.replaceChildren(board.el); }
@@ -577,7 +587,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (e.key === 'Escape' && side?.classList.contains('open')) { closeSheet(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || document.querySelector('.modal-back')) return;
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length && !st().board) {
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length && !st().board && !st().gantt) {
       e.preventDefault();
       const i = rows.findIndex((r) => r.id === P.open);
       const next = e.key === 'ArrowDown' ? Math.min(rows.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1);
@@ -607,7 +617,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     el,
     update,
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
-    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load(); },
+    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load(); },
     focusSearch: () => sb.focus(),
     destroy: () => document.removeEventListener('keydown', onKey),
   };
