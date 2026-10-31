@@ -88,7 +88,7 @@ export function buildRun(cmd, values, m, root = ROOT) {
   if (run.open) return { open: run.open };
   if (run.folder) return { folder: path.join(root, run.folder) };
   if (run.node) return { file: process.execPath, args: a(run.node), cwd };
-  if (run.bash) return { file: m.bash, args: a(run.bash), cwd };
+  if (run.bash) return { file: m.bash, args: a(run.bash), cwd, env: run.vmEnv && m.route === 'work' ? { VM: 'datacore-vm', KEY: path.join(m.home, '.ssh', 'datacore_work') } : undefined };
   if (run.deploy) {
     const script = m.route === 'work' ? 'remote-access/deploy.sh' : 'deploy/synology/release.sh';
     return { file: m.bash, args: [script, ...a(run.deploy)], cwd };

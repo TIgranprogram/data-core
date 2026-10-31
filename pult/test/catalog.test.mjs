@@ -74,6 +74,23 @@ test('выкладка идёт по пути этого ПК', () => {
   assert.deepEqual(buildRun(cmd, {}, { ...work, route: 'home' }).args, ['deploy/synology/release.sh', '--data']);
 });
 
+test('скрипт со своим входом на сервер получает способ этого ПК', () => {
+  const cmd = COMMANDS.find((c) => c.id === 'setup-bundle');
+  const env = buildRun(cmd, { step: 'build' }, work).env;
+  assert.equal(env.VM, 'datacore-vm');
+  assert.ok(env.KEY.endsWith('datacore_work'));
+  assert.equal(buildRun(cmd, { step: 'build' }, { ...work, route: 'home' }).env, undefined);
+});
+
+test('скрипты с адресом сервера внутри помечены vmEnv', () => {
+  for (const c of COMMANDS) {
+    const script = c.run.bash?.[0];
+    if (!script || !fs.existsSync(script)) continue;
+    const text = fs.readFileSync(script, 'utf8');
+    if (/VM:-tiit@/.test(text)) assert.ok(c.run.vmEnv, `${c.id}: нет vmEnv`);
+  }
+});
+
 test('вход на сервер по способу этого ПК', () => {
   const cmd = COMMANDS.find((c) => c.id === 'prod-log');
   const atWork = buildRun(cmd, { lines: '100' }, work);

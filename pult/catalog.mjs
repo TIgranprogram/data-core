@@ -9,6 +9,7 @@
 //   time    примерное время, строка
 //   run     что запускать: { node|bash|git|cmd|npx|docker: [...аргументы], cwd? } или { open: адрес } или { folder: путь }
 //           ssh на сервер: { vm: 'команда на сервере' } — способ входа пульт выбирает сам (dispatch.mjs)
+//           скрипт сам ходит на сервер по VM и KEY: добавьте vmEnv: true, иначе с работы он пойдёт домашним адресом
 //           аргумент-заполнитель '{имя}' подставляется из params
 //   needs   ['bash','docker','vm','key-home'] — без этого кнопка серая с причиной
 //   params  [{ name, label, type:'select', options:[{value,label}] | from:'prodScripts', default }]
@@ -160,7 +161,8 @@ export const COMMANDS = [
     hint: 'Один раз. Кладёт ключ в ~/.ssh и настраивает вход на сервер. Нужна папка remote-access/secret с флешки.' },
   { id: 'setup-shortcut', section: 'setup', title: 'Ярлык пульта на рабочий стол', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore'] },
     hint: 'Создаёт ярлык «Пульт DataCore». Ярлык сам просит права администратора.' },
-  { id: 'setup-bundle', section: 'setup', title: 'Переносной пакет сервера', risk: 'local', time: 'до 1 ч', needs: ['bash', 'vm'], run: { bash: ['deploy/synology/bundle-pc.sh', '{step}'] },
+  { id: 'setup-bundle', section: 'setup', title: 'Переносной пакет сервера', risk: 'local', time: 'до 1 ч', needs: ['bash', 'vm'], run: { bash: ['deploy/synology/bundle-pc.sh', '{step}'], vmEnv: true },
+    confirm: 'Шаг «Собрать» создаёт на сервере большой архив и скачивает его на этот ПК. В архиве все пароли и ключи. Рабочие данные не меняются.',
     params: [{ name: 'step', label: 'Шаг', type: 'select', default: 'build', options: [
       { value: 'build', label: 'Собрать и скачать' }, { value: 'verify', label: 'Проверить последний' }, { value: 'steps', label: 'Показать шаги разворота' }] }],
     hint: 'Всё приложение одним архивом для переезда. В архиве секреты. Папка: C:\\datacore-bundles.' },

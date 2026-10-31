@@ -112,7 +112,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     jobs.set(id, job);
     send({ type: 'start', job: summary(job) });
 
-    const child = spawn(spec.file, spec.args, { cwd: spec.cwd, env: childEnv(machine), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    const child = spawn(spec.file, spec.args, { cwd: spec.cwd, env: { ...childEnv(machine), ...spec.env }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     job.pid = child.pid;
     let pending = '';
     const emit = (raw) => {
