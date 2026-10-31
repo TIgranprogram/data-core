@@ -90,7 +90,7 @@ export const passports = {
         pic: r.thumb ? PREFIX + r.thumb : null,
         title: r.name || 'без названия',
         meta: [numberOf(r) ? `№ ${numberOf(r)}` : 'черновик', date(r.date), r.customerName || r.objectName].filter(Boolean).join(' · '),
-        badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
+        badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.categoryDiffers ? h('span', { class: 'badge warn gc-badge', title: 'Категория паспорта не совпадает с категорией изделия' }, 'категория отличается') : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
       }),
     },
     hints: {

@@ -35,7 +35,15 @@ async function build() {
       read = () => ctl.value.trim();
     }
     const wrap = h('div', { class: 'bulk-ctl' }, ctl);
-    if (f.type === 'combo') attachCombo(ctl, { options: () => opts.map((o) => ({ label: String(o.label), value: o.value, sub: o.sub })) });
+    if (f.type === 'combo') attachCombo(ctl, { options: () => opts.map((o) => ({ label: String(o.label), value: o.value, sub: o.sub })), extra: f.extra });
+    if (f.type === 'combo' && f.strict) { // только из списка (как в форме): чужое значение сбрасывается
+      const err = h('div', { class: 'field-err', role: 'alert', hidden: true });
+      wrap.append(err);
+      ctl.addEventListener('blur', () => {
+        const v = ctl.value.trim();
+        if (v && !opts.some((o) => String(o.label).toLowerCase() === v.toLowerCase())) { ctl.value = ''; err.textContent = f.strictText || 'Выберите из списка'; err.hidden = false; } else err.hidden = true;
+      });
+    }
     let mode = 'replace';
     const modeBox = f.modes ? h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Как менять' }) : null;
     const paintMode = () => modeBox?.replaceChildren(...[['add', 'Добавить к своим'], ['replace', 'Заменить']].map(([v, l]) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn' + (mode === v ? ' on' : ''), 'aria-checked': String(mode === v), onclick: () => { mode = v; paintMode(); } }, l)));

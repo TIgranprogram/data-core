@@ -24,15 +24,32 @@ export function productBlock(api, { r, catBy }) {
   const lock = (on) => { formEl.classList.toggle('pp-locked', on); const b = saveBtn(); if (b) { b.disabled = on; b.title = on ? 'Сначала выберите изделие' : ''; let n = b.parentNode.querySelector('.pp-save-hint'); if (on && !n) { n = h('span', { class: 'muted pp-save-hint' }, 'Сначала выберите изделие'); b.after(n); } else if (!on) n?.remove(); } };
   // сводка «из изделия»: поля изделия не показываем полями — одна строка и ссылка «править в изделии» (DESIGN §4 «Сводка из изделия»)
   const sumLine = h('div', { class: 'pp-fromprod' });
+  // ИЗ-1/ИЗ-2: черновик с изделием — поля изделия и категория только для чтения (правка — в изделии); выпущенный не трогаем
+  const draft = !r || String(r.status || 'draft') === 'draft';
+  const FROM_PRODUCT = ['name', 'article', 'category', 'length', 'width', 'height', 'weight'];
+  const lockData = () => {
+    const on = !!chosen && draft;
+    // поля — с сервера (r.fromProductFields: их сервер перезапишет из изделия); список FROM_PRODUCT — запасной
+    const srv = r?.fromProduct && Array.isArray(r.fromProductFields) ? new Set(r.fromProductFields) : null;
+    for (const k of FROM_PRODUCT) {
+      if (srv && !srv.has(k)) continue;
+      const f = api.field(k); if (!f) continue;
+      const keep = k === 'name' && st.keepName && api.get('name') === st.keepName; // название из заказа можно поправить
+      f.inert = on && !keep; f.classList.toggle('pp-readonly', on && !keep); f.title = on && !keep ? 'Берётся из изделия. Изменить — кнопка «Изменить в изделии» выше' : '';
+    }
+    const cf = api.field('passportCategory');
+    if (cf) { const lockCat = on && !!(chosen.ppCategory || catInfo?.own || catInfo?.inherited); cf.inert = lockCat; cf.classList.toggle('pp-readonly', lockCat); cf.title = lockCat ? 'Берётся из изделия. Изменить — кнопка «Изменить в изделии» выше' : ''; }
+  };
   const paintSum = () => {
     if (!chosen) return;
     const cat = V2_CATS.find((c) => c.value === api.get('passportCategory'))?.label;
     const text = [cat, dims({ height: api.get('height'), length: api.get('length'), width: api.get('width') }), api.get('weight') && api.get('weight') + ' кг'].filter(Boolean).join(' · ');
     // ПНЗ.1: паспорт из заказа — название как в заказе; видно, откуда оно, и можно взять наше
     const fromOrder = !r && st.keepName && api.get('name') === st.keepName && st.keepName !== chosen.name;
-    paintBadge();
-    sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'править в изделии'),
-      ' · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'),
+    paintBadge(); lockData();
+    sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener', class: 'btn btn-sm', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'Изменить в изделии'),
+      draft ? null : ' · ', draft ? null : h('button', { type: 'button', class: 'link-btn', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'),
+      !draft && r?.categoryDiffers ? h('div', null, h('span', { class: 'badge warn' }, 'Категория отличается от изделия'), ' ', V2_CATS.find((c) => c.value === (r.productCategory?.code || r.productCategory))?.label || '') : null,
       fromOrder ? h('div', null, 'Название — как в заказе · ', h('button', { type: 'button', class: 'link-btn', onclick: () => { api.set('name', chosen.name); paintSum(); } }, 'взять из изделия')) : null);
   };
   // источник категории — плашка рядом с выбором «Категория паспорта»
@@ -84,7 +101,7 @@ export function productBlock(api, { r, catBy }) {
     }
     if (chosen) {
       box.replaceChildren(h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', { style: { flex: '1' } }, h('b', null, chosen.name), h('div', { class: 'muted' }, sub(chosen))),
-        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { chosen = null; render(); } }, 'Сменить')), sumLine);
+        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { chosen = null; lockData(); render(); } }, 'Сменить')), sumLine);
       paintSum();
       return;
     }

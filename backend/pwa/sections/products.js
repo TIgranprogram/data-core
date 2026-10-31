@@ -17,7 +17,8 @@ import { dictNames } from '../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-spec.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { funnelBox } from '../ui/funnel.js';
-import { V2_NUMS, canEdit as canEditPassportTexts } from './passports/common.js';
+import { V2_NUMS, canEdit as canEditPassportTexts, dictOpts } from './passports/common.js';
+import { tagPick } from '../ui/tag-pick.js';
 import { catArt } from '../ui/cat-art.js';
 import { routeBlock } from './work-route.js';
 
@@ -75,7 +76,7 @@ async function productBulkFields() {
   return [
     { key: 'type', label: 'Тип оборудования', type: 'combo', options: fv.sections.map((x) => x.value), hint: 'Группа у каждого изделия останется своя' },
     { key: 'group', label: 'Группа изделий', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Тип у каждого изделия останется свой' },
-    { key: 'series', label: 'Название серии', type: 'combo', options: fv.series.map((x) => x.value) },
+    { key: 'series', label: 'Название серии', type: 'combo', options: fv.series.map((x) => x.value), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике' },
     { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже' }, { value: 'archived', label: 'Архив' }] },
     { key: 'price', label: 'Цена, ₽ — одна для всех', type: 'number', map: n },
     { key: 'designerId', label: 'Кто проектировал', type: 'combo', options: staff.map((p) => ({ value: p.id, label: p.label, sub: p.sub })), map: (v) => (v ? ids.get(v) || '' : ''), hint: 'Пусто — снять' },
@@ -93,8 +94,12 @@ export const PD_KEYS = ['passportCategory', 'elements', 'materialIds', 'installa
 export async function savePd(id, pd) {
   const prev = pd.prev || {};
   const cat = pd.category && (pd.category !== pd.derived || prev.passportCategory) ? pd.category : prev.passportCategory || '';
-  if (JSON.stringify(prev.textChoices || {}) === JSON.stringify(pd.choices) && cat === (prev.passportCategory || '')) return;
-  const body = { ...Object.fromEntries(PD_KEYS.filter((k) => prev[k] !== undefined && prev[k] !== null && prev[k] !== '').map((k) => [k, prev[k]])), ...(cat ? { passportCategory: cat } : {}), textChoices: pd.choices };
+  const over = pd.over || {};
+  const empty = (x) => x === undefined || x === null || x === '' || x === false || (Array.isArray(x) && !x.length);
+  const sameOver = Object.entries(over).every(([k, v]) => (empty(v) && empty(prev[k])) || JSON.stringify(v) === JSON.stringify(prev[k]));
+  if (sameOver && JSON.stringify(prev.textChoices || {}) === JSON.stringify(pd.choices) && cat === (prev.passportCategory || '')) return;
+  const merged = { ...prev, ...over };
+  const body = { ...Object.fromEntries(PD_KEYS.filter((k) => merged[k] !== undefined && merged[k] !== null && merged[k] !== '').map((k) => [k, merged[k]])), ...(cat ? { passportCategory: cat } : {}), textChoices: pd.choices };
   await api(`/showcase/${id}/passport-defaults`, { method: 'PUT', body });
 }
 /** Категория паспорта в карточке: что задано в изделии, что унаследовано от группы/раздела, куда идти, если не задано. */
@@ -344,32 +349,33 @@ export const products = {
     photoAdd: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [...(r.photos || []).map((p) => p.id), photoId] } }),
     photoMain: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [photoId, ...(r.photos || []).map((p) => p.id).filter((x) => x !== photoId)] } }),
     photoRemove: (r, photoId) => api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: (r.photos || []).map((p) => p.id).filter((x) => x !== photoId) } }),
+    // ИЗ-4: порядок как в форме — изделие, цена, паспорт, характеристики, описание, дополнительно
     view: (r, ctx) => [
-      grp('Статус и цена'),
-      ['Статус', STATUS[r.status] || r.status],
-      ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
-      ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
-      ['Ед. изм.', r.unit],
+      grp('Изделие'),
       r.photoSource === 'passport' ? ['Обложка', h('span', null,
         h('span', { class: 'muted' }, 'фото из паспорта'),
         session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', style: 'margin-left:.5rem',
           title: 'Скопировать фото из паспорта в карточку изделия — станет «своим»',
           onclick: async () => { await api(`/showcase/${r.id}`, { method: 'PATCH', body: { photoIds: [r.photo.id] } }); patch({}); } }, '← своей обложкой') : null)] : null,
-      grp('Названия и артикул'),
-      ['Артикул', r.sku], ['Короткое', r.name], ['Длинное (КП, документы)', r.fullName || r.name],
-      ['Название в договоре', r.orderName || r.name],
-      grp('Классификация'),
-      ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Название серии', r.series],
-      // ФИ2: связь с категорией паспорта — по «Категориям каталога»; нет — подсказка, куда добавить название
+      ['Короткое название', r.name], ['Тип оборудования', r.type], ['Группа изделий', r.group], ['Артикул', r.sku],
+      ['Статус', STATUS[r.status] || r.status],
+      grp('Цена'),
+      ['Цена', r.price ? money(r.price) : h('span', { class: 'muted' }, 'не указана — изделие в черновиках')],
+      ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
+      grp('Паспорт'),
       ['Категория паспорта', passportCatView(r, ctx)],
-      grp('Проектирование'),
-      ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
+      ['Гарантия', r.passportDefaults?.warrantyMonths ? `${r.passportDefaults.warrantyMonths} мес.` : null],
+      ['Срок службы', r.passportDefaults?.serviceLifeYears ? `${r.passportDefaults.serviceLifeYears} лет` : null],
+      ['Поставляется разобранным', r.passportDefaults?.isKit ? 'да' : null],
+      grp('Характеристики'),
+      ['Габариты (Д×Ш×В)', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
       grp('Описание и материалы'),
-      ['Габариты (Д×Ш×В)', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['RAL', r.ralCode],
-      ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
-      ['Назначение', r.purpose], ['Монтаж', r.installation],
       ['Материалы', r.materialsText || (r.materialsSpec ? null : h('span', { class: 'muted' }, 'таблица не заполнена — «Изменить» → «Описание и материалы»'))],
-      ['Описание', r.description],
+      ['Назначение', r.purpose], ['Монтаж', r.installation], ['Описание', r.description],
+      grp('Дополнительно'),
+      ['Название в договоре', r.orderName || r.name], ['Название серии', r.series],
+      ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
+      ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
       ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
     ],
     // главное → связанное → редкое в «⋯» (ПРД.4)
@@ -432,22 +438,32 @@ export const products = {
       // «Паспорт»: категория и выбор текстов воронки — паспорт возьмёт их из изделия сам
       const pdCats = (await api('/dicts/passportCategories').then((x) => x.items || []).catch(() => [])).filter((c) => c.code && c.code !== 'ALL').map((c) => ({ value: String(c.code), label: c.name }));
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
+      const [els, inst] = await Promise.all([dictOpts('passportElements'), dictOpts('passportInstall')]);
+      const pc = r?.passportCategory;
+      const catHint = pc?.own ? 'Задана в самом изделии. Паспорт берёт категорию отсюда' : pc?.inherited || pc?.code ? 'Сейчас — по группе или разделу. Укажите свою, если нужна другая. Паспорт берёт категорию отсюда' : 'Обычно определяется по разделу и группе; укажите, если нужна другая. Паспорт берёт категорию отсюда';
+      // ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Дополнительно
       return [
       { section: 'Изделие', tone: 'main', fixed: true },
       { key: 'photos', label: 'Фото изделия', type: 'photos', main: true, hint: 'Первое фото — главное: оно на обложке в списках. Чтобы выбрать другое, нажмите ☆ на нужном фото.' },
-      { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken, hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
-      { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров и поиска' },
-      // ДМ.2: полное и «как в заказе» — необязательные; паспорт на заказ берёт название из заказа (ПНЗ)
-      { key: 'fullName', label: 'Длинное название', max: 500, span: 3, hint: 'Для КП и документов. Пусто — берётся короткое' },
-      { key: 'orderName', label: 'Название в договоре', max: 500, span: 3, hint: 'Как изделие называется в договорах заказчика — по нему система предлагает сопоставление. Пусто — берётся короткое' },
+      { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров, поиска и паспорта' },
       { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
       { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groups, hint: 'Сверху — группы выбранного типа' },
-      { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt) },
+      { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken, hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
       { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
         hint: 'С ценой черновик сам становится «в продаже»' },
-      { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Состав — в карточке сразу после «Создать»' },
-      { key: 'notes', label: 'Примечание', type: 'textarea', wide: true, rows: 2, max: 2000 },
-      { key: 'designerName', label: 'Кто проектировал', type: 'combo', options: people, strict: true, strictText: 'Выберите сотрудника из списка или оставьте пустым', hint: 'К кому идти, если в паспорте не хватает данных. В паспорт не входит' },
+      { section: 'Цена', tone: 'money' },
+      { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
+      ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: 'Себестоимость материалов', wide: true, widget: () => costInfo(r), summary: () => '' }] : []),
+      { section: 'Паспорт', tone: 'info', collapsed: !Object.keys(pd0).length },
+      { key: 'pdCategory', label: 'Категория паспорта', type: 'select', options: pdCats, hint: catHint,
+        mount: (api) => api.on('pdCategory', () => pdFunnel?.setCategory(api.get('pdCategory'))) },
+      { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
+        widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })) },
+      { key: 'pdWarranty', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
+      { key: 'pdLife', label: 'Срок службы, лет', type: 'number', min: 0, span: 1 },
+      { key: 'pdInstall', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))], hint: 'Определяет схему монтажа в паспорте' },
+      { key: 'pdElements', label: 'Функциональные элементы', type: 'widget', wide: true, summary: () => '', widget: (v) => tagPick({ options: els, value: v, label: 'Функциональные элементы' }) },
+      { key: 'pdKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { section: 'Характеристики', tone: 'info' },
       { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
       { key: 'dimW', label: 'Ширина', type: 'number', min: 0, span: 1 },
@@ -456,38 +472,36 @@ export const products = {
       { key: 'weightKg', label: 'Вес, кг', type: 'number', min: 0, span: 1 },
       { key: 'unit', label: 'Ед. изм.', type: 'combo', max: 20, span: 1, options: (fv.units || []).map(opt) },
       { key: 'ralCode', label: 'RAL', type: 'combo', max: 100, options: (fv.ral || []).map(opt), load: dictNames('colors'), hint: 'Основной цвет покрытия: RAL 6005' },
-      { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), load: dictNames('colors'), hint: 'Выберите несколько или впишите через запятую' },
-      { key: 'sizes', label: 'Размеры (варианты)', type: 'combo', multi: true, max: 500, options: fv.sizes.map(opt), hint: 'Выберите несколько или впишите через запятую: 3×2 м, 4×2 м' },
-      { section: 'Цена и себестоимость', tone: 'money' },
-      { key: 'price', label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
-      ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: 'Себестоимость материалов', wide: true, widget: () => costInfo(r), summary: () => '' }] : []),
-      { section: 'Описание и материалы', tone: 'info', collapsed: !(r?.purpose || r?.installation || r?.materialsSpec) },
+      { section: 'Описание и материалы', tone: 'info', collapsed: !(r?.purpose || r?.installation || r?.materialsSpec || r?.description) },
       // МИ.2: материалы таблицей — текст «Изготовлено из…» собирается сам (сервер), паспорт берёт его из изделия
       { key: 'materialsSpec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
         widget: (v) => materialsSpec({ value: v, dicts: md, text: r?.materialsText || '', scope: () => r?.passportCategory?.code || '', actions: r ? [fromComposition(r)] : [] }),
         hint: r ? 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — строки по материалам состава изделия' : 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — после «Создать», когда заполнен состав' },
       { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },
       { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },
-      { section: 'Паспорт', tone: 'info', collapsed: !(pd0.textChoices && Object.keys(pd0.textChoices).length) },
-      { key: 'pdCategory', label: 'Категория паспорта', type: 'select', options: pdCats, hint: 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже',
-        mount: (api) => api.on('pdCategory', () => pdFunnel?.setCategory(api.get('pdCategory'))) },
-      { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
-        widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })) },
+      { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Состав — в карточке сразу после «Создать»' },
+      { section: 'Дополнительно', tone: 'info', collapsed: !(r?.orderName || r?.series || r?.colors?.length || r?.sizes?.length || r?.designer || r?.notes) },
+      { key: 'orderName', label: 'Название в договоре', max: 500, span: 3, hint: 'Как изделие называется в договорах заказчика — по нему система предлагает сопоставление. Пусто — берётся короткое' },
+      { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике' },
+      { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), load: dictNames('colors'), hint: 'Выберите несколько или впишите через запятую' },
+      { key: 'sizes', label: 'Размеры (варианты)', type: 'combo', multi: true, max: 500, options: fv.sizes.map(opt), hint: 'Выберите несколько или впишите через запятую: 3×2 м, 4×2 м' },
+      { key: 'designerName', label: 'Кто проектировал', type: 'combo', options: people, strict: true, strictText: 'Выберите сотрудника из списка или оставьте пустым', hint: 'К кому идти, если в паспорте не хватает данных. В паспорт не входит' },
+      { key: 'notes', label: 'Примечание', type: 'textarea', wide: true, rows: 2, max: 2000 },
       ];
     },
     initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pending()?.initial || {}) }),
-    toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
+    toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), pdWarranty: r.passportDefaults?.warrantyMonths ?? '', pdLife: r.passportDefaults?.serviceLifeYears ?? '', pdInstall: r.passportDefaults?.installationTypeId ? String(r.passportDefaults.installationTypeId) : '', pdKit: r.passportDefaults?.isKit ? 'yes' : 'no', pdElements: (r.passportDefaults?.elements || []).map(String), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
-    toBody: (v, r) => ({ ...specBody(v, r), photoIds: v.photos || [], sku: v.sku, name: v.name, fullName: v.fullName || '', orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '', notes: v.notes || '',
+    toBody: (v, r) => ({ ...specBody(v, r), photoIds: v.photos || [], sku: v.sku, name: v.name, orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '', notes: v.notes || '',
       designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
-      _pd: { category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
+      _pd: { over: { warrantyMonths: v.pdWarranty ?? null, serviceLifeYears: v.pdLife ?? null, installationTypeId: v.pdInstall || '', elements: Array.isArray(v.pdElements) ? v.pdElements : [], isKit: v.pdKit === 'yes' }, category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
     create: async (b0) => {
       const { _pd, ...b } = b0;
       const res = await api('/showcase', { method: 'POST', body: b });
-      if (_pd.category || Object.keys(_pd.choices).length) await savePd(res.id, { ..._pd, prev: {} });
+      if (_pd.category || Object.keys(_pd.choices).length || Object.values(_pd.over).some((x) => x && !(Array.isArray(x) && !x.length))) await savePd(res.id, { ..._pd, prev: {} });
       const p = pending(); pendingCreate = null;
       if (p) setTimeout(() => p.then(res), 50); // вернуться в паспорт, из которого создавали
       return res;

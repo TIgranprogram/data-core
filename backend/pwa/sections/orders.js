@@ -232,7 +232,7 @@ export const orders = {
       ['Вид', r.kind],
       ['Цвет', r.color],
       ['Размер', r.size],
-      ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name], ['Полное', r.product?.fullName]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
+      ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
       ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
       ['Примечание', r.notes],
       ['В календаре', r.reportDate ? `${date(r.reportDate)} (${r.paidDate ? 'по дате оплаты' : 'по дате отгрузки'})` : h('span', { class: 'muted' }, 'не попадает — нет даты отгрузки или оплаты')],

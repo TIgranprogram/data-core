@@ -68,6 +68,7 @@ export class PassportPdfService {
   private watermark(raw: Doc): string | undefined { return raw.status === 'draft' ? 'ЧЕРНОВИК' : raw.status === 'annulled' ? 'АННУЛИРОВАН' : undefined; }
 
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
+    await this.passports.syncFromProduct(id); // черновик с изделием печатается с категорией и полями изделия
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const p = noDraftNumber(await this.withText(raw));
     const buf = await this.render(p, opts);
@@ -79,6 +80,7 @@ export class PassportPdfService {
    * Лист для информационного стенда A3 (БЗ-6 Э6d). Паспорт выданным не отмечается.
    */
   async stand(id: string) {
+    await this.passports.syncFromProduct(id);
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const p = noDraftNumber(await this.withText(raw));
     const { orgIn, asset } = await this.orgOf(p);

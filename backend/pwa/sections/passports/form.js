@@ -107,7 +107,7 @@ export const passportForm = {
       { key: '_searchName', type: 'hidden' },
       ...funnelFields,
       // изделие — главный источник: здесь сводка в одну строку (ниже в блоке «Изделие»), поля — свёрнуты «Править здесь»
-      { section: 'Данные изделия — идут в паспорт', tone: 'main', collapsed: true },
+      { section: 'Данные изделия — берутся из изделия', tone: 'main', collapsed: true },
       { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' }, { key: 'incomeId', type: 'hidden' },
       { key: 'name', label: 'Наименование (в PDF паспорта)', required: true, wide: true, max: 500,
         hint: r ? 'Это наименование печатается в PDF паспорта. Изменить название изделия в «Продукции» — нажмите «править в изделии» выше.' : 'Заполнено из изделия. Запасной путь — начните печатать и возьмите данные из прошлого паспорта с таким наименованием',
@@ -210,7 +210,7 @@ export const passportForm = {
     const pid = v.productId || r?.productId;
     if (v._remember === 'yes' && pid) {
       const b2 = v2Body(v);
-      body._remember = { productId: String(pid), defaults: { ...(b2.passportCategory && st.inhCat !== b2.passportCategory ? { passportCategory: b2.passportCategory } : {}), elements: b2.elements, materialIds: b2.materialIds,
+      body._remember = { productId: String(pid), defaults: { elements: b2.elements, materialIds: b2.materialIds,
         ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), isKit: b2.isKit, textChoices: b2.textChoices, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
         ...(v.warrantyMonths !== null && v.warrantyMonths !== undefined ? { warrantyMonths: v.warrantyMonths } : {}) } };
     }

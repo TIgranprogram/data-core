@@ -525,5 +525,6 @@ button.stg-in:focus-visible { outline: 2px solid var(--primary); outline-offset:
 /* Корзина на телефоне: дата уступает место кнопке «Восстановить» */
 @media (max-width: 720px) { .trash-when { display: none; } }
 
-/* ИЗ-2: строка поиска и действий списка не уезжает при прокрутке страницы (карточки, длинные списки). */
+/* ИЗ-2: шапка раздела (название и кнопки) и строка поиска не уезжают при прокрутке страницы (карточки, длинные списки). */
+.list-screen > .page-head { position: sticky; top: var(--topbar-h); z-index: 7; background: var(--bg); padding-block: var(--s2); }
 .list-panel > .toolbar, .list-panel > .bulk-bar { position: sticky; top: var(--topbar-h); z-index: 6; background: var(--surface); }

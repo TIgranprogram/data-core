@@ -19,6 +19,7 @@ import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
+import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
 import { fromIncome, loadQueue } from './passport-queue';
 import { PassportIssue } from './passport-issue';
 import { PassportNumbers } from './passport-numbers';
@@ -51,7 +52,16 @@ export class ProductPassportService {
   private readonly mi = new MaterialsSpecRefs(() => this.connection.db!);
 
   // ─── список, подсказки, выпуск, массовые действия — passport-queries.ts / passport-issue.ts / passport-bulk.ts ───
-  list(q: Record<string, unknown> = {}, opts: { full?: boolean } = {}) { return this.queries.list(q, opts); }
+  /** Список; у паспортов с изделием добавлено `productCategory` и `categoryDiffers` (категория паспорта ≠ категории изделия — знак в списке). */
+  async list(q: Record<string, unknown> = {}, opts: { full?: boolean } = {}) {
+    const r = await this.queries.list(q, opts);
+    const cats = await productCategories(this.connection.db!, r.items.filter((x) => x.productId).map((x) => x.productId as Types.ObjectId));
+    r.items = r.items.map((x) => {
+      const pc = x.productId ? cats.get(String(x.productId)) ?? null : null;
+      return x.productId ? { ...x, productCategory: pc, categoryDiffers: !!pc && !!x.passportCategory && pc !== x.passportCategory } : x;
+    });
+    return r;
+  }
   phrases() { return this.queries.phrases(); }
   models() { return this.queries.models(); }
   byOrder(q: Record<string, unknown> = {}) { return this.queries.byOrder(q); }
@@ -85,8 +95,14 @@ export class ProductPassportService {
 
   /** Карточка: паспорт + чего не хватает + поставщик (для печати/подписи) + картинки с адресами. */
   async get(id: string) {
+    await this.syncFromProduct(id);
     await this.refreshDraft(id);
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
+    // фронтенду: fromProduct — поля из изделия только для чтения; productCategory / categoryDiffers — знак «категория отличается от изделия» (у выданных)
+    const prod = doc.productId ? await this.connection.collection('products').findOne({ _id: doc.productId as Types.ObjectId }) : null;
+    const productCategory = prod ? (await productCategories(this.connection.db!, [prod._id])).get(String(prod._id)) ?? null : null;
+    const fromProduct = !!prod && followsProduct(doc);
+    const fromProductFields = fromProduct ? Object.keys(await productPatch(this.connection.db!, prod as Doc)) : [];
     const photoIds = ((doc.images as Array<{ photoId: Types.ObjectId }>) || []).map((i) => i.photoId);
     const photos = photoIds.length ? await this.connection.collection('photos').find({ _id: { $in: photoIds } }, { projection: { storageUrl: 1, thumbId: 1 } }).toArray() : [];
     const url = new Map(photos.map((p) => [String(p._id), p.storageUrl as string]));
@@ -103,7 +119,32 @@ export class ProductPassportService {
     // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
     const requiredImages = requiredImageKinds(doc as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k));
     const choiceMissing = await this.choiceMissing(doc);
-    return { ...doc, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+  }
+
+  /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
+  private async fromProductDiff(cur: Doc): Promise<Doc> {
+    if (!followsProduct(cur)) return {};
+    const prod = await this.connection.collection('products').findOne({ _id: this.oid(cur.productId) });
+    return prod ? diffPatch(cur, await productPatch(this.connection.db!, prod as Doc)) : {};
+  }
+
+  /**
+   * Черновик с изделием: категория и общие поля берутся у изделия при чтении, сохранении и печати.
+   * Текст по справочникам пересобирается, если его не правили руками (`editedAt`). Выданные и паспорта без изделия не трогаем.
+   */
+  async syncFromProduct(id: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(id)) return false;
+    const doc = await this.model.findById(id).exec();
+    if (!doc) return false;
+    const cur = doc.toObject() as unknown as Doc;
+    const diff = await this.fromProductDiff(cur);
+    if (!Object.keys(diff).length) return false;
+    doc.set(diff);
+    await doc.save();
+    const snap = cur.textSnapshot as { sections?: unknown[]; editedAt?: Date } | undefined;
+    if (snap?.sections?.length && !snap.editedAt && (diff.passportCategory || diff.textChoices || diff.elements || diff.materialIds || diff.installationTypeId || diff.isKit)) await this.snapshot(id);
+    return true;
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
@@ -174,7 +215,7 @@ export class ProductPassportService {
     set.date = date;
     // НМ: новый паспорт — черновик без номера, талона и номера изделия; номер передан явно (перенос) — сразу выпущен
     if (set.passportNumber) { await this.allocate(set, date); set.status = 'issued'; set.issuedAt = new Date(); set.revision = 1; }
-    else { for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft'; }
+    else { for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft'; Object.assign(set, await this.fromProductDiff({ ...set })); }
     if (!set.description) set.description = buildDescription(set as never) || undefined;
     if (!set.bom) set.bom = DEFAULT_BOM;
     set.source = set.source || 'app';
@@ -207,6 +248,8 @@ export class ProductPassportService {
     const set = this.normalize(dto);
     const issued = isIssued(cur);
     if (!issued) { for (const f of ['passportNumber', 'passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; } // у черновика номеров нет
+    // изделие главнее формы: категория и общие поля черновика с изделием берутся у изделия, что бы ни прислал клиент
+    if (!issued) Object.assign(set, await this.fromProductDiff({ ...cur, ...set }));
     const touched = NUMBER_FIELDS.filter((f) => f in set && String(set[f] ?? '') !== String(cur[f] ?? ''));
     if (issued && touched.length) {
       if (!dto.confirmNumbers) throw new ConflictException(`Номер, талон и дата выданного паспорта меняются только с подтверждением (confirmNumbers): ${touched.join(', ')}`);
@@ -303,6 +346,9 @@ export class ProductPassportService {
   async snapshot(id: string): Promise<ProductPassportDocument | null> {
     const doc = await this.findById(id);
     const p = doc.toObject() as unknown as Doc;
+    // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
+    const fp = await this.fromProductDiff(p);
+    if (Object.keys(fp).length) { doc.set(fp); Object.assign(p, fp); }
     if (!p.passportCategory) return null;
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
     const cat = String(p.passportCategory);

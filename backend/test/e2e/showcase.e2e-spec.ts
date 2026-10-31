@@ -16,6 +16,7 @@ describe('Showcase', () => {
     ctx = await createTestApp();
     app = ctx.app;
     token = await loginAsAdmin(app);
+    await ctx.connection.db!.collection('dict_values').insertMany([{ dict: 'productSeries', name: 'Сказка', deletedAt: null }]); // серии — только из справочника (ИЗ-18)
     await ctx.connection.db!.collection('organizations').insertOne({ name: 'ООО «СпортИН-ЮГ»', shortName: 'СИЮ', inn: '2300000001', kpp: '230001001', isOurCompany: true, deletedAt: null });
   });
   afterAll(async () => { await ctx?.cleanup(); });

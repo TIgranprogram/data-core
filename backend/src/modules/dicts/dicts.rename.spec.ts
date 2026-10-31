@@ -32,10 +32,10 @@ const cascade = (calls: Call[]) => calls.filter((c) => c.op === 'updateMany');
 const setOf = (c: Call) => (c.update as { $set: Record<string, unknown> }).$set;
 
 describe('справочники: каскад переименования (refBy: name)', () => {
-  it('у каждого справочника есть паспорт: разделы и способ связи; со строковой связью — ровно девять', () => {
+  it('у каждого справочника есть паспорт: разделы и способ связи; со строковой связью — ровно десять', () => {
     for (const d of DICTS) { expect(d.sections.length).toBeGreaterThan(0); expect(['name', 'id']).toContain(d.refBy); }
     expect(DICTS.filter((d) => d.refBy === 'name').map((d) => d.key).sort()).toEqual(
-      ['colors', 'invoiceTypes', 'metalAssortments', 'paymentForms', 'passportSortament', 'persons', 'steelGrades', 'units', 'writeOffReasons'].sort());
+      ['colors', 'invoiceTypes', 'metalAssortments', 'paymentForms', 'passportSortament', 'persons', 'productSeries', 'steelGrades', 'units', 'writeOffReasons'].sort());
   });
 
   it('единицы: сначала перенос в materials и supplyrequests, потом имя в справочнике', async () => {

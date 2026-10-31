@@ -5,7 +5,7 @@ import { imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/toast.js';
 import { confirmDlg } from '../../ui/dialog.js';
 import { date } from '../../core/format.js';
-import { canEdit, imgsOf, isRequired, kinds } from './common.js';
+import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
 
 /** Блоки карточки паспорта: картинки, проверка, текст из снимка, комплектность. */
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
@@ -101,7 +101,7 @@ export function previewBlock(r, ctx) {
   if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран.'), refresh);
   const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
   return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),
-    h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.join(', ') : ''}`),
+    h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.map((k) => V2_NUMS.find((n) => n[0] === k)?.[1] || k).join(', ') : ''}`),
     // порядок и номера — как в PDF: 1 описание, 2 правила, разделы шаблона, затем ТО и монтаж — следующими номерами
     part('1 Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
     part(`2 Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),

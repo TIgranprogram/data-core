@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { createHash } from 'crypto';
 import { Types } from 'mongoose';
 import { normalizePassportDefaults } from './passport-defaults';
-import { inheritedPassportCategory } from './passport-inherit';
+import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
 import { clean, type Db, type Doc } from './showcase-common';
 

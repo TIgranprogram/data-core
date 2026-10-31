@@ -23,6 +23,19 @@ export function tallyValues(values: unknown[]): Tally[] {
   }).sort((a, b) => b.n - a.n || a.value.localeCompare(b.value, 'ru'));
 }
 
+/** Серии изделий (ИЗ-18): варианты — только названия справочника «Серии изделий», n — сколько изделий в серии; порядок — по названию. */
+export function seriesOptions(dictNames: unknown[], productSeries: unknown[]): Tally[] {
+  const n = new Map<string, number>();
+  for (const v of productSeries) { const k = key(clean(v)); if (k) n.set(k, (n.get(k) ?? 0) + 1); }
+  const seen = new Set<string>();
+  const out: Tally[] = [];
+  for (const raw of dictNames) { const value = clean(raw), k = key(value); if (!k || seen.has(k)) continue; seen.add(k); out.push({ value, n: n.get(k) ?? 0 }); }
+  return out.sort((a, b) => a.value.localeCompare(b.value, 'ru'));
+}
+
+/** Серия есть в справочнике (без регистра, «ё» и лишних пробелов). */
+export const seriesInDict = (value: unknown, dictNames: unknown[]) => dictNames.some((d) => key(clean(d)) === key(clean(value)));
+
 /** Добавить значения справочника (цвета, категории каталога), которых ещё нет у изделий: n = 0, sub — откуда. */
 export function withDict(list: Tally[], dict: { value: string; sub?: string }[]): Tally[] {
   const have = new Set(list.map((x) => key(x.value)));

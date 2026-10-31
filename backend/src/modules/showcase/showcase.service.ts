@@ -16,6 +16,7 @@ import { parseCatalog } from './catalog-rows';
 import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { productNameKey, shortProductName } from './order-product-name';
 import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
+const key0 = (v: unknown) => clean(v).toLowerCase().replace(/ё/g, 'е');
 import { ShowcaseBulk } from './showcase-bulk';
 import { cloneDoc } from './showcase-clone';
 import { ShowcaseComposition } from './showcase-composition';
@@ -23,7 +24,7 @@ import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { ShowcaseMaterials } from './showcase-materials';
 import { groupNoOf, nextSku, skuOfGroup, skuPrefixError } from './showcase-sku';
-import { passportCategoryFor, resolvePassportCategory, tallyValues, withDict, type PpCat } from './form-values';
+import { passportCategoryFor, resolvePassportCategory, seriesInDict, seriesOptions, tallyValues, withDict, type PpCat } from '../../common/passport/form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
 const num = (v: unknown, what: string) => {
@@ -175,12 +176,13 @@ export class ShowcaseService {
   }
 
   private async buildFormValues() {
-    const [groups, products, colorDict, ppCats, units] = await Promise.all([
+    const [groups, products, colorDict, ppCats, units, seriesDict] = await Promise.all([
       this.groups(),
       this.db.collection('products').find(LIVE, { projection: { series: 1, colors: 1, sizes: 1, ralCode: 1, unit: 1 } }).toArray(),
       this.db.collection('color_references').find({ deletedAt: null }, { projection: { name: 1, description: 1 } }).toArray(),
       this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, catalogNames: 1 } }).toArray(),
       this.db.collection('units').find({ isActive: { $ne: false }, deletedAt: null }, { projection: { symbol: 1, key: 1, label: 1 } }).toArray(),
+      this.db.collection('dict_values').find({ dict: 'productSeries', deletedAt: null }, { projection: { name: 1 } }).toArray(),
     ]);
     const roots = groups.filter((g) => !g.parentId);
     const rootName = new Map(roots.map((g) => [g.id, g.name]));
@@ -188,7 +190,8 @@ export class ShowcaseService {
     return {
       sections: withDict(roots.map((g) => ({ value: g.name, n: g.count })), catalog),
       groups: groups.filter((g) => g.parentId).map((g) => ({ value: g.name, n: g.count, section: rootName.get(String(g.parentId)) ?? '' })),
-      series: tallyValues(products.map((p) => p.series)),
+      // ИЗ-18: серии — только справочник «Серии изделий», с числом изделий
+      series: seriesOptions(seriesDict.map((x) => x.name), products.map((p) => p.series)),
       colors: withDict(tallyValues(products.flatMap((p) => (Array.isArray(p.colors) ? p.colors : []))), colorDict.filter((c) => !/^не выбран/i.test(clean(c.name))).map((c) => ({ value: clean(c.name), sub: 'справочник «Цвета»' }))),
       sizes: tallyValues(products.flatMap((p) => (Array.isArray(p.sizes) ? p.sizes : []))),
       // ФИ2: RAL — встречавшиеся + названия справочника «Цвета» с RAL; единицы — встречавшиеся + справочник «Единицы»
@@ -278,12 +281,15 @@ export class ShowcaseService {
     return insertedId;
   }
 
-  private async fields(dto: Record<string, unknown>) {
+  private async fields(dto: Record<string, unknown>, curSeries?: unknown) {
     const set: Record<string, unknown> = {};
     if (dto.name !== undefined) { const v = clean(dto.name); if (!v) throw new BadRequestException('Наименование не может быть пустым'); set.name = v; }
-    if (dto.series !== undefined) set.series = clean(dto.series) || null;
-    // ДМ.2: полное и «как в заказе» — необязательные; пусто — стереть
-    if (dto.fullName !== undefined) set.fullName = clean(dto.fullName) || null;
+    if (dto.series !== undefined) {
+      set.series = clean(dto.series) || null;
+      // ИЗ-18: серия — из справочника «Серии изделий» (пустая — можно)
+      if (set.series && key0(set.series) !== key0(curSeries) && !seriesInDict(set.series, (await this.db.collection('dict_values').find({ dict: 'productSeries', deletedAt: null }, { projection: { name: 1 } }).toArray()).map((x) => x.name))) throw new BadRequestException('Выберите серию из справочника');
+    }
+    // «Длинное название» больше не пишем (решение 2026-10-31): fullName остаётся в DTO для старых клиентов и молча игнорируется; «как в заказе» — необязательное, пусто — стереть
     if (dto.orderName !== undefined) set.orderName = clean(dto.orderName) || null;
     if (dto.description !== undefined) set.description = String(dto.description ?? '').trim() || null;
     if (dto.notes !== undefined) set.notes = String(dto.notes ?? '').trim() || null;
@@ -379,7 +385,7 @@ export class ShowcaseService {
 
   async update(id: string, dto: Record<string, unknown>) {
     const _id = oid(id, 'изделия');
-    const set = await this.fields(dto);
+    const set = await this.fields(dto, dto.series !== undefined ? (await this.db.collection('products').findOne({ _id }, { projection: { series: 1 } }))?.series : undefined); // серия, которая у изделия уже есть, не перепроверяется
     if (dto.sku !== undefined) {
       const sku = clean(dto.sku); if (!sku) throw new BadRequestException('Артикул не может быть пустым');
       // замок префикса: у группы есть номер — меняется только хвост из двух цифр (тот же артикул, что уже у изделия, не трогаем: форма шлёт его целиком)

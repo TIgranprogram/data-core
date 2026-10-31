@@ -178,6 +178,30 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
 }
 
 /**
+ * «Серии изделий» (ИЗ-18): `products.series` хранит название строкой; серия изделия выбирается только из справочника.
+ * «Используется» — число изделий; переименование и объединение правят `products.series` (поле только data-core, CRM его не читает).
+ */
+function productSeriesList(): DictBase {
+  const base = simpleList('productSeries', 'Продукция', 'Серии изделий', 'Серия изделия: выбирается в форме изделия только из этого списка. Новую серию заводят здесь.', [], { coll: 'products', field: 'series' });
+  const re = (name: unknown) => new RegExp(`^\\s*${s(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
+  return {
+    ...base,
+    related: async (db, d) => {
+      const q = { deletedAt: null, series: re(d.name) };
+      const [rows, total] = await Promise.all([db.collection('products').find(q).sort({ _id: -1 }).limit(15).project({ sku: 1, name: 1 }).toArray(), db.collection('products').countDocuments(q)]);
+      return { title: 'Изделия', total, items: rows.map((r) => ({ label: `${s(r.sku)} ${s(r.name)}`.trim(), href: '#products?open=' + String(r._id) })) };
+    },
+    reassign: async (db, from, to) => (await db.collection('products').updateMany({ series: re(from.name) }, { $set: { series: s(to.name), updatedAt: new Date() } })).modifiedCount,
+    candidates: async (db) => {
+      const found = new Map<string, { name: string; uses: number; source: string }>();
+      for (const [k, n] of await tally(db, 'products', 'series')) add(found, k, n, 'изделия');
+      const docs = await db.collection('dict_values').find({ dict: 'productSeries', deletedAt: null }).toArray();
+      return missing(docs.map((d) => s(d.name)), found);
+    },
+  };
+}
+
+/**
  * Справочники металла склада: значение в позиции (`materials.<field>`) остаётся строкой, справочник даёт список для выбора и фильтров.
  * «Используется» — число позиций; материалы общие с CRM, поэтому при объединении только правим строку (без пометок приложения).
  */
@@ -610,6 +634,8 @@ const BASE: DictBase[] = [
   paymentFormsList(),
   simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в счетах: доставка, погрузка, аренда техники…', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
 
+  productSeriesList(),
+
   // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.2, §3.3): правят директор и админ ─────────
   // ПВ2 (2026-10-25): порядок полей = порядок в карточке — частое сверху; коды и настроечное (tech) — внизу, не столбцы таблицы.
   // code у существующей записи не меняется (на него ссылаются тексты и изделия); у новой можно не вводить — сервер сделает из названия.
@@ -820,7 +846,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
-  productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
+  productSeries: { newTitle: 'Новая серия' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
   passportStyle: { newTitle: 'Новый элемент оформления' },
 };
 /** Поля справочника с подписью «Название» из DICT_UI. */
