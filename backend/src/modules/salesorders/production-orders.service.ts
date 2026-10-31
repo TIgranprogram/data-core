@@ -221,7 +221,12 @@ export class ProductionOrdersService {
     const started = new Set([...dt, ...dm, ...sh].map(String));
     const isNew = (g: (typeof groups)[number]) => g.docs.every((d) => (d.stage || 'new') === 'new' && !started.has(String(d._id)));
     const fresh = groups.filter(isNew).length;
-    const shown = wantNew ? groups.filter(isNew) : stages ? groups.filter((g) => stages.includes(g.stage)) : groups;
+    let shown = wantNew ? groups.filter(isNew) : stages ? groups.filter((g) => stages.includes(g.stage)) : groups;
+    // overdue=1 — срок заказа прошёл, а этап не «отгружен»/«закрыт»/«отменён» (как isLate в pwa)
+    if (q.overdue === '1' || q.overdue === 'true') {
+      const today = new Date().toISOString().slice(0, 10);
+      shown = shown.filter((g) => !!g.deadline && !['shipped', 'closed', 'cancelled'].includes(g.stage) && new Date(g.deadline as Date).toISOString().slice(0, 10) < today);
+    }
 
     const field = Object.keys(sort)[0], dir = sort[field];
     const cmp = (x: number, y: number) => (x === y ? 0 : x < y ? -1 : 1) * dir;

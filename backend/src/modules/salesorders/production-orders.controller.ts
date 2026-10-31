@@ -27,6 +27,7 @@ export class ProductionOrdersController {
   @ApiQuery({ name: 'filter', required: false, description: 'active | shipped | closed | done | all — по этапу заказа (самый отстающий договор)' })
   @ApiQuery({ name: 'stage', required: false }) @ApiQuery({ name: 'companyId', required: false }) @ApiQuery({ name: 'priority', required: false })
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'overdue', required: false, description: '1 — только просроченные: срок прошёл, этап не «отгружен»/«закрыт»' })
   list(@Query() q: Record<string, string>) {
     return this.svc.list(q);
   }

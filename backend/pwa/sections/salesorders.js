@@ -451,6 +451,7 @@ export const salesorders = {
     filters: [
       // вкладки: Новые → В работе (по умолчанию) → Отгруженные → Завершённые → Все в конце (ORDERS-1; старый адрес filter=done ведёт на «Завершённые»)
       { key: 'filter', label: 'Статус', type: 'chips', defaultValue: 'active', noAll: true, options: () => [{ value: 'new', label: 'Новые' }, { value: 'active', label: 'В работе' }, { value: 'shipped', label: 'Отгруженные' }, { value: 'closed', label: 'Завершённые' }, { value: 'all', label: 'Все' }], count: (resp, v) => (v === 'new' ? resp.counts?.fresh : resp.counts?.[v]) },
+      { key: 'overdue', label: 'Срок', type: 'chips', options: () => [{ value: '1', label: 'Просрочено' }] },
     ],
     top: (reload) => {
       if (current().params.filter === 'done') setTimeout(() => patch({ filter: 'closed' }), 0);
