@@ -105,7 +105,7 @@ export async function stageBack(o) {
   const from = order.indexOf(o.stage);
   const opts = o.stage === 'cancelled' ? order : order.slice(0, Math.max(0, from));
   if (!opts.length) { toast('Назад возвращать некуда'); return null; }
-  const sel = h('select', null, ...opts.map((k) => h('option', { value: k }, STAGE[k]?.label || k)));
+  const sel = h('select', null, ...opts.map((k) => h('option', { value: k }, STAGE[k]?.label || 'Другой этап')));
   const why = reasonField('Почему возвращаем');
   const saved = await modal({
     title: 'Вернуть на прежний этап', okText: 'Вернуть',

@@ -84,6 +84,9 @@
 .db-cnt.work { color: var(--info); } .db-cnt.paused { color: var(--warn); } .db-cnt.done { color: var(--ok); } .db-cnt.free { color: var(--text); font-weight: 600; }
 .db-more { width: 32px; height: 32px; padding: 0; flex: none; font-size: 18px; line-height: 1; }
 .db-menu { right: 0; }
+.db-contracts { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.db-contract { padding-left: 4px; }
+.db-contract > .db-oh { font-size: 13px; color: var(--muted); }
 .db-lines { margin: 4px 0 0 20px; padding-left: 6px; border-left: 3px solid var(--oc); display: flex; flex-direction: column; gap: 6px; }
 .db-line { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: var(--radius-sm); background: var(--oc-soft); border: 1px solid var(--border); border-left: 4px solid var(--oc, var(--border)); cursor: pointer; }
 .db-line:hover { border-color: var(--border-strong); }

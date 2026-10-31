@@ -107,7 +107,7 @@ export function unmatchedTop({ open = false } = {}) {
       total = d.total ?? items.length; loaded = true;
       fill(orderSel, 'productionNo', 'Заказ', d.facets?.orders, (v) => (v === '-' ? 'Без № заказа' : v));
       fill(contractSel, 'orderNo', 'Договор', d.facets?.contracts, (v) => v);
-      fill(stageSel, 'stage', 'Этап заказа', d.facets?.stages, (v) => STAGE[v]?.label || v);
+      fill(stageSel, 'stage', 'Этап заказа', d.facets?.stages, (v) => STAGE[v]?.label || 'Другой этап');
     } catch (e) { toastError(e, 'загрузить несопоставленные позиции'); }
     paint();
   };

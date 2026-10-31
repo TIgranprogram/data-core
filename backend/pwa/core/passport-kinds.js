@@ -21,7 +21,7 @@ export const KINDS_V2 = [
   ['assembly', 'Схема сборки (если поставляется разобранным)', 'шаги сборки по порядку — приложение «Инструкция по сборке»'],
 ];
 /** Название вида по коду (safety_zone — то же, что safety). */
-export const kindName = (k) => [...KINDS, ...KINDS_V2].find(([x]) => x === (k === 'safety_zone' ? 'safety' : k))?.[1] || k;
+export const kindName = (k) => [...KINDS, ...KINDS_V2].find(([x]) => x === (k === 'safety_zone' ? 'safety' : k))?.[1] || 'другой вид';
 /** Названия категорий паспорта по коду. */
 export const CAT_NAMES = { ALL: 'Для всех', TRN: 'Тренажёр', WRK: 'Воркаут', BLG: 'Благоустройство', DIO: 'Детское игровое', DSP: 'Детское спортивное' };
 /** «TRN, WRK» → «Тренажёр, Воркаут». */

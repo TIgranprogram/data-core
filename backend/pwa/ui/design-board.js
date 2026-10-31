@@ -368,6 +368,49 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
       h('div', { class: 'db-ocnt' }, counts), body), o.orderId);
   }
 
+  /** Один заказ производства (productionNo) — одна карточка; договоры внутри. Договор без номера — своя карточка. */
+  function toggleGroup(ids) {
+    const open = ids.some((id) => S.expanded.has(id));
+    for (const id of ids) { if (open) S.expanded.delete(id); else { S.expanded.add(id); fetchLines(id); } }
+    paintLeft(); setO();
+  }
+  function groupEl(g) {
+    if (g.length === 1) return orderEl(g[0]);
+    const ids = g.map((o) => o.orderId);
+    const open = ids.some((id) => S.expanded.has(id));
+    const first = g[0];
+    const sum = {}; for (const k of COLS) sum[k] = g.reduce((n, o) => n + (o.counts[k] || 0), 0);
+    sum.free = g.reduce((n, o) => n + (o.counts.free || 0), 0);
+    const counts = [...COLS.filter((k) => sum[k]).map((k) => h('span', { class: 'db-cnt ' + k, title: COL_LABEL[k] }, `${SHORT[k]} ${sum[k]}`)),
+      sum.free ? h('span', { class: 'db-cnt free', title: 'Изделия, которые ещё не взяты в проектирование' }, `не взято ${sum.free}`) : null];
+    const deadline = g.map((o) => o.deadline).filter(Boolean).sort()[0] ?? null;
+    const chev = h('button', { type: 'button', class: 'db-chev', 'aria-expanded': String(open), 'aria-label': `${open ? 'Скрыть' : 'Показать'} договоры заказа ${orderName(first)}`, onclick: () => toggleGroup(ids) }, open ? '▾' : '▸');
+    const contract = (o) => {
+      const lines = S.lines.get(o.orderId);
+      const items = [{ label: 'Открыть договор', run: () => openOrder(o.orderId) }, { label: 'Открыть в «Заказах»', run: () => openInOrders(o.orderId) },
+        ...(canEdit ? [SEP, { label: 'На распределение все позиции', run: () => act(() => distributeOrder(o.orderId)) }, SEP, { label: 'Убрать договор из проектирования', danger: true, run: () => act(() => dropOrder(o)) }] : [])];
+      return h('div', { class: 'db-contract' },
+        h('div', { class: 'db-oh' }, h('button', { type: 'button', class: 'db-oname', title: 'Открыть договор справа', onclick: () => openOrder(o.orderId) }, h('b', null, 'Договор ' + (clean(o.orderNo) ? '№ ' + clean(o.orderNo) : 'без номера'))), menuBtn(`Действия с договором ${clean(o.orderNo)}`, items)),
+        h('div', { class: 'db-lines' }, S.loadingLines.has(o.orderId) && !lines ? busyBlock('изделия', { cls: 'db-hint' }) : lines && lines.length ? lines.map((l) => lineEl(o, l)) : h('div', { class: 'db-hint' }, 'В договоре нет позиций.')));
+    };
+    return paintOrder(h('article', { class: 'db-order' + (open ? ' open' : ''), dataset: { order: first.orderId } },
+      h('div', { class: 'db-oh' }, chev,
+        h('button', { type: 'button', class: 'db-oname', title: 'Открыть заказ справа', onclick: () => openOrder(first.orderId) }, h('b', null, orderName(first)), first.customer ? h('span', { class: 'db-cust' }, ' · ' + first.customer) : null),
+        menuBtn(`Действия с заказом ${orderName(first)}`, [{ label: 'Открыть', run: () => openOrder(first.orderId) }, { label: 'Копировать ссылку', run: () => copyLink(orderUrl(first.orderId)) }])),
+      h('div', { class: 'db-ometa' }, env.dueNode({ deadline, status: 'queue' }), h('span', { class: 'muted' }, `договоров ${g.length}`)),
+      h('div', { class: 'db-ocnt' }, counts), open ? h('div', { class: 'db-contracts' }, ...g.map(contract)) : null), first.orderId);
+  }
+  function groupOrders(list) {
+    const by = new Map(); const out = [];
+    for (const o of list) {
+      const no = clean(o.productionNo);
+      if (!no) { out.push([o]); continue; }
+      if (!by.has(no)) { const g = []; by.set(no, g); out.push(g); }
+      by.get(no).push(o);
+    }
+    return out;
+  }
+
   function toggle(id) {
     if (S.expanded.has(id)) S.expanded.delete(id); else { S.expanded.add(id); fetchLines(id); }
     paintLeft(); setO();
@@ -432,7 +475,7 @@ export function mountDesignBoard(board, _path, initialQuery, { onTotal }) {
     ordersHead.replaceChildren(h('h2', { class: 'db-h' }, 'Заказы · ', h('span', { class: 'num' }, String(vis.length))), toggle, picker);
     if (!S.ready) { ordersList.replaceChildren(busyBlock('заказы', { cls: 'db-hint' })); return; }
     if (S.error) { ordersList.replaceChildren(failBlock(S.error, () => load(true), { cls: 'db-hint', text: 'Доска не загрузилась' })); return; }
-    ordersList.replaceChildren(...(vis.length ? vis.map(orderEl) : [h('div', { class: 'db-empty' }, S.orders.length ? (showAll || query.search ? 'По вашему поиску заказов нет.' : 'Открытых задач нет. «Показать все» — заказы, где всё готово или задачи не поставлены.') : 'Добавьте заказ, который нужно проектировать — кнопка выше.')]));
+    ordersList.replaceChildren(...(vis.length ? groupOrders(vis).map(groupEl) : [h('div', { class: 'db-empty' }, S.orders.length ? (showAll || query.search ? 'По вашему поиску заказов нет.' : 'Открытых задач нет. «Показать все» — заказы, где всё готово или задачи не поставлены.') : 'Добавьте заказ, который нужно проектировать — кнопка выше.')]));
   }
 
   // ---------- правая часть: колонки статусов ----------

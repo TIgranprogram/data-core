@@ -64,7 +64,7 @@ export const history = {
       { key: 'createdAt', label: 'Когда', cls: 'num nowrap', render: (r) => new Date(r.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) },
       { key: 'userName', label: 'Кто', cls: 'nowrap', render: whoNode },
       { key: 'entityType', label: 'Раздел', cls: 'nowrap md-hide', render: (r) => typeLabel(r.entityType) },
-      { key: 'action', label: 'Что', cls: 'nowrap', render: (r) => h('span', { title: r.action || '' }, actLabel(r)) },
+      { key: 'action', label: 'Что', cls: 'nowrap', render: (r) => h('span', null, actLabel(r)) },
       { key: 'title', label: 'Запись', cls: 'clip', render: (r) => h('span', { title: r.title || '' }, r.title || h('span', { class: 'muted' }, '—')) },
     ],
     card: {

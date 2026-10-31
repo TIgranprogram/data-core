@@ -210,7 +210,7 @@ export const design = {
       default: true,
       alt: 'flat', // ?view=flat — прежняя плоская доска (запасной путь на время приёмки)
       mount: (b, path, q, o) => (current().params.view === 'flat' ? mountBoard : mountDesignBoard)(b, path, q, o),
-      env: { people, moveTask: (r, to) => moveTask(r, to), dueNode, activeOrders, stageLabel: (s) => STAGE[s]?.label || s },
+      env: { people, moveTask: (r, to) => moveTask(r, to), dueNode, activeOrders, stageLabel: (s) => STAGE[s]?.label || 'Другой этап' },
       headCount: true,
       cls: 'board-pics',
       columns: [
