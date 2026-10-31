@@ -120,8 +120,16 @@ export class MatchingService {
 
   /** Счётчик для меню: всего несопоставленных и из них в производстве. */
   async unmatchedCount() {
-    const [all, inProd] = await Promise.all([this.unmatched({ limit: 1 }), this.unmatched({ limit: 1, inProduction: '1' })]);
-    return { total: all.total, inProduction: inProd.total };
+    // Только подсчёт: без подбора изделий и фото (раньше — два полных unmatched, ~5 с)
+    const db = this.connection.db!;
+    const orders = await db.collection('salesorders').find({ deletedAt: null }, { projection: { productionNo: 1 } }).toArray() as Doc[];
+    if (!orders.length) return { total: 0, inProduction: 0 };
+    const inProdIds = new Set(orders.filter((o) => o.productionNo).map((o) => String(o._id)));
+    const lines = await db.collection('incomes').find({
+      deletedAt: null, cancelledAt: null, orderId: { $in: orders.map((o) => o._id) },
+      $or: [{ matchStatus: 'auto' }, { matchStatus: { $nin: ['none', 'auto'] }, productId: null }],
+    }, { projection: { orderId: 1 } }).toArray() as Doc[];
+    return { total: lines.length, inProduction: lines.filter((l) => inProdIds.has(String(l.orderId))).length };
   }
 
   private async loadProducts(): Promise<MatchProduct[]> {

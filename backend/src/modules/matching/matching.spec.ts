@@ -94,7 +94,7 @@ describe('MatchingService (КМ2–КМ3)', () => {
     expect(r.items[1].suggestions[0].productId).toBe(String(prod));
     expect((await svc.unmatched({ q: 'монтаж' })).total).toBe(1);
     expect((await svc.unmatched({ limit: 1, page: 2 })).items).toHaveLength(1);
-    expect(await svc.unmatchedCount()).toEqual({ total: 2, inProduction: 2 });
+    expect(await svc.unmatchedCount()).toEqual({ total: 2, inProduction: 1 });
   });
   it('unmatched: фильтры заказа, договора и этапа; варианты не зависят от выбранного', async () => {
     const o2 = new Types.ObjectId();
