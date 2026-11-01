@@ -10,6 +10,7 @@ import { failBlock } from '../ui/busy.js';
 import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/toast.js';
 import { activeOrders, orderLabel } from './salesorders.js';
+export { workLaunch } from './work-launch.js'; // панель «Запуск в работу» (of=worklaunch)
 
 /**
  * Раздел «В работе»: карточки изделий едут по доске слева направо — «Ждёт запуска» → виды работ из маршрута изделия → «Готово».

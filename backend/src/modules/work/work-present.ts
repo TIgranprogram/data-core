@@ -51,9 +51,10 @@ export async function presentWork(connection: Connection, docs: Doc[]) {
     const productionNo = (o?.productionNo as string | undefined) || null, lineNo = (inc?.lineNo as number | undefined) ?? null;
     const seqNo = seqOf.get(String(d.incomeId))?.seqNo ?? null, posNo = seqNo ?? lineNo;
     const customerTitle = (inc?.title as string | undefined) ?? null;
-    // «<артикул> № <заказ> поз <№>»; без изделия — короткое название заказчика
+    // «<название изделия> · <артикул> № <заказ> поз <№>» — человек узнаёт изделие по названию; без изделия — короткое название заказчика
+    const where = [productName ? sku : null, productionNo ? `№ ${productionNo}` : '', posNo != null ? `поз ${posNo}` : ''].filter(Boolean).join(' ');
     const title = prod
-      ? [sku ?? productName, productionNo ? `№ ${productionNo}` : '', posNo != null ? `поз ${posNo}` : ''].filter(Boolean).join(' ')
+      ? [productName ?? sku, where].filter(Boolean).join(' · ')
       : customerTitle ? shortProductName(customerTitle) : 'Без названия';
     const route = (d.route as WorkStep[] | undefined) ?? [];
     const stepIndex = (d.stepIndex as number | null | undefined) ?? null;

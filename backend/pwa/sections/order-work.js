@@ -1,7 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
-import { toast, toastError, link } from '../ui/kit/index.js';
+import { link, openSide } from '../ui/kit/index.js';
+import { openLaunch } from './work-launch.js';
 
 /*
  * «В работе» в карточке заказа: по каждой позиции — карточка «W-12 · Сварка» (ссылка) или галочка «запустить».
@@ -42,24 +43,9 @@ export function orderWork(orders) {
     const free = all.filter((l) => !byLine.has(String(l.id)));
     for (const id of [...picked]) if (!free.some((l) => String(l.id) === id)) picked.delete(id);
     const can = session.canEdit;
-    const send = async (lineIds, btn) => {
-      btn.disabled = true; btn.classList.add('is-busy');
-      try {
-        // запуск — только по ещё не запущенным позициям (иначе уже запущенные попадают в «не запущено»)
-        const parts = [{ lineIds }];
-        const sum = { created: 0, refused: [], warnings: [] };
-        for (const body of parts) {
-          const r = await api('/work-tasks/launch', { method: 'POST', body });
-          sum.created += r.created || 0; sum.refused.push(...(r.refused || [])); sum.warnings.push(...(r.warnings || []));
-        }
-        const skip = sum.refused.length;
-        toast(sum.created ? `Запущено в работу: ${sum.created}${skip ? `, не запущено: ${skip}` : ''}` : skip ? `Не запущено: ${skip} — причины ниже` : 'Нечего запускать',
-          { sub: sum.warnings.length ? `Предупреждений: ${sum.warnings.length}` : undefined });
-        picked.clear();
-        window.dispatchEvent(new CustomEvent('data-changed'));
-        await load(sum);
-      } catch (e) { toastError(e, 'запустить в работу'); btn.disabled = false; btn.classList.remove('is-busy'); }
-    };
+    // запуск — через панель «Запуск в работу»: там видно и выбирается, как делается каждая позиция
+    const send = (lineIds) => openLaunch(all.filter((l) => lineIds.includes(String(l.id))).map((l) => ({ id: String(l.id), name: titleOf(l.id), productId: l.productId || l.product?.id || null })),
+      (res) => { picked.clear(); if (box.isConnected) load({ created: res.created || 0, refused: res.refused || [], warnings: res.warnings || [] }); }, openSide);
     const rows = all.map((l, i) => {
       const t = byLine.get(String(l.id));
       const cb = can && !t ? h('input', { type: 'checkbox', 'aria-label': 'Запустить позицию в работу', checked: picked.has(String(l.id)),
