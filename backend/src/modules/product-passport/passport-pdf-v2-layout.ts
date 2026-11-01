@@ -38,6 +38,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const toNo = maintenance.length ? String(next++) : '';
   const installNo = installLines.length || requirements.length ? String(next++) : '';
   const bomNo = String(next++);
+  const journalNo = String(next++);
 
   // Таблицы — сквозная нумерация в порядке документа
   const tab = new Map<string, number>();
@@ -45,6 +46,8 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   if (specs.length) tab.set('specs', ++tn);
   maintenance.forEach((m, i) => { const n = ++tn; tab.set(`to:${m.period}`, n); if (i === 0) { tab.set('to', n); tab.set('maintenance', n); } });
   tab.set('bom', ++tn);
+  tab.set('storage', ++tn);
+  tab.set('faults', ++tn);
 
   // Рисунки — по первой ссылке в тексте (тексты в порядке документа)
   const secTexts = sections.flatMap((s) => [s.title, ...s.items.map((i) => i.text)]);
@@ -224,6 +227,12 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   });
   table(`Таблица ${tab.get('bom')} — Комплектность изделия`, ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
     withImg ? [7, 17, 36, 9, 9, 22] : [8, 20, 50, 11, 11], bomRows);
+
+  // Журналы для заказчика (решение 2026-11-01, ПТ-2): пустые таблицы хранения и неисправностей — в обоих вариантах
+  heading(`${journalNo} Журналы`);
+  const blank = (n: number): Cell[][] => Array.from({ length: n }, () => [{ h: 16 }, { h: 16 }, { h: 16 }, { h: 16 }]);
+  table(`Таблица ${tab.get('storage')} — Сведения о хранении`, ['Дата установки на хранение', 'Дата снятия с хранения', 'Условия хранения', 'Должность, ФИО, подпись ответственного лица'], [18, 18, 34, 30], blank(9));
+  table(`Таблица ${tab.get('faults')} — Учёт неисправностей`, ['Дата', 'Вид неисправности', 'Принятые меры', 'Должность, ФИО, подпись ответственного лица'], [14, 30, 30, 26], blank(9));
 
   // Рисунки «по месту», которые не встали (ссылка только в непоказанном абзаце), и очередь — до приложений
   for (const [k, list] of figs.inline) if (!placedKinds.has(k)) { placedKinds.add(k); pending.push(...list); }

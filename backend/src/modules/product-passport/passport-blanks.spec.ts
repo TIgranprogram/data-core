@@ -46,8 +46,8 @@ describe('printableText: вариант и сертификат (ПТ-1, ПТ-2)
     { key: 'storage', number: '5', title: 'Хранение', items: [{ key: 'p1', number: '5.1', text: 'Хранить сухо.' }] },
     { key: 'faults', number: '6', title: 'Неисправности', items: [{ key: 'p1', number: '6.1', text: 'Журнал.' }] },
   ] };
-  it('short: хранение/неисправности не печатаются, full: печатаются', () => {
-    expect(printableText(t, { variant: 'short' }).sections.map((s: { key?: string }) => s.key)).toEqual(['warranty']);
+  it('хранение/неисправности печатаются в обоих вариантах', () => {
+    expect(printableText(t, { variant: 'short' }).sections.map((s: { key?: string }) => s.key)).toEqual(['warranty', 'storage', 'faults']);
     expect(printableText(t, { variant: 'full' }).sections).toHaveLength(3);
   });
   it('сертификат: DIO — со ссылкой на ТР ЕАЭС 042, иначе без; пусто — строки нет', () => {
@@ -58,15 +58,15 @@ describe('printableText: вариант и сертификат (ПТ-1, ПТ-2)
   });
 });
 
-describe('printableText: short без разрыва номеров и ссылок на журналы', () => {
+describe('printableText: сплошная нумерация и ссылки на журналы сохраняются', () => {
   const t = { sections: [
     { key: 'warranty', number: '4', title: 'Гарантия', items: [{ key: 'p1', number: '4.1', text: 'А.' }] },
-    { key: 'storage', number: '5', title: 'Хранение', items: [{ key: 'p1', number: '5.1', text: 'Б.' }] },
-    { key: 'service', number: '6', title: 'ТО', items: [{ key: 'p1', number: '6.1', text: 'Осмотр. Записи — в таблицах 3 и 4 паспорта. Конец.' }] },
+    { key: 'storage', number: '6', title: 'Хранение', items: [{ key: 'p1', number: '6.1', text: 'Б.' }] },
+    { key: 'service', number: '7', title: 'ТО', items: [{ key: 'p1', number: '7.1', text: 'Осмотр. Записи — в таблицах 3 и 4 паспорта. Конец.' }] },
   ] };
-  it('номера подряд, фраза про таблицы 3 и 4 убрана', () => {
+  it('номера подряд, фраза про таблицы не вырезается', () => {
     const r = printableText(t, { variant: 'short' }).sections as Array<{ number: string; items: Array<{ number: string; text: string }> }>;
-    expect(r.map((s) => s.number)).toEqual(['4', '5']);
-    expect(r[1].items[0]).toMatchObject({ number: '5.1', text: 'Осмотр. Конец.' });
+    expect(r.map((s) => s.number)).toEqual(['4', '5', '6']);
+    expect(r[2].items[0]).toMatchObject({ number: '6.1', text: 'Осмотр. Записи — в таблицах 3 и 4 паспорта. Конец.' });
   });
 });

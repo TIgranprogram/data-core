@@ -21,8 +21,7 @@ const SAFETY_KINDS = ['safety', 'safety_zone'];
 export const OPTIONAL_FIELDS: readonly string[] = ['siteLength', 'siteWidth'];
 export const OPTIONAL_IMAGE_KINDS: readonly string[] = ['overview_callouts', 'nameplate', 'view_front', 'view_side', 'view_top', 'view_3d'];
 
-/** Разделы текста и журналы (рекламации, хранение, неисправности) — только в полном паспорте (решение 2026-11-01, ПТ-2). */
-export const OPTIONAL_SECTIONS: readonly string[] = ['claims', 'storage', 'faults'];
+/** Журналы (хранение, неисправности) и рекламации — в обоих вариантах (решение 2026-11-01, меняет ПТ-2): отдельного списка «только полный» нет. */
 
 /** Строка о сертификате/декларации; пустой номер — строки нет. Для детских площадок — со ссылкой на ТР ЕАЭС 042/2017 (ПТ-1). */
 export function certificateLine(cert: { number?: unknown } | null | undefined, category?: string): string {

@@ -1,6 +1,6 @@
 import { fillBlanks, type BlankRules } from '../../common/print/fill-text';
 import { V2_FIELD_LABELS } from './passport-rules';
-import { OPTIONAL_SECTIONS, certificateLine, variantOf, type PassportVariant } from './passport-variants';
+import { certificateLine, type PassportVariant } from './passport-variants';
 
 /**
  * Правило печати незаполненных меток паспорта (решение пользователя 2026-11-01): в PDF не уходит «{…}».
@@ -25,12 +25,6 @@ export const LABEL_SOURCES: Record<string, string> = {
   weightMax: 'Паспорт → Вес пользователя до', maxUsers: 'Паспорт → Пользователей одновременно',
 };
 
-/** Ссылка на таблицы 2 и 3 (хранение, неисправности), которых нет в упрощённом паспорте. */
-const MISSING_TABLE_REF = /таблиц\S*\s+(?:[23]\b|3\s+и\s+4)/i;
-function dropSentences(text: string, re: RegExp): string {
-  return (text.match(/[\s\S]*?[.!?](?=\s|$)|[\s\S]+$/g) ?? [text]).filter((x) => !re.test(x)).join('').trim();
-}
-
 interface Item { key?: string; number?: string | null; text?: string; bullet?: boolean }
 interface Section { key?: string; number?: string; title?: string; items?: Item[] }
 
@@ -42,18 +36,16 @@ export function printableText<T extends { sections?: unknown[] }>(text: T, opts:
     if (v && typeof v === 'object' && !(v instanceof Date) && !('_bsontype' in (v as object))) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
     return v;
   };
-  const short = variantOf(opts.variant) === 'short';
   const cert = certificateLine(opts.certificate, opts.category);
-  const kept = ((text.sections ?? []) as Section[]).filter((s) => !(short && OPTIONAL_SECTIONS.includes(String(s.key))));
+  const kept = (text.sections ?? []) as Section[];
   const first = parseInt(kept[0]?.number ?? '', 10);
   const sections = kept.map((s0, si) => {
-    // в short нет журналов (таблицы 2 и 3) — номера разделов идут подряд, фразы со ссылками на них не печатаются
+    // журналы (таблицы хранения и неисправностей) есть в обоих вариантах; номера разделов идут подряд
     const s = Number.isFinite(first) ? { ...s0, number: String(first + si) } : s0;
     let n = 0;
     const items: Item[] = [];
     for (const it of s.items ?? []) {
-      let t = fillBlanks(String(it.text ?? ''), PASSPORT_BLANKS);
-      if (short) t = dropSentences(t, MISSING_TABLE_REF);
+      const t = fillBlanks(String(it.text ?? ''), PASSPORT_BLANKS);
       if (!t.trim()) continue; // фраза целиком необязательная и без значения
       if (!it.bullet) n += 1;
       items.push({ ...it, text: t, number: it.bullet ? it.number ?? null : `${s.number}.${n}` });

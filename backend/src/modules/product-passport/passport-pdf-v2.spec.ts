@@ -110,7 +110,7 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     // пусто: ни «Коротко», ни ТО, ни монтажа, ни описания — только раздел, комплектность, обложка и талон
     const bare = await renderPassportPdfV2({ ...BASE, passport: { passportNumber: '1', name: 'Урна' }, style: {},
       text: { sections: [{ key: 'w', number: '3', title: 'Гарантии', items: [{ key: 'p1', number: '3.1', bullet: false, text: 'Срок — 12 месяцев.' }] }] } });
-    expect(count(bare)).toBe(3);
+    expect(count(bare)).toBe(4); // обложка, коротко, текст+комплектность, журналы
     const withNote = await renderPassportPdfV2({ ...BASE, passport: { ...BASE.passport, note: 'Проверить крепёж' } });
     expect(count(withNote)).toBe(count(pages) + 1);
 
