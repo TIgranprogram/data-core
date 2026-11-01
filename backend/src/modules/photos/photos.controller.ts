@@ -62,7 +62,8 @@ export class PhotosController {
       throw new Error('No file uploaded (field name must be "file")');
     }
     const result = await this.service.upload(file, purpose);
-    if (result.original.mimeType === 'application/pdf') {
+    const mt = result.original.mimeType;
+    if (mt && !mt.startsWith('image/')) {
       const o = result.original;
       return { ...o.toObject(), url: o.storageUrl, name: o.originalFilename, mime: o.mimeType, variants: {} };
     }

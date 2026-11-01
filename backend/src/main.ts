@@ -112,7 +112,13 @@ async function bootstrap() {
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
     setHeaders: (res: { setHeader(name: string, value: string): void }, path: string) => {
-      if (path.toLowerCase().endsWith('.pdf')) {
+      const p = path.split(String.fromCharCode(92)).join('/').toLowerCase();
+      if (p.includes('/drawing/')) {
+        // чертежи — только скачивание (XSS: PDF/DXF не открываются в окне сайта)
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment');
+      } else if (p.endsWith('.pdf')) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');

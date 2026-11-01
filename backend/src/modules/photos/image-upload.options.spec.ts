@@ -42,3 +42,29 @@ describe('PDF-загрузка', () => {
     expect(cb.mock.calls[0][1]).toBe(false);
   });
 });
+
+describe('чертежи (purpose=drawing)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const o = require('./image-upload.options');
+  const run = (name: string, purpose = 'drawing', mimetype = 'application/octet-stream') => {
+    const cb = jest.fn();
+    o.photoUploadMulterOptions.fileFilter({ query: { purpose } }, { mimetype, originalname: name }, cb);
+    return cb.mock.calls[0];
+  };
+  it('pdf/dwg/dxf проходят, лимит 50 МБ', () => {
+    for (const n of ['a.pdf', 'a.DWG', 'a.dxf']) expect(run(n)[1]).toBe(true);
+    expect(o.photoUploadMulterOptions.limits.fileSize).toBe(50 * 1024 * 1024);
+  });
+  it('svg и exe — 400; без purpose=drawing dwg не принимается', () => {
+    expect(run('a.svg', 'drawing', 'image/svg+xml')[1]).toBe(false);
+    expect(run('a.exe')[1]).toBe(false);
+    expect(run('a.dwg', 'showcase')[1]).toBe(false);
+  });
+  it('сигнатуры', () => {
+    expect(o.drawingSignatureOk('.pdf', Buffer.from('%PDF-1.7'))).toBe(true);
+    expect(o.drawingSignatureOk('.pdf', Buffer.from('MZ\x90'))).toBe(false);
+    expect(o.drawingSignatureOk('.dwg', Buffer.from('AC1027'))).toBe(true);
+    expect(o.drawingSignatureOk('.dxf', Buffer.from('  0\r\nSECTION'))).toBe(true);
+    expect(o.drawingSignatureOk('.dxf', Buffer.from('hello'))).toBe(false);
+  });
+});

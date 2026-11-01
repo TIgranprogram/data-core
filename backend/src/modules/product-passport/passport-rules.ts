@@ -219,7 +219,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   if (!code) return missingFields(p);
   // v2: текстовые поля v1 заменяет справочник — материалы, установка, назначение (из элементов), описание (снимок), категория каталога
   const filled = (v: unknown) => (Array.isArray(v) ? v.length > 0 : !!v);
-  const replaced = new Set(['Категория', 'Описание', ...(filled(p.materialIds) ? ['Материалы'] : []), ...(filled(p.installationTypeId) ? ['Установка'] : []), ...(filled(p.elements) ? ['Назначение'] : [])]);
+  const replaced = new Set(['Категория', 'Описание', ...(filled(p.materialIds) || filled(p.materials) || filled((p as { materialsSpec?: unknown }).materialsSpec) || filled((p as { materialsText?: unknown }).materialsText) ? ['Материалы'] : []), 'Установка' /* v2: вместо текста — «Способ установки» (справочник), не дублировать */, ...(filled(p.elements) ? ['Назначение'] : [])]);
   const m = missingFields(p).filter((x) => !replaced.has(x));
   const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'number' && !Number.isFinite(v));
   if (empty(p.elements) && code !== 'BLG') m.push('Элементы');

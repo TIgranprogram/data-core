@@ -8,7 +8,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Photo, PhotoDocument, PhotoFrame } from './photo.schema';
-import { decodeMulterOriginalName, IMAGE_UPLOAD_MAX_BYTES, PDF_MIME } from './image-upload.options';
+import { decodeMulterOriginalName, drawingExt, drawingSignatureOk, IMAGE_UPLOAD_MAX_BYTES, PDF_MIME, PDF_UPLOAD_MAX_BYTES } from './image-upload.options';
 import { buildRotatedCopy } from './image-orientation';
 import { uploadSubdir } from '../../common/uploads/upload-folder';
 
@@ -100,6 +100,12 @@ export class PhotosService {
     await fs.rename(flat, join(uploadDir(), dir, file.filename)).catch(() => undefined); // нет файла (sheet-catalog пишет сам) — пропуск
     file = { ...file, filename: `${dir}/${file.filename}` };
     const originalPath = join(uploadDir(), file.filename);
+    const dExt = folder === 'drawing' ? drawingExt(originalFilename) : undefined;
+    if (dExt) return this.uploadDrawing(file, originalPath, originalFilename, dExt);
+    if (file.mimetype === PDF_MIME && file.size > PDF_UPLOAD_MAX_BYTES) {
+      await fs.unlink(originalPath).catch(() => undefined);
+      throw new BadRequestException('PDF больше 20 МБ');
+    }
     if (file.mimetype === PDF_MIME) return this.uploadPdf(file, originalPath, originalFilename);
     if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
       await fs.unlink(originalPath).catch(() => undefined);
@@ -199,6 +205,30 @@ export class PhotosService {
   }
 
   /** PDF: без миниатюры и обработки; проверяем сигнатуру %PDF- (тип от клиента не доверяем). */
+  /** Чертёж: без вариантов; расширение и сигнатура должны совпасть, иначе файл удаляется и 400. */
+  private async uploadDrawing(file: UploadedPhotoFile, path: string, originalFilename: string, ext: string): Promise<PhotoUploadResult> {
+    const fh = await fs.open(path, 'r');
+    const buf = Buffer.alloc(64);
+    let n = 0;
+    try {
+      n = (await fh.read(buf, 0, 64, 0)).bytesRead;
+    } finally {
+      await fh.close();
+    }
+    if (!drawingSignatureOk(ext, buf.subarray(0, n))) {
+      await fs.unlink(path).catch(() => undefined);
+      throw new BadRequestException(`Файл не похож на ${ext.slice(1).toUpperCase()}: содержимое не совпадает с расширением`);
+    }
+    const original = await this.create({
+      storageUrl: `/uploads/${file.filename}`,
+      originalFilename,
+      mimeType: file.mimetype || 'application/octet-stream',
+      sizeBytes: file.size,
+      variant: 'original',
+    });
+    return { original };
+  }
+
   private async uploadPdf(file: UploadedPhotoFile, path: string, originalFilename: string): Promise<PhotoUploadResult> {
     const fh = await fs.open(path, 'r');
     const buf = Buffer.alloc(5);
