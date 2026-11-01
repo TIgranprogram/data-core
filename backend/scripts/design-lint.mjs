@@ -151,6 +151,25 @@ if (upd) {
   process.exit(0);
 }
 out.push(...v2);
+// R9: вызов эталона kit без import — экран падает «X is not defined» (2026-11-01: так упал «Сегодня»). Без baseline.
+const kitNames = new Set();
+for (const f of jsFiles.filter((f) => inKit(rel(f)))) {
+  const src = readFileSync(f, 'utf8');
+  for (const m of src.matchAll(/^export (?:async )?(?:function|const|let) ([A-Za-z_$][\w$]*)/gm)) kitNames.add(m[1]);
+  for (const m of src.matchAll(/^export \{([^}]+)\}/gm)) for (const p of m[1].split(',')) { const n = p.trim().split(/\s+as\s+/).pop(); if (n) kitNames.add(n); }
+}
+for (const f of jsFiles.filter((f) => !inKit(rel(f)))) {
+  const src = readFileSync(f, 'utf8');
+  const known = new Set();
+  for (const m of src.matchAll(/import\s*\{([^}]+)\}/g)) for (const p of m[1].split(',')) { const n = p.trim().split(/\s+as\s+/).pop(); if (n) known.add(n); }
+  for (const m of src.matchAll(/\b(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g)) known.add(m[1]);
+  for (const m of src.matchAll(/(?:\(|,)\s*([A-Za-z_$][\w$]*)\s*(?=[,)=])/g)) known.add(m[1]);
+  for (const m of src.matchAll(/\{([^{}]*)\}\s*=/g)) for (const p of m[1].split(',')) { const n = p.trim().split(/[:=\s]/).pop(); if (n) known.add(n); }
+  src.split('\n').forEach((l, i) => {
+    if (/^\s*(\/\/|\*)/.test(l)) return;
+    for (const m of l.matchAll(/(^|[^.\w$'"`])(?<!\b(?:get|set|async) )([A-Za-z_$][\w$]*)\(/g)) if (kitNames.has(m[2]) && !known.has(m[2])) out.push({ file: rel(f), line: i + 1, rule: 'R9', text: `${m[2]}() вызван без import из ui/kit — экран упадёт` });
+  });
+}
 
 const by = out.reduce((m, x) => ((m[x.rule] = (m[x.rule] || 0) + 1), m), {});
 for (const x of out) console.log(`${x.file}:${x.line}\t${x.rule}\t${x.text}`);

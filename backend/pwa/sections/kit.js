@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, boardStatic, board, layout, failBlock, toast, pick, filter, table, panel, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, boardStatic, board, layout, failBlock, toast, pick, filter, table, panel, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';

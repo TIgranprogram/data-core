@@ -7,7 +7,7 @@ import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
-import { empty } from '../ui/kit/index.js';
+import { empty, card, row } from '../ui/kit/index.js';
 
 /**
  * «Сегодня» — утренний бриф по ролям (docs/audit/AUDIT-TODAY.md §3): у каждой роли свои 3–6 блоков,
