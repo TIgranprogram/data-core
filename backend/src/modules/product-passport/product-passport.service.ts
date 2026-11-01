@@ -23,7 +23,7 @@ import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
-import { fromIncome, loadQueue } from './passport-queue';
+import { fromIncome, loadQueue, ourSupplierId } from './passport-queue';
 import { PassportIssue } from './passport-issue';
 import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
@@ -265,6 +265,7 @@ export class ProductPassportService {
       db: () => this.connection.db!,
       templateMissing: async (productId, variant) => (await this.check({ productId, mode: 'template', variant })).missing.map((m) => m.label),
       createDraft: async (incomeId, title) => ({ id: String((await this.create({ incomeId, ...(title ? { name: title } : {}) } as CreateProductPassportDto))._id) }),
+      hasOurSupplier: async () => !!(await ourSupplierId(this.connection.db!)),
       issue: (id) => this.issue(id),
       discard: (id) => this.discardDraft(id),
     };

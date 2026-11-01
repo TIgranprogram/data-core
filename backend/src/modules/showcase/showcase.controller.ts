@@ -1,7 +1,8 @@
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
+import { Body, Controller, Delete, Get, HttpCode, Module, Param, Patch, Post, Put, Query, Res, StreamableFile, UseInterceptors } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -13,6 +14,7 @@ import { SimilarQueryDto } from './dto/similar-query.dto';
 /** «Продукция»: витрина изделий, загрузка каталога, данные КП (TASKS БЗ-4). Смотреть — все, менять — менеджер+. */
 @ApiTags('Продукция')
 @AppSection('products')
+@UseInterceptors(MoneyMaskInterceptor)
 @Controller('showcase')
 export class ShowcaseController {
   constructor(private readonly s: ShowcaseService) {}

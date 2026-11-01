@@ -116,6 +116,9 @@ export function roleLabelOf(name: string | undefined | null, label?: string | nu
 }
 
 /** Денежные поля, которые скрываются от наблюдателя (в ответах) и не принимаются от них (в запросах). */
+/** Суммы КП и их позиций: `total` — ещё и ключ пагинации {items,total,page,limit}, поэтому режется только глубже корня ответа. */
+export const MONEY_FIELDS_NESTED = ['total'];
+
 export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate', 'payments', 'debt', 'money',
   // цены материалов, изделий, склада, КП, поставщиков
   'pricePerUnit', 'lastPrice', 'lastPriceDate', 'listPrice', 'basePrice', 'costPrice', 'cost', 'unitPriceOverride', 'price', 'priceWithVat'];

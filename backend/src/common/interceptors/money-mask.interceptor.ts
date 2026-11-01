@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { map, type Observable } from 'rxjs';
-import { canSeeMoney, MONEY_FIELDS } from '../roles-hierarchy';
+import { canSeeMoney, MONEY_FIELDS, MONEY_FIELDS_NESTED } from '../roles-hierarchy';
 
 /**
  * Деньги — администратору, директору, бухгалтеру и менеджеру (common/roles-hierarchy.ts).
@@ -35,7 +35,7 @@ function strip(v: unknown, depth: number): unknown {
   if (v instanceof Date || (v as { _bsontype?: string })._bsontype) return v;
   const out: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
-    if (MONEY_FIELDS.includes(k)) continue;
+    if (MONEY_FIELDS.includes(k) || (depth > 0 && MONEY_FIELDS_NESTED.includes(k))) continue;
     if (k === 'status' && typeof x === 'string' && PAY_STATUS.has(x)) { out[k] = 'shipped'; continue; }
     if (k === 'counts' && x && typeof x === 'object' && 'awaiting' in (x as object) && 'paid' in (x as object)) {
       const c = x as Record<string, number>;

@@ -3,7 +3,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Product, ProductSchema } from '../../common/catalog/product.schema';
 import { ProductService } from './product.service';
 import { ProductController } from './product.controller';
-import { ProductSubroutesController } from './product-subroutes.controller';
 import { Category, CategorySchema } from '../category/category.schema';
 import { ProductModule as ProductModuleEntity, ProductModuleSchema } from '../../common/catalog/product-module.schema';
 import { Material, MaterialSchema } from '../material/material.schema';
@@ -22,7 +21,6 @@ import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
     CounterModule,
     CatalogGraphModule,
   ],
-  controllers: [ProductController, ProductSubroutesController],
   providers: [ProductService, CompositionLineService],
   exports: [ProductService, MongooseModule],
 })

@@ -25,6 +25,7 @@ describe('паспорта на весь заказ', () => {
       db: () => ({ collection: col }) as never,
       templateMissing: async (id) => (id === String(p2) ? ['Категория паспорта', 'Размеры'] : []),
       createDraft: async (incomeId) => { const _id = new Types.ObjectId(); made.push(incomeId); passports.push({ _id, incomeId: new Types.ObjectId(incomeId), status: 'draft', passportNumber: 'draft' }); return { id: String(_id) }; },
+      hasOurSupplier: async () => true,
       issue: async (id) => { issuedIds.push(id); const p = passports.find((x) => String(x._id) === id)!; p.status = 'issued'; p.passportNumber = String(100 + issuedIds.length); },
       discard: async (id) => { discarded.push(id); },
       ...over,
@@ -74,5 +75,11 @@ describe('паспорта на весь заказ', () => {
     const host = make().host;
     host.db = () => ({ collection: () => ({ findOne: async () => null }) }) as never;
     await expect(orderPlan(host, String(o))).rejects.toThrow('Заказ не найден');
+  });
+
+  it('план: нет «нашей фирмы» и нет поставщика у черновика — готовая позиция blocked с причиной', async () => {
+    const r = await orderPlan(make({ hasOurSupplier: async () => false }).host, String(o));
+    expect(r.lines[0]).toMatchObject({ state: 'blocked' });
+    expect(r.lines[0].missing[0]).toMatch(/Поставщик/);
   });
 });

@@ -12,6 +12,8 @@ export interface OrderHost {
   templateMissing: (productId: string, variant?: string) => Promise<string[]>;
   /** Черновик на позицию (поля заказа подтягиваются из позиции). */
   createDraft: (incomeId: string, title?: string) => Promise<{ id: string }>;
+  /** Есть ли «наша фирма» — поставщик новых паспортов по умолчанию. */
+  hasOurSupplier: () => Promise<boolean>;
   issue: (id: string) => Promise<unknown>;
   discard: (id: string) => Promise<void>;
 }
@@ -47,19 +49,25 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
   const order = await orderOf(db, orderId);
   const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { title: 1, qty: 1, lineNo: 1, productId: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
   const ids = incomes.map((i) => i._id);
-  const pass = ids.length ? await db.collection('productpassports').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'annulled' } }, { projection: { incomeId: 1, status: 1, passportNumber: 1 } }).sort({ createdAt: 1 }).toArray() : [];
+  const pass = ids.length ? await db.collection('productpassports').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'annulled' } }, { projection: { incomeId: 1, status: 1, passportNumber: 1, supplierOrgId: 1 } }).sort({ createdAt: 1 }).toArray() : [];
   const byIncome = new Map<string, Doc>();
   for (const p of pass) { const k = String(p.incomeId); const had = byIncome.get(k); if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(k, p); } // выпущенный важнее черновика
   const pids = [...new Set(incomes.filter((i) => i.productId).map((i) => String(i.productId)))];
   const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray() : [];
   const pname = new Map(prods.map((p) => [String(p._id), String(p.name ?? '')]));
   const lines: PlanLine[] = [];
+  let ourSupplier: boolean | null = null;
   for (const inc of incomes) {
     const p = byIncome.get(String(inc._id));
     const issued = !!p && isIssued(p);
     const productId = inc.productId ? String(inc.productId) : null;
     let missing: string[] = [];
     if (!issued) missing = !productId ? ['К позиции не привязано изделие'] : brief(await h.templateMissing(productId, variant));
+    // выпуск требует поставщика: у черновика он есть, иначе берётся «наша фирма» — нет ни того ни другого, позиция не готова уже на плане
+    if (!issued && productId && !missing.length && !p?.supplierOrgId) {
+      ourSupplier ??= await h.hasOurSupplier();
+      if (!ourSupplier) missing = ['Поставщик (отметьте «нашу фирму» в организациях)'];
+    }
     lines.push({
       incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
       passport: p ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft' } : null,

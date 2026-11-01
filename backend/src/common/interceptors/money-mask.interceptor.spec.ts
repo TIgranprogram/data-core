@@ -33,3 +33,12 @@ describe('MoneyMaskInterceptor — статус оплаты (2026-10-24)', () =
     expect(out).toBe(resp);
   });
 });
+
+describe('MoneyMaskInterceptor — total (суммы КП)', () => {
+  it('total режется глубже корня, а в корне (пагинация) остаётся', async () => {
+    const { out } = await run('user', { items: [{ total: 2000, items: [{ total: 5, name: 'a' }] }], total: 7, page: 1, limit: 20 });
+    expect(out.total).toBe(7);
+    expect(out.page).toBe(1);
+    expect(JSON.stringify(out.items)).not.toContain('total');
+  });
+});

@@ -112,6 +112,12 @@ export async function loadQueue(db: Db, q: { due?: string; search?: string; limi
   return buildQueue({ works, tasks, incomes, orders, passports, products, seq: await loadSeq(db, orderIds) }, q);
 }
 
+/** Наша организация-изготовитель (isOurCompany) — поставщик паспорта по умолчанию; одна на план и выпуск. */
+export async function ourSupplierId(db: Db): Promise<Types.ObjectId | null> {
+  const o = await db.collection('organizations').findOne({ isOurCompany: true, deletedAt: null }, { projection: { _id: 1 }, sort: { createdAt: 1, _id: 1 } });
+  return (o?._id as Types.ObjectId | undefined) ?? null;
+}
+
 /** Паспорт «из очереди»: по позиции подставляются заказ, № заказа, изделие, заказчик (явно переданное не затирается). */
 export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise<CreateProductPassportDto> {
   if (!dto.incomeId) return dto;
@@ -124,6 +130,7 @@ export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise
     orderNo: dto.orderNo ?? (o?.orderNo as string | undefined),
     customerName: dto.customerName ?? (o?.customer as string | undefined),
     productId: dto.productId ?? (inc.productId ? String(inc.productId) : undefined),
+    supplierOrgId: dto.supplierOrgId ?? ((await ourSupplierId(db))?.toString()),
   };
 }
 
