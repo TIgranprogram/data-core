@@ -83,7 +83,42 @@
 - **Доска** `.board`: колонки `.col` по статусам, карточки `.tcard`.
 - **Операции**: `.ops-grid` — подбор слева, список справа (`.ops-cart`, липкий).
 
-## 4. Каталог компонентов (`base.css`)
+## 4. Каталог эталонов kit (`ui/kit/`)
+
+**Закон (2026-10-31/11-01):** экран собирается только из эталонов `ui/kit/index.js` (`import … from '../ui/kit/index.js'`). Все варианты видны в витрине `#kit` (`sections/kit.js`). **Новый вид — только через новый вариант эталона в kit + витрина; свои классы, свой CSS раздела, inline `style`, новый `ui/*.js` вне kit запрещены, `node backend/scripts/design-lint.mjs` это ловит (должен быть 0).** Нет подходящего варианта — стоп, запрос «нужен вариант X эталона Y». ТЗ — `docs/roles/tz/DESIGN-KIT.md`.
+
+| Эталон | Когда использовать | Вызов |
+|--|--|--|
+| button | любое действие; одна `primary` на экран, `danger` только в карточке | `button({ label, kind: primary/secondary/ghost/danger, size: M/S, icon?, onClick, busy?, disabled?, title? })` |
+| iconButton | действие значком (✕, ⋯); подпись (aria) обязательна | `iconButton({ icon, label, onClick, size?, menu?, title? })` |
+| link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
+| segmented | переключатель вида/режима, 2–4 пункта | `segmented({ items: [{key,label,tone?}], value, onChange(key), label })` → `{ el, set }` |
+| card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |
+| row | строка списка/корзины; `qty`/`diff` — раскладка «корзина» | `row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, onClick, tag })` |
+| badge | статус словами: карта или одиночная метка ok/warn/danger/info/dim | `badge(MAP, key)` · `badge('Текст', 'ok')`; карты `SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY` |
+| empty | пусто / ничего не найдено, с подсказкой | `empty(…)` (= `emptyState`) |
+| stat | строка цифр-итогов | `stat({ value, label })`, `stats([…])` |
+| toolbar | полоса кнопок/фильтров над списком | `toolbar(…узлы)` |
+| tabs | вкладки раздела и панели (статусы, «Заявки/Счета», колокольчик, «Сотрудники») | `tabs({ items: [{key,label,count?}], value, onChange(key), label })` → `{ el, set }` |
+| board (+ density / cardMenu / group) | доска по статусам с сервера, DnD, порции; `density` normal/compact/pics; `cardMenu` — «⋯» на карточке; `group` — группа ▸/▾ (счёт, заказ) | `board(cfg, path, query, { onOpen, onChanged, onTotal })`; поля cfg — шапка `ui/kit/board.js` |
+| boardStatic | доска без сервера (малые списки) | `boardStatic({ columns: [{key,label,tone,hint?,cards,empty?}], density })` |
+| layout.split | боковой список + основная область; на телефоне список за кнопкой | `layout.split({ side, main, sideLabel })` |
+| filter chips / facets / funnel | chips — фишки значений; facets — признаки склада; funnel — воронка по шагам | `filter({ mode, … })` (`chipsFilter`, `facetFilter`, `stepFunnel`) |
+| pick single / combo / multi / tags + поле `.k-field` | single — длинный `<select>`; combo — поле + список; multi — несколько через запятую; tags — метки | `pick({ mode, select/input, options, onPick, … })` (`enhanceSelect`, `attachCombo`, `tagPick`, `attachSuggest`) |
+| table list / input + maxHeight | list — таблица строк; input — ввод строк в форме; `maxHeight` S/M/L — своя прокрутка. Списки с поиском и страницами — `mountList` | `table({ columns, rows, mode, empty, foot, clickable, maxHeight })` |
+| panel | правая панель / предпросмотр: шапка, блоки, подвал (запись — `openCard`) | `panel({ title, sub?, kind?, blocks: [{title?,body}], footer, onClose })` |
+| timeline / Гант | лента времени «В работе»; стили `kit/timeline.css` | `mountGantt(cfg, path, query, hooks)` (`ui/gantt.js`) |
+| dialog | подтверждение или 1–3 поля; больше — правая панель | `modal({ title, body, okText, danger, wide, onOk })`, `confirmDlg(title, text, { okText, danger })` |
+| toast | результат действия, «Отменить»; сбой — `toastError`; в блоке — `failBlock` / `busyBlock` | `toast(text, { undo, actions, tone, sub })`, `toastError(e, 'действие')` |
+
+Где смотреть: витрина `#kit`; сигнатуры и опции — шапки `ui/kit/index.js`, `board.js`, `table.js`, `panel.js`, `filter.js`, `pick.js`.
+
+### Исключения (вне kit, 2026-11-01)
+Календарь денег `table.cal`; сетки `pg-table`; табличный ввод `materials-spec` / `rows-table` (внутри `table mode: 'input'`); печать КП и паспортов (печатные стили); SVG помощи (`help-flow`). Всё остальное — только kit.
+
+### 4.0 Классы прежнего каталога (наследие)
+Ниже — классы, на которых стоят эталоны и ещё не переведённые экраны. Для новых экранов не источник: берите эталон выше.
+
 
 | Компонент | Классы | Когда |
 |--|--|--|

@@ -5,6 +5,7 @@ import { current, go } from '../core/router.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
+import { tabs as kitTabs } from '../ui/kit/index.js';
 
 /**
  * «Управление → Сотрудники» (ЗО-2): список сотрудников, вкладка «Зоны», плашка «Не назначено».
@@ -26,12 +27,11 @@ export function mountStaff(params) {
   let zones = null;   // GET /zones
   let staff = null;   // GET /staff
   const note = h('div', { class: 'st-note' });
-  const tabsEl = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Сотрудники' });
+  const tabsKit = kitTabs({ items: TABS.map(([key, label]) => ({ key, label })), value: tab, label: 'Сотрудники', onChange: (k) => { if (tab !== k) go('staff', k === 'staff' ? {} : { tab: k }, { replace: true }); } });
   const body = h('div', { class: 'st-body' });
-  const el = h('div', { class: 'staff' }, h('div', { class: 'page-head' }, h('h1', null, 'Сотрудники'), h('span', { class: 'muted small' }, 'Кто за что отвечает: уведомления приходят людям своей зоны.')), note, tabsEl, body);
+  const el = h('div', { class: 'staff' }, h('div', { class: 'page-head' }, h('h1', null, 'Сотрудники'), h('span', { class: 'muted small' }, 'Кто за что отвечает: уведомления приходят людям своей зоны.')), note, tabsKit.el, body);
 
-  const drawTabs = () => tabsEl.replaceChildren(...TABS.map(([k, label]) =>
-    h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '', onclick: () => { if (tab !== k) go('staff', k === 'staff' ? {} : { tab: k }, { replace: true }); } }, label)));
+  const drawTabs = () => tabsKit.set(tab);
 
   function drawNote() {
     const un = zones?.unassigned || [];

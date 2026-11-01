@@ -1079,8 +1079,6 @@
   "side-ver-foot": 1,
   "ver-num": 1,
   "ver-update": 2,
-  "bell-tabs": 1,
-  "bell-tab": 3,
   "bell-item": 4,
   "is-link": 1,
   "bell-head": 2,
@@ -2729,15 +2727,6 @@
   "backend/pwa/ui/screens.css | .ver-update | color": 1,
   "backend/pwa/ui/screens.css | .ver-update | font-weight": 1,
   "backend/pwa/ui/screens.css | .ver-update | font-size": 1,
-  "backend/pwa/ui/screens.css | .bell-tabs | border-bottom": 1,
-  "backend/pwa/ui/screens.css | .bell-tab | border": 1,
-  "backend/pwa/ui/screens.css | .bell-tab | border-radius": 1,
-  "backend/pwa/ui/screens.css | .bell-tab | background": 1,
-  "backend/pwa/ui/screens.css | .bell-tab | color": 1,
-  "backend/pwa/ui/screens.css | .bell-tab | font": 1,
-  "backend/pwa/ui/screens.css | .bell-tab | font-weight": 1,
-  "backend/pwa/ui/screens.css | .bell-tab.on | background": 1,
-  "backend/pwa/ui/screens.css | .bell-tab.on | color": 1,
   "backend/pwa/ui/screens.css | .cv-list, .cv-conv | background": 1,
   "backend/pwa/ui/screens.css | .cv-head h2 | font-size": 1,
   "backend/pwa/ui/screens.css | .cv-head h2 | color": 1,
@@ -3401,5 +3390,5 @@
   "backend/pwa/sections/stock-ops.js | k-diff": 5,
   "backend/pwa/sections/stock-ops.js | k-note": 1
  },
- "screensLines": 1711
+ "screensLines": 1708
 }

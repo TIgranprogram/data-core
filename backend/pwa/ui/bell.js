@@ -1,5 +1,5 @@
 import { h } from '../core/dom.js';
-import { button } from './kit/index.js';
+import { button, tabs as kitTabs } from './kit/index.js';
 import { api } from '../core/api.js';
 import { icon } from './icons.js';
 import { setBadgePart } from './app-badge.js';
@@ -84,12 +84,9 @@ export function bellButton() {
         : [h('div', { class: 'bell-empty' }, S.tab === 'important' ? 'Важных уведомлений нет. Сюда приходит то, что требует вашего внимания.' : 'Системных сообщений нет.')])];
   }
   function paint() {
-    const tabs = h('div', { class: 'bell-tabs', role: 'tablist' }, ...TABS.map(([k, label]) => {
-      const n = k === 'important' ? S.unread.important : 0;
-      return h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === k), class: 'bell-tab' + (S.tab === k ? ' on' : ''),
-        onclick: (e) => { e.stopPropagation(); S.tab = k; paint(); loadTab(k); } }, label, n ? h('span', { class: 'bell-badge static' }, n > 9 ? '9+' : String(n)) : null);
-    }));
-    pop.replaceChildren(tabs, ...body());
+    const tabs = kitTabs({ items: TABS.map(([key, label]) => ({ key, label, count: key === 'important' && S.unread.important ? (S.unread.important > 9 ? '9+' : S.unread.important) : undefined })), value: S.tab, label: 'Уведомления', onChange: (k) => { S.tab = k; paint(); loadTab(k); } });
+    tabs.el.addEventListener('click', (e) => e.stopPropagation());
+    pop.replaceChildren(tabs.el, ...body());
   }
 
   const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };

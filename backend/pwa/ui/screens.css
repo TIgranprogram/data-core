@@ -984,9 +984,6 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .ver-update { color: var(--gold); font-weight: 700; text-decoration: underline; min-height: 24px; display: inline-flex; align-items: center; }
 @media (max-width: 720px) { .ver-update { min-height: 44px; font-size: var(--fs-sm); } }
 /* УВ: колокольчик — вкладки, переписки; чат в правой панели */
-.bell-tabs { display: flex; gap: var(--s1); padding: 0 var(--s1) var(--s2); border-bottom: 1px solid var(--border); margin-bottom: var(--s2); }
-.bell-tab { flex: 1; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
-.bell-tab.on { background: var(--surface-2); color: var(--heading); }
 .bell-badge.static { position: static; display: inline-block; }
 .bell-item.is-link { cursor: pointer; }
 .bell-head > span { display: inline-flex; gap: var(--s1); }
@@ -1030,7 +1027,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .cv-pics .cv-up { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: var(--fs-sm); }
 .cv.over .cv-conv { outline: 2px dashed var(--gold); outline-offset: -4px; }
 @media (max-width: 720px) {
-  .cv-row, .bell-tab { min-height: 44px; }
+  .cv-row { min-height: 44px; }
   .cv-back, .chat-form .btn, .chat-form .btn-icon { min-width: 44px; min-height: 44px; }
   .chat-msg { max-width: 92%; }
 }

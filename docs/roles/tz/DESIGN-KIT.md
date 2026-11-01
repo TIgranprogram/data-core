@@ -18,18 +18,20 @@
 
 ## Чек-лист
 ### Этап 0 — инвентаризация и защита
-- [ ] K-0.1 `ui-inventory.mjs` → `docs/audit/UI-KIT-INVENTORY.md`: семейство → файл → разделы-потребители → свои классы; на семейство 1 эталон (лучший существующий вид, новый не изобретать).
-- [ ] K-0.2 design-lint v2 (`backend/scripts/design-lint.mjs` + `design-allow.json` с причиной и датой + `design-baseline.json`): R1 новый `ui/*.js` вне kit; R2 раздел импортирует ui/* вместо kit (кроме списка «наследие», он только сокращается); R3 новый класс вне kit (против baseline); R4 цвет/фон/рамка/тень/радиус/шрифт в CSS раздела; R5 `style=`/`.style.` в разделах (кроме CSS-переменных `--w`, `--x`); R6 screens.css только уменьшается (храповик); R7 `className` с неизвестным классом.
-- [ ] K-0.3 Запуск линтера: `dc check`, pwa-guards (значит, ворота выкладки), хук при правке `backend/pwa`.
+- [x] K-0.1 (2026-11-01) `ui-inventory.mjs` → `docs/audit/UI-KIT-INVENTORY.md`: семейство → файл → разделы-потребители → свои классы; на семейство 1 эталон (лучший существующий вид, новый не изобретать).
+- [x] K-0.2 (2026-11-01) design-lint v2 (`backend/scripts/design-lint.mjs` + `design-allow.json` с причиной и датой + `design-baseline.json`): R1 новый `ui/*.js` вне kit; R2 раздел импортирует ui/* вместо kit (кроме списка «наследие», он только сокращается); R3 новый класс вне kit (против baseline); R4 цвет/фон/рамка/тень/радиус/шрифт в CSS раздела; R5 `style=`/`.style.` в разделах (кроме CSS-переменных `--w`, `--x`); R6 screens.css только уменьшается (храповик); R7 `className` с неизвестным классом.
+- [x] K-0.3 (2026-11-01) Запуск линтера: `dc check`, pwa-guards (значит, ворота выкладки), хук при правке `backend/pwa`.
 ### Этап 1 — эталоны и доски (видимый результат)
-- [ ] K-1.1 kit: card S/M/L, board, badge, empty, button, tabs + витрина `#kit`; новые файлы — в precache service worker, версия кэша +1.
-- [ ] K-1.2 Одна доска: «В работе», «Проектирование», «Заказы» — `kit.board`, одна плотность; `board.js`/`design-board.js` → обёртки.
-- [ ] K-1.3 Склад: плитки card S, различие — tone и иконка категории, не свои стили.
+- [x] K-1.1 (2026-11-01) kit: card S/M/L, board, badge, empty, button, tabs + витрина `#kit`; новые файлы — в precache service worker, версия кэша +1.
+- [x] K-1.2 (2026-11-01) Одна доска: «В работе», «Проектирование», «Заказы» — `kit.board`, одна плотность; `board.js`/`design-board.js` → обёртки.
+- [x] K-1.3 (2026-11-01) Склад: плитки card S, различие — tone и иконка категории, не свои стили.
 ### Этап 2 — фильтры и выборы
-- [ ] K-2.1 filter (chips | facets | funnel) вместо cat-chips / facet-filter / funnel / step-funnel.
-- [ ] K-2.2 pick (single | multi | tags | combo) вместо select / combo / tag-pick / suggest.
+- [x] K-2.1 (2026-11-01) filter (chips | facets | funnel) вместо cat-chips / facet-filter / funnel / step-funnel.
+- [x] K-2.2 (2026-11-01) pick (single | multi | tags | combo) вместо select / combo / tag-pick / suggest.
 ### Этап 3 — таблица, панель, остальное
-- [ ] K-3.1 table и panel; K-3.2 по одному семейству за выкладку; мёртвые блоки screens.css удалить; цель screens.css < 400 строк.
+- [x] K-3.1 (2026-11-01) table и panel; K-3.2 по одному семейству за выкладку; мёртвые блоки screens.css удалить; цель screens.css < 400 строк.
+**Осталось (2026-11-01):** K-3.2 — screens.css < 400 строк и добивка мёртвых блоков; «проверка глазами» (designer на 390/1024/1920) — по описи docs/audit/UI-KIT-INVENTORY.md. Каталог эталонов — DESIGN.md §4.
+
 ### Готово для семейства
 0 импортов старого файла · 0 разделов со своим классом семейства · витрина показывает все варианты · designer принял на 390/1024/1920.
 
