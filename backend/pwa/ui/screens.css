@@ -895,7 +895,7 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 
 /* Проверка дизайнера 2026-10-23: строка-пояснение в списке выбора («ещё N — уточните поиск») без «руки»; кнопки-иконки на телефоне — 44 px и в ширину */
 .sg-row.static, tr.static { cursor: default; }
-@media (max-width: 720px) { .btn-icon { min-width: 44px; } }
+@media (max-width: 720px) { .btn, .btn-icon { min-width: 44px; } }
 
 /* Склад одной страницей (SK-4b): крупные кнопки действий над остатками и панель действия справа */
 .sop-head { display: flex; align-items: baseline; gap: var(--s3); justify-content: space-between; margin-top: var(--s3); }

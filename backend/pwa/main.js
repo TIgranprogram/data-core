@@ -251,7 +251,7 @@ function shell() {
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
     chatButton(),
     bellButton(),
-    h('a', { class: 'btn btn-ghost btn-icon', href: '#help', title: 'Работа с сайтом: с чего начать', 'aria-label': 'Работа с сайтом' }, icon('help')),
+    h('a', { class: 'btn btn-ghost btn-icon hide-sm', href: '#help', title: 'Работа с сайтом: с чего начать', 'aria-label': 'Работа с сайтом' }, icon('help')),
     themeButton(),
     avatarButton());
   const main = h('main', { class: 'page', id: 'page' });
@@ -297,7 +297,7 @@ const historyButton = () => h('a', { class: 'btn btn-ghost btn-icon', href: '#hi
 
 /** Иконка темы в шапке: система → светлая → тёмная (theme.js). */
 function themeButton() {
-  const btn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', onclick: () => { window.dcTheme?.cycle(); upd(); } }, icon('theme'));
+  const btn = h('button', { class: 'btn btn-ghost btn-icon hide-sm', type: 'button', onclick: () => { window.dcTheme?.cycle(); upd(); } }, icon('theme'));
   const upd = () => { const t = 'Тема: ' + (window.dcTheme?.name() || 'как в системе'); btn.title = t; btn.setAttribute('aria-label', t); };
   upd();
   return btn;
@@ -312,6 +312,7 @@ function avatarButton() {
         head: h('div', { class: 'pm-who' }, h('b', null, session.name || ''), h('span', null, session.user?.roleLabel || roleName(session.user?.role))),
         groups: [
           { items: [{ label: 'Мой профиль', icon: 'admin', onSelect: () => go(current().section, { ...current().params, of: 'profile', open: 'me' }) },
+            { label: 'Работа с сайтом', icon: 'help', onSelect: () => { window.location.hash = '#help'; } },
             { label: 'Тема: ' + (window.dcTheme?.name() || 'как в системе'), icon: 'theme', onSelect: () => window.dcTheme?.cycle() }] },
           { sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] }] });
     } });

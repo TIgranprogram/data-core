@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo, tabs, table, tabs as kitTabs } from '../ui/kit/index.js';
+import { attachCombo, tabs, table, empty, tabs as kitTabs } from '../ui/kit/index.js';
 import { modal } from '../ui/dialog.js';
 import { carousel } from '../ui/gallery.js';
 import { toastError } from '../ui/toast.js';
@@ -38,7 +38,9 @@ function requestsView(onCount) {
   function paint(r) {
     const items = r.items || [];
     if (!items.length) {
-      box.replaceChildren(h('div', null, S.status === 'open' && !S.search ? 'Заявок нет. Менеджер отправляет новое изделие из заказа: позиция «Новое изделие».' : 'Ничего не найдено'));
+      box.replaceChildren(S.status === 'open' && !S.search
+        ? empty({ title: 'Заявок на новые изделия нет', hint: 'Появятся, когда менеджер добавит в заказ позицию «Новое изделие».' })
+        : empty({ title: 'Ничего не найдено', hint: 'Смените состояние или поисковый запрос.' }));
       return;
     }
     const rows = items.map((x) => h('tr', { tabindex: '0', class: 'clickable', onclick: () => openCard(x.id), onkeydown: (e) => { if (e.key === 'Enter') openCard(x.id); } },
@@ -85,7 +87,7 @@ export function withRequestsTab(mountInner) {
     const pick = (req) => { const P = current().params; go('design', { ...P, tab: req ? 'requests' : undefined, of: undefined, open: undefined, new: undefined }, { replace: true }); };
     function paintTabs() {
       const req = isReq();
-      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, { key: 'requests', label: `Заявки на создание изделия (${n})` }], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el);
+      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, ...(n > 0 || req ? [{ key: 'requests', label: `Заявки на создание изделия (${n})` }] : [])], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el);
     }
     function show() {
       const req = isReq();

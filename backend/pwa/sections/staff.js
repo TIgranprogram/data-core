@@ -5,7 +5,7 @@ import { current, go } from '../core/router.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
-import { tabs as kitTabs } from '../ui/kit/index.js';
+import { tabs as kitTabs, empty as kitEmpty } from '../ui/kit/index.js';
 
 /**
  * «Управление → Сотрудники» (ЗО-2): список сотрудников, вкладка «Зоны», плашка «Не назначено».
@@ -70,7 +70,7 @@ export function mountStaff(params) {
   function drawStaff() {
     const items = staff?.items || [];
     const logins = loginsBlock(items);
-    if (!items.length) { body.replaceChildren(...[logins, h('div', { class: 'state' }, 'Сотрудников пока нет. Добавьте их в «Данных → Сотрудники» — они появятся здесь.')].filter(Boolean)); return; }
+    if (!items.length) { body.replaceChildren(...[logins, kitEmpty({ title: 'Сотрудников пока нет', hint: 'Добавьте их в «Данных → Сотрудники» — они появятся здесь.' })].filter(Boolean)); return; }
     body.replaceChildren(...[logins, h('ul', { class: 'st-list' }, ...items.map((p) => h('li', null, h('button', { type: 'button', class: 'st-row', onclick: () => openPanel('staffcard', p.id) },
       h('span', { class: 'st-main' }, h('b', null, p.name), h('span', { class: 'muted small' }, [p.position, p.statusLabel && p.statusLabel !== 'Работает' ? p.statusLabel : ''].filter(Boolean).join(' · ') || 'должность не указана')),
       h('span', { class: p.hasLogin ? 'badge ok' : 'badge warn', title: p.hasLogin ? 'Получает уведомления' : 'Сотрудник не связан со входом — ему не приходят уведомления' }, p.hasLogin ? 'вход: ' + (p.login?.username || 'связан') : 'нет входа — открыть и дать вход'),
@@ -79,6 +79,7 @@ export function mountStaff(params) {
 
   function drawZones() {
     const items = zones?.items || [];
+    if (!items.length) { body.replaceChildren(kitEmpty({ title: 'Зон пока нет', hint: 'Зона — направление, за которое отвечают люди; им приходят уведомления этой зоны.' })); return; }
     body.replaceChildren(h('ul', { class: 'st-list' },
       ...items.map((z) => h('li', null, h('button', { type: 'button', class: 'st-row' + (z.active ? '' : ' off'), onclick: () => openPanel('zonecard', z.id) },
         h('span', { class: 'st-main' }, h('b', null, z.name + (z.active ? '' : ' (скрыта)')), h('span', { class: 'muted small' }, z.hint || '')),

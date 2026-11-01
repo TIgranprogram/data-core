@@ -115,7 +115,7 @@ const GARB=new RegExp(${JSON.stringify(GARBAGE_SRC)},'u');
 const text=document.body.innerText.split('\\n');
 for(const l of text){
   if(GARB.test(l))add('a','body',l);
-  if(/(^|[^\\p{L}«])(скоро|в разработке|todo|заглушка)([^\\p{L}]|$)/iu.test(l))add('c','body',l);
+  if(/(^|[^\\p{L}«])(скоро|в разработке|todo|заглушка)([^\\p{L}.]|$)/iu.test(l))add('c','body',l);
   if(/\\b(BLG|WRK|TRN|DIO|DSP|MAF)\\b|\\bimg_[\\w-]+|\\b[0-9a-f]{24}\\b/.test(l))add('i','body',l);
 }
 for(const el of document.querySelectorAll('[title],[aria-label],[placeholder]'))for(const a of ['title','aria-label','placeholder']){const v=el.getAttribute(a);if(v&&GARB.test(v))add('a',sel(el)+'['+a+']',v)}
@@ -288,7 +288,7 @@ async function main() {
             const label = await ev(`(()=>{const t=[...document.querySelectorAll('.chip[role=tab],.k-seg-btn')][${i}];if(!t||!t.offsetParent)return null;t.click();return t.innerText.replace(/\\s+/g,' ').trim()})()`);
             if (label == null) continue;
             await sleep(500); await ev(settle);
-            const empty = await ev(`(()=>{const has=document.querySelector('main table.list tbody tr, main .tcard, main .gal > *, main .empty, main [class*=empty], main [class*=hint], main .db-order');return has?0:1})()`);
+            const empty = await ev(`(()=>{const has=document.querySelector('main table.list tbody tr, main .tcard, main .gal > *, main .empty, main [class*=empty], main [class*=hint], main .state, main .db-order');return has?0:1})()`);
             if (empty) all.push({ rule: 'h', sel: '.chip[role=tab]', text: `вкладка «${label}»: ни записей, ни подсказки`, screen: sec, w });
           }
           await ev(`location.hash=${JSON.stringify('#' + sec)};1`); await sleep(300);

@@ -5,6 +5,7 @@ import { qty, parseNum } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
 import { toast } from '../ui/toast.js';
+import { empty } from '../ui/kit/index.js';
 
 /**
  * «Требуют заполнения» по категориям (TASKS ТЗ.3–ТЗ.4). Данные — `/api/fill-audit`: группа = что не заполнено,
@@ -66,7 +67,7 @@ export function mountFill(params) {
       h('div', { class: 'sub' }, 'Без этих данных неточно считаются деньги и аналитика. Откройте группу → «Заполнить» — карточка откроется сразу на нужном поле. Счёт можно вписать прямо в строке.'))),
     box);
   function render() {
-    if (!data.groups.length) { box.replaceChildren(h('div', { class: 'panel state' }, 'Всё заполнено — аналитика и деньги считаются полностью 👍')); return; }
+    if (!data.groups.length) { box.replaceChildren(empty({ title: 'Всё заполнено — аналитика и деньги считаются полностью 👍', hint: 'Здесь появятся записи, где не указан счёт, статья или контрагент.' })); return; }
     const areas = [...new Set(data.groups.map((g) => g.area))];
     box.replaceChildren(...areas.flatMap((a) => [h('h3', { class: 'fill-area' }, a),
       ...data.groups.filter((g) => g.area === a).map((g) => groupBlock(g, openKey === g.key, () => { openKey = openKey === g.key ? '' : g.key; patch({ g: openKey || undefined }); render(); }, saved))]));
