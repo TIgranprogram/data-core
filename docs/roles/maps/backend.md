@@ -1,5 +1,8 @@
 # Карта роли backend
 
+## Фото и файлы изделия (PRODUCT-FILES a–c, 2026-11-01, не закоммичено)
+- `modules/product-photo/` (`product-photo-purpose.ts` фильтр/проверка, `.dto.ts`, `.service.ts`), `scripts/passport-images-to-product.js` (+ `.test.mjs`), `product-passport/passport-product-images.ts`, `product-passport.service.ts` `effectiveImages`/`freezeImages`/`check` (изделие+template+hint), `passport-rules.ts` `imageRules`/`missingHint`, `passport-issue.ts` (заморозка), папки загрузок `common/uploads/upload-folder.ts` + `photos.service.ts upload(file, folder)`. e2e/openapi не трогались. коммит: —
+
 ## Позиции заказа (ORDER-LINES шаги 1–4, 2026-10-31, не закоммичено)
 - `modules/product-requests/` (schema `productrequests`, service: `attachIncome`/`recalc`/`confirm`/`reject`, controller, `product-request-rules.ts` + spec), `incomes/line-type.ts` (`checkLine`) + `incomes.service.ts` `checkType`/`markService`/`syncRequest`, `matching-rules.ts` `request`/`isUnassigned`, `salesorders.service.ts` `UNASSIGNED`/`unassignedCount`. `ShowcaseModule` теперь экспортирует ShowcaseService. Тесты не запускались; e2e не писался, openapi не обновлён.
 

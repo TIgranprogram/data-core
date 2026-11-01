@@ -141,3 +141,5 @@ export { filter, chipsFilter, stepFunnel, facetFilter, parseFt, ftQuery, ftParam
 export { SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY, PRIORITY, supplyKey } from '../badges.js';
 export { openPopMenu } from '../pop-menu.js';
 export { draggable, afterDrag } from '../drag.js';
+export { carousel } from '../gallery.js';
+export { uploadPhoto, photoDrop } from '../photos.js';

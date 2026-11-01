@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -56,11 +57,11 @@ export class PhotosController {
   @Throttle({ short: { ttl: 60_000, limit: 60 } })
   @UseInterceptors(FileInterceptor('file'))
   @AuditAction({ action: 'create', entityType: 'Photo' })
-  async upload(@UploadedFile() file: UploadedPhotoFile) {
+  async upload(@UploadedFile() file: UploadedPhotoFile, @Query('purpose') purpose?: string) {
     if (!file) {
       throw new Error('No file uploaded (field name must be "file")');
     }
-    const result = await this.service.upload(file);
+    const result = await this.service.upload(file, purpose);
     if (result.original.mimeType === 'application/pdf') {
       const o = result.original;
       return { ...o.toObject(), url: o.storageUrl, name: o.originalFilename, mime: o.mimeType, variants: {} };

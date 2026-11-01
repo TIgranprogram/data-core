@@ -1,3 +1,4 @@
+import { PASSPORT_IMAGE_KINDS } from './product-passport.schema';
 import { imageKindAllowed, foundationRequired, variantOf, OPTIONAL_FIELDS, type InstallKind, type PassportVariant, type VariantCtx } from './passport-variants';
 
 /**
@@ -201,6 +202,17 @@ export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImage
   return res;
 }
 
+/**
+ * Правила рисунков по категории — ОДНА функция для экрана, /passports/check, «не хватает» и печати:
+ * required — обязательные виды (справочник категории + фундамент при бетонировании), slots — виды, которые вообще
+ * нужны этому изделию (зона безопасности — только DIO, фундамент — не при анкере, дополнительные виды — только в полном).
+ */
+export function imageRules(p: { isKit?: boolean }, cat: { requiredImages?: string } | null | undefined, ctx: VariantCtx): { required: string[]; slots: string[] } {
+  const required = requiredImageKinds(p, cat, ctx);
+  const slots = PASSPORT_IMAGE_KINDS.filter((k) => k !== 'safety' && (imageKindAllowed(k, ctx) || required.includes(k)));
+  return { required, slots: [...slots] };
+}
+
 export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null, opts?: VariantOpts): string[] {
   const code = String(p.passportCategory || '');
   const ctx: VariantCtx = { category: code, install: opts?.install ?? 'unknown', variant: variantOf(opts?.variant) };
@@ -236,7 +248,26 @@ export function missingKeyed(p: PassportV2Like, cat?: { requiredImages?: string;
   const byLabel = new Map<string, string>(Object.entries(V1_FIELD_KEYS));
   for (const [k, l] of requiredFieldsOf(String(p.passportCategory || ''), cat)) byLabel.set(l, k);
   for (const [k, l] of Object.entries(IMAGE_KIND_LABELS)) byLabel.set(`Рисунок: ${l}`, 'img_' + (k === 'safety_zone' ? 'safety' : k));
-  return missingFieldsV2(p, cat, opts).map((label) => ({ label, key: byLabel.get(label) ?? '' }));
+  return missingFieldsV2(p, cat, opts).map((label) => { const key = byLabel.get(label) ?? ''; return { label, key, hint: missingHint(key, label) }; });
+}
+
+/** Поля ЭКЗЕМПЛЯРА паспорта (задаются при выпуске на заказ): в шаблоне изделия («template») не требуются. */
+export const INSTANCE_FIELD_KEYS: readonly string[] = ['date', 'supplierOrgId', 'passportNumber', 'customerName', 'objectName', 'orderNo', 'saleDate', 'mountDate'];
+
+/** Подсказка к пункту «не хватает»: что ввести и где (по-русски, путь по экранам). */
+export function missingHint(key: string, label: string): string {
+  const card = 'Карточка изделия';
+  if (key.startsWith('choice:')) return 'Тексты паспорта → выберите вариант раздела (или впишите свой текст)';
+  if (key.startsWith('img_')) return `${card} → Фото и файлы → Для паспорта → «${label.replace(/^Рисунок: /, '')}»`;
+  const byKey: Record<string, string> = {
+    name: `${card} → Название`, category: `${card} → Паспорт → Категория (или у группы изделий)`,
+    date: 'Укажите при выпуске паспорта на заказ (дата паспорта)', supplierOrgId: 'Укажите при выпуске паспорта на заказ (организация-поставщик)',
+    height: `${card} → Характеристики → Габариты (длина, ширина, высота)`, weight: `${card} → Характеристики → Вес`,
+    materials: `${card} → Состав → Материалы изделия`, installationMethod: `${card} → Паспорт → Способ установки`,
+    installationTypeId: `${card} → Паспорт → Способ установки`, purpose: `${card} → Паспорт → Элементы (назначение собирается из них)`,
+    elements: `${card} → Паспорт → Элементы`, description: 'Собирается из названия, материалов и назначения — заполните их',
+  };
+  return byKey[key] ?? (key ? `${card} → Паспорт → «${label}»` : `Заполните «${label}»`);
 }
 
 /** Комплектность по умолчанию (Приложение 3). */

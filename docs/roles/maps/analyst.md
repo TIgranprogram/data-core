@@ -78,3 +78,10 @@
 
 ## Аудит «Разбор / ночные прогоны / дашборд» (2026-10-30)
 - `docs/audit/AUDIT-CONTROL-CENTER.md`. Образец «без висячих» — `fill-audit.service.ts:136`; merge-эндпоинты `partners.controller.ts:73`, `dicts.controller.ts:107`; единственная история метрики — `disk_usage_history` (`disk.controller.ts:59`); `clienterrors` TTL 30 дн; планировщика нет (только setInterval); в админке нет правой панели (DESIGN.md:289), `admin.js` 1576 строк, вход только admin (:1572). Вопросы 1–5 в отчёте, в QUESTIONS не перенесены. коммит: —
+
+## Паспорт за несколько шагов (PFA, 2026-11-01)
+- Аудит `docs/audit/PASSPORT-FLOW-AUDIT.md`. Входы: `pwa/sections/docs.js:30–110` (шаблон), `passports/models.js:52` (issuePassport → черновик), мастер `passports/passport-wizard.js:14`; правила выпуска `passport-rules.ts:195–219`; выпуск/снимок `passport-issue.ts:28`.
+- Копия базы: 480 изделий, 0 готовы к новому выпуску; `categories.passportCategory` 0/56; размеры в изделии 0. Архива «выдано заказчику» нет (`generated_documents` пуст). Вопросы F1–F3 в отчёте. коммит: —
+
+## Тексты паспорта по нормам (ПТ, 2026-11-01)
+- `docs/audit/PASSPORT-TEXTS-REVIEW.md`. Правки — `backend/scripts/passport-texts.v2.json` + `passport-templates-polish.js` (новая версия шаблона; стенд: ALL_V2 v3, TRN v3, DIO v2). Ограничение теста `passport-texts.v2.spec.ts`: порядок разделов зашит, своя категория переопределяет только 1-й пункт общих разделов → новые разделы нельзя без правки теста. Статусы норм — gostinfo.ru (2026-11-01). Вопросы ПТ-1, ПТ-2 в QUESTIONS. коммит: — (не закоммичено, база 45b2192)

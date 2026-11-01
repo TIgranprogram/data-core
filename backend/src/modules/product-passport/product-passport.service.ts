@@ -9,7 +9,8 @@ import { normalizeCategory, type PassportCategory } from './passport-template-se
 import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passport-template.default';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
-import { DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, requiredImageKinds, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
+import { mergeProductImages, type PassportImageLike, type ProductImageRow } from './passport-product-images';
+import { INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, imageRules, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
@@ -39,7 +40,7 @@ export class ProductPassportService {
     // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
     this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
     this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
-    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), snapshot: (id) => this.snapshot(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
+    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), freezeImages: (id) => this.freezeImages(id), snapshot: (id) => this.snapshot(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
     this.numbers = new PassportNumbers({
       connection, maxOf: (f, s) => this.maxOf(f, s),
     });
@@ -120,9 +121,12 @@ export class ProductPassportService {
     // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
     const instRec = (await this.installs()).get(String(doc.installationTypeId ?? '')) ?? null;
     const vopts = { variant: 'short' as const, install: installKindOf(instRec) };
-    const requiredImages = requiredImageKinds(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts }).map((k) => (k === 'safety_zone' ? 'safety' : k));
+    const rules = imageRules(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts });
+    const requiredImages = rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k));
+    const eff = await this.effectiveImages(doc);
+    const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
-    return { ...doc, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -426,22 +430,61 @@ export class ProductPassportService {
    */
   async check(body: Record<string, unknown>) {
     const numOr = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number(String(v).replace(',', '.')));
-    const p: Doc = { ...body };
+    // изделие — единственный источник своих полей (решение 9): берём всё из него, тело дополняет и перекрывает
+    const p: Doc = {};
+    const productId = body.productId && Types.ObjectId.isValid(String(body.productId)) ? String(body.productId) : '';
+    if (productId) {
+      const prod = await this.connection.collection('products').findOne({ _id: new Types.ObjectId(productId), deletedAt: null });
+      if (prod) Object.assign(p, await productPatch(this.connection.db!, prod as Doc));
+    }
+    const filledIn = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
+    const pd = (body.passportDefaults && typeof body.passportDefaults === 'object' ? body.passportDefaults : {}) as Doc;
+    for (const [k, v] of Object.entries({ ...pd, ...body })) if (k !== 'passportDefaults' && k !== 'mode' && filledIn(v)) p[k] = v;
+    // template — шаблон изделия (по умолчанию, когда есть изделие): поля экземпляра (дата, поставщик, заказчик…) не требуются
+    const template = (body.mode ?? (productId ? 'template' : 'instance')) === 'template';
     for (const k of ['height', 'length', 'width', 'weight', 'ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears']) p[k] = numOr(p[k]);
     p.images = ((p.images as Array<Doc>) || []).map((i) => ({ kind: i.kind || 'overview', photoId: String(i.photoId ?? '') }));
+    if (p.productId && Types.ObjectId.isValid(String(p.productId))) p.images = mergeProductImages(await this.productImageRows(String(p.productId)), p.images as PassportImageLike[]); // рисунки изделия тоже считаются
     p.isKit = p.isKit === true || p.isKit === 'yes';
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(p, inst);
     const vopts = { variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
+    const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), manualText: p.manualText });
-    return { missing: [...missingKeyed(full as never, cat, vopts), ...choices], requiredImages: requiredImageKinds(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts }).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
+    const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
+    const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
+    return { mode: template ? 'template' : 'instance', missing: [...missingKeyed(full as never, cat, vopts), ...choices].filter(keep).map(noHint), requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
+    doc = { ...doc, images: await this.effectiveImages(doc) };
     return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null, { variant: 'short', install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) }), ...(await this.choiceMissing(doc))];
+  }
+
+  /** Рисунки изделия «для паспорта» (productphotos purpose:'passport'), по порядку; удалённые не берутся. */
+  async productImageRows(productId: string): Promise<ProductImageRow[]> {
+    return this.connection.collection('productphotos').find({ productId: new Types.ObjectId(productId), purpose: 'passport', deletedAt: null }, { projection: { kind: 1, photoId: 1, sortOrder: 1, caption: 1 } }).sort({ sortOrder: 1, createdAt: 1 }).toArray() as Promise<ProductImageRow[]>;
+  }
+
+  /**
+   * Рисунки паспорта для проверки и печати: у черновика с изделием — рисунки изделия по видам, остальные виды из images[];
+   * у выпущенного и аннулированного — только его images[] (замороженные при выпуске).
+   */
+  async effectiveImages(doc: Doc): Promise<Doc[]> {
+    const own = ((doc.images as Doc[]) || []);
+    if (isIssued(doc) || doc.status === 'annulled' || !doc.productId) return own;
+    return mergeProductImages(await this.productImageRows(String(doc.productId)), own as PassportImageLike[]) as Doc[];
+  }
+
+  /** При выпуске: photoId из изделия записываются в images[] паспорта — дальше он печатается сам по себе, как раньше. */
+  async freezeImages(id: string) {
+    const doc = (await this.findById(id)).toObject() as unknown as Doc;
+    if (!doc.productId) return;
+    const images = (await this.effectiveImages(doc)).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
+    await this.model.updateOne({ _id: doc._id, status: 'draft' }, { $set: { images } }).exec();
   }
 
   // ─── воронка текстов (ПВ 2026-10-25) ─────────────────────────────────────────────────────────────

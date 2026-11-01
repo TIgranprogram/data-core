@@ -111,7 +111,8 @@ export class PassportPdfService {
   }
 
   private async render(p: Doc, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant }) {
-    const imgs = ((p.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    // черновик/предпросмотр: рисунки изделия по видам, остальные из паспорта; выпущенный — как раньше (его images[])
+    const imgs = ((await this.passports.effectiveImages(p) as unknown as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
     const url = new Map(photos.map((x) => [String(x._id), x.storageUrl as string]));
     const byKind: Record<string, PdfImageV2[]> = { overview: [], dimensions: [], safety: [], mounting: [] };

@@ -10,6 +10,8 @@ export interface IssueHost {
   connection: Connection;
   findById: (id: string) => Promise<ProductPassportDocument>;
   readiness: (doc: Doc) => Promise<Array<{ label: string; key: string }>>;
+  /** Рисунки изделия -> images[] паспорта (заморозка при выпуске). */
+  freezeImages: (id: string) => Promise<void>;
   snapshot: (id: string) => Promise<unknown>;
   allocate: (set: Doc, date: Date, session?: ClientSession) => Promise<void>;
   assertFree: (set: Doc, selfId?: Types.ObjectId, session?: ClientSession) => Promise<void>;
@@ -29,6 +31,7 @@ export class PassportIssue {
     if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
     const missing = await this.h.readiness(first);
     if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
+    await this.h.freezeImages(id);
     if (first.passportCategory) await this.h.snapshot(id); // текст по справочникам на момент выпуска
     const _id = new Types.ObjectId(id);
     const session = await this.h.connection.startSession();

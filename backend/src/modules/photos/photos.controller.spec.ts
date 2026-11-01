@@ -37,7 +37,7 @@ describe('PhotosController upload', () => {
       size: 100,
     });
 
-    expect(service.upload).toHaveBeenCalledWith(expect.objectContaining({ filename: 'original.png' }));
+    expect(service.upload).toHaveBeenCalledWith(expect.objectContaining({ filename: 'original.png' }), undefined);
     expect(response).toEqual({
       _id: 'original-id',
       storageUrl: '/uploads/original.png',

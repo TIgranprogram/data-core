@@ -10,6 +10,7 @@ import { Model, Types } from 'mongoose';
 import { Photo, PhotoDocument, PhotoFrame } from './photo.schema';
 import { decodeMulterOriginalName, IMAGE_UPLOAD_MAX_BYTES, PDF_MIME } from './image-upload.options';
 import { buildRotatedCopy } from './image-orientation';
+import { uploadSubdir } from '../../common/uploads/upload-folder';
 
 function uploadDir(): string {
   return process.env.UPLOAD_DIR ?? './uploads';
@@ -90,8 +91,14 @@ export class PhotosService {
    * Persist the uploaded original first, then generate a separate list thumb.
    * A sharp failure is deliberately non-fatal: the original remains usable.
    */
-  async upload(file: UploadedPhotoFile): Promise<PhotoUploadResult> {
+  async upload(file: UploadedPhotoFile, folder?: string): Promise<PhotoUploadResult> {
     const originalFilename = decodeMulterOriginalName(file.originalname);
+    // новые файлы — в uploads/<назначение>/<ГГГГ-ММ>/; multer кладёт в корень — переносим туда (старые не трогаем)
+    const dir = uploadSubdir(folder);
+    const flat = join(uploadDir(), file.filename);
+    await fs.mkdir(join(uploadDir(), dir), { recursive: true });
+    await fs.rename(flat, join(uploadDir(), dir, file.filename)).catch(() => undefined); // нет файла (sheet-catalog пишет сам) — пропуск
+    file = { ...file, filename: `${dir}/${file.filename}` };
     const originalPath = join(uploadDir(), file.filename);
     if (file.mimetype === PDF_MIME) return this.uploadPdf(file, originalPath, originalFilename);
     if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
@@ -107,7 +114,7 @@ export class PhotosService {
       sizeBytes: shrunk ?? file.size,
       variant: 'original',
     });
-    const thumbFilename = `${randomUUID()}.webp`;
+    const thumbFilename = `${dir}/${randomUUID()}.webp`;
     const thumbPath = join(uploadDir(), thumbFilename);
 
     // Повёрнутая копия — отдельный файл; сбой не фатален, оригинал остаётся.
@@ -116,7 +123,7 @@ export class PhotosService {
     try {
       const { rotated } = await buildRotatedCopy(originalPath);
       if (rotated) {
-        const fullFilename = `${randomUUID()}-full.${rotated.ext}`;
+        const fullFilename = `${dir}/${randomUUID()}-full.${rotated.ext}`;
         fullFilePath = join(uploadDir(), fullFilename);
         await fs.writeFile(fullFilePath, rotated.data);
         const doc = await this.create({
@@ -157,7 +164,7 @@ export class PhotosService {
         heightPx: output.height,
         parentPhotoId: original._id.toString(),
       });
-      const medium = await this.makeMedium(originalPath, originalFilename, original._id.toString());
+      const medium = await this.makeMedium(originalPath, originalFilename, original._id.toString(), dir);
 
       return { original, thumb: this.toThumbSummary(thumb), ...(medium ? { medium } : {}), ...(full ? { full } : {}) };
     } catch (error) {
@@ -174,8 +181,8 @@ export class PhotosService {
   }
 
   /** Средний вариант (webp ≤ 1000 px, качество как у thumb); сбой не мешает загрузке — клиент возьмёт оригинал. */
-  private async makeMedium(originalPath: string, originalFilename: string, parentId: string): Promise<PhotoVariantSummary | undefined> {
-    const filename = `${randomUUID()}-medium.webp`;
+  private async makeMedium(originalPath: string, originalFilename: string, parentId: string, dir: string): Promise<PhotoVariantSummary | undefined> {
+    const filename = `${dir}/${randomUUID()}-medium.webp`;
     const path = join(uploadDir(), filename);
     try {
       const output = await sharp(originalPath).rotate().resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 }).toFile(path);

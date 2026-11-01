@@ -84,7 +84,7 @@ describe('PhotosService upload variants', () => {
 
     expect(model.create).toHaveBeenCalledTimes(3);
     expect(model.create.mock.calls[0][0]).toEqual(
-      expect.objectContaining({ variant: 'original', storageUrl: '/uploads/original.png' }),
+      expect.objectContaining({ variant: 'original', storageUrl: expect.stringMatching(/^\/uploads\/other\/\d{4}-\d{2}\/original\.png$/) }),
     );
     const thumbPayload = model.create.mock.calls[1][0] as PhotoPayload;
     expect(thumbPayload.variant).toBe('thumb');
@@ -92,16 +92,17 @@ describe('PhotosService upload variants', () => {
     expect(thumbPayload.parentPhotoId?.toString()).toBe(result.original._id.toString());
     expect(result.thumb?.storageUrl).toBe(thumbPayload.storageUrl);
 
-    const thumbBytes = await readFile(join(uploadDirectory, basename(thumbPayload.storageUrl)));
+    expect(thumbPayload.storageUrl).toMatch(/^\/uploads\/other\/\d{4}-\d{2}\/[^/]+\.webp$/); // thumb рядом с оригиналом
+    const thumbBytes = await readFile(join(uploadDirectory, thumbPayload.storageUrl.slice('/uploads/'.length)));
     const thumbMetadata = await sharp(thumbBytes).metadata();
     expect(Math.max(thumbMetadata.width ?? 0, thumbMetadata.height ?? 0)).toBeLessThanOrEqual(320);
     const mediumPayload = model.create.mock.calls[2][0] as PhotoPayload;
     expect(mediumPayload.variant).toBe('medium');
     expect(mediumPayload.parentPhotoId?.toString()).toBe(result.original._id.toString());
     expect(result.medium?.storageUrl).toBe(mediumPayload.storageUrl);
-    const mediumMeta = await sharp(await readFile(join(uploadDirectory, basename(mediumPayload.storageUrl)))).metadata();
+    const mediumMeta = await sharp(await readFile(join(uploadDirectory, mediumPayload.storageUrl.slice('/uploads/'.length)))).metadata();
     expect(Math.max(mediumMeta.width ?? 0, mediumMeta.height ?? 0)).toBe(1000);
-    expect(await readFile(join(uploadDirectory, 'original.png'))).toEqual(originalBytes);
+    expect(await readFile(join(uploadDirectory, result.original.storageUrl.slice('/uploads/'.length)))).toEqual(originalBytes);
   });
 
   it('stores a decoded Cyrillic originalFilename instead of latin1 mojibake', async () => {
@@ -142,7 +143,7 @@ describe('PhotosService upload variants', () => {
 
     expect(model.create).toHaveBeenCalledTimes(1);
     expect(result.thumb).toBeUndefined();
-    expect(result.original.storageUrl).toBe('/uploads/broken.png');
+    expect(result.original.storageUrl).toMatch(/^\/uploads\/other\/\d{4}-\d{2}\/broken\.png$/);
   });
 });
 
