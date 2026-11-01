@@ -29,7 +29,7 @@ function routePicker(line, types, steps0) {
     const chain = steps.length ? steps.map((id, i) => `${i + 1}. ${name(id)}`).join(' → ') : '';
     el.replaceChildren(
       h('b', null, line.name),
-      !line.productId ? h('div', { class: 'muted' }, 'Нет изделия — сначала сопоставьте позицию с «Продукцией». Не запустится.') :
+      !line.productId ? h('div', { class: 'muted' }, 'Нет изделия — не запустится. Сопоставьте позицию с «Продукцией»: карточка заказа → «Позиции» → «Подобрать изделие».') :
         steps.length ? h('div', null, chain) : h('div', { class: 'muted' }, 'Не задано, как делается — выберите виды работ по порядку. Иначе будет одна работа «Изготовление».'),
       line.productId && !editing ? button({ label: 'Изменить работы', size: 'S', kind: 'ghost', onClick: () => { editing = true; paint(); } }) : null,
       line.productId && editing ? actions(
