@@ -1,5 +1,5 @@
 import { grp } from '../ui/kit/index.js';
-import { stockLookup } from '../core/stock-list.js';
+import { stockLookup, stockList } from '../core/stock-list.js';
 import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
@@ -9,8 +9,8 @@ import { go, patch } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
-import { facetFilter, ftParams, ftQuery } from '../ui/kit/index.js';
-import { facetLabel, pipeKey } from '../core/facets.js';
+import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
+import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
 import { stockRequestsBox, requestFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 import { segmented, toolbar } from '../ui/kit/index.js';
@@ -90,6 +90,16 @@ const similarOnStock = () => ({
   suggest: async () => (await stockLookup()).map((x) => ({ label: x.name, sub: `${qty(x.quantity ?? 0)} ${x.unit || ''}`.trim(), cat: x.categoryName || '', search: normSearch(x.name), values: { name: x.name } })),
 });
 
+/** Полный список склада с признаками (тот же, по которому кнопки-признаки считают числа); грузится вместе с фильтром. */
+let ftItems = null;
+const ftLoad = () => stockList().then((x) => { ftItems = facetIndex(x); }).catch(() => {});
+/** Позиции под выбранные признаки — как у кнопки: { ids } для GET /stock/items; нет списка — null. */
+function ftIds(P) {
+  if (!ftItems) { ftLoad().then(() => ftItems && window.dispatchEvent(new CustomEvent('data-changed'))); return null; } // открыли по ссылке с признаком — догрузили и перечитали
+  const ids = facetPick(ftItems, { q: P.q || '', cat: P.categoryId || '', sel: parseFt(P.ft) }).map((it) => it.id);
+  return { ids: ids.length ? ids.join(',') : 'none' };
+}
+
 export const stock = {
   id: 'stock',
   title: 'Склад',
@@ -106,7 +116,8 @@ export const stock = {
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
     extraKeys: ['ft'],
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
-    query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
+    // признаки: список — ровно те позиции, что посчитала кнопка (ids из полного списка склада); список ещё не загружен — по словам, как раньше
+    query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? ftIds(P) || { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
     bulk: { extra: [qrBulkAction('S')] }, // только «Распечатать QR» над отмеченными (без «Изменить выбранные»)
     headActions: () => [stockActions()],

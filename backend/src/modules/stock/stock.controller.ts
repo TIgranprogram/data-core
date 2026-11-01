@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
@@ -49,9 +50,12 @@ export class StockController {
   @ApiQuery({ name: 'grade', required: false, description: 'марка стали' }) @ApiQuery({ name: 'section', required: false, description: 'сортамент / сечение' }) @ApiQuery({ name: 'thickness', required: false, description: 'толщина, мм' })
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   @ApiQuery({ name: 'zoneId', required: false, description: 'склад из GET /stock/zones; чужой — 403' })
+  @ApiQuery({ name: 'ids', required: false, description: 'только эти позиции (id через запятую, ≤ 2000) — кнопки-признаки «Остатков» передают точный набор' })
   list(@Query() q: Record<string, string>, @StockScoped() own: StockScope | null) {
     const scope = narrowToZone(own, q.zoneId);
-    return this.stock.listItems(scope ? q : { ...q, hideEmptyMetal: '1' }, scope);
+    const ids = q.ids ? String(q.ids).split(',').map((x) => x.trim()).filter((x) => Types.ObjectId.isValid(x)).slice(0, 2000) : null;
+    const base = { ...q, ...(ids ? { materialIds: ids.map((x) => new Types.ObjectId(x)) } : {}) };
+    return this.stock.listItems(scope ? base : { ...base, hideEmptyMetal: '1' }, scope);
   }
 
   /** SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — `{items}`. */

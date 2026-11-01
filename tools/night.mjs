@@ -365,7 +365,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
       const up = await standUp(sctx, WORKTREE);
       const e = standEnv();
       if (up !== 0) {
-        for (const n of ['e2e', 'smoke', 'screen-walk', 'scenarios']) steps.push(makeStep(n, { code: 2, ms: 0, out: 'стенд не поднялся' }, commit));
+        for (const n of ['e2e', 'smoke', 'screen-walk', 'scenarios', 'stock-filters']) steps.push(makeStep(n, { code: 2, ms: 0, out: 'стенд не поднялся' }, commit));
       } else {
         const eenv = { ...baseEnv, MONGO_ROOT_PASSWORD: e.NIGHT_ROOT_PW, MONGO_PORT: String(MONGO_PORT), MONGO_DB_TEST: TEST_DB };
         assertStandSafe({ testDb: eenv.MONGO_DB_TEST });
@@ -376,6 +376,8 @@ export async function cmdNight({ quick = false } = {}, ctx) {
         await doStep('screen-walk', process.execPath, [path.join(ROOT, 'tools', 'screen-walk.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
         // сценарии «как человек»: паспорт, документация, проектирование, продукция, доски (tools/scenarios.mjs)
         await doStep('scenarios', process.execPath, [path.join(ROOT, 'tools', 'scenarios.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
+        // фильтры «Остатков»: число на кнопке признака = позиций в списке (замечание пользователя 2026-11-01)
+        await doStep('stock-filters', process.execPath, [path.join(ROOT, 'tools', 'stock-filter-check.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 5 * MIN });
       }
     }
   } catch (e) {
