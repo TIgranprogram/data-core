@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { PassportNumbers } from './passport-numbers';
 import { nextSeq } from './passport-rules';
 
@@ -28,10 +28,23 @@ describe('PassportNumbers (ПН)', () => {
     expect(await nextSeq(({ findOneAndUpdate: async () => ({ seq: c.passportNumber + 1 }) }) as never, 'passportNumber', 549)).toBe(700);
   });
 
-  it('next <= max — 409', async () => {
+  it('два параллельных выпуска — разные номера, занятый вручную пропускается', async () => {
+    let seq = 549;
+    const coll = { findOneAndUpdate: async (_q: unknown, p: Array<{ $set: { seq: { $add: [{ $max: [unknown, number] }, number] } } }>) => {
+      const floor = p[0].$set.seq.$add[0].$max[1];
+      await Promise.resolve();
+      seq = Math.max(seq, floor) + 1;
+      return { seq };
+    } };
+    const got = await Promise.all([nextSeq(coll as never, 'passportNumber', 549), nextSeq(coll as never, 'passportNumber', 549)]);
+    expect(new Set(got).size).toBe(2);
+    expect(await nextSeq(coll as never, 'passportNumber', 600)).toBe(601); // 600 занят вручную
+  });
+
+  it('next <= max — 400 с подсказкой', async () => {
     const { n, c } = make();
-    await expect(n.setNext({ next: 549 })).rejects.toBeInstanceOf(ConflictException);
-    await expect(n.setNext({ next: 10 })).rejects.toThrow('не меньше 550');
+    await expect(n.setNext({ next: 549 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(n.setNext({ next: 10 })).rejects.toThrow('последний выданный: 549');
     expect(c.passportNumber).toBe(549);
   });
 

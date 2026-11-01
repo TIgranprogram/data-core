@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import type { ClientSession, Connection } from 'mongoose';
 import { dayUtc, warrantyCodeFor } from './passport-rules';
 
@@ -40,7 +40,7 @@ export class PassportNumbers {
     if (want.nextProductCode != null) pairs.push(['productCode', want.nextProductCode, '№ изделия']);
     for (const [field, n, label] of pairs) {
       const max = await this.h.maxOf(field);
-      if (n <= max) throw new ConflictException(`${label} ${n} уже занят — следующий может быть не меньше ${max + 1}`);
+      if (n <= max) throw new BadRequestException(`${label} ${n} уже занят (последний выданный: ${max}) — следующий может быть не меньше ${max + 1}`);
     }
     for (const [field, n] of pairs) {
       await this.h.connection.collection('counters').updateOne({ entity: 'passport', prefix: field, year: 0 }, { $set: { seq: n - 1 } }, { upsert: true });
