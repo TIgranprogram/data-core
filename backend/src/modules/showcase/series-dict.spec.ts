@@ -1,5 +1,6 @@
 import { seriesInDict, seriesOptions } from '../../common/passport/form-values';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { buildPlan } = require('../../../scripts/series-dict-fill.js');
 
 describe('серии изделий (ИЗ-18)', () => {
