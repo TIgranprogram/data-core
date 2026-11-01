@@ -14,7 +14,7 @@ import { table, sku as kitSku } from '../ui/kit/index.js';
  * Открыто — «с чем работаем»: «Заказ», «Изделия к проектированию» (взять в работу / назначить прямо в строке), «Как идёт проектирование».
  * Свёрнуто — справочное: «Что в позициях». Цен нет. Блоки «Файлы и чертежи», «История» появятся, когда сервер отдаст данные.
  */
-const block = (title, open, ...kids) => h('details', { class: 'db-blk', open: open || undefined }, h('summary', null, title), h('div', { class: 'db-blk-body' }, ...kids));
+const block = (title, open, ...kids) => h('details', { class: 'db-blk', open: open || undefined }, h('summary', { class: 'section-title' }, title), h('div', { class: 'db-blk-body' }, ...kids));
 const field = (label, value) => (value === null || value === undefined || value === '' ? null : [h('dt', null, label), h('dd', null, value)]);
 const today = () => isoDay();
 

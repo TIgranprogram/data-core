@@ -287,7 +287,7 @@ function contractGroup(o, reload) {
   const linesTable = lines.length
     ? table({ clickable: true, columns: [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canMoney ? [{ label: 'Сумма', num: true }, { label: 'Оплачено', num: true }, { label: 'Долг', num: true }] : []), ...(payOn ? [{ label: '' }] : []), ...(can ? [{ label: '' }] : [])],
       rows: lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
-        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, 'lg')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', { class: 'ol-mark' }, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
+        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', { class: 'ol-mark' }, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
         h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null)) })
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
@@ -353,7 +353,7 @@ function produceBlock(d) {
   if (!t.length) return null;
   return sec(`К производству (${t.length})`,
     table({ columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
-      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, 'lg'), cls: 'pic-cell' }, x.title, qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
+      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, x.title, qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
 }
 

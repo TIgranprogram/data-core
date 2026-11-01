@@ -123,7 +123,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       const acts = section.card.actions(row, actx()).filter(Boolean);
       if (acts.length) {
         // a.more — редкое действие уходит в единственное «⋯» шапки панели
-        const mk = (a, cls) => h('button', { class: cls || 'btn' + (a.primary ? ' btn-primary' : section.card.top ? ' btn-ghost' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label);
+        const mk = (a, cls) => h('button', { class: cls || 'btn' + (a.primary ? ' btn-primary' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label);
         rare.push(...acts.filter((a) => a.more));
         const kids = acts.filter((a) => !a.more).map((a) => mk(a));
         if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');

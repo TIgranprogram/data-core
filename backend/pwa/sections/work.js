@@ -147,7 +147,7 @@ function topBlock(r) {
     r.status === 'cancelled' && r.cancelReason ? h('div', { class: 'dc-pause' }, 'Отменена: ' + r.cancelReason) : null,
     r.photo ? h('img', { class: 'wk-photo', src: PREFIX + r.photo, alt: '' }) : null,
     grid,
-    h('section', { class: 'wk-route-now' }, h('h3', null, 'Маршрут'), routeSteps(r)));
+    h('section', { class: 'wk-route-now' }, h('div', { class: 'section-title' }, 'Маршрут'), routeSteps(r)));
 }
 
 /** Исполнитель (из тех, у кого есть вид работ текущего шага) и примечание — сохраняются одной кнопкой. */
@@ -177,7 +177,7 @@ function assignBlock(r, ctx) {
       const saved = await api('/work-tasks/' + r.id, { method: 'PATCH', body }); toast('Сохранено'); ctx.setRow(saved); }
     catch (err) { toastError(err, 'сохранить'); b.disabled = false; b.classList.remove('is-busy'); }
   } }, 'Сохранить');
-  const box = h('section', { class: 'wk-assign' }, h('h3', null, 'Исполнитель и примечание'),
+  const box = h('section', { class: 'wk-assign' }, h('div', { class: 'section-title' }, 'Исполнитель и примечание'),
     h('label', { class: 'field' }, h('span', null, 'Исполнитель'), sel), hint, all,
     h('label', { class: 'field' }, h('span', null, 'Примечание'), note), h('div', { class: 'spec-acts' }, save));
   sel.disabled = true; fill(false).then(() => { sel.disabled = false; });
