@@ -36,7 +36,7 @@ export class SupplierCatalogService {
 
   /** Категории материалов: id → parentId (для поддеревьев). */
   private async catParents() {
-    const cats = await this.coll('categories').find({ kind: 'material' }, { projection: { name: 1, parentId: 1 } }).toArray();
+    const cats = await this.coll('categories').find({ type: 'material' }, { projection: { name: 1, parentId: 1 } }).toArray();
     return { cats, parent: new Map(cats.map((c) => [String(c._id), c.parentId ? String(c.parentId) : null])) };
   }
 
