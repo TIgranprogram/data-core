@@ -97,6 +97,7 @@ pnpm в PATH может не быть → используй `npx`.
 - Склад и снабжение (`materials`, `storageitems`, `stockmovements`, `reservations`, `warehouses`, `supplyrequests`) — **общие с CRM**: модули `stock`/`supply` пишут их по правилам kppdf, схемы в `stock/schemas/` и `supply/` — копии kppdf (менять синхронно). См. `docs/UNIFY-SUPPLY-WAREHOUSE.md`.
 - Проверка pwa/admin: `node --check файл.js` **молча пропускает** синтаксические ошибки ES-модулей — только `node --input-type=module --check < файл` (2026-10-22: так в приложение чуть не ушла ошибка, ломавшая весь экран).
 - Паспорта: один вид (с 2026-10-23, БЗ-7 шаг 1б) — PDF только по категории и тексту по справочникам (`textSnapshot`; нет — собирается при печати, нет категории — 400); флага `passports.v2` больше нет. ТЗ — `docs/PASSPORTS-V2.md`. Шаблоны категорий — `passporttemplates`, тексты «Для всех» — в коде (`scripts/passport-texts.v2.json`).
+- Печать: метки и пустые значения — только через common/print; в PDF не уходят {…}, undefined, null (docs/traps.md «Печать документов»).
 - e2e-харнесс (`test/setup/test-db.ts`) **дропает все коллекции** БД `MONGO_DB_TEST` (по умолч. `datacore-test`). Никогда не направляй его на `datacore`.
 
 ## Скиллы проекта (`.claude/skills/`)

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { printableText } from './passport-blanks';
 import { InjectConnection } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Types, type Connection } from 'mongoose';
@@ -92,7 +93,7 @@ export class PassportPdfService {
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const p = noDraftNumber(await this.withText(raw));
     const { orgIn, asset } = await this.orgOf(p);
-    const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: p.textSnapshot as PdfV2Text, style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
+    const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: printableText(p.textSnapshot as PdfV2Text), style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
     return { buf, filename: standFileName(p) };
   }
 
@@ -137,7 +138,7 @@ export class PassportPdfService {
     // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
     const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
-    const text = p.textSnapshot as PdfV2Text;
+    const text = printableText(p.textSnapshot as PdfV2Text); // метки без значения → линия (passport-blanks.ts)
     return renderPassportPdfV2({
       watermark: this.watermark(p),
       passport: p as never,

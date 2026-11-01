@@ -1,4 +1,5 @@
 import { installKindOf, variantOf } from './passport-variants';
+import { blankItems } from './passport-blanks';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -454,7 +455,17 @@ export class ProductPassportService {
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
     const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
-    return { mode: template ? 'template' : 'instance', missing: [...missingKeyed(full as never, cat, vopts), ...choices].filter(keep).map(noHint), requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
+    const blanks = await this.blankLabels(p);
+    const listed = missingKeyed(full as never, cat, vopts);
+    const extra = blanks.filter((b) => !listed.some((m) => m.key === b.key));
+    return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices].filter(keep).map(noHint), requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
+  }
+
+  /** Метки текста категории без значения (в PDF они станут линией «____»): пункт «не хватает» с подсказкой, где заполнить (в изделии). */
+  private async blankLabels(p: Doc): Promise<Array<{ label: string; key: string; hint: string }>> {
+    if (!p.passportCategory) return [];
+    const built = await this.buildText({ ...p }).catch(() => null);
+    return blankItems(built?.text.missing ?? []);
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */

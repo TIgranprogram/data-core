@@ -1,3 +1,4 @@
+import { guardDoc } from '../../common/print/safe-doc';
 import PDFDocument from 'pdfkit';
 import { join } from 'path';
 import { fontDir, PdfOrg } from './passport-pdf';
@@ -30,7 +31,7 @@ export async function renderStandPdf(input: StandInput): Promise<Buffer> {
   const dir = fontDir();
   const { passport: p, org, style } = input;
   const color = MONO_COLOR;
-  const doc = new PDFDocument({ autoFirstPage: false, size: [A3.w, A3.h], margin: 0, info: { Title: `Правила пользования — ${p.name ?? ''}`, Author: org?.name ?? '' } });
+  const doc = guardDoc(new PDFDocument({ autoFirstPage: false, size: [A3.w, A3.h], margin: 0, info: { Title: `Правила пользования — ${p.name ?? ''}`, Author: org?.name ?? '' } }), 'Стенд паспорта');
   doc.registerFont('gost', join(dir, 'gost-a.ttf'));
   doc.registerFont('gost-i', join(dir, 'gost-a-slanted.ttf'));
   const chunks: Buffer[] = [];

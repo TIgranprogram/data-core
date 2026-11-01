@@ -1,3 +1,4 @@
+import { guardDoc } from '../../common/print/safe-doc';
 import PDFDocument from 'pdfkit';
 import { join } from 'path';
 import { fontDir, imposition } from './passport-pdf';
@@ -24,7 +25,7 @@ export { shortTiles } from './passport-pdf-v2-common';
 
 export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
   const dir = fontDir();
-  const doc = new PDFDocument({ autoFirstPage: false, size: input.mode === 'print' ? [A4L.w, A4L.h] : [A5.w, A5.h], margin: 0, info: { Title: `Паспорт № ${input.passport.passportNumber ?? ''}`, Author: input.org?.name ?? '' } });
+  const doc = guardDoc(new PDFDocument({ autoFirstPage: false, size: input.mode === 'print' ? [A4L.w, A4L.h] : [A5.w, A5.h], margin: 0, info: { Title: `Паспорт № ${input.passport.passportNumber ?? ''}`, Author: input.org?.name ?? '' } }), 'Паспорт');
   doc.registerFont('gost', join(dir, 'gost-a.ttf'));
   doc.registerFont('gost-i', join(dir, 'gost-a-slanted.ttf'));
   const chunks: Buffer[] = [];

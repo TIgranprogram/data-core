@@ -1,0 +1,41 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { blankItems, LABEL_SOURCES, printableText } from './passport-blanks';
+import { buildV2Text } from './passport-v2-text';
+import { hasLeak } from '../../common/print/fill-text';
+
+const JSON_PATH = join(__dirname, '../../../scripts/passport-texts.v2.json');
+const texts = JSON.parse(readFileSync(JSON_PATH, 'utf8')) as Record<string, { sections: Array<{ key: string; title: string; paragraphs: string[] }> }>;
+const all = (texts.ALL ?? { sections: [] }) as never;
+
+describe('паспорт: печать без «{…}»', () => {
+  it('все метки из passport-texts.v2.json имеют источник', () => {
+    const labels = new Set<string>();
+    for (const m of readFileSync(JSON_PATH, 'utf8').matchAll(/\{([^{}"]+)\}/g)) labels.add(m[1]);
+    const unknown = [...labels].filter((l) => !(l in LABEL_SOURCES) && !/^(std:|fig:|tab:)/.test(l));
+    expect(unknown).toEqual([]);
+  });
+
+  it('шаблон с пустыми значениями → нет «{», есть линия; необязательная фраза исчезла', () => {
+    const t = buildV2Text({ passport: { passportCategory: 'TRN' }, all, own: { ...texts.TRN, version: 1 } as never });
+    expect(t.missing.length).toBeGreaterThan(0);
+    const p = printableText(t);
+    const flat = p.sections.flatMap((s) => s.items.map((i) => i.text)).join('\n');
+    expect(hasLeak(flat.replace(/{(fig|tab):[^}]+}/g, ''))).toBe(false); // {fig}/{tab} ставит PDF
+    expect(flat).toContain('________');
+    expect(flat).not.toMatch(/ростом не менее|Масса тела пользователя|Одновременно на тренажёре/); // пределы без значения не печатаются
+    expect(flat).not.toMatch(/,\s*,|\s{2,}|\s[.,]/);
+    p.sections.forEach((s) => s.items.filter((i) => !i.bullet).forEach((i, n) => expect(i.number).toBe(`${s.number}.${n + 1}`)));
+  });
+
+  it('«до {ageTo}» выпадает хвостом', () => {
+    const t = { sections: [{ key: 's', number: '1', title: 'T', items: [{ key: 'p', number: '1.1', bullet: false, text: 'Для детей от 3 до [{ageTo} не заполнено] лет.' }] }] };
+    expect(printableText(t).sections[0].items[0].text).toBe('Для детей от 3 лет.');
+  });
+
+  it('пункты «не хватает» для меток: подсказка — в изделии', () => {
+    const [a, b] = blankItems(['maxUsers', 'std:GOST_X']);
+    expect(a.hint).toContain('Карточка изделия');
+    expect(b.key).toBe('std:GOST_X');
+  });
+});

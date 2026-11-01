@@ -11,3 +11,9 @@
 - Windows/Git Bash: `docker exec` с путями `/tmp/...` ломается → `MSYS_NO_PATHCONV=1`.
 
 - **api.sh входит заново при каждом вызове** (2026-10-27): цикл «по запросу на заказ» упирается в лимит входа 5/мин — 35 из 37 запросов отказали. Массовая выгрузка — один вызов на список (`limit=500`) или пауза ≥ 13 с между вызовами.
+
+## Печать документов
+
+- Метки и пустые значения в PDF — только через `backend/src/common/print` (`fill-text.ts`: `fillBlanks`, `printSafe`; `safe-doc.ts`: `guardDoc` на каждый `new PDFDocument`). В PDF не уходят `{…}`, `undefined`, `null`, `NaN`, `[object Object]`, `Invalid Date`: рукописное поле (число, ФИО, дата) → линия `____`, необязательная фраза без значения не печатается, остаток ловит предохранитель (предупреждение в лог `print`, без ошибки).
+- Паспорт: списки линий и необязательных фраз — `product-passport/passport-blanks.ts`; новая метка в `passport-texts.v2.json` без записи в `LABEL_SOURCES` валит тест.
+- Новый PDF-документ: `guardDoc(new PDFDocument(...), "название")` + тест в `common/print/print-documents.spec.ts`.

@@ -1,3 +1,4 @@
+import { guardDoc } from '../../common/print/safe-doc';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
@@ -51,7 +52,7 @@ const qty = (n: number) => String(Math.round(n * 1000) / 1000).replace('.', ',')
 /** PDF КП: А4, фон 1 на стр. 1, фон 2 на стр. 2+; текст только в безопасных зонах (offer-layout). */
 export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   const dir = fontDir();
-  const d = new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Коммерческое предложение № ${i.number}`, Author: i.companyName || '' } });
+  const d = guardDoc(new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Коммерческое предложение № ${i.number}`, Author: i.companyName || '' } }), 'КП');
   d.registerFont('gost', offerFontPath(dir));
   const chunks: Buffer[] = [];
   d.on('data', (c: Buffer) => chunks.push(c));

@@ -1,3 +1,4 @@
+import { guardDoc } from '../../common/print/safe-doc';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { fontDir } from '../product-passport/passport-pdf';
@@ -8,7 +9,7 @@ const W = 595.28, H = 841.89, M = 40, PHOTO = 190, GAP = 14, NAME = 110, PAD = 5
 
 /** Техническое описание: А4, сверху название, слева фото, справа таблица «часть — описание»; длинная таблица переходит на следующий лист. */
 export function renderTechSheetPdf(i: TechSheetInput): Promise<Buffer> {
-  const d = new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Техническое описание: ${i.title}` } });
+  const d = guardDoc(new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Техническое описание: ${i.title}` } }), 'Техописание');
   d.registerFont('gost', join(fontDir(), 'gost-a.ttf'));
   const chunks: Buffer[] = [];
   d.on('data', (c: Buffer) => chunks.push(c));

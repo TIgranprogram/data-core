@@ -1,3 +1,4 @@
+import { guardDoc } from '../../common/print/safe-doc';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { fontDir } from '../product-passport/passport-pdf';
@@ -30,7 +31,7 @@ const num = (n: number) => String(Math.round(n * 1000) / 1000).replace('.', ',')
 /** PDF отгрузки: А4, только чёрный цвет, без заливок; таблица переносится на следующую страницу. */
 export function renderShipmentPdf(i: ShipmentPdfInput): Promise<Buffer> {
   const dir = fontDir();
-  const d = new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Накладная на отгрузку № ${i.number}`, Author: i.org.name } });
+  const d = guardDoc(new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Накладная на отгрузку № ${i.number}`, Author: i.org.name } }), 'Накладная');
   d.registerFont('gost', join(dir, 'gost-a.ttf'));
   d.registerFont('gost-i', join(dir, 'gost-a-slanted.ttf'));
   const chunks: Buffer[] = [];

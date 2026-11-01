@@ -1,5 +1,8 @@
 # Карта роли backend
 
+## Печать (PRINT-BLANKS, 2026-11-01, не закоммичено)
+- `common/print/fill-text.ts` (fillBlanks, printSafe), `safe-doc.ts` (guardDoc в 5 рендерерах), `product-passport/passport-blanks.ts` (printableText, blankItems, LABEL_SOURCES), `product-passport.service.ts` check→blankLabels; `passport-pdf.service.ts` printableText. Тесты: `common/print/*.spec.ts`, `passport-blanks.spec.ts`.
+
 ## Фото и файлы изделия (PRODUCT-FILES a–c, 2026-11-01, не закоммичено)
 - `modules/product-photo/` (`product-photo-purpose.ts` фильтр/проверка, `.dto.ts`, `.service.ts`), `scripts/passport-images-to-product.js` (+ `.test.mjs`), `product-passport/passport-product-images.ts`, `product-passport.service.ts` `effectiveImages`/`freezeImages`/`check` (изделие+template+hint), `passport-rules.ts` `imageRules`/`missingHint`, `passport-issue.ts` (заморозка), папки загрузок `common/uploads/upload-folder.ts` + `photos.service.ts upload(file, folder)`. e2e/openapi не трогались. коммит: —
 
