@@ -80,7 +80,7 @@ export function passportsBlock(r) {
 // «Где в заказах» (БЗ-5): позиции заказов с этим изделием (по ссылке или по совпадению названия) — только просмотр
 export function inOrders(r) {
   const items = r.orderLines || [];
-  if (!items.length) return h('p', { class: 'muted' }, 'В заказах не встречается');
+  if (!items.length) return h('div', null, h('div', { class: 'section-title' }, 'В заказах'), h('p', { class: 'muted' }, 'Изделие ещё не встречается в заказах'));
   return h('div', null, h('div', { class: 'section-title' }, `В заказах (${items.length})`),
     h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null,
       h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`),
