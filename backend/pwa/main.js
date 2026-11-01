@@ -64,7 +64,7 @@ const LAZY = {
   history: [() => import('./sections/history.js'), [['history','history']]],
   products: [() => import('./sections/products.js'), [['products','products']]],
   passports: [() => import('./sections/passports.js'), [['passports','passports']]],
-  docs: [() => import('./sections/docs.js'), [['doctpl','doctpl'],['passarchive','passarchive'],['@mountDocs','mountDocs']]],
+  docs: [() => import('./sections/docs.js'), [['doctpl','doctpl'],['passarchive','passarchive'],['orderpass','orderpass'],['@mountDocs','mountDocs']]],
   kp: [() => import('./sections/kp.js'), [['kp','kp'],['catalogimport','catalogImport'],['fromorders','fromOrders'],['frompassports','fromPassports']]],
   suppliercatalog: [() => import('./sections/supplier-catalog.js'), [['suppliercatalog','supplierCatalog'],['pricelist','priceList']]],
   composition: [() => import('./sections/composition.js'), [['composition','composition']]],
@@ -85,7 +85,7 @@ const LAZY = {
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
+const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
 const loading = {};
 let warmed = false;
 /** Прогрев (скорость): после входа, в простое, подтянуть частые разделы — первое открытие без ожидания. Один раз, ошибки молча. */
@@ -118,7 +118,7 @@ const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'r
 const DEFAULT = 'home';
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { salesorder: 'salesorders', orderedit: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
-  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', doctpl: 'docs' };
+  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', offers: 'products', orders: 'money', money: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)

@@ -6,6 +6,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { failBlock } from '../ui/busy.js';
 import { statusOf, canEdit as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
+import { orderPassportsButton } from './order-passport-plan.js';
 
 /*
  * Вкладка «По заказам» (ТИ-11): заказ → его паспорта, счётчик «готовы M из N», чип «Готов / Не готов / Доработать».
@@ -99,7 +100,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
       g.notReady ? h('span', { class: 'badge dim', title: READINESS.notReady.hint }, `не готовы: ${g.notReady}`) : null);
     return h('section', { class: 'do-group' }, head,
       isOpen ? h('div', { class: 'do-body' }, h('div', { class: 'section-title' }, `Паспорта (${g.total})`), ...subgroups(g)) : null,
-      isOpen && g.orderId ? h('div', { class: 'do-foot' }, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);
+      isOpen && g.orderId ? h('div', { class: 'do-foot' }, canChange() ? orderPassportsButton(g.orderId) : null, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);
   };
 
   let data = null;
