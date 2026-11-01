@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { paintOrder } from '../core/order-color.js';
-import { button, card, badge, empty, modal, toast, toastError, failBlock, busyBlock, attachCombo, openPopMenu, draggable, afterDrag, DESIGN_STATUS } from '../ui/kit/index.js';
+import { sku as kitSku, button, card, badge, empty, modal, toast, toastError, failBlock, busyBlock, attachCombo, openPopMenu, draggable, afterDrag, DESIGN_STATUS } from '../ui/kit/index.js';
 import { addToBoard, clean, createTask, distributeOrder, dropOrder, loadLines, normBoard, orderName } from './design-data.js';
 import { copyLink } from './design-menu.js';
 import { orderLabel } from './salesorders.js';
@@ -48,7 +48,7 @@ export function designSide({ query, env, onBoard }) {
   function lineNode(o, l) {
     const t = l.task;
     const title = (l.lineNo != null ? `поз. ${l.lineNo} · ` : '') + l.title;
-    const node = card({ size: 'S', title, meta: dotted(l.sku && '№ ' + l.sku, l.qty != null && qty(l.qty) + ' шт'),
+    const node = card({ size: 'S', title, meta: h('span', null, kitSku(l.sku), l.sku && l.qty != null ? ' · ' : null, dotted(l.qty != null && qty(l.qty) + ' шт')),
       badges: t ? badge(DESIGN_STATUS, t.status) : null,
       actions: !t && canEdit ? button({ label: 'Взять в работу', size: 'S', onClick: () => take(l, 'work') }) : null,
       onClick: () => (t ? openTask(t) : openOrder(o.orderId)) });

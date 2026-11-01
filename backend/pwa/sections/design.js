@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { badge, board as mountBoard, button, layout, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
+import { badge, board as mountBoard, button, sku as kitSku, layout, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
 import { designSide } from './design-side.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason } from './design-data.js';
@@ -44,7 +44,8 @@ export function dueNode(r) {
 }
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
-const subLine = (r, withCode = true) => [clean(r.sku) && '№ ' + clean(r.sku), (r.seqNo ?? r.lineNo) != null && 'поз. ' + (r.seqNo ?? r.lineNo), clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), withCode && r.code].filter(Boolean).join(' · ');
+const skuSub = (sku, text) => h('span', null, kitSku(sku), sku && text ? ' · ' : null, text);
+const subLine = (r, withCode = true) => [(r.seqNo ?? r.lineNo) != null && 'поз. ' + (r.seqNo ?? r.lineNo), clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), withCode && r.code].filter(Boolean).join(' · ');
 const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null);
 
 let stk = []; // видимые стикеры доски (грузятся один раз; пока нет — на карточке срок, приоритет, исполнитель)
@@ -53,12 +54,12 @@ function boardBody(r, c) {
   if (c.compact) {
     return [pic(r), h('div', { class: 't-main' },
       h('div', { class: 't-title', title: title(r) }, title(r)),
-      h('div', { class: 't-sub', title: r.pauseReason || '' }, [c.key === 'paused' && r.pauseReason, subLine(r)].filter(Boolean).join(' · ')),
+      h('div', { class: 't-sub', title: r.pauseReason || '' }, skuSub(clean(r.sku), [c.key === 'paused' && r.pauseReason, subLine(r)].filter(Boolean).join(' · '))),
       footOf(r))];
   }
   return [pic(r),
     h('div', { class: 't-title', title: title(r) }, title(r)),
-    h('div', { class: 't-sub' }, subLine(r)),
+    h('div', { class: 't-sub' }, skuSub(clean(r.sku), subLine(r))),
     footOf(r)];
 }
 
@@ -82,7 +83,7 @@ function targetWidget(v) {
   const skuBox = h('div', { class: 'tp-sku', hidden: true });
   const onLineChange = (line) => {
     const pn = line?.productName, sku = line?.sku;
-    if (pn || sku) { skuBox.textContent = [sku && '№ ' + sku, pn].filter(Boolean).join(' · '); skuBox.hidden = false; }
+    if (pn || sku) { skuBox.replaceChildren(kitSku(sku), sku && pn ? ' ' : null, pn); skuBox.hidden = false; }
     else skuBox.hidden = true;
   };
   const tp = targetPicker({ mode: 'reserve', onChange: onLineChange });
@@ -136,7 +137,7 @@ function topBlock(r, ctx) {
     : h('span', { class: 'kv-warn' }, 'не указано ', can ? button({ label: 'Уточнить у менеджера', kind: 'ghost', size: 'S', onClick: ask }) : null);
   const grid = h('dl', { class: 'kv-grid' },
     ...pair('Изготовить', made, 'kv-full'),
-    ...pair('Артикул', clean(r.sku)),
+    ...pair('Артикул', kitSku(clean(r.sku))),
     ...pair('№ заказа / поз.', znpText ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, znpText) : znpText) : ''),
     ...pair('Название в договоре', clean(r.customerTitle), 'kv-full'),
     ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
@@ -198,7 +199,7 @@ export const design = {
     columns: [
       { key: 'code', label: 'Код', sort: 'seq', cls: 'nowrap', render: (r) => h('b', null, r.code) },
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.photo ? h('img', { class: 'pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
-      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, title(r), subLine(r, false) ? h('small', { class: 'muted' }, ' ' + subLine(r, false)) : null, questionBadge(r) ? ' ' : null, questionBadge(r)) },
+      { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: title(r) }, kitSku(clean(r.sku)), r.sku ? ' ' : null, title(r), subLine(r, false) ? h('small', { class: 'muted' }, ' ' + subLine(r, false)) : null, questionBadge(r) ? ' ' : null, questionBadge(r)) },
       { key: 'due', label: 'Срок', cls: 'nowrap', render: dueNode },
       { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prioBadge(r) || '' },
       { key: 'assignee', label: 'Исполнитель', cls: 'nowrap md-hide', render: (r) => (r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')) },
@@ -206,7 +207,7 @@ export const design = {
     ],
     card: {
       title: (r) => `${r.code} · ${title(r)}`,
-      sub: (r) => [subLine(r, false), r.deadline ? 'срок ' + date(r.deadline) : '', r.assignee?.name].filter(Boolean).join(' · '),
+      sub: (r) => skuSub(clean(r.sku), [subLine(r, false), r.deadline ? 'срок ' + date(r.deadline) : '', r.assignee?.name].filter(Boolean).join(' · ')),
       side: (r) => [badge(STATUS, r.status), prioBadge(r), questionBadge(r)],
       thumb: (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + r.photo, alt: '', loading: 'lazy' }) : null),
     },

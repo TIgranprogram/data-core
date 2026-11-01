@@ -1,5 +1,6 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { sku as kitSku } from '../ui/kit/index.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/badges.js';
@@ -135,7 +136,7 @@ function topBlock(r) {
   const znp = [clean(r.productionNo), r.seqNo ?? r.lineNo].filter((x) => x !== '' && x != null).join(' / ');
   const grid = h('dl', { class: 'kv-grid' },
     ...pair('Изготовить', r.qty ? h('span', { class: 'kv-qty' }, `${qty(r.qty)} ${clean(r.unit) || 'шт'}`) : ''),
-    ...pair('Арт.', clean(r.sku)),
+    ...pair('Артикул', kitSku(clean(r.sku))),
     ...pair('Изделие', r.productId ? h('a', { href: '#products?open=' + r.productId }, clean(r.productName) || clean(r.sku) || 'Открыть изделие') : ''),
     ...pair('Заказ / поз.', znp ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, '№ ' + znp) : znp) : ''),
     ...pair('Заказчик', clean(r.customer)),

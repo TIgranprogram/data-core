@@ -1,4 +1,5 @@
 import { api, PREFIX } from '../../core/api.js';
+import { sku as kitSku } from '../../ui/kit/index.js';
 import { h } from '../../core/dom.js';
 import { normSearch, searchTokens } from '../../core/facets.js';
 import { date } from '../../core/format.js';
@@ -107,7 +108,8 @@ export function productBlock(api, { r, catBy }) {
   };
   formEl.addEventListener('input', paintSum); formEl.addEventListener('change', paintSum);
   const pic = (p) => (p?.photo ? h('img', { class: 'sg-pic', src: PREFIX + (p.photo.thumb || p.photo.url), alt: '' }) : h('div', { class: 'sg-pic sg-pic-none' }));
-  const sub = (p) => [p.sku && 'арт. ' + p.sku, [p.type, p.group].filter(Boolean).join(' › '), `паспортов: ${p.passportsCount || 0}`].filter(Boolean).join(' · ');
+  const front = (p) => (p.sku ? [kitSku(p.sku), ' ', p.name] : p.name);
+  const sub = (p) => h('span', null, [[p.type, p.group].filter(Boolean).join(' › '), `паспортов: ${p.passportsCount || 0}`].filter(Boolean).join(' · '));
 
   async function pick(p, { apply = true } = {}) {
     if (apply && !r && !(await duplicateCheck(p.id, api.get))) return; // НМ-2: дубль — открыть существующий
@@ -117,12 +119,12 @@ export function productBlock(api, { r, catBy }) {
   function render() {
     if (r) { // правка: изделие только показываем; без изделия — подсказка (привязать — в карточке)
       paintSum();
-      box.replaceChildren(...(chosen ? [h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', null, h('b', null, chosen.name), h('div', { class: 'muted' }, sub(chosen)))), sumLine]
+      box.replaceChildren(...(chosen ? [h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', null, h('b', null, front(chosen)), h('div', { class: 'muted' }, sub(chosen)))), sumLine]
         : [h('p', { class: 'muted' }, 'Паспорт без изделия — «Привязать к изделию» или «Создать изделие из паспорта» в карточке')]));
       return;
     }
     if (chosen) {
-      box.replaceChildren(h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', { style: { flex: '1' } }, h('b', null, chosen.name), h('div', { class: 'muted' }, sub(chosen))),
+      box.replaceChildren(h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', { style: { flex: '1' } }, h('b', null, front(chosen)), h('div', { class: 'muted' }, sub(chosen))),
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { chosen = null; lockData(); render(); } }, 'Сменить')), sumLine);
       paintSum();
       return;
@@ -140,7 +142,7 @@ export function productBlock(api, { r, catBy }) {
       rows = rows.sort((a, b) => (a.canPassport === false) - (b.canPassport === false) || (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
       const shown = rows.slice(0, 60);
       list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row' + (p.canPassport === false ? ' shp-dim' : ''), role: 'option', tabindex: '0', 'aria-disabled': p.canPassport === false ? 'true' : null, title: p.canPassport === false ? 'Нет категории паспорта — заполните в «Продукции»' : null, onclick: () => { if (p.canPassport !== false) pick(p); }, onkeydown: (e) => { if (e.key === 'Enter' && p.canPassport !== false) pick(p); } },
-        pic(p), h('div', null, h('div', { class: 'opt-l' }, p.name), h('small', null, sub(p)), p.canPassport === false ? h('small', { class: 'shp-why' }, 'Нет категории паспорта — заполните в «Продукции»') : null)))
+        pic(p), h('div', null, h('div', { class: 'opt-l' }, front(p)), h('small', null, sub(p)), p.canPassport === false ? h('small', { class: 'shp-why' }, 'Нет категории паспорта — заполните в «Продукции»') : null)))
         : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
         ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted static' }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
       add.textContent = q ? `+ Создать изделие «${q}»` : '+ Создать изделие';

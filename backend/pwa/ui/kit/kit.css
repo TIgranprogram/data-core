@@ -41,6 +41,9 @@
 .btn.k-icon.btn-sm { width: 32px; }
 @media (pointer: coarse), (max-width: 720px) { .btn.k-icon { width: 44px; min-height: 44px; } }
 @media (max-width: 720px) { .k-seg { height: auto; min-height: 44px; } .k-seg-btn { min-height: 44px; } }
+/* sku: артикул изделия */
+.k-sku { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); white-space: nowrap; max-width: 100%; }
+@media (max-width: 600px) { .k-sku { white-space: normal; overflow-wrap: anywhere; } }
 /* row: строка списка / корзины */
 .k-row { display: flex; align-items: center; gap: var(--s3); padding: 8px var(--s4); border-bottom: 1px solid var(--border); }
 .k-row[role=button]:hover, .k-row.k-click:hover { background: var(--row-hover); cursor: pointer; }

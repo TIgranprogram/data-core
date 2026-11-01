@@ -91,6 +91,7 @@
 |--|--|--|
 | button | любое действие; одна `primary` на экран, `danger` только в карточке | `button({ label, kind: primary/secondary/ghost/danger, size: M/S, icon?, onClick, busy?, disabled?, title? })` |
 | iconButton | действие значком (✕, ⋯); подпись (aria) обязательна | `iconButton({ icon, label, onClick, size?, menu?, title? })` |
+| sku | артикул изделия: в работе с конкретным изделием — впереди названия (`sku(a)`, пробел, название), в таблицах/карточках — отдельной строкой под названием; без подписи «арт.» | `sku(text)` → `.k-sku` / null |
 | link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
 | segmented | переключатель вида/режима, 2–4 пункта | `segmented({ items: [{key,label,tone?}], value, onChange(key), label })` → `{ el, set }` |
 | card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |

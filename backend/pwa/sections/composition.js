@@ -91,7 +91,7 @@ async function buildCompositionForm() {
     stockLookup().then((list) => { mats = list.map(matOf); stockState = 2; }, () => { stockState = 0; stockFailed = true; }).then(drawPick);
   };
   const prods = products.filter((p) => p.id !== prod.id) // само в себя — нельзя (глубже проверит сервер)
-    .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: p.sku ? 'арт. ' + p.sku : '', lineType: 'product' }));
+    .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: p.sku || '', lineType: 'product' }));
   const drawChips = () => kindTabs.set(kind);
   function drawPick() {
     const tk = searchTokens(query);

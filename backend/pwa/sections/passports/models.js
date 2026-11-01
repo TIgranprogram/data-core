@@ -14,7 +14,7 @@ export async function models() {
   modelsCache = items.map((r) => ({
     productId: r.productId || null, canPassport: r.canPassport !== false, missing: r.missing || [],
     label: r.name, cat: r.category || '', pic: r.thumb ? PREFIX + r.thumb : null,
-    sub: [r.passportCategory && (V2_CATS.find((c) => c.value === r.passportCategory)?.label || r.passportCategory), r.article && 'арт. ' + r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${plural(r.n, 'паспорт', 'паспорта', 'паспортов')}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
+    sub: [r.passportCategory && (V2_CATS.find((c) => c.value === r.passportCategory)?.label || r.passportCategory), r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${plural(r.n, 'паспорт', 'паспорта', 'паспортов')}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
     // поиск модели (Э5a5): название, артикул, категория каталога, категория паспорта v2
     search: normSearch([r.name, r.article, r.category, r.passportCategory, V2_CATS.find((c) => c.value === r.passportCategory)?.label].filter(Boolean).join(' ')),
     values: { _copyFrom: r.id, name: r.name, category: r.category || '', article: r.article || '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight),

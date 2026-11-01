@@ -149,7 +149,7 @@ async function matchProducts(r) {
   if (!items.length) { toast('Все позиции уже с изделием'); return null; }
   const rows = items.map((it) => {
     const sel = h('select', null,
-      ...(it.suggestions || []).map((s) => h('option', { value: s.productId }, `${s.name}${s.sku ? ' · ' + s.sku : ''}`)),
+      ...(it.suggestions || []).map((s) => h('option', { value: s.productId }, `${s.sku ? s.sku + ' ' : ''}${s.name}`)),
       h('option', { value: '' }, 'Без изделия'));
     return { it, sel, el: h('label', { class: 'field' }, h('span', null, `${it.lineNo ? it.lineNo + '. ' : ''}${it.title || ''}`), sel) };
   });
@@ -201,7 +201,7 @@ function orderPassports(r) {
     const act = orderPassportActions(r, items, load);
     if (act) { act.classList.add('op-act'); box.append(act); }
     const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
-    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Нужно сделать паспорт»');
+    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Паспорта → Нужно сделать паспорт»');
   }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
   load();
   return box;

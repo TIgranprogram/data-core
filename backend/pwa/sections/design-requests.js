@@ -112,7 +112,7 @@ function askProduct() {
   let picked = null;
   const inp = h('input', { placeholder: 'Начните вводить название или артикул', 'aria-label': 'Изделие', maxlength: 200 });
   let items = [];
-  api('/showcase', { query: { limit: 500 } }).then((r) => { items = (r.items || []).map((p) => ({ value: p.id, label: clean(p.name) || 'Без названия', sub: clean(p.sku) ? '№ ' + clean(p.sku) : '' })); }).catch((e) => toastError(e, 'загрузить изделия'));
+  api('/showcase', { query: { limit: 500 } }).then((r) => { items = (r.items || []).map((p) => ({ value: p.id, label: clean(p.name) || 'Без названия', sub: clean(p.sku) })); }).catch((e) => toastError(e, 'загрузить изделия'));
   attachCombo(inp, { options: () => items, onPick: (o) => { picked = o.value; }, empty: () => 'Изделий не найдено' });
   inp.addEventListener('input', () => { picked = null; });
   return modal({ title: 'Это дубль существующего', body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Какое изделие уже есть?'), inp),

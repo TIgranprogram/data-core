@@ -11,17 +11,18 @@ import { linkDialog, printDialog, previewPassport, passportVariant, VARIANT_HINT
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { tabs as kitTabs, badge as kitBadge, segmented, link as kitLink } from '../ui/kit/index.js';
+import { tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, empty as kitEmpty, crumbTail } from '../ui/kit/index.js';
+
 
 /*
- * «Документация» (NAV F5): две вкладки в адресе #docs?tab=…
+ * «Документация»: разделы (sec=acts|waybills|certs; по умолчанию «Паспорта») и внутри «Паспортов» вкладки #docs?tab=…
  *  — «Паспорта» (по умолчанию): список изделий; клик — правая панель «шаблон паспорта изделия»
  *    (категория + выбор текстов воронкой; хранится в изделии, из него «Выпустить паспорт» подставляет всё);
- *  — «Архив паспортов»: все выпущенные и перенесённые паспорта — только просмотр и печать.
+ *  — «Выпущенные паспорта»: все выпущенные и перенесённые паспорта — только просмотр и печать.
  * Панели справа: of=doctpl (шаблон изделия), of=passarchive (карточка архива, без правки), of=passports (полная карточка —
  * только чтобы дописать черновик).
  */
-const TABS = [['queue', 'Нужно сделать паспорт'], ['templates', 'Паспорта'], ['orders', 'По заказам'], ['archive', 'Архив паспортов']];
+const TABS = [['queue', 'Нужно сделать паспорт'], ['templates', 'Паспорта'], ['orders', 'По заказам'], ['archive', 'Выпущенные паспорта']];
 const tabOf = (p) => (['archive', 'orders', 'templates'].includes(p.tab) ? p.tab : 'queue');
 const isOld = (r) => !!r.source && r.source !== 'app';
 const hasTpl = (d) => !!d && (Object.keys(d.textChoices || {}).length > 0 || !!d.passportCategory);
@@ -56,7 +57,7 @@ export const doctpl = {
     emptyText: 'Изделий пока нет.', emptyHint: 'Сначала добавьте их в разделе «Продукция».',
     hints: { '': 'У каждого изделия свой шаблон паспорта: категория и выбранные тексты (монтаж, назначение…). Клик — открыть, поправить и нажать «Выпустить паспорт»: шаблон подставится в паспорт.' },
     columns: [
-      { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
+      { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => kitSku(r.sku) },
       { key: 'name', label: 'Изделие', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
       { key: 'group', label: 'Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'tpl', label: 'Шаблон', cls: 'nowrap', render: (r) => (r.hasPassportDefaults === undefined ? h('span', { class: 'muted' }, '—') : r.hasPassportDefaults ? h('span', { class: 'badge ok' }, 'задан') : h('span', { class: 'badge dim', title: 'Категория определится по разделу и группе; тексты выбираются при выпуске' }, 'не задан')) },
@@ -64,13 +65,13 @@ export const doctpl = {
     ],
     card: {
       title: (r) => r.name,
-      sub: (r) => [r.sku && `арт. ${r.sku}`, r.hasPassportDefaults === undefined ? '' : r.hasPassportDefaults ? 'шаблон задан' : 'шаблон не задан'].filter(Boolean).join(' · '),
+      sub: (r) => h('span', null, kitSku(r.sku), r.sku ? ' · ' : null, r.hasPassportDefaults === undefined ? '' : r.hasPassportDefaults ? 'шаблон задан' : 'шаблон не задан'),
       side: (r) => [h('span', { class: 'muted' }, r.passportsCount ? `паспортов: ${r.passportsCount}` : '')],
     },
   },
   card: {
-    heading: (r) => r.name,
-    subheading: (r) => [r.sku && `арт. ${r.sku}`, [r.type, r.group].filter(Boolean).join(' → ')].filter(Boolean).join(' · '),
+    heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
+    subheading: (r) => [r.type, r.group].filter(Boolean).join(' → '),
     editTop: true,
     startEdit: () => canTpl(),
     noHistory: true,
@@ -114,7 +115,7 @@ export const doctpl = {
       const auto = () => {
         const cat = cats.find((c) => String(c.code) === sel.value);
         const rows = [
-          ['Изделие', [r.name, r.sku && `арт. ${r.sku}`].filter(Boolean).join(' · ')],
+          ['Изделие', h('span', null, kitSku(r.sku), r.sku ? ' ' : null, r.name)],
           ['Категория паспорта', cat ? cat.name : (r.passportCategory?.name || '')],
           ['Материалы', r.materialsText],
           ['Выбрано текстов', Object.keys(JSON.parse(fb.value || '{}')).length ? String(Object.keys(JSON.parse(fb.value || '{}')).length) : ''],
@@ -163,7 +164,7 @@ export const doctpl = {
   },
 };
 
-// ─── вкладка «Архив паспортов»: только просмотр и печать ────────────────────────────────────────────
+// ─── вкладка «Выпущенные паспорта»: только просмотр и печать ────────────────────────────────────────────
 const archiveActions = (r) => [
   { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
   // черновик, не доведённый до выпуска, — дописывается в полной карточке (она остаётся как рабочая форма выпуска)
@@ -176,7 +177,7 @@ const oldBadge = (r) => (isOld(r) ? h('span', { class: 'badge dim', title: 'Пе
 export const passarchive = {
   ...passports,
   id: 'passarchive',
-  title: 'Архив паспортов',
+  title: 'Выпущенные паспорта',
   form: undefined,
   remove: undefined,
   open: (id) => go('docs', { tab: 'archive', of: 'passarchive', open: id }),
@@ -194,24 +195,41 @@ export const passarchive = {
 
 // ─── экран ────────────────────────────────────────────────────────────────────────────────────────────
 /** Параметры внутреннего списка: без вкладки и панели справа, иначе открытие карточки перезагружало бы список. */
-const listParams = (p) => { const { tab, of, ...rest } = p; return rest; };
+const listParams = (p) => { const { tab, sec, of, ...rest } = p; return rest; };
+
+const SECS = [['passports', 'Паспорта'], ['acts', 'Акты'], ['waybills', 'Накладные'], ['certs', 'Сертификаты']];
+const SEC_EMPTY = {
+  acts: ['Акты появятся здесь', 'Приёмка, монтаж, выполненные работы.'],
+  waybills: ['Накладные появятся здесь', 'Отгрузочные накладные по заказам. Пока отгрузку можно оформить в карточке заказа.'],
+  certs: ['Сертификаты появятся здесь', 'Сертификаты на материалы и изделия.'],
+};
+const secOf = (p) => (SEC_EMPTY[p.sec] ? p.sec : 'passports');
+const TAB_NAME = Object.fromEntries(TABS);
 
 export function mountDocs(params, { onChanged } = {}) {
+  let sec = secOf(params);
   let tab = tabOf(params);
   let inner = null;
   const seg = h('div');
   const body = h('div', { class: 'docs-body' });
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg), body);
 
-  const drawTabs = () => seg.replaceChildren(kitTabs({ label: 'Документация', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
+  const drawTabs = () => {
+    const nodes = [kitTabs({ label: 'Разделы документации', items: SECS.map(([key, label]) => ({ key, label })), value: sec, onChange: (k) => { if (sec !== k) go('docs', k === 'passports' ? {} : { sec: k }, { replace: true }); } }).el];
+    if (sec === 'passports') nodes.push(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
+    seg.replaceChildren(...nodes);
+    crumbTail(sec === 'passports' ? 'Паспорта › ' + TAB_NAME[tab] : SECS.find(([k]) => k === sec)[1]);
+  };
 
   function mountTab(p) {
     inner?.destroy?.();
+    inner = null;
+    if (sec !== 'passports') { const [title, hint] = SEC_EMPTY[sec]; body.replaceChildren(kitEmpty({ title, hint })); drawTabs(); return; }
     if (tab === 'queue') { inner = mountQueueTab(p); body.replaceChildren(inner.el); drawTabs(); return; }
     if (tab === 'orders') { inner = mountOrdersTab(p, { onChanged }); body.replaceChildren(inner.el); drawTabs(); return; }
-    const sec = tab === 'archive' ? passarchive : doctpl;
-    const secId = sec.id;
-    inner = mountList(sec, listParams(p), {
+    const section = tab === 'archive' ? passarchive : doctpl;
+    const secId = section.id;
+    inner = mountList(section, listParams(p), {
       onOpen: (row) => go('docs', { tab, of: secId, open: row.id }, { replace: !!current().params.open, kind: 'card' }),
       onCreate: () => {},
       onChanged,
@@ -227,7 +245,8 @@ export function mountDocs(params, { onChanged } = {}) {
     focusSearch: () => inner?.focusSearch?.(),
     destroy: () => inner?.destroy?.(),
     update: (p) => {
-      if (tabOf(p) !== tab) { tab = tabOf(p); mountTab(p); return; }
+      if (secOf(p) !== sec || (sec === 'passports' && tabOf(p) !== tab)) { sec = secOf(p); tab = tabOf(p); mountTab(p); return; }
+      if (sec !== 'passports') return;
       if (tab === 'orders' || tab === 'queue') { inner.update(p); return; }
       inner.update(listParams({ ...p, open: p.of === (tab === 'archive' ? 'passarchive' : 'doctpl') ? p.open : undefined }));
     },

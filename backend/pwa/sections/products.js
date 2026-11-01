@@ -1,5 +1,5 @@
 import { api, PREFIX, session } from '../core/api.js';
-import { stepFunnel, tagPick, button as kitButton } from '../ui/kit/index.js';
+import { stepFunnel, tagPick, sku as kitSku, button as kitButton } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, money, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -323,7 +323,7 @@ export const products = {
       card: (r) => ({
         pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,
         title: r.name,
-        meta: [r.sku && `арт. ${r.sku}`, r.series].filter(Boolean).join(' · '),
+        meta: h('span', null, kitSku(r.sku), r.sku && r.series ? ' · ' : null, r.series),
         price: r.price ? money(r.price) : null,
         badge: r.status === 'archived' ? h('span', { class: 'badge dim gc-badge' }, 'архив') : !r.price ? h('span', { class: 'badge warn gc-badge', title: 'Нет цены — изделие в черновиках' }, 'черновик') : null,
       }),
@@ -339,7 +339,7 @@ export const products = {
     rowAction: (r) => ({ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`«${row.name}» в КП — всего ${kpCount()}`); document.querySelectorAll('.kp-open').forEach((b) => { b.textContent = `КП (${kpCount()})`; }); return false; } }),
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => { const p = pic(r.photo); p?.classList.add('pic-lg'); return p; } },
-      { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => r.sku },
+      { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => kitSku(r.sku) },
       { key: 'name', label: 'Название', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name) },
       { key: 'group', label: 'Тип · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
@@ -348,14 +348,14 @@ export const products = {
     card: {
       thumb,
       title: (r) => r.name,
-      sub: (r) => [r.sku && `арт. ${r.sku}`, r.group, r.series].filter(Boolean).join(' · '),
+      sub: (r) => h('span', null, kitSku(r.sku), r.sku && (r.group || r.series) ? ' · ' : null, [r.group, r.series].filter(Boolean).join(' · ')),
       side: (r) => [h('b', { class: 'num' }, r.price ? money(r.price) : '—')],
     },
   },
 
   card: {
-    heading: (r) => r.name,
-    subheading: (r) => [r.sku && `арт. ${r.sku}`, STATUS[r.status] || r.status].filter(Boolean).join(' · '),
+    heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
+    subheading: (r) => STATUS[r.status] || r.status || '',
     editTop: true,
     zones: { extra: 'side' },
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли

@@ -96,8 +96,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     try { row = fresh || (await section.get(id)); }
     catch (e) { drawer.classList.remove('loading'); body.replaceChildren(failBlock(e, () => showView(), { text: 'Запись не открылась' })); titleEl.textContent = section.title; return; }
     drawer.classList.remove('loading');
-    titleEl.textContent = section.card.heading(row);
-    subEl.textContent = section.card.subheading ? section.card.subheading(row) : '';
+    titleEl.replaceChildren(...[].concat(section.card.heading(row) ?? ''));
+    subEl.replaceChildren(...[].concat(section.card.subheading ? section.card.subheading(row) ?? '' : ''));
     const up = section.card.parent?.(row);
     upEl.hidden = !up;
     if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }

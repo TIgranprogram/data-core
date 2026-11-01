@@ -1,5 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { sku as kitSku } from '../ui/kit/index.js';
 import { busyBtn } from '../ui/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
@@ -75,7 +76,7 @@ async function buildKpForm() {
       if (!items.length) { searchDrop.replaceChildren(h('div', { class: 'kp-search-empty' }, 'Не найдено')); return; }
       searchDrop.replaceChildren(...items.map((r) => {
         const btn = h('button', { type: 'button', class: 'kp-search-item' },
-          r.sku ? h('span', { class: 'muted small' }, r.sku + ' · ') : null, r.name,
+          kitSku(r.sku), r.sku ? ' ' : null, r.name,
           r.price ? h('span', { class: 'muted small' }, ' — ' + money(r.price) + ' ₽') : null);
         btn.onclick = () => { kpAdd(r); lines = load(); render(); clearSearch(); };
         return btn;
@@ -92,7 +93,7 @@ async function buildKpForm() {
       const p = h('input', { inputmode: 'decimal', value: l.price ? String(l.price) : '', placeholder: 'цена', 'aria-label': 'Цена' });
       q.addEventListener('input', () => { l.qty = parseNum(q.value) || 0; save(lines); total.textContent = `Итого: ${money(lines.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0))}`; });
       p.addEventListener('input', () => { l.price = parseNum(p.value) || 0; save(lines); total.textContent = `Итого: ${money(lines.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0))}`; });
-      return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('small', { class: 'muted' }, `арт. ${l.sku}`)),
+      return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('div', null, kitSku(l.sku))),
         field('Кол-во', q), field('Цена, ₽', p),
         h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать', onclick: () => { lines.splice(i, 1); render(); } }, '×'));
     }));

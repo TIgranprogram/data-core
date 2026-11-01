@@ -100,6 +100,9 @@ export function link({ label, href, onClick, title, target, cls } = {}) {
   return h('button', { type: 'button', class: c, title, onclick: onClick }, label);
 }
 
+/** sku(text) → .k-sku: артикул изделия (моноширинные цифры, жирный, цвет текста); пусто → null. Без подписи «арт.» */
+export const sku = (text) => (text == null || String(text).trim() === '' ? null : h('span', { class: 'k-sku' }, String(text).trim()));
+
 /** stat({ value, label }) → .stat; stats([...]) → .stats */
 export const stat = ({ value, label }) => h('div', { class: 'stat' }, h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label));
 export const stats = (items) => h('div', { class: 'stats' }, ...items.map(stat));
@@ -143,3 +146,6 @@ export { openPopMenu } from '../pop-menu.js';
 export { draggable, afterDrag } from '../drag.js';
 export { carousel } from '../gallery.js';
 export { uploadPhoto, photoDrop } from '../photos.js';
+
+/** Хвост хлебных крошек раздела: crumbTail('Паспорта › Выпущенные паспорта') */
+export { setCrumbTail as crumbTail } from '../crumbs.js';

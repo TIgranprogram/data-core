@@ -37,7 +37,7 @@ export async function linkDialog(r, ctx) {
   const input = h('input', { type: 'text', 'aria-label': 'Изделие', placeholder: 'Название или артикул', value: r.name || '' });
   const ids = new Map();
   const field = h('label', { class: 'field wide' }, h('span', null, 'Изделие из «Продукции»'), input);
-  attachCombo(input, { options: () => all.map((p) => { const l = `${p.name}${p.sku ? ' · арт. ' + p.sku : ''}`; ids.set(l, p.id); return { label: l, value: p.id, sub: [p.type, p.group].filter(Boolean).join(' › ') }; }) });
+  attachCombo(input, { options: () => all.map((p) => { const l = `${p.sku ? p.sku + ' ' : ''}${p.name}`; ids.set(l, p.id); return { label: l, value: p.id, sub: [p.type, p.group].filter(Boolean).join(' › ') }; }) });
   const res = await modal({
     title: 'Привязать к изделию', okText: 'Привязать',
     body: h('div', null, field,

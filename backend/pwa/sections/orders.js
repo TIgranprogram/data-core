@@ -40,7 +40,7 @@ const STATUS_HINT = {
 let lk = null;
 /** Изделия «Продукции» для выбора в позиции (БЗ-5): наименование · артикул. */
 const productOptions = () => api('/showcase', { query: { limit: 500, sort: 'name' } })
-  .then((r) => r.items.map((x) => ({ value: x.id, label: x.sku ? `${x.name} · арт. ${x.sku}` : x.name }))).catch(() => []);
+  .then((r) => r.items.map((x) => ({ value: x.id, label: x.sku ? `${x.sku} ${x.name}` : x.name }))).catch(() => []);
 const m2 = (o) => `№ ${o.orderNo || '—'} · ${o.customer || ''}`;
 export const incomeLookups = () => (lk ??= api('/incomes/lookups').catch((e) => { lk = null; throw e; }));
 incomeLookups.reset = () => { lk = null; };

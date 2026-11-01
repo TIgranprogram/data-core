@@ -8,7 +8,7 @@ import { toastError } from '../ui/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';
 
-import { table } from '../ui/kit/index.js';
+import { table, sku as kitSku } from '../ui/kit/index.js';
 /**
  * Правая панель заказа на доске «Проектирование» (`?of=designorder&open=<id заказа>`, DESIGN §4 «Доска заказов»).
  * Открыто — «с чем работаем»: «Заказ», «Изделия к проектированию» (взять в работу / назначить прямо в строке), «Как идёт проектирование».
@@ -37,7 +37,7 @@ function linesBlock(row, ctx) {
       posPic(l.photo ? { url: l.photo, thumb: l.photo } : null, 'sm'),
       h('div', { class: 'db-pmain' },
         h('div', { class: 't-title' }, t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть изделие справа' }, lineTitle(l)) : lineTitle(l)),
-        h('div', { class: 't-sub' }, [l.sku && '№ ' + l.sku, l.qty != null && `${qty(l.qty)} ${l.unit || ''}`.trim(), t?.assignee?.name].filter(Boolean).join(' · ')),
+        h('div', { class: 't-sub' }, kitSku(l.sku), l.sku ? ' · ' : null, [l.qty != null && `${qty(l.qty)} ${l.unit || ''}`.trim(), t?.assignee?.name].filter(Boolean).join(' · ')),
         h('div', { class: 'db-pstate' }, t ? badge(DESIGN_STATUS, t.status) : h('span', { class: 'muted' }, 'ещё не взято')),
         acts.length ? h('div', { class: 'db-pacts' }, acts) : null));
   });
@@ -89,6 +89,6 @@ export const designOrder = {
     extra: (r, ctx) => h('div', { class: 'db-blocks' },
       linesBlock(r, ctx),
       progressBlock(r),
-      block('Что в позициях', false, table({ columns: [{ label: 'Поз.' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Артикул' }], rows: r.lines.map((l) => ({ cells: [l.seqNo ?? l.lineNo ?? '', l.title, l.qty != null ? qty(l.qty) : '', l.sku || ''] })), empty: { title: 'Позиций нет' } }))),
+      block('Что в позициях', false, table({ columns: [{ label: 'Поз.' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Артикул' }], rows: r.lines.map((l) => ({ cells: [l.seqNo ?? l.lineNo ?? '', l.title, l.qty != null ? qty(l.qty) : '', kitSku(l.sku) || ''] })), empty: { title: 'Позиций нет' } }))),
   },
 };
