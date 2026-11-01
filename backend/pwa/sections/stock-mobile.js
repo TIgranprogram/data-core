@@ -13,7 +13,7 @@ import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
  * QR: кнопка «Сканировать QR» (mobile.scan) и вход по ссылке #stock-mobile?q=<код>.
  * Надёжность (DESIGN-MOBILE §2–3): запрос ≤ 15 с, ошибки шагов — с «Повторить», общий перехват ошибок экрана, справочники — кэш на сеанс.
  */
-const { screen, bigButton, choice, tiles, feed, dateChoice, qty, drill, error, scan, scanSupported } = mobile;
+const { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, error, scan, scanSupported } = mobile;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const call = (path, opts = {}) => api(path, { timeout: 15000, ...opts });
 const memo = new Map();
@@ -172,7 +172,7 @@ export const stockMobile = {
           const rows = ((await call('/supply/requests', { query: { status: 'ordered,paid', limit: 100, sort: 'requestDate' } })).items || []).filter((r) => !preset || r.materialId === preset.id).sort((x, y) => (y.paid ? 1 : 0) - (x.paid ? 1 : 0));
           return rows.map((r) => ({ value: r, label: r.title || r.name || 'Позиция', hint: [r.supplierName, `ждём ${fmt(r.qty)} ${r.unit || ''}`.trim(), r.invoiceNo ? '№ ' + r.invoiceNo : ''].filter(Boolean).join(' · ') }));
         } }], empty: 'Нечего принимать — нет заказанных и оплаченных поставок', onPick: (o) => { S.req = o.value; stepQty(); } });
-        show(screen({ title: 'Что приняли?', back: home, body: [d.el, bigButton({ label: 'Нет в списке — выбрать позицию', tone: 'neutral', onClick: stepItem })] }));
+        show(screen({ title: 'Что приняли?', back: home, body: [d.el, bigButton({ label: 'Нет в списке — выбрать позицию', tone: 'neutral', onClick: stepItem }), bigButton({ label: 'Подать заявку на новую позицию', tone: 'ghost', onClick: requestNew })] }));
       };
       const stepItem = () => { const pick = (it) => { S.req = { id: null, qty: 1, unit: unitOf(it), name: it.name, materialId: it.id, item: it }; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Какая позиция?', back: () => { if (!d.up()) stepList(); }, body: [d.el] })); };
       const stepQty = () => {
@@ -191,6 +191,23 @@ export const stockMobile = {
         } }) }));
       };
       stepList();
+    }
+
+    /** Крайний случай: позиции нет нигде — заявка менеджеру. Единственный экран с системной клавиатурой (DESIGN-MOBILE, исключение). */
+    function requestNew() {
+      const t = textField({ label: 'Что нужно завести на складе?', placeholder: 'Название, размер, стандарт…' });
+      const q = qty({ value: '', hint: 'Количество — необязательно' });
+      const msg = h('div');
+      show(screen({ title: 'Новая позиция', back: () => receive(), body: [t.el, q.el, msg], foot: bigButton({ label: 'Отправить', onClick: async () => {
+        const text = t.value();
+        if (!text) { msg.replaceChildren(error('Опишите, какая позиция нужна.')); return; }
+        msg.replaceChildren();
+        const n = q.value();
+        try {
+          await call('/material-requests', { method: 'POST', body: { text, ...(n > 0 ? { qty: n } : {}), ...(zoneNow() ? { zoneId: zoneNow() } : {}) } });
+          toast('Заявка отправлена менеджеру', { ms: 3000 }); home();
+        } catch (e) { msg.replaceChildren(failed(e)); }
+      } }) }));
     }
 
     /** Вход по QR-ссылке: «Принять» или «Выдать» эту позицию. */

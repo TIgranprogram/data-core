@@ -10,6 +10,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery } from '../ui/kit/index.js';
 import { facetLabel, pipeKey } from '../core/facets.js';
+import { stockRequestsBox, requestFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 import { segmented, toolbar } from '../ui/kit/index.js';
 
@@ -109,7 +110,7 @@ export const stock = {
     bulk: { extra: [qrBulkAction('S')] }, // только «Распечатать QR» над отмеченными (без «Изменить выбранные»)
     headActions: () => [stockActions()],
     moreActions: stockMore,
-    top: (_reload) => h('div', null, zoneBar(), mobileStockDashboard()),
+    top: (_reload) => h('div', null, zoneBar(), stockRequestsBox(), mobileStockDashboard()),
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',
@@ -247,7 +248,7 @@ export const stock = {
         ...(ps ? [{ section: 'Для паспорта', tone: 'info' }, ps] : []),
       ];
     },
-    initial: () => ({ unit: 'шт', photos: [] }),
+    initial: () => ({ unit: 'шт', photos: [], name: requestFromHash().name }),
     toInitial: (r) => ({ ...r, article: r.supplierArticle || '', ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
     toBody: (v) => {
       const b = { photoIds: v.photos || [], name: v.name, fullName: v.fullName || '', invoiceName: v.invoiceName || '', unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
@@ -276,6 +277,8 @@ export const stock = {
         catch (e) { toast(`Позиция создана, но фото не прикрепилось: ${errText(e)}. Добавьте фото в карточке.`, { error: true }); break; }
       }
       lookups.reset();
+      const fromReq = requestFromHash().id; // создано по заявке кладовщика — закрываем её
+      if (fromReq) await closeRequest(fromReq, 'done', r.id).catch(() => toast('Позиция создана, но заявка осталась открытой — отклоните или закройте её в списке', { error: true }));
       return r;
     },
     update: async (id, body) => {

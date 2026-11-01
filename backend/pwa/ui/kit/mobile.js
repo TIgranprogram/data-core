@@ -122,6 +122,12 @@ export function qty({ value = 1, unit = '', max, hint } = {}) {
   return { el, value: () => (txt ? num() : NaN) };
 }
 
+/** textField({ label, placeholder, max }) → { el, value() } — многострочный текст крупно; единственное место, где на мобильном склада открывается системная клавиатура (исключение: заявка на новую позицию) */
+export function textField({ label = '', placeholder = '', max = 500 } = {}) {
+  const ta = h('textarea', { class: 'm-text', rows: 4, maxlength: max, placeholder, 'aria-label': label || placeholder });
+  return { el: h('div', { class: 'm-text-box' }, label ? h('div', { class: 'm-unit' }, label) : null, ta), value: () => ta.value.trim() };
+}
+
 /** error(text, { onRetry }) → крупная ошибка; onRetry добавляет кнопку «Повторить» */
 export const error = (text, { onRetry } = {}) => h('div', { class: 'm-error', role: 'alert' }, h('div', null, '⚠ ' + text), onRetry ? bigButton({ label: 'Повторить', tone: 'neutral', onClick: onRetry }) : null);
 
@@ -189,4 +195,4 @@ export function scan({ onCode, onCancel, hint = 'Наведите на код' }
   return { el, stop };
 }
 
-export const mobile = { screen, bigButton, choice, tiles, feed, dateChoice, qty, drill, done, error, scan, scanSupported };
+export const mobile = { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, done, error, scan, scanSupported };
