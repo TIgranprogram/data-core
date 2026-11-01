@@ -30,6 +30,7 @@ export const DICT_META: Record<string, DictMeta> = {
   productSections: { sections: ['Продукция'], refBy: 'id' },
   units: { sections: ['Остатки', 'Заявки'], refBy: 'name' },
   writeOffReasons: { sections: ['Остатки'], refBy: 'name' },
+  departments: { sections: ['Остатки', 'Сотрудники'], refBy: 'name' },
   colors: { sections: ['Остатки', 'Заявки', 'Позиции и оплаты'], refBy: 'name' },
   metalAssortments: { sections: ['Остатки'], refBy: 'name' },
   steelGrades: { sections: ['Остатки'], refBy: 'name' },

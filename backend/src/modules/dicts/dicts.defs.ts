@@ -450,6 +450,7 @@ const BASE: DictBase[] = [
     softDelete: { isActive: false },
   },
   // Причины списания (SK-5): `stockmovements.reason` — название; значения по умолчанию добавляет WriteOffReasonsSeed
+  simpleList('departments', 'Люди и ФОТ', 'Отделы', 'Отделы производства: сварочный, деревянный, малярный… Кому выдаём со склада (телефон: «Выдать» → «На производство»). Новый отдел сразу появится в телефоне.', [], { coll: 'stockmovements', field: 'issuedTo' }),
   simpleList('writeOffReasons', 'Склад и позиции', 'Причины списания', 'Почему материал списан со склада без выдачи: брак, потеря, порча, прочее. Выбирается в окне «Списать».', [], { coll: 'stockmovements', field: 'reason' }),
   {
     key: 'colors', group: 'Склад и позиции', title: 'Цвета',
@@ -590,13 +591,15 @@ const BASE: DictBase[] = [
   },
   {
     key: 'worktypes', group: 'Люди и ФОТ', title: 'Виды работ',
-    hint: 'Сварщик, маляр, столяр… — у сотрудника; со склада выдаётся «вид работ → человек».',
+    hint: 'Сварка, покраска, столярные… — у сотрудника; отдел вида работ — кому выдаём со склада (телефон: отдел → его сотрудники).',
     coll: 'worktypes', match: { deletedAt: null },
-    columns: [{ key: 'description', label: 'Описание' }],
-    fields: [{ key: 'name', label: 'Название', required: true }, { key: 'description', label: 'Описание', type: 'textarea', wide: true }],
+    columns: [{ key: 'departmentName', label: 'Отдел' }, { key: 'description', label: 'Описание' }],
+    // ОТД-1: отдел — id строки справочника «Отделы» (переименование отдела связь не рвёт); старое текстовое `department` не трогаем
+    fields: [{ key: 'name', label: 'Название', required: true }, { key: 'departmentId', label: 'Отдел', type: 'select', ref: 'departments', hint: 'Сварка → Сварочный отдел. Сотрудники с этим видом работ попадут в отдел на телефоне склада.' },
+      { key: 'description', label: 'Описание', type: 'textarea', wide: true }],
     name: (d) => s(d.name),
-    row: (d) => ({ name: s(d.name), description: s(d.description) }),
-    toDoc: async (b, isNew) => ({ name: s(b.name), description: opt(b.description), updatedAt: new Date(), ...(isNew ? { isActive: true, hourlyRate: 0, deletedAt: null, createdAt: new Date() } : {}) }),
+    row: (d) => ({ name: s(d.name), departmentId: d.departmentId ? String(d.departmentId) : '', description: s(d.description) }),
+    toDoc: async (b, isNew) => ({ name: s(b.name), ...(b.departmentId !== undefined ? { departmentId: oidOrNull(b.departmentId) } : {}), description: opt(b.description), updatedAt: new Date(), ...(isNew ? { isActive: true, hourlyRate: 0, deletedAt: null, createdAt: new Date() } : {}) }),
     usage: async (db, docs) => {
       const rows = await db.collection('persons').aggregate([{ $match: { deletedAt: null, $or: [{ workTypeId: { $in: docs.map((d) => d._id) } }, { workTypeIds: { $in: docs.map((d) => d._id) } }] } }, { $project: { ids: { $setUnion: [{ $ifNull: ['$workTypeIds', []] }, { $cond: [{ $ifNull: ['$workTypeId', false] }, ['$workTypeId'], []] }] } } }, { $unwind: '$ids' }, { $match: { ids: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$ids', n: { $sum: 1 } } }]).toArray();
       return new Map(rows.map((r) => [String(r._id), r.n as number]));
@@ -841,7 +844,7 @@ const BASE: DictBase[] = [
 export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> = {
   categories: { newTitle: 'Новая категория' }, units: { newTitle: 'Новая единица измерения' }, colors: { newTitle: 'Новый цвет' },
   persons: { newTitle: 'Новый сотрудник' }, worktypes: { newTitle: 'Новый вид работ' }, paymentForms: { newTitle: 'Новая форма оплаты' },
-  writeOffReasons: { newTitle: 'Новая причина списания' }, payoutSchedules: { newTitle: 'Новый график выплат' }, invoiceTypes: { newTitle: 'Новый тип счёта' },
+  writeOffReasons: { newTitle: 'Новая причина списания' }, departments: { newTitle: 'Новый отдел' }, payoutSchedules: { newTitle: 'Новый график выплат' }, invoiceTypes: { newTitle: 'Новый тип счёта' },
   services: { newTitle: 'Новая услуга' }, passportCategories: { newTitle: 'Новая категория паспорта' }, passportStandards: { newTitle: 'Новый норматив', nameLabel: 'Обозначение (коротко)' },
   passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },

@@ -3,7 +3,6 @@ import { h } from '../core/dom.js';
 import { qty as fmt } from '../core/format.js';
 import { mobile, errText, toast, catArt } from '../ui/kit/index.js';
 import { activeOrders, orderLabel } from './salesorders.js';
-import { peopleByWork } from './issue.js';
 import { lookupCode } from './qr.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 
@@ -118,20 +117,25 @@ export const stockMobile = {
           onPick: (o) => { S.target = { salesOrderId: o.value }; S.where = `на заказ ${o.label}`; stepSure(); } });
         show(screen({ title: 'Заказ', step: { n: 3, of: 4 }, back: stepKind, body: [d.el] }));
       };
-      /** Кому: отделы крупными кнопками (если есть виды работ) и сотрудники выбранного отдела или все. */
+      /** Кому: сначала отдел (справочник «Отделы» — новый появится сам), затем его сотрудники (по видам работ: вид работ → отдел, ОТД-1); без фамилии — выдача в отдел (issuedTo). */
       const stepPerson = async () => {
-        show(screen({ title: 'Кому', step: { n: 3, of: 4 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
-        let groups;
-        try { groups = await once('people', () => peopleByWork()); } catch (e) { show(screen({ title: 'Кому', step: { n: 3, of: 4 }, back: stepKind, body: [failed(e, stepPerson)] })); return; }
-        const hasGroups = groups.some((g) => g.group !== 'Без вида работ');
-        let cur = '';
-        const paint = () => {
-          const people = groups.filter((g) => !cur || g.group === cur).flatMap((g) => g.people.map((p) => ({ value: p.id, label: p.name })));
-          show(screen({ title: 'Кому', step: { n: 3, of: 4 }, back: stepKind, body: [
-            hasGroups ? tiles({ items: [{ value: '', label: 'Все' }, ...groups.map((g) => ({ value: g.group, label: g.group }))], selected: cur, onPick: (o) => { cur = o.value; paint(); } }) : null,
-            choice({ items: people, empty: 'Сотрудников нет в справочнике', onPick: (o) => { S.target = { personId: o.value }; S.where = `на производство, ${o.label}`; stepSure(); } })] }));
+        show(screen({ title: 'Кому: отдел', step: { n: 3, of: 4 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
+        let deps, wts, ppl;
+        try {
+          [deps, wts, ppl] = await Promise.all(['departments', 'worktypes', 'persons'].map((k) => once('dict:' + k, () => call('/dicts/' + k).then((r) => r.items || []))));
+        } catch (e) { show(screen({ title: 'Кому: отдел', step: { n: 3, of: 4 }, back: stepKind, body: [failed(e, stepPerson)] })); return; }
+        const all = ppl.filter((p) => p.status !== 'fired').map((p) => ({ value: p.id, label: p.name, wt: [p.workTypeId, ...(p.workTypeIds || [])].filter(Boolean) }))
+          .sort((x, y) => x.label.localeCompare(y.label, 'ru'));
+        const peopleOf = (dep) => { const ids = new Set(wts.filter((w) => w.departmentId === dep.id).map((w) => w.id)); const own = all.filter((p) => p.wt.some((x) => ids.has(x))); return { own: own.length > 0, list: own.length ? own : all }; };
+        const pickPeople = (dep) => {
+          const { own, list } = dep ? peopleOf(dep) : { own: true, list: all };
+          show(screen({ title: dep?.name || 'Все сотрудники', step: { n: 3, of: 4 }, back: stepPerson, body: [
+            dep ? bigButton({ label: `Выдать в «${dep.name}» без фамилии`, tone: 'neutral', onClick: () => { S.target = { issuedTo: dep.name }; S.where = `в «${dep.name}»`; stepSure(); } }) : null,
+            dep && !own ? h('p', { class: 'm-empty' }, h('small', null, 'В отделе пока никого: у видов работ не указан этот отдел. Показаны все сотрудники.')) : null,
+            choice({ items: list, empty: 'Сотрудников нет в справочнике', onPick: (o) => { S.target = { personId: o.value, ...(dep ? { issuedTo: dep.name } : {}) }; S.where = `${dep ? dep.name + ', ' : 'на производство, '}${o.label}`; stepSure(); } })] }));
         };
-        paint();
+        show(screen({ title: 'Кому: отдел', step: { n: 3, of: 4 }, back: stepKind, body: [
+          tiles({ items: [...deps.map((d) => ({ value: d, label: d.name })), { value: null, label: 'Все сотрудники' }], empty: 'Отделов нет — добавьте в «Справочники» → «Отделы»', onPick: (o) => pickPeople(o.value) })] }));
       };
       const stepSure = () => {
         const clientUid = uid(); // повтор после сбоя связи не задвоит выдачу

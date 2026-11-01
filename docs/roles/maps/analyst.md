@@ -88,3 +88,6 @@
 
 ## Варианты изделия (ВР, 2026-11-01)
 - Аудит: `docs/audit/PRODUCT-VARIANTS.md`. Клон `showcase-clone.ts` не ставит `copiedFromProductId`; `series` только data-core; дыра — `salesorders-matching.js:75` создаёт изделие без проверки похожих. Вопросы ВР-1, ВР-2. коммит: — (не закоммичено)
+
+## Отделы и воронка (ОТД, 2026-11-01)
+- `docs/audit/DEPARTMENTS-FUNNEL.md`. `worktypes.department` уже есть (`work-type.schema.ts:21`, не используется); `persons.workTypeIds[]` есть (`person-work-types.ts`); дыра: `issue.js:16 peopleByWork` группирует по виду работ, `stock-mobile.js:128` сравнивает с отделом → не совпадает. Чек-листов нет; план: снимок в `worktasks.route[]`. Вопросы О-1…О-5 в QUESTIONS. коммит: — (не закоммичено)
