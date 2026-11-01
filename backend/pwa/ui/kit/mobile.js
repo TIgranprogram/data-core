@@ -89,4 +89,40 @@ export function done({ text, again, home } = {}) {
   return h('div', { class: 'm-done-box' }, h('div', { class: 'm-done', role: 'status' }, text), again ? bigButton({ label: again.label, onClick: again.onClick }) : null, home ? bigButton({ label: home.label, tone: 'neutral', onClick: home.onClick }) : null);
 }
 
-export const mobile = { screen, bigButton, choice, qty, drill, done, error };
+/** scanSupported() — есть ли в браузере чтение QR (BarcodeDetector) и камера */
+export const scanSupported = () => typeof window !== 'undefined' && 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia;
+
+/** scan({ onCode(text), onCancel(), hint }) → { el, stop() } — экран камеры: крупная рамка, «Наведите на код», «Отмена».
+ *  Найден код — короткая вибрация, камера выключается, вызывается onCode. Нет камеры/доступа — крупная ошибка и «Отмена» (ручной выбор остаётся). */
+export function scan({ onCode, onCancel, hint = 'Наведите на код' } = {}) {
+  let stream = null; let timer = null; let stopped = false;
+  const video = h('video', { class: 'm-video', autoplay: true, playsinline: true, muted: true });
+  const msg = h('div', { class: 'm-unit', role: 'status' }, 'Нужна камера, чтобы считать код');
+  const stop = () => { stopped = true; clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); stream = null; };
+  const cancel = bigButton({ label: 'Отмена', tone: 'neutral', onClick: () => { stop(); onCancel?.(); } });
+  const el = h('div', { class: 'm-scan' }, h('div', { class: 'm-frame' }, video, h('div', { class: 'm-aim' })), msg, cancel);
+  (async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      if (stopped) { stop(); return; }
+      video.srcObject = stream; await video.play().catch(() => {});
+      msg.textContent = hint;
+      const det = new window.BarcodeDetector({ formats: ['qr_code'] });
+      let busy = false;
+      timer = setInterval(async () => {
+        if (busy || stopped || video.readyState < 2) return;
+        busy = true;
+        try {
+          const found = await det.detect(video);
+          const text = found?.[0]?.rawValue;
+          if (text && !stopped) { stop(); navigator.vibrate?.(120); onCode?.(text); }
+        } catch { /* кадр не прочитался — следующий */ } finally { busy = false; }
+      }, 250);
+    } catch {
+      stop(); el.replaceChildren(error('Нет доступа к камере. Разрешите камеру в настройках браузера или выберите позицию из списка.'), cancel);
+    }
+  })();
+  return { el, stop };
+}
+
+export const mobile = { screen, bigButton, choice, qty, drill, done, error, scan, scanSupported };

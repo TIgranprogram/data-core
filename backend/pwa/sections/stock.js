@@ -21,6 +21,7 @@ import { openStockOp } from './stock-ops.js';
 import { targetNote } from '../ui/target-picker.js';
 import { passportSpecField, passportSpecView, savePassportSpec } from './stock-passport.js';
 import { mobileStockDashboard } from './warehouse-mobile.js';
+import { qrBulkAction, qrPrintAction } from './qr.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -88,6 +89,7 @@ export const stock = {
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
     query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
+    bulk: { extra: [qrBulkAction('S')] }, // только «Распечатать QR» над отмеченными (без «Изменить выбранные»)
     headActions: () => [stockActions()],
     moreActions: stockMore,
     top: (_reload) => mobileStockDashboard(),
@@ -194,6 +196,7 @@ export const stock = {
       { label: 'Пересчитать (сколько лежит)', run: (row) => { openStockOp('count', row.id); return false; } },
       r.metal && !r.offcutOf && { label: 'Отложить обрезок…', run: (row, ctx) => offcutDialog(row, ctx) },
       { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
+      qrPrintAction('S'),
     ],
     // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
     zones: { extra: 'side' }, // УПР-3: заказано, паспорт и движения — боковой колонкой

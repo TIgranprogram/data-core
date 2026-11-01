@@ -10,6 +10,7 @@ import { setCompositionTarget } from './composition.js';
 import { printDialog, previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
 import { openBulk } from './bulk-edit.js';
+import { qrBulkAction, qrPrintAction } from './qr.js';
 import { routeBlock } from './work-route.js';
 import { productFilesBlock } from './product-files.js';
 import * as data from './products/data.js';
@@ -45,7 +46,7 @@ export const products = {
     viewKey: 'products',
     createLabel: 'Изделие',
     // БЗ-9: отметить изделия → «Изменить выбранные» (артикул, наименование, фото, состав — по одному)
-    bulk: { open: (ids, { done }) => openBulk({ ids, done, fields: productBulkFields,
+    bulk: { extra: [qrBulkAction('P')], open: (ids, { done }) => openBulk({ ids, done, fields: productBulkFields,
       // «pd.*» — значения паспорта по умолчанию: собираем в один объект (сервер дополняет, не заменяет)
       apply: (set, arrays) => {
         const pd = Object.fromEntries(Object.entries(set).filter(([k]) => k.startsWith('pd.')).map(([k, v]) => [k.slice(3), v]));
@@ -168,6 +169,7 @@ export const products = {
         toast(`Новый артикул: ${res.sku}`); ctx.changed(); ctx.reload();
       } }] : []),
       // копия изделия целиком (поля, фото, настройки паспорта) — быстрый способ сделать похожее; откроется копия
+      qrPrintAction('P'),
       ...(session.canEdit ? [{ label: 'Клонировать', more: true, title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
         const c = await data.cloneProduct(row.id);
         ctx.changed();

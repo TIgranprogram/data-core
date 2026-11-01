@@ -4,18 +4,18 @@ import { qty as fmt } from '../core/format.js';
 import { mobile, errText } from '../ui/kit/index.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 import { peopleByWork } from './issue.js';
+import { lookupCode } from './qr.js';
 
 /*
  * «Склад (телефон)» — одна страница ассистента кладовщика (P11): «Принять на склад» и «Выдать со склада».
  * Собрана только из эталонов kit «mobile»; операции — те же вызовы, что у склада (POST /stock/batch, POST /supply/requests/:id/receive).
- * Точка расширения QR: scanButton(onItem) — когда появится сканер, вернуть кнопку «Сканировать» (сейчас null, заглушек нет).
+ * QR: кнопка «Сканировать QR» (mobile.scan, только если браузер умеет читать код) и вход по ссылке #stock-mobile?q=<код> — «Принять» или «Выдать» эту позицию.
  */
-const { screen, bigButton, choice, qty, drill, done, error } = mobile;
+const { screen, bigButton, choice, qty, drill, done, error, scan, scanSupported } = mobile;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
-const scanButton = (_onItem) => null;
 
 /** Выбор позиции без клавиатуры: раздел склада → позиция (название, остаток). */
-const itemDrill = (onPick) => drill({ extra: scanButton(onPick), empty: 'В этом разделе нет позиций',
+const itemDrill = (onPick, scanBtn) => drill({ extra: scanBtn, empty: 'В этом разделе нет позиций',
   levels: [
     { title: 'Раздел склада', load: async () => ((await api('/stock/categories')).items || []).filter((c) => c.id !== 'none').map((c) => ({ value: c.id, label: c.name, hint: c.total != null ? `позиций: ${c.total}` : '' })) },
     { title: 'Позиция', load: async ([cat]) => ((await api('/stock/items', { query: { categoryId: cat, limit: 500, sort: 'name' } })).items || []).map((it) => ({ value: it, label: it.name, hint: `На складе: ${fmt(it.quantity)} ${it.unit || ''}${it.article ? ' · ' + it.article : ''}` })) },
@@ -27,10 +27,28 @@ const listDrill = (title, load, onPick, empty) => drill({ levels: [{ title, load
 
 export const stockMobile = {
   title: 'Склад',
-  mount(el) {
+  mount(el, { params } = {}) {
     const show = (node) => { el.replaceChildren(node); window.scrollTo(0, 0); };
     const offline = (e) => !e?.status;
     const failed = (e, retry) => error(offline(e) ? 'Нет связи. Ничего не потеряно — повторите, когда появится связь.' : (errText(e) || 'Не получилось. Попробуйте ещё раз.'), { onRetry: retry });
+
+    /** Считанный код → позиция склада (с остатком) или понятное сообщение. */
+    const itemByText = async (text) => {
+      const r = await lookupCode(text);
+      if (!r.ok) return { fail: r };
+      if (r.data.entityType !== 'S') return { fail: { message: 'Этот код не для склада. Наведите на наклейку позиции склада.' } };
+      return { item: await api(`/stock/items/${r.data.id}`) };
+    };
+    /** Кнопка «Сканировать QR» над списком разделов: камера → позиция → onItem; отмена/сбой — назад к выбору. */
+    const scanBtn = (onItem, back) => (scanSupported() ? bigButton({ label: 'Сканировать QR', tone: 'neutral', onClick: () => {
+      const s = scan({ onCancel: back, onCode: async (text) => {
+        let res;
+        try { res = await itemByText(text); } catch (e) { show(screen({ title: 'Что выдаём?', back, body: [failed(e, back)] })); return; }
+        if (res.item) onItem(res.item);
+        else show(screen({ title: res.fail.message, back, body: [error(res.fail.message), bigButton({ label: 'Сканировать ещё раз', onClick: () => scanBtn(onItem, back).click() })], foot: bigButton({ label: 'Найти вручную', tone: 'neutral', onClick: back }) }));
+      } });
+      show(screen({ title: 'Наведите на QR-код', back: () => { s.stop(); back(); }, body: [s.el] }));
+    } }) : null);
 
     const home = () => show(screen({ title: 'Что делаем?', body: [
       bigButton({ label: 'Выдать со склада', tone: 'neutral', onClick: () => issue() }),
@@ -38,9 +56,9 @@ export const stockMobile = {
     ], foot: bigButton({ label: 'Принять на склад', onClick: () => receive() }) }));
 
     // ---------- Выдача: позиция → сколько → на что → подтвердить ----------
-    function issue() {
+    function issue(preset) {
       const S = {};
-      const stepItem = () => { const d = itemDrill((it) => { S.item = it; stepQty(); }); show(screen({ title: 'Что выдаём?', step: { n: 1, of: 4 }, back: () => { if (!d.up()) home(); }, body: [d.el], footHint: 'Выберите позицию' })); };
+      const stepItem = () => { const pick = (it) => { S.item = it; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Что выдаём?', step: { n: 1, of: 4 }, back: () => { if (!d.up()) home(); }, body: [d.el], footHint: 'Выберите позицию' })); };
       const stepQty = () => {
         const q = qty({ value: 1, unit: S.item.unit || 'шт', max: fmt(S.item.quantity) });
         const msg = h('div');
@@ -77,13 +95,13 @@ export const stockMobile = {
             } catch (e) { msg.replaceChildren(failed(e)); }
           } }) }));
       };
-      stepItem();
+      if (preset) { S.item = preset; stepQty(); } else stepItem();
     }
 
     // ---------- Приёмка: позиция → (поставка) → сколько → подтвердить ----------
-    function receive() {
+    function receive(preset) {
       const S = {};
-      const stepItem = () => { const d = itemDrill(async (it) => { S.item = it; S.req = null; await stepFrom(); }); show(screen({ title: 'Что принимаем?', step: { n: 1, of: 3 }, back: () => { if (!d.up()) home(); }, footHint: 'Выберите позицию', body: [d.el] })); };
+      const stepItem = () => { const pick = async (it) => { S.item = it; S.req = null; await stepFrom(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Что принимаем?', step: { n: 1, of: 3 }, back: () => { if (!d.up()) home(); }, footHint: 'Выберите позицию', body: [d.el] })); };
       const stepFrom = async () => {
         let reqs = [];
         try { reqs = ((await api('/supply/requests', { query: { status: 'ordered,paid', limit: 100, sort: '-requestDate' } })).items || []).filter((r) => r.materialId === S.item.id); }
@@ -109,10 +127,22 @@ export const stockMobile = {
             } catch (e) { msg.replaceChildren(failed(e)); }
           } }) }));
       };
-      stepItem();
+      if (preset) { S.item = preset; S.req = null; stepFrom(); } else stepItem();
     }
 
-    home();
-    return { destroy() { /* состояние живёт в замыканиях экрана */ } };
+    /** Вход по QR-ссылке: «Принять» или «Выдать» эту позицию. */
+    const fromCode = async (text) => {
+      show(screen({ title: 'Читаю код…', body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
+      let res;
+      try { res = await itemByText(text); } catch (e) { show(screen({ title: 'Что делаем?', back: home, body: [failed(e, () => fromCode(text))] })); return; }
+      if (!res.item) { show(screen({ title: res.fail.message, back: home, body: [error(res.fail.message)], foot: bigButton({ label: 'Выбрать из списка', tone: 'neutral', onClick: home }) })); return; }
+      const it = res.item;
+      show(screen({ title: it.name, back: home, body: [h('p', null, `На складе: ${fmt(it.quantity)} ${it.unit || ''}${it.article ? ' · ' + it.article : ''}`),
+        bigButton({ label: 'Принять', onClick: () => receive(it) }), bigButton({ label: 'Выдать', tone: 'neutral', onClick: () => issue(it) })], footHint: 'Что делаем с этой позицией?' }));
+    };
+
+    if (params?.q) fromCode(params.q); else home();
+    let lastQ = params?.q || '';
+    return { update(p) { const q = p?.q || ''; if (q && q !== lastQ) fromCode(q); lastQ = q; }, destroy() { /* состояние живёт в замыканиях экрана */ } };
   },
 };

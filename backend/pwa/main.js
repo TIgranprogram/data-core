@@ -366,6 +366,13 @@ const screenKey = (section, params) => (section === 'passports' ? 'docs' : secti
 function render(c) {
   const { section, params } = c;
   if (!section) { go(defaultSection(), {}, { replace: true }); return; }
+  // QR-наклейка: ссылка …/db/app/#q=<код>. Мобильный склад — сразу «Принять / Выдать»; остальные — карточка позиции или изделия
+  if (section.startsWith('q=')) {
+    const code = decodeURIComponent(section.slice(2));
+    if (session.onlyStockMobile || mounted?.section === 'stock-mobile') go('stock-mobile', { q: code }, { replace: true });
+    else import('./sections/qr.js').then((m) => m.routeCode(code, defaultSection()));
+    return;
+  }
   // старый раздел «Позиции и оплаты» (#orders) ушёл из меню: список — «Деньги → Долги», карточка позиции — справа (of=orders)
   if (section === 'orders') { const { open, new: isNew, ...rest } = params; go('money', { ...rest, tab: 'debts', ...(open || isNew ? { of: 'orders', ...(open ? { open } : { new: isNew }) } : {}) }, { replace: true }); return; }
   // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render

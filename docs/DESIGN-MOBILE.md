@@ -81,6 +81,7 @@
 | choice | выбор из списка / двух крупных вариантов | items [{value, label, hint}], onPick |
 | qty | ввод количества: число 40 px и своя цифровая панель (0–9, запятая, ⌫, Очистить, +10), без системной клавиатуры | value, unit, max, hint → {el, value()} |
 | drill | пошаговый выбор без поля ввода: раздел → позиция; больше 30 строк — буквенный указатель; extra — «Сканировать», когда готово | levels [{title, load(path)}], onPick, extra, empty → {el, up()} |
+| scan | экран камеры для QR: крупная рамка, «Наведите на код», «Отмена»; найден — вибрация и onCode; нет камеры — ошибка и ручной выбор. scanSupported() — кнопку «Сканировать QR» показывать только если true | onCode(text), onCancel, hint → {el, stop()} |
 | done | «Выполнено» | text/summary, again, home |
 | error | крупная ошибка | title, reason, action, onRetry, onBack |
 

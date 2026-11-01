@@ -31,7 +31,7 @@ import { reportSlow } from '../core/errors.js';
  *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
  *   limit?: число строк таблицы по умолчанию (25); выбор 25/50/100 — внизу.
  *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, price?, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
- *   bulk?: { label?, open(ids, { done }) } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
+ *   bulk?: { label?, open?(ids, { done }), extra?: [{label, run(ids, rows)}] } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
  *   tiles?: { key, title?, load: async () => [{ value, label, n, sub, head? }] } — плитки-фильтр над списком; с sidebar — список «Категории» в левой панели (head — раздел-заголовок),
  *   chipsTop?: true — с sidebar чипы-фильтры не в панели, а строкой над таблицей (СКФ.2: «Состояние» сверху, слева — только «что ищем»),
@@ -233,7 +233,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (selBtn) selBtn.classList.toggle('active', bulkMode);
     const pickedRows = () => rows.filter((r) => picked.has(r.id));
     bulkBar.replaceChildren(h('b', null, picked.size ? `Выбрано: ${qty(picked.size)}` : 'Отметьте строки — клик по строке или галочке'),
-      picked.size ? h('button', { type: 'button', class: 'btn btn-sm', disabled: !!L.bulk.disabled?.(pickedRows()), onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: pickedRows() }) }, (typeof L.bulk.label === 'function' ? L.bulk.label(pickedRows()) : L.bulk.label) || 'Изменить выбранные') : null,
+      picked.size && L.bulk.open ? h('button', { type: 'button', class: 'btn btn-sm', disabled: !!L.bulk.disabled?.(pickedRows()), onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: pickedRows() }) }, (typeof L.bulk.label === 'function' ? L.bulk.label(pickedRows()) : L.bulk.label) || 'Изменить выбранные') : null,
       ...(picked.size ? (L.bulk.extra || []).map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => a.run([...picked], pickedRows()) }, a.label)) : []),
       h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять выбор' : 'Готово'));
     const all = headPick(); if (all) { const ids = rows.filter(canPick).map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
