@@ -147,20 +147,28 @@ export function drill({ levels, onPick, extra, empty = 'Ничего нет' } =
     try { items = await lv.load(path.map((p) => p.value)); } catch (e) { el.replaceChildren(error(e?.status ? (e.message || 'Не получилось.') : 'Нет связи. Ничего не потеряно — повторите, когда появится связь.', { onRetry: go })); return; }
     const list = h('div', { class: 'm-results' });
     const pick = (it) => { if (path.length + 1 < levels.length) { path.push(it); go(); } else onPick?.(it, [...path.map((p) => p.value), it.value]); };
-    // фильтры длинного списка: первая буква и размер резьбы (М6, М8, М10 — из названий); оба вместе, выбранный подсвечен
+    // фильтры длинного списка: первая буква и размер резьбы (М6, М8, М10 — из названий); оба вместе, выбранный подсвечен.
+    // Размеры — только те, что есть у позиций выбранной буквы; выбранного размера нет — фильтр по размеру сбрасывается.
     const f = { letter: '', size: '' };
     const sizeOf = (i) => { const m = /(?:^|[\s,(])[MМ]\s?(\d+(?:[.,]\d+)?)/.exec(String(i.label)); return m ? 'М' + m[1].replace(',', '.') : ''; };
-    const letters = items.length > 30 ? [...new Set(items.map((i) => String(i.label).trim().charAt(0).toUpperCase()))].sort((x, y) => x.localeCompare(y, 'ru')) : [];
-    const sizes = items.length > 30 ? [...new Set(items.map(sizeOf).filter(Boolean))].sort((x, y) => parseFloat(x.slice(1)) - parseFloat(y.slice(1))) : [];
-    const chips = [];
+    const byLetter = (i) => !f.letter || String(i.label).trim().toUpperCase().startsWith(f.letter);
+    const long = items.length > 30;
+    const letters = long ? [...new Set(items.map((i) => String(i.label).trim().charAt(0).toUpperCase()))].sort((x, y) => x.localeCompare(y, 'ru')) : [];
+    const sizesOf = (arr) => [...new Set(arr.map(sizeOf).filter(Boolean))].sort((x, y) => parseFloat(x.slice(1)) - parseFloat(y.slice(1)));
+    let chips = [];
     const chip = (label, key, val) => { const b = bigButton({ label, tone: 'neutral', size: 'sm', onClick: () => { f[key] = val; paint(); } }); b.dataset.key = key; b.dataset.val = val; chips.push(b); return b; };
-    const paint = () => {
-      chips.forEach((b) => b.classList.toggle('m-on', f[b.dataset.key] === b.dataset.val));
-      list.replaceChildren((lv.tiles ? tiles : choice)({ items: items.filter((i) => (!f.letter || String(i.label).trim().toUpperCase().startsWith(f.letter)) && (!f.size || sizeOf(i) === f.size)), empty, onPick: pick }));
-    };
     const row = (aria, key, vals) => h('div', { class: 'm-letters', role: 'group', 'aria-label': aria }, chip(key === 'size' ? 'Все размеры' : 'Все', key, ''), ...vals.map((v) => chip(v, key, v)));
-    el.replaceChildren(...nodes(extra), lv.title ? h('h2', { class: 'm-sub' }, lv.title) : null,
-      letters.length ? row('Буква', 'letter', letters) : null, sizes.length > 1 ? row('Размер', 'size', sizes) : null, list);
+    const letterRow = letters.length ? row('Буква', 'letter', letters) : null;
+    const sizeBox = h('div');
+    const paint = () => {
+      const sizes = long ? sizesOf(items.filter(byLetter)) : [];
+      if (f.size && !sizes.includes(f.size)) f.size = '';
+      chips = chips.filter((b) => b.dataset.key !== 'size');
+      sizeBox.replaceChildren(...(sizes.length > 1 ? [row('Размер', 'size', sizes)] : []));
+      chips.forEach((b) => b.classList.toggle('m-on', f[b.dataset.key] === b.dataset.val));
+      list.replaceChildren((lv.tiles ? tiles : choice)({ items: items.filter((i) => byLetter(i) && (!f.size || sizeOf(i) === f.size)), empty, onPick: pick }));
+    };
+    el.replaceChildren(...nodes(extra), lv.title ? h('h2', { class: 'm-sub' }, lv.title) : null, letterRow, sizeBox, list);
     paint();
   };
   go();
