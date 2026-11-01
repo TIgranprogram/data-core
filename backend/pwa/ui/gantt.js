@@ -119,7 +119,9 @@ export function mountGantt(cfg, path, query, hooks = {}) {
       h('span', { class: 'spacer' }),
       seg(GROUPS, prefs.group, (g) => { prefs.group = g; savePrefs(); render(true); }, 'Группировка'),
       seg(SCALES, prefs.scale, (s) => { prefs.scale = s; savePrefs(); render(false); }, 'Масштаб'),
-      h('button', { type: 'button', class: 'btn btn-sm', title: 'Показать сегодняшний день', onclick: (e) => goToday(e.currentTarget) }, 'Сегодня'));
+      h('button', { type: 'button', class: 'btn btn-sm', title: 'Показать сегодняшний день', onclick: (e) => goToday(e.currentTarget) }, 'Сегодня'),
+      // как читать: полоса — план, красное — не успевает к сроку заказа
+      h('p', { class: 'hint', style: { flexBasis: '100%', margin: 0 } }, 'Полоса — план работы: с запуска, по дням на каждый вид работ (подписан на полосе). Красная — не успевает к сроку заказа. Вертикальная линия — сегодня. Перетащите полосу, чтобы поменять план.'));
   }
   function goToday(btn) {
     if (!scroller) return;
