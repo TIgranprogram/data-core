@@ -11,7 +11,7 @@ import { linkDialog, printDialog, previewPassport, passportVariant, VARIANT_HINT
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { tabs as kitTabs, badge as kitBadge, segmented } from '../ui/kit/index.js';
+import { tabs as kitTabs, badge as kitBadge, segmented, link as kitLink } from '../ui/kit/index.js';
 
 /*
  * «Документация» (NAV F5): две вкладки в адресе #docs?tab=…
@@ -72,6 +72,7 @@ export const doctpl = {
     heading: (r) => r.name,
     subheading: (r) => [r.sku && `арт. ${r.sku}`, [r.type, r.group].filter(Boolean).join(' → ')].filter(Boolean).join(' · '),
     editTop: true,
+    startEdit: () => canTpl(),
     noHistory: true,
     actions: (r) => [
       { label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по текущему шаблону изделия; паспорт не выпускается', run: (row) => previewPassport(row.id) },
@@ -124,20 +125,22 @@ export const doctpl = {
       let seq = 0;
       const checkNeed = async () => {
         const my = ++seq;
-        const pd = { ...(r.passportDefaults || {}), ...over };
-        const body = { ...pd, passportCategory: sel.value || undefined, name: r.name, article: r.sku, materials: r.materialsText || '', images: r.images || r.photos || [], variant: passportVariant.value };
+        const body = { productId: r.id, mode: 'template', variant: passportVariant.value };
+        if (Object.keys(over).length) body.passportDefaults = { ...over };
         let res = null;
         try { res = await api('/passports/check', { method: 'POST', body }); } catch { res = null; }
         if (my !== seq) return;
-        const list = (res?.missing || []).filter((m) => typeof m === 'object');
+        const list = (res?.missing || []).filter((m) => m && typeof m === 'object');
         if (!res) { needBox.replaceChildren(h('div', { class: 'section-title' }, 'Не хватает для паспорта'), h('p', { class: 'muted' }, 'Не удалось проверить. Попробуйте открыть изделие ещё раз.')); return; }
         if (!list.length) { needBox.replaceChildren(h('div', { class: 'section-title' }, 'Не хватает для паспорта'), h('p', null, kitBadge('Всё готово', 'ok'), ' Паспорт можно печатать.')); return; }
         needBox.replaceChildren(h('div', { class: 'section-title' }, `Не хватает для паспорта (${list.length})`),
           ...list.map((m) => {
             const num = NUM_KEYS.has(m.key);
             const inp = num ? h('input', { type: 'number', inputmode: 'decimal', value: over[m.key] ?? '', onchange: (e) => { over[m.key] = e.target.value; checkNeed(); } }) : null;
+            const isImg = String(m.key || '').startsWith('img_');
             return h('label', { class: 'field wide' }, h('span', null, m.label), inp,
-              h('div', { class: 'hint' }, HINTS[m.key] || (num ? 'Впишите число. Обычно оно есть в техническом задании или чертеже изделия.' : 'Загружается в форме паспорта: «Выпустить паспорт», шаг про картинки и состав. Берите из чертежа или фото изделия.')));
+              h('div', { class: 'hint' }, m.hint || HINTS[m.key] || (num ? 'Впишите число.' : 'Заполняется в изделии.')),
+              isImg ? kitLink({ label: 'Открыть изделие → Фото и файлы', onClick: () => go('products', { open: r.id }) }) : null);
           }));
       };
       sel.addEventListener('change', () => { auto(); checkNeed(); });

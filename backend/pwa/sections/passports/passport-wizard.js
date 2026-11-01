@@ -1,19 +1,16 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toastError } from '../../ui/toast.js';
-import { tagPick } from '../../ui/kit/index.js';
-import { photoDrop } from '../../ui/photos.js';
+import { link } from '../../ui/kit/index.js';
+import { go } from '../../core/router.js';
 import { rowsTable } from '../../ui/rows-table.js';
-import { funnelBox } from '../../ui/funnel.js';
-import { imagesBody } from '../../core/passport-images.js';
-import { V2_CATS, BOM_COLS, LATER_CATS, canEdit, imgsOf, kinds, dictOpts } from './common.js';
+import { BOM_COLS, canEdit } from './common.js';
 import { checkBlock } from './card-blocks.js';
 import { issueAction } from './dialogs.js';
 
 /** Определения шагов мастера. */
 const STEPS = [
   { key: 'product',   label: 'Изделие',      done: (r) => !!r.productId },
-  { key: 'category',  label: 'Категория',     done: (r) => !!r.passportCategory },
   { key: 'params',    label: 'Размеры и вес', done: (r) => !!(r.height && r.length && r.width) },
   { key: 'materials', label: 'Состав',        done: (r) => !!(r.materialIds?.length > 0 || r.materials) },
   { key: 'photos',    label: 'Фотографии',    done: (r) => (r.images || []).some((i) => i.url) },
@@ -55,10 +52,9 @@ function clear(el) {
 
 /** Определить шаг мастера по тексту из r.missing. */
 function missToStep(m) {
-  if (/категори/i.test(m)) return 1;
-  if (/высот|длин|ширин/i.test(m)) return 2;
-  if (/материал|элемент/i.test(m)) return 3;
-  if (/фото|рисунок/i.test(m)) return 4;
+  if (/высот|длин|ширин/i.test(m)) return 1;
+  if (/материал|элемент/i.test(m)) return 2;
+  if (/фото|рисунок/i.test(m)) return 3;
   return -1;
 }
 
@@ -124,155 +120,35 @@ function buildProduct(row, ctx, onSaved) {
   return buildProductSearch(row, ctx, onSaved);
 }
 
-function buildCategory(row, ctx, onSaved) {
-  let category = row.passportCategory || '';
-  let textChoices = row.textChoices || {};
-  let funnelWidget = null;
+/** Ссылка «Изменить в изделии →» (поля модели живут в изделии, не в паспорте). */
+const toProduct = (row, label = 'Изменить в изделии →') => (row.productId
+  ? link({ label, onClick: () => go('products', { open: row.productId }) })
+  : h('span', { class: 'muted' }, 'Сначала выберите изделие'));
+const kv = (rows) => h('dl', { class: 'kv-grid' }, ...rows.flatMap(([k, v]) => [h('dt', null, k), h('dd', null, v || h('span', { class: 'muted' }, 'нет'))]));
+const num = (v) => (v != null && v !== '' ? String(v).replace('.', ',') : '');
 
-  const segWrap = h('div', { class: 'seg-group' });
-  const funnelWrap = h('div', { style: { marginTop: 'var(--s2)' } });
-
-  V2_CATS.filter((c) => !c.value || !LATER_CATS.includes(c.value) || c.value === category).forEach((c) => {
-    const btn = h('button', { type: 'button', class: 'seg-btn' + (category === c.value ? ' active' : ''), onclick: () => {
-      category = c.value;
-      segWrap.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderFunnel();
-    } }, c.label);
-    segWrap.appendChild(btn);
-  });
-
-  function renderFunnel() {
-    clear(funnelWrap);
-    if (!category) return;
-    funnelWidget = funnelBox({ value: JSON.stringify(textChoices), category, canEditText: canEdit() });
-    const el = funnelWidget.el || funnelWidget;
-    if (el instanceof Element) {
-      el.addEventListener('change', () => {
-        try { textChoices = JSON.parse(funnelWidget.value || '{}'); } catch { /* ignore */ }
-      });
-      funnelWrap.appendChild(el);
-    }
-  }
-
-  if (category) renderFunnel();
-
-  const saveBtn = h('button', { type: 'button', class: 'btn btn-primary', onclick: async () => {
-    if (!category) { toastError(new Error('Выберите категорию')); return; }
-    saveBtn.disabled = true;
-    let tc = textChoices;
-    if (funnelWidget) { try { tc = JSON.parse(funnelWidget.value || '{}'); } catch { /* ignore */ } }
-    const fresh = await patchPassport(row.id, ctx, { passportCategory: category, textChoices: tc });
-    if (fresh) onSaved(fresh, 1);
-    else saveBtn.disabled = false;
-  } }, 'Сохранить →');
-
-  return h('div', null, segWrap, funnelWrap, h('div', { class: 'pw-actions' }, saveBtn));
+function buildParams(row) {
+  return h('div', null,
+    kv([
+      ['Категория паспорта', row.passportCategory],
+      ['Длина (L), мм', num(row.length)], ['Ширина (B), мм', num(row.width)], ['Высота (H), мм', num(row.height)],
+      ['Вес, кг', num(row.weight)], ['Ширина посадки, мм', num(row.seatWidth)], ['Высота посадки, мм', num(row.seatHeight)],
+      ['Количество опор, шт', num(row.supports)], ['Объём перевозки, куб. м', num(row.shipVolume)],
+    ]),
+    h('div', { class: 'pw-actions' }, toProduct(row)));
 }
 
-function buildParams(row, ctx, onSaved) {
-  const FIELDS = [
-    { key: 'length', label: 'Длина (L), мм' },
-    { key: 'width',  label: 'Ширина (B), мм' },
-    { key: 'height', label: 'Высота (H), мм' },
-    { key: 'weight', label: 'Вес, кг' },
-    { key: 'seatWidth', label: 'Ширина посадки (Bп), мм' },
-    { key: 'seatHeight', label: 'Высота посадки (Hп), мм' },
-    { key: 'supports', label: 'Количество опор, шт' },
-    { key: 'shipVolume', label: 'Объём перевозки, куб. м (пусто — посчитается)' },
-  ];
-  const inputs = {};
-  const grid = h('div', { class: 'pw-fields' });
-
-  FIELDS.forEach(({ key, label }) => {
-    const val = row[key] != null ? String(row[key]).replace('.', ',') : '';
-    const inp = h('input', { type: 'number', min: '0', step: 'any', class: 'inp', 'aria-label': label, value: val });
-    inputs[key] = inp;
-    grid.appendChild(h('label', { class: 'field' }, h('span', null, label), inp));
-  });
-
-  const saveBtn = h('button', { type: 'button', class: 'btn btn-primary', onclick: async () => {
-    saveBtn.disabled = true;
-    const body = {};
-    FIELDS.forEach(({ key }) => {
-      const v = inputs[key].value.trim().replace(',', '.');
-      if (v !== '') body[key] = Number(v);
-    });
-    const fresh = await patchPassport(row.id, ctx, body);
-    if (fresh) onSaved(fresh, 2);
-    else saveBtn.disabled = false;
-  } }, 'Сохранить →');
-
-  return h('div', null, grid, h('div', { class: 'pw-actions' }, saveBtn));
+function buildMaterials(row) {
+  return h('div', null,
+    kv([['Материалы', row.materials], ['Описание', row.description], ['Способ установки', row.installationMethod], ['Срок службы, лет', num(row.serviceLifeYears)]]),
+    h('div', { class: 'pw-actions' }, toProduct(row)));
 }
 
-function buildMaterials(row, ctx, onSaved) {
-  const container = h('div', null, h('p', { class: 'muted' }, 'Загрузка справочников…'));
-  const parseArr = (v) => {
-    if (Array.isArray(v)) return v;
-    try { return JSON.parse(v || '[]') || []; } catch { return []; }
-  };
-
-  (async () => {
-    try {
-      const [els, mats] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials')]);
-      const elPick = tagPick({ options: els, value: row.elements || [], label: 'Функциональные элементы' });
-      const matPick = tagPick({ options: mats, value: row.materialIds || [], label: 'Материалы' });
-
-      const saveBtn = h('button', { type: 'button', class: 'btn btn-primary', onclick: async () => {
-        saveBtn.disabled = true;
-        const elements = parseArr(elPick.value);
-        const materialIds = parseArr(matPick.value);
-        const fresh = await patchPassport(row.id, ctx, { elements, materialIds });
-        if (fresh) onSaved(fresh, 3);
-        else saveBtn.disabled = false;
-      } }, 'Сохранить →');
-
-      clear(container);
-      container.appendChild(h('div', { class: 'field wide' }, h('span', null, 'Функциональные элементы'), elPick.el));
-      container.appendChild(h('div', { class: 'field wide', style: { marginTop: 'var(--s2)' } }, h('span', null, 'Материалы'), matPick.el));
-      container.appendChild(h('div', { class: 'pw-actions' }, saveBtn));
-    } catch {
-      clear(container);
-      container.appendChild(h('p', { class: 'hint' }, 'Не удалось загрузить справочники.'));
-    }
-  })();
-
-  return container;
-}
-
-function buildPhotos(row, ctx) {
-  const req = row.requiredImages || [];
-  const photoKinds = kinds(row).filter(([k]) => req.includes(k) || k === 'overview');
-  const wrap = h('div', null);
-
-  photoKinds.forEach(([kind, label]) => {
-    const list = imgsOf(row, kind);
-    const saveImages = async () => {
-      try {
-        await api(`/passports/${row.id}`, { method: 'PATCH', body: { images: imagesBody(row.images || []) } });
-        const fresh = await api(`/passports/${row.id}`);
-        ctx.setRow(fresh);
-      } catch (e) { toastError(e); }
-    };
-
-    const drop = canEdit() ? photoDrop({
-      attach: async (photoId) => {
-        row.images = [...(row.images || []), { kind, photoId, order: list.length }];
-        return row;
-      },
-      done: () => saveImages(),
-    }) : null;
-
-    const reqMark = req.includes(kind) ? h('span', { class: 'req' }, ' *') : null;
-    const countNote = list.length ? h('span', { class: 'muted' }, ` · уже: ${list.length}`) : null;
-
-    wrap.appendChild(h('div', { style: { marginBottom: 'var(--s3)' } },
-      h('b', null, label, reqMark, countNote),
-      drop));
-  });
-
-  return wrap;
+function buildPhotos(row) {
+  const have = (row.images || []).filter((i) => i.url).length;
+  return h('div', null,
+    h('p', null, 'Рисунки берутся из изделия → «Фото и файлы».', have ? h('span', { class: 'muted' }, ` Сейчас: ${have} шт.`) : null),
+    h('div', { class: 'pw-actions' }, toProduct(row, 'Открыть изделие → Фото и файлы →')));
 }
 
 function buildBom(row, ctx, onSaved, onSkip) {
@@ -287,7 +163,7 @@ function buildBom(row, ctx, onSaved, onSkip) {
     saveBtn.disabled = true;
     const bom = parseArr(widget.value);
     const fresh = await patchPassport(row.id, ctx, { bom });
-    if (fresh) onSaved(fresh, 5);
+    if (fresh) onSaved(fresh, 4);
     else saveBtn.disabled = false;
   } }, 'Сохранить →');
 
@@ -364,11 +240,10 @@ export function passportWizard(r, ctx) {
 
     let content = null;
     if (s.key === 'product')   content = buildProduct(row, ctx, onSaved);
-    if (s.key === 'category')  content = buildCategory(row, ctx, onSaved);
     if (s.key === 'params')    content = buildParams(row, ctx, onSaved);
     if (s.key === 'materials') content = buildMaterials(row, ctx, onSaved);
     if (s.key === 'photos')    content = buildPhotos(row, ctx);
-    if (s.key === 'bom')       content = buildBom(row, ctx, onSaved, () => goTo(6));
+    if (s.key === 'bom')       content = buildBom(row, ctx, onSaved, () => goTo(5));
     if (s.key === 'issue')     content = buildIssue(row, ctx, goTo);
 
     if (content) body.appendChild(h('div', { class: 'pw-step-form' }, content));

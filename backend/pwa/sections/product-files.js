@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, empty, carousel, uploadPhoto, toast, toastError, confirmDlg } from '../ui/kit/index.js';
+import { button, empty, carousel, toast, toastError, confirmDlg } from '../ui/kit/index.js';
 import { KINDS, KINDS_V2 } from '../core/passport-kinds.js';
 
 /**
@@ -12,19 +12,28 @@ const LABEL = new Map([...KINDS, ...KINDS_V2].map(([k, name]) => [k, name]));
 const ORDER = [...LABEL.keys()];
 const sec = (title, ...body) => h('section', { class: 'form-block', 'data-tone': 'main' }, h('div', { class: 'form-sec-t' }, title), ...body);
 
+// слоты рисунков — из ответа check по изделию: imageSlots (или requiredImages)
 async function needKinds(r) {
   const cat = r.passportCategory?.code || r.passportDefaults?.passportCategory || '';
   if (!cat) return null;
   try {
-    const res = await api('/passports/check', { method: 'POST', body: { name: r.name, passportCategory: cat, isKit: !!r.passportDefaults?.isKit, images: [] } });
-    return (res.missing || []).map((m) => String(m.key || '')).filter((k) => k.startsWith('img_')).map((k) => k.slice(4));
+    const res = await api('/passports/check', { method: 'POST', body: { productId: r.id, mode: 'template' } });
+    const slots = (res.imageSlots || []).map((s) => (typeof s === 'string' ? s : s.kind || s.key)).filter(Boolean);
+    return [...new Set([...slots, ...(res.requiredImages || [])])];
   } catch { return []; }
+}
+
+async function uploadPassportPhoto(f) {
+  const fd = new FormData();
+  fd.append('file', f, f.name || `фото-${Date.now()}.png`);
+  const ph = await api('/photos/upload?purpose=passport', { method: 'POST', body: fd });
+  return { id: String(ph._id || ph.id) };
 }
 
 export function productFilesBlock(r, canEdit) {
   const root = h('div', null, sec('Для паспорта', h('div', { class: 'muted' }, 'Загружаю…')));
   const attach = async (kind, file, old) => {
-    const { id } = await uploadPhoto(file);
+    const { id } = await uploadPassportPhoto(file);
     await api(`/products/${r.id}/photos`, { method: 'POST', body: { photoId: id, purpose: 'passport', kind } });
     if (old) await api(`/products/${r.id}/photos/${old}`, { method: 'DELETE' });
   };
