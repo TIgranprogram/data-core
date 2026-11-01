@@ -47,6 +47,8 @@ export class Product {
   @Prop({ default: false }) hasPassport?: boolean;
   @Prop({ default: false }) hasDrawing?: boolean;
   @Prop({ type: Types.ObjectId, ref: 'Product' }) copiedFromProductId?: Types.ObjectId;
+  /** Вариант изделия (ВР): основное изделие семейства; пусто — изделие основное. Только data-core, CRM не читает. */
+  @Prop({ type: Types.ObjectId, ref: 'Product', index: true, sparse: true }) baseProductId?: Types.ObjectId;
 
   /** Legacy M:N module links retained for TZ-CATALOG-302 dual-read and TZ-CATALOG-304 migration. */
   @Prop({ type: [Types.ObjectId], ref: 'ProductModule', default: [] })

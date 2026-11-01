@@ -18,7 +18,7 @@ import { productNameKey, shortProductName } from './order-product-name';
 import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
 const key0 = (v: unknown) => clean(v).toLowerCase().replace(/ё/g, 'е');
 import { ShowcaseBulk } from './showcase-bulk';
-import { cloneDoc } from './showcase-clone';
+import { cloneDoc, variantDoc, variantSku } from './showcase-clone';
 import { findSimilar } from './showcase-similar';
 import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
@@ -227,6 +227,7 @@ export class ShowcaseService {
       // итог (своя вручную главнее группы) + отдельно own (из passportDefaults) и inherited (от группы/раздела/справочника); ничего нет — null
       passportCategory: item.ppOwn || item.ppInherited ? { ...(item.ppOwn ? { code: item.ppOwn.code, name: item.ppOwn.name, via: 'изделие (задана вручную)', source: 'own' } : item.ppInherited!), own: item.ppOwn, inherited: item.ppInherited } : null,
       designer: await this.designer(d.designerId as Types.ObjectId | undefined),
+      baseProductId: d.baseProductId ? String(d.baseProductId) : null, variants: await this.variants(d as Doc),
       passportDefaults: presentPassportDefaults(d.passportDefaults as PassportDefaults) };
   }
 
@@ -385,6 +386,32 @@ export class ShowcaseService {
     const { insertedId } = await this.db.collection('products').insertOne(cloneDoc(src as Doc, sku));
     const created = await this.get(String(insertedId));
     return auto?.warning ? { ...created, skuWarning: auto.warning } : created;
+  }
+
+  /**
+   * Вариант изделия (ВР): клон с `baseProductId` = основное изделие семейства (у варианта — его основное), артикул `<основной>.<n>`,
+   * имя основного (отличие — размеры, цвет — правятся в варианте). Паспорта, заказы и склад не переходят.
+   */
+  async makeVariant(id: string) {
+    const _id = oid(id, 'изделия');
+    const src = await this.db.collection('products').findOne({ _id, deletedAt: null });
+    if (!src) throw new NotFoundException('Изделие не найдено');
+    const base = src.baseProductId ? await this.db.collection('products').findOne({ _id: src.baseProductId as Types.ObjectId }) : src;
+    if (!base) throw new NotFoundException('Основное изделие не найдено');
+    const baseSku = clean(base.sku);
+    if (!baseSku) throw new BadRequestException('У основного изделия нет артикула — задайте его в карточке');
+    const taken = await this.db.collection('products').find({ sku: new RegExp(`^${escapeRe(baseSku)}\\.[0-9]+$`, 'i') }, { projection: { sku: 1 } }).toArray();
+    const sku = variantSku(baseSku, taken.map((t) => String(t.sku)));
+    const { insertedId } = await this.db.collection('products').insertOne(variantDoc(src as Doc, base as Doc, sku));
+    return this.get(String(insertedId));
+  }
+
+  /** Семейство вариантов изделия (ВР): основное + варианты, без самого изделия; пусто — вариантов нет. */
+  private async variants(d: Doc) {
+    const baseId = (d.baseProductId as Types.ObjectId | undefined) ?? (d._id as Types.ObjectId);
+    const docs = await this.db.collection('products').find({ deletedAt: null, _id: { $ne: d._id }, $or: [{ _id: baseId }, { baseProductId: baseId }] },
+      { projection: { sku: 1, name: 1, dimensions: 1, colors: 1, baseProductId: 1 } }).sort({ sku: 1 }).limit(100).toArray();
+    return docs.map((x) => ({ id: String(x._id), sku: String(x.sku ?? ''), name: String(x.name ?? ''), isBase: !x.baseProductId, dimensions: presentDimensions(x.dimensions), colors: (x.colors as string[]) ?? [] }));
   }
 
   async update(id: string, dto: Record<string, unknown>) {

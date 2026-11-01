@@ -16,7 +16,7 @@ import { productFilesBlock } from './product-files.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
-import { STATUS, dims, grp, passportCatView, warnNote, compositionBlock, passportsBlock, inOrders } from './products/card-blocks.js';
+import { STATUS, dims, grp, passportCatView, warnNote, compositionBlock, passportsBlock, inOrders, variantsBlock } from './products/card-blocks.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -116,7 +116,7 @@ export const products = {
     editTop: true,
     zones: { extra: 'side' },
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => h('div', null, warnNote(r), productFilesBlock(r, session.canEdit), compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    extra: (r) => h('div', null, warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd,
     photoMain: data.photoMain,
@@ -175,6 +175,11 @@ export const products = {
         ctx.changed();
         toast('Копия создана — проверьте название, размеры и артикул', { ms: 8000 });
         patch({ open: c.id, of: undefined, new: undefined });
+      } }, { label: 'Сделать вариант', more: true, title: 'То же изделие с другими размерами или цветом: создаётся новая карточка со своим артикулом (3404.1) и связью с основным', run: async (row, ctx) => {
+        const v = await data.makeVariant(row.id);
+        ctx.changed();
+        toast(`Вариант ${v.sku} создан — поправьте размеры и цвет`, { ms: 8000 });
+        patch({ open: v.id, of: undefined, new: undefined });
       } }] : []),
     ],
   },

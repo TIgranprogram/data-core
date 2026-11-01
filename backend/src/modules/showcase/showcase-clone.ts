@@ -15,3 +15,14 @@ export function cloneDoc(src: Doc, sku: string, now = new Date()): Record<string
   return { stockQty: 0, isActive: true, hasPassport: false, hasDrawing: false, photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], ...out, deletedAt: null, source: 'showcase', createdAt: now, updatedAt: now,
     ...(out.photoIds && !out.mainPhotoId ? { mainPhotoId: (out.photoIds as Types.ObjectId[])[0] ?? null } : {}) };
 }
+
+/** Артикул варианта: `<артикул основного>.<n>` — первый свободный n с 1 (занятые — `taken`, без учёта регистра). */
+export function variantSku(baseSku: string, taken: string[]): string {
+  const busy = new Set(taken.map((t) => t.trim().toLowerCase()));
+  for (let n = 1; ; n++) if (!busy.has(`${baseSku}.${n}`.toLowerCase())) return `${baseSku}.${n}`;
+}
+
+/** Вариант изделия (ВР): клон исходного, имя основного без «(копия)», связь с основным (варианты одного уровня). */
+export function variantDoc(src: Doc, base: Doc, sku: string, now = new Date()): Record<string, unknown> {
+  return { ...cloneDoc(src, sku, now), name: clean(base.name), baseProductId: base._id };
+}

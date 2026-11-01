@@ -87,3 +87,13 @@ export function inOrders(r) {
       h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.size, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · ')),
       l.linked ? suggestLink(l.id) : null))));
 }
+
+/** Варианты изделия (ВР): основное и другие варианты семейства — размеры, цвет; переход по ссылке. */
+export function variantsBlock(r) {
+  const items = r.variants || [];
+  if (!items.length) return null;
+  return h('div', null, h('div', { class: 'section-title' }, `Другие варианты (${items.length})`),
+    h('ul', { class: 'timeline' }, ...items.map((v) => h('li', null,
+      h('a', { href: '#products?open=' + v.id }, `арт. ${v.sku || '—'}`),
+      h('span', { class: 'muted clip' }, [v.isBase ? 'основное' : '', v.name, dims(v.dimensions), (v.colors || []).join(', ')].filter(Boolean).join(' · '))))));
+}

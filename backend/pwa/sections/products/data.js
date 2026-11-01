@@ -38,6 +38,7 @@ export const createProduct = (body) => api('/showcase', { method: 'POST', body }
 export const removeProduct = (r) => api(`/showcase/${r.id}`, { method: 'DELETE' });
 export const restoreProduct = (r) => api(`/showcase/${r.id}/restore`, { method: 'POST' });
 export const cloneProduct = (id) => api(`/showcase/${id}/clone`, { method: 'POST' });
+export const makeVariant = (id) => api(`/showcase/${id}/variant`, { method: 'POST' });
 
 /** Порядок фото изделия: ids — полный новый список (первое — обложка). Три действия карточки — одно место. */
 export const setPhotoOrder = (r, ids) => patchProduct(r.id, { photoIds: ids });
