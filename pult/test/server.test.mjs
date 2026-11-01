@@ -152,3 +152,21 @@ test('в каталоге для страницы нет способа запу
   const text = (await api('/api/catalog')).text;
   assert.ok(!text.includes('"run"'));
 });
+
+test('поручение: «сделано» хранится в pult/.state/done.json и переживает журнал запусков', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pult-root-'));
+  fs.mkdirSync(path.join(root, 'pult'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'pult', 'todo.json'), JSON.stringify([{ id: 'a', added: '2026-01-01', title: 'А', why: 'w', link: 'http://x' }]));
+  const logs = fs.mkdtempSync(path.join(os.tmpdir(), 'pult-logs-'));
+  const p2 = createPult({ catalog: fake, machine, root, logDir: logs, statusFn: async () => ({ fake: true }) });
+  const port2 = await p2.listen(0);
+  try {
+    const post = (body) => fetch(`http://127.0.0.1:${port2}/api/todo`, { method: 'POST', headers: { 'X-Pult-Token': p2.token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await (await post({ id: 'a', action: 'done' })).json();
+    assert.equal(r.done, true);
+    const file = path.join(root, 'pult', '.state', 'done.json');
+    assert.ok(JSON.parse(fs.readFileSync(file, 'utf8')).a.at > 0);
+    fs.rmSync(path.join(logs, 'runs.json'), { force: true }); // журнал запусков пропал — отметка осталась
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).a.how, 'button');
+  } finally { await p2.close(); }
+});

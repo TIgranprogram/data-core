@@ -1,5 +1,6 @@
 import type { mongo } from 'mongoose';
 import { DICTS } from '../../dicts/dicts.defs';
+import { ymd } from '../control.rollup';
 import { hashOf, normName, plural } from './question.rules';
 import type { Candidate } from './question.types';
 
@@ -18,6 +19,28 @@ export function fillCandidate(s: { total: number; groups: Array<{ key: string; t
     need: 'Откройте «Требуют заполнения» и впишите недостающее. Группа исчезает сама, когда всё заполнено.',
     advice: top ? `Начните с самой большой группы: «${top.title}» — ${top.count}.` : 'Начните с самой большой группы.',
     evidence: hashOf(s.groups.map((g) => g.key).sort()),
+  };
+}
+
+/** Коллекция дневных снимков «Состояния» (то же, что COL_DAILY в control.service; импорт дал бы цикл). */
+export const DAILY_COLLECTION = 'app_control_daily';
+
+/**
+ * Пропуск снимка дня: за вчера записи в «Состоянии» нет, хотя раньше они были. Сбой в 23:30 иначе виден только в журнале сервера.
+ * Запись делается раз в сутки, пропущенный день задним числом не появится: вопрос сам закроется через 3 дня.
+ */
+export async function snapshotGapCandidate(db: Db, now: Date): Promise<Candidate | null> {
+  const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const date = ymd(y);
+  const col = db.collection<{ _id: string }>(DAILY_COLLECTION);
+  if (await col.countDocuments({ _id: date }, { limit: 1 })) return null;
+  if (!(await col.countDocuments({ _id: { $lt: date } }, { limit: 1 }))) return null; // снимков ещё не было вовсе: пропуска нет
+  return {
+    type: 'snapshot_missing', source: SYSTEM('Проверка снимка дня'), subject: { kind: 'snapshot-day', ids: [date] },
+    what: `В «Состоянии» нет записи за ${date}: сервер не записал показатели этого дня.`,
+    need: 'Откройте «Состояние» и посмотрите, есть ли пропуск на графиках. Если сервер работал, но записи нет — передайте это разработчику: смотрят журнал сервера около 23:30.',
+    advice: 'Один пропуск не страшен: дальше снимки идут как обычно. Если пропуски повторяются, вопрос появится снова.',
+    evidence: date,
   };
 }
 

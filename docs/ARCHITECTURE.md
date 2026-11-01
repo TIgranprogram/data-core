@@ -60,7 +60,7 @@ Vanilla JS без сборки: `admin.js` (вся логика, fetch к `/api`
 - Локально: Windows, Docker Desktop; порты `HOST_PORT=3001`, `MONGO_PORT=27018` (3000/27017 заняты другим контуром).
 - VM (Synology, Ubuntu, Celeron без AVX → mongo 4.4): `/opt/data-core`, данные `/var/lib/datacore`, рядом прод kppdf на `:3000` — не трогать.
 - Бэкап: `deploy/synology/backup.sh` (mongodump от root) по cron 03:00, ротация 14 дней; сверка восстановления — `deploy/synology/verify-restore.js`.
-- Деплой: `deploy/synology/deploy.py` (skill `datacore-deploy`).
+- Деплой: `deploy/synology/release.sh` (skill `datacore-deploy`).
 
 ## Единая база (с 2026-10-18)
 
@@ -74,7 +74,7 @@ CRM kppdf (:3000, https://kppdf-crm.ru) ──────── напряму�
 - Загрузки общие: `/var/lib/datacore/uploads` смонтирован в оба backend.
 - Защита: CRM-таблицы (`kind:'crm'`) и общие с CRM (`kind:'shared'` — склад и снабжение: `materials`, `warehouses`, `storageitems`, `stockmovements`, `reservations`, `supplyrequests`; пишут оба кода, М5) из админки data-core не удаляются; удаление справочника в data-core блокируется ссылками и из каталога, и из CRM (`catalog-references.ts` → `isUsedByCrm`).
 - Оба сида досоздают недостающее (права/роли — объединение). kppdf — прямой писатель в БД (исключение из VISION #1, осознанное: тот же код-предок, те же плагины soft-delete/audit). Цель на будущее — kppdf как клиент API data-core.
-- **Склад и снабжение — общие коллекции CRM** (`materials`, `storageitems`, `stockmovements`, `reservations`, `warehouses`, `supplyrequests`): CRM пишет их напрямую, «Рабочее место» (`/app/`) и синхронизация Google-таблиц — через модули data-core `stock` / `supply` / `sheets-sync`. Схемы — копии kppdf; менять только синхронно. Подробно — [UNIFY-SUPPLY-WAREHOUSE.md](UNIFY-SUPPLY-WAREHOUSE.md).
+- **Склад и снабжение — общие коллекции CRM** (`materials`, `storageitems`, `stockmovements`, `reservations`, `warehouses`, `supplyrequests`): CRM пишет их напрямую, «Рабочее место» (`/app/`) и синхронизация Google-таблиц — через модули data-core `stock` / `supply`. Схемы — копии kppdf; менять только синхронно. Подробно — [UNIFY-SUPPLY-WAREHOUSE.md](UNIFY-SUPPLY-WAREHOUSE.md).
 - **Хозяин данных — приложение** (с 2026-10-19, PRODUCT «Решения»): запись, изменённая или удалённая в приложении, получает `editedInApp`, и синхронизация таблиц её больше не перезаписывает и не воскрешает.
 - Откат: `deploy/synology/README.md` → «Единая база: откат».
 

@@ -1,5 +1,5 @@
 import { AI_EXPIRE_DAYS, DAY } from './question.rules';
-import { dupDictCandidates, dupPartnerCandidates, errorCandidates, fillCandidate, type ErrorTop, SOURCE_BATCH } from './question.sources';
+import { dupDictCandidates, dupPartnerCandidates, errorCandidates, fillCandidate, snapshotGapCandidate, type ErrorTop, SOURCE_BATCH } from './question.sources';
 import type { QuestionStore } from './question.store';
 import type { Candidate } from './question.types';
 
@@ -44,6 +44,8 @@ export async function runDaily(st: QuestionStore, deps: DailyDeps, now: Date) {
   const fc = fill && fillCandidate(fill);
   if (fc) cands.push(fc);
   cands.push(...(await safely(async () => errorCandidates(st.db, await deps.errorsTop(), now), [] as Candidate[])));
+  const gap = await safely(() => snapshotGapCandidate(st.db, now), null);
+  if (gap) cands.push(gap);
   cands.push(...(await safely(() => dupPartnerCandidates(st.db), [] as Candidate[])));
   cands.push(...(await safely(() => dupDictCandidates(st.db), [] as Candidate[])));
   for (const c of cands.slice(0, SOURCE_BATCH * 4)) {

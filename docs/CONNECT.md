@@ -10,7 +10,6 @@
 
 > **Claude (ИИ) через MCP** — готовый сервер `mcp/datacore-mcp.mjs` и инструкция [mcp/README.md](../mcp/README.md): ключ `kppd_` + одна запись в настройках Claude.
 
-> **Google-таблицы «Снабжение» и «Склад»** — готовый скрипт синхронизации без дублей: [deploy/google-sheets/README.md](../deploy/google-sheets/README.md).
 
 > **Проще всего — админка, вкладка «Подключение»:** адрес API, кнопка выдачи ключа, готовые примеры (Google-таблица, Python, JavaScript, curl), **готовый промт для ИИ-агента** с актуальной схемой таблиц и кнопки скачать схему / OpenAPI / инструкцию.
 > Самоописание API (любой ключ, в т.ч. «только чтение»): `GET /meta/guide` — инструкция (markdown), `GET /meta/schema` — таблицы и поля, `GET /meta/openapi.json` — полный контракт.

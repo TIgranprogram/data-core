@@ -21,8 +21,7 @@ describe('CC-10: каталог показателей', () => {
 
   it('показатель без источника объясняет, чего не хватает', () => {
     const none = METRICS.filter((d) => d.source === 'none');
-    expect(none.length).toBeGreaterThan(0);
-    for (const d of none) {
+        for (const d of none) {
       expect(d.needs).toBeTruthy();
       expect(sourceNote(d)).toContain('ещё нет источника');
     }

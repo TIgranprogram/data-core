@@ -97,7 +97,7 @@ async function readStatus(machine, runs = {}) {
   };
 }
 
-export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), onIdle = null, statusFn = readStatus, now = () => new Date() } = {}) {
+export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), stateDir = path.join(root, 'pult', '.state'), onIdle = null, statusFn = readStatus, now = () => new Date() } = {}) {
   const token = crypto.randomBytes(24).toString('hex');
   const jobs = new Map();
   let restartAt = 0; // время, когда пульт ушёл на перезапуск после обновления кода
@@ -114,14 +114,38 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     try { return JSON.parse(fs.readFileSync(path.join(root, 'pult', 'todo.json'), 'utf8')); } catch { return []; }
   }
 
-  /** Когда и чем кончился последний запуск каждой команды: основа экрана «Что делать сейчас». */
-  function readRuns() {
+  /** Журнал последних запусков как он лежит в файле. */
+  function readRunsRaw() {
     try { return JSON.parse(fs.readFileSync(runsFile, 'utf8')); } catch { return {}; }
+  }
+
+  /** Что сделано из поручений: pult/.state/done.json, { id поручения: { at, how } }. Живёт, пока лежит файл, а не последние запуски. */
+  const doneFile = path.join(stateDir, 'done.json');
+  function readDone() {
+    try { return JSON.parse(fs.readFileSync(doneFile, 'utf8')); } catch { return {}; }
+  }
+  function markDone(id, how) {
+    const d = readDone();
+    d[id] = { at: Date.now(), how };
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.writeFileSync(doneFile, JSON.stringify(d, null, 1));
+  }
+
+  /** Когда и чем кончился последний запуск каждой команды: основа экрана «Что делать сейчас».
+   *  Отметки из done.json (если не старше постановки поручения) выглядят как «todo:<id>»; нет файла — прежнее поведение по журналу запусков. */
+  function readRuns() {
+    const runs = readRunsRaw();
+    const done = readDone();
+    for (const t of readTodo()) {
+      const d = done[t.id];
+      if (d && d.at >= Date.parse(t.added)) runs[`todo:${t.id}`] = { at: d.at, code: 0 };
+    }
+    return runs;
   }
 
   function saveRun(job) {
     if (job.state === 'stopped') return;
-    const runs = readRuns();
+    const runs = readRunsRaw();
     const text = job.lines.filter((l) => l.trim());
     runs[job.cmdId] = {
       at: job.endedAt, code: job.state === 'found' ? 0 : job.code, commit: job.commit,
@@ -131,6 +155,10 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     // команда с полями (какой скрипт) — ещё и под ключом с ними: пункт дел со своим скриптом закрывается только своим запуском
     const pk = runKey(job.cmdId, job.params); if (pk !== job.cmdId) runs[pk] = runs[job.cmdId];
     fs.writeFileSync(runsFile, JSON.stringify(runs, null, 1));
+    // успешный запуск команды поручения после его постановки — навсегда в done.json
+    if (runs[job.cmdId].code === 0) {
+      for (const t of readTodo()) if (t.cmd && runKey(t.cmd, t.params) === pk && runs[pk].at >= Date.parse(t.added)) markDone(t.id, 'run');
+    }
   }
 
   const send = (event) => {
@@ -383,11 +411,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       if (!t) return json(res, 404, { error: 'Такого поручения нет' });
       if (action === 'open' && t.link) { openExternal(t.link); return json(res, 200, { ok: true }); }
       if (action === 'done') {
-        const runs = readRuns();
-        runs[`todo:${t.id}`] = { at: Date.now(), code: 0 };
-        fs.mkdirSync(logDir, { recursive: true });
-        fs.writeFileSync(runsFile, JSON.stringify(runs, null, 1));
-        return json(res, 200, { ok: true, done: todoDone(t, runs) });
+        markDone(t.id, 'button');
+        return json(res, 200, { ok: true, done: todoDone(t, readRuns()) });
       }
       return json(res, 400, { error: 'Неизвестное действие' });
     }

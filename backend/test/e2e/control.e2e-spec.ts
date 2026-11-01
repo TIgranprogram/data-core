@@ -43,7 +43,7 @@ describe('Состояние сайта (CC-10…13)', () => {
   it('каталог: показатели с подписями и источником', async () => {
     const r = (await http().get('/api/control/catalog').set(as(admin.access)).expect(200)).body;
     expect(r.total).toBe(METRIC_KEYS.length);
-    expect(r.items.find((i: { key: string }) => i.key === 'data.dup_partners').sourceNote).toContain('ещё нет источника');
+    expect(r.items.find((i: { key: string }) => i.key === 'code.steps_red').sourceNote).toContain('ночного прогона');
     expect(r).toHaveProperty('page');
     expect(r).toHaveProperty('limit');
   });
@@ -80,7 +80,6 @@ describe('Состояние сайта (CC-10…13)', () => {
     expect(r.items).toHaveLength(1);
     const m = r.items[0].m as Record<string, number | null>;
     expect(Object.keys(m).sort()).toEqual([...METRIC_KEYS].sort());
-    expect(m['data.dup_partners']).toBeNull();
     expect(typeof m['business.requests_open']).toBe('number');
     expect(m['code.steps_red']).toBe(0); // берётся последний принятый прогон («bigtail», без провалов)
     expect(m['code.e2e_ok']).toBeNull(); // шага e2e в нём не было: null, не 0

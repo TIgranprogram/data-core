@@ -144,7 +144,6 @@
       const red = v('code.steps_red'), green = v('code.steps_green');
       const cards = el('div', 'cc-cards');
       cards.append(
-        card('Сайт был доступен', fmt(v('avail.uptime_pct'), '%'), v('avail.uptime_pct') == null ? 'ещё не собирается' : ''),
         card('Ответ сервера, медленные 5%', fmt(v('speed.p95_ms'), U('speed.p95_ms'))),
         card('Ошибок у пользователей', fmt(v('errors.total'), U('errors.total'))),
         card('Записей, которые нужно заполнить', fmt(v('data.fill_total'), U('data.fill_total'))),

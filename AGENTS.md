@@ -49,8 +49,7 @@ backend/admin/                 админка (vanilla JS, без сборки) 
 backend/pwa/                   приложение «Снабжение / Склад» (vanilla JS, PWA, офлайн) → /app
 backend/test/e2e/              e2e (нужен живой Mongo rs0)
 backend/scripts/               разовые/аудит-скрипты (не часть рантайма)
-deploy/synology/               deploy.py (деплой), backup.sh (cron-бэкап), verify-restore.js
-deploy/google-sheets/          как сервер читает Google-таблицы (инструкция; сам код — modules/sheets-sync)
+deploy/synology/               release.sh (выкладка), backup.sh (cron-бэкап), verify-restore.js
 deploy/supply-app/             инструкция приложения «Склад · Снабжение»
 docker-compose.yml             mongo:4.4 rs0 --auth --keyFile + backend (локально и на VM)
 ```
@@ -78,7 +77,7 @@ pnpm в PATH может не быть → используй `npx`.
 ## Жёсткие правила
 
 1. **Не ломать контракт API.** Префикс ключей `kppd_`, пути `/api/...`, форма ответов `{items,total,page,limit}` — публичный контракт для внешних клиентов. Меняешь эндпоинт → перегенерируй `docs/openapi.json` и обнови `docs/MAP.md`.
-2. **Данные священны.** Никаких `dropDatabase`, `deploy.py --wipe`, удаления коллекций, массовых `deleteMany` на живой БД без явного «да» пользователя. Деструктивные проверки — только на тестовой БД (`datacore-test`) или на копии.
+2. **Данные священны.** Никаких `dropDatabase`, удаления коллекций, массовых `deleteMany` на живой БД без явного «да» пользователя. Деструктивные проверки — только на тестовой БД (`datacore-test`) или на копии.
 3. **Прямой доступ к Mongo из клиентов запрещён** (VISION #1). Mongo публикуется только на `127.0.0.1`.
 4. **Единая база (с 2026-10-18):** CRM kppdf (`/opt/kppdf-8.0`, `:3000`, репо `D:\kppdf-8.0`) работает **с той же базой `datacore`** напрямую (Mongo-пользователь `kppdf`, сеть `data-core_default`). Таблицы `kind:'crm'` в реестре админки — его живые данные: не удалять, схемы общих коллекций не ломать (их читают оба кода). Подробности — `docs/ARCHITECTURE.md` «Единая база»; та же договорённость со стороны kppdf — `D:\kppdf-8.0\docs\UNIFIED-DB.md`.
 5. **На VM рядом работает прод-контур kppdf** (`:3000`, `/opt/kppdf*`). Его не трогать; data-core — `/opt/data-core`, `:3001`, контейнеры `datacore-*`.

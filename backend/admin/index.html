@@ -47,7 +47,6 @@
         <div class="side-group">База</div>
         <button class="tab" data-tab="tables"><span class="ico" aria-hidden="true">🗂</span><span class="lbl">Таблицы</span></button>
         <button class="tab" data-tab="audit"><span class="ico" aria-hidden="true">📜</span><span class="lbl">Журнал</span></button>
-        <button class="tab" data-tab="sheets"><span class="ico" aria-hidden="true">📊</span><span class="lbl">Google-таблицы</span></button>
         <button class="tab" data-tab="server"><span class="ico" aria-hidden="true">💾</span><span class="lbl">Сервер</span></button>
         <button class="tab" data-tab="devlog"><span class="ico" aria-hidden="true">🧭</span><span class="lbl">Ведение проекта</span></button>
         <button class="tab" data-tab="connect"><span class="ico" aria-hidden="true">🔌</span><span class="lbl">Подключение</span></button>
@@ -157,7 +156,7 @@
         <form id="key-form" method="dialog" class="dialog-form">
           <h3>Выдать ключ</h3>
           <label>Метка (где будет использоваться)
-            <input id="k-label" placeholder="например: google-sheets-inventory" required />
+            <input id="k-label" placeholder="например: ночной прогон" required />
           </label>
           <label>TTL
             <select id="k-ttl">
@@ -260,31 +259,6 @@
         <span id="audit-page" class="muted small"></span>
         <button class="btn" type="button" id="audit-next">Вперёд →</button>
       </div>
-    </main>
-
-    <!-- ---------- Connect tab (как подключить приложение / таблицу / ИИ) ---------- -->
-    <main id="tab-sheets" class="tab-panel" hidden>
-      <div class="panel-head">
-        <h2>Google-таблицы</h2>
-        <button class="btn btn-primary" type="button" id="gs-run">🔄 Синхронизировать сейчас</button>
-      </div>
-      <p class="panel-note">Сервер сам читает Google-таблицы (только чтение) и раз в <b id="gs-interval">10</b> мин переносит листы «Снабжение», «Склад», «Движение склада», «Заказы» и «Справочник» (списки и фото) в базу — без дублей. В таблицы ничего ставить не нужно.</p>
-      <section class="cx-card">
-        <h3>1. Адрес робота — поделитесь с ним таблицей (роль «Читатель»)</h3>
-        <div class="cx-row"><code id="gs-email" class="cx-value">—</code><button class="btn btn-sm" type="button" data-copy="#gs-email">Копировать</button></div>
-        <p class="muted small" id="gs-key-note"></p>
-      </section>
-      <section class="cx-card">
-        <h3>2. Подключить таблицу</h3>
-        <form id="gs-add" class="cx-row">
-          <input id="gs-url" type="url" placeholder="Ссылка на таблицу: https://docs.google.com/spreadsheets/d/…" required style="flex:1" />
-          <button class="btn btn-accent" type="submit">Подключить</button>
-        </form>
-      </section>
-      <section class="cx-card">
-        <h3>3. Подключённые таблицы</h3>
-        <div id="gs-list" class="muted">Загрузка…</div>
-      </section>
     </main>
 
     <!-- ---------- Сервер: место на диске (ДИ.2) ---------- -->

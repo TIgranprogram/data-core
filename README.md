@@ -35,7 +35,6 @@
 | [VISION.md](VISION.md) | Зачем проект и принципы |
 | [docs/MAP.md](docs/MAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/data-model.md](docs/data-model.md) | Код, устройство, сущности |
 | [deploy/synology/README.md](deploy/synology/README.md) | Сервер: деплой, туннель `/db/`, единая база, откат |
-| [deploy/google-sheets/README.md](deploy/google-sheets/README.md) | Google-таблицы → база: сервер читает их сам (сервисный аккаунт, админка → «Google-таблицы»); запасной способ — Apps Script |
 | [deploy/supply-app/README.md](deploy/supply-app/README.md) | Приложение «Снабжение / Склад» и переход с таблиц |
 | [deploy/backup-pull/README.md](deploy/backup-pull/README.md) | Копия бэкапов на Windows-ПК, восстановление |
 | [docs/HISTORY.md](docs/HISTORY.md) | Что сделано и как проверялось |
@@ -48,7 +47,7 @@ data-core/
 ├── backend/                ← NestJS API (src/, admin/ — админка, pwa/ — приложение, test/, scripts/)
 ├── docker-compose.yml      ← локальный контур: mongo:4.4 (rs0, --auth) + backend
 ├── docker-compose.prod.yml ← контур на VM
-├── deploy/synology/        ← деплой (deploy.py), бэкап (backup.sh), туннель, nginx-блок /db/
+├── deploy/synology/        ← выкладка (release.sh), бэкап (backup.sh), туннель, nginx-блок /db/
 ├── deploy/backup-pull/     ← копия бэкапов на Windows
 ├── .claude/                ← скиллы агентов и настройки доступа
 └── docs/                   ← CONNECT, TASKS, MAP, ARCHITECTURE, data-model, HISTORY, openapi.json

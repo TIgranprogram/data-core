@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Выкладка data-core на VM вручную по ssh (когда нет python/deploy.py) — по шагам skill `datacore-deploy`.
+# Выкладка data-core на VM по ssh — единственный путь; по шагам skill `datacore-deploy`.
 # Запуск из корня репо в Git Bash:   bash deploy/synology/release.sh [--data] [--drop-archive] [--force-urgent]
 #   сначала ворота deploy/synology/preflight.sh — красное → выкладки нет;
 #   без флагов — сама выбирает путь (печатает «== Путь: …»):

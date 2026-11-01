@@ -78,7 +78,7 @@ test('одна команда — один пункт, самый важный',
 });
 
 test('сделанное сегодня попадает в итог', () => {
-  const { done } = advise(calm, { 'day-status': { at: NOW - 1000, code: 0 }, 'git-log': { at: NOW - 2 * DAY, code: 0 } }, COMMANDS, NOW);
+  const { done } = advise(calm, { 'day-status': { at: NOW - 1000, code: 0 }, 'git-pull': { at: NOW - 2 * DAY, code: 0 } }, COMMANDS, NOW);
   assert.deepEqual(done.map((d) => d.cmd), ['day-status']);
 });
 

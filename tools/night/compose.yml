@@ -50,7 +50,6 @@ services:
       NODE_ENV: development
       PORT: "3000"
       DISABLE_THROTTLE: "1"
-      SHEETS_SYNC_INTERVAL_MIN: "0"
       MONGO_DB: ${NIGHT_DB:?}
       MONGO_URI: mongodb://dcnight:${NIGHT_APP_PW:?}@mongo:27017/${NIGHT_DB}?authSource=admin&replicaSet=rs0
       JWT_SECRET: ${NIGHT_JWT:?}

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isNightDb, assertStandSafe, lockState, acquireLock, releaseLock, tailBytes, failSignature, makeStep, summarize, stepLine, parseEnvFile, pickBackup } from './night.mjs';
+import { isNightDb, assertStandSafe, lockState, acquireLock, releaseLock, tailBytes, failSignature, makeStep, summarize, stepLine, parseEnvFile, pickBackup, pushRunToControl } from './night.mjs';
 
 test('isNightDb: только имена на -night', () => {
   assert.ok(isNightDb('datacore-night'));
@@ -82,4 +82,19 @@ test('parseEnvFile и pickBackup', () => {
   assert.deepEqual(parseEnvFile('A=1\n\nB_2=x=y\r\n#c'), { A: '1', B_2: 'x=y' });
   assert.equal(pickBackup(['datacore-2026-10-27_171446.tgz', 'datacore-2026-10-30_200436.tgz', 'datacore-2026-10-28_071609.tgz.part', 'pull.log']), 'datacore-2026-10-30_200436.tgz');
   assert.equal(pickBackup(['pull.log']), null);
+});
+
+test('pushRunToControl: нет файла ключа — пропуск без падения; есть — POST с ключом; сеть упала — строка, не исключение', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'night-key-'));
+  const file = path.join(dir, 'control-key.local.env');
+  assert.match(await pushRunToControl({ total: 1 }, { file }), /control-key.local.env/);
+  fs.writeFileSync(file, ['CONTROL_URL=https://example.test/db/', 'CONTROL_KEY=kppd_abc', ''].join('\n'));
+  let seen;
+  const ok = async (url, init) => { seen = { url, init }; return { ok: true, status: 201 }; };
+  assert.match(await pushRunToControl({ total: 1, steps: [] }, { file, fetchFn: ok, node: 'pc1' }), /отправлен/);
+  assert.equal(seen.url, 'https://example.test/db/api/control/runs');
+  assert.equal(seen.init.headers.authorization, 'Bearer kppd_abc');
+  assert.equal(JSON.parse(seen.init.body).node, 'pc1');
+  assert.match(await pushRunToControl({}, { file, fetchFn: async () => ({ ok: false, status: 401 }) }), /ответ 401/);
+  assert.match(await pushRunToControl({}, { file, fetchFn: async () => { throw new Error('fetch failed'); } }), /fetch failed/);
 });

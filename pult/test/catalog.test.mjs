@@ -41,7 +41,7 @@ test('запись на сайт всегда с подтверждением, �
 });
 
 test('выкладка и команды на сервере не помечены как чтение, кроме явного списка', () => {
-  const readOnlyVm = new Set(['prod-containers', 'prod-disk', 'prod-log']);
+  const readOnlyVm = new Set(['prod-log']);
   for (const c of COMMANDS) {
     if (c.run.deploy) assert.notEqual(c.risk, 'read', c.id);
     if (c.run.vm && c.risk === 'read') assert.ok(readOnlyVm.has(c.id), c.id);
@@ -73,17 +73,17 @@ test('параметр — только значение из списка', () 
 });
 
 test('выкладка идёт по пути этого ПК', () => {
-  const cmd = COMMANDS.find((c) => c.id === 'deploy-data');
-  assert.deepEqual(buildRun(cmd, {}, work).args, ['remote-access/deploy.sh', '--data']);
-  assert.deepEqual(buildRun(cmd, {}, { ...work, route: 'home' }).args, ['deploy/synology/release.sh', '--data']);
+  const cmd = COMMANDS.find((c) => c.id === 'deploy-release');
+  assert.deepEqual(buildRun(cmd, {}, work).args, ['remote-access/deploy.sh']);
+  assert.deepEqual(buildRun(cmd, {}, { ...work, route: 'home' }).args, ['deploy/synology/release.sh']);
 });
 
 test('скрипт со своим входом на сервер получает способ этого ПК', () => {
-  const cmd = COMMANDS.find((c) => c.id === 'setup-bundle');
-  const env = buildRun(cmd, { step: 'build' }, work).env;
+  const cmd = COMMANDS.find((c) => c.id === 'setup-backup');
+  const env = buildRun(cmd, {}, work).env;
   assert.equal(env.VM, 'datacore-vm');
   assert.ok(env.KEY.endsWith('datacore_work'));
-  assert.equal(buildRun(cmd, { step: 'build' }, { ...work, route: 'home' }).env, undefined);
+  assert.equal(buildRun(cmd, {}, { ...work, route: 'home' }).env, undefined);
 });
 
 test('скрипты с адресом сервера внутри помечены vmEnv', () => {

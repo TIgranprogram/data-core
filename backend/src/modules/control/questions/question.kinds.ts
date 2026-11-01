@@ -104,6 +104,16 @@ export function buildRegistry(d: KindDeps): ControlRegistry {
     },
     options: () => [go('dicts')],
   });
+  reg.addType({
+    type: 'snapshot_missing', title: 'Нет снимка дня в «Состоянии»', ruleV: 1, dueDays: 3, severity: 'medium', roles: admin, external: false,
+    recheck: async (q) => {
+      const date = q.subject.ids[0];
+      const age = (Date.now() - Date.parse(`${date}T12:00:00`)) / 86_400_000;
+      const has = await d.db.collection<{ _id: string }>('app_control_daily').countDocuments({ _id: date }, { limit: 1 });
+      return gone(!has && age < 4, date);
+    },
+    options: () => [],
+  });
   // Сводный вопрос: источник прислал больше, чем можно показать
   reg.addType({
     type: 'overflow', title: 'Слишком много вопросов', ruleV: 1, dueDays: 7, severity: 'low', roles: admin, external: false,

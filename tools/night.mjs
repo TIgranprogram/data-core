@@ -109,6 +109,24 @@ export function summarize(steps) {
   return { total: steps.length, green: steps.length - red.length, red: red.length, failed: red.map((s) => s.step) };
 }
 
+/** Файл с адресом сайта и машинным ключом для отправки итога прогона (gitignored): CONTROL_URL=https://kppdf-crm.ru/db, CONTROL_KEY=kppd_… */
+export const CONTROL_KEY_FILE = path.join(ROOT, 'tools', 'logs', 'control-key.local.env');
+
+/** Отправляет summary.json на POST /api/control/runs. Не бросает: возвращает одну строку для журнала. */
+export async function pushRunToControl(summary, { file = CONTROL_KEY_FILE, fetchFn = globalThis.fetch, node = os.hostname() } = {}) {
+  try {
+    if (!fs.existsSync(file)) return 'итог не отправлен на сайт: нет tools/logs/control-key.local.env (пульт → «Нужно от вас»)';
+    const { CONTROL_URL, CONTROL_KEY } = parseEnvFile(fs.readFileSync(file, 'utf8'));
+    if (!CONTROL_URL || !CONTROL_KEY) return 'итог не отправлен на сайт: в control-key.local.env нет CONTROL_URL или CONTROL_KEY';
+    const url = CONTROL_URL.replace(/\/+$/, '').replace(/\/api$/, '') + '/api/control/runs';
+    const body = JSON.stringify({ ...summary, node: String(node).slice(0, 60) });
+    const r = await fetchFn(url, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + CONTROL_KEY }, body, signal: AbortSignal.timeout(20000) });
+    return r.ok ? 'итог отправлен на сайт (Состояние)' : 'итог не отправлен на сайт: ответ ' + r.status;
+  } catch (e) {
+    return 'итог не отправлен на сайт: ' + e.message;
+  }
+}
+
 export function stepLine(s) {
   return `${s.ok ? '✓' : '✗'} ${s.step.padEnd(12)} ${String(Math.round(s.ms / 1000)).padStart(5)} с${s.ok ? '' : `  код ${s.code}${s.timedOut ? ' (таймаут)' : ''}  ${s.signature}`}`;
 }
@@ -373,6 +391,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
   fs.writeFileSync(path.join(runDir, 'summary.json'), JSON.stringify(summary, null, 2));
   fs.writeFileSync(path.join(runDir, 'night.log'), runLog.join('\n') + '\n');
   for (const s of steps) ctx.say(stepLine(s));
+  ctx.say(await pushRunToControl(summary));
   ctx.say(`Итог: зелёных ${sum.green}, красных ${sum.red} за ${Math.round(summary.durationMs / 1000)} с · ${path.relative(ROOT, runDir).replace(/\\/g, '/')}/summary.json`);
   return sum.red ? 1 : 0;
 }

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { snapshotGapCandidate } from './question.sources';
 import { bumpSeverity, checkParams, hashOf, median, normName, plural, questionKey, severityRank, stableJson } from './question.rules';
 
 describe('CC-14: правила вопросов', () => {
@@ -27,5 +28,28 @@ describe('CC-14: правила вопросов', () => {
     expect(median([])).toBeNull();
     expect(normName('  ООО   Ромашка ')).toBe('ооо ромашка');
     expect([1, 2, 5, 11, 21].map((n) => plural(n, ['запись', 'записи', 'записей']))).toEqual(['1 запись', '2 записи', '5 записей', '11 записей', '21 запись']);
+  });
+});
+
+describe('Пропуск снимка дня в «Разборе»', () => {
+  // минимальная база: коллекция с датами-ключами
+  const dbWith = (dates: string[]) => ({
+    collection: () => ({
+      countDocuments: async (f: { _id: string | { $lt: string } }) =>
+        dates.filter((d) => (typeof f._id === 'string' ? d === f._id : d < f._id.$lt)).length,
+    }),
+  }) as never;
+  const now = new Date(2026, 10, 1, 23, 30);
+
+  it('вчера записи нет, а раньше были — вопрос с датой вчерашнего дня', async () => {
+    const c = await snapshotGapCandidate(dbWith(['2026-10-29']), now);
+    expect(c).toMatchObject({ type: 'snapshot_missing', subject: { kind: 'snapshot-day', ids: ['2026-10-31'] } });
+    expect(c!.what).toContain('2026-10-31');
+  });
+  it('вчера запись есть — вопроса нет', async () => {
+    expect(await snapshotGapCandidate(dbWith(['2026-10-29', '2026-10-31']), now)).toBeNull();
+  });
+  it('снимков не было вовсе — вопроса нет (новая установка)', async () => {
+    expect(await snapshotGapCandidate(dbWith([]), now)).toBeNull();
   });
 });

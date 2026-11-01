@@ -69,7 +69,7 @@ describe('CC-12: снимок дня', () => {
     const d = cols[COL_DAILY].rows.get('2026-10-31')!;
     expect(d.m['errors.total']).toBe(3);
     expect(d.m['speed.slow_count']).toBe(0);
-    expect(d.m['data.dup_partners']).toBeNull();
+    expect(d.m['code.steps_red']).toBeNull();
     expect(d.schemaV).toBe(1);
     expect(d.meta.source).toBe('snapshot');
   });
