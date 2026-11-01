@@ -101,6 +101,9 @@ export function link({ label, href, onClick, title, target, cls } = {}) {
 }
 
 /** sku(text) → .k-sku: артикул изделия (моноширинные цифры, жирный, цвет текста); пусто → null. Без подписи «арт.» */
+/** Заголовок группы в просмотре карточки (`card.view`): строка `grp('Цена')`; группа без заполненных строк не выводится (ui/card.js). */
+export const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { class: 'fields-grp-end' })];
+
 export const sku = (text) => (text == null || String(text).trim() === '' ? null : h('span', { class: 'k-sku' }, String(text).trim()));
 
 /** section({ title, count?, open?, body, cls? }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).

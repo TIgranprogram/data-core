@@ -1,3 +1,4 @@
+import { grp } from '../ui/kit/index.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
@@ -225,22 +226,25 @@ export const orders = {
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     stats: (r) => [...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : 'не указана']] : []), ['Отгрузка', date(r.shipDate) || '—'], ...(session.canMoney ? [['Оплачено', r.paidAmount ? money(r.paidAmount) : '—'], ['Долг', r.amount ? money(r.debt || 0) : '—']] : [])],
     view: (r) => [
+      grp('Позиция'),
       ['Статус', badge(INCOME_STATUS, r.status)],
-      ['Заказчик', customerLink(r.customer)],
-      ['Наша компания', r.companyName],
-      ['Форма оплаты', r.paymentForm],
+      ['Состояние', lineMark(r) || ''],
+      ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
+      ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
       ['Количество', r.qty != null ? `${qty(r.qty)} ${r.unit || ''}`.trim() : ''],
-      ['Цена за ед.', r.unitPrice != null ? money(r.unitPrice) : ''],
-      ['Доход вручную', r.amountManual != null ? money(r.amountManual) : ''],
       ['Вид', r.kind],
       ['Цвет', r.color],
       ['Размер', r.size],
-      ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
-      ['Состояние', lineMark(r) || ''],
-      ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
-      ['Примечание', r.notes],
+      grp('Деньги'),
+      ['Цена за ед.', r.unitPrice != null ? money(r.unitPrice) : ''],
+      ['Доход вручную', r.amountManual != null ? money(r.amountManual) : ''],
+      ['Наша компания', r.companyName],
+      ['Форма оплаты', r.paymentForm],
       ['В календаре', r.reportDate ? `${date(r.reportDate)} (${r.paidDate ? 'по дате оплаты' : 'по дате отгрузки'})` : h('span', { class: 'muted' }, 'не попадает — нет даты отгрузки или оплаты')],
+      grp('Заказ'),
+      ['Заказчик', customerLink(r.customer)],
       ['Весь заказ', r.orderId ? h('a', { href: '#salesorders?open=' + encodeURIComponent(String(r.orderId)) }, `все строки заказа ${r.orderNo || ''} →`) : ''],
+      ['Примечание', r.notes],
     ],
     actions: (r) => [
       session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },

@@ -1,3 +1,4 @@
+import { grp } from '../ui/kit/index.js';
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBtn } from '../ui/busy.js';
@@ -131,21 +132,24 @@ export const passports = {
     subheading: (r) => [r.name, r.category].filter(Boolean).join(' · '),
     stats: (r) => [['Статус', STATUS_LABEL[statusOf(r)] + (r.revision > 1 ? `, редакция ${r.revision}` : '') + (r.annulReason ? ` — ${r.annulReason}` : '')], ['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
     view: (r) => [
+      grp('Изделие'),
       ['Название', r.name],
       ['Категория', r.category],
       ['Артикул', r.article],
       ['Габариты (В × Д × Ш)', dims(r)],
       ['Вес', r.weight ? num(r.weight) + ' кг' : ''],
+      grp('Описание'),
       ['Материалы', r.materials],
       ['Установка', r.installationMethod],
       ['Назначение', r.purpose],
       ['Описание', r.description],
+      grp('Заказ'),
       ['Заказчик', r.customerName],
       ['№ договора', r.orderNo],
       ['Объект', r.objectName],
-      ['Заметки', r.note],
       ['Поставщик', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],
       ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''],
+      ['Заметки', r.note],
     ],
     actions: (r) => [
       // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца

@@ -10,8 +10,7 @@ import { clearNoteWarning, resetPdCategory } from './data.js';
 
 export const STATUS = { draft: 'без цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 export const dims = (d) => (d ? `${['length', 'width', 'height'].map((k) => (d[k] ? qty(d[k]) : '—')).join(' × ')} ${d.unit || 'мм'}` : null);
-// заголовок блока в списке полей карточки (стиль .fields-grp в panels.css)
-export const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { class: 'fields-grp-end' })];
+export { grp } from '../../ui/kit/index.js';
 
 /** Категория паспорта в карточке: что задано в изделии, что унаследовано от группы/раздела, куда идти, если не задано. */
 export function passportCatView(r, ctx) {

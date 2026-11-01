@@ -1,3 +1,4 @@
+import { grp } from '../ui/kit/index.js';
 import { stockLookup } from '../core/stock-list.js';
 import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
@@ -188,12 +189,15 @@ export const stock = {
     subheading: (r) => [r.categoryName, r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
     stats: (r) => [['Остаток', `${qty(r.quantity)} ${unit(r)}`], ['В брони', qty(r.reservedQty)], ['Свободно', qty(r.free)]],
     view: (r) => [
+      grp('Остаток'),
       ['Состояние', badge(STOCK_STATUS, r.status)],
       ['Мин. остаток', r.minQuantity ? `${qty(r.minQuantity)} ${unit(r)}` : ''],
       ['Пересчитано', r.lastCountedAt ? date(r.lastCountedAt) : 'ещё не пересчитывали'],
+      grp('Названия'),
       ['Короткое', r.name],
-      ['Длинное (документы)', r.fullName || r.name],
-      ['В счёте', r.invoiceName || r.name],
+      ['Длинное (документы)', r.fullName && r.fullName !== r.name ? r.fullName : null], // совпадает с коротким — не повторяем
+      ['В счёте', r.invoiceName && r.invoiceName !== r.name ? r.invoiceName : null],
+      grp('Позиция'),
       ['Категория', r.categoryName],
       ...metalView(r),
       ['Ед. изм.', r.unit],
@@ -201,6 +205,7 @@ export const stock = {
       ['Артикул (поставщика)', r.supplierArticle ? h('span', null, r.supplierArticle, r.articleSource ? h('span', { class: 'muted' }, ` · из: ${r.articleSource}`) : null) : h('span', { class: 'muted' }, 'нет — впишите из счёта или заявки')],
       ['Внутр. код', r.internalCode ? h('span', { class: 'muted' }, r.internalCode) : ''],
       ['Вес 1 шт.', r.weightG ? `${qty(r.weightG)} г` : ''],
+      grp('Дополнительно'),
       ['Примечание', r.notes],
     ],
     actions: (r) => [

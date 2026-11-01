@@ -85,7 +85,7 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s3); }
 .stat b { display: block; font-size: 22px; font-weight: 650; }
 .stat span { color: var(--muted); font-size: var(--fs-sm); }
-.section-title { margin: var(--s5) 0 var(--s3); padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; }
+.section-title { margin: var(--s5) 0 var(--s3); padding-bottom: 6px; border-bottom: 2px solid var(--primary); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .07em; color: var(--heading); font-weight: 700; }
 .timeline { list-style: none; margin: 0; padding: 0; font-size: var(--fs-sm); }
 .timeline li { padding: 7px 0; border-bottom: 1px dashed var(--border); display: flex; gap: var(--s2); align-items: center; }
 .timeline li .when { color: var(--muted); white-space: nowrap; }
