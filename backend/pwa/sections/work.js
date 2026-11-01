@@ -35,7 +35,7 @@ export function dueNode(r) {
 }
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
-const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) }) : h('div', { class: 't-pic-none' }, 'нет фото'));
+const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null);
 /** Точки маршрута: сделано / сейчас / впереди. */
 export function dots(r) {
   const route = r.route || [];

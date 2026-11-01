@@ -87,3 +87,6 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .table-wrap.k-scroll-s { max-height: 240px; overflow: auto; }
 .table-wrap.k-scroll-m { max-height: 320px; overflow: auto; }
 .table-wrap.k-scroll-l { max-height: 480px; overflow: auto; }
+
+/* доска не растягивает страницу: колонки одной ширины, лишнее скроллится по горизонтали (как «В работе») */
+.list-screen > div:has(> .board), .ls-main > div:has(> .board) { min-width: 0; }

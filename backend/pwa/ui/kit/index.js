@@ -52,6 +52,9 @@ export function card({ size = 'M', tone = 'neutral', title, meta, badges, action
     as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null);
 }
 
+/** actions(...узлы) → .k-actions — тот же ряд кнопок, что в card({ actions }); для низа карточки доски (card → { foot }) */
+export const actions = (...children) => h('div', { class: 'k-actions' }, ...nodes(children));
+
 /** row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag, cls, data })
  *  Строка списка/корзины: имя + мета, справа side (узлы) и action (кнопка). Если есть qty/diff — раскладка «корзина»:
  *  вторая строка с количеством и подсказкой; warn и below — на всю ширину. lead — слот слева (галочка). tag:'label' — вся строка кликабельна. */

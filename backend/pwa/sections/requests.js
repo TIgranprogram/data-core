@@ -1,9 +1,9 @@
 import { paintOrder } from '../core/order-color.js';
-import { api, session } from '../core/api.js';
+import { api, PREFIX, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
-import { stepFunnel, table } from '../ui/kit/index.js';
+import { actions, badge as kbadge, button, stepFunnel, table } from '../ui/kit/index.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { stockLookup } from '../core/stock-list.js';
@@ -212,20 +212,19 @@ const COLUMN_EMPTY = {
   cancelled: 'Отменённых нет.',
 };
 
-/** Карточка доски: серый список недостающего до следующего этапа и ОДНА кнопка-глагол. */
+/** Низ карточки доски: короткая метка «не хватает» (kit.badge warn) и ОДНА кнопка-глагол в k-actions (kit.card actions). */
 function stepFoot(r, ctx) {
   const st = nextStep(r);
   if (!st) return null;
   const miss = st.kind === 'receive' ? [] : missingFor(r, st.to);
-  const btn = h('button', { class: 'btn btn-sm t-step', type: 'button', title: st.kind === 'receive' ? 'Принять на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onclick: async () => {
+  const btn = button({ label: st.verb, size: 'S', kind: 'secondary', title: st.kind === 'receive' ? 'Принять на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onClick: async () => {
     btn.disabled = true; btn.classList.add('is-busy');
     try {
       if (st.kind === 'receive') { if (await receiveDialog(r)) ctx.changed(); }
       else if (await advance(r, st.to, patchStatus)) { toast(`${heading(r)} → ${SUPPLY_STATUS[st.to].label}`); ctx.changed(); }
     } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
-  } }, st.verb);
-  return h('div', { class: 't-step-box' },
-    miss.length ? h('div', { class: 't-need' }, 'Не хватает: ' + miss.map((f) => f.label.toLowerCase()).join(', ')) : null, btn);
+  } });
+  return actions(miss.length ? kbadge('не хватает: ' + miss.map((f) => f.label.toLowerCase()).join(', '), 'warn') : null, btn);
 }
 /** Кнопка шага в карточке-панели: тот же глагол и те же ворота. */
 function stepAct(r) {
@@ -338,6 +337,7 @@ export const requests = {
       groupSum: (r) => r.priceHint, // сумма счёта на карточке группы
       groupTotal: (r) => r.invoiceAmount, // нет цен у позиций — сумма из записи счёта (ждёт invoiceAmount от сервера)
       colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
+      cls: 'board-pics',
       default: true, // доска — вид по умолчанию; «Таблица» — переключатель, выбор запоминается (viewKey)
       columns: STATUS_ORDER.map((k) => ({
         key: k, label: SUPPLY_STATUS[k].label, tone: SUPPLY_STATUS[k].tone, query: { status: k, sort: '-requestDate' },
@@ -345,10 +345,12 @@ export const requests = {
         get multi() { return k === 'requested' && session.canEdit ? { label: 'Заказал у поставщика', run: bulkOrder } : undefined; }, // роль известна после входа
       })),
       card: (r, c, ctx) => ({
-        pic: r.photo,
-        title: heading(r),
-        meta: [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.salesOrderId ? h('span', { class: 'tag rq-order', title: r.orderLabel || 'Заявка под заказ' }, orderTag(r)) : null, r.priority === 'urgent' ? badge(PRIORITY, 'urgent') : null].filter(Boolean).map((x) => (typeof x === 'string' ? h('span', null, x) : x)),
-        side: r.priceHint && session.canMoney ? money(r.priceHint) : '',
+        body: [
+          r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
+          h('div', { class: 't-title', title: heading(r) }, heading(r)),
+          h('div', { class: 't-sub' }, [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.salesOrderId ? orderTag(r) : '', r.priceHint && session.canMoney ? money(r.priceHint) : ''].filter(Boolean).join(' · ')),
+          r.priority === 'urgent' ? h('div', { class: 't-foot' }, badge(PRIORITY, 'urgent')) : null,
+        ],
         foot: session.canEdit ? stepFoot(r, ctx) : null,
       }),
       /** Перетаскивание в колонку: «Получено» — через приём на склад, не хватает данных — панель «Следующий шаг», остальное — смена статуса. */

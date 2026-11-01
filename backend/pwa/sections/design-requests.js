@@ -77,7 +77,6 @@ function requestsView(onCount) {
 export function withRequestsTab(mountInner) {
   return (b, path, q, o) => {
     const inner = mountInner(b, path, q, o);
-    const canSettings = session.role === 'admin' || session.user?.isOwner === true;
     const tabs = h('div');
     const holder = h('div', { class: 'dr-holder', hidden: true });
     const el = h('div', { class: 'dr-wrap' }, tabs, inner.el, holder);
@@ -86,8 +85,7 @@ export function withRequestsTab(mountInner) {
     const pick = (req) => { const P = current().params; go('design', { ...P, tab: req ? 'requests' : undefined, of: undefined, open: undefined, new: undefined }, { replace: true }); };
     function paintTabs() {
       const req = isReq();
-      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, { key: 'requests', label: `Заявки на создание изделия (${n})` }], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el,
-        canSettings ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Какие стикеры показывать на карточках', onclick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } }, 'Настройки доски') : null)
+      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, { key: 'requests', label: `Заявки на создание изделия (${n})` }], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el);
     }
     function show() {
       const req = isReq();

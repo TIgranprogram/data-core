@@ -25,8 +25,8 @@ import { mobileStockDashboard } from './warehouse-mobile.js';
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
 /** Миниатюра в строке списка (или пустое место того же размера — колонки не прыгают). */
-const noPic = () => h('span', { class: 'pic empty', 'aria-hidden': 'true' }, '▢');
-export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.replaceWith(noPic()) }) : noPic());
+/** Миниатюра в ячейке таблицы; фото нет (или битое) — ячейка пустая, без квадрата-заглушки. */
+export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null);
 const photoThumb = (r) => {
   const p = (r.photos || [])[0];
   return p ? h('img', { class: 'thumb', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy' }) : null;

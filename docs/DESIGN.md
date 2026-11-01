@@ -94,6 +94,7 @@
 | link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
 | segmented | переключатель вида/режима, 2–4 пункта | `segmented({ items: [{key,label,tone?}], value, onChange(key), label })` → `{ el, set }` |
 | card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |
+| actions | Ряд кнопок внизу карточки доски (кнопка шага) — клик не открывает карточку | `actions(button({ label, size: 'S' }), …)` → `.k-actions` |
 | row | строка списка/корзины; `qty`/`diff` — раскладка «корзина» | `row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, onClick, tag })` |
 | badge | статус словами: карта или одиночная метка ok/warn/danger/info/dim | `badge(MAP, key)` · `badge('Текст', 'ok')`; карты `SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY` |
 | empty | пусто / ничего не найдено, с подсказкой | `empty(…)` (= `emptyState`) |

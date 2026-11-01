@@ -45,7 +45,7 @@ export function dueNode(r) {
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
 const subLine = (r, withCode = true) => [clean(r.sku) && '№ ' + clean(r.sku), (r.seqNo ?? r.lineNo) != null && 'поз. ' + (r.seqNo ?? r.lineNo), clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), withCode && r.code].filter(Boolean).join(' · ');
-const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.replaceWith(h('div', { class: 't-pic-none' }, 'нет фото')) }) : h('div', { class: 't-pic-none' }, 'нет фото'));
+const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null);
 
 let stk = []; // видимые стикеры доски (грузятся один раз; пока нет — на карточке срок, приоритет, исполнитель)
 const footOf = (r) => (stk.length ? stickerRow(r, stk) : h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r)));
@@ -180,6 +180,7 @@ export const design = {
     viewKey: 'design', path: '/design-tasks',
     sortDefault: 'seq',
     createLabel: 'Задача',
+    headActions: () => (session.role === 'admin' || session.user?.isOwner === true ? [button({ label: 'Настройки доски', title: 'Какие стикеры показывать на карточках', onClick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } })] : []),
     export: false,
     searchPlaceholder: 'Поиск: D-12, название, № заказа, заказчик, артикул…',
     emptyText: 'Задач проектирования пока нет.', emptyHint: 'Добавьте заказ на доске или нажмите «Передать в проектирование» в карточке заказа.',

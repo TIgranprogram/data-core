@@ -3,12 +3,13 @@ import { nextStep, orderCounts } from './salesorders-next.js';
 import { stageBar } from '../ui/stage-bar.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/pop-menu.js';
 import { sideForm, openSide, sideNote } from '../ui/side-form.js';
-import { api, session, writeHooks } from '../core/api.js';
+import { api, PREFIX, session, writeHooks } from '../core/api.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/badges.js';
+import { actions, badge as kbadge, button } from '../ui/kit/index.js';
 import { toast } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
@@ -404,20 +405,26 @@ function shape(d) {
 const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? h('span', { class: 'tag ok', title: 'Все проверки пройдены, изготовленное готово — можно отметить «Готово к отгрузке»' }, ' Можно отгружать') : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
 const names = (a) => (a || []).join(', ');
 const COL_HINT = { new: 'проектирование', production: 'изготовление', ready: 'ждёт отгрузки', partly: 'досдать остаток', shipped: 'закрыть заказ' };
-/** Низ карточки доски: «что дальше», чипы счётчиков, одна кнопка (ORDERS-BOARD). Поля счётчиков с сервера необязательны. */
-function nextFoot(r) {
+/** Карточка доски (как «В работе»): заголовок, подстрока, одна короткая метка-предупреждение, срок/приоритет и одна кнопка шага (kit.card actions). */
+function boardBody(r) {
   const s = nextStep(r);
-  if (!s.text) return null;
   const n = orderCounts(r);
-  const chips = [[n.unassigned, 'не распределено', 'badge warn'], [n.design, 'проектирование', 'badge'], [n.requests, 'заявки', 'badge'], [n.work, 'в работе', 'badge'], [n.reserved, 'брони', 'badge'], [n.shipments, 'отгрузок', 'badge']]
-    .filter(([v]) => v > 0).map(([v, t, cls]) => h('span', { class: cls }, `${t} ${v}`));
+  const warn = !r.lineCount && r.stage === 'new' ? 'нет позиций' : n.unassigned > 0 && ['new', 'production'].includes(r.stage) ? `не распределено: ${n.unassigned}` : '';
+  const un = unmatchedOrders(r)[0];
+  const sub = [names(r.customers), (r.orderNos || []).length ? 'договоры ' + names(r.orderNos) : '', `${r.lineCount} поз.`, r.stagesDiffer ? 'разные этапы' : '', r.amount && session.canMoney ? money(r.amount) : ''].filter(Boolean).join(' · ');
   const b = s.btn;
   const canBtn = b && (b.href || session.canEditOrders);
-  return h('div', { class: 'so-next' },
-    h('div', { class: s.tone === 'neg' ? 'neg' : s.tone === 'ok' ? 'pos' : 'muted' }, s.text),
-    s.late ? h('div', { class: 'neg small' }, s.late) : null,
-    chips.length ? h('div', { class: 'so-next-chips' }, ...chips) : null,
-    canBtn ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { if (b.href) location.hash = b.href; else setStage(r, b.stage); } }, b.label) : null);
+  const flags = [warn ? kbadge(warn, 'warn') : null, un ? unmatchedFlag(un.id) : null].filter(Boolean);
+  return {
+    body: [
+      r.coverPhoto ? h('img', { class: 't-pic', src: PREFIX + (r.coverPhoto.thumb || r.coverPhoto.url || r.coverPhoto), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
+      h('div', { class: 't-title', title: heading(r) }, heading(r)),
+      h('div', { class: 't-sub' }, sub),
+      flags.length ? h('div', { class: 't-foot' }, ...flags) : null,
+      h('div', { class: 't-foot' }, due(r), prio(r)),
+    ],
+    foot: canBtn ? actions(button({ label: b.label, size: 'S', kind: s.tone === 'ok' ? 'primary' : 'secondary', onClick: () => { if (b.href) location.hash = b.href; else setStage(r, b.stage); } })) : null,
+  };
 }
 
 export const salesorders = {
@@ -481,15 +488,10 @@ export const salesorders = {
     },
     board: {
       default: true,
+      cls: 'board-pics',
       map: (r) => ({ ...r, id: r.key }),
       columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, hint: COL_HINT[k], tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
-      card: (r) => ({
-        pic: r.coverPhoto || undefined,
-        title: `№ ${prodNo(r)} · ${names(r.customers)}`,
-        meta: [(r.orderNos || []).length ? h('span', { class: 'muted' }, 'договоры ' + names(r.orderNos)) : null, h('span', null, `${r.lineCount} поз.`), r.deadline ? due(r) : null, r.stagesDiffer ? h('span', { class: 'muted' }, 'разные этапы') : null, prio(r), unmatchedOrders(r)[0] ? unmatchedFlag(unmatchedOrders(r)[0].id) : null].filter(Boolean),
-        side: r.amount && session.canMoney ? money(r.amount) : '',
-        foot: nextFoot(r),
-      }),
+      card: (r) => boardBody(r),
       canMove: () => session.canEditOrders,
       move: async (r, to) => !!(await setStage(r, to)),
     },
