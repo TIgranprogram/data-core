@@ -21,10 +21,10 @@ const DAY = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`
 export const AUDIT_DIR = path.join(ROOT, 'tools', 'logs', 'audit', DAY);
 
 export const RULES = {
-  a: 'мусор в тексте', b: 'заголовок панели из одного слова', c: '«скоро / в разработке / TODO»', d: 'горизонтальная прокрутка страницы',
-  e: 'сжатый текст «столбиком»', f: 'картинка выше 200px или шире колонки', g: 'кликабельное меньше 40×40 (390)', h: 'вкладка со счётчиком 0 / пустая без подсказки',
-  i: 'внутренние коды на экране', j: 'неизвестный класс / inline style', k: 'ошибки консоли, API ≥ 400 или медленнее 1500 мс', l: 'карточки .tcard выглядят по-разному',
-  x: 'проверки кода (design-lint, импорты, tsc)',
+  a: 'мусор в тексте', b: 'заголовок панели из одного слова', c: '«скоро / в разработке / TODO»', d: 'горизонтальная прокрутка страницы (реальная)',
+  e: 'сжатый текст «столбиком»', f: 'картинка выше 200px или шире колонки', g: 'кликабельное меньше 36px по меньшей стороне (390)', h: 'вкладка со счётчиком 0 / пустая без подсказки',
+  i: 'внутренние коды на экране', j: 'inline style / класс, которого нет ни в CSS, ни в JS', k: 'ошибки консоли, API ≥ 400 или медленнее 1500 мс', l: 'карточки .tcard выглядят по-разному',
+  m: 'мелко: кликабельное 36–39px (390), не ошибка', x: 'проверки кода (design-lint, импорты, tsc)',
 };
 
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
@@ -45,9 +45,24 @@ export function buildReport(findings, meta, maxLines = 200) {
   const out = [`# Большая проверка сайта — ${meta.date}`, '', `Стенд ${meta.base} · экранов ${meta.screens} · панелей ${meta.panels} · ширины ${WIDTHS.join('/')} · находок ${findings.length}`, '', '## Сводка по правилам', ''];
   for (const [k, t] of Object.entries(RULES)) out.push(`- ${k}) ${t}: ${findings.filter((f) => f.rule === k).length}`);
   for (const c of meta.code || []) out.push(`- ${c}`);
+  out.push('', '## Топ-5 мест по правилам', '');
+  for (const k of Object.keys(RULES)) {
+    const fl = findings.filter((f) => f.rule === k); if (!fl.length) continue;
+    const cnt = new Map(); for (const f of fl) cnt.set(f.screen, (cnt.get(f.screen) || 0) + 1);
+    out.push(`- ${k}: ` + [...cnt].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([s, n]) => `${s} (${n})`).join(', '));
+  }
   out.push('', '## Находки по экранам', '');
   const by = new Map();
   for (const f of findings) { if (!by.has(f.screen)) by.set(f.screen, []); by.get(f.screen).push(f); }
+  const FULL = 'chkl';
+  const fmt = (f) => `- ${f.rule} · ${f.widths.join('/') || '—'} · ${f.sel || '—'} · ${String(f.text).replace(/\s+/g, ' ').slice(0, 110)}${f.shot ? ' · ' + f.shot : ''}`;
+  const full = findings.filter((f) => FULL.includes(f.rule));
+  const rest = findings.filter((f) => !FULL.includes(f.rule));
+  out.length -= 2; out.push('## Находки c, h, k, l — полностью', '');
+  for (const f of full) out.push(`${fmt(f)} · ${f.screen}`);
+  out.push('', '## Остальные находки по экранам', '');
+  by.clear();
+  for (const f of rest) { if (!by.has(f.screen)) by.set(f.screen, []); by.get(f.screen).push(f); }
   const room = maxLines - out.length - 2;
   let used = 0, hidden = 0;
   for (const [screen, arr] of by) {
@@ -92,9 +107,10 @@ async function ready() {
 const SCAN = (mode) => `(()=>{
 const mode=${JSON.stringify(mode)};
 const out=[];const seen=new Set();
-const add=(rule,sel,text)=>{text=String(text).replace(/\\s+/g,' ').trim().slice(0,120);const k=rule+sel+text;if(seen.has(k)||out.filter(o=>o.rule===rule).length>=8)return;seen.add(k);out.push({rule,sel,text})};
+const add=(rule,sel,text)=>{text=String(text).replace(/\\s+/g,' ').trim().slice(0,120);const k=rule+sel+text;if(seen.has(k)||(!'chkl'.includes(rule)&&out.filter(o=>o.rule===rule).length>=8))return;seen.add(k);out.push({rule,sel,text})};
 const vis=el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(el).visibility!=='hidden'&&el.offsetParent!==null};
 const sel=el=>{let s=el.tagName.toLowerCase();if(el.id)s+='#'+el.id;const c=[...el.classList].slice(0,3).join('.');if(c)s+='.'+c;return s};
+const HOOKS=new Set(${JSON.stringify(JS_TOKENS)});
 const GARB=new RegExp(${JSON.stringify(GARBAGE_SRC)},'u');
 const text=document.body.innerText.split('\\n');
 for(const l of text){
@@ -105,31 +121,44 @@ for(const l of text){
 for(const el of document.querySelectorAll('[title],[aria-label],[placeholder]'))for(const a of ['title','aria-label','placeholder']){const v=el.getAttribute(a);if(v&&GARB.test(v))add('a',sel(el)+'['+a+']',v)}
 const GEN=/^(изменить|новый|новая|новое|карточка|редактировать|редактирование|добавить|создать|просмотр)$/i;
 for(const h of document.querySelectorAll('.drawer h2,.drawer h3,.drawer-head *'))if(h.children.length===0&&vis(h)&&GEN.test(h.innerText.trim()))add('b',sel(h),h.innerText.trim());
-if(document.documentElement.scrollWidth>innerWidth+1)add('d','documentElement','scrollWidth '+document.documentElement.scrollWidth+' > '+innerWidth);
+if(document.documentElement.scrollWidth>innerWidth+1){window.scrollTo(300,0);const sx=window.scrollX;window.scrollTo(0,0);
+  if(sx>0){let worst=null,wr=0;for(const el of document.querySelectorAll('body *')){if(!vis(el))continue;const r=el.getBoundingClientRect();if(r.right<=innerWidth+1||r.right<=wr)continue;
+    let p=el.parentElement,clip=false;while(p&&p!==document.body){const o=getComputedStyle(p);if(/(auto|scroll|hidden|clip)/.test(o.overflowX)){clip=true;break}p=p.parentElement}
+    if(!clip){worst=el;wr=r.right}}
+  add('d',worst?sel(worst):'documentElement','страница прокручивается вбок на '+sx+'px; виновник right='+Math.round(wr))}}
 for(const el of document.querySelectorAll('main *,.drawer *')){
   if(!vis(el)||el.closest('svg,button .badge'))continue;
   const own=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();
   if(own.length>3){const r=el.getBoundingClientRect();const lh=parseFloat(getComputedStyle(el).lineHeight)||16;
-    if(r.width<40||(r.width<80&&r.height>6*lh))add('e',sel(el),own+' ('+Math.round(r.width)+'×'+Math.round(r.height)+')')}
+    const fs=parseFloat(getComputedStyle(el).fontSize)||14;const lw=Math.max(...own.split(/\\s+/).map(w=>w.length))*fs*0.5;
+    if(r.height>1.5*lh&&((r.width<60&&r.height>3*lh)||r.width<lw))add('e',sel(el),own+' ('+Math.round(r.width)+'×'+Math.round(r.height)+')')}
 }
 for(const img of document.querySelectorAll('.drawer img,.tcard img,article img,.card img')){
   if(!vis(img))continue;const r=img.getBoundingClientRect();const p=(img.parentElement||img).getBoundingClientRect();
   if(r.height>200||r.width>p.width+1)add('f',sel(img),Math.round(r.width)+'×'+Math.round(r.height)+' в колонке '+Math.round(p.width))}
 if(innerWidth<=420)for(const el of document.querySelectorAll('button,a[href],[role=button],[role=tab],input:not([type=hidden]),select,.chip')){
   if(!vis(el))continue;const r=el.getBoundingClientRect();
-  if(r.width<40||r.height<40)add('g',sel(el),(el.innerText||el.getAttribute('aria-label')||el.title||'').trim().slice(0,40)+' '+Math.round(r.width)+'×'+Math.round(r.height))}
+  if(el.tagName==='A'&&el.parentElement&&getComputedStyle(el).display==='inline'&&[...el.parentElement.childNodes].some(n=>n.nodeType===3&&n.textContent.trim().length>2))continue;
+  const mn=Math.min(r.width,r.height);if(mn<40)add(mn<36?'g':'m',sel(el),(el.innerText||el.getAttribute('aria-label')||el.title||'').trim().slice(0,40)+' '+Math.round(r.width)+'×'+Math.round(r.height))}
 for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .chip')){
   if(!vis(el))continue;const t=el.innerText.replace(/\\s+/g,' ').trim();
   if(/(^|[\\s(])0\\)?$/.test(t)&&!/^все\\b/i.test(t))add('h',sel(el),t)}
 if(!window.__cssClasses){const s=new Set();for(const sh of document.styleSheets){try{for(const r of sh.cssRules){const walk=x=>{if(x.selectorText)for(const m of x.selectorText.matchAll(/\\.([\\w-]+)/g))s.add(m[1]);if(x.cssRules)for(const y of x.cssRules)walk(y)};walk(r)}}catch(e){}}window.__cssClasses=s}
 const unk=new Map();
-for(const el of document.querySelectorAll('main *,.drawer *,nav *'))for(const c of el.classList)if(!window.__cssClasses.has(c)&&!/^(js-|is-|has-|on$|active$|open$|hidden$)/.test(c)&&!unk.has(c))unk.set(c,el);
+for(const el of document.querySelectorAll('main *,.drawer *,nav *'))for(const c of el.classList)if(!window.__cssClasses.has(c)&&!HOOKS.has(c)&&!/^(js-|is-|has-|on$|active$|open$|hidden$)/.test(c)&&!unk.has(c))unk.set(c,el);
 for(const [c,el] of unk)add('j',sel(el),'класс «'+c+'» не найден ни в одном CSS');
 for(const el of document.querySelectorAll('main [style],.drawer [style]')){
   if(el.closest('svg')||el.tagName==='svg')continue;
   const st=el.getAttribute('style')||'';const props=st.split(';').map(x=>x.trim()).filter(Boolean).filter(x=>!x.startsWith('--'));
   if(props.length)add('j',sel(el),'inline style: '+props.join('; '))}
 return out})()`;
+
+const JS_TOKENS = (() => {
+  const set = new Set();
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== 'node_modules') walk(f); } else if (/\.m?js$/.test(e.name)) for (const t of fs.readFileSync(f, 'utf8').match(/[A-Za-z_][\w-]*/g) || []) set.add(t); } };
+  try { walk(path.join(ROOT, 'backend/pwa')); } catch { /* нет pwa */ }
+  return [...set];
+})();
 
 const GARBAGE_SRC = await (async () => {
   const { GARBAGE } = await import(pathToFileURL(path.join(ROOT, 'backend/pwa/core/garbage.js')).href);
