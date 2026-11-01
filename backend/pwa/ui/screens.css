@@ -1159,7 +1159,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .td-q-t { font-weight: 600; }
 .td-head { align-items: flex-start; }
 .td-pulse { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0 0 var(--s3); }
-.td-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.td-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
 .td-chip b { font-size: var(--fs-h2); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--danger); }
 .td-chip.zero b { color: var(--muted); }
 .td-chip span { font-size: var(--fs-sm); color: var(--muted); }

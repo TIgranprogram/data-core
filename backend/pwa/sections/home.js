@@ -194,7 +194,7 @@ export function mountHome(deps) {
     return h('details', { class: 'td-group', open }, h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
       h('div', { class: 'td-rows' }, ...rowsOf(key, items)));
   }
-  const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
+  const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { class: 'q-link', href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
   const emptyBox = (t, s2) => empty({ title: t, hint: s2 });
   const emptyLine = (t) => h('div', { class: 'td-none' }, t);
 

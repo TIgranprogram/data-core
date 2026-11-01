@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // dc — одна команда вместо россыпи шагов. Без зависимостей, на обоих ПК.
 //   node tools/dc.mjs start | errors [часы] | check | data | status | logs [имя]
-//                     audit [last] (большая проверка сайта) · stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
+//                     full (полная проверка одной кнопкой) · audit [last] (большая проверка сайта) · stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
 // Полный вывод — tools/logs/<дата-время>-<команда>.log, в консоль — короткий итог (до 15 строк).
 // Коды выхода: 0 норма · 1 есть находки · 2 сбой инструмента.
 // Прод — только чтение через deploy/synology/api.sh. Записи на прод и выкладки здесь нет.
@@ -342,6 +342,26 @@ function cmdAudit(sub) {
   return r.status ?? 2;
 }
 
+/** dc full — полная проверка одной кнопкой: быстрая + сквозные тесты + тесты инструментов + большая проверка сайта; итог в tools/logs/full/<дата>/SUMMARY.md. */
+function cmdFull() {
+  const shell = process.platform === 'win32';
+  const rows = [];
+  const mark = (name, code, note = '') => { rows.push(`| ${name} | ${code === 0 ? 'ок' : code === 1 ? 'находки' : 'СБОЙ'} | ${note} |`); say(`${name}: ${code === 0 ? 'ок' : code === 1 ? 'есть находки' : 'сбой'}`); };
+  mark('Быстрая проверка (типы, юнит, импорты, дизайн, пульт)', cmdCheck());
+  const e2e = step('e2e', 'npx', ['jest', '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: path.join(ROOT, 'backend'), shell });
+  mark('Сквозные тесты (e2e)', e2e.code ? 1 : 0, e2e.code ? cut((e2e.out.split(/\r?\n/).find((l) => /●|FAIL|ECONN/.test(l)) || '').trim(), 100) : parseJest(e2e.out).tests || '');
+  const tl = step('инструменты', process.execPath, ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', 'pult/test/*.test.mjs']);
+  mark('Тесты инструментов', tl.code ? 1 : 0);
+  mark('Большая проверка сайта (экраны, панели, ширины)', cmdAudit(), 'отчёт: tools/logs/audit/<дата>/REPORT.md');
+  const date = new Date().toISOString().slice(0, 10);
+  const dir = path.join(LOGS, 'full', date);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'SUMMARY.md');
+  fs.writeFileSync(file, ['# Полная проверка '+date,'','| Шаг | Итог | Примечание |','|--|--|--|',...rows,'','Отчёт по экранам: tools/logs/audit/'+date+'/REPORT.md','Полные журналы шагов: tools/logs/ (свежие *-full.log)',''].join('\n'));
+  say(`Смотреть: tools/logs/full/${date}/SUMMARY.md`);
+  return rows.some((r) => r.includes('СБОЙ')) ? 2 : rows.some((r) => !r.includes('| ок |')) ? 1 : 0;
+}
+
 function cmdLogs(name) {
   const files = fs.existsSync(LOGS) ? fs.readdirSync(LOGS).filter((f) => f.endsWith('.log') && (!name || f.includes(name))).sort() : [];
   if (!files.length) { console.log('Логов нет' + (name ? ` по имени «${name}»` : '')); process.exit(1); }
@@ -363,12 +383,13 @@ async function main(argv) {
       status: () => cmdStatus(),
       stand: () => cmdStand(arg, { log, say }),
       audit: () => cmdAudit(arg),
+      full: () => cmdFull(),
       night: () => cmdNight({ quick: argv.includes('--quick') }, { log, say }),
       find: () => cmdFind(argv.slice(1)),
       doc: () => cmdDoc(arg, argv[2]),
     };
     if (!table[cmd]) {
-      console.log('dc start | errors [часы] | check | data | status | find <слово> | doc <путь> [слово] | logs [имя] | stand [up|down|status] | night [--quick]\nКоды выхода: 0 норма · 1 находки · 2 сбой инструмента');
+      console.log('dc start | errors [часы] | check | full | data | status | find <слово> | doc <путь> [слово] | logs [имя] | stand [up|down|status] | night [--quick]\nКоды выхода: 0 норма · 1 находки · 2 сбой инструмента');
       process.exit(cmd ? 2 : 0);
     }
     finish(cmd, await table[cmd]());

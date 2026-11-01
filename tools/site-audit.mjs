@@ -145,10 +145,11 @@ for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .ch
   if(/(^|[\\s(])0\\)?$/.test(t)&&!/^все\\b/i.test(t))add('h',sel(el),t)}
 if(!window.__cssClasses){const s=new Set();for(const sh of document.styleSheets){try{for(const r of sh.cssRules){const walk=x=>{if(x.selectorText)for(const m of x.selectorText.matchAll(/\\.([\\w-]+)/g))s.add(m[1]);if(x.cssRules)for(const y of x.cssRules)walk(y)};walk(r)}}catch(e){}}window.__cssClasses=s}
 const unk=new Map();
-for(const el of document.querySelectorAll('main *,.drawer *,nav *'))for(const c of el.classList)if(!window.__cssClasses.has(c)&&!HOOKS.has(c)&&!/^(js-|is-|has-|on$|active$|open$|hidden$)/.test(c)&&!unk.has(c))unk.set(c,el);
+for(const el of document.querySelectorAll('main *,.drawer *,nav *'))for(const c of el.classList)if(!window.__cssClasses.has(c)&&!HOOKS.has(c)&&!/^(js-|is-|has-|td-b-|on$|active$|open$|hidden$)/.test(c)&&!unk.has(c))unk.set(c,el);
 for(const [c,el] of unk)add('j',sel(el),'класс «'+c+'» не найден ни в одном CSS');
 for(const el of document.querySelectorAll('main [style],.drawer [style]')){
   if(el.closest('svg')||el.tagName==='svg')continue;
+  if(el.tagName==='I'&&/^\\s*flex:[^;]*;?\\s*$/.test(el.getAttribute('style')||''))continue; // ширина доли в полосе — из данных
   const st=el.getAttribute('style')||'';const props=st.split(';').map(x=>x.trim()).filter(Boolean).filter(x=>!x.startsWith('--'));
   if(props.length)add('j',sel(el),'inline style: '+props.join('; '))}
 return out})()`;

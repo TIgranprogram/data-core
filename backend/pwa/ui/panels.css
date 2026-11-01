@@ -163,7 +163,7 @@
   input, select, textarea { height: 44px; font-size: 16px; }
   textarea { height: auto; min-height: 44px; }
   .btn { height: 44px; min-height: 44px; padding: 0 16px; font-size: 15px; }
-  .btn-sm { height: 38px; min-height: 38px; padding: 0 12px; }
+  .btn-sm { height: 40px; min-height: 40px; padding: 0 12px; }
   .btn-primary, .btn-gold { height: 48px; min-height: 48px; font-size: 16px; font-weight: 650; }
 
   /* складские операции: крупнее количество */
