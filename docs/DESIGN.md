@@ -92,6 +92,7 @@
 | button | любое действие; одна `primary` на экран, `danger` только в карточке | `button({ label, kind: primary/secondary/ghost/danger, size: M/S, icon?, onClick, busy?, disabled?, title? })` |
 | iconButton | действие значком (✕, ⋯); подпись (aria) обязательна | `iconButton({ icon, label, onClick, size?, menu?, title? })` |
 | sku | артикул изделия: в работе с конкретным изделием — впереди названия (`sku(a)`, пробел, название), в таблицах/карточках — отдельной строкой под названием; без подписи «арт.» | `sku(text)` → `.k-sku` / null |
+| section | сворачиваемая секция правой панели (группа «Фото и файлы», «Чертежи»): закрыта по умолчанию, в шапке заголовок и число, открывается с клавиатуры | `section({ title, count?, open?, body })` → `details.form-block.k-sec` |
 | link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
 | segmented | переключатель вида/режима, 2–4 пункта | `segmented({ items: [{key,label,tone?}], value, onChange(key), label })` → `{ el, set }` |
 | card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |
@@ -102,10 +103,10 @@
 | stat | строка цифр-итогов | `stat({ value, label })`, `stats([…])` |
 | toolbar | полоса кнопок/фильтров над списком | `toolbar(…узлы)` |
 | tabs | вкладки раздела и панели (статусы, «Заявки/Счета», колокольчик, «Сотрудники») | `tabs({ items: [{key,label,count?}], value, onChange(key), label })` → `{ el, set }` |
-| board (+ density / cardMenu / group) | доска по статусам с сервера, DnD, порции; `density` normal/compact/pics; `cardMenu` — «⋯» на карточке; `group` — группа ▸/▾ (счёт, заказ) | `board(cfg, path, query, { onOpen, onChanged, onTotal })`; поля cfg — шапка `ui/kit/board.js` |
+| board (+ density / cardMenu / group) | доска по статусам с сервера, DnD, порции; `density` normal/compact/pics; `cardMenu` — «⋯» на карточке; `group` — группа-заказ: клик по всей карточке раскрывает, кнопка ⇕ в шапке колонки — все группы колонки, состояние запоминается (prefs) | `board(cfg, path, query, { onOpen, onChanged, onTotal })`; поля cfg — шапка `ui/kit/board.js` |
 | boardStatic | доска без сервера (малые списки) | `boardStatic({ columns: [{key,label,tone,hint?,cards,empty?}], density })` |
 | layout.split | боковой список + основная область; на телефоне список за кнопкой | `layout.split({ side, main, sideLabel })` |
-| filter chips / facets / funnel | chips — фишки значений; facets — признаки склада; funnel — воронка по шагам | `filter({ mode, … })` (`chipsFilter`, `facetFilter`, `stepFunnel`) |
+| filter chips / facets / funnel | chips — фишки значений; facets — признаки склада; funnel — воронка по шагам (шаг: `always` — всегда раскрыт без сворачивания, `icon(o)` — миниатюра у значения) | `filter({ mode, … })` (`chipsFilter`, `facetFilter`, `stepFunnel`) |
 | pick single / combo / multi / tags + поле `.k-field` | single — длинный `<select>`; combo — поле + список; multi — несколько через запятую; tags — метки | `pick({ mode, select/input, options, onPick, … })` (`enhanceSelect`, `attachCombo`, `tagPick`, `attachSuggest`) |
 | table list / input + maxHeight | list — таблица строк; input — ввод строк в форме; `maxHeight` S/M/L — своя прокрутка. Списки с поиском и страницами — `mountList` | `table({ columns, rows, mode, empty, foot, clickable, maxHeight })`; признак `money: true` у колонки table и поля panel — не рисуются без галочки «Деньги» у роли (`session.canMoney`) |
 | panel | правая панель / предпросмотр: шапка, блоки, подвал (запись — `openCard`) | `panel({ title, sub?, kind?, blocks: [{title?,body}], footer, onClose })` |

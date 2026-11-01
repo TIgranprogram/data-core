@@ -73,7 +73,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       sort: P.sort || L.sortDefault,
       gantt: !!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt')),
       board: !!L.board && !(!!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt'))) && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
-      gallery: !!L.gallery && (P.view === 'gallery' || (!!L.gallery.default && !P.view && sv !== 'table') || (!P.view && sv === 'gallery')),
+      gallery: !!L.gallery && (P.view === 'gallery' || (!!L.landing && !P.view && L.landing.when(P)) || (!!L.gallery.default && !P.view && sv !== 'table') || (!P.view && sv === 'gallery')),
     };
   };
   let rows = [];
@@ -101,7 +101,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   moreBtn.hidden = !canExport && !(L.moreActions && canEditSection(section));
   const exportBtn = moreBtn;
   // «Выбрать» — явный вход в выбор нескольких строк (на ПК без Ctrl+клик, на телефоне без долгого нажатия)
-  const selBtn = L.bulk && !L.bulk.always && canEditSection(section) ? h('button', { class: 'btn btn-ghost', type: 'button', title: 'Отметить несколько строк и изменить их разом (на ПК — Ctrl+клик, на телефоне — долгое нажатие)',
+  const selBtn = false ? h('button', { class: 'btn btn-ghost', type: 'button', title: 'Отметить несколько строк и изменить их разом (на ПК — Ctrl+клик, на телефоне — долгое нажатие)',
     onclick: () => (bulkMode ? exitBulkMode() : enterBulkMode()) }, 'Выбрать') : null;
   const head = h('div', { class: 'page-head' },
     h('h1', null, section.title, ' ', countEl),
@@ -203,7 +203,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const theadRow = h('tr');
   function renderHead() {
     const { sort } = st();
-    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (!canPick(r)) continue; if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } }); // ПРД.1: «все» включает режим выбора — иначе отмеченного не видно
+    if (bulkOn) headCb = h('input', { type: 'checkbox', class: 'pick-all', 'aria-label': 'Отметить все на странице', onchange: (e) => { for (const r of rows) { if (!canPick(r)) continue; if (e.target.checked) picked.add(r.id); else picked.delete(r.id); } if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); leaveIfEmpty(); } }); // ПРД.1: «все» включает режим выбора — иначе отмеченного не видно
     theadRow.replaceChildren(...[bulkOn ? h('th', { class: 'pick' }, headCb) : null, ...L.columns.map((c) => {
       const field = c.sort;
       const isSorted = field && sort.replace(/^-/, '') === field;
@@ -223,7 +223,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const quickBox = quick && canCreate ? quick : null;
   // БЗ-9: отметка записей и «Изменить выбранные» — только где раздел объявил L.bulk и есть право правки
   const bulkOn = !!L.bulk && canEditSection(section);
-  const picked = new Set(); const canPick = (r) => !L.bulk?.can || L.bulk.can(r); const always = !!L.bulk?.always; /* bulk.can — какие строки отмечать; bulk.always — флажки сразу, без «Выбрать» */
+  const picked = new Set(); const canPick = (r) => !L.bulk?.can || L.bulk.can(r); const always = !!L.bulk; /* bulk.can — какие строки отмечать; bulk.always — флажки сразу, без «Выбрать» */
   let bulkMode = false;
   const bulkBar = bulkOn ? h('div', { class: 'bulk-bar', hidden: true, role: 'region', 'aria-label': 'Выбранные записи' }) : null;
   const paintBulk = () => {
@@ -235,11 +235,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     bulkBar.replaceChildren(h('b', null, picked.size ? `Выбрано: ${qty(picked.size)}` : 'Отметьте строки — клик по строке или галочке'),
       picked.size ? h('button', { type: 'button', class: 'btn btn-sm', disabled: !!L.bulk.disabled?.(pickedRows()), onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: pickedRows() }) }, (typeof L.bulk.label === 'function' ? L.bulk.label(pickedRows()) : L.bulk.label) || 'Изменить выбранные') : null,
       ...(picked.size ? (L.bulk.extra || []).map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => a.run([...picked], pickedRows()) }, a.label)) : []),
-      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять' : 'Готово'));
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять выбор' : 'Готово'));
     const all = headPick(); if (all) { const ids = rows.filter(canPick).map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
   };
   const pickBox = (row) => !canPick(row) ? h('span', { class: 'pick-cb pick-none' }) : h('input', { type: 'checkbox', class: 'pick-cb', checked: picked.has(row.id), dataset: { id: row.id }, 'aria-label': 'Отметить запись',
-    onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) picked.add(row.id); else picked.delete(row.id); if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); } });
+    onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) picked.add(row.id); else picked.delete(row.id); if (!bulkMode) enterBulkMode(); syncPicks(); paintBulk(); leaveIfEmpty(); } });
   const syncPicks = () => panel.querySelectorAll('.pick-cb').forEach((cb) => { cb.checked = picked.has(cb.dataset.id); });
   let headCb = null;
   const headPick = () => headCb;
@@ -251,7 +251,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const ganttBox = h('div', { hidden: true });
   let board = null; let gantt = null;
   const enterBulkMode = (id) => { if (!bulkOn) return; bulkMode = true; panel.classList.add('bulk-mode'); if (id) picked.add(id); syncPicks(); paintBulk(); };
-  const togglePick = (id) => { if (picked.has(id)) picked.delete(id); else picked.add(id); syncPicks(); paintBulk(); };
+  const leaveIfEmpty = () => { if (!always && bulkMode && !picked.size) exitBulkMode(); }; // сняли все галочки — режим выбора выключается сам
+  const togglePick = (id) => { if (picked.has(id)) picked.delete(id); else picked.add(id); syncPicks(); paintBulk(); leaveIfEmpty(); };
   const exitBulkMode = () => { bulkMode = always; if (!always) panel.classList.remove('bulk-mode'); picked.clear(); syncPicks(); paintBulk(); };
   if (always && bulkOn) { bulkMode = true; panel.classList.add("bulk-mode"); }
   const bindLong = bulkOn ? (el, id) => {
@@ -473,7 +474,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       });
       tbody.replaceChildren(...trs);
       cards.replaceChildren(...rows.map((row) => {
-        const li = h('li', { onclick: () => { if (bulkMode) { if (picked.has(row.id)) picked.delete(row.id); else picked.add(row.id); syncPicks(); paintBulk(); return; } onOpen(row); } },
+        const li = h('li', { onclick: () => { if (bulkMode && !always) { togglePick(row.id); return; } onOpen(row); } },
           bulkOn ? h('label', { class: 'pick-hit', title: 'Отметить', onclick: (e) => e.stopPropagation() }, pickBox(row)) : null,
           L.card.thumb ? L.card.thumb(row) : null,
           h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
@@ -502,7 +503,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       h('div', { class: 'gal' }, ...items.map((row) => {
         const v = L.gallery.card(row);
         const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id },
-          onclick: () => { if (bulkMode) { if (picked.has(row.id)) picked.delete(row.id); else picked.add(row.id); syncPicks(); paintBulk(); return; } onOpen(row); }, title: v.title },
+          onclick: () => { if (bulkMode && !always) { togglePick(row.id); return; } onOpen(row); }, title: v.title },
           v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', decoding: 'async', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
           h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.price ? h('div', { class: 'gc-price' }, v.price) : null, v.badge || null);
         if (bindLong) bindLong(card, row.id);

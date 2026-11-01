@@ -24,6 +24,9 @@
   .k-split-side { display: none; max-height: none; }
   .k-split.side-open .k-split-side { display: flex; }
 }
+/* текст карточки доски не сжимается в столбик */
+.tcard > * { min-width: 0; overflow-wrap: anywhere; }
+.tcard.compact .t-title, .tcard.compact .t-meta { flex: 1 1 0; min-width: 0; }
 /* кнопка «⋯» на карточке доски */
 .k-menu-btn { position: absolute; top: 2px; right: 2px; z-index: 2; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
 .tcard:has(.k-menu-btn) .t-title { padding-right: 30px; }
@@ -93,3 +96,41 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 
 /* доска не растягивает страницу: колонки одной ширины, лишнее скроллится по горизонтали (как «В работе») */
 .list-screen > div:has(> .board), .ls-main > div:has(> .board) { min-width: 0; }
+
+/* kit.filter funnel: миниатюра у значения шага (step.icon) */
+.ff-ico { flex: none; width: 24px; height: 24px; border-radius: var(--radius-sm, 4px); overflow: hidden; display: inline-flex; }
+.ff-ico svg { width: 100%; height: 100%; }
+.ff-gh:disabled { cursor: default; opacity: 1; }
+
+/* kit.section: сворачиваемая секция правой панели (<details>), по умолчанию закрыта */
+.k-sec > summary { list-style: none; cursor: pointer; margin: 0; }
+.k-sec > summary::-webkit-details-marker { display: none; }
+.k-sec[open] > summary { margin-bottom: 12px; }
+.k-sec .form-sec-chev { transform: none; }
+.k-sec[open] .form-sec-chev { transform: rotate(90deg); }
+.k-sec-n { flex: none; }
+.k-sec > summary:hover .form-sec-chev { color: var(--text); }
+.k-sec-body > * + * { margin-top: var(--s3); }
+
+/* Фото в карточке доски: сверху, высота ограничена (как миниатюра галереи) */
+.tcard .t-pic { width: 100%; height: 96px; object-fit: contain; background: var(--surface-2); border-radius: var(--radius-sm); }
+.board.board-pics .tcard .t-pic { background: var(--surface-2); border: 1px solid var(--border); }
+.board.board-pics .tcard.compact { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 12px; }
+.board.board-pics .tcard.compact .t-pic { width: 100%; height: auto; flex: none; }
+.t-pic-none { display: grid; place-items: center; background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
+.board.board-pics .tcard .t-pic, .t-pic-none { width: 100%; height: auto; max-height: 140px; aspect-ratio: 4 / 3; object-fit: contain; border-radius: var(--radius-sm); }
+
+/* Доска: шапка колонки выше, кнопка «раскрыть/свернуть все группы»; группа-заказ раскрывается кликом по всей карточке; фото не шире колонки */
+.board .col-head { padding: 16px 12px 12px; min-height: 52px; }
+.board .col-head .col-fold { margin-left: 4px; flex: none; }
+.board .col { min-width: 0; }
+.board .col-body { overflow-x: hidden; }
+.board .col-body > * { min-width: 0; max-width: 100%; }
+.db-order.k-gfold { cursor: pointer; }
+.db-order.k-gfold:hover { border-color: var(--border-strong); }
+.db-order.k-gfold:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.db-order.k-gfold .db-oname { cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.db-order.k-gfold .db-lines { cursor: default; }
+.tcard .t-pic { max-width: 100%; max-height: 140px; object-fit: contain; }
+.tcard .t-main, .tcard .t-title, .tcard .t-sub, .tcard .t-foot { min-width: 0; }
+.col-body .db-order.k-gfold .db-ocnt { padding-left: 6px; }

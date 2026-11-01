@@ -83,16 +83,18 @@ async function buildKpForm() {
       }));
     }, 300);
   });
-  searchInput.addEventListener('blur', () => setTimeout(() => searchDrop.replaceChildren(), 200));
+  searchDrop.addEventListener('mousedown', (e) => e.preventDefault()); // клик по пункту не снимает фокус с поля — blur не закрывает список раньше клика
+  searchInput.addEventListener('blur', () => searchDrop.replaceChildren());
+  const paintTotal = () => { total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}`; };
   const render = () => {
     save(lines);
-    total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}`;
+    paintTotal();
     if (!lines.length) { list.replaceChildren(h('p', { class: 'muted' }, 'КП пусто — найдите изделие выше или нажмите «В КП» в разделе «Продукция».')); return; }
     list.replaceChildren(...lines.map((l, i) => {
       const q = h('input', { inputmode: 'decimal', value: String(l.qty), 'aria-label': 'Количество' });
       const p = h('input', { inputmode: 'decimal', value: l.price ? String(l.price) : '', placeholder: 'цена', 'aria-label': 'Цена' });
-      q.addEventListener('input', () => { l.qty = parseNum(q.value) || 0; save(lines); total.textContent = `Итого: ${money(lines.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0))}`; });
-      p.addEventListener('input', () => { l.price = parseNum(p.value) || 0; save(lines); total.textContent = `Итого: ${money(lines.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0))}`; });
+      q.addEventListener('input', () => { l.qty = parseNum(q.value) || 0; save(lines); paintTotal(); });
+      p.addEventListener('input', () => { l.price = parseNum(p.value) || 0; save(lines); paintTotal(); });
       return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('div', null, kitSku(l.sku))),
         field('Кол-во', q), field('Цена, ₽', p),
         h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать', onclick: () => { lines.splice(i, 1); render(); } }, '×'));

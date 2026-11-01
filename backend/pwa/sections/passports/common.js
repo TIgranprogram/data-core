@@ -1,6 +1,7 @@
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { KINDS, KINDS_V2, catNames } from '../../core/passport-kinds.js';
+import { cachedFetch } from '../../core/cache.js';
 
 /** Общее для раздела «Паспорта»: категории, поля, статусы, справочники, комплектность (ПР-1: разрезан passports.js). */
 /** 1 паспорт, 2 паспорта, 5 паспортов. */
@@ -27,6 +28,14 @@ export const V2_NUMS = [
   ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', ''],
 ];
 export const dictRows = async (key) => (await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || [];
+/** Сотрудники (/dicts/persons) целиком, ответ кэшируется на минуту: форма изделия, проектирование, выдача делят один запрос. */
+export const persons = () => cachedFetch('dicts:persons', 60000, () => api('/dicts/persons'));
+const fio = (p) => [p.lastName, p.firstName, p.patronymic].filter(Boolean).join(' ') || p.name;
+/** Сотрудники для выбора: { value: id, label: ФИО, sub: должность, fired }; уволенных отсеивает вызывающий. */
+export const staffOptions = async () => ((await persons().catch(() => null))?.items || []).map((p) => ({ value: p.id, label: fio(p), name: p.name, sub: p.position || '', fired: p.status === 'fired' }));
+/** Категории паспорта (без «ALL») для выбора: { value: код, label: название }; кэш — минута. */
+export const passportCategoryOptions = async () => (await cachedFetch('dicts:passportCategories', 60000, () => dictRows('passportCategories')))
+  .filter((c) => c.code && c.code !== 'ALL').map((c) => ({ value: String(c.code), label: c.name }));
 export const codeList = (s) => String(s || '').split(/[,;\s]+/).filter(Boolean);
 /** Записи справочника для выбора: cats — к каким категориям паспорта относится (пусто — ко всем; ФП — фильтр по категории). */
 export const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, code: d.code, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories) }));

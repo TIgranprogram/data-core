@@ -14,6 +14,7 @@ import { mountTree, TREE_KEY } from './passport-tree.js';
 import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { normSearch, searchTokens } from '../core/facets.js';
+import { passportCategoryOptions } from './passports/common.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы (на телефоне — один select), справа
@@ -307,7 +308,7 @@ export const dict = {
       photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
       // «К каким категориям» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
       const catField = info.fields.find((f) => f.key === 'categories' && dictKey() !== 'passportCategories');
-      const catOpts = catField ? (await api('/dicts/passportCategories').then((x) => x.items || []).catch(() => [])).filter((c) => c.code && c.code !== 'ALL').map((c) => ({ code: String(c.code), name: c.name })) : [];
+      const catOpts = catField ? (await passportCategoryOptions()).map((c) => ({ code: c.value, name: c.label })) : [];
       // выбор из справочника вместо строки кодов (ref: { dict, multiple }) — списки грузим один раз на форму
       const refOpts = {};
       for (const f of info.fields.filter((x) => x.ref?.dict)) {

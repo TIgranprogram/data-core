@@ -1,16 +1,16 @@
-import { api } from '../core/api.js';
+import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, empty, carousel, toast, toastError, confirmDlg } from '../ui/kit/index.js';
+import { button, empty, carousel, toast, toastError, confirmDlg, section, row, link, photoDrop } from '../ui/kit/index.js';
 import { KINDS, KINDS_V2 } from '../core/passport-kinds.js';
 
 /**
- * Блок «Фото и файлы» в правой панели изделия (PRODUCT-FILES, шаг d).
- * Группы: «Витрина» (обложка — вверху карточки), «Для паспорта» (слоты по виду рисунка), «Чертежи» (скоро).
+ * Блок «Фото и файлы» в правой панели изделия. Группы — сворачиваемые секции kit.section (закрыты, в шапке — число файлов):
+ * «Витрина» (обложка — вверху карточки), «Для паспорта» (слоты по виду рисунка), «Чертежи» (PDF, DWG, DXF, картинки).
  * Нужные слоты — по POST /passports/check для категории изделия (недостающие «Рисунок: …») + уже загруженные.
+ * Загрузка — общий photoDrop (перетащить, Ctrl+V, выбрать файл), как у фото витрины.
  */
 const LABEL = new Map([...KINDS, ...KINDS_V2].map(([k, name]) => [k, name]));
 const ORDER = [...LABEL.keys()];
-const sec = (title, ...body) => h('section', { class: 'form-block', 'data-tone': 'main' }, h('div', { class: 'form-sec-t' }, title), ...body);
 
 // слоты рисунков — из ответа check по изделию: imageSlots (или requiredImages)
 async function needKinds(r) {
@@ -23,52 +23,72 @@ async function needKinds(r) {
   } catch { return []; }
 }
 
-async function uploadPassportPhoto(f) {
-  const fd = new FormData();
-  fd.append('file', f, f.name || `фото-${Date.now()}.png`);
-  const ph = await api('/photos/upload?purpose=passport', { method: 'POST', body: fd });
-  return { id: String(ph._id || ph.id) };
+/** Привязать загруженный файл к изделию: рисунок паспорта (kind) или чертёж; old — прежняя запись вида: сначала добавляем новый, при успехе убираем старый. */
+export async function attachProductFile(productId, photoId, purpose, kind, old) {
+  await api(`/products/${productId}/photos`, { method: 'POST', body: { photoId, purpose, ...(kind ? { kind } : {}) } });
+  if (!old) return;
+  // новый уже сохранён — прежний убираем после успеха; не вышло: новый не теряем, оба видны, лишний пользователь уберёт сам
+  try { await api(`/products/${productId}/photos/${old}`, { method: 'DELETE' }); }
+  catch (e) { toast('Новый файл сохранён, но прежний убрать не удалось — уберите его вручную: ' + (e?.message || 'ошибка'), { ms: 9000 }); }
 }
 
+/** Зона загрузки рисунка паспорта нужного вида — тот же photoDrop, что у фото витрины. */
+export function passportKindDrop(productId, kind, done, old) {
+  return photoDrop({ purpose: 'passport', idleText: 'Перетащите рисунок сюда или вставьте Ctrl+V',
+    attach: async (photoId) => { await attachProductFile(productId, photoId, 'passport', kind, old); return true; },
+    done: () => { toast('Рисунок сохранён'); done?.(); } });
+}
+
+const fileIcon = (name) => ({ pdf: '📄', dwg: '📐', dxf: '📐' })[String(name).split('.').pop().toLowerCase()] || '🖼';
+const sizeText = (n) => (!n ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
+
 export function productFilesBlock(r, canEdit) {
-  const root = h('div', null, sec('Для паспорта', h('div', { class: 'muted' }, 'Загружаю…')));
-  const attach = async (kind, file, old) => {
-    const { id } = await uploadPassportPhoto(file);
-    await api(`/products/${r.id}/photos`, { method: 'POST', body: { photoId: id, purpose: 'passport', kind } });
-    if (old) await api(`/products/${r.id}/photos/${old}`, { method: 'DELETE' });
-  };
+  const root = h('div', null, h('div', { class: 'section-title' }, 'Фото и файлы'), h('div', { class: 'muted' }, 'Загружаю…'));
   const slot = (kind, rec, required) => {
-    const input = h('input', { type: 'file', accept: 'image/*', hidden: true });
-    input.addEventListener('change', async () => {
-      const f = input.files[0]; if (!f) return;
-      try { await attach(kind, f, rec?.id); toast('Фото сохранено'); await paint(); } catch (e) { toastError(e); }
-    });
     const ph = rec?.photoId;
     const pics = ph && ph.storageUrl ? [{ url: ph.storageUrl, thumb: ph.variants?.thumb?.storageUrl || ph.storageUrl, medium: ph.variants?.medium?.storageUrl }] : [];
     const del = async () => {
       if (!(await confirmDlg('Убрать фото?', 'Файл останется в выпущенных паспортах.', { okText: 'Убрать' }))) return;
       try { await api(`/products/${r.id}/photos/${rec.id}`, { method: 'DELETE' }); await paint(); } catch (e) { toastError(e); }
     };
-    return h('div', null,
-      h('div', { class: 'form-sec-t' }, LABEL.get(kind) || kind, required && !pics.length ? ' *' : ''),
+    return h('div', { class: 'field' },
+      h('span', null, LABEL.get(kind) || kind, required && !pics.length ? ' *' : ''),
       pics.length ? carousel(pics).el : null,
-      canEdit ? h('div', { class: 'actions' }, input,
-        button({ label: pics.length ? 'Заменить' : '+ Загрузить', size: 'S', onClick: () => input.click() }),
-        pics.length ? button({ label: 'Удалить', size: 'S', onClick: del }) : null) : (pics.length ? null : h('div', { class: 'muted' }, 'не загружено')));
+      canEdit ? passportKindDrop(r.id, kind, paint, rec?.id) : (pics.length ? null : h('div', { class: 'muted' }, 'не загружено')),
+      canEdit && pics.length ? h('div', { class: 'actions' }, button({ label: 'Убрать фото', size: 'S', kind: 'ghost', onClick: del })) : null);
+  };
+  const drawingRow = (rec) => {
+    const f = rec.photoId || {};
+    const name = f.originalFilename || f.name || 'Чертёж';
+    const del = async () => {
+      if (!(await confirmDlg('Убрать чертёж?', name, { okText: 'Убрать' }))) return;
+      try { await api(`/products/${r.id}/photos/${rec.id}`, { method: 'DELETE' }); await paint(); } catch (e) { toastError(e); }
+    };
+    return row({ lead: h('span', { 'aria-hidden': 'true' }, fileIcon(name)), title: name, meta: sizeText(f.size || f.sizeBytes),
+      action: [link({ label: 'Скачать', href: PREFIX + (f.storageUrl || ''), target: '_blank' }), canEdit ? button({ label: 'Убрать', size: 'S', kind: 'ghost', onClick: del }) : null] });
   };
   async function paint() {
-    let items = [], need;
-    try { [items, need] = await Promise.all([api(`/products/${r.id}/photos?purpose=passport`).then((x) => x.items || x), needKinds(r)]); } catch (e) { toastError(e); }
+    let items = [], need, drawings = [];
+    try {
+      [items, need, drawings] = await Promise.all([api(`/products/${r.id}/photos?purpose=passport`).then((x) => x.items || x), needKinds(r),
+        api(`/products/${r.id}/photos?purpose=drawing`).then((x) => x.items || x).catch(() => [])]);
+    } catch (e) { toastError(e); }
     const byKind = new Map((items || []).map((x) => [x.kind === 'safety_zone' ? 'safety' : x.kind, x]));
     const req = new Set(need || []);
     const kinds = ORDER.filter((k) => req.has(k) || byKind.has(k));
     const passport = need === null && !kinds.length
       ? empty({ title: 'Категория паспорта не выбрана', hint: 'Выберите её в блоке «Паспорт» — появятся нужные слоты.' })
       : kinds.length ? h('div', null, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
-    root.replaceChildren(
-      sec('Витрина', h('div', { class: 'muted' }, `Фото на обложку и в списках: ${(r.photos || []).length} шт. — наверху карточки.`)),
-      sec('Для паспорта', passport),
-      sec('Чертежи', empty({ title: 'Скоро: DWG и PDF' })));
+    const dr = drawings || [];
+    const drawingsBody = h('div', null,
+      dr.length ? h('div', null, ...dr.map(drawingRow)) : empty({ title: 'Чертежей нет', hint: canEdit ? 'Загрузите PDF, DWG или DXF — файл будет лежать в изделии.' : '' }),
+      canEdit ? photoDrop({ purpose: 'drawing', drawing: true, attach: async (photoId) => { await attachProductFile(r.id, photoId, 'drawing'); return true; }, done: () => { toast('Чертёж сохранён'); paint(); } }) : null);
+    const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
+    const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key) }); s.dataset.key = key; return s; };
+    root.replaceChildren(h('div', { class: 'section-title' }, 'Фото и файлы'),
+      mk('shop', 'Витрина', (r.photos || []).length, h('div', { class: 'muted' }, 'Фото на обложку и в списках — наверху карточки.')),
+      mk('passport', 'Для паспорта', byKind.size, passport),
+      mk('drawing', 'Чертежи', dr.length, drawingsBody));
   }
   paint();
   return root;

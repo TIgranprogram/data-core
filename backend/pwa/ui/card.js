@@ -54,6 +54,8 @@ function gallery(pics, onRemove, onMain) {
 export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
 const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
 const docked = () => window.innerWidth >= DOCK_MIN;
+/** Заголовок панели: строка, узел или массив (с null) → список без пустых мест; узел никогда не склеивается в строку. */
+const parts = (x) => [].concat(x ?? []).filter((n) => n !== null && n !== undefined && n !== false && n !== '');
 export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let row = null;
   let form = null;
@@ -96,8 +98,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     try { row = fresh || (await section.get(id)); }
     catch (e) { drawer.classList.remove('loading'); body.replaceChildren(failBlock(e, () => showView(), { text: 'Запись не открылась' })); titleEl.textContent = section.title; return; }
     drawer.classList.remove('loading');
-    titleEl.replaceChildren(...[].concat(section.card.heading(row) ?? ''));
-    subEl.replaceChildren(...[].concat(section.card.subheading ? section.card.subheading(row) ?? '' : ''));
+    titleEl.replaceChildren(...parts(section.card.heading(row)));
+    subEl.replaceChildren(...parts(section.card.subheading ? section.card.subheading(row) : ''));
     const up = section.card.parent?.(row);
     upEl.hidden = !up;
     if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }
@@ -227,8 +229,14 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     const base0 = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
     const base = revert ? { ...base0, ...revert.values } : base0; // И.3: прежние значения поверх текущих
     menuBox.replaceChildren();
-    titleEl.textContent = isNew ? section.newTitle || 'Новая запись' : section.card.editTitle?.(row) || 'Изменить';
-    subEl.textContent = isNew ? '' : section.card.heading(row);
+    // заголовок — «что и о чём»: «Изделие · 32.11 Скамья», а не «Изменить»; режим — мелкой строкой ниже
+    const who = isNew ? [] : parts(section.card.heading(row));
+    const what = section.kind || section.title;
+    const custom = isNew ? null : section.card.editTitle?.(row);
+    if (isNew) titleEl.replaceChildren(section.newTitle || 'Новая запись');
+    else if (custom) titleEl.replaceChildren(...parts(custom));
+    else titleEl.replaceChildren(...(what && String(who[0]) !== what ? [what, ' · ', ...who] : who));
+    subEl.replaceChildren(isNew ? '' : 'изменение');
     body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }), h('p', { class: 'muted' }, 'Загрузка…'));
     foot.replaceChildren();
     let flds;

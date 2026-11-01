@@ -196,6 +196,8 @@ export const COMMANDS = [
   { id: 'night-run', section: 'stand', title: 'Ночной прогон проверок', risk: 'local', time: '10 мин – 3 ч', needs: ['docker'], run: dc('night', '{mode}'),
     params: [{ name: 'mode', label: 'Какой', type: 'select', default: '--quick', options: [{ value: '--quick', label: 'Быстрый, 10–20 мин' }, { value: '', label: 'Полный, до 3 ч' }] }],
     hint: 'Все проверки в отдельной копии кода. Рабочую папку не трогает. Полный идёт и по расписанию в 23:30.' },
+  { id: 'screen-walk', section: 'stand', title: 'Обход экранов на стенде', risk: 'read', time: '2–4 мин', needs: ['docker'], run: { node: ['tools/screen-walk.mjs'] },
+    hint: 'Открывает каждый раздел и панели на стенде (localhost:3102), ищет «[object …]», undefined, NaN, «{…}» и заголовки «Изменить». Ничего не сохраняет. Стенд должен быть включён.' },
   { id: 'smb-install-home', section: 'backups', title: 'Копии на NAS: установить на домашнем сервере', risk: 'prod-write', time: '1–2 мин', needs: ['bash', 'vm'],
     run: { vm: 'cd /opt/data-core && bash deploy/smb/install-smb.sh' },
     confirm: 'На домашнем сервере появится отправка копий в сетевую папку (SMB). Текущие бэкапы и места для копий не меняются. Сайт может перезапуститься на несколько секунд.',

@@ -347,12 +347,15 @@ export async function cmdNight({ quick = false } = {}, ctx) {
       const up = await standUp(sctx, WORKTREE);
       const e = standEnv();
       if (up !== 0) {
-        for (const n of ['e2e', 'smoke']) steps.push(makeStep(n, { code: 2, ms: 0, out: 'стенд не поднялся' }, commit));
+        for (const n of ['e2e', 'smoke', 'screen-walk']) steps.push(makeStep(n, { code: 2, ms: 0, out: 'стенд не поднялся' }, commit));
       } else {
         const eenv = { ...baseEnv, MONGO_ROOT_PASSWORD: e.NIGHT_ROOT_PW, MONGO_PORT: String(MONGO_PORT), MONGO_DB_TEST: TEST_DB };
         assertStandSafe({ testDb: eenv.MONGO_DB_TEST });
         await doStep('e2e', 'npx', ['jest', '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: be, shell: win, env: eenv, timeoutMs: 30 * MIN });
         await doStep('smoke', process.execPath, ['backend/scripts/qa-smoke.mjs'], { cwd: WORKTREE, env: { ...baseEnv, QA_BASE: `http://localhost:${API_PORT}`, QA_DIR: NIGHT_DIR }, timeoutMs: 15 * MIN });
+        // обход экранов: мусор на экране («[object …]», undefined, «Изменить» без сущности); код из worktree, вход — тестовый qa
+        const qaPw = fs.readFileSync(path.join(NIGHT_DIR, 'qa-login.txt'), 'utf8').trim();
+        await doStep('screen-walk', process.execPath, [path.join(ROOT, 'tools', 'screen-walk.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
       }
     }
   } catch (e) {

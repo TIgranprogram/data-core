@@ -188,6 +188,7 @@ function inlineFilter(categoryKey) {
   return { el, update: (next) => { P = { ...next }; render(); }, reset: () => items && (items = null) };
 }
 
+/** steps[]: { key, label, when?, always? (раскрыт, без сворачивания), icon?(o) → Node (миниатюра у значения) } */
 export function stepFunnel({ steps, load, title = 'Уточнить' }) {
   let P = {}; let seq = 0;
   const folded = new Map();
@@ -212,14 +213,14 @@ export function stepFunnel({ steps, load, title = 'Уточнить' }) {
     const groups = vis.filter((s) => !P[s.key]).map((s) => {
       const vals = data[s.key] || [];
       if (vals.length < 2) return null; // один вариант — выбирать нечего
-      const open = folded.has(s.key) ? folded.get(s.key) : first;
+      const open = s.always || (folded.has(s.key) ? folded.get(s.key) : first); // always — короткий список, всеграскрыт
       first = false;
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
-        h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + s.key, 'aria-expanded': String(open), onclick: () => { folded.set(s.key, !open); render(); } },
-          h('span', { class: 'ff-gl' }, s.label), h('span', { class: 'ff-gn' }, String(vals.length)), h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
+        h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + s.key, 'aria-expanded': String(open), disabled: s.always || undefined, onclick: () => { folded.set(s.key, !open); render(); } },
+          h('span', { class: 'ff-gl' }, s.label), h('span', { class: 'ff-gn' }, String(vals.length)), s.always ? null : h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
         open ? h('div', { class: 'ff-checks', role: 'radiogroup', 'aria-label': s.label }, ...vals.map((o) => h('label', { class: 'ff-check' },
           h('input', { type: 'radio', name: 'sf-' + s.key, 'data-fk': 'v:' + s.key + ':' + o.value, onclick: (e) => { e.preventDefault(); set(s.key, o.value); } }),
-          h('span', { class: 'ff-cv' }, String(o.label ?? o.value)), h('b', { class: 'ff-cn' }, String(o.n))))) : null);
+          s.icon ? s.icon(o) : null, h('span', { class: 'ff-cv' }, String(o.label ?? o.value)), h('b', { class: 'ff-cn' }, String(o.n))))) : null);
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, chosen.length ? 'Уточнять больше нечего' : 'Вариантов нет')]));
     if (fk) [...el.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });

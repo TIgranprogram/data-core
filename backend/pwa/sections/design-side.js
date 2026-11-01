@@ -24,7 +24,8 @@ export function designSide({ query, env, onBoard }) {
   let q = query, showAll = false, seq = 0;
   const S = { orders: [], tasks: [], lines: new Map(), loading: new Set(), expanded: new Set(), error: null, ready: false };
   const el = h('div', { class: 'k-side-item' });
-  const isOpen = (o) => (o.counts.queue + o.counts.work + o.counts.paused) > 0;
+  // Слева — «входящие»: заказы, где есть позиции без задачи (решение пользователя 2026-11-01). Всё распределено — заказ живёт только на досках.
+  const isOpen = (o) => (o.counts.free == null ? (o.counts.queue + o.counts.work + o.counts.paused) > 0 : o.counts.free > 0);
   const taskText = (t) => plain([t.code, t.title, t.productName, t.sku, t.productionNo, t.orderNo, t.customerTitle].join(' '));
   const visible = () => {
     const s = plain(q.search);
@@ -99,10 +100,10 @@ export function designSide({ query, env, onBoard }) {
     const vis = visible();
     const hidden = S.orders.filter((o) => !isOpen(o)).length;
     const bar = h('div', { class: 'toolbar' }, h('b', null, 'Заказы · ', String(vis.length)), canEdit ? button({ label: '+ Добавить заказ', kind: 'primary', size: 'S', onClick: addOrder }) : null,
-      hidden ? button({ label: showAll ? 'Только в работе' : `Показать все (+${hidden})`, kind: 'ghost', size: 'S', title: 'Заказы, где всё спроектировано или задачи не поставлены', onClick: () => { showAll = !showAll; paint(); } }) : null);
+      hidden ? button({ label: showAll ? 'Только входящие' : `Показать все (+${hidden})`, kind: 'ghost', size: 'S', title: 'Заказы, где все позиции уже распределены по доскам', onClick: () => { showAll = !showAll; paint(); } }) : null);
     if (!S.ready) { el.replaceChildren(bar, busyBlock('заказы')); return; }
     if (S.error) { el.replaceChildren(bar, failBlock(S.error, () => load(), { text: 'Доска не загрузилась' })); return; }
-    el.replaceChildren(bar, ...(vis.length ? vis.map(orderNode) : [empty({ title: S.orders.length ? 'Открытых задач нет.' : 'Заказов пока нет.', hint: S.orders.length ? '«Показать все» — заказы, где всё готово или задачи не поставлены.' : 'Добавьте заказ, который нужно проектировать — кнопка выше.' })]));
+    el.replaceChildren(bar, ...(vis.length ? vis.map(orderNode) : [empty({ title: S.orders.length ? 'Всё распределено.' : 'Заказов пока нет.', hint: S.orders.length ? 'Новые позиции появятся здесь. «Показать все» — заказы, уже разошедшиеся по доскам.' : 'Добавьте заказ, который нужно проектировать — кнопка выше.' })]));
   }
   async function load() {
     const my = ++seq;

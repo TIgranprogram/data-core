@@ -4,6 +4,7 @@ import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { badge, board as mountBoard, button, sku as kitSku, layout, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
 import { designSide } from './design-side.js';
+import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason } from './design-data.js';
 import { carousel } from '../ui/gallery.js';
@@ -25,9 +26,7 @@ const PRIO_OPTS = Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, l
 const STATUS_OPTS = ORDER.map((value) => ({ value, label: STATUS[value].label }));
 
 // ---------- сотрудники (исполнители) ----------
-let peopleP = null;
-export const people = () => (peopleP ||= api('/dicts/persons').then((r) => (r.items || []).filter((p) => p.status !== 'fired')
-  .map((p) => ({ value: p.id, label: p.name })).sort((a, b) => a.label.localeCompare(b.label, 'ru'))).catch(() => { peopleP = null; return []; }));
+export const people = async () => (await staffOptions()).filter((p) => !p.fired).map((p) => ({ value: p.value, label: p.name })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
 
 // ---------- мелкие элементы ----------
 const clean = (v) => { const s = v === null || v === undefined ? '' : String(v).trim(); return s === 'null' || s === 'undefined' ? '' : s; };

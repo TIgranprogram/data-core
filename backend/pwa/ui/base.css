@@ -122,7 +122,7 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 @media (max-width: 1280px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- Доска (колонки по статусам слева направо) ---------- */
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: var(--s3); overflow-x: auto; padding-bottom: 8px; align-items: start; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: 290px; gap: var(--s3); overflow-x: auto; padding-bottom: 8px; align-items: start; }
 .col { background: var(--surface-3); border-radius: var(--radius); display: flex; flex-direction: column; max-height: calc(100vh - 220px); min-height: 120px; }
 .col.drop { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-soft); }
 .col-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; font-weight: 600; }

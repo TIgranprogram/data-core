@@ -1,4 +1,6 @@
 import { api } from '../core/api.js';
+import { cachedFetch } from '../core/cache.js';
+import { persons } from './passports/common.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
@@ -10,11 +12,9 @@ import { attachCombo, enhanceSelect } from '../ui/kit/index.js';
  * Сотрудники — только из «Справочников» (CANON §5): выбор «Вид работ → Человек» — один список с группами по видам работ;
  * не сотрудник (объект, бригада) — строкой текста рядом.
  */
-let cache = null;
 /** Работающие сотрудники, сгруппированные по видам работ: [{ group, people: [{ id, name }] }]. */
 export async function peopleByWork() {
-  if (!cache) {
-    cache = api('/dicts/persons').then((r) => {
+  return cachedFetch('issue:peopleByWork', 60000, () => persons().then((r) => {
       const wt = new Map((r.dict?.refs?.worktypes || []).map((o) => [o.value, o.label]));
       const groups = new Map();
       for (const p of r.items || []) {
@@ -25,9 +25,7 @@ export async function peopleByWork() {
       }
       return [...groups.entries()].sort((a, b) => (a[0] === 'Без вида работ') - (b[0] === 'Без вида работ') || a[0].localeCompare(b[0], 'ru'))
         .map(([group, people]) => ({ group, people: people.sort((a, b) => a.name.localeCompare(b.name, 'ru')) }));
-    }).catch((e) => { cache = null; throw e; });
-  }
-  return cache;
+    }));
 }
 
 /**

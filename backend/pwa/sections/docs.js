@@ -1,17 +1,18 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { current, go, patch } from '../core/router.js';
-import { toast } from '../ui/toast.js';
+import { toast, toastError } from '../ui/toast.js';
 import { mountList } from '../ui/list.js';
 import { funnelBox } from '../ui/funnel.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
-import { canEdit as canEditTexts, statusOf, V2_NUMS } from './passports/common.js';
+import { canEdit as canEditTexts, statusOf, V2_NUMS, passportCategoryOptions } from './passports/common.js';
 import { linkDialog, printDialog, previewPassport, passportVariant, VARIANT_HINT } from './passports/dialogs.js';
-import { savePd } from './products.js';
+import { savePd, products, PD_KEYS } from './products.js';
+import { passportKindDrop } from './product-files.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, empty as kitEmpty, crumbTail } from '../ui/kit/index.js';
+import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, empty as kitEmpty, crumbTail } from '../ui/kit/index.js';
 
 
 /*
@@ -71,6 +72,7 @@ export const doctpl = {
   },
   card: {
     heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
+    editTitle: (r) => ['Шаблон паспорта · ', kitSku(r.sku), r.sku ? ' ' : null, r.name],
     subheading: (r) => [r.type, r.group].filter(Boolean).join(' → '),
     editTop: true,
     startEdit: () => canTpl(),
@@ -101,14 +103,13 @@ export const doctpl = {
   },
   form: {
     build: async (r) => {
-      const cats = (await api('/dicts/passportCategories').then((x) => x.items || []).catch(() => [])).filter((c) => c.code && c.code !== 'ALL');
+      const cats = (await passportCategoryOptions()).map((c) => ({ code: c.value, name: c.label }));
       const derived = r.passportCategory?.code || '';
       const sel = h('select', null, h('option', { value: '' }, '— по разделу и группе —'), ...cats.map((c) => h('option', { value: String(c.code) }, c.name)));
       sel.value = r.passportDefaults?.passportCategory || derived || '';
       const fb = funnelBox({ value: JSON.stringify(r.passportDefaults?.textChoices || {}), category: sel.value, canEditText: canEditTexts() });
       sel.addEventListener('change', () => fb.setCategory(sel.value));
       // ── «Собрано автоматически» и «Не хватает для паспорта» (один редактор; ввод — здесь же)
-      const over = {};
       const NUM_KEYS = new Set(V2_NUMS.map(([k]) => k));
       const autoBox = h('div');
       const needBox = h('div');
@@ -124,25 +125,66 @@ export const doctpl = {
           h('dl', { class: 'kv-grid' }, ...rows.flatMap(([k, v]) => [h('dt', null, k), h('dd', null, v || h('span', { class: 'muted' }, 'нет'))])));
       };
       let seq = 0;
+      const can = canTpl();
+      // Поля — те же компоненты, что в карточке изделия (products.form.fields); запись — в само изделие, второй копии нет
+      const FIELD_OF = { height: ['dimL', 'dimW', 'dimH'], weight: ['weightKg'], materials: ['materialsSpec'], installationTypeId: ['pdInstall'], installationMethod: ['pdInstall'],
+        elements: ['pdElements'], purpose: ['pdElements'], name: ['name'], description: ['description'] };
+      let prodFields = null;
+      const productFields = () => (prodFields ??= products.form.fields(r));
+      const putPd = async (part) => {
+        const merged = { ...(r.passportDefaults || {}), ...part };
+        const body = { ...Object.fromEntries(PD_KEYS.filter((k) => merged[k] !== undefined && merged[k] !== null && merged[k] !== '').map((k) => [k, merged[k]])), textChoices: r.passportDefaults?.textChoices || {} };
+        await api(`/showcase/${r.id}/passport-defaults`, { method: 'PUT', body });
+      };
+      const refresh = async () => { Object.assign(r, await api(`/showcase/${r.id}`)); auto(); checkNeed(); };
+      const plainItem = (m) => h('div', { class: 'field wide' }, h('span', null, m.label), h('div', { class: 'hint' }, m.hint || HINTS[m.key] || 'Заполняется в изделии.'));
+      const needItem = async (m) => {
+        const hint = h('div', { class: 'hint' }, m.hint || HINTS[m.key] || '');
+        if (!can) return plainItem(m);
+        if (String(m.key || '').startsWith('img_')) return h('div', { class: 'field wide' }, h('span', null, m.label), passportKindDrop(r.id, m.key.slice(4), refresh), hint);
+        let fields = null;
+        if (FIELD_OF[m.key]) { const all = await productFields(); fields = FIELD_OF[m.key].map((k) => all.find((f) => f && f.key === k)).filter(Boolean); }
+        else if (NUM_KEYS.has(m.key)) fields = [{ key: m.key, label: m.label, type: 'number', min: 0 }];
+        if (!fields?.length) return plainItem(m);
+        const one = fields.length === 1;
+        const f = buildForm(fields.map((x) => ({ ...x, ...(one ? { label: m.label } : {}), span: undefined, wide: one || x.wide })), NUM_KEYS.has(m.key) ? { [m.key]: r.passportDefaults?.[m.key] ?? '' } : products.form.toInitial(r));
+        const btn = h('button', { type: 'button', class: 'btn btn-sm btn-primary' }, 'Сохранить в изделии');
+        btn.onclick = async () => {
+          const res = f.read(); if (res.errors) return;
+          const v = res.values; const body = {}; const pd = {};
+          for (const x of fields) {
+            const k = x.key;
+            if (k === 'dimL' || k === 'dimW' || k === 'dimH') body.dimensions = { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: r.dimensions?.unit || 'мм' };
+            else if (k === 'weightKg') body.weightKg = v.weightKg ?? null;
+            else if (k === 'materialsSpec') body.materialsSpec = v.materialsSpec ?? null;
+            else if (k === 'name' || k === 'description') body[k] = v[k] || '';
+            else if (k === 'pdInstall') pd.installationTypeId = v.pdInstall || '';
+            else if (k === 'pdElements') pd.elements = Array.isArray(v.pdElements) ? v.pdElements : [];
+            else pd[k] = v[k];
+          }
+          try {
+            if (Object.keys(body).length) await api(`/showcase/${r.id}`, { method: 'PATCH', body });
+            if (Object.keys(pd).length) { if (body.dimensions || body.weightKg !== undefined) Object.assign(r, await api(`/showcase/${r.id}`)); await putPd(pd); }
+            toast('Сохранено в изделии');
+            await refresh();
+          } catch (e) { toastError(e); }
+        };
+        return h('div', { class: 'field wide' }, one ? null : h('span', null, m.label), f.el, h('div', { class: 'actions' }, btn), hint);
+      };
       const checkNeed = async () => {
         const my = ++seq;
         const body = { productId: r.id, mode: 'template', variant: passportVariant.value };
-        if (Object.keys(over).length) body.passportDefaults = { ...over };
         let res = null;
         try { res = await api('/passports/check', { method: 'POST', body }); } catch { res = null; }
         if (my !== seq) return;
         const list = (res?.missing || []).filter((m) => m && typeof m === 'object');
-        if (!res) { needBox.replaceChildren(h('div', { class: 'section-title' }, 'Не хватает для паспорта'), h('p', { class: 'muted' }, 'Не удалось проверить. Попробуйте открыть изделие ещё раз.')); return; }
-        if (!list.length) { needBox.replaceChildren(h('div', { class: 'section-title' }, 'Не хватает для паспорта'), h('p', null, kitBadge('Всё готово', 'ok'), ' Паспорт можно печатать.')); return; }
-        needBox.replaceChildren(h('div', { class: 'section-title' }, `Не хватает для паспорта (${list.length})`),
-          ...list.map((m) => {
-            const num = NUM_KEYS.has(m.key);
-            const inp = num ? h('input', { type: 'number', inputmode: 'decimal', value: over[m.key] ?? '', onchange: (e) => { over[m.key] = e.target.value; checkNeed(); } }) : null;
-            const isImg = String(m.key || '').startsWith('img_');
-            return h('label', { class: 'field wide' }, h('span', null, m.label), inp,
-              h('div', { class: 'hint' }, m.hint || HINTS[m.key] || (num ? 'Впишите число.' : 'Заполняется в изделии.')),
-              isImg ? kitLink({ label: 'Открыть изделие → Фото и файлы', onClick: () => go('products', { open: r.id }) }) : null);
-          }));
+        const head = (n) => h('div', { class: 'section-title' }, n ? `Не хватает для паспорта (${n})` : 'Не хватает для паспорта');
+        if (!res) { needBox.replaceChildren(head(0), h('p', { class: 'muted' }, 'Не удалось проверить. Попробуйте открыть изделие ещё раз.')); return; }
+        if (!list.length) { needBox.replaceChildren(head(0), h('p', null, kitBadge('Всё готово', 'ok'), ' Паспорт можно печатать.')); return; }
+        const seen = new Set();
+        const items = await Promise.all(list.filter((m) => { const k = FIELD_OF[m.key]?.[0] || m.key; return seen.has(k) ? false : (seen.add(k), true); }).map(needItem));
+        if (my !== seq) return;
+        needBox.replaceChildren(head(list.length), ...items, h('div', { class: 'hint' }, 'Всё вводится в изделие и сразу пересчитывается. ', kitLink({ label: 'Открыть изделие', onClick: () => go('products', { open: r.id }) })));
       };
       sel.addEventListener('change', () => { auto(); checkNeed(); });
       const seg = segmented({ items: [{ key: 'short', label: 'Упрощённый' }, { key: 'full', label: 'Полный' }], value: passportVariant.value, label: 'Вариант паспорта', onChange: (k) => { passportVariant.value = k; checkNeed(); } });
@@ -154,7 +196,7 @@ export const doctpl = {
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,
           h('div', { class: 'hint' }, 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже.')),
         h('div', { class: 'field wide' }, h('span', null, 'Тексты паспорта — выбор (монтаж, назначение…)'), fb.el));
-      const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}'), over: { ...over } });
+      const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}'), over: {} });
       const start = JSON.stringify(values());
       return { el, focus: () => sel.focus(), dirty: () => JSON.stringify(values()) !== start, read: () => ({ values: values() }) };
     },

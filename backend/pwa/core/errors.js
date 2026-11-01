@@ -110,6 +110,8 @@ function flush() {
   queue.splice(0).forEach(send);
   save();
 }
+// сторож мусора на экране (core/garbage.js) → в журнал ошибок сайта; status 0 — чтобы isFailure принял русский текст
+window.addEventListener('dc-garbage', (ev) => { const e = new Error(String(ev.detail)); e.name = 'GarbageText'; e.status = 0; reportError(e, { kind: 'garbage' }); });
 window.addEventListener('online', flush);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
 setInterval(flush, 60000);

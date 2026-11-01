@@ -103,6 +103,14 @@ export function link({ label, href, onClick, title, target, cls } = {}) {
 /** sku(text) → .k-sku: артикул изделия (моноширинные цифры, жирный, цвет текста); пусто → null. Без подписи «арт.» */
 export const sku = (text) => (text == null || String(text).trim() === '' ? null : h('span', { class: 'k-sku' }, String(text).trim()));
 
+/** section({ title, count?, open?, body, cls? }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
+ *  В шапке — заголовок, число (count) и стрелка; открывается Enter/Пробел/щелчком. body — узлы или массив. Свёрнутое состояние не хранится. */
+export function section({ title, count, open = false, body, cls } = {}) {
+  const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title),
+    count != null ? h('span', { class: 'badge dim k-sec-n' }, String(count)) : null, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
+  return h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': 'main', open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body)));
+}
+
 /** stat({ value, label }) → .stat; stats([...]) → .stats */
 export const stat = ({ value, label }) => h('div', { class: 'stat' }, h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label));
 export const stats = (items) => h('div', { class: 'stats' }, ...items.map(stat));
@@ -149,3 +157,4 @@ export { uploadPhoto, photoDrop } from '../photos.js';
 
 /** Хвост хлебных крошек раздела: crumbTail('Паспорта › Выпущенные паспорта') */
 export { setCrumbTail as crumbTail } from '../crumbs.js';
+export { buildForm } from '../form.js';

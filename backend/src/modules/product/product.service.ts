@@ -37,7 +37,7 @@ export class ProductService {
     // остаток — только storageitems (ДМ.5): stockQty из запроса игнорируем, при создании 0 (CRM ждёт поле)
     const { attributes, stockQty: _ignoredStock, ...rest } = dto; void _ignoredStock;
     // WAVE-NX-CATALOG-PHOTOS P2: photoIds → ObjectId; main ∈ photoIds (после normalize) или null.
-    const photoObjectIds = rest.photoIds?.map((pid) => new Types.ObjectId(String(pid)));
+    const photoObjectIds = rest.photoIds?.filter((pid) => Types.ObjectId.isValid(String(pid))).map((pid) => new Types.ObjectId(String(pid)));
     let mainObjectId: Types.ObjectId | null | undefined;
     if (rest.mainPhotoId === null) {
       mainObjectId = null;
@@ -160,7 +160,8 @@ export class ProductService {
       if (value !== undefined) $set[key] = value;
     }
     if (Array.isArray(rest.photoIds)) {
-      $set.photoIds = rest.photoIds.map((pid) => new Types.ObjectId(String(pid)));
+      // старые записи (не ObjectId, из CRM) не роняют сохранение — остаются как есть
+      $set.photoIds = rest.photoIds.map((pid) => (Types.ObjectId.isValid(String(pid)) ? new Types.ObjectId(String(pid)) : pid));
     }
     // WAVE-NX-CATALOG-PHOTOS P2: main ∈ final photoIds (merged) или null.
     if (rest.mainPhotoId !== undefined) {

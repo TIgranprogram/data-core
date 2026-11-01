@@ -1,5 +1,7 @@
 /** Создание элементов без innerHTML (CANON §3: данные пользователя — только textContent).
  *  h('button', { class: 'btn', onclick }, 'Текст', childNode, [массив детей]) */
+import { scrubText } from './garbage.js';
+
 export function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
   let value;
@@ -12,7 +14,7 @@ export function h(tag, attrs, ...children) {
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k in el && typeof v !== 'string') el[k] = v;
-    else el.setAttribute(k, v === true ? '' : String(v));
+    else el.setAttribute(k, v === true ? '' : (k === 'title' || k === 'aria-label') ? scrubText(String(v), `<${tag}> ${k}`) : String(v));
   }
   append(el, children);
   if (value !== undefined) el.value = String(value);
@@ -46,7 +48,7 @@ function append(el, kids) {
   for (const c of kids) {
     if (c === undefined || c === null || c === false) continue;
     if (Array.isArray(c)) append(el, c);
-    else el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    else el.append(c instanceof Node ? c : document.createTextNode(typeof c === 'string' ? scrubText(c, `<${el.localName}>`) : String(c)));
   }
 }
 
