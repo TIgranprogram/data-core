@@ -1,3 +1,5 @@
+import { imageKindAllowed, foundationRequired, variantOf, OPTIONAL_FIELDS, type InstallKind, type PassportVariant, type VariantCtx } from './passport-variants';
+
 /**
  * Правила паспортов без БД (TASKS ПС.2–ПС.5; тесты — passport-rules.spec.ts): номера и талон, чистка текста
  * при переносе, разнос «Объекта», сборка описания, полнота перед выдачей. Используются сервисом и
@@ -161,6 +163,9 @@ export const IMAGE_KIND_LABELS: Record<string, string> = {
   nameplate: 'Где табличка с номером', safety_zone: 'Зона безопасности', foundation: 'Схема фундамента', holes: 'Разметка ям под опоры', assembly: 'Сборка по шагам', bom_item: 'Деталь комплектности',
 };
 
+/** Вариант паспорта и способ установки (из справочника) — для правил «что обязательно». */
+export interface VariantOpts { variant?: PassportVariant; install?: InstallKind }
+
 export interface PassportV2Like extends PassportLike {
   passportCategory?: string; isKit?: boolean; elements?: unknown[]; installationTypeId?: unknown;
   [k: string]: unknown;
@@ -182,18 +187,23 @@ export function requiredFieldsOf(code: string, cat?: { requiredFields?: string }
 }
 
 /** Обязательные виды картинок паспорта по категории (справочник, по строке вид; «(если разборное)» — только у разборных). */
-export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImages?: string } | null): string[] {
+export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImages?: string } | null, ctx?: VariantCtx): string[] {
   const out: string[] = [];
   // по строке, через пробел или запятую; «(если разборное)» — относится к видам этой строки
   for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {
     if (/если разборн/i.test(line) && !p.isKit) continue;
     for (const kind of line.replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x))) if (!out.includes(kind)) out.push(kind);
   }
-  return out;
+  if (!ctx) return out;
+  // правила категории/способа установки/варианта; схема фундамента — обязательна при бетонировании
+  const res = out.filter((k) => imageKindAllowed(k, ctx));
+  if (foundationRequired(ctx) && !res.includes('foundation')) res.push('foundation');
+  return res;
 }
 
-export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null): string[] {
+export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null, opts?: VariantOpts): string[] {
   const code = String(p.passportCategory || '');
+  const ctx: VariantCtx = { category: code, install: opts?.install ?? 'unknown', variant: variantOf(opts?.variant) };
   if (!code) return missingFields(p);
   // v2: текстовые поля v1 заменяет справочник — материалы, установка, назначение (из элементов), описание (снимок), категория каталога
   const filled = (v: unknown) => (Array.isArray(v) ? v.length > 0 : !!v);
@@ -202,10 +212,10 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
   const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'number' && !Number.isFinite(v));
   if (empty(p.elements) && code !== 'BLG') m.push('Элементы');
   if (empty(p.installationTypeId)) m.push('Способ установки');
-  for (const [k, label] of requiredFieldsOf(code, cat)) if (empty(p[k])) m.push(label);
+  for (const [k, label] of requiredFieldsOf(code, cat)) if (empty(p[k]) && !(ctx.variant === 'short' && OPTIONAL_FIELDS.includes(k))) m.push(label);
   // «safety» (v1) и «safety_zone» (v2) — одно и то же требование
   const has = new Set((p.images || []).map((i) => (i.kind === 'safety' ? 'safety_zone' : i.kind)));
-  for (const kind of requiredImageKinds(p, cat)) {
+  for (const kind of requiredImageKinds(p, cat, ctx)) {
     const k = kind === 'safety' ? 'safety_zone' : kind;
     if (!has.has(k)) { const label = `Рисунок: ${IMAGE_KIND_LABELS[k] ?? k}`; if (!m.includes(label) && !(k === 'overview' && m.includes('Фото изделия'))) m.push(label); }
   }
@@ -222,11 +232,11 @@ const V1_FIELD_KEYS: Record<string, string> = {
  * То же, что `missingFieldsV2`, но с ключом поля формы паспорта (ФП: список «не хватает для выпуска» со ссылкой на поле).
  * Рисунок → `img_<вид>` (safety_zone в форме — safety).
  */
-export function missingKeyed(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null): Array<{ label: string; key: string }> {
+export function missingKeyed(p: PassportV2Like, cat?: { requiredImages?: string; requiredFields?: string } | null, opts?: VariantOpts): Array<{ label: string; key: string }> {
   const byLabel = new Map<string, string>(Object.entries(V1_FIELD_KEYS));
   for (const [k, l] of requiredFieldsOf(String(p.passportCategory || ''), cat)) byLabel.set(l, k);
   for (const [k, l] of Object.entries(IMAGE_KIND_LABELS)) byLabel.set(`Рисунок: ${l}`, 'img_' + (k === 'safety_zone' ? 'safety' : k));
-  return missingFieldsV2(p, cat).map((label) => ({ label, key: byLabel.get(label) ?? '' }));
+  return missingFieldsV2(p, cat, opts).map((label) => ({ label, key: byLabel.get(label) ?? '' }));
 }
 
 /** Комплектность по умолчанию (Приложение 3). */

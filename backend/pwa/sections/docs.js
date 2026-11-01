@@ -6,12 +6,12 @@ import { mountList } from '../ui/list.js';
 import { funnelBox } from '../ui/funnel.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
-import { canEdit as canEditTexts, statusOf } from './passports/common.js';
-import { linkDialog, printDialog } from './passports/dialogs.js';
+import { canEdit as canEditTexts, statusOf, V2_NUMS } from './passports/common.js';
+import { linkDialog, printDialog, previewPassport } from './passports/dialogs.js';
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { tabs as kitTabs } from '../ui/kit/index.js';
+import { tabs as kitTabs, badge as kitBadge } from '../ui/kit/index.js';
 
 /*
  * «Документация» (NAV F5): две вкладки в адресе #docs?tab=…
@@ -27,6 +27,16 @@ const isOld = (r) => !!r.source && r.source !== 'app';
 const hasTpl = (d) => !!d && (Object.keys(d.textChoices || {}).length > 0 || !!d.passportCategory);
 
 // ─── вкладка «Паспорта»: шаблон паспорта изделия ───────────────────────────────────────────────────
+// подсказки «что ввести и где взять» для полей, которые вводятся прямо в редакторе
+const HINTS = {
+  serviceLifeYears: 'Сколько лет изделие служит. Для металла с порошковой окраской обычно 10. Уточните у технолога.',
+  maxUsers: 'Сколько человек могут заниматься одновременно. Смотрите в чертеже или у проектировщика.',
+  siteLength: 'Длина площадки вместе с зоной безопасности, в мм. Берётся из рисунка зоны безопасности.',
+  siteWidth: 'Ширина площадки вместе с зоной безопасности, в мм. Берётся из рисунка зоны безопасности.',
+  ageFrom: 'Минимальный возраст пользователя. Из описания изделия.', ageTo: 'Максимальный возраст пользователя. Из описания изделия.',
+  heightMin: 'Минимальный рост пользователя, мм. Из описания изделия.', heightMax: 'Максимальный рост пользователя, мм. Из описания изделия.',
+  weightMax: 'Максимальный вес пользователя, кг. Из описания изделия.', fallHeight: 'Высота свободного падения, мм. Считает проектировщик по чертежу.',
+};
 const canTpl = () => session.canEdit && canEditTexts();
 
 export const doctpl = {
@@ -64,6 +74,12 @@ export const doctpl = {
     editTop: true,
     noHistory: true,
     actions: (r) => [
+      { label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по текущему шаблону изделия; паспорт не выпускается', run: (row) => previewPassport(row.id) },
+      { label: 'Печать паспорта', primary: true, run: async (row) => {
+        const last = row.passports?.items?.[0];
+        if (last) { printDialog(await api(`/passports/${last.id}`)); return; }
+        await previewPassport(row.id);
+      } },
       session.sees('docs') && canEditTexts() && { label: 'Выпустить паспорт', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } },
@@ -74,7 +90,7 @@ export const doctpl = {
       const n = Object.keys(d?.textChoices || {}).length;
       return [
         ['Шаблон', hasTpl(d) ? 'задан' : h('span', { class: 'muted' }, 'не задан — «Изменить», чтобы выбрать категорию и тексты')],
-        ['Категория паспорта', r.passportCategory ? `${r.passportCategory.name || r.passportCategory.code}` : h('span', { class: 'muted' }, 'не задана — выберите её в «Продукция → Категории» (поле «Категория паспорта» у группы)')],
+        ['Категория паспорта', r.passportCategory ? `${r.passportCategory.name || r.passportCategory.code}` : h('span', { class: 'muted' }, 'не задана — «Изменить» и выберите категорию')],
         ['Выбрано текстов', n ? String(n) : h('span', { class: 'muted' }, 'нет — при выпуске подставятся варианты «по умолчанию»')],
         ['Выпущено паспортов', r.passports?.total ? String(r.passports.total) : null],
         ['Общие тексты категории', h('a', { href: '#dicts?d=passportPhrases' }, 'Справочники → Тексты паспорта')],
@@ -89,17 +105,55 @@ export const doctpl = {
       sel.value = r.passportDefaults?.passportCategory || derived || '';
       const fb = funnelBox({ value: JSON.stringify(r.passportDefaults?.textChoices || {}), category: sel.value, canEditText: canEditTexts() });
       sel.addEventListener('change', () => fb.setCategory(sel.value));
+      // ── «Собрано автоматически» и «Не хватает для паспорта» (один редактор; ввод — здесь же)
+      const over = {};
+      const NUM_KEYS = new Set(V2_NUMS.map(([k]) => k));
+      const autoBox = h('div');
+      const needBox = h('div');
+      const auto = () => {
+        const cat = cats.find((c) => String(c.code) === sel.value);
+        const rows = [
+          ['Изделие', [r.name, r.sku && `арт. ${r.sku}`].filter(Boolean).join(' · ')],
+          ['Категория паспорта', cat ? cat.name : (r.passportCategory?.name || '')],
+          ['Материалы', r.materialsText],
+          ['Выбрано текстов', Object.keys(JSON.parse(fb.value || '{}')).length ? String(Object.keys(JSON.parse(fb.value || '{}')).length) : ''],
+        ];
+        autoBox.replaceChildren(h('div', { class: 'section-title' }, 'Собрано автоматически'),
+          h('dl', { class: 'kv-grid' }, ...rows.flatMap(([k, v]) => [h('dt', null, k), h('dd', null, v || h('span', { class: 'muted' }, 'нет'))])));
+      };
+      let seq = 0;
+      const checkNeed = async () => {
+        const my = ++seq;
+        const pd = { ...(r.passportDefaults || {}), ...over };
+        const body = { ...pd, passportCategory: sel.value || undefined, name: r.name, article: r.sku, materials: r.materialsText || '', images: r.images || r.photos || [] };
+        let res = null;
+        try { res = await api('/passports/check', { method: 'POST', body }); } catch { res = null; }
+        if (my !== seq) return;
+        const list = (res?.missing || []).filter((m) => typeof m === 'object');
+        if (!res) { needBox.replaceChildren(h('div', { class: 'section-title' }, 'Не хватает для паспорта'), h('p', { class: 'muted' }, 'Не удалось проверить. Попробуйте открыть изделие ещё раз.')); return; }
+        if (!list.length) { needBox.replaceChildren(h('div', { class: 'section-title' }, 'Не хватает для паспорта'), h('p', null, kitBadge('Всё готово', 'ok'), ' Паспорт можно печатать.')); return; }
+        needBox.replaceChildren(h('div', { class: 'section-title' }, `Не хватает для паспорта (${list.length})`),
+          ...list.map((m) => {
+            const num = NUM_KEYS.has(m.key);
+            const inp = num ? h('input', { type: 'number', inputmode: 'decimal', value: over[m.key] ?? '', onchange: (e) => { over[m.key] = e.target.value; checkNeed(); } }) : null;
+            return h('label', { class: 'field wide' }, h('span', null, m.label), inp,
+              h('div', { class: 'hint' }, HINTS[m.key] || (num ? 'Впишите число. Обычно оно есть в техническом задании или чертеже изделия.' : 'Загружается в форме паспорта: «Выпустить паспорт», шаг про картинки и состав. Берите из чертежа или фото изделия.')));
+          }));
+      };
+      sel.addEventListener('change', () => { auto(); checkNeed(); });
+      auto(); checkNeed();
       const el = h('div', { class: 'form-grid' },
+        h('div', { class: 'wide' }, autoBox), h('div', { class: 'wide' }, needBox),
         h('p', { class: 'hint wide' }, `Шаблон паспорта изделия «${r.name}». Он подставляется, когда вы выпускаете паспорт; выданные паспорта не меняются.`),
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,
           h('div', { class: 'hint' }, 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже.')),
         h('div', { class: 'field wide' }, h('span', null, 'Тексты паспорта — выбор (монтаж, назначение…)'), fb.el));
-      const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}') });
+      const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}'), over: { ...over } });
       const start = JSON.stringify(values());
       return { el, focus: () => sel.focus(), dirty: () => JSON.stringify(values()) !== start, read: () => ({ values: values() }) };
     },
     toInitial: (r) => r,
-    toBody: (v, r) => ({ category: v.category || '', choices: v.choices || {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} }),
+    toBody: (v, r) => ({ category: v.category || '', choices: v.choices || {}, over: v.over || {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} }),
     update: async (id, b) => { await savePd(id, b); return api(`/showcase/${id}`); },
   },
 };

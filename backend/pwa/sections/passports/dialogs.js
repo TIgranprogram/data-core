@@ -57,6 +57,17 @@ export async function download(r, query, what) {
   catch (e) { done(); throw e; }
 }
 
+/**
+ * Предпросмотр паспорта изделия: POST /passports/preview (PDF с «ЧЕРНОВИК», ничего не пишет).
+ * TODO: переключатель kit.segmented «Упрощённый / Полный» и поле variant — когда preview.dto.ts начнёт принимать variant
+ * (сейчас forbidNonWhitelisted даст 400).
+ */
+export async function previewPassport(productId) {
+  const done = toast('Готовлю предпросмотр… это может занять до минуты', { ms: 180000 });
+  try { await apiFile('/passports/preview', { method: 'POST', body: { productId, mode: 'pages' }, fallback: 'Предпросмотр_паспорта.pdf' }); done(); }
+  catch (e) { done(); toast(e?.message || 'Не удалось собрать предпросмотр'); }
+}
+
 // Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)
 export const FORMATS = [
   { mode: 'pages', title: 'Файл A5', sub: 'книжный, постранично — отправить по почте', icon: 'sheetA5' },

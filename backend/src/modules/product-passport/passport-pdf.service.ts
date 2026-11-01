@@ -8,6 +8,7 @@ import { isDraftNumber, isIssued } from './passport-consts';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
+import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
 import { renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 
@@ -67,13 +68,20 @@ export class PassportPdfService {
   /** НМ: черновик — PDF с пометкой «ЧЕРНОВИК» и без номера; аннулированный — «АННУЛИРОВАН». Выпущенный — как есть. */
   private watermark(raw: Doc): string | undefined { return raw.status === 'draft' ? 'ЧЕРНОВИК' : raw.status === 'annulled' ? 'АННУЛИРОВАН' : undefined; }
 
-  async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean } = {}) {
+  async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant } = {}) {
     await this.passports.syncFromProduct(id); // черновик с изделием печатается с категорией и полями изделия
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const p = noDraftNumber(await this.withText(raw));
     const buf = await this.render(p, opts);
     if (isIssued(raw)) await this.passports.markIssued(p._id as Types.ObjectId); // «PDF скачан» — только у выпущенного
     return { buf, filename: fileName(p, opts.stamp) };
+  }
+
+  /** Предпросмотр по изделию: тот же рендер, «ЧЕРНОВИК», без номера; в базу ничего не пишется и «выдан» не отмечается. */
+  async preview(productId: string, opts: { mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant } = {}) {
+    const p = noDraftNumber(await this.passports.previewDoc(productId) as Doc);
+    const buf = await this.render(p, opts);
+    return { buf, filename: `Предпросмотр_${fileName(p).replace(/^Паспорт_/, '')}` };
   }
 
   /**
@@ -102,7 +110,7 @@ export class PassportPdfService {
     return zipStore(files);
   }
 
-  private async render(p: Doc, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean }) {
+  private async render(p: Doc, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant }) {
     const imgs = ((p.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
     const url = new Map(photos.map((x) => [String(x._id), x.storageUrl as string]));
@@ -120,6 +128,8 @@ export class PassportPdfService {
       const su = new Map(sp.map((x) => [String(x._id), x.storageUrl as string]));
       for (const x of std) { const buf = await this.file(su.get(x.photoId)); if (buf) (byKind[x.kind] ||= []).push({ buf }); }
     }
+    // вариант паспорта, категория и способ установки решают, какие рисунки печатать (passport-variants.ts)
+    const images = filterImagesByKind(byKind, { category: String(p.passportCategory ?? ''), install: installKindOf((await this.passports.installs()).get(String(p.installationTypeId ?? ''))), variant: variantOf(opts.variant) });
     const { orgIn, asset } = await this.orgOf(p);
     const stamp = !!opts.stamp;
     const mode = opts.mode === 'print' ? 'print' : 'pages';
@@ -132,7 +142,7 @@ export class PassportPdfService {
       passport: p as never,
       org: orgIn,
       text,
-      images: byKind,
+      images,
       style: await this.styleOf(p),
       logo: await this.asset(asset('logo')),
       defectImages: await this.defectImages(text),

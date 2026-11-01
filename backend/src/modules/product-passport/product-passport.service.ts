@@ -1,3 +1,4 @@
+import { installKindOf, variantOf } from './passport-variants';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -117,9 +118,11 @@ export class ProductPassportService {
     const stdUrl = new Map(stdPhotos.map((x) => [String(x._id), x.storageUrl as string]));
     const standardImages = std.map((x) => ({ ...x, url: stdUrl.get(x.photoId) ?? null }));
     // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
-    const requiredImages = requiredImageKinds(doc as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k));
+    const instRec = (await this.installs()).get(String(doc.installationTypeId ?? '')) ?? null;
+    const vopts = { variant: 'short' as const, install: installKindOf(instRec) };
+    const requiredImages = requiredImageKinds(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts }).map((k) => (k === 'safety_zone' ? 'safety' : k));
     const choiceMissing = await this.choiceMissing(doc);
-    return { ...doc, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...images, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -368,6 +371,34 @@ export class ProductPassportService {
     // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
     const fp = await this.fromProductDiff(p);
     if (Object.keys(fp).length) { doc.set(fp); Object.assign(p, fp); }
+    const built = await this.buildText(p);
+    if (!built) return null;
+    const { text, instLeaf } = built;
+    if (p.installationTypeId) doc.set('installationTypeId', p.installationTypeId);
+    // purpose / installationMethod — производные от выбора (их читают kppdf и PDF v1); набранные вручную («свой текст») не трогаем
+    const manual = (p.manualText as string[] | undefined) ?? [];
+    if (text.purpose && !manual.includes('purpose')) doc.set('purpose', text.purpose);
+    if (instLeaf && !manual.includes('installationMethod')) doc.set('installationMethod', text.install.text);
+    doc.set('textSnapshot', { ...text, at: new Date() });
+    return doc.save();
+  }
+
+  /**
+   * Предпросмотр PDF по изделию без выпуска: черновик в памяти (поля изделия + текст по категории), в базу ничего не пишется.
+   * Нет изделия — 404, нет категории — 400.
+   */
+  async previewDoc(productId: string): Promise<Doc> {
+    if (!Types.ObjectId.isValid(productId)) throw new NotFoundException(`Изделие ${productId} не найдено`);
+    const prod = await this.connection.collection('products').findOne({ _id: new Types.ObjectId(productId), deletedAt: null });
+    if (!prod) throw new NotFoundException(`Изделие ${productId} не найдено`);
+    const p: Doc = { _id: new Types.ObjectId(), productId: prod._id, status: 'draft', passportNumber: '', ...(await productPatch(this.connection.db!, prod as Doc)) };
+    const built = await this.buildText(p);
+    if (!built) throw new BadRequestException('У изделия не выбрана категория паспорта — PDF собирается по ней. Укажите категорию в карточке изделия');
+    return { ...p, textSnapshot: { ...built.text, at: new Date() } };
+  }
+
+  /** Текст паспорта по справочникам для `p` (без записи; выбранный способ установки кладёт в `p.installationTypeId`); нет категории — null. */
+  private async buildText(p: Doc) {
     if (!p.passportCategory) return null;
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
     const cat = String(p.passportCategory);
@@ -384,14 +415,9 @@ export class ProductPassportService {
     const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined);
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
-    if (instLeaf?.installTypeId) { p.installationTypeId = new Types.ObjectId(instLeaf.installTypeId); doc.set('installationTypeId', p.installationTypeId); }
+    if (instLeaf?.installTypeId) p.installationTypeId = new Types.ObjectId(instLeaf.installTypeId);
     const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install }, funnel: { forest, choices: p.textChoices as Record<string, string> | undefined } });
-    // purpose / installationMethod — производные от выбора (их читают kppdf и PDF v1); набранные вручную («свой текст») не трогаем
-    const manual = (p.manualText as string[] | undefined) ?? [];
-    if (text.purpose && !manual.includes('purpose')) doc.set('purpose', text.purpose);
-    if (instLeaf && !manual.includes('installationMethod')) doc.set('installationMethod', text.install.text);
-    doc.set('textSnapshot', { ...text, at: new Date() });
-    return doc.save();
+    return { text, instLeaf };
   }
 
   /**
@@ -407,14 +433,15 @@ export class ProductPassportService {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(p, inst);
+    const vopts = { variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), manualText: p.manualText });
-    return { missing: [...missingKeyed(full as never, cat), ...choices], requiredImages: requiredImageKinds(p as never, cat).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
+    return { missing: [...missingKeyed(full as never, cat, vopts), ...choices], requiredImages: requiredImageKinds(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts }).map((k) => (k === 'safety_zone' ? 'safety' : k)) };
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
-    return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null), ...(await this.choiceMissing(doc))];
+    return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null, { variant: 'short', install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) }), ...(await this.choiceMissing(doc))];
   }
 
   // ─── воронка текстов (ПВ 2026-10-25) ─────────────────────────────────────────────────────────────

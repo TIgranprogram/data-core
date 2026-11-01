@@ -4,7 +4,7 @@ import { missingKeyed } from './passport-rules';
 describe('missingKeyed — не хватает с ключом поля формы', () => {
   const cat = { requiredFields: 'heightMin\nmaxUsers — Сколько человек', requiredImages: 'overview\nsafety_zone\nassembly (если разборное)' };
   it('поля категории, рисунки (safety_zone → img_safety), v1-поля', () => {
-    const m = missingKeyed({ passportCategory: 'TRN', name: 'Турник', images: [{ kind: 'overview' }] } as never, cat);
+    const m = missingKeyed({ passportCategory: 'DIO', name: 'Турник', images: [{ kind: 'overview' }] } as never, cat);
     const by = Object.fromEntries(m.map((x) => [x.label, x.key]));
     expect(by['Рост пользователя от']).toBe('heightMin');
     expect(by['Сколько человек']).toBe('maxUsers');
@@ -14,7 +14,7 @@ describe('missingKeyed — не хватает с ключом поля форм
     expect(Object.keys(by)).not.toContain('Рисунок: Сборка по шагам'); // не разборное
   });
   it('загруженная «зона безопасности» вида safety засчитывается', () => {
-    const m = missingKeyed({ passportCategory: 'TRN', images: [{ kind: 'overview' }, { kind: 'safety' }] } as never, cat);
+    const m = missingKeyed({ passportCategory: 'DIO', images: [{ kind: 'overview' }, { kind: 'safety' }] } as never, cat);
     expect(m.map((x) => x.label)).not.toContain('Рисунок: Зона безопасности');
   });
 });

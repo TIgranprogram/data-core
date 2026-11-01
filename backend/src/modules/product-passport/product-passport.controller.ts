@@ -8,6 +8,8 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/cur
 import { ProductPassportService } from './product-passport.service';
 import { PassportPdfService } from './passport-pdf.service';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
+import { variantOf } from './passport-variants';
+import { PassportPreviewDto } from './dto/preview.dto';
 import { NextPassportNumberDto } from './dto/next-number.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import type { PassportTemplateContent } from './passport-template.default';
@@ -208,6 +210,15 @@ export class ProductPassportController {
     return new StreamableFile(buf);
   }
 
+  /** Предпросмотр PDF по изделию без выпуска: «ЧЕРНОВИК», без номера, в базу ничего не пишется. Нет категории у изделия — 400. */
+  @Post('passports/preview')
+  @Roles(...EDIT)
+  async preview(@Body() dto: PassportPreviewDto, @Res({ passthrough: true }) res: Response) {
+    const r = await this.pdfs.preview(dto.productId, { mode: dto.mode, mono: dto.bw, variant: dto.variant });
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
+    return new StreamableFile(r.buf);
+  }
+
   @Get('passports/:id')
   @Roles(...VIEW)
   findOne(@Param('id') id: string) {
@@ -225,8 +236,9 @@ export class ProductPassportController {
   @ApiQuery({ name: 'bw', required: false, description: '1 — чёрно-белый (только v2; без цвета категории)' })
   @ApiQuery({ name: 'seal', required: false, description: 'при stamp=1: 0 — без печати (только подпись)' })
   @ApiQuery({ name: 'sign', required: false, description: 'при stamp=1: 0 — без подписи (только печать)' })
-  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Res({ passthrough: true }) res: Response) {
-    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1' });
+  @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'], description: 'short — только обязательные разделы (умолч.); full — плюс необязательные, если заполнены' })
+  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('variant') variant: string, @Res({ passthrough: true }) res: Response) {
+    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }

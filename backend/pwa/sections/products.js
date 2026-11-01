@@ -1,5 +1,5 @@
 import { api, PREFIX, session } from '../core/api.js';
-import { stepFunnel, tagPick } from '../ui/kit/index.js';
+import { stepFunnel, tagPick, button as kitButton } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, money, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -10,7 +10,7 @@ import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
-import { printDialog } from './passports/dialogs.js';
+import { printDialog, previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
 import { openBulk } from './bulk-edit.js';
 import { dictNames } from '../ui/dict-options.js';
@@ -162,8 +162,9 @@ function compositionBlock(r) {
 // «Паспорта» (БЗ-5): выпущенные паспорта этого изделия — по ссылке или по названию
 function passportsBlock(r) {
   const p = r.passports;
-  if (!p?.total) return h('p', { class: 'muted' }, 'Паспортов пока нет — «Документация → Паспорта» → изделие → «Выпустить паспорт»');
-  return h('div', null, h('div', { class: 'section-title' }, `Паспорта (${p.total})`),
+  const tpl = h('div', null, kitButton({ label: 'Шаблон паспорта', kind: 'primary', size: 'S', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: r.id }) }));
+  if (!p?.total) return h('div', null, h('div', { class: 'section-title' }, 'Документация'), h('p', { class: 'muted' }, 'Паспортов пока нет. Откройте шаблон: там видно, что собрано и чего не хватает.'), tpl);
+  return h('div', null, h('div', { class: 'section-title' }, 'Документация'), tpl, h('div', { class: 'section-title' }, `Паспорта (${p.total})`),
     h('ul', { class: 'timeline' }, ...p.items.map((x) => h('li', null,
       h('a', { href: '#passports?open=' + x.id }, `№ ${x.passportNumber || '—'}`),
       h('span', { class: 'muted clip' }, [date(x.date), x.customer, x.orderNo ? 'заказ ' + x.orderNo : ''].filter(Boolean).join(' · '))))),
@@ -395,12 +396,13 @@ export const products = {
     actions: (r) => [{ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
       { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) },
-      ...(session.seesDocs() && r.passports?.items?.[0] ? [{ label: 'Печать паспорта', title: 'Последний выпущенный паспорт этого изделия: PDF и печать', run: async (row) => {
-        printDialog(await api(`/passports/${row.passports.items[0].id}`));
+      // один вход: есть паспорт — печать; нет — редактор шаблона (там видно, чего не хватает)
+      ...(session.seesDocs() ? [{ label: 'Печать паспорта', title: 'Есть паспорт — PDF и печать; нет — откроется шаблон с недостающим', run: async (row) => {
+        if (row.passports?.items?.[0]) printDialog(await api(`/passports/${row.passports.items[0].id}`));
+        else await previewPassport(row.id);
       } }] : []),
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js (панель паспорта)
       { label: 'Техническое описание', title: 'PDF для заказчика: фото, части, материалы и допуски', run: (row) => openTechSheet(row) },
-      ...(session.seesDocs() ? [{ label: 'Паспорт →', title: 'Список паспортов этого изделия', run: (row) => { go('docs', { tab: 'archive', q: row.name }); } }] : []),
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
       ...(session.canEdit ? [{ label: 'Присвоить артикул группы', more: true, title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
         const chk = await api(`/showcase/${row.id}/assign-sku`, { method: 'POST', body: {} });
