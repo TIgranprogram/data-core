@@ -129,7 +129,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');
       }
     }
-    put(h('dl', { class: 'fields' }, (section.card.view(row, actx()) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '').flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])), 'fields');
+    // пустые строки не выводим; заголовок группы (grp) без заполненных строк под ним — тоже
+    const isGrp = ([l]) => l?.classList?.contains('fields-grp');
+    const rows = (section.card.view(row, actx()) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '');
+    const shown = rows.filter((r, i) => !isGrp(r) || (rows[i + 1] && !isGrp(rows[i + 1])));
+    put(h('dl', { class: 'fields' }, shown.flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])), 'fields');
     if (section.card.extra) put(section.card.extra(row, actx()), 'extra');
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));

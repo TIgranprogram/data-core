@@ -399,7 +399,7 @@ button.stg-in:focus-visible { outline: 2px solid var(--primary); outline-offset:
 .who-cell { display: inline-flex; align-items: center; gap: var(--s1); }
 
 /* блоки полей карточки изделия: заголовок на всю строку */
-.fields dt:has(> .fields-grp) { grid-column: 1 / -1; margin: var(--s5) 0 var(--s1); padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .07em; } /* = .section-title */
+.fields dt:has(> .fields-grp) { grid-column: 1 / -1; margin: var(--s5) 0 var(--s1); padding-bottom: 6px; border-bottom: 2px solid var(--primary); color: var(--heading); font-weight: 700; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .07em; } /* заголовок группы в просмотре: цвет заголовка + линия акцента, чтобы группы не сливались */
 .fields dt:has(> .fields-grp):first-child { margin-top: 0; }
 .fields dd:has(> .fields-grp-end) { display: none; }
 
