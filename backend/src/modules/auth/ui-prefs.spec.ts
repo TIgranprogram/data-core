@@ -1,4 +1,4 @@
-import { BadRequestException, ExecutionContext, ForbiddenException, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -9,7 +9,7 @@ import { setCustomRoleBase } from '../../common/roles-hierarchy';
 import { LoginSoftlockService } from '../../common/login-softlock/login-softlock.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UiPrefsDto } from './dto/ui-prefs.dto';
+import { parseUiPrefs } from './dto/ui-prefs.dto';
 import { UserService } from '../user/user.service';
 import type { UiPrefs } from '../user/user.schema';
 
@@ -18,10 +18,7 @@ import type { UiPrefs } from '../user/user.schema';
  * запись по отдельным ключам, uiPrefs в профиле, доступ для любой роли.
  */
 
-/** Тот же ValidationPipe, что в main.ts (без exceptionFactory — нам важен только 400). */
-const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true });
-const validate = (body: unknown) =>
-  pipe.transform(body, { type: 'body', metatype: UiPrefsDto });
+const validate = (body: unknown) => parseUiPrefs(body);
 
 describe('UiPrefsDto (ШП-1)', () => {
   it('viewScale: normal / large — проходит; прочее — 400', async () => {
@@ -54,9 +51,22 @@ describe('UiPrefsDto (ШП-1)', () => {
     [{ detailW: 700.5 }],
     [{ detailW: '700' }],
     [{ foo: 1 }],
-    [{ detailW: 700, theme: 'dark' }],
+    [{ 'bad key': 'x' }],
+    [{ 'a.b': 'x' }],
+    [{ ['k'.repeat(81)]: 'x' }],
+    [{ 'bgrp:x': 'a'.repeat(4097) }],
+    [{ 'bgrp:x': { a: 1 } }],
+    [Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`k${i}`, 'x']))],
+    [[1]],
   ])('%j → 400', async (body) => {
     await expect(validate(body)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('свободные ключи (bgrp:*) со строкой ≤ 4 КБ и null — проходят', async () => {
+    await expect(validate({ 'bgrp:board-orders': '{"a":1}', detailW: 700, 'bgrp:old': null })).resolves.toEqual({
+      'bgrp:board-orders': '{"a":1}', detailW: 700, 'bgrp:old': null,
+    });
+    await expect(validate({ ['k'.repeat(80)]: 'a'.repeat(4096) })).resolves.toBeDefined();
   });
 });
 
@@ -158,6 +168,15 @@ describe('UserService.setUiPrefs (ШП-1)', () => {
     const model = fakeUserModel({ uiPrefs: { detailW: 700, sidebarW: 300 } });
     expect(await svcWith(model).setUiPrefs('u1', { detailW: null })).toEqual({ sidebarW: 300 });
     expect(model.updates).toEqual([{ $unset: { 'uiPrefs.detailW': '' } }]);
+  });
+
+  it('свободный ключ пишется и сбрасывается; больше 200 ключей — 400', async () => {
+    const model = fakeUserModel({});
+    const svc = svcWith(model);
+    expect(await svc.setUiPrefs('u1', { 'bgrp:a': '{}' })).toEqual({ 'bgrp:a': '{}' });
+    expect(await svc.setUiPrefs('u1', { 'bgrp:a': null })).toEqual({});
+    const many = fakeUserModel({ uiPrefs: Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`k${i}`, 'x'])) });
+    await expect(svcWith(many).setUiPrefs('u1', { extra: 'x' })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('пустое тело — без записи, отдаёт текущие (нет поля → {})', async () => {

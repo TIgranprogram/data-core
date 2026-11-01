@@ -249,9 +249,20 @@ export class UserService {
    * `uiPrefs.<ключ>` (не целым объектом): запись с одного ПК не стирает ключи,
    * сохранённые с другого. Пустой набор — ничего не пишет. Возвращает итоговые uiPrefs.
    */
-  async setUiPrefs(id: string, prefs: { [K in keyof UiPrefs]?: UiPrefs[K] | null }): Promise<UiPrefs> {
+  async setUiPrefs(id: string, prefs: Record<string, number | string | null | undefined>): Promise<UiPrefs> {
     const $set: Record<string, number | string> = {};
     const $unset: Record<string, ''> = {};
+    // свободные ключи (не из списков ниже): всего не больше 200 (считаем с уже сохранёнными)
+    const known = new Set<string>([...UI_PREF_KEYS, ...UI_PREF_STR_KEYS]);
+    const free = Object.keys(prefs).filter((k) => !known.has(k) && typeof prefs[k] === 'string');
+    if (free.length) {
+      const cur = await this.model.findById(id).select('uiPrefs').lean<{ uiPrefs?: UiPrefs } | null>().exec();
+      const have = new Set(Object.keys(cur?.uiPrefs ?? {}).filter((k) => !known.has(k)));
+      for (const k of free) have.add(k);
+      if (have.size > 200) throw new BadRequestException('Слишком много сохранённых настроек (не больше 200 ключей)');
+      for (const k of free) $set[`uiPrefs.${k}`] = prefs[k] as string;
+    }
+    for (const k of Object.keys(prefs)) if (!known.has(k) && prefs[k] === null) $unset[`uiPrefs.${k}`] = '';
     for (const key of UI_PREF_STR_KEYS) {
       const v = prefs[key];
       if (typeof v === 'string') $set[`uiPrefs.${key}`] = v;

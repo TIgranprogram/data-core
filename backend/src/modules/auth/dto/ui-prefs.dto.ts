@@ -1,5 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import { BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { IsInt, IsOptional, Matches, Max, Min, validate } from 'class-validator';
 
 /**
  * ШП-1 — PATCH /api/auth/me/prefs: ширины панелей «Рабочего места», px.
@@ -49,4 +51,42 @@ export class UiPrefsDto {
   @IsOptional()
   @Matches(/^(normal|large)$/, { message: 'viewScale — normal или large' })
   viewScale?: string;
+}
+
+/** Свободные настройки (например `bgrp:<доска>` — раскрытые группы): пределы. */
+export const FREE_PREF_KEY_RE = /^[A-Za-z][A-Za-z0-9_:-]{0,79}$/;
+export const FREE_PREF_MAX_VALUE = 4096;
+export const FREE_PREF_MAX_KEYS = 200;
+const KNOWN = new Set(['sidebarW', 'detailW', 'filterW', 'chatW', 'lastChat', 'panelLayout', 'viewScale']);
+
+/**
+ * Тело PATCH /api/auth/me/prefs: известные ключи — по UiPrefsDto, прочие — свободные
+ * (ключ ≤ 80 символов, значение — строка ≤ 4 КБ или null для сброса). Иначе 400 по-русски.
+ */
+export async function parseUiPrefs(body: unknown): Promise<Record<string, number | string | null>> {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new BadRequestException('Настройки: ожидается объект «ключ — значение»');
+  }
+  const known: Record<string, unknown> = {};
+  const free: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+    if (KNOWN.has(k)) { known[k] = v; continue; }
+    if (!FREE_PREF_KEY_RE.test(k)) {
+      throw new BadRequestException(`Настройка «${k.slice(0, 40)}»: ключ — латиница, цифры, _ : -, до 80 символов`);
+    }
+    if (v !== null && typeof v !== 'string') throw new BadRequestException(`Настройка «${k}»: значение — строка или null`);
+    if (typeof v === 'string' && v.length > FREE_PREF_MAX_VALUE) {
+      throw new BadRequestException(`Настройка «${k}»: значение длиннее 4 КБ`);
+    }
+    free[k] = v;
+  }
+  if (Object.keys(free).length > FREE_PREF_MAX_KEYS) {
+    throw new BadRequestException('Слишком много настроек за один запрос (не больше 200)');
+  }
+  const dto = plainToInstance(UiPrefsDto, known);
+  const errors = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
+  if (errors.length) {
+    throw new BadRequestException(errors.flatMap((e) => Object.values(e.constraints ?? {})));
+  }
+  return { ...(known as Record<string, number | string | null>), ...free };
 }

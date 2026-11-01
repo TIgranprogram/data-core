@@ -215,7 +215,7 @@ export class AuthService {
   }
 
   /** ШП-1 — свои настройки интерфейса: только активный пользователь, запись по ключам. */
-  async updateUiPrefs(userId: string, prefs: UiPrefs): Promise<{ uiPrefs: UiPrefs }> {
+  async updateUiPrefs(userId: string, prefs: Record<string, number | string | null>): Promise<{ uiPrefs: UiPrefs }> {
     await this.findActiveUserOrThrow(userId);
     return { uiPrefs: await this.users.setUiPrefs(userId, prefs) };
   }

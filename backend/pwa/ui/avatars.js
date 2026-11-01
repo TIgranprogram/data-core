@@ -70,7 +70,8 @@ export const dropAvatarCache = () => photoCache.clear();
 
 const initialsOf = (u) => {
   const name = (u?.displayName || u?.name || u?.username || '?').trim();
-  return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+  // инициалы — только буквы/цифры: «Проверка (стенд)» -> «ПС», а не «П(»
+  return name.split(/[^\p{L}\p{N}]+/u).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
 };
 
 /** Аватар пользователя: пресет → SVG, фото → миниатюра, иначе буква(ы) имени. */

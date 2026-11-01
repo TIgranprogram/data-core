@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money } from '../core/format.js';
 import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
-import { enhanceSelect } from '../ui/kit/index.js';
+import { enhanceSelect, empty } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { patch } from '../core/router.js';
@@ -69,9 +69,10 @@ export function mountInvoicesTab(params = {}) {
     const items = r.items || [];
     if (!items.length) {
       const filtered = Object.values(F).some(Boolean);
-      rows.replaceChildren(h('div', { class: 'panel state' },
-        h('div', null, filtered ? 'По этим условиям счетов нет.' : 'Счетов пока нет.'),
-        h('div', { class: 'muted' }, filtered ? 'Снимите часть фильтров или измените период.' : 'Счёт появляется, когда заявки переводят в «В работе» (заказано у поставщика). Или нажмите «Счёт без заявок» на вкладке «Заявки».')));
+      rows.replaceChildren(empty({
+        title: filtered ? 'По этим условиям счетов нет' : 'Счетов пока нет',
+        hint: filtered ? 'Снимите часть фильтров или измените период.' : 'Счёт появляется, когда заявки переводят в «В работе» (заказано у поставщика). Или нажмите «Счёт без заявок» на вкладке «Заявки».',
+      }));
       foot.replaceChildren();
       return;
     }

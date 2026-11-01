@@ -16,6 +16,8 @@ export interface UiPrefs {
   panelLayout?: string;
   /** ИЗ-19: вид экрана — normal | large (крупный: всё чуть больше, фото заметно больше). */
   viewScale?: string;
+  /** Свободные настройки (`bgrp:<доска>` — раскрытые группы и т. п.): строка ≤ 4 КБ, всего ≤ 200 ключей. */
+  [free: string]: number | string | undefined;
 }
 export const UI_PREF_KEYS = ['sidebarW', 'detailW', 'filterW', 'chatW'] as const;
 export const UI_PREF_STR_KEYS = ['lastChat', 'panelLayout', 'viewScale'] as const;

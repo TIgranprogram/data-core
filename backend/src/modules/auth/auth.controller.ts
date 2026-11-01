@@ -28,7 +28,7 @@ import { ConfirmDto } from './dto/confirm.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ProfileDto } from './dto/profile.dto';
-import { UiPrefsDto } from './dto/ui-prefs.dto';
+import { parseUiPrefs } from './dto/ui-prefs.dto';
 import { UserService } from '../user/user.service';
 
 interface RefreshPayload {
@@ -149,10 +149,10 @@ export class AuthController {
   @ApiResponse({ status: 200, description: '{ uiPrefs } — итоговые настройки' })
   @ApiResponse({ status: 400, description: 'Значение вне пределов, не целое или лишний ключ' })
   @ApiResponse({ status: 403, description: 'Вход по ключу kppd_' })
-  async updatePrefs(@CurrentUser() me: AuthenticatedUser, @Body() dto: UiPrefsDto) {
+  async updatePrefs(@CurrentUser() me: AuthenticatedUser, @Body() body: Record<string, unknown>) {
     if (me.keyScope) {
       throw new ForbiddenException('Настройки интерфейса меняются только из входа в приложение');
     }
-    return this.auth.updateUiPrefs(me.id, dto);
+    return this.auth.updateUiPrefs(me.id, await parseUiPrefs(body));
   }
 }
