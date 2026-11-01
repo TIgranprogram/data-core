@@ -75,6 +75,7 @@ const LAZY = {
   compsug: [() => import('./ui/composition-suggest.js'), [['compsug','compSuggest']]],
   ptext: [() => import('./sections/passport-texts.js'), [['ptext','ptext'],['ptextview','ptextview']]],
   ptnode: [() => import('./sections/passport-tree.js'), [['ptnode','ptnode']]],
+  stockzone: [() => import('./sections/stock-zones.js'), [['stockzone','stockzone']]],
   money: [() => import('./sections/money.js'), [['@mountMoney','mountMoney'],['finstart','finStart']]],
   payroll: [() => import('./sections/payroll.js'), [['@mountPayroll','mountPayroll'],['payout','payout']]],
   staff: [() => import('./sections/staff.js'), [['@mountStaff','mountStaff'],['staffcard','staffCard'],['zonecard','zoneCard']]],

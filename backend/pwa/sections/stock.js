@@ -4,12 +4,29 @@ import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBtn, failBlock } from '../ui/busy.js';
 import { date, qty } from '../core/format.js';
-import { go } from '../core/router.js';
+import { go, patch } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery } from '../ui/kit/index.js';
 import { facetLabel, pipeKey } from '../core/facets.js';
+import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
+import { segmented, toolbar } from '../ui/kit/index.js';
+
+/** Переключатель склада над списком (kit.segmented): виден, если доступно больше одного склада. Выбор запоминается; список и категории перечитываются. */
+function zoneBar() {
+  const box = toolbar();
+  box.hidden = true;
+  const used = zoneNow();
+  loadZones().then((zs) => {
+    if (zs.length < 2) { if (used) window.dispatchEvent(new CustomEvent('data-changed')); return; }
+    box.hidden = false;
+    box.replaceChildren(segmented({ label: 'Склад', items: zs.map((z) => ({ key: z.id, label: z.name })), value: zoneNow(),
+      onChange: (id) => { setZone(id); patch({ categoryId: undefined, page: undefined }); window.dispatchEvent(new CustomEvent('data-changed')); } }).el);
+    if (zoneNow() !== used) window.dispatchEvent(new CustomEvent('data-changed')); // запомненный склад устарел — список уже ушёл с другим
+  }).catch(() => { /* без списка складов экран работает как раньше: сервер сам ограничивает по роли */ });
+  return box;
+}
 
 export { mountPipeGrid } from './pipe-grid.js';
 export { mountSheetGrid } from './sheet-grid.js';
@@ -87,12 +104,12 @@ export const stock = {
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
     extraKeys: ['ft'],
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
-    query: (P) => ({ priority: 1, ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
+    query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
     bulk: { extra: [qrBulkAction('S')] }, // только «Распечатать QR» над отмеченными (без «Изменить выбранные»)
     headActions: () => [stockActions()],
     moreActions: stockMore,
-    top: (_reload) => mobileStockDashboard(),
+    top: (_reload) => h('div', null, zoneBar(), mobileStockDashboard()),
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',
@@ -130,7 +147,7 @@ export const stock = {
     },
     tiles: {
       key: 'categoryId', title: 'Категории',
-      load: async () => (await api('/stock/categories')).items.filter((c) => c.id !== 'none').map((c) => ({
+      load: async () => (await api('/stock/categories', { query: zoneQuery() })).items.filter((c) => c.id !== 'none').map((c) => ({
         value: c.id, label: c.name, n: c.total,
         sub: h('span', null, c.low || c.none ? [c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `нет ${c.none}` : null] : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
       })),

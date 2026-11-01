@@ -11,6 +11,7 @@ import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/kit/index.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
+import { mountZones, ZONES_KEY } from './stock-zones.js';
 import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { normSearch, searchTokens } from '../core/facets.js';
@@ -59,6 +60,7 @@ export function mountDicts(params) {
   const searchWrap = h('div', { class: 'search' }, search);
   let texts = null; // экран «Общие разделы» (создаётся при первом открытии)
   let tree = null; // экран «Тексты паспорта» (дерево вариантов)
+  let zonesView = null; // экран «Склады» (только администратор)
   let qf = 'all'; // фильтр качества таблицы: все / дубли
   const addBtn = h('button', { type: 'button', class: 'btn btn-primary', hidden: !session.canEdit, onclick: () => patch({ of: 'dict', new: '1', open: undefined }) }, '+ Добавить');
   const candBtn = h('button', { type: 'button', class: 'btn', hidden: !session.canEdit, title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onclick: () => toggleCandidates() }, 'Найти в данных…');
@@ -85,16 +87,16 @@ export function mountDicts(params) {
       h('span', null, text), count === undefined ? null : h('b', { class: 'num' }, count === '→' ? '→' : qty(count)));
     nav.replaceChildren(...gs.flatMap((g) => {
       const pass = g.name === PASS_GROUP;
-      const here = g.items.some((d) => d.key === cur) || (pass && cur === TEXTS_KEY);
+      const here = g.items.some((d) => d.key === cur) || (cur === ZONES_KEY) || (pass && cur === TEXTS_KEY);
       const folded = pass && !here && !openGroups.has(g.name);
       const head = pass
         ? h('button', { type: 'button', class: 'dict-group dict-group-toggle', 'aria-expanded': String(!folded), onclick: () => { if (openGroups.has(g.name)) openGroups.delete(g.name); else openGroups.add(g.name); renderNav(); } }, (folded ? '▸ ' : '▾ ') + g.name)
         : h('div', { class: 'dict-group' }, g.name);
       if (folded) return [head];
-      return [head, ...g.items.map((d) => link(d.key, d.title, d.count)), pass ? link(TEXTS_KEY, 'Общие разделы (шаблон)', '→') : null];
+      return [head, ...g.items.map((d) => link(d.key, d.title, d.count)), g.name === GROUP_ORDER[0] && isAdmin() ? link(ZONES_KEY, 'Склады') : null, pass ? link(TEXTS_KEY, 'Общие разделы (шаблон)', '→') : null];
     }).filter(Boolean), h('div', { class: 'dict-group' }, 'Контрагенты'), h('a', { class: 'dict-link', href: '#partners' }, h('span', null, 'Поставщики, заказчики, наши компании'), h('b', null, '→')));
     // телефон: один select вместо ленты ссылок
-    sel.replaceChildren(...gs.map((g) => h('optgroup', { label: g.name }, ...g.items.map((d) => h('option', { value: d.key }, d.title)), g.name === PASS_GROUP ? h('option', { value: TEXTS_KEY }, 'Общие разделы (шаблон)') : null)),
+    sel.replaceChildren(...gs.map((g) => h('optgroup', { label: g.name }, ...g.items.map((d) => h('option', { value: d.key }, d.title)), g.name === GROUP_ORDER[0] && isAdmin() ? h('option', { value: ZONES_KEY }, 'Склады') : null, g.name === PASS_GROUP ? h('option', { value: TEXTS_KEY }, 'Общие разделы (шаблон)') : null)),
       h('optgroup', { label: 'Контрагенты' }, h('option', { value: '#partners' }, 'Поставщики, заказчики, наши компании')));
     sel.value = cur;
   }
@@ -198,6 +200,19 @@ export function mountDicts(params) {
     } catch (e) { body.replaceChildren(failBlock(e, () => reloadTree())); }
   }
 
+  async function reloadZones() {
+    try {
+      const g = await api('/dicts');
+      groups = g.items;
+      title.textContent = 'Склады'; hint.textContent = 'Какие позиции видит каждый склад: категории и отдельные позиции. Склад выбирается у роли; кладовщик видит только свой.';
+      searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      renderNav();
+      if (!zonesView) zonesView = mountZones();
+      if (!body.contains(zonesView.el)) body.replaceChildren(zonesView.el);
+      await zonesView.reload();
+    } catch (e) { body.replaceChildren(failBlock(e, () => reloadZones())); }
+  }
+
   async function reloadTexts() {
     try {
       const g = await api('/dicts');
@@ -214,6 +229,7 @@ export function mountDicts(params) {
   async function reload() {
     if (dictKey() === TEXTS_KEY) return reloadTexts();
     if (dictKey() === TREE_KEY) return reloadTree();
+    if (dictKey() === ZONES_KEY) return reloadZones();
     searchWrap.hidden = false;
     try {
       const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
@@ -233,7 +249,7 @@ export function mountDicts(params) {
   reload();
   return {
     el, reload,
-    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d === TREE_KEY && shown === TREE_KEY) { tree?.update(); return; } if (p.d !== shown) { shown = p.d; q = ''; qf = 'all'; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
+    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d === TREE_KEY && shown === TREE_KEY) { tree?.update(); return; } if (p.d === ZONES_KEY && shown === ZONES_KEY) { zonesView?.reload(); return; } if (p.d !== shown) { shown = p.d; q = ''; qf = 'all'; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
   };
 }
 

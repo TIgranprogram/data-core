@@ -1,4 +1,5 @@
 import { api } from '../core/api.js';
+import { zoneQuery } from '../core/zone.js';
 import { h } from '../core/dom.js';
 import { busyBtn } from '../ui/busy.js';
 import { parseNum, plural, qty } from '../core/format.js';
@@ -68,13 +69,13 @@ async function build() {
     return line;
   };
   let resCache = null; // брони — один запрос, только когда понадобились (пересчёт ниже брони)
-  const ordersOf = async (materialId) => { resCache ??= api('/stock/reservations').then((r) => r.items || []).catch(() => []); return (await resCache).filter((g) => g.lines.some((l) => l.materialId === materialId)).map((g) => (g.salesOrder && !String(g.name).includes(g.salesOrder) ? `${g.name} (заказ ${g.salesOrder})` : g.name)); };
+  const ordersOf = async (materialId) => { resCache ??= api('/stock/reservations', { query: zoneQuery() }).then((r) => r.items || []).catch(() => []); return (await resCache).filter((g) => g.lines.some((l) => l.materialId === materialId)).map((g) => (g.salesOrder && !String(g.name).includes(g.salesOrder) ? `${g.name} (заказ ${g.salesOrder})` : g.name)); };
   let all = null; let loading = false; // склад целиком — по первому нажатию в поле «Позиция»
 
   // ---------- Выбор позиции ----------
   const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' });
   const pickCat = h('select', { 'aria-label': 'Категория', onchange: () => { pickIn.value = ''; pickIn.focus(); combo.refresh(); } }, h('option', { value: '' }, 'Все категории'));
-  api('/stock/categories').then((r) => pickCat.append(...(r.items || []).filter((c) => c.id !== 'none').map((c) => h('option', { value: c.id }, c.name)))).catch(() => {});
+  api('/stock/categories', { query: zoneQuery() }).then((r) => pickCat.append(...(r.items || []).filter((c) => c.id !== 'none').map((c) => h('option', { value: c.id }, c.name)))).catch(() => {});
   const pickLabel = h('span', null, 'Добавить позицию');
   const pickBox = h('div', { class: 'field wide' }, pickLabel, h('div', { class: 'sop-pick' }, pickCat, h('div', { class: 'sop-pick-in' }, pickIn)));
   const opts = () => (all || []).filter((i) => !pickCat.value || i.categoryId === pickCat.value).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() }));
@@ -200,7 +201,7 @@ async function build() {
       if (P.ft) Object.assign(q, ftParams(P.ft));
       if (P.status) q.status = P.status;
       if (P.categoryId) q.categoryId = P.categoryId;
-      const r = await api('/stock/items', { query: q });
+      const r = await api('/stock/items', { query: { ...zoneQuery(), ...q } });
       const have = new Set(lines.map((l) => l.it.id));
       for (const it of r.items || []) if (!have.has(it.id)) lines.push(newLine(it));
       touched = true; saveDraft(); render();
@@ -245,7 +246,7 @@ async function build() {
     const over = ls.filter((x) => { const it = lines.find((l) => l.it.id === x.materialId)?.it; return it && x.qty > (it.free ?? it.quantity); });
     if (!over.length) return true;
     let groups = [];
-    try { groups = (await api('/stock/reservations')).items || []; } catch { return true; } // список броней не открылся — сервер сам не даст выдать лишнее
+    try { groups = (await api('/stock/reservations', { query: zoneQuery() })).items || []; } catch { return true; } // список броней не открылся — сервер сам не даст выдать лишнее
     const mine = issueTo.orderId();
     const rows = [];
     for (const x of over) {

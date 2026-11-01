@@ -138,3 +138,4 @@
 - `backend/admin/control-questions.js` (window.dcQuestions.open) + `control-questions.css` (.cc-sum/.cc-qtable/.cc-drawer): сводка-чипы, таблица, правая панель (предпросмотр, красное необратимое с галочкой, 409 -> новый план, отложить, ответ, отмена, журнал). `admin.js api()` кидает Error с `.status/.body`. index.html: вкладка `questions`, `#questions-root`. DESIGN §8 стр.289. Карта обновлена.
 
 - kit: iconButton/segmented/link — backend/pwa/ui/kit/index.js (стили .k-seg, .k-icon — kit.css). Карта обновлена.
+- 2026-11-01 WAREHOUSE-ZONES п.5: `pwa/core/zone.js` (loadZones/zoneQuery/setZone, localStorage dc-stock-zone-<uid>), `sections/stock-zones.js` (mountZones + панель `of=stockzone`, подключён в `dicts.js` d=stockzones, main.js SECTIONS), `stock.js zoneBar` (kit.segmented в top), `stock-mobile.js` (pickZone mobile.choice), `invoices-tab.js` partial; админка `admin.js` форма роли — галочки складов (warehouseIds). Не закоммичено. Карта обновлена.

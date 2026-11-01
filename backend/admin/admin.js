@@ -845,7 +845,7 @@
   // ---- Роли (SK-8a, SK-8c): название, «права как у» у своих ролей, разделы «Рабочего места» в меню ----
   // Разделы пусто — как раньше (по старшинству роли); admin видит всё, галочек у него нет.
   // Ввод — в раскрывающейся строке (как «Таблицы»), без окна: в админке нет правой панели.
-  const roleState = { sections: [], stockCats: [] };
+  const roleState = { sections: [], stockCats: [], zones: [] };
   const ROLE_COLS = 4;
   async function loadRoles() {
     const tbody = $('#roles-table tbody');
@@ -859,6 +859,8 @@
       roleState.sections = secs.items || [];
       const cats = await api('/categories').catch(() => []);
       roleState.stockCats = (Array.isArray(cats) ? cats : cats.items || []).filter((c) => c.type === 'material');
+      const zs = await api('/stockzones').catch(() => ({ items: [] }));
+      roleState.zones = (zs.items || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
       tbody.replaceChildren();
       const list = roleList.items;
       if (!list.length) { const tr = el('tr'); const td = el('td', 'muted', 'Ролей нет'); td.colSpan = ROLE_COLS; tr.append(td); tbody.append(tr); return; }
@@ -911,7 +913,7 @@
     const fullMoney = r.name === 'admin' || r.name === 'director';
     money.checked = fullMoney || r.money === true; money.disabled = fullMoney;
     lMoney.append(money, el('span', '', 'Деньги')); wrap.append(lMoney, el('p', 'muted small', 'Без галочки цены и суммы скрыты везде.'));
-    let box = null, stockBox = null;
+    let box = null, stockBox = null, zoneBox = null;
     if (r.name !== 'admin') {
       wrap.append(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству («права как у»).'));
       box = el('div', 'sec-checks');
@@ -921,8 +923,18 @@
         lb.append(cb, el('span', '', s.label)); box.append(lb);
       });
       wrap.append(box);
+      if (roleState.zones.length) {
+        wrap.append(el('p', 'muted small', 'Склады: отметьте, какие склады роль видит и меняет. Пусто — весь склад.'));
+        zoneBox = el('div', 'sec-checks');
+        const onZone = new Set(r.warehouseIds || []);
+        roleState.zones.forEach((z) => {
+          const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = z.id; cb.checked = onZone.has(z.id);
+          lb.append(cb, el('span', '', z.name)); zoneBox.append(lb);
+        });
+        wrap.append(zoneBox);
+      }
       if (roleState.stockCats.length) {
-        wrap.append(el('p', 'muted small', 'Склад: отметьте категории, которые роль видит и меняет. Ничего не отмечено — весь склад.'));
+        wrap.append(el('p', 'muted small', 'Склад по категориям (старый способ): отметьте категории, которые роль видит и меняет. Ничего не отмечено — весь склад. Если выбраны склады — это поле не действует.'));
         stockBox = el('div', 'sec-checks');
         const onCat = new Set(r.stockCategoryIds || []);
         roleState.stockCats.forEach((c) => {
@@ -930,14 +942,18 @@
           lb.append(cb, el('span', '', c.name)); stockBox.append(lb);
         });
         wrap.append(stockBox);
+        // выбраны склады — старое поле категорий скрыто
+        const sync = () => { const on = !zoneBox || ![...zoneBox.querySelectorAll('input:checked')].length; stockBox.hidden = !on; stockBox.previousElementSibling.hidden = !on; };
+        zoneBox?.addEventListener('change', sync); sync();
       }
     }
-    return { wrap, name, base, box, stockBox, own, money };
+    return { wrap, name, base, box, stockBox, zoneBox, own, money };
   }
   function roleBody(f) {
     const body = { label: f.name.value.trim() };
     if (f.box) body.appSections = [...f.box.querySelectorAll('input:checked')].map((c) => c.value);
-    if (f.stockBox) body.stockCategoryIds = [...f.stockBox.querySelectorAll('input:checked')].map((c) => c.value);
+    if (f.zoneBox) body.warehouseIds = [...f.zoneBox.querySelectorAll('input:checked')].map((c) => c.value);
+    if (f.stockBox && !(body.warehouseIds && body.warehouseIds.length)) body.stockCategoryIds = [...f.stockBox.querySelectorAll('input:checked')].map((c) => c.value);
     if (f.base) body.baseRole = f.base.value;
     if (!f.money.disabled) body.money = f.money.checked;
     return body;

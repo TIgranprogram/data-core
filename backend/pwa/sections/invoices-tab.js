@@ -2,7 +2,9 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money } from '../core/format.js';
 import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
-import { enhanceSelect, empty } from '../ui/kit/index.js';
+import { enhanceSelect, empty, badge as kitBadge } from '../ui/kit/index.js';
+
+const PARTIAL_TEXT = 'Часть строк скрыта (другой склад)';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { patch } from '../core/router.js';
@@ -105,6 +107,7 @@ export function mountInvoicesTab(params = {}) {
       h('span', { class: 'invl-amt num' }, inv.amount > 0 ? money(inv.amount) : '—'),
       badge(INVOICE_STATUS, inv.status),
       contractView(inv),
+      inv.partial ? kitBadge(PARTIAL_TEXT, 'warn') : null,
       h('span', { class: 'invl-meta muted' }, [inv.payerName && `платит: ${inv.payerName}`, (inv.orders || []).length && `заказы: ${inv.orders.join(', ')}`, `позиций: ${inv.requestsCount ?? 0}`].filter(Boolean).join(' · ')));
     const box = h('div', { class: 'invl-row' }, head, detail);
     function toggle(force) {
@@ -149,6 +152,8 @@ export function mountInvoicesTab(params = {}) {
         h('div', { class: 'q-side' }, sum ? h('span', { class: 'num' }, sum) : null, badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status)));
     }));
 
+    const partialNote = inv.partial ? h('div', { class: 'hint' }, PARTIAL_TEXT + '. Сумма — по строкам, которые вы видите.') : null;
+
     const files = (inv.files || []).length
       ? h('div', { class: 'invl-files' }, h('span', { class: 'muted' }, 'Файлы: '), ...inv.files.map((f) => h('a', { href: f.url, target: '_blank', rel: 'noopener' }, f.name || 'файл')))
       : h('div', { class: 'muted' }, 'Файла счёта нет.');
@@ -190,6 +195,7 @@ export function mountInvoicesTab(params = {}) {
     if (inv.status === 'draft' && !actions.length) { /* только просмотр */ }
 
     return h('div', { class: 'invl-body' },
+      partialNote,
       reqs.length ? list : h('div', { class: 'muted' }, 'В счёте нет позиций.'),
       pending.length && checks.size ? h('div', { class: 'muted' }, 'Галочки — что приехало. По умолчанию все неполученные.') : null,
       files, contractLine, chain,

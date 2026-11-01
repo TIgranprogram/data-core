@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { zoneQuery } from '../core/zone.js';
 import { row } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, plural, qty } from '../core/format.js';
@@ -61,7 +62,7 @@ export function reservationsPanel({ onChange }) {
   }
 
   async function load() {
-    let res; try { res = await api('/stock/reservations'); } catch { el.hidden = true; return; }
+    let res; try { res = await api('/stock/reservations', { query: zoneQuery() }); } catch { el.hidden = true; return; }
     el.hidden = !res.items.length;
     el.replaceChildren(
       h('div', { class: 'panel-head' }, h('h3', null, `Активные брони: ${res.items.length}`), h('span', { class: 'muted small' }, 'Откройте бронь — кто поставил, что выдано и кому. «Выдать» — списание по брони; «Снять» — товар снова свободен')),

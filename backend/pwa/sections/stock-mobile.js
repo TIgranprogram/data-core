@@ -5,6 +5,7 @@ import { mobile, errText } from '../ui/kit/index.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 import { peopleByWork } from './issue.js';
 import { lookupCode } from './qr.js';
+import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 
 /*
  * «Склад (телефон)» — одна страница ассистента кладовщика (P11): «Принять на склад» и «Выдать со склада».
@@ -17,8 +18,8 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) 
 /** Выбор позиции без клавиатуры: раздел склада → позиция (название, остаток). */
 const itemDrill = (onPick, scanBtn) => drill({ extra: scanBtn, empty: 'В этом разделе нет позиций',
   levels: [
-    { title: 'Раздел склада', load: async () => ((await api('/stock/categories')).items || []).filter((c) => c.id !== 'none').map((c) => ({ value: c.id, label: c.name, hint: c.total != null ? `позиций: ${c.total}` : '' })) },
-    { title: 'Позиция', load: async ([cat]) => ((await api('/stock/items', { query: { categoryId: cat, limit: 500, sort: 'name' } })).items || []).map((it) => ({ value: it, label: it.name, hint: `На складе: ${fmt(it.quantity)} ${it.unit || ''}${it.article ? ' · ' + it.article : ''}` })) },
+    { title: 'Раздел склада', load: async () => ((await api('/stock/categories', { query: zoneQuery() })).items || []).filter((c) => c.id !== 'none').map((c) => ({ value: c.id, label: c.name, hint: c.total != null ? `позиций: ${c.total}` : '' })) },
+    { title: 'Позиция', load: async ([cat]) => ((await api('/stock/items', { query: { ...zoneQuery(), categoryId: cat, limit: 500, sort: 'name' } })).items || []).map((it) => ({ value: it, label: it.name, hint: `На складе: ${fmt(it.quantity)} ${it.unit || ''}${it.article ? ' · ' + it.article : ''}` })) },
   ],
   onPick: (o) => onPick(o.value) });
 
@@ -50,7 +51,13 @@ export const stockMobile = {
       show(screen({ title: 'Наведите на QR-код', back: () => { s.stop(); back(); }, body: [s.el] }));
     } }) : null);
 
+    let zones = [];
+    /** Склад: если доступно несколько — первый шаг «Какой склад?» (kit mobile.choice); выбор запоминается. */
+    const pickZone = () => show(screen({ title: 'Какой склад?', back: zoneNow() ? home : undefined, footHint: 'Выберите склад',
+      body: [choice({ items: zones.map((z) => ({ value: z.id, label: z.name, hint: z.id === zoneNow() ? 'сейчас выбран' : '' })), onPick: (o) => { setZone(o.value); home(); } })] }));
+    const zoneName = () => zones.find((z) => z.id === zoneNow())?.name || '';
     const home = () => show(screen({ title: 'Что делаем?', body: [
+      zones.length > 1 ? bigButton({ label: `Склад: ${zoneName()} — сменить`, tone: 'ghost', onClick: pickZone }) : null,
       bigButton({ label: 'Выдать со склада', tone: 'neutral', onClick: () => issue() }),
       bigButton({ label: 'Выйти', tone: 'ghost', onClick: () => { session.clear(); window.location.reload(); } }),
     ], foot: bigButton({ label: 'Принять на склад', onClick: () => receive() }) }));
@@ -141,7 +148,9 @@ export const stockMobile = {
         bigButton({ label: 'Принять', onClick: () => receive(it) }), bigButton({ label: 'Выдать', tone: 'neutral', onClick: () => issue(it) })], footHint: 'Что делаем с этой позицией?' }));
     };
 
-    if (params?.q) fromCode(params.q); else home();
+    const start = () => { if (params?.q) fromCode(params.q); else home(); };
+    show(screen({ title: 'Что делаем?', body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
+    loadZones().then((zs) => { zones = zs; if (zs.length > 1 && !params?.q) pickZone(); else start(); }).catch(start);
     let lastQ = params?.q || '';
     return { update(p) { const q = p?.q || ''; if (q && q !== lastQ) fromCode(q); lastQ = q; }, destroy() { /* состояние живёт в замыканиях экрана */ } };
   },

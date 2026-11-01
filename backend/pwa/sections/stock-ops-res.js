@@ -1,4 +1,5 @@
 import { api } from '../core/api.js';
+import { zoneQuery } from '../core/zone.js';
 import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
 import { confirmDlg } from '../ui/dialog.js';
@@ -16,7 +17,7 @@ const stub = (text) => ({ el: h('p', { class: 'muted' }, text), dirty: () => fal
 
 /** Активные брони позиции: [{ id, qty, unit, group, order, hanging }]. */
 async function reservesOf(materialId, unitFallback) {
-  const res = await api('/stock/reservations');
+  const res = await api('/stock/reservations', { query: zoneQuery() });
   return (res.items || []).flatMap((g) => g.lines.filter((l) => l.materialId === materialId && l.qty > 0).map((l) => ({ id: l.id, qty: l.qty, unit: l.unit || unitFallback || '', group: g.name, order: g.salesOrder, hanging: g.hanging })));
 }
 const where = (r) => [r.group && r.group !== 'Бронь' ? r.group : 'Бронь', r.order && !String(r.group).includes(r.order) ? 'заказ ' + r.order : ''].filter(Boolean).join(' · ');
