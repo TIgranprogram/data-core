@@ -289,5 +289,28 @@
     "params": {
       "script": "qr-backfill"
     }
+  },
+  {
+    "added": "2026-11-01T11:00",
+    "id": "sportin-version-now",
+    "title": "Sportin: обновить версию до сегодняшней",
+    "why": "Второй сервер получит новый код, базу и фото с рабочего сайта. 15–40 минут.",
+    "cmd": "sportin-version"
+  },
+  {
+    "added": "2026-11-01T11:00",
+    "id": "sportin-backup-cron",
+    "after": "sportin-version-now",
+    "title": "Sportin: включить ежедневный бэкап",
+    "why": "Каждую ночь в 03:30 на Sportin будет своя копия базы рядом с сайтом и на NAS.",
+    "cmd": "sportin-smb"
+  },
+  {
+    "added": "2026-11-01T11:00",
+    "id": "sportin-backup-now",
+    "after": "sportin-backup-cron",
+    "title": "Sportin: сделать первый бэкап сейчас",
+    "why": "Проверим, что бэкап на втором сервере делается.",
+    "cmd": "sportin-backup"
   }
 ]
