@@ -197,7 +197,7 @@ export const doctpl = {
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,
           h('div', { class: 'hint' }, 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже.')),
         h('div', { class: 'field wide' }, h('span', null, 'Тексты паспорта — выбор (монтаж, назначение…)'), fb.el),
-        h('div', { class: 'actions wide' }, h('button', { type: 'button', class: 'btn', title: 'PDF с пометкой «ЧЕРНОВИК» по сохранённому шаблону; паспорт не выпускается', onclick: (e) => { e.currentTarget.classList.add('is-busy'); previewPassport(r.id).finally(() => e.currentTarget.classList.remove('is-busy')); } }, 'Предпросмотр')));
+        h('div', { class: 'actions wide' }, h('button', { type: 'button', class: 'btn', title: 'PDF с пометкой «ЧЕРНОВИК» по сохранённому шаблону; паспорт не выпускается', onclick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); previewPassport(r.id).finally(() => b.classList.remove('is-busy')); } }, 'Предпросмотр')));
       const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}'), over: {} });
       const start = JSON.stringify(values());
       return { el, focus: () => sel.focus(), dirty: () => JSON.stringify(values()) !== start, read: () => ({ values: values() }) };

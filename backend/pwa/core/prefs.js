@@ -27,18 +27,20 @@ let shown = {}; // то, что на экране (во время перета�
 const dirty = new Set(); // изменены здесь, на сервер ещё не ушли: ответ /auth/me их не перекрывает
 let timer = null;
 
+const FREE = (k) => typeof k === 'string' && k.startsWith('bgrp:'); // свободные: раскрытые группы досок (ui/kit/board.js)
 const storeKey = () => 'dc-ui-' + uid;
 const clean = (o) => {
   const out = {};
   for (const k of Object.keys(PREFS)) if (Number.isFinite(o?.[k])) out[k] = Math.round(o[k]);
   for (const k of STR) if (typeof o?.[k] === 'string' && o[k]) out[k] = o[k];
+  for (const k of Object.keys(o || {})) if (FREE(k) && typeof o[k] === 'string' && o[k]) out[k] = o[k];
   return out;
 };
 /** { ...ширины, _p: [ключи, ещё не ушедшие на сервер] } — чтобы перезагрузка сразу после перетаскивания не потеряла запись. */
 function readLocal() {
   try {
     const o = JSON.parse(localStorage.getItem(storeKey()) || '{}');
-    return { vals: clean(o), pend: Array.isArray(o?._p) ? o._p.filter((k) => k in PREFS || STR.includes(k)) : [] };
+    return { vals: clean(o), pend: Array.isArray(o?._p) ? o._p.filter((k) => k in PREFS || STR.includes(k) || FREE(k)) : [] };
   } catch { return { vals: {}, pend: [] }; }
 }
 function writeLocal() {
@@ -110,7 +112,7 @@ export function serverPrefs(uiPrefs) {
   if (!uiPrefs || typeof uiPrefs !== 'object') return;
   const s = clean(uiPrefs);
   let changed = false;
-  for (const k of [...Object.keys(PREFS), ...STR]) {
+  for (const k of new Set([...Object.keys(PREFS), ...STR, ...Object.keys(s), ...Object.keys(saved).filter(FREE)])) {
     if (dirty.has(k) || s[k] === saved[k]) continue;
     // ключа нет на сервере — ширину сбросили «по умолчанию» на другом ПК: сбрасываем и здесь
     if (s[k] === undefined) delete saved[k]; else saved[k] = s[k];
