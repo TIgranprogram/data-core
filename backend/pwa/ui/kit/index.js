@@ -142,7 +142,7 @@ export const layout = {
 };
 
 /** Семейство mobile — мобильные рабочие экраны (ui/kit/mobile.js) */
-export { mobile } from './mobile.js';
+export { mobile, catArt } from './mobile.js';
 
 // ---- Реэкспорт существующих эталонов ----
 export { modal, confirmDlg } from '../dialog.js';

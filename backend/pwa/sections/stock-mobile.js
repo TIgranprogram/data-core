@@ -1,12 +1,11 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty as fmt } from '../core/format.js';
-import { mobile, errText, toast } from '../ui/kit/index.js';
+import { mobile, errText, toast, catArt } from '../ui/kit/index.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 import { peopleByWork } from './issue.js';
 import { lookupCode } from './qr.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
-import { catArt } from '../ui/cat-art.js';
 
 /*
  * «Склад (телефон)» — ассистент кладовщика: главный экран «Выдать» / «Принять» + лента за 7 дней; склад и «Выйти» — в настройках (шестерёнка).
