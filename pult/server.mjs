@@ -54,6 +54,9 @@ async function fetchJson(url) {
   } catch { return { ok: false, code: 0, json: null }; }
 }
 
+/** Команды, что пишут в тестовую БД: вместе не запускаются (иначе ложные красные e2e). */
+const TEST_GROUP = new Set(['check-full', 'code-check', 'code-e2e', 'night-run', 'site-audit']);
+
 /** Сколько коммитов кода после версии на сайте и после последней выкладки с пульта: меньшее из двух. */
 async function countUndeployed(bases) {
   const list = bases.filter((b) => /^[0-9a-f]{6,40}$/.test(b || ''));
@@ -245,6 +248,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (spec.open || spec.folder) { openExternal(spec.open || spec.folder); return { opened: true }; }
     const live = running();
     if (live.some((j) => j.cmdId === id)) return { status: 409, error: 'Эта команда уже идёт' };
+    const testBusy = TEST_GROUP.has(id) ? live.find((j) => TEST_GROUP.has(j.cmdId)) : null;
+    if (testBusy) return { status: 409, error: `Проверки делят одну тестовую базу. Сначала дождитесь: ${testBusy.title}` };
     const busy = live.find((j) => NEEDS_CONFIRM.has(j.risk));
     if (NEEDS_CONFIRM.has(cmd.risk) && busy) return { status: 409, error: `Сначала дождитесь: ${busy.title}` };
     const job = startJob(cmd, spec, auto); job.params = values;
