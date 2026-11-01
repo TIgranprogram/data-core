@@ -103,7 +103,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
 
   // только последний ответ (ПО.2): быстрый поиск-стирание — старый медленный ответ не затирает новый
   // раскрыта ли группа: запомненное выбором (prefs, на доску) важнее groupOpen
-  const prefKey = 'bgrp:' + (board.prefKey || board.cls || path);
+  const prefKey = ('bgrp:' + (board.prefKey || board.cls || path)).replace(/[^A-Za-z0-9_:-]/g, '_').slice(0, 80); // сервер принимает только латиницу, цифры, _ : -
   let gstate = {};
   try { gstate = JSON.parse(getPref(prefKey) || '{}') || {}; } catch { gstate = {}; }
   const isOpen = (k) => (k in gstate ? !!gstate[k] : !!board.groupOpen);

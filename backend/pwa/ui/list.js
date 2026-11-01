@@ -412,7 +412,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       return;
     }
     const my = ++seq;
-    if (isGallery && L.landing && !bulkMode && L.landing.when(P)) {
+    if (isGallery && L.landing && !picked.size && L.landing.when(P)) { // галочки видны всегда — стартовые плитки показываем, пока ничего не отмечено
       countEl.textContent = ''; foot.replaceChildren(); panel.classList.remove('loading');
       const node = await L.landing.render({ pick: (v) => patch({ [L.tiles?.key || 'groupId']: v, page: undefined }) });
       if (my !== seq) return;

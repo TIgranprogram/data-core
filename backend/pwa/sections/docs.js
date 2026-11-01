@@ -1,3 +1,4 @@
+export { orderpass } from './order-passport-plan.js'; // LAZY.docs в main.js ждёт orderpass из docs.js
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { current, go, patch } from '../core/router.js';
