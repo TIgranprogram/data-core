@@ -1572,7 +1572,6 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 .wk-st.current .wk-mark { color: var(--info); }
 .wk-st.next { color: var(--muted); }
 .wk-st-name { min-width: 0; overflow-wrap: anywhere; }
-.wk-route-now h3, .wk-assign h3 { margin: var(--s3) 0 var(--s2); font-size: var(--fs-h3); }
 .wk-photo { display: block; max-width: 100%; max-height: 220px; object-fit: contain; border-radius: var(--radius-sm); background: var(--photo-bg); margin: var(--s2) 0; }
 .wk-assign { display: grid; gap: var(--s2); }
 .wk-assign textarea, .wk-cancel textarea { width: 100%; box-sizing: border-box; }
