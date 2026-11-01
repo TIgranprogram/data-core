@@ -102,6 +102,21 @@ export class SupplyInvoiceService {
     if (vis && ids.some((x) => !vis.has(String(x)))) throw new ForbiddenException('Среди заявок есть не из вашего склада');
   }
 
+  /** Склады (WZ): итог по фильтру считается по видимым строкам (смешанный счёт — только своя часть), как amount в списке. */
+  private async scopedSum(f: Lean, scope: StockScope): Promise<number> {
+    const invs = await this.model.find(f).select('amount').lean().exec() as Lean[];
+    if (!invs.length) return 0;
+    const all = await this.requests.find({ invoiceId: { $in: invs.map((i) => i._id) }, deletedAt: null, status: { $ne: 'cancelled' } }).lean().exec() as Lean[];
+    const vis = await this.visibleRequests(all.map((x) => x._id as Types.ObjectId), scope);
+    const by = new Map<string, { all: number; mine: number; sum: number }>();
+    for (const x of all) {
+      const k = String(x.invoiceId); const e = by.get(k) ?? { all: 0, mine: 0, sum: 0 };
+      e.all++; if (!vis || vis.has(String(x._id))) { e.mine++; e.sum += Number(x.priceHint) || 0; }
+      by.set(k, e);
+    }
+    return invs.reduce((t, i) => { const e = by.get(String(i._id)); return t + (e && e.mine < e.all ? e.sum : Number(i.amount) || 0); }, 0);
+  }
+
   async list(q: Record<string, string | undefined>, scope: StockScope | null = null) {
     const page = Math.max(1, Number(q.page) || 1);
     const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
@@ -139,7 +154,8 @@ export class SupplyInvoiceService {
         payerName: r.payerCompanyId ? names.get(String(r.payerCompanyId)) ?? null : null,
         contractId: r.contractId ? String(r.contractId) : null, contractNo: contracts.get(String(r.contractId))?.contractNo ?? null, contractDate: contracts.get(String(r.contractId))?.contractDate ?? null, requestsCount: mine.length, orders: nos };
     });
-    return { items, total, page, limit, sum: (agg[0]?.sum as number) ?? 0 };
+    const sum = scope ? await this.scopedSum(f, scope) : (agg[0]?.sum as number) ?? 0;
+    return { items, total, page, limit, sum };
   }
 
   /** Счёт + его заявки (с № заказа/договора), файлы с адресами, цепочка заказы → договоры. */

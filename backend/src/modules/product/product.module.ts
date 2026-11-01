@@ -21,6 +21,7 @@ import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
     CounterModule,
     CatalogGraphModule,
   ],
+  controllers: [ProductController],
   providers: [ProductService, CompositionLineService],
   exports: [ProductService, MongooseModule],
 })

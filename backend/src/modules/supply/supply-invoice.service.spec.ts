@@ -128,3 +128,17 @@ describe('HARDEN-1 п.3: оплата счёта не откатывает «П�
     expect(forReceived[1].$set.status).toBeUndefined();
   });
 });
+
+describe('Склады: итог списка счетов по видимым строкам', () => {
+  it('смешанный счёт считается только по своим заявкам, целый — по amount', async () => {
+    const mixed = new Types.ObjectId(); const whole = new Types.ObjectId();
+    const rMine = new Types.ObjectId(); const rOther = new Types.ObjectId(); const rWhole = new Types.ObjectId();
+    const chainOf = (v: unknown) => ({ select: () => chainOf(v), lean: () => chainOf(v), exec: async () => v });
+    const model = { find: () => chainOf([{ _id: mixed, amount: 1000 }, { _id: whole, amount: 300 }]) };
+    const requests = { find: () => chainOf([{ _id: rMine, invoiceId: mixed, priceHint: 100 }, { _id: rOther, invoiceId: mixed, priceHint: 900 }, { _id: rWhole, invoiceId: whole, priceHint: 300 }]) };
+    const svc = new SupplyInvoiceService({} as never, model as never, requests as never, {} as never, {} as never, {} as never);
+    jest.spyOn(svc as never, 'visibleRequests').mockResolvedValue(new Set([String(rMine), String(rWhole)]) as never);
+    const sum = await (svc as unknown as { scopedSum: (f: object, s: object) => Promise<number> }).scopedSum({}, {});
+    expect(sum).toBe(400);
+  });
+});
