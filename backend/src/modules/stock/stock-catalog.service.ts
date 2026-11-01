@@ -1,5 +1,5 @@
 import { photoToFront } from '../../common/photo-main';
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { normText } from '../../common/text/norm-text';
 import type { Connection, Model } from 'mongoose';
@@ -12,6 +12,7 @@ import { Material, MaterialDocument } from '../material/material.schema';
 import { type ArticleDecision, decideArticle, isAutoArticle } from './article';
 import { CategoryResolver } from '../../common/catalog/category-resolver';
 import { mergeDims } from './metal';
+import { QrService } from '../qr/qr.service';
 import { StockCoreService } from './stock-core.service';
 import { StockSearchService } from './stock-search.service';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
@@ -27,7 +28,10 @@ export class StockCatalogService {
     private readonly counter: CounterService,
     private readonly core: StockCoreService,
     private readonly search: StockSearchService,
+    @Optional() private readonly qr?: QrService,
   ) {}
+
+  private readonly logger = new Logger(StockCatalogService.name);
 
   /** Материал с таким же наименованием (без учёта регистра и лишних пробелов). */
   async findMaterialByName(name: string): Promise<MaterialDocument | null> {
@@ -101,6 +105,8 @@ export class StockCatalogService {
         $set: { minQuantity: dto.minQuantity ?? 0, ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
       { upsert: true },
     ).exec();
+    // QR: код выдаётся сразу; сбой выдачи создание не ломает
+    await this.qr?.ensureCode('S', mat._id as Types.ObjectId).catch((e) => this.logger.warn(`QR не выдан: ${e?.message ?? e}`));
     return this.search.getItem(String(mat._id));
   }
 

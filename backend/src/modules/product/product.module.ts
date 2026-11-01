@@ -6,6 +6,7 @@ import { ProductController } from './product.controller';
 import { Category, CategorySchema } from '../category/category.schema';
 import { ProductModule as ProductModuleEntity, ProductModuleSchema } from '../../common/catalog/product-module.schema';
 import { Material, MaterialSchema } from '../material/material.schema';
+import { QrModule } from '../qr/qr.module';
 import { CounterModule } from '../counter/counter.module';
 import { CompositionLineService } from '../../common/catalog/composition-line.service';
 import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
@@ -19,6 +20,7 @@ import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
       { name: Material.name, schema: MaterialSchema },
     ]),
     CounterModule,
+    QrModule,
     CatalogGraphModule,
   ],
   controllers: [ProductController],

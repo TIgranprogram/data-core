@@ -24,6 +24,8 @@ export interface PlanLine {
   title: string;
   productId: string | null;
   productName: string | null;
+  /** артикул изделия (sku) */
+  article: string | null;
   qty: number | null;
   passport: { id: string; number: string | null; status: 'draft' | 'issued' } | null;
   /** issued — уже выпущен; ready — можно выпускать; blocked — чего-то не хватает */
@@ -53,8 +55,9 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
   const byIncome = new Map<string, Doc>();
   for (const p of pass) { const k = String(p.incomeId); const had = byIncome.get(k); if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(k, p); } // выпущенный важнее черновика
   const pids = [...new Set(incomes.filter((i) => i.productId).map((i) => String(i.productId)))];
-  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray() : [];
+  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, sku: 1 } }).toArray() : [];
   const pname = new Map(prods.map((p) => [String(p._id), String(p.name ?? '')]));
+  const psku = new Map(prods.map((p) => [String(p._id), p.sku ? String(p.sku) : null]));
   const lines: PlanLine[] = [];
   let ourSupplier: boolean | null = null;
   for (const inc of incomes) {
@@ -69,7 +72,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
       if (!ourSupplier) missing = ['Поставщик (отметьте «нашу фирму» в организациях)'];
     }
     lines.push({
-      incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
+      incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
       passport: p ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft' } : null,
       state: issued ? 'issued' : missing.length ? 'blocked' : 'ready', missing,
     });

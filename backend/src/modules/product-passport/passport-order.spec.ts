@@ -18,7 +18,7 @@ describe('паспорта на весь заказ', () => {
       findOne: async () => (name === 'salesorders' ? { _id: o, orderNo: '12-3', customer: 'Школа' } : null),
       find: (q: { incomeId?: { $in: Types.ObjectId[] } }) => ({
         sort: () => ({ toArray: async () => (name === 'incomes' ? incomes : name === 'productpassports' ? passports.filter((p) => q.incomeId!.$in.some((x) => x.equals(p.incomeId as Types.ObjectId))) : []) }),
-        toArray: async () => (name === 'products' ? [{ _id: p1, name: 'Урна «А»' }, { _id: p2, name: 'Урна «Б»' }] : []),
+        toArray: async () => (name === 'products' ? [{ _id: p1, name: 'Урна «А»', sku: 'У-1' }, { _id: p2, name: 'Урна «Б»' }] : []),
       }),
     });
     const host: OrderHost = {
@@ -37,7 +37,7 @@ describe('паспорта на весь заказ', () => {
     const r = await orderPlan(make().host, String(o));
     expect(r).toMatchObject({ orderNo: '12-3', customerName: 'Школа', total: 4, issued: 1, ready: 1, blocked: 2 });
     expect(r.lines.map((l) => l.state)).toEqual(['ready', 'blocked', 'blocked', 'issued']);
-    expect(r.lines[0]).toMatchObject({ qty: 2, productName: 'Урна «А»' });
+    expect(r.lines[0]).toMatchObject({ qty: 2, productName: 'Урна «А»', article: 'У-1' });
     expect(r.lines[1].missing).toEqual(['Категория паспорта', 'Размеры']);
     expect(r.lines[2].missing).toEqual(['К позиции не привязано изделие']);
     expect(r.lines[3].passport).toMatchObject({ status: 'issued', number: '777' });

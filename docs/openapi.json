@@ -2481,10 +2481,31 @@
         ]
       }
     },
+    "/stock/zones": {
+      "get": {
+        "operationId": "StockController_zoneList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/items": {
       "get": {
         "operationId": "StockController_list",
         "parameters": [
+          {
+            "name": "zoneId",
+            "required": false,
+            "in": "query",
+            "description": "склад из GET /stock/zones; чужой — 403",
+            "schema": {}
+          },
           {
             "name": "deleted",
             "required": false,
@@ -3423,6 +3444,187 @@
         },
         "tags": [
           "Склад"
+        ]
+      }
+    },
+    "/qr/print": {
+      "post": {
+        "operationId": "QrController_print",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QrPrintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "QR-коды"
+        ]
+      }
+    },
+    "/qr/{code}": {
+      "get": {
+        "operationId": "QrController_get",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "QR-коды"
+        ]
+      }
+    },
+    "/q/{code}": {
+      "get": {
+        "operationId": "QrRedirectController_redirect",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "QR-коды"
+        ]
+      }
+    },
+    "/stockzones": {
+      "get": {
+        "operationId": "StockZonesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склады (зоны доступа)"
+        ]
+      },
+      "post": {
+        "operationId": "StockZonesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStockZoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склады (зоны доступа)"
+        ]
+      }
+    },
+    "/stockzones/{id}": {
+      "get": {
+        "operationId": "StockZonesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склады (зоны доступа)"
+        ]
+      },
+      "patch": {
+        "operationId": "StockZonesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStockZoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склады (зоны доступа)"
+        ]
+      },
+      "delete": {
+        "operationId": "StockZonesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склады (зоны доступа)"
         ]
       }
     },
@@ -6317,6 +6519,20 @@
     "/showcase/groups": {
       "get": {
         "operationId": "ShowcaseController_groups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/similar": {
+      "get": {
+        "operationId": "ShowcaseController_similar",
         "parameters": [],
         "responses": {
           "200": {
@@ -13190,26 +13406,6 @@
         ]
       }
     },
-    "/products/{id}/photos": {
-      "post": {
-        "operationId": "ProductSubroutesController_attachPhoto",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/products/{productId}/photos": {
       "get": {
         "operationId": "ProductPhotoController_list",
@@ -15167,12 +15363,20 @@
                 "payroll",
                 "design",
                 "work",
-                "offers"
+                "offers",
+                "stock-mobile"
               ]
             }
           },
           "stockCategoryIds": {
             "description": "Категории склада, которые видит и меняет роль; пусто — весь склад",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warehouseIds": {
+            "description": "Склады (stockzones.id), которые видит и меняет роль; пусто — весь склад",
             "type": "array",
             "items": {
               "type": "string"
@@ -15264,12 +15468,20 @@
                 "payroll",
                 "design",
                 "work",
-                "offers"
+                "offers",
+                "stock-mobile"
               ]
             }
           },
           "stockCategoryIds": {
             "description": "Категории склада, которые видит и меняет роль; пусто — весь склад",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warehouseIds": {
+            "description": "Склады (stockzones.id), которые видит и меняет роль; пусто — весь склад",
             "type": "array",
             "items": {
               "type": "string"
@@ -16102,6 +16314,83 @@
           "type",
           "qty"
         ]
+      },
+      "QrPrintItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "S",
+              "M",
+              "P"
+            ],
+            "description": "S — позиция склада (id из /stock/items), P — изделие, M — материал"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ]
+      },
+      "QrPrintDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "не больше 350",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QrPrintItemDto"
+            }
+          },
+          "skip": {
+            "type": "number",
+            "description": "сколько ячеек первого листа пропустить (начатый лист), 0–34"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateStockZoneDto": {
+        "type": "object",
+        "properties": {
+          "categoryIds": {
+            "description": "Категории склада (type material); подкатегории входят сами",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includeMaterialIds": {
+            "description": "Позиции, добавленные в склад поштучно (materials.id)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludeMaterialIds": {
+            "description": "Позиции, исключённые из склада поштучно (materials.id)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "«Основной»: ещё и позиции без категории; такой склад один"
+          },
+          "order": {
+            "type": "number"
+          }
+        }
+      },
+      "UpdateStockZoneDto": {
+        "type": "object",
+        "properties": {}
       },
       "CreateInvoicesDto": {
         "type": "object",

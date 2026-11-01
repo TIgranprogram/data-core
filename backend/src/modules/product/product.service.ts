@@ -1,6 +1,7 @@
-import { ConflictException, GoneException, Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ConflictException, GoneException, Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { QrService } from '../qr/qr.service';
 import { CounterService } from '../counter/counter.service';
 import { Category, CategoryDocument } from '../category/category.schema';
 import { InjectModel as InjectCategoryModel } from '@nestjs/mongoose';
@@ -30,6 +31,7 @@ export class ProductService {
     private readonly eav: EavService,
     private readonly compositionLines: CompositionLineService,
     private readonly catalogGraph: CatalogGraphService,
+    @Optional() private readonly qr?: QrService,
   ) {}
 
   async create(dto: CreateProductDto, organizationId?: string | null): Promise<ProductDocument> {
@@ -63,6 +65,8 @@ export class ProductService {
           : undefined;
         await this.eav.resolveAttributes('Product', doc._id, attributes, catId);
       }
+      // QR: код выдаётся сразу; сбой выдачи создание не ломает
+      await this.qr?.ensureCode('P', doc._id as Types.ObjectId).catch((e) => this.logger.warn(`QR не выдан: ${e?.message ?? e}`));
       return doc;
     } catch (err) {
       this.rethrowDuplicateSku(err);

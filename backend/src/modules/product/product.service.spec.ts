@@ -128,6 +128,19 @@ describe('TZ-CATALOG-338 — Product article contract', () => {
     expect(model.create).not.toHaveBeenCalled();
   });
 
+  it('QR: код выдаётся при создании; сбой выдачи создание не ломает', async () => {
+    const doc = { _id: new Types.ObjectId() };
+    const model = { create: jest.fn().mockResolvedValue(doc) };
+    const ok = jest.fn().mockResolvedValue('P-AAAA1111');
+    const args = [model, {}, {}, {}, {}, {}, {}, {}] as never[];
+    const r1 = await new ProductService(...(args as [never, never, never, never, never, never, never, never]), { ensureCode: ok } as never).create({ name: '', sku: 'P-1', kind: 'good', unit: 'шт' } as never);
+    expect(r1).toBe(doc);
+    expect(ok).toHaveBeenCalledWith('P', doc._id);
+    const bad = jest.fn().mockRejectedValue(new Error('boom'));
+    const r2 = await new ProductService(...(args as [never, never, never, never, never, never, never, never]), { ensureCode: bad } as never).create({ name: '', sku: 'P-2', kind: 'good', unit: 'шт' } as never);
+    expect(r2).toBe(doc);
+  });
+
   it('maps duplicate sku index errors to a Russian conflict', async () => {
     const model = { create: jest.fn().mockRejectedValue({ code: 11000, keyPattern: { organizationId: 1, sku: 1 } }) };
     const service = buildService(model);
