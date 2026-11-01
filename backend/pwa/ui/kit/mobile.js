@@ -24,11 +24,14 @@ export function bigButton({ label, icon, tone = 'primary', onClick, disabled = f
 export function screen({ title, back, step, gear, body, foot, footHint } = {}) {
   return h('div', { class: 'm-screen' },
     h('div', { class: 'm-head' },
+      // главный экран (только настройки): название и «Настройки» — одной строкой
+      gear && !back && !step ? h('div', { class: 'm-bar' }, title ? h('h1', null, title) : null, h('span', { class: 'm-grow' }),
+        bigButton({ label: '⚙ Настройки', tone: 'neutral', size: 'auto', onClick: gear })) :
       back || step || gear ? h('div', { class: 'm-bar' }, back ? bigButton({ label: '‹ Назад', tone: 'neutral', size: 'auto', onClick: back }) : null,
         h('span', { class: 'm-grow' }),
         step ? h('div', { class: 'm-step', role: 'status', 'aria-label': `Шаг ${step.n} из ${step.of}` }, `${step.n}/${step.of}`) : null,
         gear ? h('button', { type: 'button', class: 'm-gear', 'aria-label': 'Настройки', onclick: gear }, '⚙') : null) : null,
-      title ? h('h1', null, title) : null),
+      title && !(gear && !back && !step) ? h('h1', null, title) : null),
     h('div', { class: 'm-body' }, ...nodes(body)),
     foot || footHint ? h('div', { class: 'm-foot' }, footHint ? h('div', { class: 'm-unit', role: 'status' }, footHint) : null, foot) : null);
 }
@@ -73,7 +76,7 @@ export { catArt };
 /** feed({ items: [{ date, text, qty, unit, kind: 'out'|'in' }], loading, empty }) → лента плитками (не кликабельна); loading — скелет */
 export function feed({ items = [], loading = false, empty = 'За 7 дней операций нет' } = {}) {
   if (loading) return h('div', { class: 'm-feed', 'aria-busy': 'true' }, ...[0, 1, 2].map(() => h('div', { class: 'm-skel' })));
-  if (!items.length) return h('div', { class: 'm-empty' }, empty);
+  if (!items.length) return h('div', { class: 'm-empty' }, empty, h('br'), h('small', null, 'Здесь появятся ваши выдачи и приёмки за неделю.'));
   return h('div', { class: 'm-feed' }, ...items.map((it) => h('div', { class: 'm-fi m-fi-' + it.kind },
     h('span', { class: 'm-fi-date' }, it.date),
     h('span', { class: 'm-fi-what' }, (it.kind === 'in' ? '↑ Принято · ' : '↓ Выдано · ') + it.text),

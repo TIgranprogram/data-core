@@ -20,6 +20,8 @@ const memo = new Map();
 /** Справочник один раз за сеанс (ключ учитывает склад); сбой кэш не запоминает. */
 const once = (key, load) => { if (!memo.has(key)) memo.set(key, load().catch((e) => { memo.delete(key); throw e; })); return memo.get(key); };
 const askedKey = () => 'dc-stock-zone-asked-' + (session.user?.id || 'u');
+/** Артикул для рабочего: внутренний код «СКЛ-…» не показываем (это не артикул, АР.1). */
+const artOf = (it) => (it.article && !/^СКЛ-/i.test(it.article) ? it.article : '');
 const dm = (d) => { const x = new Date(d); return `${String(x.getDate()).padStart(2, '0')}.${String(x.getMonth() + 1).padStart(2, '0')}`; };
 const unitOf = (it) => it.unit || 'шт';
 
@@ -29,7 +31,7 @@ const itemDrill = (onPick, scanBtn) => drill({ extra: scanBtn, empty: 'Пози�
     { title: '', tiles: true, load: async () => (await once('cats:' + zoneNow(), () => call('/stock/categories', { query: zoneQuery() }))).items.filter((c) => c.id !== 'none')
       .map((c) => ({ value: c.id, label: c.name, art: catArt(c.name) /* только встроенные рисунки: разметку с сервера в страницу не вставляем */ })) },
     { title: '', load: async ([cat]) => ((await call('/stock/items', { query: { ...zoneQuery(), categoryId: cat, limit: 500, sort: 'name' } })).items || [])
-      .map((it) => ({ value: it, label: it.name, hint: `На складе: ${fmt(it.quantity)} ${unitOf(it)}${it.article ? ' · ' + it.article : ''}` })) },
+      .map((it) => ({ value: it, label: it.name, hint: `На складе: ${fmt(it.quantity)} ${unitOf(it)}${artOf(it) ? ' · ' + artOf(it) : ''}` })) },
   ],
   onPick: (o) => onPick(o.value) });
 
@@ -217,7 +219,7 @@ export const stockMobile = {
       try { res = await itemByText(text); } catch (e) { show(screen({ back: home, body: [failed(e, () => fromCode(text))] })); return; }
       if (!res.item) { show(screen({ back: home, body: [error(res.fail.message)], foot: bigButton({ label: 'Выбрать из списка', tone: 'neutral', onClick: home }) })); return; }
       const it = res.item;
-      show(screen({ title: it.name, back: home, body: [h('p', null, `На складе: ${fmt(it.quantity)} ${unitOf(it)}${it.article ? ' · ' + it.article : ''}`),
+      show(screen({ title: it.name, back: home, body: [h('p', null, `На складе: ${fmt(it.quantity)} ${unitOf(it)}${artOf(it) ? ' · ' + artOf(it) : ''}`),
         bigButton({ label: 'Выдать', onClick: () => issue(it) }), bigButton({ label: 'Принять', tone: 'neutral', onClick: () => receive(it) })] }));
     };
 
