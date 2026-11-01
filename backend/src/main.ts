@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException, RequestMethod } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
@@ -248,7 +248,7 @@ async function bootstrap() {
   // to HttpExceptionFilter for everything else. More-specific @Catch(MulterError)
   // filter is registered first; the global catch-all backs it up.
   app.useGlobalFilters(new VersionConflictFilter(), new MulterExceptionFilter(), new HttpExceptionFilter());
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: [{ path: 'q/:code', method: RequestMethod.GET }] }); // /q/:code — публичный адрес из QR-наклейки
 
   const swaggerConfig = buildSwaggerConfig();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
