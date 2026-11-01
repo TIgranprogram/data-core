@@ -91,6 +91,7 @@
 |--|--|--|
 | button | любое действие; одна `primary` на экран, `danger` только в карточке | `button({ label, kind: primary/secondary/ghost/danger, size: M/S, icon?, onClick, busy?, disabled?, title? })` |
 | iconButton | действие значком (✕, ⋯); подпись (aria) обязательна | `iconButton({ icon, label, onClick, size?, menu?, title? })` |
+| similarBox | «Похожее уже есть — может, это оно?» под названием изделия и в сопоставлении: GET /showcase/similar, строки kit.row (миниатюра, sku, группа), `check` (400 мс, от 3 символов) / `load` / `show` | `similarBox({onPick,pickLabel})` → `{el,check,load,show}` |
 | sku | артикул изделия: в работе с конкретным изделием — впереди названия (`sku(a)`, пробел, название), в таблицах/карточках — отдельной строкой под названием; без подписи «арт.» | `sku(text)` → `.k-sku` / null |
 | section | сворачиваемая секция правой панели (группа «Фото и файлы», «Чертежи»): закрыта по умолчанию, в шапке заголовок и число, открывается с клавиатуры | `section({ title, count?, open?, body })` → `details.form-block.k-sec` |
 | link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
