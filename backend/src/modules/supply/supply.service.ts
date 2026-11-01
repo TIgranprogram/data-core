@@ -10,6 +10,9 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
+import type { StockScope } from '../../common/stock-scope';
+import { assertDocInScope, assertNewDocInScope, docScopeMatch } from '../../common/supply-scope';
+import { createHash } from 'crypto';
 import { CategoryResolver } from '../../common/catalog/category-resolver';
 import { materialRequestTitle } from '../../common/catalog/names';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -196,7 +199,7 @@ export class SupplyService {
    * Список (CANON §4): страницы, поиск, сортировка, фильтры; `sum` — сумма «Цены с НДС» по всему фильтру.
    * status — через запятую; `paid` — подпись «Оплачено» (status=ordered + paid). deleted=1 — корзина.
    */
-  async list(q: Record<string, unknown> = {}) {
+  async list(q: Record<string, unknown> = {}, scope: StockScope | null = null) {
     const p = parseList(q, { sortable: SUPPLY_SORT, defaultSort: '-requestDate', defaultLimit: 1000 });
     const filter: Record<string, unknown> = { deletedAt: p.deleted ? { $ne: null } : null };
     const and: Record<string, unknown>[] = [];
@@ -240,6 +243,9 @@ export class SupplyService {
         and.push({ $or: or });
       }
     }
+    // склады (WZ): заявки только доступных позиций / категорий
+    const sc = await docScopeMatch(this.connection, scope);
+    if (scope) and.push(sc);
     // Счётчики по статусам (для чипов) — по всем фильтрам, кроме самого статуса
     const noStatus: Record<string, unknown> = { ...filter };
     const restAnd = and.filter((c) => c !== statusCond);
@@ -254,7 +260,7 @@ export class SupplyService {
       this.model.aggregate([{ $match: filter }, { $group: { _id: null, sum: { $sum: { $ifNull: ['$priceHint', 0] } } } }]).exec(),
       this.model.aggregate([{ $match: noStatus }, { $group: { _id: { s: '$status', p: { $eq: ['$paid', true] } }, n: { $sum: 1 } } }]).exec(),
     ]);
-    const pure = Object.fromEntries(Object.entries(q).filter(([k]) => !['page', 'limit', 'sort', 'facets'].includes(k)));
+    const pure = { ...Object.fromEntries(Object.entries(q).filter(([k]) => !['page', 'limit', 'sort', 'facets'].includes(k))), ...(scope ? { _scope: createHash('sha1').update(JSON.stringify(sc)).digest('hex') } : {}) };
     const [docs, total, [agg, byStatus]] = await Promise.all([
       this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort(sort).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(filter).setOptions({ includeSoftDeleted: true }).exec(),
@@ -289,9 +295,22 @@ export class SupplyService {
     return this.present(docs as Array<Record<string, unknown>>);
   }
 
-  async get(id: string) {
+  /** Склады (WZ): заявка должна быть доступной позиции / категории, иначе 403 (запись и чтение по id). Корзина тоже. */
+  async assertRequest(id: string, scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const doc = await this.model.findOne({ _id: oid(id, 'заявки') }, { materialId: 1, categoryId: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    if (doc) await assertDocInScope(this.connection, scope, doc);
+  }
+
+  /** Склады (WZ): новая заявка или смена позиции / категории — только своего склада. */
+  assertNew(dto: SupplyInput, scope: StockScope | null) {
+    return assertNewDocInScope(this.connection, scope, dto.materialId || dto.categoryId || dto.categoryName ? dto : {});
+  }
+
+  async get(id: string, scope?: StockScope | null) {
     const doc = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }).lean().exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
+    await assertDocInScope(this.connection, scope, doc);
     const presented = (await this.present([doc as Record<string, unknown>]))[0] as Record<string, unknown>;
     // СКЕ-4/5: текущая цена и история цен из каталога (supplieritems по supplierId+article+color)
     if (doc.supplierId && doc.article) {
@@ -555,11 +574,12 @@ export class SupplyService {
    * Лёгкая подсказка «уже заказывали»: по одной строке на название (последняя заявка), без фото и `present`.
    * count — сколько раз заказывали. search — слова через И по названию и артикулу.
    */
-  async lookup(q: Record<string, unknown> = {}) {
+  async lookup(q: Record<string, unknown> = {}, scope: StockScope | null = null) {
+    const sc = await docScopeMatch(this.connection, scope);
     const limit = Math.min(Math.max(parseInt(String(q.limit ?? ''), 10) || 50, 1), 500);
     const and = searchTokens(q.search).map((tk) => { const re = tokenRegex(tk); return { $or: [{ title: re }, { article: re }] }; });
     const rows = await this.model.aggregate<Record<string, unknown>>([
-      { $match: { deletedAt: null, title: { $nin: [null, ''] }, ...(and.length ? { $and: and } : {}) } },
+      { $match: { deletedAt: null, title: { $nin: [null, ''] }, ...sc, ...(and.length ? { $and: and } : {}) } },
       { $sort: { requestDate: -1, _id: -1 } },
       { $group: { _id: { $toLower: '$title' }, last: { $first: '$$ROOT' }, count: { $sum: 1 } } },
       { $sort: { 'last.requestDate': -1, _id: 1 } },
@@ -580,11 +600,12 @@ export class SupplyService {
   }
 
   /** Названия поставщиков и «наших компаний» — для подсказок в форме. */
-  async lookups() {
+  async lookups(scope: StockScope | null = null) {
     const orgs = await this.connection.db!.collection('organizations')
       .find({ deletedAt: null, $or: [{ type: 'supplier' }, { isOurCompany: true }] }, { projection: { name: 1, shortName: 1, type: 1, isOurCompany: 1 } })
       .sort({ name: 1 }).toArray();
-    const cats = await this.connection.db!.collection('categories').find({ deletedAt: null, type: 'material' }, { projection: { name: 1 } }).sort({ name: 1 }).toArray();
+    const own = scope ? { _id: { $in: scope.categoryIds.filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x)) } } : {};
+    const cats = await this.connection.db!.collection('categories').find({ deletedAt: null, type: 'material', ...own }, { projection: { name: 1 } }).sort({ name: 1 }).toArray();
     const lists = ((await this.connection.db!.collection('settings').findOne({ key: 'supply.sheetLists' }))?.value ?? {}) as Record<string, string[] | undefined>;
     const uniq = (a: unknown[]) => [...new Map(a.filter(Boolean).map((v) => [String(v).trim().toLowerCase().replace(/\s+/g, ' '), String(v).trim()])).values()].sort((x, y) => x.localeCompare(y, 'ru'));
     const people = uniq([...(await this.model.distinct('requestedBy', { deletedAt: null }).exec()), ...(lists.people ?? [])]);

@@ -5,6 +5,8 @@ import { createHash } from 'crypto';
 import * as ExcelJS from 'exceljs';
 import { Connection, Types } from 'mongoose';
 import { oid, oids } from '../../common/list-query';
+import type { StockScope } from '../../common/stock-scope';
+import { assertDocInScope, docScopeMatch } from '../../common/supply-scope';
 import { normSearch } from '../../common/text/search-norm';
 import { SupplierAliases } from './supplier-aliases';
 import {
@@ -53,7 +55,7 @@ export class SupplierCatalogService {
     return [...res].map((s) => new Types.ObjectId(s));
   }
 
-  private async filter(q: Record<string, string | undefined>): Promise<Doc> {
+  private async filter(q: Record<string, string | undefined>, scope?: StockScope | null): Promise<Doc> {
     const f: Doc = { deletedAt: null };
     const sup = oids(q.supplierId), mat = oids(q.materialId);
     if (sup.length) f.supplierId = { $in: sup };
@@ -71,6 +73,7 @@ export class SupplierCatalogService {
       const re = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       f.$or = [{ name: re }, { article: re }, { note: re }];
     }
+    if (scope) f.$and = [...((f.$and as unknown[] | undefined) ?? []), await docScopeMatch(this.conn, scope)]; // склады (WZ)
     return f;
   }
 
@@ -127,9 +130,17 @@ export class SupplierCatalogService {
   }
 
   /** Одна позиция — карточка открывается по ссылке и после обновления страницы (не только из списка). */
-  async get(id: string) {
+  /** Склады (WZ): позиция каталога должна быть из своего склада (чтение и запись по id), иначе 403. */
+  async assertItem(id: string, scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const d = await this.items.findOne({ _id: oid(id) }, { projection: { materialId: 1, categoryId: 1 } });
+    if (d) await assertDocInScope(this.conn, scope, d, 'Эта позиция каталога не из вашего склада');
+  }
+
+  async get(id: string, scope?: StockScope | null) {
     const d = await this.items.findOne({ _id: oid(id), deletedAt: null });
     if (!d) throw new NotFoundException('Позиция каталога не найдена — возможно, удалена');
+    await assertDocInScope(this.conn, scope, d, 'Эта позиция каталога не из вашего склада');
     return (await this.present([d]))[0];
   }
 
@@ -160,10 +171,10 @@ export class SupplierCatalogService {
     return { name: dir, _id: 1 };
   }
 
-  async list(q: Record<string, string | undefined>) {
+  async list(q: Record<string, string | undefined>, scope?: StockScope | null) {
     const page = Math.max(1, parseInt(String(q.page ?? '1'), 10) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(String(q.limit ?? '100'), 10) || 100));
-    const f = await this.filter(q);
+    const f = await this.filter(q, scope);
     const [docs, total] = await Promise.all([
       this.items.find(f).sort(this.sortOf(q)).skip((page - 1) * limit).limit(limit).toArray(),
       this.items.countDocuments(f),
@@ -172,8 +183,8 @@ export class SupplierCatalogService {
   }
 
   /** Левая панель: «Все», поставщики с числом, категории с числом, «Не сопоставлено», «Без цены / старая цена». */
-  async counts() {
-    const base = { deletedAt: null };
+  async counts(scope?: StockScope | null) {
+    const base: Doc = scope ? { deletedAt: null, $and: [await docScopeMatch(this.conn, scope)] } : { deletedAt: null };
     const stale = new Date(Date.now() - STALE_DAYS * DAY);
     const [bySup, byCat, all, noCategory, unmatched, noPrice, old] = await Promise.all([
       this.items.aggregate([{ $match: base }, { $group: { _id: '$supplierId', n: { $sum: 1 }, cats: { $addToSet: '$categoryId' } } }]).toArray(),
@@ -449,8 +460,8 @@ export class SupplierCatalogService {
   }
 
   /** Экспорт по текущему фильтру: колонки шаблона + «Остаток», «ИНН поставщика», «Поставщик» — файл можно исправить и залить обратно. */
-  async export(q: Record<string, string | undefined>): Promise<Buffer> {
-    const docs = await this.items.find(await this.filter(q)).sort({ supplierId: 1, name: 1 }).limit(20000).toArray();
+  async export(q: Record<string, string | undefined>, scope?: StockScope | null): Promise<Buffer> {
+    const docs = await this.items.find(await this.filter(q, scope)).sort({ supplierId: 1, name: 1 }).limit(20000).toArray();
     const view = await this.present(docs);
     const { wb, ws } = await this.book([...TEMPLATE_COLUMNS.map((c) => c.title), 'Остаток', 'ИНН поставщика', 'Поставщик'].join('|'), view.map((v) => [
       v.article, v.name, v.color, v.unit, v.priceHint ?? '', v.priceDate ? v.priceDate.slice(0, 10).split('-').reverse().join('.') : '',

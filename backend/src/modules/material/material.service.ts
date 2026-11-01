@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { inScope, scopeMatch, type StockScope } from '../../common/stock-scope';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { Material, MaterialDocument } from './material.schema';
@@ -54,7 +55,21 @@ export class MaterialService {
     }
   }
 
-  async findAll(q: { page?: number; limit?: number; search?: string; categoryId?: string; supplierId?: string; materialKind?: CreateMaterialDto['materialKind'] } = {}, organizationId?: string | null) {
+  /** Склады (WZ): позиции должны быть из доступного склада, иначе 403 (чтение и запись по id). `null` — доступ полный. */
+  async assertInScope(ids: string[], scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const list = ids.filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const mats = list.length ? await this.model.find({ _id: { $in: list } }, { categoryId: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec() : [];
+    if (mats.some((m) => !inScope(scope, m))) throw new ForbiddenException('Эта позиция не из вашего склада');
+  }
+
+  /** Склады (WZ): новая позиция или смена категории — только в своём складе (без категории — только «Основному»). */
+  async assertNewInScope(categoryId: string | undefined, scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    if (categoryId ? !scope.categoryIds.includes(String(categoryId)) : !scope.noCategory) throw new ForbiddenException('Эта категория не из вашего склада');
+  }
+
+  async findAll(q: { page?: number; limit?: number; search?: string; categoryId?: string; supplierId?: string; materialKind?: CreateMaterialDto['materialKind'] } = {}, organizationId?: string | null, scope: StockScope | null = null) {
     const page = Math.max(1, q.page ?? 1); const limit = Math.min(100, Math.max(1, q.limit ?? 20));
     const filter: Record<string, unknown> = { deletedAt: null, ...this.organizationFilter(organizationId) };
     if (q.search) { const escaped = q.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const re = new RegExp(escaped, 'i'); filter.$or = [{ name: re }, { article: re }, { sku: re }]; }
@@ -65,6 +80,7 @@ export class MaterialService {
     if (q.categoryId) filter.categoryId = { $in: [new Types.ObjectId(q.categoryId), q.categoryId] };
     if (q.supplierId) filter.supplierId = { $in: [new Types.ObjectId(q.supplierId), q.supplierId] };
     if (q.materialKind) filter.materialKind = q.materialKind;
+    if (scope) filter.$and = [scopeMatch(scope)];
     const [items, total] = await Promise.all([
       // тексты паспорта (МЦ-6) в список не идут — только в карточку
       this.model.find(filter).select('-passportSpec.passportText -passportSpec.techText').populate('categoryId').populate('photoIds').populate('mainPhotoId').populate('supplierId').sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean().exec(),

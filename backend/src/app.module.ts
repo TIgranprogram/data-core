@@ -55,6 +55,7 @@ import { ProductPassportModule } from './modules/product-passport/product-passpo
 import { AppDataModule } from './modules/app-data/app-data.module';
 // import { SheetsSyncModule } from './modules/sheets-sync/sheets-sync.module'; // отключён 2026-10-30 — Google Sheets более не используются
 import { StockModule } from './modules/stock/stock.module';
+import { StockZonesModule } from './modules/stock-zones/stock-zones.module';
 import { SupplyModule } from './modules/supply/supply.module';
 import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
@@ -174,6 +175,7 @@ import { RequestMethod } from '@nestjs/common';
     IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
     AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
     StockModule,            // /api/stock — склад на общих коллекциях CRM (materials, storageitems, stockmovements, reservations)
+    StockZonesModule,       // /api/stockzones — справочник «Склады» (зоны доступа к позициям), кэш доступа для stock/supply
     SupplyModule,           // /api/supply — заявки снабжения на общей коллекции CRM supplyrequests
     IncomesModule,          // /api/incomes — доходы (строки заказов), своя коллекция incomes
     PartnersModule,

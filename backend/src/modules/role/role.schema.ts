@@ -42,6 +42,10 @@ export class Role {
   @Prop({ type: [String], default: undefined })
   stockCategoryIds?: string[];
 
+  /** Склады (stockzones.id), которые видит и меняет роль; объединение. Пусто — весь склад (или запасной путь stockCategoryIds). */
+  @Prop({ type: [String], default: undefined })
+  warehouseIds?: string[];
+
   /**
    * SK-8c: своя роль — «права как у» встроенной (user|manager|accountant|director,
    * не admin). У встроенных и старых ролей поля нет. Права = права baseRole

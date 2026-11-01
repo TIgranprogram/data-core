@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
+import { inScope, type StockScope } from '../../common/stock-scope';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
 import { gramsToKg } from './weight';
@@ -37,6 +38,22 @@ export class StockCoreService {
     const def = await this.defaultWarehouse();
     const items = await this.warehouses.find({ deletedAt: null }).sort({ name: 1 }).lean().exec();
     return { items, total: items.length, defaultId: String(def._id) };
+  }
+
+  /** Какие из позиций видны в доступе: id видимых; нет в базе — не видна; null — доступ полный (проверять не нужно). */
+  async visibleMaterials(ids: Iterable<unknown>, scope: StockScope | null | undefined): Promise<Set<string> | null> {
+    if (!scope) return null;
+    const list = [...new Set([...ids].filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const mats = list.length ? await this.connection.db!.collection('materials').find({ _id: { $in: list } }, { projection: { categoryId: 1 } }).toArray() : [];
+    return new Set(mats.filter((m) => inScope(scope, m)).map((m) => String(m._id)));
+  }
+
+  /** Все позиции должны быть в доступе, иначе 403 (запись по чужой позиции). Позиции, которых нет, пропускаются — их отвергнет сама операция. */
+  async assertMaterials(ids: Iterable<unknown>, scope: StockScope | null | undefined, text = 'Эта позиция не из вашего склада'): Promise<void> {
+    if (!scope) return;
+    const list = [...new Set([...ids].filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const mats = list.length ? await this.connection.db!.collection('materials').find({ _id: { $in: list } }, { projection: { categoryId: 1 } }).toArray() : [];
+    if (mats.some((m) => !inScope(scope, m))) throw new ForbiddenException(text);
   }
 
   /** Вес 1 шт. в граммах → weightKg (кг) + пометка weightUnit 'kg' у позиции и её остатков (НО.0). */

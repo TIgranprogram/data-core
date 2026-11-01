@@ -1,7 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
+import type { StockScope } from '../../common/stock-scope';
+import { docScopeMatch } from '../../common/supply-scope';
 import { parseSheetDate } from '../../common/date-parse';
 import { escapeRe, oid } from '../../common/list-query';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -76,7 +78,31 @@ export class SupplyInvoiceService {
   }
 
   /** Список счетов: статус (через запятую), поставщик, поиск по № / поставщику, период по дате счёта; sum — по всем найденным. */
-  async list(q: Record<string, string | undefined>) {
+  /** Склады (WZ): какие из заявок видны в доступе (null — все). */
+  private async visibleRequests(ids: Types.ObjectId[], scope: StockScope | null): Promise<Set<string> | null> {
+    if (!scope) return null;
+    if (!ids.length) return new Set();
+    const sc = await docScopeMatch(this.connection, scope);
+    return new Set((await this.requests.distinct('_id', { _id: { $in: ids }, ...sc }).exec()).map(String));
+  }
+
+  /** Склады (WZ): менять счёт можно, только если все его заявки из своего склада, иначе 403. */
+  async assertWhole(id: string, scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const ids = await this.requests.distinct('_id', { invoiceId: oid(id, 'счёта'), deletedAt: null }).exec() as Types.ObjectId[];
+    const vis = await this.visibleRequests(ids, scope);
+    if (vis && ids.some((x) => !vis.has(String(x)))) throw new ForbiddenException('В этом счёте есть заявки не из вашего склада');
+  }
+
+  /** Склады (WZ): заявки для нового счёта — только из своего склада. */
+  async assertRequests(requestIds: string[], scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const ids = [...new Set(requestIds)].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const vis = await this.visibleRequests(ids, scope);
+    if (vis && ids.some((x) => !vis.has(String(x)))) throw new ForbiddenException('Среди заявок есть не из вашего склада');
+  }
+
+  async list(q: Record<string, string | undefined>, scope: StockScope | null = null) {
     const page = Math.max(1, Number(q.page) || 1);
     const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
     const f: Lean = { deletedAt: null };
@@ -92,17 +118,23 @@ export class SupplyInvoiceService {
     if (q.from) { const d = parseSheetDate(q.from); if (!d) throw new BadRequestException('Дата «с» — в формате ГГГГ-ММ-ДД'); range.$gte = d; }
     if (q.to) { const d = parseSheetDate(q.to); if (!d) throw new BadRequestException('Дата «по» — в формате ГГГГ-ММ-ДД'); range.$lt = new Date(d.getTime() + 86400000); }
     if (Object.keys(range).length) f.date = range;
+    if (scope) { // склады (WZ): счета, где есть хотя бы одна своя заявка
+      f._id = { $in: await this.requests.distinct('invoiceId', { invoiceId: { $ne: null }, deletedAt: null, ...(await docScopeMatch(this.connection, scope)) }).exec() };
+    }
     const [rows, total, agg] = await Promise.all([
       this.model.find(f).sort({ date: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec() as Promise<Lean[]>,
       this.model.countDocuments(f).exec(),
       this.model.aggregate([{ $match: f }, { $group: { _id: null, sum: { $sum: '$amount' } } }]).exec(),
     ]);
-    const reqs = rows.length ? await this.requests.find({ invoiceId: { $in: rows.map((r) => r._id) }, deletedAt: null, status: { $ne: 'cancelled' } }).lean().exec() as Lean[] : [];
+    const allReqs = rows.length ? await this.requests.find({ invoiceId: { $in: rows.map((r) => r._id) }, deletedAt: null, status: { $ne: 'cancelled' } }).lean().exec() as Lean[] : [];
+    const vis = await this.visibleRequests(allReqs.map((x) => x._id as Types.ObjectId), scope);
+    const reqs = vis ? allReqs.filter((x) => vis.has(String(x._id))) : allReqs; // смешанный счёт: только свои строки, сумма по ним
     const [orders, names, contracts] = await Promise.all([this.orderInfo(reqs), this.orgNames(rows.map((r) => r.payerCompanyId)), this.contractInfo(rows.map((r) => r.contractId))]);
     const items = rows.map((r) => {
       const mine = reqs.filter((x) => String(x.invoiceId) === String(r._id));
+      const partial = allReqs.some((x) => String(x.invoiceId) === String(r._id)) && mine.length < allReqs.filter((x) => String(x.invoiceId) === String(r._id)).length;
       const nos = [...new Set(mine.map((x) => orders.get(String(x.salesOrderId))).filter(Boolean).map((o) => o!.productionNo || o!.orderNo).filter(Boolean))] as string[];
-      return { id: String(r._id), no: r.no ?? null, date: r.date ?? null, amount: r.amount ?? 0, status: r.status, paidAt: r.paidAt ?? null,
+      return { id: String(r._id), no: r.no ?? null, date: r.date ?? null, partial, amount: partial ? mine.reduce((s, x) => s + (Number(x.priceHint) || 0), 0) : r.amount ?? 0, status: r.status, paidAt: r.paidAt ?? null,
         supplierId: r.supplierId ? String(r.supplierId) : null, supplierName: r.supplierName ?? null,
         payerName: r.payerCompanyId ? names.get(String(r.payerCompanyId)) ?? null : null,
         contractId: r.contractId ? String(r.contractId) : null, contractNo: contracts.get(String(r.contractId))?.contractNo ?? null, contractDate: contracts.get(String(r.contractId))?.contractDate ?? null, requestsCount: mine.length, orders: nos };
@@ -111,9 +143,13 @@ export class SupplyInvoiceService {
   }
 
   /** Счёт + его заявки (с № заказа/договора), файлы с адресами, цепочка заказы → договоры. */
-  async get(id: string) {
+  async get(id: string, scope: StockScope | null = null) {
     const inv = await this.load(id);
-    const [items, names, contracts] = await Promise.all([this.supply.byInvoice(inv._id as Types.ObjectId), this.orgNames([inv.payerCompanyId]), this.contractInfo([inv.contractId])]);
+    const [all, names, contracts] = await Promise.all([this.supply.byInvoice(inv._id as Types.ObjectId), this.orgNames([inv.payerCompanyId]), this.contractInfo([inv.contractId])]);
+    const vis = await this.visibleRequests((all as Lean[]).map((x) => new Types.ObjectId(String(x._id ?? x.id))), scope);
+    const items = vis ? (all as Lean[]).filter((x) => vis.has(String(x._id ?? x.id))) : all;
+    if (vis && !items.length) throw new ForbiddenException('Этот счёт не из вашего склада');
+    const partial = items.length < all.length;
     const contract = contracts.get(String(inv.contractId));
     const orders = await this.orderInfo(items as Lean[]);
     const requests = (items as Lean[]).map((r) => {
@@ -132,7 +168,7 @@ export class SupplyInvoiceService {
     const fids = (inv.fileIds as Types.ObjectId[] | undefined) ?? [];
     const photos = fids.length ? await this.connection.db!.collection('photos').find({ _id: { $in: fids } }, { projection: { storageUrl: 1, originalName: 1, originalFilename: 1, mimeType: 1, name: 1 } }).toArray() : [];
     const files = fids.map((f) => photos.find((p) => String(p._id) === String(f))).filter(Boolean).map((p) => ({ id: String(p!._id), url: String(p!.storageUrl), name: String(p!.originalFilename ?? p!.originalName ?? p!.name ?? 'Файл счёта'), mime: (p!.mimeType as string | undefined) ?? null }));
-    return { ...inv, id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, contractNo: contract?.contractNo ?? null, contractDate: contract?.contractDate ?? null, requests, files, orders: [...chain.values()] };
+    return { ...inv, partial, ...(partial ? { amount: (items as Lean[]).reduce((s, x) => s + (Number(x.priceHint) || 0), 0) } : {}), id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, contractNo: contract?.contractNo ?? null, contractDate: contract?.contractDate ?? null, requests, files, orders: [...chain.values()] };
   }
 
   /** Принять счёт на склад: каждая неполученная заявка — через SupplyService.receive (приход на склад по умолчанию, повтор безопасен по clientUid). */

@@ -9,7 +9,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { StockCorrectDto, StockBatchDto, StockCompositionAcceptDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
-import { narrowCategories, stockScopeFor } from '../../common/stock-scope';
+import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
+import { narrowToZone, type StockScope } from '../../common/stock-scope';
+import { StockZonesService } from '../stock-zones/stock-zones.service';
 import { StockService } from './stock.service';
 
 /**
@@ -21,18 +23,19 @@ import { StockService } from './stock.service';
 @UseInterceptors(MoneyMaskInterceptor)
 @Controller('stock')
 export class StockController {
-  constructor(private readonly stock: StockService) {}
-
-  /** СМ.4: роль со своими категориями склада меняет только их. */
-  private async ownOnly(user: AuthenticatedUser | undefined, materialIds: string[]) {
-    const scope = stockScopeFor(user);
-    if (scope) await this.stock.assertInScope(materialIds, scope);
-  }
+  constructor(private readonly stock: StockService, private readonly zones: StockZonesService) {}
 
   @Get('warehouses')
   @Roles('admin', 'director', 'manager', 'user')
   warehouses() {
     return this.stock.listWarehouses();
+  }
+
+  /** Склады (зоны доступа), доступные пользователю: `{items:[{id,name,isDefault,order}]}` — для переключателя склада (один — скрыть). Остальные списки принимают `zoneId`. */
+  @Get('zones')
+  @Roles('admin', 'director', 'manager', 'user')
+  zoneList(@CurrentUser() user?: AuthenticatedUser) {
+    return this.zones.forUser(user);
   }
 
   /** Позиции склада по умолчанию: материал + остаток / бронь / свободно; counts — для чипов «к закупке / нет / в брони». */
@@ -45,24 +48,25 @@ export class StockController {
   @ApiQuery({ name: 'priority', required: false, description: '1 — «заканчивается» и «в брони» сверху' })
   @ApiQuery({ name: 'grade', required: false, description: 'марка стали' }) @ApiQuery({ name: 'section', required: false, description: 'сортамент / сечение' }) @ApiQuery({ name: 'thickness', required: false, description: 'толщина, мм' })
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
-  list(@Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    return this.stock.listItems(scope ? { ...q, categoryId: narrowCategories(q.categoryId, scope) } : { ...q, hideEmptyMetal: '1' });
+  @ApiQuery({ name: 'zoneId', required: false, description: 'склад из GET /stock/zones; чужой — 403' })
+  list(@Query() q: Record<string, string>, @StockScoped() own: StockScope | null) {
+    const scope = narrowToZone(own, q.zoneId);
+    return this.stock.listItems(scope ? q : { ...q, hideEmptyMetal: '1' }, scope);
   }
 
   /** SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — `{items}`. */
   @AppSection('stock', 'requests', 'products')
   @Get('lookup')
   @Roles('admin', 'director', 'manager', 'user')
-  lookup(@CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.lookup(stockScopeFor(user));
+  lookup(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null) {
+    return this.stock.lookup(narrowToZone(own, zoneId));
   }
 
   /** Сводка по категориям: позиций всего / к закупке / нет на складе. */
   @Get('categories')
   @Roles('admin', 'director', 'manager', 'user')
-  categories(@CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.categorySummary(stockScopeFor(user));
+  categories(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null) {
+    return this.stock.categorySummary(narrowToZone(own, zoneId));
   }
 
   /** Журнал движений по всем позициям. */
@@ -74,17 +78,16 @@ export class StockController {
   @ApiQuery({ name: 'search', required: false, description: 'наименование позиции или примечание' })
   @ApiQuery({ name: 'personId', required: false, description: 'кому выдано (persons.id)' }) @ApiQuery({ name: 'salesOrderId', required: false, description: 'под заказ (через запятую)' })
   @ApiQuery({ name: 'sort', required: false, description: 'date | qty | type | createdAt (умолч. -date)' })
-  movements(@Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    return this.stock.listMovements(scope ? { ...q, scopeCategoryId: scope.join(',') } : q);
+  movements(@Query() q: Record<string, string>, @StockScoped() own: StockScope | null) {
+    return this.stock.listMovements(q, narrowToZone(own, q.zoneId));
   }
 
   /** Исправить списание (СМ.5): отмена + новое списание с тем же «кому» и «под что». */
   @Post('movements/:id/correct')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.movement.corrected', entityType: 'StockMovement', idParam: 'id' })
-  async correctMovement(@Param('id') id: string, @Body() dto: StockCorrectDto, @CurrentUser() user?: AuthenticatedUser) {
-    if (stockScopeFor(user)) await this.ownOnly(user, [await this.stock.movementMaterialId(id)]);
+  async correctMovement(@Param('id') id: string, @Body() dto: StockCorrectDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (scope) await this.stock.assertInScope([await this.stock.movementMaterialId(id)], scope);
     return this.stock.correctMovement(id, dto.qty, user?.id);
   }
 
@@ -93,22 +96,22 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.movement.cancelled', entityType: 'StockMovement', idParam: 'id' })
-  async cancelMovement(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
-    if (stockScopeFor(user)) await this.ownOnly(user, [await this.stock.movementMaterialId(id)]);
+  async cancelMovement(@Param('id') id: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (scope) await this.stock.assertInScope([await this.stock.movementMaterialId(id)], scope);
     return this.stock.cancelMovement(id, user?.id);
   }
 
   @Get('items/:id')
   @Roles('admin', 'director', 'manager', 'user')
-  get(@Param('id') id: string) {
-    return this.stock.getItem(id);
+  get(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    return this.stock.getItem(id, scope);
   }
 
   @Get('items/:id/history')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'limit', required: false, description: 'только последние N записей (1–200); total — всего записей' })
-  history(@Param('id') id: string, @Query('limit') limit?: string) {
-    return this.stock.history(id, limit ? Number(limit) : undefined);
+  history(@Param('id') id: string, @StockScoped() scope: StockScope | null, @Query('limit') limit?: string) {
+    return this.stock.history(id, limit ? Number(limit) : undefined, scope);
   }
 
   /** Новая позиция (материал + строка остатка). Такое же наименование — вернётся существующая. */
@@ -116,36 +119,41 @@ export class StockController {
   @Post('items')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.created', entityType: 'Material' })
-  async create(@Body() dto: StockItemDto, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    return this.stock.createItem(scope ? await this.stock.scopeNewItem(dto, scope) : dto);
+  async create(@Body() dto: StockItemDto, @StockScoped() scope: StockScope | null) {
+    return this.stock.createItem(scope ? await this.stock.scopeNewItem(dto, scope) : dto, scope);
   }
 
   @Patch('items/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.updated', entityType: 'Material', idParam: 'id' })
-  async update(@Param('id') id: string, @Body() dto: StockItemDto, @CurrentUser() user?: AuthenticatedUser) {
-    await this.ownOnly(user, [id]);
+  async update(@Param('id') id: string, @Body() dto: StockItemDto, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope([id], scope);
+    if (scope && (dto.categoryId || dto.categoryName)) await this.stock.scopeNewItem({ ...dto, name: dto.name ?? '' }, scope); // перенос в чужую категорию — 403
     return this.stock.updateItem(id, dto);
   }
 
   @AppSection('stock', 'requests')
   @Post('items/:id/photos')
   @Roles('admin', 'manager')
-  photo(@Param('id') id: string, @Body() dto: StockPhotoDto) {
+  async photo(@Param('id') id: string, @Body() dto: StockPhotoDto, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope([id], scope);
     return this.stock.addPhoto(id, dto.photoId);
   }
 
   @Put('items/:id/photos/:photoId/main')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.photo.main', entityType: 'Material', idParam: 'id' })
-  mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.stock.mainPhoto(id, photoId); }
+  async mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope([id], scope);
+    return this.stock.mainPhoto(id, photoId);
+  }
 
   /** Убрать фото позиции (главное — следующее по списку). */
   @Delete('items/:id/photos/:photoId')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.photo.removed', entityType: 'Material', idParam: 'id' })
-  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+  async removePhoto(@Param('id') id: string, @Param('photoId') photoId: string, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope([id], scope);
     return this.stock.removePhoto(id, photoId);
   }
 
@@ -154,23 +162,23 @@ export class StockController {
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
   @AuditAction({ action: 'stock.reserve.list', entityType: 'StockMovement' })
-  async reserveList(@Body() dto: StockReserveListDto, @CurrentUser() user?: AuthenticatedUser) {
-    await this.ownOnly(user, dto.lines.map((l) => l.materialId));
+  async reserveList(@Body() dto: StockReserveListDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.stock.assertInScope(dto.lines.map((l) => l.materialId), scope);
     return this.stock.reserveList(dto, user?.id);
   }
 
   /** Активные брони по названиям. */
   @Get('reservations')
   @Roles('admin', 'director', 'manager', 'user')
-  reservations(@CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.listReservations(stockScopeFor(user));
+  reservations(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null) {
+    return this.stock.listReservations(narrowToZone(own, zoneId));
   }
 
   /** Карточка брони: что забронировано, сколько выдано и кому, под какой заказ, заявки на недостающее. key — batchId или id брони. */
   @Get('reservations/group/:key')
   @Roles('admin', 'director', 'manager', 'user')
-  reservationDetail(@Param('key') key: string) {
-    return this.stock.reservationDetail(key);
+  reservationDetail(@Param('key') key: string, @StockScoped() scope: StockScope | null) {
+    return this.stock.reservationDetail(key, scope);
   }
 
   /** «Выдать по брони»: списание по броням (целиком или частично), кому выдано. */
@@ -178,9 +186,8 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.issued', entityType: 'StockMovement' })
-  async issueReservations(@Body() dto: StockIssueDto, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    if (scope) await this.stock.assertReservationsInScope({ ids: dto.lines.map((l) => l.reservationId) }, scope);
+  async issueReservations(@Body() dto: StockIssueDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.stock.assertReservationsInScope({ ids: dto.lines.map((l) => l.reservationId) }, scope);
     return this.stock.issueReservations(dto, user?.id);
   }
 
@@ -188,8 +195,8 @@ export class StockController {
   @AppSection('stock', 'salesorders')
   @Get('reservations/order/:salesOrderId')
   @Roles('admin', 'director', 'manager', 'user')
-  reservationsByOrder(@Param('salesOrderId') salesOrderId: string) {
-    return this.stock.reservationsByOrder(salesOrderId);
+  reservationsByOrder(@Param('salesOrderId') salesOrderId: string, @StockScoped() scope: StockScope | null) {
+    return this.stock.reservationsByOrder(salesOrderId, scope);
   }
 
   /** «Выдать по заказу» (SK-6): все активные брони заказа или выбранные — одной пачкой; отмена — `batch/:batchId/cancel`. */
@@ -198,9 +205,8 @@ export class StockController {
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } })
   @AuditAction({ action: 'stock.reserve.issued.order', entityType: 'StockMovement' })
-  async issueOrder(@Body() dto: StockIssueOrderDto, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    if (scope) await this.stock.assertReservationsInScope({ ids: dto.lines?.map((l) => l.reservationId) ?? dto.reservationIds, salesOrderId: dto.salesOrderId }, scope);
+  async issueOrder(@Body() dto: StockIssueOrderDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.stock.assertReservationsInScope({ ids: dto.lines?.map((l) => l.reservationId) ?? dto.reservationIds, salesOrderId: dto.salesOrderId }, scope);
     return this.stock.issueOrder(dto, user?.id);
   }
 
@@ -208,9 +214,8 @@ export class StockController {
   @Patch('reservations/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.updated', entityType: 'Reservation', idParam: 'id' })
-  async updateReservation(@Param('id') id: string, @Body() dto: StockReservationUpdateDto, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    if (scope) await this.stock.assertReservationsInScope({ ids: [id] }, scope);
+  async updateReservation(@Param('id') id: string, @Body() dto: StockReservationUpdateDto, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertReservationsInScope({ ids: [id] }, scope);
     return this.stock.updateReservation(id, dto);
   }
 
@@ -219,9 +224,8 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.released', entityType: 'StockMovement' })
-  async releaseReservation(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
-    const scope = stockScopeFor(user);
-    if (scope) await this.stock.assertReservationsInScope({ ids: [id] }, scope);
+  async releaseReservation(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertReservationsInScope({ ids: [id] }, scope);
     return this.stock.releaseReservation(id);
   }
 
@@ -229,8 +233,8 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.reserve.group.released', entityType: 'StockMovement' })
-  releaseGroup(@Param('batchId') batchId: string) {
-    return this.stock.releaseGroup(batchId);
+  releaseGroup(@Param('batchId') batchId: string, @StockScoped() scope: StockScope | null) {
+    return this.stock.releaseGroup(batchId, scope);
   }
 
   /** Спецификация из Excel, просмотр (SK-6): строки файла → позиции склада, хватает ли свободного. Ничего не пишет. */
@@ -239,8 +243,8 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } })
-  specPreview(@Body() dto: StockSpecPreviewDto) {
-    return this.stock.specPreview(dto);
+  specPreview(@Body() dto: StockSpecPreviewDto, @StockScoped() scope: StockScope | null) {
+    return this.stock.specPreview(dto, scope);
   }
 
   /** Спецификация из Excel, запись (SK-6): подтверждённые строки → брони одной пачкой; replace — снять прежнюю загрузку. */
@@ -250,8 +254,8 @@ export class StockController {
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } })
   @AuditAction({ action: 'stock.spec.applied', entityType: 'StockMovement' })
-  specApply(@Body() dto: StockSpecApplyDto, @CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.specApply(dto, user?.id);
+  specApply(@Body() dto: StockSpecApplyDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.specApply(dto, user?.id, scope);
   }
 
   /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */
@@ -259,8 +263,8 @@ export class StockController {
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
   @AuditAction({ action: 'stock.batch', entityType: 'StockMovement' })
-  async batch(@Body() dto: StockBatchDto, @CurrentUser() user?: AuthenticatedUser) {
-    await this.ownOnly(user, dto.lines.map((l) => l.materialId));
+  async batch(@Body() dto: StockBatchDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.stock.assertInScope(dto.lines.map((l) => l.materialId), scope);
     return this.stock.batch(dto, user?.id);
   }
 
@@ -268,8 +272,8 @@ export class StockController {
   @Post('batch/:batchId/cancel')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.batch.cancelled', entityType: 'StockMovement' })
-  cancelBatch(@Param('batchId') batchId: string, @CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.cancelBatch(batchId, user?.id);
+  cancelBatch(@Param('batchId') batchId: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.cancelBatch(batchId, user?.id, scope);
   }
 
   /** Состав изделия из выдач (SK-7): нетто выдач под позицию ÷ число изделий, разница с составом; цены — только деньговым ролям. Ничего не хранит. */
@@ -277,8 +281,8 @@ export class StockController {
   @Get('composition-suggest')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'salesOrderLineId', required: true, description: 'позиция заказа (incomes.id)' })
-  compositionSuggest(@Query('salesOrderLineId') salesOrderLineId: string, @CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.compositionSuggest(salesOrderLineId, canSeeMoney(user));
+  compositionSuggest(@Query('salesOrderLineId') salesOrderLineId: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.compositionSuggest(salesOrderLineId, canSeeMoney(user), scope);
   }
 
   /** Принять предложение в состав изделия (как «Изменить состав»); повтор не удваивает, строки не удаляются. */
@@ -287,8 +291,8 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.composition.accepted', entityType: 'Product' })
-  compositionAccept(@Body() dto: StockCompositionAcceptDto, @CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.compositionAccept(dto, canSeeMoney(user));
+  compositionAccept(@Body() dto: StockCompositionAcceptDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.compositionAccept(dto, canSeeMoney(user), scope);
   }
 
   /** Приход / списание / корректировка / бронь / снятие брони. */
@@ -296,24 +300,24 @@ export class StockController {
   @AppSection('stock', 'requests')
   @Get('items/:id/ordered')
   @Roles('admin', 'director', 'manager', 'user')
-  ordered(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
-    return this.stock.itemOrdered(id, canSeeMoney(user));
+  ordered(@Param('id') id: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    return this.stock.itemOrdered(id, canSeeMoney(user), scope);
   }
 
   /** Обрезок трубы / листа: своя позиция «… — обрезок 1,2 м» + приход; труба — метры уходят из позиции (СМ.2). */
   @Post('items/:id/offcut')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.offcut', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, offcut: (data as { offcut?: { name?: string } })?.offcut?.name }) })
-  async offcut(@Param('id') id: string, @Body() dto: StockOffcutDto, @CurrentUser() user?: AuthenticatedUser) {
-    await this.ownOnly(user, [id]);
+  async offcut(@Param('id') id: string, @Body() dto: StockOffcutDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.stock.assertInScope([id], scope);
     return this.stock.offcut(id, dto, user?.id);
   }
 
   @Post('items/:id/move')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.moved', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, quantity: (data as { quantity?: number })?.quantity }) })
-  async move(@Param('id') id: string, @Body() dto: StockMoveDto, @CurrentUser() user?: AuthenticatedUser) {
-    await this.ownOnly(user, [id]);
+  async move(@Param('id') id: string, @Body() dto: StockMoveDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.stock.assertInScope([id], scope);
     return this.stock.move(id, dto, user?.id);
   }
 
@@ -322,8 +326,8 @@ export class StockController {
   @UseGuards(ConfirmTokenGuard)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.deleted', entityType: 'Material', idParam: 'id' })
-  async remove(@Param('id') id: string, @CurrentUser() user?: AuthenticatedUser) {
-    await this.ownOnly(user, [id]);
+  async remove(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope([id], scope);
     return this.stock.removeItem(id);
   }
 
@@ -332,7 +336,8 @@ export class StockController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.restored', entityType: 'Material', idParam: 'id' })
-  restore(@Param('id') id: string) {
+  async restore(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope([id], scope);
     return this.stock.restoreItem(id);
   }
 }

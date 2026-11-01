@@ -1,5 +1,5 @@
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -7,6 +7,8 @@ import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
+import type { StockScope } from '../../common/stock-scope';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
@@ -17,6 +19,11 @@ import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** Склады (WZ): импорт и массовая запись каталога / прайсов создаёт заявки и позиции по всем категориям — роли с ограничением по складу закрыто. */
+const noScoped = (scope: StockScope | null) => {
+  if (scope) throw new ForbiddenException('Загрузка прайсов и каталога доступна ролям без ограничения по складу');
+};
 
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
 @ApiTags('Снабжение')
@@ -35,7 +42,8 @@ export class SupplyController {
   @Post('invoices')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.created', entityType: 'SupplyInvoice' })
-  createInvoices(@Body() dto: CreateInvoicesDto, @CurrentUser() user?: AuthenticatedUser) {
+  async createInvoices(@Body() dto: CreateInvoicesDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.invoices.assertRequests(dto.requestIds, scope);
     return this.invoices.create(dto.requestIds, user?.id);
   }
 
@@ -45,20 +53,21 @@ export class SupplyController {
   @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'q', required: false, description: '№ счёта или поставщик' })
   @ApiQuery({ name: 'contract', required: false, description: 'none — без договора, has — с договором' })
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
-  listInvoices(@Query() q: Record<string, string>) {
-    return this.invoices.list(q);
+  listInvoices(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
+    return this.invoices.list(q, scope);
   }
 
   @Get('invoices/:id')
   @Roles('admin', 'director', 'manager', 'user')
-  getInvoice(@Param('id') id: string) {
-    return this.invoices.get(id);
+  getInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    return this.invoices.get(id, scope);
   }
 
   @Patch('invoices/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.updated', entityType: 'SupplyInvoice', idParam: 'id' })
-  updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto, @CurrentUser() user?: AuthenticatedUser) {
+  async updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.invoices.assertWhole(id, scope);
     return this.invoices.update(id, dto, user?.id);
   }
 
@@ -67,7 +76,8 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.received', entityType: 'SupplyInvoice', idParam: 'id' })
-  receiveInvoice(@Param('id') id: string, @Body() dto: ReceiveInvoiceDto, @CurrentUser() user?: AuthenticatedUser) {
+  async receiveInvoice(@Param('id') id: string, @Body() dto: ReceiveInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.invoices.assertWhole(id, scope);
     return this.invoices.receive(id, dto.requestIds, user?.id);
   }
 
@@ -76,14 +86,16 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'director', 'accountant', 'manager')
   @AuditAction({ action: 'supply.invoice.paid', entityType: 'SupplyInvoice', idParam: 'id' })
-  payInvoice(@Param('id') id: string) {
+  async payInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.invoices.assertWhole(id, scope);
     return this.invoices.pay(id);
   }
 
   @Delete('invoices/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.deleted', entityType: 'SupplyInvoice', idParam: 'id' })
-  removeInvoice(@Param('id') id: string) {
+  async removeInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.invoices.assertWhole(id, scope);
     return this.invoices.remove(id);
   }
 
@@ -91,8 +103,8 @@ export class SupplyController {
   @Get('supplier-items')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
-  listSupplierItems(@Query() q: Record<string, string>) {
-    return this.excel.listItems(q);
+  listSupplierItems(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
+    return this.excel.listItems(q, scope);
   }
 
   // ───────── Каталог поставщиков v2: просмотр/экспорт — все роли раздела; правка и импорт — admin, manager ─────────
@@ -103,22 +115,22 @@ export class SupplyController {
   @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'unmatched', required: false, description: '1 — без связи с материалом' })
   @ApiQuery({ name: 'noPrice', required: false, description: '1 — без цены' }) @ApiQuery({ name: 'stale', required: false, description: '1 — цена старше 180 дней' })
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
-  catalogList(@Query() q: Record<string, string>) {
-    return this.catalog.list(q);
+  catalogList(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
+    return this.catalog.list(q, scope);
   }
 
   @AppSection('requests', 'suppliercatalog')
   @Get('catalog/items/:id')
   @Roles('admin', 'director', 'manager', 'user')
-  catalogItem(@Param('id') id: string) {
-    return this.catalog.get(id);
+  catalogItem(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    return this.catalog.get(id, scope);
   }
 
   @AppSection('requests', 'suppliercatalog')
   @Get('catalog/counts')
   @Roles('admin', 'director', 'manager', 'user')
-  catalogCounts() {
-    return this.catalog.counts();
+  catalogCounts(@StockScoped() scope: StockScope | null) {
+    return this.catalog.counts(scope);
   }
 
   @AppSection('requests', 'suppliercatalog')
@@ -133,10 +145,10 @@ export class SupplyController {
   @AppSection('requests', 'suppliercatalog')
   @Get('catalog/export')
   @Roles('admin', 'director', 'manager', 'user')
-  async catalogExport(@Query() q: Record<string, string>, @Res() res: Response) {
+  async catalogExport(@Query() q: Record<string, string>, @Res() res: Response, @StockScoped() scope: StockScope | null) {
     res.setHeader('Content-Type', XLSX);
     res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent('Каталог поставщиков.xlsx'));
-    res.send(await this.catalog.export(q));
+    res.send(await this.catalog.export(q, scope));
   }
 
   /** multipart: file; supplierId — поставщик по умолчанию (необязателен, если в файле ИНН/название). ?preview=1 — без записи. */
@@ -147,7 +159,8 @@ export class SupplyController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 }, storage: undefined }))
   @AuditAction({ action: 'supply.catalog.import', entityType: 'SupplierItem' })
-  catalogImport(@UploadedFile() file: Express.Multer.File, @Query('preview') preview: string, @Query('supplierId') qSupplier: string, @Body('supplierId') bSupplier: string, @CurrentUser() user?: AuthenticatedUser) {
+  catalogImport(@StockScoped() scope: StockScope | null, @UploadedFile() file: Express.Multer.File, @Query('preview') preview: string, @Query('supplierId') qSupplier: string, @Body('supplierId') bSupplier: string, @CurrentUser() user?: AuthenticatedUser) {
+    noScoped(scope);
     if (!file?.buffer) throw new BadRequestException('Файл не передан');
     const supplierId = qSupplier || bSupplier || undefined;
     return preview === '1' ? this.catalog.preview(file.buffer, supplierId) : this.catalog.apply(file.buffer, supplierId, user?.id);
@@ -156,7 +169,8 @@ export class SupplyController {
   @AppSection('requests', 'suppliercatalog')
   @Post('catalog/items')
   @Roles('admin', 'manager')
-  catalogCreate(@Body() dto: CatalogItemDto) {
+  catalogCreate(@Body() dto: CatalogItemDto, @StockScoped() scope: StockScope | null) {
+    noScoped(scope);
     return this.catalog.bulk([dto]);
   }
 
@@ -165,14 +179,17 @@ export class SupplyController {
   @Post('catalog/bulk')
   @HttpCode(200)
   @Roles('admin', 'manager')
-  catalogBulk(@Body() dto: CatalogBulkDto) {
+  catalogBulk(@Body() dto: CatalogBulkDto, @StockScoped() scope: StockScope | null) {
+    noScoped(scope);
     return this.catalog.bulk(dto.items);
   }
 
   @AppSection('requests', 'suppliercatalog')
   @Patch('catalog/items/:id')
   @Roles('admin', 'manager')
-  catalogPatch(@Param('id') id: string, @Body() dto: CatalogItemPatchDto) {
+  async catalogPatch(@Param('id') id: string, @Body() dto: CatalogItemPatchDto, @StockScoped() scope: StockScope | null) {
+    await this.catalog.assertItem(id, scope);
+    if (scope && dto.materialId !== undefined) noScoped(scope); // смена связи с позицией склада
     return this.catalog.patch(id, dto);
   }
 
@@ -182,7 +199,8 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.catalog.photo.added', entityType: 'SupplierItem', idParam: 'id' })
-  catalogAddPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto) {
+  async catalogAddPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto, @StockScoped() scope: StockScope | null) {
+    await this.catalog.assertItem(id, scope);
     return this.catalog.addPhoto(id, dto.photoId);
   }
 
@@ -190,20 +208,25 @@ export class SupplyController {
   @Put('catalog/items/:id/photos/:photoId/main')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.catalog.photo.main', entityType: 'SupplierItem', idParam: 'id' })
-  catalogMainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.catalog.mainPhoto(id, photoId); }
+  async catalogMainPhoto(@Param('id') id: string, @Param('photoId') photoId: string, @StockScoped() scope: StockScope | null) {
+    await this.catalog.assertItem(id, scope);
+    return this.catalog.mainPhoto(id, photoId);
+  }
 
   @AppSection('requests', 'suppliercatalog')
   @Delete('catalog/items/:id/photos/:photoId')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.catalog.photo.removed', entityType: 'SupplierItem', idParam: 'id' })
-  catalogRemovePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+  async catalogRemovePhoto(@Param('id') id: string, @Param('photoId') photoId: string, @StockScoped() scope: StockScope | null) {
+    await this.catalog.assertItem(id, scope);
     return this.catalog.removePhoto(id, photoId);
   }
 
   @AppSection('requests', 'suppliercatalog')
   @Delete('catalog/items/:id')
   @Roles('admin', 'manager')
-  catalogRemove(@Param('id') id: string) {
+  async catalogRemove(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.catalog.assertItem(id, scope);
     return this.catalog.remove(id);
   }
 
@@ -218,8 +241,8 @@ export class SupplyController {
   @ApiQuery({ name: 'requestedBy', required: false }) @ApiQuery({ name: 'priority', required: false })
   @ApiQuery({ name: 'from', required: false, description: 'ГГГГ-ММ-ДД' }) @ApiQuery({ name: 'to', required: false, description: 'ГГГГ-ММ-ДД' })
   @ApiQuery({ name: 'deleted', required: false, description: '1 — только удалённые (корзина)' })
-  list(@Query() q: Record<string, string>) {
-    return this.supply.list(q);
+  list(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
+    return this.supply.list(q, scope);
   }
 
   /** «Как называется у поставщика» (МВ.2): найти наши позиции для строк из таблицы поставщика. */
@@ -227,7 +250,8 @@ export class SupplyController {
   @Post('aliases/match')
   @HttpCode(200)
   @Roles('admin', 'director', 'manager', 'user')
-  matchAliases(@Body() body: { supplierName?: string; lines?: Array<{ name?: string; article?: string }> }) {
+  matchAliases(@Body() body: { supplierName?: string; lines?: Array<{ name?: string; article?: string }> }, @StockScoped() scope: StockScope | null) {
+    noScoped(scope); // подбор по всем позициям склада
     return this.supply.aliases().match(body?.supplierName, (body?.lines ?? []).slice(0, 500));
   }
 
@@ -236,7 +260,8 @@ export class SupplyController {
   @Post('aliases')
   @HttpCode(200)
   @Roles('admin', 'manager')
-  rememberAliases(@Body() body: { supplierName?: string; pairs?: Array<{ extName?: string; extArticle?: string; title: string; unit?: string; categoryName?: string; article?: string }> }) {
+  rememberAliases(@Body() body: { supplierName?: string; pairs?: Array<{ extName?: string; extArticle?: string; title: string; unit?: string; categoryName?: string; article?: string }> }, @StockScoped() scope: StockScope | null) {
+    noScoped(scope);
     return this.supply.aliases().remember(body?.supplierName, (body?.pairs ?? []).slice(0, 500));
   }
 
@@ -244,8 +269,8 @@ export class SupplyController {
   @AppSectionFree()
   @Get('lookups')
   @Roles('admin', 'director', 'manager', 'user')
-  lookups() {
-    return this.supply.lookups();
+  lookups(@StockScoped() scope: StockScope | null) {
+    return this.supply.lookups(scope);
   }
 
   /** Подсказка «уже заказывали» для формы: одна строка на название, без фото и лишних полей. */
@@ -253,28 +278,31 @@ export class SupplyController {
   @Get('requests/lookup')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤500, по умолчанию 50' })
-  lookup(@Query() q: Record<string, string>) {
-    return this.supply.lookup(q);
+  lookup(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
+    return this.supply.lookup(q, scope);
   }
 
   @Get('requests/:id')
   @Roles('admin', 'director', 'manager', 'user')
-  get(@Param('id') id: string) {
-    return this.supply.get(id);
+  get(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    return this.supply.get(id, scope);
   }
 
   @AppSection('requests', 'stock')
   @Post('requests')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
-  create(@Body() dto: SupplyRequestDto, @CurrentUser() user?: AuthenticatedUser) {
+  async create(@Body() dto: SupplyRequestDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.supply.assertNew(dto, scope);
     return this.supply.create(dto, user?.id);
   }
 
   @Patch('requests/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
-  update(@Param('id') id: string, @Body() dto: SupplyRequestDto, @CurrentUser() user?: AuthenticatedUser) {
+  async update(@Param('id') id: string, @Body() dto: SupplyRequestDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.supply.assertRequest(id, scope);
+    if (dto.materialId || dto.categoryId || dto.categoryName) await this.supply.assertNew(dto, scope);
     return this.supply.update(id, dto, user?.role, user?.id);
   }
 
@@ -283,7 +311,8 @@ export class SupplyController {
   @UseGuards(ConfirmTokenGuard)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.deleted', entityType: 'SupplyRequest', idParam: 'id' })
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.supply.assertRequest(id, scope);
     return this.supply.remove(id);
   }
 
@@ -293,7 +322,8 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.restored', entityType: 'SupplyRequest', idParam: 'id' })
-  restore(@Param('id') id: string) {
+  async restore(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+    await this.supply.assertRequest(id, scope);
     return this.supply.restore(id);
   }
 
@@ -302,20 +332,25 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.photo.added', entityType: 'SupplyRequest', idParam: 'id' })
-  addPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto) {
+  async addPhoto(@Param('id') id: string, @Body() dto: SupplyPhotoDto, @StockScoped() scope: StockScope | null) {
+    await this.supply.assertRequest(id, scope);
     return this.supply.addPhoto(id, dto.photoId);
   }
 
   @Put('requests/:id/photos/:photoId/main')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.photo.main', entityType: 'SupplyRequest', idParam: 'id' })
-  mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string) { return this.supply.mainPhoto(id, photoId); }
+  async mainPhoto(@Param('id') id: string, @Param('photoId') photoId: string, @StockScoped() scope: StockScope | null) {
+    await this.supply.assertRequest(id, scope);
+    return this.supply.mainPhoto(id, photoId);
+  }
 
   /** Убрать фото из заявки (сам файл остаётся в фотохранилище). */
   @Delete('requests/:id/photos/:photoId')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.photo.removed', entityType: 'SupplyRequest', idParam: 'id' })
-  removePhoto(@Param('id') id: string, @Param('photoId') photoId: string) {
+  async removePhoto(@Param('id') id: string, @Param('photoId') photoId: string, @StockScoped() scope: StockScope | null) {
+    await this.supply.assertRequest(id, scope);
     return this.supply.removePhoto(id, photoId);
   }
 
@@ -325,7 +360,8 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.received', entityType: 'SupplyRequest', idParam: 'id' })
-  receive(@Param('id') id: string, @Body() dto: SupplyReceiveDto, @CurrentUser() user?: AuthenticatedUser) {
+  async receive(@Param('id') id: string, @Body() dto: SupplyReceiveDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.supply.assertRequest(id, scope);
     return this.supply.receive(id, dto, user?.id);
   }
 
@@ -343,8 +379,10 @@ export class SupplyController {
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
     @Query('preview') preview: string,
+    @StockScoped() scope: StockScope | null,
     @CurrentUser() user?: AuthenticatedUser,
   ) {
+    noScoped(scope);
     if (!file?.buffer) throw new Error('Файл не передан');
     if (preview === '1') return this.excel.preview(file.buffer, id);
     return this.excel.apply(file.buffer, id, user?.id);

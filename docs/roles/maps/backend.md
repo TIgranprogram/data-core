@@ -1,5 +1,11 @@
 # Карта роли backend
 
+## Склады-зоны (WZ, шаги M сервер + L перевод, 2026-11-01, не закоммичено)
+- Доступ: `common/stock-scope.ts` (`stockScopeFor`, `inScope`, `scopeMatch`, `narrowToZone`, кэш зон/дерева/ролей), `common/decorators/stock-scoped.decorator.ts` (`@StockScoped()`), `common/supply-scope.ts` (заявки/каталог по `materialId`/`categoryId`).
+- Справочник: `modules/stock-zones/` (schema `stockzones`, service `refresh` + CRUD, controller `/stockzones`); `GET /stock/zones` — `stock.controller.ts`. Роль: `role.schema.ts`/`create-role.dto.ts` `warehouseIds`, `role.service.ts` `setRoleStockScope(name, doc)`.
+- Перевод: `stock/*` (`stock-core.service.ts` `visibleMaterials/assertMaterials`, search/catalog/movements/reservations/spec/composition принимают `StockScope`), `supply.controller|service`, `supply-invoice.service` (`assertWhole`, `partial`), `supplier-catalog.service`, `supplier-excel.service`, `material.controller|service`, `category.controller|service`.
+- Скрипт `scripts/stockzones-init.js` (+ `.test.mjs`); e2e `test/e2e/stock-zones.e2e-spec.ts` (прогнан на стенде-копии, зелёный). Ловушки: heredoc с обратными кавычками в `node -e` — править файлы скриптом через Write; CRLF-файлы — замены с нормализацией. openapi не перегенерирован (нужен Docker+Mongo). коммит: —
+
 ## Паспорта на весь заказ (ПНЗ.2, 2026-11-01, не закоммичено)
 - `product-passport/passport-order.ts` (`orderPlan`, `orderIssue`), `dto/order-issue.dto.ts`, `product-passport.service.ts` `orderHost`/`issuedOfOrder`, `passport-pdf.service.ts` `orderPdf`/`input`, `passport-pdf-v2.ts` `renderPassportsPdfV2`; маршруты в controller перед `:id`. Тесты `passport-order.spec.ts`. e2e/openapi не трогались.
 
@@ -122,3 +128,6 @@
 - Хост: `deploy/ha/switch/switch-watch.sh` (мост, проверен на заглушках в scratchpad: успех, расхождение, rsync, VPS-отказ с откатом соседа, аварийный, восстановление), `dc-switch.sh` (проверен), `SRV-ERP/setup-switch.sh` (НЕ запускался; nginx-блок проверен на заглушках), `SRV-ERP/refresh-copy.sh` (проверка role=main, роль standby после восстановления, маркер last-refresh).
 - Порт 4222 на VPS уже занят туннелем `datacore-ssh-tunnel` (ssh VM) — Sportin→VM идёт через него. Compose: `HA_SELF`, том `${DATA_DIR}/switch`.
 - Ловушки: `grep -q` в конвейере под pipefail даёт ложную неудачу (SIGPIPE) — брать `[[ "$(…)" == *x* ]]`; `String.replace` со строкой, где есть `$'`/`$&`, портит текст — только функция-замена; heredoc с `EOF` внутри JS в bash ломается — JS писать Write-ом.
+
+## QR-коды (QR-CODES п.1–5, 2026-11-01, не закоммичено)
+- `modules/qr/`: `qr-code.ts` (makeCode/CODE_RE/qrUrl), `qr.service.ts:ensureCode`/`resolve`/`print`, `qr-pdf.ts:renderQrSheet`, `qr.controller.ts` (+`QrRedirectController` `/q/:code`, исключён из префикса в `main.ts`), `qr.schema.ts`; `scripts/qr-backfill.js` (+test), `ensure-indexes.js` MODELS. Кнопки пульта — общие «Скрипт» (prodScripts). Хука «при создании позиции» нет — код выдаётся при печати/backfill. коммит: —

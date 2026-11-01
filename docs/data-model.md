@@ -99,6 +99,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `sectionIds` | `string[]` | Связь с секциями UI |
 | `appSections` | `string[]?` | SK-8a: разделы «Рабочего места», видимые роли (ид из `common/app-sections.ts`); нет / пусто — по иерархии роли; только видимость, не права |
 | `baseRole` | `string?` | SK-8c: только у своей роли (код `r-…`, задаёт сервер, неизменяем) — «права как у»: `user`/`manager`/`accountant`/`director` (не `admin`); права, деньги, permissions и pages — от неё. У встроенных и старых ролей поля нет |
+| `warehouseIds` | `string[]?` | WZ: склады (`stockzones._id`), которые видит и меняет роль; объединение; пусто — весь склад. `stockCategoryIds` (СМ.4, категории напрямую) — запасной путь, пока не перенесён скриптом `stockzones-init` |
 | `isActive` | `boolean` | — |
 | `createdAt` | `Date` | — |
 | `updatedAt` | `Date` | — |
@@ -871,3 +872,7 @@ Write-paths, которые должны быть all-or-nothing, использ
 ### `OfferBackground` (Фон КП) — коллекция `offerbackgrounds`
 
 `name`, `page` (1 — первая страница, 2 — вторая и следующие), `file` (`/uploads/offers/<uuid>.png|jpg`), `isDefault`. Без записей действуют встроенные фоны `backend/assets/offers/`.
+
+### `StockZone` (Склад-зона — справочник «Склады») — коллекция `stockzones`, модуль `modules/stock-zones` (WZ)
+
+Только data-core (CRM не читает; физические склады `warehouses` не трогаем). `name`, `categoryIds[]` (→ `categories` type material; подкатегории входят сами), `includeMaterialIds[]` / `excludeMaterialIds[]` (→ `materials`: добавки и исключения поштучно), `isDefault` («Основной»: ещё и позиции без категории; один), `order`, `deletedAt`. Доступ роли = объединение складов (`Role.warehouseIds`); правила — `common/stock-scope.ts`, `docs/MAP.md` строка `stock-zones`.

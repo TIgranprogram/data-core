@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Types } from 'mongoose';
 import type { ArticleDecision } from './article';
 import { normText } from '../../common/text/norm-text';
+import type { StockScope } from '../../common/stock-scope';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCompositionService } from './stock-composition.service';
 import { StockCoreService } from './stock-core.service';
@@ -52,20 +53,21 @@ export class StockService {
   totals() { return this.search.totals(); }
 
   // --- чтение позиций
-  listItems(q: Parameters<StockSearchService['listItems']>[0] = {}) { return this.search.listItems(q); }
-  lookup(scope?: string[] | null) { return this.search.lookup(scope); }
+  listItems(q: Parameters<StockSearchService['listItems']>[0] = {}, scope?: StockScope | null) { return this.search.listItems(q, scope); }
+  lookup(scope: StockScope | null) { return this.search.lookup(scope); }
   openRequests(mats: { _id: Types.ObjectId; name?: string }[]) { return this.search.openRequests(mats); }
-  itemOrdered(materialId: string, canMoney: boolean) { return this.search.itemOrdered(materialId, canMoney); }
-  categorySummary(scope?: string[] | null) { return this.search.categorySummary(scope); }
-  getItem(materialId: string) { return this.search.getItem(materialId); }
+  itemOrdered(materialId: string, canMoney: boolean, scope: StockScope | null) { return this.search.itemOrdered(materialId, canMoney, scope); }
+  categorySummary(scope: StockScope | null) { return this.search.categorySummary(scope); }
+  getItem(materialId: string, scope?: StockScope | null) { return this.search.getItem(materialId, scope); }
 
   // --- карточка позиции
   findMaterialByName(name: string) { return this.catalog.findMaterialByName(name); }
   autoArticle() { return this.catalog.autoArticle(); }
   skuFor(categoryId?: Types.ObjectId) { return this.catalog.skuFor(categoryId); }
-  createItem(dto: StockItemInput) { return this.catalog.createItem(dto); }
-  assertInScope(materialIds: string[], scope: string[]) { return this.catalog.assertInScope(materialIds, scope); }
-  scopeNewItem(dto: StockItemInput, scope: string[]) { return this.catalog.scopeNewItem(dto, scope); }
+  createItem(dto: StockItemInput, scope?: StockScope | null) { return this.catalog.createItem(dto, scope); }
+  /** Запись по чужой позиции — 403 (null — доступ полный). */
+  assertInScope(materialIds: string[], scope: StockScope | null) { return this.catalog.assertInScope(materialIds, scope); }
+  scopeNewItem(dto: StockItemInput, scope: StockScope) { return this.catalog.scopeNewItem(dto, scope); }
   updateItem(materialId: string, dto: StockItemInput) { return this.catalog.updateItem(materialId, dto); }
   addPhoto(materialId: string, photoId: string) { return this.catalog.addPhoto(materialId, photoId); }
   removePhoto(materialId: string, photoId: string) { return this.catalog.removePhoto(materialId, photoId); }
@@ -77,33 +79,33 @@ export class StockService {
   // --- движения
   move(materialId: string, dto: MoveInput, userId?: string) { return this.moves.move(materialId, dto, userId); }
   batch(dto: Parameters<StockMovementsService['batch']>[0], userId?: string) { return this.moves.batch(dto, userId); }
-  cancelBatch(batchId: string, userId?: string) { return this.moves.cancelBatch(batchId, userId); }
+  cancelBatch(batchId: string, userId: string | undefined, scope: StockScope | null) { return this.moves.cancelBatch(batchId, userId, scope); }
   offcut(materialId: string, dto: Parameters<StockMovementsService['offcut']>[1], userId?: string) { return this.moves.offcut(materialId, dto, userId); }
-  history(materialId: string, limit?: number) { return this.moves.history(materialId, limit); }
-  listMovements(q: Record<string, unknown> = {}) { return this.moves.listMovements(q); }
+  history(materialId: string, limit: number | undefined, scope: StockScope | null) { return this.moves.history(materialId, limit, scope); }
+  listMovements(q: Record<string, unknown>, scope: StockScope | null) { return this.moves.listMovements(q, scope); }
   movementMaterialId(id: string) { return this.moves.movementMaterialId(id); }
   correctMovement(id: string, qty: number, userId?: string) { return this.moves.correctMovement(id, qty, userId); }
   cancelMovement(id: string, userId?: string) { return this.moves.cancelMovement(id, userId); }
 
   // --- брони
   reserveList(dto: Parameters<StockReservationsService['reserveList']>[0], userId?: string) { return this.resv.reserveList(dto, userId); }
-  listReservations(scope?: string[] | null) { return this.resv.listReservations(scope); }
-  assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: string[]) { return this.resv.assertReservationsInScope(q, scope); }
+  listReservations(scope: StockScope | null) { return this.resv.listReservations(scope); }
+  assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: StockScope | null) { return this.resv.assertReservationsInScope(q, scope); }
   releaseReservation(id: string) { return this.resv.releaseReservation(id); }
-  releaseGroup(batchId: string) { return this.resv.releaseGroup(batchId); }
+  releaseGroup(batchId: string, scope: StockScope | null) { return this.resv.releaseGroup(batchId, scope); }
   issueReservations(dto: Parameters<StockReservationsService['issueReservations']>[0], userId?: string) { return this.resv.issueReservations(dto, userId); }
-  reservationDetail(key: string) { return this.resv.reservationDetail(key); }
+  reservationDetail(key: string, scope: StockScope | null) { return this.resv.reservationDetail(key, scope); }
   updateReservation(id: string, dto: Parameters<StockReservationsService['updateReservation']>[1]) { return this.resv.updateReservation(id, dto); }
-  reservationsByOrder(salesOrderId: string) { return this.resv.reservationsByOrder(salesOrderId); }
+  reservationsByOrder(salesOrderId: string, scope: StockScope | null) { return this.resv.reservationsByOrder(salesOrderId, scope); }
   issueOrder(dto: Parameters<StockReservationsService['issueOrder']>[0], userId?: string) { return this.resv.issueOrder(dto, userId); }
 
   // --- спецификация Excel
-  specPreview(dto: Parameters<StockSpecService['preview']>[0]) { return this.spec.preview(dto); }
-  specApply(dto: Parameters<StockSpecService['apply']>[0], userId?: string) { return this.spec.apply(dto, userId); }
+  specPreview(dto: Parameters<StockSpecService['preview']>[0], scope: StockScope | null) { return this.spec.preview(dto, scope); }
+  specApply(dto: Parameters<StockSpecService['apply']>[0], userId: string | undefined, scope: StockScope | null) { return this.spec.apply(dto, userId, scope); }
 
   // --- состав изделия из выдач (SK-7)
-  compositionSuggest(salesOrderLineId: string, money: boolean) { return this.composition.suggest(salesOrderLineId, money); }
-  compositionAccept(dto: Parameters<StockCompositionService['accept']>[0], money: boolean) { return this.composition.accept(dto, money); }
+  compositionSuggest(salesOrderLineId: string, money: boolean, scope: StockScope | null) { return this.composition.suggest(salesOrderLineId, money, scope); }
+  compositionAccept(dto: Parameters<StockCompositionService['accept']>[0], money: boolean, scope: StockScope | null) { return this.composition.accept(dto, money, scope); }
 
   static norm = normText;
 }

@@ -95,6 +95,14 @@ export class CreateRoleDto {
   @IsMongoId({ each: true, message: 'Некорректная категория' })
   stockCategoryIds?: string[];
 
+  @ApiPropertyOptional({ type: [String], description: 'Склады (stockzones.id), которые видит и меняет роль; пусто — весь склад' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20, { message: 'Складов не больше 20' })
+  @ArrayUnique({ message: 'Склад указан дважды' })
+  @IsMongoId({ each: true, message: 'Некорректный склад' })
+  warehouseIds?: string[];
+
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;

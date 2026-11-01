@@ -3,6 +3,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
+import { scopeMatch, type StockScope } from '../../common/stock-scope';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { offcutName } from './metal';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
@@ -232,10 +233,11 @@ export class StockMovementsService {
   }
 
   /** Отменить пакет: обратные движения ко всем его неотменённым движениям, одной транзакцией. */
-  async cancelBatch(batchId: string, userId?: string) {
+  async cancelBatch(batchId: string, userId?: string, scope?: StockScope | null) {
     const bid = oid(batchId, 'операции');
     const list = await this.movements.find({ batchId: bid, cancelledAt: null, deletedAt: null }).lean().exec();
     if (!list.length) throw new NotFoundException('Операция не найдена или уже отменена');
+    if (scope) await this.core.assertMaterials(list.map((mv) => mv.materialId), scope);
     const wh = await this.core.defaultWarehouse();
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     const now = new Date();
@@ -363,8 +365,9 @@ export class StockMovementsService {
     return { ...dto, qty: r.count!, note, byWeight: undefined };
   }
   /** История позиции: движения склада и брони, новые сверху. */
-  async history(materialId: string, limit?: number) {
+  async history(materialId: string, limit?: number, scope?: StockScope | null) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
+    await this.core.assertMaterials([materialId], scope);
     const matId = new Types.ObjectId(materialId);
     const [mv, rs] = await Promise.all([
       this.movements.find({ materialId: matId, deletedAt: null }).sort({ date: -1 }).limit(200).lean().exec(),
@@ -385,16 +388,15 @@ export class StockMovementsService {
    * Журнал движений по всем позициям (раздел «Движения»): страницы, тип, период, позиция, поиск по наименованию.
    * `delta` — изменение остатка со знаком; у записей из Google-таблицы остаток по ним не менялся (source).
    */
-  async listMovements(q: Record<string, unknown> = {}) {
+  async listMovements(q: Record<string, unknown> = {}, scope?: StockScope | null) {
     const p = parseList(q, { sortable: ['date', 'qty', 'type', 'createdAt'], defaultSort: '-date', defaultLimit: 50, maxLimit: 500 });
     const filter: Record<string, unknown> = { deletedAt: null, materialId: { $ne: null } };
     if (q.type) filter.type = { $in: String(q.type).split(',') };
     const range = dateRange(q.from, q.to);
     if (range) filter.date = range;
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
-    if (q.scopeCategoryId) { // СМ.4: журнал только по категориям роли
-      const ids = oids(q.scopeCategoryId);
-      const own = await this.materials.find({ categoryId: { $in: [...ids, ...ids.map(String)] } }, { _id: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    if (scope) { // склады (WZ): журнал только по позициям доступных складов
+      const own = await this.materials.find(scopeMatch(scope), { _id: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
       const wanted = q.materialId ? new Set(oids(q.materialId).map(String)) : null;
       filter.materialId = { $in: own.map((m) => m._id).filter((id) => !wanted || wanted.has(String(id))) };
     }

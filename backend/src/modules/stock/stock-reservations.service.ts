@@ -4,6 +4,7 @@ import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { loadLinePhotos } from '../../common/photos';
+import { inScope, type StockScope } from '../../common/stock-scope';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
@@ -78,19 +79,19 @@ export class StockReservationsService {
 
   /** Активные брони, сгруппированные по названию (для «Бронь по списку»). */
   /** СМ.4: брони — из категорий роли, иначе 403. Нет списка, но есть заказ — все активные брони заказа. */
-  async assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: string[]) {
+  async assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: StockScope | null | undefined) {
+    if (!scope) return;
     const filter = q.ids?.length ? { _id: { $in: q.ids.map((x) => new Types.ObjectId(x)) } } : { salesOrderId: new Types.ObjectId(q.salesOrderId), status: 'active', deletedAt: null };
     const list = await this.reservations.find(filter, { materialId: 1 }).lean().exec();
-    const mats = await this.materials.find({ _id: { $in: list.map((d) => d.materialId).filter(Boolean) } }, { categoryId: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
-    if (mats.some((m) => !scope.includes(String(m.categoryId)))) throw new ForbiddenException('Эта бронь не из вашего раздела склада');
+    await this.core.assertMaterials(list.map((d) => d.materialId), scope, 'Эта бронь не из вашего склада');
   }
 
-  async listReservations(scope?: string[] | null) {
+  async listReservations(scope?: StockScope | null) {
     const found = await this.reservations.find({ status: 'active', isActive: true, deletedAt: null }).sort({ createdAt: -1 }).limit(2000).lean().exec();
     const mats = await this.materials.find({ _id: { $in: found.map((d) => d.materialId).filter(Boolean) } }, { name: 1, unit: 1, categoryId: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
     const nm = new Map(mats.map((m) => [String(m._id), m]));
-    // СМ.4: роль видит брони только своих категорий
-    const docs = scope ? found.filter((d) => scope.includes(String(nm.get(String(d.materialId))?.categoryId))) : found;
+    // склады (WZ): видны брони только доступных позиций
+    const docs = scope ? found.filter((d) => inScope(scope, { id: d.materialId, categoryId: nm.get(String(d.materialId))?.categoryId })) : found;
     // Кто поставил и под какой заказ — чтобы на «Сегодня» было видно, чья бронь и для чего
     type Extra = { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date; createdBy?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId };
     const ex = docs as (typeof docs[number] & Extra)[];
@@ -153,9 +154,10 @@ export class StockReservationsService {
   }
 
   /** Снять всю бронь списка. */
-  async releaseGroup(batchId: string) {
-    const list = await this.reservations.find({ batchId: oid(batchId, 'брони'), status: 'active', deletedAt: null }, { _id: 1 }).lean().exec();
+  async releaseGroup(batchId: string, scope?: StockScope | null) {
+    const list = await this.reservations.find({ batchId: oid(batchId, 'брони'), status: 'active', deletedAt: null }, { _id: 1, materialId: 1 }).lean().exec();
     if (!list.length) throw new NotFoundException('Бронь не найдена или уже снята');
+    await this.core.assertMaterials(list.map((r) => r.materialId), scope, 'Эта бронь не из вашего склада');
     for (const r of list) await this.releaseReservation(String(r._id));
     return { batchId, released: list.length };
   }
@@ -284,7 +286,7 @@ export class StockReservationsService {
    * Брони заказа для «Выдать по заказу» (SK-6): активные брони, сколько на складе (хватит ли выдать) и «висящий» ли заказ.
    * Без цен. Позиция заказа — `lineNo` и название из incomes.
    */
-  async reservationsByOrder(salesOrderId: string) {
+  async reservationsByOrder(salesOrderId: string, scope?: StockScope | null) {
     const id = oid(salesOrderId, 'заказа');
     const db = this.connection.db!;
     const [order, docs, wh] = await Promise.all([
@@ -294,7 +296,8 @@ export class StockReservationsService {
     ]);
     if (!order) throw new NotFoundException('Заказ не найден');
     type Extra = { batchId?: Types.ObjectId; groupName?: string; salesOrderLineId?: Types.ObjectId };
-    const ex = docs as (typeof docs[number] & Extra)[];
+    const seen = await this.core.visibleMaterials(docs.map((d) => d.materialId), scope);
+    const ex = (docs as (typeof docs[number] & Extra)[]).filter((d) => !seen || seen.has(String(d.materialId))); // смешанный заказ: только свои строки
     const matIds = [...new Set(ex.map((d) => String(d.materialId)))].map((m) => new Types.ObjectId(m));
     const lineIds = ex.map((d) => d.salesOrderLineId).filter(Boolean) as Types.ObjectId[];
     const [mats, stocks, lines] = await Promise.all([
@@ -341,11 +344,13 @@ export class StockReservationsService {
    * кому выдавали, и заявки снабжения на то, чего не хватило («Заказать недостающее», clientUid `short-<batchId>-…`).
    * key — batchId списка или id одиночной брони.
    */
-  async reservationDetail(key: string) {
+  async reservationDetail(key: string, scope?: StockScope | null) {
     const id = oid(key, 'брони');
     let docs = await this.reservations.find({ batchId: id, deletedAt: null }).sort({ createdAt: 1 }).lean().exec();
     if (!docs.length) docs = await this.reservations.find({ _id: id, deletedAt: null }).lean().exec();
     if (!docs.length) throw new NotFoundException('Бронь не найдена');
+    const seen = await this.core.visibleMaterials(docs.map((d) => d.materialId), scope);
+    if (seen) { docs = docs.filter((d) => seen.has(String(d.materialId))); if (!docs.length) throw new ForbiddenException('Эта бронь не из вашего склада'); }
     type Extra = { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date; createdBy?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId; issuedQty?: number };
     const head = docs[0] as typeof docs[number] & Extra;
     const db = this.connection.db!;
@@ -354,7 +359,7 @@ export class StockReservationsService {
       this.movements.find({ reservationId: { $in: docs.map((d) => d._id) }, deletedAt: null, cancelledAt: null }).sort({ date: -1 }).lean().exec(),
       head.salesOrderId ? db.collection('salesorders').findOne({ _id: head.salesOrderId }, { projection: { orderNo: 1, title: 1, customer: 1, stage: 1, deletedAt: 1 } }) : null,
       head.createdBy ? db.collection('users').findOne({ _id: head.createdBy }, { projection: { displayName: 1, username: 1 } }) : null,
-      head.batchId ? db.collection('supplyrequests').find({ clientUid: { $regex: '^short-' + String(head.batchId) + '-' }, deletedAt: null }, { projection: { num: 1, title: 1, status: 1, qty: 1, unit: 1 } }).toArray() : [],
+      head.batchId ? db.collection('supplyrequests').find({ clientUid: { $regex: '^short-' + String(head.batchId) + '-' }, deletedAt: null }, { projection: { num: 1, title: 1, status: 1, qty: 1, unit: 1, materialId: 1 } }).toArray() : [],
     ]);
     const nm = new Map(mats.map((m) => [String(m._id), m]));
     const who = await this.core.issuedNames(issues);
@@ -373,7 +378,8 @@ export class StockReservationsService {
       lines,
       issues: issues.map((mv) => ({ id: String(mv._id), date: mv.date, qty: mv.qty, name: nm.get(String(mv.materialId))?.name ?? '', unit: nm.get(String(mv.materialId))?.unit ?? '',
         to: who.get(String(mv._id)) ?? null, batchId: (mv as { batchId?: Types.ObjectId }).batchId ? String((mv as { batchId?: Types.ObjectId }).batchId) : null })),
-      requests: (requests as { _id: Types.ObjectId; num?: number; title?: string; status?: string; qty?: number; unit?: string }[])
+      requests: (requests as { _id: Types.ObjectId; num?: number; title?: string; status?: string; qty?: number; unit?: string; materialId?: Types.ObjectId }[])
+        .filter((r) => !seen || !r.materialId || seen.has(String(r.materialId)))
         .map((r) => ({ id: String(r._id), num: r.num ?? null, title: r.title ?? '', status: r.status ?? '', qty: r.qty ?? null, unit: r.unit ?? '' })),
     };
   }

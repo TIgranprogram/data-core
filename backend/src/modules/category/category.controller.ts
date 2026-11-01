@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
+import type { StockScope } from '../../common/stock-scope';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -14,15 +16,15 @@ export class CategoryController {
 
   @Get()
   @Roles('admin', 'director', 'manager')
-  list(@CurrentUser() user: AuthenticatedUser, @Query('type') type?: string) { return this.service.findAll(type, user.organizationId); }
+  list(@CurrentUser() user: AuthenticatedUser, @StockScoped() scope: StockScope | null, @Query('type') type?: string) { return this.service.findAll(type, user.organizationId, scope); }
 
   @Get('tree')
   @Roles('admin', 'director', 'manager')
-  tree(@CurrentUser() user: AuthenticatedUser, @Query('type') type?: string) { return this.service.buildTree(type, user.organizationId); }
+  tree(@CurrentUser() user: AuthenticatedUser, @StockScoped() scope: StockScope | null, @Query('type') type?: string) { return this.service.buildTree(type, user.organizationId, scope); }
 
   @Get(':id')
   @Roles('admin', 'director', 'manager')
-  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) { return this.service.findById(id, user.organizationId); }
+  findOne(@Param('id') id: string, @StockScoped() scope: StockScope | null, @CurrentUser() user: AuthenticatedUser) { return this.service.findById(id, user.organizationId, scope); }
 
   @Post()
   @Roles('admin')

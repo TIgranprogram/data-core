@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CounterModule } from '../counter/counter.module';
+import { StockZonesModule } from '../stock-zones/stock-zones.module';
 import { Material, MaterialSchema } from '../material/material.schema';
 import { Reservation, ReservationSchema } from './schemas/reservation.schema';
 import { StockMovement, StockMovementSchema } from './schemas/stock-movement.schema';
@@ -20,6 +21,7 @@ import { StockService } from './stock.service';
 @Module({
   imports: [
     CounterModule,
+    StockZonesModule,
     MongooseModule.forFeature([
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: StorageItem.name, schema: StorageItemSchema },

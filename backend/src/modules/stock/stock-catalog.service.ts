@@ -5,6 +5,7 @@ import { normText } from '../../common/text/norm-text';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
+import type { StockScope } from '../../common/stock-scope';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { Material, MaterialDocument } from '../material/material.schema';
@@ -50,28 +51,32 @@ export class StockCatalogService {
 
   /** Новая позиция: материал + строка остатка (0). Позиция с тем же наименованием не дублируется. */
   /** СМ.4: все позиции — из категорий роли, иначе 403. */
-  async assertInScope(materialIds: string[], scope: string[]) {
-    const ids = [...new Set(materialIds)].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
-    const mats = await this.materials.find({ _id: { $in: ids } }, { categoryId: 1 }).lean().exec();
-    if (mats.some((m) => !scope.includes(String(m.categoryId)))) throw new ForbiddenException('Эта позиция не из вашего раздела склада');
+  assertInScope(materialIds: string[], scope: StockScope | null | undefined) {
+    return this.core.assertMaterials(materialIds, scope);
   }
 
   /** СМ.4: новая позиция роли — только в её категории; категория не указана — первая своя. */
-  async scopeNewItem(dto: StockItemInput, scope: string[]): Promise<StockItemInput> {
-    if (dto.categoryId) { if (scope.includes(String(dto.categoryId))) return dto; throw new ForbiddenException('Эта категория не из вашего раздела склада'); }
-    if (!dto.categoryName?.trim()) return { ...dto, categoryId: scope[0] };
-    const own = await this.connection.db!.collection('categories').find({ _id: { $in: scope.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray();
+  async scopeNewItem(dto: StockItemInput, scope: StockScope): Promise<StockItemInput> {
+    const own0 = new Set(scope.categoryIds);
+    if (dto.categoryId) { if (own0.has(String(dto.categoryId))) return dto; throw new ForbiddenException('Эта категория не из вашего раздела склада'); }
+    if (!dto.categoryName?.trim()) {
+      if (scope.noCategory) return dto; // «Основной»: позиция без категории — его
+      if (!scope.categoryIds.length) throw new ForbiddenException('Укажите категорию из вашего раздела склада');
+      return { ...dto, categoryId: scope.categoryIds[0] };
+    }
+    const own = await this.connection.db!.collection('categories').find({ _id: { $in: scope.categoryIds.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray();
     const hit = own.find((c) => normText(c.name) === normText(dto.categoryName));
     if (!hit) throw new ForbiddenException('Эта категория не из вашего раздела склада');
     return { ...dto, categoryId: String(hit._id) };
   }
 
-  async createItem(dto: StockItemInput) {
+  async createItem(dto: StockItemInput, scope?: StockScope | null) {
     const name = String(dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Укажите наименование');
     const existing = await this.findMaterialByName(name);
     if (!existing && dto.article?.trim()) await this.assertArticleFree(dto.article.trim());
     if (existing) {
+      await this.core.assertMaterials([existing._id], scope); // такое же наименование у чужой позиции — не обходной путь к ней
       // ТИ-8: уже заполненное «название в счёте» не затираем
       const keepInvoice = (existing as { invoiceName?: string }).invoiceName;
       await this.updateItem(String(existing._id), { ...dto, name: undefined, ...(keepInvoice ? { invoiceName: undefined } : {}) });

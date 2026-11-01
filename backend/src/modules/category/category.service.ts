@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import type { StockScope } from '../../common/stock-scope';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category, CategoryDocument } from './category.schema';
@@ -33,16 +34,18 @@ export class CategoryService {
     }
   }
 
-  async findAll(type?: string, organizationId?: string | null): Promise<CategoryDocument[]> {
+  async findAll(type?: string, organizationId?: string | null, scope: StockScope | null = null): Promise<CategoryDocument[]> {
     const filter: Record<string, unknown> = { deletedAt: null, ...this.organizationFilter(organizationId) };
     if (type) filter.type = type;
+    // склады (WZ): категории материалов — только доступного склада; прочие типы не ограничены
+    if (scope) filter.$and = [{ $or: [{ type: { $ne: 'material' } }, { _id: { $in: scope.categoryIds.filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x)) } }] }];
     return this.model.find(filter).sort({ type: 1, fullPath: 1 }).exec();
   }
 
-  async findById(id: string, organizationId?: string | null): Promise<CategoryDocument> {
+  async findById(id: string, organizationId?: string | null, scope: StockScope | null = null): Promise<CategoryDocument> {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Category ${id} not found`);
     const doc = await this.model.findOne({ _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }).exec();
-    if (!doc) throw new NotFoundException(`Category ${id} not found`);
+    if (!doc || (scope && doc.type === 'material' && !scope.categoryIds.includes(String(doc._id)))) throw new NotFoundException(`Category ${id} not found`);
     return doc;
   }
 
@@ -163,8 +166,8 @@ export class CategoryService {
     return this.findAll(undefined, organizationId);
   }
 
-  async buildTree(type?: string, organizationId?: string | null): Promise<CategoryNode[]> {
-    const flat = await this.findAll(type, organizationId);
+  async buildTree(type?: string, organizationId?: string | null, scope: StockScope | null = null): Promise<CategoryNode[]> {
+    const flat = await this.findAll(type, organizationId, scope);
     const map = new Map<string, CategoryNode>();
     flat.forEach((c) => { const obj = c.toObject() as { name: string; slug: string; type: string; parentId?: Types.ObjectId; fullPath?: string; skuPrefix: string; sortOrder: number; isActive: boolean; description?: string }; map.set(c.id, { _id: c.id, name: obj.name, slug: obj.slug, type: obj.type, parentId: obj.parentId?.toString(), fullPath: obj.fullPath, skuPrefix: obj.skuPrefix, sortOrder: obj.sortOrder, isActive: obj.isActive, children: [] }); });
     const roots: CategoryNode[] = [];

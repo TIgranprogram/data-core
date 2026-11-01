@@ -4,6 +4,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { oid, oids, parseList } from '../../common/list-query';
+import { inScope, type StockScope } from '../../common/stock-scope';
 import { sameRe } from '../../common/text/same-text';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { articleView } from './article';
@@ -48,7 +49,7 @@ export class StockSearchService {
    * Остаток лежит в другой коллекции, поэтому фильтр по состоянию, сортировка и страницы — в памяти
    * (сотни–тысячи позиций — это быстро). status: ok | low | none | reserved | ordered (через запятую; ordered — есть открытые заявки, ждут поставку). deleted=1 — корзина.
    */
-  async listItems(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] } = {}) {
+  async listItems(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] } = {}, scope?: StockScope | null) {
     const p = parseList(q, { sortable: ITEM_SORT, defaultSort: 'name', defaultLimit: 1000, maxLimit: 10000 });
     // Поиск — в памяти (search-norm): «м10 гайка» = «Гайка …, M10 …», слова в любом порядке
     const tokens = q.search ? searchTokens(q.search) : [];
@@ -58,7 +59,9 @@ export class StockSearchService {
     // Выборка по id (карточка позиции, ответ после записи) — без кэша: версия коллекции растёт по потоку изменений
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
     const { wh, rows: found } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
-    const all = q.hideEmptyMetal ? found.filter((r) => !isEmptyMetal(r)) : found;
+    // склады (WZ): чужие позиции отсекаются здесь, после общего кэша строк; нулевой металл роль со складом видит (своя работа)
+    const seen = scope ? found.filter((r) => inScope(scope, r)) : found;
+    const all = q.hideEmptyMetal ? seen.filter((r) => !isEmptyMetal(r)) : seen;
     // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
     const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0, ordered: 0 };
     for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; if (r.ordered > 0) counts.ordered++; }
@@ -90,12 +93,12 @@ export class StockSearchService {
    * SK-8d: короткий список позиций для поиска из соседних разделов (заявка, состав изделия) — GET /stock/lookup.
    * Только поля для выбора, без фото, бронирований, заявок; строки — тот же кэш, что у полного списка без фильтров.
    */
-  async lookup(scope?: string[] | null) {
+  async lookup(scope?: StockScope | null) {
     const key = JSON.stringify([false, null, [], null, null, null, []]); // = ключ listItems({}) — общий кэш
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const items = rows
-      .filter((r) => (scope ? scope.includes(String(r.categoryId)) : !isEmptyMetal(r)))
+      .filter((r) => (scope ? inScope(scope, r) : !isEmptyMetal(r)))
       .map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free }))
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ru'));
     return { items };
@@ -198,7 +201,8 @@ export class StockSearchService {
    * «Заказано» и «Поставщики / цены» в карточке позиции (ЗП.1, ЗП.5): открытые заявки (№, кол-во, статус, дата счёта, кто),
    * «в пути» итогом; полученные заявки — у кого брали и почём (последняя цена за ед.; деньги — только деньги-ролям).
    */
-  async itemOrdered(materialId: string, canMoney: boolean) {
+  async itemOrdered(materialId: string, canMoney: boolean, scope?: StockScope | null) {
+    await this.core.assertMaterials([materialId], scope);
     const mat = await this.materials.findOne({ _id: oid(materialId, 'позиции'), deletedAt: null }, { name: 1 }).lean().exec();
     if (!mat) throw new NotFoundException('Позиция не найдена');
     const open = (await this.openRequests([mat as { _id: Types.ObjectId; name?: string }])).get(String(mat._id)) ?? [];
@@ -226,13 +230,13 @@ export class StockSearchService {
   }
 
   /** Сводка по категориям (плитки «Склада»): сколько позиций, сколько к закупке и сколько нет на складе. */
-  async categorySummary(scope?: string[] | null) {
+  async categorySummary(scope?: StockScope | null) {
     // строки — из общего кэша (тот же ключ, что у listItems({}) и lookup): без сортировки, фото и «висящей» брони
     const key = JSON.stringify([false, null, [], null, null, null, []]);
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
-    const mine = rows.filter((r) => (scope ? scope.includes(String(r.categoryId)) : !isEmptyMetal(r)));
+    const mine = rows.filter((r) => (scope ? inScope(scope, r) : !isEmptyMetal(r)));
     for (const i of mine) {
       const id = i.categoryId ?? 'none';
       const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0, ordered: 0 };
@@ -246,9 +250,9 @@ export class StockSearchService {
     return { items, total: mine.length };
   }
 
-  async getItem(materialId: string) {
+  async getItem(materialId: string, scope?: StockScope | null) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
-    const r = await this.listItems({ materialIds: [new Types.ObjectId(materialId)] });
+    const r = await this.listItems({ materialIds: [new Types.ObjectId(materialId)] }, scope);
     if (!r.items[0]) throw new NotFoundException('Позиция не найдена');
     return r.items[0];
   }

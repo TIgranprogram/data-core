@@ -4,6 +4,7 @@ import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { netIssuedByLine } from '../../common/issued-net';
 import { oid } from '../../common/list-query';
+import { inScope, type StockScope } from '../../common/stock-scope';
 import { ShowcaseComposition } from '../showcase/showcase-composition';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -38,8 +39,16 @@ export class StockCompositionService {
   private get db() { return this.connection.db!; }
   private comp = new ShowcaseComposition(() => this.db);
 
+  /** Склады (WZ): в предложении только выдачи позиций доступных складов. */
+  private async ownNets<T extends { materialId: string }>(nets: T[], scope?: StockScope | null): Promise<T[]> {
+    if (!scope || !nets.length) return nets;
+    const mats = await this.db.collection('materials').find({ _id: { $in: nets.map((n) => new Types.ObjectId(n.materialId)) } }, { projection: { categoryId: 1 } }).toArray();
+    const ok = new Set(mats.filter((m) => inScope(scope, m)).map((m) => String(m._id)));
+    return nets.filter((n) => ok.has(n.materialId));
+  }
+
   /** Предложение по позиции заказа. Цены (price/sum/total) — только при `money`. */
-  async suggest(salesOrderLineId: string, money: boolean) {
+  async suggest(salesOrderLineId: string, money: boolean, scope?: StockScope | null) {
     const lineId = oid(salesOrderLineId, 'позиции заказа');
     const line = await this.db.collection('incomes').findOne({ _id: lineId, deletedAt: null }, { projection: { orderNo: 1, lineNo: 1, title: 1, productId: 1, qty: 1 } });
     if (!line) throw new NotFoundException('Позиция заказа не найдена');
@@ -51,7 +60,7 @@ export class StockCompositionService {
     if (!product) return { ...head, productId: String(line.productId), productName: null, reason: 'Изделие позиции не найдено (или в корзине)', items: [] as Array<Record<string, unknown>> };
 
     const moves = await this.db.collection('stockmovements').find({ salesOrderLineId: lineId }, { projection: { type: 1, qty: 1, materialId: 1, salesOrderLineId: 1, isReturn: 1, cancelledAt: 1, cancelOf: 1 } }).toArray();
-    const nets = netIssuedByLine(moves as never).filter((n) => n.net > 0);
+    const nets = await this.ownNets(netIssuedByLine(moves as never).filter((n) => n.net > 0), scope);
     const have = new Map<string, number>();
     for (const l of (product.composition as Record<string, unknown>[] | undefined) ?? []) {
       if (l.lineType !== 'material' && l.lineType !== undefined) continue;
@@ -78,8 +87,8 @@ export class StockCompositionService {
    * Принять предложение в состав изделия. materialIds — какие строки принять (по умолчанию все, что отличаются).
    * Остальные строки состава остаются как были; ничего не удаляется. Ответ — свежее предложение + applied.
    */
-  async accept(dto: { salesOrderLineId: string; materialIds?: string[] }, money: boolean) {
-    const s = await this.suggest(dto.salesOrderLineId, false);
+  async accept(dto: { salesOrderLineId: string; materialIds?: string[] }, money: boolean, scope?: StockScope | null) {
+    const s = await this.suggest(dto.salesOrderLineId, false, scope);
     if (!s.productId) throw new BadRequestException('У позиции нет изделия — состав пополнять некуда');
     const only = dto.materialIds?.length ? new Set(dto.materialIds.map(String)) : null;
     const items = s.items as unknown as SuggestRow[];
@@ -99,6 +108,6 @@ export class StockCompositionService {
       for (const r of take) lines.set(r.materialId, { materialId: r.materialId, quantity: r.perProduct, notes: lines.get(r.materialId)?.notes ?? note });
       await this.comp.set(s.productId, [...lines.values()].map((l) => ({ lineType: 'material', ...l })), ['material']);
     }
-    return { ...(await this.suggest(dto.salesOrderLineId, money)), applied: take.map((r) => ({ materialId: r.materialId, name: r.name, quantity: r.perProduct })) };
+    return { ...(await this.suggest(dto.salesOrderLineId, money, scope)), applied: take.map((r) => ({ materialId: r.materialId, name: r.name, quantity: r.perProduct })) };
   }
 }

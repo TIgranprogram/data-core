@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
+import { scopeMatch, type StockScope } from '../../common/stock-scope';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockCoreService } from './stock-core.service';
@@ -30,18 +31,18 @@ export class StockSpecService {
   ) {}
 
   /** Просмотр до записи: matched (готово), short (не хватает свободного), notMatched (не найдено / неоднозначно / другая единица / чужая позиция). */
-  async preview(dto: { salesOrderId: string; lines: PreviewLine[] }) {
+  async preview(dto: { salesOrderId: string; lines: PreviewLine[] }, scope?: StockScope | null) {
     const db = this.connection.db!;
     const order = await resolveTarget(db, { salesOrderId: dto.salesOrderId });
     const orderId = order.salesOrderId as Types.ObjectId;
     const wh = await this.core.defaultWarehouse();
     // позиции склада — одним запросом (названия сравниваются в «нормальном виде», в базе так не найти), потом сопоставление в памяти
-    const mats = await this.materials.find({ deletedAt: null }, { name: 1, unit: 1, article: 1, sku: 1, internalArticle: 1 }).lean().exec();
+    const mats = await this.materials.find({ $and: [{ deletedAt: null }, scopeMatch(scope)] }, { name: 1, unit: 1, article: 1, sku: 1, internalArticle: 1 }).lean().exec();
     const idx = buildIndex(mats.map((m) => ({ id: String(m._id), name: String(m.name), unit: m.unit, article: m.article, sku: m.sku, internalArticle: (m as { internalArticle?: string }).internalArticle })));
     const [stocks, ownLines, previous] = await Promise.all([
       db.collection('storageitems').find({ warehouseId: wh._id, deletedAt: null }, { projection: { materialId: 1, quantity: 1, reservedQty: 1, zoneName: 1 } }).sort({ zoneName: 1 }).toArray(),
       lookupOrderLines(db, orderId, dto.lines.map((l) => l.salesOrderLineId ?? '')),
-      this.previousLoads(orderId),
+      this.previousLoads(orderId, scope),
     ]);
     // свободно считаем по той же строке остатка, куда встанет бронь (первая по зоне), и расходуем по ходу файла
     const free = new Map<string, number>();
@@ -66,8 +67,10 @@ export class StockSpecService {
   }
 
   /** Прежние загрузки спецификации этого заказа (активные брони) — чтобы спросить «заменить / добавить / отмена». */
-  private async previousLoads(orderId: Types.ObjectId) {
-    const rs = await this.reservations.find({ salesOrderId: orderId, status: 'active', deletedAt: null, groupName: { $regex: '^' + SPEC_PREFIX } }, { batchId: 1, groupName: 1, createdAt: 1 }).lean().exec();
+  private async previousLoads(orderId: Types.ObjectId, scope?: StockScope | null) {
+    const all = await this.reservations.find({ salesOrderId: orderId, status: 'active', deletedAt: null, groupName: { $regex: '^' + SPEC_PREFIX } }, { batchId: 1, groupName: 1, createdAt: 1, materialId: 1 }).lean().exec();
+    const seen = scope ? await this.core.visibleMaterials(all.map((r) => r.materialId), scope) : null;
+    const rs = seen ? all.filter((r) => seen.has(String(r.materialId))) : all; // чужие строки загрузки не показываем
     const by = new Map<string, { batchId: string | null; groupName: string; createdAt?: Date; count: number }>();
     for (const r of rs as (typeof rs[number] & { batchId?: Types.ObjectId; groupName?: string; createdAt?: Date })[]) {
       const k = r.batchId ? String(r.batchId) : String(r._id);
@@ -83,7 +86,8 @@ export class StockSpecService {
    * (`takeFree: true` — бронируется сколько свободно, остальное тоже в `skipped`). `replace` — сперва снять
    * активные брони прежней загрузки этого заказа. Повтор с тем же clientUid дублей не создаёт.
    */
-  async apply(dto: { salesOrderId: string; lines: ApplyLine[]; replace?: boolean; takeFree?: boolean; clientUid?: string }, userId?: string) {
+  async apply(dto: { salesOrderId: string; lines: ApplyLine[]; replace?: boolean; takeFree?: boolean; clientUid?: string }, userId?: string, scope?: StockScope | null) {
+    if (scope) await this.core.assertMaterials(dto.lines.map((l) => l.materialId), scope);
     const db = this.connection.db!;
     if (dto.clientUid) {
       const prev = await this.reservations.findOne({ clientUid: dto.clientUid }).lean().exec() as (ReservationDocument & { batchId?: Types.ObjectId; groupName?: string }) | null;
@@ -115,7 +119,9 @@ export class StockSpecService {
       await session.withTransaction(async () => {
         reserved.length = 0; skipped.length = 0; replaced = 0;
         if (dto.replace) {
-          const olds = await this.reservations.find({ salesOrderId: orderId, status: 'active', deletedAt: null, groupName: { $regex: '^' + SPEC_PREFIX } }).session(session).exec();
+          const all = await this.reservations.find({ salesOrderId: orderId, status: 'active', deletedAt: null, groupName: { $regex: '^' + SPEC_PREFIX } }).session(session).exec();
+          const seen = scope ? await this.core.visibleMaterials(all.map((r) => r.materialId), scope) : null;
+          const olds = seen ? all.filter((r) => seen.has(String(r.materialId))) : all; // роль со складом снимает только свои строки загрузки
           for (const r of olds) await this.resv.releaseWithin(r, session);
           replaced = olds.length;
         }
