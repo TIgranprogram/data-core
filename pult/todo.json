@@ -128,5 +128,93 @@
     "params": {
       "script": "photos-compress-old"
     }
+  },
+  {
+    "id": "passport-category-groups-plan",
+    "added": "2026-11-01T07:45",
+    "after": "photos-compress-plan",
+    "title": "Паспорта 1/4: категории групп каталога: показать план",
+    "why": "Покажем, каким группам присвоится категория паспорта. Только план, ничего не меняет.",
+    "cmd": "script-plan",
+    "params": {
+      "script": "passport-category-groups"
+    }
+  },
+  {
+    "id": "passport-category-groups-apply",
+    "added": "2026-11-01T07:45",
+    "after": "passport-category-groups-plan",
+    "title": "Паспорта 1/4: категории групп каталога: применить",
+    "why": "Группам каталога без категории паспорта (тренажёры, воркаут, благоустройство…) присвоится категория по названию; изделия без своей категории возьмут её от группы. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "passport-category-groups"
+    }
+  },
+  {
+    "id": "passport-install-method-plan",
+    "added": "2026-11-01T07:45",
+    "after": "passport-category-groups-apply",
+    "title": "Паспорта 2/4: способ установки из текста: показать план",
+    "why": "Покажем, у скольких изделий способ установки определится из текста паспорта. Только план, ничего не меняет.",
+    "cmd": "script-plan",
+    "params": {
+      "script": "passport-install-method"
+    }
+  },
+  {
+    "id": "passport-install-method-apply",
+    "added": "2026-11-01T07:45",
+    "after": "passport-install-method-plan",
+    "title": "Паспорта 2/4: способ установки из текста: применить",
+    "why": "Изделиям без способа установки он запишется по тексту последнего паспорта. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "passport-install-method"
+    }
+  },
+  {
+    "id": "passport-fields-to-product-plan",
+    "added": "2026-11-01T07:45",
+    "after": "passport-install-method-apply",
+    "title": "Паспорта 3/4: габариты и поля из паспортов: показать план",
+    "why": "Покажем, какие поля перейдут из паспортов в карточки изделий и где паспорта расходятся. Только план, ничего не меняет.",
+    "cmd": "script-plan",
+    "params": {
+      "script": "passport-fields-to-product"
+    }
+  },
+  {
+    "id": "passport-fields-to-product-apply",
+    "added": "2026-11-01T07:45",
+    "after": "passport-fields-to-product-plan",
+    "title": "Паспорта 3/4: габариты и поля из паспортов: применить",
+    "why": "Пустые габариты, вес, размер площадки, число пользователей и др. в карточке изделия заполнятся из последнего выпущенного паспорта; заполненное не меняется. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "passport-fields-to-product"
+    }
+  },
+  {
+    "id": "passport-category-defaults-plan",
+    "added": "2026-11-01T07:45",
+    "after": "passport-fields-to-product-apply",
+    "title": "Паспорта 4/4: срок службы по категории: показать план",
+    "why": "Покажем, у скольких изделий срок службы заполнится по категории. Только план, ничего не меняет.",
+    "cmd": "script-plan",
+    "params": {
+      "script": "passport-category-defaults"
+    }
+  },
+  {
+    "id": "passport-category-defaults-apply",
+    "added": "2026-11-01T07:45",
+    "after": "passport-category-defaults-plan",
+    "title": "Паспорта 4/4: срок службы по категории: применить",
+    "why": "Пустой срок службы у изделий с категорией паспорта станет 10 лет. Перед записью сделается копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "passport-category-defaults"
+    }
   }
 ]
