@@ -68,7 +68,7 @@ function body(row, ctx) {
     const last = l.state === 'issued' ? (l.passport?.number ? '№ ' + l.passport.number : 'выпущен')
       : l.state === 'blocked' ? h('span', null, missingText(l.missing), ' ', l.productId ? kit.link({ label: 'Шаблон паспорта', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: l.productId }) }) : null)
         : 'можно выпускать';
-    return { cells: [l.lineNo ?? '', l.title || '', h('span', null, l.productName || '—'), { v: String(l.qty ?? ''), cls: 'num' }, kit.badge(label, tone), last] };
+    return { cells: [l.lineNo ?? '', l.title || '', h('span', null, kit.sku(l.article), l.article ? ' ' : '', l.productName || '—'), { v: String(l.qty ?? ''), cls: 'num' }, kit.badge(label, tone), last] };
   });
 
   const table = kit.table({

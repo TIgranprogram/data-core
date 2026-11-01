@@ -288,7 +288,13 @@ async function main() {
             const label = await ev(`(()=>{const t=[...document.querySelectorAll('.chip[role=tab],.k-seg-btn')][${i}];if(!t||!t.offsetParent)return null;t.click();return t.innerText.replace(/\\s+/g,' ').trim()})()`);
             if (label == null) continue;
             await sleep(500); await ev(settle);
-            const empty = await ev(`(()=>{const has=document.querySelector('main table.list tbody tr, main .tcard, main .gal > *, main .empty, main [class*=empty], main [class*=hint], main .state, main .db-order');return has?0:1})()`);
+            // ждём конца загрузки вкладки: нет индикатора и прошло ≥ 1500 мс после клика
+            for (let t = 500; t < 6000; t += 250) {
+              const busy = await ev(`!!document.querySelector('main .loading, main [class*=loading], main [aria-busy=true], main .skeleton, main .spinner')`);
+              if (t >= 1500 && !busy) break;
+              await sleep(250);
+            }
+            const empty = await ev(`(()=>{const has=document.querySelector('main table.list tbody tr, main .tcard, main .gal > *, main .empty, main [class*=empty], main [class*=hint], main .state, main .state-hint, main .db-order');return has?0:1})()`);
             if (empty) all.push({ rule: 'h', sel: '.chip[role=tab]', text: `вкладка «${label}»: ни записей, ни подсказки`, screen: sec, w });
           }
           await ev(`location.hash=${JSON.stringify('#' + sec)};1`); await sleep(300);

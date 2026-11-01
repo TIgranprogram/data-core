@@ -2,6 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, dateTime, qty } from '../core/format.js';
 import { go } from '../core/router.js';
+import { zoneQuery } from '../core/zone.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { targetNote, targetShort } from '../ui/target-picker.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -57,6 +58,7 @@ export const movements = {
   list: {
     path: '/stock/movements',
     sortDefault: '-date',
+    query: () => zoneQuery(),
     createLabel: false,
     searchPlaceholder: 'Поиск: позиция или примечание…',
     emptyText: 'Движений пока нет.', emptyHint: 'Они появятся после кнопок «Принять», «Выдать» и «Списать» на складе.',
