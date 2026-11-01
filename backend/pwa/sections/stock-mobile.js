@@ -6,6 +6,7 @@ import { activeOrders, orderLabel } from './salesorders.js';
 import { peopleByWork } from './issue.js';
 import { lookupCode } from './qr.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
+import { catArt } from '../ui/cat-art.js';
 
 /*
  * «Склад (телефон)» — ассистент кладовщика: главный экран «Выдать» / «Принять» + лента за 7 дней; склад и «Выйти» — в настройках (шестерёнка).
@@ -13,7 +14,7 @@ import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
  * QR: кнопка «Сканировать QR» (mobile.scan) и вход по ссылке #stock-mobile?q=<код>.
  * Надёжность (DESIGN-MOBILE §2–3): запрос ≤ 15 с, ошибки шагов — с «Повторить», общий перехват ошибок экрана, справочники — кэш на сеанс.
  */
-const { screen, bigButton, choice, tiles, feed, dateChoice, qty, drill, error, scan, scanSupported, catArt } = mobile;
+const { screen, bigButton, choice, tiles, feed, dateChoice, qty, drill, error, scan, scanSupported } = mobile;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const call = (path, opts = {}) => api(path, { timeout: 15000, ...opts });
 const memo = new Map();
