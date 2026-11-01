@@ -183,3 +183,29 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-frame { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: var(--surface); border: 4px solid var(--primary); border-radius: var(--radius-sm); }
 .m-video { width: 100%; height: 100%; object-fit: cover; }
 .m-aim { position: absolute; inset: 15%; border: 3px dashed var(--primary); border-radius: var(--radius-sm); pointer-events: none; }
+
+/* mobile: отклик нажатия, закреплённая шапка, плитки, лента, шестерёнка, дата (DESIGN-MOBILE §2, §3, §9) */
+.m-screen, .m-screen button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.m-screen { min-height: 100dvh; }
+.m-head { position: sticky; top: 0; z-index: 2; background: var(--bg, var(--surface)); padding-bottom: var(--s2); }
+.m-body { display: flex; flex-direction: column; gap: var(--m-gap); flex: 1; }
+.m-grow { flex: 1; }
+.m-step { white-space: nowrap; }
+.m-gear { min-width: 56px; min-height: 56px; font-size: 28px; color: var(--muted); background: none; border: 2px solid transparent; border-radius: var(--radius-sm); cursor: pointer; }
+.m-btn:active, .m-item:active, .m-tile:active, .m-gear:active { transform: scale(.97); filter: brightness(.88); }
+.m-item.m-on, .m-chip.m-on { border-color: var(--primary); background: var(--primary-soft); }
+.m-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); }
+.m-chip { align-items: center; text-align: center; justify-content: center; }
+.m-date { display: flex; flex-direction: column; gap: var(--s3); }
+.m-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s3); }
+.m-tile { display: flex; flex-direction: column; align-items: center; gap: var(--s2); min-height: 140px; padding: var(--s3); font: inherit; font-size: var(--m-font); color: var(--text); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
+.m-tile-art { display: block; width: 100%; max-width: 120px; aspect-ratio: 140 / 82; background: var(--paper); border-radius: var(--radius-sm); }
+.m-tile-art svg { width: 100%; height: 100%; display: block; }
+.m-feed { display: flex; flex-direction: column; gap: var(--s2); }
+.m-fi { display: grid; grid-template-columns: auto 1fr auto; gap: var(--s3); align-items: baseline; padding: var(--s2) var(--s3); font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.m-fi-date { color: var(--muted); }
+.m-skel { min-height: 40px; border-radius: var(--radius-sm); background: var(--border); animation: m-pulse 1.2s ease-in-out infinite; }
+@keyframes m-pulse { 50% { opacity: .5; } }
+.m-more { min-height: 1px; }
+.m-tile.m-on { border-color: var(--primary); background: var(--primary-soft); }
+.m-tile.m-plain { min-height: var(--m-btn-h); justify-content: center; }

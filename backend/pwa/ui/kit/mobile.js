@@ -1,4 +1,5 @@
 import { h } from '../../core/dom.js';
+import { catArt } from '../cat-art.js';
 
 /**
  * kit «mobile» — мобильные рабочие экраны (склад ассистента; дальше — другие рабочие): крупно, по одному шагу, QR + кнопки.
@@ -7,33 +8,97 @@ import { h } from '../../core/dom.js';
  */
 const nodes = (x) => [].concat(x ?? []).filter((n) => n !== null && n !== false && n !== '');
 
-/** bigButton({ label, icon, tone: 'primary'|'neutral'|'danger', onClick, disabled }) → .btn.m-btn; async onClick — кнопка занята до конца */
+/** bigButton({ label, icon, tone: 'primary'|'neutral'|'danger', onClick, disabled }) → .btn.m-btn; async onClick — кнопка занята до конца (второе нажатие игнорируется); главная — лёгкая вибрация */
 export function bigButton({ label, icon, tone = 'primary', onClick, disabled = false, aria, size = 'wide' } = {}) {
   const btn = h('button', { type: 'button', class: `btn m-btn m-${tone}${size === 'auto' ? ' m-auto' : ''}`, disabled, 'aria-label': aria || null,
     onclick: async () => {
       if (btn.classList.contains('is-busy')) return;
       btn.classList.add('is-busy'); btn.disabled = true;
+      if (tone === 'primary') navigator.vibrate?.(10);
       try { await onClick?.(); } finally { btn.classList.remove('is-busy'); btn.disabled = disabled; }
     } }, icon || null, label);
   return btn;
 }
 
-/** screen({ title, back, step: {n, of}, body, foot, footHint }) → .m-screen: «Шаг N из M», заголовок, крупная «Назад», тело; foot — главная кнопка, закреплена внизу; footHint — «что сделать» */
-export function screen({ title, back, step, body, foot, footHint } = {}) {
+/** screen({ title, back, step: {n, of}, gear, body, foot, footHint }) → .m-screen: закреплённая шапка (Назад · шаг «n/of» · шестерёнка «Настройки»), заголовок, тело, закреплённый низ; footHint — только пока главная кнопка не готова */
+export function screen({ title, back, step, gear, body, foot, footHint } = {}) {
   return h('div', { class: 'm-screen' },
     h('div', { class: 'm-head' },
-      back || step ? h('div', { class: 'm-bar' }, back ? bigButton({ label: '‹ Назад', tone: 'neutral', size: 'auto', onClick: back }) : null, step ? h('div', { class: 'm-step', role: 'status' }, `Шаг ${step.n} из ${step.of}`) : null) : null,
-      h('h1', null, title)),
-    ...nodes(body),
+      back || step || gear ? h('div', { class: 'm-bar' }, back ? bigButton({ label: '‹ Назад', tone: 'neutral', size: 'auto', onClick: back }) : null,
+        h('span', { class: 'm-grow' }),
+        step ? h('div', { class: 'm-step', role: 'status', 'aria-label': `Шаг ${step.n} из ${step.of}` }, `${step.n}/${step.of}`) : null,
+        gear ? h('button', { type: 'button', class: 'm-gear', 'aria-label': 'Настройки', onclick: gear }, '⚙') : null) : null,
+      title ? h('h1', null, title) : null),
+    h('div', { class: 'm-body' }, ...nodes(body)),
     foot || footHint ? h('div', { class: 'm-foot' }, footHint ? h('div', { class: 'm-unit', role: 'status' }, footHint) : null, foot) : null);
 }
 
-/** choice({ items: [{ value, label, hint }], onPick(item), empty }) → крупный список выбора */
-export function choice({ items = [], onPick, empty = 'Ничего нет' } = {}) {
+/** choice({ items: [{ value, label, hint }], onPick(item), empty, selected }) → крупный список выбора; больше 100 строк — порциями по 50 (догрузка при прокрутке) */
+export function choice({ items = [], onPick, empty = 'Ничего нет', selected } = {}) {
   if (!items.length) return h('div', { class: 'm-empty' }, empty);
-  return h('div', { class: 'm-choice', role: 'listbox' },
-    ...items.map((it) => h('button', { type: 'button', class: 'm-item', role: 'option', onclick: () => onPick?.(it) },
-      h('b', null, it.label), it.hint ? h('small', null, it.hint) : null)));
+  const box = h('div', { class: 'm-choice', role: 'listbox' });
+  const row = (it) => h('button', { type: 'button', class: 'm-item' + (selected !== undefined && it.value === selected ? ' m-on' : ''), role: 'option',
+    'aria-selected': selected !== undefined ? String(it.value === selected) : null, onclick: () => onPick?.(it) },
+  h('b', null, it.label), it.hint ? h('small', null, it.hint) : null);
+  let shown = 0;
+  const more = () => {
+    box.querySelector('.m-more')?.remove();
+    const next = items.slice(shown, shown + (items.length > 100 ? 50 : items.length));
+    shown += next.length;
+    box.append(...next.map(row));
+    if (shown < items.length) {
+      const tail = h('div', { class: 'm-more', 'aria-hidden': 'true' });
+      box.append(tail);
+      if (typeof IntersectionObserver === 'function') {
+        const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); more(); } }, { rootMargin: '400px' });
+        io.observe(tail);
+      } else more();
+    }
+  };
+  more();
+  return box;
+}
+
+/** tiles({ items: [{ value, label, art }], onPick }) → крупные плитки по 2 в ряд с рисунком (art — SVG из ui/cat-art.js catArt(название) или иконка категории) */
+export function tiles({ items = [], onPick, empty = 'Ничего нет', selected } = {}) {
+  if (!items.length) return h('div', { class: 'm-empty' }, empty);
+  return h('div', { class: 'm-tiles', role: 'listbox' }, ...items.map((it) => {
+    const pic = h('span', { class: 'm-tile-art', 'aria-hidden': 'true' });
+    if (it.art) pic.innerHTML = it.art; // разметку рисует код cat-art.js, данные в неё не подставляются
+    return h('button', { type: 'button', class: 'm-tile' + (selected !== undefined && it.value === selected ? ' m-on' : '') + (it.art ? '' : ' m-plain'), role: 'option', onclick: () => onPick?.(it) }, it.art ? pic : null, h('b', null, it.label));
+  }));
+}
+export { catArt };
+
+/** feed({ items: [{ date, text, qty, unit, kind: 'out'|'in' }], loading, empty }) → лента плитками (не кликабельна); loading — скелет */
+export function feed({ items = [], loading = false, empty = 'За 7 дней операций нет' } = {}) {
+  if (loading) return h('div', { class: 'm-feed', 'aria-busy': 'true' }, ...[0, 1, 2].map(() => h('div', { class: 'm-skel' })));
+  if (!items.length) return h('div', { class: 'm-empty' }, empty);
+  return h('div', { class: 'm-feed' }, ...items.map((it) => h('div', { class: 'm-fi m-fi-' + it.kind },
+    h('span', { class: 'm-fi-date' }, it.date),
+    h('span', { class: 'm-fi-what' }, (it.kind === 'in' ? '↑ Принято · ' : '↓ Выдано · ') + it.text),
+    h('b', { class: 'm-fi-qty' }, `${it.qty} ${it.unit || ''}`.trim()))));
+}
+
+/** dateChoice({ onChange }) → { el, value() → ГГГГ-ММ-ДД } — «Сегодня / Вчера / Другая дата» крупными кнопками (другая — список последних 30 дней), без клавиатуры */
+export function dateChoice({ onChange } = {}) {
+  const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const ago = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+  const fmtD = (v) => v.split('-').reverse().join('.');
+  let cur = ago(0); let other = false;
+  const el = h('div', { class: 'm-date' });
+  const paint = () => {
+    const t = ago(0); const y = ago(1);
+    const custom = cur !== t && cur !== y;
+    const chip = (label, on, run) => h('button', { type: 'button', class: 'm-item m-chip' + (on ? ' m-on' : ''), 'aria-pressed': String(!!on), onclick: run }, h('b', null, label));
+    const set = (v) => { cur = v; other = false; onChange?.(cur); paint(); };
+    el.replaceChildren(
+      h('div', { class: 'm-chips' }, chip('Сегодня', cur === t && !other, () => set(t)), chip('Вчера', cur === y && !other, () => set(y)),
+        chip(custom ? fmtD(cur) : 'Другая дата', other || custom, () => { other = !other; paint(); })),
+      other ? choice({ items: Array.from({ length: 30 }, (_, n) => ({ value: ago(n + 2), label: fmtD(ago(n + 2)) })), selected: cur, onPick: (o) => set(o.value) }) : null);
+  };
+  paint();
+  return { el, value: () => cur };
 }
 
 /** qty({ value, unit, max, step, hint }) → { el, value() } — число крупно и своя цифровая панель (системная клавиатура не открывается) */
@@ -49,21 +114,20 @@ export function qty({ value = 1, unit = '', max, hint } = {}) {
     key(',', () => { if (fresh) txt = '0'; if (!txt.includes(',')) txt += ','; fresh = false; paint(); }, 'Запятая'),
     digit('0'),
     key('⌫', () => { txt = fresh ? '' : txt.slice(0, -1); fresh = false; paint(); }, 'Стереть'),
-    key('Очистить', () => { txt = ''; fresh = false; paint(); }),
+    key('Сброс', () => { txt = ''; fresh = false; paint(); }, 'Очистить'),
     key('+10', () => { txt = String(Math.round(((Number.isFinite(num()) ? num() : 0) + 10) * 1000) / 1000).replace('.', ','); fresh = false; paint(); }, 'Прибавить десять'));
   const el = h('div', { class: 'm-qty-box' }, out,
-    h('div', { class: 'm-unit' }, (unit ? 'Единица: ' + unit : '') + (max != null ? (unit ? ' · ' : '') + 'на складе: ' + max : '')),
+    h('div', { class: 'm-unit' }, max != null ? `На складе: ${max} ${unit}`.trim() : unit),
     hint ? h('div', { class: 'm-unit' }, hint) : null, keys);
   return { el, value: () => (txt ? num() : NaN) };
 }
 
-/** error(text) → крупное сообщение об ошибке */
 /** error(text, { onRetry }) → крупная ошибка; onRetry добавляет кнопку «Повторить» */
 export const error = (text, { onRetry } = {}) => h('div', { class: 'm-error', role: 'alert' }, h('div', null, '⚠ ' + text), onRetry ? bigButton({ label: 'Повторить', tone: 'neutral', onClick: onRetry }) : null);
 
-/** drill({ levels: [{ title, load(path) → Promise<[{ value, label, hint }]> }], onPick(item, path), empty }) → { el, up() }
+/** drill({ levels: [{ title, tiles, load(path) → Promise<[{ value, label, hint, art }]> }], onPick(item, path), empty }) → { el, up() }
  *  Пошаговые крупные списки без поля ввода: уровень за уровнем, на последнем выбор. up() — на уровень выше (false, если выше нет).
- *  Больше 30 строк — буквенный указатель кнопками. extra — слот (кнопка «Сканировать», когда появится сканер). */
+ *  title пустой — без подзаголовка; tiles — уровень плитками с рисунком. Больше 30 строк — буквенный указатель. extra — слот («Сканировать QR»). */
 export function drill({ levels, onPick, extra, empty = 'Ничего нет' } = {}) {
   const el = h('div', { class: 'm-drill' });
   const path = [];
@@ -73,18 +137,18 @@ export function drill({ levels, onPick, extra, empty = 'Ничего нет' } =
     let items;
     try { items = await lv.load(path.map((p) => p.value)); } catch (e) { el.replaceChildren(error(e?.status ? (e.message || 'Не получилось.') : 'Нет связи. Ничего не потеряно — повторите, когда появится связь.', { onRetry: go })); return; }
     const list = h('div', { class: 'm-results' });
-    const paint = (letter) => list.replaceChildren(choice({ items: letter ? items.filter((i) => String(i.label).trim().toUpperCase().startsWith(letter)) : items,
-      empty, onPick: (it) => { if (path.length + 1 < levels.length) { path.push(it); go(); } else onPick?.(it, [...path.map((p) => p.value), it.value]); } }));
+    const pick = (it) => { if (path.length + 1 < levels.length) { path.push(it); go(); } else onPick?.(it, [...path.map((p) => p.value), it.value]); };
+    const paint = (letter) => list.replaceChildren((lv.tiles ? tiles : choice)({ items: letter ? items.filter((i) => String(i.label).trim().toUpperCase().startsWith(letter)) : items, empty, onPick: pick }));
     const letters = items.length > 30 ? [...new Set(items.map((i) => String(i.label).trim().charAt(0).toUpperCase()))].sort((x, y) => x.localeCompare(y, 'ru')) : [];
     paint();
-    el.replaceChildren(...nodes(extra), h('h2', { class: 'm-sub' }, lv.title),
+    el.replaceChildren(...nodes(extra), lv.title ? h('h2', { class: 'm-sub' }, lv.title) : null,
       letters.length ? h('div', { class: 'm-letters', role: 'group', 'aria-label': 'Буква' }, bigButton({ label: 'Все', tone: 'neutral', size: 'auto', onClick: () => paint() }), ...letters.map((l) => bigButton({ label: l, tone: 'neutral', size: 'auto', onClick: () => paint(l) }))) : null, list);
   };
   go();
   return { el, up: () => { if (!path.length) return false; path.pop(); go(); return true; } };
 }
 
-/** done({ text, again: { label, onClick }, home: { label, onClick } }) → экран «Выполнено» */
+/** done({ text, again, home }) → блок «Выполнено» (для рабочих экранов склада вместо него — крупное уведомление и возврат на главный) */
 export function done({ text, again, home } = {}) {
   return h('div', { class: 'm-done-box' }, h('div', { class: 'm-done', role: 'status' }, text), again ? bigButton({ label: again.label, onClick: again.onClick }) : null, home ? bigButton({ label: home.label, tone: 'neutral', onClick: home.onClick }) : null);
 }
@@ -125,4 +189,4 @@ export function scan({ onCode, onCancel, hint = 'Наведите на код' }
   return { el, stop };
 }
 
-export const mobile = { screen, bigButton, choice, qty, drill, done, error, scan, scanSupported };
+export const mobile = { screen, bigButton, choice, tiles, feed, dateChoice, qty, drill, done, error, scan, scanSupported };
