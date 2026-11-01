@@ -78,9 +78,9 @@
 |--|--|--|
 | screen | каркас: шапка шага, тело, нижняя зона | title, back, step {n, of}, offline |
 | bigButton | главная и вторичная кнопка | label, icon, tone/kind, disabled, busy, hint |
-| choice | выбор из списка / двух крупных вариантов | items [{value, label, hint}], value, onPick, search |
-| qty | ввод количества | value, unit, max, step, onChange |
-| search | поиск позиции (+ «Сканировать», когда готово) | placeholder, source, onPick, empty |
+| choice | выбор из списка / двух крупных вариантов | items [{value, label, hint}], onPick |
+| qty | ввод количества: число 40 px и своя цифровая панель (0–9, запятая, ⌫, Очистить, +10), без системной клавиатуры | value, unit, max, hint → {el, value()} |
+| drill | пошаговый выбор без поля ввода: раздел → позиция; больше 30 строк — буквенный указатель; extra — «Сканировать», когда готово | levels [{title, load(path)}], onPick, extra, empty → {el, up()} |
 | done | «Выполнено» | text/summary, again, home |
 | error | крупная ошибка | title, reason, action, onRetry, onBack |
 

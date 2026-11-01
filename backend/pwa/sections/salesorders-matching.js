@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { attachCombo } from '../ui/kit/index.js';
+import { attachCombo, similarBox } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 import { toast, toastError } from '../ui/toast.js';
 import { current, patch } from '../core/router.js';
@@ -53,6 +53,7 @@ function lineRow(it, run, write, single) {
       h('div', { class: 'mt-sug-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
       write ? h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: (e) => confirm(s.productId) && e.currentTarget.classList.add('is-busy') }, 'Подтвердить') : null)))
     : null;
+  const sim = similarBox({ pickLabel: 'Взять это', onPick: (p) => confirm(p.id) });
   if (write) {
     if (it.state === 'auto' && it.productId) acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => confirm(it.productId) }, 'Подтвердить'));
     const input = h('input', { type: 'search', placeholder: 'Название или артикул изделия', 'aria-label': 'Поиск изделия' });
@@ -71,7 +72,12 @@ function lineRow(it, run, write, single) {
     if (single) togglePick();
     else acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: togglePick }, 'Выбрать другое изделие'));
     // подходящего нет — создать изделие из названия позиции; после «Создать» позиция сопоставляется с ним и панель возвращается сюда
-    acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async () => {
+    let warned = false;
+    acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async (e) => {
+      if (!warned) { // перед созданием — показать похожие; второй клик создаёт
+        const b = e.currentTarget; b.classList.add('is-busy');
+        try { if ((await sim.load(it.title)).length) { warned = true; b.textContent = 'Всё равно создать'; return; } } catch { /* подсказка не обязательна */ } finally { b.classList.remove('is-busy'); }
+      }
       const { createProductFor } = await import('./products.js'); // форма изделия — только по нажатию (не грузим при старте)
       const back = { of: current().params.of, open: current().params.open };
       createProductFor({ name: it.title, unit: it.unit || 'шт' }, async (prod) => {
@@ -87,7 +93,7 @@ function lineRow(it, run, write, single) {
         h('div', { class: 'mt-title' }, (it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title),
         h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim()))),
     h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? h('span', { class: 'muted' }, ' → ' + it.productName + (it.productSku ? ` · арт. ${it.productSku}` : '')) : null),
-    sugList, acts.childNodes.length ? acts : null, pickBox);
+    sugList, acts.childNodes.length ? acts : null, write ? sim.el : null, pickBox);
 }
 
 export const matching = {

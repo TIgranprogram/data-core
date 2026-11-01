@@ -162,3 +162,6 @@ export { uploadPhoto, photoDrop } from '../photos.js';
 /** Хвост хлебных крошек раздела: crumbTail('Паспорта › Выпущенные паспорта') */
 export { setCrumbTail as crumbTail } from '../crumbs.js';
 export { buildForm } from '../form.js';
+
+/** Подсказка «похожее уже есть» под названием изделия — ui/kit/similar.js */
+export { similarBox } from "./similar.js";

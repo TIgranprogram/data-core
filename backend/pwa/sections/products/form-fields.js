@@ -3,7 +3,7 @@ import { h } from '../../core/dom.js';
 import { money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
 import { skuKey } from '../../core/facets.js';
-import { tagPick, toast, confirmDlg } from '../../ui/kit/index.js';
+import { tagPick, toast, confirmDlg, similarBox } from '../../ui/kit/index.js';
 import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
@@ -75,11 +75,14 @@ export function productForm() {
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
       const [els, inst] = await Promise.all([dictOpts('passportElements'), dictOpts('passportInstall')]);
       const pc = r?.passportCategory;
+      const sim = similarBox({ onPick: (it) => go('products', { open: it.id }) });
       const catHint = pc?.own ? 'Задана в самом изделии. Паспорт берёт категорию отсюда' : pc?.inherited || pc?.code ? 'Сейчас — по группе или разделу. Укажите свою, если нужна другая. Паспорт берёт категорию отсюда' : 'Обычно определяется по разделу и группе; укажите, если нужна другая. Паспорт берёт категорию отсюда';
       return [
         { section: 'Изделие', tone: 'main', fixed: true },
         { key: 'photos', label: 'Фото изделия', type: 'photos', main: true, hint: 'Первое фото — главное: оно на обложке в списках. Чтобы выбрать другое, нажмите ☆ на нужном фото.' },
         { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров, поиска и паспорта' },
+        { key: '_similar', type: 'widget', wide: true, summary: () => '', widget: () => ({ el: sim.el, value: '' }),
+          mount: (api) => { const run = () => sim.check(api.get('name'), r?.id); api.on('name', run); run(); } },
         { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
         { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Сверху — группы выбранного типа' },
         { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken(r), hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
