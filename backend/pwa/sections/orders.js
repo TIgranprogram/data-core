@@ -12,7 +12,7 @@ import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
 import { crumbTrail } from './order-stage.js';
-import { lineTypeFields, lineBody, lineMark } from './order-lines.js';
+import { lineTypeFields, lineBody, lineMark, variantsHint } from './order-lines.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 
 /**
@@ -66,9 +66,11 @@ async function pickProduct(r) {
   let picked = r.productId || r.product?.id || '';
   const field = h('label', { class: 'field' }, h('span', null, 'Изделие из «Продукции»'), inp);
   const sugg = h('div', { class: 'hint' });
-  const choose = (id, label) => { inp.value = label; inp.title = label; picked = id; };
-  attachCombo(inp, { options: () => opts, onPick: (o) => { picked = o.value; }, empty: () => loadErr || undefined });
-  inp.addEventListener('input', () => { picked = ''; });
+  const vars = variantsHint((id, label) => choose(id, label));
+  const choose = (id, label) => { inp.value = label; inp.title = label; picked = id; vars.load(id); };
+  field.append(vars.box);
+  attachCombo(inp, { options: () => opts, onPick: (o) => { picked = o.value; vars.load(o.value); }, empty: () => loadErr || undefined });
+  inp.addEventListener('input', () => { picked = ''; vars.load(''); });
   productOptions().then((o) => { opts = o; if (!o.length) loadErr = 'Список изделий пуст или не загрузился — закройте окно и откройте снова'; });
   if (r.orderId) {
     api(`/salesorders/${r.orderId}/match-products`, { method: 'POST', body: {} }).then((res) => {
@@ -269,7 +271,8 @@ export const orders = {
         { key: 'customer', label: 'Заказчик', type: 'combo', options: l.customers, max: 300 },
         { key: 'title', label: 'Название', required: true, wide: true, max: 500 },
         { key: 'productId', label: 'Изделие из «Продукции»', type: 'select', wide: true, options: await productOptions(),
-          hint: 'Для паспорта и карточки изделия. Не выбрано — подберётся по названию, если такое изделие уже есть; нет в «Продукции» — «Из заказов» там' },
+          hint: 'Для паспорта и карточки изделия. Не выбрано — подберётся по названию, если такое изделие уже есть; нет в «Продукции» — «Из заказов» там',
+          mount: (f) => { const v = variantsHint((id) => f.set('productId', id)); f.field('productId')?.append(v.box); f.on('productId', () => v.load(f.get('productId'))); v.load(f.get('productId')); } },
         { key: 'qty', label: 'Количество', type: 'number', min: 0 },
         { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(await lookups().catch(() => null)), max: 30 },
         { section: 'Деньги', tone: 'money', money: true },

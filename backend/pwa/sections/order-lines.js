@@ -24,6 +24,27 @@ export const serviceTypes = () => (typesP ??= api('/dicts/worktypes')
 
 export const NO_TYPES = 'Нет видов работ «Доставка» и «Монтаж». Добавьте их в Справочники → Виды работ.';
 
+/**
+ * «Есть варианты» (ВР) под выбором изделия: у выбранного изделия есть основное или варианты — ссылки «арт. … · размеры · цвет»;
+ * нажатие ставит этот вариант. `load(id)` — показать для изделия, `onPick(id, label)` — выбрать.
+ */
+export function variantsHint(onPick) {
+  const box = h('div', { class: 'hint', hidden: true });
+  let seq = 0;
+  const load = (id) => {
+    const my = ++seq; box.hidden = true; box.replaceChildren();
+    if (!id) return;
+    api(`/showcase/${id}/variants`).then((r) => {
+      const items = r?.items || [];
+      if (my !== seq || !items.length) return;
+      const label = (v) => [`арт. ${v.sku}`, v.isBase ? 'основное' : '', v.dimensions ? ['length', 'width', 'height'].map((k) => v.dimensions[k] || '—').join('×') : '', (v.colors || []).join(', ')].filter(Boolean).join(' · ');
+      box.append('Есть варианты: ', ...items.flatMap((v, i) => [i ? ', ' : '', h('a', { href: '#', onclick: (e) => { e.preventDefault(); onPick(v.id, `${v.name} (${v.sku})`); } }, label(v))]));
+      box.hidden = false;
+    }).catch(() => {});
+  };
+  return { box, load };
+}
+
 const PRICE_HINT = {
   product: '',
   new_product: 'Цена обязательна: без неё новое изделие не сохранится.',

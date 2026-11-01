@@ -170,6 +170,11 @@ export class ShowcaseController {
   @AuditAction({ action: 'showcase.cloned', entityType: 'Product', idParam: 'id' })
   clone(@Param('id') id: string) { return this.s.clone(id); }
 
+  /** Другие варианты изделия (ВР): основное и варианты семейства, без самого изделия. */
+  @AppSection('products', 'passports', 'orders', 'salesorders')
+  @Get(':id/variants')
+  variants(@Param('id') id: string) { return this.s.variantsOf(id); }
+
   /** Вариант изделия (ВР): клон + связь с основным, артикул `<основной>.<n>`. Права как у создания. */
   @Post(':id/variant')
   @Roles('admin', 'manager')

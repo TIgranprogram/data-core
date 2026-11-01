@@ -406,6 +406,13 @@ export class ShowcaseService {
     return this.get(String(insertedId));
   }
 
+  /** Варианты изделия для выбора в позиции заказа (ВР): лёгкий ответ без карточки. */
+  async variantsOf(id: string) {
+    const d = await this.db.collection('products').findOne({ _id: oid(id, 'изделия') }, { projection: { baseProductId: 1 } });
+    if (!d) throw new NotFoundException('Изделие не найдено');
+    return { items: await this.variants(d as Doc) };
+  }
+
   /** Семейство вариантов изделия (ВР): основное + варианты, без самого изделия; пусто — вариантов нет. */
   private async variants(d: Doc) {
     const baseId = (d.baseProductId as Types.ObjectId | undefined) ?? (d._id as Types.ObjectId);
