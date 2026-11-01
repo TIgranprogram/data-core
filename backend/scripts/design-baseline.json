@@ -208,12 +208,10 @@
   "backend/pwa/sections/passports/card-blocks.js -> backend/pwa/ui/toast.js": 1,
   "backend/pwa/sections/passports/card-blocks.js -> backend/pwa/ui/dialog.js": 1,
   "backend/pwa/sections/passports/dialogs.js -> backend/pwa/ui/busy.js": 1,
-  "backend/pwa/sections/passports/dialogs.js -> backend/pwa/ui/combo.js": 1,
   "backend/pwa/sections/passports/dialogs.js -> backend/pwa/ui/toast.js": 1,
   "backend/pwa/sections/passports/dialogs.js -> backend/pwa/ui/dialog.js": 1,
   "backend/pwa/sections/passports/dialogs.js -> backend/pwa/ui/icons.js": 1,
   "backend/pwa/sections/passports/form.js -> backend/pwa/ui/rows-table.js": 1,
-  "backend/pwa/sections/passports/form.js -> backend/pwa/ui/tag-pick.js": 1,
   "backend/pwa/sections/passports/form.js -> backend/pwa/ui/toast.js": 1,
   "backend/pwa/sections/passports/form.js -> backend/pwa/ui/dict-options.js": 1,
   "backend/pwa/sections/passports/form.js -> backend/pwa/ui/materials-spec.js": 1,
@@ -223,7 +221,6 @@
   "backend/pwa/sections/passports/materials.js -> backend/pwa/ui/materials-spec.js": 1,
   "backend/pwa/sections/passports/numbers-strip.js -> backend/pwa/ui/toast.js": 1,
   "backend/pwa/sections/passports/passport-wizard.js -> backend/pwa/ui/toast.js": 1,
-  "backend/pwa/sections/passports/passport-wizard.js -> backend/pwa/ui/tag-pick.js": 1,
   "backend/pwa/sections/passports/passport-wizard.js -> backend/pwa/ui/photos.js": 1,
   "backend/pwa/sections/passports/passport-wizard.js -> backend/pwa/ui/rows-table.js": 1,
   "backend/pwa/sections/passports/passport-wizard.js -> backend/pwa/ui/funnel.js": 1,
@@ -3634,6 +3631,19 @@
   "backend/pwa/sections/supplier-catalog.js | data-table": 3,
   "backend/pwa/sections/supplier-catalog.js | combo-wrap": 1,
   "backend/pwa/sections/work.js | db-blocks": 1
+ },
+ "r8": {
+  "backend/pwa/sections/design-side.js | k-side-item": 3,
+  "backend/pwa/sections/kit.js | k-note": 2,
+  "backend/pwa/sections/kit.js | k-sample": 1,
+  "backend/pwa/sections/kit.js | k-board-demo": 1,
+  "backend/pwa/sections/kit.js | k-field": 1,
+  "backend/pwa/sections/kit.js | k-diff": 1,
+  "backend/pwa/sections/kit.js | k-side-item": 1,
+  "backend/pwa/sections/pipe-grid.js | k-washed": 1,
+  "backend/pwa/sections/pipe-grid.js | k-raw": 1,
+  "backend/pwa/sections/stock-ops.js | k-diff": 5,
+  "backend/pwa/sections/stock-ops.js | k-note": 1
  },
  "screensLines": 1846
 }

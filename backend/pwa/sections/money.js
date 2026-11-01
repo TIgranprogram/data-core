@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
-import { card } from '../ui/kit/index.js';
+import { card, filter } from '../ui/kit/index.js';
 import { mountList } from '../ui/list.js';
 import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { toast } from '../ui/toast.js';
@@ -49,7 +49,7 @@ export const finStart = sideForm({
     return [
       noteField(h('p', { class: 'hint' }, 'Укажите день, на который известен остаток на счетах. С этой даты сайт сам считает остаток каждого дня. Операции раньше — серым, в остаток не входят.')),
       { key: 'startDate', label: 'Дата старта', type: 'date', max: today, hint: st.startDate ? 'Очистите дату и сохраните — старт учёта будет убран' : undefined,
-        mount: (fapi) => { fapi.field('startDate')?.append(h('div', { class: 'chips' }, ...quick.map(([v, l]) => h('button', { type: 'button', class: 'chip', onclick: () => fapi.set('startDate', v) }, l + ' · ' + ruDate(v))))); } },
+        mount: (fapi) => { fapi.field('startDate')?.append(filter({ mode: 'chips', items: quick.map(([v, l]) => ({ key: v, label: l + ' · ' + ruDate(v) })), value: '', label: 'Быстрый выбор даты', onChange: (v) => fapi.set('startDate', v) }).el); } },
       ...names.map((n) => ({ key: 'ob:' + n, label: 'Остаток на начало дня — ' + n + ', ₽', type: 'money', min: 0,
         mount: (fapi) => { const recount = () => { total.textContent = money(names.reduce((s, x) => s + numOf(fapi.get('ob:' + x)), 0)) + ' ₽'; }; fapi.on('ob:' + n, recount); recount(); if (n === names[names.length - 1]) fapi.field('ob:' + n)?.append(h('p', null, 'Итого на старт: ', total)); } })),
     ];

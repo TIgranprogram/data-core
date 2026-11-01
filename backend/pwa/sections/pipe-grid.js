@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { filter } from '../ui/kit/index.js';
 import { PIPE_KINDS, facetLabel, pipeKey, pipeParts } from '../core/facets.js';
 import { qty } from '../core/format.js';
 import { go } from '../core/router.js';
@@ -135,9 +136,7 @@ export function mountPipeGrid() {
     const list = [!q && !only ? reservedTable(groups, byId, pipeName) : null, ...blocks.map((b) => table(b, match))].filter(Boolean);
     body.replaceChildren(...(list.length ? list : [h('p', { class: 'muted' }, blocks.length ? 'Ничего не найдено. Очистите поиск или фильтр.' : 'Труб на складе пока нет.')]));
   };
-  const chip = (value, label) => h('button', { type: 'button', class: 'chip' + (only === value ? ' active' : ''), onclick: () => { only = value; chips.replaceChildren(...chipList()); paint(); } }, label);
-  const chipList = () => [chip('', 'Все'), chip('in', 'В наличии'), chip('none', 'Нет на складе')];
-  const chips = h('div', { class: 'pg-chips' }, ...chipList());
+  const chips = filter({ mode: 'chips', items: [{ key: '', label: 'Все' }, { key: 'in', label: 'В наличии' }, { key: 'none', label: 'Нет на складе' }], value: only, onChange: (k) => { only = k; paint(); }, cls: 'pg-chips' }).el;
   const search = h('input', { type: 'search', class: 'pg-search', placeholder: '80×80×3', 'aria-label': 'Найти сечение', oninput: (e) => { q = e.target.value.trim(); paint(); } });
   const load = async () => {
     const [r, res] = await Promise.all([api('/stock/items', { query: { limit: 10000, sort: 'name' } }), api('/stock/reservations').catch(() => ({ items: [] }))]);

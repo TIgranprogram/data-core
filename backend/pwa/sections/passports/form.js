@@ -2,7 +2,7 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { isoDay } from '../../core/format.js';
 import { rowsTable } from '../../ui/rows-table.js';
-import { tagPick } from '../../ui/tag-pick.js';
+import { tagPick } from '../../ui/kit/index.js';
 import { formImages, imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/toast.js';
 import { personNames } from '../../ui/dict-options.js';

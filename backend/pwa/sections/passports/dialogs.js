@@ -1,7 +1,7 @@
 import { api, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { busyBtn } from '../../ui/busy.js';
-import { attachCombo } from '../../ui/combo.js';
+import { attachCombo } from '../../ui/kit/index.js';
 import { toast } from '../../ui/toast.js';
 import { confirmDlg, modal } from '../../ui/dialog.js';
 import { icon } from '../../ui/icons.js';

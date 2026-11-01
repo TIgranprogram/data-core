@@ -1,7 +1,7 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toastError } from '../../ui/toast.js';
-import { tagPick } from '../../ui/tag-pick.js';
+import { tagPick } from '../../ui/kit/index.js';
 import { photoDrop } from '../../ui/photos.js';
 import { rowsTable } from '../../ui/rows-table.js';
 import { funnelBox } from '../../ui/funnel.js';

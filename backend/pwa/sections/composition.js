@@ -1,5 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { tabs } from '../ui/kit/index.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { money, parseNum, qty } from '../core/format.js';
 import { stockLookup } from '../core/stock-list.js';
@@ -77,7 +78,8 @@ async function buildCompositionForm() {
 
   // ── «Добавить»: чипы, поиск, список по разделам ──
   let kind = 'all'; let query = '';
-  const chips = h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Что добавить' });
+  const kindTabs = tabs({ items: [{ key: 'all', label: 'Все' }, { key: 'material', label: 'Материалы' }, { key: 'product', label: 'Изделия' }], value: kind, onChange: (k) => { kind = k; drawPick(); } });
+  const chips = kindTabs.el;
   const input = h('input', { type: 'text', placeholder: 'Найти: название или артикул (м10 = M10, слова в любом порядке)', 'aria-label': 'Найти, что добавить', autocomplete: 'off' });
   const pick = h('ul', { class: 'pick-list', role: 'listbox', 'aria-label': 'Материалы и изделия' });
   // склад целиком — по действию (фокус поиска / чип «Материалы»), а не при открытии формы (ПР-1); один общий список на приложение
@@ -90,7 +92,7 @@ async function buildCompositionForm() {
   };
   const prods = products.filter((p) => p.id !== prod.id) // само в себя — нельзя (глубже проверит сервер)
     .map((p) => ({ id: p.id, name: p.name, sku: p.sku, unit: p.unit || 'шт', photo: p.photo, group: [p.type, p.group].filter(Boolean).join(' › ') || 'Без раздела', sub: p.sku ? 'арт. ' + p.sku : '', lineType: 'product' }));
-  const drawChips = () => chips.replaceChildren(...[['all', 'Все'], ['material', 'Материалы'], ['product', 'Изделия']].map(([v, l]) => h('button', { type: 'button', role: 'tab', class: 'chip' + (kind === v ? ' active' : ''), 'aria-selected': String(kind === v), onclick: () => { kind = v; drawChips(); drawPick(); } }, l)));
+  const drawChips = () => kindTabs.set(kind);
   function drawPick() {
     const tk = searchTokens(query);
     const take = (list) => list.filter((x) => !tk.length || ((s) => tk.every((t) => s.includes(t)))(normSearch([x.name, x.article, x.sku, x.group].filter(Boolean).join(' '))));

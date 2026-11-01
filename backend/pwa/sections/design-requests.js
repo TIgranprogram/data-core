@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo } from '../ui/kit/index.js';
+import { attachCombo, tabs } from '../ui/kit/index.js';
 import { modal } from '../ui/dialog.js';
 import { carousel } from '../ui/gallery.js';
 import { toastError } from '../ui/toast.js';
@@ -30,9 +30,9 @@ function requestsView(onCount) {
   const search = h('input', { type: 'search', placeholder: 'Поиск по названию…', 'aria-label': 'Поиск заявок', maxlength: 100 });
   let timer = 0;
   search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { S.search = search.value.trim(); S.page = 1; load(); }, 300); });
-  const chips = h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Состояние заявок' });
-  const paintChips = () => chips.replaceChildren(...FILTERS.map(([k, label]) => h('button', { type: 'button', role: 'tab', class: 'chip' + (S.status === k ? ' active' : ''), 'aria-selected': String(S.status === k),
-    onclick: () => { S.status = k; S.page = 1; paintChips(); load(); } }, label)));
+  const statusTabs = tabs({ items: FILTERS.map(([key, label]) => ({ key, label })), value: S.status, onChange: (k) => { S.status = k; S.page = 1; load(); } });
+  const chips = statusTabs.el;
+  const paintChips = () => statusTabs.set(S.status);
   const el = h('div', { class: 'dr-view' }, h('div', { class: 'dr-bar' }, search, chips), box);
 
   function paint(r) {

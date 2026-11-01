@@ -1,5 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { tabs } from '../ui/kit/index.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/dialog.js';
@@ -78,7 +79,7 @@ function newSectionPlace(t) {
 
 // ─── экран (в «Справочниках» вместо таблицы) ──────────────────────────────────────────────────────
 export function mountTexts() {
-  const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Категория паспорта' });
+  const chips = h('div');
   const info = h('p', { class: 'hint pt-info' });
   const edit = canEditTexts();
   const addSec = h('button', { type: 'button', class: 'btn btn-primary', hidden: !edit, onclick: () => patch({ of: 'ptext', open: `${textsCat()}.s`, new: undefined }) }, '+ Раздел');
@@ -93,8 +94,7 @@ export function mountTexts() {
 
   const open = (of, id) => patch({ of, open: id, new: undefined });
   function renderChips(cat) {
-    chips.replaceChildren(...CATS.map((c) => h('button', { type: 'button', class: 'chip' + (c.code === cat ? ' active' : ''), 'aria-pressed': String(c.code === cat), title: c.name,
-      onclick: () => patch({ cat: c.code, of: undefined, open: undefined }) }, c.name)));
+    chips.replaceChildren(tabs({ items: CATS.map((c) => ({ key: c.code, label: c.name })), value: cat, onChange: (code) => patch({ cat: code, of: undefined, open: undefined }) }).el);
   }
   function renderTree(cat, t) {
     const sel = current().params.open || '';

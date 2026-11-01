@@ -83,8 +83,8 @@ const classesOf = (sel) => [...sel.replace(/\[[^\]]*\]|"[^"]*"|'[^']*'/g, '').ma
 const parsed = cssFiles.map((f) => ({ f, r: rel(f), ...parseCss(f) }));
 const allClasses = new Set(parsed.flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
 
-const KEYS = ['old', 'uiJs', 'legacyImports', 'classes', 'r4', 'r5', 'r7'];
-const cur = { old: {}, uiJs: {}, legacyImports: {}, classes: {}, r4: {}, r5: {}, r7: {}, screensLines: 0 };
+const KEYS = ['old', 'uiJs', 'legacyImports', 'classes', 'r4', 'r5', 'r7', 'r8'];
+const cur = { old: {}, uiJs: {}, legacyImports: {}, classes: {}, r4: {}, r5: {}, r7: {}, r8: {}, screensLines: 0 };
 const at = {};
 const put = (bucket, key, file, line) => { cur[bucket][key] = (cur[bucket][key] || 0) + 1; if (!at[bucket + '|' + key]) at[bucket + '|' + key] = { file, line }; };
 
@@ -98,6 +98,8 @@ for (const f of sectionJs) {
     if (m) { const t = rel(resolve(dirname(f), m[1])); if (/^backend\/pwa\/ui\//.test(t) && !inKit(t)) put('legacyImports', `${r} -> ${t}`, r, i + 1); }
     if (/^\s*(\/\/|\*)/.test(l)) return;
     if (/\bstyle\s*=|\.style\.|\bstyle\s*:/.test(l) && !/setProperty\(\s*['"`]--/.test(l) && !/style\s*:\s*\{?\s*['"`]?--/.test(l)) put('r5', `${r} | ${l.trim().slice(0, 100)}`, r, i + 1);
+    // R8: эталон собран вручную — классы chips/chip/tcard/tile/board/col/k-* в class: внутри sections
+    for (const cm of l.matchAll(/\b(?:class|className)\s*[:=]\s*(['"])([^'"$`]*)\1/g)) for (const c of cm[2].split(/\s+/)) if (/^(chips|chip|tcard|tile|board|col|k-[\w-]+)$/.test(c)) put('r8', `${r} | ${c}`, r, i + 1);
     for (const cm of l.matchAll(/\b(?:class|className)\s*[:=]\s*(['"])([^'"$`]*)\1/g)) for (const c of cm[2].split(/\s+/).filter(Boolean)) if (!allClasses.has(c)) put('r7', `${r} | ${c}`, r, i + 1);
   });
 }
@@ -116,7 +118,7 @@ cur.screensLines = sc ? readFileSync(sc.f, 'utf8').split('\n').length : 0;
 const upd = process.argv.includes('--update-baseline');
 const acc = process.argv.includes('--accept') ? process.argv[process.argv.indexOf('--accept') + 1] : null;
 if (!existsSync(BASE) && !(upd && acc)) { console.log('Нет design-baseline.json — создать: --update-baseline --accept "начальный снимок"'); process.exit(2); }
-const empty = { old: {}, uiJs: {}, legacyImports: {}, classes: {}, r4: {}, r5: {}, r7: {}, screensLines: Infinity };
+const empty = { old: {}, uiJs: {}, legacyImports: {}, classes: {}, r4: {}, r5: {}, r7: {}, r8: {}, screensLines: Infinity };
 const base = existsSync(BASE) ? JSON.parse(readFileSync(BASE, 'utf8')) : empty;
 const HINT = {
   old: ['база', 'старое правило — исправить по docs/DESIGN.md'],
@@ -126,6 +128,7 @@ const HINT = {
   r4: ['R4', 'цвет/фон/рамка/тень/радиус/шрифт в CSS раздела — взять класс kit'],
   r5: ['R5', 'inline style в разделе — класс из kit (разрешены только CSS-переменные --x)'],
   r7: ['R7', 'класс не найден ни в одном CSS — опечатка или нет в kit'],
+  r8: ['R8', 'эталон собран вручную — взять kit.filter/tabs/segmented/board/tile'],
 };
 const v2 = [];
 for (const k of KEYS) for (const [key, n] of Object.entries(cur[k])) if (n > ((base[k] || {})[key] || 0)) { const w = at[k + '|' + key]; v2.push({ file: w.file, line: w.line, rule: HINT[k][0], text: `${key} — ${HINT[k][1]}` }); }

@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { filter } from '../ui/kit/index.js';
 import { qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -86,9 +87,7 @@ export function mountSheetGrid() {
     const list = [!q && !only ? reservedTable(groups, byId, (it) => `${it.materialGrade || ''} ${qty(it.dims?.thickness ?? 0)} мм, ${sizeOf(it)}`, 'листов') : null, ...blocks.map((b) => table(b, match))].filter(Boolean);
     body.replaceChildren(...(list.length ? list : [h('p', { class: 'muted' }, blocks.length ? 'Ничего не найдено. Очистите поиск или фильтр.' : 'Листов на складе пока нет.')]));
   };
-  const chip = (value, label) => h('button', { type: 'button', class: 'chip' + (only === value ? ' active' : ''), onclick: () => { only = value; chips.replaceChildren(...chipList()); paint(); } }, label);
-  const chipList = () => [chip('', 'Все'), chip('in', 'В наличии'), chip('none', 'Нет на складе')];
-  const chips = h('div', { class: 'pg-chips' }, ...chipList());
+  const chips = filter({ mode: 'chips', items: [{ key: '', label: 'Все' }, { key: 'in', label: 'В наличии' }, { key: 'none', label: 'Нет на складе' }], value: only, onChange: (k) => { only = k; paint(); }, cls: 'pg-chips' }).el;
   const search = h('input', { type: 'search', class: 'pg-search', placeholder: 'Ст3 3 или 304 1500', 'aria-label': 'Найти лист', oninput: (e) => { q = e.target.value.trim(); paint(); } });
   const load = async () => {
     const [r, res] = await Promise.all([api('/stock/items', { query: { limit: 10000, sort: 'name' } }), api('/stock/reservations').catch(() => ({ items: [] }))]);
