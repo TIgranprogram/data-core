@@ -164,35 +164,33 @@ export const stockMobile = {
       } }) }));
     }
 
-    // ---------- Приёмка: позиция → (поставка) → сколько ----------
+    // ---------- Приёмка: ожидаемая поставка → сколько ----------
     function receive(preset) {
       const S = {};
-      const stepItem = () => { const pick = async (it) => { S.item = it; S.req = null; await stepFrom(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ step: { n: 1, of: 3 }, back: () => { if (!d.up()) home(); }, body: [d.el] })); };
-      const stepFrom = async () => {
-        let reqs = [];
-        try { reqs = ((await call('/supply/requests', { query: { status: 'ordered,paid', limit: 100, sort: '-requestDate' } })).items || []).filter((r) => r.materialId === S.item.id); }
-        catch (e) { show(screen({ step: { n: 1, of: 3 }, back: stepItem, body: [failed(e, stepFrom)] })); return; }
-        if (!reqs.length) { stepQty(); return; }
-        const items = reqs.map((r) => ({ value: r, label: `${fmt(r.qty)} ${r.unit || ''}${r.supplierName ? ' · ' + r.supplierName : ''}`, hint: [r.invoiceNo, r.paid ? 'оплачено' : ''].filter(Boolean).join(' · ') }));
-        items.push({ value: null, label: 'Без поставки', hint: 'Принять просто так, без заявки' });
-        show(screen({ title: 'По какой поставке?', step: { n: 2, of: 3 }, back: stepItem, body: [choice({ items, onPick: (o) => { S.req = o.value; stepQty(); } })] }));
+      const stepList = () => {
+        const d = drill({ levels: [{ title: '', load: async () => {
+          const rows = ((await call('/supply/requests', { query: { status: 'ordered,paid', limit: 100, sort: 'requestDate' } })).items || []).filter((r) => !preset || r.materialId === preset.id).sort((x, y) => (y.paid ? 1 : 0) - (x.paid ? 1 : 0));
+          return rows.map((r) => ({ value: r, label: r.title || r.name || 'Позиция', hint: [r.supplierName, `ждём ${fmt(r.qty)} ${r.unit || ''}`.trim(), r.invoiceNo ? '№ ' + r.invoiceNo : ''].filter(Boolean).join(' · ') }));
+        } }], empty: 'Нечего принимать — нет заказанных и оплаченных поставок', onPick: (o) => { S.req = o.value; stepQty(); } });
+        show(screen({ title: 'Что приняли?', back: home, body: [d.el, bigButton({ label: 'Нет в списке — выбрать позицию', tone: 'neutral', onClick: stepItem })] }));
       };
+      const stepItem = () => { const pick = (it) => { S.req = { id: null, qty: 1, unit: unitOf(it), name: it.name, materialId: it.id, item: it }; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Какая позиция?', back: () => { if (!d.up()) stepList(); }, body: [d.el] })); };
       const stepQty = () => {
-        const q = qty({ value: S.req ? S.req.qty : 1, unit: unitOf(S.item), max: fmt(S.item.quantity) });
+        const r = S.req;
+        const q = qty({ value: r.qty, unit: r.unit || '' });
         const msg = h('div');
-        show(screen({ title: S.item.name, step: { n: 3, of: 3 }, back: stepItem, body: [q.el, msg], foot: bigButton({ label: 'Принять', onClick: async () => {
+        show(screen({ title: r.title || r.name || 'Позиция', back: r.id ? stepList : stepItem, body: [q.el, msg], foot: bigButton({ label: 'Принять', onClick: async () => {
           const n = q.value();
           if (!(n > 0)) { msg.replaceChildren(error('Впишите количество больше нуля.')); return; }
           msg.replaceChildren();
-          const line = `${S.item.name} · ${fmt(n)} ${unitOf(S.item)}`;
           try {
-            if (S.req) await call(`/supply/requests/${S.req.id}/receive`, { method: 'POST', body: { qty: n, partial: n < S.req.qty } });
-            else await call('/stock/batch', { method: 'POST', body: { type: 'in', lines: [{ materialId: S.item.id, qty: n }], clientUid: uid() } });
-            toast(`Принято: ${line}`, { ms: 3000 }); home();
+            if (r.id) await call(`/supply/requests/${r.id}/receive`, { method: 'POST', body: { qty: n, partial: n < r.qty } });
+            else await call('/stock/batch', { method: 'POST', body: { type: 'in', lines: [{ materialId: r.materialId, qty: n }], clientUid: uid() } });
+            toast(`Принято: ${r.title || r.name || 'Позиция'} · ${fmt(n)} ${r.unit || ''}`, { ms: 3000 }); home();
           } catch (e) { msg.replaceChildren(failed(e)); }
         } }) }));
       };
-      if (preset) { S.item = preset; S.req = null; stepFrom(); } else stepItem();
+      stepList();
     }
 
     /** Вход по QR-ссылке: «Принять» или «Выдать» эту позицию. */
