@@ -156,7 +156,7 @@ export class PassportPdfService {
     // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
     const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
-    const text = printableText(p.textSnapshot as PdfV2Text); // метки без значения → линия (passport-blanks.ts)
+    const text = printableText(p.textSnapshot as PdfV2Text, { variant: variantOf(opts.variant), certificate: p.certificate as { number?: string } | undefined, category: String(p.passportCategory ?? '') }); // метки без значения → линия (passport-blanks.ts)
     return {
       watermark: this.watermark(p),
       passport: p as never,

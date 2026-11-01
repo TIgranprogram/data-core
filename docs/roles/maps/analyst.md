@@ -85,3 +85,6 @@
 
 ## Тексты паспорта по нормам (ПТ, 2026-11-01)
 - `docs/audit/PASSPORT-TEXTS-REVIEW.md`. Правки — `backend/scripts/passport-texts.v2.json` + `passport-templates-polish.js` (новая версия шаблона; стенд: ALL_V2 v3, TRN v3, DIO v2). Ограничение теста `passport-texts.v2.spec.ts`: порядок разделов зашит, своя категория переопределяет только 1-й пункт общих разделов → новые разделы нельзя без правки теста. Статусы норм — gostinfo.ru (2026-11-01). Вопросы ПТ-1, ПТ-2 в QUESTIONS. коммит: — (не закоммичено, база 45b2192)
+
+## Варианты изделия (ВР, 2026-11-01)
+- Аудит: `docs/audit/PRODUCT-VARIANTS.md`. Клон `showcase-clone.ts` не ставит `copiedFromProductId`; `series` только data-core; дыра — `salesorders-matching.js:75` создаёт изделие без проверки похожих. Вопросы ВР-1, ВР-2. коммит: — (не закоммичено)

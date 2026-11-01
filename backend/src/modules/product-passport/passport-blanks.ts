@@ -1,5 +1,6 @@
 import { fillBlanks, type BlankRules } from '../../common/print/fill-text';
 import { V2_FIELD_LABELS } from './passport-rules';
+import { OPTIONAL_SECTIONS, certificateLine, variantOf, type PassportVariant } from './passport-variants';
 
 /**
  * Правило печати незаполненных меток паспорта (решение пользователя 2026-11-01): в PDF не уходит «{…}».
@@ -24,26 +25,40 @@ export const LABEL_SOURCES: Record<string, string> = {
   weightMax: 'Паспорт → Вес пользователя до', maxUsers: 'Паспорт → Пользователей одновременно',
 };
 
+/** Ссылка на таблицы 2 и 3 (хранение, неисправности), которых нет в упрощённом паспорте. */
+const MISSING_TABLE_REF = /таблиц\S*\s+(?:[23]\b|3\s+и\s+4)/i;
+function dropSentences(text: string, re: RegExp): string {
+  return (text.match(/[\s\S]*?[.!?](?=\s|$)|[\s\S]+$/g) ?? [text]).filter((x) => !re.test(x)).join('').trim();
+}
+
 interface Item { key?: string; number?: string | null; text?: string; bullet?: boolean }
 interface Section { key?: string; number?: string; title?: string; items?: Item[] }
 
 /** Копия текста паспорта (`textSnapshot`) для печати: метки заменены линиями, лишние фразы убраны, пункты перенумерованы. Исходник не меняется. */
-export function printableText<T extends { sections?: unknown[] }>(text: T): T {
+export function printableText<T extends { sections?: unknown[] }>(text: T, opts: { variant?: PassportVariant; certificate?: { number?: unknown } | null; category?: string } = {}): T {
   const walk = (v: unknown): unknown => {
     if (typeof v === 'string') return fillBlanks(v, PASSPORT_BLANKS);
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object' && !(v instanceof Date) && !('_bsontype' in (v as object))) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
     return v;
   };
-  const sections = ((text.sections ?? []) as Section[]).map((s) => {
+  const short = variantOf(opts.variant) === 'short';
+  const cert = certificateLine(opts.certificate, opts.category);
+  const kept = ((text.sections ?? []) as Section[]).filter((s) => !(short && OPTIONAL_SECTIONS.includes(String(s.key))));
+  const first = parseInt(kept[0]?.number ?? '', 10);
+  const sections = kept.map((s0, si) => {
+    // в short нет журналов (таблицы 2 и 3) — номера разделов идут подряд, фразы со ссылками на них не печатаются
+    const s = Number.isFinite(first) ? { ...s0, number: String(first + si) } : s0;
     let n = 0;
     const items: Item[] = [];
     for (const it of s.items ?? []) {
-      const t = fillBlanks(String(it.text ?? ''), PASSPORT_BLANKS);
+      let t = fillBlanks(String(it.text ?? ''), PASSPORT_BLANKS);
+      if (short) t = dropSentences(t, MISSING_TABLE_REF);
       if (!t.trim()) continue; // фраза целиком необязательная и без значения
       if (!it.bullet) n += 1;
       items.push({ ...it, text: t, number: it.bullet ? it.number ?? null : `${s.number}.${n}` });
     }
+    if (si === 0 && cert) items.push({ key: 'certificate', number: null, bullet: true, text: cert });
     return { ...s, title: fillBlanks(String(s.title ?? ''), PASSPORT_BLANKS), items };
   });
   return { ...(walk({ ...text, sections: undefined }) as object), sections } as T;

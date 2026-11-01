@@ -10,7 +10,7 @@ const COPY = ['kind', 'unit', 'status', 'series', 'description', 'listPrice', 'b
  * `textChoices`), наименование «… (копия)», новый артикул. Паспорта, заказы и склад исходного изделия в клон не идут.
  */
 export function cloneDoc(src: Doc, sku: string, now = new Date()): Record<string, unknown> {
-  const out: Record<string, unknown> = { sku, name: `${clean(src.name)} (копия)` };
+  const out: Record<string, unknown> = { sku, name: `${clean(src.name)} (копия)`, copiedFromProductId: src._id };
   for (const k of COPY) if (src[k] !== undefined && src[k] !== null) out[k] = src[k]; // только вставка в базу — объекты не правятся, глубокая копия не нужна (ObjectId её не переживёт)
   return { stockQty: 0, isActive: true, hasPassport: false, hasDrawing: false, photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], ...out, deletedAt: null, source: 'showcase', createdAt: now, updatedAt: now,
     ...(out.photoIds && !out.mainPhotoId ? { mainPhotoId: (out.photoIds as Types.ObjectId[])[0] ?? null } : {}) };

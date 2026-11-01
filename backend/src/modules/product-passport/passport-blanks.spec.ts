@@ -39,3 +39,34 @@ describe('паспорт: печать без «{…}»', () => {
     expect(b.key).toBe('std:GOST_X');
   });
 });
+
+describe('printableText: вариант и сертификат (ПТ-1, ПТ-2)', () => {
+  const t = { sections: [
+    { key: 'warranty', number: '4', title: 'Гарантия', items: [{ key: 'p1', number: '4.1', text: 'Текст.' }] },
+    { key: 'storage', number: '5', title: 'Хранение', items: [{ key: 'p1', number: '5.1', text: 'Хранить сухо.' }] },
+    { key: 'faults', number: '6', title: 'Неисправности', items: [{ key: 'p1', number: '6.1', text: 'Журнал.' }] },
+  ] };
+  it('short: хранение/неисправности не печатаются, full: печатаются', () => {
+    expect(printableText(t, { variant: 'short' }).sections.map((s: { key?: string }) => s.key)).toEqual(['warranty']);
+    expect(printableText(t, { variant: 'full' }).sections).toHaveLength(3);
+  });
+  it('сертификат: DIO — со ссылкой на ТР ЕАЭС 042, иначе без; пусто — строки нет', () => {
+    const last = (o: Parameters<typeof printableText>[1]) => (printableText(t, { variant: 'full', ...o }).sections[0].items as Array<{ text: string }>).map((i) => i.text);
+    expect(last({ certificate: { number: 'ЕАЭС N RU Д-RU.123' }, category: 'DIO' })).toContain('Сертификат/декларация соответствия ТР ЕАЭС 042/2017: ЕАЭС N RU Д-RU.123');
+    expect(last({ certificate: { number: '77' }, category: 'WRK' })).toContain('Сертификат/декларация: 77');
+    expect(last({ certificate: { number: ' ' }, category: 'DIO' })).toEqual(['Текст.']);
+  });
+});
+
+describe('printableText: short без разрыва номеров и ссылок на журналы', () => {
+  const t = { sections: [
+    { key: 'warranty', number: '4', title: 'Гарантия', items: [{ key: 'p1', number: '4.1', text: 'А.' }] },
+    { key: 'storage', number: '5', title: 'Хранение', items: [{ key: 'p1', number: '5.1', text: 'Б.' }] },
+    { key: 'service', number: '6', title: 'ТО', items: [{ key: 'p1', number: '6.1', text: 'Осмотр. Записи — в таблицах 3 и 4 паспорта. Конец.' }] },
+  ] };
+  it('номера подряд, фраза про таблицы 3 и 4 убрана', () => {
+    const r = printableText(t, { variant: 'short' }).sections as Array<{ number: string; items: Array<{ number: string; text: string }> }>;
+    expect(r.map((s) => s.number)).toEqual(['4', '5']);
+    expect(r[1].items[0]).toMatchObject({ number: '5.1', text: 'Осмотр. Конец.' });
+  });
+});

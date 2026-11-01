@@ -21,6 +21,16 @@ const SAFETY_KINDS = ['safety', 'safety_zone'];
 export const OPTIONAL_FIELDS: readonly string[] = ['siteLength', 'siteWidth'];
 export const OPTIONAL_IMAGE_KINDS: readonly string[] = ['overview_callouts', 'nameplate', 'view_front', 'view_side', 'view_top', 'view_3d'];
 
+/** Разделы текста и журналы (рекламации, хранение, неисправности) — только в полном паспорте (решение 2026-11-01, ПТ-2). */
+export const OPTIONAL_SECTIONS: readonly string[] = ['claims', 'storage', 'faults'];
+
+/** Строка о сертификате/декларации; пустой номер — строки нет. Для детских площадок — со ссылкой на ТР ЕАЭС 042/2017 (ПТ-1). */
+export function certificateLine(cert: { number?: unknown } | null | undefined, category?: string): string {
+  const n = String(cert?.number ?? '').trim();
+  if (!n) return '';
+  return category === PLAYGROUND_CATEGORY ? `Сертификат/декларация соответствия ТР ЕАЭС 042/2017: ${n}` : `Сертификат/декларация: ${n}`;
+}
+
 export type InstallKind = 'concrete' | 'anchor' | 'unknown';
 
 /** Способ установки из справочника `passportInstall` (по коду и названию): бетонирование / анкерное крепление. */

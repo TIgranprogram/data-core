@@ -8,6 +8,7 @@ import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CounterModule } from '../counter/counter.module';
 import { ShowcaseService } from './showcase.service';
+import { SimilarQueryDto } from './dto/similar-query.dto';
 
 /** «Продукция»: витрина изделий, загрузка каталога, данные КП (TASKS БЗ-4). Смотреть — все, менять — менеджер+. */
 @ApiTags('Продукция')
@@ -25,6 +26,11 @@ export class ShowcaseController {
   @Get('groups')
   @Roles('admin', 'director', 'manager', 'user')
   groups() { return this.s.groups(); }
+
+  /** Похожие изделия по названию (до 5): { id, name, sku, photo, groupName }. */
+  @Get('similar')
+  @Roles('admin', 'director', 'manager', 'user')
+  similar(@Query() q: SimilarQueryDto) { return this.s.similar(q.name ?? '', q.excludeId); }
 
   /** Подсказки формы изделия: разделы, группы, серии, цвета, размеры (ФИ). */
   @Get('form-values')

@@ -19,6 +19,7 @@ import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
 const key0 = (v: unknown) => clean(v).toLowerCase().replace(/ё/g, 'е');
 import { ShowcaseBulk } from './showcase-bulk';
 import { cloneDoc } from './showcase-clone';
+import { findSimilar } from './showcase-similar';
 import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
@@ -153,6 +154,9 @@ export class ShowcaseService {
     }
     return { items: await this.present(docs as Doc[]), total, page, limit };
   }
+
+  /** «Похожее уже есть»: до 5 изделий с похожим названием (подсказка при создании и сопоставлении). */
+  similar(name: string, excludeId?: string) { return findSimilar(this.db, name, excludeId ? oid(excludeId, 'изделия') : undefined); }
 
   /** Разделы и группы с числом изделий — плитки витрины. */
   async groups() {

@@ -12,6 +12,7 @@ describe('cloneDoc', () => {
   it('имя «… (копия)», новый артикул, новая дата, не в корзине, источник — витрина', () => {
     expect(c).toEqual(expect.objectContaining({ sku: '1202', name: 'Турник (копия)', deletedAt: null, source: 'showcase', createdAt: now, updatedAt: now }));
     expect('_id' in c).toBe(false);
+    expect(c.copiedFromProductId).toBe(src._id);
   });
   it('поля, фото, состав и значения паспорта (с выбором текстов) переходят; ObjectId остаются ObjectId', () => {
     expect(c.passportDefaults).toEqual({ passportCategory: 'TRN', textChoices: { a: 'b' } });
