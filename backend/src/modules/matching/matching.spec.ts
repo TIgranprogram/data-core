@@ -96,6 +96,21 @@ describe('MatchingService (КМ2–КМ3)', () => {
     expect((await svc.unmatched({ limit: 1, page: 2 })).items).toHaveLength(1);
     expect(await svc.unmatchedCount()).toEqual({ total: 2, inProduction: 1 });
   });
+  it('unmatchedCount: считает один раз на версию данных (кэш), без кэша — каждый раз', async () => {
+    rows.salesorders = [{ _id: orderId, orderNo: '12' }];
+    rows.incomes = [{ _id: l1, orderId, lineNo: 1, title: 'Скамейка' }];
+    const calls: string[] = [];
+    const memo = new Map<string, Promise<unknown>>();
+    const versions = { cached: (scope: string, _c: string[], _e: string, fn: () => Promise<unknown>) => { calls.push(scope); if (!memo.has(scope)) memo.set(scope, fn()); return memo.get(scope)!; } };
+    const cached = svc as unknown as { versions: unknown; unmatchedCount: () => Promise<unknown> };
+    cached.versions = versions;
+    expect(await cached.unmatchedCount()).toEqual({ total: 1, inProduction: 0 });
+    rows.incomes = [];
+    expect(await cached.unmatchedCount()).toEqual({ total: 1, inProduction: 0 }); // из кэша
+    expect(calls).toEqual(['matching.count', 'matching.count']);
+    cached.versions = undefined;
+    expect(await svc.unmatchedCount()).toEqual({ total: 0, inProduction: 0 }); // без кэша — свежее
+  });
   it('unmatched: фильтры заказа, договора и этапа; варианты не зависят от выбранного', async () => {
     const o2 = new Types.ObjectId();
     rows.salesorders = [{ _id: orderId, orderNo: '12', stage: 'new' }, { _id: o2, orderNo: '5', productionNo: 'П-1', stage: 'production' }];

@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { AuditService } from '../audit/audit.service';
 import { aliasKey, isConfident, lineState, suggest, type MatchProduct, type Suggestion } from './matching-rules';
 import { ProductAlias, ProductAliasDocument } from './product-alias.schema';
@@ -22,6 +23,7 @@ export class MatchingService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(ProductAlias.name) private readonly aliases: Model<ProductAliasDocument>,
     private readonly audit: AuditService,
+    @Optional() private readonly versions?: DataVersionService,
   ) {}
 
   /** Позиции договора с состоянием и предложениями (топ-3 для ещё не сопоставленных). */
@@ -120,6 +122,12 @@ export class MatchingService {
 
   /** Счётчик для меню: всего несопоставленных и из них в производстве. */
   async unmatchedCount() {
+    // Меню зовёт счётчик на каждом экране: считаем один раз на версию данных договоров и позиций (сопоставление меняет incomes — кэш сбрасывается сам)
+    const run = () => this.countUnmatched();
+    return this.versions ? this.versions.cached('matching.count', ['incomes', 'salesorders'], '', run) : run();
+  }
+
+  private async countUnmatched() {
     // Только подсчёт: без подбора изделий и фото (раньше — два полных unmatched, ~5 с)
     const db = this.connection.db!;
     const orders = await db.collection('salesorders').find({ deletedAt: null }, { projection: { productionNo: 1 } }).toArray() as Doc[];

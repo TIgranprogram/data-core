@@ -89,3 +89,4 @@ export class SupplierItem {
 
 export const SupplierItemSchema = SchemaFactory.createForClass(SupplierItem);
 SupplierItemSchema.index({ supplierId: 1, article: 1, color: 1 }, { unique: true, sparse: false });
+SupplierItemSchema.index({ deletedAt: 1, name: 1, _id: 1 }); // список каталога по названию без сортировки полных документов (с priceHistory) в памяти

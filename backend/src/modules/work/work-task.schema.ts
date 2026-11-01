@@ -65,3 +65,4 @@ WorkTaskSchema.index({ status: 1, stepKey: 1, deletedAt: 1 });
 WorkTaskSchema.index({ assigneeId: 1, status: 1 });
 WorkTaskSchema.index({ orderId: 1 }, { sparse: true });
 WorkTaskSchema.index({ incomeId: 1 });
+WorkTaskSchema.index({ deletedAt: 1, seq: 1 }); // список «В работе»: порядок по умолчанию
