@@ -48,7 +48,8 @@ $DOCKER exec "$MONGO_CONTAINER" mongodump \
 $DOCKER cp "${MONGO_CONTAINER}:/tmp/dump-${DATE}" "$TMP_MONGO"
 
 if [[ -d "${DATA_DIR}/uploads" ]]; then
-  cp -a "${DATA_DIR}/uploads" "$TMP_UPLOADS"
+  # фото не перезаписываются на месте (новые имена uuid) — копия жёсткими ссылками: мгновенно и без места; другая ФС или ошибка — обычная копия
+  cp -al "${DATA_DIR}/uploads" "$TMP_UPLOADS" 2>/dev/null || { rm -rf "$TMP_UPLOADS"; cp -a "${DATA_DIR}/uploads" "$TMP_UPLOADS"; }
   mv "$TMP_UPLOADS" "${BACKUP_ROOT}/uploads-${DATE}"
 fi
 mv "$TMP_MONGO" "${BACKUP_ROOT}/mongo-${DATE}"

@@ -169,6 +169,10 @@ services:
       - ${DATA_DIR}/bundle-requests:/host-requests   # запись: только файл-запрос и status.json моста bundle-watch.sh (cron на хосте)
       - ${DATA_DIR}/smb:/var/lib/datacore/smb   # файлы доступа к сетевым папкам (SMB) для отправки копий — deploy/smb (одинаково на обоих серверах)
       - ${DATA_DIR}/switch:/host-switch   # заявка и секрет моста switch-watch.sh (deploy/ha/switch); без HA_SELF не используется
+      # экраны приложения и админки — папкой с хоста: выкладка «только экраны» (release.sh) меняет их без пересборки и перезапуска.
+      # Папки обновляются rsync на месте (не mv/rm самих папок — привязка держит каталог). Откат — rollback.sh.
+      - ./backend/pwa:/app/pwa:ro
+      - ./backend/admin:/app/admin:ro
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health/ready', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"]
       interval: 15s

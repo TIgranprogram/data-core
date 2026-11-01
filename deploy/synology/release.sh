@@ -2,7 +2,12 @@
 # Выкладка data-core на VM вручную по ssh (когда нет python/deploy.py) — по шагам skill `datacore-deploy`.
 # Запуск из корня репо в Git Bash:   bash deploy/synology/release.sh [--data] [--drop-archive] [--force-urgent]
 #   сначала ворота deploy/synology/preflight.sh — красное → выкладки нет;
-#   без флагов — только новая версия backend (бэкап → архив HEAD → замена backend/ deploy/ → build → up → проверка);
+#   без флагов — сама выбирает путь (печатает «== Путь: …»):
+#     быстрый — менялись только экраны (backend/pwa, backend/admin) и файлы вне сервера (docs, tools, pult, *.md):
+#               без сборки и перезапуска, экраны rsync в примонтированные папки; бэкап — если копии базы старше суток;
+#     полный  — всё остальное (бэкап → архив HEAD → замена backend/ deploy/ → build → up → проверка);
+#   --dry-run       — только показать, какой путь будет выбран, и выйти (ничего не меняет);
+#   --full          — всегда полный путь;
 #   --data          — плюс загрузка Excel-заказов с фото и привязка заказов «Спортсет» (повторно безопасно, ничего не задваивает);
 #   --drop-archive  — после бэкапа: архивные таблицы прежнего приложения (app_supply_*, app_warehouse_*) выгружаются
 #                     в /var/lib/datacore/backups/archive-<дата>/ и удаляются (разово, TASKS 7.2).
@@ -12,10 +17,29 @@ VM="${VM:-tiit@192.168.1.52}"
 KEY="${KEY:-$HOME/.ssh/kppdf80-vm}"
 ORDERS_DIR="${ORDERS_DIR:-для анализа/заказы}"
 SSH=(ssh -i "$KEY" -o BatchMode=yes "$VM")
-DATA=0; DROP=0; URGENT=""
-for a in "$@"; do [[ "$a" == "--data" ]] && DATA=1; [[ "$a" == "--drop-archive" ]] && DROP=1; [[ "$a" == "--force-urgent" ]] && URGENT="--force-urgent"; done
+DATA=0; DROP=0; URGENT=""; DRY=0; FORCE_FULL=0
+for a in "$@"; do [[ "$a" == "--data" ]] && DATA=1; [[ "$a" == "--drop-archive" ]] && DROP=1; [[ "$a" == "--force-urgent" ]] && URGENT="--force-urgent"; [[ "$a" == "--dry-run" ]] && DRY=1; [[ "$a" == "--full" ]] && FORCE_FULL=1; done
 
 cd "$(git rev-parse --show-toplevel)"
+
+# Выбор пути (быстрый / полный). Любое сомнение — полный. Пометка версии сервера — /opt/data-core/.release-commit,
+# пишется только после успешной проверки, удаляется в начале выкладки и при откате.
+PREV="$("${SSH[@]}" 'cat /opt/data-core/.release-commit 2>/dev/null; true' 2>/dev/null | tr -d '[:space:]' || true)"
+[[ "$PREV" =~ ^[0-9a-f]{7,40}$ ]] || PREV=""
+VMOK="$("${SSH[@]}" 'command -v rsync >/dev/null && docker inspect -f "{{range .Mounts}}{{.Destination}} {{end}}" datacore-backend 2>/dev/null | grep -q "/app/pwa" && echo yes; true' 2>/dev/null || true)"
+MODE=full; WHY=""
+if [[ $FORCE_FULL == 1 || $DATA == 1 || $DROP == 1 ]]; then WHY="задан флаг полной выкладки"
+elif [[ -z "$PREV" ]]; then WHY="на сервере нет пометки прошлой выкладки"
+elif ! git cat-file -e "$PREV^{commit}" 2>/dev/null || ! git merge-base --is-ancestor "$PREV" HEAD; then WHY="версия сервера не найдена в истории"
+elif [[ "$VMOK" != yes ]]; then WHY="экраны на сервере ещё не подключены папкой (или нет rsync)"
+else
+  # --no-renames: перенос файла из backend/src в pwa виден и старым путём
+  OTHER="$(git diff --no-renames --name-only "$PREV" HEAD | grep -vE '^backend/(pwa|admin)/|^(docs|tools|pult)/|^[^/]+\.md$' || true)"
+  if [[ -n "$OTHER" ]]; then WHY="менялся не только вид: $(echo "$OTHER" | head -3 | tr '\n' ' ')"; else MODE=fast; fi
+fi
+echo "== Путь: $([[ $MODE == fast ]] && echo 'быстрый (только экраны)' || echo полный)${WHY:+ — $WHY}"
+[[ $DRY == 1 ]] && exit 0
+
 # Ворота (RELEASE-GATE): незакоммиченное, push, tsc/юнит, импорты приложения, след дизайнера и full.
 # --force-urgent — только когда сайт уже сломан: пропускает приёмку дизайнера и full, остальное — нет.
 echo "== Ворота"
@@ -30,28 +54,52 @@ if [[ -z "$FREE_KB" || "$FREE_KB" -lt 2097152 ]]; then
   echo "СТОП: на VM свободно меньше 2 ГБ (${FREE_KB:-?} КБ) — освободите место (старые бэкапы, docker image prune) и повторите"; exit 1
 fi
 
-echo "== 1. Бэкап базы на VM"
-"${SSH[@]}" 'cd /opt/data-core && if bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
-
-echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
+# с этого момента версия сервера «неизвестна», пока проверка не пройдёт
+"${SSH[@]}" 'rm -f /opt/data-core/.release-commit'
+TS="$(date +%Y%m%d%H%M%S)"   # имя копии backend.prev-$TS — откату передаётся точно
 TMP="$(mktemp -d)"
 # версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
 # n — номер версии: число коммитов, менявших приложение (растёт с каждым обновлением; показ «v1.n»)
 PWA_N="$(git rev-list --count HEAD -- backend/pwa)"
 PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"date":"%cI"}' -- backend/pwa)"
+
+if [[ $MODE == fast ]]; then
+  echo "== 1. Бэкап: копия базы моложе суток — пропуск, иначе бэкап"
+  "${SSH[@]}" 'cd /opt/data-core && if find /var/lib/datacore/backups -maxdepth 1 -name "mongo-*" -mmin -1440 2>/dev/null | grep -q .; then echo "свежая копия базы есть — без бэкапа"; elif bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
+  echo "== 2. Экраны: архив pwa+admin → rsync в примонтированные папки (без сборки и перезапуска)"
+  git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/screens.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend/pwa backend/admin
+  scp -i "$KEY" -o BatchMode=yes "$TMP/screens.tgz" "$VM:/tmp/dc-screens.tgz"
+  # папки обновляются на месте (их держит привязка контейнера); version.json — последним, чтобы приложение не закэшировало смесь
+  "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
+set -e; R=/tmp/dc-scr-$TS; mkdir -p $R; tar -xzf /tmp/dc-screens.tgz -C $R; cd /opt/data-core
+cp -a backend backend.prev-$TS
+rsync -a --checksum --delete --delay-updates --exclude version.json $R/backend/pwa/ backend/pwa/
+rsync -a --checksum --delete --delay-updates $R/backend/admin/ backend/admin/
+cp $R/backend/pwa/version.json backend/pwa/version.json
+rm -rf $R /tmp/dc-screens.tgz; echo "экраны заменены, откат: deploy/synology/rollback.sh backend.prev-$TS --screens-only"
+EOS
+else
+echo "== 1. Бэкап базы на VM"
+"${SSH[@]}" 'cd /opt/data-core && if bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
+
+echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
 git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend docker-compose.prod.yml deploy
 scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
-"${SSH[@]}" 'set -e; TS=$(date +%Y%m%d%H%M); R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
-  cp /opt/data-core/deploy/synology/.env $R/deploy/synology/.env 2>/dev/null || true
-  cd /opt/data-core; mv backend backend.prev-$TS; mv deploy deploy.prev-$TS; cp docker-compose.prod.yml docker-compose.prod.yml.prev-$TS
-  mv $R/backend backend; mv $R/deploy deploy; cp $R/docker-compose.prod.yml docker-compose.prod.yml; rm -rf $R; echo "заменено, откат: deploy/synology/rollback.sh"
-  ls -1dt backend.prev-* deploy.prev-* docker-compose.prod.yml.prev-* 2>/dev/null | tail -n +10 | xargs -r rm -rf'
+"${SSH[@]}" "TS=$TS bash -s" <<'EOS'
+set -e; R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
+cp /opt/data-core/deploy/synology/.env $R/deploy/synology/.env 2>/dev/null || true
+cd /opt/data-core; mv backend backend.prev-$TS; mv deploy deploy.prev-$TS; cp docker-compose.prod.yml docker-compose.prod.yml.prev-$TS
+mv $R/backend backend; mv $R/deploy deploy; cp $R/docker-compose.prod.yml docker-compose.prod.yml; rm -rf $R; echo "заменено, откат: deploy/synology/rollback.sh backend.prev-$TS"
+EOS
 
 echo "== 3. Сборка и перезапуск backend (mongo не трогаем)"
 "${SSH[@]}" 'cd /opt/data-core && N=$(docker inspect -f "{{.Config.Image}}" datacore-backend 2>/dev/null) && docker tag "$N" datacore-backend:prev; docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1 && tail -2 /tmp/dc-build.log && docker compose -f docker-compose.prod.yml up -d --no-deps backend'
 
 # 2026-10-24: кэш сборки Docker копился с каждой выкладкой (42 ГБ) — держим не больше 10 ГБ (2026-10-30: по времени разрослось до 55 ГБ)
 "${SSH[@]}" 'docker builder prune -f --max-used-space 10GB >/dev/null 2>&1; docker image prune -f >/dev/null 2>&1' || true
+fi
+# старые копии: по имени (в нём время выкладки), не по дате папки — mv/cp -a сохраняют старую mtime; держим 9 каждого вида
+"${SSH[@]}" 'cd /opt/data-core && for k in backend.prev deploy.prev docker-compose.prod.yml.prev; do ls -1d $k-* 2>/dev/null | sort -r | tail -n +10 | xargs -r rm -rf; done' || true
 
 echo "== 4. Проверка"
 CHECK="$("${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health/ready); [ "$s" = 200 ] && break; sleep 3; done
@@ -70,9 +118,12 @@ echo "$CHECK"
 if [[ -z "$CHECK" ]]; then echo "СТОП: нет связи с VM при проверке. Новая версия запущена, проверьте вручную: bash remote-access/check.sh"; exit 1; fi
 if ! grep -q 'ready: 200' <<<"$CHECK" || ! grep -q 'смоук: 7 из 7' <<<"$CHECK"; then
   echo "СТОП: проверка не прошла, возвращаю прошлую версию"
-  "${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/rollback.sh' || echo "ОТКАТ НЕ ПРОШЁЛ: чинить вручную, логи — docker logs datacore-backend"
+  if [[ $MODE == fast ]]; then RB="backend.prev-$TS --screens-only"; else RB="backend.prev-$TS"; fi
+  "${SSH[@]}" "cd /opt/data-core && bash deploy/synology/rollback.sh $RB" || echo "ОТКАТ НЕ ПРОШЁЛ: чинить вручную, логи — docker logs datacore-backend"
   exit 1
 fi
+# проверка прошла — запомнить версию сервера (следующая выкладка сравнит с ней)
+"${SSH[@]}" "echo $(git rev-parse HEAD) > /opt/data-core/.release-commit"
 
 if [[ $DATA == 1 ]]; then
   echo "== 5. Данные (в контейнере datacore-backend, его MONGO_URI)"
