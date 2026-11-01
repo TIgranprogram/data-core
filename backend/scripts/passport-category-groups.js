@@ -1,14 +1,13 @@
-/* Паспорта (PASSPORT-FLOW-AUDIT, шаг 4): категория паспорта у групп каталога. Изделие без своей категории наследует её от группы
- * (passport-inherit.ts), поэтому записывается только `categories.passportCategory`; изделия не меняются.
+/* Паспорта (PRODUCT-FILES «Без дублей»): категория паспорта пишется СРАЗУ в изделия — `products.passportDefaults.passportCategory`,
+ * только если пусто. Поле у групп каталога не пишется (и не удаляется).
  *
- *   Группа = категория type 'product' с родителем. Уже заданное не трогаем.
- *   Категория определяется по названию группы по явным правилам RULES (первое совпадение); нет совпадения —
- *   по названиям изделий группы: код, который набрал ≥ 60 % классифицированных изделий (минимум 3). Иначе — в списке «не определено».
+ *   Источник по порядку: название изделия (RULES) → название его группы → уже заданная `categories.passportCategory` группы/раздела
+ *   (подсказка существующей цепочки passportCategoryFor) → название раздела. Нет совпадения — в списке «не определено».
  *   Повторный запуск — 0 изменений.
  *
  *   План:     MONGO_URI=… [MONGO_DB=…] node scripts/passport-category-groups.js
  *   Записать: … --apply [--out backup.json]   (выгрузка прежних значений — для отката; без --out пишется в /tmp)
- *   Откат: `categories.updateOne({ _id }, { $unset: { passportCategory: '' } })` для записей выгрузки.
+ *   Откат: `products.updateOne({ _id }, { $unset: { 'passportDefaults.passportCategory': '' } })` для записей выгрузки.
  */
 const path = require('path');
 const fs = require('fs');
@@ -28,50 +27,40 @@ const codeByName = (name) => { const n = norm(name); return RULES.find(([, rx]) 
 
 /** Чистая функция: план по живым категориям и изделиям. */
 function buildPlan(categories, products) {
-  const groups = categories.filter((c) => c.type === 'product' && c.parentId);
-  const byGroup = new Map();
-  for (const p of products) { const k = String(p.categoryId ?? ''); if (k) (byGroup.get(k) ?? byGroup.set(k, []).get(k)).push(p); }
-  const plan = { groups: [], unresolved: [], alreadySet: 0, productsInherit: 0, totalGroups: groups.length };
-  const groupCode = new Map(); // id → код (уже заданный или новый)
-  for (const g of groups) {
-    const id = String(g._id);
-    if (s(g.passportCategory)) { plan.alreadySet++; groupCode.set(id, s(g.passportCategory)); continue; }
-    const prods = byGroup.get(id) ?? [];
-    let code = codeByName(g.name), via = 'по названию группы';
-    if (!code) {
-      const tally = {};
-      for (const p of prods) { const c = codeByName(p.name); if (c) tally[c] = (tally[c] ?? 0) + 1; }
-      const total = Object.values(tally).reduce((a, b) => a + b, 0);
-      const [top, n] = Object.entries(tally).sort((a, b) => b[1] - a[1])[0] ?? [];
-      if (top && total >= 3 && n / total >= 0.6) { code = top; via = `по названиям изделий (${n} из ${total})`; }
-    }
-    if (code) { plan.groups.push({ id, name: s(g.name), code, via, products: prods.length }); groupCode.set(id, code); }
-    else plan.unresolved.push({ id, name: s(g.name), products: prods.length });
-  }
-  // изделия без своей категории, которые получат её от группы
+  const cat = new Map(categories.map((c) => [String(c._id), c]));
+  const plan = { products: [], unresolved: [], alreadySet: 0, total: products.length, byCode: {} };
   for (const p of products) {
-    if (s(p.passportDefaults?.passportCategory)) continue;
-    if (groupCode.has(String(p.categoryId ?? ''))) plan.productsInherit++;
+    if (s(p.passportDefaults?.passportCategory)) { plan.alreadySet++; continue; }
+    const g = cat.get(String(p.categoryId ?? ''));
+    const sec = g?.parentId ? cat.get(String(g.parentId)) : null;
+    const hit = [
+      [codeByName(p.name), 'название изделия'],
+      [g && codeByName(g.name), 'название группы'],
+      [s(g?.passportCategory), 'категория группы'],
+      [s((sec ?? g)?.passportCategory), 'категория раздела'],
+      [sec && codeByName(sec.name), 'название раздела'],
+    ].find(([c]) => c);
+    if (hit) { plan.products.push({ id: String(p._id), name: s(p.name), code: hit[0], via: hit[1] }); plan.byCode[hit[0]] = (plan.byCode[hit[0]] ?? 0) + 1; }
+    else plan.unresolved.push({ id: String(p._id), name: s(p.name), group: s(g?.name) });
   }
   return plan;
 }
 
 async function applyPlan(db, plan, { ObjectId }) {
   let n = 0;
-  for (const g of plan.groups) {
+  for (const g of plan.products) {
     // условие «пусто» — ручная правка в гонке не затирается
-    const r = await db.collection('categories').updateOne({ _id: new ObjectId(g.id), deletedAt: null, $or: [{ passportCategory: null }, { passportCategory: '' }, { passportCategory: { $exists: false } }] }, { $set: { passportCategory: g.code, updatedAt: new Date() } });
+    const r = await db.collection('products').updateOne({ _id: new ObjectId(g.id), deletedAt: null, $or: [{ 'passportDefaults.passportCategory': null }, { 'passportDefaults.passportCategory': '' }, { 'passportDefaults.passportCategory': { $exists: false } }] }, { $set: { 'passportDefaults.passportCategory': g.code, updatedAt: new Date() } });
     n += r.modifiedCount;
   }
   return n;
 }
 
 function printPlan(plan, log = console.log) {
-  log(`Групп: ${plan.totalGroups} · уже с категорией: ${plan.alreadySet} · получат категорию: ${plan.groups.length} · не определено: ${plan.unresolved.length}`);
-  log(`Изделий без своей категории, которые её унаследуют: ${plan.productsInherit}`);
-  for (const g of plan.groups.slice(0, 10)) log(`  ${g.code} ← «${g.name}» (${g.via}, изделий: ${g.products})`);
-  if (plan.groups.length > 10) log(`  … ещё ${plan.groups.length - 10}`);
-  for (const g of plan.unresolved) log(`  не определено: «${g.name}» (изделий: ${g.products}) — задать вручную в «Группах каталога»`);
+  log(`Изделий: ${plan.total} · уже с категорией: ${plan.alreadySet} · получат категорию: ${plan.products.length} · не определено: ${plan.unresolved.length}`);
+  log('По категориям: ' + (Object.entries(plan.byCode).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${n}`).join(' · ') || '—'));
+  for (const p of plan.unresolved.slice(0, 30)) log(`  не определено: «${p.name}» (группа: ${p.group || '—'}) — задать вручную в карточке изделия`);
+  if (plan.unresolved.length > 30) log(`  … ещё ${plan.unresolved.length - 30}`);
 }
 
 module.exports = { buildPlan, applyPlan, printPlan, codeByName };
@@ -89,13 +78,13 @@ if (require.main === module || String(module.id).includes('[stdin]')) (async () 
     const db = client.db(process.env.MONGO_DB || undefined);
     console.log(`База ${db.databaseName} — ${apply ? 'ЗАПИСЬ' : 'ПЛАН, ничего не меняется'}`);
     const [categories, products] = await Promise.all([
-      db.collection('categories').find({ deletedAt: null }, { projection: { name: 1, type: 1, parentId: 1, passportCategory: 1 } }).toArray(),
+      db.collection('categories').find({ deletedAt: null, type: 'product' }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray(),
       db.collection('products').find({ deletedAt: null }, { projection: { name: 1, categoryId: 1, 'passportDefaults.passportCategory': 1 } }).toArray(),
     ]);
     const plan = buildPlan(categories, products);
     printPlan(plan);
-    if (outFile) { fs.writeFileSync(outFile, JSON.stringify({ at: new Date(), backup: plan.groups.map((g) => ({ _id: g.id, passportCategory: null })), plan }, null, 2)); console.log(`\nВыгрузка (для отката) и план: ${outFile}`); }
+    if (outFile) { fs.writeFileSync(outFile, JSON.stringify({ at: new Date(), backup: plan.products.map((g) => ({ _id: g.id, 'passportDefaults.passportCategory': null })), plan }, null, 2)); console.log(`\nВыгрузка (для отката) и план: ${outFile}`); }
     if (!apply) { console.log('\nНичего не записано. Записать: --apply'); return; }
-    console.log(`\nГотово: групп обновлено ${await applyPlan(db, plan, { ObjectId })}`);
+    console.log(`\nГотово: изделий обновлено ${await applyPlan(db, plan, { ObjectId })}`);
   } finally { await client.close(); }
 })().catch((e) => { console.error(e.message || e); process.exit(1); });

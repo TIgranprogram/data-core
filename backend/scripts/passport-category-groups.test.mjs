@@ -17,26 +17,19 @@ test('правила по названию группы', () => {
   assert.equal(codeByName('Спорт оборудование'), null);
 });
 
-test('группа без совпадения — по большинству изделий; без большинства — не определено', () => {
-  const cats = [{ _id: 'root', name: 'Спортивное оборудование', type: 'product' }, grp('g1', 'Спорт оборудование'), grp('g2', 'Разное')];
-  const prods = [prod('p1', 'g1', 'Турник 1'), prod('p2', 'g1', 'Брусья'), prod('p3', 'g1', 'Рукоход'), prod('p4', 'g2', 'Турник'), prod('p5', 'g2', 'Урна')];
+test('изделие: по названию, затем по группе, затем по заданной категории; иначе не определено', () => {
+  const cats = [{ _id: 'root', name: 'Спортивное оборудование', type: 'product' }, grp('g1', 'Спорт оборудование'), grp('g2', 'Качели'), grp('g3', 'Разное', { passportCategory: 'BLG' }), grp('g4', 'Разное 2')];
+  const prods = [prod('p1', 'g1', 'Турник 1'), prod('p2', 'g2', 'Модель А'), prod('p3', 'g3', 'Штука'), prod('p4', 'g4', 'Штука 2'), prod('p5', 'g2', 'Урна')];
   const p = buildPlan(cats, prods);
-  assert.deepEqual(p.groups.map((g) => [g.id, g.code]), [['g1', 'WRK']]);
-  assert.deepEqual(p.unresolved.map((g) => g.id), ['g2']);
+  assert.deepEqual(p.products.map((x) => [x.id, x.code]), [['p1', 'WRK'], ['p2', 'DIO'], ['p3', 'BLG'], ['p5', 'BLG']]);
+  assert.deepEqual(p.unresolved.map((x) => [x.id, x.group]), [['p4', 'Разное 2']]);
 });
 
-test('заданная категория не трогается; считаются наследующие изделия; корни не группы', () => {
-  const cats = [{ _id: 'root', name: 'Благоустройство', type: 'product' }, grp('g1', 'Урны', { passportCategory: 'BLG' }), grp('g2', 'Качели')];
-  const prods = [prod('p1', 'g1', 'Урна'), prod('p2', 'g2', 'Качели'), prod('p3', 'g2', 'Качели 2', { passportDefaults: { passportCategory: 'DIO' } })];
+test('заданная категория изделия не трогается; повторный запуск — нечего менять', () => {
+  const cats = [grp('g1', 'Урны')];
+  const prods = [prod('p1', 'g1', 'Урна', { passportDefaults: { passportCategory: 'DIO' } })];
   const p = buildPlan(cats, prods);
-  assert.equal(p.totalGroups, 2);
   assert.equal(p.alreadySet, 1);
-  assert.deepEqual(p.groups.map((g) => g.code), ['DIO']);
-  assert.equal(p.productsInherit, 2);
-});
-
-test('повторный запуск: нечего менять', () => {
-  const p = buildPlan([grp('g1', 'Урны', { passportCategory: 'BLG' })], []);
-  assert.equal(p.groups.length, 0);
+  assert.equal(p.products.length, 0);
   assert.equal(p.unresolved.length, 0);
 });
