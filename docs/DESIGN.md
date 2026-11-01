@@ -106,7 +106,7 @@
 | layout.split | боковой список + основная область; на телефоне список за кнопкой | `layout.split({ side, main, sideLabel })` |
 | filter chips / facets / funnel | chips — фишки значений; facets — признаки склада; funnel — воронка по шагам | `filter({ mode, … })` (`chipsFilter`, `facetFilter`, `stepFunnel`) |
 | pick single / combo / multi / tags + поле `.k-field` | single — длинный `<select>`; combo — поле + список; multi — несколько через запятую; tags — метки | `pick({ mode, select/input, options, onPick, … })` (`enhanceSelect`, `attachCombo`, `tagPick`, `attachSuggest`) |
-| table list / input + maxHeight | list — таблица строк; input — ввод строк в форме; `maxHeight` S/M/L — своя прокрутка. Списки с поиском и страницами — `mountList` | `table({ columns, rows, mode, empty, foot, clickable, maxHeight })` |
+| table list / input + maxHeight | list — таблица строк; input — ввод строк в форме; `maxHeight` S/M/L — своя прокрутка. Списки с поиском и страницами — `mountList` | `table({ columns, rows, mode, empty, foot, clickable, maxHeight })`; признак `money: true` у колонки table и поля panel — не рисуются без галочки «Деньги» у роли (`session.canMoney`) |
 | panel | правая панель / предпросмотр: шапка, блоки, подвал (запись — `openCard`) | `panel({ title, sub?, kind?, blocks: [{title?,body}], footer, onClose })` |
 | timeline / Гант | лента времени «В работе»; стили `kit/timeline.css` | `mountGantt(cfg, path, query, hooks)` (`ui/gantt.js`) |
 | dialog | подтверждение или 1–3 поля; больше — правая панель | `modal({ title, body, okText, danger, wide, onOk })`, `confirmDlg(title, text, { okText, danger })` |

@@ -1,5 +1,6 @@
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -13,6 +14,7 @@ import { ProductService } from './product.service';
 
 @ApiTags('Справочники — Продукты')
 @AppSection('products')
+@UseInterceptors(MoneyMaskInterceptor)
 @Controller('products')
 export class ProductController {
   constructor(private readonly service: ProductService, private readonly catalogGraph: CatalogGraphService) {}

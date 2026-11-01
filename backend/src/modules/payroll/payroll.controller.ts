@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { PayrollAccessGuard } from '../../common/guards/money-access.guard';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -10,6 +11,7 @@ import { PayrollService } from './payroll.service';
 /** ФОТ: только денежные роли (admin, accountant; director и admin наследуют — roles-hierarchy). */
 @ApiTags('ФОТ')
 @AppSection('payroll')
+@UseGuards(PayrollAccessGuard)
 @Controller('payroll')
 export class PayrollController {
   constructor(private readonly payroll: PayrollService) {}

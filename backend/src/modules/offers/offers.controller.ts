@@ -1,3 +1,4 @@
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
@@ -14,6 +15,7 @@ import { OffersService } from './offers.service';
 /** Коммерческие предложения. Смотреть — все роли с разделом «КП»; создавать, править, менять статус, загружать фоны — admin и manager. */
 @ApiTags('КП')
 @AppSection('offers')
+@UseInterceptors(MoneyMaskInterceptor)
 @Controller('offers')
 export class OffersController {
   constructor(private readonly offers: OffersService, private readonly bgs: OfferBackgroundsService) {}

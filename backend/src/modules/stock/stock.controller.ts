@@ -1,6 +1,7 @@
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
@@ -17,6 +18,7 @@ import { StockService } from './stock.service';
  */
 @ApiTags('Склад')
 @AppSection('stock')
+@UseInterceptors(MoneyMaskInterceptor)
 @Controller('stock')
 export class StockController {
   constructor(private readonly stock: StockService) {}

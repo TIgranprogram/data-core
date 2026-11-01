@@ -166,7 +166,7 @@ export const designRequest = {
         { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: (fv.sections || []).map((x) => x.value ?? x), hint: 'Из списка или своё' },
         { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: (fv.groups || []).map((g) => ({ value: g.value, label: g.value, sub: g.section })) },
         { key: 'sku', label: 'Артикул', max: 64, hint: 'Оставьте пустым — будет присвоен автоматически' },
-        { key: 'price', label: 'Цена', type: 'number', hint: 'Пусто — возьмётся из позиций заказов' },
+        { key: 'price', money: true, label: 'Цена', type: 'number', hint: 'Пусто — возьмётся из позиций заказов' },
         { key: 'description', label: 'Описание', type: 'textarea', wide: true, rows: 3, max: 2000 },
         { note: 'Фото из заявки перейдут в изделие. Паспорт, размеры и сертификацию можно дополнить в «Продукции».' },
       ];

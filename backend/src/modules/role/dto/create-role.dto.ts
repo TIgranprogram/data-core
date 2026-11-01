@@ -64,6 +64,11 @@ export class CreateRoleDto {
   @IsString({ each: true })
   sectionIds?: string[];
 
+  @ApiPropertyOptional({ description: 'Галочка «Деньги»: false — роль не видит цены, суммы и оплату; нет — по иерархии' })
+  @IsOptional()
+  @IsBoolean()
+  money?: boolean;
+
   @ApiPropertyOptional({ description: 'Активна ли роль' })
   /** TZ-ACCESS-301: page ACL — visible nav pages for this role. */
   @ApiPropertyOptional({ type: [String], description: "Страницы, доступные роли (page ACL)" })

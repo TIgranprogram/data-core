@@ -231,7 +231,7 @@ function shell() {
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
-    session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canPayroll ? navLinks.payroll : null) : null,
+    session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
     h('div', { class: 'side-foot' }, settingsButton(), appVersion()));
   netBar = h('div', { class: 'net-off', role: 'status', hidden: true }, 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.');
@@ -418,7 +418,7 @@ function render(c) {
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
     else if (section === 'money') list = FN.mountMoney(params);
-    else if (section === 'payroll' && FEATURES.payroll && session.canPayroll) list = FN.mountPayroll();
+    else if (section === 'payroll' && FEATURES.payroll && session.canMoney && session.canPayroll) list = FN.mountPayroll();
     else if (section === 'staff') list = FN.mountStaff(params);
     else if (section === 'trash') list = FN.mountTrash();
     else if (section === 'dicts') list = FN.mountDicts(params);

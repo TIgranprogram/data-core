@@ -1,5 +1,6 @@
+import { MoneyAccessGuard } from '../../common/guards/money-access.guard';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Get, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -9,6 +10,7 @@ import { FinanceService } from './finance.service';
 /** Деньги: платёжный календарь (ОДР) и сводка по СИЮ / ССЮ. Только чтение, все роли. */
 @ApiTags('Деньги')
 @AppSection('money')
+@UseGuards(MoneyAccessGuard)
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}

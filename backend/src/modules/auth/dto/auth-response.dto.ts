@@ -32,6 +32,8 @@ export interface AuthUserPayload {
   /** SK-8c — название роли для людей («Кладовщик», «Менеджер»). */
   roleLabel: string;
   permissions: string[];
+  /** Галочка «Деньги» роли (canSeeMoney): false — клиент не показывает цены, суммы, оплату. */
+  canMoney: boolean;
   phone?: string | null;
   fullName?: string | null;
   /** `preset:<код>` | `photo:<photoId>` | null */

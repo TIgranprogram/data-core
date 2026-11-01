@@ -194,7 +194,7 @@ export const orders = {
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'md-hide', render: (r) => r.customer || '' },
       { key: 'title', label: 'Название', sort: 'title', cls: 'clip', render: (r) => h('span', { title: r.title }, r.title) },
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => (r.qty != null ? `${qty(r.qty)} ${r.unit || ''}`.trim() : '') },
-      { key: 'amount', label: 'Сумма', sort: 'amount', cls: 'num right', render: (r) => (r.amount ? money(r.amount) : session.canMoney && session.canEdit ? h('a', { href: '#', class: 'muted', title: 'Вписать цену или сумму', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); if (await priceDialog(r)) window.dispatchEvent(new Event('data-changed')); } }, 'нет суммы — вписать') : h('span', { class: 'muted' }, 'нет суммы')) },
+      { key: 'amount', money: true, label: 'Сумма', sort: 'amount', cls: 'num right', render: (r) => (r.amount ? money(r.amount) : session.canMoney && session.canEdit ? h('a', { href: '#', class: 'muted', title: 'Вписать цену или сумму', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); if (await priceDialog(r)) window.dispatchEvent(new Event('data-changed')); } }, 'нет суммы — вписать') : h('span', { class: 'muted' }, 'нет суммы')) },
       { key: 'shipDate', label: 'Отгрузка', sort: 'shipDate', cls: 'num md-hide', render: (r) => date(r.shipDate) },
       { key: 'paidDate', label: 'Оплата', sort: 'paidDate', cls: 'num', render: (r) => date(r.paidDate) },
       { key: 'companyName', label: 'Наша компания', cls: 'md-hide', render: (r) => r.companyName || '' },

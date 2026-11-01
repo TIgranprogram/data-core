@@ -907,6 +907,10 @@
       lBase.append(base); fields.append(lBase);
     }
     wrap.append(fields);
+    const lMoney = el('label'); const money = el('input'); money.type = 'checkbox';
+    const fullMoney = r.name === 'admin' || r.name === 'director';
+    money.checked = fullMoney || r.money === true; money.disabled = fullMoney;
+    lMoney.append(money, el('span', '', 'Деньги')); wrap.append(lMoney, el('p', 'muted small', 'Без галочки цены и суммы скрыты везде.'));
     let box = null, stockBox = null;
     if (r.name !== 'admin') {
       wrap.append(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству («права как у»).'));
@@ -928,13 +932,14 @@
         wrap.append(stockBox);
       }
     }
-    return { wrap, name, base, box, stockBox, own };
+    return { wrap, name, base, box, stockBox, own, money };
   }
   function roleBody(f) {
     const body = { label: f.name.value.trim() };
     if (f.box) body.appSections = [...f.box.querySelectorAll('input:checked')].map((c) => c.value);
     if (f.stockBox) body.stockCategoryIds = [...f.stockBox.querySelectorAll('input:checked')].map((c) => c.value);
     if (f.base) body.baseRole = f.base.value;
+    if (!f.money.disabled) body.money = f.money.checked;
     return body;
   }
   function toggleRole(r, main, detail) {

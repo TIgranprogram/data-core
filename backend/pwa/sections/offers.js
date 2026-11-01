@@ -203,7 +203,7 @@ export const offers = {
       { key: 'number', label: '№ КП', sort: 'number', cls: 'nowrap', render: (r) => h('b', null, r.number || '—') },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
       { key: 'customer', label: 'Заказчик', cls: 'clip', render: (r) => cell(r.customer) },
-      { key: 'total', label: 'Сумма', sort: 'total', cls: 'num right nowrap', render: totalOf },
+      { key: 'total', money: true, label: 'Сумма', sort: 'total', cls: 'num right nowrap', render: totalOf },
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(STATUS, r.status) },
     ],
     card: {

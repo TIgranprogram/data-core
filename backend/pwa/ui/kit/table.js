@@ -1,11 +1,13 @@
 import { h } from '../../core/dom.js';
+import { session } from '../../core/api.js';
 import { emptyState } from '../empty.js';
 import { rowsTable } from '../rows-table.js';
 
 /**
  * table — эталон таблицы. Вид один: шапка-подписи, строка 11/14, числа вправо, выбранная строка — золотая полоса.
- *   table({ columns: [{ key?, label, num?, cls?, hide? }], rows, mode: 'list' | 'input', empty: { title, hint?, action? }, cls?, label (aria) })
- *   maxHeight 'S'|'M'|'L' — своя прокрутка по высоте (предпросмотры).
+ *   table({ columns: [{ key?, label, num?, cls?, hide?, money? }], rows, mode: 'list' | 'input', empty: { title, hint?, action? }, cls?, label (aria) })
+ *   money: true у колонки — колонка и ячейки скрыты без галочки «Деньги» (session.canMoney); у поля panel — то же.
+   maxHeight 'S'|'M'|'L' — своя прокрутка по высоте (предпросмотры).
  *   foot — строки <tr> подвала (итого); clickable — строки открывают запись (иначе курсор обычный).
  *   mode 'list' (по умолчанию): rows — массив строк { cells: [узел | текст | { v, cls }], onClick?, selected?, cls?, data? } или готовых <tr>
  *     (разделы, где строку уже собирает своя функция). Пусто → kit.empty. Возвращает <div.table-wrap> (в нём table.list).
@@ -14,6 +16,12 @@ import { rowsTable } from '../rows-table.js';
  */
 export function table({ columns = [], rows = [], mode = 'list', empty, cls, label, file, example, foot, clickable = false, maxHeight } = {}) {
   if (mode === 'input') return rowsTable({ columns, rows, file, example });
+  // колонка { money: true } — только с галочкой «Деньги» у роли: колонку и её ячейки не рисуем
+  const keep = columns.map((c) => !c.money || session.canMoney);
+  if (keep.includes(false)) {
+    rows = rows.map((r) => (r instanceof Node ? r : { ...r, cells: r.cells.filter((_, i) => keep[i] !== false) }));
+    columns = columns.filter((_, i) => keep[i]);
+  }
   if (!rows.length && empty) return emptyState(empty);
   const th = (c) => h('th', { class: [c.num ? 'num right' : '', c.hide ? 'md-hide' : '', c.cls || ''].filter(Boolean).join(' ') || null }, c.label ?? '');
   const tr = (r) => {

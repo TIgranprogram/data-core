@@ -72,16 +72,38 @@ export function effectiveRoles(role: string | undefined | null): string[] {
   return [role, ...(ROLE_INHERITS[role] ?? [])];
 }
 
+/** Галочка «Деньги» своей/встроенной роли (решение 2026-11-01): имя роли → money. Нет записи — решает MONEY_ROLES. */
+const roleMoney = new Map<string, boolean>();
+
+export function setRoleMoneyAll(roles: Array<{ name: string; money?: boolean | null }>): void {
+  roleMoney.clear();
+  for (const r of roles) setRoleMoney(r.name, r.money);
+}
+
+/** Записать/убрать галочку одной роли (не boolean — убрать). */
+export function setRoleMoney(name: string, money: boolean | null | undefined): void {
+  if (!name) return;
+  if (typeof money === 'boolean') roleMoney.set(name, money);
+  else roleMoney.delete(name);
+}
+
 export const MONEY_ROLES = ['admin', 'director', 'accountant', 'manager'];
 export const PAYROLL_ROLES = ['admin', 'director', 'accountant'];
 
 export function canSeeMoney(user: { role?: string | null; isOwner?: boolean } | undefined | null): boolean {
-  return !!user && (user.isOwner === true || MONEY_ROLES.includes(String(baseRoleOf(user.role))));
+  if (!user) return false;
+  if (user.isOwner === true || user.role === 'admin' || user.role === 'director') return true;
+  const flag = roleMoney.get(String(user.role));
+  if (typeof flag === 'boolean') return flag;
+  return MONEY_ROLES.includes(String(baseRoleOf(user.role)));
 }
 
 /** ФОТ и ставки сотрудников — уже, чем «деньги»: менеджер их не видит. */
 export function canSeePayroll(user: { role?: string | null; isOwner?: boolean } | undefined | null): boolean {
-  return !!user && (user.isOwner === true || PAYROLL_ROLES.includes(String(baseRoleOf(user.role))));
+  if (!user) return false;
+  if (user.isOwner === true) return true;
+  if (!canSeeMoney(user)) return false;
+  return PAYROLL_ROLES.includes(String(baseRoleOf(user.role)));
 }
 
 /**
@@ -94,4 +116,6 @@ export function roleLabelOf(name: string | undefined | null, label?: string | nu
 }
 
 /** Денежные поля, которые скрываются от наблюдателя (в ответах) и не принимаются от них (в запросах). */
-export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate', 'payments', 'debt', 'money'];
+export const MONEY_FIELDS = ['priceHint', 'unitPrice', 'amountManual', 'amount', 'paidAmount', 'sum', 'paidDate', 'reportDate', 'salaryRate', 'payments', 'debt', 'money',
+  // цены материалов, изделий, склада, КП, поставщиков
+  'pricePerUnit', 'lastPrice', 'lastPriceDate', 'listPrice', 'basePrice', 'costPrice', 'cost', 'unitPriceOverride', 'price', 'priceWithVat'];

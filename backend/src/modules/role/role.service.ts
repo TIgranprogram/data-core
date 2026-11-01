@@ -18,6 +18,8 @@ import {
   isBuiltinRole,
   setCustomRoleBase,
   setCustomRoleBases,
+  setRoleMoney,
+  setRoleMoneyAll,
 } from '../../common/roles-hierarchy';
 import { deleteRoleSections, setRoleSections, setRoleSectionsAll } from '../../common/app-sections';
 import { setRoleStockScope, setRoleStockScopeAll } from '../../common/stock-scope';
@@ -44,9 +46,10 @@ export class RoleService implements OnModuleInit {
   }
 
   async reloadRoleSections(): Promise<void> {
-    const list = await this.model.find({}, { name: 1, appSections: 1, stockCategoryIds: 1 }).lean().exec();
+    const list = await this.model.find({}, { name: 1, appSections: 1, stockCategoryIds: 1, money: 1 }).lean().exec();
     setRoleSectionsAll(list as Array<{ name: string; appSections?: string[] }>);
     setRoleStockScopeAll(list as Array<{ name: string; stockCategoryIds?: string[] }>);
+    setRoleMoneyAll(list as Array<{ name: string; money?: boolean }>);
   }
 
   async reloadRoleBases(): Promise<void> {
@@ -76,6 +79,7 @@ export class RoleService implements OnModuleInit {
     setCustomRoleBase(doc.name, doc.baseRole);
     setRoleSections(doc.name, doc.appSections);
     setRoleStockScope(doc.name, doc.stockCategoryIds);
+    setRoleMoney(doc.name, doc.money);
     this.logger.log(`Role created: ${doc.name}`);
     return doc;
   }
@@ -134,6 +138,7 @@ export class RoleService implements OnModuleInit {
       setCustomRoleBase(role.name, base);
       setRoleSections(role.name, role.appSections);
       setRoleStockScope(role.name, role.stockCategoryIds);
+      setRoleMoney(role.name, role.money);
     }
     if (!base) return { role, access: role, baseRole: name };
     return { role, access: await this.findByName(base), baseRole: base };
@@ -164,6 +169,7 @@ export class RoleService implements OnModuleInit {
     setCustomRoleBase(doc.name, doc.baseRole);
     setRoleSections(doc.name, doc.appSections);
     setRoleStockScope(doc.name, doc.stockCategoryIds);
+    setRoleMoney(doc.name, doc.money);
     userActivityCache.invalidateAll();
     this.logger.log(`Role updated: ${doc.name}`);
     return doc;
@@ -184,6 +190,7 @@ export class RoleService implements OnModuleInit {
     setCustomRoleBase(doc.name, null);
     deleteRoleSections(doc.name);
     setRoleStockScope(doc.name, null);
+    setRoleMoney(doc.name, null);
     userActivityCache.invalidateAll();
     this.logger.log(`Role deleted: ${doc.name}`);
   }

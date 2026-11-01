@@ -1,5 +1,6 @@
+import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { BadRequestException, Body, Controller, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Param, Post, UseInterceptors } from '@nestjs/common';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ProductService } from './product.service';
@@ -9,6 +10,7 @@ interface AttachPhotoDto {
 }
 
 @AppSection('products')
+@UseInterceptors(MoneyMaskInterceptor)
 @Controller('products/:id')
 export class ProductSubroutesController {
   constructor(private readonly productService: ProductService) {}

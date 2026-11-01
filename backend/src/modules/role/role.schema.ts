@@ -50,6 +50,10 @@ export class Role {
   @Prop({ type: String, default: undefined })
   baseRole?: string;
 
+  /** Галочка «Деньги» (2026-11-01): false — не видит цены/суммы/оплату; нет поля — по иерархии. Без default. */
+  @Prop({ type: Boolean, default: undefined })
+  money?: boolean;
+
   @Prop({ default: true })
   isActive!: boolean;
 }
