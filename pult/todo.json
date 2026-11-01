@@ -245,5 +245,49 @@
     "params": {
       "script": "passport-category-defaults"
     }
+  },
+  {
+    "id": "stockzones-init-plan",
+    "added": "2026-11-01T14:40",
+    "after": "deploy-admin-audit",
+    "title": "Склады: показать план",
+    "why": "После выкладки! Покажем, какие три склада создадутся и какие роли получат склады. Ничего не меняет.",
+    "cmd": "script-plan",
+    "params": {
+      "script": "stockzones-init"
+    }
+  },
+  {
+    "id": "stockzones-init-apply",
+    "added": "2026-11-01T14:40",
+    "after": "stockzones-init-plan",
+    "title": "Склады: создать и перенести роли",
+    "why": "Создаст склады «Основной», «Профильная труба», «Листовой материал» и привяжет роли. Перед записью — копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "stockzones-init"
+    }
+  },
+  {
+    "id": "qr-backfill-plan",
+    "added": "2026-11-01T14:40",
+    "after": "deploy-admin-audit",
+    "title": "QR-коды: показать план",
+    "why": "После выкладки! Покажем, сколько позиций склада и изделий получат QR-коды. Ничего не меняет.",
+    "cmd": "script-plan",
+    "params": {
+      "script": "qr-backfill"
+    }
+  },
+  {
+    "id": "qr-backfill-apply",
+    "added": "2026-11-01T14:40",
+    "after": "qr-backfill-plan",
+    "title": "QR-коды: выдать всем позициям",
+    "why": "Каждая позиция склада и изделие получит свой постоянный QR-код. Перед записью — копия базы.",
+    "cmd": "script-apply",
+    "params": {
+      "script": "qr-backfill"
+    }
   }
 ]
