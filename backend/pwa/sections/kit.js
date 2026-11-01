@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, failBlock, toast, pick, filter, table, panel, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, toast, pick, filter, table, panel, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -65,6 +65,9 @@ export const kit = {
       block('Кнопки', 'primary / secondary / ghost / danger × M и S; занята и выключена.',
         ...['M', 'S'].map((size) => sample(...['primary', 'secondary', 'ghost', 'danger'].map((kind) => button({ label: kind, kind, size })),
           button({ label: 'Занята', kind: 'primary', size, busy: true }), button({ label: 'Выключена', size, disabled: true })))),
+      block('Мобильный рабочий экран (mobile)', 'Семейство kit mobile (docs/DESIGN-MOBILE.md): screen, bigButton, choice, qty, search, done, error. Размеры — переменные --m-* в kit.css.',
+        mobile.screen({ title: 'Сколько выдать? Болт М8', step: { n: 2, of: 4 }, back: () => toast('Назад'), body: [mobile.qty({ value: 20, unit: 'шт', max: 150 }).el, mobile.choice({ items: [{ value: 1, label: 'Заказ 1245', hint: 'Скамья парковая' }, { value: 2, label: 'Заказ 1250' }], onPick: (o) => toast(o.label) }), mobile.search({ placeholder: 'Название или артикул', source: async () => [], empty: 'Ничего не найдено' }), mobile.error('На складе только 150 шт.')], foot: mobile.bigButton({ label: 'Дальше', onClick: () => toast('Дальше') }), footHint: 'Впишите количество' }),
+        mobile.screen({ title: 'Готово', body: [mobile.done({ text: 'Выдано: Болт М8 · 20 шт · на заказ 1245', again: { label: 'Ещё выдать', onClick: () => {} }, home: { label: 'На главный экран', onClick: () => {} } })] })),
       block('Кнопка-значок, переключатель, ссылка', 'iconButton (S и M, с меню); segmented; link (переход) и кнопка ghost S (действие).',
         sample(iconButton({ icon: '⋯', label: 'Ещё', menu: true }), iconButton({ icon: '😀', label: 'Смайлик', size: 'S' }), segmented({ items: [{ key: 'a', label: 'Первый' }, { key: 'b', label: 'Второй' }, { key: 'c', label: 'Опасный', tone: 'danger' }], value: 'a', label: 'Образец' }).el, link({ label: 'Открыть раздел', href: '#kit' }))),
       block('Артикул изделия', 'sku(text) — .k-sku; впереди названия в работе с изделием, отдельной строкой в таблицах и карточках.',

@@ -141,10 +141,14 @@ export const layout = {
   },
 };
 
+/** Семейство mobile — мобильные рабочие экраны (ui/kit/mobile.js) */
+export { mobile } from './mobile.js';
+
 // ---- Реэкспорт существующих эталонов ----
 export { modal, confirmDlg } from '../dialog.js';
 export { toast, toastError } from '../toast.js';
 export { failBlock, busyBlock } from '../busy.js';
+export { errText } from '../errors.js';
 export { mountList } from '../list.js';
 export { openCard } from '../card.js';
 export { pick, enhanceSelect, isLong, attachCombo, tagPick, attachSuggest } from './pick.js';

@@ -1,4 +1,4 @@
-import { APP_SECTION_IDS, appSectionLabel, appSectionsFor } from './app-sections';
+import { APP_SECTION_IDS, appSectionLabel, appSectionsFor, sectionOpen } from './app-sections';
 
 describe('app-sections: Документация', () => {
   it('docs и старый passports — оба в списке, id уникальны', () => {
@@ -14,5 +14,15 @@ describe('app-sections: Документация', () => {
   it('роль с галочкой docs получает её в /auth, admin — null', () => {
     expect(appSectionsFor('manager', ['docs', 'нет-такого'])).toEqual(['docs']);
     expect(appSectionsFor('admin', ['docs'])).toBeNull();
+  });
+});
+
+describe('app-sections: Склад (телефон)', () => {
+  it('раздел есть, открывает только склад и заявки', () => {
+    expect(APP_SECTION_IDS).toContain('stock-mobile');
+    const open = new Set(['stock-mobile']);
+    expect(sectionOpen(open, 'stock')).toBe(true);
+    expect(sectionOpen(open, 'requests')).toBe(true);
+    expect(sectionOpen(open, 'money')).toBe(false);
   });
 });

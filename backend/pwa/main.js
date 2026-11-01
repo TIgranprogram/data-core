@@ -83,6 +83,7 @@ const LAZY = {
   fill: [() => import('./sections/fill.js'), [['@mountFill','mountFill']]],
   search: [() => import('./sections/search.js'), [['@mountSearch','mountSearch']]],
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
+  'stock-mobile': [() => import('./sections/stock-mobile.js'), [['stock-mobile','stockMobile']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
 const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
@@ -114,8 +115,9 @@ function needed(section, params) {
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners']];
-const DEFAULT = 'home';
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад (телефон)', 'stock']];
+/** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
+const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : 'home');
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { salesorder: 'salesorders', orderedit: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
@@ -224,7 +226,7 @@ function shell() {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
-    h('a', { class: 'brand', href: '#' + DEFAULT }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
+    h('a', { class: 'brand', href: '#' + defaultSection() }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     group('Производство', navLinks.salesorders, navLinks.matching, navLinks.design, navLinks.work), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
@@ -256,7 +258,7 @@ function shell() {
     avatarButton());
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
-  shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
+  shellEl = h('div', { class: 'shell' + (session.onlyStockMobile ? ' k-kiosk' : '') }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
     h('div', { class: 'main' }, topbar, crumbsEl, netBar, main));
   root.replaceChildren(shellEl);
   refreshCounts();
@@ -363,7 +365,7 @@ const screenKey = (section, params) => (section === 'passports' ? 'docs' : secti
 
 function render(c) {
   const { section, params } = c;
-  if (!section) { go(DEFAULT, {}, { replace: true }); return; }
+  if (!section) { go(defaultSection(), {}, { replace: true }); return; }
   // старый раздел «Позиции и оплаты» (#orders) ушёл из меню: список — «Деньги → Долги», карточка позиции — справа (of=orders)
   if (section === 'orders') { const { open, new: isNew, ...rest } = params; go('money', { ...rest, tab: 'debts', ...(open || isNew ? { of: 'orders', ...(open ? { open } : { new: isNew }) } : {}) }, { replace: true }); return; }
   // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render
@@ -378,9 +380,9 @@ function render(c) {
   }
   // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
   // SK-8b: раздел снят с роли — прямой адрес ведёт на «Сегодня» с подсказкой, без ошибки
-  if (!allowed(section) || (isStockRole() && !STOCK_ROLE_SECTIONS.has(section))) {
+  if (!allowed(section) || (session.onlyStockMobile && section !== 'stock-mobile') || (isStockRole() && !STOCK_ROLE_SECTIONS.has(section))) {
     toast(`Раздел «${titleOf(OWNER[section] || section) || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
-    go(DEFAULT, {}, { replace: true }); return;
+    go(defaultSection(), {}, { replace: true }); return;
   }
   // старый адрес #passports (ссылки из изделия, заказа, истории): «Архив паспортов» в «Документации», карточка — только просмотр и печать
   if (section === 'passports') { go('docs', { tab: 'archive', ...(params.open ? { of: 'passarchive', open: params.open } : {}) }, { replace: true }); return; }
@@ -426,7 +428,7 @@ function render(c) {
     else if (section === 'fill') list = FN.mountFill(params);
     else if (section === 'search') list = FN.mountSearch(params);
     else if (section === 'matching') list = FN.mountMatchingQueue(params);
-    else { go(DEFAULT, {}, { replace: true }); return; }
+    else { go(defaultSection(), {}, { replace: true }); return; }
     } catch (e) {
       reportError(e, { kind: 'unhandled', action: 'открыть раздел' });
       ui.main.replaceChildren(failBlock(e, () => { mounted = null; render(current()); }, { cls: 'panel state', text: 'Раздел не открылся' }));

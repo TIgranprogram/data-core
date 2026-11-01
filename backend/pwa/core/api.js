@@ -42,6 +42,8 @@ export const session = {
     // «Документация» (docs) видна и ролям со старой галочкой «паспорта» — миграция ролей не нужна
     return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports'));
   },
+  /** Роль «Ассистент кладовщика»: отмечен только раздел «Склад (телефон)» — меню и шапка скрыты, сразу эта страница. */
+  get onlyStockMobile() { const s = this.user?.sections; return this.role !== 'admin' && Array.isArray(s) && s.length === 1 && s[0] === 'stock-mobile'; },
   /** Раздел «Документация» (паспорта, шаблоны, архив) открыт этой роли. */
   seesDocs() { return this.sees('docs'); },
 };

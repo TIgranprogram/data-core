@@ -24,6 +24,8 @@ export const APP_SECTIONS = [
   { id: 'work', label: 'В работе' },
   // «КП»: /api/offers (modules/offers).
   { id: 'offers', label: 'КП' },
+  // «Склад (телефон)»: одна крупная страница приёмки и выдачи для ассистента кладовщика (pwa sections/stock-mobile.js).
+  { id: 'stock-mobile', label: 'Склад (телефон)' },
 ] as const;
 
 export type AppSectionId = (typeof APP_SECTIONS)[number]['id'];
@@ -89,5 +91,5 @@ export function openSectionsFor(
 
 /** Открыт ли раздел (null-набор = всё открыто). */
 export function sectionOpen(open: Set<string> | null, id: string): boolean {
-  return !open || open.has(id) || (id === 'passports' && open.has('docs'));
+  return !open || open.has(id) || (id === 'passports' && open.has('docs')) || (open.has('stock-mobile') && (id === 'stock' || id === 'requests'));
 }
