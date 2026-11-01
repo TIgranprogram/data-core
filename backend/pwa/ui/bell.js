@@ -1,4 +1,5 @@
 import { h } from '../core/dom.js';
+import { button } from './kit/index.js';
 import { api } from '../core/api.js';
 import { icon } from './icons.js';
 import { setBadgePart } from './app-badge.js';
@@ -75,8 +76,8 @@ export function bellButton() {
     const loc = S.tab === 'system' ? listNotices() : [];
     const head = h('div', { class: 'bell-head' }, h('b', null, S.tab === 'important' ? 'Важные' : 'Система'),
       h('span', null,
-        (S.unread[S.tab] || (S.tab === 'system' && loc.some((x) => !x.read))) ? h('button', { type: 'button', class: 'bell-clear', onclick: (e) => { e.stopPropagation(); readAll(); } }, 'Прочитать все') : null,
-        loc.length ? h('button', { type: 'button', class: 'bell-clear', onclick: (e) => { e.stopPropagation(); clearNotices(); } }, 'Очистить') : null));
+        (S.unread[S.tab] || (S.tab === 'system' && loc.some((x) => !x.read))) ? button({ label: 'Прочитать все', kind: 'ghost', size: 'S', onClick: (e) => { e.stopPropagation(); readAll(); } }) : null,
+        loc.length ? button({ label: 'Очистить', kind: 'ghost', size: 'S', onClick: (e) => { e.stopPropagation(); clearNotices(); } }) : null));
     const rows = [...loc.map(localItem), ...(srv || []).map(serverItem)];
     return [head, ...(srv === null && !loc.length ? [h('div', { class: 'bell-empty' }, 'Загружаем…')]
       : rows.length ? rows

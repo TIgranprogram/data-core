@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
+import { card } from '../ui/kit/index.js';
 import { mountList } from '../ui/list.js';
 import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { toast } from '../ui/toast.js';
@@ -176,7 +177,7 @@ export function mountMoney(params) {
     }
     const t = c.totals;
     const mt = c.metrics;
-    const tile = (label, v, cls = '', onclick) => h(onclick ? 'button' : 'div', { ...(onclick ? { type: 'button', onclick } : {}), class: 'td-tile m-tile' }, h('span', { class: 'td-tl', title: label }, label), h('span', { class: 'td-tv ' + cls }, money(v)));
+    const tile = (label, v, cls = '', onclick) => card({ size: 'S', tone: cls === 'neg' ? 'danger' : cls === 'pos' ? 'ok' : 'neutral', title: money(v), meta: label, onClick: onclick });
     const tiles = mt ? h('div', { class: 'td-tiles m-tiles' },
       tile('поступило', mt.received, 'pos'), tile('выплачено', mt.paid), tile('сальдо', mt.saldo, mt.saldo < 0 ? 'neg' : ''),
       tile('ожидается поступлений', mt.expectedIncome), tile('счета к оплате', mt.invoicesToPay), tile('просрочено', mt.overdueInvoices, mt.overdueInvoices > 0 ? 'neg' : '')) : null;

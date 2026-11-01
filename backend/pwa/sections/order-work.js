@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError, link } from '../ui/kit/index.js';
 
 /*
  * «В работе» в карточке заказа: по каждой позиции — карточка «W-12 · Сварка» (ссылка) или галочка «запустить».
@@ -78,7 +78,7 @@ export function orderWork(orders) {
     box.replaceChildren(h('div', { class: 'section-title' }, `В работе (${byLine.size} из ${all.length} поз.)`),
       h('ul', { class: 'spec-list' }, ...rows),
       result ? launchResult(result, titleOf) : null,
-      h('a', { class: 'link-btn', href: '#work?orderId=' + all[0]._order.id, title: 'Доска «В работе» с этим заказом' }, 'Открыть в «В работе»'),
+      link({ href: '#work?orderId=' + all[0]._order.id, title: 'Доска «В работе» с этим заказом', label: 'Открыть в «В работе»' }),
       can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже запущены.')) : null);
   }
   box.replaceChildren(h('div', { class: 'section-title' }, 'В работе'), h('div', { class: 'skel', style: { width: '50%' } }));

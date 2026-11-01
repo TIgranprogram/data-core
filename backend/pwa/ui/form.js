@@ -6,6 +6,7 @@ import { attachCombo } from './combo.js';
 import { attachSuggest } from './suggest.js';
 import { attachPhrases } from './phrases.js';
 import { enhanceSelect } from './select.js';
+import { segmented } from './kit/index.js';
 
 /**
  * Форма из описания полей (CANON §2 «Карточка»). Поле:
@@ -123,15 +124,11 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
       input = f.widget(v);
     } else if (f.type === 'segment') {
       let cur = String(v ?? opts[0]?.value ?? '');
-      const btns = opts.map((o) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', 'data-v': String(o.value), 'data-tone': o.tone || '', onclick: () => set(o.value) }, o.label));
-      const box = h('div', { class: 'fseg', role: 'radiogroup', id }, btns);
-      const set = (x) => {
-        cur = String(x ?? '');
-        for (const b of btns) { const on = b.dataset.v === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
-        box.dispatchEvent(new Event('change', { bubbles: true }));
-      };
+      const seg = segmented({ items: opts.map((o) => ({ key: String(o.value), label: o.label, tone: o.tone })), value: cur, onChange: (k) => { cur = k; box.dispatchEvent(new Event('change', { bubbles: true })); } });
+      const box = seg.el; box.id = id;
+      const set = (x) => { cur = String(x ?? ''); seg.set(cur); box.dispatchEvent(new Event('change', { bubbles: true })); };
       set(cur);
-      input = { el: box, get value() { return cur; }, set value(x) { set(x); }, focus: () => (btns.find((b) => b.dataset.v === cur) || btns[0])?.focus() };
+      input = { el: box, get value() { return cur; }, set value(x) { set(x); }, focus: () => (seg.buttons.find((b) => b.dataset.key === cur) || seg.buttons[0])?.focus() };
     } else if (f.type === 'select') {
       const list = [...opts];
       if (v != null && v !== '' && !list.some((o) => String(o.value) === String(v))) list.push({ value: v, label: String(v) });

@@ -1,5 +1,6 @@
 import { stockList } from '../core/stock-list.js';
 import { h } from '../core/dom.js';
+import { button } from './kit/index.js';
 import { busyBlock } from './busy.js';
 import { patch } from '../core/router.js';
 import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } from '../core/facets.js';
@@ -40,7 +41,8 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
   let items = null; let src = null; let P = {};
   const folded = new Map(); // key → открыто/свёрнуто, если пользователь сам нажал (иначе — по числу значений)
   if (inline) return inlineFilter(categoryKey);
-  const btn = h('button', { type: 'button', class: 'btn ff-btn', 'aria-expanded': 'false' }, h('span', { class: 'ff-ico', 'aria-hidden': 'true' }, '⌕'), ' Поиск и фильтры');
+  const btn = button({ label: '⌕ Поиск и фильтры' });
+  btn.setAttribute('aria-expanded', 'false');
   const tags = h('span', { class: 'ff-tags' });
   const sb = searchBox({ value: '', placeholder: 'Название, размер, стандарт…', className: 'ff-search', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
   const body = h('div', { class: 'ff-body' });
@@ -93,7 +95,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
     const sel = parseFt(P.ft);
     const names = Object.fromEntries(FACETS);
     tags.replaceChildren(...Object.entries(sel).filter(([, v]) => v).map(([k, v]) => h('button', { type: 'button', class: 'tag active ff-tag', title: 'Убрать: ' + names[k], onclick: () => set(k, v) }, v, ' ×')));
-    btn.classList.toggle('on', Object.values(sel).some(Boolean));
+    btn.classList.toggle('btn-primary', Object.values(sel).some(Boolean));
     sb.set(P.q || '');
     if (!pop.hidden) renderPop();
   }

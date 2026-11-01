@@ -136,3 +136,5 @@
 
 ## Разбор в админке (CC-18, 2026-10-31, не закоммичено)
 - `backend/admin/control-questions.js` (window.dcQuestions.open) + `control-questions.css` (.cc-sum/.cc-qtable/.cc-drawer): сводка-чипы, таблица, правая панель (предпросмотр, красное необратимое с галочкой, 409 -> новый план, отложить, ответ, отмена, журнал). `admin.js api()` кидает Error с `.status/.body`. index.html: вкладка `questions`, `#questions-root`. DESIGN §8 стр.289. Карта обновлена.
+
+- kit: iconButton/segmented/link — backend/pwa/ui/kit/index.js (стили .k-seg, .k-icon — kit.css). Карта обновлена.

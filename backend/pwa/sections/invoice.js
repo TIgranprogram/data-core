@@ -9,6 +9,7 @@ import { attachCombo } from '../ui/combo.js';
 import { photoField } from '../ui/photos.js';
 import { COST_CENTER } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
+import { segmented } from '../ui/kit/index.js';
 import { lookups, UNITS, unitList, partnerAction } from './lookups.js';
 import { pastItems } from './requests.js';
 import { orderedNote } from './item-orders.js';
@@ -44,10 +45,10 @@ async function buildInvoiceForm(opts = {}) {
   const type = h('input', { maxlength: 60 });
   let state = opts.paste ? 'ordered' : 'received';
   let cc = 'workshop';
-  const ccBox = h('div', { class: 'fseg' }, ...Object.entries(COST_CENTER).map(([k, l]) => h('button', { type: 'button', class: 'fseg-btn' + (k === cc ? ' on' : ''), onclick: (e) => { cc = k; ccBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); } }, l)));
+  const ccBox = segmented({ items: Object.entries(COST_CENTER).map(([k, l]) => ({ key: k, label: l })), value: cc, onChange: (k) => { cc = k; } }).el;
   // по умолчанию выкл. (пользователь 2026-10-28): приход оформляет кладовщик, а не тот, кто вносит счёт
   const toStock = h('input', { type: 'checkbox', checked: false });
-  const stateBox = h('div', { class: 'fseg' }, ...STATE.map((s) => h('button', { type: 'button', class: 'fseg-btn' + (s.value === state ? ' on' : ''), onclick: (e) => { state = s.value; stateBox.querySelectorAll('.fseg-btn').forEach((b) => b.classList.toggle('on', b === e.currentTarget)); syncStars(); } }, s.label)));
+  const stateBox = segmented({ items: STATE.map((s) => ({ key: s.value, label: s.label })), value: state, onChange: (k) => { state = k; syncStars(); } }).el;
   const noStar = h('span', { class: 'req' }, ' *'); const coStar = h('span', { class: 'req' }, ' *');
   function syncStars() { noStar.hidden = state === 'ordered'; coStar.hidden = state !== 'paid'; }
   syncStars();
@@ -186,7 +187,7 @@ async function buildInvoiceForm(opts = {}) {
   }
   const pasteBox = opts.paste ? h('div', { class: 'form-block paste-box', 'data-tone': 'info' },
     h('div', { class: 'section-title' }, 'Вставьте строки таблицы'), pasteArea,
-    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('label', { class: 'btn btn-sm file-btn', title: 'Файл Excel (.xlsx) или CSV — первый лист' }, 'Загрузить файл…', h('input', { type: 'file', accept: '.xlsx,.csv,.txt', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; try { pasteArea.value = await readTableFile(fl); applyPaste(); } catch (err) { toastError(err); } } })),
+    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('label', { class: 'btn btn-sm', title: 'Файл Excel (.xlsx) или CSV — первый лист' }, 'Загрузить файл…', h('input', { type: 'file', accept: '.xlsx,.csv,.txt', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; try { pasteArea.value = await readTableFile(fl); applyPaste(); } catch (err) { toastError(err); } } })),
       h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onclick: () => downloadTemplate() }, '⇩ Шаблон Excel'), h('span', { class: 'spacer' })), pasteInfo) : null;
 
   const body = h('div', { class: 'inv' },

@@ -17,6 +17,7 @@ import { receiveField } from './item-orders.js';
 import { pipeInHelper } from './metal.js';
 import { lookups } from './lookups.js';
 import { arrivalsBlock } from './ops.js';
+import { row } from '../ui/kit/index.js';
 import { weighButton } from './ops-weight.js';
 import { buildFromReserve, buildUnreserve } from './stock-ops-res.js';
 import { reservationsPanel } from './reservations.js';
@@ -121,50 +122,49 @@ async function build() {
     linesBox.replaceChildren(...lines.map((l) => {
       const it = l.it;
       const inp = h('input', { inputmode: 'decimal', value: l.qty, placeholder: op === 'count' ? 'факт' : '0', 'aria-label': 'Количество' });
-      const diff = h('span', { class: 'ops-diff num' });
-      const warn = h('div', { class: 'ops-warn neg', role: 'note', hidden: true });
+      const diff = h('span', { class: 'k-diff num' });
+      const warn = h('div', { class: 'k-note neg', role: 'note', hidden: true });
       const showDiff = () => {
         const n = parseNum(inp.value);
         if (op === 'count') {
           const d = n === undefined || Number.isNaN(n) ? null : Math.round((n - it.quantity) * 1000) / 1000;
           const below = d !== null && n < (it.reservedQty || 0);
           diff.textContent = d === null ? 'не пересчитано' : d === 0 ? `сходится: ${qty(it.quantity)}` : `было ${qty(it.quantity)} → станет ${qty(n)} (${d > 0 ? '+' : '−'}${qty(Math.abs(d))}), свободно станет ${qty(n - (it.reservedQty || 0))}`;
-          diff.className = 'ops-diff num wide ' + (d === null ? 'muted' : below ? 'neg' : d === 0 ? 'pos' : '');
+          diff.className = 'k-diff num wide ' + (d === null ? 'muted' : below ? 'neg' : d === 0 ? 'pos' : '');
           warn.hidden = !below;
           if (below) ordersOf(it.id).then((names) => { warn.textContent = `Меньше, чем в брони (${qty(it.reservedQty)}): ${names.length ? names.join('; ') : 'бронь есть'}. Сначала снимите или выдайте бронь — иначе при сохранении будет вопрос.`; });
         } else if (op === 'reserve') {
           const free = it.free ?? it.quantity; const ok = !(n > free);
           diff.textContent = n ? (ok ? 'хватает' : `не хватает ${qty(n - free)} (свободно ${qty(free)})`) : '';
-          diff.className = 'ops-diff num ' + (ok ? 'pos' : 'neg');
+          diff.className = 'k-diff num ' + (ok ? 'pos' : 'neg');
         } else if (op === 'writeoff') {
           const free = it.free ?? it.quantity;
           diff.textContent = n > it.quantity ? `на складе только ${qty(it.quantity)}` : n > free ? `в брони ${qty(it.reservedQty)} — спишется и забронированное` : '';
-          diff.className = 'ops-diff num neg';
+          diff.className = 'k-diff num neg';
         } else if (op === 'out') {
           const free = it.free ?? it.quantity;
           diff.textContent = n > free ? `свободно только ${qty(free)}` : '';
-          diff.className = 'ops-diff num neg';
+          diff.className = 'k-diff num neg';
         } else diff.textContent = '';
       };
       inp.addEventListener('input', () => { l.qty = inp.value; touched = true; saveDraft(); showDiff(); });
       inp.addEventListener('focus', () => inp.select());
       const step = (d) => { inp.value = String(Math.max(0, (parseNum(inp.value) || 0) + d)); inp.dispatchEvent(new Event('input')); };
       const ph = op === 'in' ? pipeInHelper(it, inp) : null; // труба: «10 хлыстов по 6 м» = 60 м
-      if (ph) { ph.style.gridColumn = '1 / -1'; ph.addEventListener('input', () => inp.dispatchEvent(new Event('input'))); }
+      if (ph) { ph.addEventListener('input', () => inp.dispatchEvent(new Event('input'))); }
       showDiff();
       const info = op === 'count' ? `по учёту ${qty(it.quantity)} ${it.unit || ''}` : `на складе ${qty(it.quantity)} ${it.unit || ''}${it.reservedQty ? `, в брони ${qty(it.reservedQty)}` : ''}`;
-      return h('div', { class: 'ops-line', 'data-id': it.id },
-        h('div', { class: 'ops-name' }, h('div', { class: 'clip', title: it.name }, it.name), h('small', null, info)),
-        h('div', { class: 'ops-qty' },
+      return row({ data: it.id, title: it.name, meta: info,
+        qty: [
           op !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(-1), 'aria-label': 'Меньше' }, '−') : null,
           inp,
           op !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(1), 'aria-label': 'Больше' }, '+') : null,
-          h('span', { class: 'ops-unit' }, it.unit || ''),
-          weighButton(it, op, (q, nt) => { l.note = nt; inp.value = String(q); inp.dispatchEvent(new Event('input')); })),
+          h('span', { class: 'muted small' }, it.unit || ''),
+          weighButton(it, op, (q, nt) => { l.note = nt; inp.value = String(q); inp.dispatchEvent(new Event('input')); })],
         diff,
+        action: h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать из списка', 'aria-label': 'Убрать из списка', onclick: () => { lines = lines.filter((x) => x !== l); touched = true; saveDraft(); render(); } }, '×'),
         warn,
-        h('button', { class: 'btn btn-ghost btn-icon btn-sm ops-x', type: 'button', title: 'Убрать из списка', 'aria-label': 'Убрать из списка', onclick: () => { lines = lines.filter((x) => x !== l); touched = true; saveDraft(); render(); } }, '×'),
-        l.recv?.el, ph);
+        below: [l.recv?.el, ph] });
     }));
   }
 

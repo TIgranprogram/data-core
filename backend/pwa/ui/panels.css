@@ -170,10 +170,6 @@
   .btn-primary, .btn-gold { height: 48px; min-height: 48px; font-size: 16px; font-weight: 650; }
 
   /* складские операции: крупнее количество */
-  .ops-qty input { width: 100px; height: 48px; font-size: 20px; font-weight: 700; border-radius: var(--radius-sm); }
-  .ops-qty .btn-icon { width: 44px; height: 44px; font-size: 20px; }
-  .ops-line { padding: 14px var(--s3); }
-  .ops-name .clip { font-size: 15px; }
 
   /* выбор позиции: крупный инпут */
   .sop-lines .field input, .sop-lines .field select { height: 48px; font-size: 16px; }
@@ -318,7 +314,6 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 .pm-sheet .pm-item { min-height: 44px; }
 @media (max-width: 760px) {
   .topbar .btn-icon { width: 44px; height: 44px; }
-  .avatar-btn { width: 44px; height: 44px; }
 }
 
 /* Сводка ключ-значение `.kv-grid` (DESIGN §4): карточка задачи проектирования, «Изделие» */
@@ -404,7 +399,6 @@ button.stg-in:focus-visible { outline: 2px solid var(--primary); outline-offset:
 .pf-av-up { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s2); }
 .avatar-img { display: inline-block; overflow: hidden; background: none; padding: 0; }
 .avatar-img svg { display: block; }
-.avatar-btn.avatar-wrap { background: none; padding: 0; }
 .who-cell { display: inline-flex; align-items: center; gap: var(--s1); }
 
 /* блоки полей карточки изделия: заголовок на всю строку */

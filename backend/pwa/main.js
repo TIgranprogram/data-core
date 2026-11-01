@@ -13,6 +13,7 @@ import { installGlobalErrors } from './ui/errors.js';
 import { toast, toastError } from './ui/toast.js';
 import { icon } from './ui/icons.js';
 import { closePopMenu, isOpenFor, openPopMenu } from './ui/pop-menu.js';
+import { iconButton } from './ui/kit/index.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
 import { lookups } from './sections/lookups.js';
@@ -304,8 +305,8 @@ function themeButton() {
 
 /** Аватар в шапке → меню: имя, роль, «Мой профиль», тема, «Выйти». */
 function avatarButton() {
-  const btn = h('button', { class: 'avatar-btn avatar-wrap', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
-    onclick: () => {
+  const btn = iconButton({ icon: null, label: 'Профиль', menu: true,
+    onClick: () => {
       if (isOpenFor(btn)) { closePopMenu(); return; }
       openPopMenu({ anchor: btn, side: 'down', cls: 'pm-user',
         head: h('div', { class: 'pm-who' }, h('b', null, session.name || ''), h('span', null, session.user?.roleLabel || roleName(session.user?.role))),

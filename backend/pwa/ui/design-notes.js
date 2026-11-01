@@ -1,8 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { plural } from '../core/format.js';
-import { confirmDlg } from './dialog.js';
-import { toastError } from './toast.js';
+import { confirmDlg, toastError, button } from './kit/index.js';
 
 /**
  * Обсуждение задачи проектирования (правая панель): лента, вопрос менеджеру, ответ.
@@ -53,7 +52,7 @@ export function discussionBlock(row, ctx, openGallery) {
   const setReply = (q) => {
     replyTo = q;
     replyBar.hidden = !q;
-    replyBar.replaceChildren(...(q ? [h('span', null, 'Ответ на вопрос: ' + q.text.slice(0, 60)), h('button', { type: 'button', class: 'link-btn', onclick: () => setReply(null) }, 'Отмена')] : []));
+    replyBar.replaceChildren(...(q ? [h('span', null, 'Ответ на вопрос: ' + q.text.slice(0, 60)), button({ label: 'Отмена', kind: 'ghost', size: 'S', onClick: () => setReply(null) })] : []));
     ask.parentElement.hidden = !!q;
     if (q) input.focus();
   };
@@ -104,7 +103,7 @@ export function discussionBlock(row, ctx, openGallery) {
     const q = open();
     flag.hidden = !q.length;
     flag.replaceChildren(...(q.length ? [h('b', null, 'Без ответа: '), questionsText(q.length), ' ',
-      h('button', { type: 'button', class: 'link-btn', onclick: () => document.getElementById('dn-' + q[0].id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 'К вопросу')] : []));
+      button({ label: 'К вопросу', kind: 'ghost', size: 'S', onClick: () => document.getElementById('dn-' + q[0].id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) })] : []));
   };
 
   async function remove(n) {

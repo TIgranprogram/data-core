@@ -4,6 +4,7 @@ import { go, navInfo } from '../core/router.js';
 import { getPref, setPref } from '../core/prefs.js';
 import { icon } from '../ui/icons.js';
 import { toastError } from '../ui/toast.js';
+import { iconButton } from '../ui/kit/index.js';
 import { noticeTime } from '../ui/notice-card.js';
 import { uploadPhoto } from '../ui/photos.js';
 import { openZoom } from '../ui/gallery.js';
@@ -71,7 +72,7 @@ export function mountChat(el, { params, nav, single } = {}) {
   // смайлики по теме производства спортивного оборудования (пользователь 2026-10-29) — вставляются в текст на место курсора
   const pick = h('div', { class: 'chat-emoji', hidden: true, role: 'dialog', 'aria-label': 'Смайлики' },
     ...EMOJI.map(([group, list]) => h('div', { class: 'chat-emoji-grp' }, h('div', { class: 'chat-emoji-lab' }, group),
-      h('div', { class: 'chat-emoji-row' }, ...list.map(([e, t]) => h('button', { type: 'button', class: 'chat-emoji-btn', title: t, 'aria-label': t, onclick: () => putEmoji(e) }, e))))));
+      h('div', { class: 'chat-emoji-row' }, ...list.map(([e, t]) => iconButton({ icon: e, label: t, onClick: () => putEmoji(e) }))))));
   const smile = h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Смайлики', 'aria-label': 'Смайлики', 'aria-expanded': 'false', onclick: () => togglePick() }, '😊');
   const togglePick = (open = pick.hidden) => { pick.hidden = !open; smile.setAttribute('aria-expanded', String(open)); };
   const putEmoji = (e) => {

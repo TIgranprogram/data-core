@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { row } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, plural, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
@@ -40,13 +41,12 @@ export function reservationsPanel({ onChange }) {
         h('div', { class: 'res-meta muted' }, [d.createdBy && `поставил: ${d.createdBy}`, d.createdAt && date(d.createdAt)].filter(Boolean).join(' · '),
           so ? [' · под заказ ', h('a', { href: '#salesorders?open=' + so.id }, so.label || 'заказ'), so.customer ? ` (${so.customer})` : ''] : ''),
         d.hanging ? h('div', { class: 'res-hang', role: 'note' }, `Висящая бронь: ${d.hanging.toLowerCase()}, а материал всё ещё отложен. Снимите бронь, если он не нужен.`) : null,
-        ...d.lines.map((l) => h('div', { class: 'ops-res-line' }, h('span', { class: 'clip', title: l.name }, l.name),
-          h('span', { class: 'num' }, l.left ? `${qty(l.left)} ${l.unit}` : 'выдано'),
-          h('span', { class: 'muted num small' }, l.issued ? `выдано ${qty(l.issued)}` : ''),
-          session.canEdit && l.canIssue ? h('span', { class: 'res-acts' },
+        ...d.lines.map((l) => row({ title: l.name,
+          side: [h('span', { class: 'num' }, l.left ? `${qty(l.left)} ${l.unit}` : 'выдано'), h('span', { class: 'muted num small' }, l.issued ? `выдано ${qty(l.issued)}` : '')],
+          action: session.canEdit && l.canIssue ? [
             h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(l.id) }, 'Изменить'),
             h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => issue(`Выдать: ${l.name}`, [{ id: l.id, name: l.name, unit: l.unit, qty: l.left }]) }, 'Выдать'),
-            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await changed(); } }, 'Снять')) : h('span'))),
+            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await changed(); } }, 'Снять')] : null })),
         d.issues.length ? h('div', null, h('div', { class: 'section-title' }, 'Выдано'),
           h('ul', { class: 'timeline' }, ...d.issues.map((x) => h('li', null, h('span', { class: 'when' }, date(x.date)), `${x.name} — ${qty(x.qty)} ${x.unit}`, h('span', { class: 'muted' }, x.to ? ` · ${x.to}` : ' · кому — не указано'))))) : null,
         d.requests.length ? h('div', null, h('div', { class: 'section-title' }, 'Заказано недостающее'),

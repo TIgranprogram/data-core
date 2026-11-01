@@ -12,6 +12,7 @@ import { icon } from './icons.js';
 import { pager } from './pager.js';
 import { openPopMenu } from './pop-menu.js';
 import { toastError } from './toast.js';
+import { button } from './kit/index.js';
 import { reportSlow } from '../core/errors.js';
 
 /**
@@ -323,7 +324,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // ---------- Левая панель: сборка, лист на телефоне ----------
   const shade = side ? h('div', { class: 'ls-shade', hidden: true, onclick: () => closeSheet() }) : null;
-  const openBtn = side ? h('button', { class: 'btn ls-open-btn', type: 'button', 'aria-expanded': 'false', onclick: () => openSheet() }, 'Фильтры') : null;
+  const openBtn = side ? button({ label: 'Фильтры', onClick: () => openSheet() }) : null;
+  if (openBtn) { openBtn.classList.add('ls-open-btn'); openBtn.setAttribute('aria-expanded', 'false'); }
   if (side) {
     side.append(
       h('div', { class: 'ls-head' }, h('b', null, 'Фильтры'), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'Закрыть', onclick: () => closeSheet() }, '×')),
@@ -575,11 +577,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     return acts.length ? h('span', { class: 'row-acts' }, acts.map((a) => oneButton(row, a))) : null;
   }
   function oneButton(row, a) {
-    return h('button', { class: 'btn btn-sm row-act', type: 'button', title: a.title, onclick: async (e) => {
+    return button({ label: a.label, size: 'S', title: a.title, onClick: async (e) => {
       e.stopPropagation();
       const b = e.currentTarget; b.disabled = true;
       try { if (await a.run(row) !== false) { await load(); onChanged?.(); } } catch (ex) { toastError(ex); } finally { b.disabled = false; }
-    } }, a.label);
+    } });
   }
 
   // ---------- Клавиатура: ↑/↓ — соседняя запись, N — новая ----------

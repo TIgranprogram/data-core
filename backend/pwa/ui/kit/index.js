@@ -52,6 +52,19 @@ export function card({ size = 'M', tone = 'neutral', title, meta, badges, action
     as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null);
 }
 
+/** row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag, cls, data })
+ *  Строка списка/корзины: имя + мета, справа side (узлы) и action (кнопка). Если есть qty/diff — раскладка «корзина»:
+ *  вторая строка с количеством и подсказкой; warn и below — на всю ширину. lead — слот слева (галочка). tag:'label' — вся строка кликабельна. */
+export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag = 'div', cls, data } = {}) {
+  const cart = qty != null || diff != null;
+  const cn = ['k-row', cart ? 'k-cart' : '', TONES.includes(tone) ? 'tone-' + tone + ' k-toned' : '', active ? 'active' : '', inCart ? 'in-cart' : '', cls || ''].filter(Boolean).join(' ');
+  const name = h('div', { class: 'k-row-name' }, h('div', { class: 'clip', title: typeof title === 'string' ? title : null }, title), meta ? h('small', null, meta) : null);
+  const kids = [lead || null, name, ...nodes(side), action ? h('div', { class: 'k-row-act' }, ...nodes(action)) : null];
+  if (cart) kids.push(h('div', { class: 'k-row-qty' }, ...nodes(qty)), diff || null);
+  kids.push(...nodes(warn), ...nodes(below));
+  return h(tag, { class: cn, ...(data ? { 'data-id': data } : {}), ...(onClick ? { onclick: onClick } : {}) }, ...kids);
+}
+
 /** tabs({ items: [{ key, label, count? }], value, onChange(key) }) → { el, set(key) } — .chips/.chip */
 export function tabs({ items, value, onChange }) {
   const el = h('div', { class: 'chips', role: 'tablist' });
@@ -60,6 +73,27 @@ export function tabs({ items, value, onChange }) {
     it.label, it.count != null ? h('b', null, String(it.count)) : null)));
   set(value ?? items[0]?.key);
   return { el, set };
+}
+
+/** iconButton({ icon, label (aria), onClick, size: 'S'|'M', menu?, title?, cls? }) → .btn.btn-ghost.k-icon; menu → aria-haspopup */
+export function iconButton({ icon, label, onClick, size = 'M', menu = false, title, cls } = {}) {
+  const c = ['btn', 'btn-ghost', 'k-icon', size === 'S' ? 'btn-sm' : '', cls || ''].filter(Boolean).join(' ');
+  return h('button', { type: 'button', class: c, 'aria-label': label, title: title || label, 'aria-haspopup': menu ? 'menu' : null, 'aria-expanded': menu ? 'false' : null, onclick: onClick }, icon);
+}
+
+/** segmented({ items: [{ key, label, tone? }], value, onChange(key), label (aria), cls? }) → { el, set(key), buttons } — .k-seg, aria-pressed; set() не зовёт onChange */
+export function segmented({ items, value, onChange, label, cls } = {}) {
+  const set = (key) => buttons.forEach((b) => { const on = b.dataset.key === String(key); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  const buttons = items.map((it) => h('button', { type: 'button', class: 'k-seg-btn', dataset: { key: String(it.key) }, 'data-tone': it.tone || null, 'aria-pressed': 'false', onclick: () => { set(it.key); onChange?.(it.key); } }, it.label));
+  const el = h('div', { class: 'k-seg' + (cls ? ' ' + cls : ''), role: 'group', 'aria-label': label || null }, ...buttons);
+  set(value ?? items[0]?.key);
+  return { el, set, buttons };
+}
+
+/** link({ label, href, onClick, title, target }) → <a> (переход, есть href) или <button> (действие), вид — ссылка-текст .link-btn */
+export function link({ label, href, onClick, title, target } = {}) {
+  if (href) return h('a', { class: 'link-btn', href, title, target, rel: target ? 'noopener' : null, onclick: onClick }, label);
+  return h('button', { type: 'button', class: 'link-btn', title, onclick: onClick }, label);
 }
 
 /** stat({ value, label }) → .stat; stats([...]) → .stats */

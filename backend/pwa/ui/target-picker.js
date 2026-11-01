@@ -7,6 +7,7 @@ import { peopleByWork, withOrders, lastTo, saveTo } from '../sections/issue.js';
 import { attachCombo } from './combo.js';
 import { errText } from './errors.js';
 import { enhanceSelect } from './select.js';
+import { segmented } from './kit/index.js';
 
 /*
  * «Кому / под что» при выдаче и возврате (SK-5b). Заказы и позиции не грузятся при открытии панели:
@@ -81,11 +82,11 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
 
   // ---------- переключатель ----------
   const KINDS = [['order', 'Под заказ'], ['person', 'Сотруднику'], ['free', 'Без заказа']];
-  const seg = noSeg ? null : h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Кому / под что выдаём' },
-    ...KINDS.map(([k, label]) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn', 'data-k': k, onclick: () => setKind(k) }, label)));
+  const segCtl = noSeg ? null : segmented({ items: KINDS.map(([k, label]) => ({ key: k, label })), label: 'Кому / под что выдаём', onChange: (k) => setKind(k) });
+  const seg = segCtl?.el || null;
   function setKind(k) {
     kind = k;
-    seg?.querySelectorAll('.fseg-btn').forEach((b) => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    segCtl?.set(k);
     orderPanel.hidden = k !== 'order'; personPanel.hidden = k !== 'person'; freePanel.hidden = k !== 'free';
   }
 

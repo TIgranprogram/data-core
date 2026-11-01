@@ -3,6 +3,7 @@ import { patch } from '../core/router.js';
 import { attachCombo } from '../ui/combo.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { tagPick } from '../ui/tag-pick.js';
+import { segmented } from '../ui/kit/index.js';
 import { toast } from '../ui/toast.js';
 
 /*
@@ -45,9 +46,9 @@ async function build() {
       });
     }
     let mode = 'replace';
-    const modeBox = f.modes ? h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Как менять' }) : null;
-    const paintMode = () => modeBox?.replaceChildren(...[['add', 'Добавить к своим'], ['replace', 'Заменить']].map(([v, l]) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn' + (mode === v ? ' on' : ''), 'aria-checked': String(mode === v), onclick: () => { mode = v; paintMode(); } }, l)));
-    if (modeBox) { mode = 'add'; paintMode(); wrap.append(modeBox); }
+    const modeSeg = f.modes ? segmented({ items: [{ key: 'add', label: 'Добавить к своим' }, { key: 'replace', label: 'Заменить' }], value: 'add', label: 'Как менять', onChange: (k) => { mode = k; } }) : null;
+    const modeBox = modeSeg?.el;
+    if (modeBox) { mode = 'add'; wrap.append(modeBox); }
     const use = h('input', { type: 'checkbox', 'aria-label': `Менять: ${f.label}` });
     const row = h('div', { class: 'bulk-row' }, h('label', { class: 'check bulk-use' }, use, h('span', null, f.label)), wrap, f.hint ? h('div', { class: 'hint' }, f.hint) : null);
     const paint = () => { row.classList.toggle('on', use.checked); wrap.inert = !use.checked; };

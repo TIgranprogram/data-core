@@ -41,8 +41,6 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); margin: 0
 .side-link.active .cnt { background: var(--gold); color: #1b1f27; }
 .side-settings { width: 100%; border: 0; background: none; font: inherit; cursor: pointer; }
 .side-settings:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
-.avatar-btn { border: 0; cursor: pointer; font-family: inherit; }
-.avatar-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(255,255,255,.07); padding-top: 12px; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: #1b1f27; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
 .main { min-width: 0; display: flex; flex-direction: column; }

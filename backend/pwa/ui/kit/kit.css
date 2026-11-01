@@ -27,3 +27,48 @@
 /* кнопка «⋯» на карточке доски */
 .k-menu-btn { position: absolute; top: 2px; right: 2px; z-index: 2; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
 .tcard:has(.k-menu-btn) .t-title { padding-right: 30px; }
+/* segmented: переключатель на 2–4 варианта */
+.k-seg { display: flex; height: 36px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+.k-seg-btn { --tone: var(--primary); flex: 1; min-width: 0; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: none; padding: 0 8px; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+.k-seg-btn + .k-seg-btn { border-left: 1px solid var(--border); }
+.k-seg-btn:hover { color: var(--text); background: var(--surface-2); }
+.k-seg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.k-seg-btn[data-tone='danger'] { --tone: var(--danger); }
+.k-seg-btn[data-tone='dim'] { --tone: var(--muted); }
+.k-seg-btn.on, .k-seg-btn.on:hover { background: var(--tone); color: var(--surface); font-weight: 600; }
+/* iconButton: квадратная кнопка с значком */
+.btn.k-icon { width: 36px; padding: 0; justify-content: center; font-size: 18px; line-height: 1; }
+.btn.k-icon.btn-sm { width: 32px; }
+@media (pointer: coarse), (max-width: 720px) { .btn.k-icon { width: 44px; min-height: 44px; } }
+@media (max-width: 720px) { .k-seg { height: auto; min-height: 44px; } .k-seg-btn { min-height: 44px; } }
+/* row: строка списка / корзины */
+.k-row { display: flex; align-items: center; gap: var(--s3); padding: 8px var(--s4); border-bottom: 1px solid var(--border); }
+.k-row[role=button]:hover, .k-row.k-click:hover { background: var(--row-hover); cursor: pointer; }
+.k-row.active { background: var(--row-hover); box-shadow: inset 3px 0 0 var(--gold); }
+.k-row.in-cart { background: var(--row-selected); }
+label.k-row { cursor: pointer; }
+.k-row-name { flex: 1; min-width: 0; }
+.k-row-name .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.k-row-name small { color: var(--muted); font-size: 12px; }
+.k-row-act { display: flex; gap: 8px; margin-left: auto; }
+.k-row.k-cart { display: grid; grid-template-columns: minmax(0, 1fr) 130px; grid-template-areas: "name x" "qty diff"; gap: 6px var(--s3); padding: 10px var(--s4); }
+.k-cart .k-row-name { grid-area: name; }
+.k-cart .k-row-act { grid-area: x; justify-self: end; }
+.k-row-qty { grid-area: qty; display: flex; align-items: center; gap: 6px; }
+.k-row-qty input { width: 92px; height: 34px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.k-diff { grid-area: diff; font-size: var(--fs-sm); text-align: right; white-space: nowrap; }
+.k-diff.wide { grid-area: auto; grid-column: 1 / -1; white-space: normal; text-align: left; }
+.k-cart > :not(.k-row-name, .k-row-act, .k-row-qty, .k-diff) { grid-column: 1 / -1; }
+.k-note { padding: var(--s2) var(--s3); border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: var(--radius-sm); background: var(--danger-soft); font-size: var(--fs-sm); }
+@media (max-width: 720px) {
+  .k-row.k-cart { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name x" "qty qty" "diff diff"; }
+  .k-row-qty { flex-wrap: wrap; }
+  .k-diff { white-space: normal; text-align: left; }
+  .k-row-qty input { height: 44px; }
+}
+.k-row > input { width: 84px; height: 32px; text-align: right; }
+/* row в ленте «Сегодня»: действия видны при наведении */
+.k-feed.leaving { opacity: 0; transform: translateX(16px); }
+.k-feed:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+@media (hover: hover) { .k-feed .k-row-act { visibility: hidden; } .k-feed:hover .k-row-act, .k-feed:focus-within .k-row-act { visibility: visible; } }
+@media (max-width: 720px) { .k-feed .k-row-act { visibility: visible; } .k-feed .k-row-act .btn { min-height: 44px; } }

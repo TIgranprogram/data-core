@@ -21,15 +21,6 @@ button.form-sec:hover .form-sec-chev { color: var(--text); }
 .form-block.closed .form-sec-sum { display: block; }
 .form-block.closed .form-sec-chev { transform: none; }
 .form-block.closed > .form-grid { display: none; }
-/* Переключатель на 2–4 варианта (type: 'segment') */
-.fseg { display: flex; height: 36px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
-.fseg-btn { --tone: var(--primary); flex: 1; min-width: 0; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: none; padding: 0 8px; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
-.fseg-btn + .fseg-btn { border-left: 1px solid var(--border); }
-.fseg-btn:hover { color: var(--text); background: var(--surface-2); }
-.fseg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
-.fseg-btn[data-tone='danger'] { --tone: var(--danger); }
-.fseg-btn[data-tone='dim'] { --tone: var(--muted); }
-.fseg-btn.on, .fseg-btn.on:hover { background: var(--tone); color: var(--surface); font-weight: 600; }
 .form-blocks .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .form-blocks .form-grid > * { grid-column: span 2; min-width: 0; }
 .form-blocks .form-grid > .wide { grid-column: 1 / -1; }

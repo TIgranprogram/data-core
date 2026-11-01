@@ -2,6 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from './busy.js';
 import { toast } from './toast.js';
+import { link } from './kit/index.js';
 
 /**
  * Воронка текстов паспорта (DESIGN §4 «Шаг-воронка»): по категории — шаги «раздел → 2–3 варианта → (подвариант) → текст».
@@ -83,7 +84,7 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
       const on = p.classList.toggle('clamp'); more.setAttribute('aria-expanded', String(!on)); more.textContent = on ? 'Развернуть' : 'Свернуть';
     } }, 'Развернуть');
     return h('div', { class: 'pp-ftext-box' }, p, h('div', { class: 'pp-ftext-act' }, full.length > 110 ? more : null,
-      canEditText ? h('a', { class: 'link-btn', href: `#dicts?d=passportPhrases&of=ptnode&open=${leaf.id}`, target: '_blank', rel: 'noopener', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'Править текст') : null));
+      canEditText ? link({ href: `#dicts?d=passportPhrases&of=ptnode&open=${leaf.id}`, target: '_blank', title: 'Откроется в новой вкладке — паспорт здесь останется как есть', label: 'Править текст' }) : null));
   }
 
   function step(s) {

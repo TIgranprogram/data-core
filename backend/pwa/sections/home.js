@@ -73,10 +73,10 @@ export function mountHome(deps) {
   const scopeEl = h('div', { class: 'td-scope', hidden: true });
   const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
   const filterEl = h('div', { class: 'td-filterwrap' });
-  const blocksEl = h('div', { class: 'td-cols' }, h('div', { class: 'td-card skel-card' }, h('span', { class: 'skel', style: { width: '70%' } })));
+  const blocksEl = h('div', { class: 'td-cols' }, h('div', { class: 'skel-card' }, h('span', { class: 'skel' })));
   const weekEl = h('div', { class: 'td-week' });
   const tilesEl = h('div', { class: 'td-tiles', hidden: true });
-  const moneyTileSlot = h('div', { class: 'td-money' });
+  const moneyTileSlot = h('div');
   const fill = has('fill') ? fillToday() : null;
 
   // ---------- Действия ----------
@@ -151,9 +151,9 @@ export function mountHome(deps) {
     return '';
   };
   function cardEl(c) {
-    const li = h('article', { class: 'td-card tone-' + (c.tone || 'info'), tabindex: '0' });
+    let li = null;
     const btns = (c.actions || []).slice(0, 1).map((a) => h('button', {
-      type: 'button', class: 'btn btn-sm btn-primary td-btn',
+      type: 'button', class: 'btn btn-sm btn-primary',
       onclick: async (e) => {
         e.stopPropagation();
         const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
@@ -163,13 +163,10 @@ export function mountHome(deps) {
         } catch (ex) { toastError(ex); } finally { b.disabled = false; b.classList.remove('is-busy'); }
       },
     }, a.label));
-    li.append(
-      h('span', { class: 'td-dot', 'aria-hidden': 'true' }),
-      h('div', { class: 'td-main' },
-        h('div', { class: 'td-title', title: c.title }, c.title),
-        h('div', { class: 'td-sub' }, [KIND_LABEL[c.kind], c.sub].filter(Boolean).join(' · '))),
-      h('div', { class: 'td-due' }, dueText(c)),
-      h('div', { class: 'td-acts' }, btns, h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn td-later', title: 'Спрятать карточку до завтра', onclick: (e) => { e.stopPropagation(); snooze(c); } }, 'На завтра')));
+    li = row({ cls: 'k-feed', tone: c.tone || 'info', title: c.title, meta: [KIND_LABEL[c.kind], c.sub].filter(Boolean).join(' · '),
+      side: h('span', { class: 'muted small nowrap' }, dueText(c)),
+      action: [btns, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Спрятать карточку до завтра', onclick: (e) => { e.stopPropagation(); snooze(c); } }, 'На завтра')] });
+    li.tabIndex = 0;
     li.addEventListener('click', (e) => { if (!e.target.closest('button')) openRec(c); });
     li.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === li) openRec(c); });
     // Свайп влево (телефон) — «на завтра»
@@ -245,8 +242,8 @@ export function mountHome(deps) {
         const rows = showAllQ ? qs : qs.slice(0, 2);
         return s.set(qs.length, qs.length ? h('div', { class: 'td-qcard' },
           ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
-            h('button', { type: 'button', class: 'btn btn-sm btn-primary td-btn', onclick: () => answer(c) }, 'Ответить'))),
-          qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-btn', onclick: () => { showAllQ = !showAllQ; paintFeed(); } },
+            h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => answer(c) }, 'Ответить'))),
+          qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { showAllQ = !showAllQ; paintFeed(); } },
             showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`) : null) : emptyLine('Нет вопросов без ответа'));
       } };
     },
@@ -354,8 +351,11 @@ export function mountHome(deps) {
       svg('line', { x1: 0, x2: w, y1: Y(0), y2: Y(0), class: 'td-zero', 'vector-effect': 'non-scaling-stroke' }),
       svg('polyline', { points: days.map((d, i) => `${X(i)},${Y(d.balance)}`).join(' '), fill: 'none', class: 'td-line', 'vector-effect': 'non-scaling-stroke' }));
   }
-  const tile = (label, value, graph, onclick, title) => h('button', { type: 'button', class: 'td-tile', title, onclick },
-    h('span', { class: 'td-tl' }, label), h('b', { class: 'td-tv' }, value), graph || h('div', { class: 'td-seg' }));
+  const tile = (label, value, graph, onclick, title) => {
+    const el = card({ size: 'S', title: value, meta: label, badges: graph || h('div', { class: 'td-seg' }), onClick: onclick });
+    el.title = title || '';
+    return el;
+  };
   function paintTiles() {
     const m = data?.metrics || {};
     const out = [];

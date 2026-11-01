@@ -1,8 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
-import { toastError, toast } from '../ui/toast.js';
-import { DESIGN_STATUS as STATUS } from '../ui/badges.js';
+import { toastError, toast, link, DESIGN_STATUS as STATUS } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 
 /*
@@ -51,7 +50,7 @@ export function orderDesign(order, lines) {
     paint();
     box.replaceChildren(h('div', { class: 'section-title' }, `Проектирование (${byLine.size} из ${lines.length} поз.)`),
       h('ul', { class: 'spec-list' }, ...rows),
-      h('a', { class: 'link-btn', href: '#design?o=' + order.id, title: 'Доска проектирования с этим заказом' }, 'Открыть в проектировании'),
+      link({ href: '#design?o=' + order.id, title: 'Доска проектирования с этим заказом', label: 'Открыть в проектировании' }),
       can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже переданы.')) : null);
   }
   box.replaceChildren(h('div', { class: 'section-title' }, 'Проектирование'), h('div', { class: 'skel', style: { width: '50%' } }));

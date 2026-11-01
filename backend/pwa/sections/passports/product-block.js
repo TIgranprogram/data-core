@@ -4,7 +4,7 @@ import { normSearch, searchTokens } from '../../core/facets.js';
 import { date } from '../../core/format.js';
 import { patch } from '../../core/router.js';
 import { createProductFor } from '../products.js';
-import { modal } from '../../ui/dialog.js';
+import { modal, segmented } from '../../ui/kit/index.js';
 import { toastError } from '../../ui/toast.js';
 import { LATER_CATS, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, canEdit, dims, num, st } from './common.js';
 import { mmOf, models, productsAll, resetProducts } from './models.js';
@@ -106,9 +106,7 @@ export function productBlock(api, { r, catBy }) {
       return;
     }
     const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
-    const seg = h('div', { class: 'fseg', role: 'radiogroup', 'aria-label': 'Показать изделия категории' },
-      ...[{ value: '', label: 'Все' }, ...cats].map((c) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn' + (filterCat === c.value ? ' on' : ''), 'aria-checked': String(filterCat === c.value),
-        onclick: () => { filterCat = c.value; render(); } }, c.label)));
+    const seg = segmented({ items: [{ key: '', label: 'Все' }, ...cats].map((c) => ({ key: c.value, label: c.label })), value: filterCat, label: 'Показать изделия категории', onChange: (k) => { filterCat = k; render(); } }).el;
     const input = h('input', { type: 'text', value: q, placeholder: 'Найти изделие: название или артикул — по всем категориям', 'aria-label': 'Найти изделие', autocomplete: 'off' });
     const list = h('ul', { class: 'pp-prod-list', role: 'listbox', 'aria-label': 'Изделия' });
     const add = h('button', { type: 'button', class: 'btn btn-sm' });

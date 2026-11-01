@@ -2,16 +2,13 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/badges.js';
-import { mountBoard } from '../ui/board.js';
-import { layout } from '../ui/kit/index.js';
+import { badge, board as mountBoard, button, layout, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
 import { designSide } from './design-side.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason } from './design-data.js';
 import { carousel } from '../ui/gallery.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
-import { toast, toastError } from '../ui/toast.js';
 import { targetPicker } from '../ui/target-picker.js';
 import { withRequestsTab } from './design-requests.js';
 import { activeOrders, orderLabel } from './salesorders.js';
@@ -136,7 +133,7 @@ function topBlock(r, ctx) {
     catch (err) { toastError(err, 'отправить вопрос'); b.classList.remove('is-busy'); b.disabled = false; }
   };
   const made = qty ? h('span', { class: 'kv-qty' }, `${qty} ${unit}`)
-    : h('span', { class: 'kv-warn' }, 'не указано ', can ? h('button', { type: 'button', class: 'link-btn', onclick: ask }, 'Уточнить у менеджера') : null);
+    : h('span', { class: 'kv-warn' }, 'не указано ', can ? button({ label: 'Уточнить у менеджера', kind: 'ghost', size: 'S', onClick: ask }) : null);
   const grid = h('dl', { class: 'kv-grid' },
     ...pair('Изготовить', made, 'kv-full'),
     ...pair('Артикул', clean(r.sku)),
@@ -166,7 +163,7 @@ function specBlock(r) {
 }
 function noteBlock(text) {
   const p = h('div', { class: 'dc-note clip3' }, text);
-  const btn = h('button', { type: 'button', class: 'link-btn', onclick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать полностью' : 'Свернуть'; } }, 'Показать полностью');
+  const btn = button({ label: 'Показать полностью', kind: 'ghost', size: 'S', onClick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать полностью' : 'Свернуть'; } });
   return h('details', { class: 'db-blk' }, h('summary', null, 'Примечание'), h('div', { class: 'db-blk-body' }, p, btn));
 }
 

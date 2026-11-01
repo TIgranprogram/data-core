@@ -1,5 +1,6 @@
 import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
+import { segmented } from './kit/index.js';
 
 /*
  * «Количество: штуками / по весу» (TASKS НО.1) — один компонент для «Новой позиции», «Прихода», «Пересчитать» и «Операций».
@@ -36,9 +37,8 @@ const g = (n) => `${qty(r2(n))} г`;
 export function weightCount({ qtyInput, unit = 'шт', unitWeightG = null, label = 'Количество', expectQty = null }) {
   const byWeightAllowed = String(unit || 'шт').toLowerCase() === 'шт'; // метры, кг — только количеством (НО.3)
   let mode = 'pcs';
-  const segPcs = h('button', { type: 'button', class: 'fseg-btn on', onclick: () => setMode('pcs') }, 'Штуками');
-  const segW = h('button', { type: 'button', class: 'fseg-btn', onclick: () => setMode('w') }, 'По весу');
-  const seg = byWeightAllowed ? h('div', { class: 'fseg wc-seg', role: 'radiogroup', 'aria-label': 'Как считать' }, segPcs, segW) : null;
+  const segCtl = byWeightAllowed ? segmented({ items: [{ key: 'pcs', label: 'Штуками' }, { key: 'w', label: 'По весу' }], value: 'pcs', label: 'Как считать', cls: 'wc-seg', onChange: (k) => setMode(k) }) : null;
+  const seg = segCtl?.el || null;
   const pcs = h('label', { class: 'field' }, h('span', null, `${label}, ${unit}`), qtyInput);
 
   // 1. Вес 1 шт.
@@ -103,7 +103,7 @@ export function weightCount({ qtyInput, unit = 'шт', unitWeightG = null, label
   }
   function setMode(m) {
     mode = m;
-    segPcs.classList.toggle('on', m === 'pcs'); segW.classList.toggle('on', m === 'w');
+    segCtl?.set(m);
     wBox.hidden = m !== 'w';
     qtyInput.readOnly = m === 'w';
     pcs.querySelector('span').textContent = m === 'w' ? `${label} — посчитано по весу, ${unit}` : `${label}, ${unit}`;

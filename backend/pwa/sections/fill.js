@@ -52,7 +52,7 @@ function groupBlock(g, open, onToggle, onSaved) {
   const body = open ? h('ul', { class: 'q-list' }, ...g.items.map((x) => g.quick?.length ? quickRow(g, x, () => onSaved(g, x)) : h('li', { class: 'q-row' + (x.thumb ? ' has-pic' : ''), tabindex: '0', onclick: () => openRow(g, x), onkeydown: (e) => { if (e.key === 'Enter') openRow(g, x); } },
     opThumb(x.thumb),
     h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), x.sub ? h('div', { class: 'q-sub' }, x.sub) : null),
-    h('div', { class: 'q-side' }, h('span', { class: 'btn btn-sm row-act' }, 'Заполнить')))),
+    h('div', { class: 'q-side' }, h('span', { class: 'btn btn-sm' }, 'Заполнить')))),
   g.count > g.items.length ? h('li', { class: 'q-empty' }, `Показаны первые ${g.items.length} из ${qty(g.count)}. Заполните эти — список обновится.`) : null) : null;
   return h('section', { class: 'panel fill-group' + (open ? ' open' : '') }, head, body);
 }

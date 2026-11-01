@@ -1,4 +1,5 @@
 import { h } from '../core/dom.js';
+import { segmented } from './kit/index.js';
 
 /**
  * Метки качества записи справочника: «пусто», «дубль · N» + фильтр «Все / Пустые / Дубли» (DESIGN §4).
@@ -23,7 +24,5 @@ export function qualityBadges({ empty = false, dupe = 0, dupeHint = 'Такой 
 /** Фильтр над таблицей/деревом: «Все · Пустые (n) · Дубли (n)»; value: 'all' | 'empty' | 'dupes'. */
 export function qualityFilter({ value = 'all', counts, onChange }) {
   const opts = [['all', 'Все'], ...(counts.empty === undefined ? [] : [['empty', `Пустые · ${counts.empty}`]]), ['dupes', `Дубли · ${counts.dupes}`]];
-  const btns = opts.map(([v, text]) => h('button', { type: 'button', role: 'radio', class: 'fseg-btn' + (v === value ? ' on' : ''), 'aria-checked': String(v === value), 'data-v': v,
-    onclick: () => onChange(v) }, text));
-  return h('div', { class: 'fseg q-filter', role: 'radiogroup', 'aria-label': 'Показать записи' }, btns);
+  return segmented({ items: opts.map(([v, text]) => ({ key: v, label: text })), value, label: 'Показать записи', cls: 'q-filter', onChange }).el;
 }
