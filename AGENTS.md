@@ -21,6 +21,7 @@
 |--|--|--|
 | Любая работа над приложением/админкой | [docs/CANON.md](docs/CANON.md) + раздел в [docs/PRODUCT.md](docs/PRODUCT.md) | — |
 | Вид интерфейса: цвета, шрифты, отступы, компоненты, «сливается / криво» | skill `datacore-design` → [docs/DESIGN.md](docs/DESIGN.md) | `base.css` целиком |
+| Мобильный экран рабочего (телефон, крупные кнопки, QR) | [docs/DESIGN-MOBILE.md](docs/DESIGN-MOBILE.md) — стандарт и эталоны kit «mobile» | — |
 | Любая работа с кодом | [docs/MAP.md](docs/MAP.md) — модуль → маршруты → коллекции → файлы | весь `backend/src` подряд |
 | Как устроен запрос, auth, RBAC, плагины | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | — |
 | Поля сущностей | [docs/data-model.md](docs/data-model.md) (ориентир), истина — `*.schema.ts` | — |

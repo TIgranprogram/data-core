@@ -930,16 +930,6 @@
         "operationId": "AuthController_updatePrefs",
         "summary": "Сохранить свои настройки интерфейса (ширины панелей)",
         "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UiPrefsDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "{ uiPrefs } — итоговые настройки"
@@ -1374,7 +1364,7 @@
             "name": "entityType",
             "required": true,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product | WorkTask",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product | WorkTask | CommercialOffer",
             "schema": {
               "type": "string"
             }
@@ -1443,7 +1433,7 @@
             "name": "entityType",
             "required": false,
             "in": "query",
-            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product | WorkTask",
+            "description": "SupplyRequest | Material | StockMovement | Counterparty | Order | Income | SalesOrder | Partner | DictItem | Product | WorkTask | CommercialOffer",
             "schema": {}
           }
         ],
@@ -5387,6 +5377,13 @@
         "operationId": "ProductionOrdersController_list",
         "parameters": [
           {
+            "name": "overdue",
+            "required": false,
+            "in": "query",
+            "description": "1 — только просроченные: срок прошёл, этап не «отгружен»/«закрыт»",
+            "schema": {}
+          },
+          {
             "name": "to",
             "required": false,
             "in": "query",
@@ -6093,6 +6090,614 @@
         },
         "tags": [
           "Доходы (заказы)"
+        ]
+      }
+    },
+    "/product-requests/count": {
+      "get": {
+        "operationId": "ProductRequestsController_count",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новое изделие"
+        ]
+      }
+    },
+    "/product-requests": {
+      "get": {
+        "operationId": "ProductRequestsController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "по названию",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "open (умолч.) | confirmed | rejected | all",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новое изделие"
+        ]
+      },
+      "post": {
+        "operationId": "ProductRequestsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новое изделие"
+        ]
+      }
+    },
+    "/product-requests/{id}": {
+      "get": {
+        "operationId": "ProductRequestsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новое изделие"
+        ]
+      }
+    },
+    "/product-requests/{id}/confirm": {
+      "post": {
+        "operationId": "ProductRequestsController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новое изделие"
+        ]
+      }
+    },
+    "/product-requests/{id}/reject": {
+      "post": {
+        "operationId": "ProductRequestsController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectProductRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новое изделие"
+        ]
+      }
+    },
+    "/showcase": {
+      "get": {
+        "operationId": "ShowcaseController_list",
+        "parameters": [
+          {
+            "name": "facets",
+            "required": false,
+            "in": "query",
+            "description": "1 — добавить facets.series: серии с числом при остальных фильтрах (воронка)",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "draft | active | archived",
+            "schema": {}
+          },
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "series",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "groupId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "post": {
+        "operationId": "ShowcaseController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/groups": {
+      "get": {
+        "operationId": "ShowcaseController_groups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/form-values": {
+      "get": {
+        "operationId": "ShowcaseController_formValues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/bulk": {
+      "post": {
+        "operationId": "ShowcaseController_bulk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/bulk/restore": {
+      "post": {
+        "operationId": "ShowcaseController_bulkRestore",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/import": {
+      "post": {
+        "operationId": "ShowcaseController_import",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/from-orders": {
+      "post": {
+        "operationId": "ShowcaseController_fromOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/from-passports": {
+      "get": {
+        "operationId": "ShowcaseController_passportGroups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "post": {
+        "operationId": "ShowcaseController_fromPassports",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/materials-text": {
+      "post": {
+        "operationId": "ShowcaseController_materialsText",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/kp": {
+      "post": {
+        "operationId": "ShowcaseController_kp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}": {
+      "get": {
+        "operationId": "ShowcaseController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "patch": {
+        "operationId": "ShowcaseController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      },
+      "delete": {
+        "operationId": "ShowcaseController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/tech-sheet": {
+      "post": {
+        "operationId": "ShowcaseController_techSheet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/composition": {
+      "put": {
+        "operationId": "ShowcaseController_setComposition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/materials-spec/from-composition": {
+      "get": {
+        "operationId": "ShowcaseController_materialsFromComposition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/composition/similar": {
+      "get": {
+        "operationId": "ShowcaseController_compositionSimilar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/passport-defaults": {
+      "put": {
+        "operationId": "ShowcaseController_setPassportDefaults",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/assign-sku": {
+      "post": {
+        "operationId": "ShowcaseController_assignSku",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/clone": {
+      "post": {
+        "operationId": "ShowcaseController_clone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/restore": {
+      "post": {
+        "operationId": "ShowcaseController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
         ]
       }
     },
@@ -7001,59 +7606,17 @@
         ]
       }
     },
-    "/showcase": {
+    "/health/security": {
       "get": {
-        "operationId": "ShowcaseController_list",
+        "operationId": "DiskController_securityTop",
         "parameters": [
           {
-            "name": "facets",
-            "required": false,
+            "name": "days",
+            "required": true,
             "in": "query",
-            "description": "1 — добавить facets.series: серии с числом при остальных фильтрах (воронка)",
-            "schema": {}
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "draft | active | archived",
-            "schema": {}
-          },
-          {
-            "name": "deleted",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "series",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "groupId",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7062,168 +7625,18 @@
           }
         },
         "tags": [
-          "Продукция"
-        ]
-      },
-      "post": {
-        "operationId": "ShowcaseController_create",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
+          "Сервер"
         ]
       }
     },
-    "/showcase/groups": {
+    "/health/visits": {
       "get": {
-        "operationId": "ShowcaseController_groups",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/form-values": {
-      "get": {
-        "operationId": "ShowcaseController_formValues",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/bulk": {
-      "post": {
-        "operationId": "ShowcaseController_bulk",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/bulk/restore": {
-      "post": {
-        "operationId": "ShowcaseController_bulkRestore",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/import": {
-      "post": {
-        "operationId": "ShowcaseController_import",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/from-orders": {
-      "post": {
-        "operationId": "ShowcaseController_fromOrders",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/from-passports": {
-      "get": {
-        "operationId": "ShowcaseController_passportGroups",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      },
-      "post": {
-        "operationId": "ShowcaseController_fromPassports",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/materials-text": {
-      "post": {
-        "operationId": "ShowcaseController_materialsText",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/kp": {
-      "post": {
-        "operationId": "ShowcaseController_kp",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}": {
-      "get": {
-        "operationId": "ShowcaseController_get",
+        "operationId": "DiskController_visits",
         "parameters": [
           {
-            "name": "id",
+            "name": "days",
             "required": true,
-            "in": "path",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -7235,233 +7648,7 @@
           }
         },
         "tags": [
-          "Продукция"
-        ]
-      },
-      "patch": {
-        "operationId": "ShowcaseController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      },
-      "delete": {
-        "operationId": "ShowcaseController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/tech-sheet": {
-      "post": {
-        "operationId": "ShowcaseController_techSheet",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/composition": {
-      "put": {
-        "operationId": "ShowcaseController_setComposition",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/materials-spec/from-composition": {
-      "get": {
-        "operationId": "ShowcaseController_materialsFromComposition",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/composition/similar": {
-      "get": {
-        "operationId": "ShowcaseController_compositionSimilar",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/passport-defaults": {
-      "put": {
-        "operationId": "ShowcaseController_setPassportDefaults",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/assign-sku": {
-      "post": {
-        "operationId": "ShowcaseController_assignSku",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/clone": {
-      "post": {
-        "operationId": "ShowcaseController_clone",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/showcase/{id}/restore": {
-      "post": {
-        "operationId": "ShowcaseController_restore",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
+          "Сервер"
         ]
       }
     },
@@ -8861,6 +9048,39 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CancelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-tasks/{id}/plan": {
+      "patch": {
+        "operationId": "WorkController_plan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanDto"
               }
             }
           }
@@ -11216,7 +11436,16 @@
     "/photos/upload": {
       "post": {
         "operationId": "PhotosController_upload",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "purpose",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": ""
@@ -12992,6 +13221,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "purpose",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -13012,6 +13249,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachProductPhotoDto"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": ""
@@ -13020,6 +13267,34 @@
       }
     },
     "/products/{productId}/photos/{id}": {
+      "patch": {
+        "operationId": "ProductPhotoController_patch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
       "delete": {
         "operationId": "ProductPhotoController_remove",
         "parameters": [
@@ -14020,6 +14295,163 @@
         ]
       }
     },
+    "/passports/preview": {
+      "post": {
+        "operationId": "ProductPassportController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassportPreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/order/{orderId}/plan": {
+      "get": {
+        "operationId": "ProductPassportController_orderPlan",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "short",
+                "full"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/order/{orderId}/issue": {
+      "post": {
+        "operationId": "ProductPassportController_orderIssue",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderIssueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/order/{orderId}/pdf": {
+      "get": {
+        "operationId": "ProductPassportController_orderPdf",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "short",
+                "full"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "stamp",
+            "required": false,
+            "in": "query",
+            "description": "1 — с печатью и подписью",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "pages",
+                "print"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "bw",
+            "required": false,
+            "in": "query",
+            "description": "1 — чёрно-белый",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/{id}": {
       "get": {
         "operationId": "ProductPassportController_findOne",
@@ -14163,6 +14595,19 @@
             "in": "query",
             "description": "при stamp=1: 0 — без подписи (только печать)",
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": false,
+            "in": "query",
+            "description": "short — только обязательные разделы (умолч.); full — плюс необязательные, если заполнены",
+            "schema": {
+              "enum": [
+                "short",
+                "full"
+              ],
               "type": "string"
             }
           }
@@ -14691,6 +15136,10 @@
               "type": "string"
             }
           },
+          "money": {
+            "type": "boolean",
+            "description": "Галочка «Деньги»: false — роль не видит цены, суммы и оплату; нет — по иерархии"
+          },
           "pages": {
             "description": "Активна ли роль",
             "type": "array",
@@ -14783,6 +15232,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "money": {
+            "type": "boolean",
+            "description": "Галочка «Деньги»: false — роль не видит цены, суммы и оплату; нет — по иерархии"
           },
           "pages": {
             "description": "Активна ли роль",
@@ -14998,54 +15451,6 @@
             "type": "string",
             "example": "preset:saturn",
             "description": "preset:<код> (saturn, uranus, moon, sun, earth, mars, jupiter, neptune, comet, galaxy) или photo:<photoId>; пустая строка — убрать"
-          }
-        }
-      },
-      "UiPrefsDto": {
-        "type": "object",
-        "properties": {
-          "sidebarW": {
-            "type": "number",
-            "minimum": 200,
-            "maximum": 360,
-            "example": 248,
-            "description": "Ширина левого меню"
-          },
-          "detailW": {
-            "type": "number",
-            "minimum": 360,
-            "maximum": 1400,
-            "example": 700,
-            "description": "Ширина правой панели ввода"
-          },
-          "filterW": {
-            "type": "number",
-            "minimum": 240,
-            "maximum": 700,
-            "example": 340,
-            "description": "Ширина панели фильтров"
-          },
-          "chatW": {
-            "type": "number",
-            "minimum": 320,
-            "maximum": 1200,
-            "example": 520,
-            "description": "Ширина окна чата"
-          },
-          "lastChat": {
-            "type": "string",
-            "example": "all",
-            "description": "Чат: последний открытый собеседник — id пользователя или all"
-          },
-          "panelLayout": {
-            "type": "string",
-            "example": "two",
-            "description": "Вид правой панели: one | two | wide"
-          },
-          "viewScale": {
-            "type": "string",
-            "example": "large",
-            "description": "Вид экрана: normal | large (крупный)"
           }
         }
       },
@@ -16314,6 +16719,26 @@
             "description": "Изделие из «Продукции» (products); не указано при создании — подбирается по названию; null — отвязать",
             "nullable": true
           },
+          "lineType": {
+            "type": "string",
+            "description": "Тип позиции: product (изделие) | new_product (заявка на новое изделие) | service (услуга Доставка/Монтаж); null — как у старых позиций. Задан — проверяются обязательные поля типа",
+            "nullable": true,
+            "enum": [
+              "product",
+              "new_product",
+              "service"
+            ]
+          },
+          "workTypeId": {
+            "type": "object",
+            "description": "Услуга: вид работ из справочника (только Доставка / Монтаж)",
+            "nullable": true
+          },
+          "productRequestId": {
+            "type": "object",
+            "description": "Новое изделие: заявка (productrequests). Ставится сервером; null — отвязать",
+            "nullable": true
+          },
           "size": {
             "type": "string",
             "description": "Размер (вариант изделия)"
@@ -16382,6 +16807,38 @@
           "toOrderId": {
             "type": "string",
             "description": "Договор (salesorders), в который переносим"
+          }
+        }
+      },
+      "CreateProductRequestDto": {
+        "type": "object",
+        "properties": {
+          "incomeId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes): она станет «Новым изделием» и привяжется к заявке (нужны количество и цена)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название (если нет incomeId)"
+          },
+          "description": {
+            "type": "string"
+          },
+          "photoIds": {
+            "description": "Фото (photos)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RejectProductRequestDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Существующее изделие (products)"
           }
         }
       },
@@ -17097,6 +17554,26 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "PlanDto": {
+        "type": "object",
+        "properties": {
+          "stepIndex": {
+            "type": "number",
+            "description": "Номер шага маршрута с 0"
+          },
+          "start": {
+            "type": "string",
+            "description": "Начало шага (ISO-дата)"
+          },
+          "days": {
+            "type": "number",
+            "description": "Длительность, дней (1..365)"
+          }
+        },
+        "required": [
+          "stepIndex"
         ]
       },
       "WorkTaskPatchDto": {
@@ -18627,6 +19104,14 @@
           }
         }
       },
+      "AttachProductPhotoDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateProductPhotoDto": {
+        "type": "object",
+        "properties": {}
+      },
       "ModuleDimensionsDto": {
         "type": "object",
         "properties": {
@@ -18769,6 +19254,57 @@
             "type": "number",
             "minimum": 1,
             "maximum": 999999999
+          }
+        }
+      },
+      "PassportPreviewDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "id изделия"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "pages",
+              "print"
+            ]
+          },
+          "bw": {
+            "type": "boolean",
+            "description": "чёрно-белый"
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "description": "short — только обязательное (умолч.); full — плюс необязательные разделы"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "OrderIssueDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "description": "id позиций заказа (incomes); нет — все готовые",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "description": "вариант паспорта для проверки готовности"
           }
         }
       },
