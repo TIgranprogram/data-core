@@ -15,6 +15,11 @@ describe('historyTypesFor', () => {
     expect(historyTypesFor({ role: 'admin' })).toEqual(RECORD_HISTORY_TYPES);
   });
 
+  it('КП (CommercialOffer) — тип истории раздела «offers»', () => {
+    expect(RECORD_HISTORY_TYPES).toContain('CommercialOffer');
+    expect(RECORD_TYPE_SECTIONS.CommercialOffer).toEqual(['offers']);
+  });
+
   it('кладовщик: заявки, склад и справочники', () => {
     expect(historyTypesFor({ role: 'r-kl' })).toEqual(['SupplyRequest', 'Material', 'StockMovement', 'DictItem']);
   });
