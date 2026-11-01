@@ -7,11 +7,11 @@ import { funnelBox } from '../ui/funnel.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { canEdit as canEditTexts, statusOf, V2_NUMS } from './passports/common.js';
-import { linkDialog, printDialog, previewPassport } from './passports/dialogs.js';
+import { linkDialog, printDialog, previewPassport, passportVariant, VARIANT_HINT } from './passports/dialogs.js';
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { tabs as kitTabs, badge as kitBadge } from '../ui/kit/index.js';
+import { tabs as kitTabs, badge as kitBadge, segmented } from '../ui/kit/index.js';
 
 /*
  * «Документация» (NAV F5): две вкладки в адресе #docs?tab=…
@@ -125,7 +125,7 @@ export const doctpl = {
       const checkNeed = async () => {
         const my = ++seq;
         const pd = { ...(r.passportDefaults || {}), ...over };
-        const body = { ...pd, passportCategory: sel.value || undefined, name: r.name, article: r.sku, materials: r.materialsText || '', images: r.images || r.photos || [] };
+        const body = { ...pd, passportCategory: sel.value || undefined, name: r.name, article: r.sku, materials: r.materialsText || '', images: r.images || r.photos || [], variant: passportVariant.value };
         let res = null;
         try { res = await api('/passports/check', { method: 'POST', body }); } catch { res = null; }
         if (my !== seq) return;
@@ -141,8 +141,10 @@ export const doctpl = {
           }));
       };
       sel.addEventListener('change', () => { auto(); checkNeed(); });
+      const seg = segmented({ items: [{ key: 'short', label: 'Упрощённый' }, { key: 'full', label: 'Полный' }], value: passportVariant.value, label: 'Вариант паспорта', onChange: (k) => { passportVariant.value = k; checkNeed(); } });
       auto(); checkNeed();
       const el = h('div', { class: 'form-grid' },
+        h('div', { class: 'field wide' }, h('span', null, 'Вариант паспорта'), seg.el, h('div', { class: 'hint' }, VARIANT_HINT)),
         h('div', { class: 'wide' }, autoBox), h('div', { class: 'wide' }, needBox),
         h('p', { class: 'hint wide' }, `Шаблон паспорта изделия «${r.name}». Он подставляется, когда вы выпускаете паспорт; выданные паспорта не меняются.`),
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,

@@ -57,14 +57,14 @@ export async function download(r, query, what) {
   catch (e) { done(); throw e; }
 }
 
-/**
- * Предпросмотр паспорта изделия: POST /passports/preview (PDF с «ЧЕРНОВИК», ничего не пишет).
- * TODO: переключатель kit.segmented «Упрощённый / Полный» и поле variant — когда preview.dto.ts начнёт принимать variant
- * (сейчас forbidNonWhitelisted даст 400).
- */
+/** Выбранный вариант паспорта: 'short' (Упрощённый) | 'full' (Полный); общий для предпросмотра, PDF и проверки. */
+export const passportVariant = { value: 'short' };
+export const VARIANT_HINT = 'Полный — с зоной размещения и доп. рисунками, если заполнены';
+
+/** Предпросмотр паспорта изделия: POST /passports/preview (PDF с «ЧЕРНОВИК», ничего не пишет). */
 export async function previewPassport(productId) {
   const done = toast('Готовлю предпросмотр… это может занять до минуты', { ms: 180000 });
-  try { await apiFile('/passports/preview', { method: 'POST', body: { productId, mode: 'pages' }, fallback: 'Предпросмотр_паспорта.pdf' }); done(); }
+  try { await apiFile('/passports/preview', { method: 'POST', body: { productId, mode: 'pages', variant: passportVariant.value }, fallback: 'Предпросмотр_паспорта.pdf' }); done(); }
   catch (e) { done(); toast(e?.message || 'Не удалось собрать предпросмотр'); }
 }
 
@@ -106,9 +106,9 @@ export async function printDialog(r) {
       const ok = form.querySelector('[type=submit]');
       const free = busyBtn(ok, 'Готовлю PDF…');
       try {
-        if (mode === 'stand') { await download(r, { mode: 'stand' }, 'лист для стенда'); return true; }
+        if (mode === 'stand') { await download(r, { mode: 'stand', variant: passportVariant.value }, 'лист для стенда'); return true; }
         const s = seal.cb.checked, g = sign.cb.checked;
-        const q = { ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(mono.cb.checked ? { bw: 1 } : {}) };
+        const q = { variant: passportVariant.value, ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(mono.cb.checked ? { bw: 1 } : {}) };
         await download(r, q, mode === 'print' ? 'буклет A4' : 'PDF');
         return true;
       } finally { free(); }
