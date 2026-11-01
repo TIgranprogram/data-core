@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/busy.js';
 import { dateTime } from '../core/format.js';
 import { toast, toastError } from '../ui/toast.js';
+import { table } from '../ui/kit/index.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { requests } from './requests.js';
 import { orders } from './orders.js';
@@ -41,22 +42,18 @@ export function mountTrash() {
   }
 
   function block(src) {
-    const body = h('tbody', null, h('tr', null, busyBlock('', { tag: 'td', cls: 'muted' })));
-    const panel = h('div', { class: 'panel' }, h('h3', null, src.title),
-      h('div', { class: 'table-wrap', style: { display: 'block' } }, h('table', { class: 'list', style: { tableLayout: 'fixed' } }, // длинное название переносится, кнопка всегда видна
-        h('thead', null, h('tr', null, h('th', null, 'Запись'), h('th', { class: 'trash-when', style: { width: '150px' } }, 'Удалено'), h('th', { style: { width: '150px' } }, ''))), body)));
+    const holder = h('div', null, busyBlock('', { cls: 'muted' }));
+    const panel = h('div', { class: 'panel' }, h('h3', null, src.title), holder);
     api(src.path, { query: { deleted: 1, sort: '-deletedAt', limit: 100 } }).then((r) => {
-      if (!r.items.length) { body.replaceChildren(h('tr', null, h('td', { class: 'muted', colspan: 3 }, 'Корзина пуста. Удалённое хранится здесь, его можно вернуть.'))); return; }
-      body.replaceChildren(...r.items.map((row) => {
+      holder.replaceChildren(table({ columns: [{ label: 'Запись' }, { label: 'Удалено', num: true }, { label: '' }], empty: { title: 'Корзина пуста', hint: 'Удалённое хранится здесь, его можно вернуть.' }, rows: r.items.map((row) => {
         const v = src.section.searchRow(row);
         const btn = session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
           e.currentTarget.disabled = true;
           try { const go = () => src.section.remove.restore(row); if (src.section.remove.password) { if ((await withConfirm(go, { text: 'Восстановление требует вашего пароля.' })) === null) { e.target.disabled = false; return; } } else await go(); toast('Восстановлено'); load(); } catch (ex) { toastError(ex); e.target.disabled = false; }
         } }, 'Восстановить') : null;
-        return h('tr', { class: 'static' }, h('td', { style: { whiteSpace: 'normal', overflowWrap: 'anywhere' } }, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)),
-          h('td', { class: 'num trash-when' }, dateTime(row.deletedAt)), h('td', { class: 'right' }, btn));
-      }));
-    }).catch((e) => body.replaceChildren(h('tr', null, h('td', { colspan: 3 }, failBlock(e, load)))));
+        return { cells: [h('div', null, h('div', null, v.title), h('div', { class: 'muted small' }, v.sub)), dateTime(row.deletedAt), { v: btn, cls: 'right' }] };
+      }) }));
+    }).catch((e) => holder.replaceChildren(failBlock(e, load)));
     return panel;
   }
 

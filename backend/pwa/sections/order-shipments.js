@@ -8,6 +8,7 @@ import { failBlock } from '../ui/busy.js';
 import { emptyState } from '../ui/empty.js';
 import { posPic } from '../ui/pos-pic.js';
 
+import { table } from '../ui/kit/index.js';
 /**
  * Отгрузки заказа и история (ТЗ ОТГ/ИСТ). Блоки в карточке заказа + правая панель «Отгрузить» (`of=shipdo&open=<orderId>`).
  * Сервер: GET/POST /salesorders/:id/shipments, DELETE /shipments/:id, GET /shipments/:id/pdf, GET /salesorders/:id/history.
@@ -119,8 +120,8 @@ function form(order, ctx) {
     } }, 'Отгрузить');
     root.replaceChildren(
       h('div', { class: 'section-title' }, 'Можно отгрузить'),
-      h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', null, ''), h('th', null, 'Позиция'), h('th', { class: 'num' }, 'Осталось'), h('th', null, 'Сколько'))),
-        h('tbody', null, ...rows.map((r) => h('tr', null, h('td', null, r.on), h('td', { class: 'pic-cell' }, posPic(rem.get(String(r.l.id))?.photo, 'sm')), h('td', null, r.l.title), h('td', { class: 'num nowrap' }, `${qty(r.left)} ${r.l.unit || ''}`), h('td', null, r.inp))))),
+      table({ columns: [{ label: '' }, { label: '' }, { label: 'Позиция' }, { label: 'Осталось', num: true }, { label: 'Сколько' }],
+        rows: rows.map((r) => ({ cells: [r.on, { v: posPic(rem.get(String(r.l.id))?.photo, 'sm'), cls: 'pic-cell' }, r.l.title, `${qty(r.left)} ${r.l.unit || ''}`, r.inp] })) }),
       h('div', { class: 'form-grid' },
         h('label', { class: 'field' }, h('span', null, 'Дата'), date0), h('label', { class: 'field' }, h('span', null, 'Получатель'), recv),
         h('label', { class: 'field' }, h('span', null, '№ документа'), docNo), h('label', { class: 'field' }, h('span', null, 'Примечание'), note), reasonBox),

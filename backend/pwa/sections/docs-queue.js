@@ -8,6 +8,7 @@ import { toastError } from '../ui/toast.js';
 import { issuePassport } from './passports.js';
 import { canEdit as canEditTexts } from './passports/common.js';
 
+import { table } from '../ui/kit/index.js';
 /**
  * Вкладка «Нужно сделать паспорт» (ТЗ ОП): позиции заказов, где проектирование готово, а выпущенного паспорта нет.
  * Данные — GET /passports/queue (по сроку отгрузки; «горит» — до отгрузки ≤ 3 дней или просрочено).
@@ -35,7 +36,7 @@ export function mountQueueTab(params) {
     const wait = !r.passportId && r.work && r.work.status !== 'done'; // позиция в работе, ещё не изготовлена
     const btn = wait ? h('span', { class: 'muted shp-why' }, 'Паспорт — после изготовления') : h('button', { type: 'button', class: 'btn btn-sm btn-primary' }, r.passportId ? 'Открыть' : 'Выпустить');
     if (!wait) btn.addEventListener('click', () => make(r, btn));
-    return h('tr', { class: r.hot ? 'dq-hot' : '' },
+    return h('tr', { class: r.hot ? 'tone-danger k-toned' : '' },
       h('td', { class: 'nowrap' }, r.shipDate ? h('span', { class: r.hot ? 'neg' : '' }, date(r.shipDate)) : h('span', { class: 'muted' }, 'без срока'), r.hot ? h('span', { class: 'badge danger', title: 'До отгрузки не больше 3 дней или срок прошёл' }, 'горит') : null),
       h('td', { class: 'nowrap' }, h('b', null, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), h('div', { class: 'muted' }, r.customer || '')),
       h('td', null, r.productName || r.title, r.productName && r.title && r.title !== r.productName ? h('div', { class: 'muted' }, r.title) : null),
@@ -49,7 +50,7 @@ export function mountQueueTab(params) {
       h('span', { class: 'badge info' }, `черновик: ${c.draft || 0}`), h('span', { class: 'badge warn' }, `доработать: ${c.rework || 0}`));
     const items = data?.items || [];
     list.replaceChildren(items.length
-      ? h('div', { class: 'table-wrap' }, h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, 'Срок отгрузки'), h('th', null, 'Заказ'), h('th', null, 'Изделие'), h('th', null, 'Состояние'), h('th', null, ''))), h('tbody', null, ...items.map(row))))
+      ? table({ columns: [{ label: 'Срок отгрузки' }, { label: 'Заказ' }, { label: 'Изделие' }, { label: 'Состояние' }, { label: '' }], rows: items.map(row) })
       : emptyState({ title: search || due !== 'all' ? 'Ничего не найдено' : 'Все паспорта сделаны', hint: search || due !== 'all' ? 'Смените срок или очистите поиск.' : 'Позиции появятся здесь, когда проектирование закончено, а паспорта нет.' }));
   }
   async function load() {

@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/busy.js';
 import { money } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
-import { card, filter } from '../ui/kit/index.js';
+import { card, filter, table, tabs as kitTabs } from '../ui/kit/index.js';
 import { mountList } from '../ui/list.js';
 import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { toast } from '../ui/toast.js';
@@ -79,7 +79,7 @@ export function mountMoney(params) {
   const org = () => P.org || 'all';
 
   // ---------- Шапка: вкладки, месяц, компания, начальный остаток ----------
-  const tabs = h('div', { class: 'tabs', role: 'tablist' });
+  const tabs = h('div');
   const monthLabel = h('span', { class: 'm-label' });
   const orgSeg = h('div', { class: 'seg' });
   const opening = h('input', { class: 'm-open', inputmode: 'decimal', placeholder: 'не знаю', 'aria-label': 'Остаток на начало месяца', title: 'Остаток денег на начало месяца (запоминается в этом браузере)' });
@@ -106,8 +106,8 @@ export function mountMoney(params) {
     controls, body);
 
   function renderChrome(companies) {
-    tabs.replaceChildren(...[['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги'], ['fill', 'Требуют заполнения']].map(([k, l]) =>
-      h('button', { type: 'button', class: tab() === k ? 'active' : '', onclick: () => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }, l)));
+    tabs.replaceChildren(kitTabs({ label: 'Разделы денег', items: [['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги'], ['fill', 'Требуют заполнения']].map(([key, label]) => ({ key, label })), value: tab(),
+      onChange: (k) => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }).el);
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = tab() === 'summary' ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
     orgSeg.replaceChildren(...['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) =>
@@ -266,9 +266,8 @@ export function mountMoney(params) {
         shares('На что тратили', 'По категориям', (s.expensesByCategory || []).map((x) => ({ label: x.category, total: x.total })).sort((a, b) => b.total - a.total)),
         shares('Кому платили', 'Топ поставщиков', (s.expensesBySupplier || []).map((x) => ({ label: x.supplier, total: x.total })))),
       h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, `Доходы и расходы по месяцам — ${year}`)),
-        h('div', { class: 'table-wrap' }, h('table', { class: 'list sum-tbl' },
-          h('thead', null, h('tr', null, h('th', null, 'Период'), h('th', { class: 'right' }, 'Поступления'), h('th', { class: 'right' }, 'Выплаты'), h('th', { class: 'right' }, 'Результат'), hasPrev ? h('th', { class: 'right', title: 'Результат того же месяца прошлого года' }, `Результат ${py}`) : null)),
-          h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: hasPrev ? 5 : 4, class: 'muted' }, 'Операций пока нет')), ...line(`Итого (Total) за ${year}`, s.total, 'total', { i: pInc, e: pExp }))))),
+        table({ cls: 'sum-tbl', columns: [{ label: 'Период' }, { label: 'Поступления', num: true }, { label: 'Выплаты', num: true }, { label: 'Результат', num: true }, ...(hasPrev ? [{ label: `Результат ${py}`, num: true }] : [])],
+          rows: [...rows, ...line(`Итого (Total) за ${year}`, s.total, 'total', { i: pInc, e: pExp })], empty: { title: 'Операций пока нет' } })),
     ];
   }
 

@@ -77,3 +77,13 @@ label.k-row { cursor: pointer; }
 select { appearance: none; -webkit-appearance: none; }
 .k-field[aria-invalid="true"], select[aria-invalid="true"], input[aria-invalid="true"] { border-color: var(--danger); }
 @media (max-width: 480px) { input, select, .k-field { min-height: 44px; } }
+
+/* Таблица (kit.table): числа вправо, строки без перехода — обычный курсор */
+table.list th.num, table.list td.num { text-align: right; }
+table.list.k-static tbody tr { cursor: default; }
+table.list.k-static tbody tr:hover { background: none; }
+table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-strong); }
+.drawer.k-panel { position: static; width: 100%; height: 320px; box-shadow: none; border: 1px solid var(--border); }
+.table-wrap.k-scroll-s { max-height: 240px; overflow: auto; }
+.table-wrap.k-scroll-m { max-height: 320px; overflow: auto; }
+.table-wrap.k-scroll-l { max-height: 480px; overflow: auto; }

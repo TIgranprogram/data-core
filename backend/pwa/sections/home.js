@@ -7,6 +7,7 @@ import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
+import { empty } from '../ui/kit/index.js';
 
 /**
  * «Сегодня» — утренний бриф по ролям (docs/audit/AUDIT-TODAY.md §3): у каждой роли свои 3–6 блоков,
@@ -194,7 +195,7 @@ export function mountHome(deps) {
       h('div', { class: 'td-rows' }, ...rowsOf(key, items)));
   }
   const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
-  const emptyBox = (t, s2) => h('div', { class: 'td-empty' }, h('b', null, t), s2 ? h('span', null, s2) : null);
+  const emptyBox = (t, s2) => empty({ title: t, hint: s2 });
   const emptyLine = (t) => h('div', { class: 'td-none' }, t);
 
   // ---------- Блоки ----------

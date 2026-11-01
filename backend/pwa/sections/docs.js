@@ -11,6 +11,7 @@ import { linkDialog, printDialog } from './passports/dialogs.js';
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
+import { tabs as kitTabs } from '../ui/kit/index.js';
 
 /*
  * «Документация» (NAV F5): две вкладки в адресе #docs?tab=…
@@ -139,12 +140,11 @@ const listParams = (p) => { const { tab, of, ...rest } = p; return rest; };
 export function mountDocs(params, { onChanged } = {}) {
   let tab = tabOf(params);
   let inner = null;
-  const seg = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Документация' });
+  const seg = h('div');
   const body = h('div', { class: 'docs-body' });
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg), body);
 
-  const drawTabs = () => seg.replaceChildren(...TABS.map(([k, label]) =>
-    h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '', onclick: () => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }, label)));
+  const drawTabs = () => seg.replaceChildren(kitTabs({ label: 'Документация', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
 
   function mountTab(p) {
     inner?.destroy?.();

@@ -3,7 +3,7 @@ import { api, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
-import { stepFunnel } from '../ui/kit/index.js';
+import { stepFunnel, table } from '../ui/kit/index.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { stockLookup } from '../core/stock-list.js';
@@ -383,15 +383,8 @@ export const requests = {
             r.catalogPriceHistory?.length > 1
               ? h('details', { class: 'price-history', style: 'display:inline-block;margin-left:.5rem' },
                   h('summary', { style: 'cursor:pointer;font-size:.85em;color:var(--muted)' }, 'история'),
-                  h('table', { class: 'small', style: 'margin-top:.25rem;border-collapse:collapse' },
-                    ...r.catalogPriceHistory.map((e) =>
-                      h('tr', null,
-                        h('td', { style: 'padding:.1rem .4rem .1rem 0;color:var(--muted);white-space:nowrap' }, date(e.date)),
-                        h('td', { style: 'padding:.1rem .4rem;text-align:right' }, money(e.price) + ' ₽'),
-                        h('td', { style: 'padding:.1rem 0;color:var(--muted);font-size:.85em' }, e.source === 'excel' ? 'Excel' : 'заявка'),
-                      )
-                    )
-                  )
+                  table({ columns: [{ label: 'Дата' }, { label: 'Цена', num: true }, { label: 'Откуда' }],
+                    rows: r.catalogPriceHistory.map((e) => ({ cells: [date(e.date), money(e.price) + ' ₽', { v: e.source === 'excel' ? 'Excel' : 'заявка', cls: 'muted' }] })) })
                 )
               : null
           )

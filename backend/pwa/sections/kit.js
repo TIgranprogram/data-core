@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, boardStatic, board, layout, failBlock, toast, pick, filter, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, boardStatic, board, layout, failBlock, toast, pick, filter, table, panel, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -97,6 +97,15 @@ export const kit = {
           main: boardStatic({ density: 'pics', columns: [{ key: 'a', label: 'Распределение', tone: 'dim', cards: [card({ size: 'M', title: 'Задача', meta: 'сюда перетаскивают изделие слева', photo: PIC })] }, { key: 'b', label: 'В работе', tone: 'info', cards: [] }] }) })),
       block('Доска: меню «⋯», группы по заказу, цветная полоса (cardMenu, group, orderKey)', 'Живой пример на данных проектирования (нажмите — загрузятся задачи). Группа ▸/▾ по заказу, «⋯» — общее меню, полоса — цвет заказа.',
         liveBoard()),
+      block('Таблица (table)', 'list — таблица списка: числа вправо, итог в подвале; пустая — kit.empty. input — табличный ввод для форм (строки в ячейках, + Строка, Excel).',
+        table({ clickable: true, columns: [{ label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Цена', num: true }], rows: [{ cells: ['Болт М10', '120', '12,50'], onClick: () => toast('Строка') }, { cells: [LONG, '3', '1 200,00'], selected: true }],
+          foot: [h('tr', null, h('td', null, 'Итого'), h('td', { class: 'num' }, '123'), h('td', { class: 'num' }, '1 212,50'))] }),
+        table({ columns: [{ label: 'Название' }, { label: 'Кол-во', num: true }], rows: [], empty: { title: 'Строк нет', hint: 'Добавьте запись.' } }),
+        table({ mode: 'input', columns: [{ key: 'name', label: 'Название' }, { key: 'qty', label: 'Кол-во', num: true }], rows: [{ name: 'Болт', qty: '4' }], file: 'Образец' }).el),
+      block('Правая панель (panel)', 'Шапка (тип записи, заголовок, подзаголовок, ✕), блоки полей, подвал с кнопками. Здесь — образец содержимого; настоящая панель открывается через openCard.',
+        panel({ kind: 'Изделие', title: 'Качели двойные', sub: 'Артикул КЧ-02', onClose: () => toast('Закрыть'),
+          blocks: [{ title: 'Основное', body: h('p', { class: 'muted' }, 'Поля блока') }, { title: 'Дополнительно', body: h('p', { class: 'muted' }, 'Ещё поля') }],
+          footer: [button({ label: 'Сохранить', kind: 'primary' }), button({ label: 'Отмена' })] }).el),
       block('Пусто и ошибка', null, empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
     return {};

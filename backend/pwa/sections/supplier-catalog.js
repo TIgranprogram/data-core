@@ -12,6 +12,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { setCrumbTail } from '../ui/crumbs.js';
 import { partnerAction } from './lookups.js';
 
+import { table } from '../ui/kit/index.js';
 /**
  * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
  * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
@@ -178,11 +179,8 @@ function previewTable(res) {
       h('td', null, r.name || '—', r.materialName ? h('div', { class: 'muted small' }, '→ ' + r.materialName) : null),
       h('td', { class: 'num nowrap' }, r.price != null ? (r.oldPrice != null && r.oldPrice !== r.price ? `${money(r.oldPrice)} → ` : '') + money(r.price) : '—'));
   });
-  const table = h('div', { class: 'table-wrap', style: { maxHeight: '320px', overflow: 'auto' } },
-    h('table', { class: 'data-table' },
-      h('thead', null, h('tr', null, ['Строка', 'Что будет', 'Поставщик', 'Артикул', 'Название', 'Цена, ₽'].map((t) => h('th', null, t)))),
-      h('tbody', null, ...trs)));
-  return [head, dup, note, table, rows.length > 300 ? h('p', { class: 'muted small' }, `Показаны первые 300 из ${rows.length}`) : null];
+  const preview = table({ columns: ['Строка', 'Что будет', 'Поставщик', 'Артикул', 'Название', 'Цена, ₽'].map((label) => ({ label })), rows: trs, maxHeight: 'M' });
+  return [head, dup, note, preview, rows.length > 300 ? h('p', { class: 'muted small' }, `Показаны первые 300 из ${rows.length}`) : null];
 }
 
 /** Предпросмотр «Заказа от поставщика» (создаёт заявки и цены каталога): строки файла. */
@@ -192,8 +190,7 @@ function orderPreview(rows) {
     h('td', { class: 'num' }, rw.qty), h('td', null, rw.unit || 'шт'), h('td', null, rw.optGroup),
     h('td', { class: 'num' }, rw.price != null ? rw.price.toLocaleString('ru') + ' ₽' : '—')));
   return [h('p', { class: 'hint ok' }, `Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`),
-    h('div', { class: 'table-wrap', style: { maxHeight: '300px', overflow: 'auto' } },
-      h('table', { class: 'data-table' }, h('thead', null, h('tr', null, ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'].map((c) => h('th', null, c)))), h('tbody', null, ...trs)))];
+    table({ columns: ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'].map((label) => ({ label })), rows: trs, maxHeight: 'M' })];
 }
 // 2026-10-26: «Кол-во» — сколько заказать в этих единицах (пусто = 1); «Ед. изм.» — шт / м / кг / упак (пусто = шт); «Цена» — за 1 единицу
 const orderTemplate = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Ед. изм.', 'Кол-во', 'Группа', 'Цена'],
@@ -369,8 +366,8 @@ export const supplierCatalog = {
       const hist = [...(r.priceHistory || [])].reverse();
       if (!hist.length) return h('p', { class: 'muted' }, 'Истории цен пока нет.');
       return h('div', null, h('div', { class: 'section-title' }, 'История цен'),
-        h('table', { class: 'data-table sc-hist' }, h('thead', null, h('tr', null, h('th', null, 'Дата'), h('th', { class: 'num' }, 'Цена, ₽'), h('th', null, 'Откуда'))),
-          h('tbody', null, hist.map((x) => h('tr', null, h('td', null, x.date ? date(x.date) : '—'), h('td', { class: 'num' }, money(x.price)), h('td', { class: 'muted' }, SRC[x.source] || x.source || ''))))));
+        table({ columns: [{ label: 'Дата' }, { label: 'Цена, ₽', num: true }, { label: 'Откуда' }],
+          rows: hist.map((x) => ({ cells: [x.date ? date(x.date) : '—', money(x.price), { v: SRC[x.source] || x.source || '', cls: 'muted' }] })) }));
     },
   },
 

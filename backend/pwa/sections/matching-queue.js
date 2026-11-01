@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { enhanceSelect } from '../ui/kit/index.js';
+import { enhanceSelect, table, tabs as kitTabs } from '../ui/kit/index.js';
 import { toastError } from '../ui/toast.js';
 import { STAGE } from './order-stage.js';
 import { openMatching } from './salesorders-matching.js';
@@ -95,7 +95,7 @@ export function unmatchedTop({ open = false } = {}) {
     bulkBtn.hidden = !write || !n;
     bulkBtn.textContent = `Подтвердить все уверенные (${n})`;
     body.replaceChildren(items.length
-      ? h('table', { class: 'so-lines static mq-table' }, h('thead', null, h('tr', null, h('th', null, 'Заказ'), h('th', null, 'Договор'), h('th', null, 'Что в договоре'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Похожее изделие'), h('th', null, ''))), h('tbody', null, ...items.map(rowEl)))
+      ? table({ columns: [{ label: 'Заказ' }, { label: 'Договор' }, { label: 'Что в договоре' }, { label: 'Кол-во', num: true }, { label: 'Похожее изделие' }, { label: '' }], rows: items.map(rowEl) })
       : h('p', { class: 'muted' }, !loaded ? 'Загрузка…' : q || filter.productionNo || filter.orderNo || filter.stage || onlyProd ? 'По этим условиям позиций нет. Сбросьте фильтр или поиск.' : 'Всё сопоставлено — несопоставленных позиций нет.'));
     more.hidden = items.length >= total;
   };
@@ -140,15 +140,12 @@ const tabOf = (p) => (p?.tab === 'unassigned' ? 'unassigned' : 'positions');
 export function mountMatchingQueue(params) {
   let tab = tabOf(params);
   const counts = { positions: null, unassigned: null };
-  const tabs = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Сопоставление' });
+  const tabs = h('div');
   const body = h('div', { class: 'panel mq-screen-body' });
   const el = h('div', { class: 'matching-screen' }, h('div', { class: 'page-head' }, h('h1', null, 'Сопоставление')), tabs, body);
 
-  const drawTabs = () => tabs.replaceChildren(...TABS.map(([k, label]) => h('button', {
-    type: 'button', role: 'tab', 'aria-selected': String(tab === k), class: tab === k ? 'active' : '',
-    onclick: () => { if (tab !== k) go('matching', k === 'unassigned' ? { tab: k } : {}, { replace: true }); },
-  }, counts[k] == null ? label : `${label} · ${qty(counts[k])}`)));
-  const loadCounts = async () => {
+  const drawTabs = () => tabs.replaceChildren(kitTabs({ label: 'Сопоставление', items: TABS.map(([key, label]) => ({ key, label, count: counts[key] == null ? undefined : qty(counts[key]) })), value: tab,
+    onChange: (k) => { if (tab !== k) go('matching', k === 'unassigned' ? { tab: k } : {}, { replace: true }); } }).el);  const loadCounts = async () => {
     const [c, u] = await Promise.all([unmatchedCount(), api('/production-orders/unassigned', { query: { limit: 1 } }).catch(() => null)]);
     counts.positions = c.total ?? 0;
     counts.unassigned = u?.total ?? counts.unassigned;

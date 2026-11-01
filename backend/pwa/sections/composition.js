@@ -78,7 +78,7 @@ async function buildCompositionForm() {
 
   // ── «Добавить»: чипы, поиск, список по разделам ──
   let kind = 'all'; let query = '';
-  const kindTabs = tabs({ items: [{ key: 'all', label: 'Все' }, { key: 'material', label: 'Материалы' }, { key: 'product', label: 'Изделия' }], value: kind, onChange: (k) => { kind = k; drawPick(); } });
+  const kindTabs = tabs({ items: [{ key: 'all', label: 'Все' }, { key: 'material', label: 'Материалы' }, { key: 'product', label: 'Изделия' }], value: kind, label: 'Что добавить', onChange: (k) => { kind = k; drawPick(); } });
   const chips = kindTabs.el;
   const input = h('input', { type: 'text', placeholder: 'Найти: название или артикул (м10 = M10, слова в любом порядке)', 'aria-label': 'Найти, что добавить', autocomplete: 'off' });
   const pick = h('ul', { class: 'pick-list', role: 'listbox', 'aria-label': 'Материалы и изделия' });

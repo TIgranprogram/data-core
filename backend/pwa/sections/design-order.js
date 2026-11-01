@@ -8,6 +8,7 @@ import { toastError } from '../ui/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';
 
+import { table } from '../ui/kit/index.js';
 /**
  * Правая панель заказа на доске «Проектирование» (`?of=designorder&open=<id заказа>`, DESIGN §4 «Доска заказов»).
  * Открыто — «с чем работаем»: «Заказ», «Изделия к проектированию» (взять в работу / назначить прямо в строке), «Как идёт проектирование».
@@ -88,7 +89,6 @@ export const designOrder = {
     extra: (r, ctx) => h('div', { class: 'db-blocks' },
       linesBlock(r, ctx),
       progressBlock(r),
-      block('Что в позициях', false, r.lines.length ? h('table', { class: 'db-ptable' }, h('thead', null, h('tr', null, ['Поз.', 'Название', 'Кол-во', 'Артикул'].map((x) => h('th', null, x)))),
-        h('tbody', null, r.lines.map((l) => h('tr', null, h('td', null, l.seqNo ?? l.lineNo ?? ''), h('td', null, l.title), h('td', { class: 'num' }, l.qty != null ? qty(l.qty) : ''), h('td', null, l.sku || ''))))) : h('div', { class: 'db-hint' }, 'Позиций нет.'))),
+      block('Что в позициях', false, table({ columns: [{ label: 'Поз.' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Артикул' }], rows: r.lines.map((l) => ({ cells: [l.seqNo ?? l.lineNo ?? '', l.title, l.qty != null ? qty(l.qty) : '', l.sku || ''] })), empty: { title: 'Позиций нет' } }))),
   },
 };

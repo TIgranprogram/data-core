@@ -65,9 +65,9 @@ export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn
   return h(tag, { class: cn, ...(data ? { 'data-id': data } : {}), ...(onClick ? { onclick: onClick } : {}) }, ...kids);
 }
 
-/** tabs({ items: [{ key, label, count? }], value, onChange(key) }) → { el, set(key) } — .chips/.chip */
-export function tabs({ items, value, onChange }) {
-  const el = h('div', { class: 'chips', role: 'tablist' });
+/** tabs({ items: [{ key, label, count? }], value, onChange(key), label (aria) }) → { el, set(key) } — .chips/.chip */
+export function tabs({ items, value, onChange, label }) {
+  const el = h('div', { class: 'chips', role: 'tablist', 'aria-label': label || null });
   const set = (key) => el.querySelectorAll('.chip').forEach((c) => { const on = c.dataset.key === String(key); c.classList.toggle('active', on); c.setAttribute('aria-selected', String(on)); });
   el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
     it.label, it.count != null ? h('b', null, String(it.count)) : null)));
@@ -106,6 +106,8 @@ export const toolbar = (...children) => h('div', { class: 'toolbar' }, ...nodes(
 
 /** Доска с данными с сервера (колонки, DnD, порции) — ui/kit/board.js */
 export { mountBoard as board } from './board.js';
+export { table } from './table.js';
+export { panel } from './panel.js';
 
 /** boardStatic({ columns: [{ key, label, tone, hint?, cards: [узлы], empty? }], density }) → .board без сервера (витрина, малые списки) */
 export function boardStatic({ columns, density = 'normal' }) {

@@ -4,6 +4,7 @@ import { photoDrop } from '../../ui/photos.js';
 import { imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/toast.js';
 import { confirmDlg } from '../../ui/dialog.js';
+import { table } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
 import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
 
@@ -115,6 +116,6 @@ export function bomBlock(r) {
   if (!r.bom?.length) return h('div', null, h('div', { class: 'section-title' }, 'Комплектность (приложение)'), h('p', { class: 'muted' }, 'Не заполнена — в PDF будет «И-1 · Изделие в сборе · 1 шт.»'));
   const rows = r.bom;
   return h('div', null, h('div', { class: 'section-title' }, 'Комплектность (приложение)'),
-    h('table', { class: 'so-lines static' }, h('thead', null, h('tr', null, ...['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед.', 'Примечание'].map((x) => h('th', null, x)))),
-      h('tbody', null, ...rows.map((b) => h('tr', null, h('td', null, b.pos ?? ''), h('td', null, b.code ?? ''), h('td', null, b.name ?? ''), h('td', { class: 'num' }, b.qty ?? ''), h('td', null, b.unit ?? ''), h('td', { class: 'muted' }, b.note ?? ''))))));
+    table({ columns: [{ label: 'Поз.' }, { label: 'Обозначение' }, { label: 'Наименование' }, { label: 'Кол-во', num: true }, { label: 'Ед.' }, { label: 'Примечание' }],
+      rows: rows.map((b) => ({ cells: [b.pos ?? '', b.code ?? '', b.name ?? '', b.qty ?? '', b.unit ?? '', { v: b.note ?? '', cls: 'muted' }] })) }));
 }

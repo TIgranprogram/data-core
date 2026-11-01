@@ -6,6 +6,7 @@ import { confirmDlg } from '../ui/dialog.js';
 import { openSide, sideForm } from '../ui/side-form.js';
 import { toast, toastError } from '../ui/toast.js';
 import { incomeLookups, todayMsk } from './orders.js';
+import { table } from '../ui/kit/index.js';
 
 /**
  * «ФОТ» — фонд оплаты труда. Данные с сервера: GET /api/payroll/summary?month= (сотрудники, табель, начислено,
@@ -125,10 +126,9 @@ export function mountPayroll() {
     return [
       h('div', { class: 'summary' }, kpi('сотрудников', qty(items.length)), kpi('начислено', money(t.accrued)), kpi('выплачено', money(t.paid)), kpi('остаток к выплате', money(t.balance), t.balance > 0 ? 'neg' : '')),
       noRate,
-      h('div', { class: 'panel' }, h('div', { class: 'table-wrap' }, h('table', { class: 'list' },
-        h('thead', null, h('tr', null, ...[['Сотрудник'], ['Наша компания', 'md-hide'], ['Ставка', 'right'], ['Часы / дни', 'right'], ['Начислено', 'right'], ['Выплачено', 'right'], ['Остаток', 'right'], ['Срок выплаты', 'md-hide'], ['']].map(([x, c]) => h('th', { class: c || '' }, x)))),
-        h('tbody', null, ...items.map(row)),
-        h('tfoot', null, h('tr', { class: 'total' }, h('td', { colspan: 4 }, 'Итого'), h('td', { class: 'num right' }, money(t.accrued)), h('td', { class: 'num right' }, money(t.paid)), h('td', { class: 'num right' }, money(t.balance)), h('td', { colspan: 2 }))))),
+      h('div', { class: 'panel' }, table({ columns: [{ label: 'Сотрудник' }, { label: 'Наша компания', hide: true }, { label: 'Ставка', num: true }, { label: 'Часы / дни', num: true }, { label: 'Начислено', num: true }, { label: 'Выплачено', num: true }, { label: 'Остаток', num: true }, { label: 'Срок выплаты', hide: true }, { label: '' }],
+        rows: items.map(row), clickable: true,
+        foot: [h('tr', { class: 'total' }, h('td', { colspan: 4 }, 'Итого'), h('td', { class: 'num' }, money(t.accrued)), h('td', { class: 'num' }, money(t.paid)), h('td', { class: 'num' }, money(t.balance)), h('td', { colspan: 2 }))] }),
       h('p', { class: 'hint' }, 'Часы и дни правятся прямо в строке (почасовая — часы; оклад — отработано дней из нормы, пусто — полный оклад). Остаток — начислено минус выплачено; срок — по графику выплат сотрудника.')),
       cos.length ? h('div', { class: 'panel dash-card compact-card', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, 'ФОТ по компаниям')),
         h('div', { class: 'shares' }, ...cos.map((c) => h('div', { class: 'share' },

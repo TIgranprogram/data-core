@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo, tabs } from '../ui/kit/index.js';
+import { attachCombo, tabs, table, tabs as kitTabs } from '../ui/kit/index.js';
 import { modal } from '../ui/dialog.js';
 import { carousel } from '../ui/gallery.js';
 import { toastError } from '../ui/toast.js';
@@ -30,7 +30,7 @@ function requestsView(onCount) {
   const search = h('input', { type: 'search', placeholder: 'Поиск по названию…', 'aria-label': 'Поиск заявок', maxlength: 100 });
   let timer = 0;
   search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { S.search = search.value.trim(); S.page = 1; load(); }, 300); });
-  const statusTabs = tabs({ items: FILTERS.map(([key, label]) => ({ key, label })), value: S.status, onChange: (k) => { S.status = k; S.page = 1; load(); } });
+  const statusTabs = tabs({ items: FILTERS.map(([key, label]) => ({ key, label })), value: S.status, label: 'Состояние заявок', onChange: (k) => { S.status = k; S.page = 1; load(); } });
   const chips = statusTabs.el;
   const paintChips = () => statusTabs.set(S.status);
   const el = h('div', { class: 'dr-view' }, h('div', { class: 'dr-bar' }, search, chips), box);
@@ -49,9 +49,7 @@ function requestsView(onCount) {
       h('td', { class: 'clip md-hide' }, (x.orderNos || []).filter(Boolean).map((n) => '№ ' + n).join(', ') || `${x.orderCount || 0} зак.`),
       h('td', { class: 'nowrap md-hide' }, x.createdAt ? date(x.createdAt) : '')));
     const pages = Math.max(1, Math.ceil((r.total || items.length) / LIMIT));
-    box.replaceChildren(h('table', { class: 'list' },
-      h('thead', null, h('tr', null, ['', 'Изделие', 'Кол-во', 'Позиций', 'Заказы', 'Создана'].map((t, i) => h('th', { class: i > 3 ? 'md-hide' : '' }, t)))),
-      h('tbody', null, rows)),
+    box.replaceChildren(table({ clickable: true, columns: [{ label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Позиций' }, { label: 'Заказы', hide: true }, { label: 'Создана', hide: true }], rows }),
     pages > 1 ? h('div', { class: 'pager' },
       h('button', { type: 'button', class: 'btn btn-sm', disabled: S.page <= 1, onclick: () => { S.page--; load(); } }, '← Назад'),
       h('span', { class: 'muted' }, ` ${S.page} из ${pages} `),
@@ -80,7 +78,7 @@ export function withRequestsTab(mountInner) {
   return (b, path, q, o) => {
     const inner = mountInner(b, path, q, o);
     const canSettings = session.role === 'admin' || session.user?.isOwner === true;
-    const tabs = h('div', { class: 'tabs dr-tabs', role: 'tablist', 'aria-label': 'Раздел проектирования' });
+    const tabs = h('div');
     const holder = h('div', { class: 'dr-holder', hidden: true });
     const el = h('div', { class: 'dr-wrap' }, tabs, inner.el, holder);
     let n = 0, view = null;
@@ -88,10 +86,8 @@ export function withRequestsTab(mountInner) {
     const pick = (req) => { const P = current().params; go('design', { ...P, tab: req ? 'requests' : undefined, of: undefined, open: undefined, new: undefined }, { replace: true }); };
     function paintTabs() {
       const req = isReq();
-      tabs.replaceChildren(
-        h('button', { type: 'button', role: 'tab', class: req ? '' : 'active', 'aria-selected': String(!req), onclick: () => pick(false) }, 'Задачи'),
-        h('button', { type: 'button', role: 'tab', class: req ? 'active' : '', 'aria-selected': String(req), onclick: () => pick(true) }, `Заявки на создание изделия (${n})`),
-        canSettings ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Какие стикеры показывать на карточках', onclick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } }, 'Настройки доски') : null);
+      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, { key: 'requests', label: `Заявки на создание изделия (${n})` }], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el,
+        canSettings ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Какие стикеры показывать на карточках', onclick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } }, 'Настройки доски') : null)
     }
     function show() {
       const req = isReq();

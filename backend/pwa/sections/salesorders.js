@@ -29,6 +29,7 @@ import { orderPassportActions } from './order-passports.js';
 import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 
+import { table, tabs as kitTabs } from '../ui/kit/index.js';
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
@@ -207,7 +208,7 @@ function orderPassports(r) {
 
 const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
 /** Отменённая позиция: серая строка с причиной и «Вернуть»; в суммы не входит. */
-const cancelledRow = (l, i, o, dots) => h('tr', { class: 'so-cancelled', title: 'Позиция отменена: ' + (l.cancelReason || '') },
+const cancelledRow = (l, i, o, dots) => h('tr', { class: 'muted', title: 'Позиция отменена: ' + (l.cancelReason || '') },
   h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
   h('td', { class: 'muted', colspan: session.canMoney ? 7 : 4 }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))),
   session.canEditOrders ? h('td', { class: 'nowrap' }, dots) : null);
@@ -282,11 +283,11 @@ function contractGroup(o, reload) {
       ...(payOn ? [h('td', { class: 'nowrap' }, l.amount && debt > 0 ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Принять оплату по этой позиции', onclick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }, 'Принять оплату') : '')] : []),
     ];
   };
-  const table = lines.length
-    ? h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Название'), h('th', { class: 'num' }, 'Кол-во'), h('th', { class: 'num' }, 'Отгружено'), h('th', null, 'Цвет'), session.canMoney ? h('th', { class: 'num' }, 'Сумма') : null, session.canMoney ? h('th', { class: 'num' }, 'Оплачено') : null, session.canMoney ? h('th', { class: 'num' }, 'Долг') : null, payOn ? h('th', null, '') : null, can ? h('th', null, '') : null)),
-      h('tbody', null, ...lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
+  const linesTable = lines.length
+    ? table({ clickable: true, columns: [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canMoney ? [{ label: 'Сумма', num: true }, { label: 'Оплачено', num: true }, { label: 'Долг', num: true }] : []), ...(payOn ? [{ label: '' }] : []), ...(can ? [{ label: '' }] : [])],
+      rows: lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
         h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, 'lg')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', { class: 'ol-mark' }, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
-        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null))))
+        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null)) })
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
   const add = can && !closedStage(o)
@@ -298,7 +299,7 @@ function contractGroup(o, reload) {
   const hasShip = o.stage !== 'new' || lines.some((l) => l.shipped);
   // вкладки без данных не показываем: нет доступа к разделу, нет позиций или этап ещё не дошёл
   const defs = [
-    ['pos', `Позиции (${lines.length})`, true, () => h('div', null, distribBlock(o, reload), table, add)],
+    ['pos', `Позиции (${lines.length})`, true, () => h('div', null, distribBlock(o, reload), linesTable, add)],
     ['design', 'Проектирование', session.sees('design') && lines.length > 0, () => orderDesign({ id: o.id, orderNo: o.productionNo || o.orderNo }, lines)],
     ['work', 'Работа', session.sees('work') && lines.length > 0 && !closedStage(o), () => orderWork([o])],
     ['stock', 'Склад', seeReq || seeStock, () => h('div', null,
@@ -312,7 +313,7 @@ function contractGroup(o, reload) {
     ['ship', 'Отгрузки', hasShip, () => h('div', null, shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
     ['pass', 'Паспорта', session.seesDocs() && lines.length > 0, () => orderPassports(o)],
   ].filter((d) => d[2]);
-  const tabsEl = h('div', { class: 'tabs so-tabs', role: 'tablist', 'aria-label': 'Разделы договора' });
+  const tabsEl = kitTabs({ label: 'Разделы договора', items: defs.map(([key, label]) => ({ key, label })), value: defs[0][0], onChange: (k) => show(k) });
   const panes = new Map(); // вкладка → панель (строится при первом открытии)
   const paneBox = h('div', { class: 'so-pane-box' });
   let cur = '';
@@ -326,10 +327,9 @@ function contractGroup(o, reload) {
       panes.set(cur, pane); paneBox.append(pane);
     }
     for (const [key, pane] of panes) pane.hidden = key !== cur;
-    for (const b of tabsEl.children) { const on = b.dataset.tab === cur; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); }
+    tabsEl.set(cur);
   };
-  tabsEl.append(...defs.map(([key, label]) => h('button', { type: 'button', role: 'tab', dataset: { tab: key }, onclick: () => show(key) }, label)));
-  const root = h('div', { class: 'so-grp' }, head, defs.length > 1 ? tabsEl : null, paneBox);
+  const root = h('div', { class: 'so-grp' }, head, defs.length > 1 ? tabsEl.el : null, paneBox);
   const onTab = (ev) => {
     if (!root.isConnected) { window.removeEventListener('so-open-tab', onTab); return; }
     const k = ev.detail?.tab;
@@ -351,8 +351,8 @@ function produceBlock(d) {
   const t = d.toProduce || [];
   if (!t.length) return null;
   return sec(`К производству (${t.length})`,
-    h('table', { class: 'so-lines' }, h('thead', null, h('tr', null, h('th', null, '№'), h('th', null, ''), h('th', null, 'Изделие'), h('th', { class: 'num' }, 'Кол-во'), h('th', null, 'Ед. изм.'), h('th', null, 'Из позиций'))),
-      h('tbody', null, ...t.map((x, i) => h('tr', null, h('td', { class: 'muted' }, i + 1), h('td', { class: 'pic-cell' }, posPic(x.photo, 'lg')), h('td', null, x.title), h('td', { class: 'num nowrap' }, qty(x.qty)), h('td', { class: 'muted' }, x.unit || ''), h('td', { class: 'muted' }, (x.seqNos || []).join(', ')))))),
+    table({ columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
+      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, 'lg'), cls: 'pic-cell' }, x.title, qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
 }
 

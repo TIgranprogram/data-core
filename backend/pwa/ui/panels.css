@@ -89,9 +89,6 @@
 .db-prow { display: flex; gap: 8px; align-items: flex-start; }
 .db-pstate { font-size: var(--fs-sm); margin-top: 2px; min-height: 24px; display: flex; align-items: center; gap: 6px; }
 .db-pacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .db-pacts .btn { white-space: nowrap; flex: none; }
-.db-ptable { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.db-ptable { table-layout: fixed; } .db-ptable th:first-child, .db-ptable td:first-child { width: 44px; } .db-ptable th:nth-child(3), .db-ptable td:nth-child(3) { width: 64px; }
-.db-ptable th, .db-ptable td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; vertical-align: top; }
 
 /* =================== Мобильный склад: быстрые действия и touch-оптимизация (≤ 720px) =================== */
 
