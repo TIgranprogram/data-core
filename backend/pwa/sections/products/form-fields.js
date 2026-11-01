@@ -95,7 +95,16 @@ export function productForm() {
         { key: 'pdCategory', label: 'Категория паспорта', type: 'select', options: pdCats, hint: catHint,
           mount: (api) => api.on('pdCategory', () => pdFunnel?.setCategory(api.get('pdCategory'))) },
         { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
-          widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })) },
+          widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })),
+          // выбранная «Установка» задаёт способ установки сама (сервер так и делает) — отдельный список не нужен
+          mount: (api) => {
+            const sync = () => {
+              const id = pdFunnel?.installTypeId() || '';
+              const f = api.field('pdInstall'); if (f) f.hidden = !!id;
+              if (id && api.get('pdInstall') !== id) api.set('pdInstall', id);
+            };
+            api.on('pdChoices', sync); sync();
+          } },
         { key: 'pdWarranty', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
         { key: 'pdLife', label: 'Срок службы, лет', type: 'number', min: 0, span: 1 },
         { key: 'pdInstall', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))], hint: 'Определяет схему монтажа в паспорте' },

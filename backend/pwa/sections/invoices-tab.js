@@ -48,7 +48,7 @@ export function mountInvoicesTab(params = {}) {
 
   const rows = h('div', { class: 'invl-list' });
   const foot = h('div', { class: 'invl-foot' });
-  const el = h('div', { class: 'invl-tab' }, bar, rows, foot);
+  const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Счета поставщиков по заявкам. Нажмите на счёт — увидите его позиции.'), bar, rows, foot);
 
   function reload() { page = 1; load(); }
 

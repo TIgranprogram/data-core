@@ -142,7 +142,9 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .page-head > * { min-width: 0; max-width: 100%; }
 @media (max-width: 720px) {
   .btn-icon { min-height: 40px; }
-  .pick-cb, .pick-all { min-width: 24px; min-height: 24px; }
+  .pick-cb, .pick-all, .mq-bar .check input { min-width: 40px; min-height: 40px; }
+  .btn.btn-ghost.btn-icon { min-width: 40px; min-height: 40px; }
+  dl.fields dd > a:only-child { display: inline-flex; align-items: center; min-height: 40px; }
   .gc-title, .gcard a { overflow-wrap: anywhere; }
   .q-link { display: inline-flex; align-items: center; min-height: 40px; }
   .ref-orders { display: inline-flex; align-items: center; min-height: 40px; }

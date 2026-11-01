@@ -29,7 +29,7 @@ export function mountStaff(params) {
   const note = h('div', { class: 'st-note' });
   const tabsKit = kitTabs({ items: TABS.map(([key, label]) => ({ key, label })), value: tab, label: 'Сотрудники', onChange: (k) => { if (tab !== k) go('staff', k === 'staff' ? {} : { tab: k }, { replace: true }); } });
   const body = h('div', { class: 'st-body' });
-  const el = h('div', { class: 'staff' }, h('div', { class: 'page-head' }, h('h1', null, 'Сотрудники'), h('span', { class: 'muted small' }, 'Кто за что отвечает: уведомления приходят людям своей зоны.')), note, tabsKit.el, body);
+  const el = h('div', { class: 'staff' }, h('div', { class: 'page-head' }, h('h1', null, 'Сотрудники'), h('span', { class: 'hint' }, 'Кто за что отвечает: уведомления приходят людям своей зоны.')), note, tabsKit.el, body);
 
   const drawTabs = () => tabsKit.set(tab);
 

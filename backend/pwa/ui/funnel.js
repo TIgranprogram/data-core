@@ -127,7 +127,7 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
     const my = ++seq; failed = null; data = null; paint();
     if (!cat) return;
     try { const d = await loadFunnel(cat, force); if (my === seq) data = d; } catch (e) { if (my === seq) failed = e; }
-    if (my === seq) paint();
+    if (my === seq) { paint(); fire(); }
   }
   // вернулись из справочника (правили текст в соседней вкладке) — подтянуть свежее
   let seen = false;
@@ -153,6 +153,13 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
       choices = {}; for (const k of Object.keys(partial)) delete partial[k]; editing.clear();
       fire(); refresh();
       if (had && cat) toast('Категория сменилась — выберите шаги текста заново');
+    },
+    /** Способ установки, который задаёт выбранный вариант раздела «Установка» ('' — не задаёт или не выбран). */
+    installTypeId() {
+      const s = (data?.sections || []).find((x) => x.section === 'installation');
+      if (!s) return '';
+      const e = effective(s); const leaf = e.path[e.path.length - 1];
+      return leaf && isLeaf(leaf) && leaf.installTypeId ? String(leaf.installTypeId) : '';
     },
     stepEl: (rootId) => el.querySelector(`[data-root="${rootId}"]`),
   };

@@ -170,7 +170,7 @@ const GARBAGE_SRC = await (async () => {
 const TCARD = `(()=>{const c=document.querySelector('article.tcard,.tcard');if(!c)return null;
 const hd=c.querySelector('h1,h2,h3,h4,[class*=title],[class*=head],header')||c.firstElementChild;
 const cs=getComputedStyle(c),hs=getComputedStyle(hd||c);
-return {шрифт_заголовка:hs.fontSize,вес_заголовка:hs.fontWeight,отступы_карточки:cs.padding,высота_шапки:Math.round((hd||c).getBoundingClientRect().height)+'px'}})()`;
+return {шрифт_заголовка:hs.fontSize,вес_заголовка:hs.fontWeight,отступы_карточки:cs.padding,межстрочный_заголовка:hs.lineHeight}})()`;
 
 const settle = `new Promise(r=>{let n=0;const t=setInterval(()=>{const b=document.querySelector('.is-loading,.skeleton,[aria-busy="true"]');if(!b||++n>30){clearInterval(t);r(1)}},100)})`;
 const OPEN_ROW = `(()=>{const row=document.querySelector('table.list tbody tr:not(.static):not(.group-row), article.tcard, .gal > *, article.db-order .db-oh');if(!row)return 0;row.click();return 1})()`;
