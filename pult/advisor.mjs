@@ -48,7 +48,7 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
   if (gateFiles.length) add('soon', 'git-status', `Файлов без коммита: ${gateFiles.length}. Обычно это работа Claude, она ещё идёт. Нажимать не нужно. Выкладка откроется после коммита.`);
   if (s.behind) add('today', 'git-pull', `В GitHub есть новые коммиты: ${s.behind}. Заберите их до начала работы.`);
   if (s.ahead) add('today', 'git-push', `Коммиты не отправлены в GitHub: ${s.ahead}. Выкладка требует, чтобы они были там.`);
-  if (s.undeployed && !gateFiles.length && !s.ahead) add('today', 'deploy-release', `Не на сайте: ${s.undeployed} ${s.undeployed === 1 ? 'изменение' : 'изменений'} в коде.`);
+  if (s.undeployed && !gateFiles.length && !s.ahead) add('soon', 'deploy-release', `Не на сайте (можно копить и выложить пачкой): ${s.undeployed} ${s.undeployed === 1 ? 'изменение' : 'изменений'} в коде.`);
 
   if (release?.code === 0) {
     const post = runs['deploy-post'];

@@ -57,7 +57,7 @@ async function fetchJson(url) {
 /** Сколько коммитов кода после версии на сайте и после последней выкладки с пульта: меньшее из двух. */
 async function countUndeployed(bases) {
   const list = bases.filter((b) => /^[0-9a-f]{6,40}$/.test(b || ''));
-  const counts = await Promise.all(list.map((b) => sh('git', ['rev-list', '--count', `${b}..HEAD`, '--', 'backend', 'deploy', 'docker-compose.prod.yml'])));
+  const counts = await Promise.all(list.map((b) => sh('git', ['rev-list', '--count', `${b}..HEAD`, '--', 'backend', 'deploy', 'docker-compose.prod.yml', ':!backend/test', ':!backend/scripts', ':!backend/**/*.spec.ts'])));
   const ok = counts.filter((c) => c.ok).map((c) => Number(c.out.trim()));
   return ok.length ? Math.min(...ok) : 0;
 }
