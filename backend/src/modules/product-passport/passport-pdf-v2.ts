@@ -24,14 +24,25 @@ export * from './passport-pdf-v2-stand';
 export { shortTiles } from './passport-pdf-v2-common';
 
 export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
+  return renderPassportsPdfV2([input]);
+}
+
+/** Несколько паспортов в одном PDF подряд (паспорта заказа, ПНЗ): тот же рендер, у каждого своя нумерация страниц и подвал. */
+export async function renderPassportsPdfV2(inputs: PdfV2Input[], title?: string): Promise<Buffer> {
+  const first = inputs[0];
   const dir = fontDir();
-  const doc = guardDoc(new PDFDocument({ autoFirstPage: false, size: input.mode === 'print' ? [A4L.w, A4L.h] : [A5.w, A5.h], margin: 0, info: { Title: `Паспорт № ${input.passport.passportNumber ?? ''}`, Author: input.org?.name ?? '' } }), 'Паспорт');
+  const doc = guardDoc(new PDFDocument({ autoFirstPage: false, size: first.mode === 'print' ? [A4L.w, A4L.h] : [A5.w, A5.h], margin: 0, info: { Title: title ?? `Паспорт № ${first.passport.passportNumber ?? ''}`, Author: first.org?.name ?? '' } }), 'Паспорт');
   doc.registerFont('gost', join(dir, 'gost-a.ttf'));
   doc.registerFont('gost-i', join(dir, 'gost-a-slanted.ttf'));
   const chunks: Buffer[] = [];
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok, fail) => { doc.on('end', () => ok(Buffer.concat(chunks))); doc.on('error', fail); });
+  for (const input of inputs) drawOne(doc, input);
+  doc.end();
+  return done;
+}
 
+function drawOne(doc: PDFKit.PDFDocument, input: PdfV2Input) {
   const color = MONO_COLOR;
   const pages = layoutV2(doc, input, color);
   const total = pages.reduce((m, p) => Math.max(m, p.no ?? 0), 0);
@@ -59,7 +70,4 @@ export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
       drawPage(pages[r], half + (half - A5.w) / 2);
     }
   }
-  doc.end();
-  return done;
 }
-

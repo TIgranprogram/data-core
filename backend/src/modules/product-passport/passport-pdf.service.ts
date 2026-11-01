@@ -11,9 +11,10 @@ import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
-import { renderPassportPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
+import { renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 
 type Doc = Record<string, unknown>;
+type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant };
 
 /** Сборка PDF паспорта и пакета ZIP: читает паспорт, организацию-поставщика, картинки (TASKS ПС.6). */
 /** НМ: служебная метка черновика вместо номера — в PDF не печатается (номера, талона, номера изделия у черновика нет). */
@@ -111,7 +112,24 @@ export class PassportPdfService {
     return zipStore(files);
   }
 
-  private async render(p: Doc, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant }) {
+  private async render(p: Doc, opts: PdfOpts) {
+    return renderPassportPdfV2(await this.input(p, opts));
+  }
+
+  /** ПНЗ: один PDF со всеми выпущенными паспортами заказа (тот же рендер, подряд). Нет выпущенных — 404 от вызывающего. */
+  async orderPdf(orderId: string, opts: PdfOpts = {}) {
+    const { items, orderNo } = await this.passports.issuedOfOrder(orderId);
+    const inputs = [];
+    for (const raw of items) {
+      const p = await this.withText(raw as Doc).catch(() => null);
+      if (p) inputs.push(await this.input(p, opts));
+    }
+    if (!inputs.length) throw new BadRequestException('По заказу нет выпущенных паспортов, которые можно напечатать');
+    for (const it of items) await this.passports.markIssued((it as Doc)._id as Types.ObjectId);
+    return { buf: await renderPassportsPdfV2(inputs, `Паспорта заказа ${orderNo ?? ''}`.trim()), filename: `Паспорта_заказа_${String(orderNo ?? orderId).replace(/[\/:*?"<>|«»]/g, '').replace(/s+/g, ' ').trim()}.pdf`, count: inputs.length };
+  }
+
+  private async input(p: Doc, opts: PdfOpts) {
     // черновик/предпросмотр: рисунки изделия по видам, остальные из паспорта; выпущенный — как раньше (его images[])
     const imgs = ((await this.passports.effectiveImages(p) as unknown as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
@@ -134,12 +152,12 @@ export class PassportPdfService {
     const images = filterImagesByKind(byKind, { category: String(p.passportCategory ?? ''), install: installKindOf((await this.passports.installs()).get(String(p.installationTypeId ?? ''))), variant: variantOf(opts.variant) });
     const { orgIn, asset } = await this.orgOf(p);
     const stamp = !!opts.stamp;
-    const mode = opts.mode === 'print' ? 'print' : 'pages';
+    const mode: 'pages' | 'print' = opts.mode === 'print' ? 'print' : 'pages';
     // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
     const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
     const text = printableText(p.textSnapshot as PdfV2Text); // метки без значения → линия (passport-blanks.ts)
-    return renderPassportPdfV2({
+    return {
       watermark: this.watermark(p),
       passport: p as never,
       org: orgIn,
@@ -149,7 +167,7 @@ export class PassportPdfService {
       logo: await this.asset(asset('logo')),
       defectImages: await this.defectImages(text),
       seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
-    });
+    };
   }
 
   /**

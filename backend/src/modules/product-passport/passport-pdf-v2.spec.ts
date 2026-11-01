@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
-import { maintenanceColumns, planFigures, renderPassportPdfV2, renderStandPdf, resolveStyle, shortTiles, standRules, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
+import { maintenanceColumns, planFigures, renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, shortTiles, standRules, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
 
 /** Образцы PDF для просмотра: PDFV2_OUT=<папка> npx jest passport-pdf-v2 */
 const OUT = process.env.PDFV2_OUT;
@@ -165,5 +165,12 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     const many = Array.from({ length: 40 }, (_, i) => `Правило номер ${i + 1}: длинный текст правила пользования оборудованием на площадке`);
     expect(count(await renderStandPdf({ passport: { name: 'Урна' }, org: null, text: { rules: many }, style: {} }))).toBe(1);
     if (OUT) { mkdirSync(OUT, { recursive: true }); writeFileSync(join(OUT, 'passport-v2-stand-A3.pdf'), stand); }
+  });
+
+  it('ПНЗ: несколько паспортов — один PDF, страницы подряд', async () => {
+    const one = await renderPassportPdfV2(BASE);
+    const two = await renderPassportsPdfV2([BASE, { ...BASE, passport: { ...BASE.passport, passportNumber: '701' } }], 'Паспорта заказа 12-3');
+    expect(count(two)).toBe(count(one) * 2);
+    expect(two.subarray(0, 5).toString()).toBe('%PDF-');
   });
 });

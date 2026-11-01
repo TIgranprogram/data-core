@@ -10,6 +10,7 @@ import { PassportPdfService } from './passport-pdf.service';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { variantOf } from './passport-variants';
 import { PassportPreviewDto } from './dto/preview.dto';
+import { OrderIssueDto } from './dto/order-issue.dto';
 import { NextPassportNumberDto } from './dto/next-number.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import type { PassportTemplateContent } from './passport-template.default';
@@ -215,6 +216,36 @@ export class ProductPassportController {
   @Roles(...EDIT)
   async preview(@Body() dto: PassportPreviewDto, @Res({ passthrough: true }) res: Response) {
     const r = await this.pdfs.preview(dto.productId, { mode: dto.mode, mono: dto.bw, variant: dto.variant });
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
+    return new StreamableFile(r.buf);
+  }
+
+  /** ПНЗ: план по заказу — позиции { incomeId, title, qty, productName, passport, state: issued|ready|blocked, missing[] } + счётчики. */
+  @Get('passports/order/:orderId/plan')
+  @Roles(...EDIT)
+  @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'] })
+  orderPlan(@Param('orderId') orderId: string, @Query('variant') variant?: string) {
+    return this.service.orderPlan(orderId, variant === 'full' ? 'full' : 'short');
+  }
+
+  /** ПНЗ: выпуск паспортов для готовых позиций заказа → { issued:[{incomeId,passportId}], skipped:[{incomeId,title,reason}], counts }. Повтор дублей не плодит. */
+  @Post('passports/order/:orderId/issue')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.issued', entityType: 'ProductPassport', details: (d) => ({ meta: { order: true, issued: (d as { counts?: { issued?: number } }).counts?.issued } }) })
+  orderIssue(@Param('orderId') orderId: string, @Body() dto: OrderIssueDto) {
+    return this.service.orderIssue(orderId, dto);
+  }
+
+  /** ПНЗ: один PDF со всеми выпущенными паспортами заказа (параметры как у GET /passports/:id/pdf). */
+  @Get('passports/order/:orderId/pdf')
+  @Roles(...EDIT)
+  @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'] })
+  @ApiQuery({ name: 'stamp', required: false, description: '1 — с печатью и подписью' })
+  @ApiQuery({ name: 'mode', required: false, enum: ['pages', 'print'] })
+  @ApiQuery({ name: 'bw', required: false, description: '1 — чёрно-белый' })
+  async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Res({ passthrough: true }) res: Response) {
+    const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }

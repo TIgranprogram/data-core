@@ -1,5 +1,8 @@
 # Карта роли backend
 
+## Паспорта на весь заказ (ПНЗ.2, 2026-11-01, не закоммичено)
+- `product-passport/passport-order.ts` (`orderPlan`, `orderIssue`), `dto/order-issue.dto.ts`, `product-passport.service.ts` `orderHost`/`issuedOfOrder`, `passport-pdf.service.ts` `orderPdf`/`input`, `passport-pdf-v2.ts` `renderPassportsPdfV2`; маршруты в controller перед `:id`. Тесты `passport-order.spec.ts`. e2e/openapi не трогались.
+
 ## Печать (PRINT-BLANKS, 2026-11-01, не закоммичено)
 - `common/print/fill-text.ts` (fillBlanks, printSafe), `safe-doc.ts` (guardDoc в 5 рендерерах), `product-passport/passport-blanks.ts` (printableText, blankItems, LABEL_SOURCES), `product-passport.service.ts` check→blankLabels; `passport-pdf.service.ts` printableText. Тесты: `common/print/*.spec.ts`, `passport-blanks.spec.ts`.
 

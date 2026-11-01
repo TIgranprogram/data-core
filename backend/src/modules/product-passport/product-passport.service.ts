@@ -25,6 +25,7 @@ import { PassportBulk } from './passport-bulk';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
 import { fromIncome, loadQueue } from './passport-queue';
 import { PassportIssue } from './passport-issue';
+import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
 import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode } from '../../common/passport/phrase-tree';
@@ -256,6 +257,32 @@ export class ProductPassportService {
       items.push({ incomeId: String(inc._id), passportId: String(doc._id) });
     }
     return { created: items.length, skipped, items };
+  }
+
+  // ─── ПНЗ: паспорта на весь заказ (passport-order.ts) ───
+  private orderHost(): OrderHost {
+    return {
+      db: () => this.connection.db!,
+      templateMissing: async (productId, variant) => (await this.check({ productId, mode: 'template', variant })).missing.map((m) => m.label),
+      createDraft: async (incomeId, title) => ({ id: String((await this.create({ incomeId, ...(title ? { name: title } : {}) } as CreateProductPassportDto))._id) }),
+      issue: (id) => this.issue(id),
+      discard: (id) => this.discardDraft(id),
+    };
+  }
+  /** План по заказу: позиции, изделия, паспорта, готовность к выпуску и чего не хватает. */
+  orderPlan(orderId: string, variant?: string) { return orderPlan(this.orderHost(), orderId, variant); }
+  /** Выпуск паспортов для готовых позиций заказа; неготовые и уже выпущенные — в skipped с причиной. */
+  orderIssue(orderId: string, opts: { lines?: string[]; variant?: string } = {}) { return orderIssue(this.orderHost(), orderId, opts); }
+  /** Выпущенные паспорта заказа по порядку позиций (для общего PDF). */
+  async issuedOfOrder(orderId: string): Promise<{ items: Doc[]; orderNo: string | null }> {
+    const db = this.connection.db!;
+    const order = Types.ObjectId.isValid(orderId) ? await db.collection('salesorders').findOne({ _id: new Types.ObjectId(orderId), deletedAt: null }, { projection: { orderNo: 1 } }) : null;
+    if (!order) throw new NotFoundException('Заказ не найден');
+    const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null }, { projection: { _id: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    const rows = (await this.model.find({ incomeId: { $in: incomes.map((i) => i._id) }, status: 'issued' }).sort({ passportNo: 1 }).lean().exec()) as unknown as Doc[];
+    const order2 = new Map(incomes.map((i, k) => [String(i._id), k]));
+    rows.sort((a, b) => (order2.get(String(a.incomeId)) ?? 0) - (order2.get(String(b.incomeId)) ?? 0));
+    return { items: rows, orderNo: (order.orderNo as string) ?? null };
   }
 
   /** Копия на ту же модель: поля модели и картинки, новые номера, дата — сегодня, заказчик — пустой. */
