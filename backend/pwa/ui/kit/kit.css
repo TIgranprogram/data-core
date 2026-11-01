@@ -137,3 +137,13 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .tcard .t-main, .tcard .t-title, .tcard .t-sub, .tcard .t-foot { min-width: 0; }
 .col-body .db-order.k-gfold .db-ocnt { padding-left: 6px; }
 @media (pointer: coarse), (max-width: 720px) { .pager button, .pager select { min-width: 44px; height: 44px; } }
+
+/* P10 р3: обёртки в шапке не шире строки; на телефоне цели касания >= 40px */
+.page-head > * { min-width: 0; max-width: 100%; }
+@media (max-width: 720px) {
+  .btn-icon { min-height: 40px; }
+  .pick-cb, .pick-all { min-width: 24px; min-height: 24px; }
+  .gc-title, .gcard a { overflow-wrap: anywhere; }
+  .q-link { display: inline-flex; align-items: center; min-height: 40px; }
+  .ref-orders { display: inline-flex; align-items: center; min-height: 40px; }
+}
