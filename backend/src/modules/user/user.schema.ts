@@ -39,7 +39,6 @@ export class User {
 
   /**
    * Single role name (string) for simplicity (per TZ-04).
-   * Can be extended to `string[]` later if multi-role users are needed.
    */
   @Prop({ required: true, index: true })
   role!: string;

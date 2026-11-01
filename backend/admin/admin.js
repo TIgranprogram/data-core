@@ -75,17 +75,18 @@
     $('#crm-link').hidden = !PREFIX;
     loadRoleList().then(() => loadUsers()); refreshHealth();
   }
-  const ROLE_RU = { admin: 'администратор', director: 'директор', accountant: 'бухгалтер', manager: 'менеджер', user: 'наблюдатель' };
-
-  // ---- Список ролей для форм (SK-8c): встроенные + свои из GET /roles ----
-  // Своя роль (код r-…) — название и «права как у» встроенной (не администратора).
-  const ROLE_HINT = {
-    user: 'Наблюдатель — только просмотр', manager: 'Менеджер — заявки, счета, склад, заказы и деньги снабжения; ФОТ закрыт',
-    accountant: 'Бухгалтер — всё, что у менеджера, плюс ФОТ', director: 'Директор — всё, кроме управления пользователями',
-    admin: 'Администратор — полный доступ',
-  };
-  const FORM_ORDER = ['user', 'manager', 'accountant', 'director', 'admin'];
-  const BASE_ROLES = ['user', 'manager', 'accountant', 'director'];
+  // Встроенные роли — единственная таблица: [код, название, описание прав, «права как у» доступно]. Остальное выводится из неё.
+  const BUILTIN_ROLES = [
+    ["user", "наблюдатель", "Наблюдатель — только просмотр", true],
+    ["manager", "менеджер", "Менеджер — заявки, счета, склад, заказы и деньги снабжения; ФОТ закрыт", true],
+    ["accountant", "бухгалтер", "Бухгалтер — всё, что у менеджера, плюс ФОТ", true],
+    ["director", "директор", "Директор — всё, кроме управления пользователями", true],
+    ["admin", "администратор", "Администратор — полный доступ", false],
+  ];
+  const ROLE_RU = Object.fromEntries(BUILTIN_ROLES.map((b) => [b[0], b[1]]));
+  const ROLE_HINT = Object.fromEntries(BUILTIN_ROLES.map((b) => [b[0], b[2]]));
+  const FORM_ORDER = BUILTIN_ROLES.map((b) => b[0]);
+  const BASE_ROLES = BUILTIN_ROLES.filter((b) => b[3]).map((b) => b[0]);
   const roleList = { items: [], loaded: false };
   const isBuiltinRole = (name) => Object.prototype.hasOwnProperty.call(ROLE_RU, name);
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -96,7 +97,7 @@
     return r ? roleTitle(r) : (ROLE_RU[name] ? cap(ROLE_RU[name]) : name);
   }
   const customRoles = () => roleList.items.filter((r) => !isBuiltinRole(r.name) && r.baseRole)
-    .sort((a, b) => roleTitle(a).localeCompare(roleTitle(b), 'ru'));
+    .sort((a, b) => (a.isActive === false) - (b.isActive === false) || roleTitle(a).localeCompare(roleTitle(b), "ru"));
   async function loadRoleList(force) {
     if (!roleList.loaded || force) {
       try { const r = await api('/roles'); roleList.items = Array.isArray(r) ? r : (r.items || []); roleList.loaded = true; }
@@ -107,19 +108,27 @@
   }
   /** Выпадающие «Роль» (форма сотрудника) и фильтр списка — из GET /roles, а не зашитые варианты. */
   function fillRoleSelects() {
-    const f = $('#f-role'), flt = $('#user-role-filter');
+    const f = $("#f-role"), flt = $("#user-role-filter");
     const keepF = f.value, keepFlt = flt.value;
-    f.replaceChildren(...FORM_ORDER.map((n) => new Option(ROLE_HINT[n], n)));
-    flt.replaceChildren(new Option('Все роли', ''), ...FORM_ORDER.slice().reverse().map((n) => new Option(roleNameRu(n), n)));
-    const own = customRoles();
-    if (own.length) {
-      const g = el('optgroup'); g.label = 'Свои роли';
-      own.filter((r) => r.isActive !== false).forEach((r) => g.append(new Option(`${roleTitle(r)} — права как у: ${ROLE_RU[r.baseRole]}`, r.name)));
-      f.append(g);
-      const g2 = el('optgroup'); g2.label = 'Свои роли';
-      own.forEach((r) => g2.append(new Option(roleTitle(r), r.name)));
-      flt.append(g2);
-    }
+    // Один построитель для формы и фильтра: «Встроенные» и «Свои»; отключённые свои — в конце, в форме выбрать нельзя.
+    const build = (select, forForm) => {
+      const g1 = el("optgroup"); g1.label = "Встроенные";
+      (forForm ? FORM_ORDER : FORM_ORDER.slice().reverse()).forEach((n) => g1.append(new Option(forForm ? ROLE_HINT[n] : roleNameRu(n), n)));
+      select.append(g1);
+      const own = customRoles();
+      if (own.length) {
+        const g2 = el("optgroup"); g2.label = "Свои";
+        own.forEach((r) => {
+          const off = r.isActive === false;
+          const o = new Option(roleTitle(r) + " — на основе: " + cap(ROLE_RU[r.baseRole] || r.baseRole) + (off ? " (отключена)" : ""), r.name);
+          if (off && forForm) o.disabled = true;
+          g2.append(o);
+        });
+        select.append(g2);
+      }
+    };
+    f.replaceChildren(); build(f, true);
+    flt.replaceChildren(new Option("Все роли", "")); build(flt, false);
     if (keepF) f.value = keepF;
     flt.value = keepFlt;
   }
@@ -383,7 +392,7 @@
     $('#f-email').value = u?.email || '';
     const fr = $('#f-role');
     // Роль сотрудника, которой нет в списке (выключена/удалена), — показать как есть, чтобы не подменить молча.
-    if (u?.role && ![...fr.options].some((o) => o.value === u.role)) fr.append(new Option(roleNameRu(u.role) + ' (нет в списке)', u.role));
+    if (u?.role && ![...fr.options].some((o) => o.value === u.role)) fr.append(new Option(roleNameRu(u.role) + ' (отключена)', u.role));
     fr.value = u?.role || 'manager';
 
     $('#f-password').value = '';
@@ -892,6 +901,47 @@
     tr.append(sum);
     return tr;
   }
+  // Группы галочек: порядок по смыслу. Раздел, которого нет в списке сервера, пропускается; не попавший в группы — в «Прочее».
+  const ROLE_GROUPS = [
+    ['Работа', ['home', 'salesorders', 'design', 'work']],
+    ['Склад', ['stock', 'stock-mobile']],
+    ['Снабжение', ['requests', 'suppliercatalog', 'orders']],
+    ['Продукция и документы', ['products', 'offers', 'docs', 'passports']],
+    ['Деньги', ['money', 'payroll']],
+    ['Люди', ['partners']],
+  ];
+  // Зависимости (по sectionOpen в common/app-sections.ts: «Склад (телефон)» сам открывает stock и requests).
+  // Ранг «Прав как у»: user < manager < accountant < director. Нарушение — оранжевая плашка у раздела.
+  const BASE_RANK = { user: 0, manager: 1, accountant: 2, director: 3, admin: 4 };
+  const ROLE_RULES = [
+    { sec: 'stock-mobile', kind: 'zone', text: 'отметьте хотя бы один склад' },
+    { sec: 'stock-mobile', kind: 'base', min: 'manager', text: 'права не ниже менеджера: наблюдатель только смотрит, принять и выдать не сможет' },
+    { sec: 'stock', kind: 'base', min: 'manager', soft: true, text: 'Только просмотр. Чтобы принимать и выдавать — права как у менеджера' },
+    { sec: 'orders', kind: 'money', text: 'галочка «Деньги»' },
+    { sec: 'money', kind: 'money', text: 'галочка «Деньги»' },
+    { sec: 'payroll', kind: 'money', text: 'галочка «Деньги»' },
+    { sec: 'payroll', kind: 'base', min: 'accountant', text: 'права не ниже бухгалтера: у менеджера ФОТ закрыт' },
+    { sec: 'passports', kind: 'sec', need: 'products', text: 'раздел «Продукция»' },
+  ];
+  // Минимальные наборы: одним нажатием ставят самый маленький рабочий комплект.
+  const ROLE_PRESETS = [
+    { name: 'Кладовщик на телефоне', sections: ['stock-mobile'], zone: true, base: 'manager' },
+    { name: 'Кладовщик', sections: ['home', 'stock', 'requests'], zone: true, base: 'manager' },
+    { name: 'Менеджер', sections: ['home', 'requests', 'suppliercatalog', 'stock', 'salesorders', 'partners', 'products', 'docs', 'work'], base: 'manager' },
+    { name: 'Проектировщик', sections: ['home', 'design', 'salesorders', 'products', 'docs'], base: 'manager' },
+    { name: 'Бухгалтер', sections: ['home', 'orders', 'money', 'payroll', 'salesorders', 'partners'], base: 'accountant', money: true },
+  ];
+  const checkedOf = (box) => (box ? [...box.querySelectorAll('input:checked')].map((c) => c.value) : []);
+  function checkGrid(items, onSet) {
+    const grid = el('div', 'sec-checks'); const byId = {};
+    items.forEach((s) => {
+      const cell = el('div', 'rl-cell'); const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = s.id; cb.checked = onSet.has(s.id);
+      lb.append(cb, el('span', '', s.label)); cell.append(lb); grid.append(cell); byId[s.id] = cell;
+    });
+    return { grid, byId };
+  }
+  const roleCard = (title, ...kids) => { const c = el('div', 'rl-card'); c.append(el('h4', '', title), ...kids); return c; };
+
   /** Поля роли: название (у всех), «права как у» (у своей и новой), галочки разделов (кроме admin). */
   function roleForm(r, isNew) {
     const own = isNew || (!isBuiltinRole(r.name) && !!r.baseRole);
@@ -909,46 +959,107 @@
       lBase.append(base); fields.append(lBase);
     }
     wrap.append(fields);
-    const lMoney = el('label'); const money = el('input'); money.type = 'checkbox';
+    const lMoney = el('label', 'rl-money'); const money = el('input'); money.type = 'checkbox';
     const fullMoney = r.name === 'admin' || r.name === 'director';
     money.checked = fullMoney || r.money === true; money.disabled = fullMoney;
-    lMoney.append(money, el('span', '', 'Деньги')); wrap.append(lMoney, el('p', 'muted small', 'Без галочки цены и суммы скрыты везде.'));
+    lMoney.append(money, el('span', '', 'Деньги'));
+    const moneyHint = el('p', 'muted small', 'Без галочки цены и суммы скрыты везде.');
     let box = null, stockBox = null, zoneBox = null;
-    if (r.name !== 'admin') {
-      wrap.append(el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству («права как у»).'));
-      box = el('div', 'sec-checks');
-      const on = new Set(r.appSections || []);
-      roleState.sections.forEach((s) => {
-        const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = s.id; cb.checked = on.has(s.id);
-        lb.append(cb, el('span', '', s.label)); box.append(lb);
+    const api = { wrap, name, base, box, stockBox, zoneBox, own, money, warnings: () => [] };
+    if (r.name === 'admin') { wrap.append(lMoney, moneyHint); return api; }
+
+    const known = roleState.sections;
+    const used = new Set(ROLE_GROUPS.flatMap((g) => g[1]));
+    const groups = ROLE_GROUPS.map(([t, ids]) => [t, ids.map((id) => known.find((s) => s.id === id)).filter(Boolean)]);
+    const rest = known.filter((s) => !used.has(s.id));
+    if (rest.length) groups.push(['Прочее', rest]);
+    const on = new Set(r.appSections || []);
+    const cells = {}; const cards = el('div', 'rl-cards');
+    groups.forEach(([title, items]) => {
+      if (!items.length) return;
+      const g = checkGrid(items, on); g.grid.classList.add("rl-secs"); Object.assign(cells, g.byId);
+      const kids = [g.grid];
+      if (title === 'Деньги') kids.unshift(lMoney, moneyHint);
+      if (title === 'Склад' && roleState.zones.length) {
+        kids.push(el('p', 'muted small', 'Склады: какие склады роль видит и меняет. Пусто — весь склад.'));
+        const zg = checkGrid(roleState.zones.map((z) => ({ id: z.id, label: z.name })), new Set(r.warehouseIds || []));
+        zoneBox = zg.grid; kids.push(zoneBox);
+      }
+      cards.append(roleCard(title, ...kids));
+    });
+    box = { querySelectorAll: (s) => cards.querySelectorAll(".rl-secs " + s), querySelector: (s) => cards.querySelector(".rl-secs " + s) };
+    api.box = box; api.zoneBox = zoneBox;
+
+    const top = el('div', 'rl-top');
+    top.append(el('p', 'muted small', 'Минимальный набор — нажмите, чтобы поставить самый маленький рабочий комплект; потом можно доправить вручную.'));
+    const presetRow = el('div', 'rl-presets'); const pBtns = [];
+    const status = el('div', 'rl-status');
+    top.append(presetRow, status);
+    wrap.append(top, el('p', 'muted small', 'Отметьте разделы, которые роль видит в меню. Ничего не отмечено — как раньше, по старшинству («права как у»).'), cards);
+
+    const curBase = () => (base ? base.value : (r.baseRole || r.name));
+    const rank = (b) => BASE_RANK[b] ?? 0;
+    function problems() {
+      const secs = new Set(checkedOf(box)); const out = [];
+      ROLE_RULES.forEach((q) => {
+        if (!secs.has(q.sec)) return;
+        if (q.kind === 'zone' && !checkedOf(zoneBox).length) out.push({ q, fix: zoneBox && roleState.zones.length ? () => { const z = pickZone(); if (z) z.checked = true; } : null });
+        if (q.kind === 'base' && rank(curBase()) < rank(q.min)) out.push({ q, soft: q.soft, fix: base ? () => { base.value = q.min; } : null });
+        if (q.kind === 'money' && !money.checked && !money.disabled) out.push({ q, fix: () => { money.checked = true; } });
+        if (q.kind === 'sec' && !secs.has(q.need)) out.push({ q, fix: () => { const c = box.querySelector(`input[value="${q.need}"]`); if (c) c.checked = true; } });
       });
-      wrap.append(box);
-      if (roleState.zones.length) {
-        wrap.append(el('p', 'muted small', 'Склады: отметьте, какие склады роль видит и меняет. Пусто — весь склад.'));
-        zoneBox = el('div', 'sec-checks');
-        const onZone = new Set(r.warehouseIds || []);
-        roleState.zones.forEach((z) => {
-          const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = z.id; cb.checked = onZone.has(z.id);
-          lb.append(cb, el('span', '', z.name)); zoneBox.append(lb);
-        });
-        wrap.append(zoneBox);
-      }
-      if (roleState.stockCats.length) {
-        wrap.append(el('p', 'muted small', 'Склад по категориям (старый способ): отметьте категории, которые роль видит и меняет. Ничего не отмечено — весь склад. Если выбраны склады — это поле не действует.'));
-        stockBox = el('div', 'sec-checks');
-        const onCat = new Set(r.stockCategoryIds || []);
-        roleState.stockCats.forEach((c) => {
-          const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.value = c.id; cb.checked = onCat.has(c.id);
-          lb.append(cb, el('span', '', c.name)); stockBox.append(lb);
-        });
-        wrap.append(stockBox);
-        // выбраны склады — старое поле категорий скрыто
-        const sync = () => { const on = !zoneBox || ![...zoneBox.querySelectorAll('input:checked')].length; stockBox.hidden = !on; stockBox.previousElementSibling.hidden = !on; };
-        zoneBox?.addEventListener('change', sync); sync();
-      }
+      return out;
     }
-    return { wrap, name, base, box, stockBox, zoneBox, own, money };
+    const pickZone = () => {
+      const all = [...zoneBox.querySelectorAll('input')];
+      return all.find((c) => /основн/i.test(c.nextSibling?.textContent || '')) || all[0];
+    };
+    function refresh() {
+      Object.values(cells).forEach((c) => c.querySelector('.rl-need')?.remove());
+      const all = problems(), ps = all.filter((p) => !p.soft);
+      all.filter((p) => p.soft).forEach((p) => {
+        const n = el('div', 'rl-need rl-hint'); n.append(el('span', '', p.q.text));
+        if (p.fix) { const b = el('button', 'btn btn-sm', 'Поставить'); b.type = 'button'; b.onclick = () => { p.fix(); refresh(); }; n.append(b); }
+        cells[p.q.sec]?.append(n);
+      });
+      const bySec = {};
+      ps.forEach((p) => { (bySec[p.q.sec] ||= []).push(p); });
+      Object.entries(bySec).forEach(([sec, list]) => {
+        const n = el('div', 'rl-need'); n.append(el('span', '', 'Нужно ещё: ' + list.map((p) => p.q.text).join('; ')));
+        const fixable = list.filter((p) => p.fix);
+        if (fixable.length) { const b = el('button', 'btn btn-sm', 'Добавить'); b.type = 'button'; b.onclick = () => { fixable.forEach((p) => p.fix()); refresh(); }; n.append(b); }
+        cells[sec]?.append(n);
+      });
+      const picked = checkedOf(box).length;
+      status.className = 'rl-status ' + (!picked ? '' : ps.length ? 'warn' : 'ok');
+      status.textContent = !picked ? 'Разделы не отмечены — роль работает как раньше, по старшинству.' : ps.length ? `Не хватает: ${ps.length} — смотрите оранжевые отметки у разделов.` : '✓ Роль заработает: всё нужное отмечено.';
+      api.warnings = () => ps.map((p) => `«${secLabel(p.q.sec)}»: нужно ${p.q.text}`);
+    }
+    function apply(p, btn) {
+      box.querySelectorAll('input').forEach((c) => { c.checked = p.sections.includes(c.value); });
+      if (zoneBox) { zoneBox.querySelectorAll('input').forEach((c) => { c.checked = false; }); if (p.zone) { const z = pickZone(); if (z) z.checked = true; } }
+      if (base && p.base) base.value = p.base;
+      if (p.money && !money.disabled) money.checked = true;
+      pBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      refresh();
+    }
+    ROLE_PRESETS.forEach((p) => {
+      const b = el('button', 'btn btn-sm', p.name); b.type = 'button'; b.onclick = () => apply(p, b);
+      pBtns.push(b); presetRow.append(b);
+    });
+    cards.addEventListener('change', () => { pBtns.forEach((b) => b.classList.remove('active')); refresh(); });
+    money.addEventListener('change', refresh); base?.addEventListener('change', refresh);
+
+    if (roleState.stockCats.length && (r.stockCategoryIds || []).length) {
+      const det = el('details', 'rl-more'); det.append(el('summary', '', 'Дополнительно'));
+      det.append(el('p', 'muted small', 'Склад по категориям (старый способ): категории, которые роль видит и меняет. Ничего не отмечено — весь склад. Если выбраны склады — это поле не действует.'));
+      const sg = checkGrid(roleState.stockCats, new Set(r.stockCategoryIds || []));
+      stockBox = sg.grid; det.append(stockBox); wrap.append(det); api.stockBox = stockBox;
+    }
+    api.refresh = refresh; refresh();
+    return api;
   }
+
   function roleBody(f) {
     const body = { label: f.name.value.trim() };
     if (f.box) body.appSections = [...f.box.querySelectorAll('input:checked')].map((c) => c.value);
@@ -969,7 +1080,7 @@
     acts.append(save);
     if (f.box) {
       const clear = el('button', 'btn', 'Снять все'); clear.type = 'button';
-      clear.onclick = () => f.box.querySelectorAll('input').forEach((c) => { c.checked = false; });
+      clear.onclick = () => { f.box.querySelectorAll('input').forEach((c) => { c.checked = false; }); f.refresh?.(); };
       acts.append(clear);
     }
     if (f.own) {
@@ -981,6 +1092,8 @@
       const body = roleBody(f);
       if (body.label.length < 2) { toast('Введите название роли — не короче 2 букв'); f.name.focus(); return; }
       if (!f.own) delete body.baseRole;
+      const warns = f.warnings();
+      if (warns.length && !confirm('Роль пока не заработает полностью:\n— ' + warns.join('\n— ') + '\n\nСохранить всё равно?')) return;
       save.disabled = true; save.textContent = 'Сохранение…';
       try {
         const upd = await api('/roles/' + encodeURIComponent(r.id || r._id), { method: 'PATCH', body: JSON.stringify(body) });
@@ -1007,6 +1120,8 @@
     save.onclick = async () => {
       const body = roleBody(f);
       if (body.label.length < 2) { toast('Введите название роли — не короче 2 букв'); f.name.focus(); return; }
+      const warns = f.warnings();
+      if (warns.length && !confirm('Роль пока не заработает полностью:\n— ' + warns.join('\n— ') + '\n\nСохранить всё равно?')) return;
       save.disabled = true; save.textContent = 'Создание…';
       try {
         await api('/roles', { method: 'POST', body: JSON.stringify(body) });

@@ -207,6 +207,20 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 .role-fields label { display: flex; flex-direction: column; gap: 5px; }
 .role-fields input { width: 320px; max-width: 100%; }
 .sec-acts .push { margin-left: auto; }
+/* Форма роли: группы-карточки, наборы, зависимости (зелёный — всё есть, оранжевый — нужно ещё) */
+.rl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s3); margin: 0 0 var(--s3); }
+.rl-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; background: var(--surface); }
+.rl-card h4 { margin: 0 0 6px; font-size: var(--fs-h3); }
+.rl-card .sec-checks { grid-template-columns: 1fr; margin-bottom: 8px; }
+.rl-money { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.rl-presets { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.rl-presets .active { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.rl-status { margin: 6px 0 var(--s3); font-weight: 600; color: var(--muted); }
+.rl-status.ok { color: var(--ok); } .rl-status.warn { color: var(--warn); }
+.rl-need { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 4px 26px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: var(--fs-sm); font-weight: 600; }
+.rl-need.rl-hint { background: var(--primary-soft); color: var(--muted); font-weight: 400; }
+.rl-more { margin: 0 0 var(--s3); }
+.rl-more summary { cursor: pointer; color: var(--muted); }
 .role-new h3 { margin: 0 0 var(--s3); }
 /* БКП.4: копии вне дома */
 .srv-form { display: grid; gap: 10px; max-width: 560px; margin: 8px 0; }
