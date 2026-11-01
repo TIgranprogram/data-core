@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // dc — одна команда вместо россыпи шагов. Без зависимостей, на обоих ПК.
 //   node tools/dc.mjs start | errors [часы] | check | data | status | logs [имя]
-//                     stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
+//                     audit [last] (большая проверка сайта) · stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
 // Полный вывод — tools/logs/<дата-время>-<команда>.log, в консоль — короткий итог (до 15 строк).
 // Коды выхода: 0 норма · 1 есть находки · 2 сбой инструмента.
 // Прод — только чтение через deploy/synology/api.sh. Записи на прод и выкладки здесь нет.
@@ -322,6 +322,26 @@ function cmdDoc(p, word) {
   return 0;
 }
 
+/** dc audit — большая проверка сайта (10–30 мин); dc audit last — сводка последней. */
+function cmdAudit(sub) {
+  const dir = path.join(LOGS, 'audit');
+  if (sub === 'last') {
+    const days = fs.existsSync(dir) ? fs.readdirSync(dir).filter((d) => fs.existsSync(path.join(dir, d, 'summary.json'))).sort() : [];
+    if (!days.length) { say('Проверок ещё не было: dc audit'); return 2; }
+    const s = JSON.parse(fs.readFileSync(path.join(dir, days[days.length - 1], 'summary.json'), 'utf8'));
+    const parts = Object.entries(s.byRule || {}).filter(([, n]) => n).map(([k, n]) => `${k}:${n}`).join(' ');
+    say(`Проверка ${s.date}: экранов ${s.screens}, панелей ${s.panels}, находок ${s.total}`);
+    say(parts ? 'По правилам: ' + parts : 'Находок нет');
+    for (const c of (s.code || []).slice(0, 5)) say('  ' + c);
+    say(`Отчёт: tools/logs/audit/${s.date}/REPORT.md`);
+    return s.total ? 1 : 0;
+  }
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'site-audit.mjs')], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  log(r.stdout || ''); log(r.stderr || '');
+  for (const l of (r.stdout || '').trim().split(/\r?\n/).slice(-12)) say(l);
+  return r.status ?? 2;
+}
+
 function cmdLogs(name) {
   const files = fs.existsSync(LOGS) ? fs.readdirSync(LOGS).filter((f) => f.endsWith('.log') && (!name || f.includes(name))).sort() : [];
   if (!files.length) { console.log('Логов нет' + (name ? ` по имени «${name}»` : '')); process.exit(1); }
@@ -342,6 +362,7 @@ async function main(argv) {
       data: () => cmdData(),
       status: () => cmdStatus(),
       stand: () => cmdStand(arg, { log, say }),
+      audit: () => cmdAudit(arg),
       night: () => cmdNight({ quick: argv.includes('--quick') }, { log, say }),
       find: () => cmdFind(argv.slice(1)),
       doc: () => cmdDoc(arg, argv[2]),

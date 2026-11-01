@@ -198,6 +198,10 @@ export const COMMANDS = [
     hint: 'Все проверки в отдельной копии кода. Рабочую папку не трогает. Полный идёт и по расписанию в 23:30.' },
   { id: 'screen-walk', section: 'stand', title: 'Обход экранов на стенде', risk: 'read', time: '2–4 мин', needs: ['docker'], run: { node: ['tools/screen-walk.mjs'] },
     hint: 'Открывает каждый раздел и панели на стенде (localhost:3102), ищет «[object …]», undefined, NaN, «{…}» и заголовки «Изменить». Ничего не сохраняет. Стенд должен быть включён.' },
+  { id: 'site-audit', section: 'code', title: 'Большая проверка сайта', risk: 'local', time: '10–30 мин', needs: ['docker'], run: dc('audit'),
+    hint: 'Обходит все экраны стенда на трёх ширинах, делает снимки, ищет мусор, лишние панели, мелкие кнопки, ошибки API. Сама поднимает стенд, если он выключен. Итог — отчёт, Claude читает его командой и чинит.' },
+  { id: 'site-audit-last', section: 'code', title: 'Итог последней большой проверки', risk: 'read', time: '2 с', run: dc('audit', 'last'),
+    hint: 'Короткая сводка и путь к отчёту.' },
   { id: 'smb-install-home', section: 'backups', title: 'Копии на NAS: установить на домашнем сервере', risk: 'prod-write', time: '1–2 мин', needs: ['bash', 'vm'],
     run: { vm: 'cd /opt/data-core && bash deploy/smb/install-smb.sh' },
     confirm: 'На домашнем сервере появится отправка копий в сетевую папку (SMB). Текущие бэкапы и места для копий не меняются. Сайт может перезапуститься на несколько секунд.',
@@ -318,6 +322,7 @@ export const NOT_ON_BUTTONS = {
   'tools/dc.mjs find': 'поиск для ИИ по докам и архиву на сервере; слово вводится в команде',
   'tools/dc.mjs doc': 'чтение дока из архива на сервере для ИИ; путь вводится в команде',
   'tools/kit/make-kit.sh': 'просит пароль в терминале; без пароля выдал бы архив со всеми доступами',
+  'tools/site-audit.mjs': 'большая проверка сайта: кнопка site-audit зовёт её через dc audit',
   'tools/night.mjs': 'библиотека dc: кнопки зовут tools/dc.mjs',
   'tools/setup-task.ps1': 'вызывается из tools/setup.cmd task',
 };
