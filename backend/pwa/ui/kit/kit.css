@@ -161,7 +161,8 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-danger { border-color: var(--danger); color: var(--danger); }
 .m-choice, .m-results, .m-search { display: flex; flex-direction: column; gap: var(--s3); }
 .m-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); width: 100%; min-height: var(--m-btn-h); padding: var(--s3); text-align: left; font: inherit; font-size: var(--m-font); color: var(--text); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
-.m-item small { font-size: calc(var(--m-font) - 2px); color: var(--muted); }
+.m-item small { font-size: var(--fs-sm); color: var(--muted); }
+.m-choice .m-item { gap: 2px; padding: var(--s2) var(--s3); } /* список позиций: плотнее — больше строк на экране, зона нажатия не меньше --m-btn-h */
 .m-unit, .m-empty { font-size: var(--m-font); color: var(--muted); }
 .m-done { font-size: var(--m-title); font-weight: 700; text-align: center; padding: var(--s4); border: 2px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary-soft); }
 .m-done-box { display: flex; flex-direction: column; gap: var(--m-gap); }
@@ -181,7 +182,10 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-drill { display: flex; flex-direction: column; gap: var(--s3); }
 .m-sub { font-size: calc(var(--m-font) + 2px); margin: 0; }
 .m-letters { display: flex; flex-wrap: wrap; gap: var(--s3); }
-.m-letters .m-btn { min-width: 56px; }
+.m-letters { gap: var(--s2); }
+.m-letters .m-btn { min-width: 48px; }
+.m-btn.m-sm { min-height: 44px; font-size: var(--m-font); padding: 0 var(--s3); } /* служебные: «Назад», «Настройки», фильтры — ниже главных кнопок */
+.m-btn.m-on { border-color: var(--primary); background: var(--primary-soft); }
 /* mobile.scan — экран камеры */
 .m-scan { display: flex; flex-direction: column; gap: var(--m-gap); }
 .m-frame { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: var(--surface); border: 4px solid var(--primary); border-radius: var(--radius-sm); }

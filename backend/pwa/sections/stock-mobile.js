@@ -20,6 +20,8 @@ const memo = new Map();
 /** Справочник один раз за сеанс (ключ учитывает склад); сбой кэш не запоминает. */
 const once = (key, load) => { if (!memo.has(key)) memo.set(key, load().catch((e) => { memo.delete(key); throw e; })); return memo.get(key); };
 const askedKey = () => 'dc-stock-zone-asked-' + (session.user?.id || 'u');
+/** Стандарт в конце названия («…, DIN 603», «ГОСТ 7798-70») — вниз мелко; крупно остаётся название и размер. */
+export const splitStd = (name) => { const m = /,?\s*((?:DIN|ГОСТ|ISO|ОСТ|ТУ)\s*[\w.\-–]+)\s*$/i.exec(name || ''); return m ? { name: name.slice(0, m.index).trim(), std: m[1] } : { name: name || '', std: '' }; };
 /** Артикул для рабочего: внутренний код «СКЛ-…» не показываем (это не артикул, АР.1). */
 const artOf = (it) => (it.article && !/^СКЛ-/i.test(it.article) ? it.article : '');
 const dm = (d) => { const x = new Date(d); return `${String(x.getDate()).padStart(2, '0')}.${String(x.getMonth() + 1).padStart(2, '0')}`; };
@@ -31,7 +33,7 @@ const itemDrill = (onPick, scanBtn) => drill({ extra: scanBtn, empty: 'Пози�
     { title: '', tiles: true, load: async () => (await once('cats:' + zoneNow(), () => call('/stock/categories', { query: zoneQuery() }))).items.filter((c) => c.id !== 'none')
       .map((c) => ({ value: c.id, label: c.name, art: catArt(c.name) /* только встроенные рисунки: разметку с сервера в страницу не вставляем */ })) },
     { title: '', load: async ([cat]) => ((await call('/stock/items', { query: { ...zoneQuery(), categoryId: cat, limit: 500, sort: 'name' } })).items || [])
-      .map((it) => ({ value: it, label: it.name, hint: `На складе: ${fmt(it.quantity)} ${unitOf(it)}${artOf(it) ? ' · ' + artOf(it) : ''}` })) },
+      .map((it) => { const n = splitStd(it.name); return { value: it, label: n.name, hint: [`На складе: ${fmt(it.quantity)} ${unitOf(it)}`, n.std, artOf(it)].filter(Boolean).join(' · ') }; }).sort((x, y) => x.label.localeCompare(y.label, 'ru', { numeric: true })) }, // М8×20 раньше М8×100
   ],
   onPick: (o) => onPick(o.value) });
 

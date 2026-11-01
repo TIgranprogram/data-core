@@ -10,7 +10,7 @@ const nodes = (x) => [].concat(x ?? []).filter((n) => n !== null && n !== false 
 
 /** bigButton({ label, icon, tone: 'primary'|'neutral'|'danger', onClick, disabled }) → .btn.m-btn; async onClick — кнопка занята до конца (второе нажатие игнорируется); главная — лёгкая вибрация */
 export function bigButton({ label, icon, tone = 'primary', onClick, disabled = false, aria, size = 'wide' } = {}) {
-  const btn = h('button', { type: 'button', class: `btn m-btn m-${tone}${size === 'auto' ? ' m-auto' : ''}`, disabled, 'aria-label': aria || null,
+  const btn = h('button', { type: 'button', class: `btn m-btn m-${tone}${size === 'auto' ? ' m-auto' : size === 'sm' ? ' m-auto m-sm' : ''}`, disabled, 'aria-label': aria || null,
     onclick: async () => {
       if (btn.classList.contains('is-busy')) return;
       btn.classList.add('is-busy'); btn.disabled = true;
@@ -26,8 +26,8 @@ export function screen({ title, back, step, gear, body, foot, footHint } = {}) {
     h('div', { class: 'm-head' },
       // главный экран (только настройки): название и «Настройки» — одной строкой
       gear && !back && !step ? h('div', { class: 'm-bar' }, title ? h('h1', null, title) : null, h('span', { class: 'm-grow' }),
-        bigButton({ label: '⚙ Настройки', tone: 'neutral', size: 'auto', onClick: gear })) :
-      back || step || gear ? h('div', { class: 'm-bar' }, back ? bigButton({ label: '‹ Назад', tone: 'neutral', size: 'auto', onClick: back }) : null,
+        bigButton({ label: '⚙ Настройки', tone: 'neutral', size: 'sm', onClick: gear })) :
+      back || step || gear ? h('div', { class: 'm-bar' }, back ? bigButton({ label: '‹ Назад', tone: 'neutral', size: 'sm', onClick: back }) : null,
         h('span', { class: 'm-grow' }),
         step ? h('div', { class: 'm-step', role: 'status', 'aria-label': `Шаг ${step.n} из ${step.of}` }, `${step.n}/${step.of}`) : null,
         gear ? h('button', { type: 'button', class: 'm-gear', 'aria-label': 'Настройки', onclick: gear }, '⚙') : null) : null,
@@ -147,11 +147,21 @@ export function drill({ levels, onPick, extra, empty = 'Ничего нет' } =
     try { items = await lv.load(path.map((p) => p.value)); } catch (e) { el.replaceChildren(error(e?.status ? (e.message || 'Не получилось.') : 'Нет связи. Ничего не потеряно — повторите, когда появится связь.', { onRetry: go })); return; }
     const list = h('div', { class: 'm-results' });
     const pick = (it) => { if (path.length + 1 < levels.length) { path.push(it); go(); } else onPick?.(it, [...path.map((p) => p.value), it.value]); };
-    const paint = (letter) => list.replaceChildren((lv.tiles ? tiles : choice)({ items: letter ? items.filter((i) => String(i.label).trim().toUpperCase().startsWith(letter)) : items, empty, onPick: pick }));
+    // фильтры длинного списка: первая буква и размер резьбы (М6, М8, М10 — из названий); оба вместе, выбранный подсвечен
+    const f = { letter: '', size: '' };
+    const sizeOf = (i) => { const m = /(?:^|[\s,(])[MМ]\s?(\d+(?:[.,]\d+)?)/.exec(String(i.label)); return m ? 'М' + m[1].replace(',', '.') : ''; };
     const letters = items.length > 30 ? [...new Set(items.map((i) => String(i.label).trim().charAt(0).toUpperCase()))].sort((x, y) => x.localeCompare(y, 'ru')) : [];
-    paint();
+    const sizes = items.length > 30 ? [...new Set(items.map(sizeOf).filter(Boolean))].sort((x, y) => parseFloat(x.slice(1)) - parseFloat(y.slice(1))) : [];
+    const chips = [];
+    const chip = (label, key, val) => { const b = bigButton({ label, tone: 'neutral', size: 'sm', onClick: () => { f[key] = val; paint(); } }); b.dataset.key = key; b.dataset.val = val; chips.push(b); return b; };
+    const paint = () => {
+      chips.forEach((b) => b.classList.toggle('m-on', f[b.dataset.key] === b.dataset.val));
+      list.replaceChildren((lv.tiles ? tiles : choice)({ items: items.filter((i) => (!f.letter || String(i.label).trim().toUpperCase().startsWith(f.letter)) && (!f.size || sizeOf(i) === f.size)), empty, onPick: pick }));
+    };
+    const row = (aria, key, vals) => h('div', { class: 'm-letters', role: 'group', 'aria-label': aria }, chip(key === 'size' ? 'Все размеры' : 'Все', key, ''), ...vals.map((v) => chip(v, key, v)));
     el.replaceChildren(...nodes(extra), lv.title ? h('h2', { class: 'm-sub' }, lv.title) : null,
-      letters.length ? h('div', { class: 'm-letters', role: 'group', 'aria-label': 'Буква' }, bigButton({ label: 'Все', tone: 'neutral', size: 'auto', onClick: () => paint() }), ...letters.map((l) => bigButton({ label: l, tone: 'neutral', size: 'auto', onClick: () => paint(l) }))) : null, list);
+      letters.length ? row('Буква', 'letter', letters) : null, sizes.length > 1 ? row('Размер', 'size', sizes) : null, list);
+    paint();
   };
   go();
   return { el, up: () => { if (!path.length) return false; path.pop(); go(); return true; } };
