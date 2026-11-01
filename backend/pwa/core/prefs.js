@@ -18,7 +18,7 @@ const PREFS = {
   filterW: { css: '--filter-w', min: 240, max: 520, std: 280 },
   chatW: { css: '--chat-w', min: 320, max: 1200, std: 420 }, // окно чата поверх приложения (ui/chat-window.js)
 };
-const STR = ['lastChat', 'panelLayout', 'viewScale']; // строковые настройки (без CSS): lastChat — 'all' или id пользователя; panelLayout — 'two' | 'wide' (нет значения = 'one', ui/card.js)
+const STR = ['lastChat', 'panelLayout', 'viewScale', 'model3d']; // строковые настройки (без CSS): lastChat — 'all' или id пользователя; panelLayout — 'two' | 'wide' (нет значения = 'one', ui/card.js)
 const OVER = '--detail-over'; // ширина правой панели в режиме «поверх» (< DOCK_MIN)
 
 let uid = '';

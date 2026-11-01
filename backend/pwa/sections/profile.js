@@ -60,6 +60,9 @@ export const profile = {
       // ИЗ-19: крупный вид — сразу на экране, сохраняется у пользователя
       const VIEWS = [{ v: 'normal', label: 'Обычный' }, { v: 'large', label: 'Крупный' }];
       const viewSeg = segmented({ items: VIEWS.map((o) => ({ key: o.v, label: o.label })), value: getPref('viewScale') === 'large' ? 'large' : 'normal', label: 'Вид экрана', onChange: (k) => setPref('viewScale', k === 'large' ? 'large' : '') });
+      // 3D-модели изделий: выключить у себя (слабый телефон или ноутбук)
+      const m3d = segmented({ items: [{ key: 'on', label: 'Показывать' }, { key: 'off', label: 'Не показывать' }], value: getPref('model3d') === 'off' ? 'off' : 'on', label: '3D-модели',
+        onChange: (k) => setPref('model3d', k === 'off' ? 'off' : '') });
       paint();
       return h('div', { class: 'pf-profile' },
         h('div', { class: 'pf-av-head' }, preview, h('div', null, h('b', null, r.displayName || r.username || ''), h('div', { class: 'muted' }, r.roleLabel || ''))),
@@ -69,6 +72,8 @@ export const profile = {
           h('div', { class: 'pf-av-up' }, upBtn, photoOf(avatar) ? h('span', { class: 'muted' }, 'Выбрано своё фото') : null), file),
         h('div', { class: 'field' }, h('span', null, 'Вид экрана'), viewSeg.el,
           h('small', { class: 'muted' }, 'Крупный — фото, текст, поля и кнопки больше. Меняется сразу, сохраняется для вас на любом устройстве.')),
+        h('div', { class: 'field' }, h('span', null, '3D-модели изделий'), m3d.el,
+          h('small', { class: 'muted' }, 'Если телефон или компьютер тормозит — выключите: в карточке изделия 3D-модели не будет.')),
         h('div', { class: 'actions' }, save));
     },
   },

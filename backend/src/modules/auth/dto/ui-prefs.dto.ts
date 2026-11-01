@@ -51,13 +51,18 @@ export class UiPrefsDto {
   @IsOptional()
   @Matches(/^(normal|large)$/, { message: 'viewScale — normal или large' })
   viewScale?: string;
+
+  @ApiPropertyOptional({ example: 'off', description: '3D-модели в карточке изделия: on | off (выключено у этого пользователя)' })
+  @IsOptional()
+  @Matches(/^(on|off)$/, { message: 'model3d — on или off' })
+  model3d?: string;
 }
 
 /** Свободные настройки (например `bgrp:<доска>` — раскрытые группы): пределы. */
 export const FREE_PREF_KEY_RE = /^[A-Za-z][A-Za-z0-9_:-]{0,79}$/;
 export const FREE_PREF_MAX_VALUE = 4096;
 export const FREE_PREF_MAX_KEYS = 200;
-const KNOWN = new Set(['sidebarW', 'detailW', 'filterW', 'chatW', 'lastChat', 'panelLayout', 'viewScale']);
+const KNOWN = new Set(['sidebarW', 'detailW', 'filterW', 'chatW', 'lastChat', 'panelLayout', 'viewScale', 'model3d']);
 
 /**
  * Тело PATCH /api/auth/me/prefs: известные ключи — по UiPrefsDto, прочие — свободные

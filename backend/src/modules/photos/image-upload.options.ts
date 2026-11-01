@@ -15,19 +15,20 @@ export const PDF_MIME = 'application/pdf';
 export const PDF_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 export const uploadFileName = (mimetype: string) => `${randomUUID()}${IMAGE_UPLOAD_EXT[mimetype] ?? ''}`;
 
-/** Чертежи (`purpose=drawing`): PDF, DWG, DXF; не картинки, без вариантов. Отдаются только как вложение. */
+/** Чертежи (`purpose=drawing`): PDF, DWG, DXF и 3D-модель GLB; не картинки, без вариантов. Отдаются только как вложение (GLB читает просмотрщик карточки через fetch). */
 export const DRAWING_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
-export const DRAWING_EXTS = ['.pdf', '.dwg', '.dxf'] as const;
+export const DRAWING_EXTS = ['.pdf', '.dwg', '.dxf', '.glb'] as const;
 export const drawingExt = (name?: string): string | undefined => {
   const m = /\.[a-z0-9]+$/i.exec(name ?? '');
   const e = m?.[0].toLowerCase();
   return (DRAWING_EXTS as readonly string[]).includes(e ?? '') ? e : undefined;
 };
-/** Сигнатура по первым байтам: PDF «%PDF», DWG «AC10…», DXF — текст «0, перевод строки, SECTION». */
+/** Сигнатура по первым байтам: PDF «%PDF», DWG «AC10…», GLB «glTF», DXF — текст «0, перевод строки, SECTION». */
 export function drawingSignatureOk(ext: string, head: Buffer): boolean {
   const t = head.toString('latin1');
   if (ext === '.pdf') return t.startsWith('%PDF');
   if (ext === '.dwg') return t.startsWith('AC10');
+  if (ext === '.glb') return t.startsWith('glTF');
   return /^\s*0\s*\r?\n\s*SECTION/.test(t);
 }
 const isDrawingReq = (req: { query?: Record<string, unknown> }) => req?.query?.purpose === 'drawing';
