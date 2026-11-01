@@ -1,8 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, empty, carousel, toast, toastError, confirmDlg, section, row, link, photoDrop, model3d } from '../ui/kit/index.js';
-import { cachedFetch } from '../core/cache.js';
-import { getPref } from '../core/prefs.js';
+import { button, empty, carousel, toast, toastError, confirmDlg, section, row, link, photoDrop } from '../ui/kit/index.js';
 import { KINDS, KINDS_V2 } from '../core/passport-kinds.js';
 
 /**
@@ -41,25 +39,8 @@ export function passportKindDrop(productId, kind, done, old) {
     done: () => { toast('Рисунок сохранён'); done?.(); } });
 }
 
-const fileIcon = (name) => ({ pdf: '📄', dwg: '📐', dxf: '📐', glb: '🧊' })[String(name).split('.').pop().toLowerCase()] || '🖼';
+const fileIcon = (name) => ({ pdf: '📄', dwg: '📐', dxf: '📐' })[String(name).split('.').pop().toLowerCase()] || '🖼';
 const sizeText = (n) => (!n ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
-
-/** 3D включено: у сайта (админка → «Сервер» → «3D-модели») и у пользователя («Мой профиль»). */
-export const model3dEnabled = async () => getPref('model3d') !== 'off'
-  && (await cachedFetch('site-features', 300000, () => api('/settings/site-features')).catch(() => ({ model3d: true }))).model3d !== false;
-
-/** Блок «3D-модель» в карточке изделия: первый GLB из «Чертежей»; нет модели или 3D выключено — блока нет. */
-export function model3dBlock(r) {
-  const root = h('div');
-  (async () => {
-    if (!(await model3dEnabled())) return;
-    const items = await api(`/products/${r.id}/photos?purpose=drawing`).then((x) => x.items || x).catch(() => []);
-    const rec = (items || []).find((x) => /\.glb$/i.test(x.photoId?.originalFilename || x.photoId?.storageUrl || ''));
-    if (!rec?.photoId?.storageUrl) return;
-    root.replaceChildren(h('div', { class: 'section-title' }, '3D-модель'), model3d({ url: PREFIX + rec.photoId.storageUrl, alt: r.name }));
-  })();
-  return root;
-}
 
 export function productFilesBlock(r, canEdit) {
   const root = h('div', null, h('div', { class: 'section-title' }, 'Фото и файлы'), h('div', { class: 'muted' }, 'Загружаю…'));
@@ -100,7 +81,7 @@ export function productFilesBlock(r, canEdit) {
       : kinds.length ? h('div', null, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
     const dr = drawings || [];
     const drawingsBody = h('div', null,
-      dr.length ? h('div', null, ...dr.map(drawingRow)) : empty({ title: 'Чертежей нет', hint: canEdit ? 'Загрузите PDF, DWG, DXF или 3D-модель GLB (SolidWorks: «Сохранить как» → GLB) — файл будет лежать в изделии.' : '' }),
+      dr.length ? h('div', null, ...dr.map(drawingRow)) : empty({ title: 'Чертежей нет', hint: canEdit ? 'Загрузите PDF, DWG или DXF — файл будет лежать в изделии.' : '' }),
       canEdit ? photoDrop({ purpose: 'drawing', drawing: true, attach: async (photoId) => { await attachProductFile(r.id, photoId, 'drawing'); return true; }, done: () => { toast('Чертёж сохранён'); paint(); } }) : null);
     const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
     const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key) }); s.dataset.key = key; return s; };

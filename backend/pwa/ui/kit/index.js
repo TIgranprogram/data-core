@@ -161,7 +161,6 @@ export { openPopMenu } from '../pop-menu.js';
 export { draggable, afterDrag } from '../drag.js';
 export { carousel } from '../gallery.js';
 export { uploadPhoto, photoDrop } from '../photos.js';
-export { model3d } from './model3d.js';
 
 /** Хвост хлебных крошек раздела: crumbTail('Паспорта › Выпущенные паспорта') */
 export { setCrumbTail as crumbTail } from '../crumbs.js';

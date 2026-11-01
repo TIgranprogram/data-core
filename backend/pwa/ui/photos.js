@@ -17,18 +17,18 @@ export async function uploadPhoto(f, purpose) {
  * Вставка работает, пока зона на экране и курсор не в текстовом поле.
  */
 export function photoDrop({ attach, done, pdf = false, purpose, drawing = false, idleText }) {
-  // purpose — назначение файла на сервере (passport, drawing); drawing: true — чертежи (PDF, DWG, DXF, картинки) и 3D-модель GLB
+  // purpose — назначение файла на сервере (passport, drawing); drawing: true — чертежи (PDF, DWG, DXF и картинки)
   // pdf: true — ещё и PDF (файл счёта, скан договора); фото заявок/изделий — только картинки
-  const input = h('input', { type: 'file', accept: drawing ? 'image/*,application/pdf,.pdf,.dwg,.dxf,.glb' : pdf ? 'image/*,application/pdf' : 'image/*', multiple: true, hidden: true });
-  const idle = idleText || (drawing ? 'Перетащите чертёж (PDF, DWG, DXF) или 3D-модель (GLB) сюда или вставьте Ctrl+V' : null) || (pdf ? 'Перетащите файл (PDF или фото) сюда или вставьте Ctrl+V' : 'Перетащите фото сюда или вставьте Ctrl+V');
+  const input = h('input', { type: 'file', accept: drawing ? 'image/*,application/pdf,.pdf,.dwg,.dxf' : pdf ? 'image/*,application/pdf' : 'image/*', multiple: true, hidden: true });
+  const idle = idleText || (drawing ? 'Перетащите чертёж (PDF, DWG, DXF) сюда или вставьте Ctrl+V' : null) || (pdf ? 'Перетащите файл (PDF или фото) сюда или вставьте Ctrl+V' : 'Перетащите фото сюда или вставьте Ctrl+V');
   const label = h('span', { class: 'pd-text' }, idle);
   const pick = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => input.click() }, 'Выбрать файл');
   const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), label, pick, input);
   let busy = false;
 
   async function upload(files) {
-    const imgs = [...files].filter((f) => /^image\//.test(f.type) || ((pdf || drawing) && f.type === 'application/pdf') || (drawing && /\.(pdf|dwg|dxf|glb)$/i.test(f.name)));
-    if (!imgs.length) { toastError(new Error(drawing ? 'Нужен чертёж (PDF, DWG, DXF, картинка) или 3D-модель GLB' : pdf ? 'Нужен PDF или картинка (JPG, PNG, WEBP)' : 'Это не картинка — нужны JPG, PNG, WEBP')); return; }
+    const imgs = [...files].filter((f) => /^image\//.test(f.type) || ((pdf || drawing) && f.type === 'application/pdf') || (drawing && /\.(pdf|dwg|dxf)$/i.test(f.name)));
+    if (!imgs.length) { toastError(new Error(drawing ? 'Нужен чертёж: PDF, DWG, DXF или картинка' : pdf ? 'Нужен PDF или картинка (JPG, PNG, WEBP)' : 'Это не картинка — нужны JPG, PNG, WEBP')); return; }
     if (busy) return;
     busy = true; zone.classList.add('busy');
     let row = null;

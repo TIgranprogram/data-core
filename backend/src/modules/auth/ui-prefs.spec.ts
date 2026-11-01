@@ -21,11 +21,6 @@ import type { UiPrefs } from '../user/user.schema';
 const validate = (body: unknown) => parseUiPrefs(body);
 
 describe('UiPrefsDto (ШП-1)', () => {
-  it('model3d: on / off — проходит; прочее — 400', async () => {
-    for (const v of ['on', 'off']) await expect(validate({ model3d: v })).resolves.toBeDefined();
-    await expect(validate({ model3d: 'maybe' })).rejects.toBeInstanceOf(BadRequestException);
-  });
-
   it('viewScale: normal / large — проходит; прочее — 400', async () => {
     for (const v of ['normal', 'large']) await expect(validate({ viewScale: v })).resolves.toBeDefined();
     await expect(validate({ viewScale: 'huge' })).rejects.toBeInstanceOf(BadRequestException);

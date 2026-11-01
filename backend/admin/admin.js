@@ -1706,24 +1706,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     const wrap = el('div', 'srv-btns'); wrap.append(b);
     box.replaceChildren(el('p', 'muted', text.what), wrap);
   }
-  // ---- Сервер: 3D-модели изделий — общий выключатель (GET/PUT /settings/site-features) ----
-  async function loadSite3d() {
-    const box = $('#site3d-box');
-    let d;
-    try { d = await api('/settings/site-features'); } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось загрузить: ' + e.message)); return; }
-    const lbl = el('label', 'srv-field');
-    const cb = el('input'); cb.type = 'checkbox'; cb.checked = d.model3d !== false;
-    lbl.append(cb, el('span', null, ' Показывать 3D-модели на сайте'));
-    cb.addEventListener('change', async () => {
-      cb.disabled = true;
-      try { await api('/settings/site-features', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model3d: cb.checked }) }); toast(cb.checked ? '3D-модели включены' : '3D-модели выключены'); }
-      catch (e) { cb.checked = !cb.checked; toast(e.message || 'Не сохранилось'); } finally { cb.disabled = false; }
-    });
-    box.replaceChildren(lbl);
-  }
-
   function serverIdle() {
-    loadSite3d();
     idleBox('#server-box', { what: 'Сколько места занято на диске сервера.', wait: 'Обычно до 10 секунд.' }, 'Проверить место на диске', loadServer);
     idleBox('#security-box', { what: 'Кто и с какого адреса получал отказы и ошибки входа.', wait: 'Обычно пара секунд.' }, 'Показать подозрительные запросы', () => loadSecurity(1));
     idleBox('#visits-box', { what: 'Кто последним входил и что менял за неделю.', wait: 'Обычно пара секунд.' }, 'Показать входы и действия', loadVisits);

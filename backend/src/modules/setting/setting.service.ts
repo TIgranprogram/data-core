@@ -82,17 +82,6 @@ export class SettingService {
     );
   }
 
-  /** Возможности сайта: `site.model3d` — показывать 3D-модели (GLB) в карточке изделия; нет записи — включено. */
-  async siteFeatures(): Promise<{ model3d: boolean }> {
-    const doc = await this.model.findOne({ key: 'site.model3d' }).lean().exec();
-    return { model3d: doc?.value !== false };
-  }
-
-  async setSiteFeatures(v: { model3d: boolean }): Promise<{ model3d: boolean }> {
-    await this.set('site.model3d', v.model3d, 'site', '3D-модели в карточке изделия');
-    return this.siteFeatures();
-  }
-
   async bulkSet(items: Array<{ key: string; value: unknown; group?: string }>): Promise<number> {
     const ops = items.map((it) => ({
       updateOne: {

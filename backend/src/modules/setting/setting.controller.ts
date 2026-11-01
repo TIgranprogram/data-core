@@ -38,19 +38,6 @@ export class SettingController {
     return this.service.setCatalogAppearance(dto.value, user.organizationId);
   }
 
-  /** Возможности сайта для всех вошедших (сейчас — 3D-модели в карточке изделия). Выключает администратор. */
-  @Get('site-features')
-  @Roles('admin', 'manager', 'user')
-  siteFeatures() {
-    return this.service.siteFeatures();
-  }
-
-  @Put('site-features')
-  @Roles('admin')
-  setSiteFeatures(@Body() body: { model3d?: boolean }) {
-    return this.service.setSiteFeatures({ model3d: body?.model3d !== false });
-  }
-
   @Get(':key')
   @Roles('admin', 'manager')
   findOne(@Param('key') key: string) {
