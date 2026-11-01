@@ -5,7 +5,7 @@ import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
 import { modal } from '../ui/dialog.js';
-import { enhanceSelect } from '../ui/select.js';
+import { enhanceSelect } from '../ui/kit/index.js';
 import { toast } from '../ui/toast.js';
 
 /*

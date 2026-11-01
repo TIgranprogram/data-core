@@ -1,13 +1,11 @@
 import { api, apiFile, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty, plural } from '../core/format.js';
-import { stepFunnel } from '../ui/step-funnel.js';
+import { stepFunnel, attachCombo, enhanceSelect } from '../ui/kit/index.js';
 import { catArt } from '../ui/cat-art.js';
 import { current, patch } from '../core/router.js';
-import { attachCombo } from '../ui/combo.js';
 import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
-import { enhanceSelect } from '../ui/select.js';
 import { openPopMenu } from '../ui/pop-menu.js';
 import { icon } from '../ui/icons.js';
 import { toast, toastError } from '../ui/toast.js';

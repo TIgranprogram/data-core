@@ -1,5 +1,5 @@
 import { api, PREFIX, session } from '../core/api.js';
-import { stepFunnel } from '../ui/step-funnel.js';
+import { stepFunnel, tagPick } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, money, plural, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -18,7 +18,6 @@ import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-s
 import { confirmDlg } from '../ui/dialog.js';
 import { funnelBox } from '../ui/funnel.js';
 import { V2_NUMS, canEdit as canEditPassportTexts, dictOpts } from './passports/common.js';
-import { tagPick } from '../ui/tag-pick.js';
 import { catArt } from '../ui/cat-art.js';
 import { routeBlock } from './work-route.js';
 

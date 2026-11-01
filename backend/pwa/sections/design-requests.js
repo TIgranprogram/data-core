@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo } from '../ui/kit/index.js';
 import { modal } from '../ui/dialog.js';
 import { carousel } from '../ui/gallery.js';
 import { toastError } from '../ui/toast.js';

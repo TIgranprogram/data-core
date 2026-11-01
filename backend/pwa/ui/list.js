@@ -1,7 +1,7 @@
 import { exportList } from './list-export.js';
 import { makeResizable } from './resizer.js';
 import { searchBox } from './searchbox.js';
-import { enhanceSelect } from './select.js';
+import { enhanceSelect } from './kit/index.js';
 import { api, canEditSection, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from './busy.js';

@@ -1,9 +1,7 @@
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo, tagPick, segmented } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/dialog.js';
-import { tagPick } from '../ui/tag-pick.js';
-import { segmented } from '../ui/kit/index.js';
 import { toast } from '../ui/toast.js';
 
 /*

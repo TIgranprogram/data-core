@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo } from '../ui/kit/index.js';
 import { loadMaterialDicts, normSize, splitSizes } from '../ui/materials-spec.js';
 
 /*

@@ -4,7 +4,7 @@ import { busyBtn } from '../ui/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';

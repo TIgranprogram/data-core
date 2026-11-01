@@ -3,8 +3,7 @@ import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
-import { attachCombo } from '../ui/combo.js';
-import { enhanceSelect } from '../ui/select.js';
+import { attachCombo, enhanceSelect } from '../ui/kit/index.js';
 
 /*
  * «Кому выдано» (TASKS Л.3) и «Выдать по брони» (Б.2) — общее для «Операций», строки «− Списать» и броней.

@@ -1,4 +1,7 @@
 import { h } from '../core/dom.js';
+import { pick } from './kit/index.js';
+
+const ALL = '__all';
 
 /**
  * Категории паспорта галочками-чипами вместо строки кодов «TRN, WRK» (общий кусочек справочников: тексты, элементы,
@@ -10,29 +13,26 @@ import { h } from '../core/dom.js';
 export function catChips({ options, value = '', all, label = 'Категории', allLabel = 'Для всех', later = [] }) {
   const parse = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,;\s]+/)).map(String).filter(Boolean);
   const cur = new Set(parse(value));
-  let isAll = all === undefined ? cur.size === 0 : !!all;
+  const isAll0 = all === undefined ? cur.size === 0 : !!all;
   const known = new Set(options.map((o) => String(o.code)));
   const list = [...options.filter((o) => !later.includes(String(o.code)) || cur.has(String(o.code))), ...[...cur].filter((c) => !known.has(c)).map((c) => ({ code: c, name: c }))];
-  const box = h('div', { class: 'tag-pick cat-chips', role: 'group', 'aria-label': label });
-  const fire = () => box.dispatchEvent(new Event('change', { bubbles: true }));
-  const allBtn = h('button', { type: 'button', class: 'tag', 'aria-pressed': 'false', title: 'Подходит любой категории', onclick: () => { isAll = !isAll; if (isAll) cur.clear(); paint(); fire(); } }, allLabel);
-  const btns = list.map((o) => h('button', { type: 'button', class: 'tag', 'aria-pressed': 'false', 'data-code': String(o.code), onclick: () => {
-    if (isAll) { isAll = false; cur.clear(); }
-    cur.has(String(o.code)) ? cur.delete(String(o.code)) : cur.add(String(o.code));
-    paint(); fire();
-  } }, o.name));
-  function paint() {
-    allBtn.classList.toggle('active', isAll); allBtn.setAttribute('aria-pressed', String(isAll));
-    for (const b of btns) { const on = cur.has(b.dataset.code); b.classList.toggle('active', on && !isAll); b.setAttribute('aria-pressed', String(on && !isAll)); b.classList.toggle('dim', isAll); }
-  }
-  box.append(allBtn, ...btns);
-  paint();
+  const tp = pick({ mode: 'tags', label, value: isAll0 ? [ALL] : [...cur], options: [{ value: ALL, label: allLabel, sub: '' }, ...list.map((o) => ({ value: String(o.code), label: o.name }))] });
+  let was = new Set(JSON.parse(tp.value));
+  tp.el.classList.add('cat-chips');
+  tp.el.addEventListener('change', () => { // «Для всех» и отдельные категории взаимно исключают друг друга
+    const now = new Set(JSON.parse(tp.value));
+    if (now.has(ALL) && (!was.has(ALL) || now.size === 1)) now.clear(), now.add(ALL);
+    else now.delete(ALL);
+    was = now; tp.value = JSON.stringify([...now]);
+  });
+  const codes = () => JSON.parse(tp.value).filter((c) => c !== ALL);
+  const isAll = () => JSON.parse(tp.value).includes(ALL);
   return {
-    el: box,
-    get value() { return isAll ? '' : [...cur].join(','); },
-    get all() { return isAll; },
-    get empty() { return !isAll && !cur.size; },
-    focus: () => allBtn.focus(),
+    el: tp.el,
+    get value() { return isAll() ? '' : codes().join(','); },
+    get all() { return isAll(); },
+    get empty() { return !isAll() && !codes().length; },
+    focus: tp.focus,
   };
 }
 
@@ -48,20 +48,19 @@ export function catChipsField(options, { label = 'Категории', value, la
  * Коды, которых нет в списке (старые), остаются отдельными чипами. Событие change всплывает от el.
  */
 export function refChips({ options, value = '', multiple = true, label = 'Выбор' }) {
-  const cur = new Set(String(value || '').split(/[,;\s]+/).filter(Boolean));
+  const cur = String(value || '').split(/[,;\s]+/).filter(Boolean);
   const known = new Set(options.map((o) => String(o.code)));
-  const list = [...options, ...[...cur].filter((c) => !known.has(c)).map((c) => ({ code: c, name: c }))];
-  const box = h('div', { class: 'tag-pick cat-chips', role: 'group', 'aria-label': label });
-  const btns = list.map((o) => h('button', { type: 'button', class: 'tag', 'aria-pressed': 'false', 'data-code': String(o.code), title: o.group || '', onclick: () => {
-    const c = String(o.code);
-    if (cur.has(c)) cur.delete(c); else { if (!multiple) cur.clear(); cur.add(c); }
-    paint(); box.dispatchEvent(new Event('change', { bubbles: true }));
-  } }, o.group ? `${o.name} · ${o.group}` : o.name));
-  function paint() { for (const b of btns) { const on = cur.has(b.dataset.code); b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); } }
-  if (!list.length) box.append(h('span', { class: 'muted' }, 'Категорий нет. «Справочники → Категории» — добавьте категорию материала.'));
-  box.append(...btns);
-  paint();
-  return { el: box, get value() { return [...cur].join(','); }, focus: () => btns[0]?.focus() };
+  const list = [...options, ...cur.filter((c) => !known.has(c)).map((c) => ({ code: c, name: c }))];
+  const tp = pick({ mode: 'tags', label, value: cur, options: list.map((o) => ({ value: String(o.code), label: o.name, sub: o.group || '' })) });
+  if (!options.length) tp.el.prepend(h('span', { class: 'muted' }, 'Категорий нет. «Справочники → Категории» — добавьте категорию материала.'));
+  tp.el.classList.add('cat-chips');
+  let was = new Set(cur);
+  if (!multiple) tp.el.addEventListener('change', () => {
+    const now = JSON.parse(tp.value); const fresh = now.filter((c) => !was.has(c));
+    const keep = fresh.length ? [fresh[0]] : now.slice(0, 1);
+    was = new Set(keep); tp.value = JSON.stringify(keep);
+  });
+  return { el: tp.el, get value() { return JSON.parse(tp.value).join(','); }, focus: tp.focus };
 }
 
 /** Поле формы (type: 'widget') «выбор из справочника»: в read() — JSON-строка кодов через запятую. */

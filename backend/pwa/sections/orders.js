@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo } from '../ui/kit/index.js';
 import { badge } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';

@@ -4,9 +4,9 @@ import { qty } from '../core/format.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { activeOrders, orderLabel } from '../sections/salesorders.js';
 import { peopleByWork, withOrders, lastTo, saveTo } from '../sections/issue.js';
-import { attachCombo } from './combo.js';
+import { attachCombo } from './kit/index.js';
 import { errText } from './errors.js';
-import { enhanceSelect } from './select.js';
+import { enhanceSelect } from './kit/index.js';
 import { segmented } from './kit/index.js';
 
 /*

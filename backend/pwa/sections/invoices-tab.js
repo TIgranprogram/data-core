@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money } from '../core/format.js';
 import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
-import { enhanceSelect } from '../ui/select.js';
+import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { patch } from '../core/router.js';

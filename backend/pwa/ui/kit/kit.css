@@ -72,3 +72,8 @@ label.k-row { cursor: pointer; }
 .k-feed:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 @media (hover: hover) { .k-feed .k-row-act { visibility: hidden; } .k-feed:hover .k-row-act, .k-feed:focus-within .k-row-act { visibility: visible; } }
 @media (max-width: 720px) { .k-feed .k-row-act { visibility: visible; } .k-feed .k-row-act .btn { min-height: 44px; } }
+/* Поле выбора — один эталон: select, input формы, .k-field (sel-input / combo-input). Основа — base.css (36 px, рамка, радиус, фокус) */
+.k-field.k-arrow, select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
+select { appearance: none; -webkit-appearance: none; }
+.k-field[aria-invalid="true"], select[aria-invalid="true"], input[aria-invalid="true"] { border-color: var(--danger); }
+@media (max-width: 480px) { input, select, .k-field { min-height: 44px; } }

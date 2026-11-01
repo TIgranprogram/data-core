@@ -8,7 +8,7 @@ import { go } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
-import { facetFilter, ftParams, ftQuery } from '../ui/facet-filter.js';
+import { facetFilter, ftParams, ftQuery } from '../ui/kit/index.js';
 import { facetLabel, pipeKey } from '../core/facets.js';
 
 export { mountPipeGrid } from './pipe-grid.js';

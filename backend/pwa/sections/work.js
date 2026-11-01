@@ -6,7 +6,7 @@ import { badge, ORDER_PRIORITY } from '../ui/badges.js';
 import { mountBoard } from '../ui/board.js';
 import { mountGantt } from '../ui/gantt.js';
 import { failBlock } from '../ui/busy.js';
-import { enhanceSelect } from '../ui/select.js';
+import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/toast.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 

@@ -1,8 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch } from '../core/facets.js';
-import { attachCombo } from './combo.js';
-import { tagPick } from './tag-pick.js';
+import { attachCombo } from './kit/index.js';
+import { tagPick } from './kit/index.js';
 import { toast, toastError } from './toast.js';
 
 /*

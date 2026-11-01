@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, boardStatic, board, layout, failBlock, toast, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, boardStatic, board, layout, failBlock, toast, pick, filter, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -10,6 +10,18 @@ const PIC = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://
 const block = (title, note, ...kids) => h('section', { class: 'panel' }, h('h2', null, title), note ? h('p', { class: 'k-note' }, note) : null, ...kids);
 const sample = (...kids) => h('div', { class: 'k-sample' }, ...kids);
 const cards = (size) => TONES.map((tone) => card({ size, tone, title: 'Заголовок ' + tone, meta: 'Мета · 12 шт', badges: badge(SUPPLY_STATUS, 'ordered'), onClick: () => toast('Клик: ' + tone) }));
+
+function filterFacets() {
+  const f = filter({ mode: 'facets' });
+  f.update({});
+  return f.el;
+}
+function filterFunnel() {
+  const f = filter({ mode: 'funnel', title: 'Уточнить (пример)', steps: [{ key: 'year', label: 'Год' }, { key: 'month', label: 'Месяц', when: (P) => !!P.year }],
+    load: async (P) => ({ year: [{ value: '2025', n: 4 }, { value: '2026', n: 9 }], month: [{ value: '1', label: 'Январь', n: 2 }, { value: '2', label: 'Февраль', n: P.year ? 3 : 0 }] }) });
+  f.update({});
+  return f.el;
+}
 
 function liveBoard() {
   const box = h('div', { class: 'k-board-demo' });
@@ -24,6 +36,22 @@ function liveBoard() {
     box.append(b.el);
   } }));
   return box;
+}
+
+function pickDemo() {
+  const OPTS = ['Болт М10', 'Гайка М10', 'Шайба 10', 'Труба 40х40', LONG].map((label, i) => ({ value: String(i), label, group: i < 2 ? 'Крепёж' : 'Прочее' }));
+  const sel = h('select', { class: 'k-field' }, h('option', { value: '' }, 'Не выбрано'), ...OPTS.map((o) => h('option', { value: o.value }, o.label)));
+  const mk = () => h('input', { placeholder: 'Начните печатать' });
+  const combo = mk(), multi = mk();
+  const wrap = (...k) => h('span', { class: 'sel-wrap' }, ...k);
+  const s = sample(sel, wrap(combo), wrap(multi));
+  const tags = pick({ mode: 'tags', options: OPTS.map((o) => ({ value: o.value, label: o.label, sub: o.group })), value: ['0'], label: 'Метки' });
+  requestAnimationFrame(() => {
+    pick({ mode: 'single', select: sel, force: true });
+    pick({ mode: 'combo', input: combo, options: OPTS, empty: () => 'Ничего не нашлось', extra: (t) => (t ? [{ label: '+ Новое «' + t + '»', run: () => toast('Создать: ' + t) }] : []) });
+    pick({ mode: 'multi', input: multi, options: OPTS });
+  });
+  return [s, sample(tags.el)];
 }
 
 export const kit = {
@@ -50,6 +78,11 @@ export const kit = {
         row({ title: LONG, meta: LONG, tone: 'warn', active: true }),
         row({ tag: 'label', lead: h('input', { type: 'checkbox', checked: true }), title: 'Лист 3 мм', meta: 'оплачено', side: [h('input', { value: '10' }), h('span', { class: 'muted small' }, 'шт')] }),
         row({ title: 'Круг 20', meta: 'на складе 5 м', qty: [h('input', { value: '8' }), h('span', { class: 'muted small' }, 'м')], diff: h('span', { class: 'k-diff num neg' }, 'свободно только 5 м'), action: button({ label: '×', kind: 'ghost', size: 'S' }), warn: h('div', { class: 'k-note neg' }, 'Меньше, чем в брони') }))),
+      block('Выбор (pick)', 'single — список вместо select; combo — поле со списком и «+ Новое»; multi — через запятую; tags — метки. На телефоне (≤ 480 px) список — лист.', ...pickDemo()),
+      block('Фильтр (kit.filter)', 'chips — фишки, один или несколько; facets — признаки склада (поиск и группы); funnel — шаги уточнения (параметры адреса).', sample(
+        filter({ mode: 'chips', items: [{ key: 'a', label: 'Все', count: 12 }, { key: 'b', label: 'Новые', count: 3 }, { key: 'c', label: LONG }], value: 'a', label: 'Один выбор', onChange: (k) => toast('Выбрано: ' + k) }).el,
+        filter({ mode: 'chips', multi: true, items: [{ key: 'a', label: 'Болты' }, { key: 'b', label: 'Гайки' }, { key: 'c', label: 'Шайбы' }], value: ['a', 'c'], label: 'Несколько', onChange: (k) => toast('Выбрано: ' + k.join(', ')) }).el),
+        sample(filterFacets(), filterFunnel())),
       block('Бейджи', null, sample(...Object.keys(SUPPLY_STATUS).map((k) => badge(SUPPLY_STATUS, k)), badge('Одиночная', 'ok'), badge(LONG, 'warn'))),
       block('Вкладки', null, t.el),
       block('Показатели', null, stats([{ value: 12, label: 'Заказов' }, { value: '1 250 000', label: 'Сумма' }, { value: 0, label: 'Просрочено' }]), stats([{ value: 1, label: LONG }])),

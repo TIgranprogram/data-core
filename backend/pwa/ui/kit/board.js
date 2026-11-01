@@ -7,6 +7,7 @@ import { paintOrder } from '../../core/order-color.js';
 import { toastError } from '../toast.js';
 import { draggable } from '../drag.js';
 import { openPopMenu } from '../pop-menu.js';
+import { link } from './index.js';
 
 /**
  * Доска — колонки слева направо (по статусу). Один компонент на все разделы с доской.
@@ -44,7 +45,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const n = h('span', { class: 'n' }, '…');
     const sum = h('span', { class: 'col-sum num', hidden: true });
     const body = h('div', { class: 'col-body' }, h('div', { class: 'skel', style: { margin: '8px 4px' } }));
-    const all = c.multi && canMove ? h('button', { type: 'button', class: 'col-all link-btn', title: 'Отметить все карточки колонки', onclick: () => pickAll(me) }, 'Выбрать все') : null;
+    const all = c.multi && canMove ? link({ cls: 'col-all', title: 'Отметить все карточки колонки', onClick: () => pickAll(me), label: 'Выбрать все' }) : null;
     const col = h('section', { class: 'col tone-' + (c.tone || 'dim'), 'aria-label': c.label, dataset: { key: c.key } },
       h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, c.label), n, sum),
       all ? h('div', { class: 'col-tools' }, all) : null,
@@ -206,15 +207,15 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     if (rest > 0) {
       // c.portion — «ещё N →» дописывает порцию на месте; иначе остальное — списком (завершённое там свёрнуто по месяцам, фаза М)
       col.more = c.portion
-        ? h('button', { type: 'button', class: 'col-more link-btn', onclick: async (e) => {
+        ? link({ cls: 'col-more', label: `ещё ${qty(Math.min(rest, c.per || per))} из ${qty(rest)} →`, onClick: async (e) => {
           const btn = e.currentTarget; btn.disabled = true;
           try { const next = await fetchCol(c, ++col.page, my); paint(col, next, true, my); } catch (ex) { col.page--; btn.disabled = false; toastError(ex); }
-        } }, `ещё ${qty(Math.min(rest, c.per || per))} из ${qty(rest)} →`)
-        : h('button', { type: 'button', class: 'col-more link-btn', onclick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }) }, `ещё ${qty(rest)} — списком по месяцам →`);
+        } })
+        : link({ cls: 'col-more', onClick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }), label: `ещё ${qty(rest)} — списком по месяцам →` });
       body.append(col.more);
     }
     // тихая ссылка «+ Добавить задачу» внизу колонки (board.add(ключ колонки))
-    col.addLink = board.add && session.canEdit ? h('button', { type: 'button', class: 'col-add link-btn', onclick: () => board.add(c.key) }, board.addLabel || '+ Добавить') : null;
+    col.addLink = board.add && session.canEdit ? link({ cls: 'col-add', onClick: () => board.add(c.key), label: board.addLabel || '+ Добавить' }) : null;
     if (col.addLink) body.append(col.addLink);
   }
   let loadedAt = 0;

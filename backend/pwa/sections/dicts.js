@@ -8,7 +8,7 @@ import { confirmDlg, modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
-import { tagPick } from '../ui/tag-pick.js';
+import { tagPick } from '../ui/kit/index.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { catChipsField, refChipsField } from '../ui/cat-chips.js';

@@ -13,7 +13,7 @@ import { passportBulkFields } from './passports/bulk.js';
 import { bomBlock, checkBlock, imagesBlock, previewBlock } from './passports/card-blocks.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { passportForm } from './passports/form.js';
-import { stepFunnel } from '../ui/step-funnel.js';
+import { stepFunnel } from '../ui/kit/index.js';
 import { passportWizard } from './passports/passport-wizard.js';
 
 /**

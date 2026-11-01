@@ -91,9 +91,10 @@ export function segmented({ items, value, onChange, label, cls } = {}) {
 }
 
 /** link({ label, href, onClick, title, target }) → <a> (переход, есть href) или <button> (действие), вид — ссылка-текст .link-btn */
-export function link({ label, href, onClick, title, target } = {}) {
-  if (href) return h('a', { class: 'link-btn', href, title, target, rel: target ? 'noopener' : null, onclick: onClick }, label);
-  return h('button', { type: 'button', class: 'link-btn', title, onclick: onClick }, label);
+export function link({ label, href, onClick, title, target, cls } = {}) {
+  const c = 'link-btn' + (cls ? ' ' + cls : '');
+  if (href) return h('a', { class: c, href, title, target, rel: target ? 'noopener' : null, onclick: onClick }, label);
+  return h('button', { type: 'button', class: c, title, onclick: onClick }, label);
 }
 
 /** stat({ value, label }) → .stat; stats([...]) → .stats */
@@ -130,11 +131,8 @@ export { toast, toastError } from '../toast.js';
 export { failBlock, busyBlock } from '../busy.js';
 export { mountList } from '../list.js';
 export { openCard } from '../card.js';
-export { enhanceSelect, isLong } from '../select.js';
-export { attachCombo } from '../combo.js';
-export { tagPick } from '../tag-pick.js';
-export { stepFunnel } from '../step-funnel.js';
-export { facetFilter, parseFt, ftQuery, ftParams } from '../facet-filter.js';
+export { pick, enhanceSelect, isLong, attachCombo, tagPick, attachSuggest } from './pick.js';
+export { filter, chipsFilter, stepFunnel, facetFilter, parseFt, ftQuery, ftParams } from './filter.js';
 export { SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY, PRIORITY, supplyKey } from '../badges.js';
 export { openPopMenu } from '../pop-menu.js';
 export { draggable, afterDrag } from '../drag.js';

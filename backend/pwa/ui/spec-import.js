@@ -6,7 +6,7 @@ import { current } from '../core/router.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { errText } from './errors.js';
-import { enhanceSelect } from './select.js';
+import { enhanceSelect } from './kit/index.js';
 import { toast, toastError } from './toast.js';
 
 /*

@@ -4,7 +4,7 @@ import { isoDay, money, date } from '../core/format.js';
 import { photoField } from '../ui/photos.js';
 import { patch } from '../core/router.js';
 import { SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo } from '../ui/kit/index.js';
 import { modal } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { lookups, unitList } from './lookups.js';

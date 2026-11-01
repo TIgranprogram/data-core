@@ -3,7 +3,7 @@ import { api, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
-import { stepFunnel } from '../ui/step-funnel.js';
+import { stepFunnel } from '../ui/kit/index.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { stockLookup } from '../core/stock-list.js';

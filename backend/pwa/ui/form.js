@@ -2,10 +2,10 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { parseNum } from '../core/format.js';
 import { photoField } from './photos.js';
-import { attachCombo } from './combo.js';
-import { attachSuggest } from './suggest.js';
+import { attachCombo } from './kit/index.js';
+import { attachSuggest } from './kit/index.js';
 import { attachPhrases } from './phrases.js';
-import { enhanceSelect } from './select.js';
+import { enhanceSelect } from './kit/index.js';
 import { segmented } from './kit/index.js';
 
 /**

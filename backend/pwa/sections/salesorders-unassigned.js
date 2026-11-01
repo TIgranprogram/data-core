@@ -6,7 +6,7 @@ import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
 import { toast } from '../ui/toast.js';
 import { modal } from '../ui/dialog.js';
-import { attachCombo } from '../ui/combo.js';
+import { attachCombo } from '../ui/kit/index.js';
 import { errText } from '../ui/errors.js';
 
 /** В3: «Договоры без заказа» — выбор галочками и перенос в новый или существующий заказ (POST /production-orders/assign). */
