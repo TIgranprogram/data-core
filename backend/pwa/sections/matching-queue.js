@@ -21,7 +21,8 @@ const changed = () => window.dispatchEvent(new CustomEvent('data-changed'));
 const LIMIT = 50;
 
 /** Количество несопоставленных позиций: {total, inProduction}. */
-export const unmatchedCount = () => api('/matching/unmatched/count').catch(() => ({ total: 0, inProduction: 0 }));
+// роль без «Сопоставления» (кладовщик) не спрашивает: сервер ответил бы 403, лишняя строка в журнале ошибок
+export const unmatchedCount = () => (session.sees('matching') ? api('/matching/unmatched/count').catch(() => ({ total: 0, inProduction: 0 })) : Promise.resolve({ total: 0, inProduction: 0 }));
 
 /** Жёлтая плашка «N позиций не связаны с продукцией — Сопоставить» (заказ не блокируется). */
 export function unmatchedPlate(n, orderId) {
