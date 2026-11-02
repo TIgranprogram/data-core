@@ -153,3 +153,31 @@ describe('Склады: итог списка счетов по видимым �
     expect(sum).toBe(400);
   });
 });
+
+describe('SupplyInvoiceService: добавить позиции в готовый счёт', () => {
+  const sup = new Types.ObjectId();
+  const mk = (invStatus: string, reqs: Array<Record<string, unknown>>) => {
+    const inv = { _id: new Types.ObjectId(), supplierId: sup, status: invStatus, amount: 100, paidAt: new Date('2026-10-05') };
+    const reqUpdates: Array<[unknown, unknown]> = []; const invUpdates: Array<[unknown, unknown]> = [];
+    const model = { findOne: jest.fn(() => chain(inv)), updateOne: jest.fn((f: unknown, u: unknown) => { invUpdates.push([f, u]); return chain({}); }) };
+    const requests = { find: jest.fn(() => chain(reqs)), updateMany: jest.fn((f: unknown, u: unknown) => { reqUpdates.push([f, u]); return chain({}); }), updateOne: jest.fn(() => chain({})) };
+    const connection = { startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }) };
+    const svc = new SupplyInvoiceService(connection as never, model as never, requests as never, {} as never, { record: jest.fn() } as never, {} as never);
+    jest.spyOn(svc, 'get').mockImplementation(async (id: string) => ({ id }) as never);
+    return { svc, inv, reqUpdates, invUpdates };
+  };
+  const req = (o: Record<string, unknown> = {}) => ({ _id: new Types.ObjectId(), num: 5, title: 'Болт', status: 'in_progress', supplierId: sup, qty: 2, unit: 'шт', priceHint: 40, ...o });
+
+  it('в оплаченный: строки оплачены, сумма растёт', async () => {
+    const r = req(); const { svc, inv, reqUpdates, invUpdates } = mk('paid', [r]);
+    await svc.addRequests(String(inv._id), [String(r._id)]);
+    expect((reqUpdates[0][1] as { $set: Record<string, unknown> }).$set).toMatchObject({ invoiceId: inv._id, status: 'ordered', paid: true });
+    expect((invUpdates[0][1] as { $set: { amount: number } }).$set.amount).toBe(140);
+  });
+  it('уже в другом счёте / другой поставщик — 400', async () => {
+    const a = req({ invoiceId: new Types.ObjectId() });
+    await expect(mk('issued', [a]).svc.addRequests('64b000000000000000000001', [String(a._id)])).rejects.toBeInstanceOf(BadRequestException);
+    const b = req({ supplierId: new Types.ObjectId() });
+    await expect(mk('issued', [b]).svc.addRequests('64b000000000000000000001', [String(b._id)])).rejects.toBeInstanceOf(BadRequestException);
+  });
+});

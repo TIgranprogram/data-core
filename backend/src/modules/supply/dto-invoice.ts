@@ -6,6 +6,11 @@ export class CreateInvoicesDto {
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds!: string[];
 }
 
+export class AddInvoiceRequestsDto {
+  @ApiPropertyOptional({ description: 'Заявки, которые добавляем в этот счёт (id)', type: [String] })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds!: string[];
+}
+
 export class ReceiveInvoiceDto {
   @ApiPropertyOptional({ description: 'Какие заявки счёта принять (id); по умолчанию — все неполученные', type: [String] })
   @IsOptional() @IsArray() @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds?: string[];

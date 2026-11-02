@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money } from '../core/format.js';
 import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
-import { enhanceSelect, empty, badge as kitBadge } from '../ui/kit/index.js';
+import { enhanceSelect, empty, modal, badge as kitBadge } from '../ui/kit/index.js';
 
 const PARTIAL_TEXT = 'Часть строк скрыта (другой склад)';
 import { toast, toastError } from '../ui/toast.js';
@@ -125,6 +125,26 @@ export function mountInvoicesTab(params = {}) {
     return box;
   }
 
+  /** Окно «Добавить позиции»: заявки без счёта (В заказ / В работе / Оплачено) этого поставщика; true — добавлено. */
+  async function addPositions(inv) {
+    const r = await api('/supply/requests', { query: { status: 'requested,in_progress,paid', ...(inv.supplierId ? { supplierId: String(inv.supplierId) } : {}), limit: 200 } });
+    const rows = (r.items || []).filter((x) => !x.invoiceId);
+    if (!rows.length) { toast('Нет подходящих позиций: нужны заявки «В заказ», «В работе» или «Оплачено» без счёта' + (inv.supplierName ? ` у «${inv.supplierName}»` : '')); return false; }
+    const cbs = rows.map((x) => ({ x, cb: h('input', { type: 'checkbox' }) }));
+    const body = h('div', null,
+      h('p', { class: 'muted' }, 'Отметьте позиции — они войдут в этот счёт' + (inv.status === 'paid' ? ' и будут считаться оплаченными.' : '.')),
+      h('ul', { class: 'q-list' }, ...cbs.map(({ x, cb }) => h('li', { class: 'q-row' }, cb,
+        h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, (x.num ? `№${x.num} · ` : '') + (x.title || '—')), h('div', { class: 'q-sub' }, `${x.qty ?? ''} ${x.unit || ''}`.trim())),
+        h('div', { class: 'q-side' }, Number(x.priceHint) > 0 ? h('span', { class: 'num' }, money(x.priceHint)) : null, badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status))))));
+    return !!(await modal({ title: 'Добавить позиции в счёт', okText: 'Добавить', wide: true, body, onOk: async () => {
+      const ids = cbs.filter(({ cb }) => cb.checked).map(({ x }) => x.id);
+      if (!ids.length) throw new Error('Отметьте хотя бы одну позицию');
+      await api(`/supply/invoices/${inv.id}/requests`, { method: 'POST', body: { requestIds: ids } });
+      toast(`Добавлено позиций: ${ids.length}`);
+      return true;
+    } }));
+  }
+
   /** Раскрытая часть: позиции, файлы, цепочка, кнопки. */
   function detailEl(inv, refresh, collapse) {
     const reqs = inv.requests || [];
@@ -176,6 +196,10 @@ export function mountInvoicesTab(params = {}) {
     }
     if (canAct && session.canMoney && (inv.status === 'draft' || inv.status === 'issued')) {
       const b = h('button', { class: 'btn', type: 'button', onclick: () => run(b, async () => { await api(`/supply/invoices/${inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен'); await after(); }) }, 'Счёт оплачен');
+      actions.push(b);
+    }
+    if (canAct) {
+      const b = h('button', { class: 'btn', type: 'button', onclick: () => run(b, async () => { if (await addPositions(inv)) await after(); }) }, 'Добавить позиции');
       actions.push(b);
     }
     if (checks.size) {

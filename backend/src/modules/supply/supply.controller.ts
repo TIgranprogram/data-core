@@ -14,7 +14,7 @@ import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
-import { CreateInvoicesDto, PatchInvoiceDto, ReceiveInvoiceDto } from './dto-invoice';
+import { AddInvoiceRequestsDto, CreateInvoicesDto, PatchInvoiceDto, ReceiveInvoiceDto } from './dto-invoice';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
@@ -69,6 +69,17 @@ export class SupplyController {
   async updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
     return this.invoices.update(id, dto, user?.id);
+  }
+
+  /** Добавить заявки в готовый счёт (группа по одному счёту). */
+  @Post('invoices/:id/requests')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.requests_added', entityType: 'SupplyInvoice', idParam: 'id' })
+  async addInvoiceRequests(@Param('id') id: string, @Body() dto: AddInvoiceRequestsDto, @StockScoped() scope: StockScope | null) {
+    await this.invoices.assertWhole(id, scope);
+    await this.invoices.assertRequests(dto.requestIds, scope);
+    return this.invoices.addRequests(id, dto.requestIds);
   }
 
   /** Принять счёт на склад: все неполученные заявки (или отмеченные). */

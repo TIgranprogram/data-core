@@ -319,6 +319,37 @@ export class SupplyInvoiceService {
     return warnings.length ? { ...(await this.get(id)), warnings } : this.get(id);
   }
 
+  /** Добавить заявки в готовый счёт (любой статус, кроме отменённого): без счёта, «В заказ» / «В работе» / «Оплачено»; поставщик — как у счёта. Сумма счёта растёт на цену строк. */
+  async addRequests(id: string, requestIds: string[]) {
+    const inv = await this.load(id);
+    if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+    const ids = [...new Set(requestIds)].map((i) => oid(i, 'заявки'));
+    const docs = await this.requests.find({ _id: { $in: ids }, deletedAt: null }).lean().exec() as Lean[];
+    if (docs.length !== ids.length) throw new NotFoundException('Часть заявок не найдена — обновите список');
+    for (const d of docs) {
+      const label = `Заявка №${d.num ?? '—'} «${d.title ?? ''}»`;
+      if (d.invoiceId) throw new BadRequestException(`${label} уже входит в счёт`);
+      const open = ['requested', 'in_progress'].includes(String(d.status ?? 'requested'));
+      if (!open && !(d.status === 'ordered' && d.paid)) throw new BadRequestException(`${label}: добавить можно заявку «В заказ», «В работе» или «Оплачено»`);
+      if (inv.supplierId && d.supplierId && String(d.supplierId) !== String(inv.supplierId)) throw new BadRequestException(`${label}: другой поставщик, чем у счёта`);
+      if (open) {
+        const lack = missing(ORDERED_GATE, { ...d, supplierId: d.supplierId ?? inv.supplierId });
+        if (lack.length) throw new BadRequestException(`${label}: не заполнено — ${lack.join(', ')}`);
+      }
+    }
+    const paid = inv.status === 'paid';
+    const added = docs.reduce((t, d) => t + (Number(d.priceHint) || 0), 0);
+    const amount = added > 0 ? Math.round(((Number(inv.amount) || 0) + added) * 100) / 100 : inv.amount;
+    await this.tx(async (session) => {
+      await this.requests.updateMany({ _id: { $in: ids }, deletedAt: null, invoiceId: null },
+        { $set: { invoiceId: inv._id, status: 'ordered', editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}), ...(paid ? { paid: true, paidAt: inv.paidAt } : {}) } }, { session }).exec();
+      if (amount !== inv.amount) await this.model.updateOne({ _id: inv._id }, { $set: { amount } }, { session }).exec();
+      if (inv.status === 'issued' || paid) await this.copyToRequests({ ...inv, amount }, session);
+      if (paid) await this.recordPrices({ ...inv, amount }, 'invoice_paid', session, ids);
+    });
+    return this.get(id);
+  }
+
   /** Склейка дубля: заявки текущего счёта → найденный (сумма складывается, файлы объединяются), текущий удаляется с mergedInto. */
   private async mergeInto(dup: Lean, inv: Lean, set: Lean, dto: PatchInvoiceDto, actorId: string | undefined, warnings: string[]) {
     const mine = { ...inv, ...set };
