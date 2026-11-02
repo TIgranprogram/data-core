@@ -98,6 +98,12 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
   [/^No file uploaded/i, () => 'Файл не загружен — выберите файл.'],
   [/E11000 duplicate key/i, () => 'Такая запись уже есть (повтор уникального значения).'],
   [/^Google: (.+)$/i, (m) => `Ошибка Google: ${m[1]}`],
+  [/^Required role: (.+), got: (.+)$/i, (m) => {
+    const ru: Record<string, string> = { admin: 'администратор', director: 'директор', accountant: 'бухгалтер', manager: 'менеджер', user: 'наблюдатель' };
+    const need = m[1].split(/\s*\|\s*/).map((r) => ru[r] || r).join(', ');
+    const got = m[2] === 'none' ? 'роль не назначена' : (ru[m[2]] || m[2]);
+    return `Нет доступа. Нужны права: ${need}. У вас — ${got}.`;
+  }],
 ];
 
 /** Подписи полей в сообщениях проверки. */

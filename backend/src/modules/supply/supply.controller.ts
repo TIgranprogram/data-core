@@ -358,7 +358,7 @@ export class SupplyController {
   @AppSection('requests', 'stock')
   @Post('requests/:id/receive')
   @HttpCode(200)
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'user')
   @AuditAction({ action: 'supply.request.received', entityType: 'SupplyRequest', idParam: 'id' })
   async receive(@Param('id') id: string, @Body() dto: SupplyReceiveDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.supply.assertRequest(id, scope);

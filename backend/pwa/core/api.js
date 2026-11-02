@@ -139,9 +139,10 @@ async function errorOf(res) {
   // ЧН: сбой сервера — с кодом, по которому его найдут в журнале; ввод остаётся в форме
   // ОШ2.4: сервер записал сбой в журнал под этим кодом — человеку «мы знаем», а не «сообщите»
   const crash = errorId ? `Сбой на сервере (код ${errorId}) — мы уже знаем, попробуйте ещё раз. Введённое не потеряно.` : '';
-  // SK-8d: раздел снят с роли — сервер отвечает 403 «Раздел «…» для вашей роли закрыт»: показать его текст, не общий
+  // 400/403/409/422 по-русски — как сказал сервер (нет доступа, чужой склад, раздел закрыт)
   const closed = res.status === 403 && russian && /раздел/i.test(msg) && /закрыт/i.test(msg);
-  const err = ([400, 409, 422].includes(res.status) && russian) || closed ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || (russian ? msg : HUMAN[500]), res.status);
+  const fromServer = russian && [400, 403, 409, 422].includes(res.status);
+  const err = fromServer ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || HUMAN[500], res.status);
   if (closed) err.sectionClosed = true;
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
   if (data?.code === 'READ_ONLY') err.readOnly = true; // SW-6: идёт переключение сервера, запись на паузе

@@ -8,6 +8,9 @@ describe('Ошибки API по-русски (замечание пользов�
     expect(translateMessage('ThrottlerException: Too Many Requests')).toMatch(/Подождите минуту/);
     expect(translateMessage('Unsupported mimetype: image/heic')).toMatch(/image\/heic/);
     expect(translateMessage('E11000 duplicate key error collection: x')).toMatch(/уже есть/);
+    expect(translateMessage('Required role: admin | manager, got: user')).toBe(
+      'Нет доступа. Нужны права: администратор, менеджер. У вас — наблюдатель.',
+    );
   });
 
   it('проверки полей: «поле: текст», русское имя поля — в самом конце', () => {

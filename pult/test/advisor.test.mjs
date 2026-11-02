@@ -47,9 +47,21 @@ test('готовый код — совет выложить', () => {
   assert.ok(!find(plan({ undeployed: 1, ahead: 1 }, allFresh), 'deploy-release'));
 });
 
-test('упавшая выкладка — срочно', () => {
+test('упавшая выкладка — срочно, если код ещё не на сайте', () => {
   const runs = { ...allFresh, 'deploy-release': { at: NOW - 1000, code: 1, last: 'ВОРОТА: СТОП' } };
-  assert.equal(find(plan({}, runs), 'deploy-release').level, 'urgent');
+  assert.equal(find(plan({ undeployed: 2, version: 'abc' }, runs), 'deploy-release').level, 'urgent');
+  assert.ok(!find(plan({ undeployed: 0, version: 'abc' }, runs), 'deploy-release'), 'сайт уже свежий — не тревожить');
+});
+
+test('поручение выложить уходит само, когда код уже на сайте', () => {
+  const todo = [
+    { id: 'deploy-admin-audit', added: '2026-10-31T19:10:00', title: 'Выложить', why: 'w', cmd: 'deploy-release' },
+    { id: 'next', added: '2026-11-01', after: 'deploy-admin-audit', title: 'Склады', why: 'w', cmd: 'script-plan', params: { script: 'stockzones-init' } },
+  ];
+  const you = (s) => advise({ ...calm, ...s }, allFresh, COMMANDS, NOW, todo).items.filter((x) => x.level === 'you');
+  assert.deepEqual(you({ undeployed: 3, version: 'old' }).map((x) => x.todo), ['deploy-admin-audit']);
+  assert.deepEqual(you({ undeployed: 0, version: 'bc9f98fe' }).map((x) => x.todo), ['next']);
+  assert.deepEqual(you({ undeployed: 0 }).map((x) => x.todo), ['deploy-admin-audit'], 'без version.json не закрывать');
 });
 
 test('после выкладки: сначала ждём час, затем проверка, и нужен осмотр', () => {

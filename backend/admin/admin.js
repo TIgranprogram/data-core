@@ -865,7 +865,6 @@
   const BASE_RANK = { user: 0, manager: 1, accountant: 2, director: 3, admin: 4 };
   const ROLE_RULES = [
     { sec: 'stock-mobile', kind: 'zone', text: 'отметьте хотя бы один склад' },
-    { sec: 'stock-mobile', kind: 'base', min: 'manager', text: 'права не ниже менеджера: наблюдатель только смотрит, принять и выдать не сможет' },
     { sec: 'stock', kind: 'base', min: 'manager', soft: true, text: 'Только просмотр. Чтобы принимать и выдавать — права как у менеджера' },
     { sec: 'orders', kind: 'money', text: 'галочка «Деньги»' },
     { sec: 'money', kind: 'money', text: 'галочка «Деньги»' },

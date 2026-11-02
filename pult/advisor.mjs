@@ -17,11 +17,17 @@ const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateStrin
 /** Ключ запуска: команда, а с полями (например, скрипт) — «команда?значения». */
 export const runKey = (cmd, params) => (params && Object.keys(params).length ? `${cmd}?${Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('&')}` : cmd);
 
-/** Поручение выполнено: отмечено кнопкой «Сделано» или его команда (с его полями) прошла после постановки. */
-export function todoDone(t, runs) {
+/** На сайте уже этот код: версия известна и коммитов кода после неё нет. */
+export const siteHasCurrentCode = (s) => !!(s?.version && s.undeployed === 0);
+
+/** Поручение выполнено: «Сделано», команда прошла после постановки, либо выкладка уже на сайте. */
+export function todoDone(t, runs, s = {}) {
   if (runs[`todo:${t.id}`]) return true;
   const r = t.cmd && runs[runKey(t.cmd, t.params)];
-  return !!r && r.code === 0 && r.at >= Date.parse(t.added);
+  if (r && r.code === 0 && r.at >= Date.parse(t.added)) return true;
+  // выкладка с другого ПК / из пульта не записалась — смотрим version.json, а не runs.json
+  if (t.cmd === 'deploy-release' && siteHasCurrentCode(s)) return true;
+  return false;
 }
 
 /** s — состояние из readStatus, runs — { id команды: { at, code, last, bad, commit } }, todo — поручения. */
@@ -34,10 +40,10 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
   const doctor = runs['prod-doctor'];
   if (doctor?.bad?.length) add('urgent', 'prod-doctor', `Прошлый осмотр нашёл: ${cut(doctor.bad[0], 130)} Передайте это Claude, затем повторите осмотр.`);
   const release = runs['deploy-release'];
-  if (release && release.code !== 0) add('urgent', 'deploy-release', `Выкладка не прошла: ${cut(release.last || 'причина в журнале', 130)}`);
+  if (release && release.code !== 0 && !siteHasCurrentCode(s)) add('urgent', 'deploy-release', `Выкладка не прошла: ${cut(release.last || 'причина в журнале', 130)}`);
   if (s.route === null) add('urgent', 'setup-work', 'На этом ПК нет ключа входа на сервер. Кнопки сервера не работают.');
 
-  const open = todo.filter((t) => !todoDone(t, runs));
+  const open = todo.filter((t) => !todoDone(t, runs, s));
   for (const t of open) {
     if (t.after && open.some((x) => x.id === t.after)) continue; // сначала предыдущий шаг
     // next — сколько шагов цепочки (after) ждут за этим пунктом: для кнопки «Выполнить все по очереди»

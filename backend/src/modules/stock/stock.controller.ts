@@ -17,7 +17,8 @@ import { StockService } from './stock.service';
 
 /**
  * Склад на общих коллекциях CRM (materials + storageitems + stockmovements + reservations).
- * Роли — как в CRM kppdf: читать могут все, менять — admin и manager.
+ * Роли — как в CRM kppdf: читать могут все, карточку и справочник меняют admin и manager.
+ * Выдача, приход и пересчёт пакетом (`POST /stock/batch`) — также наблюдатель (`user`): кладовщик на телефоне.
  */
 @ApiTags('Склад')
 @AppSection('stock')
@@ -262,9 +263,9 @@ export class StockController {
     return this.stock.specApply(dto, user?.id, scope);
   }
 
-  /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). */
+  /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). Кладовщик на телефоне — роль user. */
   @Post('batch')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'user')
   @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
   @AuditAction({ action: 'stock.batch', entityType: 'StockMovement' })
   async batch(@Body() dto: StockBatchDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {

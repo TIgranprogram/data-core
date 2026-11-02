@@ -57,8 +57,8 @@ describe('RolesGuard — иерархия и 403', () => {
     );
   });
 
-  it('без пользователя -> 403 с "got: none"', () => {
-    expect(() => guard(['admin']).canActivate(ctx(undefined))).toThrow(/got: none/);
+  it('без пользователя -> 403 «роль не назначена»', () => {
+    expect(() => guard(['admin']).canActivate(ctx(undefined))).toThrow(/роль не назначена/);
   });
 
   it('пользователь без роли -> 403', () => {
@@ -71,9 +71,9 @@ describe('RolesGuard — иерархия и 403', () => {
     );
   });
 
-  it('сообщение 403 перечисляет требуемые роли и фактическую', () => {
+  it('сообщение 403 перечисляет требуемые роли и фактическую по-русски', () => {
     expect(() => guard(['admin', 'manager']).canActivate(ctx({ role: 'user' }))).toThrow(
-      'Required role: admin | manager, got: user',
+      'Нет доступа. Нужны права: администратор, менеджер. У вас — наблюдатель.',
     );
   });
 
