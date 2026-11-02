@@ -4,6 +4,7 @@
 // Результат: tools/logs/audit/<дата>/REPORT.md, summary.json, снимки <экран>[-card|-new]-<ширина>.png.
 // Только чтение: ничего не сохраняет в базе стенда. Код выхода: 0 нет находок · 1 есть · 2 сбой.
 import { spawn, spawnSync } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -87,7 +88,15 @@ function readLogin() {
   const fromFile = fs.existsSync(f)
     ? Object.fromEntries(fs.readFileSync(f, 'utf8').split(/\r?\n/).map((l) => l.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/)).filter(Boolean).map((m) => [m[1], m[2].replace(/^["']|["']$/g, '')]))
     : {};
-  return { login: process.env.STAND_LOGIN || fromFile.STAND_LOGIN, password: process.env.STAND_PASSWORD || fromFile.STAND_PASSWORD };
+  const creds = { login: process.env.STAND_LOGIN || fromFile.STAND_LOGIN, password: process.env.STAND_PASSWORD || fromFile.STAND_PASSWORD };
+  // Нет входа — создать сам: логин stand-test и случайный пароль; пользователя стенда заведёт main() (stand-test-user.js), файл читают и обход, и сценарии
+  if (!creds.login || !creds.password) {
+    creds.login = 'stand-test';
+    creds.password = crypto.randomBytes(18).toString('base64url');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, `STAND_LOGIN=${creds.login}\nSTAND_PASSWORD=${creds.password}\n`);
+  }
+  return creds;
 }
 
 async function apiLogin(login, password) {
