@@ -56,9 +56,9 @@ export class StockSearchService {
     // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
     const make = () => this.itemRows(q, p.deleted, tokens);
     const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : [])]);
-    // Выборка по id (карточка позиции, ответ после записи) — без кэша: версия коллекции растёт по потоку изменений
+    // Выборка по id (карточка позиции, ответ после записи, ids признаков — в т. ч. пустой список → 0 строк) — без кэша: версия коллекции растёт по потоку изменений
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
-    const { wh, rows: found } = this.versions && !q.materialIds?.length ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
+    const { wh, rows: found } = this.versions && !q.materialIds ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     // склады (WZ): чужие позиции отсекаются здесь, после общего кэша строк; нулевой металл роль со складом видит (своя работа)
     const seen = scope ? found.filter((r) => inScope(scope, r)) : found;
     const all = q.hideEmptyMetal ? seen.filter((r) => !isEmptyMetal(r)) : seen;

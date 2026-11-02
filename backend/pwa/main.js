@@ -127,7 +127,7 @@ const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supp
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
 /** Куда ведёт группа в крошках: первый раздел по цепочке. */
 const GROUP_FIRST = { 'Производство': 'salesorders', 'Продукция': 'products', 'Склад': 'stock', 'Снабжение': 'requests', 'Деньги': 'money', 'Управление': 'staff' };
-const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', products: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
+const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', products: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', 'stock-mobile': 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -138,7 +138,7 @@ const root = $('#root');
 const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
 const isSheetRole = () => session.user?.roleLabel === 'Лазер лист';
 /** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
-const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'movements', 'help']);
+const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help']);
 const isStockRole = () => isPipeRole() || isSheetRole();
 
 function showLogin(message) {
@@ -232,7 +232,7 @@ function shell() {
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     group('Производство', navLinks.salesorders, navLinks.matching, navLinks.design, navLinks.work), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
-    group('Склад', navLinks.stock),
+    group('Склад', navLinks.stock, navLinks['stock-mobile']), // «Склад (телефон)» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),

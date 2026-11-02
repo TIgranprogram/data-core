@@ -40,7 +40,8 @@ export const session = {
     if (id === 'staff') return this.role === 'admin' || this.role === 'director' || this.user?.isOwner === true; // «Управление → Сотрудники»: только руководство
     const u = this.user, s = u?.sections;
     // «Документация» (docs) видна и ролям со старой галочкой «паспорта» — миграция ролей не нужна
-    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports'));
+    // «Склад (телефон)» — тот же склад: открыт всем, у кого отмечен «Склад» (пользователь 2026-11-02)
+    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports')) || (id === 'stock-mobile' && s.includes('stock'));
   },
   /** Роль «Ассистент кладовщика»: отмечен только раздел «Склад (телефон)» — меню и шапка скрыты, сразу эта страница. */
   get onlyStockMobile() { const s = this.user?.sections; return this.role !== 'admin' && Array.isArray(s) && s.length === 1 && s[0] === 'stock-mobile'; },
