@@ -1,0 +1,9 @@
+project_path: "D:/data-core"
+exclude: ["tests_ai_tiit/", "pult/"]
+code_command: "git pull"
+db_host: "localhost"
+db_port: 27017
+db_name: "datacore"
+files_path: "D:/data-core/backend/uploads"
+backup_path_vm: "/var/lib/datacore/backups"
+backup_path_pc: "D:/datacore-backups"

@@ -1,0 +1,5 @@
+name: demo
+command: ["python", "suites/demo/run_all.py"]
+timeout_sec: 30
+priority: 1
+depends_on: []

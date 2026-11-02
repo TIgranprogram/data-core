@@ -1,0 +1,22 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "globals": {
+    "ts-jest": {
+      "tsconfig": {
+        "esModuleInterop": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
+      }
+    }
+  },
+  "setupFiles": ["/app/test/setup/jest-e2e-env.ts"],
+  "collectCoverageFrom": ["src/modules/**/services/*.ts"],
+  "coverageDirectory": "./coverage-e2e",
+  "testTimeout": 60000
+}

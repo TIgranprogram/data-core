@@ -1,0 +1,6 @@
+name: regression
+command: ["python", "suites/regression/run.py"]
+timeout_sec: 120
+priority: 2
+depends_on: []
+needs_stand: true

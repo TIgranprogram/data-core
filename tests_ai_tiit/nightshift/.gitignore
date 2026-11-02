@@ -1,0 +1,13 @@
+.env.stand
+stand/.env.stand
+data/
+logs/
+reports/
+handoff/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.bak
+*.egg-info/
+build/

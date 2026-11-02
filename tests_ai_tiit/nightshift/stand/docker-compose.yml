@@ -1,0 +1,49 @@
+version: "3.8"
+services:
+  mongo:
+    image: mongo:4.4
+    container_name: nightshift-mongo
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - nightshift_mongo_data:/data/db
+    networks:
+      - nightshift_net
+  mongo-init:
+    image: mongo:4.4
+    container_name: nightshift-mongo-init
+    depends_on:
+      - mongo
+    entrypoint: >
+      bash -c "sleep 5; mongo --host mongo:27017 --eval 'rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongo:27017\"}]})' || true"
+    networks:
+      - nightshift_net
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: nightshift-mailpit
+    networks:
+      - nightshift_net
+  app:
+    image: nightshift-app:latest
+    container_name: nightshift-app
+    env_file:
+      - .env.stand
+    volumes:
+      - ../../../backend/test:/app/test:ro
+      - ../../../backend/src:/app/src:ro
+      - ../../../backend/scripts:/app/scripts:ro
+      - ../../../backend/tsconfig.json:/app/tsconfig.json:ro
+      - ./jest-e2e-stand.json:/app/jest-e2e-stand.json:ro
+    depends_on:
+      - mongo
+      - mailpit
+    networks:
+      - nightshift_net
+
+networks:
+  nightshift_net:
+    name: nightshift_net
+    internal: true
+
+volumes:
+  nightshift_mongo_data:
+    name: nightshift_mongo_data

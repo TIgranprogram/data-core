@@ -1,0 +1,8 @@
+# Порядок наборов — ТЗ 4.5. Набор, которого ещё нет в suites/, пропускается и показывается в выводе команды (skipped).
+profiles:
+  night:
+    isolation_gate: true
+    suites: [static, regression, backup, load, stress, chaos, fuzz, mutation, soak, monkey, flaky]
+  quick:
+    isolation_gate: true
+    suites: [static, regression]

@@ -1,0 +1,5 @@
+name: static
+command: ["python", "-c", "print('static ok')"]
+timeout_sec: 60
+priority: 2
+depends_on: []
