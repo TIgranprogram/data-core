@@ -306,7 +306,7 @@ export class SupplyInvoiceService {
       for (const [k, v] of Object.entries(set)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
       if (status === 'issued') {
-        await this.copyToRequests({ ...next, status }, session);
+        // цены строк не перераспределяются — только запись истории цен
         await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       } else if (set.supplierId) {
         await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { supplierId: set.supplierId, editedInApp: true } }, { session }).exec();
@@ -375,10 +375,10 @@ export class SupplyInvoiceService {
       await this.model.updateOne({ _id: dup._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
       await this.model.updateOne({ _id: inv._id }, { $set: { deletedAt: new Date(), mergedInto: dup._id } }, { session }).exec();
       if (dupPaid) {
-        await this.copyToRequests({ ...next, status }, session);
+        await this.copyMetaToRequests({ ...next, status }, session, []);
         await this.recordPrices({ ...next, status }, 'invoice_paid', session, moved);
       } else if (status === 'issued') {
-        await this.copyToRequests({ ...next, status }, session);
+        await this.copyMetaToRequests({ ...next, status }, session, []);
         if (dup.status !== 'issued') await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       }
     });
@@ -407,7 +407,7 @@ export class SupplyInvoiceService {
       await this.tx(async (session) => {
         await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
         // сумма / № / дата → в строки счёта (сумма делится по строкам)
-        if (['amount', 'no', 'date'].some((k) => k in $set || k in $unset)) await this.copyToRequests({ ...inv, ...$set }, session);
+        if (['no', 'date'].some((k) => k in $set || k in $unset)) await this.copyMetaToRequests({ ...inv, ...$set }, session, []);
       });
     }
     return this.get(String(inv._id));
