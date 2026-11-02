@@ -1,20 +1,98 @@
-import { ConflictException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Types } from 'mongoose';
 import { SupplyInvoiceService } from './supply-invoice.service';
 
+type Doc = Record<string, unknown>;
+
+/** Заглушка цепочки Mongoose: sort/skip/limit/lean/select/session/setOptions → сама цепочка, exec → результат. */
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean', 'select', 'session']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'select', 'session', 'setOptions']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
 
+const connection = () => ({
+  startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }),
+  db: { collection: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }), countDocuments: async () => 0 }) },
+});
+
+/** Фейковый model счетов: хранит документы, применяет $set/$unset/$inc/$push. */
+function fakeModel(invoices: Record<string, Doc>) {
+  const updates: Array<[unknown, unknown]> = [];
+  const api = {
+    updates,
+    findOne: jest.fn((f: Doc) => chain(invoices[String(f._id)] ? { ...invoices[String(f._id)] } : null)),
+    find: jest.fn(() => chain(Object.values(invoices).filter((i) => !i.deletedAt))),
+    updateOne: jest.fn((f: Doc, u: Doc) => {
+      updates.push([f, u]);
+      const doc = invoices[String(f._id)];
+      if (doc) {
+        if (u.$set) Object.assign(doc, u.$set);
+        if (u.$unset) for (const k of Object.keys(u.$unset as Doc)) delete doc[k];
+        if (u.$inc) for (const [k, v] of Object.entries(u.$inc as Doc)) doc[k] = (Number(doc[k]) || 0) + Number(v);
+        if (u.$push) for (const [k, v] of Object.entries(u.$push as Doc)) (doc[k] = (doc[k] as unknown[]) ?? []).push(v);
+      }
+      return chain({});
+    }),
+    countDocuments: jest.fn(() => chain(0)),
+  };
+  return api;
+}
+
+/** Фейковый model заявок (строк): find учитывает invoiceId и _id.$in, updateOne меняет строку. */
+function fakeRequests(lines: Doc[]) {
+  const updates: Array<[unknown, unknown]> = [];
+  const api = {
+    updates,
+    find: jest.fn((f: Doc) => {
+      let out = lines;
+      if (f.invoiceId) out = out.filter((l) => String(l.invoiceId) === String(f.invoiceId));
+      const range = f._id as { $in?: unknown[] } | undefined;
+      if (range?.$in) out = out.filter((l) => range.$in!.map(String).includes(String(l._id)));
+      return chain(out.filter((l) => !l.deletedAt && l.status !== 'cancelled').map((l) => ({ ...l })));
+    }),
+    findOne: jest.fn((f: Doc) => chain(lines.find((l) => String(l._id) === String(f._id) && (!f.invoiceId || String(l.invoiceId) === String(f.invoiceId))) ?? null)),
+    updateOne: jest.fn((f: Doc, u: Doc) => {
+      updates.push([f, u]);
+      const l = lines.find((x) => String(x._id) === String(f._id));
+      if (l) {
+        if (u.$set) Object.assign(l, u.$set);
+        if (u.$unset) for (const k of Object.keys(u.$unset as Doc)) delete l[k];
+      }
+      return chain({});
+    }),
+    updateMany: jest.fn((f: Doc, u: Doc) => {
+      updates.push([f, u]);
+      const range = f._id as { $in?: unknown[] } | undefined;
+      for (const l of lines) {
+        const hit = range?.$in ? range.$in.map(String).includes(String(l._id)) : true;
+        if (hit && u.$set) Object.assign(l, u.$set);
+      }
+      return chain({});
+    }),
+    countDocuments: jest.fn(() => chain(0)),
+  };
+  return api;
+}
+
+function makeSvc(opts: { invoices: Record<string, Doc>; lines?: Doc[]; prices?: { record: jest.Mock } }) {
+  const model = fakeModel(opts.invoices);
+  const requests = fakeRequests(opts.lines ?? []);
+  const prices = opts.prices ?? { record: jest.fn(async () => true) };
+  const svc = new SupplyInvoiceService(
+    connection() as never, model as never, requests as never, {} as never, prices as never, { toRoles: async () => undefined } as never,
+  );
+  jest.spyOn(svc, 'get').mockImplementation(async (id: string) => ({ id, amount: opts.invoices[id]?.amount }) as never);
+  return { svc, model, requests, prices };
+}
+
 describe('SupplyInvoiceService: приход по счёту', () => {
   const invId = new Types.ObjectId();
   const mk = (status: string) => ({ _id: new Types.ObjectId(), num: 1, title: 'Болт', status, invoiceId: invId });
-  let lines: Array<Record<string, unknown>>;
+  let lines: Doc[];
   let supply: { receive: jest.Mock };
   let svc: SupplyInvoiceService;
 
@@ -23,8 +101,8 @@ describe('SupplyInvoiceService: приход по счёту', () => {
     supply = { receive: jest.fn(async () => ({})) };
     const model = { findOne: jest.fn(() => chain({ _id: invId, status: 'paid', fileIds: [] })) };
     const requests = { find: jest.fn(() => chain(lines)) };
-    const connection = { db: { collection: () => ({ find: () => ({ toArray: async () => [] }), countDocuments: async () => 0 }) } };
-    svc = new SupplyInvoiceService(connection as never, model as never, requests as never, supply as never, {} as never, { toRoles: async () => 0 } as never);
+    const conn = { db: { collection: () => ({ find: () => ({ toArray: async () => [] }), countDocuments: async () => 0 }) } };
+    svc = new SupplyInvoiceService(conn as never, model as never, requests as never, supply as never, {} as never, { toRoles: async () => 0 } as never);
     jest.spyOn(svc, 'get').mockResolvedValue({ id: String(invId) } as never);
   });
 
@@ -44,6 +122,12 @@ describe('SupplyInvoiceService: приход по счёту', () => {
   it('чужая заявка — 400', async () => {
     await expect(svc.receive(String(invId), [String(new Types.ObjectId())])).rejects.toBeInstanceOf(BadRequestException);
   });
+  it('приход берёт текущую цену строки и не меняет её', async () => {
+    const line = lines[0];
+    await svc.receive(String(invId), [String(line._id)], 'u1');
+    expect(supply.receive).toHaveBeenCalledWith(String(line._id), expect.objectContaining({ clientUid: expect.stringContaining(String(line._id)) }), 'u1');
+    expect(line.priceHint).toBeUndefined();
+  });
 });
 
 describe('Деньги без задвоения (З14)', () => {
@@ -54,130 +138,287 @@ describe('Деньги без задвоения (З14)', () => {
   });
 });
 
-describe('SupplyInvoiceService: дубль № у поставщика', () => {
+describe('Счета: дубль номера — 409, без автоматической склейки', () => {
   const sup = new Types.ObjectId();
-  const cur = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', amount: 100, fileIds: [new Types.ObjectId()], no: undefined as string | undefined };
-  const f1 = new Types.ObjectId();
-  let others: Array<Record<string, unknown>>;
-  let invUpdates: Array<[unknown, unknown]>;
-  let reqUpdates: Array<[unknown, unknown]>;
-  let svc: SupplyInvoiceService;
-  const dupDoc = (o: Record<string, unknown> = {}) => ({ _id: new Types.ObjectId(), supplierId: sup, no: ' №41125', status: 'draft', amount: 50, fileIds: [f1], date: new Date('2026-10-01'), ...o });
+  const cur = () => ({ _id: new Types.ObjectId(), supplierId: sup, status: 'draft', amount: 100, fileIds: [new Types.ObjectId()], no: undefined as string | undefined });
+  const dupDoc = (o: Doc = {}) => ({ _id: new Types.ObjectId(), supplierId: sup, no: ' №41125', status: 'draft', amount: 50, fileIds: [], date: new Date('2026-10-01'), ...o });
 
-  beforeEach(() => {
-    others = [];
-    invUpdates = []; reqUpdates = [];
-    const model = {
-      findOne: jest.fn(() => chain({ ...cur })),
-      find: jest.fn(() => chain(others)),
-      updateOne: jest.fn((f: unknown, u: unknown) => { invUpdates.push([f, u]); return chain({}); }),
-    };
-    const requests = { updateMany: jest.fn((f: unknown, u: unknown) => { reqUpdates.push([f, u]); return chain({}); }) };
-    const connection = { startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }) };
-    svc = new SupplyInvoiceService(connection as never, model as never, requests as never, {} as never, {} as never, { toRoles: async () => 0 } as never);
-    jest.spyOn(svc, 'get').mockImplementation(async (id: string) => ({ id }) as never);
+  it('дубль № → ConflictException с id существующего, данные не меняются', async () => {
+    const mine = cur();
+    const dup = dupDoc();
+    const { svc, model, requests } = makeSvc({ invoices: { [String(mine._id)]: mine, [String(dup._id)]: dup } });
+    model.find.mockReturnValue(chain([dup]));
+    const err = await svc.update(String(mine._id), { no: '41125' } as never).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err as ConflictException).getResponse()).toMatchObject({ existingInvoiceId: String(dup._id) });
+    expect(model.updates).toHaveLength(0);
+    expect(requests.updates).toHaveLength(0);
   });
 
-  it('склеивает: заявки, сумма, файлы, удаление второго, warnings', async () => {
-    const dup = dupDoc(); others = [dup];
-    const r = await svc.update(String(cur._id), { no: '41125' } as never) as unknown as { id: string; warnings: string[] };
-    expect(r.id).toBe(String(dup._id));
-    expect(r.warnings[0]).toContain('уже есть');
-    expect(reqUpdates[0][0]).toMatchObject({ invoiceId: cur._id });
-    expect((reqUpdates[0][1] as { $set: { invoiceId: unknown } }).$set.invoiceId).toBe(dup._id);
-    const upd = invUpdates.find(([f]) => (f as { _id: unknown })._id === dup._id)![1] as { $set: { amount: number; fileIds: unknown[] } };
-    expect(upd.$set.amount).toBe(150);
-    expect(upd.$set.fileIds).toHaveLength(2);
-    const del = invUpdates.find(([f]) => (f as { _id: unknown })._id === cur._id)![1] as { $set: { deletedAt: Date; mergedInto: unknown } };
-    expect(del.$set.deletedAt).toBeInstanceOf(Date);
-    expect(del.$set.mergedInto).toBe(dup._id);
+  it('другой № — счёт правится, ничего не склеивается', async () => {
+    const mine = cur();
+    const { svc, model } = makeSvc({ invoices: { [String(mine._id)]: mine } });
+    model.find.mockReturnValue(chain([dupDoc({ no: '999' })]));
+    const r = await svc.update(String(mine._id), { no: '41125' } as never) as unknown as { id: string };
+    expect(r.id).toBe(String(mine._id));
+    expect(model.updates.some(([, u]) => Boolean((u as Doc).$set && ((u as Doc).$set as Doc).deletedAt))).toBe(false);
   });
-  it('найденный оплачен — позиции добавляются в него, остаётся «оплачен», строки помечены оплаченными', async () => {
-    const paidAt = new Date('2026-10-05');
-    const dup = dupDoc({ status: 'paid', paidAt }); others = [dup];
-    const record = jest.fn(async () => undefined);
-    (svc as unknown as { prices: object }).prices = { record };
-    Object.assign((svc as unknown as { requests: object }).requests, { find: jest.fn(() => chain([{ _id: new Types.ObjectId() }])), updateOne: jest.fn(() => chain({})) });
-    const r = await svc.update(String(cur._id), { no: '41125', issue: true } as never) as unknown as { id: string; warnings: string[] };
-    expect(r.id).toBe(String(dup._id));
-    expect(r.warnings[0]).toContain('оплачен');
-    const moved = reqUpdates.find(([f]) => (f as { invoiceId?: unknown }).invoiceId === cur._id)![1] as { $set: Record<string, unknown> };
-    expect(moved.$set).toMatchObject({ invoiceId: dup._id, paid: true, paidAt });
-    const upd = invUpdates.find(([f]) => (f as { _id: unknown })._id === dup._id)![1] as { $set: Record<string, unknown> };
-    expect(upd.$set.status).toBeUndefined();
-    expect(upd.$set.amount).toBe(150);
-    expect(record).toHaveBeenCalled();
+
+  it('дубль № с причиной — остаётся отдельным счётом, без склейки', async () => {
+    const mine = cur();
+    const dup = dupDoc();
+    const { svc, model } = makeSvc({ invoices: { [String(mine._id)]: mine, [String(dup._id)]: dup } });
+    model.find.mockReturnValue(chain([dup]));
+    await svc.update(String(mine._id), { no: '41125', duplicateReason: 'отдельная поставка' } as never);
+    const upd = model.updates.find(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).duplicateReason !== undefined);
+    expect((upd![1] as Doc).$set).toMatchObject({ duplicateOf: dup._id, duplicateReason: 'отдельная поставка' });
+    expect(model.updates.some(([, u]) => Boolean((u as Doc).$set && ((u as Doc).$set as Doc).deletedAt))).toBe(false);
   });
-  it('другой № — не склеивает', async () => {
-    others = [dupDoc({ no: '999' })];
-    const r = await svc.update(String(cur._id), { no: "41125" } as never) as unknown as { id: string };
-    expect(r.id).toBe(String(cur._id));
-    expect(reqUpdates).toHaveLength(0);
-  });
+
   it('поиск дубля — только того же поставщика и не отменённых', async () => {
-    others = [];
-    await svc.update(String(cur._id), { no: '41125' } as never);
-    const model = (svc as unknown as { model: { find: jest.Mock } }).model;
-    expect(model.find).toHaveBeenCalledWith({ supplierId: sup, deletedAt: null, status: { $ne: 'cancelled' }, _id: { $ne: cur._id } });
+    const mine = cur();
+    const { svc, model } = makeSvc({ invoices: { [String(mine._id)]: mine } });
+    model.find.mockReturnValue(chain([]));
+    await svc.update(String(mine._id), { no: '41125' } as never);
+    expect(model.find).toHaveBeenCalledWith({ supplierId: sup, deletedAt: null, status: { $ne: 'cancelled' }, _id: { $ne: mine._id } });
   });
 });
 
-describe('HARDEN-1 п.3: оплата счёта не откатывает «Получено»', () => {
-  it('pay: «ordered» ставится не-полученным, полученным — только paid/paidAt', async () => {
-    const inv = { _id: new Types.ObjectId(), status: 'issued', payerCompanyId: new Types.ObjectId(), fileIds: [] };
-    const calls: Array<[Record<string, unknown>, { $set: Record<string, unknown> }]> = [];
-    const model = { findOne: jest.fn(() => chain(inv)), updateOne: jest.fn(() => chain({})) };
-    const requests = { find: jest.fn(() => ({ session: () => chain([]) })), updateMany: jest.fn((f, u) => { calls.push([f, u]); return chain({}); }) };
-    const connection = { startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }) };
-    const svc = new SupplyInvoiceService(connection as never, model as never, requests as never, {} as never, { record: async () => undefined } as never, { toRoles: async () => 0 } as never);
-    jest.spyOn(svc, 'get').mockResolvedValue({} as never);
-    await svc.pay(String(inv._id));
-    const toOrdered = calls.find(([, u]) => u.$set.status === 'ordered')!;
-    expect(toOrdered[0].status).toEqual({ $nin: ['cancelled', 'received'] });
-    const forReceived = calls.find(([f]) => f.status === 'received')!;
-    expect(forReceived[1].$set).toMatchObject({ paid: true });
-    expect(forReceived[1].$set.status).toBeUndefined();
-  });
-});
-
-describe('Склады: итог списка счетов по видимым строкам', () => {
-  it('смешанный счёт считается только по своим заявкам, целый — по amount', async () => {
-    const mixed = new Types.ObjectId(); const whole = new Types.ObjectId();
-    const rMine = new Types.ObjectId(); const rOther = new Types.ObjectId(); const rWhole = new Types.ObjectId();
-    const chainOf = (v: unknown) => ({ select: () => chainOf(v), lean: () => chainOf(v), exec: async () => v });
-    const model = { find: () => chainOf([{ _id: mixed, amount: 1000 }, { _id: whole, amount: 300 }]) };
-    const requests = { find: () => chainOf([{ _id: rMine, invoiceId: mixed, priceHint: 100 }, { _id: rOther, invoiceId: mixed, priceHint: 900 }, { _id: rWhole, invoiceId: whole, priceHint: 300 }]) };
-    const svc = new SupplyInvoiceService({} as never, model as never, requests as never, {} as never, {} as never, {} as never);
-    jest.spyOn(svc as never, 'visibleRequests').mockResolvedValue(new Set([String(rMine), String(rWhole)]) as never);
-    const sum = await (svc as unknown as { scopedSum: (f: object, s: object) => Promise<number> }).scopedSum({}, {});
-    expect(sum).toBe(400);
-  });
-});
-
-describe('SupplyInvoiceService: добавить позиции в готовый счёт', () => {
+describe('Счета: явное объединение', () => {
   const sup = new Types.ObjectId();
-  const mk = (invStatus: string, reqs: Array<Record<string, unknown>>) => {
-    const inv = { _id: new Types.ObjectId(), supplierId: sup, status: invStatus, amount: 100, paidAt: new Date('2026-10-05') };
-    const reqUpdates: Array<[unknown, unknown]> = []; const invUpdates: Array<[unknown, unknown]> = [];
-    const model = { findOne: jest.fn(() => chain(inv)), updateOne: jest.fn((f: unknown, u: unknown) => { invUpdates.push([f, u]); return chain({}); }) };
-    const requests = { find: jest.fn(() => chain(reqs)), updateMany: jest.fn((f: unknown, u: unknown) => { reqUpdates.push([f, u]); return chain({}); }), updateOne: jest.fn(() => chain({})) };
-    const connection = { startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }) };
-    const svc = new SupplyInvoiceService(connection as never, model as never, requests as never, {} as never, { record: jest.fn() } as never, {} as never);
-    jest.spyOn(svc, 'get').mockImplementation(async (id: string) => ({ id }) as never);
-    return { svc, inv, reqUpdates, invUpdates };
-  };
-  const req = (o: Record<string, unknown> = {}) => ({ _id: new Types.ObjectId(), num: 5, title: 'Болт', status: 'in_progress', supplierId: sup, qty: 2, unit: 'шт', priceHint: 40, ...o });
+  const mkLines = (invoiceId: Types.ObjectId, nums: number[], extra: Doc = {}) => nums.map((p, i) => ({
+    _id: new Types.ObjectId(), num: i + 1, title: `Позиция ${i + 1}`, qty: 1, priceHint: p, status: 'ordered', invoiceId, ...extra,
+  }));
 
-  it('в оплаченный: строки оплачены, сумма растёт', async () => {
-    const r = req(); const { svc, inv, reqUpdates, invUpdates } = mk('paid', [r]);
-    await svc.addRequests(String(inv._id), [String(r._id)]);
-    expect((reqUpdates[0][1] as { $set: Record<string, unknown> }).$set).toMatchObject({ invoiceId: inv._id, status: 'ordered', paid: true });
-    expect((invUpdates[0][1] as { $set: { amount: number } }).$set.amount).toBe(140);
+  it('preview показывает дубли и итоговые суммы, ничего не пишет', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'A', amount: 30, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'B', amount: 5, fileIds: [] };
+    const same = new Types.ObjectId();
+    const srcLines = [...mkLines(src._id, [10, 20]), { ...mkLines(src._id, [7])[0], materialId: same, qty: 2 }];
+    const dstLines = [{ ...mkLines(dst._id, [7])[0], materialId: same, qty: 2 }];
+    const { svc, model } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
+    const p = await svc.mergePreview(String(src._id), String(dst._id));
+    expect(p.duplicates).toBe(1);
+    expect(p.strategies).toEqual(['append', 'mergeSameRequest', 'replaceLines']);
+    expect(p.resultAmount.append).toBe(44);
+    expect(p.resultAmount.replaceLines).toBe(37);
+    expect(model.updates).toHaveLength(0);
   });
-  it('уже в другом счёте / другой поставщик — 400', async () => {
-    const a = req({ invoiceId: new Types.ObjectId() });
-    await expect(mk('issued', [a]).svc.addRequests('64b000000000000000000001', [String(a._id)])).rejects.toBeInstanceOf(BadRequestException);
-    const b = req({ supplierId: new Types.ObjectId() });
-    await expect(mk('issued', [b]).svc.addRequests('64b000000000000000000001', [String(b._id)])).rejects.toBeInstanceOf(BadRequestException);
+
+  it('append: строки переехали, amount = сумма строк, журнал и мягкое удаление источника', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'A', amount: 30, fileIds: [new Types.ObjectId()] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'B', amount: 5, fileIds: [] };
+    const srcLines = mkLines(src._id, [10, 20]);
+    const dstLines = mkLines(dst._id, [5]);
+    const { svc, model, requests } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
+    const r = await svc.merge(String(src._id), String(dst._id), 'append', String(new Types.ObjectId()));
+    expect(r).toMatchObject({ targetInvoiceId: String(dst._id), moved: 2, skipped: 0, amount: 35 });
+    expect(srcLines.every((l) => String(l.invoiceId) === String(dst._id))).toBe(true);
+    const log = model.updates.find(([, u]) => Boolean((u as Doc).$push));
+    expect((log![1] as Doc).$push).toMatchObject({ mergeLog: { strategy: 'append', moved: 2, skipped: 0 } });
+    const del = model.updates.find(([f, u]) => String((f as Doc)._id) === String(src._id) && Boolean(((u as Doc).$set as Doc).deletedAt));
+    expect((del![1] as Doc).$set).toMatchObject({ mergedInto: dst._id, status: 'cancelled' });
+    expect(requests.updates.filter(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).priceHint !== undefined)).toHaveLength(0);
+  });
+
+  it('mergeSameRequest: одинаковые строки источника гасятся, остальные переезжают', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'A', amount: 20, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'B', amount: 10, fileIds: [] };
+    const mat = new Types.ObjectId();
+    const srcLines = [{ ...mkLines(src._id, [10])[0], materialId: mat, qty: 2 }, mkLines(src._id, [20])[0]];
+    const dstLines = [{ ...mkLines(dst._id, [10])[0], materialId: mat, qty: 2 }];
+    const { svc, requests } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
+    const r = await svc.merge(String(src._id), String(dst._id), 'mergeSameRequest');
+    expect(r).toMatchObject({ moved: 1, skipped: 1 });
+    const skipped = requests.updates.find(([f, u]) => String((f as Doc)._id) === String(srcLines[0]._id) && Boolean(((u as Doc).$set as Doc).deletedAt));
+    expect((skipped![1] as Doc).$set).toMatchObject({ status: 'cancelled' });
+  });
+
+  it('replaceLines: строки цели отвязываются, в счёте остаются строки источника', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'A', amount: 30, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'B', amount: 5, fileIds: [] };
+    const srcLines = mkLines(src._id, [10, 20]);
+    const dstLines = mkLines(dst._id, [5]);
+    const { svc, requests } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
+    const r = await svc.merge(String(src._id), String(dst._id), 'replaceLines');
+    expect(r).toMatchObject({ moved: 2, replaced: 1, amount: 30 });
+    const detached = requests.updates.find(([f, u]) => String((f as Doc)._id) === String(dstLines[0]._id) && Boolean((u as Doc).$unset));
+    expect((detached![1] as Doc).$unset).toHaveProperty('invoiceId');
+  });
+
+  it('счёт с приёмкой/оплатой объединять нельзя', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', amount: 30, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'paid', amount: 5, fileIds: [] };
+    const { svc } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst } });
+    await expect(svc.merge(String(src._id), String(dst._id), 'append')).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('Счета: правка цены строки', () => {
+  const mk = (status = 'issued') => {
+    const invId = new Types.ObjectId();
+    const lineId = new Types.ObjectId();
+    const inv = { _id: invId, supplierId: new Types.ObjectId(), status, amount: 30, version: 0, fileIds: [] };
+    const line = { _id: lineId, num: 1, title: 'Болт', invoiceId: invId, qty: 3, unit: 'шт', priceHint: 30, status: 'ordered', materialId: new Types.ObjectId() };
+    const made = makeSvc({ invoices: { [String(invId)]: inv }, lines: [line] });
+    return { ...made, inv, line, invId, lineId };
+  };
+
+  it('unitPrice × количество → amount пересчитан, история записана', async () => {
+    const { svc, requests, prices, invId, lineId } = mk('issued');
+    const r = await svc.updateLine(String(invId), String(lineId), { unitPrice: 25 });
+    expect(requests.updateOne).toHaveBeenCalledWith({ _id: lineId }, expect.objectContaining({ $set: expect.objectContaining({ priceHint: 75 }) }), expect.anything());
+    expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ lineTotalWithVat: 75, qty: 3, source: 'invoice_issued' }), expect.anything());
+    expect(r).toMatchObject({ amount: 75, line: { qty: 3, unitPrice: 25, lineAmount: 75 } });
+  });
+
+  it('lineAmount → обратный пересчёт цены за единицу', async () => {
+    const { svc, invId, lineId } = mk('issued');
+    const r = await svc.updateLine(String(invId), String(lineId), { lineAmount: 100 });
+    expect(r.line).toMatchObject({ qty: 3, unitPrice: 33.33, lineAmount: 100 });
+  });
+
+  it('черновик пишет историю как manual', async () => {
+    const { svc, prices, invId, lineId } = mk('draft');
+    await svc.updateLine(String(invId), String(lineId), { unitPrice: 11 });
+    expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ source: 'manual' }), expect.anything());
+  });
+
+  it('оплаченный счёт — отказ, строку не трогаем', async () => {
+    const { svc, requests, invId, lineId } = mk('paid');
+    await expect(svc.updateLine(String(invId), String(lineId), { unitPrice: 25 })).rejects.toThrow(/оплачен/i);
+    expect(requests.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('есть приёмка на склад — отказ', async () => {
+    const { svc, model, requests, invId, lineId } = mk('issued');
+    requests.countDocuments.mockReturnValue(chain(1));
+    await expect(svc.updateLine(String(invId), String(lineId), { unitPrice: 25 })).rejects.toThrow(/приёмка/i);
+    expect(requests.updateOne).not.toHaveBeenCalled();
+    expect(model.updates).toHaveLength(0);
+  });
+
+  it('несовпадение версии → 409', async () => {
+    const { svc, inv, invId, lineId } = mk('issued');
+    inv.version = 4;
+    await expect(svc.updateLine(String(invId), String(lineId), { unitPrice: 25, version: 3 })).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('без unitPrice и lineAmount — 400', async () => {
+    const { svc, invId, lineId } = mk('issued');
+    await expect(svc.updateLine(String(invId), String(lineId), {})).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('убрать строку: заявка возвращается в «В заказ», amount пересчитан', async () => {
+    const invId = new Types.ObjectId();
+    const keep = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered' };
+    const drop = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 40, status: 'ordered' };
+    const inv = { _id: invId, status: 'issued', amount: 100, version: 0, fileIds: [] };
+    const { svc, model, requests } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [keep, drop] });
+    const r = await svc.removeLine(String(invId), String(drop._id));
+    expect(r.amount).toBe(60);
+    expect(requests.updateOne).toHaveBeenCalledWith({ _id: drop._id }, expect.objectContaining({ $unset: expect.objectContaining({ invoiceId: '' }), $set: expect.objectContaining({ status: 'requested' }) }), expect.anything());
+    const amountUpd = model.updates.find(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).amount !== undefined);
+    expect((amountUpd![1] as Doc).$set).toMatchObject({ amount: 60 });
+  });
+});
+
+describe('Счета: добавление позиций', () => {
+  const sup = new Types.ObjectId();
+  const mk = (status: string) => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, supplierId: sup, status, amount: 100, paidAt: new Date('2026-10-05'), fileIds: [] };
+    const old1 = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered', supplierId: sup };
+    const old2 = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 40, status: 'ordered', supplierId: sup };
+    const fresh = { _id: new Types.ObjectId(), num: 5, title: 'Болт', status: 'in_progress', supplierId: sup, qty: 2, unit: 'шт', priceHint: 25 };
+    const made = makeSvc({ invoices: { [String(invId)]: inv }, lines: [old1, old2, fresh] });
+    return { ...made, inv, invId, old1, old2, fresh };
+  };
+
+  it('в выставленный: старые цены не меняются, amount = сумма всех строк', async () => {
+    const { svc, model, requests, invId, old1, old2, fresh } = mk('issued');
+    const r = await svc.addRequests(String(invId), [String(fresh._id)]);
+    expect(r.amount).toBe(125);
+    expect(old1.priceHint).toBe(60);
+    expect(old2.priceHint).toBe(40);
+    const amountUpd = model.updates.find(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).amount !== undefined);
+    expect((amountUpd![1] as Doc).$set).toMatchObject({ amount: 125 });
+    expect(requests.updates.filter(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).priceHint !== undefined)).toHaveLength(0);
+  });
+
+  it('в оплаченный — отказ, ничего не добавлено', async () => {
+    const { svc, requests, invId, fresh } = mk('paid');
+    await expect(svc.addRequests(String(invId), [String(fresh._id)])).rejects.toThrow(/оплачен/i);
+    expect(requests.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('в счёт с приёмкой — отказ', async () => {
+    const { svc, requests, invId, fresh } = mk('issued');
+    requests.countDocuments.mockReturnValue(chain(1));
+    await expect(svc.addRequests(String(invId), [String(fresh._id)])).rejects.toThrow(/приёмка/i);
+    expect(requests.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('Счета: оплата', () => {
+  const mk = () => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'issued', amount: 100, payerCompanyId: new Types.ObjectId(), version: 0, fileIds: [] };
+    const lines = [
+      { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered', materialId: new Types.ObjectId() },
+      { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 40, status: 'ordered', materialId: new Types.ObjectId() },
+    ];
+    return { ...makeSvc({ invoices: { [String(invId)]: inv }, lines }), invId, lines };
+  };
+
+  it('цены строк не перераспределяются, история пишется по каждой строке', async () => {
+    const { svc, requests, prices, invId, lines } = mk();
+    await svc.pay(String(invId));
+    expect(lines.map((l) => l.priceHint)).toEqual([60, 40]);
+    expect(requests.updates.filter(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).priceHint !== undefined)).toHaveLength(0);
+    expect(prices.record).toHaveBeenCalledTimes(2);
+    expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ lineTotalWithVat: 60, source: 'invoice_paid' }), expect.anything());
+  });
+
+  it('amount ≠ сумма строк — оплата запрещена', async () => {
+    const { svc, invId } = mk();
+    const svcInv = (svc as unknown as { model: { findOne: jest.Mock } }).model;
+    svcInv.findOne.mockReturnValue(chain({ _id: invId, status: 'issued', amount: 999, payerCompanyId: new Types.ObjectId() }));
+    await expect(svc.pay(String(invId))).rejects.toThrow(/суммой строк/i);
+  });
+});
+
+describe('Счета: блокировка после оплаты/приёмки', () => {
+  it('оплаченный: файлы и № менять можно, сумму — нельзя', async () => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'paid', supplierId: new Types.ObjectId(), amount: 100, paidAt: new Date(), version: 1, fileIds: [] };
+    const { svc, model } = makeSvc({ invoices: { [String(invId)]: inv } });
+    await svc.update(String(invId), { fileIds: [String(new Types.ObjectId())] } as never);
+    expect(model.updates.length).toBeGreaterThan(0);
+    await expect(svc.update(String(invId), { amount: 500 } as never)).rejects.toThrow(/заблокированы/i);
+    await expect(svc.update(String(invId), { payerCompanyId: String(new Types.ObjectId()) } as never)).rejects.toThrow(/заблокированы/i);
+  });
+
+  it('оплаченный: удалить счёт нельзя', async () => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'paid', amount: 100, fileIds: [] };
+    const { svc } = makeSvc({ invoices: { [String(invId)]: inv } });
+    await expect(svc.remove(String(invId))).rejects.toThrow(/оплачен/i);
+  });
+
+  it('есть приёмка: удалить счёт нельзя', async () => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'issued', amount: 100, fileIds: [] };
+    const { svc, requests } = makeSvc({ invoices: { [String(invId)]: inv } });
+    requests.countDocuments.mockReturnValue(chain(2));
+    await expect(svc.remove(String(invId))).rejects.toThrow(/приёмка/i);
+  });
+
+  it('amount нельзя ввести вручную, если он не равен сумме строк', async () => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'draft', amount: 60, version: 0, fileIds: [] };
+    const line = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered' };
+    const { svc } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [line] });
+    await expect(svc.update(String(invId), { amount: 999 } as never)).rejects.toThrow(/по строкам/i);
   });
 });

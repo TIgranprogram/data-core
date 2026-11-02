@@ -146,7 +146,12 @@ export const reqStep = {
       if (!paid) return [head, ...r._miss.map((f) => defs[f.key])];
       // «Счёт оплачен»: всегда одни и те же поля; уже заполненные показываем заполненными
       const supplier = { ...defs.supplierName, required: true, wide: true, hint: 'Другой поставщик сохранится в истории позиции вместе с ценой', mount: (fapi) => supplierChips(fapi, r) };
-      return [head, { ...defs.invoiceNo, required: true }, { ...defs.invoiceDate, required: true }, defs.priceHint, supplier,
+      // сумма счёта — производная от строк; в счёте из одной позиции её можно ввести как сумму строки
+      const singleLine = (r._inv?.requests || []).length <= 1;
+      const sumField = singleLine
+        ? { ...defs.priceHint, label: 'Сумма строки, ₽', hint: 'Цена за единицу = сумма ÷ количество' }
+        : { key: 'priceHint', type: 'widget', label: 'Сумма счёта, ₽', wide: true, widget: () => ({ el: h('div', { class: 'inv-ro' }, money(r._inv?.amount || 0)), get value() { return Number(r._inv?.amount) || 0; }, set value(_) { /* сумма считается по строкам */ } }) };
+      return [head, { ...defs.invoiceNo, required: true }, { ...defs.invoiceDate, required: true }, sumField, supplier,
         r.invoiceId ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', required: true, options: await payerList() } : null].filter(Boolean);
     },
     toInitial: (r) => ({ ...r,
@@ -156,7 +161,11 @@ export const reqStep = {
       supplierName: r.supplierName || r._inv?.supplierName || '',
       payerCompanyId: r._inv?.payerCompanyId ? String(r._inv.payerCompanyId) : r.companyId ? String(r.companyId) : r.payerCompanyId ? String(r.payerCompanyId) : r._companies?.length === 1 ? r._companies[0].value : '' }),
     toBody: (v, r) => {
-      if (r._to === 'paid' && r.invoiceId) return { _inv: r.invoiceId, no: String(v.invoiceNo ?? ''), date: String(v.invoiceDate ?? ''), amount: Number(v.priceHint) || 0, payerCompanyId: String(v.payerCompanyId ?? ''), _sup: String(v.supplierName ?? '').trim() !== String(r.supplierName || r._inv?.supplierName || '').trim() ? String(v.supplierName ?? '').trim() : '' };
+      if (r._to === 'paid' && r.invoiceId) {
+        const sum = Number(v.priceHint) || 0;
+        const diff = Math.abs(sum - (Number(r._inv?.amount) || 0)) > 0.009;
+        return { _inv: r.invoiceId, _line: diff ? sum : null, no: String(v.invoiceNo ?? ''), date: String(v.invoiceDate ?? ''), payerCompanyId: String(v.payerCompanyId ?? ''), _sup: String(v.supplierName ?? '').trim() !== String(r.supplierName || r._inv?.supplierName || '').trim() ? String(v.supplierName ?? '').trim() : '' };
+      }
       if (r._to === 'paid') return { statusLabel: SUPPLY_STATUS.paid.label, invoiceNo: String(v.invoiceNo ?? ''), invoiceDate: String(v.invoiceDate ?? ''), priceHint: v.priceHint, supplierName: String(v.supplierName ?? '') };
       const body = r._to === 'ordered' ? { _order: true } : { statusLabel: SUPPLY_STATUS[r._to].label };
       for (const f of r._miss) body[f.key] = f.key === 'qty' ? v[f.key] : String(v[f.key] ?? '');
@@ -165,9 +174,11 @@ export const reqStep = {
     update: async (id, body) => {
       let saved;
       if (body._inv) {
-        const { _inv, _sup, ...inv } = body;
+        const { _inv, _sup, _line, ...inv } = body;
+        // сумму строки меняем отдельным endpoint'ом — amount счёта пересчитает сервер из строк
+        if (_line != null) await api(`/supply/invoices/${_inv}/lines/${id}`, { method: 'PATCH', body: { lineAmount: _line } });
         if (_sup) inv.supplierId = await ensureSupplierId(_sup); // сервер ставит имя счёта и переносит поставщика во все заявки счёта
-        // счёт с таким № у поставщика уже есть — сервер добавит позицию в него (ответ — тот счёт, id другой)
+        // дубль № у поставщика — 409 с данными существующего счёта (автосклейки нет)
         const res = await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { ...inv, issue: true } });
         showWarnings(res);
         const invId = res?.id || _inv;
@@ -230,21 +241,62 @@ export function invoiceBlock(r, ctx) {
   (async () => {
     const [inv, companies] = await Promise.all([api(`/supply/invoices/${r.invoiceId}`), payerList()]);
     const paid = inv.status === 'paid';
-    const lockPaid = paid && session.canEdit; // оплаченный: №, дата, сумма и файлы правятся, плательщик — нет
-    const lock = (paid || !session.canEdit) && !lockPaid;
-    const no = h('input', { value: inv.no || '', maxlength: 100, disabled: lock });
-    const dt = h('input', { type: 'date', value: String(inv.date || '').slice(0, 10) || today(), disabled: lock });
-    const amount = h('input', { inputmode: 'decimal', value: inv.amount > 0 ? String(inv.amount) : String(defaultAmount(r) ?? ''), disabled: lock });
-    const payer = h('select', { disabled: lock }, h('option', { value: '' }, '— выберите —'), ...companies.map((c) => h('option', { value: c.value }, c.label)));
+    const received = (inv.requests || []).some((x) => x.status === 'received');
+    // финансовые поля (сумма, цены, строки) фиксируются после оплаты/приёмки — как на сервере
+    const finLocked = paid || received;
+    const canMeta = session.canEdit; // №, дата, файлы, договор — можно и после оплаты/приёмки
+    const no = h('input', { value: inv.no || '', maxlength: 100, disabled: !canMeta });
+    const dt = h('input', { type: 'date', value: String(inv.date || '').slice(0, 10) || today(), disabled: !canMeta });
+    const payer = h('select', { disabled: !canMeta || finLocked }, h('option', { value: '' }, '— выберите —'), ...companies.map((c) => h('option', { value: c.value }, c.label)));
     payer.value = inv.payerCompanyId ? String(inv.payerCompanyId) : '';
     // файлы счёта видны всегда (уже загруженные — сразу в поле, можно открыть и убрать); прикрепить можно и к оплаченному
     const files = photoField((inv.files || []).map((f) => ({ id: f.id, url: f.url, name: f.name, mime: f.mime })), { pdf: true });
-    const body = () => ({ no: no.value.trim(), date: dt.value, amount: Number(String(amount.value).replace(',', '.').replace(/\s/g, '')) || 0, payerCompanyId: payer.value, fileIds: files.ids() });
+    // amount — производная от строк: вводится не здесь, а ценой позиции (вкладка «Счета»)
+    const meta = () => ({ no: no.value.trim(), date: dt.value, fileIds: files.ids() });
+    const body = () => ({ ...meta(), payerCompanyId: payer.value });
+    // Дубль № у поставщика: 409 → выбор (открыть / добавить в него / новый с причиной). Автосклейки нет.
+    const patchInvoice = async (payload) => {
+      try { return await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: payload }); }
+      catch (e) {
+        const ex = e?.data;
+        if (e?.status !== 409 || !ex?.existingInvoiceId) throw e;
+        const pick = (v) => (ev) => { const f = ev.target.closest('form'); f.dataset.choice = v; f.requestSubmit(); };
+        const choice = await modal({
+          title: 'Такой счёт уже есть',
+          okText: 'Открыть существующий',
+          body: h('div', null,
+            h('p', null, `У этого поставщика уже есть счёт № ${ex.existingNo || '—'}.`),
+            h('p', { class: 'muted' }, 'Откройте его, добавьте позиции этого счёта в него (счета объединятся) или сохраните отдельный счёт с тем же номером и причиной.'),
+            h('div', { class: 'inv-actions' },
+              h('button', { type: 'button', class: 'btn', onclick: pick('merge') }, 'Добавить позиции в него'),
+              h('button', { type: 'button', class: 'btn', onclick: pick('new') }, 'Создать новый с причиной'))),
+          onOk: (form) => form.dataset.choice || 'open',
+        });
+        if (!choice) return null;
+        if (choice === 'open') { patch({ of: 'requests', tab: 'invoices', open: ex.existingInvoiceId }); return null; }
+        if (choice === 'merge') {
+          await api(`/supply/invoices/${inv.id}/merge`, { method: 'POST', body: { targetId: ex.existingInvoiceId, strategy: 'append' } });
+          toast('Позиции добавлены в существующий счёт');
+          patch({ of: 'requests', tab: 'invoices', open: ex.existingInvoiceId });
+          return null;
+        }
+        const why = h('input', { maxlength: 200, placeholder: 'Например: отдельная поставка, кредит-нота' });
+        const reason = await modal({
+          title: 'Новый счёт с тем же номером',
+          okText: 'Сохранить',
+          body: h('label', { class: 'field' }, h('span', null, 'Причина'), why),
+          onOk: () => { const v = why.value.trim(); if (!v) throw new Error('Укажите причину'); return v; },
+        });
+        if (!reason) return null;
+        return api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...payload, duplicateReason: reason } });
+      }
+    };
     const run = async (btn, fn) => { btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); } };
-    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } })); toast('Счёт сохранён'); }) }, 'Сохранить');
-    const savePaid = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(savePaid, async () => { const b = body(); await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { no: b.no, date: b.date, amount: b.amount, fileIds: b.fileIds } }); toast('Счёт сохранён'); }) }, 'Сохранить');
+    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { const res = await patchInvoice({ ...body(), issue: true }); if (res) { showWarnings(res); toast('Счёт сохранён'); } }) }, 'Сохранить');
+    const saveMeta = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveMeta, async () => { const res = await patchInvoice(meta()); if (res) toast('Счёт сохранён'); }) }, 'Сохранить');
     const pay = h('button', { class: 'btn', type: 'button', onclick: () => run(pay, async () => {
-      const res = await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } });
+      const res = await patchInvoice({ ...(finLocked ? meta() : body()), issue: true });
+      if (!res) return;
       showWarnings(res);
       await api(`/supply/invoices/${res?.id || inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен');
     }) }, 'Счёт оплачен');
@@ -255,26 +307,23 @@ export function invoiceBlock(r, ctx) {
         onChange: async (id) => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { contractId: id } })); toast(id ? 'Договор привязан к счёту' : 'Договор снят со счёта'); ctx.changed?.(); } })
       : null;
     const saveFiles = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveFiles, async () => { await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { fileIds: files.ids() } }); toast('Файлы счёта сохранены'); }) }, 'Сохранить файлы');
-    // оплаченный/выставленный: значения текстом, не «серыми» полями — их всё равно не изменить
+    // значения, которые после блокировки не меняются, — текстом, а не «серыми» полями
     const ro = (label, val) => h('div', { class: 'field' }, h('span', null, label), h('div', { class: 'inv-ro' }, val || h('span', { class: 'muted' }, '—')));
     const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор поставщика'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
     box.replaceChildren(
       h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
-      ...(lockPaid
-        ? [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), ro('Наша компания', inv.payerName)]
-        : lock
-        ? [ro('№ счёта', inv.no), ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Наша компания', inv.payerName)]
-        : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Наша компания', payer)]),
+      ...(finLocked
+        ? [canMeta ? field('№ счёта', no) : ro('№ счёта', inv.no), canMeta ? field('Дата счёта', dt) : ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Наша компания', inv.payerName)]
+        : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', h('div', { class: 'inv-ro' }, inv.amount > 0 ? money(inv.amount) : h('span', { class: 'muted' }, 'по строкам'))), field('Наша компания', payer)]),
       contractRow,
-      h('div', { class: 'field' }, h('span', null, 'Файл счёта'), session.canEdit ? files.el : null,
-        !session.canEdit && !(inv.files || []).length ? h('span', { class: 'muted' }, 'Файла нет') : null,
-        !session.canEdit ? h('div', null, ...(inv.files || []).map((f) => h('a', { href: PREFIX + f.url, target: '_blank', rel: 'noopener' }, f.name || 'Файл счёта'))) : null,
-        lock && session.canEdit ? h('div', { class: 'inv-actions' }, saveFiles) : null),
-      h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '')),
+      h('div', { class: 'field' }, h('span', null, 'Файл счёта'), canMeta ? files.el : null,
+        !canMeta && !(inv.files || []).length ? h('span', { class: 'muted' }, 'Файла нет') : null,
+        !canMeta ? h('div', null, ...(inv.files || []).map((f) => h('a', { href: PREFIX + f.url, target: '_blank', rel: 'noopener' }, f.name || 'Файл счёта'))) : null,
+        finLocked && canMeta ? h('div', { class: 'inv-actions' }, saveFiles) : null),
+      finLocked ? h('div', { class: 'hint' }, (paid ? 'Счёт оплачен' : 'По счёту уже есть приёмка') + ' — меняются файлы, договор, номер и дата; сумма и позиции зафиксированы. Исправления — корректировкой/сторно.') : null,
+      h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '') + (finLocked ? '' : ' · цену позиции правьте на вкладке «Счета»')),
       h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),
-      lockPaid ? h('div', { class: 'hint' }, 'Нужно добавить позиции в этот счёт: оформите новую заявку на этого поставщика, при «Заказал» впишите тот же № счёта — позиции добавятся сюда.') : null,
-      lock ? h('div', { class: 'muted' }, paid ? 'Счёт оплачен' : inv.status === 'issued' ? 'Счёт выставлен — меняются только файлы и договор' : null) : null,
-      lockPaid ? h('div', { class: 'inv-actions' }, savePaid) : lock ? null : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
+      finLocked ? (canMeta ? h('div', { class: 'inv-actions' }, saveMeta) : null) : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
   })().catch((e) => box.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')));
   return box;
 }

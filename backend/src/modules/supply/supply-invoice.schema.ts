@@ -50,6 +50,21 @@ export class SupplyInvoice {
   @Prop({ type: Types.ObjectId })
   mergedInto?: Types.ObjectId;
 
+  /** Осознанный дубль номера: у поставщика уже есть счёт, но этот создан отдельно — с причиной. */
+  @Prop({ type: Types.ObjectId })
+  duplicateOf?: Types.ObjectId;
+
+  @Prop({ trim: true, maxlength: 200 })
+  duplicateReason?: string;
+
+  /** Версия для оптимистичной блокировки финансовых правок. */
+  @Prop({ default: 0 })
+  version!: number;
+
+  /** Журнал явных объединений: кто, когда, откуда, стратегия, сколько строк переехало. */
+  @Prop({ type: [Object], default: [] })
+  mergeLog!: Array<{ at: Date; by?: Types.ObjectId; fromId: Types.ObjectId; strategy: string; moved: number; skipped: number; replaced?: number }>;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;
 }

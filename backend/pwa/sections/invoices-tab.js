@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money } from '../core/format.js';
 import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
-import { enhanceSelect, empty, modal, badge as kitBadge } from '../ui/kit/index.js';
+import { actions, enhanceSelect, empty, modal, confirmDlg, badge as kitBadge } from '../ui/kit/index.js';
 
 const PARTIAL_TEXT = 'Часть строк скрыта (другой склад)';
 import { toast, toastError } from '../ui/toast.js';
@@ -20,6 +20,35 @@ const LIMIT = 30;
 const STATUS_OPTS = [['', 'Все статусы'], ['draft', 'Черновик'], ['issued', 'Выставлен'], ['paid', 'Оплачен'], ['cancelled', 'Отменён']];
 const cut = (v) => String(v || '').slice(0, 10);
 const ruDate = (v) => (v ? isoDay(v).split('-').reverse().join('.') : '—');
+const r2 = (n) => Math.round(n * 100) / 100;
+
+/** Окно «Цена позиции»: цена за единицу ↔ сумма строки; amount счёта пересчитывает сервер. */
+async function editLine(inv, x, after) {
+  const qty = Number(x.qty) || 0;
+  const total = Number(x.priceHint) || 0;
+  const unit = h('input', { type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: String(qty > 0 ? r2(total / qty) : 0) });
+  const sum = h('input', { type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: String(total) });
+  let syncing = false;
+  unit.addEventListener('input', () => { if (syncing) return; syncing = true; sum.value = String(r2((Number(unit.value) || 0) * qty)); syncing = false; });
+  sum.addEventListener('input', () => { if (syncing) return; syncing = true; unit.value = String(qty > 0 ? r2((Number(sum.value) || 0) / qty) : 0); syncing = false; });
+  const ok = await modal({
+    title: 'Цена позиции',
+    okText: 'Сохранить',
+    body: h('div', null,
+      h('p', { class: 'muted' }, `${x.num ? `№${x.num} · ` : ''}${x.title || x.materialName || 'позиция'} · ${qty} ${x.unit || ''}`.trim()),
+      h('label', { class: 'field' }, h('span', null, 'Цена за единицу, ₽'), unit),
+      h('label', { class: 'field' }, h('span', null, 'Сумма строки, ₽'), sum),
+      h('div', { class: 'hint' }, 'Сумма счёта пересчитается из строк. Цена за единицу = сумма ÷ количество.')),
+    onOk: async () => {
+      const u = Number(unit.value);
+      if (!Number.isFinite(u) || u < 0) throw new Error('Цена не может быть отрицательной');
+      await api(`/supply/invoices/${inv.id}/lines/${x.id}`, { method: 'PATCH', body: { unitPrice: u, ...(inv.version != null ? { version: Number(inv.version) } : {}) } });
+      toast('Цена позиции сохранена');
+      return true;
+    },
+  });
+  if (ok) await after();
+}
 
 export function mountInvoicesTab(params = {}) {
   let focusId = params.open || ''; // #requests?tab=invoices&open=<id счёта> — из уведомления
@@ -154,6 +183,9 @@ export function mountInvoicesTab(params = {}) {
 
     const checks = new Map();
     const pending = reqs.filter((x) => x.status !== 'received' && x.status !== 'cancelled');
+    // финансовые поля фиксируются после оплаты/приёмки — как на сервере
+    const finLocked = inv.status === 'paid' || reqs.some((x) => x.status === 'received');
+    const editable = canAct && !finLocked;
     // строки — как операции в «Деньгах» (ui/op-row.js): фото, «№ · название», подпись; клик — заявка справа
     const list = h('ul', { class: 'q-list invl-reqs' }, ...reqs.map((x) => {
       const can = pending.includes(x) && canAct && inv.status !== 'draft';
@@ -165,14 +197,22 @@ export function mountInvoicesTab(params = {}) {
       const sum = total > 0 ? money(total) : '';
       const pic = x.photo || x.materialPhoto;
       const open = () => patch({ of: 'requests', open: x.id });
-      return h('li', { class: 'q-row' + (pic ? ' has-pic' : ''), tabindex: '0', onclick: (e) => { if (!e.target.closest('input')) open(); }, onkeydown: (e) => { if (e.key === 'Enter') open(); } },
+      const edit = editable ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Изменить цену позиции', 'aria-label': 'Изменить цену позиции', onclick: (e) => { e.stopPropagation(); editLine(inv, x, async () => { await refresh(); await after(); }); } }, 'цена') : null;
+      const del = editable ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Убрать позицию из счёта', 'aria-label': 'Убрать позицию из счёта', onclick: async (e) => {
+        e.stopPropagation();
+        const name = (x.num ? `№${x.num} · ` : '') + (x.title || x.materialName || 'позиция');
+        if (!(await confirmDlg('Убрать позицию из счёта?', `${name}\n\nЗаявка останется и вернётся в «В заказ». Сумма счёта пересчитается.`, { okText: 'Убрать', danger: true }))) return;
+        try { await api(`/supply/invoices/${inv.id}/lines/${x.id}`, { method: 'DELETE' }); toast('Позиция убрана из счёта'); await refresh(); await after(); } catch (err) { toastError(err); }
+      } }, '×') : null;
+      return h('li', { class: 'q-row' + (pic ? ' has-pic' : ''), tabindex: '0', onclick: (e) => { if (!e.target.closest('input, button')) open(); }, onkeydown: (e) => { if (e.key === 'Enter') open(); } },
         cb, opThumb(pic?.thumb || pic?.url),
         h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, (x.num ? `№${x.num} · ` : '') + (x.title || x.materialName || x.name || '—')),
           h('div', { class: 'q-sub' }, `${x.qty ?? ''} ${x.unit || ''}`.trim() + (price > 0 ? ` × ${money(price)}` : ''))),
-        h('div', { class: 'q-side' }, sum ? h('span', { class: 'num' }, sum) : null, badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status)));
+        h('div', { class: 'q-side' }, editable ? actions(edit, del) : null, sum ? h('span', { class: 'num' }, sum) : null, badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status)));
     }));
 
     const partialNote = inv.partial ? h('div', { class: 'hint' }, PARTIAL_TEXT + '. Сумма — по строкам, которые вы видите.') : null;
+    const lockNote = finLocked ? h('div', { class: 'hint' }, (inv.status === 'paid' ? 'Счёт оплачен' : 'По счёту есть приёмка') + ' — сумма и позиции зафиксированы. Исправления — корректировкой/сторно.') : null;
 
     const files = (inv.files || []).length
       ? h('div', { class: 'invl-files' }, h('span', { class: 'muted' }, 'Файлы: '), ...inv.files.map((f) => h('a', { href: f.url, target: '_blank', rel: 'noopener' }, f.name || 'файл')))
@@ -198,7 +238,7 @@ export function mountInvoicesTab(params = {}) {
       const b = h('button', { class: 'btn', type: 'button', onclick: () => run(b, async () => { await api(`/supply/invoices/${inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен'); await after(); }) }, 'Счёт оплачен');
       actions.push(b);
     }
-    if (canAct) {
+    if (canAct && !finLocked) {
       const b = h('button', { class: 'btn', type: 'button', onclick: () => run(b, async () => { if (await addPositions(inv)) await after(); }) }, 'Добавить позиции');
       actions.push(b);
     }
@@ -220,6 +260,7 @@ export function mountInvoicesTab(params = {}) {
 
     return h('div', { class: 'invl-body' },
       partialNote,
+      lockNote,
       reqs.length ? list : h('div', { class: 'muted' }, 'В счёте нет позиций.'),
       pending.length && checks.size ? h('div', { class: 'muted' }, 'Галочки — что приехало. По умолчанию все неполученные.') : null,
       files, contractLine, chain,

@@ -788,6 +788,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 ### `SupplierContract` (договор поставщика) — коллекция `suppliercontracts`, только data-core
 `supplierId` (Organization, обяз.), `supplierName` (снимок), `no` (≤100, обяз.), `date` (обяз.), `subject` (≤300), `validTo`, `amount` (≥0, справочно), `fileIds[]` (photos), `status` active|closed, `createdBy`, `deletedAt`. Индексы: `{supplierId,deletedAt}`, уникальный частичный `{supplierId,no}` при `deletedAt:null`. Связь: `supplyinvoices.contractId` (необязательно). Договоры покупателей (`salesorders.contractNo`) — отдельно.
 
+### `SupplyInvoice` (счёт поставщика) — коллекция `supplyinvoices`, только data-core
+`no` (≤100), `date`, `supplierId` (Organization, обяз.), `supplierName` (снимок), `payerCompanyId` / `payerName` (наша компания), `amount` (**производная**: сумма `priceHint` строк), `status` draft|issued|paid|cancelled, `paidAt`, `contractId`, `fileIds[]` (photos), `createdBy`, `deletedAt`. Служебные: `version` (оптимистическая блокировка, +1 на каждую правку), `mergeLog[]` ({at, byId, targetId, strategy, moved, skipped, note}), `mergedInto` (в какой счёт склеен), `duplicateOf` / `duplicateReason` (осознанный дубль № у поставщика). Строки — `supplyrequests.invoiceId`; `priceHint` строки счёта = сумма по строке (временно). После оплаты/приёмки строки, цены и `amount` зафиксированы, меняются только файлы, договор, № и дата.
+
 ### `SupplyRequest.invoiceDate` (общая с kppdf `supplyrequests`)
 Необязательное `Date` — дата счёта поставщика; расход в платёжном календаре ложится на неё. Раньше лежала строкой в `sheetExtra.invoiceDate`.
 

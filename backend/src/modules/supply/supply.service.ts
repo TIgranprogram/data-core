@@ -474,6 +474,17 @@ export class SupplyService {
     // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
     void userRole;
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
+    // Финансовая блокировка счёта: строки оплаченного/принятого счёта нельзя переоценивать в обход
+    // PATCH /supply/invoices/:id/lines/:lineId (единая точка правки цены).
+    if (['priceHint', 'qty', 'invoiceNo', 'invoiceDate', 'statusLabel'].some((k) => k in dto)) {
+      const cur = await this.model.findById(id, { invoiceId: 1, status: 1 }).lean().exec() as { invoiceId?: unknown; status?: string } | null;
+      if (cur?.invoiceId) {
+        const inv = await this.connection.db!.collection('supplyinvoices').findOne({ _id: cur.invoiceId, deletedAt: null }, { projection: { status: 1 } });
+        if (inv && (inv.status === 'paid' || cur.status === 'received')) {
+          throw new BadRequestException('Счёт оплачен или уже принят на склад — цена и количество строки заблокированы. Исправления — корректировкой/сторно');
+        }
+      }
+    }
     const fields = await this.toFields(dto);
     // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
     let resetReceipt = false;

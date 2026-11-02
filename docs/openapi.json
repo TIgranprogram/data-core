@@ -2500,6 +2500,13 @@
         "operationId": "StockController_list",
         "parameters": [
           {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "только эти позиции (id через запятую, ≤ 2000) — кнопки-признаки «Остатков» передают точный набор",
+            "schema": {}
+          },
+          {
             "name": "zoneId",
             "required": false,
             "in": "query",
@@ -3781,6 +3788,173 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/requests": {
+      "post": {
+        "operationId": "SupplyController_addInvoiceRequests",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddInvoiceRequestsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/lines/{lineId}": {
+      "patch": {
+        "operationId": "SupplyController_updateInvoiceLine",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchInvoiceLineDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "delete": {
+        "operationId": "SupplyController_removeInvoiceLine",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/merge-preview": {
+      "get": {
+        "operationId": "SupplyController_mergePreview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/merge": {
+      "post": {
+        "operationId": "SupplyController_mergeInvoices",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeInvoicesDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -6894,6 +7068,52 @@
         ]
       }
     },
+    "/showcase/{id}/variants": {
+      "get": {
+        "operationId": "ShowcaseController_variants",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
+    "/showcase/{id}/variant": {
+      "post": {
+        "operationId": "ShowcaseController_makeVariant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Продукция"
+        ]
+      }
+    },
     "/showcase/{id}/restore": {
       "post": {
         "operationId": "ShowcaseController_restore",
@@ -8374,6 +8594,97 @@
         },
         "tags": [
           "Сопоставление позиций"
+        ]
+      }
+    },
+    "/material-requests": {
+      "post": {
+        "operationId": "MaterialRequestsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMaterialRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
+        ]
+      },
+      "get": {
+        "operationId": "MaterialRequestsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "open (умолч.) | done | rejected | all",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
+        ]
+      }
+    },
+    "/material-requests/count": {
+      "get": {
+        "operationId": "MaterialRequestsController_count",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
+        ]
+      }
+    },
+    "/material-requests/{id}/close": {
+      "post": {
+        "operationId": "MaterialRequestsController_close",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseMaterialRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
         ]
       }
     },
@@ -16417,7 +16728,7 @@
           },
           "amount": {
             "type": "number",
-            "description": "Сумма счёта, ₽"
+            "description": "Сумма счёта, ₽ (производная от строк; принимать равной сумме строк)"
           },
           "payerCompanyId": {
             "type": "string",
@@ -16441,6 +16752,57 @@
           "issue": {
             "type": "boolean",
             "description": "true — «Счёт выставлен»: нужны №, дата и сумма"
+          },
+          "duplicateReason": {
+            "type": "string",
+            "description": "Причина, если счёт с таким № у поставщика уже есть, но нужен отдельный"
+          }
+        }
+      },
+      "AddInvoiceRequestsDto": {
+        "type": "object",
+        "properties": {
+          "requestIds": {
+            "description": "Заявки, которые добавляем в этот счёт (id)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PatchInvoiceLineDto": {
+        "type": "object",
+        "properties": {
+          "unitPrice": {
+            "type": "number",
+            "description": "Цена за единицу, ₽ (сумма строки = unitPrice × количество)"
+          },
+          "lineAmount": {
+            "type": "number",
+            "description": "Сумма строки, ₽ (цена за единицу пересчитывается обратно)"
+          },
+          "version": {
+            "type": "number",
+            "description": "Ожидаемая версия счёта — оптимистичная блокировка (не совпала → 409)"
+          }
+        }
+      },
+      "MergeInvoicesDto": {
+        "type": "object",
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "description": "Счёт, в который объединяем (id)"
+          },
+          "strategy": {
+            "type": "string",
+            "description": "append — добавить все строки; mergeSameRequest — пропустить одинаковые; replaceLines — заменить строки цели",
+            "enum": [
+              "append",
+              "mergeSameRequest",
+              "replaceLines"
+            ]
           }
         }
       },
@@ -17540,6 +17902,45 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "CreateMaterialRequestDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Что нужно завести (свободный текст)"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Сколько нужно (необязательно)"
+          },
+          "zoneId": {
+            "type": "string",
+            "description": "Склад (stockzones); чужой склад — 403"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "CloseMaterialRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "rejected"
+            ]
+          },
+          "materialId": {
+            "type": "string",
+            "description": "Созданная позиция склада (при done)"
+          }
+        },
+        "required": [
+          "status"
         ]
       },
       "FromOrderDto": {

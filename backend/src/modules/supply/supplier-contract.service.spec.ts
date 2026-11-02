@@ -135,7 +135,7 @@ describe('SupplyInvoiceService: договор в счёте', () => {
   it('свой договор сохраняется', async () => {
     const { svc, model } = make({ _id: cid, supplierId: supplier, status: 'active' });
     await svc.update(String(invId), { contractId: String(cid) });
-    expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { contractId: cid } });
+    expect(model.updateOne.mock.calls[0][1]).toMatchObject({ $set: { contractId: cid } });
   });
 
   it('фильтр списка contract=none/has; другое значение — 400', async () => {
@@ -152,7 +152,7 @@ describe('SupplyInvoiceService: договор в счёте', () => {
   it('"" снимает договор', async () => {
     const { svc, model } = make(null, { contractId: cid });
     await svc.update(String(invId), { contractId: '' });
-    expect(model.updateOne.mock.calls[0][1]).toEqual({ $unset: { contractId: '' } });
+    expect(model.updateOne.mock.calls[0][1]).toMatchObject({ $unset: { contractId: '' } });
   });
 
   it('смена поставщика сбрасывает договор и предупреждает', async () => {

@@ -14,7 +14,7 @@ import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
-import { AddInvoiceRequestsDto, CreateInvoicesDto, PatchInvoiceDto, ReceiveInvoiceDto } from './dto-invoice';
+import { AddInvoiceRequestsDto, CreateInvoicesDto, MergeInvoicesDto, PatchInvoiceDto, PatchInvoiceLineDto, ReceiveInvoiceDto } from './dto-invoice';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
@@ -80,6 +80,45 @@ export class SupplyController {
     await this.invoices.assertWhole(id, scope);
     await this.invoices.assertRequests(dto.requestIds, scope);
     return this.invoices.addRequests(id, dto.requestIds);
+  }
+
+  /** Правка цены строки счёта: unitPrice или lineAmount; amount пересчитывается из строк. */
+  @Patch('invoices/:id/lines/:lineId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.line_updated', entityType: 'SupplyInvoice', idParam: 'id' })
+  async updateInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() dto: PatchInvoiceLineDto, @StockScoped() scope: StockScope | null) {
+    await this.invoices.assertWhole(id, scope);
+    return this.invoices.updateLine(id, lineId, dto);
+  }
+
+  /** Убрать строку из счёта (заявка остаётся, возвращается в «В заказ»). */
+  @Delete('invoices/:id/lines/:lineId')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.line_removed', entityType: 'SupplyInvoice', idParam: 'id' })
+  async removeInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @StockScoped() scope: StockScope | null) {
+    await this.invoices.assertWhole(id, scope);
+    return this.invoices.removeLine(id, lineId);
+  }
+
+  /** Предпросмотр объединения двух счетов: ничего не меняет. */
+  @Get('invoices/:id/merge-preview')
+  @Roles('admin', 'manager')
+  async mergePreview(@Param('id') id: string, @Query('targetId') targetId: string, @StockScoped() scope: StockScope | null) {
+    if (!targetId) throw new BadRequestException('Укажите targetId — счёт, с которым объединяем');
+    await this.invoices.assertWhole(id, scope);
+    await this.invoices.assertWhole(targetId, scope);
+    return this.invoices.mergePreview(id, targetId);
+  }
+
+  /** Явное объединение двух счетов (append / mergeSameRequest / replaceLines) с журналом и аудитом. */
+  @Post('invoices/:id/merge')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.invoice.merged', entityType: 'SupplyInvoice', idParam: 'id' })
+  async mergeInvoices(@Param('id') id: string, @Body() dto: MergeInvoicesDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.invoices.assertWhole(id, scope);
+    await this.invoices.assertWhole(dto.targetId, scope);
+    return this.invoices.merge(id, dto.targetId, dto.strategy ?? 'append', user?.id);
   }
 
   /** Принять счёт на склад: все неполученные заявки (или отмеченные). */
