@@ -4,7 +4,7 @@ import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBtn, failBlock } from '../ui/busy.js';
-import { date, qty } from '../core/format.js';
+import { date, qty, plural } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { badge, STOCK_STATUS } from '../ui/badges.js';
 import { toast, toastError } from '../ui/toast.js';
@@ -13,7 +13,7 @@ import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
 import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
 import { stockRequestsBox, requestFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
-import { segmented, toolbar } from '../ui/kit/index.js';
+import { segmented, toolbar, catArt, button as kitButton } from '../ui/kit/index.js';
 
 /** Переключатель склада над списком (kit.segmented): виден, если доступно больше одного склада. Выбор запоминается; список и категории перечитываются. */
 function zoneBar() {
@@ -100,6 +100,26 @@ function ftIds(P) {
   return { ids: ids.length ? ids.join(',') : 'none' };
 }
 
+// ---------- первая страница «Остатков»: плитки категорий (эталон cat-tile, как «Каталог поставщиков») ----------
+const nPos = (n) => `${qty(n)} ${plural(n, 'позиция', 'позиции', 'позиций')}`;
+async function stockLanding() {
+  const cats = ((await api('/stock/categories', { query: zoneQuery() })).items || []).filter((c) => c.id !== 'none' && c.total);
+  const open = (p) => patch({ ...p, view: 'table', page: undefined });
+  const all = kitButton({ label: 'Все позиции списком', onClick: () => open({ all: '1' }) });
+  if (!cats.length) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), all);
+  const tile = (c) => {
+    const art = h('div', { class: 'cat-art' });
+    art.innerHTML = catArt(c.name); // свой статичный SVG, данных пользователя нет
+    const low = [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
+    return h('button', { type: 'button', class: 'cat-tile', title: c.name, onclick: () => open({ categoryId: c.id }) }, art,
+      h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, c.name), h('div', { class: 'cat-n' }, nPos(c.total), low ? h('span', { class: 'warn' }, ' · ' + low) : null)));
+  };
+  const total = cats.reduce((a, c) => a + c.total, 0);
+  return h('div', { class: 'cat-landing' },
+    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(total)}`), all),
+    h('div', { class: 'cat-grid' }, ...cats.map(tile)));
+}
+
 export const stock = {
   id: 'stock',
   title: 'Склад',
@@ -114,7 +134,10 @@ export const stock = {
     sidebar: true,
     chipsTop: true, // СКФ.2: «Состояние» — строкой над таблицей
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
-    extraKeys: ['ft'],
+    extraKeys: ['ft', 'all'],
+    // первая страница — плитки категорий с рисунками (как «Продукция» и «Каталог поставщиков»); галерея — карточки позиций с фото
+    gallery: { limit: 100, card: (r) => ({ pic: r.photos?.[0] ? PREFIX + (r.photos[0].thumb || r.photos[0].url) : null, title: r.name, meta: [r.categoryName, r.article].filter(Boolean).join(' · '), price: `${qty(r.quantity)} ${unit(r)}` }) },
+    landing: { when: (P) => !P.categoryId && !P.q && !P.ft && !P.status && !P.all, render: stockLanding },
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
     // признаки: список — ровно те позиции, что посчитала кнопка (ids из полного списка склада); список ещё не загружен — по словам, как раньше
     query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? ftIds(P) || { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
