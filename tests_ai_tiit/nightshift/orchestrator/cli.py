@@ -88,16 +88,22 @@ def main(argv=None):
     # stand
     sp_stand = sub.add_parser("stand")
     sp_stand.add_argument("action", nargs="?", default="refresh")
+    sp_stand.add_argument("--keep-app", action="store_true")
     def cmd_stand(a):
         import subprocess
+        from .stand import StandError, refresh
         cwd = "stand"
+        if a.action == "refresh":
+            try:
+                print(json.dumps(refresh(keep_app=a.keep_app), ensure_ascii=False))
+            except (StandError, OSError, subprocess.TimeoutExpired) as e:
+                print(json.dumps({"error": str(e)}, ensure_ascii=False))
+                sys.exit(2)
+            return
         if a.action == "up":
             r = subprocess.run(["docker", "compose", "up", "-d"], cwd=cwd, capture_output=True, text=True)
         elif a.action == "down":
             r = subprocess.run(["docker", "compose", "down"], cwd=cwd, capture_output=True, text=True)
-        elif a.action == "refresh":
-            subprocess.run(["docker", "compose", "down"], cwd=cwd, capture_output=True, text=True)
-            r = subprocess.run(["docker", "compose", "up", "-d"], cwd=cwd, capture_output=True, text=True)
         else:
             r = subprocess.run(["docker", "compose", "ps"], cwd=cwd, capture_output=True, text=True)
         print(r.stdout + r.stderr)

@@ -27,6 +27,10 @@ services:
     container_name: nightshift-app
     env_file:
       - .env.stand
+    environment:
+      MONGO_URI: mongodb://mongo:27017/datacore-night?replicaSet=rs0
+      MONGO_DB: datacore-night
+      MONGO_DB_TEST: datacore-test-night
     volumes:
       - ../../../backend/test:/app/test:ro
       - ../../../backend/src:/app/src:ro
