@@ -6,7 +6,7 @@ import { SupplyInvoiceService } from './supply-invoice.service';
 
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'select', 'session']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
@@ -92,10 +92,21 @@ describe('SupplyInvoiceService: дубль № у поставщика', () => {
     expect(del.$set.deletedAt).toBeInstanceOf(Date);
     expect(del.$set.mergedInto).toBe(dup._id);
   });
-  it('найденный оплачен — 409', async () => {
-    others = [dupDoc({ status: 'paid' })];
-    await expect(svc.update(String(cur._id), { no: '41125' } as never)).rejects.toBeInstanceOf(ConflictException);
-    expect(reqUpdates).toHaveLength(0);
+  it('найденный оплачен — позиции добавляются в него, остаётся «оплачен», строки помечены оплаченными', async () => {
+    const paidAt = new Date('2026-10-05');
+    const dup = dupDoc({ status: 'paid', paidAt }); others = [dup];
+    const record = jest.fn(async () => undefined);
+    (svc as unknown as { prices: object }).prices = { record };
+    Object.assign((svc as unknown as { requests: object }).requests, { find: jest.fn(() => chain([{ _id: new Types.ObjectId() }])), updateOne: jest.fn(() => chain({})) });
+    const r = await svc.update(String(cur._id), { no: '41125', issue: true } as never) as unknown as { id: string; warnings: string[] };
+    expect(r.id).toBe(String(dup._id));
+    expect(r.warnings[0]).toContain('оплачен');
+    const moved = reqUpdates.find(([f]) => (f as { invoiceId?: unknown }).invoiceId === cur._id)![1] as { $set: Record<string, unknown> };
+    expect(moved.$set).toMatchObject({ invoiceId: dup._id, paid: true, paidAt });
+    const upd = invUpdates.find(([f]) => (f as { _id: unknown })._id === dup._id)![1] as { $set: Record<string, unknown> };
+    expect(upd.$set.status).toBeUndefined();
+    expect(upd.$set.amount).toBe(150);
+    expect(record).toHaveBeenCalled();
   });
   it('другой № — не склеивает', async () => {
     others = [dupDoc({ no: '999' })];

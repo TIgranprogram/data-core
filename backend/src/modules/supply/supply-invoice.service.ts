@@ -247,9 +247,9 @@ export class SupplyInvoiceService {
   async update(id: string, dto: PatchInvoiceDto, actorId?: string) {
     const inv = await this.load(id);
     if (inv.status === 'paid') {
-      // у оплаченного можно только прикрепить файлы счёта и привязать договор (пользователь 2026-10-29: «счёт не появляется» — файл было не добавить)
-      const other = Object.entries(dto).filter(([k, v]) => v !== undefined && !['fileIds', 'contractId'].includes(k) && !(k === 'issue' && !v));
-      if (other.length) throw new BadRequestException('Счёт оплачен — менять можно только файлы счёта и договор');
+      // у оплаченного: файлы, договор, № / дата / сумма (пользователь 2026-11-02: «добавить позиции и редактировать»); плательщика и поставщика не меняем
+      const other = Object.entries(dto).filter(([k, v]) => v !== undefined && !['fileIds', 'contractId', 'no', 'date', 'amount', 'issue'].includes(k));
+      if (other.length) throw new BadRequestException('Счёт оплачен — менять можно файлы, договор, номер, дату и сумму');
       return this.updatePaid(inv, dto);
     }
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
@@ -290,8 +290,8 @@ export class SupplyInvoiceService {
       const same = await this.model.find({ supplierId: supplierNow, deletedAt: null, status: { $ne: 'cancelled' }, _id: { $ne: inv._id } }).lean().exec() as Lean[];
       const dup = same.find((x) => normInvoiceNo(x.no) === key);
       if (dup) {
-        if (dup.status === 'paid') throw new ConflictException(`Счёт № ${String(noNow)} у этого поставщика уже оплачен (сумма ${Number(dup.amount) || 0}). Проверьте номер или добавьте позицию к нему вручную`);
-        return this.mergeInto(dup, inv, set, dto, actorId, [...warnings, `Счёт № ${String(dup.no)} у этого поставщика уже есть — позиции добавлены в него`]);
+        const note = dup.status === 'paid' ? ' (он оплачен — добавленные позиции тоже оплачены, проверьте сумму)' : '';
+        return this.mergeInto(dup, inv, set, dto, actorId, [...warnings, `Счёт № ${String(dup.no)} у этого поставщика уже есть — позиции добавлены в него${note}`]);
       }
     }
     const next = { ...inv, ...set };
@@ -329,19 +329,24 @@ export class SupplyInvoiceService {
     const patch: Lean = { fileIds: [...ids.values()], amount };
     for (const k of ['contractId', 'payerCompanyId', 'date']) if (!dup[k] && mine[k]) patch[k] = mine[k];
     const next = { ...dup, ...patch };
-    if (dto.issue) {
+    const dupPaid = dup.status === 'paid';
+    if (dto.issue && !dupPaid) {
       const lack = missing(ISSUED_GATE, next);
       if (lack.length) throw new BadRequestException(`Счёт нельзя отметить выставленным — не заполнено: ${lack.join(', ')}`);
       patch.status = 'issued';
     }
     const status = (patch.status ?? dup.status) as string;
     await this.tx(async (session) => {
-      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { invoiceId: dup._id, supplierId: dup.supplierId, editedInApp: true } }, { session }).exec();
+      const moved = dupPaid ? ((await this.requests.find({ invoiceId: inv._id, deletedAt: null }).select('_id').session(session).lean().exec()) as Lean[]).map((x) => x._id as Types.ObjectId) : [];
+      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { invoiceId: dup._id, supplierId: dup.supplierId, editedInApp: true, ...(dupPaid ? { paid: true, paidAt: dup.paidAt } : {}) } }, { session }).exec();
       const $set: Lean = {}; const $unset: Lean = {};
       for (const [k, v] of Object.entries(patch)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: dup._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
       await this.model.updateOne({ _id: inv._id }, { $set: { deletedAt: new Date(), mergedInto: dup._id } }, { session }).exec();
-      if (status === 'issued') {
+      if (dupPaid) {
+        await this.copyToRequests({ ...next, status }, session);
+        await this.recordPrices({ ...next, status }, 'invoice_paid', session, moved);
+      } else if (status === 'issued') {
         await this.copyToRequests({ ...next, status }, session);
         if (dup.status !== 'issued') await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       }
@@ -360,8 +365,19 @@ export class SupplyInvoiceService {
     if (dto.fileIds !== undefined) $set.fileIds = dto.fileIds.map((i) => oid(i, 'файла'));
     if (dto.contractId) $set.contractId = await this.checkContract(dto.contractId, inv.supplierId, inv.contractId);
     else if (dto.contractId === '') $unset.contractId = '';
+    if (dto.no !== undefined) { if (dto.no.trim()) $set.no = dto.no.trim(); else $unset.no = ''; }
+    if (dto.date) {
+      const d = parseSheetDate(dto.date);
+      if (!d) throw new BadRequestException('Дата счёта — в формате ДД.ММ.ГГГГ');
+      $set.date = d;
+    }
+    if (dto.amount !== undefined) $set.amount = dto.amount;
     if (Object.keys($set).length || Object.keys($unset).length) {
-      await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }).exec();
+      await this.tx(async (session) => {
+        await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { session }).exec();
+        // сумма / № / дата → в строки счёта (сумма делится по строкам)
+        if (['amount', 'no', 'date'].some((k) => k in $set || k in $unset)) await this.copyToRequests({ ...inv, ...$set }, session);
+      });
     }
     return this.get(String(inv._id));
   }
@@ -376,8 +392,8 @@ export class SupplyInvoiceService {
   }
 
   /** Строка истории цен на каждую заявку счёта с materialId: сумма строки (после деления) / количество. */
-  private async recordPrices(inv: Lean, source: PriceSource, session: ClientSession) {
-    const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' }, materialId: { $exists: true, $ne: null } }).session(session).lean().exec() as Lean[];
+  private async recordPrices(inv: Lean, source: PriceSource, session: ClientSession, only?: Types.ObjectId[]) {
+    const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' }, materialId: { $exists: true, $ne: null }, ...(only ? { _id: { $in: only } } : {}) }).session(session).lean().exec() as Lean[];
     for (const l of lines) {
       await this.prices.record({
         materialId: l.materialId as Types.ObjectId, supplierId: inv.supplierId as Types.ObjectId | undefined, supplierName: inv.supplierName as string | undefined,

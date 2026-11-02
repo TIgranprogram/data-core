@@ -230,7 +230,8 @@ export function invoiceBlock(r, ctx) {
   (async () => {
     const [inv, companies] = await Promise.all([api(`/supply/invoices/${r.invoiceId}`), payerList()]);
     const paid = inv.status === 'paid';
-    const lock = paid || !session.canEdit;
+    const lockPaid = paid && session.canEdit; // оплаченный: №, дата, сумма и файлы правятся, плательщик — нет
+    const lock = (paid || !session.canEdit) && !lockPaid;
     const no = h('input', { value: inv.no || '', maxlength: 100, disabled: lock });
     const dt = h('input', { type: 'date', value: String(inv.date || '').slice(0, 10) || today(), disabled: lock });
     const amount = h('input', { inputmode: 'decimal', value: inv.amount > 0 ? String(inv.amount) : String(defaultAmount(r) ?? ''), disabled: lock });
@@ -241,6 +242,7 @@ export function invoiceBlock(r, ctx) {
     const body = () => ({ no: no.value.trim(), date: dt.value, amount: Number(String(amount.value).replace(',', '.').replace(/\s/g, '')) || 0, payerCompanyId: payer.value, fileIds: files.ids() });
     const run = async (btn, fn) => { btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); } };
     const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } })); toast('Счёт сохранён'); }) }, 'Сохранить');
+    const savePaid = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(savePaid, async () => { const b = body(); await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { no: b.no, date: b.date, amount: b.amount, fileIds: b.fileIds } }); toast('Счёт сохранён'); }) }, 'Сохранить');
     const pay = h('button', { class: 'btn', type: 'button', onclick: () => run(pay, async () => {
       const res = await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...body(), issue: true } });
       showWarnings(res);
@@ -258,7 +260,9 @@ export function invoiceBlock(r, ctx) {
     const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор поставщика'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
     box.replaceChildren(
       h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
-      ...(lock
+      ...(lockPaid
+        ? [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), ro('Наша компания', inv.payerName)]
+        : lock
         ? [ro('№ счёта', inv.no), ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Наша компания', inv.payerName)]
         : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', amount), field('Наша компания', payer)]),
       contractRow,
@@ -268,8 +272,9 @@ export function invoiceBlock(r, ctx) {
         lock && session.canEdit ? h('div', { class: 'inv-actions' }, saveFiles) : null),
       h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '')),
       h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),
-      lock ? h('div', { class: 'muted' }, paid ? 'Счёт оплачен — меняются только файлы и договор' : inv.status === 'issued' ? 'Счёт выставлен — меняются только файлы и договор' : null) : null,
-      lock ? null : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
+      lockPaid ? h('div', { class: 'hint' }, 'Нужно добавить позиции в этот счёт: оформите новую заявку на этого поставщика, при «Заказал» впишите тот же № счёта — позиции добавятся сюда.') : null,
+      lock ? h('div', { class: 'muted' }, paid ? 'Счёт оплачен' : inv.status === 'issued' ? 'Счёт выставлен — меняются только файлы и договор' : null) : null,
+      lockPaid ? h('div', { class: 'inv-actions' }, savePaid) : lock ? null : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
   })().catch((e) => box.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')));
   return box;
 }
