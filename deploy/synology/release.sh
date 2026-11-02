@@ -4,7 +4,7 @@
 #   сначала ворота deploy/synology/preflight.sh — красное → выкладки нет;
 #   без флагов — сама выбирает путь (печатает «== Путь: …»):
 #     быстрый — менялись только экраны (backend/pwa, backend/admin) и файлы вне сервера (docs, tools, pult, *.md):
-#               без сборки и перезапуска, экраны rsync в примонтированные папки; бэкап — если копии базы старше суток;
+#               без сборки и перезапуска, экраны обновляются на месте (sync-dir.sh) в примонтированных папки; бэкап — если копии базы старше суток;
 #     полный  — всё остальное (бэкап → архив HEAD → замена backend/ deploy/ → build → up → проверка);
 #   --dry-run       — только показать, какой путь будет выбран, и выйти (ничего не меняет);
 #   --full          — всегда полный путь;
@@ -26,12 +26,12 @@ cd "$(git rev-parse --show-toplevel)"
 # пишется только после успешной проверки, удаляется в начале выкладки и при откате.
 PREV="$("${SSH[@]}" 'cat /opt/data-core/.release-commit 2>/dev/null; true' 2>/dev/null | tr -d '[:space:]' || true)"
 [[ "$PREV" =~ ^[0-9a-f]{7,40}$ ]] || PREV=""
-VMOK="$("${SSH[@]}" 'command -v rsync >/dev/null && docker inspect -f "{{range .Mounts}}{{.Destination}} {{end}}" datacore-backend 2>/dev/null | grep -q "/app/pwa" && echo yes; true' 2>/dev/null || true)"
+VMOK="$("${SSH[@]}" 'docker inspect -f "{{range .Mounts}}{{.Destination}} {{end}}" datacore-backend 2>/dev/null | grep -q "/app/pwa" && echo yes; true' 2>/dev/null || true)"
 MODE=full; WHY=""
 if [[ $FORCE_FULL == 1 || $DATA == 1 || $DROP == 1 ]]; then WHY="задан флаг полной выкладки"
 elif [[ -z "$PREV" ]]; then WHY="на сервере нет пометки прошлой выкладки"
 elif ! git cat-file -e "$PREV^{commit}" 2>/dev/null || ! git merge-base --is-ancestor "$PREV" HEAD; then WHY="версия сервера не найдена в истории"
-elif [[ "$VMOK" != yes ]]; then WHY="экраны на сервере ещё не подключены папкой (или нет rsync)"
+elif [[ "$VMOK" != yes ]]; then WHY="экраны на сервере ещё не подключены папкой"
 else
   # --no-renames: перенос файла из backend/src в pwa виден и старым путём
   OTHER="$(git diff --no-renames --name-only "$PREV" HEAD | grep -vE '^backend/(pwa|admin)/|^(docs|tools|pult)/|^[^/]+\.md$' || true)"
@@ -66,15 +66,16 @@ PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"date":"%cI"}' -- backe
 if [[ $MODE == fast ]]; then
   echo "== 1. Бэкап: копия базы моложе суток — пропуск, иначе бэкап"
   "${SSH[@]}" 'cd /opt/data-core && if find /var/lib/datacore/backups -maxdepth 1 -name "mongo-*" -mmin -1440 2>/dev/null | grep -q .; then echo "свежая копия базы есть — без бэкапа"; elif bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
-  echo "== 2. Экраны: архив pwa+admin → rsync в примонтированные папки (без сборки и перезапуска)"
-  git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/screens.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend/pwa backend/admin
+  echo "== 2. Экраны: архив pwa+admin → обновление на месте в примонтированных папках (без сборки и перезапуска)"
+  # sync-dir.sh едет в том же архиве (на VM нет rsync; своя копия скрипта — независимо от версии deploy/ на сервере)
+  git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/screens.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend/pwa backend/admin deploy/synology/sync-dir.sh
   scp -i "$KEY" -o BatchMode=yes "$TMP/screens.tgz" "$VM:/tmp/dc-screens.tgz"
   # папки обновляются на месте (их держит привязка контейнера); version.json — последним, чтобы приложение не закэшировало смесь
   "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
 set -e; R=/tmp/dc-scr-$TS; mkdir -p $R; tar -xzf /tmp/dc-screens.tgz -C $R; cd /opt/data-core
 cp -a backend backend.prev-$TS
-rsync -a --checksum --delete --delay-updates --exclude version.json $R/backend/pwa/ backend/pwa/
-rsync -a --checksum --delete --delay-updates $R/backend/admin/ backend/admin/
+bash $R/deploy/synology/sync-dir.sh $R/backend/pwa backend/pwa --skip version.json
+bash $R/deploy/synology/sync-dir.sh $R/backend/admin backend/admin
 cp $R/backend/pwa/version.json backend/pwa/version.json
 rm -rf $R /tmp/dc-screens.tgz; echo "экраны заменены, откат: deploy/synology/rollback.sh backend.prev-$TS --screens-only"
 EOS

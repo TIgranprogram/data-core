@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Откат на прошлую версию. Запуск на VM: cd /opt/data-core && bash deploy/synology/rollback.sh [backend.prev-<TS>] [--screens-only]
 #   без --screens-only — сервер: образ datacore-backend:prev (его тегирует release.sh перед сборкой) + экраны из указанной копии;
-#   --screens-only     — только экраны (быстрая выкладка release.sh): rsync pwa/admin из копии, образ и контейнер не трогаем.
+#   --screens-only     — только экраны (быстрая выкладка release.sh): обновить pwa/admin из копии, образ и контейнер не трогаем.
 # Копию release.sh передаёт точным именем (по дате папок искать нельзя: mv/cp -a сохраняют старую mtime).
-# Экраны примонтированы папками (docker-compose.prod.yml) — обновляем на месте rsync, сами папки не переносим.
+# Экраны примонтированы папками (docker-compose.prod.yml) — обновляем на месте (sync-dir.sh, без rsync), сами папки не переносим.
 # Пометка /opt/data-core/.release-commit удаляется: следующая выкладка пойдёт полным путём.
 # Mongo и kppdf не трогаются. Данные не откатываются: если новая версия успела их изменить, смотреть отдельно.
 set -euo pipefail
@@ -14,9 +14,9 @@ rm -f .release-commit
 
 screens_back() {
   [[ -n "$PREV" && -d "$PREV/pwa" ]] || { echo "экраны не возвращены: копия ${PREV:-не указана} не найдена"; return 1; }
-  rsync -a --checksum --delete --exclude version.json "$PREV/pwa/" backend/pwa/
+  bash deploy/synology/sync-dir.sh "$PREV/pwa" backend/pwa --skip version.json
   [[ -f "$PREV/pwa/version.json" ]] && cp -p "$PREV/pwa/version.json" backend/pwa/version.json
-  rsync -a --checksum --delete "$PREV/admin/" backend/admin/
+  bash deploy/synology/sync-dir.sh "$PREV/admin" backend/admin
   echo "экраны возвращены из $PREV"
 }
 
