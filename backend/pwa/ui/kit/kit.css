@@ -217,3 +217,15 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-more { min-height: 1px; }
 .m-tile.m-on { border-color: var(--primary); background: var(--primary-soft); }
 .m-tile.m-plain { min-height: var(--m-btn-h); justify-content: center; }
+/* Большая проверка 2026-11-02: на телефоне в ленте «Сегодня» кнопки — отдельной строкой под текстом, текст карточки не сжат столбиком */
+@media (max-width: 480px) { .k-feed { flex-wrap: wrap; } .k-feed .k-row-name { flex: 1 1 60%; min-width: 0; } .k-feed .k-row-act { flex-basis: 100%; justify-content: flex-end; flex-wrap: wrap; } }
+/* Большая проверка 2026-11-02: форма в правой панели — 2 колонки */
+@media (min-width: 0) { /* панель справа узкая на любом экране: 4 колонки по 72px — подписи столбиком; container-type нельзя — ломает fixed-списки (popup.js) */
+  .drawer .form-blocks .form-grid { grid-template-columns: 1fr 1fr; }
+  .drawer .form-blocks .form-grid > * { grid-column: span 1; }
+  .drawer .form-blocks .form-grid > .wide, .drawer .form-blocks .form-grid > .span-2, .drawer .form-blocks .form-grid > .span-3, .drawer .form-blocks .form-grid > .span-3 + .span-1, .drawer .form-blocks .form-grid > .is-seg { grid-column: 1 / -1; }
+}
+/* Большая проверка 2026-11-02: на телефоне имя и логин сотрудника — во всю строку, не столбиком */
+@media (max-width: 480px) { .st-row { grid-template-columns: minmax(0, 1fr); } }
+/* Большая проверка 2026-11-02: ссылки-значения в карточке (контрагент, позиция) на телефоне — область нажатия не меньше 36px, вид строки прежний */
+@media (max-width: 480px) { .drawer a[href]:not(.btn) { display: inline-block; min-width: 36px; padding-block: 10px; margin-block: -10px; } }

@@ -9,7 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { standUp, API_PORT } from './night.mjs';
+import { standUp, standRefresh, API_PORT } from './night.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = (process.argv[2] && !process.argv[2].startsWith('-') ? process.argv[2] : process.env.STAND_URL || `http://localhost:${API_PORT}`).replace(/\/+$/, '').replace(/\/app$/, '');
@@ -136,7 +136,7 @@ if(document.documentElement.scrollWidth>innerWidth+1){window.scrollTo(300,0);con
     if(!clip){worst=el;wr=r.right}}
   add('d',worst?sel(worst):'documentElement','страница прокручивается вбок на '+sx+'px; виновник right='+Math.round(wr))}}
 for(const el of document.querySelectorAll('main *,.drawer *')){
-  if(!vis(el)||el.closest('svg,button .badge'))continue;
+  if(!vis(el)||el.closest('svg,button .badge,.pic'))continue; // .pic: «нет фото» в квадрате-заглушке — так задумано
   const own=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();
   if(own.length>3){const r=el.getBoundingClientRect();const lh=parseFloat(getComputedStyle(el).lineHeight)||16;
     const fs=parseFloat(getComputedStyle(el).fontSize)||14;const lw=Math.max(...own.split(/\\s+/).map(w=>w.length))*fs*0.5;
@@ -217,6 +217,10 @@ async function main() {
     sayErr('Стенд не поднят — поднимаю (3–10 мин)…');
     const code = await standUp({ say: sayErr, log: () => {} });
     if (code || !(await ready())) { sayErr('Стенд не поднялся'); return 2; }
+  } else if (BASE === `http://localhost:${API_PORT}`) {
+    // поднятый стенд мог остаться на старой сборке — тогда новые адреса дают 404/400 (ложные находки k)
+    sayErr('Стенд поднят — пересобираю сервер из текущего кода…');
+    if (await standRefresh({ say: sayErr, log: () => {} }) || !(await ready())) { sayErr('Стенд не пересобрался'); return 2; }
   }
   let login = await apiLogin(creds.login, creds.password);
   if (!login) {

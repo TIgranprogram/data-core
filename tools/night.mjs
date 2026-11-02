@@ -208,6 +208,17 @@ async function health() {
 
 // ---------- dc stand ----------
 
+/** Стенд уже поднят — пересобрать только сервер из текущего кода (база не трогается): иначе проверка идёт по старой сборке. */
+export async function standRefresh(ctx, src = ROOT) {
+  assertStandSafe();
+  const r = compose(['up', '-d', '--build', 'backend'], src);
+  ctx.log(r.out);
+  if (r.code) { ctx.say('Стенд: сервер не пересобрался — ' + r.out.trim().split('\n').pop().slice(0, 120)); return 2; }
+  for (let i = 0; i < 60; i++) { if (await health()) return 0; sleepSync(2000); }
+  ctx.say('Стенд: после пересборки сервер не ответил health за 2 минуты');
+  return 2;
+}
+
 export async function standUp(ctx, src = ROOT) {
   assertStandSafe();
   if (await health()) { ctx.say(`Стенд уже поднят: http://localhost:${API_PORT}/app/`); return 0; }
