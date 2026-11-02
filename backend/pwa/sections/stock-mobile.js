@@ -94,24 +94,27 @@ export const stockMobile = {
         .map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: m.type === 'in' ? 'in' : 'out' }));
     };
 
-    // ---------- Выдача: категория → позиция → сколько → кому → подтвердить ----------
+    // ---------- Выдача: кому (заказ и позиция заказа / производство) → позиции по одной (сколько) → список → выдать всё одной операцией ----------
     function issue(preset) {
-      const S = {};
-      const stepItem = () => { const pick = (it) => { S.item = it; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ step: { n: 1, of: 4 }, back: () => { if (!d.up()) home(); }, body: [d.el] })); };
+      const S = { cart: [] };
+      const inCart = (it) => S.cart.filter((c) => c.item.id === it.id).reduce((a, c) => a + c.qty, 0);
+      const afterTarget = () => { if (S.cart.length) stepCart(); else if (preset) { S.item = preset; stepQty(); } else stepItem(); };
+      const stepItem = () => { const pick = (it) => { S.item = it; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Что выдаём?', step: { n: 2, of: 3 }, back: () => { if (!d.up()) (S.cart.length ? stepCart() : stepKind()); }, body: [d.el] })); };
       const stepQty = (note) => {
         const it = S.item;
-        const q = qty({ value: S.qty || 1, unit: unitOf(it), max: fmt(it.quantity) });
+        const left = it.quantity - inCart(it);
+        const q = qty({ value: 1, unit: unitOf(it), max: fmt(left) });
         const msg = h('div');
         if (note) msg.replaceChildren(note);
-        const tooMany = (n) => { msg.replaceChildren(error(`На складе только ${fmt(it.quantity)} ${unitOf(it)}.`), bigButton({ label: 'Корректировать остаток', tone: 'neutral', onClick: () => correct(it, (fresh) => { if (fresh?.id) S.item = fresh; stepQty(); }) })); return n; };
-        show(screen({ title: it.name, step: { n: 2, of: 4 }, back: stepItem, body: [q.el, msg], foot: bigButton({ label: 'Дальше', onClick: () => {
+        const tooMany = (n) => { msg.replaceChildren(error(`На складе только ${fmt(it.quantity)} ${unitOf(it)}${inCart(it) ? `, из них ${fmt(inCart(it))} уже в списке` : ''}.`), bigButton({ label: 'Корректировать остаток', tone: 'neutral', onClick: () => correct(it, (fresh) => { if (fresh?.id) S.item = fresh; stepQty(); }) })); return n; };
+        show(screen({ title: it.name, step: { n: 2, of: 3 }, back: stepItem, body: [q.el, msg], foot: bigButton({ label: 'Дальше', onClick: () => {
           const n = q.value();
           if (!(n > 0)) { msg.replaceChildren(error('Впишите количество больше нуля.')); return; }
-          if (n > it.quantity) { tooMany(n); return; }
-          S.qty = n; stepKind();
+          if (n > left) { tooMany(n); return; }
+          S.cart.push({ item: it, qty: n }); stepCart();
         } }) }));
       };
-      const stepKind = () => show(screen({ title: 'На что выдаём?', step: { n: 3, of: 4 }, back: stepQty,
+      const stepKind = () => show(screen({ title: 'Кому выдаём?', step: { n: 1, of: 3 }, back: () => (S.cart.length ? stepCart() : home()),
         body: [choice({ items: [{ value: 'order', label: 'На заказ' }, { value: 'person', label: 'На производство' }], onPick: (o) => (o.value === 'order' ? stepOrder() : stepPerson()) })] }));
       /** Заказ → его позиции: выдаём на точную позицию (salesOrderLineId, заказ сервер берёт из неё); без позиций — на весь заказ. */
       const stepOrder = () => {
@@ -123,43 +126,48 @@ export const stockMobile = {
             const lines = (o.lines || []).map((l, i) => ({ value: { line: l.id, o }, label: `${l.seqNo ?? l.lineNo ?? i + 1}. ${String(l.title || 'Позиция').slice(0, 90)}` }));
             return [...lines, { value: { line: null, o }, label: 'На весь заказ — без позиции' }];
           } }], empty: 'Заказов в работе нет',
-          onPick: (it) => { const { line, o } = it.value; S.target = line ? { salesOrderLineId: line } : { salesOrderId: o.id }; S.where = `на заказ ${orderLabel(o)}${line ? ', поз. ' + it.label : ''}`; stepSure(); } });
-        show(screen({ title: 'Заказ и позиция', step: { n: 3, of: 4 }, back: () => { if (!d.up()) stepKind(); }, body: [d.el] }));
+          onPick: (it) => { const { line, o } = it.value; S.target = line ? { salesOrderLineId: line } : { salesOrderId: o.id }; S.where = `на заказ ${orderLabel(o)}${line ? ', поз. ' + it.label : ''}`; afterTarget(); } });
+        show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: () => { if (!d.up()) stepKind(); }, body: [d.el] }));
       };
       /** Кому: сначала отдел (справочник «Отделы» — новый появится сам), затем его сотрудники (по видам работ: вид работ → отдел, ОТД-1); без фамилии — выдача в отдел (issuedTo). */
       const stepPerson = async () => {
-        show(screen({ title: 'Кому: отдел', step: { n: 3, of: 4 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
+        show(screen({ title: 'Кому: отдел', step: { n: 1, of: 3 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
         let deps, wts, ppl;
         try {
           [deps, wts, ppl] = await Promise.all(['departments', 'worktypes', 'persons'].map((k) => once('dict:' + k, () => call('/dicts/' + k).then((r) => r.items || []))));
-        } catch (e) { show(screen({ title: 'Кому: отдел', step: { n: 3, of: 4 }, back: stepKind, body: [failed(e, stepPerson)] })); return; }
+        } catch (e) { show(screen({ title: 'Кому: отдел', step: { n: 1, of: 3 }, back: stepKind, body: [failed(e, stepPerson)] })); return; }
         const all = ppl.filter((p) => p.status !== 'fired').map((p) => ({ value: p.id, label: p.name, wt: [p.workTypeId, ...(p.workTypeIds || [])].filter(Boolean) }))
           .sort((x, y) => x.label.localeCompare(y.label, 'ru'));
         const peopleOf = (dep) => { const ids = new Set(wts.filter((w) => w.departmentId === dep.id).map((w) => w.id)); const own = all.filter((p) => p.wt.some((x) => ids.has(x))); return { own: own.length > 0, list: own.length ? own : all }; };
         const pickPeople = (dep) => {
           const { own, list } = dep ? peopleOf(dep) : { own: true, list: all };
-          show(screen({ title: dep?.name || 'Все сотрудники', step: { n: 3, of: 4 }, back: stepPerson, body: [
-            dep ? bigButton({ label: `Выдать в «${dep.name}» без фамилии`, tone: 'neutral', onClick: () => { S.target = { issuedTo: dep.name }; S.where = `в «${dep.name}»`; stepSure(); } }) : null,
+          show(screen({ title: dep?.name || 'Все сотрудники', step: { n: 1, of: 3 }, back: stepPerson, body: [
+            dep ? bigButton({ label: `Выдать в «${dep.name}» без фамилии`, tone: 'neutral', onClick: () => { S.target = { issuedTo: dep.name }; S.where = `в «${dep.name}»`; afterTarget(); } }) : null,
             dep && !own ? h('p', { class: 'm-empty' }, h('small', null, 'В отделе пока никого: у видов работ не указан этот отдел. Показаны все сотрудники.')) : null,
-            choice({ items: list, empty: 'Сотрудников нет в справочнике', onPick: (o) => { S.target = { personId: o.value, ...(dep ? { issuedTo: dep.name } : {}) }; S.where = `${dep ? dep.name + ', ' : 'на производство, '}${o.label}`; stepSure(); } })] }));
+            choice({ items: list, empty: 'Сотрудников нет в справочнике', onPick: (o) => { S.target = { personId: o.value, ...(dep ? { issuedTo: dep.name } : {}) }; S.where = `${dep ? dep.name + ', ' : 'на производство, '}${o.label}`; afterTarget(); } })] }));
         };
-        show(screen({ title: 'Кому: отдел', step: { n: 3, of: 4 }, back: stepKind, body: [
+        show(screen({ title: 'Кому: отдел', step: { n: 1, of: 3 }, back: stepKind, body: [
           tiles({ items: [...deps.map((d) => ({ value: d, label: d.name })), { value: null, label: 'Все сотрудники' }], empty: 'Отделов нет — добавьте в «Справочники» → «Отделы»', onPick: (o) => pickPeople(o.value) })] }));
       };
-      const stepSure = () => {
+      /** Список к выдаче: «Добавить позицию» — ещё одна на того же получателя; «Убрать» — лишняя; «Выдать» — одна операция на всё (всё или ничего). */
+      const stepCart = () => {
         const clientUid = uid(); // повтор после сбоя связи не задвоит выдачу
         const msg = h('div');
-        const line = `${S.item.name} · ${fmt(S.qty)} ${unitOf(S.item)}`;
-        show(screen({ title: 'Выдать?', step: { n: 4, of: 4 }, back: () => (S.target?.personId || S.target?.issuedTo ? stepKind() : stepOrder()), body: [h('p', null, `${line} · ${S.where}`), msg],
-          foot: bigButton({ label: 'Выдать', onClick: async () => {
+        const items = S.cart.map((c, i) => ({ value: i, label: c.item.name, hint: `${fmt(c.qty)} ${unitOf(c.item)} · нажмите, чтобы убрать` }));
+        show(screen({ title: 'Выдать?', step: { n: 3, of: 3 }, back: stepItem, body: [
+          h('p', null, S.where), bigButton({ label: 'Сменить получателя', tone: 'ghost', size: 'sm', onClick: stepKind }),
+          choice({ items, onPick: (o) => { S.cart.splice(o.value, 1); if (S.cart.length) stepCart(); else stepItem(); } }),
+          bigButton({ label: 'Добавить позицию', tone: 'neutral', onClick: stepItem }), msg],
+          foot: bigButton({ label: S.cart.length > 1 ? `Выдать всё (${S.cart.length} поз.)` : 'Выдать', onClick: async () => {
             msg.replaceChildren();
             try {
-              await call('/stock/batch', { method: 'POST', body: { type: 'out', lines: [{ materialId: S.item.id, qty: S.qty }], clientUid, ...S.target } });
-              toast(`Выдано: ${line}`, { ms: 3000 }); home();
+              await call('/stock/batch', { method: 'POST', body: { type: 'out', lines: S.cart.map((c) => ({ materialId: c.item.id, qty: c.qty })), clientUid, ...S.target } });
+              const c0 = S.cart[0];
+              toast(S.cart.length > 1 ? `Выдано позиций: ${S.cart.length} · ${S.where}` : `Выдано: ${c0.item.name} · ${fmt(c0.qty)} ${unitOf(c0.item)}`, { ms: 3000 }); home();
             } catch (e) { msg.replaceChildren(failed(e)); }
           } }) }));
       };
-      if (preset) { S.item = preset; stepQty(); } else stepItem();
+      stepKind();
     }
 
     /** «Корректировать остаток»: фактический остаток цифровой панелью + дата; запись — пересчёт склада (POST /stock/batch type:count, как в «Остатках»). */
