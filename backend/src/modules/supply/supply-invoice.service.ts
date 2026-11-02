@@ -363,7 +363,8 @@ export class SupplyInvoiceService {
       for (const [k, v] of Object.entries(set)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
       if (status === 'issued') {
-        // цены строк не перераспределяются — только запись истории цен
+        // № / дата / плательщик — только метаданные строк; цены не перераспределяются (это и «слипало» строки)
+        await this.copyMetaToRequests({ ...next, status }, session, []);
         await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       } else if (set.supplierId) {
         await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { supplierId: set.supplierId, editedInApp: true } }, { session }).exec();

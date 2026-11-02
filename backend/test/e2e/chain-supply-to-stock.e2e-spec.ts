@@ -16,8 +16,10 @@ describe('Цепочка: снабжение до склада', () => {
   const moves = (id: string) => db().collection('stockmovements').find({ materialId: new Types.ObjectId(id), type: 'in' }).toArray();
   const mkReq = async (b: object) => (await http().post('/api/supply/requests').set(auth()).send({ unit: 'шт', supplierName: 'Металл-Снаб', ...b }).expect(201)).body.id as string;
   const invoiceOf = async (reqId: string, amount: number, no: string) => {
+    // цена строки — до счёта: у заявки priceHint — сумма строки (счёт считает amount сам)
+    await http().patch(`/api/supply/requests/${reqId}`).set(auth()).send({ priceHint: amount }).expect(200);
     const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [reqId] }).expect(201)).body.items[0].id as string;
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no, date: '2026-10-20', amount, issue: true }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no, date: '2026-10-20', issue: true }).expect(200);
     const org = await db().collection('organizations').findOne({ name: 'Металл-Снаб' });
     await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ payerCompanyId: String(org!._id) }).expect(200);
     return inv;
@@ -139,7 +141,7 @@ describe('Цепочка: снабжение до склада', () => {
     const a = await mkReq({ title: 'Лист ЦС-4', qty: 3, materialId: m1, priceHint: 100 });
     const b = await mkReq({ title: 'Лист ЦС-5', qty: 5, materialId: m2, priceHint: 100 });
     const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [a, b] }).expect(201)).body.items[0].id as string;
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: 'ЦС-10', date: '2026-10-20', amount: 800, issue: true }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: 'ЦС-10', date: '2026-10-20', issue: true }).expect(200);
     const one = (await http().post(`/api/supply/invoices/${inv}/receive`).set(auth()).send({ requestIds: [a] }).expect(200)).body;
     expect(one.receivedCount).toBe(1);
     expect([await qtyOf(m1), await qtyOf(m2)]).toEqual([3, 0]);
@@ -152,7 +154,7 @@ describe('Цепочка: снабжение до склада', () => {
   it('заявка без привязки к позиции: «Принять» заводит позицию склада по названию, один приход', async () => {
     const r = await mkReq({ title: 'Новая позиция ЦС-6', qty: 7, priceHint: 10 });
     const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [r] }).expect(201)).body.items[0].id as string;
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: 'ЦС-11', date: '2026-10-20', amount: 70, issue: true }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: 'ЦС-11', date: '2026-10-20', issue: true }).expect(200);
     await http().post(`/api/supply/invoices/${inv}/receive`).set(auth()).send({}).expect(200);
     const items = (await http().get('/api/stock/items').query({ search: 'ЦС-6' }).set(auth()).expect(200)).body;
     expect(items.total).toBe(1);
