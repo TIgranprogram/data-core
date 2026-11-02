@@ -56,7 +56,7 @@ export class StockZonesService implements OnModuleInit, OnModuleDestroy {
   async forUser(user: { role?: string | null; isOwner?: boolean } | undefined) {
     const mine = zonesFor(user);
     const ids = mine ? new Set(mine.map((z) => z.id)) : null;
-    return page((await this.live()).filter((z) => !ids || ids.has(String(z._id))).map((z) => ({ id: String(z._id), name: z.name, isDefault: z.isDefault === true, order: z.order ?? 100 })));
+    return page((await this.live()).filter((z) => !ids || ids.has(String(z._id))).map((z) => ({ id: String(z._id), name: z.name, isDefault: z.isDefault === true, order: z.order ?? 100, categoryIds: strs(z.categoryIds) }))); // categoryIds — плитки складов «Остатков»
   }
 
   async get(id: string) { return present(await this.find(id)); }

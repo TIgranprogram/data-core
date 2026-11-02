@@ -281,6 +281,7 @@ export const ADVICE = [
 // то же для новой подкоманды tools/dc.mjs (pult/audit.mjs): так пульт и справка не отстают от проекта.
 export const NOT_ON_BUTTONS = {
   'deploy/synology/api.sh': 'вход для агента datacore-access; запрос собирается вручную',
+  'deploy/synology/sync-dir.sh': 'часть выкладки (release.sh) и отката (rollback.sh) на сервере; вручную не запускается',
   'deploy/synology/backup.sh': 'идёт на сервере по расписанию (cron 03:00) и в выкладке; отдельной кнопки нет',
   'deploy/synology/bundle-pc.sh': 'переносной пакет сервера; то же — в админке, вкладка «Сервер»',
   'deploy/synology/bundle.cmd': 'меню в консоли; пакет собирается в админке, вкладка «Сервер»',

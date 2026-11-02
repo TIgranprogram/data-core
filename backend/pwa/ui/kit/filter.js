@@ -3,6 +3,7 @@ import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
 import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } from '../../core/facets.js';
 import { busyBlock } from '../busy.js';
+import { zoneCats } from '../../core/zone.js';
 import { searchBox } from '../searchbox.js';
 import { makeResizable } from '../resizer.js';
 import { button } from './index.js';
@@ -57,6 +58,13 @@ export function ftParams(s) {
     ...(sel.wash ? { wash: sel.wash === 'Мытая' ? '1' : '0' } : {}), ...pipeParams(sel.pipe) };
 }
 
+/** Воронка признаков: только позиции, которые сейчас в списке — склад, строка поиска, вкладка состояния; дальше pick по категории и выбранным признакам. */
+const inState = (it, st) => { if (!st) return true; const w = new Set(String(st).split(',')); return w.has(it.status) || (w.has('reserved') && it.reservedQty > 0) || (w.has('ordered') && it.ordered > 0); };
+function scope(items, P, categoryKey, sel) {
+  const zc = P[categoryKey] ? null : zoneCats();
+  return pick(items.filter((it) => (!zc || zc.has(it.categoryId)) && inState(it, P.status)), { q: P.q || '', cat: P[categoryKey] || '', sel });
+}
+
 const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
 
 export function facetFilter({ categoryKey = 'categoryId', inline = false } = {}) {
@@ -92,7 +100,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
     const sel = parseFt(P.ft);
     const groups = FACETS.map(([key, label]) => {
       const others = { ...sel }; delete others[key];
-      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel: others }), key).slice(0, key === 'type' ? 30 : 40);
+      const vals = facetValues(scope(items, P, categoryKey, others), key).slice(0, key === 'type' ? 30 : 40);
       if (!vals.length) return null;
       const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
       const colCls = vals.length > 8 ? ' ff-cols' : '';
@@ -171,7 +179,7 @@ function inlineFilter(categoryKey) {
     let first = true;
     const groups = FACETS.map(([key, label]) => {
       if (sel[key]) return null; // выбранный шаг — уже строкой сверху
-      const vals = facetValues(pick(items, { cat: P[categoryKey] || '', sel }), key).slice(0, key === 'pipe' ? 200 : key === 'type' ? 30 : 40);
+      const vals = facetValues(scope(items, P, categoryKey, sel), key).slice(0, key === 'pipe' ? 200 : key === 'type' ? 30 : 40);
       if (vals.length < 2) return null; // один вариант — выбирать нечего
       const open = folded.has(key) ? folded.get(key) : first || key === 'wash' || key === 'pipe';
       first = false;
@@ -182,7 +190,7 @@ function inlineFilter(categoryKey) {
         !open ? null : key === 'wash' || key === 'pipe' ? chipsOf(key, vals, label, set) : h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v, n]) => h('label', { class: 'ff-check' },
           h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, facetLabel(key, v)), h('b', { class: 'ff-cn' }, String(n))))));
     }).filter(Boolean);
-    body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, selEntries.length ? 'Уточнять больше нечего' : 'В этой категории признаков нет')]));
+    body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, selEntries.length || P.q || P.status ? 'Уточнять больше нечего' : 'В этой категории признаков нет')]));
     if (fk) [...el.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });
   }
   return { el, update: (next) => { P = { ...next }; render(); }, reset: () => items && (items = null) };

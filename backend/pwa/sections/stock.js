@@ -103,21 +103,41 @@ function ftIds(P) {
 // ---------- первая страница «Остатков»: плитки категорий (эталон cat-tile, как «Каталог поставщиков») ----------
 const nPos = (n) => `${qty(n)} ${plural(n, 'позиция', 'позиции', 'позиций')}`;
 async function stockLanding() {
-  const cats = ((await api('/stock/categories', { query: zoneQuery() })).items || []).filter((c) => c.id !== 'none' && c.total);
+  const [catsR, zones] = await Promise.all([api('/stock/categories'), loadZones().catch(() => [])]);
+  const cats = (catsR.items || []).filter((c) => c.id !== 'none' && c.total);
   const open = (p) => patch({ ...p, view: 'table', page: undefined });
   const all = kitButton({ label: 'Все позиции списком', onClick: () => open({ all: '1' }) });
   if (!cats.length) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), all);
-  const tile = (c) => {
-    const art = h('div', { class: 'cat-art' });
-    art.innerHTML = catArt(c.name); // свой статичный SVG, данных пользователя нет
-    const low = [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
-    return h('button', { type: 'button', class: 'cat-tile', title: c.name, onclick: () => open({ categoryId: c.id }) }, art,
-      h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, c.name), h('div', { class: 'cat-n' }, nPos(c.total), low ? h('span', { class: 'warn' }, ' · ' + low) : null)));
-  };
+  const art = (name, cls) => { const el = h('div', { class: cls }); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
+  const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
+  const catTile = (c, zoneId) => h('button', { type: 'button', class: 'cat-tile', title: c.name, onclick: () => { if (zoneId) setZone(zoneId); open({ categoryId: c.id }); } }, art(c.name, 'cat-art'),
+    h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, c.name), h('div', { class: 'cat-n' }, nPos(c.total), low(c) ? h('span', { class: 'warn' }, ' · ' + low(c)) : null)));
   const total = cats.reduce((a, c) => a + c.total, 0);
-  return h('div', { class: 'cat-landing' },
-    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(total)}`), all),
-    h('div', { class: 'cat-grid' }, ...cats.map(tile)));
+  const head = h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(total)}`), all);
+  // один склад или ни одного — сразу категории
+  if (zones.length < 2) return h('div', { class: 'cat-landing' }, head, h('div', { class: 'cat-grid' }, ...cats.map((c) => catTile(c, ''))));
+  // склады — большие плитки (как разделы «Продукции»), под ними — категории склада; категория без склада — в основном
+  const def = zones.find((z) => z.isDefault) || zones[0];
+  const zoneOf = (c) => zones.find((z) => (z.categoryIds || []).includes(c.id)) || def;
+  const items = [];
+  const setOpen = (id) => { for (const it of items) { const on = it.id === id; it.tile.classList.toggle('active', on); it.tile.setAttribute('aria-expanded', String(on)); it.panel.classList.toggle('open', on); if (on) it.panel.removeAttribute('inert'); else it.panel.setAttribute('inert', ''); } };
+  const zoneItem = (z) => {
+    const zc = cats.filter((c) => zoneOf(c) === z);
+    const n = zc.reduce((a, c) => a + c.total, 0);
+    const pid = 'zone-p-' + z.id;
+    const tile = h('button', { type: 'button', class: 'sec-tile sec-stock', title: z.name, 'aria-expanded': 'false', 'aria-controls': pid,
+      onclick: () => setOpen(tile.classList.contains('active') ? '' : z.id) }, art(z.name, 'sec-art'),
+      h('span', { class: 'sec-body' }, h('span', { class: 'sec-name' }, z.name), h('span', { class: 'sec-n' }, nPos(n) + (zc.length ? ` · категорий ${zc.length}` : ''))),
+      h('span', { class: 'sec-chev', 'aria-hidden': 'true' }, '▾'));
+    const panel = h('div', { class: 'sec-panel', id: pid, inert: '' }, h('div', { class: 'sec-panel-in' },
+      h('div', { class: 'sec-panel-head' }, h('h3', null, 'Категории склада «' + z.name + '»'), kitButton({ label: 'Весь склад →', kind: 'ghost', onClick: () => { setZone(z.id); open({ all: '1' }); } })),
+      zc.length ? h('div', { class: 'cat-grid' }, ...zc.map((c) => catTile(c, z.id))) : h('p', { class: 'muted' }, 'Категорий нет — отметьте их в «Справочники» → «Склады».')));
+    items.push({ id: z.id, tile, panel });
+    return h('div', { class: 'sec-item' }, tile, panel);
+  };
+  const node = h('div', { class: 'cat-landing' }, head, h('div', { class: 'sec-grid' }, ...zones.map(zoneItem)));
+  setOpen(def.id); // основной раскрыт сразу — частые категории под рукой
+  return node;
 }
 
 export const stock = {
