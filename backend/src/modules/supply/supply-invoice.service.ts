@@ -344,7 +344,7 @@ export class SupplyInvoiceService {
       await this.requests.updateMany({ _id: { $in: ids }, deletedAt: null, invoiceId: null },
         { $set: { invoiceId: inv._id, status: 'ordered', editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}), ...(paid ? { paid: true, paidAt: inv.paidAt } : {}) } }, { session }).exec();
       if (amount !== inv.amount) await this.model.updateOne({ _id: inv._id }, { $set: { amount } }, { session }).exec();
-      if (inv.status === 'issued' || paid) await this.copyToRequests({ ...inv, amount }, session);
+      if (inv.status === 'issued' || paid) await this.copyMetaToRequests({ ...inv, amount }, session, ids);
       if (paid) await this.recordPrices({ ...inv, amount }, 'invoice_paid', session, ids);
     });
     return this.get(id);
@@ -419,6 +419,22 @@ export class SupplyInvoiceService {
     const common = { invoiceNo: inv.no, invoiceDate: inv.date, editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}), ...(inv.payerCompanyId ? { companyId: inv.payerCompanyId } : {}) };
     for (let i = 0; i < lines.length; i++) {
       await this.requests.updateOne({ _id: lines[i]._id }, { $set: { ...common, priceHint: shares[i] } }, { session }).exec();
+    }
+  }
+
+  /** Копия только метаданных счёта (№, дата, плательщик, поставщик) в заявки — без пересчёта суммы по строкам. Используется при добавлении позиций, чтобы не «слипать» цены существующих строк. */
+  private async copyMetaToRequests(inv: Lean, session: ClientSession, newIds: Types.ObjectId[]) {
+    const newSet = new Set(newIds.map(String));
+    const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null }).sort({ num: 1, _id: 1 }).session(session).lean().exec() as Lean[];
+    const common = { invoiceNo: inv.no, invoiceDate: inv.date, editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}), ...(inv.payerCompanyId ? { companyId: inv.payerCompanyId } : {}) };
+    for (const l of lines) {
+      const update: Lean = { ...common };
+      if (newSet.has(String(l._id))) {
+        // новая строка: цена остаётся её собственной (priceHint уже задан при создании заявки)
+      } else {
+        // существующая строка: не трогаем priceHint
+      }
+      await this.requests.updateOne({ _id: l._id }, { $set: update }, { session }).exec();
     }
   }
 
