@@ -2,7 +2,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty as fmt } from '../core/format.js';
 import { mobile, errText, toast, catArt } from '../ui/kit/index.js';
-import { activeOrders, orderLabel } from './salesorders.js';
+import { orderLabel } from './salesorders.js';
+import { ordersLookup } from '../core/orders-lookup.js';
 import { lookupCode } from './qr.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 
@@ -112,10 +113,18 @@ export const stockMobile = {
       };
       const stepKind = () => show(screen({ title: 'На что выдаём?', step: { n: 3, of: 4 }, back: stepQty,
         body: [choice({ items: [{ value: 'order', label: 'На заказ' }, { value: 'person', label: 'На производство' }], onPick: (o) => (o.value === 'order' ? stepOrder() : stepPerson()) })] }));
+      /** Заказ → его позиции: выдаём на точную позицию (salesOrderLineId, заказ сервер берёт из неё); без позиций — на весь заказ. */
       const stepOrder = () => {
-        const d = drill({ levels: [{ title: '', load: async () => (await activeOrders()).map((o) => ({ value: o.id, label: orderLabel(o), hint: o.title || '' })) }], empty: 'Заказов в работе нет',
-          onPick: (o) => { S.target = { salesOrderId: o.value }; S.where = `на заказ ${o.label}`; stepSure(); } });
-        show(screen({ title: 'Заказ', step: { n: 3, of: 4 }, back: stepKind, body: [d.el] }));
+        let orders = [];
+        const d = drill({ levels: [
+          { title: '', load: async () => { orders = await ordersLookup({ filter: 'active', lines: true }); return orders.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') })); } },
+          { title: '', load: async ([id]) => {
+            const o = orders.find((x) => x.id === id) || {};
+            const lines = (o.lines || []).map((l, i) => ({ value: { line: l.id, o }, label: `${l.seqNo ?? l.lineNo ?? i + 1}. ${String(l.title || 'Позиция').slice(0, 90)}` }));
+            return [...lines, { value: { line: null, o }, label: 'На весь заказ — без позиции' }];
+          } }], empty: 'Заказов в работе нет',
+          onPick: (it) => { const { line, o } = it.value; S.target = line ? { salesOrderLineId: line } : { salesOrderId: o.id }; S.where = `на заказ ${orderLabel(o)}${line ? ', поз. ' + it.label : ''}`; stepSure(); } });
+        show(screen({ title: 'Заказ и позиция', step: { n: 3, of: 4 }, back: () => { if (!d.up()) stepKind(); }, body: [d.el] }));
       };
       /** Кому: сначала отдел (справочник «Отделы» — новый появится сам), затем его сотрудники (по видам работ: вид работ → отдел, ОТД-1); без фамилии — выдача в отдел (issuedTo). */
       const stepPerson = async () => {
@@ -141,7 +150,7 @@ export const stockMobile = {
         const clientUid = uid(); // повтор после сбоя связи не задвоит выдачу
         const msg = h('div');
         const line = `${S.item.name} · ${fmt(S.qty)} ${unitOf(S.item)}`;
-        show(screen({ title: 'Выдать?', step: { n: 4, of: 4 }, back: stepKind, body: [h('p', null, `${line} · ${S.where}`), msg],
+        show(screen({ title: 'Выдать?', step: { n: 4, of: 4 }, back: () => (S.target?.personId || S.target?.issuedTo ? stepKind() : stepOrder()), body: [h('p', null, `${line} · ${S.where}`), msg],
           foot: bigButton({ label: 'Выдать', onClick: async () => {
             msg.replaceChildren();
             try {
