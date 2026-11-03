@@ -7,7 +7,7 @@ import path from 'path';
 import { latency } from '../../../common/interceptors/latency-histogram';
 import type { SwitchReportDto } from './switch.dto';
 import {
-  CACHE_MS, COL_STATE, STATE_ID, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason,
+  CACHE_MS, COL_STATE, STATE_ID, canRefreshNow, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason,
   type SwitchDoc, type SwitchJob, type SwitchMode, type SwitchRole, type SwitchSelf,
 } from './switch.rules';
 
@@ -192,6 +192,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       bridge: { alive },
       blockers: readinessBlockers({ self: null, peerUrlSet: !!peer, peerHealthy: peer ? peer.healthy : null, copyAgeMin: age, bridgeAlive: alive }),
       canStart: false,
+      canRefresh: false,
       canEmergency: false,
       speed: this.speedSides(selfName, peer),
     };
@@ -222,6 +223,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       },
       bridge: { alive },
       canStart: doc.role === 'main' && doc.mode === 'normal' && !busy && alive,
+      canRefresh: canRefreshNow(doc.role, doc.mode, busy, alive),
       canEmergency: doc.role === 'standby' && !busy && alive,
       speed: this.speedSides(self, peerSpeed),
     };
@@ -249,14 +251,14 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Файл-запрос для хост-моста; temp + rename, чтобы мост не прочитал половину. */
-  private async writeRequest(job: SwitchJob, kind: 'switch' | 'emergency') {
+  private async writeRequest(job: SwitchJob, kind: 'switch' | 'emergency' | 'refresh') {
     const file = path.join(this.dir, 'request');
     const tmp = `${file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, `id=${job.id}\nkind=${kind}\nrequestedAt=${job.startedAt}\n`, { mode: 0o644 });
     await fs.rename(tmp, file);
   }
 
-  private async queue(role: SwitchRole, direction: string, kind: 'switch' | 'emergency') {
+  private async queue(role: SwitchRole, direction: string, kind: 'switch' | 'emergency' | 'refresh') {
     const job = await this.acquire(role, direction);
     try {
       await this.writeRequest(job, kind);
@@ -276,6 +278,12 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   async emergency() {
     this.assertEnabled();
     return this.queue('standby', 'emergency', 'emergency');
+  }
+
+  /** Обновить запасной: код и база, без смены домена. Только с главного, тем же захватом, что и переключение. */
+  async refreshPeer() {
+    this.assertEnabled();
+    return this.queue('main', 'refresh', 'refresh');
   }
 
   /** Секрет моста из файла рядом с заявкой; нет файла — отчёты не принимаются. */

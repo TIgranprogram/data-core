@@ -2,7 +2,7 @@ import { api, writeHooks } from './api.js';
 
 /**
  * SK-8d: короткий список заказов для соседних разделов (выдача «под заказ», заявка «под заказ», паспорт «№ заказа»):
- * GET /salesorders/lookup?filter=active|all&lines=1 → [{ id, orderNo, customer, title, stage, shipDate, lines?: [{ id, lineNo, title, qty, productId }] }],
+ * GET /salesorders/lookup?filter=active|shipped|all&lines=1 → [{ id, orderNo, customer, title, stage, shipDate, lines?: [{ id, lineNo, title, qty, productId }] }],
  * без денег; открыт для «Заказов», «Склада», «Заявок», «Паспортов». Полный /salesorders — только в разделе «Заказы».
  *
  */

@@ -198,15 +198,22 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-choice, .m-results, .m-search { display: flex; flex-direction: column; gap: var(--s3); }
 .m-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); width: 100%; min-height: var(--m-btn-h); padding: var(--s3); text-align: left; font: inherit; font-size: var(--m-font); color: var(--text); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
 .m-item small { font-size: var(--fs-sm); color: var(--muted); }
+.m-item.m-item-with-pic { flex-direction: row; align-items: center; gap: var(--s3); }
+.m-item-pic { flex: 0 0 56px; width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.m-item-nopic { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); text-align: center; line-height: 1.2; }
+.m-item-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
 .m-choice .m-item { gap: 2px; padding: var(--s2) var(--s3); } /* список позиций: плотнее — больше строк на экране, зона нажатия не меньше --m-btn-h */
+.m-choice .m-item.m-item-with-pic { gap: var(--s3); }
 .m-unit, .m-empty { font-size: var(--m-font); color: var(--muted); }
 .m-done { font-size: var(--m-title); font-weight: 700; text-align: center; padding: var(--s4); border: 2px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary-soft); }
 .m-done-box { display: flex; flex-direction: column; gap: var(--m-gap); }
 .m-error { font-size: var(--m-font); font-weight: 700; padding: var(--s3); border: 2px solid var(--danger); border-left-width: 6px; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--text); }
 .m-foot { position: sticky; bottom: 0; display: flex; flex-direction: column; gap: var(--s3); padding: var(--m-pad) 0; background: var(--bg, var(--surface)); }
 .m-screen :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
-/* Роль с одной мобильной страницей: меню, шапка и крошки скрыты (DESIGN-MOBILE §1) */
+/* Мобильный склад (и роль только с ним): меню, шапка сайта, крошки и рамка панели скрыты (DESIGN-MOBILE §1) */
 .shell.k-kiosk .sidebar, .shell.k-kiosk .topbar, .shell.k-kiosk .crumbs, .shell.k-kiosk .side-back { display: none; }
+.shell.k-kiosk .page { padding: 0; }
+.shell.k-kiosk .page > .panel { border: 0; border-radius: 0; box-shadow: none; background: transparent; min-height: 100dvh; }
 .m-bar { display: flex; align-items: center; gap: var(--s3); }
 .m-btn.m-auto { width: auto; min-height: 56px; padding: 0 var(--s4); }
 .m-ghost { background: none; border-color: transparent; color: var(--muted); }

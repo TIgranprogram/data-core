@@ -140,3 +140,7 @@
 - kit: iconButton/segmented/link — backend/pwa/ui/kit/index.js (стили .k-seg, .k-icon — kit.css). Карта обновлена.
 - 2026-11-01 WAREHOUSE-ZONES п.5: `pwa/core/zone.js` (loadZones/zoneQuery/setZone, localStorage dc-stock-zone-<uid>), `sections/stock-zones.js` (mountZones + панель `of=stockzone`, подключён в `dicts.js` d=stockzones, main.js SECTIONS), `stock.js zoneBar` (kit.segmented в top), `stock-mobile.js` (pickZone mobile.choice), `invoices-tab.js` partial; админка `admin.js` форма роли — галочки складов (warehouseIds). Не закоммичено. Карта обновлена.
 - 2026-11-01 stock-mobile v2: `sections/stock-mobile.js` (home/settings/issue/correct/receive, once-кэш, call 15 с), kit mobile: `ui/kit/mobile.js` tiles/feed/dateChoice/screen{gear}/choice порциями, CSS конец `ui/kit/kit.css` (.m-tile/.m-fi/.m-gear), DESIGN-MOBILE §2/3/9. Не закоммичено. Карта обновлена.
+
+## Серверы: обновить перед переключением (C013, 2026-11-03, не закоммичено)
+- `backend/admin/control-switch.js`: `REFRESH_STEPS` 9–12, `isRefresh`/`stepId` 13–21 (`photos_pre`→Фото), `progress` 96–129, `confirmRefresh` 173–198 (`POST /control/switch/refresh`), `switchSlot` 278–316 (шаги только на запасном), overview muted 354. `control-switch.css` `.sw-phase` после `.sw-act`. Карта обновлена.
+коммит: не закоммичено

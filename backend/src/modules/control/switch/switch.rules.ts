@@ -11,7 +11,7 @@ export type JobState = 'queued' | 'running' | 'done' | 'failed';
 
 export interface SwitchJob {
   id: string;
-  /** home->office | office->home | emergency */
+  /** home->office | office->home | emergency | refresh */
   direction: string;
   step: string;
   state: JobState;
@@ -92,6 +92,14 @@ export function copyAgeMin(copyAt: string | undefined, now: number): number | nu
 
 /** Работа считается идущей, пока не завершена и не брошена. */
 export const jobBusy = (job: SwitchJob | null | undefined): boolean => !!job && (job.state === 'queued' || job.state === 'running');
+
+/**
+ * Кнопка «Обновить» запасной: этот сервер главный, режим обычный, работы нет, мост жив.
+ * Список blockers сюда не входит — он про готовность переключения, не про эту кнопку.
+ */
+export function canRefreshNow(role: SwitchRole, mode: SwitchMode, busy: boolean, bridgeAlive: boolean): boolean {
+  return role === 'main' && mode === 'normal' && !busy && bridgeAlive;
+}
 
 /**
  * Брошена ли работа: запрос ждёт моста дольше 10 минут, либо работа идёт, а мост молчит (файл alive старше 3 минут).

@@ -55,9 +55,10 @@ describe('SwitchService и режим «только чтение»', () => {
   it('без HA_SELF обзор: оба сервера, понятные причины, без кнопки и без базы', async () => {
     delete process.env.HA_SELF; delete process.env.HA_PEER_URL;
     const { sw, db } = make();
-    const s = await sw.status() as { enabled: boolean; canStart: boolean; blockers: string[]; peer: { configured: boolean } };
+    const s = await sw.status() as { enabled: boolean; canStart: boolean; canRefresh: boolean; blockers: string[]; peer: { configured: boolean } };
     expect(s.enabled).toBe(false);
     expect(s.canStart).toBe(false);
+    expect(s.canRefresh).toBe(false);
     expect(s.peer.configured).toBe(false);
     expect(s.blockers.join(' ')).toMatch(/адрес второго сервера/);
     expect(s.blockers.join(' ')).not.toMatch(/[A-Z_]{4,}/); // без служебных кодов
@@ -146,6 +147,31 @@ describe('SwitchService и режим «только чтение»', () => {
     expect(await fs.readFile(path.join(dir, 'request'), 'utf8')).toContain('kind=emergency');
   });
 
+  it('обновление запасного: kind=refresh с главного; canRefresh гаснет при работе, не главном, чтении и без моста', async () => {
+    const { sw, doc } = make();
+    const st = await sw.status() as { canRefresh: boolean; canStart: boolean };
+    expect(st.canRefresh).toBe(true);
+    expect(st.canStart).toBe(true);
+    const r = await sw.refreshPeer();
+    expect(r.job.direction).toBe('refresh');
+    expect(await fs.readFile(path.join(dir, 'request'), 'utf8')).toContain('kind=refresh');
+    await expect(sw.refreshPeer()).rejects.toThrow('уже идёт');
+    await expect(sw.start()).rejects.toThrow('уже идёт');
+    expect((await sw.status() as { canRefresh: boolean }).canRefresh).toBe(false);
+    await sw.report({ id: r.job.id, state: 'failed', error: 'стоп' }, 'S3CRET', false);
+    doc().role = 'standby';
+    expect((await sw.status() as { canRefresh: boolean }).canRefresh).toBe(false);
+    await expect(sw.refreshPeer()).rejects.toThrow('не главный');
+    doc().role = 'main'; doc().mode = 'readonly';
+    const ro = await sw.status() as { canRefresh: boolean; canStart: boolean };
+    expect(ro.canRefresh).toBe(false);
+    expect(ro.canStart).toBe(false);
+    doc().mode = 'normal';
+    await fs.rm(path.join(dir, 'alive'));
+    expect((await sw.status() as { canRefresh: boolean }).canRefresh).toBe(false);
+    await expect(sw.refreshPeer()).rejects.toThrow('Мост');
+  });
+
   it('отчёт: без секрета и через прокси — 403; по секрету меняет шаг, режим и роль', async () => {
     const { sw, doc } = make();
     const { job } = await sw.start();
@@ -194,7 +220,7 @@ describe('SwitchService и режим «только чтение»', () => {
     await sw.report({ id: 'peer', peer: { version: 'v1.390', copyAt: new Date(Date.now() - 3 * 60_000).toISOString(), healthy: true } }, 'S3CRET', false);
     const st = await sw.status();
     expect(st.peer).toMatchObject({ name: 'office', version: 'v1.390', healthy: true, copyAgeMin: 3 });
-    expect(st).toMatchObject({ self: 'home', role: 'main', canStart: true, canEmergency: false });
+    expect(st).toMatchObject({ self: 'home', role: 'main', canStart: true, canRefresh: true, canEmergency: false });
   });
 
   it('идущая работа при живом мосте не бросается по возрасту; без моста — снимает «только чтение»', async () => {

@@ -228,8 +228,14 @@ export class SalesOrdersService {
    */
   async lookup(q: Record<string, unknown> = {}) {
     const f = q.filter ?? 'active';
-    if (f !== 'active' && f !== 'all') throw new BadRequestException('Параметр filter: active (в работе) или all (все)');
-    const filter: Doc = { deletedAt: null, ...(f === 'active' ? { stage: { $in: ACTIVE_STAGES } } : {}) };
+    // active — в работе; shipped — полностью отгруженные (выдача мелочи с телефона); all — всё
+    if (f !== 'active' && f !== 'shipped' && f !== 'all') {
+      throw new BadRequestException('Параметр filter: active (в работе), shipped (отгруженные) или all (все)');
+    }
+    const filter: Doc = {
+      deletedAt: null,
+      ...(f === 'active' ? { stage: { $in: ACTIVE_STAGES } } : f === 'shipped' ? { stage: 'shipped' } : {}),
+    };
     const docs = await this.model.find(filter, { orderNo: 1, productionNo: 1, customer: 1, title: 1, stage: 1, shipDate: 1 }).sort({ createdAt: -1, _id: -1 }).lean().exec();
     const withLines = String(q.lines) === '1';
     const byOrder = new Map<string, Doc[]>();

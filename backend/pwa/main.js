@@ -260,7 +260,7 @@ function shell() {
     avatarButton());
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
-  shellEl = h('div', { class: 'shell' + (session.onlyStockMobile ? ' k-kiosk' : '') }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
+  shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
     h('div', { class: 'main' }, topbar, crumbsEl, netBar, main));
   root.replaceChildren(shellEl);
   refreshCounts();
@@ -402,6 +402,8 @@ function render(c) {
   for (const [id, a] of Object.entries(navLinks)) a.classList.toggle('active', id === (section === 'movements' ? 'stock' : section));
   if (SEC_OF[OWNER[section] || section]) document.body.dataset.sec = SEC_OF[OWNER[section] || section]; else delete document.body.dataset.sec;
   ui.gsb.set(section === 'search' ? params.q || '' : '', section !== 'search');
+  // «Склад (телефон)» — чистый мобильный экран без шапки/меню сайта (DESIGN-MOBILE §1)
+  shellEl?.classList.toggle('k-kiosk', section === 'stock-mobile' || session.onlyStockMobile);
 
   const key = screenKey(section, params);
   if (!mounted || mounted.key !== key) { const own = OWNER[section] || section; const group = GROUP_OF[own] || ''; const first = GROUP_FIRST[group]; setCrumbs({ group, groupHref: first && first !== own && session.sees(first) ? '#' + first : '', title: titleOf(own) || '', href: '#' + own }); }

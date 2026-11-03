@@ -1,3 +1,4 @@
+import { PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { catArt } from '../cat-art.js';
 
@@ -36,13 +37,23 @@ export function screen({ title, back, step, gear, body, foot, footHint } = {}) {
     foot || footHint ? h('div', { class: 'm-foot' }, footHint ? h('div', { class: 'm-unit', role: 'status' }, footHint) : null, foot) : null);
 }
 
-/** choice({ items: [{ value, label, hint }], onPick(item), empty, selected }) → крупный список выбора; больше 100 строк — порциями по 50 (догрузка при прокрутке) */
+/** choice({ items: [{ value, label, hint, photo?: {url,thumb}|null, showPic? }], onPick, empty, selected }) → список; photo/showPic — миниатюра слева (нет фото — «нет фото»). */
 export function choice({ items = [], onPick, empty = 'Ничего нет', selected } = {}) {
   if (!items.length) return h('div', { class: 'm-empty' }, empty);
   const box = h('div', { class: 'm-choice', role: 'listbox' });
-  const row = (it) => h('button', { type: 'button', class: 'm-item' + (selected !== undefined && it.value === selected ? ' m-on' : ''), role: 'option',
-    'aria-selected': selected !== undefined ? String(it.value === selected) : null, onclick: () => onPick?.(it) },
-  h('b', null, it.label), it.hint ? h('small', null, it.hint) : null);
+  const picOf = (it) => {
+    if (!it.showPic && it.photo === undefined) return null;
+    const src = it.photo?.thumb || it.photo?.url;
+    if (src) return h('img', { class: 'm-item-pic', src: PREFIX + src, alt: '', loading: 'lazy', decoding: 'async' });
+    return h('span', { class: 'm-item-pic m-item-nopic', 'aria-hidden': 'true' }, 'нет фото');
+  };
+  const row = (it) => {
+    const pic = picOf(it);
+    const text = h('span', { class: 'm-item-text' }, h('b', null, it.label), it.hint ? h('small', null, it.hint) : null);
+    return h('button', { type: 'button', class: 'm-item' + (pic ? ' m-item-with-pic' : '') + (selected !== undefined && it.value === selected ? ' m-on' : ''), role: 'option',
+      'aria-selected': selected !== undefined ? String(it.value === selected) : null, onclick: () => onPick?.(it) },
+    pic || null, text);
+  };
   let shown = 0;
   const more = () => {
     box.querySelector('.m-more')?.remove();

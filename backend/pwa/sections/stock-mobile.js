@@ -1,15 +1,16 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty as fmt } from '../core/format.js';
-import { mobile, errText, toast, catArt } from '../ui/kit/index.js';
+import { mobile, segmented, errText, toast, catArt } from '../ui/kit/index.js';
 import { orderLabel } from './salesorders.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { lookupCode } from './qr.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 
 /*
- * «Склад (телефон)» — ассистент кладовщика: главный экран «Выдать» / «Принять» + лента за 7 дней; склад и «Выйти» — в настройках (шестерёнка).
- * Собрана только из эталонов kit «mobile»; операции — те же вызовы, что у склада (POST /stock/batch, POST /supply/requests/:id/receive).
+ * «Склад (телефон)» — ассистент кладовщика: главный «Выдать» / «Принять» + лента за 7 дней с переключателем «Принято | Выдано».
+ * Склад и «Выйти» — в настройках (шестерёнка). Собрана из эталонов kit «mobile» + kit.segmented для ленты.
+ * Операции — те же вызовы, что у склада (POST /stock/batch, POST /supply/requests/:id/receive).
  * QR: кнопка «Сканировать QR» (mobile.scan) и вход по ссылке #stock-mobile?q=<код>.
  * Надёжность (DESIGN-MOBILE §2–3): запрос ≤ 15 с, ошибки шагов — с «Повторить», общий перехват ошибок экрана, справочники — кэш на сеанс.
  */
@@ -22,6 +23,8 @@ const once = (key, load) => { if (!memo.has(key)) memo.set(key, load().catch((e)
 const askedKey = () => 'dc-stock-zone-asked-' + (session.user?.id || 'u');
 /** Последний получатель выдачи в этой вкладке — чтобы не выбирать заказ снова. */
 let lastIssue = null; // { target, where }
+/** Режим ленты на главном: in = принятое, out = выданное (за сеанс вкладки). */
+let feedKind = 'out';
 /** Стандарт в конце названия («…, DIN 603», «ГОСТ 7798-70») — вниз мелко; крупно остаётся название и размер. */
 export const splitStd = (name) => { const m = /,?\s*((?:DIN|ГОСТ|ISO|ОСТ|ТУ)\s*[\w.\-–]+)\s*$/i.exec(name || ''); return m ? { name: name.slice(0, m.index).trim(), std: m[1] } : { name: name || '', std: '' }; };
 /** Артикул для рабочего: внутренний код «СКЛ-…» не показываем (это не артикул, АР.1). */
@@ -72,28 +75,47 @@ export const stockMobile = {
     /** Склад: спрашиваем один раз при первом входе (если доступно несколько); дальше — только в настройках. */
     const pickZone = () => show(screen({ title: 'Какой склад?', back: localStorage.getItem(askedKey()) ? settings : undefined,
       body: [choice({ items: zones.map((z) => ({ value: z.id, label: z.name })), selected: zoneNow(), onPick: (o) => { setZone(o.value); try { localStorage.setItem(askedKey(), '1'); } catch { /* приватный режим */ } home(); } })] }));
+    /** В большое приложение (шапка/меню снова видны). Роли только со складом-телефоном — кнопки нет. */
+    const toMain = !session.onlyStockMobile
+      ? () => { window.location.hash = '#home'; }
+      : null;
     const settings = () => show(screen({ title: 'Настройки', back: home, body: [
+      toMain ? bigButton({ label: 'Основной', tone: 'neutral', onClick: toMain }) : null,
       zones.length > 1 ? bigButton({ label: `Склад: ${zoneName()} · сменить`, tone: 'neutral', onClick: pickZone }) : null,
       bigButton({ label: 'Выйти', tone: 'neutral', onClick: () => { session.clear(); window.location.reload(); } }),
     ] }));
 
-    // ---------- Главный экран: две кнопки и лента за 7 дней ----------
+    // ---------- Главный: «Выдать» / «Принять» + переключатель ленты «Принято | Выдано» за 7 дней ----------
+    const feedEmpty = (type) => (type === 'in' ? 'За неделю приёмок нет' : 'За неделю выдач нет');
+    /** Движения склада за 7 дней одного типа (in|out); sort=-date — последнее сверху. */
+    const loadFeed = async (type) => {
+      const from = new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10);
+      const r = await call('/stock/movements', { query: { ...zoneQuery(), from, type, limit: 200, sort: '-date' } });
+      return (r.items || []).filter((m) => !m.cancelledAt && !m.cancelOf && m.qty)
+        .map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: m.type === 'in' ? 'in' : 'out' }));
+    };
+    const paintFeed = (box, type) => {
+      const empty = feedEmpty(type);
+      box.replaceChildren(feed({ loading: true, empty }));
+      loadFeed(type).then((items) => { if (alive) box.replaceChildren(feed({ items, empty })); })
+        .catch((e) => { if (alive) box.replaceChildren(failed(e, () => paintFeed(box, type))); });
+    };
     const home = () => {
       const box = h('div');
-      box.append(feed({ loading: true }));
+      const seg = segmented({
+        label: 'Что показать за неделю',
+        items: [{ key: 'out', label: 'Выдано' }, { key: 'in', label: 'Принято' }],
+        value: feedKind,
+        onChange: (k) => { feedKind = k; paintFeed(box, k); },
+      });
+      paintFeed(box, feedKind);
       show(screen({ title: zoneName() || 'Склад', gear: settings, body: [
+        toMain ? bigButton({ label: 'Основной', tone: 'neutral', size: 'sm', onClick: toMain }) : null,
         bigButton({ label: 'Выдать', onClick: () => issue() }),
         bigButton({ label: 'Принять', tone: 'neutral', onClick: () => receive() }),
-        box] }));
-      loadFeed().then((items) => box.replaceChildren(feed({ items }))).catch((e) => box.replaceChildren(failed(e, () => { box.replaceChildren(feed({ loading: true })); loadFeed().then((i) => box.replaceChildren(feed({ items: i }))).catch(() => box.replaceChildren(error('Лента не загрузилась.'))); })));
-    };
-    /** Операции текущего пользователя за 7 дней (API фильтра по автору нет — отбор по имени автора на экране). */
-    const loadFeed = async () => {
-      const from = new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10);
-      const r = await call('/stock/movements', { query: { ...zoneQuery(), from, type: 'in,out', limit: 200, sort: '-date' } });
-      const me = session.name;
-      return (r.items || []).filter((m) => !m.cancelledAt && !m.cancelOf && m.qty && (!me || !m.createdBy || m.createdBy === me))
-        .map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: m.type === 'in' ? 'in' : 'out' }));
+        seg.el,
+        box,
+      ] }));
     };
 
     // ---------- Выдача: кому → позиции в корзину (несколько на одного получателя) → одна операция; после успеха — «ещё на того же» ----------
@@ -131,12 +153,17 @@ export const stockMobile = {
         body.push(choice({ items: [{ value: 'order', label: 'На заказ' }, { value: 'person', label: 'На производство' }], onPick: (o) => (o.value === 'order' ? stepOrder() : stepPerson()) }));
         show(screen({ title: 'Кому выдаём?', step: { n: 1, of: 3 }, back: () => (S.cart.length ? stepCart() : home()), body }));
       };
-      /** Заказ → позиции. Сверху — в работе; кнопка «Готовые к отгрузке» — stage=ready. Один заказ на всю корзину. */
+      /** Заказ → позиции. Сверху — в работе; две кнопки: «Готовые к отгрузке» (ready) и «Полностью отгруженные» (shipped). */
       const stepOrder = async () => {
         show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
         let orders = [];
-        try { orders = await ordersLookup({ filter: 'active', lines: true }); }
-        catch (e) { show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: stepKind, body: [failed(e, stepOrder)] })); return; }
+        let shipped = [];
+        try {
+          [orders, shipped] = await Promise.all([
+            ordersLookup({ filter: 'active', lines: true }),
+            ordersLookup({ filter: 'shipped', lines: true }),
+          ]);
+        } catch (e) { show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: stepKind, body: [failed(e, stepOrder)] })); return; }
         const work = orders.filter((o) => o.stage !== 'ready');
         const ready = orders.filter((o) => o.stage === 'ready');
         const pickOrder = (o, line, lineLabel) => {
@@ -144,6 +171,8 @@ export const stockMobile = {
           afterTarget();
         };
         /** Нет позиций / одна позиция — меньше нажатий; иначе список, «на весь заказ» сверху. */
+        /** Обложка заказа — первое фото среди позиций (lookup уже отдаёт photo). */
+        const coverOf = (o) => (o.lines || []).map((l) => l.photo).find((p) => p?.thumb || p?.url) || null;
         const takeOrder = (o, back) => {
           const lines = o.lines || [];
           if (!lines.length) { pickOrder(o, null, ''); return; }
@@ -152,7 +181,7 @@ export const stockMobile = {
             const lab = `1. ${String(l.title || 'Позиция').slice(0, 90)}`;
             show(screen({ title: orderLabel(o), step: { n: 1, of: 3 }, back, body: [
               choice({ items: [
-                { value: { line: l.id, lab }, label: lab, hint: 'Единственная позиция заказа' },
+                { value: { line: l.id, lab }, label: lab, hint: 'Единственная позиция заказа', photo: l.photo || null, showPic: true },
                 { value: { line: null, lab: '' }, label: 'На весь заказ — без позиции' },
               ], onPick: (it) => pickOrder(o, it.value.line, it.value.lab) })] }));
             return;
@@ -163,25 +192,34 @@ export const stockMobile = {
           const whole = { value: { line: null, o, lab: '' }, label: 'На весь заказ — без позиции', hint: 'Все позиции склада уйдут на заказ целиком' };
           const rows = (o.lines || []).map((l, i) => {
             const lab = `${l.seqNo ?? l.lineNo ?? i + 1}. ${String(l.title || 'Позиция').slice(0, 90)}`;
-            return { value: { line: l.id, o, lab }, label: lab };
+            return { value: { line: l.id, o, lab }, label: lab, photo: l.photo || null, showPic: true };
           });
           return [whole, ...rows];
         };
         const openLines = (o, back) => show(screen({ title: orderLabel(o), step: { n: 1, of: 3 }, back, body: [
           choice({ items: linesOf(o), empty: 'Позиций нет', onPick: (it) => pickOrder(it.value.o, it.value.line, it.value.lab) })] }));
-        const openReady = () => show(screen({ title: 'Готовые к отгрузке', step: { n: 1, of: 3 }, back: paint, body: [
-          choice({ items: ready.map((o) => ({ value: o, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') || 'Готов к отгрузке' })),
-            empty: 'Готовых заказов нет', onPick: (it) => takeOrder(it.value, openReady) })] }));
+        const openList = (title, list, empty, hint) => {
+          const open = () => show(screen({ title, step: { n: 1, of: 3 }, back: paint, body: [
+            hint ? h('p', { class: 'm-empty' }, hint) : null,
+            choice({
+              items: list.map((o) => ({ value: o, label: orderLabel(o), hint: [o.customer, o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') || title, photo: coverOf(o), showPic: true })),
+              empty,
+              onPick: (it) => takeOrder(it.value, open),
+            }),
+          ] }));
+          return open;
+        };
+        const openReady = openList('Готовые к отгрузке', ready, 'Готовых к отгрузке заказов нет', 'Заказы, которые уже готовы и ждут отгрузки.');
+        const openShipped = openList('Полностью отгруженные', shipped, 'Полностью отгруженных заказов нет', 'Отгружено всё — можно довыдать мелочь со склада.');
         const d = drill({ levels: [
-          { title: '', load: async () => work.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') })) },
+          { title: '', load: async () => work.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · '), photo: coverOf(o), showPic: true })) },
           { title: '', load: async ([id]) => linesOf(orders.find((x) => x.id === id) || {}) },
         ], empty: 'Сейчас нет заказов в работе', onPick: (it) => pickOrder(it.value.o, it.value.line, it.value.lab) });
         const paint = () => show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: () => { if (!d.up()) stepKind(); }, body: [
           d.el,
-          ready.length
-            ? h('p', { class: 'm-empty' }, 'Уже готовы, но ещё нужна выдача со склада:')
-            : null,
+          h('p', { class: 'm-empty' }, 'Другие стадии — отдельным списком:'),
           bigButton({ label: ready.length ? `Готовые к отгрузке (${ready.length})` : 'Готовые к отгрузке', tone: 'neutral', onClick: openReady }),
+          bigButton({ label: shipped.length ? `Полностью отгруженные (${shipped.length})` : 'Полностью отгруженные', tone: 'neutral', onClick: openShipped }),
         ] }));
         paint();
       };

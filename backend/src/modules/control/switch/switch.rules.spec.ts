@@ -1,4 +1,4 @@
-import { blockedWhenReadOnly, copyAgeMin, isSwitchPath, parseSelf, readinessBlockers, routePath, secretMatches, staleReason, type SwitchJob } from './switch.rules';
+import { blockedWhenReadOnly, canRefreshNow, copyAgeMin, isSwitchPath, parseSelf, readinessBlockers, routePath, secretMatches, staleReason, type SwitchJob } from './switch.rules';
 
 const job = (over: Partial<SwitchJob> = {}): SwitchJob => ({ id: 'a', direction: 'home->office', step: 'dump', state: 'running', startedAt: new Date(0).toISOString(), ...over });
 
@@ -48,6 +48,14 @@ describe('переключение: правила', () => {
     expect(staleReason(job(), t0 + 5 * 60_000, false)).toContain('перестал отвечать');
     expect(staleReason(job({ state: 'done' }), t0 + 999 * 60_000)).toBeNull();
     expect(staleReason(null, t0)).toBeNull();
+  });
+
+  it('canRefresh: главный, обычный режим, нет работы, мост жив', () => {
+    expect(canRefreshNow('main', 'normal', false, true)).toBe(true);
+    expect(canRefreshNow('standby', 'normal', false, true)).toBe(false);
+    expect(canRefreshNow('main', 'readonly', false, true)).toBe(false);
+    expect(canRefreshNow('main', 'normal', true, true)).toBe(false);
+    expect(canRefreshNow('main', 'normal', false, false)).toBe(false);
   });
 
   it('возраст копии в минутах', () => {

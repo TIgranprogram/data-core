@@ -15,7 +15,7 @@ export class SwitchController {
   @Get()
   @Roles('admin')
   @ApiOperation({ summary: 'Состояние переключения: кто главный, режим, работа, готовность второго сервера' })
-  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
+  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
   
   status() {
     return this.service.status();
@@ -38,6 +38,17 @@ export class SwitchController {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- тело нужно только для проверки confirm
   start(@Body() _dto: StartSwitchDto) {
     return this.service.start();
+  }
+
+  @Post('refresh')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Обновить запасной: код и база, без смены домена. Повтор, пока идёт работа, — 409' })
+  @ApiResponse({ status: 201, description: '{ ok:true, job }; direction=refresh' })
+  @ApiResponse({ status: 409, description: 'Уже идёт работа или этот сервер не главный' })
+  @ApiResponse({ status: 503, description: 'Мост переключения не запущен' })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- тело нужно только для проверки confirm
+  refresh(@Body() _dto: StartSwitchDto) {
+    return this.service.refreshPeer();
   }
 
   @Post('emergency')

@@ -6,7 +6,19 @@
     ['preflight', 'Проверка'], ['readonly', 'Пауза записи'], ['dump', 'Копия базы'], ['restore', 'Передача на второй сервер'], ['photos', 'Фото'],
     ['verify', 'Сверка'], ['promote', 'Запуск второго'], ['vps', 'Переключение домена'], ['finish', 'Готово'],
   ];
-  const STEP_RU = Object.fromEntries(STEPS);
+  const REFRESH_STEPS = [
+    ['preflight', 'Проверка'], ['readonly', 'Пауза записи'], ['dump', 'Копия базы'], ['restore', 'Передача'],
+    ['photos', 'Фото'], ['code', 'Код'], ['verify', 'Сверка'], ['finish', 'Готово'],
+  ];
+  const isRefresh = (j) => {
+    const dir = String((j && j.direction) || '');
+    return dir === 'refresh' || dir.startsWith('refresh');
+  };
+  const stepId = (j) => {
+    const s = String((j && j.step) || '');
+    if (isRefresh(j) && (s === 'photos_pre' || s.startsWith('photos'))) return 'photos';
+    return s;
+  };
   const NAME = { home: 'Домашний', office: 'Офисный' };
   const PHRASE = 'Я ПОНИМАЮ';
   const FAST = 3000, SLOW = 30000;
@@ -53,7 +65,7 @@
     }
 
     const failText = (e, what) => {
-      if (e.status === 409) return 'Переключение уже идёт, или этот сервер сейчас не главный. Обновите экран.';
+      if (e.status === 409) return 'Уже идёт другая работа, или этот сервер сейчас не главный. Обновите экран.';
       if (e.status === 503) return 'Нет связи со служебным мостом на сервере. ' + what + ' не начато.';
       if (e.status === 403) return 'Это действие доступно только администратору.';
       return e.message || 'Не получилось. Попробуйте ещё раз.';
@@ -82,12 +94,20 @@
     }
 
     function progress(j) {
+      const refresh = isRefresh(j);
+      const steps = refresh ? REFRESH_STEPS : STEPS;
+      const ru = Object.fromEntries(steps);
+      const cur = stepId(j);
+      const idx = Math.max(0, steps.findIndex((s) => s[0] === cur));
       const w = el('div', 'sw-job');
-      const idx = Math.max(0, STEPS.findIndex((s) => s[0] === j.step));
-      const head = j.state === 'done' ? 'Переключение завершено' : j.state === 'failed' ? 'Переключение не завершилось' : 'Идёт переключение';
+      const head = j.state === 'done'
+        ? (refresh ? 'Обновление завершено' : 'Переключение завершено')
+        : j.state === 'failed'
+          ? (refresh ? 'Обновление не завершилось' : 'Переключение не завершилось')
+          : (refresh ? 'Идёт обновление' : 'Идёт переключение');
       w.append(el('h3', 'sw-jt' + (j.state === 'failed' ? ' bad' : j.state === 'done' ? ' ok' : ''), head));
       const ol = el('ol', 'sw-steps');
-      STEPS.forEach(([id, label], i) => {
+      steps.forEach(([id, label], i) => {
         let st = 'todo';
         if (j.state === 'done' || i < idx) st = 'done';
         else if (i === idx) st = j.state === 'failed' ? 'fail' : 'now';
@@ -98,9 +118,11 @@
       w.append(ol);
       if (j.state === 'failed') {
         const f = el('div', 'cc-fail');
-        f.append(el('strong', '', 'Остановилось на шаге «' + (STEP_RU[j.step] || j.step || '—') + '».'));
+        f.append(el('strong', '', 'Остановилось на шаге «' + (ru[cur] || 'этот шаг') + '».'));
         f.append(el('p', '', j.error ? String(j.error) : 'Причина не указана.'));
-        f.append(el('p', '', 'Проверьте состояние серверов выше. Если запись осталась на паузе, повторите переключение.'));
+        f.append(el('p', '', refresh
+          ? 'Проверьте состояние серверов выше. Если запись осталась на паузе, повторите обновление.'
+          : 'Проверьте состояние серверов выше. Если запись осталась на паузе, повторите переключение.'));
         w.append(f);
       }
       return w;
@@ -148,6 +170,33 @@
       }, 1000);
     }
 
+    function confirmRefresh(btn) {
+      lastBtn = btn || null;
+      closeConfirm();
+      const to = data.self === 'home' ? NAME.office : NAME.home;
+      const form = el('form', 'dialog-form');
+      form.addEventListener('submit', (e) => e.preventDefault());
+      form.append(el('h3', '', 'Обновить запасной'));
+      form.append(el('p', '', 'На сервере «' + to + '» обновятся код и база.'));
+      form.append(el('p', 'cc-note warn', 'Запись будет на паузе 1–2 минуты. Домен не меняется.'));
+      const err = el('p', 'cc-fail'); err.hidden = true;
+      const acts = el('div', 'dialog-actions');
+      const go = el('button', 'btn btn-primary', 'Обновить'), no = el('button', 'btn', 'Отмена');
+      go.type = no.type = 'button';
+      no.addEventListener('click', () => { closeConfirm(); if (lastBtn && lastBtn.isConnected) lastBtn.focus(); });
+      go.addEventListener('click', async () => {
+        if (go.classList.contains('is-busy')) return;
+        go.classList.add('is-busy'); err.hidden = true;
+        try { await post('/control/switch/refresh', { confirm: true }); closeConfirm(); toast('Обновление началось'); await load(); }
+        catch (e) { err.textContent = failText(e, 'Обновление'); err.hidden = false; go.classList.remove('is-busy'); }
+      });
+      acts.append(no, go);
+      form.append(err, acts);
+      dlg.replaceChildren(form);
+      dlg.showModal();
+      no.focus();
+    }
+
     function confirmEmergency(btn) {
       openDrawer('Аварийное включение', (b) => {
         b.append(el('p', 'cc-note warn', 'Главный сервер не отвечает. Этот сервер станет главным с данными на момент последнего бэкапа. Всё, что записано позже, будет потеряно.'));
@@ -172,7 +221,7 @@
 
     const reasons = (list) => {
       const w = el('div', 'cc-note warn');
-      w.append(el('strong', '', 'Кнопка «Сделать главным» появится, когда будет готово:'));
+      w.append(el('strong', '', 'Переключение станет доступно, когда будет готово:'));
       const ul = el('ul', '');
       list.forEach((t) => ul.append(el('li', '', t)));
       w.append(ul);
@@ -196,6 +245,12 @@
       const s = (d.speed && d.speed[name]) || {};
       const sec = el('section', 'sw-stats');
       sec.append(el('h3', '', 'Скорость'));
+      const has = s.p50 != null || s.p95 != null || s.requests != null || s.probeMs != null
+        || (hereName(d) === name && screenMs != null);
+      if (!has) {
+        sec.append(el('p', 'muted', 'Замеров пока нет — сравнение появится после первых запросов.'));
+        return sec;
+      }
       const rows = el('dl', 'sw-kv');
       const row = (k, v) => { rows.append(el('dt', '', k), el('dd', 'num', v)); };
       row('Обычный ответ', s.p50 == null ? 'нет данных' : 'до ' + s.p50 + ' мс');
@@ -223,18 +278,40 @@
     function switchSlot(name, d) {
       const wrap = el('div', 'sw-act');
       if (isMainCol(name, d)) {
-        wrap.append(el('p', 'muted', 'Этот сервер главный. Если переключить, запись встанет на паузу на 1–2 минуты.'));
+        wrap.append(el('p', 'muted', d.enabled === false
+          ? 'Сейчас этот сервер считается главным (копия на втором обновляется раз в сутки).'
+          : 'Этот сервер главный. Если переключить, запись встанет на паузу на 1–2 минуты.'));
         return wrap;
       }
+      // Пока переключение не включено — без кнопки: иначе «Сделать главным» рядом с «ещё не готово».
+      if (d.enabled === false) {
+        wrap.append(el('p', 'muted', 'Кнопка «Сделать главным» появится после настройки переключения (см. ниже).'));
+        return wrap;
+      }
+      const busy = running(d.job);
+      const up = el('button', 'btn btn-primary', 'Обновить');
+      up.type = 'button';
+      up.disabled = !d.canRefresh || busy;
+      up.addEventListener('click', () => confirmRefresh(up));
       const go = el('button', 'btn btn-primary', 'Сделать главным');
       go.type = 'button';
-      const busy = running(d.job);
-      go.disabled = d.enabled === false || !d.canStart || busy;
+      go.disabled = !d.canStart || busy;
       go.addEventListener('click', () => confirmStart(go));
-      wrap.append(go);
-      if (d.enabled === false) wrap.append(el('p', 'muted', 'Переключение ещё не включено на сервере.'));
-      else if (busy) wrap.append(el('p', 'muted', 'Идёт переключение, подождите.'));
-      else if (!d.canStart) wrap.append(el('p', 'muted', d.role === 'standby' ? 'Кнопка доступна на главном сервере.' : d.bridge && !d.bridge.alive ? 'Нет связи со служебным мостом.' : 'Сейчас переключить нельзя.'));
+      const phase = (title, text, button) => {
+        const w = el('div', 'sw-phase');
+        w.append(el('h3', '', title));
+        if (text) w.append(el('p', 'muted', text));
+        w.append(button);
+        return w;
+      };
+      wrap.append(phase('Шаг 1. Обновить сервер', 'Обновит код и базу на запасном. Запись на паузе 1–2 минуты. Домен не меняется.', up));
+      wrap.append(phase('Шаг 2. Сделать главным', '', go));
+      if (busy) wrap.append(el('p', 'muted', isRefresh(d.job) ? 'Идёт обновление, подождите.' : 'Идёт переключение, подождите.'));
+      else {
+        const common = d.role === 'standby' ? 'Кнопка доступна на главном сервере.' : (d.bridge && !d.bridge.alive ? 'Нет связи со служебным мостом.' : '');
+        if (!d.canRefresh) wrap.append(el('p', 'muted', common || 'Сейчас обновить нельзя.'));
+        if (!d.canStart && !(!d.canRefresh && common)) wrap.append(el('p', 'muted', common || 'Сейчас переключить нельзя.'));
+      }
       return wrap;
     }
 
@@ -274,7 +351,7 @@
         c.append(h, rows);
         return c;
       };
-      const parts = [split(d, (name) => mk(name, name === meName)), verdict(d), el('p', 'muted', 'Сейчас главный сервер работает, второй хранит копию данных. Копия обновляется раз в сутки.')];
+      const parts = [split(d, (name) => mk(name, name === meName)), el('p', 'muted', 'После настройки переключения: сначала «Обновить», потом «Сделать главным».'), verdict(d), el('p', 'muted', 'Сейчас главный сервер работает, второй хранит копию данных. Копия обновляется раз в сутки.')];
       if (d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
       return parts;
     }

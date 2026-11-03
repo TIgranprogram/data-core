@@ -3,7 +3,7 @@
 # Cron пользователя деплоя раз в минуту, на КАЖДОМ из двух серверов:
 #   * * * * * DATA_DIR=/var/lib/datacore bash /opt/data-core/deploy/ha/switch/switch-watch.sh
 # Контейнер backend сам ничего на хосте не запускает: кнопка в админке кладёт файл
-#   ${DATA_DIR}/switch/request   (id=…, kind=switch|emergency)
+#   ${DATA_DIR}/switch/request   (id=…, kind=switch|emergency|refresh)
 # мост его подхватывает и по шагам докладывает серверу: POST /api/control/switch/report с секретом из файла
 #   ${DATA_DIR}/switch/secret    (chmod 600; backend в контейнере работает от root и читает его; в аргументах и логах секрета нет).
 # Идемпотентен: нет заявки — тихо выходит; уже работает другой экземпляр (flock) — тихо выходит.
@@ -20,6 +20,9 @@
 # → readonly (дальше не более 10 минут) → дамп → передача → восстановление на втором (страховочный дамп с отметкой времени, хранится 3;
 # сосед сразу становится standby) → короткая досинхронизация фото → сверка записей и health → второй главный
 # → VPS (dc-switch, домен подтверждается `dc-switch status`) → цели копий вне дома выключаются здесь → этот standby+readonly.
+# kind=refresh (кнопка «Обновить», домен не трогаем): проверка без VPS → фото заранее → readonly → дамп →
+# восстановление (сосед сразу standby+normal, не readonly) → фото → код (rsync backend/deploy/compose, сборка на соседе)
+# → сверка, health, маркер last-refresh → этот сервер снова normal. VPS и смена роли главного не вызываются.
 # Любая ошибка ДО подтверждённой смены домена: этот сервер снова пишет (mode=normal), домен не тронут, сосед снова standby.
 # Каждый цикл: если домен у соседа, а этот сервер всё ещё main (вернулся старый главный) — он сам становится standby/readonly.
 set -uo pipefail
@@ -46,7 +49,7 @@ PEER_API="${HA_PEER_API:-http://127.0.0.1:3001}"
 COLLS="${HA_COUNT_COLLS:-users salesorders incomes materials stockmovements}"
 # таймауты шагов, секунд; всё время в режиме «только чтение» ограничено RO_BUDGET (10 минут)
 T_SSH="${T_SSH:-30}"; T_DUMP="${T_DUMP:-300}"; T_RESTORE="${T_RESTORE:-300}"; T_PHOTOS="${T_PHOTOS:-3600}"; T_PHOTOS_RO="${T_PHOTOS_RO:-120}"
-T_VERIFY="${T_VERIFY:-120}"; T_VPS="${T_VPS:-60}"; T_REPORT="${T_REPORT:-15}"
+T_VERIFY="${T_VERIFY:-120}"; T_VPS="${T_VPS:-60}"; T_REPORT="${T_REPORT:-15}"; T_CODE="${T_CODE:-600}"
 RO_BUDGET="${RO_BUDGET:-600}"
 PEER_INFO_EVERY="${PEER_INFO_EVERY:-300}"
 
@@ -154,6 +157,11 @@ done
 echo "backend не поднялся"; exit 14
 E
 DEMOTE_SH="${DEMOTE_SH%$'\n'}"   # одна строка: printf %q тогда даёт запись, понятную любой оболочке
+# обновление копии: сосед остаётся запасным и пишет (не «только чтение»); job из дампа главного не оставляем
+read -r -d '' STANDBY_NORMAL_SH <<'E'
+docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"normal\",job:null}})"' >/dev/null
+E
+STANDBY_NORMAL_SH="${STANDBY_NORMAL_SH%$'\n'}"
 RESTORE_SH="$CHECK_SH"$'\n'"$RESTORE_BODY"
 
 peer_health() { [[ "$(peer "$T_SSH" "curl -s -m 5 -o /dev/null -w '%{http_code}' $(printf '%q' "$PEER_API")/api/health/ready" 2>/dev/null)" == 200 ]]; }
@@ -162,6 +170,11 @@ version_of() { sed -n 's/.*"version"[^"]*"\([^"]*\)".*/\1/p' | head -n 1 | head 
 peer_demote() {
   [[ -n "${HA_PEER_SSH:-}" ]] || return 0
   peer "$T_SSH" "$(peer_vars)cd \"\$DC\" && set -a && . ./.env && set +a; $DEMOTE_SH; docker start datacore-backend >/dev/null 2>&1; true" >>"$LOG" 2>&1 || L "не удалось вернуть второй сервер в запасные"
+}
+# после сорванного обновления: запасной снова в обычном режиме (не readonly)
+peer_standby_normal() {
+  [[ -n "${HA_PEER_SSH:-}" ]] || return 0
+  peer "$T_SSH" "$(peer_vars)cd \"\$DC\" && set -a && . ./.env && set +a; $STANDBY_NORMAL_SH; docker start datacore-backend >/dev/null 2>&1; true" >>"$LOG" 2>&1 || L "не удалось вернуть второй сервер в запасные (обычный режим)"
 }
 
 # сведения о втором сервере для экрана: версия, возраст копии, health
@@ -210,7 +223,8 @@ check_budget() { (( READONLY_AT == 0 )) || [[ $(left) -gt 0 ]] || fail "$1" "Б�
 ID=""; KIND=""; RESTORE_STARTED=0
 fail() {   # fail STEP "понятная причина"; вызывается, только когда домен точно НЕ у соседа
   L "ОШИБКА [$1]: $2"
-  if [[ $RESTORE_STARTED == 1 ]]; then peer_demote
+  if [[ $RESTORE_STARTED == 1 ]]; then
+    if [[ "${KIND:-}" == refresh ]]; then peer_standby_normal; else peer_demote; fi
   else peer "$T_SSH" "docker start datacore-backend >/dev/null 2>&1; true" >/dev/null 2>&1 || true; fi
   report "$ID" "$1" failed "$2" || L "отчёт о провале не доставлен; сервер снимет «только чтение» сам, когда мост перестанет отвечать"
   rm -f "$CURRENT"
@@ -222,6 +236,14 @@ run_step() {   # run_step STEP [ПРЕДУПРЕЖДЕНИЕ] — сообщит
   report "$ID" "$1" running "${2:-}" || fail "$1" "Сервер не принял отчёт моста. Проверьте секрет и HA_SELF."
 }
 sync_photos() { timeout "$(cap "$1")" rsync -rt --ignore-existing --partial -e "$RSH" "${DATA_DIR}/uploads/" "${HA_PEER_SSH}:${PEER_DATA}/uploads/" >>"$LOG" 2>&1; }
+# код — отдельными деревьями: --delete на весь $PEER_DC стёр бы .env и всё, чего нет в этой передаче
+sync_code() {
+  local dest="${HA_PEER_SSH}:${PEER_DC}"
+  local ex=(--exclude '.env' --exclude 'node_modules' --exclude '.git' --exclude 'uploads' --exclude 'prev' --exclude 'dist')
+  timeout "$(cap "$T_CODE")" rsync -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/backend/" "${dest}/backend/" >>"$LOG" 2>&1 \
+    && timeout "$(cap "$T_CODE")" rsync -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/deploy/" "${dest}/deploy/" >>"$LOG" 2>&1 \
+    && timeout "$(cap "$T_CODE")" rsync -a -e "$RSH" "${DC_DIR}/docker-compose.prod.yml" "${dest}/docker-compose.prod.yml" >>"$LOG" 2>&1
+}
 
 # после подтверждённой смены домена: сосед главный, здесь цели копий выключаем, роль здесь standby+readonly
 finish_switched() {
@@ -304,6 +326,78 @@ do_switch() {
   finish_switched
 }
 
+# ---------- обновить запасной (домен не трогаем) ----------
+finish_refresh() {
+  local ok=0 i
+  for i in 1 2 3 4 5; do
+    report "$ID" finish done "" '"mode":"normal"' && { ok=1; break; }
+    sleep 10
+  done
+  [[ $ok == 1 ]] || L "финальный отчёт не доставлен; проверьте состояние в админке"
+  rm -f "$CURRENT"
+  L "обновление $ID завершено: главный остался $SELF, домен не менялся"
+  exit 0
+}
+do_refresh() {
+  LOCAL_CREDS
+  [[ -n "${HA_PEER_SSH:-}" && -n "${HA_PEER_HOST:-}" ]] || fail preflight "Мост не настроен: нет HA_PEER_SSH или HA_PEER_HOST (bridge.env)."
+  local warn=""
+  local names; names=$'\n'"$(docker ps --format '{{.Names}}' 2>/dev/null)"$'\n'
+  [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="Предупреждение: CRM kppdf (kppdf-backend) запущена на этом сервере. Она не переключается и продолжит работать с этой базой."
+  run_step preflight "$warn"
+  peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
+  command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
+  peer "$T_SSH" 'command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
+  [[ "$(peer "$T_SSH" 'docker inspect -f "{{.State.Running}}" datacore-mongo 2>/dev/null')" == true ]] || fail preflight "На втором сервере не запущена база (datacore-mongo)."
+  local free; free="$(peer "$T_SSH" "df --output=avail -k $(printf '%q' "$PEER_DATA") | tail -n 1" 2>/dev/null | tr -dc 0-9)"
+  [[ -n "$free" && "$free" -gt 1048576 ]] || fail preflight "На втором сервере меньше 1 ГБ свободного места."
+  peer "$T_SSH" "mkdir -p $(printf '%q' "$PEER_DATA")/switch" >/dev/null 2>&1 || fail preflight "На втором сервере нельзя создать папку переключения."
+  local why; why="$(peer "$T_SSH" "$(peer_vars)$CHECK_SH" 2>&1)" || fail preflight "${why:-Проверка второго сервера не пройдена.}"
+  peer_report '{"id":"peer","peer":{"healthy":true}}' || fail preflight "Второй сервер не принимает отчёты: нет HA_SELF в .env или не запущен его мост."
+  [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$API/api/health/ready")" == 200 ]] || fail preflight "Этот сервер не готов (health)."
+
+  run_step photos_pre
+  sync_photos "$T_PHOTOS" || fail photos_pre "Не удалось передать фото."
+
+  run_step readonly
+  report "$ID" readonly running "" '"mode":"readonly"' || fail readonly "Не удалось включить режим «только чтение»."
+  READONLY_AT=$(date +%s)
+  sleep 5
+  local before; before="$(counts_local)" || fail readonly "Не удалось посчитать записи на этом сервере."
+  L "записей до: $before"
+
+  run_step dump
+  printf 'phase=restore\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
+  RESTORE_STARTED=1
+  dump_local | peer "$(cap "$T_DUMP")" "cat > $(printf '%q' "$PEER_DATA")/switch/incoming.archive.gz" || fail dump "Не удалось снять и передать базу."
+
+  run_step restore
+  peer "$(cap "$T_RESTORE")" "$(peer_vars)DEMOTE_CMD=$(printf '%q' "$STANDBY_NORMAL_SH"); $RESTORE_SH" >>"$LOG" 2>&1 \
+    || fail restore "Восстановление на втором сервере не удалось (страховочные копии — switch/before-switch-*.archive.gz на нём)."
+
+  run_step photos
+  sync_photos "$T_PHOTOS_RO" || fail photos "Не удалось досинхронизировать фото."
+
+  run_step code
+  printf 'phase=code\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
+  sync_code || fail code "Не удалось передать код на второй сервер."
+  peer "$(cap "$T_CODE")" "cd $(printf '%q' "$PEER_DC") && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d --no-deps backend" >>"$LOG" 2>&1 \
+    || fail code "Не удалось собрать и запустить backend на втором сервере."
+  local i okh=0
+  for i in $(seq 1 40); do peer_health && { okh=1; break; }; sleep 3; done
+  [[ $okh == 1 ]] || fail code "Backend на втором сервере не поднялся после сборки."
+
+  run_step verify
+  local after; after="$(counts_peer)" || fail verify "Не удалось посчитать записи на втором сервере."
+  L "записей после: $after"
+  [[ -n "$before" && "$before" == "$after" ]] || fail verify "Число записей не совпало: здесь $before, там $after."
+  peer_health || fail verify "Второй сервер не отвечает на health."
+  peer "$T_SSH" "mkdir -p $(printf '%q' "$PEER_DATA")/switch && date -u +%Y-%m-%dT%H:%M:%SZ > $(printf '%q' "$PEER_DATA")/switch/last-refresh" \
+    || fail verify "Не удалось записать время обновления на втором сервере."
+  peer_info
+  finish_refresh
+}
+
 # ---------- аварийный подъём ----------
 do_emergency() {
   LOCAL_CREDS
@@ -328,7 +422,7 @@ do_emergency() {
 
 # ---------- после падения моста посреди работы ----------
 if [[ -f "$CURRENT" ]]; then
-  PHASE="$(sed -n 's/^phase=//p' "$CURRENT" | head -n 1)"; ID="$(sed -n 's/^id=//p' "$CURRENT" | head -n 1)"
+  PHASE="$(sed -n 's/^phase=//p' "$CURRENT" | head -n 1)"; ID="$(sed -n 's/^id=//p' "$CURRENT" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$CURRENT" | head -n 1)"
   L "найдена прерванная работа $ID (фаза ${PHASE:-?})"
   case "$PHASE" in
     switched) finish_switched ;;
@@ -341,7 +435,15 @@ if [[ -f "$CURRENT" ]]; then
     emergency)
       if { domain_now; [[ "$DOM" == "$SELF" ]]; }; then report "$ID" finish done "" '"role":"main","mode":"normal"' && rm -f "$CURRENT"
       else report "$ID" recovery failed "Аварийный подъём прерван, домен не у этого сервера."; rm -f "$CURRENT"; fi ;;
-    restore) peer_demote; [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван во время передачи. Домен не менялся."; rm -f "$CURRENT" ;;
+    restore|code)
+      if [[ "${KIND:-}" == refresh ]]; then
+        peer_standby_normal
+        [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван во время обновления. Домен не менялся."
+      else
+        peer_demote
+        [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван во время передачи. Домен не менялся."
+      fi
+      rm -f "$CURRENT" ;;
     *) peer "$T_SSH" "docker start datacore-backend >/dev/null 2>&1; true" >/dev/null 2>&1 || true
        [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван до переключения домена. Домен не менялся."; rm -f "$CURRENT" ;;
   esac
@@ -369,5 +471,6 @@ printf 'phase=pre\nid=%s\n' "$ID" > "$CURRENT"
 case "$KIND" in
   switch) do_switch ;;
   emergency) do_emergency ;;
+  refresh) do_refresh ;;
   *) fail preflight "Неизвестный тип заявки." ;;
 esac

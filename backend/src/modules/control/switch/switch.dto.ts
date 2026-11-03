@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import { Equals, IsBoolean, IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 import { EMERGENCY_PHRASE } from './switch.rules';
 
+/** Подтверждение: «Сделать главным» и «Обновить» запасной. */
 export class StartSwitchDto {
   @ApiProperty({ example: true, description: 'Подтверждение: только true' })
   @IsBoolean({ message: 'Нужно подтверждение: confirm=true' })

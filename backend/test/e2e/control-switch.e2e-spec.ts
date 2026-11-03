@@ -54,13 +54,14 @@ describe('Переключение сервера (SW-2…SW-5)', () => {
       await http().get(S).expect(401);
       await http().get(S).set(as(manager)).expect(403);
       await http().post(`${S}/start`).set(as(manager)).send({ confirm: true }).expect(403);
+      await http().post(`${S}/refresh`).set(as(manager)).send({ confirm: true }).expect(403);
       await report({ id: 'peer' }, 'wrong').expect(403);
       await http().post(`${S}/report`).set('X-Switch-Secret', 'E2ESECRET').set('X-Forwarded-For', '1.2.3.4').send({ id: 'peer' }).expect(403);
     });
 
     it('состояние: дом главный, обычный режим, мост жив', async () => {
       const r = (await http().get(S).set(as(admin.access)).expect(200)).body;
-      expect(r).toMatchObject({ enabled: true, self: 'home', role: 'main', mode: 'normal', job: null, bridge: { alive: true }, canStart: true, canEmergency: false });
+      expect(r).toMatchObject({ enabled: true, self: 'home', role: 'main', mode: 'normal', job: null, bridge: { alive: true }, canStart: true, canRefresh: true, canEmergency: false });
       expect(r.peer.name).toBe('office');
     });
 
@@ -104,7 +105,12 @@ describe('Переключение сервера (SW-2…SW-5)', () => {
       const e = (await http().post(`${S}/emergency`).set(as(admin.access)).send({ confirm: 'Я ПОНИМАЮ' }).expect(201)).body;
       expect(e.job.direction).toBe('emergency');
       await report({ id: e.job.id, step: 'finish', state: 'done', role: 'main', mode: 'normal' }).expect(200);
-      expect((await http().get(S).set(as(admin.access)).expect(200)).body).toMatchObject({ role: 'main', mode: 'normal' });
+      expect((await http().get(S).set(as(admin.access)).expect(200)).body).toMatchObject({ role: 'main', mode: 'normal', canRefresh: true });
+      const rf = (await http().post(`${S}/refresh`).set(as(admin.access)).send({ confirm: true }).expect(201)).body;
+      expect(rf.job.direction).toBe('refresh');
+      expect(await fs.readFile(path.join(dir, 'request'), 'utf8')).toContain('kind=refresh');
+      await http().post(`${S}/refresh`).set(as(admin.access)).send({}).expect(400);
+      await http().post(`${S}/refresh`).set(as(admin.access)).send({ confirm: true }).expect(409);
     });
   });
 });
