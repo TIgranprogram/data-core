@@ -46,7 +46,7 @@ fi
 if [[ $UI == 1 ]]; then
   node backend/scripts/pwa-import-check.mjs >"$LOG" 2>&1 || { head -8 "$LOG"; stop "приложение/админка: сломан синтаксис или импорт"; }
   ok "$(tail -1 "$LOG")"
-  node --test "backend/pwa/**/*.test.mjs" >"$LOG" 2>&1 || { grep -E 'not ok|fail' "$LOG" | head -6; stop "node --test приложения упал"; }
+  node --experimental-vm-modules --test "backend/pwa/**/*.test.mjs" >"$LOG" 2>&1 || { grep -E 'not ok|fail' "$LOG" | head -6; stop "node --test приложения упал"; }
   (cd backend && npx jest src/pwa-guards --silent) >"$LOG" 2>&1 || { grep -E '●|Tests:' "$LOG" | head -6; stop "pwa-guards упал"; }
   ok "node --test и pwa-guards зелёные"
 fi
