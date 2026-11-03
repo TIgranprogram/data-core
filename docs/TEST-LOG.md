@@ -121,4 +121,4 @@
 | 2026-11-03 | HEAD 8392ce68 один экран счёта, inline, плюс-выбор | tsc ✅; юнит ✅ 2401; pwa-import ✅; pwa-guards ✅; invoice-workspace/price ✅ | e2e ✅ 61 suites / 475 passed (T26 stock-catalog-atomicity 12 fail — гонки каталога, не счёт) | full |
 
 | 2026-11-03 | HEAD (HA refresh + склад телефон + lookup shipped) | tsc ✅; юнит ✅ 257/2403; pwa-import ✅ | e2e ✅ 61 suites / 475 passed (T26 stock-catalog-atomicity 12 fail — нужен disposable URI, не эта задача) | full |
-| 2026-11-03 | C018 КП audit fix | tsc ✅; offers offer-pdf+rules 7/7 ✅; PWA offers/kp/salesorders syntax ✅ | — (smoke; full — при следующей выкладке backend/src пачкой) | smoke КП→заказ, versions, import dedup |
+| 2026-11-03 | c7388d1b C018 КП audit fix | tsc ✅; юнит ✅ 2404/2404; design-lint ✅ | e2e ✅ 61 suites / 475 passed (T26 stock-catalog-atomicity 12 fail — disposable URI, не КП) | full перед выкладкой L offers/KP |
