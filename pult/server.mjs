@@ -386,9 +386,21 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       const brief = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, { at: v.at, code: v.code }]));
       // код пульта изменился (правка Claude): ничего не идёт — перезапуск сам, окно перезагрузится; идёт — после команды
       // окно ведёт цепочку «Выполнить все по очереди» (заголовок X-Pult-Chain) — не перезапускаться между шагами
-      const restarting = codeStamp() !== STAMP && running().length === 0 && !restartAt && !req.headers['x-pult-chain'];
+      const disk = codeStamp();
+      const catalogLag = auditProblems(auditCatalog(catalog));
+      const restarting = disk !== STAMP && running().length === 0 && !restartAt && !req.headers['x-pult-chain'];
       if (restarting) { restartAt = Date.now(); setTimeout(() => { respawn(port); process.exit(0); }, 300); }
-      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt });
+      // Версия пульта: отпечаток файлов pult/ при старте (stamp) vs сейчас на диске (disk); каталог кнопок — отдельно.
+      const pult = {
+        stamp: STAMP,
+        disk,
+        current: disk === STAMP && catalogLag.length === 0,
+        catalogOk: catalogLag.length === 0,
+        reason: disk !== STAMP
+          ? 'Файлы пульта изменились — окно скоро перезагрузится'
+          : (catalogLag.length ? `Каталог кнопок отстал: ${catalogLag[0]}` : ''),
+      };
+      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt, pult });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
     if (req.method === 'GET' && url.pathname === '/api/schedule') return json(res, 200, scheduleView());

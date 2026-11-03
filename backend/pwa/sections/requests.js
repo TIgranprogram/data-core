@@ -164,7 +164,7 @@ const fields = async (r) => {
     { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
     { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
-    { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(lk), max: 30, span: 1 },
+    { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, span: 1 },
     { key: 'priority', label: 'Приоритет', type: 'segment', options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
     { section: 'Детали товара', tone: 'info', collapsed: true },
     { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
@@ -175,9 +175,9 @@ const fields = async (r) => {
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     { section: 'Поставщик и счёт', tone: 'money' },
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
-    { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
+    { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : '«Получено» ставится кнопкой «Принять» — тогда товар встанет на склад' },
     inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
-    { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке с НДС; закупка на складе — без НДС, не копируйте слепо' },
+    { key: 'priceHint', money: true, label: 'Вся сумма с НДС, ₽', type: 'money', min: 0, hint: 'За всю позицию целиком, не цена за штуку. На складе закупка без НДС — не копируйте слепо' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },
     inv ? fromInvoice('№ счёта', r.invoiceNo) : { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },
@@ -219,7 +219,7 @@ function stepFoot(r, ctx) {
   const st = nextStep(r);
   if (!st) return null;
   const miss = st.kind === 'receive' ? [] : missingFor(r, st.to);
-  const btn = button({ label: st.verb, size: 'S', kind: 'secondary', title: st.kind === 'receive' ? 'Принять на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onClick: async () => {
+  const btn = button({ label: st.verb, size: 'S', kind: st.kind === 'receive' ? 'primary' : 'secondary', title: st.kind === 'receive' ? 'Принять на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onClick: async () => {
     btn.disabled = true; btn.classList.add('is-busy');
     try {
       if (st.kind === 'receive') { if (await receiveDialog(r)) ctx.changed(); }
@@ -280,7 +280,7 @@ export const requests = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' },
       { key: 'requestedBy', label: 'Кто подал', type: 'hidden' },
       { key: 'from', label: 'С даты', short: 'с', type: 'date' },
-      { key: 'to', label: 'По дату', short: 'по', type: 'date' },
+      { key: 'to', label: 'До даты', short: 'до', type: 'date' },
       { key: 'needsFill', type: 'hidden' },
       { key: 'salesOrderId', label: 'По заказу', allLabel: 'Все заказы', type: 'select', options: async () => (await ordersLookup({ filter: 'active' }).catch(() => [])).map((o) => ({ value: o.id, label: orderLabel(o) })) },
     ],
@@ -290,12 +290,12 @@ export const requests = {
       { key: 'num', label: '№', sort: 'num', cls: 'num', render: (r) => r.num ?? '' },
       { key: 'requestDate', label: 'Дата', sort: 'requestDate', cls: 'num', render: (r) => date(r.requestDate || r.createdAt) },
       { key: 'title', label: 'Название', sort: 'title', cls: 'clip', render: (r) => h('span', { title: name(r) }, name(r)) },
-      { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
+      { key: 'qty', label: 'Кол.', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
       { key: 'supplierName', label: 'Поставщик', cls: 'md-hide', render: (r) => r.supplierName || '' },
       { key: 'invoiceNo', label: 'Счёт', sort: 'invoiceNo', cls: 'nowrap md-hide', render: (r) => (r.invoiceId ? h('a', { class: 'link-btn', href: invoiceHref(r.invoiceId), onclick: (e) => e.stopPropagation() }, r.invoiceNo ? '№ ' + r.invoiceNo : 'Без номера') : r.invoiceNo ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), '№ ' + r.invoiceNo), 'n:' + r.invoiceNo) : '') },
       { key: 'orderTag', label: 'Заказ', cls: 'nowrap md-hide', render: (r) => (r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId, title: r.orderLabel || '' }, orderTag(r)) : '') },
       { key: 'requestedBy', label: 'Кто подал', sort: 'requestedBy', cls: 'nowrap md-hide', render: (r) => r.requestedBy || '' },
-      { key: 'priceHint', money: true, label: 'Сумма', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
+      { key: 'priceHint', money: true, label: 'Сумма с НДС', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
       { key: 'status', label: 'Статус', sort: 'status', cls: 'nowrap', render: (r) => h('span', null, badge(SUPPLY_STATUS, supplyKey(r)), r.priority === 'urgent' ? h('span', null, ' ', badge(PRIORITY, 'urgent')) : null) },
     ],
     card: {

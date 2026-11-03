@@ -89,7 +89,7 @@ NODE_ENV=production
 CORS_ORIGIN=http://31.222.224.247:8080
 MONGO_URI=mongodb://...
 JWT_SECRET=...
-HTTP_STAND=1        # стенд без HTTPS: без upgrade-insecure-requests и без HSTS (на нашем проде НЕ ставить)
+HTTP_STAND=1        # стенд без HTTPS: без upgrade-insecure-requests и без HSTS; плюс снятие префикса /db/ (как nginx на проде), чтобы работали и /admin, и /db/admin. На нашем проде НЕ ставить.
 ```
 
 ### 4. Запустить

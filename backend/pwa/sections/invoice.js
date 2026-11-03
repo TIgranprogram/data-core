@@ -64,8 +64,8 @@ async function buildInvoiceForm(opts = {}) {
     const cat = h('input', { maxlength: 100, placeholder: 'Выберите категорию' });
     const title = h('input', { placeholder: 'Сначала выберите категорию', maxlength: 500 });
     const q = h('input', { inputmode: 'decimal', value: '1', class: 'inv-q', 'aria-label': 'Количество' });
-    const unit = h('input', { value: 'шт', maxlength: 30, class: 'inv-u', 'aria-label': 'Ед. изм.' });
-    const sum = h('input', { inputmode: 'decimal', placeholder: 'сумма, ₽', class: 'inv-s', hidden: !session.canMoney, 'aria-label': 'Сумма' });
+    const unit = h('input', { value: 'шт', maxlength: 30, class: 'inv-u', 'aria-label': 'Единица измерения' });
+    const sum = h('input', { inputmode: 'decimal', placeholder: 'общая сумма, ₽', class: 'inv-s', hidden: !session.canMoney, 'aria-label': 'Общая сумма' });
     const row = { title, q, unit, sum, cat, url: { value: '' }, photos: { ids: () => [] }, extra: {}, el: null };
     // форма новой позиции — в строке, нашим блоком
     const nCat = h('input', { maxlength: 100, placeholder: 'Выберите категорию' });
@@ -80,7 +80,7 @@ async function buildInvoiceForm(opts = {}) {
     const nSave = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Создать позицию');
     const nBox = h('div', { class: 'form-block inv-new', 'data-tone': 'info', hidden: true },
       h('div', { class: 'inv-new-head' }, h('b', null, 'Новая позиция в базе'), h('span', { class: 'muted small' }, ' — появится на складе в выбранной категории')),
-      h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Короткое название *', nName, 'wide'), field('Длинное название', nFull, 'wide'), field('Название в счёте', nInv, 'wide'), field('Артикул', nArt), field('Ед. изм.', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
+      h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Короткое название *', nName, 'wide'), field('Длинное название', nFull, 'wide'), field('Название в счёте', nInv, 'wide'), field('Артикул', nArt), field('Единица', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
         h('div', { class: 'field wide' }, h('span', null, 'Фото'), nPhotos.el)),
       nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { nBox.hidden = true; } }, 'Отмена')));
     const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = nName.value || title.value.trim(); nInv.value = nInv.value || row.src?.name || title.value.trim(); (nCat.value ? nName : nCat).focus(); } }, 'Создать позицию');
@@ -90,7 +90,7 @@ async function buildInvoiceForm(opts = {}) {
     const dupe = orderedNote(); // ЗП.3: позиция уже заказана — предупредить в строке
     row.el = h('div', { class: 'inv-row' },
       h('div', { class: 'inv-pick' }, field('Категория', h('div', { class: 'has-combo' }, cat)), field('Позиция', h('div', { class: 'has-combo' }, title))),
-      h('div', { class: 'inv-main' }, field('Кол-во', q), field('Ед. изм.', h('div', { class: 'has-combo' }, unit)), session.canMoney ? field('Сумма, ₽', sum) : h('span'), h('div', { class: 'inv-btns' }, addNew, del)),
+      h('div', { class: 'inv-main' }, field('Количество', q), field('Единица', h('div', { class: 'has-combo' }, unit)), session.canMoney ? field('Общая сумма, ₽', sum) : h('span'), h('div', { class: 'inv-btns' }, addNew, del)),
       dupe.el, nBox);
     lines.append(row.el);
     let catSel = '';

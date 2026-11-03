@@ -12,7 +12,7 @@ const HOUR = 3600000;
 const DAY = 24 * HOUR;
 const POST_CHECK_AFTER = HOUR;
 /** Проверки, чей последний итог всегда виден на экране «Что делать сейчас». */
-const CHECKS = ['code-check', 'check-full', 'site-audit', 'release-qa', 'day-start', 'day-errors'];
+const CHECKS = ['code-check', 'check-full', 'site-audit', 'day-start', 'day-errors'];
 const cut = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
@@ -64,7 +64,7 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
     items.push({ level: 'you', cmd: t.cmd, why: t.why, title: t.title, todo: t.id, link: !!t.link, ...(t.params ? { params: t.params } : {}), ...(next ? { next } : {}) }); // params — значения полей команды (скрипт и т. п.)
   }
 
-  if (gateFiles.length) add('soon', 'git-status', `Файлов без коммита: ${gateFiles.length}. Обычно это работа Claude, она ещё идёт. Нажимать не нужно. Выкладка откроется после коммита.`);
+  // Незакоммиченное — плашка сверху («Выкладка закрыта»), не пункт «нажмите / не нажимайте».
   if (s.behind) add('today', 'git-pull', `В GitHub есть новые коммиты: ${s.behind}. Заберите их до начала работы.`);
   if (s.ahead) add('today', 'git-push', `Коммиты не отправлены в GitHub: ${s.ahead}. Выкладка требует, чтобы они были там.`);
   if (s.undeployed && !gateFiles.length && !s.ahead) add('soon', 'deploy-release', `Не на сайте (можно копить и выложить пачкой): ${s.undeployed} ${s.undeployed === 1 ? 'изменение' : 'изменений'} в коде.`);
@@ -72,10 +72,8 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
   if (release?.code === 0) {
     const post = runs['deploy-post'];
     const age = now - release.at;
-    if (!post || post.at < release.at) {
-      if (age >= POST_CHECK_AFTER) add('today', 'deploy-post', 'После выкладки прошёл час. Проверьте новые ошибки с сайта.');
-      else add('soon', 'deploy-post', `Выкладка была недавно. Проверку лучше сделать через ${Math.ceil((POST_CHECK_AFTER - age) / 60000)} мин.`);
-    }
+    // Пока час не прошёл — пункт не показываем (нечего делать прямо сейчас).
+    if ((!post || post.at < release.at) && age >= POST_CHECK_AFTER) add('today', 'deploy-post', 'После выкладки прошёл час. Проверьте новые ошибки с сайта.');
     if (!doctor || doctor.at < release.at) add('today', 'prod-doctor', 'После выкладки нужен осмотр сайта.');
   }
 

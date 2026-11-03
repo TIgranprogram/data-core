@@ -77,6 +77,9 @@ describe('SwitchService и режим «только чтение»', () => {
       expect(s.peer.version).toBe('v1.400');
       expect(s.selfIsCopy).toBe(true);
       expect(s.peer.copyAgeMin).toBe(30);
+      const speed = (s as unknown as { speed: { home: { probeMs: number | null }; office: { requests: number | null } } }).speed;
+      expect(typeof speed.home.probeMs).toBe('number');
+      expect(speed.office.requests).not.toBeNull();
       expect(s.blockers.join(' ')).not.toMatch(/не отвечает|копию/);
       spy.mockRejectedValue(new Error('timeout'));
       const s2 = await sw.status() as { peer: { healthy: boolean }; blockers: string[] };

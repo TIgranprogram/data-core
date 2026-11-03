@@ -15,7 +15,7 @@ export class SwitchController {
   @Get()
   @Roles('admin')
   @ApiOperation({ summary: 'Состояние переключения: кто главный, режим, работа, готовность второго сервера' })
-  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canEmergency }; без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL' })
+  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
   
   status() {
     return this.service.status();
@@ -24,7 +24,7 @@ export class SwitchController {
   @Get('ping')
   @Public()
   @ApiOperation({ summary: 'Служебный: короткая справка для второго сервера — роль, версия, время копии. Без данных' })
-  @ApiResponse({ status: 200, description: '{ self:home|office|null, role:main|standby|null, version, copyAt }' })
+  @ApiResponse({ status: 200, description: '{ self:home|office|null, role:main|standby|null, version, copyAt, speed:{p50,p95,requests,slow} }' })
   ping() {
     return this.service.ping();
   }

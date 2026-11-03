@@ -1,5 +1,54 @@
-/* Вкладка «Серверы» (SW-4). Только токены. Правая панель — как в «Разборе». */
-.sw-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; margin-bottom: 16px; max-width: 900px; }
+/* Вкладка «Серверы»: две половины на весь экран. Только токены. Подтверждение — окно, аварийный ввод — правая панель. */
+#tab-switch { display: flex; flex-direction: column; min-height: 100vh; }
+#switch-root { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.sw-box { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Две половины в один горизонтальный ряд: верхние края совпадают, высоты колонок равны */
+.sw-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+.sw-half {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.sw-half .sw-card,
+.sw-half .sw-stats {
+  margin: 0;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.sw-half .sw-card .sw-kv,
+.sw-half .sw-stats .sw-kv { flex: 1 1 auto; }
+.sw-act {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 72px;
+}
+.sw-act .muted { margin: 0; }
+.sw-stats { padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow); }
+.sw-stats h3 { margin: 0 0 10px; font-size: var(--fs-h3); color: var(--heading); }
+.sw-verdict { margin: 0; font-weight: 600; color: var(--heading); }
+.sw-count { margin: 4px 0; font-size: var(--fs-h2); font-weight: 700; color: var(--heading); font-variant-numeric: tabular-nums; }
+.sw-confirm .dialog-form p { margin: 0 0 10px; }
 .sw-card { padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow); }
 .sw-card.main { border-color: var(--primary); }
 .sw-ch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -13,7 +62,7 @@
 .sw-kv dd.ok { color: var(--ok); font-weight: 600; }
 .sw-kv dd.warn { color: var(--warn); font-weight: 600; }
 .sw-kv dd.bad { color: var(--danger); font-weight: 600; }
-.sw-job { max-width: 900px; margin: 0 0 16px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.sw-job { margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); }
 .sw-jt { margin: 0 0 10px; font-size: var(--fs-h3); color: var(--heading); }
 .sw-jt.ok { color: var(--ok); } .sw-jt.bad { color: var(--danger); }
 .sw-steps { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 8px; }
@@ -22,15 +71,19 @@
 .sw-step.done { color: var(--text); } .sw-step.done .sw-mark { background: var(--ok-soft); color: var(--ok); }
 .sw-step.now { color: var(--heading); font-weight: 600; } .sw-step.now .sw-mark { background: var(--primary-soft); color: var(--primary); }
 .sw-step.fail { color: var(--danger); font-weight: 600; } .sw-step.fail .sw-mark { background: var(--danger-soft); color: var(--danger); }
-.sw-danger { max-width: 900px; margin-top: 22px; padding: 14px 16px; border: 1px solid var(--danger); border-radius: var(--radius); background: var(--danger-soft); }
+.sw-danger { margin: 0; padding: 14px 16px; border: 1px solid var(--danger); border-radius: var(--radius); background: var(--danger-soft); }
 .sw-danger h3 { margin: 0 0 6px; font-size: var(--fs-h3); color: var(--danger); }
 .sw-danger p { margin: 0 0 10px; }
-.sw-hint { margin-top: 18px; max-width: 900px; }
+.sw-hint { margin: 0; }
 .sw-box .cc-acts { margin-bottom: 12px; }
 .sw-back { position: fixed; inset: 0; background: rgba(16, 20, 28, .32); z-index: 40; }
 .sw-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--surface); z-index: 41; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); border-left: 1px solid var(--border-strong); }
 .sw-back[hidden], .sw-drawer[hidden] { display: none; }
 
+@media (max-width: 800px) {
+  #tab-switch { min-height: 0; }
+  .sw-split { grid-template-columns: 1fr; }
+}
 @media (max-width: 640px) {
-  .sw-drawer .btn, .sw-box .btn, .sw-drawer input, .sw-box input { min-height: 44px; }
+  .sw-drawer .btn, .sw-box .btn, .sw-drawer input, .sw-box input, .sw-confirm .btn { min-height: 44px; }
 }

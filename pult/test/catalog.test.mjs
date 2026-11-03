@@ -41,11 +41,10 @@ test('запись на сайт всегда с подтверждением, �
 });
 
 test('выкладка и команды на сервере не помечены как чтение, кроме явного списка', () => {
-  const readOnlyVm = new Set(['prod-log']);
   for (const c of COMMANDS) {
     if (c.run.deploy) assert.notEqual(c.risk, 'read', c.id);
-    if (c.run.vm && c.risk === 'read') assert.ok(readOnlyVm.has(c.id), c.id);
-    if (JSON.stringify(c.run).includes('--apply')) assert.ok(['danger', 'prod-write'].includes(c.risk) && c.confirm, c.id); // запись данных — всегда с подтверждением (2026-10-31: слово не нужно, есть копия базы)
+    if (c.run.vm && c.risk === 'read') assert.fail(`${c.id}: vm+read больше нет в пульте администратора`);
+    if (JSON.stringify(c.run).includes('--apply')) assert.ok(['danger', 'prod-write'].includes(c.risk) && c.confirm, c.id);
   }
 });
 
@@ -63,13 +62,11 @@ test('в списке скриптов только с режимом плана
 });
 
 test('параметр — только значение из списка', () => {
-  const cmd = COMMANDS.find((c) => c.id === 'script-plan');
-  assert.deepEqual(validateParams(cmd, { script: 'a' }, ['a']), { script: 'a' });
-  assert.throws(() => validateParams(cmd, { script: 'a; rm -rf /' }, ['a']));
-  assert.throws(() => validateParams(cmd, { script: 'a', extra: 1 }, ['a']));
-  const log = COMMANDS.find((c) => c.id === 'prod-log');
-  assert.deepEqual(validateParams(log, {}), { lines: '200' });
-  assert.throws(() => validateParams(log, { lines: '1; reboot' }));
+  const cmd = COMMANDS.find((c) => c.id === 'day-errors');
+  assert.deepEqual(validateParams(cmd, {}), { hours: '24' });
+  assert.deepEqual(validateParams(cmd, { hours: '2' }, []), { hours: '2' });
+  assert.throws(() => validateParams(cmd, { hours: '1; reboot' }));
+  assert.throws(() => validateParams(cmd, { hours: '24', extra: 1 }));
 });
 
 test('выкладка идёт по пути этого ПК', () => {
@@ -96,12 +93,12 @@ test('скрипты с адресом сервера внутри помече�
 });
 
 test('вход на сервер по способу этого ПК', () => {
-  const cmd = COMMANDS.find((c) => c.id === 'prod-log');
-  const atWork = buildRun(cmd, { lines: '100' }, work);
+  const cmd = COMMANDS.find((c) => c.id === 'prod-drill');
+  const atWork = buildRun(cmd, {}, work);
   assert.ok(atWork.file.endsWith('ssh.exe'));
   assert.equal(atWork.args.at(-2), 'datacore-vm');
-  assert.equal(atWork.args.at(-1), 'docker logs --tail 100 datacore-backend 2>&1');
-  assert.equal(buildRun(cmd, { lines: '100' }, { ...work, route: 'home' }).args.at(-2), 'tiit@192.168.1.52');
+  assert.match(atWork.args.at(-1), /restore-drill/);
+  assert.equal(buildRun(cmd, {}, { ...work, route: 'home' }).args.at(-2), 'tiit@192.168.1.52');
 });
 
 test('нет нужного на ПК — кнопка объясняет почему', () => {
@@ -133,5 +130,5 @@ test('секреты закрываются маской', () => {
 test('подсказка к реальному отказу ворот', () => {
   const said = adviceFor('ВОРОТА: СТОП — есть незакоммиченные изменения в backend/deploy — сначала коммит', ADVICE);
   assert.equal(said.length, 1);
-  assert.match(said[0], /Что изменено/);
+  assert.match(said[0], /ИИ закоммитить|коммит/);
 });

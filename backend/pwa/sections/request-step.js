@@ -29,11 +29,11 @@ export const GATES = [
   { to: 'ordered', fields: [
     { key: 'supplierName', label: 'Поставщик', ok: (r) => !!r.supplierId || text(r.supplierName) },
     { key: 'qty', label: 'Количество', ok: (r) => Number(r.qty) > 0 },
-    { key: 'unit', label: 'Ед. изм.', ok: (r) => text(r.unit) }] },
+    { key: 'unit', label: 'Единица', ok: (r) => text(r.unit) }] },
   { to: 'paid', fields: [
     { key: 'invoiceNo', label: '№ счёта', ok: (r) => text(r.invoiceNo) },
     { key: 'invoiceDate', label: 'Дата счёта', ok: (r) => text(r.invoiceDate) },
-    { key: 'priceHint', label: 'Сумма счёта', ok: (r) => Number(r.priceHint) > 0 }] },
+    { key: 'priceHint', label: 'Вся сумма по заявке', ok: (r) => Number(r.priceHint) > 0 }] },
 ];
 const STAGE = { ordered: 0, paid: 1 };
 
@@ -70,10 +70,10 @@ const defaultAmount = (r, defPrice) => (Number(r.priceHint) > 0 ? Number(r.price
 const fieldDefs = (lk) => ({
   supplierName: { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, required: true },
   qty: { key: 'qty', label: 'Количество', type: 'number', min: 0, required: true, span: 1 },
-  unit: { key: 'unit', label: 'Ед. изм.', type: 'combo', options: unitList(lk), max: 30, required: true, span: 1 },
+  unit: { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, required: true, span: 1 },
   invoiceNo: { key: 'invoiceNo', label: '№ счёта', max: 100, required: true, span: 1 },
   invoiceDate: { key: 'invoiceDate', label: 'Дата счёта', type: 'date', required: true, span: 1 },
-  priceHint: { key: 'priceHint', money: true, label: 'Сумма счёта, ₽', type: 'money', min: 0, required: true },
+  priceHint: { key: 'priceHint', money: true, label: 'Вся сумма по заявке, ₽', type: 'money', min: 0, required: true, hint: 'Сколько платить за эту позицию целиком (не цена за одну штуку)' },
 });
 /** Чипы прошлых поставщиков позиции под полем «Поставщик»: клик подставляет имя. */
 function supplierChips(fapi, r) {

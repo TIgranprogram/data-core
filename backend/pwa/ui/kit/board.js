@@ -166,25 +166,38 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       return [groupCard(k, g, rs, () => rs.map((row) => cardEl(row, c)), col)];
     });
   }
-  /** Карточка группы (счёт) как заказ на доске «Проектирование»: ▸/▾ раскрывает позиции; раскрытое помнится до перезагрузки. */
+  /** Карточка группы (счёт): клик по корпусу ▸/▾ раскрывает позиции; № счёта — отдельный чип (открыть счёт), не ссылка в тексте. */
   function groupCard(k, g, rs, cards, col) {
     let sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
     if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0)); // у позиций нет цен — сумма самого счёта
     const body = h('div', { class: 'db-lines b-glines' });
-    const fold = g.open ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => toggle() }, 'Позиции') : null;
-    const label = g.open ? (typeof g.open === 'object' && g.open.href
-      ? h('a', { class: 'link-btn', href: g.open.href }, g.label)
-      : h('button', { type: 'button', class: 'link-btn', onclick: () => g.open() }, g.label)) : h('b', null, g.label);
-    // Routable-группа не имеет role=button: ссылка и fold — независимые sibling-цели.
-    const legacy = g.open ? {} : { tabindex: '0', role: 'button', onclick: (e) => { if (!body.contains(e.target)) toggle(); }, onkeydown: (e) => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } } };
-    const card = paintOrder(h('article', { class: 'db-order k-gfold', 'data-group-key': k, ...legacy }, h('div', { class: 'db-oh' },
-      h('span', { class: 'db-oname' }, label, g.sub ? h('span', { class: 'db-cust' }, ' · ' + g.sub) : null), fold),
-    h('div', { class: 'db-ocnt' }, h('span', { class: 'db-cnt' }, 'позиций ' + rs.length), sum && session.canMoney ? h('span', { class: 'db-cnt num' }, money(sum)) : null), body), k);
+    const chev = h('span', { class: 'db-chev', 'aria-hidden': 'true' }, '▸');
+    const invChip = g.open
+      ? quiet(typeof g.open === 'object' && g.open.href
+        ? h('a', { class: 'btn btn-ghost btn-sm db-inv-chip', href: g.open.href, title: 'Открыть счёт' }, g.label)
+        : h('button', { type: 'button', class: 'btn btn-ghost btn-sm db-inv-chip', title: 'Открыть счёт', onclick: () => g.open() }, g.label))
+      : h('span', { class: 'db-inv-chip is-static' }, g.label);
+    const card = paintOrder(h('article', {
+      class: 'db-order k-gfold',
+      'data-group-key': k,
+      tabindex: '0',
+      role: 'button',
+      onclick: (e) => { if (!body.contains(e.target)) toggle(); },
+      onkeydown: (e) => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } },
+    },
+      h('div', { class: 'db-oh' },
+        h('div', { class: 'db-oh-main' }, invChip, g.sub ? h('span', { class: 'db-cust' }, g.sub) : null),
+        chev),
+      h('div', { class: 'db-ocnt' },
+        h('span', { class: 'db-cnt' }, 'позиций ' + rs.length),
+        sum && session.canMoney ? h('span', { class: 'db-cnt num' }, money(sum)) : null),
+      body), k);
     const paint = () => {
       const open = isOpen(k);
       card.classList.toggle('open', open);
-      (fold || card).setAttribute('aria-expanded', String(open));
-      (fold || card).setAttribute('aria-label', `${open ? 'Скрыть' : 'Показать'} позиции: ${g.label}`);
+      card.setAttribute('aria-expanded', String(open));
+      card.setAttribute('aria-label', `${open ? 'Скрыть' : 'Показать'} позиции: ${g.label}`);
+      chev.textContent = open ? '▾' : '▸';
       body.hidden = !open;
       body.replaceChildren(...(open ? cards() : []));
     };

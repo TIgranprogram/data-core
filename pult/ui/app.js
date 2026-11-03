@@ -186,10 +186,12 @@ function todoRow(item, level, first) {
   return row;
 }
 
+/** Плашка проверки — только если ещё не гоняли или есть проблема. «Всё ок» на экран не выводим. */
 function renderCheck(a) {
   const check = a.check;
   const problem = check && (check.code !== 0 || check.bad?.length);
-  const tone = !check ? 'warn' : check.code !== 0 ? 'bad' : check.bad?.length ? 'warn' : 'ok';
+  if (check && !problem) return null;
+  const tone = !check ? 'warn' : check.code !== 0 ? 'bad' : 'warn';
   const row = el('div', `now-check ${tone}`);
   const text = el('div', 'now-check-text');
   const cmdId = check?.cmd || 'code-check';
@@ -199,15 +201,13 @@ function renderCheck(a) {
     text.append(el('b', '', 'Проверок с этого пульта ещё не было.'), el('span', '', 'Нажмите «Быстрая проверка». Она скажет, всё ли в порядке.'));
   } else if (check.code !== 0) {
     text.append(el('b', '', `${title} не прошла ${whenText(check.at)}.`), el('span', '', check.last || 'Подробности в журнале справа.'));
-  } else if (check.bad?.length) {
-    text.append(el('b', '', `${title} ${whenText(check.at)} нашла замечание.`), el('span', '', check.bad[0]));
   } else {
-    text.append(el('b', '', `${title} ${whenText(check.at)}: замечаний нет.`));
+    text.append(el('b', '', `${title} ${whenText(check.at)} нашла замечание.`), el('span', '', check.bad[0]));
   }
   row.append(text);
   const already = (a.items || []).some((x) => x.cmd === cmdId);
   if (cmd && !already) {
-    const b = el('button', problem || !check ? 'primary' : 'ghost', !check ? 'Запустить' : 'Проверить снова');
+    const b = el('button', 'primary', !check ? 'Запустить' : 'Проверить снова');
     const live = [...S.jobs.values()].some((j) => j.cmdId === cmd.id && j.state === 'running');
     b.disabled = live || (cmd.blocked || []).length > 0;
     b.onclick = () => press(cmd);
@@ -221,15 +221,22 @@ function renderNow() {
   const a = S.advice;
   if (!a) box.append(el('div', 'none', 'Смотрю состояние проекта…'));
   else {
-    box.append(renderCheck(a));
+    const checkRow = renderCheck(a);
     // одно главное дело: самое важное, что ждёт человека; плановое «Рекомендуется» главным не бывает
     const main = S.catalog.levels.filter((l) => l.id !== 'soon').flatMap((l) => a.items.filter((x) => x.level === l.id))[0];
-    if (!main) box.append(el('div', 'now-clear', 'Сейчас от вас ничего не нужно.'));
+    const hasItems = (a.items || []).length > 0;
+    // Пусто и проверка зелёная — экран без текста и пустых блоков (правило пользователя 2026-11-03).
+    if (!hasItems && !checkRow) {
+      $('cards').replaceChildren();
+      $('now').replaceChildren(box);
+      return;
+    }
+    if (checkRow) box.append(checkRow);
     for (const level of S.catalog.levels) {
       const items = a.items.filter((x) => x.level === level.id);
       if (!items.length) continue;
       const sec = el('section', 'now-level');
-      sec.append(el('h2', '', level.title), el('p', 'now-hint', level.hint));
+      sec.append(el('h2', '', level.title));
       // цепочка: два и больше пунктов, которые можно запустить подряд без слова
       const chainN = chainItems().reduce((n, x) => n + 1 + (x.next || 0), 0); // видимые + скрытые следующие шаги цепочек
       if (level.id === 'you' && chainN > 1) {
@@ -238,13 +245,6 @@ function renderNow() {
         sec.append(all);
       }
       sec.append(...items.map((x) => todoRow(x, level, x === main)));
-      box.append(sec);
-    }
-    if (a.done.length) {
-      const sec = el('section', 'now-level');
-      sec.append(el('h2', '', 'Сделано сегодня'));
-      const names = a.done.map((d) => `${S.catalog.commands.find((c) => c.id === d.cmd)?.title} · ${whenText(d.at).replace('сегодня ', '')}`);
-      sec.append(el('p', 'now-hint', names.join('   ·   ')));
       box.append(sec);
     }
   }
@@ -568,6 +568,27 @@ async function loadStatus() {
     s.admin ? pill('ok', 'Администратор') : pill('', 'Обычные права', 'Для кнопок пульта права администратора не обязательны'),
   ];
   $('pills').replaceChildren(...list);
+  const pv = $('pultVer');
+  if (pv) {
+    const p = s.pult;
+    if (!p) {
+      pv.className = 'pill';
+      pv.textContent = 'Пульт · ?';
+      pv.title = 'Сервер не прислал версию пульта';
+    } else if (s.restarting || (p.disk && p.stamp && p.disk !== p.stamp)) {
+      pv.className = 'pill warn';
+      pv.textContent = 'Пульт · обновляется';
+      pv.title = p.reason || `Отпечаток ${p.stamp} → ${p.disk}`;
+    } else if (!p.current) {
+      pv.className = 'pill warn';
+      pv.textContent = 'Пульт · не последняя';
+      pv.title = p.reason || 'Каталог или файлы пульта отстали от проекта';
+    } else {
+      pv.className = 'pill ok';
+      pv.textContent = `Пульт · актуален · ${p.stamp}`;
+      pv.title = `Отпечаток кода пульта (файлы pult/): ${p.stamp}. Совпадает с диском, каталог кнопок совпадает с проектом.`;
+    }
+  }
 }
 
 async function start() {

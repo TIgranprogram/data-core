@@ -107,8 +107,8 @@ export const incPrice = sideForm({
   fields: (r) => {
     const out = h('p', { class: 'hint' }, 'Впишите цену за единицу или сумму целиком.');
     const note = h('div', null, h('p', { class: 'hint' }, incomeHint(r)), out);
-    return [noteField(note), { key: 'unitPrice', money: true, label: 'Цена за единицу, ₽', type: 'money', min: 0, mount: (f) => { const show = () => { const p = parseNum(f.get('unitPrice')) || 0, s = parseNum(f.get('amountManual')) || 0; out.textContent = s > 0 ? `Сумма строки: ${money(s)}` : p > 0 && r.qty ? `Сумма строки: ${qty(r.qty)} × ${money(p)} = ${money(p * r.qty)}` : 'Впишите цену за единицу или сумму целиком.'; }; f.on('unitPrice', show); f.on('amountManual', show); show(); } },
-      { key: 'amountManual', money: true, label: 'или сумма целиком, ₽', type: 'money', min: 0 }];
+    return [noteField(note), { key: 'unitPrice', money: true, label: 'Цена за единицу, ₽', type: 'money', min: 0, mount: (f) => { const show = () => { const p = parseNum(f.get('unitPrice')) || 0, s = parseNum(f.get('amountManual')) || 0; out.textContent = s > 0 ? `Вся сумма: ${money(s)}` : p > 0 && r.qty ? `Вся сумма: ${qty(r.qty)} × ${money(p)} = ${money(p * r.qty)}` : 'Впишите цену за единицу или всю сумму.'; }; f.on('unitPrice', show); f.on('amountManual', show); show(); } },
+      { key: 'amountManual', money: true, label: 'Вся сумма, ₽', type: 'money', min: 0 }];
   },
   toInitial: (r) => ({ unitPrice: r.unitPrice ?? null, amountManual: r.amountManual ?? null }),
   toBody: (v) => {

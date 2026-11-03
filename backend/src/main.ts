@@ -105,6 +105,18 @@ async function bootstrap() {
     }),
   );
 
+  // Стенд без nginx (Sportin, HTTP_STAND=1): на проде префикс /db/ снимает VPS.
+  // Здесь принимаем и /admin, и /db/admin (также /app, /api) — путь после /db/ как на боевом.
+  // На проде HTTP_STAND нет — middleware не включается, боевой домен не меняется.
+  if (httpStand) {
+    app.use((req: { url?: string }, _res: unknown, next: (err?: unknown) => void) => {
+      const url = req.url || '';
+      if (url === '/db' || url.startsWith('/db/')) req.url = url.slice(3) || '/';
+      next();
+    });
+    Logger.log('HTTP_STAND: префикс /db/ снимается (как nginx на проде)', 'Bootstrap');
+  }
+
   // Сжатие — до раздачи статики, иначе /app и /admin уходят несжатыми (канал до VM узкий)
   app.use(compression());
 

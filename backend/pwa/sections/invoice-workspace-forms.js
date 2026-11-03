@@ -21,9 +21,9 @@ export function buildLineForm(invoice, line) {
   const form = buildForm([
     { section: 'Изменить одну позицию', fixed: true },
     { note: `${line.title || line.materialName || 'Позиция'} · ${line.unit || ''}. Сохранение изменит только эту строку.` },
-    field('qty', 'Количество', inputs.qty), field('unitPrice', 'Цена за единицу, ₽', inputs.unitPrice), field('lineAmount', 'Точная сумма строки, ₽', inputs.lineAmount),
+    field('qty', 'Количество', inputs.qty), field('unitPrice', 'Цена за единицу, ₽', inputs.unitPrice), field('lineAmount', 'Общая сумма, ₽', inputs.lineAmount),
     inputs.reason ? field('reason', 'Причина корректировки *', inputs.reason) : null,
-    { note: 'Сумма строки — источник истины. Новая цена за единицу пересчитает сумму; количество без новой цены сохранит точную сумму.' },
+    { note: 'Общая сумма — за всё количество этой позиции. Цена за единицу её пересчитает; если меняете только количество — общая сумма не меняется.' },
   ].filter(Boolean));
   return { ...form, inputs, payload: () => lineBody(invoice, Object.fromEntries(Object.entries(inputs).map(([k, input]) => [k, input.value]))) };
 }

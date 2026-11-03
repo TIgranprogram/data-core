@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import type { Connection } from 'mongoose';
 import path from 'path';
+import { latency } from '../../../common/interceptors/latency-histogram';
 import type { SwitchReportDto } from './switch.dto';
 import {
   CACHE_MS, COL_STATE, STATE_ID, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason,
@@ -12,6 +13,11 @@ import {
 
 /** Мост «живой», если трогал файл `alive` не позже, чем 3 минуты назад (cron раз в минуту). */
 const BRIDGE_ALIVE_MS = 3 * 60_000;
+/** Как часто заново мерить второй сервер, пока идёт опрос экрана. На переключение не влияет. */
+const SPEED_CACHE_MS = 15_000;
+
+type SideSpeed = { p50: number | null; p95: number | null; requests: number | null; slow: number | null; probeMs: number | null };
+type PeerSpeed = { p50: number | null; p95: number | null; requests: number; slow: number };
 
 /**
  * Состояние «главный/запасной» и режим «только чтение». Один документ `switch` в `app_control_state`, запись драйвером.
@@ -23,6 +29,8 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(SwitchService.name);
   private cache: { mode: SwitchMode; role: SwitchRole } = { mode: 'normal', role: 'main' };
   private timer?: NodeJS.Timeout;
+  private speedAt = 0;
+  private speedPeer: { ms: number; speed: PeerSpeed | null } | null = null;
 
   constructor(@InjectConnection() private readonly connection: Connection) {}
 
@@ -96,19 +104,69 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const self = this.self;
     let role: SwitchRole | null = null;
     if (self) { try { role = (await this.refresh())?.role ?? null; } catch { role = null; } }
-    return { self, role, version: process.env.APP_VERSION?.trim() || null, copyAt: await this.lastRefresh() };
+    const snap = latency.snapshot();
+    return {
+      self, role, version: process.env.APP_VERSION?.trim() || null, copyAt: await this.lastRefresh(),
+      speed: { p50: snap.p50, p95: snap.p95, requests: snap.requests, slow: snap.slow },
+    };
+  }
+
+  private localSpeed(): PeerSpeed {
+    const s = latency.snapshot();
+    return { p50: s.p50, p95: s.p95, requests: s.requests, slow: s.slow };
+  }
+
+  private readSpeed(raw: unknown): PeerSpeed | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const o = raw as Record<string, unknown>;
+    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const requests = n(o.requests);
+    return { p50: n(o.p50), p95: n(o.p95), requests: requests ?? 0, slow: n(o.slow) ?? 0 };
+  }
+
+  /** Скорость обоих: свой счётчик запросов и замер соседа. Пустые стороны — «нет данных» на экране. */
+  private speedSides(selfName: 'home' | 'office' | null, peer: { ms?: number; speed?: PeerSpeed | null } | null) {
+    const empty = (): SideSpeed => ({ p50: null, p95: null, requests: null, slow: null, probeMs: null });
+    const home = empty();
+    const office = empty();
+    const mine = selfName === 'office' ? office : home;
+    const other = selfName === 'office' ? home : office;
+    const loc = this.localSpeed();
+    mine.p50 = loc.p50; mine.p95 = loc.p95; mine.requests = loc.requests; mine.slow = loc.slow;
+    if (peer?.speed) {
+      other.p50 = peer.speed.p50; other.p95 = peer.speed.p95; other.requests = peer.speed.requests; other.slow = peer.speed.slow;
+    }
+    if (typeof peer?.ms === 'number') other.probeMs = peer.ms;
+    return { home, office };
+  }
+
+  /** Повторный опрос экрана не долбит сосед каждые 3 с. Кэш только для цифр, не для решения «кто главный». */
+  private async peerSpeedCached(): Promise<{ ms: number; speed: PeerSpeed | null } | null> {
+    if (!process.env.HA_PEER_URL?.trim()) return null;
+    if (this.speedPeer && Date.now() - this.speedAt < SPEED_CACHE_MS) return this.speedPeer;
+    const peer = await this.probePeer();
+    if (!peer) return null;
+    this.speedPeer = { ms: peer.ms ?? 0, speed: peer.speed ?? null };
+    this.speedAt = Date.now();
+    return this.speedPeer;
   }
 
   /** Спросить соседа по HA_PEER_URL (4 с). Нет адреса — null; не ответил — healthy:false. */
-  async probePeer(): Promise<{ healthy: boolean; self?: string | null; role?: string | null; version?: string | null; copyAt?: string | null } | null> {
+  async probePeer(): Promise<{ healthy: boolean; ms?: number; speed?: PeerSpeed | null; self?: string | null; role?: string | null; version?: string | null; copyAt?: string | null } | null> {
     const base = process.env.HA_PEER_URL?.trim().replace(/\/+$/, '');
     if (!base) return null;
+    const t0 = Date.now();
     try {
       const r = await fetch(`${base}/api/control/switch/ping`, { signal: AbortSignal.timeout(4000) });
-      if (!r.ok) return { healthy: false };
-      const b = (await r.json()) as Record<string, string | null>;
-      return { healthy: true, self: b.self ?? null, role: b.role ?? null, version: b.version ?? null, copyAt: b.copyAt ?? null };
-    } catch { return { healthy: false }; }
+      const ms = Date.now() - t0;
+      if (!r.ok) return { healthy: false, ms };
+      const b = (await r.json()) as Record<string, unknown>;
+      const str = (v: unknown) => (typeof v === 'string' ? v : null);
+      return {
+        healthy: true, ms, speed: this.readSpeed(b.speed),
+        self: str(b.self), role: str(b.role), version: str(b.version), copyAt: str(b.copyAt),
+      };
+    } catch { return { healthy: false, ms: Date.now() - t0 }; }
   }
 
   /** Переключение не включено: всё равно показываем оба сервера и что мешает включить. */
@@ -117,6 +175,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     // копия у того, кто запасной: у соседа, а если этот сервер сам обновляется из бэкапа — у себя
     const copyAt = ownCopy ?? peer?.copyAt ?? undefined;
     const age = copyAgeMin(copyAt ?? undefined, Date.now());
+    const selfName = ownCopy ? 'office' : 'home';
     return {
       enabled: false,
       self: null,
@@ -134,6 +193,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       blockers: readinessBlockers({ self: null, peerUrlSet: !!peer, peerHealthy: peer ? peer.healthy : null, copyAgeMin: age, bridgeAlive: alive }),
       canStart: false,
       canEmergency: false,
+      speed: this.speedSides(selfName, peer),
     };
   }
 
@@ -145,6 +205,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const busy = jobBusy(doc.job);
     const age = copyAgeMin(doc.peerCopyAt, Date.now());
     const blockers = readinessBlockers({ self, peerUrlSet: true, peerHealthy: doc.peerHealthy ?? null, copyAgeMin: age, bridgeAlive: alive });
+    const peerSpeed = await this.peerSpeedCached();
     return {
       blockers,
       enabled: true,
@@ -162,6 +223,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       bridge: { alive },
       canStart: doc.role === 'main' && doc.mode === 'normal' && !busy && alive,
       canEmergency: doc.role === 'standby' && !busy && alive,
+      speed: this.speedSides(self, peerSpeed),
     };
   }
 

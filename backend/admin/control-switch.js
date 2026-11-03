@@ -28,9 +28,14 @@
     const box = el('div', 'sw-box');
     const back = el('div', 'sw-back'), drawer = el('aside', 'sw-drawer');
     drawer.setAttribute('role', 'dialog'); drawer.hidden = back.hidden = true;
-    root.replaceChildren(box, back, drawer);
+    const dlg = document.createElement('dialog');
+    dlg.className = 'sw-confirm';
+    root.replaceChildren(box, back, drawer, dlg);
     const alive = () => root.isConnected && !(root.closest('.tab-panel') || {}).hidden;
-    let data = null, token = 0, lastBtn = null;
+    let data = null, token = 0, lastBtn = null, screenMs = null, countTimer = 0;
+    const stopCount = () => { clearInterval(countTimer); countTimer = 0; };
+    dlg.addEventListener('close', stopCount);
+    const closeConfirm = () => { stopCount(); if (dlg.open) dlg.close(); dlg.replaceChildren(); };
 
     const closeDrawer = () => { drawer.hidden = back.hidden = true; drawer.replaceChildren(); if (lastBtn && lastBtn.isConnected) lastBtn.focus(); };
     back.addEventListener('click', closeDrawer);
@@ -102,21 +107,45 @@
     }
 
     function confirmStart(btn) {
-      openDrawer('Переключить сервер', (b) => {
-        const to = data.self === 'home' ? NAME.office : NAME.home;
-        b.append(el('p', '', 'Главным станет сервер «' + to + '».'));
-        b.append(el('p', 'cc-note warn', 'Запись в приложении будет на паузе 1–2 минуты. Просмотр работает, введённое сотрудники не потеряют: приложение повторит отправку.'));
-        const err = el('p', 'cc-fail'); err.hidden = true;
-        const acts = el('div', 'cc-acts');
-        const go = el('button', 'btn btn-primary', 'Переключить сейчас'), no = el('button', 'btn', 'Отмена');
-        go.type = no.type = 'button'; no.addEventListener('click', closeDrawer);
-        go.addEventListener('click', async () => {
-          go.classList.add('is-busy'); err.hidden = true;
-          try { await post('/control/switch/start', { confirm: true }); closeDrawer(); toast('Переключение началось'); await load(); }
-          catch (e) { err.textContent = failText(e, 'Переключение'); err.hidden = false; go.classList.remove('is-busy'); }
-        });
-        acts.append(go, no); b.append(err, acts);
-      }, btn);
+      lastBtn = btn || null;
+      closeConfirm();
+      const to = data.self === 'home' ? NAME.office : NAME.home;
+      const form = el('form', 'dialog-form');
+      form.addEventListener('submit', (e) => e.preventDefault());
+      form.append(el('h3', '', 'Переключить сервер'));
+      form.append(el('p', '', 'Главным станет сервер «' + to + '».'));
+      form.append(el('p', 'cc-note warn', 'Запись в приложении будет на паузе 1–2 минуты. Просмотр работает, введённое сотрудники не потеряют: приложение повторит отправку.'));
+      const count = el('p', 'sw-count', '10');
+      count.setAttribute('aria-live', 'polite');
+      form.append(count);
+      form.append(el('p', 'muted', 'Кнопка «Переключить» включится через 10 секунд. Отмена доступна сразу.'));
+      const err = el('p', 'cc-fail'); err.hidden = true;
+      const acts = el('div', 'dialog-actions');
+      const go = el('button', 'btn btn-primary', 'Подождите 10 с'), no = el('button', 'btn', 'Отмена');
+      go.type = no.type = 'button';
+      go.disabled = true;
+      let left = 10;
+      no.addEventListener('click', () => { closeConfirm(); if (lastBtn && lastBtn.isConnected) lastBtn.focus(); });
+      go.addEventListener('click', async () => {
+        if (go.disabled) return;
+        go.classList.add('is-busy'); err.hidden = true;
+        try { await post('/control/switch/start', { confirm: true }); closeConfirm(); toast('Переключение началось'); await load(); }
+        catch (e) { err.textContent = failText(e, 'Переключение'); err.hidden = false; go.classList.remove('is-busy'); }
+      });
+      acts.append(no, go);
+      form.append(err, acts);
+      dlg.replaceChildren(form);
+      dlg.showModal();
+      no.focus();
+      countTimer = setInterval(() => {
+        left -= 1;
+        if (left > 0) { count.textContent = String(left); go.textContent = 'Подождите ' + left + ' с'; return; }
+        stopCount();
+        count.textContent = '0';
+        go.disabled = false;
+        go.textContent = 'Переключить';
+        go.focus();
+      }, 1000);
     }
 
     function confirmEmergency(btn) {
@@ -143,12 +172,82 @@
 
     const reasons = (list) => {
       const w = el('div', 'cc-note warn');
-      w.append(el('strong', '', 'Кнопка «Переключить» появится, когда будет готово:'));
+      w.append(el('strong', '', 'Кнопка «Сделать главным» появится, когда будет готово:'));
       const ul = el('ul', '');
       list.forEach((t) => ul.append(el('li', '', t)));
       w.append(ul);
       return w;
     };
+
+    function hereName(d) {
+      if (d.self === 'home' || d.self === 'office') return d.self;
+      return d.selfIsCopy ? 'office' : 'home';
+    }
+
+    function isMainCol(name, d) {
+      if (d.enabled === false) {
+        const mine = name === hereName(d);
+        return mine ? !d.selfIsCopy : !!d.selfIsCopy;
+      }
+      return name === d.self ? d.role === 'main' : d.role === 'standby';
+    }
+
+    function stats(name, d) {
+      const s = (d.speed && d.speed[name]) || {};
+      const sec = el('section', 'sw-stats');
+      sec.append(el('h3', '', 'Скорость'));
+      const rows = el('dl', 'sw-kv');
+      const row = (k, v) => { rows.append(el('dt', '', k), el('dd', 'num', v)); };
+      row('Обычный ответ', s.p50 == null ? 'нет данных' : 'до ' + s.p50 + ' мс');
+      row('Почти все запросы', s.p95 == null ? 'нет данных' : 'до ' + s.p95 + ' мс');
+      row('Медленнее 1 с', s.requests == null ? 'нет данных' : (s.slow || 0) + ' из ' + s.requests);
+      if (hereName(d) === name) row('Отклик экрана', screenMs == null ? 'нет данных' : screenMs + ' мс');
+      else row('Отклик проверки', s.probeMs == null ? 'нет данных' : s.probeMs + ' мс');
+      sec.append(rows);
+      return sec;
+    }
+
+    function verdict(d) {
+      const h = d.speed && d.speed.home ? d.speed.home.p50 : null;
+      const o = d.speed && d.speed.office ? d.speed.office.p50 : null;
+      const p = el('p', 'sw-verdict');
+      if (h == null || o == null) p.textContent = 'Сравнить скорость пока нельзя: нет замера с одного из серверов.';
+      else if (h === o) p.textContent = 'По обычному ответу оба сервера сейчас одинаковы: до ' + h + ' мс.';
+      else {
+        const homeFaster = h < o;
+        p.textContent = (homeFaster ? 'Домашний' : 'Офисный') + ' обрабатывает запросы быстрее: обычно до ' + Math.min(h, o) + ' мс, ' + (homeFaster ? 'офисный' : 'домашний') + ' — до ' + Math.max(h, o) + ' мс.';
+      }
+      return p;
+    }
+
+    function switchSlot(name, d) {
+      const wrap = el('div', 'sw-act');
+      if (isMainCol(name, d)) {
+        wrap.append(el('p', 'muted', 'Этот сервер главный. Если переключить, запись встанет на паузу на 1–2 минуты.'));
+        return wrap;
+      }
+      const go = el('button', 'btn btn-primary', 'Сделать главным');
+      go.type = 'button';
+      const busy = running(d.job);
+      go.disabled = d.enabled === false || !d.canStart || busy;
+      go.addEventListener('click', () => confirmStart(go));
+      wrap.append(go);
+      if (d.enabled === false) wrap.append(el('p', 'muted', 'Переключение ещё не включено на сервере.'));
+      else if (busy) wrap.append(el('p', 'muted', 'Идёт переключение, подождите.'));
+      else if (!d.canStart) wrap.append(el('p', 'muted', d.role === 'standby' ? 'Кнопка доступна на главном сервере.' : d.bridge && !d.bridge.alive ? 'Нет связи со служебным мостом.' : 'Сейчас переключить нельзя.'));
+      return wrap;
+    }
+
+    function split(d, tile) {
+      const grid = el('div', 'sw-split');
+      ['home', 'office'].forEach((name) => {
+        const col = el('section', 'sw-half');
+        col.setAttribute('aria-label', NAME[name]);
+        col.append(tile(name), switchSlot(name, d), stats(name, d));
+        grid.append(col);
+      });
+      return grid;
+    }
 
     /** Переключение ещё не включено: состояние обоих серверов и что мешает. */
     function overview(d) {
@@ -175,9 +274,7 @@
         c.append(h, rows);
         return c;
       };
-      const cards = el('div', 'sw-cards');
-      cards.append(mk(meName, true), mk(meName === 'home' ? 'office' : 'home', false));
-      const parts = [cards, el('p', 'muted', 'Сейчас главный сервер работает, второй хранит копию данных. Копия обновляется раз в сутки.')];
+      const parts = [split(d, (name) => mk(name, name === meName)), verdict(d), el('p', 'muted', 'Сейчас главный сервер работает, второй хранит копию данных. Копия обновляется раз в сутки.')];
       if (d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
       return parts;
     }
@@ -186,21 +283,10 @@
       const d = data;
       if (!d) return;
       if (d.enabled === false) { box.replaceChildren(...overview(d)); return; }
-      const cards = el('div', 'sw-cards');
-      cards.append(card('home', d), card('office', d));
-      const parts = [cards];
+      const parts = [split(d, (name) => card(name, d)), verdict(d)];
       if (d.mode === 'readonly' && !running(d.job)) parts.push(el('p', 'cc-note warn', 'Этот сервер сейчас в режиме «только чтение»: запись на паузе.'));
       if (d.job) parts.push(progress(d.job));
-      const acts = el('div', 'cc-acts');
-      const go = el('button', 'btn btn-primary', 'Переключить сейчас'); go.type = 'button';
-      const busy = running(d.job);
-      go.disabled = !d.canStart || busy;
-      go.addEventListener('click', () => confirmStart(go));
-      acts.append(go);
-      if (busy) acts.append(el('span', 'muted', 'Идёт переключение, подождите.'));
-      else if (!d.canStart) acts.append(el('span', 'muted', d.role === 'standby' ? 'Кнопка доступна на главном сервере.' : d.bridge && !d.bridge.alive ? 'Нет связи со служебным мостом.' : 'Сейчас переключить нельзя.'));
-      parts.push(acts);
-      if (!busy && d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
+      if (!running(d.job) && d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
       if (d.bridge && !d.bridge.alive) parts.push(el('p', 'cc-note warn', 'Служебный мост на сервере не отвечает: переключение недоступно, пока его не запустят.'));
       if (d.canEmergency) {
         const z = el('div', 'sw-danger');
@@ -217,7 +303,9 @@
       const my = ++token;
       clearTimeout(timer);
       try {
+        const t0 = performance.now();
         data = await api('/control/switch');
+        screenMs = Math.round(performance.now() - t0);
       } catch (e) {
         if (my !== token) return;
         if (e.status === 404) { data = { enabled: false }; draw(); return; }

@@ -38,7 +38,7 @@ export function panelStructureFindings({ groups = [], flatGroupHeadings = 0, ima
   const findings = [];
   for (const g of groups) {
     if (/^[a-f0-9]{24}$/i.test(g.key || '') && /^Счёт(?:\s|$)/i.test(g.label || '') && !g.hasEntry) {
-      findings.push({ rule: 'n', sel: '.k-gfold .db-oname', text: 'Номер счёта только раскрывает группу: отдельной ссылки в панель нет' });
+      findings.push({ rule: 'n', sel: '.k-gfold .db-inv-chip', text: 'Номер счёта только раскрывает группу: отдельной ссылки в панель нет' });
     }
   }
   if (flatGroupHeadings > 1) findings.push({ rule: 'o', sel: '.drawer dl.fields', text: 'Несколько групп реквизитов собраны в одну простыню вместо компактных карточных блоков' });
@@ -49,7 +49,7 @@ export function panelStructureFindings({ groups = [], flatGroupHeadings = 0, ima
 export function panelStructureSnapshot(doc = document) {
   return {
     groups: [...doc.querySelectorAll('.k-gfold[data-group-key]')].map((el) => {
-      const name = el.querySelector('.db-oname');
+      const name = el.querySelector('.db-inv-chip, .db-oname');
       return { key: el.dataset.groupKey, label: name?.textContent?.trim() || '', hasEntry: !!(name?.matches('button,a,[role="link"]') || name?.querySelector('button,a,[role="link"]')) };
     }),
     flatGroupHeadings: doc.querySelectorAll('.drawer dl.fields > dt .fields-grp').length,
@@ -253,7 +253,15 @@ async function main() {
   let login = await apiLogin(creds.login, creds.password);
   if (!login) {
     sayErr('Вход не прошёл — создаю пользователя стенда');
-    const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, 'dcnight-backend', 'node', '-'], { input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
+    // Имя контейнера — из паспорта уникального night-стенда (не legacy dcnight-backend).
+    const passport = path.join(ROOT, 'tools', '.night', 'current-stand.json');
+    let backend = null;
+    try {
+      const run = JSON.parse(fs.readFileSync(passport, 'utf8'));
+      if (run?.project) backend = `${run.project}-backend`;
+    } catch { /* нет паспорта */ }
+    if (!backend) { sayErr('Нет паспорта стенда (tools/.night/current-stand.json) — поднимите: dc stand up'); return 2; }
+    const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, backend, 'node', '-'], { input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
     if (r.status) { sayErr('Не удалось создать вход: ' + (r.stderr || r.stdout || '').trim().slice(0, 120)); return 2; }
     login = await apiLogin(creds.login, creds.password);
     if (!login) { sayErr('Вход на стенде не удался'); return 2; }

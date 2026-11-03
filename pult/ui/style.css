@@ -29,6 +29,7 @@ h1, h2, p { margin: 0; }
 .brand { display: flex; align-items: center; gap: 10px; flex: none; }
 .brand small { display: block; color: var(--muted); font-size: 12px; }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.top-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .pill { display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; background: var(--panel-2); color: var(--text); white-space: nowrap; }
 .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .pill.ok::before { background: var(--ok); }

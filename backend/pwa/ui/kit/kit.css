@@ -128,14 +128,38 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .board .col { min-width: 0; }
 .board .col-body { overflow-x: hidden; }
 .board .col-body > * { min-width: 0; max-width: 100%; }
-.db-order.k-gfold { cursor: pointer; }
-.db-order.k-gfold:hover { border-color: var(--border-strong); }
+/* Группа-счёт: монолит — hover/focus на весь корпус; чип счёта — единственная отдельная цель */
+.db-order.k-gfold { cursor: pointer; user-select: none; transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease; }
+.db-order.k-gfold:hover { border-color: var(--border-strong); box-shadow: var(--shadow); transform: translateY(-1px); }
+.db-order.k-gfold:active { transform: translateY(0); }
 .db-order.k-gfold:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.db-order.k-gfold .db-oname { cursor: pointer; text-align: left; font: inherit; color: inherit; }
-.db-order.k-gfold .db-lines { cursor: default; }
+.db-order.k-gfold .db-oh { gap: 6px; align-items: flex-start; }
+.db-order.k-gfold .db-oh-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; flex: 1; }
+.db-order.k-gfold .db-oname { cursor: pointer; text-align: left; font: inherit; color: inherit; } /* эталон L / design-side; группы-счёт — чип */
+.db-order.k-gfold .db-inv-chip { flex: none; max-width: 100%; text-decoration: none; font-weight: 600; }
+.db-order.k-gfold .db-inv-chip.is-static { display: inline-flex; align-items: center; min-height: 28px; padding: 0 8px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-weight: 600; font-size: var(--fs-sm); }
+.db-order.k-gfold .db-cust { color: var(--muted); font-size: var(--fs-sm); }
+.db-order.k-gfold .db-chev { pointer-events: none; display: inline-flex; align-items: center; justify-content: center; }
+.db-order.k-gfold .db-lines { cursor: default; user-select: auto; }
+.db-order.k-gfold .db-lines .tcard { transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease; }
+.db-order.k-gfold .db-lines .tcard:hover { transform: translateY(-1px); }
+.db-order.k-gfold .db-lines .tcard .t-title,
+.db-order.k-gfold .db-lines .tcard .t-sub { user-select: none; }
+.db-order.k-gfold .db-lines .tcard .k-actions .btn { width: 100%; justify-content: center; }
 .tcard .t-pic { max-width: 100%; max-height: 140px; object-fit: contain; }
 .tcard .t-main, .tcard .t-title, .tcard .t-sub, .tcard .t-foot { min-width: 0; }
+.col-body .tcard:not(.dragging) { transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease; }
+.col-body .tcard:not(.dragging):hover { transform: translateY(-1px); }
 .col-body .db-order.k-gfold .db-ocnt { padding-left: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .db-order.k-gfold,
+  .db-order.k-gfold .db-lines .tcard,
+  .col-body .tcard:not(.dragging) { transition: none; }
+  .db-order.k-gfold:hover,
+  .db-order.k-gfold:active,
+  .db-order.k-gfold .db-lines .tcard:hover,
+  .col-body .tcard:not(.dragging):hover { transform: none; }
+}
 @media (pointer: coarse), (max-width: 720px) { .pager button, .pager select { min-width: 44px; height: 44px; } }
 
 /* P10 р3: обёртки в шапке не шире строки; на телефоне цели касания >= 40px */

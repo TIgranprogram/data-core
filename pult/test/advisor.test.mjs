@@ -38,7 +38,7 @@ test('находка осмотра не уходит, пока осмотр е�
 
 test('незакоммиченный код закрывает выкладку и не советует её', () => {
   const items = plan({ gateFiles: ['backend/a.ts'], undeployed: 3 }, allFresh);
-  assert.equal(find(items, 'git-status').level, 'soon', 'работа Claude не считается делом пользователя');
+  assert.ok(!find(items, 'git-status'), 'незакоммиченное — плашка сверху, не пункт дел');
   assert.ok(!find(items, 'deploy-release'));
 });
 
@@ -56,7 +56,7 @@ test('упавшая выкладка — срочно, если код ещё �
 test('поручение выложить уходит само, когда код уже на сайте', () => {
   const todo = [
     { id: 'deploy-admin-audit', added: '2026-10-31T19:10:00', title: 'Выложить', why: 'w', cmd: 'deploy-release' },
-    { id: 'next', added: '2026-11-01', after: 'deploy-admin-audit', title: 'Склады', why: 'w', cmd: 'script-plan', params: { script: 'stockzones-init' } },
+    { id: 'next', added: '2026-11-01', after: 'deploy-admin-audit', title: 'Склады', why: 'w', cmd: 'day-data' },
   ];
   const you = (s) => advise({ ...calm, ...s }, allFresh, COMMANDS, NOW, todo).items.filter((x) => x.level === 'you');
   assert.deepEqual(you({ undeployed: 3, version: 'old' }).map((x) => x.todo), ['deploy-admin-audit']);
@@ -64,9 +64,9 @@ test('поручение выложить уходит само, когда ко
   assert.deepEqual(you({ undeployed: 0 }).map((x) => x.todo), ['deploy-admin-audit'], 'без version.json не закрывать');
 });
 
-test('после выкладки: сначала ждём час, затем проверка, и нужен осмотр', () => {
+test('после выкладки: пока час не прошёл — проверку не показываем; потом today и осмотр', () => {
   const fresh = { ...allFresh, 'deploy-release': { at: NOW - 600000, code: 0 }, 'prod-doctor': { at: NOW - 3600000, code: 0 } };
-  assert.equal(find(plan({}, fresh), 'deploy-post').level, 'soon');
+  assert.ok(!find(plan({}, fresh), 'deploy-post'), 'час ещё не прошёл — пункта нет');
   assert.equal(find(plan({}, fresh), 'prod-doctor').level, 'today');
   const old = { ...fresh, 'deploy-release': { at: NOW - 7200000, code: 0 } };
   assert.equal(find(plan({}, old), 'deploy-post').level, 'today');

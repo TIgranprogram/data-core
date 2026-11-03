@@ -6,33 +6,36 @@ import { COMMANDS } from '../catalog.mjs';
 
 const TODO = JSON.parse(readFileSync(new URL('../todo.json', import.meta.url), 'utf8'));
 
-test('пункт дел со скриптом: в совете есть params, закрывается только своим скриптом', () => {
-  const t = { id: 'a', added: '2026-10-31', cmd: 'script-apply', params: { script: 'series-dict-fill' } };
-  const other = { [runKey('script-apply', { script: 'add-our-company' })]: { at: Date.now(), code: 0 }, 'script-apply': { at: Date.now(), code: 0 } };
+test('пункт дел с params: в совете есть params, закрывается только своим ключом', () => {
+  const t = { id: 'a', added: '2026-10-31', cmd: 'day-errors', params: { hours: '24' } };
+  const other = { [runKey('day-errors', { hours: '2' })]: { at: Date.now(), code: 0 }, 'day-errors': { at: Date.now(), code: 0 } };
   assert.equal(todoDone(t, other), false);
-  assert.equal(todoDone(t, { [runKey('script-apply', { script: 'series-dict-fill' })]: { at: Date.now(), code: 0 } }), true);
+  assert.equal(todoDone(t, { [runKey('day-errors', { hours: '24' })]: { at: Date.now(), code: 0 } }), true);
 });
 
-test('todo.json: у каждой команды со скриптом указан скрипт, и он есть в backend/scripts', () => {
+test('todo.json: команда пункта есть в каталоге; select-параметры заполнены', () => {
   for (const t of TODO) {
+    if (!t.cmd) continue;
     const c = COMMANDS.find((x) => x.id === t.cmd);
-    if (!c?.params?.some((p) => p.from === 'prodScripts')) continue;
-    assert.ok(t.params?.script, `${t.id}: нет params.script — пульт запустит первый скрипт из списка`);
-    readFileSync(new URL(`../../backend/scripts/${t.params.script}.js`, import.meta.url));
+    assert.ok(c, `${t.id}: нет команды ${t.cmd} в каталоге пульта администратора`);
+    for (const p of c.params || []) {
+      if (p.type !== 'select') continue;
+      assert.ok(t.params?.[p.name] != null && t.params[p.name] !== '', `${t.id}: нет params.${p.name}`);
+    }
   }
 });
 
 test('совет передаёт params пункта в интерфейс', () => {
   const s = { site: true, route: 'vps' };
-  const { items } = advise(s, {}, COMMANDS, Date.now(), [{ id: 'x', added: '2026-10-31', cmd: 'script-apply', params: { script: 'series-dict-fill' }, title: 't', why: 'w' }]);
-  assert.deepEqual(items.find((i) => i.todo === 'x')?.params, { script: 'series-dict-fill' });
+  const { items } = advise(s, {}, COMMANDS, Date.now(), [{ id: 'x', added: '2026-10-31', cmd: 'day-errors', params: { hours: '72' }, title: 't', why: 'w' }]);
+  assert.deepEqual(items.find((i) => i.todo === 'x')?.params, { hours: '72' });
 });
 
-test('скрипт не выбран — запуск отклоняется понятной ошибкой', async () => {
+test('параметр часов — только из списка', async () => {
   const { validateParams } = await import('../dispatch.mjs');
-  const cmd = COMMANDS.find((c) => c.id === 'script-apply');
-  assert.throws(() => validateParams(cmd, {}, ['add-our-company', 'series-dict-fill']), /Выберите/);
-  assert.deepEqual(validateParams(cmd, { script: 'series-dict-fill' }, ['add-our-company', 'series-dict-fill']), { script: 'series-dict-fill' });
+  const cmd = COMMANDS.find((c) => c.id === 'day-errors');
+  assert.throws(() => validateParams(cmd, { hours: '999' }), /Недопустимое/);
+  assert.deepEqual(validateParams(cmd, { hours: '24' }), { hours: '24' });
 });
 
 test('todo.json: время постановки не в будущем — иначе пункт никогда не закроется запуском', () => {

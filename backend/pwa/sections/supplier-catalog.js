@@ -290,7 +290,7 @@ function materialWidget(v, row) {
     }, 250);
   });
   const createBtn = row?.id && canWrite()
-    ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', style: 'margin-top:.5rem', onclick: (e) => {
+    ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm sc-preview', onclick: (e) => {
         e.preventDefault();
         const art = row.article && !String(row.article).startsWith('manual:') ? row.article : '';
         go('stock', { new: '1', name: row.name || '', article: art || undefined, fromCatalog: row.id, open: undefined });

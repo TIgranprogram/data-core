@@ -16,7 +16,11 @@
 | C006 | Cursor | S | Вердикт Nightshift vs Пульт: GUI не доделываем | done |
 | C007 | Cursor | M | Выдача на готовые заказы + несколько позиций на один заказ (телефон) | done |
 | C008 | Cursor | M | Склад «Плитные материалы» + роль «Кладовщик плит (телефон)» | done |
-| C009 | Cursor | XL | Единая номенклатура: договор + заявки + каталог + фильтры | TZ+чек-лист+промпт готовы → новый чат с фазы 1 |
+| C009 | Cursor | XL | Единая номенклатура: договор + заявки + каталог + фильтры | фаза 1 выложена; фаза 2 — в чате C009 |
+| C010 | — | M | Мобильный склад: «Полностью отгруженные» | queued — TZ; код не начинать |
+| C011 | datacore-analyst | XL | Аудит бизнес-логики | done — REPORT/FIX-TZ |
+| C012 | datacore-designer | L | Правая панель + карточка заказа | done — REPORT/FIX-TZ |
+| C013 | datacore-architect (Grok) | XL | HA Дом↔Sportin: автосинхрон и переключение | P0 done (Sportin на 122039); P1/P2 ждут «да» |
 
 Worktree счетов: `D:\data-core\.manus\worktrees\soorwu5tl3w6zui0j26jlr`  
 Отчёт: `docs/crew/C004-invoice-workspace-wip/`  
