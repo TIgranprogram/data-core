@@ -26,7 +26,11 @@ export function mountQueueTab(params) {
   const drawChips = () => chips.replaceChildren(...DUE.map(([k, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(due === k), class: due === k ? 'active' : '', onclick: () => { due = k; drawChips(); load(); } }, label)));
 
   const make = async (r, btn) => {
-    if (r.passportId) { go('docs', { tab: 'archive', of: 'passports', open: r.passportId }); return; }
+    if (r.passportId) {
+      const of = r.passportState === 'draft' ? 'passports' : 'passarchive';
+      go('docs', { tab: 'archive', of, open: r.passportId });
+      return;
+    }
     btn.classList.add('is-busy'); btn.disabled = true;
     try { await issuePassport({ productId: r.productId, name: r.productName, salesOrderId: r.orderId, orderNo: r.orderNo, customerName: r.customer, customerTitle: r.title, incomeId: r.incomeId }); }
     catch (e) { toastError(e, 'выпустить паспорт'); } finally { btn.classList.remove('is-busy'); btn.disabled = false; }

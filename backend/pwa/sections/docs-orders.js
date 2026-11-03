@@ -60,7 +60,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
   const pager = h('div', { class: 'do-pager' });
   const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search, chips),
     h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, h('span', { class: 'badge ' + x.cls }, x.label), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
-      h('span', { class: 'muted' }, 'Новый паспорт: вкладка «Нужно сделать паспорт» или «Паспорта».')), list, pager);
+      h('span', { class: 'muted' }, 'Новый паспорт: «Нужно сделать паспорт» или «Шаблоны».')), list, pager);
   let timer = 0, seq = 0;
 
   const drawChips = () => chips.replaceChildren(...[['', 'Все'], ...Object.entries(READINESS).map(([k, s]) => [k, s.label])].map(([k, label]) =>
