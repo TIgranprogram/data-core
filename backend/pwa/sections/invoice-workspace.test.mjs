@@ -50,7 +50,7 @@ function buildForm(fields, initial = {}) {
   return { el, inputs, read: () => ({ values: values() }), dirty: () => initialValue !== JSON.stringify(values()) };
 }
 async function modules({ invoice = base(), money = true, call, confirm = true } = {}) {
-  const calls = [], session = { canEdit: true, canMoney: money };
+  const calls = [], session = { canEdit: true, canMoney: money, role: 'admin', isAdmin: true };
   const api = async (path, opts = {}) => {
     calls.push({ path, method: opts.method || 'GET', ...opts });
     if (call) return call(path, opts);
