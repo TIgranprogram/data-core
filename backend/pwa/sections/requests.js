@@ -6,7 +6,8 @@ import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { actions, badge as kbadge, button, stepFunnel, table } from '../ui/kit/index.js';
 import { date, isoDay, money, qty } from '../core/format.js';
-import { go, patch } from '../core/router.js';
+import { current, go, patch } from '../core/router.js';
+const invoiceHref = (id) => { const route = current(); return '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries({ ...route.params, of: 'invoicecard', open: id, new: undefined, fill: undefined }).filter(([, value]) => value !== undefined && value !== '')).toString(); };
 import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
@@ -291,7 +292,7 @@ export const requests = {
       { key: 'title', label: 'Название', sort: 'title', cls: 'clip', render: (r) => h('span', { title: name(r) }, name(r)) },
       { key: 'qty', label: 'Кол-во', sort: 'qty', cls: 'num right', render: (r) => `${qty(r.qty)} ${r.unit || ''}`.trim() },
       { key: 'supplierName', label: 'Поставщик', cls: 'md-hide', render: (r) => r.supplierName || '' },
-      { key: 'invoiceNo', label: 'Счёт', sort: 'invoiceNo', cls: 'nowrap md-hide', render: (r) => (r.invoiceNo ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), '№ ' + r.invoiceNo), String(r.invoiceId || 'n:' + r.invoiceNo)) : '') },
+      { key: 'invoiceNo', label: 'Счёт', sort: 'invoiceNo', cls: 'nowrap md-hide', render: (r) => (r.invoiceId ? h('a', { class: 'link-btn', href: invoiceHref(r.invoiceId), onclick: (e) => e.stopPropagation() }, r.invoiceNo ? '№ ' + r.invoiceNo : 'Без номера') : r.invoiceNo ? paintOrder(h('span', { class: 'db-chip' }, h('i', { class: 'db-dot' }), '№ ' + r.invoiceNo), 'n:' + r.invoiceNo) : '') },
       { key: 'orderTag', label: 'Заказ', cls: 'nowrap md-hide', render: (r) => (r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId, title: r.orderLabel || '' }, orderTag(r)) : '') },
       { key: 'requestedBy', label: 'Кто подал', sort: 'requestedBy', cls: 'nowrap md-hide', render: (r) => r.requestedBy || '' },
       { key: 'priceHint', money: true, label: 'Сумма', sort: 'priceHint', cls: 'num right', render: (r) => money(r.priceHint) },
@@ -334,7 +335,7 @@ export const requests = {
     },
     board: {
       // карточки одного счёта — рядом, своим цветом (как заказы на доске «Проектирование»)
-      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера', sub: r.supplierName || '' } : null),
+      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера', sub: r.supplierName || '', ...(r.invoiceId ? { open: { href: invoiceHref(r.invoiceId) } } : {}) } : null),
       groupSum: (r) => r.priceHint, // сумма счёта на карточке группы
       groupTotal: (r) => r.invoiceAmount, // нет цен у позиций — сумма из записи счёта (ждёт invoiceAmount от сервера)
       colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
@@ -347,7 +348,7 @@ export const requests = {
       })),
       card: (r, c, ctx) => ({
         body: [
-          r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
+          r.photo ? h('img', { class: 't-pic', src: PREFIX + (typeof r.photo === 'string' ? r.photo : r.photo.thumb || r.photo.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
           h('div', { class: 't-title', title: heading(r) }, heading(r)),
           h('div', { class: 't-sub' }, [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.salesOrderId ? orderTag(r) : '', r.priceHint && session.canMoney ? money(r.priceHint) : ''].filter(Boolean).join(' · ')),
           r.priority === 'urgent' ? h('div', { class: 't-foot' }, badge(PRIORITY, 'urgent')) : null,

@@ -111,6 +111,7 @@
 | pick single / combo / multi / tags + поле `.k-field` | single — длинный `<select>`; combo — поле + список; multi — несколько через запятую; tags — метки | `pick({ mode, select/input, options, onPick, … })` (`enhanceSelect`, `attachCombo`, `tagPick`, `attachSuggest`) |
 | table list / input + maxHeight | list — таблица строк; input — ввод строк в форме; `maxHeight` S/M/L — своя прокрутка. Списки с поиском и страницами — `mountList` | `table({ columns, rows, mode, empty, foot, clickable, maxHeight })`; признак `money: true` у колонки table и поля panel — не рисуются без галочки «Деньги» у роли (`session.canMoney`) |
 | panel | правая панель / предпросмотр: шапка, блоки, подвал (запись — `openCard`) | `panel({ title, sub?, kind?, blocks: [{title?,body}], footer, onClose })` |
+| readonlyGroup | компактная карточная группа реквизитов: h3 и ровные пары «метка — значение»; пустые группы не строятся, 0 и DOM-ссылки сохраняются | `readonlyGroup({ title, rows })`; общий `card.view` адаптирует прежние tuples/grp, без своих стилей в разделах |
 | timeline / Гант | лента времени «В работе»; стили `kit/timeline.css` | `mountGantt(cfg, path, query, hooks)` (`ui/gantt.js`) |
 | dialog | подтверждение или 1–3 поля; больше — правая панель | `modal({ title, body, okText, danger, wide, onOk })`, `confirmDlg(title, text, { okText, danger })` |
 | toast | результат действия, «Отменить»; сбой — `toastError`; в блоке — `failBlock` / `busyBlock` | `toast(text, { undo, actions, tone, sub })`, `toastError(e, 'действие')` |

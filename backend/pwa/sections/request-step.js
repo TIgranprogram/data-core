@@ -1,13 +1,11 @@
-import { api, PREFIX, session } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, date } from '../core/format.js';
-import { photoField } from '../ui/photos.js';
-import { patch } from '../core/router.js';
+import { current, patch } from '../core/router.js';
 import { SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
-import { attachCombo, modal, toast, toastError, button, actions, row, section, badge, INVOICE_STATUS, busyBlock, failBlock } from '../ui/kit/index.js';
+import { attachCombo, modal, toast, toastError, button, actions, row, section, badge, INVOICE_STATUS, failBlock } from '../ui/kit/index.js';
 import { mergeInvoiceWithPreview } from '../core/invoice-merge.js';
 import { lookups, unitList } from './lookups.js';
-import { canContract, contractField, contractView, showWarnings } from './contracts.js';
 
 
 /**
@@ -60,13 +58,12 @@ export function nextStep(r) {
 
 let pending = null; // { id, to } — куда ведёт открытая панель (после обновления страницы — следующий этап)
 export function openStep(r, to) {
+  if (r.invoiceId && to === 'paid') { patch({ of: 'invoicecard', open: r.invoiceId, new: undefined }); return; }
   pending = { id: r.id, to };
   patch({ of: 'reqstep', open: r.id, new: undefined });
 }
 
 const today = () => isoDay();
-let payers = null;
-const payerList = () => (payers ??= api('/incomes/lookups').then((x) => (x.companies || []).map((c) => ({ value: String(c.id), label: c.name }))).catch(() => { payers = null; return []; }));
 /** Сумма по умолчанию: сумма заявки, иначе цена из каталога поставщика × количество. */
 const defaultAmount = (r, defPrice) => (Number(r.priceHint) > 0 ? Number(r.priceHint) : Number(defPrice) > 0 ? Math.round(Number(defPrice) * (Number(r.qty) || 1) * 100) / 100 : Number(r.catalogCurrentPrice) > 0 ? Math.round(Number(r.catalogCurrentPrice) * (Number(r.qty) || 1) * 100) / 100 : null);
 
@@ -90,14 +87,6 @@ function supplierChips(fapi, r) {
     chips.replaceChildren(...[...seen.values()].slice(0, 4).map((x) => h('button', { type: 'button', class: 'tag rq-chip', title: 'Подставить поставщика', onclick: () => fapi.set('supplierName', x.supplierName) }, x.supplierName + (session.canMoney && x.price > 0 ? ` · ${money(x.price)} ₽` : ''))));
     chips.hidden = false;
   });
-}
-/** id организации-поставщика по названию; нет такой — создаём (как в «Контрагентах»). */
-async function ensureSupplierId(name) {
-  const n = String(name || '').trim(); if (!n) return '';
-  const find = async () => ((await api('/partners', { query: { limit: 500, type: 'supplier' } })).items || []).find((p) => [p.shortName, p.name].some((x) => String(x || '').trim().toLowerCase() === n.toLowerCase()))?.id || '';
-  const have = await find(); if (have) return have;
-  try { const c = await api('/partners', { method: 'POST', body: { kind: 'supplier', name: n } }); if (c?.id) return c.id; } catch (e) { if (e.status !== 409) throw e; }
-  return find();
 }
 const heading = (r) => (r.num ? `№${r.num} · ` : '') + (r.title || r.materialName || '—');
 const verbOf = (to) => ({ ordered: 'Заказал у поставщика', paid: 'Счёт оплачен' }[to] || SUPPLY_STATUS[to]?.label || '');
@@ -158,12 +147,12 @@ export async function patchInvoiceWithDuplicate(inv, payload) {
       onOk: (form) => form.dataset.choice || 'open',
     });
     if (!choice) return null;
-    if (choice === 'open') { patch({ of: 'requests', tab: 'invoices', open: ex.existingInvoiceId }); return null; }
+    if (choice === 'open') { patch({ of: 'invoicecard', open: ex.existingInvoiceId }); return null; }
     if (choice === 'merge') {
       const result = await previewInvoiceMerge(inv.id, ex.existingInvoiceId);
       if (result) {
         toast('Позиции объединены с существующим счётом');
-        patch({ of: 'requests', tab: 'invoices', open: result.targetInvoiceId || ex.existingInvoiceId });
+        patch({ of: 'invoicecard', open: result.targetInvoiceId || ex.existingInvoiceId });
       }
       return null;
     }
@@ -186,19 +175,18 @@ export const reqStep = {
   get: async (id) => {
     const r = await api(`/supply/requests/${id}`);
     const to = pending?.id === id ? pending.to : nextStep(r)?.to;
-    const inv = to === 'paid' && r.invoiceId ? await api(`/supply/invoices/${r.invoiceId}`).catch(() => null) : null;
     const def = to === 'paid' && r.materialId ? await api(`/materials/${r.materialId}/price-default`).catch(() => null) : null;
-    const companies = to === 'paid' ? await payerList() : [];
-    return { ...r, _to: to, _miss: missingFor(r, to), _inv: inv, _defPrice: def?.price, _companies: companies };
+    return { ...r, _to: to, _miss: missingFor(r, to), _defPrice: def?.price };
   },
   card: {
     heading,
     editTitle: (r) => `${verbOf(r._to) || 'Следующий шаг'} — ${r.title || r.materialName || '—'}`,
     subheading: (r) => (r._to ? `Следующий шаг: «${verbOf(r._to)}»` : ''),
     noHistory: true,
-    startEdit: (r) => r._to === 'paid' || (r._miss || []).length > 0,
+    startEdit: (r) => !r.invoiceId && (r._to === 'paid' || (r._miss || []).length > 0),
+    editable: (r) => !r.invoiceId,
     view: () => [],
-    extra: (r, ctx) => h('div', null,
+    extra: (r, ctx) => r.invoiceId ? invoiceBlock(r) : h('div', null,
       stageStrip(r),
       h('p', { class: 'hint' }, (r._miss || []).length ? 'Заполните поля и нажмите «Сохранить и перевести».' : 'Всё заполнено — можно переводить.'),
       (r._miss || []).length || !r._to ? null : h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
@@ -210,9 +198,10 @@ export const reqStep = {
   form: {
     saveLabel: 'Сохранить и перевести',
     fields: async (r) => {
+      if (r.invoiceId) throw new Error('Реквизиты и оплату изменяйте в панели счёта');
       const defs = fieldDefs(await lookups());
       const paid = r._to === 'paid';
-      const tail = r.invoiceId ? (session.canMoney ? ' и оплачен.' : '; оплату отметит бухгалтер.') : ' и заявка станет оплаченной.';
+      const tail = ' и заявка станет оплаченной.';
       const note = h('div', { class: 'fill-note' }, h('b', null, `Следующий шаг: «${verbOf(r._to)}»`),
         h('div', null, paid ? 'Проверьте данные счёта, при необходимости поправьте. После «Сохранить и перевести» счёт будет выставлен' + tail
           : `Чтобы перевести заявку в «${SUPPLY_STATUS[r._to].label}», нужно: ${r._miss.map((f) => f.label.toLowerCase()).join(', ')}.`));
@@ -220,26 +209,13 @@ export const reqStep = {
       if (!paid) return [head, ...r._miss.map((f) => defs[f.key])];
       // «Счёт оплачен»: всегда одни и те же поля; уже заполненные показываем заполненными
       const supplier = { ...defs.supplierName, required: true, wide: true, hint: 'Другой поставщик сохранится в истории позиции вместе с ценой', mount: (fapi) => supplierChips(fapi, r) };
-      // сумма счёта — производная от строк; в счёте из одной позиции её можно ввести как сумму строки
-      const singleLine = (r._inv?.requests || []).length <= 1;
-      const sumField = singleLine
-        ? { ...defs.priceHint, label: 'Сумма строки, ₽', hint: 'Цена за единицу = сумма ÷ количество' }
-        : { key: 'priceHint', type: 'widget', label: 'Сумма счёта, ₽', wide: true, widget: () => ({ el: h('div', { class: 'inv-ro' }, money(r._inv?.amount || 0)), get value() { return Number(r._inv?.amount) || 0; }, set value(_) { /* сумма считается по строкам */ } }) };
-      return [head, { ...defs.invoiceNo, required: true }, { ...defs.invoiceDate, required: true }, sumField, supplier,
-        r.invoiceId ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', required: true, options: await payerList() } : null].filter(Boolean);
+      return [head, { ...defs.invoiceNo, required: true }, { ...defs.invoiceDate, required: true }, defs.priceHint, supplier];
     },
     toInitial: (r) => ({ ...r,
-      invoiceNo: r._inv?.no || r.invoiceNo || '',
-      invoiceDate: String(r._inv?.date || r.invoiceDate || '').slice(0, 10) || today(),
-      priceHint: (r._inv?.amount > 0 ? r._inv.amount : null) ?? defaultAmount(r, r._defPrice),
-      supplierName: r.supplierName || r._inv?.supplierName || '',
-      payerCompanyId: r._inv?.payerCompanyId ? String(r._inv.payerCompanyId) : r.companyId ? String(r.companyId) : r.payerCompanyId ? String(r.payerCompanyId) : r._companies?.length === 1 ? r._companies[0].value : '' }),
+      invoiceNo: r.invoiceNo || '', invoiceDate: String(r.invoiceDate || '').slice(0, 10) || today(),
+      priceHint: defaultAmount(r, r._defPrice), supplierName: r.supplierName || '' }),
     toBody: (v, r) => {
-      if (r._to === 'paid' && r.invoiceId) {
-        const sum = Number(v.priceHint) || 0;
-        const diff = Math.abs(sum - (Number(r._inv?.amount) || 0)) > 0.009;
-        return { _inv: r.invoiceId, _line: diff ? sum : null, no: String(v.invoiceNo ?? ''), date: String(v.invoiceDate ?? ''), payerCompanyId: String(v.payerCompanyId ?? ''), _sup: String(v.supplierName ?? '').trim() !== String(r.supplierName || r._inv?.supplierName || '').trim() ? String(v.supplierName ?? '').trim() : '' };
-      }
+      if (r.invoiceId) throw new Error('Откройте счёт для изменения');
       if (r._to === 'paid') return { statusLabel: SUPPLY_STATUS.paid.label, invoiceNo: String(v.invoiceNo ?? ''), invoiceDate: String(v.invoiceDate ?? ''), priceHint: v.priceHint, supplierName: String(v.supplierName ?? '') };
       const body = r._to === 'ordered' ? { _order: true } : { statusLabel: SUPPLY_STATUS[r._to].label };
       for (const f of r._miss) body[f.key] = f.key === 'qty' ? v[f.key] : String(v[f.key] ?? '');
@@ -247,25 +223,8 @@ export const reqStep = {
     },
     update: async (id, body) => {
       let saved;
-      if (body._inv) {
-        const { _inv, _sup, _line, ...inv } = body;
-        if (_sup) inv.supplierId = await ensureSupplierId(_sup); // сервер ставит имя счёта и переносит поставщика во все заявки счёта
-        const stopped = () => { throw new Error('Перевод и оплата не выполнены. Проверьте выбранный счёт или продолжите редактирование.'); };
-        let res;
-        if (_line != null) {
-          // Сначала решаем 409; отмена preview не должна успеть изменить сумму строки.
-          const prepared = await patchInvoiceWithDuplicate({ id: _inv, supplierName: _sup }, inv);
-          if (!prepared) stopped();
-          await api(`/supply/invoices/${_inv}/lines/${id}`, { method: 'PATCH', body: { lineAmount: _line } });
-          // Реквизиты и duplicateReason уже сохранены; повторно их не передаём.
-          res = await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { issue: true } });
-        } else res = await patchInvoiceWithDuplicate({ id: _inv, supplierName: _sup }, { ...inv, issue: true });
-        if (!res) stopped();
-        showWarnings(res);
-        const invId = res?.id || _inv;
-        if (session.canMoney) { await api(`/supply/invoices/${invId}/pay`, { method: 'POST' }); toast('Счёт оплачен'); } else toast('Счёт выставлен — оплату отметит бухгалтер');
-        saved = await api(`/supply/requests/${id}`);
-      } else if (body._order) {
+      if (body._inv) throw new Error('Оплата и правка доступны только в панели счёта');
+      if (body._order) {
         const { _order, ...rest } = body;
         if (Object.keys(rest).length) await api(`/supply/requests/${id}`, { method: 'PATCH', body: rest });
         await api('/supply/invoices', { method: 'POST', body: { requestIds: [id] } });
@@ -316,72 +275,13 @@ export async function bulkOrder(rows) {
   return done;
 }
 
-/** Блок «Счёт» в панели заявки с invoiceId: №, дата, сумма, плательщик, файл, заявки счёта; «Сохранить» (выставлен) и «Счёт оплачен». */
-export function invoiceBlock(r, ctx) {
-  const box = h('div', { class: 'inv-block' }, busyBlock('счёт'));
-  (async () => {
-    const [inv, companies] = await Promise.all([api(`/supply/invoices/${r.invoiceId}`), payerList()]);
-    const paid = inv.status === 'paid';
-    const received = (inv.requests || []).some((x) => x.status === 'received');
-    // После оплаты можно править реквизиты до первой приёмки; первая приёмка фиксирует финансы.
-    const finLocked = received;
-    const canMeta = session.canEdit; // №, дата, файлы, договор — можно и после оплаты/приёмки
-    const no = h('input', { value: inv.no || '', maxlength: 100, disabled: !canMeta });
-    const dt = h('input', { type: 'date', value: String(inv.date || '').slice(0, 10) || today(), disabled: !canMeta });
-    const payer = h('select', { disabled: !canMeta || finLocked }, h('option', { value: '' }, '— выберите —'), ...companies.map((c) => h('option', { value: c.value }, c.label)));
-    payer.value = inv.payerCompanyId ? String(inv.payerCompanyId) : '';
-    // файлы счёта видны всегда (уже загруженные — сразу в поле, можно открыть и убрать); прикрепить можно и к оплаченному
-    const files = photoField((inv.files || []).map((f) => ({ id: f.id, url: f.url, name: f.name, mime: f.mime })), { pdf: true });
-    // amount — производная от строк: вводится не здесь, а ценой позиции (вкладка «Счета»)
-    const meta = () => ({ no: no.value.trim(), date: dt.value, fileIds: files.ids() });
-    const body = () => ({ ...meta(), payerCompanyId: payer.value });
-    const patchInvoice = (payload) => patchInvoiceWithDuplicate(inv, payload);
-    let running = false;
-    const run = async (btn, fn) => { if (running) return; running = true; btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { running = false; btn.disabled = false; btn.classList.remove('is-busy'); } };
-    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { const payload = paid ? body() : { ...body(), issue: true }; const res = await patchInvoice(payload); if (res) { showWarnings(res); toast('Счёт сохранён'); } }) }, 'Сохранить');
-    const saveMeta = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveMeta, async () => { const res = await patchInvoice(finLocked ? meta() : body()); if (res) toast('Счёт сохранён'); }) }, 'Сохранить');
-    const canPayAfterReceipt = finLocked && session.canMoney && !paid && inv.status === 'issued';
-    const pay = h('button', { class: 'btn', type: 'button', onclick: () => run(pay, async () => {
-      if (canPayAfterReceipt) {
-        await api(`/supply/invoices/${inv.id}/pay`, { method: 'POST' });
-        toast('Счёт оплачен');
-        return;
-      }
-      const res = await patchInvoice({ ...(finLocked ? meta() : body()), issue: true });
-      if (!res) return;
-      showWarnings(res);
-      await api(`/supply/invoices/${res?.id || inv.id}/pay`, { method: 'POST' }); toast('Счёт оплачен');
-    }) }, 'Счёт оплачен');
-    const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
-    // договор поставщика: выбор/создание сразу пишет в счёт (можно и у оплаченного); без прав — только показ
-    const cf = canContract() && inv.supplierId
-      ? contractField({ supplierId: inv.supplierId, current: inv.contractId ? { id: inv.contractId, no: inv.contractNo || '—', date: inv.contractDate } : null,
-        onChange: async (id) => { showWarnings(await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { contractId: id } })); toast(id ? 'Договор привязан к счёту' : 'Договор снят со счёта'); ctx.changed?.(); } })
-      : null;
-    const saveFiles = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveFiles, async () => { await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { fileIds: files.ids() } }); toast('Файлы счёта сохранены'); }) }, 'Сохранить файлы');
-    // значения, которые после блокировки не меняются, — текстом, а не «серыми» полями
-    const ro = (label, val) => h('div', { class: 'field' }, h('span', null, label), h('div', { class: 'inv-ro' }, val || h('span', { class: 'muted' }, '—')));
-    const contractRow = cf ? cf.el : h('div', { class: 'field' }, h('span', null, 'Договор поставщика'), contractView(inv), inv.supplierId ? null : h('div', { class: 'hint' }, 'Сначала укажите поставщика счёта.'));
-    box.replaceChildren(
-      h('div', { class: 'section-title' }, `Счёт${inv.no ? ' № ' + inv.no : ''}${inv.date ? ' от ' + date(inv.date) : ''}` + (paid ? ' · оплачен' : inv.status === 'issued' ? ' · выставлен' : ' · черновик')),
-      ...(finLocked
-        ? [canMeta ? field('№ счёта', no) : ro('№ счёта', inv.no), canMeta ? field('Дата счёта', dt) : ro('Дата счёта', inv.date ? date(inv.date) : ''), ro('Сумма', inv.amount > 0 ? money(inv.amount) : ''), ro('Наша компания', inv.payerName)]
-        : [field('№ счёта', no), field('Дата счёта', dt), field('Сумма, ₽', h('div', { class: 'inv-ro' }, inv.amount > 0 ? money(inv.amount) : h('span', { class: 'muted' }, 'по строкам'))), field('Наша компания', payer)]),
-      contractRow,
-      h('div', { class: 'field' }, h('span', null, 'Файл счёта'), canMeta ? files.el : null,
-        !canMeta && !(inv.files || []).length ? h('span', { class: 'muted' }, 'Файла нет') : null,
-        !canMeta ? h('div', null, ...(inv.files || []).map((f) => h('a', { href: PREFIX + f.url, target: '_blank', rel: 'noopener' }, f.name || 'Файл счёта'))) : null,
-        finLocked && canMeta ? h('div', { class: 'inv-actions' }, saveFiles) : null),
-      session.canMoney && inv.paymentSnapshot ? h('div', { class: 'hint' },
-        `Фактически оплачено: ${money(inv.paymentSnapshot.amount)} (${date(inv.paymentSnapshot.paidAt)}). Текущая сумма строк: ${money(inv.amount)}. Изменения требуют сверки и не меняют исходный платёж.`,
-        ...(inv.paymentAdjustments || []).map((x) => h('div', { class: 'muted' }, `${date(x.at)} · ${x.reason} · изменение ${money(x.delta)}`))) : null,
-      finLocked ? h('div', { class: 'hint' }, 'По счёту уже есть приёмка — финансовые поля зафиксированы.') : paid ? h('div', { class: 'hint' }, 'Счёт оплачен; до первой приёмки реквизиты и суммы можно изменить.') : null,
-      h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '') + (finLocked ? '' : ' · цену позиции правьте на вкладке «Счета»')),
-      h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),
-      finLocked ? h('div', { class: 'inv-actions' }, canMeta ? saveMeta : null, canPayAfterReceipt ? pay : null)
-        : h('div', { class: 'inv-actions' }, save, session.canMoney && !paid ? pay : null));
-  })().catch((e) => {
-    box.replaceChildren(failBlock(e, () => box.replaceWith(invoiceBlock(r, ctx)), { text: 'Счёт не загрузился' }));
-  });
-  return box;
+/** Краткий router-only блок. Никаких финансовых полей, оплаты или немедленного PATCH. */
+export function invoiceBlock(r) {
+  const route = current();
+  const href = '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries({ ...route.params, of: 'invoicecard', open: r.invoiceId, new: undefined, fill: undefined }).filter(([, value]) => value !== undefined && value !== '')).toString();
+  return section({ title: 'Счёт поставщика', open: true, body: [
+    h('a', { class: 'link-btn', href }, r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера'),
+    h('p', { class: 'hint' }, [r.invoiceDate ? date(r.invoiceDate) : '', r.supplierName].filter(Boolean).join(' · ')),
+    h('p', { class: 'hint' }, 'Все позиции, реквизиты и разрешённые действия — в единой панели счёта.'),
+  ] });
 }

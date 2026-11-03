@@ -58,6 +58,7 @@ const LAZY = {
   shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
   partners: [() => import('./sections/partners.js'), [['partners','partners']]],
   contract: [() => import('./sections/contracts.js'), [['contract','contract'],['contracts','contracts']]],
+  invoicecard: [() => import('./sections/invoice-workspace.js'), [['invoicecard','invoiceCard']]],
   invoice: [() => import('./sections/invoice.js'), [['invoice','invoice'],['pasteorder','pasteOrder']]],
   reqstep: [() => import('./sections/request-step.js'), [['reqstep','reqStep']]],
   dicts: [() => import('./sections/dicts.js'), [['dict','dict'],['@mountDicts','mountDicts']]],
@@ -120,7 +121,7 @@ const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'r
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
 const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : 'home');
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
+const OWNER = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', offers: 'products', orders: 'money', money: 'money' };
@@ -365,6 +366,8 @@ function closeCard() { if (card) { card.handle.close(); card = null; } }
 const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '');
 
 function render(c) {
+  // Отложенный lazy callback не обходит незавершённый guard программного перехода.
+  if (card?.handle?.isDirty?.() && routeKey(c) !== routeKey(acceptedRoute)) return;
   const { section, params } = c;
   if (!section) { go(defaultSection(), {}, { replace: true }); return; }
   // QR-наклейка: ссылка …/db/app/#q=<код>. Мобильный склад — сразу «Принять / Выдать»; остальные — карточка позиции или изделия
@@ -377,6 +380,7 @@ function render(c) {
   // старый раздел «Позиции и оплаты» (#orders) ушёл из меню: список — «Деньги → Долги», карточка позиции — справа (of=orders)
   if (section === 'orders') { const { open, new: isNew, ...rest } = params; go('money', { ...rest, tab: 'debts', ...(open || isNew ? { of: 'orders', ...(open ? { open } : { new: isNew }) } : {}) }, { replace: true }); return; }
   // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render
+  if (section === 'requests' && params.tab === 'invoices' && params.open && !params.of) { patch({ of: 'invoicecard' }); return; }
   const miss = allowed(section) ? needed(section, params) : [];
   if (miss.length) {
     trackLoad(Promise.all(miss.map(loadSec))).then(() => render(current())).catch((e) => {
@@ -471,25 +475,30 @@ function screenTitle(url) {
  * Защита ввода (НВ.4): «Назад» / «Вперёд» / ссылка при открытом окне — сначала закрывается окно (как жест «назад» на Android);
  * при несохранённой форме в карточке — одно подтверждение «Выйти без сохранения?». Нет — остаёмся, ввод цел.
  */
-setGuard(async (next) => {
+let approvedRoute = '';
+const routeKey = (route) => JSON.stringify(route);
+async function guardRoute(next) {
   const dlg = document.querySelector('.modal-back');
   if (dlg) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return false; }
   if (card?.handle?.isDirty?.()) {
     const ofName = next.params.of || (next.section === 'home' ? undefined : next.section);
-    const stays = ofName === card.of && (next.params.open || next.params.new) && card.key.includes(next.params.new ? 'new' : 'open:' + next.params.open);
-    if (!stays) return confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' });
+    const want = next.params.new ? 'new' : next.params.open ? 'open:' + next.params.open : null;
+    const stays = want && cardKey(ofName, want, next.params) === card.key;
+    if (!stays) return card.handle.canLeave ? card.handle.canLeave() : confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' });
   }
   return true;
-});
+}
+setGuard(async (next) => { const ok = await guardRoute(next); if (ok) approvedRoute = routeKey(next); return ok; });
 
 /** Карточка: open=<id> или new=1; of=<раздел записи>, если запись другого раздела (на «Сегодня», заявка из склада). */
+const cardKey = (ofName, want, params) => ofName + want + (params.fill ? '~' + params.fill : '') + (['stockop', 'resedit', 'specimport', 'compsug'].includes(ofName) ? '@' + (params.op || '') + (params.materialId || '') + (params.rid || '') + (params.orderId || '') + (params.lid || '') : '');
 function syncCard(section, params) {
   const ofName = params.of || (section === 'home' ? undefined : section);
   const sec = SECTIONS[ofName];
   const invTab = section === 'requests' && params.tab === 'invoices' && !params.of; // open= там — id счёта, не карточка заявки
   const want = sec && !invTab && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
   if (!want) { closeCard(); return; }
-  const key = ofName + want + (params.fill ? '~' + params.fill : '') + (['stockop', 'resedit', 'specimport', 'compsug'].includes(ofName) ? '@' + (params.op || '') + (params.materialId || '') + (params.rid || '') + (params.orderId || '') + (params.lid || '') : '');
+  const key = cardKey(ofName, want, params);
   if (card?.key === key) return;
   // Та же панель, другая запись (стрелки, клик по соседней строке) — меняем содержимое, без закрытия
   if (card && card.of === ofName && !params.fill && want.startsWith('open:') && card.key.includes('open:') && !card.key.includes('~') && !card.handle.editing) {
@@ -544,7 +553,23 @@ function refreshMe() {
     else if (face(session.user) !== wasFace) window.dispatchEvent(new CustomEvent('dc:profile'));
   }).catch(() => {});
 }
-onChange((c) => { if (ui && session.refresh) render(c); });
+// Программный go/patch также обязан пройти guard до closeCard() (native hash уже проверен router).
+let acceptedRoute = current();
+let routeSeq = 0;
+onChange(async (c) => {
+  if (!ui || !session.refresh) return;
+  const my = ++routeSeq;
+  const approved = approvedRoute === routeKey(c); approvedRoute = '';
+  if (!approved && !(await guardRoute(c))) {
+    if (my !== routeSeq) return;
+    approvedRoute = routeKey(acceptedRoute);
+    go(acceptedRoute.section, acceptedRoute.params, { replace: true });
+    return;
+  }
+  if (my !== routeSeq) return;
+  acceptedRoute = c;
+  render(c);
+});
 // «Отменить» во всплывающем сообщении и другие изменения вне списка — обновить текущий экран и счётчики меню
 // Единый механизм «данные изменились»: core/api.js шлёт dc:changed после каждой успешной записи (POST/PATCH/PUT/DELETE),
 // старое data-changed — то же самое вручную. Debounce 300 мс склеивает пачку записей в одно обновление:

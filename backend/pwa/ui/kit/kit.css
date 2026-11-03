@@ -229,3 +229,21 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 @media (max-width: 480px) { .st-row { grid-template-columns: minmax(0, 1fr); } }
 /* Большая проверка 2026-11-02: ссылки-значения в карточке (контрагент, позиция) на телефоне — область нажатия не меньше 36px, вид строки прежний */
 @media (max-width: 480px) { .drawer a[href]:not(.btn) { display: inline-block; min-width: 36px; padding-block: 10px; margin-block: -10px; } }
+
+/* Компактные readonly-группы общей правой карточки: единый kit-renderer. */
+.k-readonly-groups { display: grid; gap: var(--s3); min-width: 0; }
+.k-readonly { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); padding: var(--s3); min-width: 0; }
+.k-readonly h3 { margin: 0 0 var(--s2); }
+.k-readonly-pairs { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--s2) var(--s3); margin: 0; }
+.k-readonly-pairs dt { color: var(--muted); font-size: var(--fs-sm); }
+.k-readonly-pairs dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.k-readonly-pairs dd .badge { white-space: normal; }
+@media (max-width: 420px) { .k-readonly-pairs { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
+
+/* Внутренняя kit-таблица не заменяется карточками списка и на телефоне остаётся доступной. */
+.table-wrap.k-table-wrap { display: block; max-width: 100%; min-width: 0; overflow-x: auto; }
+.k-table-check { display: inline-flex; align-items: center; justify-content: center; min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); cursor: pointer; }
+.k-table-check input { margin: 0; }
+@media (max-width: 720px) {
+  .drawer-head .btn.btn-icon { min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); }
+}
