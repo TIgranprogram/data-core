@@ -11,7 +11,7 @@ import { toast, toastError } from '../ui/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
 import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
-import { stockRequestsBox, requestFromHash, closeRequest } from './stock-requests.js';
+import { stockRequestsBox, requestFromHash, catalogFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 import { segmented, toolbar, catArt, button as kitButton } from '../ui/kit/index.js';
 
@@ -307,7 +307,11 @@ export const stock = {
         ...(ps ? [{ section: 'Для паспорта', tone: 'info' }, ps] : []),
       ];
     },
-    initial: () => ({ unit: 'шт', photos: [], name: requestFromHash().name }),
+    initial: () => {
+      const fromReq = requestFromHash();
+      const fromCat = catalogFromHash();
+      return { unit: 'шт', photos: [], name: fromReq.name || fromCat.name || '', article: fromCat.article || '' };
+    },
     toInitial: (r) => ({ ...r, article: r.supplierArticle || '', ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
     toBody: (v) => {
       const b = { photoIds: v.photos || [], name: v.name, fullName: v.fullName || '', invoiceName: v.invoiceName || '', unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
@@ -338,6 +342,16 @@ export const stock = {
       lookups.reset();
       const fromReq = requestFromHash().id; // создано по заявке кладовщика — закрываем её
       if (fromReq) await closeRequest(fromReq, 'done', r.id).catch(() => toast('Позиция создана, но заявка осталась открытой — отклоните или закройте её в списке', { error: true }));
+      const fromCat = catalogFromHash().id; // C009: из каталога — связать и вернуться, без второго «того же» имени
+      if (fromCat) {
+        try {
+          await api(`/supply/catalog/items/${fromCat}`, { method: 'PATCH', body: { materialId: r.id } });
+          toast('Позиция создана и связана с каталогом');
+          go('suppliercatalog', { open: fromCat, new: undefined, fromCatalog: undefined, name: undefined, article: undefined });
+        } catch (e) {
+          toast(`Позиция создана, но связь с каталогом не записалась: ${errText(e)}. Откройте строку каталога и выберите её вручную.`, { error: true });
+        }
+      }
       return r;
     },
     update: async (id, body) => {

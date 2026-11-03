@@ -11,6 +11,8 @@ import { button, row, section, toast, toastError, failBlock } from '../ui/kit/in
  */
 const paramsOf = () => new URLSearchParams(location.hash.split('?')[1] || '');
 export const requestFromHash = () => ({ id: paramsOf().get('fromReq') || '', name: paramsOf().get('name') || '' });
+/** C009: создание позиции склада из строки каталога — после save связать materialId. */
+export const catalogFromHash = () => ({ id: paramsOf().get('fromCatalog') || '', name: paramsOf().get('name') || '', article: paramsOf().get('article') || '' });
 export const closeRequest = (id, status, materialId) => api(`/material-requests/${id}/close`, { method: 'POST', body: { status, ...(materialId ? { materialId } : {}) } });
 
 /** Плашка над списком склада; пока заявок нет или нет права — не видна. */

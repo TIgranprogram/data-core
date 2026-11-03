@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { date, money, qty, plural } from '../core/format.js';
 import { stepFunnel, attachCombo, enhanceSelect } from '../ui/kit/index.js';
 import { catArt } from '../ui/cat-art.js';
-import { current, patch } from '../core/router.js';
+import { current, patch, go } from '../core/router.js';
 import { openSide, noteField, sideForm } from '../ui/side-form.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { openPopMenu } from '../ui/pop-menu.js';
@@ -21,7 +21,7 @@ import { table } from '../ui/kit/index.js';
  */
 
 const canWrite = () => session.canEdit;
-const FLAGS = [['unmatched', 'Без связи с нашим материалом'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
+const FLAGS = [['unmatched', 'Без связи — связать с позицией'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
 const SRC = { excel: 'Excel', request: 'Заявка', stock: 'Склад', manual: 'Вручную' };
 
 // ---------- данные ----------
@@ -124,7 +124,13 @@ async function catLanding() {
   };
   const tops = catTops(c);
   if (!tops.length && !c.noCategory) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), h('button', { class: 'btn', type: 'button', onclick: () => go({ all: '1' }) }, 'Все списком'));
+  const queue = c.unmatched > 0 && canWrite()
+    ? h('div', { class: 'cat-top' },
+        h('p', { class: 'hint' }, `Без связи со складом: ${nPos(c.unmatched)} — выберите позицию или создайте новую, не плодя дубли имени.`),
+        h('button', { class: 'btn btn-primary', type: 'button', onclick: () => go({ flag: 'unmatched', all: '1' }) }, 'Очередь «Связать с позицией»'))
+    : null;
   return h('div', { class: 'cat-landing' },
+    queue,
     h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(totalOf(c))}`), h('button', { class: 'btn', type: 'button', onclick: () => go({ all: '1' }) }, 'Все списком')),
     h('div', { class: 'cat-grid' },
       ...tops.map((x) => tile(x.name, x.count, () => go({ catId: x.id }))),
@@ -261,7 +267,7 @@ export const priceList = sideForm({
 });
 
 // ---------- карточка ----------
-/** Поле «Наш материал»: поиск по складу, пусто = связи нет. value — JSON id. */
+/** Поле «Наш материал»: поиск только по складу (free:false). Новая позиция — явной кнопкой, без автодубля имени. */
 function materialWidget(v, row) {
   let id = v || null;
   const input = h('input', { type: 'text', placeholder: 'Найти на складе: название или артикул', value: row?.materialName || '' });
@@ -283,7 +289,15 @@ function materialWidget(v, row) {
       input.dispatchEvent(new Event('focus'));
     }, 250);
   });
-  return { el: wrap, get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
+  const createBtn = row?.id && canWrite()
+    ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', style: 'margin-top:.5rem', onclick: (e) => {
+        e.preventDefault();
+        const art = row.article && !String(row.article).startsWith('manual:') ? row.article : '';
+        go('stock', { new: '1', name: row.name || '', article: art || undefined, fromCatalog: row.id, open: undefined });
+      } }, 'Создать позицию склада')
+    : null;
+  const hint = h('p', { class: 'hint' }, 'Сначала найдите на складе. Нет такой — только кнопка «Создать позицию склада» (иначе появится дубль имени).');
+  return { el: h('div', null, wrap, createBtn, hint), get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
 }
 
 const thumb = (r) => (r.thumb ? h('img', { class: 'thumb', src: PREFIX + r.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : null);
@@ -316,6 +330,9 @@ export const supplierCatalog = {
     createLabel: 'Новая позиция',
     searchPlaceholder: 'Артикул, название, примечание…',
     emptyText: 'В каталоге пока пусто.', emptyHint: 'Загрузите прайс поставщика по шаблону: шестерёнка → «⇩ Шаблон Excel», затем «Загрузить Excel…».',
+    rowAction: (r) => (!r.materialId && canWrite()
+      ? { label: 'Связать с позицией', title: 'Выбрать позицию склада или создать новую', run: () => { patch({ open: r.id, fill: 'material' }); return false; } }
+      : null),
     columns: [
       { key: 'photo', label: '', render: (r) => thumb(r) },
       { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },
@@ -348,7 +365,7 @@ export const supplierCatalog = {
       const cell = (l, v) => (v === undefined || v === null || v === '' ? null : h('div', { class: 'sc-f' }, h('span', null, l), h('b', null, v)));
       const mat = r.materialId
         ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null)
-        : h('span', { class: 'sc-nolink' }, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.edit() }, 'Связать') : null);
+        : h('span', { class: 'sc-nolink' }, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.edit() }, 'Связать с позицией') : null);
       return h('div', { class: 'sc-card' },
         h('div', { class: 'sc-price' },
           h('div', { class: 'sc-price-v num' }, r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана'),
