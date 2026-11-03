@@ -17,11 +17,11 @@ const { MongoClient, ObjectId } = mongoose.mongo;
 const ZONE = 'Плитные материалы';
 const ROLE = 'Кладовщик плит (телефон)';
 const BOARD_CATS = [
-  { name: 'Фанера', slug: 'plywood' },
-  { name: 'ДСП', slug: 'chipboard' },
-  { name: 'ДВП', slug: 'fiberboard' },
-  { name: 'OSB', slug: 'osb' },
-  { name: 'МДФ', slug: 'mdf' },
+  { name: 'Фанера', slug: 'plywood', skuPrefix: 'PLY' },
+  { name: 'ДСП', slug: 'chipboard', skuPrefix: 'CHIP' },
+  { name: 'ДВП', slug: 'fiberboard', skuPrefix: 'FIB' },
+  { name: 'OSB', slug: 'osb', skuPrefix: 'OSB' },
+  { name: 'МДФ', slug: 'mdf', skuPrefix: 'MDF' },
 ];
 
 async function main() {
@@ -41,7 +41,7 @@ async function main() {
   if (!wood && apply) {
     const ins = await cats.insertOne({
       name: 'Дерево', slug: 'wood', type: 'material', parentId: null, isActive: true,
-      sortOrder: 50, createdAt: new Date(), updatedAt: new Date(),
+      skuPrefix: 'WOOD', sortOrder: 50, createdAt: new Date(), updatedAt: new Date(),
     });
     wood = { _id: ins.insertedId, name: 'Дерево' };
   }
@@ -61,7 +61,7 @@ async function main() {
       if (apply && wood) {
         const ins = await cats.insertOne({
           name: c.name, slug: c.slug, type: 'material', parentId: wood._id, isActive: true,
-          sortOrder: 10, createdAt: new Date(), updatedAt: new Date(),
+          skuPrefix: c.skuPrefix, sortOrder: 10, createdAt: new Date(), updatedAt: new Date(),
         });
         boardIds.push(ins.insertedId);
       }
