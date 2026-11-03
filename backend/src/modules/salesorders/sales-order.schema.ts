@@ -48,6 +48,9 @@ export class SalesOrder {
   @Prop({ unique: true, sparse: true }) importKey?: string;
   /** Повтор создания с тем же ключом клиента не создаёт дубль. */
   @Prop({ index: true, sparse: true }) clientUid?: string;
+  /** Исходное КП (этап 2). */
+  @Prop({ type: Types.ObjectId, sparse: true }) offerId?: Types.ObjectId;
+  @Prop({ trim: true }) offerNo?: string;
   /** Откуда шапка: google-sheets / import-xlsx / пусто — заведена в приложении. */
   @Prop() source?: string;
   /** Шапку правили в приложении — лист «Заказы» берёт поля шапки из неё, а не из своих строк. */

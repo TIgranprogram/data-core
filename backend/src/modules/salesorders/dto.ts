@@ -23,6 +23,8 @@ export class SalesOrderDto {
   @ApiPropertyOptional({ description: 'Ответственный менеджер — сотрудник (persons.id); "" — снять' }) @IsOptional() @IsString() @Length(0, 30) responsibleId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 5000) notes?: string;
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional({ description: 'id КП, из которого создан договор' }) @IsOptional() @IsMongoId() offerId?: string;
+  @ApiPropertyOptional({ description: 'Номер КП для отображения' }) @IsOptional() @IsString() @Length(0, 50) offerNo?: string;
   @ApiPropertyOptional({ description: 'true — проверить обязательные поля формы приложения: № договора, № заказа, заказчик, наша компания (импорт и договоры «без заказа» шлют без флага)' }) @IsOptional() @IsBoolean() requireFields?: boolean;
 }
 

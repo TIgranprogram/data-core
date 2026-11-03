@@ -7,7 +7,9 @@ import type { AuthenticatedUser } from '../../common/decorators/current-user.dec
 import { oid, parseList } from '../../common/list-query';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import { CounterService } from '../counter/counter.service';
-import type { CreateOfferDto, UpdateOfferDto } from './dto';
+import { IncomesService } from '../incomes/incomes.service';
+import { SalesOrdersService } from '../salesorders/salesorders.service';
+import type { CreateOfferDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { renderOfferPdf } from './offer-pdf';
 import { calcTotals, checkEditable, checkMove } from './offer-rules';
@@ -27,6 +29,8 @@ export class OffersService {
     @InjectModel(CommercialOffer.name) private readonly model: Model<OfferDocument>,
     private readonly counters: CounterService,
     private readonly bgs: OfferBackgroundsService,
+    private readonly salesOrders: SalesOrdersService,
+    private readonly incomes: IncomesService,
   ) {}
 
   private db() { return this.connection.db!; }
@@ -43,8 +47,63 @@ export class OffersService {
       })),
       total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
       terms: o.terms ?? null, notes: o.notes ?? null, bg1Id: o.bg1Id ?? null, bg2Id: o.bg2Id ?? null, orderId: o.orderId ? String(o.orderId) : null,
+      versionCount: ((o.versions as Doc[]) ?? []).length,
       statusHistory: (o.statusHistory as Doc[]) ?? [], createdAt: o.createdAt ?? null, updatedAt: o.updatedAt ?? null,
     };
+  }
+
+  private snapshot(o: Doc) {
+    return {
+      customer: o.customer, companyId: String(o.companyId), title: o.title ?? null, items: o.items, total: o.total,
+      terms: o.terms ?? null, notes: o.notes ?? null, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
+    };
+  }
+
+  private assertOrderFromOffer(o: Doc) {
+    if (o.orderId) throw new BadRequestException('Заказ из этого КП уже создан — откройте его из карточки');
+    if (!['accepted', 'paid'].includes(String(o.status))) throw new BadRequestException('Сначала отметьте КП «Принято» или «Оплачено»');
+    if (!(o.items as Doc[])?.length) throw new BadRequestException('В КП нет строк');
+  }
+
+  async toOrder(id: string) {
+    const o = await this.find(id);
+    this.assertOrderFromOffer(o);
+    const companyName = await this.companyName(o.companyId);
+    const { value: productionNo } = await this.salesOrders.nextProductionNo({});
+    const orderNo = `КП-${String(o.number).replace(/^КП-?/i, '').slice(0, 40)}`;
+    return {
+      offerId: String(o._id), offerNo: o.number,
+      header: { orderNo, productionNo, customer: o.customer, companyId: String(o.companyId), companyName: companyName ?? '', title: `По ${o.number}`, stage: 'new' as const },
+      lines: (o.items as Doc[]).map((i) => ({
+        productId: i.productId ? String(i.productId) : null, title: i.productName, qty: i.quantity, unit: i.unit || 'шт', color: i.color ?? null, size: i.size ?? null,
+      })),
+    };
+  }
+
+  async createOrder(id: string, dto: OfferCreateOrderDto, user: AuthenticatedUser) {
+    const o = await this.find(id);
+    this.assertOrderFromOffer(o);
+    const draft = await this.toOrder(id);
+    const orderNo = clean(dto.orderNo) || draft.header.orderNo;
+    const productionNo = clean(dto.productionNo) || draft.header.productionNo;
+    const uid = `offer-order-${String(o._id)}`;
+    const head = await this.salesOrders.create({
+      orderNo, productionNo, customer: o.customer, companyId: String(o.companyId), title: draft.header.title,
+      stage: 'new', paymentForm: 'б/р', requireFields: true, clientUid: uid,
+      offerId: String(o._id), offerNo: String(o.number),
+    }, user?.id);
+    const orderId = head.id as string;
+    let n = 0;
+    for (const line of draft.lines) {
+      n += 1;
+      await this.incomes.create({
+        orderId, title: line.title, qty: line.qty, unit: line.unit, color: line.color ?? undefined, size: line.size ?? undefined,
+        productId: line.productId ?? undefined, lineNo: n, clientUid: `${uid}-line-${n}`,
+      }, user?.id, user);
+    }
+    await this.model.updateOne({ _id: o._id }, { $set: { orderId: oid(orderId, 'заказа') } }).exec();
+    const h = head as Doc;
+    return { orderId, productionNo: String(h.productionNo ?? productionNo), orderNo: String(h.orderNo ?? orderNo) };
   }
 
   private async companyName(id: unknown): Promise<string | null> {
@@ -113,7 +172,7 @@ export class OffersService {
     return this.present(doc.toObject() as unknown as Doc, await this.companyName(companyId));
   }
 
-  async update(id: string, dto: UpdateOfferDto) {
+  async update(id: string, dto: UpdateOfferDto, user?: AuthenticatedUser) {
     const cur = await this.find(id);
     checkEditable(cur.status);
     const set: Doc = {};
@@ -126,7 +185,10 @@ export class OffersService {
     for (const k of ['prepaymentPercent', 'productionDays', 'deliveryDays', 'bg1Id', 'bg2Id'] as const) if (dto[k] !== undefined) set[k] = dto[k] ?? null;
     if (dto.items !== undefined) { const m = this.mapItems(dto.items); set.items = m.items; set.total = m.total; }
     if (!Object.keys(set).length) throw new BadRequestException('Нечего менять');
-    await this.model.updateOne({ _id: cur._id }, { $set: set }).exec();
+    const versioned = ['sent', 'accepted'].includes(String(cur.status));
+    const upd: Doc = { $set: set };
+    if (versioned) upd.$push = { versions: { at: new Date(), by: user?.username, snapshot: this.snapshot(cur) } };
+    await this.model.updateOne({ _id: cur._id }, upd).exec();
     return this.get(id);
   }
 
@@ -188,4 +250,3 @@ export class OffersService {
     return { buf, filename: `КП-${String(o.number).replace(/^КП-?/, '').replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf` };
   }
 }
-

@@ -43,6 +43,12 @@ export class OfferStatusDto {
   @ApiProperty({ enum: OFFER_STATUSES }) @IsIn(OFFER_STATUSES as unknown as string[], { message: 'Неизвестный статус' }) status!: string;
 }
 
+/** Подтверждение заказа из КП (этап 2): номера можно переопределить. */
+export class OfferCreateOrderDto {
+  @ApiPropertyOptional({ description: '№ договора; по умолчанию — из номера КП' }) @IsOptional() @IsString() @MaxLength(50) orderNo?: string;
+  @ApiPropertyOptional({ description: '№ заказа на производство; по умолчанию — следующий свободный' }) @IsOptional() @IsString() @MaxLength(50) productionNo?: string;
+}
+
 export class UploadBackgroundDto {
   @ApiProperty() @IsString() @MaxLength(100) name!: string;
   @ApiProperty({ enum: [1, 2], description: '1 — первая страница, 2 — вторая и следующие' }) @Type(() => Number) @IsInt() @IsIn([1, 2], { message: 'Страница — 1 или 2' }) page!: number;

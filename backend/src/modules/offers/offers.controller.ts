@@ -8,7 +8,7 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CreateOfferDto, OfferStatusDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
+import { CreateOfferDto, OfferCreateOrderDto, OfferStatusDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
 import { BG_MAX_BYTES, BG_MIME, OfferBackgroundsService } from './offer-backgrounds.service';
 import { OffersService } from './offers.service';
 
@@ -71,8 +71,25 @@ export class OffersController {
   @Patch(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'offer.updated', entityType: 'CommercialOffer', idParam: 'id' })
-  update(@Param('id') id: string, @Body() dto: UpdateOfferDto) {
-    return this.offers.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateOfferDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.update(id, dto, user);
+  }
+
+  /** Черновик заказа из КП (без цен) — для проверки перед созданием. */
+  @Post(':id/to-order')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  toOrder(@Param('id') id: string) {
+    return this.offers.toOrder(id);
+  }
+
+  /** Создать договор и позиции из КП; повтор с тем же ключом не дублирует. */
+  @Post(':id/create-order')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.order.created', entityType: 'CommercialOffer', idParam: 'id' })
+  createOrder(@Param('id') id: string, @Body() dto: OfferCreateOrderDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.createOrder(id, dto, user);
   }
 
   /** Мягкое удаление. */

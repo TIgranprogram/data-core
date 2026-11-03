@@ -160,9 +160,19 @@ const setStatus = async (r, ctx, status) => {
   toast(`КП ${r.number}: ${STATUS[status].label}`);
   ctx.setRow(res?.id && res.items ? res : await api(`/offers/${r.id}`));
 };
+const makeOrder = async (r, ctx) => {
+  try {
+    const res = await api(`/offers/${r.id}/create-order`, { method: 'POST', body: {} });
+    toast(`Заказ: ${res.orderNo || '—'} · № ${res.productionNo || '—'}`);
+    ctx.setRow(await api(`/offers/${r.id}`));
+    if (res.orderId) go('salesorders', { open: res.orderId });
+  } catch (e) { toastError(e, 'создать заказ из КП'); }
+};
 const actions = (r) => {
   const to = (status, label, extra = {}) => ({ label, run: (row, ctx) => setStatus(row, ctx, status), ...extra });
   const out = [{ label: '⇩ Скачать PDF', run: (row) => pdf(row), primary: r.status === 'paid' || r.status === 'rejected' || r.status === 'cancelled' }];
+  if (r.orderId) out.unshift({ label: 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
+  else if (['accepted', 'paid'].includes(r.status)) out.push({ label: 'Сделать заказ', primary: r.status === 'accepted', run: (row, ctx) => makeOrder(row, ctx) });
   if (r.status === 'draft') out.push(to('sent', 'Отметить: отправлено клиенту', { primary: true }));
   if (r.status === 'sent') out.push(to('accepted', 'Отметить: принято клиентом', { primary: true }));
   if (r.status === 'accepted') out.push(to('paid', 'Отметить: оплачено', { primary: true }));
@@ -227,6 +237,8 @@ export const offers = {
       r.status === 'paid' ? h('p', { class: 'hint' }, 'КП оплачено — править его нельзя.') : null,
       r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
       r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
+      r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор без цен из строк КП.') : null,
+      r.orderId ? h('p', { class: 'hint' }, 'По этому КП уже есть заказ — откройте кнопкой «Открыть заказ».') : null,
       h('ol', { class: 'of-items' }, ...(r.items || []).map((l) => h('li', null,
         h('b', null, l.productName), h('span', { class: 'muted' }, [l.color, l.size].filter(Boolean).map((x) => ' · ' + x).join('')),
         h('div', { class: 'muted small' }, `${l.quantity} ${l.unit || 'шт'}${l.unitPrice ? ` × ${money(l.unitPrice)} = ${money(l.total ?? lineSum(l))}` : ' · цена не указана'}`))))),

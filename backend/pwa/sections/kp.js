@@ -28,7 +28,9 @@ export function kpAdd(r) {
   if (x) x.qty += 1;
   else a.push({
     id: r.id, sku: r.sku, name: r.name, price: r.price ?? 0, qty: 1,
-    unit: r.unit || 'шт', color: r.color || '', size: r.size || '',
+    unit: r.unit || 'шт',
+    color: r.color || (Array.isArray(r.colors) && r.colors[0]) || '',
+    size: r.size || (Array.isArray(r.sizes) && r.sizes[0]) || '',
     photoUrl: r.photo?.thumb || r.photo?.url || null,
   });
   save(a);
@@ -103,15 +105,23 @@ async function buildKpForm() {
     list.replaceChildren(...lines.map((l, i) => {
       const q = h('input', { inputmode: 'decimal', value: String(l.qty), 'aria-label': 'Количество' });
       const p = h('input', { inputmode: 'decimal', value: l.price ? String(l.price) : '', placeholder: 'цена', 'aria-label': 'Цена' });
+      const u = h('input', { value: l.unit || 'шт', maxlength: 20, 'aria-label': 'Единица' });
+      const c = h('input', { value: l.color || '', maxlength: 100, placeholder: 'цвет', 'aria-label': 'Цвет' });
+      const s = h('input', { value: l.size || '', maxlength: 100, placeholder: 'размер', 'aria-label': 'Размер' });
       q.addEventListener('input', () => { l.qty = parseNum(q.value) || 0; save(lines); paintTotal(); });
       p.addEventListener('input', () => { l.price = parseNum(p.value) || 0; save(lines); paintTotal(); });
+      u.addEventListener('input', () => { l.unit = u.value; save(lines); });
+      c.addEventListener('input', () => { l.color = c.value; save(lines); });
+      s.addEventListener('input', () => { l.size = s.value; save(lines); });
       return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('div', null, kitSku(l.sku))),
-        field('Кол-во', q), field('Цена, ₽', p),
+        field('Кол-во', q), field('Ед.', u), field('Цена, ₽', p), field('Цвет', c), field('Размер', s),
         h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать', onclick: () => { lines.splice(i, 1); render(); } }, '×'));
     }));
   };
   render();
-  const el = h('div', { class: 'kp-form' }, searchBox, list, total, h('div', { class: 'form-grid' }, field('Наша компания', company), field('Заказчик', custBox), field('Условия, примечание', note, 'wide')));
+  const el = h('div', { class: 'kp-form' },
+    h('p', { class: 'hint' }, 'Корзина КП хранится только в этом браузере (localStorage). На другом устройстве список будет пуст — перед созданием КП проверьте строки здесь.'),
+    searchBox, list, total, h('div', { class: 'form-grid' }, field('Наша компания', company), field('Заказчик', custBox), field('Условия, примечание', note, 'wide')));
   return {
     el, focus: () => customer.focus(), dirty: () => false,
     read: () => ({ values: { save: async () => {

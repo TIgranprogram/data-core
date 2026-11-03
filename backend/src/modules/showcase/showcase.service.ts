@@ -474,18 +474,30 @@ export class ShowcaseService {
     // сверка по тому же правилу, что и проверка дубля (регистр, похожие буквы): иначе «ab-1» при «AB-1» в базе шёл как новый и загрузка падала на 409
     const existing = rows.length ? await this.db.collection('products').find({ sku: { $in: rows.map((r) => skuRegex(r.sku)) } }, { projection: { sku: 1, name: 1, series: 1, listPrice: 1, orderName: 1, deletedAt: 1 } }).toArray() : [];
     const by = new Map(existing.map((e) => [skuKey(e.sku), e]));
+    const byName = new Map<string, Doc>();
+    for (const p of await this.db.collection('products').find({ deletedAt: null }, { projection: { sku: 1, name: 1, series: 1, listPrice: 1, orderName: 1 } }).toArray()) {
+      const k = productNameKey(String(p.name ?? ''));
+      if (k && !byName.has(k)) byName.set(k, p as Doc);
+    }
     const plan = rows.map((r) => {
-      const e = by.get(skuKey(r.sku));
+      let e = by.get(skuKey(r.sku));
+      let nameLink: string | undefined;
+      if (!e) {
+        const hit = byName.get(productNameKey(r.name));
+        if (hit && skuKey(hit.sku) !== skuKey(r.sku)) { e = hit; nameLink = String(hit._id); }
+      }
       const action = !e ? 'new' : e.deletedAt ? 'deleted' : (clean(e.name) !== r.name || (e.series ?? null) !== r.series || (r.orderName && clean(e.orderName) !== r.orderName) || (r.price && !(Number(e.listPrice) > 0))) ? 'update' : 'same';
-      return { ...r, action };
+      return { ...r, action, ...(nameLink ? { nameLink } : {}) };
     });
     const count = (a: string) => plan.filter((p) => p.action === a).length;
-    const report = { total: rows.length, new: count('new'), update: count('update'), same: count('same'), deleted: count('deleted'), errors, preview: plan.slice(0, 30) };
+    const preview = await Promise.all(plan.slice(0, 30).map(async (p) => ({ ...p, similar: p.action === 'new' ? await this.similar(p.name) : [] })));
+    const report = { total: rows.length, new: count('new'), update: count('update'), same: count('same'), deleted: count('deleted'), errors, preview };
     if (!apply) return { ...report, applied: false };
     for (const p of plan) {
       if (p.action === 'new') await this.create({ sku: p.sku, name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price ? { price: p.price } : {}), ...(p.orderName ? { orderName: p.orderName } : {}) });
       else if (p.action === 'update') {
-        const e = by.get(skuKey(p.sku))!;
+        const e = by.get(skuKey(p.sku)) ?? (p.nameLink ? await this.db.collection('products').findOne({ _id: oid(p.nameLink, 'изделия') }) : null);
+        if (!e) continue;
         await this.update(String(e._id), { name: p.name, series: p.series, type: p.type, group: p.group, ...(p.price && !(Number(e.listPrice) > 0) ? { price: p.price } : {}), ...(p.orderName ? { orderName: p.orderName } : {}) });
       }
     }
@@ -529,6 +541,8 @@ export class ShowcaseService {
       if (p.action === 'new') {
         if (chosen && !chosen.has(p.key)) continue; // не отмечено — позиции заказов остаются без изделия
         const name = chosen?.get(p.key) || p.name;
+        const dup = have.get(productNameKey(name));
+        if (dup) { productId = dup; await this.db.collection('incomes').updateMany({ _id: { $in: p.ids }, productId: null }, { $set: { productId } }); continue; }
         const description = p.description.length > name.length ? p.description : '';
         const group = groupOf.get(p.key) ?? '';
         try {

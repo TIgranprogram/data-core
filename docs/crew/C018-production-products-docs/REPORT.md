@@ -22,7 +22,7 @@
 
 Сделано S: в корзину/создание КП уходят `unit`, `color`, `size` из изделия.
 
-**Осталось (не в этой выкладке):** `POST /offers/:id/to-order`, версии после sent, приёмка PDF, дедуп массовых импортов.
+**Закрыто FIX-TZ-KP-AUDIT (2026-11-03):** to-order/create-order, versions[], dedup import/from-orders, UI «Сделать заказ», корзина КП, PRODUCT/MAP.
 
 ## Проверки
 

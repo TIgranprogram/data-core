@@ -67,6 +67,7 @@ export class SalesOrdersService {
       const stage = (d.stage as OrderStage) || 'new';
       return {
         ...d, id: String(d._id), _id: String(d._id),
+        offerId: d.offerId ? String(d.offerId) : null,
         companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
         stage, stageLabel: STAGE_LABELS[stage] ?? stage,
         lineCount: s?.lines ?? 0, unassignedCount: s?.unassigned ?? 0, amount: s?.amount ?? 0, paidAmount: s?.paid ?? 0,
@@ -315,6 +316,8 @@ export class SalesOrdersService {
       }
     }
     if (dto.priority !== undefined) f.priority = (dto.priority as OrderPriority | '') || undefined;
+    if (dto.offerId !== undefined) f.offerId = dto.offerId ? oid(dto.offerId, 'КП') : undefined;
+    if (dto.offerNo !== undefined) f.offerNo = String(dto.offerNo ?? '').trim() || undefined;
     let companyShort: string | null | undefined;
     if (dto.companyId || dto.companyName !== undefined) {
       const ours = await ourCompanies(this.connection);

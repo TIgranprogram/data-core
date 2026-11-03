@@ -32,6 +32,14 @@ export class OfferStatusEntry {
 }
 const OfferStatusEntrySchema = SchemaFactory.createForClass(OfferStatusEntry);
 
+@Schema({ _id: false })
+export class OfferVersion {
+  @Prop({ type: Date, required: true }) at!: Date;
+  @Prop({ type: String }) by?: string;
+  @Prop({ type: Object, required: true }) snapshot!: Record<string, unknown>;
+}
+const OfferVersionSchema = SchemaFactory.createForClass(OfferVersion);
+
 /**
  * Коммерческое предложение (КП-1). Только data-core: CRM-овские `quotations` не трогаем.
  * Номер — счётчик `CommercialOffer` («КП-…»), как у `POST /showcase/kp`.
@@ -58,6 +66,8 @@ export class CommercialOffer {
   @Prop({ type: String }) bg2Id?: string;
   /** Заказ, созданный из КП (этап 2). */
   @Prop({ type: Types.ObjectId }) orderId?: Types.ObjectId;
+  /** Снимки до правки после «Отправлено» / «Принято». */
+  @Prop({ type: [OfferVersionSchema], default: [] }) versions!: OfferVersion[];
   @Prop({ type: [OfferStatusEntrySchema], default: [] }) statusHistory!: OfferStatusEntry[];
   @Prop({ type: Date, default: null }) deletedAt?: Date | null;
   @Prop({ type: Date }) createdAt?: Date;
