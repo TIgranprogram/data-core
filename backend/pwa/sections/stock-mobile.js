@@ -14,7 +14,7 @@ import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
  * QR: кнопка «Сканировать QR» (mobile.scan) и вход по ссылке #stock-mobile?q=<код>.
  * Надёжность (DESIGN-MOBILE §2–3): запрос ≤ 15 с, ошибки шагов — с «Повторить», общий перехват ошибок экрана, справочники — кэш на сеанс.
  */
-const { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, done, error, scan, scanSupported } = mobile;
+const { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, error, scan, scanSupported } = mobile;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const call = (path, opts = {}) => api(path, { timeout: 15000, ...opts });
 const memo = new Map();
@@ -124,11 +124,13 @@ export const stockMobile = {
       const inCart = (it) => S.cart.filter((c) => c.item.id === it.id).reduce((a, c) => a + c.qty, 0);
       const setTarget = (target, where) => { S.target = target; S.where = where; lastIssue = { target: { ...target }, where }; };
       const afterTarget = () => { if (S.cart.length) stepCart(); else if (preset) { S.item = preset; stepQty(); } else stepItem(); };
+      /** Куда выдаём — только внизу (footHint), сверху длинный текст сдвигает список. */
+      const whereHint = () => (S.where || undefined);
       const stepItem = () => {
         const pick = (it) => { S.item = it; stepQty(); };
         const d = itemDrill(pick, scanBtn(pick, stepItem));
         show(screen({ title: 'Что выдаём?', step: { n: 2, of: 3 }, back: () => { if (!d.up()) (S.cart.length ? stepCart() : stepKind()); },
-          body: [S.where ? h('p', { class: 'm-empty' }, `Получатель: ${S.where}. Можно несколько позиций подряд.`) : null, d.el] }));
+          body: [d.el], footHint: whereHint() }));
       };
       const stepQty = (note) => {
         const it = S.item;
@@ -137,11 +139,18 @@ export const stockMobile = {
         const msg = h('div');
         if (note) msg.replaceChildren(note);
         const tooMany = (n) => { msg.replaceChildren(error(`На складе только ${fmt(it.quantity)} ${unitOf(it)}${inCart(it) ? `, из них ${fmt(inCart(it))} уже в списке` : ''}.`), bigButton({ label: 'Корректировать остаток', tone: 'neutral', onClick: () => correct(it, (fresh) => { if (fresh?.id) S.item = fresh; stepQty(); }) })); return n; };
-        show(screen({ title: it.name, step: { n: 2, of: 3 }, back: stepItem, body: [S.where ? h('p', { class: 'm-empty' }, S.where) : null, q.el, msg], foot: bigButton({ label: 'В список выдачи', onClick: () => {
+        show(screen({ title: it.name, step: { n: 2, of: 3 }, back: stepItem, body: [q.el, msg], footHint: whereHint(), foot: bigButton({ label: 'В список выдачи', onClick: () => {
           const n = q.value();
           if (!(n > 0)) { msg.replaceChildren(error('Впишите количество больше нуля.')); return; }
           if (n > left) { tooMany(n); return; }
-          S.cart.push({ item: it, qty: n }); stepCart();
+          S.cart.push({ item: it, qty: n });
+          // ещё сюда же или к выдаче списка; «другая позиция» — после выдачи
+          show(screen({ title: 'Добавлено', step: { n: 2, of: 3 }, back: stepCart, body: [
+            h('p', null, `${it.name} · ${fmt(n)} ${unitOf(it)}`),
+            h('p', { class: 'm-empty' }, 'Ещё материал в эту же позицию?'),
+            bigButton({ label: 'Да — ещё сюда', onClick: stepItem }),
+            bigButton({ label: 'Нет — к выдаче', tone: 'neutral', onClick: stepCart }),
+          ], footHint: whereHint() }));
         } }) }));
       };
       const stepKind = () => {
@@ -241,17 +250,18 @@ export const stockMobile = {
         show(screen({ title: 'Кому: отдел', step: { n: 1, of: 3 }, back: stepKind, body: [
           tiles({ items: [...deps.map((d) => ({ value: d, label: d.name })), { value: null, label: 'Все сотрудники' }], empty: 'Отделов нет — добавьте в «Справочники» → «Отделы»', onPick: (o) => pickPeople(o.value) })] }));
       };
-      /** Корзина: ещё позиции на того же; выдача одним запросом; после успеха — продолжить на того же. */
+      /** Корзина: ещё материалы на того же получателя; выдача одним запросом; после — «ещё в эту позицию?» */
       const stepCart = () => {
         const clientUid = uid();
         const msg = h('div');
         const items = S.cart.map((c, i) => ({ value: i, label: c.item.name, hint: `${fmt(c.qty)} ${unitOf(c.item)} · нажмите, чтобы убрать` }));
+        const toOrder = !!(S.target?.salesOrderId || S.target?.salesOrderLineId);
         show(screen({ title: 'К выдаче', step: { n: 3, of: 3 }, back: stepItem, body: [
-          h('p', null, S.where),
-          h('p', { class: 'm-empty' }, 'Все позиции из списка уйдут одному получателю. Добавляйте сколько нужно, потом «Выдать».'),
-          bigButton({ label: 'Сменить получателя', tone: 'neutral', size: 'sm', onClick: stepKind }),
+          bigButton({ label: toOrder ? 'Сменить позицию / заказ' : 'Сменить получателя', tone: 'neutral', size: 'sm', onClick: stepKind }),
           choice({ items, empty: 'Список пуст — добавьте позицию', onPick: (o) => { S.cart.splice(o.value, 1); if (S.cart.length) stepCart(); else stepItem(); } }),
-          bigButton({ label: 'Ещё позиция на этого же', tone: 'neutral', onClick: stepItem }), msg],
+          bigButton({ label: 'Ещё материал сюда же', tone: 'neutral', onClick: stepItem }),
+          msg],
+          footHint: whereHint(),
           foot: bigButton({ label: S.cart.length > 1 ? `Выдать всё (${S.cart.length} поз.)` : 'Выдать', onClick: async () => {
             if (!S.cart.length) { msg.replaceChildren(error('Добавьте хотя бы одну позицию.')); return; }
             msg.replaceChildren();
@@ -259,14 +269,23 @@ export const stockMobile = {
               await call('/stock/batch', { method: 'POST', body: { type: 'out', lines: S.cart.map((c) => ({ materialId: c.item.id, qty: c.qty })), clientUid, ...S.target } });
               const n = S.cart.length;
               const where = S.where;
-              lastIssue = { target: { ...S.target }, where };
+              const target = { ...S.target };
+              lastIssue = { target: { ...target }, where };
               S.cart = [];
               toast(n > 1 ? `Выдано позиций: ${n}` : 'Выдано', { ms: 2500 });
-              show(screen({ title: 'Готово', body: [done({
-                text: n > 1 ? `Выдано позиций: ${n}\n${where}` : `Выдано\n${where}`,
-                again: { label: 'Ещё на этого же', onClick: () => { S.target = { ...lastIssue.target }; S.where = lastIssue.where; stepItem(); } },
-                home: { label: 'На главный', onClick: home },
-              }), bigButton({ label: 'Другому получателю', tone: 'neutral', onClick: () => { S.target = null; S.where = ''; stepKind(); } })] }));
+              const againSame = () => { S.target = { ...target }; S.where = where; stepItem(); };
+              const otherPos = () => {
+                S.target = null; S.where = '';
+                if (toOrder) stepOrder();
+                else stepKind();
+              };
+              show(screen({ title: 'Готово', body: [
+                h('div', { class: 'm-done', role: 'status' }, n > 1 ? `Выдано позиций: ${n}` : 'Выдано'),
+                h('p', { class: 'm-empty' }, 'Ещё материал в эту же позицию?'),
+                bigButton({ label: 'Да — ещё сюда', onClick: againSame }),
+                bigButton({ label: toOrder ? 'Нет — другая позиция / заказ' : 'Нет — другой получатель', tone: 'neutral', onClick: otherPos }),
+                bigButton({ label: 'На главный', tone: 'ghost', onClick: home }),
+              ], footHint: where || undefined }));
             } catch (e) { msg.replaceChildren(failed(e)); }
           } }) }));
       };
