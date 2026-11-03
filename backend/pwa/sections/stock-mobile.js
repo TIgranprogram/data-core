@@ -13,13 +13,15 @@ import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
  * QR: кнопка «Сканировать QR» (mobile.scan) и вход по ссылке #stock-mobile?q=<код>.
  * Надёжность (DESIGN-MOBILE §2–3): запрос ≤ 15 с, ошибки шагов — с «Повторить», общий перехват ошибок экрана, справочники — кэш на сеанс.
  */
-const { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, error, scan, scanSupported } = mobile;
+const { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, done, error, scan, scanSupported } = mobile;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const call = (path, opts = {}) => api(path, { timeout: 15000, ...opts });
 const memo = new Map();
 /** Справочник один раз за сеанс (ключ учитывает склад); сбой кэш не запоминает. */
 const once = (key, load) => { if (!memo.has(key)) memo.set(key, load().catch((e) => { memo.delete(key); throw e; })); return memo.get(key); };
 const askedKey = () => 'dc-stock-zone-asked-' + (session.user?.id || 'u');
+/** Последний получатель выдачи в этой вкладке — чтобы не выбирать заказ снова. */
+let lastIssue = null; // { target, where }
 /** Стандарт в конце названия («…, DIN 603», «ГОСТ 7798-70») — вниз мелко; крупно остаётся название и размер. */
 export const splitStd = (name) => { const m = /,?\s*((?:DIN|ГОСТ|ISO|ОСТ|ТУ)\s*[\w.\-–]+)\s*$/i.exec(name || ''); return m ? { name: name.slice(0, m.index).trim(), std: m[1] } : { name: name || '', std: '' }; };
 /** Артикул для рабочего: внутренний код «СКЛ-…» не показываем (это не артикул, АР.1). */
@@ -94,12 +96,18 @@ export const stockMobile = {
         .map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: m.type === 'in' ? 'in' : 'out' }));
     };
 
-    // ---------- Выдача: кому (заказ и позиция заказа / производство) → позиции по одной (сколько) → список → выдать всё одной операцией ----------
+    // ---------- Выдача: кому → позиции в корзину (несколько на одного получателя) → одна операция; после успеха — «ещё на того же» ----------
     function issue(preset) {
-      const S = { cart: [] };
+      const S = { cart: [], ...(lastIssue ? { target: { ...lastIssue.target }, where: lastIssue.where } : {}) };
       const inCart = (it) => S.cart.filter((c) => c.item.id === it.id).reduce((a, c) => a + c.qty, 0);
+      const setTarget = (target, where) => { S.target = target; S.where = where; lastIssue = { target: { ...target }, where }; };
       const afterTarget = () => { if (S.cart.length) stepCart(); else if (preset) { S.item = preset; stepQty(); } else stepItem(); };
-      const stepItem = () => { const pick = (it) => { S.item = it; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Что выдаём?', step: { n: 2, of: 3 }, back: () => { if (!d.up()) (S.cart.length ? stepCart() : stepKind()); }, body: [d.el] })); };
+      const stepItem = () => {
+        const pick = (it) => { S.item = it; stepQty(); };
+        const d = itemDrill(pick, scanBtn(pick, stepItem));
+        show(screen({ title: 'Что выдаём?', step: { n: 2, of: 3 }, back: () => { if (!d.up()) (S.cart.length ? stepCart() : stepKind()); },
+          body: [S.where ? h('p', { class: 'm-empty' }, `Получатель: ${S.where}. Можно несколько позиций подряд.`) : null, d.el] }));
+      };
       const stepQty = (note) => {
         const it = S.item;
         const left = it.quantity - inCart(it);
@@ -107,29 +115,77 @@ export const stockMobile = {
         const msg = h('div');
         if (note) msg.replaceChildren(note);
         const tooMany = (n) => { msg.replaceChildren(error(`На складе только ${fmt(it.quantity)} ${unitOf(it)}${inCart(it) ? `, из них ${fmt(inCart(it))} уже в списке` : ''}.`), bigButton({ label: 'Корректировать остаток', tone: 'neutral', onClick: () => correct(it, (fresh) => { if (fresh?.id) S.item = fresh; stepQty(); }) })); return n; };
-        show(screen({ title: it.name, step: { n: 2, of: 3 }, back: stepItem, body: [q.el, msg], foot: bigButton({ label: 'Дальше', onClick: () => {
+        show(screen({ title: it.name, step: { n: 2, of: 3 }, back: stepItem, body: [S.where ? h('p', { class: 'm-empty' }, S.where) : null, q.el, msg], foot: bigButton({ label: 'В список выдачи', onClick: () => {
           const n = q.value();
           if (!(n > 0)) { msg.replaceChildren(error('Впишите количество больше нуля.')); return; }
           if (n > left) { tooMany(n); return; }
           S.cart.push({ item: it, qty: n }); stepCart();
         } }) }));
       };
-      const stepKind = () => show(screen({ title: 'Кому выдаём?', step: { n: 1, of: 3 }, back: () => (S.cart.length ? stepCart() : home()),
-        body: [choice({ items: [{ value: 'order', label: 'На заказ' }, { value: 'person', label: 'На производство' }], onPick: (o) => (o.value === 'order' ? stepOrder() : stepPerson()) })] }));
-      /** Заказ → его позиции: выдаём на точную позицию (salesOrderLineId, заказ сервер берёт из неё); без позиций — на весь заказ. */
-      const stepOrder = () => {
-        let orders = [];
-        const d = drill({ levels: [
-          { title: '', load: async () => { orders = await ordersLookup({ filter: 'active', lines: true }); return orders.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') })); } },
-          { title: '', load: async ([id]) => {
-            const o = orders.find((x) => x.id === id) || {};
-            const lines = (o.lines || []).map((l, i) => ({ value: { line: l.id, o }, label: `${l.seqNo ?? l.lineNo ?? i + 1}. ${String(l.title || 'Позиция').slice(0, 90)}` }));
-            return [...lines, { value: { line: null, o }, label: 'На весь заказ — без позиции' }];
-          } }], empty: 'Заказов в работе нет',
-          onPick: (it) => { const { line, o } = it.value; S.target = line ? { salesOrderLineId: line } : { salesOrderId: o.id }; S.where = `на заказ ${orderLabel(o)}${line ? ', поз. ' + it.label : ''}`; afterTarget(); } });
-        show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: () => { if (!d.up()) stepKind(); }, body: [d.el] }));
+      const stepKind = () => {
+        const body = [];
+        if (lastIssue?.where && !S.cart.length) {
+          body.push(bigButton({ label: `Снова: ${lastIssue.where}`, onClick: () => { setTarget({ ...lastIssue.target }, lastIssue.where); afterTarget(); } }));
+          body.push(h('p', { class: 'm-empty' }, 'Или выберите другого получателя:'));
+        }
+        body.push(choice({ items: [{ value: 'order', label: 'На заказ' }, { value: 'person', label: 'На производство' }], onPick: (o) => (o.value === 'order' ? stepOrder() : stepPerson()) }));
+        show(screen({ title: 'Кому выдаём?', step: { n: 1, of: 3 }, back: () => (S.cart.length ? stepCart() : home()), body }));
       };
-      /** Кому: сначала отдел (справочник «Отделы» — новый появится сам), затем его сотрудники (по видам работ: вид работ → отдел, ОТД-1); без фамилии — выдача в отдел (issuedTo). */
+      /** Заказ → позиции. Сверху — в работе; кнопка «Готовые к отгрузке» — stage=ready. Один заказ на всю корзину. */
+      const stepOrder = async () => {
+        show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
+        let orders = [];
+        try { orders = await ordersLookup({ filter: 'active', lines: true }); }
+        catch (e) { show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: stepKind, body: [failed(e, stepOrder)] })); return; }
+        const work = orders.filter((o) => o.stage !== 'ready');
+        const ready = orders.filter((o) => o.stage === 'ready');
+        const pickOrder = (o, line, lineLabel) => {
+          setTarget(line ? { salesOrderLineId: line } : { salesOrderId: o.id }, `на заказ ${orderLabel(o)}${line ? ', поз. ' + lineLabel : ''}`);
+          afterTarget();
+        };
+        /** Нет позиций / одна позиция — меньше нажатий; иначе список, «на весь заказ» сверху. */
+        const takeOrder = (o, back) => {
+          const lines = o.lines || [];
+          if (!lines.length) { pickOrder(o, null, ''); return; }
+          if (lines.length === 1) {
+            const l = lines[0];
+            const lab = `1. ${String(l.title || 'Позиция').slice(0, 90)}`;
+            show(screen({ title: orderLabel(o), step: { n: 1, of: 3 }, back, body: [
+              choice({ items: [
+                { value: { line: l.id, lab }, label: lab, hint: 'Единственная позиция заказа' },
+                { value: { line: null, lab: '' }, label: 'На весь заказ — без позиции' },
+              ], onPick: (it) => pickOrder(o, it.value.line, it.value.lab) })] }));
+            return;
+          }
+          openLines(o, back);
+        };
+        const linesOf = (o) => {
+          const whole = { value: { line: null, o, lab: '' }, label: 'На весь заказ — без позиции', hint: 'Все позиции склада уйдут на заказ целиком' };
+          const rows = (o.lines || []).map((l, i) => {
+            const lab = `${l.seqNo ?? l.lineNo ?? i + 1}. ${String(l.title || 'Позиция').slice(0, 90)}`;
+            return { value: { line: l.id, o, lab }, label: lab };
+          });
+          return [whole, ...rows];
+        };
+        const openLines = (o, back) => show(screen({ title: orderLabel(o), step: { n: 1, of: 3 }, back, body: [
+          choice({ items: linesOf(o), empty: 'Позиций нет', onPick: (it) => pickOrder(it.value.o, it.value.line, it.value.lab) })] }));
+        const openReady = () => show(screen({ title: 'Готовые к отгрузке', step: { n: 1, of: 3 }, back: paint, body: [
+          choice({ items: ready.map((o) => ({ value: o, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') || 'Готов к отгрузке' })),
+            empty: 'Готовых заказов нет', onPick: (it) => takeOrder(it.value, openReady) })] }));
+        const d = drill({ levels: [
+          { title: '', load: async () => work.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') })) },
+          { title: '', load: async ([id]) => linesOf(orders.find((x) => x.id === id) || {}) },
+        ], empty: 'Сейчас нет заказов в работе', onPick: (it) => pickOrder(it.value.o, it.value.line, it.value.lab) });
+        const paint = () => show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: () => { if (!d.up()) stepKind(); }, body: [
+          d.el,
+          ready.length
+            ? h('p', { class: 'm-empty' }, 'Уже готовы, но ещё нужна выдача со склада:')
+            : null,
+          bigButton({ label: ready.length ? `Готовые к отгрузке (${ready.length})` : 'Готовые к отгрузке', tone: 'neutral', onClick: openReady }),
+        ] }));
+        paint();
+      };
+      /** Кому: отдел → сотрудники; без фамилии — выдача в отдел. */
       const stepPerson = async () => {
         show(screen({ title: 'Кому: отдел', step: { n: 1, of: 3 }, back: stepKind, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
         let deps, wts, ppl;
@@ -142,32 +198,45 @@ export const stockMobile = {
         const pickPeople = (dep) => {
           const { own, list } = dep ? peopleOf(dep) : { own: true, list: all };
           show(screen({ title: dep?.name || 'Все сотрудники', step: { n: 1, of: 3 }, back: stepPerson, body: [
-            dep ? bigButton({ label: `Выдать в «${dep.name}» без фамилии`, tone: 'neutral', onClick: () => { S.target = { issuedTo: dep.name }; S.where = `в «${dep.name}»`; afterTarget(); } }) : null,
-            dep && !own ? h('p', { class: 'm-empty' }, h('small', null, 'В отделе пока никого: у видов работ не указан этот отдел. Показаны все сотрудники.')) : null,
-            choice({ items: list, empty: 'Сотрудников нет в справочнике', onPick: (o) => { S.target = { personId: o.value, ...(dep ? { issuedTo: dep.name } : {}) }; S.where = `${dep ? dep.name + ', ' : 'на производство, '}${o.label}`; afterTarget(); } })] }));
+            dep ? bigButton({ label: `Выдать в «${dep.name}» без фамилии`, tone: 'neutral', onClick: () => { setTarget({ issuedTo: dep.name }, `в «${dep.name}»`); afterTarget(); } }) : null,
+            dep && !own ? h('p', { class: 'm-empty' }, 'В отделе пока никого: у видов работ не указан этот отдел. Показаны все сотрудники.') : null,
+            choice({ items: list, empty: 'Сотрудников нет в справочнике', onPick: (o) => { setTarget({ personId: o.value, ...(dep ? { issuedTo: dep.name } : {}) }, `${dep ? dep.name + ', ' : 'на производство, '}${o.label}`); afterTarget(); } })] }));
         };
         show(screen({ title: 'Кому: отдел', step: { n: 1, of: 3 }, back: stepKind, body: [
           tiles({ items: [...deps.map((d) => ({ value: d, label: d.name })), { value: null, label: 'Все сотрудники' }], empty: 'Отделов нет — добавьте в «Справочники» → «Отделы»', onPick: (o) => pickPeople(o.value) })] }));
       };
-      /** Список к выдаче: «Добавить позицию» — ещё одна на того же получателя; «Убрать» — лишняя; «Выдать» — одна операция на всё (всё или ничего). */
+      /** Корзина: ещё позиции на того же; выдача одним запросом; после успеха — продолжить на того же. */
       const stepCart = () => {
-        const clientUid = uid(); // повтор после сбоя связи не задвоит выдачу
+        const clientUid = uid();
         const msg = h('div');
         const items = S.cart.map((c, i) => ({ value: i, label: c.item.name, hint: `${fmt(c.qty)} ${unitOf(c.item)} · нажмите, чтобы убрать` }));
-        show(screen({ title: 'Выдать?', step: { n: 3, of: 3 }, back: stepItem, body: [
-          h('p', null, S.where), bigButton({ label: 'Сменить получателя', tone: 'ghost', size: 'sm', onClick: stepKind }),
-          choice({ items, onPick: (o) => { S.cart.splice(o.value, 1); if (S.cart.length) stepCart(); else stepItem(); } }),
-          bigButton({ label: 'Добавить позицию', tone: 'neutral', onClick: stepItem }), msg],
+        show(screen({ title: 'К выдаче', step: { n: 3, of: 3 }, back: stepItem, body: [
+          h('p', null, S.where),
+          h('p', { class: 'm-empty' }, 'Все позиции из списка уйдут одному получателю. Добавляйте сколько нужно, потом «Выдать».'),
+          bigButton({ label: 'Сменить получателя', tone: 'neutral', size: 'sm', onClick: stepKind }),
+          choice({ items, empty: 'Список пуст — добавьте позицию', onPick: (o) => { S.cart.splice(o.value, 1); if (S.cart.length) stepCart(); else stepItem(); } }),
+          bigButton({ label: 'Ещё позиция на этого же', tone: 'neutral', onClick: stepItem }), msg],
           foot: bigButton({ label: S.cart.length > 1 ? `Выдать всё (${S.cart.length} поз.)` : 'Выдать', onClick: async () => {
+            if (!S.cart.length) { msg.replaceChildren(error('Добавьте хотя бы одну позицию.')); return; }
             msg.replaceChildren();
             try {
               await call('/stock/batch', { method: 'POST', body: { type: 'out', lines: S.cart.map((c) => ({ materialId: c.item.id, qty: c.qty })), clientUid, ...S.target } });
-              const c0 = S.cart[0];
-              toast(S.cart.length > 1 ? `Выдано позиций: ${S.cart.length} · ${S.where}` : `Выдано: ${c0.item.name} · ${fmt(c0.qty)} ${unitOf(c0.item)}`, { ms: 3000 }); home();
+              const n = S.cart.length;
+              const where = S.where;
+              lastIssue = { target: { ...S.target }, where };
+              S.cart = [];
+              toast(n > 1 ? `Выдано позиций: ${n}` : 'Выдано', { ms: 2500 });
+              show(screen({ title: 'Готово', body: [done({
+                text: n > 1 ? `Выдано позиций: ${n}\n${where}` : `Выдано\n${where}`,
+                again: { label: 'Ещё на этого же', onClick: () => { S.target = { ...lastIssue.target }; S.where = lastIssue.where; stepItem(); } },
+                home: { label: 'На главный', onClick: home },
+              }), bigButton({ label: 'Другому получателю', tone: 'neutral', onClick: () => { S.target = null; S.where = ''; stepKind(); } })] }));
             } catch (e) { msg.replaceChildren(failed(e)); }
           } }) }));
       };
-      stepKind();
+      if (preset && lastIssue?.where) { S.item = preset; stepQty(); }
+      else if (preset) stepKind();
+      else stepKind();
     }
 
     /** «Корректировать остаток»: фактический остаток цифровой панелью + дата; запись — пересчёт склада (POST /stock/batch type:count, как в «Остатках»). */

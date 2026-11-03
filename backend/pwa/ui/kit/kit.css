@@ -151,13 +151,14 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 }
 
 /* Семейство «mobile» (mobile.js): стандарт размеров — переменные ниже, менять только здесь */
-.m-screen { --m-font: 20px; --m-title: 28px; --m-btn-h: 64px; --m-field-h: 64px; --m-num: 40px; --m-gap: var(--s4); --m-pad: var(--s3);
+/* Полировка 2026-11-03: чуть плотнее (больше строк на экране), минимумы DESIGN-MOBILE сохранены (≥18/56/48). */
+.m-screen { --m-font: 18px; --m-title: 24px; --m-btn-h: 56px; --m-field-h: 56px; --m-num: 40px; --m-gap: var(--s3); --m-pad: var(--s3);
   display: flex; flex-direction: column; gap: var(--m-gap); max-width: 640px; margin: 0 auto; padding: var(--m-pad); font-size: var(--m-font); color: var(--text); }
 .m-head { display: flex; flex-direction: column; gap: var(--s3); }
 .m-head h1 { font-size: var(--m-title); line-height: 1.2; margin: 0; }
 .m-step { font-size: var(--m-font); font-weight: 700; color: var(--muted); }
 .m-btn { width: 100%; min-height: var(--m-btn-h); height: auto; font-size: calc(var(--m-font) + 2px); font-weight: 700; padding: var(--s3); white-space: normal; }
-.m-primary { background: var(--primary); border-color: var(--primary); color: var(--surface); }
+.m-primary { min-height: 64px; background: var(--primary); border-color: var(--primary); color: var(--surface); } /* главная — не ниже DESIGN-MOBILE */
 .m-danger { border-color: var(--danger); color: var(--danger); }
 .m-choice, .m-results, .m-search { display: flex; flex-direction: column; gap: var(--s3); }
 .m-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); width: 100%; min-height: var(--m-btn-h); padding: var(--s3); text-align: left; font: inherit; font-size: var(--m-font); color: var(--text); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
@@ -178,7 +179,7 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-text-box { display: flex; flex-direction: column; gap: var(--s2); }
 .m-screen .m-text { width: 100%; min-height: 140px; padding: var(--s3); font-size: var(--m-font); line-height: 1.3; resize: none; border-width: 2px; }
 .m-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); }
-.m-keys .m-btn { padding: 0; font-size: 28px; }
+.m-keys .m-btn { padding: 0; font-size: 28px; min-height: 64px; } /* −/+ количества — DESIGN-MOBILE §4 ≥64 */
 .m-drill { display: flex; flex-direction: column; gap: var(--s3); }
 .m-sub { font-size: calc(var(--m-font) + 2px); margin: 0; }
 .m-letters { display: flex; flex-wrap: wrap; gap: var(--s3); }
@@ -206,8 +207,8 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-chip { align-items: center; text-align: center; justify-content: center; }
 .m-date { display: flex; flex-direction: column; gap: var(--s3); }
 .m-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); min-width: 0; } .m-tile { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
-.m-tile { display: flex; flex-direction: column; align-items: center; gap: var(--s2); min-height: 140px; padding: var(--s3); font: inherit; font-size: var(--m-font); color: var(--text); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
-.m-tile-art { display: block; width: 100%; max-width: 120px; aspect-ratio: 140 / 82; background: var(--paper); border-radius: var(--radius-sm); }
+.m-tile { display: flex; flex-direction: column; align-items: center; gap: var(--s2); min-height: 112px; padding: var(--s2) var(--s3); font: inherit; font-size: var(--m-font); color: var(--text); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
+.m-tile-art { display: block; width: 100%; max-width: 96px; aspect-ratio: 140 / 82; background: var(--paper); border-radius: var(--radius-sm); }
 .m-tile-art svg { width: 100%; height: 100%; display: block; }
 .m-feed { display: flex; flex-direction: column; gap: var(--s2); }
 .m-fi { display: grid; grid-template-columns: auto 1fr auto; gap: var(--s3); align-items: baseline; padding: var(--s2) var(--s3); font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }

@@ -875,6 +875,7 @@
   // Минимальные наборы: одним нажатием ставят самый маленький рабочий комплект.
   const ROLE_PRESETS = [
     { name: 'Кладовщик на телефоне', sections: ['stock-mobile'], zone: true, base: 'manager' },
+    { name: 'Кладовщик плит (телефон)', sections: ['stock-mobile'], zone: true, zoneRe: /плит/i, base: 'manager' },
     { name: 'Кладовщик', sections: ['home', 'stock', 'requests'], zone: true, base: 'manager' },
     { name: 'Менеджер', sections: ['home', 'requests', 'suppliercatalog', 'stock', 'salesorders', 'partners', 'products', 'docs', 'work'], base: 'manager' },
     { name: 'Проектировщик', sections: ['home', 'design', 'salesorders', 'products', 'docs'], base: 'manager' },
@@ -959,9 +960,11 @@
       });
       return out;
     }
-    const pickZone = () => {
+    const pickZone = (re) => {
       const all = [...zoneBox.querySelectorAll('input')];
-      return all.find((c) => /основн/i.test(c.nextSibling?.textContent || '')) || all[0];
+      const label = (c) => c.nextSibling?.textContent || '';
+      if (re) { const hit = all.find((c) => re.test(label(c))); if (hit) return hit; }
+      return all.find((c) => /основн/i.test(label(c))) || all[0];
     };
     function refresh() {
       Object.values(cells).forEach((c) => c.querySelector('.rl-need')?.remove());
@@ -986,7 +989,7 @@
     }
     function apply(p, btn) {
       box.querySelectorAll('input').forEach((c) => { c.checked = p.sections.includes(c.value); });
-      if (zoneBox) { zoneBox.querySelectorAll('input').forEach((c) => { c.checked = false; }); if (p.zone) { const z = pickZone(); if (z) z.checked = true; } }
+      if (zoneBox) { zoneBox.querySelectorAll('input').forEach((c) => { c.checked = false; }); if (p.zone) { const z = pickZone(p.zoneRe); if (z) z.checked = true; } }
       if (base && p.base) base.value = p.base;
       if (p.money && !money.disabled) money.checked = true;
       pBtns.forEach((b) => b.classList.toggle('active', b === btn));

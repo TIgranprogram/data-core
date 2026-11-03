@@ -1,6 +1,7 @@
 # Карта роли designer
 
-коммит: b0b3298 + вкладка «Серверы» (control-switch.js/css, admin.js:338), полоса write-retry (main.js:263–270, api.js)
+коммит: (после mobile+плиты) мобильный склад принят 03.11: kit.css m-keys ≥64, подсказки без small; stock-mobile — готовые заказы, корзина «ещё на этого же», экран «Готово». Снимка стенда нет — глазами у пользователя.
+- Мобильный склад (приёмка 03.11): kit.css:155–166,182; stock-mobile.js выдача/корзина/готовые; DESIGN-MOBILE §2/§4. design-lint 0.
 - Панель счёта invoice-workspace (принято по коду 03.11 C005, стенд — DESIGNER.md): sections/invoice-workspace.js:59–85 (readonlyGroup + section + table), invoice-workspace-forms.js; ui/kit/readonly.js + kit.css:233–241; входы requests.js:295,338, invoices-tab.js:49–52, board.js:170–181; fixture invoice-workspace.*
 - Корректировка оплаченной позиции счёта (принято 03.11, второй review, без нового commit): backend/pwa/sections/invoices-tab.js:39–47 — openCard и четыре поля widget в правой панели; :29–38,55–58 — взаимный пересчёт и сохранение точной суммы; :51–54 — проверки количества, суммы и причины. Визуальные якоря: .work/previews/invoice-price-375.png, invoice-price-1280.png; итог .work/reviews/designer-final.md.
 - Каталог поставщиков + крошки + вкладки счетов (аудит 28.10): ТЗ docs/roles/tz/SUPPLIER-CATALOG-UX.md; supplier-catalog.js:55–95,220–240, requests-tabs.js:16–20, invoices-tab.js:93, screens.css:1236–1239,1304–1310, main.js:90–96,188–193.

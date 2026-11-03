@@ -14,9 +14,12 @@
 | C005 | Cursor | M | Smoke + VM-тесты панели (Node 20) | smoke+VM pass; браузер ещё нет |
 | C005b | — | M | Браузер+дизайнер панели счетов в worktree | next |
 | C006 | Cursor | S | Вердикт Nightshift vs Пульт: GUI не доделываем | done |
+| C007 | Cursor | M | Выдача на готовые заказы + несколько позиций на один заказ (телефон) | done |
+| C008 | Cursor | M | Склад «Плитные материалы» + роль «Кладовщик плит (телефон)» | done |
 
 Worktree счетов: `D:\data-core\.manus\worktrees\soorwu5tl3w6zui0j26jlr`  
-Отчёт: `docs/crew/C004-invoice-workspace-wip/`
+Отчёт: `docs/crew/C004-invoice-workspace-wip/`  
+C004/C005b — панель счетов уже в main (13c496fa).
 
 ## Очередь после приёмки C001/C002
 
