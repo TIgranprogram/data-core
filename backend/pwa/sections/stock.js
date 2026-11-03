@@ -343,11 +343,15 @@ export const stock = {
     update: async (id, body) => {
       const { photoIds, passportSpec, ...rest } = body;
       let r = await api(`/stock/items/${id}`, { method: 'PATCH', body: rest });
-      await savePassportSpec(id, passportSpec);
-      const have = new Set((r.photos || []).map((p) => p.id));
-      for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });
-      for (const p of have) if (photoIds && !photoIds.includes(p)) r = await api(`/stock/items/${id}/photos/${p}`, { method: 'DELETE' });
-      if (photoIds?.[0] && r.photos?.[0]?.id !== photoIds[0]) r = await api(`/stock/items/${id}/photos/${photoIds[0]}/main`, { method: 'PUT' }); // ★ в форме
+      // Название уже записано — сбой паспорта/фото не должен выглядеть как «ничего не сохранилось».
+      try { await savePassportSpec(id, passportSpec); }
+      catch (e) { toast(`Название сохранено. Блок «Для паспорта» не записался: ${errText(e)}. Откройте карточку снова.`, { error: true }); }
+      try {
+        const have = new Set((r.photos || []).map((p) => p.id));
+        for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });
+        for (const p of have) if (photoIds && !photoIds.includes(p)) r = await api(`/stock/items/${id}/photos/${p}`, { method: 'DELETE' });
+        if (photoIds?.[0] && r.photos?.[0]?.id !== photoIds[0]) r = await api(`/stock/items/${id}/photos/${photoIds[0]}/main`, { method: 'PUT' }); // ★ в форме
+      } catch (e) { toast(`Название сохранено. Фото не обновились: ${errText(e)}. Добавьте фото в карточке.`, { error: true }); }
       lookups.reset(); return r;
     },
   },

@@ -48,10 +48,11 @@ export const pipeParts = (v) => {
 };
 /** Подпись значения: без лишних слов — «80×80×3 6м», «Ø57×3,5 12м», лист «3 мм». */
 export const facetLabel = (key, v) => {
-  if (key === 'section') return String(v).replace(/^(Труба|Лист)\s+/i, '');
+  if (key === 'section') return String(v ?? '').replace(/^(Труба|Лист)\s+/i, '');
   if (key !== 'pipe') return v;
   const { section, len } = pipeParts(v);
-  const label = section.replace(/^Труба\s+/i, '').replace(/\s*\(.*\)$/, '');
+  // section может быть пустым у старого адреса фильтра — не звать .replace у undefined (ошибка «для разбора» на складе).
+  const label = String(section ?? '').replace(/^Труба\s+/i, '').replace(/\s*\(.*\)$/, '');
   return label ? `${label} ${len ? len / 1000 + 'м' : 'куски'}` : 'Сечение не указано';
 };
 const sizes = (v) => (String(v).match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(',', '.')));
