@@ -611,7 +611,7 @@ export const salesorder = {
     stats: (r) => [['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
       ['№ заказа', r.productionNo || h('span', { class: 'muted' }, 'нет №')],
-      ...(r.offerId || r.offerNo ? [['Из КП', r.offerNo ? h('button', { type: 'button', class: 'btn-link', onclick: () => go('offers', { open: r.offerId }) }, r.offerNo) : '—']] : []),
+      ...(r.offerId || r.offerNo ? [['Из КП', r.offerNo ? h('button', { type: 'button', class: 'link-btn', onclick: () => go('offers', { open: r.offerId }) }, r.offerNo) : '—']] : []),
       ['Заказчик', customerLink(r.customer)],
       ['Предмет', r.title],
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],
