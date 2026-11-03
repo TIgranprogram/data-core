@@ -10,7 +10,9 @@
  * Категории плит убирает из «Основной», чтобы другие кладовщики их не видели.
  * Прод — только по решению пользователя.
  */
-const { MongoClient, ObjectId } = require('mongodb');
+const path = require('path');
+const mongoose = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] }));
+const { MongoClient, ObjectId } = mongoose.mongo;
 
 const ZONE = 'Плитные материалы';
 const ROLE = 'Кладовщик плит (телефон)';
@@ -27,8 +29,7 @@ async function main() {
   const uri = process.env.MONGO_URI;
   if (!uri) { console.error('Нужен MONGO_URI'); process.exit(2); }
   const dbName = process.env.MONGO_DB || 'datacore';
-  const client = new MongoClient(uri, { ignoreUndefined: true });
-  await client.connect();
+  const client = await MongoClient.connect(uri, { ignoreUndefined: true });
   const db = client.db(dbName);
   const cats = db.collection('categories');
   const zones = db.collection('stockzones');
