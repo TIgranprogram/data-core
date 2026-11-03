@@ -46,7 +46,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const n = h('span', { class: 'n' }, '…');
     const sum = h('span', { class: 'col-sum num', hidden: true });
     const body = h('div', { class: 'col-body' }, h('div', { class: 'skel', style: { margin: '8px 4px' } }));
-    const tog = board.group ? iconButton({ icon: '⇕', size: 'S', label: 'Раскрыть все группы', cls: 'col-fold', onClick: () => foldAll(me) }) : null;
+    const tog = board.group ? iconButton({ icon: '⇕', size: 'S', label: 'Раскрыть все группы', cls: 'col-fold', onClick: (e) => { e?.stopPropagation?.(); foldAll(me); } }) : null;
     if (tog) tog.hidden = true;
     const all = c.multi && canMove ? link({ cls: 'col-all', title: 'Отметить все карточки колонки', onClick: () => pickAll(me), label: 'Выбрать все' }) : null;
     const col = h('section', { class: 'col tone-' + (c.tone || 'dim'), 'aria-label': c.label, dataset: { key: c.key } },
@@ -102,26 +102,31 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   }
 
   // только последний ответ (ПО.2): быстрый поиск-стирание — старый медленный ответ не затирает новый
-  // раскрыта ли группа: запомненное выбором (prefs, на доску) важнее groupOpen
-  const prefKey = ('bgrp:' + (board.prefKey || board.cls || path)).replace(/[^A-Za-z0-9_:-]/g, '_').slice(0, 80); // сервер принимает только латиницу, цифры, _ : -
+  // раскрыта ли группа: ключ prefs = «колонка:группа», чтобы ⇕ в одной колонке не закрывал другие
+  const prefKey = ('bgrp:' + (board.prefKey || board.cls || path)).replace(/[^A-Za-z0-9_:-]/g, '_').slice(0, 80);
   let gstate = {};
   try { gstate = JSON.parse(getPref(prefKey) || '{}') || {}; } catch { gstate = {}; }
-  const isOpen = (k) => (k in gstate ? !!gstate[k] : !!board.groupOpen);
-  const setOpen = (k, on) => {
-    gstate[k] = on ? 1 : 0;
-    try { const ks = Object.keys(gstate); if (ks.length > 150) delete gstate[ks[0]]; setPref(prefKey, JSON.stringify(gstate)); } catch { /* не запомнили — не страшно */ }
+  const gid = (colKey, k) => `${colKey}:${k}`;
+  const isOpen = (colKey, k) => { const id = gid(colKey, k); return id in gstate ? !!gstate[id] : !!board.groupOpen; };
+  const setOpen = (colKey, k, on) => {
+    gstate[gid(colKey, k)] = on ? 1 : 0;
+    try { const ks = Object.keys(gstate); if (ks.length > 200) delete gstate[ks[0]]; setPref(prefKey, JSON.stringify(gstate)); } catch { /* не запомнили */ }
   };
-  /** Шапка колонки: «Раскрыть все / Свернуть все» для групп этой колонки. */
+  /** Шапка колонки: «Раскрыть все / Свернуть все» — только группы этой колонки. */
   function foldAll(col) {
-    const on = !col.gkeys.every((k) => isOpen(k));
-    col.gkeys.forEach((k) => setOpen(k, on));
-    col.gpaints.forEach((f) => f());
+    const keys = col.gkeys || [];
+    if (!keys.length) return;
+    const ck = col.c.key;
+    const on = !keys.every((k) => isOpen(ck, k));
+    keys.forEach((k) => setOpen(ck, k, on));
+    (col.gpaints || []).forEach((f) => f());
     syncTog(col);
   }
   function syncTog(col) {
     if (!col.tog) return;
     col.tog.hidden = !col.gkeys?.length;
-    const all = col.gkeys?.length && col.gkeys.every((k) => isOpen(k));
+    const ck = col.c.key;
+    const all = col.gkeys?.length && col.gkeys.every((k) => isOpen(ck, k));
     col.tog.title = col.tog.ariaLabel = all ? 'Свернуть все группы' : 'Раскрыть все группы';
     col.tog.setAttribute('aria-label', col.tog.title);
   }
@@ -168,14 +173,15 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   }
   /** Карточка группы (счёт): клик по корпусу ▸/▾ раскрывает позиции; № счёта — отдельный чип (открыть счёт), не ссылка в тексте. */
   function groupCard(k, g, rs, cards, col) {
+    const ck = col.c.key;
     let sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
-    if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0)); // у позиций нет цен — сумма самого счёта
+    if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0));
     const body = h('div', { class: 'db-lines b-glines' });
     const chev = h('span', { class: 'db-chev', 'aria-hidden': 'true' }, '▸');
     const invChip = g.open
       ? quiet(typeof g.open === 'object' && g.open.href
-        ? h('a', { class: 'btn btn-ghost btn-sm db-inv-chip', href: g.open.href, title: 'Открыть счёт' }, g.label)
-        : h('button', { type: 'button', class: 'btn btn-ghost btn-sm db-inv-chip', title: 'Открыть счёт', onclick: () => g.open() }, g.label))
+        ? h('a', { class: 'btn btn-ghost btn-sm db-inv-chip', href: g.open.href, title: 'Открыть заказ' }, g.label)
+        : h('button', { type: 'button', class: 'btn btn-ghost btn-sm db-inv-chip', title: 'Открыть', onclick: () => g.open() }, g.label))
       : h('span', { class: 'db-inv-chip is-static' }, g.label);
     const card = paintOrder(h('article', {
       class: 'db-order k-gfold',
@@ -193,7 +199,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
         sum && session.canMoney ? h('span', { class: 'db-cnt num' }, money(sum)) : null),
       body), k);
     const paint = () => {
-      const open = isOpen(k);
+      const open = isOpen(ck, k);
       card.classList.toggle('open', open);
       card.setAttribute('aria-expanded', String(open));
       card.setAttribute('aria-label', `${open ? 'Скрыть' : 'Показать'} позиции: ${g.label}`);
@@ -201,7 +207,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       body.hidden = !open;
       body.replaceChildren(...(open ? cards() : []));
     };
-    const toggle = () => { setOpen(k, !isOpen(k)); paint(); syncTog(col); };
+    const toggle = () => { setOpen(ck, k, !isOpen(ck, k)); paint(); syncTog(col); };
     col.gpaints.push(paint);
     paint();
     return card;

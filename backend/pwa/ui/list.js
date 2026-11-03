@@ -81,7 +81,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
   const btnTable = h('button', { type: 'button', onclick: () => { saveView(L.board?.default || L.gallery?.default ? 'table' : ''); patch({ view: 'table', page: undefined }); } }, icon('table'), L.gantt ? 'Список' : 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
-  const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: 'board', page: undefined, status: undefined }); } }, icon('board'), 'Доска');
+  // доска заказов: сбрасываем filter=active — иначе колонки «Отгружен» пустые (active ∩ shipped = ∅) и кажется, что доска «не работает»
+  const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: 'board', page: undefined, status: undefined, filter: L.path === '/production-orders' ? 'all' : undefined }); } }, icon('board'), 'Доска');
   const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
   const btnGantt = L.gantt ? h('button', { type: 'button', onclick: () => { saveView('gantt'); patch({ view: 'gantt', page: undefined }); } }, 'Гант') : null;
   const viewSwitch = L.board || L.gallery || L.gantt ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null, btnGantt) : null;
@@ -391,6 +392,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       const v = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
       if (v && v !== 'all' && !(isBoard && f.key === 'status')) query[f.key] = v;
     }
+    // доска заказов сама режет по stage колонки; filter=active обнуляет «Отгружен» и тяжелит 5× list
+    if (isBoard && L.path === '/production-orders' && query.filter && query.filter !== 'all') delete query.filter;
     return query;
   }
   async function load() {

@@ -242,7 +242,22 @@ export const work = {
       default: true,
       mount: mountWorkBoard,
       headCount: true,
+      prefKey: 'work',
       cls: 'board-pics',
+      // свёрнуто по умолчанию: в колонках видны заказы; ▸ раскрывает позиции (как доска проектирования)
+      groupOpen: false,
+      group: (r) => {
+        const id = r.orderId || r.productionNo;
+        if (!id) return null;
+        const no = clean(r.productionNo);
+        return {
+          key: String(id),
+          label: no ? '№ ' + no : 'Заказ',
+          sub: clean(r.customer),
+          // open.href → группа даже из одной позиции + чип ведёт в заказ
+          open: { href: '#salesorders?open=' + encodeURIComponent(no || String(r.orderId || '')) },
+        };
+      },
       columns: [], // собираются по ответу сервера (mountWorkBoard)
       card: (r, c) => ({ body: boardBody(r, c) }),
       canDrop: (r, key) => canGo(r, key),

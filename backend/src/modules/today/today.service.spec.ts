@@ -47,8 +47,22 @@ describe('TodayService', () => {
 
   it('счётчики меню: все разделы админу; без денег — нет «ждём оплату»', async () => {
     const { svc } = make();
-    expect(await svc.counters({ role: 'admin' })).toEqual({ requests: 0, stockLow: 3, awaiting: 0, salesorders: 0, design: 0, work: 0 });
+    // в make() один salesorder без stage → «new» → 1 активный заказ производства
+    expect(await svc.counters({ role: 'admin' })).toEqual({ requests: 0, stockLow: 3, awaiting: 0, salesorders: 1, design: 0, work: 0 });
     expect(await svc.counters({ role: 'user' })).not.toHaveProperty('awaiting');
+  });
+
+  it('счётчик Заказов — группы производства в active, не число договоров', async () => {
+    const oid = () => new Types.ObjectId();
+    const a = oid(), b = oid(), c = oid();
+    const svc = new TodayService(fakeDb({
+      salesorders: [
+        { _id: a, productionNo: '21-26', stage: 'production' },
+        { _id: b, productionNo: '21-26', stage: 'new' }, // один заказ, два договора
+        { _id: c, productionNo: '22-26', stage: 'shipped' }, // не active
+      ],
+    }), { forecast: jest.fn() } as never, { listItems: jest.fn().mockResolvedValue({ counts: { ok: 0, low: 0, none: 0 } }) } as never);
+    expect((await svc.counters({ role: 'admin' })).salesorders).toBe(1);
   });
 
   it('неверный горизонт — 400', async () => {

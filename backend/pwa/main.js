@@ -347,9 +347,9 @@ async function refreshCounts(only) {
     } catch (e) { if (e?.status === 404) noCounters = true; /* иное — пробуем по-старому */ }
   }
   try {
-    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('money', '/incomes'), get('salesorders', '/salesorders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
+    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('money', '/incomes'), get('salesorders', '/production-orders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
     if (o) set('money', o.counts?.awaiting || 0); // «ждём оплату» — на пункте «Платёжный календарь»
-    if (so) set('salesorders', so.counts?.active || 0);
+    if (so) set('salesorders', so.counts?.active || 0); // заказы производства, не договоры
     if (dz) set('design', (dz.counts?.queue || 0) + (dz.counts?.work || 0));
     if (wk) set('work', (wk.counts?.waiting || 0) + (wk.counts?.work || 0));
     if (r) { const c = r.counts || {}; set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0)); }

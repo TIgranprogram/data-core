@@ -92,11 +92,31 @@ export class TodayService {
       see('requests') && count('supplyrequests', { status: { $in: ['requested', 'in_progress', 'ordered', null] } }).then((n) => { out.requests = n; }),
       see('stock') && this.stockCounts().then((c) => { out.stockLow = c.low + c.none; }),
       see('money') && canSeeMoney(user) && count('incomes', { cancelledAt: null, paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } }).then((n) => { out.awaiting = n; }),
-      see('salesorders') && count('salesorders', { stage: { $in: [...ACTIVE_STAGES, null] } }).then((n) => { out.salesorders = n; }),
+      // как чип «В работе» на доске заказов: число заказов производства (группы), не договоров
+      see('salesorders') && this.activeProductionCount(db).then((n) => { out.salesorders = n; }),
       see('design') && count('designtasks', { status: { $in: ['queue', 'work'] } }).then((n) => { out.design = n; }),
       see('work') && count('worktasks', { status: { $in: ['waiting', 'work'] } }).then((n) => { out.work = n; }),
     ]);
     return out;
+  }
+
+  /** Заказы в активных этапах (new…partly) по самому отстающему договору группы — как GET /production-orders counts.active. */
+  private async activeProductionCount(db: NonNullable<Connection['db']>) {
+    const rows = await db.collection('salesorders').find(
+      { deletedAt: null, stage: { $nin: ['cancelled'] } },
+      { projection: { productionNo: 1, stage: 1 } },
+    ).toArray();
+    const rank = (s: string) => { const i = (ACTIVE_STAGES as readonly string[]).indexOf(s); return i < 0 ? 99 : i; };
+    const by = new Map<string, string>();
+    for (const d of rows) {
+      const key = String(d.productionNo ?? '').trim() || String(d._id);
+      const st = String(d.stage || 'new');
+      const prev = by.get(key);
+      if (prev === undefined || rank(st) < rank(prev)) by.set(key, st);
+    }
+    let n = 0;
+    for (const st of by.values()) if ((ACTIVE_STAGES as readonly string[]).includes(st)) n++;
+    return n;
   }
 
   private async supply(db: NonNullable<Connection['db']>, upto: Date) {

@@ -13,7 +13,7 @@ import { savePd, products, PD_KEYS } from './products.js';
 import { passportKindDrop } from './product-files.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, empty as kitEmpty, crumbTail } from '../ui/kit/index.js';
+import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, crumbTail } from '../ui/kit/index.js';
 
 
 /*
@@ -239,19 +239,12 @@ export const passarchive = {
 
 // ─── экран ────────────────────────────────────────────────────────────────────────────────────────────
 /** Параметры внутреннего списка: без вкладки и панели справа, иначе открытие карточки перезагружало бы список. */
-const listParams = (p) => { const { tab, sec, of, ...rest } = p; return rest; };
+const listParams = (p) => { const { tab, sec, of, ...rest } = p; return rest; }; // sec — устаревший адрес заглушек
 
-const SECS = [['passports', 'Паспорта'], ['acts', 'Акты'], ['waybills', 'Накладные'], ['certs', 'Сертификаты']];
-const SEC_EMPTY = {
-  acts: ['Акты появятся здесь', 'Приёмка, монтаж, выполненные работы.'],
-  waybills: ['Накладные появятся здесь', 'Отгрузочные накладные по заказам. Пока отгрузку можно оформить в карточке заказа.'],
-  certs: ['Сертификаты появятся здесь', 'Сертификаты на материалы и изделия.'],
-};
-const secOf = (p) => (SEC_EMPTY[p.sec] ? p.sec : 'passports');
+// Только паспорта: заглушки «Акты / Накладные / Сертификаты» убраны (нет API, путали меню)
 const TAB_NAME = Object.fromEntries(TABS);
 
 export function mountDocs(params, { onChanged } = {}) {
-  let sec = secOf(params);
   let tab = tabOf(params);
   let inner = null;
   const seg = h('div');
@@ -259,16 +252,13 @@ export function mountDocs(params, { onChanged } = {}) {
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg), body);
 
   const drawTabs = () => {
-    const nodes = [kitTabs({ label: 'Разделы документации', items: SECS.map(([key, label]) => ({ key, label })), value: sec, onChange: (k) => { if (sec !== k) go('docs', k === 'passports' ? {} : { sec: k }, { replace: true }); } }).el];
-    if (sec === 'passports') nodes.push(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
-    seg.replaceChildren(...nodes);
-    crumbTail(sec === 'passports' ? 'Паспорта › ' + TAB_NAME[tab] : SECS.find(([k]) => k === sec)[1]);
+    seg.replaceChildren(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
+    crumbTail('Паспорта › ' + TAB_NAME[tab]);
   };
 
   function mountTab(p) {
     inner?.destroy?.();
     inner = null;
-    if (sec !== 'passports') { const [title, hint] = SEC_EMPTY[sec]; body.replaceChildren(kitEmpty({ title, hint })); drawTabs(); return; }
     if (tab === 'queue') { inner = mountQueueTab(p); body.replaceChildren(inner.el); drawTabs(); return; }
     if (tab === 'orders') { inner = mountOrdersTab(p, { onChanged }); body.replaceChildren(inner.el); drawTabs(); return; }
     const section = tab === 'archive' ? passarchive : doctpl;
@@ -289,8 +279,7 @@ export function mountDocs(params, { onChanged } = {}) {
     focusSearch: () => inner?.focusSearch?.(),
     destroy: () => inner?.destroy?.(),
     update: (p) => {
-      if (secOf(p) !== sec || (sec === 'passports' && tabOf(p) !== tab)) { sec = secOf(p); tab = tabOf(p); mountTab(p); return; }
-      if (sec !== 'passports') return;
+      if (tabOf(p) !== tab) { tab = tabOf(p); mountTab(p); return; }
       if (tab === 'orders' || tab === 'queue') { inner.update(p); return; }
       inner.update(listParams({ ...p, open: p.of === (tab === 'archive' ? 'passarchive' : 'doctpl') ? p.open : undefined }));
     },

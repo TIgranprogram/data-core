@@ -4,7 +4,6 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { parseList } from '../../common/list-query';
-import { loadLinePhotos } from '../../common/photos';
 import { ACTIVE_STAGES, DONE_STAGES, ORDER_STAGES, STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { numberLines, sortLines, sortOrdersByEntry } from '../../common/text/production-seq';
 import { AuditService } from '../audit/audit.service';
@@ -152,16 +151,7 @@ export class ProductionOrdersService {
 
     // сводка по позициям и названия компаний — по одному запросу на страницу
     const ids = page.flatMap((g) => g.docs.map((d) => d._id as Types.ObjectId));
-    // обложка заказа — фото первой позиции, у которой оно есть (своё или изделия); позиции пачкой на всю страницу
-    const cover = new Map<string, { url: string; thumb: string } | null>();
-    const covLines = ids.length ? await this.connection.db!.collection('incomes').find({ orderId: { $in: ids }, deletedAt: null, cancelledAt: null }, { projection: { orderId: 1, photoIds: 1, productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() : [];
-    const covPhotos = await loadLinePhotos(this.connection.db!, covLines);
-    for (const g of page) {
-      for (const d of g.docs) {
-        const hit = covLines.find((l) => String(l.orderId) === String(d._id) && covPhotos.get(String(l._id)));
-        if (hit) { cover.set(g.key, covPhotos.get(String(hit._id))!); break; }
-      }
-    }
+    // обложку заказа на список/доску не грузим (C017: фото только у позиций) — экономия тяжёлого loadLinePhotos
     const [agg, companies] = await Promise.all([
       ids.length ? this.connection.db!.collection('incomes').aggregate([
         { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
@@ -184,7 +174,7 @@ export class ProductionOrdersService {
         customers: uniq(g.docs.map((d) => d.customer)), companyNames: uniq(g.docs.map((d) => (d.companyId ? cname.get(String(d.companyId)) : null))),
         lineCount: part.reduce((a, s) => a + (s?.lines ?? 0), 0), amount: part.reduce((a, s) => a + (s?.amount ?? 0), 0), paidAmount: part.reduce((a, s) => a + (s?.paid ?? 0), 0),
         deadline: g.deadline, stage: g.stage, stageLabel: STAGE_LABELS[g.stage], stagesDiffer: g.stagesDiffer, priority: g.priority,
-        createdAt: new Date(created(g)), coverPhoto: cover.get(g.key) ?? null,
+        createdAt: new Date(created(g)), coverPhoto: null,
         readiness: { ready: readinessChecks(facts.get(g.key)!, g.key, String(g.docs[0]._id)).ready },
         unassignedCount: part.reduce((a, s) => a + (s?.unassigned ?? 0), 0),
         counts: { design: facts.get(g.key)!.openDesign, requests: facts.get(g.key)!.openRequests, inWork: facts.get(g.key)!.openWork, reservations: facts.get(g.key)!.activeReservations, shipments: g.docs.reduce((a, d) => a + (ships.get(String(d._id)) ?? 0), 0) },
