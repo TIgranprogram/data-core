@@ -61,7 +61,7 @@ function buildAddForm(invoice, services) {
   const selected = new Map(); let page = 1, q = '', seq = 0, loading = false;
   const results = h('div'), pager = h('div', { class: 'actions' }), count = h('p', { class: 'hint' });
   const search = h('input', { type: 'search', name: 'candidate-search', placeholder: 'Найти существующую заявку', 'aria-label': 'Поиск заявок' });
-  const reason = invoice.status === 'paid' ? h('input', { name: 'reason', maxlength: 500, placeholder: 'Причина добавления к оплаченному счёту' }) : null;
+  const reason = invoice.status === 'paid' ? h('input', { name: 'reason', maxlength: 500, placeholder: 'Причина — по желанию' }) : null;
   const updateCount = () => { count.textContent = `Выбрано заявок: ${selected.size}. Выбор сохраняется между страницами.`; };
   const load = async () => {
     const my = ++seq; loading = true; results.classList.add('is-busy');
@@ -81,9 +81,9 @@ function buildAddForm(invoice, services) {
   search.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
   const el = section({ title: 'Добавить существующие заявки', open: true, body: [
     actions(search, button({ label: 'Найти', onClick: find })), count,
-    reason ? h('label', { class: 'field' }, h('span', null, 'Причина корректировки *'), reason) : null,
-    results, pager, link({ label: 'Нет нужной позиции — создать заявку отдельно →', href: services.href({ of: 'requests', new: '1', open: undefined }) }),
-    h('p', { class: 'hint' }, 'Новая заявка — отдельная операция. После создания вернитесь в счёт и добавьте её здесь; скрытого сохранения нет.'),
+    reason ? h('label', { class: 'field' }, h('span', null, 'Причина добавления'), reason) : null,
+    results, pager,
+    h('p', { class: 'hint' }, 'Нет нужной позиции — кнопка «Создать заявку» сверху. После создания вернитесь в счёт и добавьте её здесь.'),
   ] });
   updateCount(); load();
   return { el, dirty: () => selected.size > 0 || !!reason?.value.trim(), read: () => ({ values: {} }), busy: () => false,
@@ -104,9 +104,11 @@ export async function buildWorkspaceForm(invoice, options, services) {
     conflicted = !duplicateInput.value.trim(); bindSave?.(!conflicted);
   });
   const p = permissions(invoice, session);
+  const createHref = services.href({ of: 'requests', new: '1', open: undefined });
   const el = h('div', { 'data-invoice-operation': operation }, actions(
     p.meta ? button({ label: 'Реквизиты счёта', disabled: operation === 'meta', onClick: () => services.edit?.({ _operation: 'meta' }) }) : null,
-    p.add ? button({ label: 'Добавить заявки', disabled: operation === 'add', onClick: () => services.edit?.({ _operation: 'add' }) }) : null), form.el, conflict,
+    p.add ? button({ label: 'Добавить заявки', disabled: operation === 'add', onClick: () => services.edit?.({ _operation: 'add' }) }) : null,
+    p.add ? button({ label: 'Создать заявку', onClick: () => { location.hash = createHref; } }) : null), form.el, conflict,
     section({ title: 'Позиции этого счёта', count: (invoice.requests || []).length, open: true, body: services.overview(invoice) }));
   return { el, busy: form.busy, dirty: form.dirty,
     bindSave: (fn) => { bindSave = fn; },

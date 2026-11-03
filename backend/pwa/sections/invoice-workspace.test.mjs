@@ -92,7 +92,7 @@ for (const extra of [{ partial: true }, { status: 'cancelled' }]) test('partial/
 });
 test('paid до приёмки: админ edit/add/remove; после boundary нельзя править позиции', () => {
   const p = pure.permissions(base({ status: 'paid' }), rights); assert.equal(p.editLine, true); assert.equal(p.add, true); assert.equal(p.removeLine, true); assert.equal(p.pay, false);
-  assert.throws(() => pure.addBody(base({ status: 'paid' }), ['a']), /причину/);
+  assert.deepEqual(pure.addBody(base({ status: 'paid' }), ['a']), { requestIds: ['a'] });
   assert.deepEqual(pure.addBody(base({ status: 'paid' }), ['a', 'a'], 'Уточнение'), { requestIds: ['a'], reason: 'Уточнение' });
   const noAdmin = pure.permissions(base({ status: 'paid' }), { canEdit: true, canMoney: true, role: 'manager' });
   assert.equal(noAdmin.removeLine, false); assert.equal(noAdmin.editLine, false);
@@ -109,7 +109,7 @@ test('received/cancelled line нельзя удалить; paid-строку д�
 test('формы используют новый helper: 100/3, qty, unit и reason не открывают второй drawer', async () => {
   const m = await modules(); const form = m.forms.buildLineForm(base({ status: 'paid' }), base().requests[0]);
   form.inputs.qty.value = '4'; form.inputs.qty.listeners.input(); assert.equal(form.inputs.lineAmount.value, '100');
-  assert.throws(() => form.payload(), /причину/); form.inputs.reason.value = ' Исправление '; assert.equal(form.payload().lineAmount, 100);
+  assert.equal(form.payload().lineAmount, 100);
   form.inputs.unitPrice.value = '40'; form.inputs.unitPrice.listeners.input(); assert.equal(form.payload().lineAmount, 160);
   assert.equal(m.calls.length, 0);
 });
@@ -144,8 +144,9 @@ test('add форма хранит выбор между страницами/п�
   const first = form.el.querySelectorAll('input').find((input) => input.attrs.type === 'checkbox'); first.listeners.change({ target: { checked: true } });
   await buttonNamed(form.el, 'Далее ›').attrs.onclick();
   const second = form.el.querySelectorAll('input').find((input) => input.attrs.type === 'checkbox'); second.listeners.change({ target: { checked: true } });
-  assert.throws(() => form.read(), /причину/); form.el.querySelector('[name="reason"]').value = 'Добавление';
-  assert.deepEqual(clean(form.read().values.body), { requestIds: ['candidate-1', 'candidate-2'], reason: 'Добавление' }); assert.equal(form.dirty(), true);
+  assert.deepEqual(clean(form.read().values.body), { requestIds: ['candidate-1', 'candidate-2'] }); assert.equal(form.dirty(), true);
+  form.el.querySelector('[name="reason"]').value = 'Добавление';
+  assert.deepEqual(clean(form.read().values.body), { requestIds: ['candidate-1', 'candidate-2'], reason: 'Добавление' });
   let enabled = true; form.bindSave((value) => { enabled = value; }); form.onError({ status: 409, data: { existingInvoiceId: 'existing' } }); assert.equal(enabled, false); assert.equal(form.conflicted, true);
   assert.equal(form.read().values.body.requestIds.length, 2); assert.equal(refresh, 0); assert.ok(pages.includes(2));
 });

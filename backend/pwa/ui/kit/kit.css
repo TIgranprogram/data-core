@@ -149,8 +149,8 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .col-body .tcard .k-actions { flex-direction: column; align-items: stretch; min-width: 0; }
 .db-order.k-gfold .db-lines .tcard .k-actions .btn,
 .col-body .tcard .k-actions .btn { width: 100%; justify-content: center; }
-.col-body .tcard .k-actions .badge.k-miss,
-.db-order.k-gfold .db-lines .tcard .k-actions .badge.k-miss {
+.col-body .tcard .k-actions .badge.warn,
+.db-order.k-gfold .db-lines .tcard .k-actions .badge.warn {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .tcard .t-pic { max-width: 100%; max-height: 140px; object-fit: contain; }
@@ -282,4 +282,41 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .k-table-check input { margin: 0; }
 @media (max-width: 720px) {
   .drawer-head .btn.btn-icon { min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); }
+}
+
+/* Правая панель: змейка групп (card.js arrange) */
+.dz-flow { column-count: 1; column-gap: var(--s5); min-width: 0; }
+.dz-flow > * { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin: 0 0 var(--s4); min-width: 0; width: 100%; display: block; }
+.dz-flow > *:last-child { margin-bottom: 0; }
+.dz-flow-wide { min-width: 0; display: flex; flex-direction: column; gap: var(--s4); }
+@container dz (min-width: 460px) {
+  .dz-flow { column-count: 2; column-fill: auto; }
+}
+
+/* Заявка: ссылка на позицию склада в форме */
+.rq-stock-ref { display: flex; flex-direction: column; gap: var(--s2); align-items: flex-start; }
+
+/* Счёт: один экран, inline, поле «+» */
+.iw-screen { display: flex; flex-direction: column; gap: var(--s4); }
+.iw-meta.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); margin-bottom: var(--s3); }
+.iw-meta .field.wide { grid-column: 1 / -1; }
+.iw-files { margin-top: var(--s2); }
+.iw-inline { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
+.iw-inline-btn { border: 0; background: transparent; padding: 2px 6px; margin: -2px -6px; border-radius: var(--radius-sm); font: inherit; color: var(--text); cursor: pointer; text-align: right; min-height: 32px; }
+.iw-inline-btn:hover, .iw-inline-btn:focus-visible { background: var(--hint-bg); outline: none; box-shadow: inset 0 0 0 1px var(--border-strong); }
+.iw-inline-inp { width: 5.5rem; max-width: 100%; height: 32px; text-align: right; font: inherit; font-variant-numeric: tabular-nums; }
+.iw-inline-suf { white-space: nowrap; font-size: var(--fs-sm); }
+.iw-inline.is-busy { opacity: .55; pointer-events: none; }
+.iw-add-row { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s3); }
+.iw-add { display: flex; align-items: center; gap: var(--s2); position: relative; width: 100%; max-width: 420px; }
+.iw-add-plus { flex: none; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.iw-add-inp { flex: 1; min-width: 0; height: 36px; }
+.iw-new-wrap { margin-top: var(--s3); display: flex; flex-direction: column; gap: var(--s2); align-items: flex-start; }
+.iw-new { width: 100%; max-width: 520px; padding: var(--s3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.iw-new-grid { display: grid; grid-template-columns: 1fr 90px 80px; gap: var(--s2); margin-bottom: var(--s3); }
+.iw-new-grid .field.wide { grid-column: 1 / -1; }
+@media (max-width: 720px) {
+  .iw-meta.form-grid, .iw-new-grid { grid-template-columns: 1fr; }
+  .iw-add { max-width: none; }
+  .iw-inline-btn { min-height: 44px; }
 }

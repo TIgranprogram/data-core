@@ -95,7 +95,9 @@ export class SupplyInvoiceService {
     reason?: string; actorId?: string; operation: 'line_edit' | 'lines_added' | 'line_removed'; beforeAmount: number; afterAmount: number; requestIds: Types.ObjectId[];
   }) {
     if (inv.status !== 'paid') return;
-    const reason = input.reason?.trim();
+    const reason = input.reason?.trim()
+      || (input.operation === 'lines_added' ? 'Добавление позиций' : '')
+      || (input.operation === 'line_edit' ? 'Изменение позиции' : '');
     if (!reason) throw new BadRequestException('Для изменения оплаченного счёта укажите причину сверки/корректировки');
     const by = input.actorId && Types.ObjectId.isValid(input.actorId) ? new Types.ObjectId(input.actorId) : undefined;
     await this.model.updateOne({ _id: inv._id }, { $push: { paymentAdjustments: {
@@ -426,17 +428,17 @@ export class SupplyInvoiceService {
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock}. Добавить позиции можно только до первой приёмки`);
-    if (inv.status === 'paid' && !reason?.trim()) throw new BadRequestException('Для добавления к оплаченному счёту укажите причину сверки/корректировки');
     const ids = [...new Set(requestIds)].map((i) => oid(i, 'заявки'));
     const docs = await this.requests.find({ _id: { $in: ids }, deletedAt: null }).lean().exec() as Lean[];
     if (docs.length !== ids.length) throw new NotFoundException('Часть заявок не найдена — обновите список');
     for (const d of docs) {
       const label = `Заявка №${d.num ?? '—'} «${d.title ?? ''}»`;
       if (d.invoiceId) throw new BadRequestException(`${label} уже входит в счёт`);
-      const open = ['requested', 'in_progress'].includes(String(d.status ?? 'requested'));
-      if (!open && !(d.status === 'ordered' && d.paid)) throw new BadRequestException(`${label}: добавить можно заявку «В заказ», «В работе» или «Оплачено»`);
+      const st = String(d.status ?? 'requested');
+      const canAdd = st === 'requested' || st === 'in_progress' || st === 'ordered';
+      if (!canAdd) throw new BadRequestException(`${label}: добавить можно заявку «Заказать», «В работе» или «Оплачено»`);
       if (inv.supplierId && d.supplierId && String(d.supplierId) !== String(inv.supplierId)) throw new BadRequestException(`${label}: другой поставщик, чем у счёта`);
-      if (open) {
+      if (st === 'requested' || st === 'in_progress') {
         const lack = missing(ORDERED_GATE, { ...d, supplierId: d.supplierId ?? inv.supplierId });
         if (lack.length) throw new BadRequestException(`${label}: не заполнено — ${lack.join(', ')}`);
       }
@@ -594,7 +596,6 @@ export class SupplyInvoiceService {
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock}. Исправления — корректировкой/сторно`);
-    if (inv.status === 'paid' && !dto.reason?.trim()) throw new BadRequestException('Для изменения оплаченной строки укажите причину сверки/корректировки');
     const line = await this.requests.findOne({ _id: oid(lineId, 'заявки'), invoiceId: inv._id, deletedAt: null }).exec() as Lean | null;
     if (!line) throw new NotFoundException('Строка не найдена в счёте');
     const oldQty = Number(line.qty) || 0;

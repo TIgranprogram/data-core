@@ -137,7 +137,10 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');
       }
     }
-    put(readonlyGroups(section.card.view(row, actx()) || []), 'fields');
+    // Группы полей — по одной карточке в потоке (змейка на широкой панели), не одним столбом слева.
+    const fieldEl = readonlyGroups(section.card.view(row, actx()) || []);
+    if (fieldEl?.classList?.contains('k-readonly-groups')) [...fieldEl.children].forEach((g) => put(g, 'fields'));
+    else put(fieldEl, 'fields');
     if (section.card.extra) put(section.card.extra(row, actx()), 'extra');
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
@@ -149,14 +152,22 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (canEditSection(section) && section.form && (!section.card.editable || section.card.editable(row))) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, section.card.editLabel || 'Изменить'));
     buildMenu(rare);
   }
-  /** Блоки по зонам: one — плоско, как раньше; two/wide — сетка .dz-box > .dz-grid (колонки по ширине самой панели, ui/panels.css). */
+  /**
+   * one — плоско; two/wide — поток `.dz-flow` змейкой (слева сверху вниз, затем справа), история/wide снизу на всю ширину.
+   * Раньше main|side оставляли все группы слева, а справа только фото.
+   */
   function arrange(content) {
     const mode = layoutNow();
     if (mode === 'one') return content.map(([el]) => el);
-    const zone = (z) => content.filter(([, zz]) => (zz === 'wide' && mode === 'two' ? 'main' : zz) === z).map(([el]) => el);
-    const cols = ['main', 'side', 'wide'].map((z) => [z, zone(z)]).filter(([, els]) => els.length);
-    if (cols.length < 2) return content.map(([el]) => el);
-    return [h('div', { class: 'dz-box' }, h('div', { class: 'dz-grid', 'data-layout': mode }, cols.map(([z, els]) => h('div', { class: 'dz dz-' + z }, els))))];
+    const flow = [], bottom = [];
+    for (const [el, z] of content) {
+      if (z === 'history' || (mode === 'wide' && z === 'wide')) bottom.push(el);
+      else flow.push(el);
+    }
+    if (flow.length < 2 && !bottom.length) return content.map(([el]) => el);
+    return [h('div', { class: 'dz-box' },
+      flow.length ? h('div', { class: 'dz-flow', 'data-layout': mode }, ...flow) : null,
+      bottom.length ? h('div', { class: 'dz-flow-wide' }, ...bottom) : null)];
   }
   /** Единственное «⋯» шапки: вид панели (всем) + редкие действия, «Дублировать», «Удалить» (с правом правки). */
   function buildMenu(rare) {

@@ -39,7 +39,6 @@ export function lineBody(invoice, draft) {
   if (!String(draft.lineAmount).trim() || !Number.isFinite(sum) || sum < 0) throw new Error('Сумма строки не может быть отрицательной или пустой');
   if (!String(draft.unitPrice).trim() || !Number.isFinite(Number(draft.unitPrice)) || Number(draft.unitPrice) < 0) throw new Error('Цена не может быть отрицательной или пустой');
   const reason = String(draft.reason || '').trim();
-  if (invoice.status === 'paid' && !reason) throw new Error('Укажите причину корректировки оплаченного счёта');
   // У legacy-документа отсутствующая version означает 0: SupplyInvoiceService.patchLine сравнивает fresh.version ?? 0.
   const version = Number(invoice.version ?? 0);
   if (!Number.isInteger(version) || version < 0) throw new Error('Обновите счёт перед сохранением — версия неизвестна');
@@ -49,7 +48,6 @@ export function addBody(invoice, ids, reason = '') {
   if (!ids.length) throw new Error('Отметьте хотя бы одну заявку');
   if (new Set(ids).size > 200) throw new Error('За один раз можно добавить не более 200 заявок');
   reason = String(reason).trim();
-  if (invoice.status === 'paid' && !reason) throw new Error('Укажите причину добавления к оплаченному счёту');
   return { requestIds: [...new Set(ids)], ...(reason ? { reason } : {}) };
 }
 export function metaBody(invoice, draft, rights) {

@@ -239,7 +239,7 @@ function stepFoot(r, ctx) {
   // Полный список — в title; на карточке коротко, иначе текст вылезает за край (как на скрине).
   const missTip = miss.length ? 'не хватает: ' + miss.map((f) => f.label.toLowerCase()).join(', ') : '';
   const missBadge = miss.length
-    ? h('span', { class: 'badge warn k-miss', title: missTip },
+    ? h('span', { class: 'badge warn', title: missTip },
         miss.length === 1 ? 'не хватает: ' + miss[0].label.toLowerCase() : `не хватает ${miss.length}`)
     : null;
   return actions(missBadge, btn);

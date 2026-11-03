@@ -6,7 +6,7 @@ export const getPayers = () => api('/incomes/lookups').then((r) => (r.companies 
 export const getContracts = (supplierId) => supplierId ? api('/supply/contracts', { query: { supplierId, limit: 100, status: 'active' } }).then((r) => r.items || []) : Promise.resolve([]);
 /** total относится к исходной выборке, а не к отфильтрованным непривязанным строкам. */
 export async function getCandidates(invoice, { page = 1, q = '', limit = 50 } = {}) {
-  const result = await api('/supply/requests', { query: { status: 'requested,in_progress,paid', ...(invoice.supplierId ? { supplierId: String(invoice.supplierId) } : {}), page, limit, ...(q ? { search: q } : {}) } });
+  const result = await api('/supply/requests', { query: { status: 'requested,ordered,paid,in_progress', ...(invoice.supplierId ? { supplierId: String(invoice.supplierId) } : {}), page, limit, ...(q ? { search: q } : {}) } });
   return { ...result, page, limit, items: (result.items || []).filter((r) => !r.invoiceId && !r.deletedAt) };
 }
 /** Одна команда = один write. Здесь нет GET после write, повтора, merge, toast или маршрутизации. */
