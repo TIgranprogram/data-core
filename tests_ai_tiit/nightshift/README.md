@@ -1,5 +1,7 @@
 # Nightshift — отдельный QA harness
 
+Тема закрыта 2026-11-03. Окно и новые кнопки не делаем. Пульт запускает только pytest этой папки из кнопки «Пакет выпуска: собрать показатели». Решение: `docs/crew/C006-nightshift-vs-pult/VERDICT.md`.
+
 Это **не** legacy `tools/dc night` / Pult / `dcnight`. Старые `nightshift-*`, `dcnight-*`, `datacore-*` контейнеры и volumes не управляются этим harness.
 
 ## Установка (Windows, Python 3.12)

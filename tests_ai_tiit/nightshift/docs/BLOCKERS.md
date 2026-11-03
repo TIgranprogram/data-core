@@ -1,5 +1,7 @@
 # Nightshift — состояние 2026-11-03
 
+Тема закрыта. Новые наборы, GUI и локальный ИИ не начинать. Решение: `docs/crew/C006-nightshift-vs-pult/VERDICT.md`.
+
 ## Технические блокеры T22 устранены
 
 Установлена новая локальная Python 3.12 среда через `uv sync --extra dev`. Doctor и status реальны. Python: 76 tests passed. Исправлены сохранение полного маскированного Docker-журнала, варианты pwd/credential/private_key/-p и справочник паспортов в Dockerfile.

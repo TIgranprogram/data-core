@@ -1,5 +1,7 @@
 # Nightshift — прогресс T22, 2026-11-03
 
+Тема закрыта 2026-11-03. GUI, локальный ИИ и новые наборы не начинать. Решение: `docs/crew/C006-nightshift-vs-pult/VERDICT.md`.
+
 Nightshift — отдельный Python QA harness, не legacy tools/dc night.
 
 - [x] Новая Python 3.12 virtualenv, uv sync, реальные doctor/status/help.
