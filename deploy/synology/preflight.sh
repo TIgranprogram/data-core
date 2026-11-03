@@ -46,7 +46,10 @@ fi
 if [[ $UI == 1 ]]; then
   node backend/scripts/pwa-import-check.mjs >"$LOG" 2>&1 || { head -8 "$LOG"; stop "приложение/админка: сломан синтаксис или импорт"; }
   ok "$(tail -1 "$LOG")"
-  node --experimental-vm-modules --test "backend/pwa/**/*.test.mjs" >"$LOG" 2>&1 || { grep -E 'not ok|fail' "$LOG" | head -6; stop "node --test приложения упал"; }
+  # find — надёжнее кавычек с ** на Windows/Git Bash; Node 20+ с --experimental-vm-modules
+  mapfile -t PWA_TESTS < <(find backend/pwa -name '*.test.mjs' | sort)
+  [[ ${#PWA_TESTS[@]} -gt 0 ]] || stop "нет backend/pwa/**/*.test.mjs"
+  node --experimental-vm-modules --test "${PWA_TESTS[@]}" >"$LOG" 2>&1 || { grep -E 'not ok|fail|SourceTextModule|Error' "$LOG" | head -8; stop "node --test приложения упал (нужен Node 20 LTS в PATH)"; }
   (cd backend && npx jest src/pwa-guards --silent) >"$LOG" 2>&1 || { grep -E '●|Tests:' "$LOG" | head -6; stop "pwa-guards упал"; }
   ok "node --test и pwa-guards зелёные"
 fi
