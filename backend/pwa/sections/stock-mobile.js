@@ -254,11 +254,17 @@ export const stockMobile = {
       const stepCart = () => {
         const clientUid = uid();
         const msg = h('div');
-        const items = S.cart.map((c, i) => ({ value: i, label: c.item.name, hint: `${fmt(c.qty)} ${unitOf(c.item)} · нажмите, чтобы убрать` }));
         const toOrder = !!(S.target?.salesOrderId || S.target?.salesOrderLineId);
+        const drop = (i) => { S.cart.splice(i, 1); if (S.cart.length) stepCart(); else stepItem(); };
+        const cartList = S.cart.length
+          ? h('div', { class: 'm-cart', role: 'list' }, ...S.cart.map((c, i) => h('div', { class: 'm-cart-row', role: 'listitem' },
+            h('span', { class: 'm-item-text' }, h('b', null, c.item.name), h('small', null, `${fmt(c.qty)} ${unitOf(c.item)}`)),
+            h('button', { type: 'button', class: 'm-cart-x', 'aria-label': `Убрать ${c.item.name}`, title: 'Убрать из списка', onclick: () => drop(i) }, '✕'),
+          )))
+          : h('div', { class: 'm-empty' }, 'Список пуст — добавьте позицию');
         show(screen({ title: 'К выдаче', step: { n: 3, of: 3 }, back: stepItem, body: [
           bigButton({ label: toOrder ? 'Сменить позицию / заказ' : 'Сменить получателя', tone: 'neutral', size: 'sm', onClick: stepKind }),
-          choice({ items, empty: 'Список пуст — добавьте позицию', onPick: (o) => { S.cart.splice(o.value, 1); if (S.cart.length) stepCart(); else stepItem(); } }),
+          cartList,
           bigButton({ label: 'Ещё материал сюда же', tone: 'neutral', onClick: stepItem }),
           msg],
           footHint: whereHint(),

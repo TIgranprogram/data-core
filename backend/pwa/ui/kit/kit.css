@@ -204,6 +204,12 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-item-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
 .m-choice .m-item { gap: 2px; padding: var(--s2) var(--s3); } /* список позиций: плотнее — больше строк на экране, зона нажатия не меньше --m-btn-h */
 .m-choice .m-item.m-item-with-pic { gap: var(--s3); }
+/* Корзина выдачи: строка + крестик «убрать» (зона ≥ 48×48) */
+.m-cart { display: flex; flex-direction: column; gap: var(--s2); }
+.m-cart-row { display: flex; align-items: center; gap: var(--s3); width: 100%; min-height: var(--m-btn-h); padding: var(--s2) var(--s3); background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm); }
+.m-cart-row .m-item-text { flex: 1; min-width: 0; }
+.m-cart-x { flex: 0 0 56px; width: 56px; height: 56px; padding: 0; font: inherit; font-size: 28px; line-height: 1; color: var(--muted); background: none; border: 2px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
+.m-cart-x:active { transform: scale(.97); filter: brightness(.88); }
 .m-unit, .m-empty { font-size: var(--m-font); color: var(--muted); }
 .m-done { font-size: var(--m-title); font-weight: 700; text-align: center; padding: var(--s4); border: 2px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary-soft); }
 .m-done-box { display: flex; flex-direction: column; gap: var(--m-gap); }
