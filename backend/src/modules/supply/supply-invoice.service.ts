@@ -92,7 +92,7 @@ export class SupplyInvoiceService {
   }
 
   private async recordPaymentAdjustment(inv: Lean, session: ClientSession, input: {
-    reason?: string; actorId?: string; operation: 'line_edit' | 'lines_added'; beforeAmount: number; afterAmount: number; requestIds: Types.ObjectId[];
+    reason?: string; actorId?: string; operation: 'line_edit' | 'lines_added' | 'line_removed'; beforeAmount: number; afterAmount: number; requestIds: Types.ObjectId[];
   }) {
     if (inv.status !== 'paid') return;
     const reason = input.reason?.trim();
@@ -629,21 +629,28 @@ export class SupplyInvoiceService {
     return { invoice, line: { id: String(lineId), qty, unitPrice: Math.round((priceHint / qty) * 100) / 100, lineAmount: priceHint }, amount };
   }
 
-  /** Убрать строку из счёта, не удаляя заявку: вернуть в «В заказ»/«В работе», пересчитать сумму. */
-  async removeLine(invoiceId: string, lineId: string) {
+  /** Убрать строку из счёта, не удаляя заявку: до первой приёмки (в т. ч. оплаченный); вернуть в «В заказ», пересчитать сумму. */
+  async removeLine(invoiceId: string, lineId: string, actorId?: string) {
     const inv = await this.load(invoiceId);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
-    if (inv.status === 'paid') throw new BadRequestException('Из оплаченного счёта позицию нельзя удалять — исправьте сумму строки или добавьте отдельную корректировку');
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock}. Убрать строку можно только до первой приёмки`);
     const line = await this.requests.findOne({ _id: oid(lineId, 'заявки'), invoiceId: inv._id, deletedAt: null }).exec() as Lean | null;
     if (!line) throw new NotFoundException('Строка не найдена в счёте');
     if (line.status === 'received') throw new BadRequestException('Строка уже принята на склад');
+    const beforeAmount = Number(inv.amount) || 0;
     const amount = await this.tx(async (session) => {
       await this.touchFinancialInvoice(inv._id, session);
       await this.requests.updateOne({ _id: line._id },
         { $unset: { invoiceId: '', invoiceNo: '', invoiceDate: '' }, $set: { ...(line.status === 'ordered' && line.paid !== true ? { status: 'requested' } : {}), editedInApp: true } }, { session }).exec();
-      return this.recalcAmount(inv, session);
+      const afterAmount = await this.recalcAmount(inv, session);
+      if (inv.status === 'paid') {
+        await this.recordPaymentAdjustment(inv, session, {
+          reason: 'Позиция убрана администратором до приёмки',
+          actorId, operation: 'line_removed', beforeAmount, afterAmount, requestIds: [line._id as Types.ObjectId],
+        });
+      }
+      return afterAmount;
     });
     return { invoice: await this.get(invoiceId), removed: String(line._id), amount };
   }

@@ -30,7 +30,7 @@ export type SupplyInvoicePaymentAdjustment = {
   at: Date;
   by?: Types.ObjectId;
   reason: string;
-  operation: 'line_edit' | 'lines_added';
+  operation: 'line_edit' | 'lines_added' | 'line_removed';
   beforeAmount: number;
   afterAmount: number;
   delta: number;

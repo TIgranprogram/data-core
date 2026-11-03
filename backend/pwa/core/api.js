@@ -32,6 +32,8 @@ export const session = {
   /** Суммы, доходы, платёжный календарь — галочка «Деньги» роли (user.canMoney с сервера); нет поля (старый кэш) — по ролям. */
   get canMoney() { if (typeof this.user?.canMoney === 'boolean') return this.user.canMoney; return ['admin', 'director', 'accountant', 'manager'].includes(this.role) || this.user?.isOwner === true; },
   get canPayroll() { if (!this.canMoney) return false; return ['admin', 'director', 'accountant'].includes(this.role) || this.user?.isOwner === true; },
+  /** Админ или владелец — редкие правки (позиции счёта до приёмки и т. п.). */
+  get isAdmin() { return this.role === 'admin' || this.user?.isOwner === true; },
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
   /** SK-8b: виден ли раздел меню по галочкам роли (user.sections; нет списка — всё как раньше; «Сегодня» и админ — всегда).
    *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */

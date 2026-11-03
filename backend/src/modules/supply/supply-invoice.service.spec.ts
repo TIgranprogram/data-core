@@ -519,13 +519,16 @@ describe('Счета: блокировка после первой приёмк�
     await expect(svc.remove(String(invId))).rejects.toThrow(/оплачен/i);
   });
 
-  it('оплаченный: удалить строку нельзя, чтобы не потерять факт оплаченной покупки', async () => {
+  it('оплаченный до приёмки: админ может убрать строку — сумма и корректировка', async () => {
     const invId = new Types.ObjectId();
-    const line = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 100, status: 'ordered' };
+    const keep = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered', paid: true };
+    const drop = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 40, status: 'ordered', paid: true };
     const inv = { _id: invId, status: 'paid', amount: 100, fileIds: [] };
-    const { svc, requests } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [line] });
-    await expect(svc.removeLine(String(invId), String(line._id))).rejects.toThrow(/оплаченного счёта позицию нельзя удалять/i);
-    expect(requests.updateOne).not.toHaveBeenCalled();
+    const { svc, model, requests } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [keep, drop] });
+    const r = await svc.removeLine(String(invId), String(drop._id), '111111111111111111111111');
+    expect(r.amount).toBe(60);
+    expect(requests.updateOne).toHaveBeenCalledWith({ _id: drop._id }, expect.objectContaining({ $unset: expect.objectContaining({ invoiceId: '' }) }), expect.anything());
+    expect(model.updates.some(([, u]) => (u as Doc).$push && ((u as Doc).$push as Doc).paymentAdjustments)).toBe(true);
   });
 
   it('есть приёмка: удалить счёт нельзя', async () => {

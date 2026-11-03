@@ -25,7 +25,7 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
     const mutable = !line.deletedAt && !['received', 'cancelled'].includes(line.status);
     const controls = actions(
       editable && p.editLine && mutable ? button({ label: 'Изменить', onClick: () => ctx.edit({ _operation: 'line', _lineId: line.id }) }) : null,
-      editable && commands && p.removeLine && mutable && !line.paid && line.status !== 'paid' ? button({ label: 'Убрать', kind: 'ghost', onClick: () => command(invoice, ctx, 'remove', line.id) }) : null);
+      editable && commands && p.removeLine && mutable ? button({ label: 'Убрать', kind: 'ghost', onClick: () => command(invoice, ctx, 'remove', line.id) }) : null);
     const sum = lineAmount(line);
     const cells = [link({ label: lineTitle(line), href: workspaceHref({ of: 'requests', open: line.id, new: undefined }) }),
       `${qty(line.qty)} ${line.unit || ''}`, ...(session.canMoney ? [Number(line.qty) > 0 ? money(sum / Number(line.qty)) : '—', money(sum)] : []), badge(SUPPLY_STATUS, line.status === 'ordered' && line.paid ? 'paid' : line.status), controls];

@@ -7,7 +7,7 @@ const source = (file) => fs.readFileSync(new URL(file, root), 'utf8');
 const pure = await import('data:text/javascript;base64,' + Buffer.from(source('sections/invoice-workspace-state.js')).toString('base64'));
 const clean = (value) => JSON.parse(JSON.stringify(value));
 const base = (extra = {}) => ({ id: 'invoice', status: 'issued', version: 8, amount: 100, requests: [{ id: 'line', title: 'Болт', qty: 3, priceHint: 100, lineAmount: 100, status: 'ordered' }], ...extra });
-const rights = { canEdit: true, canMoney: true };
+const rights = { canEdit: true, canMoney: true, role: 'admin', isAdmin: true };
 
 class Element {
   constructor(tag, attrs = {}, ...children) {
@@ -90,18 +90,21 @@ for (const locked of [{ receiptBoundaryAt: '2026-01-01' }, { lockReason: 'receip
 for (const extra of [{ partial: true }, { status: 'cancelled' }]) test('partial/cancelled запрещает ВСЕ writes: ' + JSON.stringify(extra), () => {
   for (const op of ['meta', 'line', 'add', 'remove', 'issue', 'pay', 'receive']) assert.throws(() => pure.assertOperation(base(extra), rights, op, 'line'));
 });
-test('paid до приёмки: edit/add с reason, remove запрещён; после boundary нельзя редактировать', () => {
-  const p = pure.permissions(base({ status: 'paid' }), rights); assert.equal(p.editLine, true); assert.equal(p.add, true); assert.equal(p.removeLine, false); assert.equal(p.pay, false);
+test('paid до приёмки: админ edit/add/remove; после boundary нельзя править позиции', () => {
+  const p = pure.permissions(base({ status: 'paid' }), rights); assert.equal(p.editLine, true); assert.equal(p.add, true); assert.equal(p.removeLine, true); assert.equal(p.pay, false);
   assert.throws(() => pure.addBody(base({ status: 'paid' }), ['a']), /причину/);
   assert.deepEqual(pure.addBody(base({ status: 'paid' }), ['a', 'a'], 'Уточнение'), { requestIds: ['a'], reason: 'Уточнение' });
+  const noAdmin = pure.permissions(base({ status: 'paid' }), { canEdit: true, canMoney: true, role: 'manager' });
+  assert.equal(noAdmin.removeLine, false); assert.equal(noAdmin.editLine, false);
 });
 test('money=false не допускает финансовых writes, metadata допустима и whitelist после receipt', () => {
   const p = pure.permissions(base(), { ...rights, canMoney: false }); assert.equal(p.finance, false); assert.equal(p.pay, false); assert.equal(p.meta, true);
   const body = pure.metaBody(base({ receiptBoundaryAt: 'stamp' }), { no: ' А ', date: '2026-11-03', fileIds: ['f'], contractId: 'c', amount: 999, payerCompanyId: 'new' }, rights);
   assert.deepEqual(body, { no: 'А', date: '2026-11-03', fileIds: ['f'], contractId: 'c' });
 });
-test('paid/received/cancelled line нельзя удалить отдельно даже в неоплаченном счёте', () => {
-  for (const line of [{ id: 'line', status: 'paid' }, { id: 'line', paid: true }, { id: 'line', status: 'received' }, { id: 'line', status: 'cancelled' }]) assert.throws(() => pure.assertOperation(base({ requests: [line] }), rights, 'remove', 'line'));
+test('received/cancelled line нельзя удалить; paid-строку до приёмки админ может убрать', () => {
+  for (const line of [{ id: 'line', status: 'received' }, { id: 'line', status: 'cancelled' }]) assert.throws(() => pure.assertOperation(base({ requests: [line] }), rights, 'remove', 'line'));
+  assert.doesNotThrow(() => pure.assertOperation(base({ requests: [{ id: 'line', status: 'ordered', paid: true }] }), rights, 'remove', 'line'));
 });
 test('формы используют новый helper: 100/3, qty, unit и reason не открывают второй drawer', async () => {
   const m = await modules(); const form = m.forms.buildLineForm(base({ status: 'paid' }), base().requests[0]);

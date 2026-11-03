@@ -8,13 +8,16 @@ export function permissions(invoice, rights) {
   const boundary = !!(invoice.receiptBoundaryAt || invoice.lockReason || (invoice.requests || []).some((r) => r.status === 'received'));
   const meta = !!rights.canEdit && whole && live;
   const finance = meta && !!rights.canMoney && !boundary;
+  const isAdmin = !!(rights.isAdmin || rights.role === 'admin' || rights.user?.isOwner);
   const paid = invoice.status === 'paid';
+  // Позиции (добавить / править / убрать) — только админ и только до первой приёмки; оплата счёта не блокирует убрать.
+  const linesAdmin = meta && isAdmin && !boundary;
   const reason = !whole ? 'Часть строк скрыта другим складом. Доступен только просмотр видимых позиций.'
     : !live ? 'Счёт отменён. Доступен только просмотр.'
       : boundary ? 'По счёту уже есть приёмка. Позиции и финансовые поля зафиксированы; можно менять номер, дату, файлы и договор.'
-        : paid ? 'До первой приёмки можно исправлять строки и добавлять заявки с причиной. Исходный платёж не меняется; удаление оплаченных строк запрещено.' : '';
-  return { whole, live, boundary, meta, finance, paid, reason,
-    add: finance, editLine: finance, removeLine: finance && !paid,
+        : paid ? 'До первой приёмки администратор может править и убирать позиции; исходный платёж не меняется.' : '';
+  return { whole, live, boundary, meta, finance, paid, isAdmin, reason,
+    add: linesAdmin && !!rights.canMoney, editLine: linesAdmin && !!rights.canMoney, removeLine: linesAdmin,
     issue: finance && invoice.status === 'draft',
     pay: meta && !!rights.canMoney && invoice.status === 'issued',
     receive: meta && ['issued', 'paid'].includes(invoice.status) && pendingLines(invoice).length > 0 };
@@ -66,7 +69,7 @@ export function assertOperation(invoice, rights, operation, lineId) {
   if (!allowed[operation]) throw new Error(p.reason || 'Недостаточно прав для этого действия');
   if (['line', 'remove'].includes(operation)) {
     const line = (invoice.requests || []).find((r) => r.id === lineId);
-    if (!line || line.deletedAt || ['received', 'cancelled'].includes(line.status) || (operation === 'remove' && (line.paid || line.status === 'paid'))) throw new Error('Эту позицию нельзя изменить или убрать из счёта');
+    if (!line || line.deletedAt || ['received', 'cancelled'].includes(line.status)) throw new Error('Эту позицию нельзя изменить или убрать из счёта');
   }
   return p;
 }

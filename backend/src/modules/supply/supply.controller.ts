@@ -91,13 +91,13 @@ export class SupplyController {
     return this.invoices.updateLine(id, lineId, dto, user?.id);
   }
 
-  /** Убрать строку из счёта (заявка остаётся, возвращается в «В заказ»). */
+  /** Убрать строку из счёта до приёмки (только админ; заявка остаётся, возвращается в «В заказ»). */
   @Delete('invoices/:id/lines/:lineId')
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @AuditAction({ action: 'supply.invoice.line_removed', entityType: 'SupplyInvoice', idParam: 'id' })
-  async removeInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @StockScoped() scope: StockScope | null) {
+  async removeInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.removeLine(id, lineId);
+    return this.invoices.removeLine(id, lineId, user?.id);
   }
 
   /** Предпросмотр объединения двух счетов: ничего не меняет. */
