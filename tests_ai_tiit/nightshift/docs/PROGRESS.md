@@ -1,77 +1,19 @@
-# PROGRESS — Ночная смена
+# Nightshift — прогресс T22, 2026-11-03
 
-## Этап 0. Разведка
-- [x] 0.1 Прочитаны документы
-- [x] 0.2 Найдена папка проверяемого сайта (D:\data-core, исключая tests_ai_tiit/, pult/)
-- [x] 0.3 Изучена папка (только чтение)
-- [x] 0.4 Записан DISCOVERY.md
-- [x] 0.5 Черновик scenarios.yaml
+Nightshift — отдельный Python QA harness, не legacy tools/dc night.
 
-## Этап 1. Каркас, CLI, отчёт, handoff
-- [x] 1.1 pyproject.toml + uv sync (uv отсутствует → pip; см. DECISIONS)
-- [x] 1.2 orchestrator/db.py
-- [x] 1.3 orchestrator/plugins.py
-- [x] 1.4 suites/demo
-- [x] 1.5 orchestrator/runner.py
-- [x] 1.6 orchestrator/report.py
-- [x] 1.7 orchestrator/handoff.py
-- [x] 1.8 orchestrator/cli.py
+- [x] Новая Python 3.12 virtualenv, uv sync, реальные doctor/status/help.
+- [x] Явные local/night/suite; заглушки не дают зелёный отчёт.
+- [x] Реальные DataCore typecheck, ESLint, PWA imports, backend unit.
+- [x] Уникальный nsqa project, две DB на -night, собственные volume/internal network, без published ports.
+- [x] Реальная Docker-сборка и health на новом контуре.
+- [x] Реальный refresh в новый пустой project: 141 коллекция, 12957 документов; bootstrap из копии.
+- [x] Два настоящих night-профиля: harness/static/backend_unit/isolation_check/regression — passed.
+- [x] Классификация app/demo/runner/timeout, точные выполненные suites и metadata.
+- [x] Redaction до записи report/handoff/ZIP/log; полный безопасный журнал Docker-ошибки. Python 76/76.
+- [x] Fake-Docker проверки коллизий, чужого ownership, двух refresh и сохранности volumes.
+- [ ] Повторить установку на отдельной новой Windows, когда такой ПК потребуется. Чистая local virtualenv текущего ПК уже проверена.
 
-## Этап 2. Стенд, изоляция, регрессия, карта сценариев
-- [x] 2.1 config/project.yaml
-- [x] 2.2 stand/docker-compose.yml (поднят, internal=true, mongo:4.4, app, mailpit)
-- [x] 2.3 stand/isolation (реальная проверка: host IP порты + google.com BLOCKED; падает при internal:false)
-- [x] 2.4 orchestrator/scenarios.py (sync с разбором маршрутов NestJS)
-- [x] 2.5 suites/regression (xdist + тесты сайта против стенда)
-- [x] 2.6 suites/static (скелет)
-- [x] 2.7 сравнение конфигураций (config_diff в отчёте)
-- [x] 2.8 nightshift-app (health ok), Mailpit, заглушки, .env.stand
+Реальные отчёты: reports/2026-11-03_072127_620b5a52 и reports/2026-11-03_073649_84891715. Backend E2E отдельного выпуска: 62/487 passed, disposable Mongo 4.4.
 
-## Этап 3. Расписание, продолжение, ресурсы
-- [ ] 3.1 resume.py
-- [ ] 3.2 resources.py
-- [ ] 3.3 scheduler.py
-- [ ] 3.4 profiles.yaml
-- [ ] 3.5 ротация логов, маскирование
-
-## Этап 4. Нагрузка, soak, chaos, бэкапы
-- [ ] 4.1 suites/backup
-- [ ] 4.2 suites/load
-- [ ] 4.3 suites/soak
-- [ ] 4.4 suites/chaos
-- [ ] 4.5 замеры производительности
-
-## Этап 5. Фаззинг, мутации, визуальные, monkey, flaky, bisect
-- [ ] 5.1 suites/fuzz
-- [ ] 5.2 suites/mutation
-- [ ] 5.3 suites/visual
-- [ ] 5.4 suites/monkey
-- [ ] 5.5 suites/flaky
-- [ ] 5.6 bisect.py
-- [ ] 5.7 группировка ошибок
-
-## Этап 6. Локальный ИИ
-- [ ] 6.1 llm_client.py
-- [ ] 6.2 schemas.py
-- [ ] 6.3 roles + prompts
-- [ ] 6.4 context.py
-- [ ] 6.5 loop.py (6A)
-- [ ] 6.6 исправитель (6B)
-- [ ] 6.7 защиты
-- [ ] 6.8 fix_history
-- [ ] 6.9 kb.py
-- [ ] 6.10 тесты на заглушке
-
-## Этап 7. GUI
-- [ ] 7.1 выбор фреймворка
-- [ ] 7.2 экраны
-- [ ] 7.3 GUI вызывает только ядро
-
-## Этап 8. Проверка компьютера, установка, упаковка
-- [ ] 8.1 doctor.py
-- [ ] 8.2 Установить всё
-- [ ] 8.3 скачивание модели
-- [ ] 8.4 сборка exe
-
-## Лог шагов
-(заполняется по мере работы)
+Не входят в готовность: нагрузки, chaos/fuzz/mutation/visual/monkey/flaky/backup, AI/GUI/scheduler/resume. Они явно not_implemented либо вне профиля. Подробности — BLOCKERS.md.

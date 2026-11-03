@@ -1,6 +1,7 @@
 # Карта роли designer
 
 коммит: b0b3298 + вкладка «Серверы» (control-switch.js/css, admin.js:338), полоса write-retry (main.js:263–270, api.js)
+- Корректировка оплаченной позиции счёта (принято 03.11, второй review, без нового commit): backend/pwa/sections/invoices-tab.js:39–47 — openCard и четыре поля widget в правой панели; :29–38,55–58 — взаимный пересчёт и сохранение точной суммы; :51–54 — проверки количества, суммы и причины. Визуальные якоря: .work/previews/invoice-price-375.png, invoice-price-1280.png; итог .work/reviews/designer-final.md.
 - Каталог поставщиков + крошки + вкладки счетов (аудит 28.10): ТЗ docs/roles/tz/SUPPLIER-CATALOG-UX.md; supplier-catalog.js:55–95,220–240, requests-tabs.js:16–20, invoices-tab.js:93, screens.css:1236–1239,1304–1310, main.js:90–96,188–193.
 
 - Паспорт: форма backend/pwa/sections/passports/form.js (поля), wire-form.js:110–150 (готовность к выпуску, check), product-block.js (выбор изделия), стили ui/base.css классы pp-* около 303–312.

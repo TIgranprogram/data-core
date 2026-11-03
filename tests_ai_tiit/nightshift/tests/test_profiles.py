@@ -1,82 +1,74 @@
 import argparse
 import subprocess
 import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from orchestrator import cli
+from orchestrator import cli, stand
+from orchestrator.plugins import find_suites
 from orchestrator.masking import mask_obj, mask_text
 from orchestrator.profiles import load_profile, needs_isolation, select_suites
 
 
-def test_night_profile_keeps_order_and_excludes_demo():
-    profile = load_profile("night")
-    suites = [{"name": "regression"}, {"name": "demo"}, {"name": "static"}]
-    selected, skipped = select_suites(suites, profile)
-    assert [s["name"] for s in selected] == ["static", "regression"]
-    assert "load" in skipped and "demo" not in skipped
+def test_night_profile_real_suites():
+    selected, skipped = select_suites(find_suites(), load_profile('night'))
+    assert [s['name'] for s in selected] == ['harness', 'static', 'backend_unit', 'isolation_check', 'regression']
+    assert 'load' in skipped and 'demo' in skipped
+    assert all(s.get('implemented', True) for s in selected)
 
 
-def test_unknown_profile_is_error():
+def test_incomplete_profile_refused():
+    with pytest.raises(ValueError, match='обязательные'):
+        select_suites([{'name': 'static'}], load_profile('night'))
+
+
+def test_unknown_profile():
     with pytest.raises(ValueError):
-        load_profile("нет-такого")
+        load_profile('нет-такого')
 
 
 def test_needs_isolation():
-    assert needs_isolation([], {"isolation_gate": True})
-    assert needs_isolation([{"needs_stand": True}])
-    assert not needs_isolation([{"name": "demo"}])
+    assert needs_isolation([], {'isolation_gate': True})
+    assert needs_isolation([{'needs_stand': True}])
+    assert not needs_isolation([{'name': 'demo'}])
 
 
-def _fake_suites(monkeypatch, isolation_rc, ran):
-    suites = [
-        {"name": "isolation_check", "command": ["x"]},
-        {"name": "regression", "command": ["x"], "needs_stand": True},
-    ]
-    def fake_run(suite, timeout_sec=30):
-        ran.append(suite["name"])
-        rc = isolation_rc if suite["name"] == "isolation_check" else 0
-        return {"name": suite["name"], "returncode": rc, "stdout": "", "stderr": ""}
-    monkeypatch.setattr(cli, "find_suites", lambda: suites)
-    monkeypatch.setattr(cli, "run_suite", fake_run)
-    monkeypatch.setattr(cli, "generate", lambda results: "r")
-    monkeypatch.setattr(cli, "create_handoff", lambda results: "h")
-
-
-def test_gate_red_isolation_stops_run_with_code_2(monkeypatch):
-    ran = []
-    _fake_suites(monkeypatch, 1, ran)
+def test_no_implicit_selection(monkeypatch):
+    monkeypatch.setattr(cli, 'find_suites', lambda *a: pytest.fail('Не должно быть автозапуска'))
     with pytest.raises(SystemExit) as e:
-        cli.cmd_run(argparse.Namespace(suite="regression", profile=None))
+        cli.cmd_run(argparse.Namespace(profile=None, suite=None))
     assert e.value.code == 2
-    assert ran == ["isolation_check"]
 
 
-def test_gate_green_isolation_runs_suite(monkeypatch):
+@pytest.mark.parametrize('safe', [False, True])
+def test_gate(monkeypatch, safe):
     ran = []
-    _fake_suites(monkeypatch, 0, ran)
+    suites = [{'name': 'regression', 'command': ['x'], 'needs_stand': True}]
+    monkeypatch.setattr(cli, 'find_suites', lambda *a: suites)
+    monkeypatch.setattr(cli, 'generate', lambda r: 'r')
+    monkeypatch.setattr(cli, 'create_handoff', lambda r: 'h')
+    def gate(p):
+        if not safe:
+            raise stand.StandError('Небезопасная сеть')
+    def run(s, **kw):
+        ran.append(s['name'])
+        return {'name': s['name'], 'returncode': 0, 'executed': True}
+    monkeypatch.setattr(stand, 'check_isolation', gate)
+    monkeypatch.setattr(cli, 'run_suite', run)
     with pytest.raises(SystemExit) as e:
-        cli.cmd_run(argparse.Namespace(suite="regression", profile=None))
-    assert e.value.code == 0
-    assert ran == ["isolation_check", "regression"]
+        cli.cmd_run(argparse.Namespace(profile=None, suite='regression', project=stand.context()['project']))
+    assert e.value.code == (0 if safe else 2)
+    assert ran == (['regression'] if safe else [])
 
 
-def test_cli_runs_from_any_folder(tmp_path):
-    r = subprocess.run([sys.executable, "-m", "orchestrator.cli", "run", "--suite", "demo"],
-                       cwd=tmp_path, capture_output=True, text=True, encoding="utf-8")
+def test_cli_from_any_folder(tmp_path):
+    r = subprocess.run([sys.executable, '-m', 'orchestrator.cli', 'run', '--suite', 'demo'],
+                       cwd=tmp_path, capture_output=True, text=True, encoding='utf-8')
     assert r.returncode == 1, r.stdout + r.stderr
-    assert not (tmp_path / "reports").exists()
+    assert not (tmp_path / 'reports').exists()
 
 
-def test_masking_hides_secrets():
-    text = "kppd_abc123 mongodb://root:hunter2@mongo:27017 JWT_SECRET=topsecret password: qwerty"
+def test_masking():
+    text = 'kppd_abc123 mongodb://root:hunter2@mongo:27017 JWT_SECRET=topsecret password: qwerty'
     out = mask_text(text)
-    for secret in ("kppd_abc123", "hunter2", "topsecret", "qwerty"):
-        assert secret not in out
-    assert "mongo:27017" in out
-
-
-def test_mask_obj_is_recursive():
-    assert mask_obj({"a": ["Bearer abc.def"], "n": 1}) == {"a": ["Bearer ***"], "n": 1}
+    assert all(s not in out for s in ['kppd_abc123', 'hunter2', 'topsecret', 'qwerty'])
+    assert 'mongo:27017' in out
+    assert mask_obj({'a': ['Bearer abc.def'], 'n': 1}) == {'a': ['Bearer ***'], 'n': 1}

@@ -1,3 +1,0 @@
-mode: test
-provider: mock
-real_charges: false

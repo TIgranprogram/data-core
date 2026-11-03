@@ -1,0 +1,12 @@
+**/.env*
+**/*CREDENTIALS*
+**/*.key
+**/*.pem
+node_modules
+dist
+uploads
+.data
+.git
+test
+coverage
+*.log

@@ -40,13 +40,19 @@ export const PIPE_KINDS = [['rect', 'Профильная'], ['round', 'Круг
 const pipeKind = (it) => (/нерж/i.test(it.name || '') ? 'steel' : it.dims?.diameter ? 'round' : 'rect');
 /** Значение кнопки трубы: вид|сортамент|длина, мм (0 — куски). У чёрной и нержавеющей сечения совпадают, поэтому вид в значении. */
 export const pipeKey = (it) => `${pipeKind(it)}|${it.assortment}|${it.dims?.length || 0}`;
-export const pipeParts = (v) => { const [kind, section, len] = String(v).split('|'); return { kind, section, len: Number(len) }; };
+export const pipeParts = (v) => {
+  const parts = String(v ?? '').split('|');
+  const [kind, section, len] = parts;
+  // Старый адрес мог хранить одно сечение без вида/длины: хлебная крошка не должна падать.
+  return { kind: parts.length === 1 ? 'rect' : kind, section: section ?? kind, len: Number.isFinite(Number(len)) ? Number(len) : 0 };
+};
 /** Подпись значения: без лишних слов — «80×80×3 6м», «Ø57×3,5 12м», лист «3 мм». */
 export const facetLabel = (key, v) => {
   if (key === 'section') return String(v).replace(/^(Труба|Лист)\s+/i, '');
   if (key !== 'pipe') return v;
   const { section, len } = pipeParts(v);
-  return `${section.replace(/^Труба\s+/i, '').replace(/\s*\(.*\)$/, '')} ${len ? len / 1000 + 'м' : 'куски'}`;
+  const label = section.replace(/^Труба\s+/i, '').replace(/\s*\(.*\)$/, '');
+  return label ? `${label} ${len ? len / 1000 + 'м' : 'куски'}` : 'Сечение не указано';
 };
 const sizes = (v) => (String(v).match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(',', '.')));
 const bySize = (a, b) => { const x = sizes(a), y = sizes(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0); return 0; };

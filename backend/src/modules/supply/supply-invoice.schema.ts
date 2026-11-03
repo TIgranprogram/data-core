@@ -4,6 +4,39 @@ import { HydratedDocument, Types } from 'mongoose';
 export type SupplyInvoiceDocument = HydratedDocument<SupplyInvoice>;
 export type SupplyInvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
 
+export type SupplyInvoicePaymentLine = {
+  requestId: Types.ObjectId;
+  lineAmount: number;
+  qty: number;
+  companyId?: Types.ObjectId;
+  categoryId?: Types.ObjectId;
+  supplierId?: Types.ObjectId;
+  supplierName?: string;
+  salesOrderId?: Types.ObjectId;
+  costCenter?: string;
+  title?: string;
+  num?: number | string;
+  invoiceNo?: string;
+};
+
+export type SupplyInvoicePaymentSnapshot = {
+  amount: number;
+  paidAt: Date;
+  paidBy?: Types.ObjectId;
+  lines: SupplyInvoicePaymentLine[];
+};
+
+export type SupplyInvoicePaymentAdjustment = {
+  at: Date;
+  by?: Types.ObjectId;
+  reason: string;
+  operation: 'line_edit' | 'lines_added';
+  beforeAmount: number;
+  afterAmount: number;
+  delta: number;
+  requestIds: Types.ObjectId[];
+};
+
 /**
  * Счёт поставщика (`supplyinvoices`) — только data-core, CRM коллекцию не знает.
  * Строки счёта — заявки с `invoiceId`; `invoiceNo/invoiceDate/paid/paidAt/companyId` в заявках — копия, её пишет сервер.
@@ -60,6 +93,18 @@ export class SupplyInvoice {
   /** Версия для оптимистичной блокировки финансовых правок. */
   @Prop({ default: 0 })
   version!: number;
+
+  /** Монотонная граница первой приёмки; пишется в транзакции stock movement. */
+  @Prop({ type: Date, default: null })
+  receiptBoundaryAt?: Date | null;
+
+  /** Фактическая сумма/строки на момент оплаты; не меняется при последующих правках заявки. */
+  @Prop({ type: Object })
+  paymentSnapshot?: SupplyInvoicePaymentSnapshot;
+
+  /** Аудит изменений состава/суммы после оплаты до первой приёмки. */
+  @Prop({ type: [Object], default: [] })
+  paymentAdjustments!: SupplyInvoicePaymentAdjustment[];
 
   /** Журнал явных объединений: кто, когда, откуда, стратегия, сколько строк переехало. */
   @Prop({ type: [Object], default: [] })

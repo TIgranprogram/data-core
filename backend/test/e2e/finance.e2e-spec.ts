@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
@@ -20,7 +21,7 @@ describe('Finance: incomes + cashflow', () => {
     ctx = await createTestApp();
     app = ctx.app;
     token = await loginAsAdmin(app);
-    for (const c of ['supplyrequests', 'incomes', 'organizations', 'categories']) await db().collection(c).deleteMany({});
+    for (const c of ['supplyrequests', 'supplyinvoices', 'incomes', 'organizations', 'categories']) await db().collection(c).deleteMany({});
     await db().collection('organizations').insertMany([
       { name: 'СИЮ', shortName: 'СИЮ', inn: 'T-SIU', isOurCompany: true, type: [], deletedAt: null },
       { name: 'ССЮ', shortName: 'ССЮ', inn: 'T-SSU', isOurCompany: true, type: [], deletedAt: null },
@@ -103,6 +104,73 @@ describe('Finance: incomes + cashflow', () => {
     await http().get('/api/finance/cashflow?from=2026-10-05&to=2026-10-01').set(auth()).expect(400);
   });
 
+  it('T27: paid invoice edits сохраняют первоначальную сумму оплаты в денежном календаре', async () => {
+    const company = await db().collection('organizations').findOne({ shortName: 'СИЮ', isOurCompany: true });
+    expect(company).toBeTruthy();
+    const materialId = new Types.ObjectId();
+    await db().collection('materials').insertOne({ _id: materialId, name: 'T27 material', article: 'T27-1', unit: 'шт' });
+    const original = (await req({ title: 'T27 позиция', qty: 2, unit: 'шт', priceHint: 100, supplierName: 'T27 поставщик', companyName: 'СИЮ', categoryName: 'Метизы', materialId: String(materialId) })).body.id as string;
+    const created = await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [original] }).expect(201);
+    const invoiceId = created.body.items[0].id as string;
+    await http().patch(`/api/supply/invoices/${invoiceId}`).set(auth()).send({ no: 'T27-1', date: '2026-10-15', payerCompanyId: String(company!._id), issue: true }).expect(200);
+    await http().post(`/api/supply/invoices/${invoiceId}/pay`).set(auth()).expect(200);
+    const paidAt = new Date('2026-10-15T12:00:00.000Z');
+    await db().collection('supplyinvoices').updateOne({ _id: new Types.ObjectId(invoiceId) }, { $set: { paidAt, 'paymentSnapshot.paidAt': paidAt } });
+    await db().collection('supplyrequests').updateOne({ _id: new Types.ObjectId(original) }, { $set: { paidAt } });
+
+    await http().patch(`/api/supply/invoices/${invoiceId}/lines/${original}`).set(auth()).send({ lineAmount: 150, reason: 'Исправление по уточнённому счёту' }).expect(200);
+    const added = (await req({ title: 'T27 добавленная позиция', qty: 1, unit: 'шт', priceHint: 50, supplierName: 'T27 поставщик', companyName: 'СИЮ', materialId: String(materialId) })).body.id as string;
+    await http().post(`/api/supply/invoices/${invoiceId}/requests`).set(auth()).send({ requestIds: [added], reason: 'Добавление позиции, сверить отдельную оплату' }).expect(200);
+
+    // Правка реквизитов после корректировки не должна заново фиксировать цены первоначальной оплаты.
+    await http().patch(`/api/supply/invoices/${invoiceId}`).set(auth()).send({ no: 'T27-META', date: '2026-10-15', fileIds: [] }).expect(200);
+
+    const secondPurchase = (await req({ title: 'T27 вторая закупка того же материала', qty: 1, unit: 'шт', priceHint: 60, supplierName: 'T27 поставщик', companyName: 'СИЮ', materialId: String(materialId) })).body.id as string;
+    const secondInvoice = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [secondPurchase] }).expect(201)).body.items[0].id as string;
+    await http().patch(`/api/supply/invoices/${secondInvoice}`).set(auth()).send({ no: 'T27-2', date: '2026-10-15', payerCompanyId: String(company!._id), issue: true }).expect(200);
+
+    const invoice = await db().collection('supplyinvoices').findOne({ _id: new Types.ObjectId(invoiceId) });
+    expect(invoice).toMatchObject({ amount: 200, paidAt, paymentSnapshot: { amount: 100, paidAt }, paymentAdjustments: [
+      expect.objectContaining({ operation: 'line_edit', reason: 'Исправление по уточнённому счёту', beforeAmount: 100, afterAmount: 150, delta: 50 }),
+      expect.objectContaining({ operation: 'lines_added', reason: 'Добавление позиции, сверить отдельную оплату', beforeAmount: 150, afterAmount: 200, delta: 50 }),
+    ] });
+    const cashflow = await http().get('/api/finance/cashflow?from=2026-10-15&to=2026-10-15').set(auth()).expect(200);
+    expect(cashflow.body.totals.expenseBy['СИЮ']).toBe(100);
+    expect(cashflow.body.days[0].ops.filter((op: { type: string }) => op.type === 'expense')).toHaveLength(1);
+    const history = (await http().get(`/api/materials/${materialId}/prices`).set(auth()).expect(200)).body;
+    expect(history.items.filter((item: { source: string }) => item.source === 'invoice_adjustment')).toHaveLength(2);
+    const paidHistory = history.items.filter((item: { source: string }) => item.source === 'invoice_paid');
+    expect(paidHistory).toHaveLength(1);
+    expect(paidHistory[0]).toMatchObject({ requestId: original, priceWithVat: 50, qty: 2 });
+    expect(new Set(history.items.filter((item: { source: string }) => item.source === 'invoice_issued').map((item: { invoiceId: string }) => item.invoiceId)).size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('T27: компании с одинаковыми названиями разделяются по companyId первоначальной оплаты', async () => {
+    const first = new Types.ObjectId(), second = new Types.ObjectId();
+    await db().collection('organizations').insertMany([
+      { _id: first, name: 'Одинаковая компания', shortName: 'Одинаковая компания', inn: 'T27-SAME-A', isOurCompany: true, deletedAt: null },
+      { _id: second, name: 'Одинаковая компания', shortName: 'Одинаковая компания', inn: 'T27-SAME-B', isOurCompany: true, deletedAt: null },
+    ]);
+    const firstRequest = new Types.ObjectId(), secondRequest = new Types.ObjectId();
+    const fixtureInvoiceId = new Types.ObjectId();
+    await db().collection('supplyinvoices').insertOne({
+      _id: fixtureInvoiceId,
+      status: 'paid', deletedAt: null, payerCompanyId: first,
+      paymentSnapshot: { amount: 1000, paidAt: new Date('2026-11-02T12:00:00Z'), lines: [
+        { requestId: firstRequest, companyId: first, lineAmount: 100, title: 'Оплата первой компании' },
+        { requestId: secondRequest, companyId: second, lineAmount: 900, title: 'Оплата второй компании' },
+      ] },
+    });
+    const a = await http().get(`/api/finance/cashflow?from=2026-11-02&to=2026-11-02&org=${first}`).set(auth()).expect(200);
+    expect(a.body.totals.expense).toBe(100);
+    expect(a.body.days[0].ops.map((op: { id: string }) => op.id)).toEqual([String(firstRequest)]);
+    const b = await http().get(`/api/finance/cashflow?from=2026-11-02&to=2026-11-02&org=${second}`).set(auth()).expect(200);
+    expect(b.body.totals.expense).toBe(900);
+    // Удаляются только собственные искусственные документы этой проверки в disposable test DB.
+    await db().collection('supplyinvoices').deleteOne({ _id: fixtureInvoiceId });
+    await db().collection('organizations').deleteMany({ _id: { $in: [first, second] } });
+  });
+
   it('частичные оплаты позиции и ФОТ', async () => {
     const a = await http().post('/api/incomes').set(auth()).send({ orderNo: '77', companyName: 'СИЮ', title: 'Горка', amountManual: 1000, shipDate: '2026-10-02' }).expect(201);
     const p1 = await http().post(`/api/incomes/${a.body.id}/payments`).set(auth()).send({ date: '2026-10-03', amount: 300, method: 'нал' }).expect(200);
@@ -135,9 +203,9 @@ describe('Finance: incomes + cashflow', () => {
   it('сводка: месяцы, прибыль по компаниям, расходы по категориям', async () => {
     const s = await http().get('/api/finance/summary?from=2026-09-01&to=2026-10-31').set(auth()).expect(200);
     expect(s.body.months.map((m: { month: string }) => m.month)).toEqual(['2026-09', '2026-10']);
-    expect(s.body.total).toEqual({ СИЮ: { income: 0, expense: 1000, profit: -1000 }, ССЮ: { income: 3000, expense: 500.25, profit: 2499.75 } });
+    expect(s.body.total).toEqual({ СИЮ: { income: 0, expense: 1100, profit: -1100 }, ССЮ: { income: 3000, expense: 500.25, profit: 2499.75 } });
     expect(s.body.expensesByCategory).toEqual([
-      { category: 'Метизы', byCompany: { СИЮ: 1000, ССЮ: 0 }, total: 1000 },
+      { category: 'Метизы', byCompany: { СИЮ: 1100, ССЮ: 0 }, total: 1100 },
       { category: 'Расходники', byCompany: { СИЮ: 0, ССЮ: 500.25 }, total: 500.25 },
     ]);
   });

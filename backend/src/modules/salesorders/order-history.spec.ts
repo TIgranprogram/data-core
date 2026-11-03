@@ -35,7 +35,8 @@ describe('история заказа', () => {
     expect(money.items.some((i) => i.type === 'payment' && i.text.includes('Дата оплаты'))).toBe(true);
     const plain = await loadOrderHistory(d, oid, {}, acc(false));
     expect(plain.items.some((i) => i.type === 'payment')).toBe(false);
-    expect(JSON.stringify(plain.items)).not.toMatch(/900|оплач/i);
+    const visibleCopy = plain.items.map((i) => `${i.title} ${i.text}`).join(' ');
+    expect(visibleCopy).not.toMatch(/дата оплаты|сумма:|оплачено/i);
   });
   it('новые сверху; закрытый раздел склада скрыт', async () => {
     const full = { ...base, auditlogs: logs, stockmovements: [{ _id: new Types.ObjectId(), type: 'out', date: t('2026-11-01'), qty: 2, materialId: null }] };

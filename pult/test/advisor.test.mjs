@@ -120,11 +120,35 @@ test('pult/todo.json корректен: кнопка есть, шаги свя�
   assert.equal(new Set(todo.map((t) => t.id)).size, todo.length);
   for (const t of todo) {
     assert.ok(t.title && t.why && !Number.isNaN(Date.parse(t.added)), t.id);
-    assert.ok(t.cmd || t.link, `${t.id}: нужна кнопка или ссылка`);
+    assert.ok(t.cmd || t.link || t.manual === true, `${t.id}: нужна кнопка, ссылка или явный ручной шаг`);
+    if (t.manual) assert.ok(!t.cmd, `${t.id}: ручной шаг не должен запускать команду`);
     if (t.cmd) assert.ok(COMMANDS.some((c) => c.id === t.cmd), t.cmd);
     if (t.after) assert.ok(todo.some((x) => x.id === t.after), t.after);
     if (t.link) assert.match(t.link, /^https:\/\//);
   }
+});
+
+test('release checklist: готовность → ворота → отдельно подтверждаемая выкладка', () => {
+  // Завершённый выпуск снимается из живого todo; механизм зависимости проверяется собственной фикстурой.
+  const flow = [
+    { id: 'release-invoices-ready', added: '2026-11-03T08:02:00+03:00', title: 'Готовность', why: 'Проверено', manual: true },
+    { id: 'release-invoices-gate', added: '2026-11-03T08:02:00+03:00', title: 'Ворота', why: 'Не обходить', after: 'release-invoices-ready', cmd: 'deploy-gate' },
+    { id: 'release-invoices-publish', added: '2026-11-03T08:02:00+03:00', title: 'Выпуск', why: 'Подтверждение отдельно', after: 'release-invoices-gate', cmd: 'deploy-release' },
+  ];
+  assert.deepEqual(flow.map((t) => t.id), ['release-invoices-ready', 'release-invoices-gate', 'release-invoices-publish']);
+  assert.equal(flow[0].manual, true);
+  assert.equal(flow[1].after, flow[0].id);
+  assert.equal(flow[1].cmd, 'deploy-gate');
+  assert.equal(flow[2].after, flow[1].id);
+  assert.equal(flow[2].cmd, 'deploy-release');
+
+  const now = Date.parse('2026-11-03T08:03:00+03:00');
+  const visible = (runs) => advise(calm, runs, COMMANDS, now, flow).items.filter((x) => x.level === 'you').map((x) => x.todo);
+  assert.deepEqual(visible(allFresh), [flow[0].id]);
+  const ready = { ...allFresh, [`todo:${flow[0].id}`]: { at: now, code: 0 } };
+  assert.deepEqual(visible(ready), [flow[1].id]);
+  const gatePassed = { ...ready, 'deploy-gate': { at: now, code: 0 } };
+  assert.deepEqual(visible(gatePassed), [flow[2].id]);
 });
 
 test('запущенные стенды видны с кнопкой остановки', () => {

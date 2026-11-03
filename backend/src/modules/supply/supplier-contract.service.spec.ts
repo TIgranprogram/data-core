@@ -96,7 +96,7 @@ describe('SupplyInvoiceService: договор в счёте', () => {
   const make = (contract: Record<string, unknown> | null, inv: Record<string, unknown> = {}) => {
     const model = {
       findOne: jest.fn(() => chain({ _id: invId, status: 'draft', supplierId: supplier, fileIds: [], ...inv })),
-      updateOne: jest.fn<unknown, [object, Record<string, Record<string, unknown>>]>(() => ({ exec: async () => ({}) })),
+      updateOne: jest.fn<unknown, [object, Record<string, Record<string, unknown>>]>(() => ({ exec: async () => ({ matchedCount: 1 }) })),
     };
     const session = { withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined };
     const connection = {
@@ -158,14 +158,14 @@ describe('SupplyInvoiceService: договор в счёте', () => {
   it('смена поставщика сбрасывает договор и предупреждает', async () => {
     const { svc, model } = make(null, { contractId: cid });
     const r = await svc.update(String(invId), { supplierId: String(other) }) as { warnings?: string[] };
-    expect(model.updateOne.mock.calls[0][1].$unset).toEqual({ contractId: '' });
+    expect(model.updateOne.mock.calls.find((call: unknown[]) => (call[1] as Record<string, unknown>).$unset)?.[1]).toMatchObject({ $unset: { contractId: '' } });
     expect(r.warnings?.[0]).toContain('Договор снят');
   });
 
   it('смена поставщика вместе с договором нового поставщика — договор сохраняется', async () => {
     const { svc, model } = make({ _id: cid, supplierId: other, status: 'active' }, { contractId: new Types.ObjectId() });
     const r = await svc.update(String(invId), { supplierId: String(other), contractId: String(cid) }) as { warnings?: string[] };
-    expect(model.updateOne.mock.calls[0][1].$set.contractId).toEqual(cid);
+    expect(model.updateOne.mock.calls.find((call: unknown[]) => (call[1] as Record<string, unknown>).$set)?.[1]).toMatchObject({ $set: { contractId: cid } });
     expect(r.warnings).toBeUndefined();
   });
 });

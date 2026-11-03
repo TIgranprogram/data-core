@@ -237,28 +237,61 @@ describe('SupplyService', () => {
       expect(setOf().priceHint).toBeNull();
     });
 
-    it('строка оплаченного счёта: цену/количество менять нельзя (обход через PATCH заявки закрыт)', async () => {
+    it.each(['paid', 'issued', 'draft', 'другая строка принята'])('счёт %s: priceHint/qty через PATCH заявки → 400 без записи', async (status) => {
       const invId = new Types.ObjectId();
       current = reqDoc({ invoiceId: invId, status: 'ordered' });
-      colls.supplyinvoices = [{ _id: invId, status: 'paid' }];
-      await expect(service.update(String(current._id), { priceHint: 100 })).rejects.toThrow(/заблокированы/);
+      colls.supplyinvoices = [{ _id: invId, status: status === 'другая строка принята' ? 'draft' : status }];
+      model.countDocuments.mockReturnValue(chain(status === 'другая строка принята' ? 1 : 0));
+      for (const dto of [{ priceHint: 100 }, { qty: 3 }, { priceHint: null as never }]) {
+        await expect(service.update(String(current._id), dto)).rejects.toMatchObject({ status: 400 });
+      }
       expect(model.updateOne).not.toHaveBeenCalled();
     });
 
-    it('строка принятого счёта: цену/количество менять нельзя', async () => {
+    it.each(['supplierName', 'companyName'] as const)('%s: приёмка другой строки блокирует правку всей финансовой части счёта', async (field) => {
       const invId = new Types.ObjectId();
-      current = reqDoc({ invoiceId: invId, status: 'received' });
-      colls.supplyinvoices = [{ _id: invId, status: 'issued' }];
-      await expect(service.update(String(current._id), { qty: 3 })).rejects.toThrow(/заблокированы/);
+      current = reqDoc({ invoiceId: invId, status: 'ordered' });
+      colls.supplyinvoices = [{ _id: invId, status: 'draft' }];
+      model.countDocuments.mockReturnValue(chain(1));
+      await expect(service.update(String(current._id), { [field]: 'Новая компания' })).rejects.toMatchObject({ status: 400 });
+      expect(model.countDocuments).toHaveBeenCalledWith({ invoiceId: invId, deletedAt: null, status: 'received' });
       expect(model.updateOne).not.toHaveBeenCalled();
     });
 
-    it('строка обычного счёта: цену менять можно', async () => {
+    it.each(['paid', 'issued'])('счёт %s: поставщик и наша компания через заявку → 400', async (status) => {
       const invId = new Types.ObjectId();
       current = reqDoc({ invoiceId: invId, status: 'ordered' });
+      colls.supplyinvoices = [{ _id: invId, status }];
+      for (const dto of [{ supplierName: 'Поставщик' }, { companyName: 'Плательщик' }]) {
+        await expect(service.update(String(current._id), dto)).rejects.toMatchObject({ status: 400 });
+      }
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+
+    it.each(['paid', 'issued', 'другая строка принята'])('счёт %s: нельзя переключать paid в обе стороны', async (status) => {
+      const invId = new Types.ObjectId();
+      colls.supplyinvoices = [{ _id: invId, status: status === 'другая строка принята' ? 'draft' : status }];
+      model.countDocuments.mockReturnValue(chain(status === 'другая строка принята' ? 1 : 0));
+      for (const paid of [false, true]) {
+        current = reqDoc({ invoiceId: invId, status: 'ordered', paid });
+        await expect(service.update(String(current._id), { statusLabel: paid ? '⚙️ В работе' : '💰 Оплачено' })).rejects.toMatchObject({ status: 400 });
+      }
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('выставленный счёт: сохранение неизменного paid не блокирует примечание', async () => {
+      const invId = new Types.ObjectId();
+      current = reqDoc({ invoiceId: invId, status: 'ordered', paid: false });
       colls.supplyinvoices = [{ _id: invId, status: 'issued' }];
-      await service.update(String(current._id), { priceHint: 100 });
+      await service.update(String(current._id), { statusLabel: '⚙️ В работе', notes: 'ок' });
+      expect(setOf()).toMatchObject({ paid: false, notes: 'ок' });
+    });
+
+    it('заявка без счёта: цену и количество по-прежнему можно менять', async () => {
+      current = reqDoc();
+      await service.update(String(current._id), { priceHint: 100, qty: 5 });
       expect(setOf().priceHint).toBe(100);
+      expect(setOf().qty).toBe(5);
     });
 
     it('«Получено» через правку запрещено, если ещё не получена', async () => {

@@ -148,6 +148,12 @@ test('поручения: чужой id отклоняется', async () => {
   assert.equal((await api('/api/todo', { id: 'нет такого', action: 'done' })).status, 404);
 });
 
+test('браузерный batch policy модуль доступен с правильным содержимым', async () => {
+  const response = await raw('/chain.mjs');
+  assert.equal(response.status, 200);
+  assert.match(response.text, /export function isBatchSafe/);
+});
+
 test('в каталоге для страницы нет способа запуска', async () => {
   const text = (await api('/api/catalog')).text;
   assert.ok(!text.includes('"run"'));
@@ -169,4 +175,32 @@ test('поручение: «сделано» хранится в pult/.state/don
     fs.rmSync(path.join(logs, 'runs.json'), { force: true }); // журнал запусков пропал — отметка осталась
     assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).a.how, 'button');
   } finally { await p2.close(); }
+});
+
+import { readStatus } from '../server.mjs';
+test('T23: фоновый статус только локальный; legacy dcnight не выдаётся за свой стенд', async () => {
+  const calls = [];
+  const status = await readStatus({ docker: 'docker' }, {}, { standFn: () => null, shFn: async (file, args) => { calls.push([file, ...args]); return { ok: true, out: file === 'docker' ? 'dcnight-mongo\ndcnight-backend\n' : '' }; } });
+  assert.equal(status.site, null); assert.equal(status.productionChecked, false);
+  assert.equal(status.nightStand, false); assert.equal(status.legacyNightStand, true);
+  assert.ok(calls.every((args) => !/https?:|curl|api\.sh/.test(args.join(' '))));
+});
+test('T23: /api/status использует statusFn-заглушку, без production', async () => {
+  const result = await api('/api/status');
+  assert.equal(result.status, 200); assert.equal(result.json().fake, true);
+});
+test('T23: ошибка cancellation transport возвращается пользователю; job остаётся running', async () => {
+  const logs = fs.mkdtempSync(path.join(os.tmpdir(), 'pult-cancel-'));
+  const p2 = createPult({ catalog: fake, machine, logDir: logs, stateDir: path.join(logs, 'state'), statusFn: async () => ({ fake: true }), terminateFn: async () => ({ ok: false, error: 'fake Access denied' }) });
+  const port2 = await p2.listen(0);
+  const post = async (route, body) => fetch(`http://127.0.0.1:${port2}${route}`, { method: 'POST', headers: { 'X-Pult-Token': p2.token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    const { job } = await (await post('/api/run', { id: 'long' })).json();
+    const response = await post('/api/stop', { id: job.id });
+    assert.equal(response.status, 500); assert.match((await response.json()).error, /Access denied/);
+    assert.equal(p2.jobs.get(job.id).state, 'running'); assert.equal(p2.jobs.get(job.id).stopped, false);
+  } finally {
+    for (const j of p2.jobs.values()) if (j.state === 'running') process.kill(j.pid);
+    await p2.close();
+  }
 });

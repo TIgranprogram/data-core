@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Types } from 'mongoose';
+import type { ClientSession } from 'mongoose';
 import type { ArticleDecision } from './article';
 import { normText } from '../../common/text/norm-text';
 import type { StockScope } from '../../common/stock-scope';
@@ -77,7 +78,7 @@ export class StockService {
   adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> { return this.catalog.adoptArticle(materialId, incoming, source); }
 
   // --- движения
-  move(materialId: string, dto: MoveInput, userId?: string) { return this.moves.move(materialId, dto, userId); }
+  move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>) { return this.moves.move(materialId, dto, userId, first); }
   batch(dto: Parameters<StockMovementsService['batch']>[0], userId?: string) { return this.moves.batch(dto, userId); }
   cancelBatch(batchId: string, userId: string | undefined, scope: StockScope | null) { return this.moves.cancelBatch(batchId, userId, scope); }
   offcut(materialId: string, dto: Parameters<StockMovementsService['offcut']>[1], userId?: string) { return this.moves.offcut(materialId, dto, userId); }

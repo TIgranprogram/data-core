@@ -1174,7 +1174,7 @@
   const BASE_URL = location.origin + API;
   // Служебные таблицы не нужны клиентам — в промт и краткую схему не берём.
   const META_HIDE = new Set(['users', 'roles', 'permissions', 'featureflags', 'rate_limit_entries', 'desktop_pairing_keys',
-    'browserdevicegrants', 'deviceinvites', 'auditlogs', 'idempotency_records', 'counters', 'dictionary_labels', 'migration_flags']);
+    'browserdevicegrants', 'deviceinvites', 'auditlogs', 'idempotency_records', 'counters', 'dictionary_labels', 'migration_flags', 'stock_catalog_name_reservations']);
   const cxState = { schema: null, lang: 'sheets' };
 
   function fieldLabel(f) {

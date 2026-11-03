@@ -13,6 +13,8 @@ import { fileURLToPath } from 'node:url';
 import * as defaultCatalog from './catalog.mjs';
 import { advise, LEVELS, runKey, todoDone } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
+import { terminateProcess } from './process.mjs';
+import { assertRun } from '../tools/night-owner.mjs';
 import { KINDS, SAFE_RISKS, WEEKDAYS, cleanRule, isDue, lastSlot, mergeRules, nextSlot, ruleText } from './schedule.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
@@ -37,8 +39,7 @@ function respawn(port) {
   const child = spawn(process.execPath, [SELF, '--no-open', '--respawned'], { cwd: ROOT, detached: true, stdio: 'ignore', env: { ...process.env, PULT_PORT: String(port) } });
   child.unref();
 }
-const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
-const PROD_URL = 'https://kppdf-crm.ru/db';
+const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/chain.mjs': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
 const MAX_JOB_LINES = 20000;
 const KEEP_LOGS = 200;
 const NEEDS_CONFIRM = new Set(['prod-write', 'danger']);
@@ -57,29 +58,23 @@ async function fetchJson(url) {
 /** Команды, что пишут в тестовую БД: вместе не запускаются (иначе ложные красные e2e). */
 const TEST_GROUP = new Set(['check-full', 'code-check', 'code-e2e', 'night-run', 'site-audit']);
 
-/** Сколько коммитов кода после версии на сайте и после последней выкладки с пульта: меньшее из двух. */
-async function countUndeployed(bases) {
-  const list = bases.filter((b) => /^[0-9a-f]{6,40}$/.test(b || ''));
-  const counts = await Promise.all(list.map((b) => sh('git', ['rev-list', '--count', `${b}..HEAD`, '--', 'backend', 'deploy', 'docker-compose.prod.yml', ':!backend/test', ':!backend/scripts', ':!backend/**/*.spec.ts'])));
-  const ok = counts.filter((c) => c.ok).map((c) => Number(c.out.trim()));
-  return ok.length ? Math.min(...ok) : 0;
-}
-
-/** Полоса состояния вверху окна. Только чтение. */
-async function readStatus(machine, runs = {}) {
-  const [branch, counts, gate, all, docker, admin, ready, version] = await Promise.all([
-    sh('git', ['rev-parse', '--abbrev-ref', 'HEAD']),
-    sh('git', ['rev-list', '--left-right', '--count', 'HEAD...@{u}']),
-    sh('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '--', 'backend', 'deploy', 'docker-compose.prod.yml']),
-    sh('git', ['status', '--porcelain']),
-    machine.docker ? sh('docker', ['ps', '--format', '{{.Names}}'], 6000) : { ok: false, out: '' },
-    sh('net', ['session']),
-    fetchJson(`${PROD_URL}/api/health/ready`),
-    fetchJson(`${PROD_URL}/app/version.json`),
+/** Полоса состояния вверху окна: только локальное чтение, без production transport. */
+export async function readStatus(machine, runs = {}, { shFn = sh, standFn = () => {
+  try { const run = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', '.night', 'current-stand.json'), 'utf8')); return assertRun(run); } catch { return null; }
+} } = {}) {
+  const manual = standFn();
+  const [branch, counts, gate, all, docker, admin, owned] = await Promise.all([
+    shFn('git', ['rev-parse', '--abbrev-ref', 'HEAD']),
+    shFn('git', ['rev-list', '--left-right', '--count', 'HEAD...@{u}']),
+    shFn('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '--', 'backend', 'deploy', 'docker-compose.prod.yml']),
+    shFn('git', ['status', '--porcelain']),
+    machine.docker ? shFn('docker', ['ps', '--format', '{{.Names}}'], 6000) : { ok: false, out: '' },
+    shFn('net', ['session']),
+    manual && machine.docker ? shFn('docker', ['ps', '--filter', `label=dc.night.run=${manual.id}`, '--filter', `label=com.docker.compose.project=${manual.project}`, '--format', '{{.ID}}'], 6000) : { ok: false, out: '' },
   ]);
   const [ahead, behind] = counts.out.trim().split(/\s+/).map(Number);
   const lines = (s) => s.split(/\r?\n/).filter(Boolean);
-  const undeployed = await countUndeployed([version.json?.v, runs['deploy-release']?.code === 0 ? runs['deploy-release'].commit : null]);
+  const undeployed = 0; // Без live-проверки версия production неизвестна.
   return {
     branch: branch.out.trim() || '?',
     ahead: ahead || 0,
@@ -87,17 +82,19 @@ async function readStatus(machine, runs = {}) {
     gateFiles: lines(gate.out).map((l) => l.slice(3)),
     dirty: lines(all.out).length,
     docker: !!docker.ok,
-    nightStand: /^dcnight/m.test(docker.out),
+    nightStand: !!owned.ok && !!owned.out.trim(),
+    legacyNightStand: /^dcnight/m.test(docker.out),
     localSite: /^datacore-backend$/m.test(docker.out),
     admin: !!admin.ok,
     route: machine.route ? ROUTE_LABEL[machine.route] : null,
     undeployed,
-    site: ready.ok,
-    version: version.json?.v ? `${version.json.v}` : null,
+    site: null,
+    version: null,
+    productionChecked: false,
   };
 }
 
-export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), stateDir = path.join(root, 'pult', '.state'), onIdle = null, statusFn = readStatus, now = () => new Date() } = {}) {
+export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), stateDir = path.join(root, 'pult', '.state'), onIdle = null, statusFn = readStatus, terminateFn = terminateProcess, now = () => new Date() } = {}) {
   const token = crypto.randomBytes(24).toString('hex');
   const jobs = new Map();
   let restartAt = 0; // время, когда пульт ушёл на перезапуск после обновления кода
@@ -252,10 +249,10 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
 
   const summary = ({ lines, pid, ...j }) => j;
 
-  function stopJob(job) {
+  async function stopJob(job) {
     job.stopped = true;
-    if (process.platform === 'win32') spawn('taskkill', ['/PID', String(job.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
-    else process.kill(job.pid);
+    const result = await terminateFn(job.pid);
+    if (!result.ok && job.state === 'running') { job.stopped = false; throw new Error('Остановка не выполнена: ' + result.error); }
   }
 
   function openExternal(target) {
@@ -426,7 +423,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (req.method === 'POST' && url.pathname === '/api/stop') {
       const job = jobs.get((await readBody(req)).id);
       if (!job || job.state !== 'running') return json(res, 404, { error: 'Команда уже завершена' });
-      stopJob(job);
+      await stopJob(job);
       return json(res, 200, { ok: true });
     }
     return json(res, 404, { error: 'Нет такого адреса' });

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsPositive, IsString, Length, Min } from 'class-validator';
 
 export class CreateInvoicesDto {
   @ApiPropertyOptional({ description: 'Заявки, которые заказываем (id); делятся на счета по поставщику', type: [String] })
@@ -9,6 +9,8 @@ export class CreateInvoicesDto {
 export class AddInvoiceRequestsDto {
   @ApiPropertyOptional({ description: 'Заявки, которые добавляем в этот счёт (id)', type: [String] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds!: string[];
+  @ApiPropertyOptional({ description: 'Причина корректировки, обязательна для уже оплаченного счёта' })
+  @IsOptional() @IsString() @Length(0, 500) reason?: string;
 }
 
 export class ReceiveInvoiceDto {
@@ -34,8 +36,12 @@ export class PatchInvoiceLineDto {
   @IsOptional() @IsNumber() @Min(0) unitPrice?: number;
   @ApiPropertyOptional({ description: 'Сумма строки, ₽ (цена за единицу пересчитывается обратно)' })
   @IsOptional() @IsNumber() @Min(0) lineAmount?: number;
+  @ApiPropertyOptional({ description: 'Количество (> 0); без цены сохраняется прежняя цена за единицу, сумма строки пересчитывается' })
+  @IsOptional() @IsNumber() @IsPositive() qty?: number;
   @ApiPropertyOptional({ description: 'Ожидаемая версия счёта — оптимистичная блокировка (не совпала → 409)' })
   @IsOptional() @IsInt() @Min(0) version?: number;
+  @ApiPropertyOptional({ description: 'Причина корректировки, обязательна для уже оплаченного счёта' })
+  @IsOptional() @IsString() @Length(0, 500) reason?: string;
 }
 
 export const MERGE_STRATEGIES = ['append', 'mergeSameRequest', 'replaceLines'] as const;

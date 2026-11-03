@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { attachCombo } from '../ui/kit/index.js';
+import { attachCombo, busyBlock, failBlock } from '../ui/kit/index.js';
 import { loadMaterialDicts, normSize, splitSizes } from '../ui/materials-spec.js';
 
 /*
@@ -10,7 +10,7 @@ import { loadMaterialDicts, normSize, splitSizes } from '../ui/materials-spec.js
  */
 const norm = (t) => String(t || '').trim();
 const origs = new Map();
-const load = (id) => api(`/materials/${id}`).then((m) => m.passportSpec || null).catch(() => null);
+const load = (id) => api(`/materials/${id}`).then((m) => m.passportSpec || null);
 
 /** Поле формы: материал (из справочника) · размеры · покрытие · два текста. value — JSON {materialId, sizes, isCoating, passportText, techText}. */
 export async function passportSpecField(row) {
@@ -62,15 +62,23 @@ export async function savePassportSpec(id, json) {
 
 /** Блок «Для паспорта» в карточке (только чтение; правка — «Изменить»). */
 export function passportSpecView(r) {
-  const box = h('div', null, h('div', { class: 'section-title' }, 'Для паспорта'), h('p', { class: 'muted' }, 'Загрузка…'));
-  Promise.all([load(r.id), api('/dicts/passportMaterials').then((x) => x.items || []).catch(() => [])]).then(([spec, mats]) => {
-    const name = spec?.materialId ? (mats.find((m) => String(m.id) === String(spec.materialId))?.name || 'материал удалён из справочника') : '';
-    const rows = spec && (name || spec.passportText || spec.techText) ? [
-      name && h('p', null, 'Материал: ', h('b', null, name), spec.sizes?.length ? ` · ${spec.sizes.join('; ')}` : '', spec.isCoating ? ' · покрытие' : ''),
-      spec.passportText && h('p', null, 'Для паспорта: ', spec.passportText),
-      spec.techText && h('p', null, 'Для тех. описания: ', spec.techText)].filter(Boolean)
-      : [h('p', { class: 'muted' }, 'Не связано с материалом паспорта — «Изменить» → «Для паспорта». Пока связи нет, состав изделия подсказывает по названию.')];
-    box.replaceChildren(box.firstChild, ...rows);
-  });
+  const title = h('div', { class: 'section-title' }, 'Для паспорта');
+  const box = h('div', null, title);
+  const render = async () => {
+    box.replaceChildren(title, busyBlock('паспортные данные', { retry: render }));
+    try {
+      const [spec, mats] = await Promise.all([load(r.id), api('/dicts/passportMaterials').then((x) => x.items || [])]);
+      const name = spec?.materialId ? (mats.find((m) => String(m.id) === String(spec.materialId))?.name || 'материал удалён из справочника') : '';
+      const rows = spec && (name || spec.passportText || spec.techText) ? [
+        name && h('p', null, 'Материал: ', h('b', null, name), spec.sizes?.length ? ` · ${spec.sizes.join('; ')}` : '', spec.isCoating ? ' · покрытие' : ''),
+        spec.passportText && h('p', null, 'Для паспорта: ', spec.passportText),
+        spec.techText && h('p', null, 'Для тех. описания: ', spec.techText)].filter(Boolean)
+        : [h('p', { class: 'muted' }, 'Не связано с материалом паспорта — «Изменить» → «Для паспорта». Пока связи нет, состав изделия подсказывает по названию.')];
+      box.replaceChildren(title, ...rows);
+    } catch (e) {
+      box.replaceChildren(title, failBlock(e, render, { text: 'Данные для паспорта не загрузились' }));
+    }
+  };
+  render();
   return box;
 }

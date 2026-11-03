@@ -2,10 +2,10 @@ import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { normText } from '../../common/text/norm-text';
-import type { Connection, Model } from 'mongoose';
+import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
-import type { StockScope } from '../../common/stock-scope';
+import { inScope, type StockScope } from '../../common/stock-scope';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { Material, MaterialDocument } from '../material/material.schema';
@@ -15,6 +15,7 @@ import { mergeDims } from './metal';
 import { QrService } from '../qr/qr.service';
 import { StockCoreService } from './stock-core.service';
 import { StockSearchService } from './stock-search.service';
+import { StockCatalogNameService } from './stock-catalog-name.service';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import type { StockItemInput } from './stock.types';
 
@@ -28,29 +29,45 @@ export class StockCatalogService {
     private readonly counter: CounterService,
     private readonly core: StockCoreService,
     private readonly search: StockSearchService,
+    private readonly names: StockCatalogNameService,
     @Optional() private readonly qr?: QrService,
   ) {}
 
   private readonly logger = new Logger(StockCatalogService.name);
 
   /** Материал с таким же наименованием (без учёта регистра и лишних пробелов). */
-  async findMaterialByName(name: string): Promise<MaterialDocument | null> {
+  async findMaterialByName(name: string, session?: ClientSession): Promise<MaterialDocument | null> {
     const clean = name.trim().replace(/\s+/g, ' ');
     if (!clean) return null;
     const re = new RegExp(`^\\s*${escapeRe(clean).replace(/ /g, '\\s+')}\\s*$`, 'i');
-    return this.materials.findOne({ name: re, deletedAt: null }).exec();
+    return this.materials.findOne({ name: re, deletedAt: null }).session(session ?? null).exec();
   }
 
   /** Авто-артикул для позиции без артикула (в CRM поле обязательно): СКЛ-<год>-<номер>. */
-  autoArticle() {
-    return this.counter.next('MaterialArticle', 'СКЛ');
+  autoArticle(session?: ClientSession) {
+    return session ? this.nextCatalogCode('MaterialArticle', 'СКЛ', session) : this.counter.next('MaterialArticle', 'СКЛ');
   }
 
   /** Внутренний код по префиксу категории — как MaterialService. */
-  async skuFor(categoryId?: Types.ObjectId): Promise<string | undefined> {
+  async skuFor(categoryId?: Types.ObjectId, session?: ClientSession): Promise<string | undefined> {
     if (!categoryId) return undefined;
-    const cat = await this.connection.db!.collection('categories').findOne({ _id: categoryId });
-    return cat?.skuPrefix ? this.counter.next('Material', String(cat.skuPrefix)) : undefined;
+    const cat = await this.connection.db!.collection('categories').findOne({ _id: categoryId }, { session });
+    return cat?.skuPrefix ? (session ? this.nextCatalogCode('Material', String(cat.skuPrefix), session) : this.counter.next('Material', String(cat.skuPrefix))) : undefined;
+  }
+
+  private async nextCatalogCode(entity: string, prefix: string, session: ClientSession): Promise<string> {
+    const year = new Date().getFullYear();
+    // Тот же формат/счётчик, но без вложенной независимой транзакции CounterService.
+    const result = await this.connection.db!.collection<{ seq: number }>('counters').findOneAndUpdate(
+      { entity, prefix, year }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: 'after', session },
+    );
+    return `${prefix}-${year}-${String(result?.seq ?? 1).padStart(3, '0')}`;
+  }
+
+  private resolveItemCategory(dto: StockItemInput): Promise<Types.ObjectId | undefined> {
+    return dto.categoryId && Types.ObjectId.isValid(dto.categoryId)
+      ? Promise.resolve(new Types.ObjectId(dto.categoryId))
+      : new CategoryResolver(this.connection).resolve(dto.categoryName);
   }
 
   /** Новая позиция: материал + строка остатка (0). Позиция с тем же наименованием не дублируется. */
@@ -77,52 +94,88 @@ export class StockCatalogService {
   async createItem(dto: StockItemInput, scope?: StockScope | null) {
     const name = String(dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Укажите наименование');
-    const existing = await this.findMaterialByName(name);
-    if (!existing && dto.article?.trim()) await this.assertArticleFree(dto.article.trim());
-    if (existing) {
-      await this.core.assertMaterials([existing._id], scope); // такое же наименование у чужой позиции — не обходной путь к ней
-      // ТИ-8: уже заполненное «название в счёте» не затираем
-      const keepInvoice = (existing as { invoiceName?: string }).invoiceName;
-      await this.updateItem(String(existing._id), { ...dto, name: undefined, ...(keepInvoice ? { invoiceName: undefined } : {}) });
-      return this.search.getItem(String(existing._id));
-    }
-    const categoryId = dto.categoryId && Types.ObjectId.isValid(dto.categoryId)
-      ? new Types.ObjectId(dto.categoryId)
-      : await new CategoryResolver(this.connection).resolve(dto.categoryName);
-    const mat = await this.materials.create({
-      name, unit: dto.unit?.trim() || 'шт', article: dto.article?.trim() || (await this.autoArticle()),
-      sku: await this.skuFor(categoryId), categoryId, notes: dto.notes, weightKg: dto.weightKg,
-      ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
-      ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
-      ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
-      ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
+    if (scope) dto = await this.scopeNewItem(dto, scope);
+    // Подготовка справочника вне повторяемого callback; не основание для решения create/reuse.
+    const preliminary = await this.findMaterialByName(name);
+    if (preliminary && !inScope(scope, preliminary)) throw new ForbiddenException('Эта позиция не из вашего склада');
+    const categoryId = await this.resolveItemCategory(dto);
+    const result = await this.names.run([name], async (session) => {
+      // Только этот повторный поиск после записи revision решает, создавать ли Material.
+      const existing = await this.findMaterialByName(name, session);
+      if (existing) {
+        if (!inScope(scope, existing)) throw new ForbiddenException('Эта позиция не из вашего склада');
+        // ТИ-8: уже заполненное «название в счёте» не затираем; имя сохраняем.
+        await this.patchMaterial(existing, { ...dto, name: undefined, ...(existing.invoiceName ? { invoiceName: undefined } : {}) }, categoryId, session);
+        return { id: existing._id as Types.ObjectId, reused: true };
+      }
+      if (dto.article?.trim()) await this.assertArticleFree(dto.article.trim(), undefined, session);
+      const [mat] = await this.materials.create([{
+        name, unit: dto.unit?.trim() || 'шт', article: dto.article?.trim() || (await this.autoArticle(session)),
+        sku: await this.skuFor(categoryId, session), categoryId, notes: dto.notes, weightKg: dto.weightKg,
+        ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
+        ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
+        ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
+        ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
+      }], { session });
+      return { id: mat._id as Types.ObjectId, reused: false };
     });
-    if (dto.weightG !== undefined) await this.core.setWeightG(mat._id as Types.ObjectId, dto.weightG);
+    // Остаток и QR не внутри повторяемой транзакции. Повтор create чинит оборванный шаг и для reuse.
+    await this.finishItem(result.id, dto, true, result.reused);
+    await this.qr?.ensureCode('S', result.id).catch((e) => this.logger.warn(`QR не выдан: ${e?.message ?? e}`));
+    return this.search.getItem(String(result.id));
+  }
+
+  private async finishItem(_id: Types.ObjectId, dto: StockItemInput, ensureStorage: boolean, edited: boolean): Promise<void> {
+    if (ensureStorage || dto.minQuantity !== undefined || dto.weightKg !== undefined) await this.ensureStorage(_id, dto);
+    if (dto.weightG !== undefined) await this.core.setWeightG(_id, dto.weightG);
+    if (edited) await this.core.markEdited(_id);
+  }
+
+  private async ensureStorage(_id: Types.ObjectId, dto: StockItemInput): Promise<void> {
     const wh = await this.core.defaultWarehouse();
-    await this.storage.updateOne(
-      { warehouseId: wh._id, materialId: mat._id, zoneName: null },
-      { $setOnInsert: { warehouseId: wh._id, materialId: mat._id, quantity: 0, reservedQty: 0, isActive: true, deletedAt: null, photos: [] },
-        $set: { minQuantity: dto.minQuantity ?? 0, ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
+    const set = { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity ?? 0 } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) };
+    const run = () => this.storage.updateOne(
+      { warehouseId: wh._id, materialId: _id, zoneName: null },
+      { $setOnInsert: { warehouseId: wh._id, materialId: _id, quantity: 0, reservedQty: 0, isActive: true, deletedAt: null, photos: [], ...(dto.minQuantity === undefined ? { minQuantity: 0 } : {}) },
+        ...(Object.keys(set).length ? { $set: set } : {}) },
       { upsert: true },
     ).exec();
-    // QR: код выдаётся сразу; сбой выдачи создание не ломает
-    await this.qr?.ensureCode('S', mat._id as Types.ObjectId).catch((e) => this.logger.warn(`QR не выдан: ${e?.message ?? e}`));
-    return this.search.getItem(String(mat._id));
+    try { await run(); } catch (error) {
+      const e = error as { code?: number; keyPattern?: Record<string, number> };
+      if (e.code !== 11000 || e.keyPattern?.warehouseId !== 1 || e.keyPattern?.materialId !== 1) throw error;
+      await run(); // параллельный post-commit upsert уже вставил ту же строку
+    }
   }
 
   async updateItem(materialId: string, dto: StockItemInput) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
     const _id = new Types.ObjectId(materialId);
-    const mat = await this.materials.findOne({ _id, deletedAt: null }).exec();
-    if (!mat) throw new NotFoundException('Позиция не найдена');
+    const categoryId = await this.resolveItemCategory(dto);
+    await this.names.run([], async (session) => {
+      const mat = await this.materials.findOne({ _id, deletedAt: null }).session(session).exec();
+      if (!mat) throw new NotFoundException('Позиция не найдена');
+      // Старое и новое имя — в одном фиксированном порядке. Stale Material даст WriteConflict и retry callback.
+      await this.names.acquire([mat.name, dto.name?.trim() || mat.name], session);
+      if (dto.name?.trim()) {
+        const twin = await this.findMaterialByName(dto.name.trim(), session);
+        if (twin && String(twin._id) !== materialId) throw new ConflictException('Позиция с таким наименованием уже существует');
+      }
+      await this.patchMaterial(mat, dto, categoryId, session);
+    });
+    await this.finishItem(_id, dto, false, true);
+    return this.search.getItem(materialId);
+  }
+
+  private async patchMaterial(mat: MaterialDocument, dto: StockItemInput, categoryId: Types.ObjectId | undefined, session: ClientSession): Promise<void> {
+    const _id = mat._id as Types.ObjectId;
     const set: Record<string, unknown> = {};
     if (dto.name?.trim()) set.name = dto.name.trim();
     if (dto.unit?.trim()) set.unit = dto.unit.trim();
     if (dto.article?.trim() && dto.article.trim() !== mat.article) {
       // АР.3: артикул уникален; прежний автоартикул остаётся внутренним кодом; откуда — «вручную»
-      await this.assertArticleFree(dto.article.trim(), _id);
+      await this.assertArticleFree(dto.article.trim(), _id, session);
       set.article = dto.article.trim();
-      await this.connection.db!.collection('materials').updateOne({ _id }, { $set: { articleSource: 'вручную', articleSetAt: new Date(), ...(isAutoArticle(mat.article) && mat.article ? { internalArticle: mat.article } : {}) } });
+      await this.connection.db!.collection('materials').updateOne({ _id }, { $set: { articleSource: 'вручную', articleSetAt: new Date(), ...(isAutoArticle(mat.article) && mat.article ? { internalArticle: mat.article } : {}) } }, { session });
     }
     if (dto.notes !== undefined) set.notes = dto.notes;
     if (dto.fullName !== undefined) set.fullName = dto.fullName.trim() || null;
@@ -131,21 +184,8 @@ export class StockCatalogService {
     for (const k of ['assortment', 'materialGrade'] as const) if (dto[k] !== undefined) set[k] = dto[k]?.trim() || null;
     if (dto.washed !== undefined) set.washed = dto.washed;
     if (dto.dims) set.dimensions = mergeDims(mat.dimensions, dto.dims);
-    if (dto.categoryId && Types.ObjectId.isValid(dto.categoryId)) set.categoryId = new Types.ObjectId(dto.categoryId);
-    else if (dto.categoryName) set.categoryId = await new CategoryResolver(this.connection).resolve(dto.categoryName);
-    if (Object.keys(set).length) await this.materials.updateOne({ _id }, { $set: set }).exec();
-    if (dto.weightG !== undefined) await this.core.setWeightG(_id, dto.weightG);
-    await this.core.markEdited(_id);
-    if (dto.minQuantity !== undefined || dto.weightKg !== undefined) {
-      const wh = await this.core.defaultWarehouse();
-      await this.storage.updateOne(
-        { warehouseId: wh._id, materialId: _id, zoneName: null },
-        { $setOnInsert: { warehouseId: wh._id, materialId: _id, quantity: 0, reservedQty: 0, isActive: true, deletedAt: null, photos: [] },
-          $set: { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity ?? 0 } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) } },
-        { upsert: true },
-      ).exec();
-    }
-    return this.search.getItem(materialId);
+    if (categoryId) set.categoryId = categoryId;
+    if (Object.keys(set).length) await this.materials.updateOne({ _id, deletedAt: null }, { $set: set }, { session }).exec();
   }
 
   async addPhoto(materialId: string, photoId: string) {
@@ -178,8 +218,8 @@ export class StockCatalogService {
     return this.search.getItem(materialId);
   }
   /** Артикул уже у другой позиции — 409 с её названием (АР.3: артикул уникален в общей схеме). */
-  private async assertArticleFree(article: string, self?: Types.ObjectId) {
-    const twin = await this.materials.findOne({ article: new RegExp(`^\\s*${escapeRe(article)}\\s*$`, 'i'), deletedAt: null, ...(self ? { _id: { $ne: self } } : {}) }, { name: 1 }).lean().exec();
+  private async assertArticleFree(article: string, self?: Types.ObjectId, session?: ClientSession) {
+    const twin = await this.materials.findOne({ article: new RegExp(`^\\s*${escapeRe(article)}\\s*$`, 'i'), deletedAt: null, ...(self ? { _id: { $ne: self } } : {}) }, { name: 1 }).session(session ?? null).lean().exec();
     if (twin) throw new ConflictException(`Артикул «${article}» уже у позиции «${twin.name}» — это одна и та же позиция? Тогда объедините их или поправьте артикул`);
   }
 
@@ -226,12 +266,15 @@ export class StockCatalogService {
 
   async restoreItem(materialId: string) {
     const _id = oid(materialId, 'позиции');
-    const mat = await this.materials.findOne({ _id, deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).lean().exec();
-    if (!mat) throw new NotFoundException('Позиции нет в корзине');
-    const twin = await this.findMaterialByName(mat.name);
-    if (twin) throw new ConflictException(`Уже есть позиция «${twin.name}» — переименуйте её или удалите, потом восстановите эту`);
-    const when = (mat as { deletedAt?: Date }).deletedAt;
-    await this.materials.updateOne({ _id }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
+    const when = await this.names.run([], async (session) => {
+      const mat = await this.materials.findOne({ _id, deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).session(session).lean().exec();
+      if (!mat) throw new NotFoundException('Позиции нет в корзине');
+      await this.names.acquire([mat.name], session);
+      const twin = await this.findMaterialByName(mat.name, session);
+      if (twin) throw new ConflictException(`Уже есть позиция «${twin.name}» — переименуйте её или удалите, потом восстановите эту`);
+      await this.materials.updateOne({ _id }, { $set: { deletedAt: null } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
+      return (mat as { deletedAt?: Date }).deletedAt;
+    });
     // Строки остатка, удалённые вместе с позицией, возвращаются вместе с ней
     await this.storage.updateMany({ materialId: _id, deletedAt: when }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
     return this.search.getItem(materialId);

@@ -4,7 +4,7 @@ import { row } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, plural, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { toast, toastError } from '../ui/toast.js';
 import { issueDialog } from './issue.js';
 
@@ -36,6 +36,8 @@ export function reservationsPanel({ onChange }) {
   /** Раскрытая бронь: подробности грузятся по требованию. */
   function detail(g, box) {
     const key = g.batchId || g.lines[0]?.id;
+    const retry = () => detail(g, box);
+    box.replaceChildren(busyBlock('детали брони', { retry, cls: 'res-detail-state' }));
     api(`/stock/reservations/group/${key}`).then((d) => {
       const so = d.salesOrder;
       box.replaceChildren(...[
@@ -52,7 +54,7 @@ export function reservationsPanel({ onChange }) {
           h('ul', { class: 'timeline' }, ...d.issues.map((x) => h('li', null, h('span', { class: 'when' }, date(x.date)), `${x.name} — ${qty(x.qty)} ${x.unit}`, h('span', { class: 'muted' }, x.to ? ` · ${x.to}` : ' · кому — не указано'))))) : null,
         d.requests.length ? h('div', null, h('div', { class: 'section-title' }, 'Заказано недостающее'),
           h('ul', { class: 'timeline' }, ...d.requests.map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? ''} ${x.title}`), h('span', { class: 'muted' }, ` · ${qty(x.qty)} ${x.unit} · ${REQ[x.status] || x.status}`))))) : null].filter(Boolean));
-    }).catch((e) => box.replaceChildren(failBlock(e)));
+    }).catch((e) => box.replaceChildren(failBlock(e, retry, { text: 'Детали брони не загрузились', cls: 'res-detail-state' })));
   }
 
   /** Снять всю бронь: списком (batchId) или построчно, если бронь одиночная. */
@@ -62,7 +64,14 @@ export function reservationsPanel({ onChange }) {
   }
 
   async function load() {
-    let res; try { res = await api('/stock/reservations', { query: zoneQuery() }); } catch { el.hidden = true; return; }
+    let res;
+    try { res = await api('/stock/reservations', { query: zoneQuery() }); }
+    catch (e) {
+      if (e?.status === 403) { el.hidden = true; return; }
+      el.hidden = false;
+      el.replaceChildren(failBlock(e, load, { text: 'Активные брони не загрузились' }));
+      return;
+    }
     el.hidden = !res.items.length;
     el.replaceChildren(
       h('div', { class: 'panel-head' }, h('h3', null, `Активные брони: ${res.items.length}`), h('span', { class: 'muted small' }, 'Откройте бронь — кто поставил, что выдано и кому. «Выдать» — списание по брони; «Снять» — товар снова свободен')),

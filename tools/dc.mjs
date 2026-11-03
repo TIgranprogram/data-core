@@ -169,14 +169,13 @@ function step(label, cmd, args, opts) {
 }
 
 function cmdCheck() {
-  const shell = process.platform === 'win32';
   const be = path.join(ROOT, 'backend');
   let bad = 0;
-  const tsc = step('tsc', 'npx', ['tsc', '--noEmit'], { cwd: be, shell });
+  const tsc = step('tsc', process.execPath, [path.join(be, 'node_modules', 'typescript', 'bin', 'tsc'), '--noEmit'], { cwd: be });
   const errs = (tsc.out.match(/error TS\d+/g) || []).length;
   say(tsc.code === 0 ? 'tsc: 0 ошибок' : `tsc: ошибок ${errs || '?'} (первая: ${cut((tsc.out.split('\n').find((l) => /error TS/.test(l)) || '').trim(), 100)})`);
   if (tsc.code) bad++;
-  const jest = step('jest', 'npx', ['jest', '--silent'], { cwd: be, shell });
+  const jest = step('jest', process.execPath, [path.join(be, 'node_modules', 'jest', 'bin', 'jest.js'), '--silent'], { cwd: be });
   const j = parseJest(jest.out);
   say(jest.code === 0 ? `юнит: ${j.tests || 'зелёный'}` : `юнит УПАЛ: ${j.tests || '?'}`);
   if (jest.code) { bad++; for (const l of jest.out.split('\n').filter((x) => /●|FAIL/.test(x)).slice(0, 4)) say('  ' + cut(l.trim(), 110)); }
@@ -189,29 +188,29 @@ function cmdCheck() {
   const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;
-  if (tsc.err || jest.err) { say('Сбой запуска npx: ' + (tsc.err || jest.err).message); return 2; }
+  if (tsc.err || jest.err) { say('Сбой запуска локальных зависимостей: ' + (tsc.err || jest.err).message); return 2; }
   say(bad ? `Итог: проверки не прошли (${bad})` : 'Итог: tsc, юнит, импорты и пульт зелёные (как шаги 4–5 ворот preflight)');
   return bad ? 1 : 0;
 }
 
-function cmdStatus() {
+export function cmdStatus({ prodGetFn = prodGet, runFn = run, sayFn = say, logFn = log, testLogFn = () => lastTestLog(fs.readFileSync(path.join(ROOT, 'docs', 'TEST-LOG.md'), 'utf8')), nightFn = nightLine } = {}) {
   let bad = 0;
-  const h = prodGet('/api/health');
-  log(h.text);
+  const h = prodGetFn('/api/health');
+  logFn(h.text);
   let hj = null;
   try { hj = JSON.parse(h.text); } catch { /* не json */ }
-  if (hj?.status === 'ok') say(`Прод: health ok · копия ${hj.info?.backup?.ageHours ?? '?'} ч назад`);
-  else { say('Прод: health НЕ ок — ' + cut(h.text.trim(), 120)); bad++; }
-  const v = run('curl', ['-s', '-m', '20', PROD_URL + '/app/version.json']);
-  log(v.stdout);
+  if (hj?.status === 'ok') sayFn(`Прод: health ok · копия ${hj.info?.backup?.ageHours ?? '?'} ч назад`);
+  else { sayFn('Прод: health НЕ ок — ' + cut(h.text.trim(), 120)); bad++; }
+  const v = runFn('curl', ['-s', '-m', '20', PROD_URL + '/app/version.json']);
+  logFn(v.stdout);
   let vj = null;
   try { vj = JSON.parse(v.stdout); } catch { /* не json */ }
-  say(vj ? `Версия сервера: ${vj.v} (сборка ${vj.n}, ${fmtTime(vj.date)})` : 'Версия сервера: не получена');
+  sayFn(vj ? `Версия сервера: ${vj.v} (сборка ${vj.n}, ${fmtTime(vj.date)})` : 'Версия сервера: не получена');
   if (!vj) bad++;
-  const head = run('git', ['rev-parse', '--short', 'HEAD']).stdout.trim();
-  if (vj && head && vj.v !== head) say(`HEAD локально ${head} — на сайте другой коммит`);
-  try { say('Последний полный прогон: ' + (lastTestLog(fs.readFileSync(path.join(ROOT, 'docs', 'TEST-LOG.md'), 'utf8')) || 'нет записей')); } catch { say('TEST-LOG не прочитан'); }
-  say('Ночной прогон: ' + nightLine());
+  const head = runFn('git', ['rev-parse', '--short', 'HEAD']).stdout.trim();
+  if (vj && head && vj.v !== head) sayFn(`HEAD локально ${head} — на сайте другой коммит`);
+  try { sayFn('Последний полный прогон: ' + (testLogFn() || 'нет записей')); } catch { sayFn('TEST-LOG не прочитан'); }
+  sayFn('Ночной прогон: ' + nightFn());
   return bad ? 1 : 0;
 }
 
@@ -342,24 +341,10 @@ function cmdAudit(sub) {
   return r.status ?? 2;
 }
 
-/** dc full — полная проверка одной кнопкой: быстрая + сквозные тесты + тесты инструментов + большая проверка сайта; итог в tools/logs/full/<дата>/SUMMARY.md. */
-function cmdFull() {
-  const shell = process.platform === 'win32';
-  const rows = [];
-  const mark = (name, code, note = '') => { rows.push(`| ${name} | ${code === 0 ? 'ок' : code === 1 ? 'находки' : 'СБОЙ'} | ${note} |`); say(`${name}: ${code === 0 ? 'ок' : code === 1 ? 'есть находки' : 'сбой'}`); };
-  mark('Быстрая проверка (типы, юнит, импорты, дизайн, пульт)', cmdCheck());
-  const e2e = step('e2e', 'npx', ['jest', '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: path.join(ROOT, 'backend'), shell });
-  mark('Сквозные тесты (e2e)', e2e.code ? 1 : 0, e2e.code ? cut((e2e.out.split(/\r?\n/).find((l) => /●|FAIL|ECONN/.test(l)) || '').trim(), 100) : parseJest(e2e.out).tests || '');
-  const tl = step('инструменты', process.execPath, ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', 'pult/test/*.test.mjs']);
-  mark('Тесты инструментов', tl.code ? 1 : 0);
-  mark('Большая проверка сайта (экраны, панели, ширины)', cmdAudit(), 'отчёт: tools/logs/audit/<дата>/REPORT.md');
-  const date = new Date().toISOString().slice(0, 10);
-  const dir = path.join(LOGS, 'full', date);
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'SUMMARY.md');
-  fs.writeFileSync(file, ['# Полная проверка '+date,'','| Шаг | Итог | Примечание |','|--|--|--|',...rows,'','Отчёт по экранам: tools/logs/audit/'+date+'/REPORT.md','Полные журналы шагов: tools/logs/ (свежие *-full.log)',''].join('\n'));
-  say(`Смотреть: tools/logs/full/${date}/SUMMARY.md`);
-  return rows.some((r) => r.includes('СБОЙ')) ? 2 : rows.some((r) => !r.includes('| ок |')) ? 1 : 0;
+/** dc full — unit инструментов и полный изолированный night прогон; итог в tools/.night/runs/<run>/summary.json. */
+async function cmdFull() {
+  // Night сам проверяет safety unit до создания ресурсов; E2E не использует окружение пользователя.
+  return cmdNight({ quick: false }, { log, say });
 }
 
 function cmdLogs(name) {

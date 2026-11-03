@@ -17,7 +17,7 @@ import { incomeLookups } from './orders.js';
 import { customerLink } from '../ui/links.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/errors.js';
-import { failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/busy.js';
 import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
@@ -138,7 +138,10 @@ function readinessBlock(r, after) {
         !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null)),
       btn);
   };
-  api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint).catch(() => box.replaceChildren());
+  const load = () => api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint)
+    .catch((e) => box.replaceChildren(failBlock(e, load, { cls: 'so-state', text: 'Готовность к отгрузке не загрузилась' })));
+  box.append(busyBlock('готовность к отгрузке', { retry: load, cls: 'so-state' }));
+  load();
   return box;
 }
 

@@ -9,7 +9,7 @@ import { escapeRe, oid } from '../../common/list-query';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MaterialPriceService } from '../material/material-price.service';
 import type { PriceSource } from '../material/material-price.schema';
-import { PatchInvoiceDto } from './dto-invoice';
+import { PatchInvoiceDto, PatchInvoiceLineDto } from './dto-invoice';
 import { ISSUED_GATE, ORDERED_GATE, missing, normInvoiceNo } from './supply-invoice-rules';
 import { SupplyInvoice, SupplyInvoiceDocument } from './supply-invoice.schema';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
@@ -20,7 +20,7 @@ type Lean = Record<string, unknown>;
 /**
  * Счета поставщиков (`supplyinvoices`). Строки счёта — заявки с `invoiceId`; поля счёта в заявках
  * (invoiceNo, invoiceDate, priceHint, companyId, paid, paidAt) — копия, пишется здесь, в одной транзакции со счётом.
- * Ворота — supply-invoice-rules.ts. Старый PATCH /supply/requests не затронут.
+ * Ворота — supply-invoice-rules.ts; финансовые поля legacy PATCH /supply/requests отдельно защищены SupplyService.
  */
 @Injectable()
 export class SupplyInvoiceService {
@@ -55,17 +55,54 @@ export class SupplyInvoiceService {
   }
 
   /**
-   * Единая финансовая блокировка счёта. Оплачен или по нему уже есть приёмка на склад —
-   * менять строки, цены, количество и сумму нельзя; остаются только метаданные (файлы, договор, №, дата).
-   * Исправления — отдельной операцией корректировки/сторно.
+   * Финансовые правки и добавление строк разрешены до приёмки; хотя бы одна принятая строка
+   * фиксирует весь счёт. Оплата сама по себе не блокирует редактирование до приёмки.
    */
   private async lockReason(inv: Lean): Promise<string | null> {
-    if (inv.status === 'paid') return 'Счёт оплачен — финансовые поля заблокированы';
+    if (inv.receiptBoundaryAt) return 'По счёту уже началась приёмка на склад — финансовые поля заблокированы';
     if (typeof this.requests.countDocuments === 'function') {
       const received = await this.requests.countDocuments({ invoiceId: inv._id, deletedAt: null, status: 'received' }).exec();
       if (Number(received) > 0) return 'По счёту уже есть приёмка на склад — финансовые поля заблокированы';
     }
     return null;
+  }
+
+  /** Пишет тот же invoice-документ в транзакции, что и первая приёмка; Mongo конфликт сериализует операции. */
+  private async touchFinancialInvoice(invoiceId: unknown, session: ClientSession) {
+    const result = await this.model.updateOne(
+      { _id: invoiceId, deletedAt: null, $or: [{ receiptBoundaryAt: null }, { receiptBoundaryAt: { $exists: false } }] },
+      { $inc: { version: 1 } }, { session },
+    ).exec();
+    if (!result.matchedCount) throw new BadRequestException('По счёту уже началась приёмка — финансовые поля заблокированы');
+  }
+
+  private async paymentLines(inv: Lean, session: ClientSession) {
+    const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } }).session(session).lean().exec() as Lean[];
+    return lines.map((line) => ({
+      requestId: line._id as Types.ObjectId, lineAmount: Number(line.priceHint) || 0, qty: Number(line.qty) || 0,
+      ...(line.companyId ? { companyId: line.companyId as Types.ObjectId } : {}),
+      ...(line.categoryId ? { categoryId: line.categoryId as Types.ObjectId } : {}),
+      ...(line.supplierId ? { supplierId: line.supplierId as Types.ObjectId } : {}),
+      ...(line.supplierName ? { supplierName: String(line.supplierName) } : {}),
+      ...(line.salesOrderId ? { salesOrderId: line.salesOrderId as Types.ObjectId } : {}),
+      ...(line.costCenter ? { costCenter: String(line.costCenter) } : {}),
+      ...(line.title ? { title: String(line.title) } : {}), ...(line.num !== undefined ? { num: line.num as number | string } : {}),
+      ...(inv.no ? { invoiceNo: String(inv.no) } : {}),
+    }));
+  }
+
+  private async recordPaymentAdjustment(inv: Lean, session: ClientSession, input: {
+    reason?: string; actorId?: string; operation: 'line_edit' | 'lines_added'; beforeAmount: number; afterAmount: number; requestIds: Types.ObjectId[];
+  }) {
+    if (inv.status !== 'paid') return;
+    const reason = input.reason?.trim();
+    if (!reason) throw new BadRequestException('Для изменения оплаченного счёта укажите причину сверки/корректировки');
+    const by = input.actorId && Types.ObjectId.isValid(input.actorId) ? new Types.ObjectId(input.actorId) : undefined;
+    await this.model.updateOne({ _id: inv._id }, { $push: { paymentAdjustments: {
+      at: new Date(), ...(by ? { by } : {}), reason, operation: input.operation,
+      beforeAmount: input.beforeAmount, afterAmount: input.afterAmount,
+      delta: Math.round((input.afterAmount - input.beforeAmount) * 100) / 100, requestIds: input.requestIds,
+    } } }, { session }).exec();
   }
 
   /** Сумма строк счёта: `priceHint` — сумма строки (не цена за единицу), отменённые строки не считаем. */
@@ -204,7 +241,10 @@ export class SupplyInvoiceService {
     const orders = await this.orderInfo(items as Lean[]);
     const requests = (items as Lean[]).map((r) => {
       const o = r.salesOrderId ? orders.get(String(r.salesOrderId)) : undefined;
-      return { ...r, orderNo: o?.orderNo ?? null, productionNo: o?.productionNo ?? null, contractNo: o?.contractNo ?? null, hasOrder: Boolean(o) };
+      const qty = Number(r.qty) || 0;
+      const lineAmount = Number(r.priceHint) || 0;
+      return { ...r, unitPrice: qty > 0 ? Math.round((lineAmount / qty) * 100) / 100 : null, lineAmount,
+        orderNo: o?.orderNo ?? null, productionNo: o?.productionNo ?? null, contractNo: o?.contractNo ?? null, hasOrder: Boolean(o) };
     });
     const chain = new Map<string, { productionNo: string | null; contracts: string[] }>();
     for (const r of requests) {
@@ -278,14 +318,15 @@ export class SupplyInvoiceService {
     return { items: await Promise.all(made.map((i) => this.get(i))) };
   }
 
-  /** Правка счёта. Финансовые поля (сумма, строки) — только пока нет оплаты/приёмки. */
+  /** Правка счёта. Финансовые поля разрешены до первой приёмки, даже после оплаты. */
   async update(id: string, dto: PatchInvoiceDto, actorId?: string) {
     const inv = await this.load(id);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+    if (inv.status === 'paid' && dto.issue) throw new BadRequestException('Оплаченный счёт нельзя повторно выставить');
     const lock = await this.lockReason(inv);
+    const financial = Object.entries(dto).filter(([k, v]) => v !== undefined && !['fileIds', 'contractId', 'no', 'date'].includes(k));
     if (lock) {
-      const financial = Object.entries(dto).filter(([k, v]) => v !== undefined && !['fileIds', 'contractId', 'no', 'date'].includes(k));
-      if (financial.length) throw new BadRequestException(`${lock}. Менять можно файлы, договор, номер и дату; исправления сумм — корректировкой/сторно`);
+      if (financial.length) throw new BadRequestException(`${lock}. Менять можно файлы, договор, номер и дату`);
       return this.patchLocked(inv, dto);
     }
     const set: Lean = {};
@@ -359,13 +400,15 @@ export class SupplyInvoiceService {
     }
     const status = (set.status ?? inv.status) as string;
     await this.tx(async (session) => {
+      if (financial.length) await this.touchFinancialInvoice(inv._id, session);
       const $set: Lean = {}; const $unset: Lean = {};
       for (const [k, v] of Object.entries(set)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
-      if (status === 'issued') {
+      if (status === 'issued' || status === 'paid') {
         // № / дата / плательщик — только метаданные строк; цены не перераспределяются (это и «слипало» строки)
-        await this.copyMetaToRequests({ ...next, status }, session, []);
-        await this.recordPrices({ ...next, status }, 'invoice_issued', session);
+        await this.copyMetaToRequests({ ...next, status }, session);
+        // invoice_paid — факт первоначальной оплаты. После оплаты цены меняет только отдельная корректировка.
+        if (status === 'issued') await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       } else if (set.supplierId) {
         await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null }, { $set: { supplierId: set.supplierId, editedInApp: true } }, { session }).exec();
       }
@@ -377,12 +420,13 @@ export class SupplyInvoiceService {
     return warnings.length ? { ...(await this.get(id)), warnings } : this.get(id);
   }
 
-  /** Добавить заявки в счёт: только пока нет оплаты/приёмки. Сумма пересчитывается из всех строк, старые цены не трогаем. */
-  async addRequests(id: string, requestIds: string[]) {
+  /** Добавить заявки до первой приёмки (в том числе в paid); сумма и история цен пересчитываются в транзакции. */
+  async addRequests(id: string, requestIds: string[], reason?: string, actorId?: string) {
     const inv = await this.load(id);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const lock = await this.lockReason(inv);
-    if (lock) throw new BadRequestException(`${lock}. Добавить позиции можно только до оплаты/приёмки`);
+    if (lock) throw new BadRequestException(`${lock}. Добавить позиции можно только до первой приёмки`);
+    if (inv.status === 'paid' && !reason?.trim()) throw new BadRequestException('Для добавления к оплаченному счёту укажите причину сверки/корректировки');
     const ids = [...new Set(requestIds)].map((i) => oid(i, 'заявки'));
     const docs = await this.requests.find({ _id: { $in: ids }, deletedAt: null }).lean().exec() as Lean[];
     if (docs.length !== ids.length) throw new NotFoundException('Часть заявок не найдена — обновите список');
@@ -397,12 +441,20 @@ export class SupplyInvoiceService {
         if (lack.length) throw new BadRequestException(`${label}: не заполнено — ${lack.join(', ')}`);
       }
     }
+    const addedPaidAt = inv.status === 'paid' ? (inv.paidAt as Date | undefined) ?? new Date() : undefined;
     const amount = await this.tx(async (session) => {
+      await this.touchFinancialInvoice(inv._id, session);
       await this.requests.updateMany({ _id: { $in: ids }, deletedAt: null, invoiceId: null },
-        { $set: { invoiceId: inv._id, status: 'ordered', editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}) } }, { session }).exec();
+        { $set: { invoiceId: inv._id, status: 'ordered', editedInApp: true,
+          ...(inv.supplierId ? { supplierId: inv.supplierId } : {}),
+          ...(inv.status === 'paid' ? { paid: true, paidAt: addedPaidAt } : {}) } }, { session }).exec();
       const fresh = { ...inv } as Lean;
       const sum = await this.recalcAmount(fresh, session);
-      if (inv.status === 'issued') await this.copyMetaToRequests({ ...inv, amount: sum }, session, ids);
+      if (inv.status === 'issued' || inv.status === 'paid') {
+        await this.copyMetaToRequests({ ...inv, amount: sum }, session);
+        await this.recordPrices({ ...inv, amount: sum, ...(inv.status === 'paid' ? { date: new Date() } : {}) }, inv.status === 'paid' ? 'invoice_adjustment' : 'invoice_issued', session, ids);
+      }
+      if (inv.status === 'paid') await this.recordPaymentAdjustment(inv, session, { reason, actorId, operation: 'lines_added', beforeAmount: Number(inv.amount) || 0, afterAmount: sum, requestIds: docs.map((d) => d._id as Types.ObjectId) });
       return sum;
     });
     return { ...(await this.get(id)), amount };
@@ -438,11 +490,19 @@ export class SupplyInvoiceService {
     if (lockSrc) throw new BadRequestException(`${lockSrc} — этот счёт нельзя объединить`);
     const lockDst = await this.lockReason(dst);
     if (lockDst) throw new BadRequestException(`${lockDst} — в этот счёт нельзя объединить`);
+    if (src.status === 'paid' || dst.status === 'paid') throw new BadRequestException('Оплаченные счета нельзя объединять — до приёмки можно отдельно добавить или исправить позиции');
     const by = actorId && Types.ObjectId.isValid(actorId) ? new Types.ObjectId(actorId) : undefined;
     const out = await this.tx(async (session) => {
+      await this.touchFinancialInvoice(src._id, session);
+      await this.touchFinancialInvoice(dst._id, session);
       const a = await this.linesOf(src, session);
       const b = strategy === 'mergeSameRequest' || strategy === 'replaceLines' ? await this.linesOf(dst, session) : [];
       let moved = 0, skipped = 0, replaced = 0;
+      const files = new Map<string, Types.ObjectId>();
+      for (const f of [...((dst.fileIds as Types.ObjectId[]) ?? []), ...((src.fileIds as Types.ObjectId[]) ?? [])]) files.set(String(f), f);
+      const patch: Lean = { fileIds: [...files.values()] };
+      for (const k of ['contractId', 'payerCompanyId', 'date', 'no']) if (!dst[k] && src[k]) patch[k] = src[k];
+      const target = { ...dst, ...patch };
       if (strategy === 'replaceLines') {
         for (const d of b) {
           await this.requests.updateOne({ _id: d._id },
@@ -456,13 +516,11 @@ export class SupplyInvoiceService {
           skipped++;
           continue;
         }
-        await this.requests.updateOne({ _id: l._id }, { $set: { invoiceId: dst._id, ...(dst.supplierId ? { supplierId: dst.supplierId } : {}), editedInApp: true } }, { session }).exec();
+        await this.requests.updateOne({ _id: l._id }, { $set: { invoiceId: dst._id,
+          invoiceNo: target.no ?? null, invoiceDate: target.date ?? null, companyId: target.payerCompanyId ?? null,
+          ...(dst.supplierId ? { supplierId: dst.supplierId } : {}), editedInApp: true } }, { session }).exec();
         moved++;
       }
-      const files = new Map<string, Types.ObjectId>();
-      for (const f of [...((dst.fileIds as Types.ObjectId[]) ?? []), ...((src.fileIds as Types.ObjectId[]) ?? [])]) files.set(String(f), f);
-      const patch: Lean = { fileIds: [...files.values()] };
-      for (const k of ['contractId', 'payerCompanyId', 'date', 'no']) if (!dst[k] && src[k]) patch[k] = src[k];
       await this.model.updateOne({ _id: dst._id },
         { $set: patch, $push: { mergeLog: { at: new Date(), ...(by ? { by } : {}), fromId: src._id, strategy, moved, skipped, replaced } } }, { session }).exec();
       const amount = await this.recalcAmount({ ...dst, ...patch }, session);
@@ -485,7 +543,7 @@ export class SupplyInvoiceService {
     return t(a) === t(b) && Number(a.qty) === Number(b.qty) && Number(a.priceHint) === Number(b.priceHint);
   }
 
-  /** Оплаченный/принятый счёт: только метаданные (файлы, договор, №, дата), без пересчёта строк и суммы. */
+  /** После приёмки счёта можно менять только метаданные (файлы, договор, №, дата). */
   private async patchLocked(inv: Lean, dto: PatchInvoiceDto) {
     const $set: Lean = {}; const $unset: Lean = {};
     if (dto.fileIds !== undefined) $set.fileIds = dto.fileIds.map((i) => oid(i, 'файла'));
@@ -501,14 +559,14 @@ export class SupplyInvoiceService {
       await this.tx(async (session) => {
         await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
         // № / дата / плательщик — метаданные строк, цены и количество не трогаем
-        if (['no', 'date'].some((k) => k in $set || k in $unset)) await this.copyMetaToRequests({ ...inv, ...$set }, session, []);
+        if (['no', 'date'].some((k) => k in $set || k in $unset)) await this.copyMetaToRequests({ ...inv, ...$set }, session);
       });
     }
     return this.get(String(inv._id));
   }
 
   /** Копия только метаданных счёта (№, дата, плательщик, поставщик) в заявки — без пересчёта суммы по строкам. */
-  private async copyMetaToRequests(inv: Lean, session: ClientSession, _newIds: Types.ObjectId[]) {
+  private async copyMetaToRequests(inv: Lean, session: ClientSession) {
     const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null }).sort({ num: 1, _id: 1 }).session(session).lean().exec() as Lean[];
     const common = { invoiceNo: inv.no, invoiceDate: inv.date, editedInApp: true, ...(inv.supplierId ? { supplierId: inv.supplierId } : {}), ...(inv.payerCompanyId ? { companyId: inv.payerCompanyId } : {}) };
     for (const l of lines) {
@@ -530,16 +588,18 @@ export class SupplyInvoiceService {
     }
   }
 
-  /** Правка цены одной строки счёта. Принимает цену за единицу или сумму строки; amount пересчитывается из строк. */
-  async updateLine(invoiceId: string, lineId: string, dto: { unitPrice?: number; lineAmount?: number; version?: number }) {
+    /** Правка цены/количества одной строки до приёмки; amount и цена материала пересчитываются в транзакции. */
+  async updateLine(invoiceId: string, lineId: string, dto: PatchInvoiceLineDto, actorId?: string) {
     const inv = await this.load(invoiceId);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock}. Исправления — корректировкой/сторно`);
+    if (inv.status === 'paid' && !dto.reason?.trim()) throw new BadRequestException('Для изменения оплаченной строки укажите причину сверки/корректировки');
     const line = await this.requests.findOne({ _id: oid(lineId, 'заявки'), invoiceId: inv._id, deletedAt: null }).exec() as Lean | null;
     if (!line) throw new NotFoundException('Строка не найдена в счёте');
-    const qty = Number(line.qty) || 0;
-    if (!(qty > 0)) throw new BadRequestException('У строки не указано количество — сначала заполните количество');
+    const oldQty = Number(line.qty) || 0;
+    const qty = dto.qty !== undefined ? Number(dto.qty) : oldQty;
+    if (!Number.isFinite(qty) || !(qty > 0)) throw new BadRequestException('Количество строки должно быть больше нуля');
     let priceHint: number;
     if (dto.lineAmount !== undefined) {
       if (!(Number(dto.lineAmount) >= 0)) throw new BadRequestException('Сумма строки не может быть отрицательной');
@@ -547,16 +607,23 @@ export class SupplyInvoiceService {
     } else if (dto.unitPrice !== undefined) {
       if (!(Number(dto.unitPrice) >= 0)) throw new BadRequestException('Цена за единицу не может быть отрицательной');
       priceHint = Math.round(Number(dto.unitPrice) * qty * 100) / 100;
+    } else if (dto.qty !== undefined) {
+      if (!(oldQty > 0)) throw new BadRequestException('Укажите цену за единицу (unitPrice) или сумму строки (lineAmount) вместе с количеством');
+      priceHint = Math.round(((Number(line.priceHint) || 0) / oldQty) * qty * 100) / 100;
     } else throw new BadRequestException('Укажите цену за единицу (unitPrice) или сумму строки (lineAmount)');
     const amount = await this.tx(async (session) => {
       if (dto.version !== undefined) {
         const fresh = await this.model.findOne({ _id: inv._id }, { version: 1 }).session(session).lean().exec() as Lean | null;
         if (Number(fresh?.version ?? 0) !== Number(dto.version)) throw new ConflictException('Счёт изменился, пока вы правили цену — обновите и повторите');
       }
-      await this.requests.updateOne({ _id: line._id }, { $set: { priceHint, editedInApp: true } }, { session }).exec();
-      // черновик — ручная цена; выставленный/оплаченный — цена счёта (история по строке, upsert по requestId+source)
-      await this.recordPrices({ ...inv, amount: priceHint }, inv.status === 'draft' ? 'manual' : 'invoice_issued', session, [line._id as Types.ObjectId]);
-      return this.recalcAmount(inv, session);
+      await this.touchFinancialInvoice(inv._id, session);
+      await this.requests.updateOne({ _id: line._id }, { $set: { priceHint, ...(dto.qty !== undefined ? { qty } : {}), editedInApp: true } }, { session }).exec();
+      // Снимок invoice_paid не перезаписываем: исправление — отдельная строка истории цены.
+      const source: PriceSource = inv.status === 'draft' ? 'manual' : inv.status === 'paid' ? 'invoice_adjustment' : 'invoice_issued';
+      await this.recordPrices({ ...inv, amount: priceHint, ...(inv.status === 'paid' ? { date: new Date() } : {}) }, source, session, [line._id as Types.ObjectId]);
+      const amount = await this.recalcAmount(inv, session);
+      if (inv.status === 'paid') await this.recordPaymentAdjustment(inv, session, { reason: dto.reason, actorId, operation: 'line_edit', beforeAmount: Number(inv.amount) || 0, afterAmount: amount, requestIds: [line._id as Types.ObjectId] });
+      return amount;
     });
     const invoice = await this.get(invoiceId);
     return { invoice, line: { id: String(lineId), qty, unitPrice: Math.round((priceHint / qty) * 100) / 100, lineAmount: priceHint }, amount };
@@ -566,12 +633,14 @@ export class SupplyInvoiceService {
   async removeLine(invoiceId: string, lineId: string) {
     const inv = await this.load(invoiceId);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+    if (inv.status === 'paid') throw new BadRequestException('Из оплаченного счёта позицию нельзя удалять — исправьте сумму строки или добавьте отдельную корректировку');
     const lock = await this.lockReason(inv);
-    if (lock) throw new BadRequestException(`${lock}. Убрать строку можно только до оплаты/приёмки`);
+    if (lock) throw new BadRequestException(`${lock}. Убрать строку можно только до первой приёмки`);
     const line = await this.requests.findOne({ _id: oid(lineId, 'заявки'), invoiceId: inv._id, deletedAt: null }).exec() as Lean | null;
     if (!line) throw new NotFoundException('Строка не найдена в счёте');
     if (line.status === 'received') throw new BadRequestException('Строка уже принята на склад');
     const amount = await this.tx(async (session) => {
+      await this.touchFinancialInvoice(inv._id, session);
       await this.requests.updateOne({ _id: line._id },
         { $unset: { invoiceId: '', invoiceNo: '', invoiceDate: '' }, $set: { ...(line.status === 'ordered' && line.paid !== true ? { status: 'requested' } : {}), editedInApp: true } }, { session }).exec();
       return this.recalcAmount(inv, session);
@@ -580,7 +649,7 @@ export class SupplyInvoiceService {
   }
 
   /** Оплата всего счёта: нужен «выставлен», плательщик и amount = сумма строк. */
-  async pay(id: string) {
+  async pay(id: string, actorId?: string) {
     const inv = await this.load(id);
     if (inv.status === 'paid') throw new BadRequestException('Счёт уже оплачен');
     if (inv.status !== 'issued') throw new BadRequestException('Сначала отметьте счёт выставленным: нужны №, дата и сумма');
@@ -588,8 +657,11 @@ export class SupplyInvoiceService {
     const sum = await this.linesSum(inv);
     if (Math.abs((Number(inv.amount) || 0) - sum) > 0.009) throw new BadRequestException('Сумма счёта не совпадает с суммой строк — исправьте цены позиций');
     const now = new Date();
+    const by = actorId && Types.ObjectId.isValid(actorId) ? new Types.ObjectId(actorId) : undefined;
     await this.tx(async (session) => {
-      await this.model.updateOne({ _id: inv._id }, { $set: { status: 'paid', paidAt: now }, $inc: { version: 1 } }, { session }).exec();
+      const lines = await this.paymentLines(inv, session);
+      const paymentSnapshot = { amount: sum, paidAt: now, ...(by ? { paidBy: by } : {}), lines };
+      await this.model.updateOne({ _id: inv._id, status: 'issued' }, { $set: { status: 'paid', paidAt: now, paymentSnapshot }, $inc: { version: 1 } }, { session }).exec();
       // «Получено» оплата не откатывает в «Заказано» — только отметка оплаты (HARDEN-1 п.3)
       await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: { $nin: ['cancelled', 'received'] } },
         { $set: { paid: true, paidAt: now, status: 'ordered', editedInApp: true } }, { session }).exec();
@@ -604,6 +676,7 @@ export class SupplyInvoiceService {
   async remove(id: string) {
     const inv = await this.load(id);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+    if (inv.status === 'paid') throw new BadRequestException('Оплаченный счёт нельзя удалить');
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock} — удалить нельзя`);
     await this.tx(async (session) => {

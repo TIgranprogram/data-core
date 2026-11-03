@@ -35,7 +35,7 @@ function fakeModel(invoices: Record<string, Doc>) {
         if (u.$inc) for (const [k, v] of Object.entries(u.$inc as Doc)) doc[k] = (Number(doc[k]) || 0) + Number(v);
         if (u.$push) for (const [k, v] of Object.entries(u.$push as Doc)) (doc[k] = (doc[k] as unknown[]) ?? []).push(v);
       }
-      return chain({});
+      return chain({ matchedCount: 1 });
     }),
     countDocuments: jest.fn(() => chain(0)),
   };
@@ -131,10 +131,12 @@ describe('SupplyInvoiceService: приход по счёту', () => {
 });
 
 describe('Деньги без задвоения (З14)', () => {
-  it('календарь берёт расход только по заявкам, не по счетам', () => {
+  it('календарь использует payment snapshot, сохраняет legacy fallback и исключает дубли', () => {
     const src = readFileSync(join(__dirname, '../finance/finance.service.ts'), 'utf8');
     expect(src).toContain("collection('supplyrequests')");
-    expect(src).not.toContain('supplyinvoices');
+    expect(src).toContain("collection('supplyinvoices')");
+    expect(src).toContain('paymentSnapshot');
+    expect(src).toContain('snapshotInvoiceIds.has(String(r.invoiceId))');
   });
 });
 
@@ -216,7 +218,7 @@ describe('Счета: явное объединение', () => {
     expect(srcLines.every((l) => String(l.invoiceId) === String(dst._id))).toBe(true);
     const log = model.updates.find(([, u]) => Boolean((u as Doc).$push));
     expect((log![1] as Doc).$push).toMatchObject({ mergeLog: { strategy: 'append', moved: 2, skipped: 0 } });
-    const del = model.updates.find(([f, u]) => String((f as Doc)._id) === String(src._id) && Boolean(((u as Doc).$set as Doc).deletedAt));
+    const del = model.updates.find(([f, u]) => String((f as Doc)._id) === String(src._id) && Boolean(((u as Doc).$set as Doc | undefined)?.deletedAt));
     expect((del![1] as Doc).$set).toMatchObject({ mergedInto: dst._id, status: 'cancelled' });
     expect(requests.updates.filter(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).priceHint !== undefined)).toHaveLength(0);
   });
@@ -244,6 +246,39 @@ describe('Счета: явное объединение', () => {
     expect(r).toMatchObject({ moved: 2, replaced: 1, amount: 30 });
     const detached = requests.updates.find(([f, u]) => String((f as Doc)._id) === String(dstLines[0]._id) && Boolean((u as Doc).$unset));
     expect((detached![1] as Doc).$unset).toHaveProperty('invoiceId');
+  });
+
+  it.each(['append', 'mergeSameRequest', 'replaceLines'] as const)('%s: перенесённые строки получают №, дату и плательщика цели', async (strategy) => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'A', date: new Date('2026-10-01'), payerCompanyId: new Types.ObjectId(), amount: 30, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'issued', no: 'B', date: new Date('2026-10-15'), payerCompanyId: new Types.ObjectId(), amount: 5, fileIds: [] };
+    const srcLines = mkLines(src._id, [10, 20], { invoiceNo: src.no, invoiceDate: src.date, companyId: src.payerCompanyId });
+    const dstLines = mkLines(dst._id, [5]);
+    const { svc, requests } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
+    await svc.merge(String(src._id), String(dst._id), strategy);
+    for (const line of srcLines) {
+      expect(line).toMatchObject({ invoiceId: dst._id, invoiceNo: dst.no, invoiceDate: dst.date, companyId: dst.payerCompanyId });
+      expect(requests.updateOne).toHaveBeenCalledWith({ _id: line._id }, expect.objectContaining({ $set: expect.objectContaining({ invoiceNo: dst.no, invoiceDate: dst.date, companyId: dst.payerCompanyId }) }), expect.objectContaining({ session: expect.anything() }));
+    }
+    expect(srcLines.map((l) => l.priceHint)).toEqual([10, 20]);
+  });
+
+  it('пустые метаданные цели заполняются из источника одинаково в счёте и строках', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', no: 'A', date: new Date('2026-10-01'), payerCompanyId: new Types.ObjectId(), amount: 10, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', amount: 0, fileIds: [] };
+    const lines = mkLines(src._id, [10]);
+    const { svc } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines });
+    await svc.merge(String(src._id), String(dst._id), 'append');
+    expect(dst).toMatchObject({ no: src.no, date: src.date, payerCompanyId: src.payerCompanyId });
+    expect(lines[0]).toMatchObject({ invoiceNo: src.no, invoiceDate: src.date, companyId: src.payerCompanyId });
+  });
+
+  it('если метаданных нет у обоих счетов, старые снимки в строке очищаются', async () => {
+    const src = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', amount: 10, fileIds: [] };
+    const dst = { _id: new Types.ObjectId(), supplierId: sup, status: 'draft', amount: 0, fileIds: [] };
+    const lines = mkLines(src._id, [10], { invoiceNo: 'Устарел', invoiceDate: new Date(), companyId: new Types.ObjectId() });
+    const { svc } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines });
+    await svc.merge(String(src._id), String(dst._id), 'append');
+    expect(lines[0]).toMatchObject({ invoiceNo: null, invoiceDate: null, companyId: null });
   });
 
   it('счёт с приёмкой/оплатой объединять нельзя', async () => {
@@ -278,15 +313,68 @@ describe('Счета: правка цены строки', () => {
     expect(r.line).toMatchObject({ qty: 3, unitPrice: 33.33, lineAmount: 100 });
   });
 
+  it('qty + unitPrice: количество, сумма строки, amount и история меняются в транзакции', async () => {
+    const { svc, inv, line, requests, prices, invId, lineId } = mk('issued');
+    const r = await svc.updateLine(String(invId), String(lineId), { qty: 4, unitPrice: 12.34 });
+    expect(line).toMatchObject({ qty: 4, priceHint: 49.36 });
+    expect(inv.amount).toBe(49.36);
+    expect(r.line).toEqual({ id: String(lineId), qty: 4, unitPrice: 12.34, lineAmount: 49.36 });
+    expect(requests.updateOne).toHaveBeenCalledWith({ _id: lineId }, expect.objectContaining({ $set: expect.objectContaining({ qty: 4, priceHint: 49.36 }) }), expect.objectContaining({ session: expect.anything() }));
+    expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ qty: 4, lineTotalWithVat: 49.36 }), expect.anything());
+  });
+
+  it('только qty: сохраняет прежнюю цену за единицу и пересчитывает amount', async () => {
+    const { svc, invId, lineId } = mk('draft');
+    const r = await svc.updateLine(String(invId), String(lineId), { qty: 2.5 });
+    expect(r).toMatchObject({ amount: 25, line: { qty: 2.5, unitPrice: 10, lineAmount: 25 } });
+  });
+
+  it('qty + lineAmount: явная сумма имеет прежний приоритет над unitPrice', async () => {
+    const { svc, invId, lineId } = mk();
+    const r = await svc.updateLine(String(invId), String(lineId), { qty: 4, lineAmount: 80, unitPrice: 99 });
+    expect(r).toMatchObject({ amount: 80, line: { qty: 4, unitPrice: 20, lineAmount: 80 } });
+  });
+
+  it.each([0, -1, NaN, Infinity])('qty=%s → 400 до записи', async (qty) => {
+    const { svc, requests, invId, lineId } = mk();
+    await expect(svc.updateLine(String(invId), String(lineId), { qty, unitPrice: 10 })).rejects.toBeInstanceOf(BadRequestException);
+    expect(requests.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('qty + unitPrice заполняют строку с прежним нулевым количеством', async () => {
+    const { svc, line, invId, lineId } = mk();
+    line.qty = 0;
+    const r = await svc.updateLine(String(invId), String(lineId), { qty: 2, unitPrice: 10 });
+    expect(r).toMatchObject({ amount: 20, line: { qty: 2, unitPrice: 10, lineAmount: 20 } });
+  });
+
+  it('только qty при прежнем нулевом количестве → 400, нужна цена', async () => {
+    const { svc, line, requests, invId, lineId } = mk();
+    line.qty = 0;
+    await expect(svc.updateLine(String(invId), String(lineId), { qty: 2 })).rejects.toBeInstanceOf(BadRequestException);
+    expect(requests.updateOne).not.toHaveBeenCalled();
+  });
+
   it('черновик пишет историю как manual', async () => {
     const { svc, prices, invId, lineId } = mk('draft');
     await svc.updateLine(String(invId), String(lineId), { unitPrice: 11 });
     expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ source: 'manual' }), expect.anything());
   });
 
-  it('оплаченный счёт — отказ, строку не трогаем', async () => {
+  it('оплаченный до приёмки: правка строки пересчитывает сумму и обновляет историю invoice_paid', async () => {
+    const { svc, inv, requests, prices, invId, lineId } = mk('paid');
+    const r = await svc.updateLine(String(invId), String(lineId), { unitPrice: 25, reason: 'Сверка' }, '111111111111111111111111');
+    expect(r).toMatchObject({ amount: 75, line: { qty: 3, unitPrice: 25, lineAmount: 75 } });
+    expect(requests.updateOne).toHaveBeenCalledWith({ _id: lineId }, expect.objectContaining({ $set: expect.objectContaining({ priceHint: 75 }) }), expect.anything());
+    expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ lineTotalWithVat: 75, source: 'invoice_adjustment' }), expect.anything());
+    expect(inv.amount).toBe(75);
+    expect((inv as Record<string, unknown>).paymentAdjustments).toEqual(expect.arrayContaining([expect.objectContaining({ reason: 'Сверка', operation: 'line_edit', beforeAmount: 30, afterAmount: 75, delta: 45 })]));
+  });
+
+  it('оплаченный после первой приёмки: правка строки запрещена', async () => {
     const { svc, requests, invId, lineId } = mk('paid');
-    await expect(svc.updateLine(String(invId), String(lineId), { unitPrice: 25 })).rejects.toThrow(/оплачен/i);
+    requests.countDocuments.mockReturnValue(chain(1));
+    await expect(svc.updateLine(String(invId), String(lineId), { unitPrice: 25 })).rejects.toThrow(/приёмка/i);
     expect(requests.updateOne).not.toHaveBeenCalled();
   });
 
@@ -330,7 +418,7 @@ describe('Счета: добавление позиций', () => {
     const inv = { _id: invId, supplierId: sup, status, amount: 100, paidAt: new Date('2026-10-05'), fileIds: [] };
     const old1 = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered', supplierId: sup };
     const old2 = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 40, status: 'ordered', supplierId: sup };
-    const fresh = { _id: new Types.ObjectId(), num: 5, title: 'Болт', status: 'in_progress', supplierId: sup, qty: 2, unit: 'шт', priceHint: 25 };
+    const fresh = { _id: new Types.ObjectId(), num: 5, title: 'Болт', status: 'in_progress', supplierId: sup, materialId: new Types.ObjectId(), qty: 2, unit: 'шт', priceHint: 25 };
     const made = makeSvc({ invoices: { [String(invId)]: inv }, lines: [old1, old2, fresh] });
     return { ...made, inv, invId, old1, old2, fresh };
   };
@@ -346,10 +434,14 @@ describe('Счета: добавление позиций', () => {
     expect(requests.updates.filter(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).priceHint !== undefined)).toHaveLength(0);
   });
 
-  it('в оплаченный — отказ, ничего не добавлено', async () => {
-    const { svc, requests, invId, fresh } = mk('paid');
-    await expect(svc.addRequests(String(invId), [String(fresh._id)])).rejects.toThrow(/оплачен/i);
-    expect(requests.updateMany).not.toHaveBeenCalled();
+  it('в оплаченный до приёмки можно добавить новую оплаченную строку, обновить сумму и историю', async () => {
+    const { svc, model, requests, prices, invId, fresh } = mk('paid');
+    const r = await svc.addRequests(String(invId), [String(fresh._id)], 'Сверка', '111111111111111111111111');
+    expect(r.amount).toBe(125);
+    expect(requests.updateMany).toHaveBeenCalledWith(expect.objectContaining({ _id: { $in: [fresh._id] } }),
+      expect.objectContaining({ $set: expect.objectContaining({ invoiceId: invId, paid: true, paidAt: expect.any(Date) }) }), expect.anything());
+    expect(prices.record).toHaveBeenCalledWith(expect.objectContaining({ source: 'invoice_adjustment', lineTotalWithVat: 25 }), expect.anything());
+    expect(model.updates.some(([, u]) => (u as Doc).$set && ((u as Doc).$set as Doc).amount === 125)).toBe(true);
   });
 
   it('в счёт с приёмкой — отказ', async () => {
@@ -388,15 +480,36 @@ describe('Счета: оплата', () => {
   });
 });
 
-describe('Счета: блокировка после оплаты/приёмки', () => {
-  it('оплаченный: файлы и № менять можно, сумму — нельзя', async () => {
+describe('Счета: блокировка после первой приёмки', () => {
+  it('оплаченный: метаданные и сумму по строкам можно скорректировать до приёмки', async () => {
     const invId = new Types.ObjectId();
     const inv = { _id: invId, status: 'paid', supplierId: new Types.ObjectId(), amount: 100, paidAt: new Date(), version: 1, fileIds: [] };
-    const { svc, model } = makeSvc({ invoices: { [String(invId)]: inv } });
+    const line = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 100, status: 'ordered' };
+    const { svc, model } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [line] });
     await svc.update(String(invId), { fileIds: [String(new Types.ObjectId())] } as never);
     expect(model.updates.length).toBeGreaterThan(0);
-    await expect(svc.update(String(invId), { amount: 500 } as never)).rejects.toThrow(/заблокированы/i);
-    await expect(svc.update(String(invId), { payerCompanyId: String(new Types.ObjectId()) } as never)).rejects.toThrow(/заблокированы/i);
+    await expect(svc.update(String(invId), { amount: 100 } as never)).resolves.toMatchObject({ amount: 100 });
+    await expect(svc.update(String(invId), { no: 'INV-PAID-1' } as never)).resolves.toMatchObject({ amount: 100 });
+    await expect(svc.update(String(invId), { amount: 500 } as never)).rejects.toThrow(/по строкам/i);
+  });
+
+  it('первая приёмка блокирует изменения оплаченного счёта', async () => {
+    const invId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'paid', amount: 100, version: 1, fileIds: [] };
+    const { svc, requests } = makeSvc({ invoices: { [String(invId)]: inv } });
+    requests.countDocuments.mockReturnValue(chain(1));
+    await expect(svc.update(String(invId), { amount: 100 } as never)).rejects.toThrow(/приёмка/i);
+  });
+
+  it('после первой приёмки новую позицию добавить нельзя', async () => {
+    const invId = new Types.ObjectId();
+    const reqId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'paid', supplierId: new Types.ObjectId(), amount: 100, fileIds: [] };
+    const fresh = { _id: reqId, status: 'in_progress', supplierId: inv.supplierId, qty: 1, unit: 'шт' };
+    const { svc, requests } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [fresh] });
+    requests.countDocuments.mockReturnValue(chain(1));
+    await expect(svc.addRequests(String(invId), [String(reqId)])).rejects.toThrow(/приёмка/i);
+    expect(requests.updateMany).not.toHaveBeenCalled();
   });
 
   it('оплаченный: удалить счёт нельзя', async () => {
@@ -404,6 +517,15 @@ describe('Счета: блокировка после оплаты/приёмк�
     const inv = { _id: invId, status: 'paid', amount: 100, fileIds: [] };
     const { svc } = makeSvc({ invoices: { [String(invId)]: inv } });
     await expect(svc.remove(String(invId))).rejects.toThrow(/оплачен/i);
+  });
+
+  it('оплаченный: удалить строку нельзя, чтобы не потерять факт оплаченной покупки', async () => {
+    const invId = new Types.ObjectId();
+    const line = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 100, status: 'ordered' };
+    const inv = { _id: invId, status: 'paid', amount: 100, fileIds: [] };
+    const { svc, requests } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [line] });
+    await expect(svc.removeLine(String(invId), String(line._id))).rejects.toThrow(/оплаченного счёта позицию нельзя удалять/i);
+    expect(requests.updateOne).not.toHaveBeenCalled();
   });
 
   it('есть приёмка: удалить счёт нельзя', async () => {
@@ -420,5 +542,30 @@ describe('Счета: блокировка после оплаты/приёмк�
     const line = { _id: new Types.ObjectId(), invoiceId: invId, qty: 1, priceHint: 60, status: 'ordered' };
     const { svc } = makeSvc({ invoices: { [String(invId)]: inv }, lines: [line] });
     await expect(svc.update(String(invId), { amount: 999 } as never)).rejects.toThrow(/по строкам/i);
+  });
+});
+
+
+describe('T27: реквизиты оплаченного счёта не переписывают факт цены оплаты', () => {
+  it('после исправления/добавления строк no/date/fileIds не создают новый invoice_paid и сохраняют исходную цену', async () => {
+    const invId = new Types.ObjectId();
+    const original = new Types.ObjectId();
+    const added = new Types.ObjectId();
+    const materialId = new Types.ObjectId();
+    const invoices: Record<string, Doc> = { [String(invId)]: { _id: invId, status: 'paid', amount: 200, fileIds: [], supplierId: new Types.ObjectId(), paymentSnapshot: { amount: 100 } } };
+    const lines = [
+      { _id: original, invoiceId: invId, materialId, status: 'ordered', qty: 2, priceHint: 150 },
+      { _id: added, invoiceId: invId, materialId, status: 'ordered', qty: 1, priceHint: 50 },
+    ];
+    const originalPaymentPrice = { requestId: original, source: 'invoice_paid', lineTotalWithVat: 100, qty: 2 };
+    const history = new Map<string, Doc>([[String(original), originalPaymentPrice]]);
+    const prices = { record: jest.fn(async (row: Doc) => { if (row.source === 'invoice_paid') history.set(String(row.requestId), row); return true; }) };
+    const { svc } = makeSvc({ invoices, lines, prices });
+    await svc.update(String(invId), { no: 'PAID-META', date: '2026-11-03', fileIds: [] } as never);
+    expect(prices.record).not.toHaveBeenCalled();
+    expect(history.get(String(original))).toEqual(originalPaymentPrice);
+    expect(history.has(String(added))).toBe(false);
+    expect(invoices[String(invId)].paymentSnapshot).toEqual({ amount: 100 });
+    expect(lines.map((line) => line.priceHint)).toEqual([150, 50]);
   });
 });

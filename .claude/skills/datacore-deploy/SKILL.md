@@ -1,39 +1,33 @@
 ---
 name: datacore-deploy
-description: Безопасный деплой data-core на Synology/Ubuntu VM рядом с работающим прод-контуром kppdf. Использовать, когда пользователь просит задеплоить, обновить сервер, проверить VM или бэкапы на VM.
+description: Безопасный выпуск DataCore на Synology VM рядом с CRM kppdf. Использовать для порученного пользователем обновления сайта, проверки выпуска или отката.
 ---
 
-# Деплой на VM
+# Безопасный выпуск DataCore
 
-Деплой — действие на внешнем сервере: **только по явной просьбе пользователя**, перед запуском одной строкой скажи, что будет сделано.
+Выполнять в рамках порученного пользователем обновления. Перед стартом сообщить, что обновляется только DataCore. Мелкие завершённые изменения выкладывать пачкой.
 
-## Факты
-- VM: Ubuntu на Synology, CPU без AVX → `mongo:4.4`. Хост/доступ — в gitignored `deploy/synology/CREDENTIALS.md` и `config.env` (читать можно, значения в чат и в коммиты не выносить).
-- data-core: `/opt/data-core`, данные `/var/lib/datacore`, API `:3001`, контейнеры `datacore-*`, compose `docker-compose.prod.yml`.
-- Рядом **прод kppdf** (`:3000`) — не трогать, не останавливать, не пересобирать. **Единая база:** kppdf работает с нашей `datacore-mongo` → никогда не останавливай/не пересоздавай `datacore-mongo` без нужды и не делай `compose down` контура data-core (kppdf упадёт). Обновлять backend: `build backend` → `up -d --no-deps backend`.
-- Бэкап: cron `/etc/cron.d/datacore` 03:00 → `deploy/synology/backup.sh`, лог `/var/log/datacore-backup.log`, ротация 14 дней.
+## Основной путь
 
-## Запуск (единственный путь)
-```bash
-bash deploy/synology/release.sh        # с домашнего ПК
-bash remote-access/deploy.sh           # с работы (тот же release.sh через VPS)
-```
-Данные не стирать: база общая с CRM kppdf, никаких wipe / `rm -rf` каталогов данных без письменного «да» пользователя.
+1. Прочитать AGENTS.md и MANUS.md. Проверить чистый release candidate и GitHub.
+2. Перед L/XL выполнить полный backend unit/E2E только на отдельной test Mongo 4.4, обновить TEST-LOG, принять вид изменённых экранов.
+3. Коммитить только перечисленные пути. Поставить Класс, Дизайнер, Проверка и эстафету; отправить в origin/main.
+4. Запустить preflight.sh: красные ворота не обходить. --force-urgent применять только при уже сломанном сайте и явной срочной причине.
+5. Из домашней сети — bash deploy/synology/release.sh; с рабочего ПК — bash remote-access/deploy.sh. Это один release-поток через VPS/SSH.
+6. release.sh сохраняет бэкап, код, статические каталоги и точный прежний image; обновляет только backend без зависимостей.
+7. Проверить health, вход, /app/, новый hash version.json и ответ CRM :3000. Успех создаёт и отправляет release-tag.
+8. После выпуска — doctor через datacore-access, запись HISTORY; post-check через 1–2 часа запускает пользователь кнопкой пульта либо отдельно согласованная автоматизация.
 
-## С работы (не из домашней сети)
-VM `192.168.1.52` напрямую недоступна → вход через VPS: `bash remote-access/deploy.sh` (тот же `release.sh`, `VM=datacore-vm`, ключ `~/.ssh/datacore_work`, ProxyJump через `kppdf-crm.ru`). Настройка ПК и связь — `remote-access/README.md`, `bash remote-access/check.sh`. Если `check.sh` пишет «порт 22 закрыт» — выложить нельзя, скажи пользователю (вариант: интернет с телефона). Отзыв ключа и устройство туннеля — `deploy/synology/README.md` «Выкладка с работы». GitHub Actions/автодеплой через GitHub пользователь **не хочет** (плохой опыт: платно, блокировка) — не предлагать.
+## Данные и секреты
 
-## Перед деплоем
-0. Путь выбирается сам: «быстрый» (только экраны, секунды, без пересборки) или «полный»; `bash deploy/synology/release.sh --dry-run` — показать, какой будет. Подробно — `deploy/synology/README.md` «Два пути выкладки».
-1. `release.sh` сам запускает ворота `deploy/synology/preflight.sh`: закоммичено и запушено, tsc + юнит, импорты приложения, метки `Дизайнер:` / `Класс:` (CLAUDE.md). СТОП — чинить причину, не обходить; `--force-urgent` — только если сайт уже сломан.
-2. Секреты (`JWT_*`, `ADMIN_PASSWORD`, `MONGO_*`) в `/opt/data-core/.env` на VM не менять и не пересоздавать: пустые значения → backend не подключится к Mongo.
-3. Если меняется схема/данные — свежий бэкап на VM (`bash deploy/synology/backup.sh` там же).
+DataCore: /opt/data-core, :3001, datacore-*; CRM: /opt/kppdf*, :3000. База общая; Mongo 4.4 без AVX. Не останавливать и не пересоздавать datacore-mongo, не выполнять compose down, не трогать CRM, Mongo-тома и данные.
 
-## Индексы на проде (М6, скорость С6)
-На проде `autoIndex` выключен: новый `index: true` / `Schema.index()` сам не создаётся. Добавил индекс → после выкладки:
-`docker cp backend/scripts/ensure-indexes.js datacore-backend:/app/scripts/` → `docker exec datacore-backend node scripts/ensure-indexes.js` (план) → `--apply`. Скрипт только создаёт недостающие (без удаления — индексы CRM на общих коллекциях не трогает); новую модель — дописать в `MODELS`.
+Секреты .env/config.env/CREDENTIALS и SSH-ключи не читать, не печатать, не коммитить. Настройки на VM не заменять. API-доступ — только datacore-access через штатный api.sh. Вызов стандартного SSH release не требует раскрытия ключа.
 
-## После деплоя (`release.sh` проверяет сам, сверь вывод)
-`/api/health/ready` 200 → логин OK → `/admin` 200 → Mongo отклоняет неавторизованное чтение → kppdf `:3000` по-прежнему 200. Итог записать в `docs/HISTORY.md`.
+## Откат и запасной путь
 
-Что делает каждый скрипт и шаг выкладки — `deploy/synology/README.md`. Пароль админа меняется в админке (Пользователи → Сброс пароля).
+bash deploy/synology/release.sh --rollback либо bash deploy/synology/rollback.sh на VM: возвращаются согласованные код, экраны и сохранённый image, без сборки и изменения баз. При потерянной SSH-связи не запускать слепую повторную выкладку: сначала подтвердить состояние сервера.
+
+Зелёный health при неверном hash не считается выпуском. Подробности и полный лог — deploy/synology/README.md и путь из итогового вывода release.
+
+deploy.py — только запасной ручной путь по отдельному разрешению; не применять вместо ворот release.sh. Новые индексы общей CRM-схемы не менять; служебные индексы создаются лишь согласно принятому модулю.

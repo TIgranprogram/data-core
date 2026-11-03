@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money } from '../core/format.js';
 import { INVOICE_STATUS, SUPPLY_STATUS, badge } from '../ui/badges.js';
-import { actions, enhanceSelect, empty, modal, confirmDlg, badge as kitBadge } from '../ui/kit/index.js';
+import { actions, enhanceSelect, empty, modal, openCard, confirmDlg, badge as kitBadge } from '../ui/kit/index.js';
 
 const PARTIAL_TEXT = 'Часть строк скрыта (другой склад)';
 import { toast, toastError } from '../ui/toast.js';
@@ -24,30 +24,40 @@ const r2 = (n) => Math.round(n * 100) / 100;
 
 /** Окно «Цена позиции»: цена за единицу ↔ сумма строки; amount счёта пересчитывает сервер. */
 async function editLine(inv, x, after) {
-  const qty = Number(x.qty) || 0;
+  const qtyInput = h('input', { type: 'number', step: 'any', min: '0.001', inputmode: 'decimal', value: String(Number(x.qty) || 0) });
+  const qty = () => Number(qtyInput.value) || 0;
   const total = Number(x.priceHint) || 0;
-  const unit = h('input', { type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: String(qty > 0 ? r2(total / qty) : 0) });
+  const unit = h('input', { type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: String(qty() > 0 ? r2(total / qty()) : 0) });
   const sum = h('input', { type: 'number', step: '0.01', min: '0', inputmode: 'decimal', value: String(total) });
+  const reason = inv.status === 'paid' ? h('input', { type: 'text', maxlength: '500', placeholder: 'Причина корректировки (обязательно)' }) : null;
   let syncing = false;
-  unit.addEventListener('input', () => { if (syncing) return; syncing = true; sum.value = String(r2((Number(unit.value) || 0) * qty)); syncing = false; });
-  sum.addEventListener('input', () => { if (syncing) return; syncing = true; unit.value = String(qty > 0 ? r2((Number(sum.value) || 0) / qty) : 0); syncing = false; });
-  const ok = await modal({
-    title: 'Цена позиции',
-    okText: 'Сохранить',
-    body: h('div', null,
-      h('p', { class: 'muted' }, `${x.num ? `№${x.num} · ` : ''}${x.title || x.materialName || 'позиция'} · ${qty} ${x.unit || ''}`.trim()),
-      h('label', { class: 'field' }, h('span', null, 'Цена за единицу, ₽'), unit),
-      h('label', { class: 'field' }, h('span', null, 'Сумма строки, ₽'), sum),
-      h('div', { class: 'hint' }, 'Сумма счёта пересчитается из строк. Цена за единицу = сумма ÷ количество.')),
-    onOk: async () => {
+  const updateSum = () => { if (syncing) return; syncing = true; sum.value = String(r2((Number(unit.value) || 0) * qty())); syncing = false; };
+  const updateUnit = () => { if (syncing) return; syncing = true; unit.value = String(qty() > 0 ? r2((Number(sum.value) || 0) / qty()) : 0); syncing = false; };
+  unit.addEventListener('input', updateSum);
+  qtyInput.addEventListener('input', updateSum);
+  sum.addEventListener('input', updateUnit);
+  const field = (key, label, el) => ({ key, label, type: 'widget', wide: true, widget: () => ({ el, get value() { return JSON.stringify(el.value); }, set value(v) { el.value = v ?? ''; } }) });
+  return openCard({
+    title: 'Позиция счёта', noun: 'позицию', canEdit: () => session.canMoney,
+    get: async () => x,
+    card: { heading: () => `${x.num ? `№${x.num} · ` : ''}${x.title || x.materialName || 'Позиция счёта'}`, subheading: () => 'Сумма позиции', view: () => [], noHistory: true, startEdit: () => true },
+    form: {
+      closeAfterCreate: true,
+      fields: () => [field('qty', 'Количество', qtyInput), field('unitPrice', 'Цена за единицу, ₽', unit), field('lineAmount', 'Сумма строки, ₽', sum), reason ? field('reason', 'Причина корректировки', reason) : null,
+        { note: 'Сумма счёта пересчитается из строк. Цена за единицу = сумма ÷ количество.' }].filter(Boolean),
+      toBody: () => {
       const u = Number(unit.value);
+      const lineAmount = Number(sum.value);
       if (!Number.isFinite(u) || u < 0) throw new Error('Цена не может быть отрицательной');
-      await api(`/supply/invoices/${inv.id}/lines/${x.id}`, { method: 'PATCH', body: { unitPrice: u, ...(inv.version != null ? { version: Number(inv.version) } : {}) } });
-      toast('Цена позиции сохранена');
-      return true;
+      if (!Number.isFinite(lineAmount) || lineAmount < 0) throw new Error('Сумма строки не может быть отрицательной');
+      if (!(qty() > 0)) throw new Error('Количество должно быть больше нуля');
+      if (reason && !reason.value.trim()) throw new Error('Укажите причину корректировки оплаченного счёта');
+      // Сумма всей строки — источник истины: 100 / 3 нельзя заново сохранять как 33.33 × 3 = 99.99.
+      return { lineAmount, qty: qty(), ...(reason ? { reason: reason.value.trim() } : {}), ...(inv.version != null ? { version: Number(inv.version) } : {}) };
+      },
+      update: async (_id, body) => { await api(`/supply/invoices/${inv.id}/lines/${x.id}`, { method: 'PATCH', body }); return { id: x.id }; },
     },
-  });
-  if (ok) await after();
+  }, { id: x.id }, { close() {}, changed: () => { Promise.resolve().then(after).catch(toastError); } });
 }
 
 export function mountInvoicesTab(params = {}) {
@@ -160,15 +170,18 @@ export function mountInvoicesTab(params = {}) {
     const rows = (r.items || []).filter((x) => !x.invoiceId);
     if (!rows.length) { toast('Нет подходящих позиций: нужны заявки «В заказ», «В работе» или «Оплачено» без счёта' + (inv.supplierName ? ` у «${inv.supplierName}»` : '')); return false; }
     const cbs = rows.map((x) => ({ x, cb: h('input', { type: 'checkbox' }) }));
+    const reason = inv.status === 'paid' ? h('input', { type: 'text', maxlength: '500', placeholder: 'Причина добавления (обязательно)' }) : null;
     const body = h('div', null,
-      h('p', { class: 'muted' }, 'Отметьте позиции — они войдут в этот счёт' + (inv.status === 'paid' ? ' и будут считаться оплаченными.' : '.')),
+      h('p', { class: 'muted' }, 'Отметьте позиции — они войдут в этот счёт' + (inv.status === 'paid' ? '. Исходный платёж не изменится; укажите причину для последующей сверки.' : '.')),
+      reason ? h('label', { class: 'field' }, h('span', null, 'Причина корректировки'), reason) : null,
       h('ul', { class: 'q-list' }, ...cbs.map(({ x, cb }) => h('li', { class: 'q-row' }, cb,
         h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, (x.num ? `№${x.num} · ` : '') + (x.title || '—')), h('div', { class: 'q-sub' }, `${x.qty ?? ''} ${x.unit || ''}`.trim())),
         h('div', { class: 'q-side' }, Number(x.priceHint) > 0 ? h('span', { class: 'num' }, money(x.priceHint)) : null, badge(SUPPLY_STATUS, x.status === 'ordered' && x.paid ? 'paid' : x.status))))));
     return !!(await modal({ title: 'Добавить позиции в счёт', okText: 'Добавить', wide: true, body, onOk: async () => {
       const ids = cbs.filter(({ cb }) => cb.checked).map(({ x }) => x.id);
       if (!ids.length) throw new Error('Отметьте хотя бы одну позицию');
-      await api(`/supply/invoices/${inv.id}/requests`, { method: 'POST', body: { requestIds: ids } });
+      if (reason && !reason.value.trim()) throw new Error('Укажите причину добавления к оплаченному счёту');
+      await api(`/supply/invoices/${inv.id}/requests`, { method: 'POST', body: { requestIds: ids, ...(reason ? { reason: reason.value.trim() } : {}) } });
       toast(`Добавлено позиций: ${ids.length}`);
       return true;
     } }));
@@ -183,8 +196,8 @@ export function mountInvoicesTab(params = {}) {
 
     const checks = new Map();
     const pending = reqs.filter((x) => x.status !== 'received' && x.status !== 'cancelled');
-    // финансовые поля фиксируются после оплаты/приёмки — как на сервере
-    const finLocked = inv.status === 'paid' || reqs.some((x) => x.status === 'received');
+    // Финансовые поля можно править после оплаты до первой приёмки; первая приёмка фиксирует счёт.
+    const finLocked = reqs.some((x) => x.status === 'received');
     const editable = canAct && !finLocked;
     // строки — как операции в «Деньгах» (ui/op-row.js): фото, «№ · название», подпись; клик — заявка справа
     const list = h('ul', { class: 'q-list invl-reqs' }, ...reqs.map((x) => {
@@ -192,13 +205,13 @@ export function mountInvoicesTab(params = {}) {
       let cb = null;
       if (can) { cb = h('input', { type: 'checkbox', class: 'invl-cb', checked: true, 'aria-label': 'Принять позицию' }); checks.set(x.id, cb); }
       // priceHint — сумма по строке, а не цена за штуку (СМ.8)
-      const total = x.price > 0 ? x.price * (x.qty || 0) : Number(x.priceHint) || 0;
+      const total = Number(x.priceHint) || 0;
       const price = total > 0 && x.qty > 0 ? total / x.qty : 0;
       const sum = total > 0 ? money(total) : '';
       const pic = x.photo || x.materialPhoto;
       const open = () => patch({ of: 'requests', open: x.id });
       const edit = editable ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Изменить цену позиции', 'aria-label': 'Изменить цену позиции', onclick: (e) => { e.stopPropagation(); editLine(inv, x, async () => { await refresh(); await after(); }); } }, 'цена') : null;
-      const del = editable ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Убрать позицию из счёта', 'aria-label': 'Убрать позицию из счёта', onclick: async (e) => {
+      const del = editable && inv.status !== 'paid' ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Убрать позицию из счёта', 'aria-label': 'Убрать позицию из счёта', onclick: async (e) => {
         e.stopPropagation();
         const name = (x.num ? `№${x.num} · ` : '') + (x.title || x.materialName || 'позиция');
         if (!(await confirmDlg('Убрать позицию из счёта?', `${name}\n\nЗаявка останется и вернётся в «В заказ». Сумма счёта пересчитается.`, { okText: 'Убрать', danger: true }))) return;
@@ -212,7 +225,11 @@ export function mountInvoicesTab(params = {}) {
     }));
 
     const partialNote = inv.partial ? h('div', { class: 'hint' }, PARTIAL_TEXT + '. Сумма — по строкам, которые вы видите.') : null;
-    const lockNote = finLocked ? h('div', { class: 'hint' }, (inv.status === 'paid' ? 'Счёт оплачен' : 'По счёту есть приёмка') + ' — сумма и позиции зафиксированы. Исправления — корректировкой/сторно.') : null;
+    const paymentNote = session.canMoney && inv.paymentSnapshot ? h('div', { class: 'hint' },
+      `Фактически оплачено: ${money(inv.paymentSnapshot.amount)} (${ruDate(inv.paymentSnapshot.paidAt)}). Текущая сумма строк: ${money(inv.amount)}. Изменения после оплаты требуют сверки; они не меняют банковский платёж.`,
+      ...(inv.paymentAdjustments || []).map((a) => h('div', { class: 'muted' }, `${ruDate(a.at)} · ${a.reason} · изменение ${money(a.delta)}`))) : null;
+    const lockNote = finLocked ? h('div', { class: 'hint' }, 'По счёту уже есть приёмка — сумма и позиции зафиксированы.')
+      : inv.status === 'paid' ? h('div', { class: 'hint' }, 'Счёт оплачен; до первой приёмки можно изменить суммы или добавить позиции. Удаление оплаченных строк недоступно.') : null;
 
     const files = (inv.files || []).length
       ? h('div', { class: 'invl-files' }, h('span', { class: 'muted' }, 'Файлы: '), ...inv.files.map((f) => h('a', { href: f.url, target: '_blank', rel: 'noopener' }, f.name || 'файл')))
@@ -261,6 +278,7 @@ export function mountInvoicesTab(params = {}) {
     return h('div', { class: 'invl-body' },
       partialNote,
       lockNote,
+      paymentNote,
       reqs.length ? list : h('div', { class: 'muted' }, 'В счёте нет позиций.'),
       pending.length && checks.size ? h('div', { class: 'muted' }, 'Галочки — что приехало. По умолчанию все неполученные.') : null,
       files, contractLine, chain,

@@ -80,12 +80,13 @@ export class FinanceService {
     const range = { $gte: new Date(from + 'T00:00:00Z'), $lt: new Date(Date.parse(to + 'T00:00:00Z') + 86400000) };
     const companies = await ourCompanies(this.connection);
     const cname = new Map(companies.map((c) => [String(c.id), c.name]));
+    const selectedCompanyIds = new Set(companyIds.map(String));
     const end = range.$lt;
-    const [reqs, incs, shipped, payroll, cats, orgs] = await Promise.all([
+    const [reqs, incs, shipped, payroll, cats, orgs, paidInvoices] = await Promise.all([
       // оплаченные — по дате оплаты (paidAt, нет — дата счёта); неоплаченные с датой счёта в периоде — «счета к оплате»
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
         { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }] },
-        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, photoIds: 1, paid: 1, paidAt: 1 } }).toArray(),
+        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, $or: [{ 'payments.date': range }, { paidDate: range }] },
         { projection: { orderNo: 1, title: 1, amount: 1, paidDate: 1, payments: 1, companyId: 1, customer: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, paidDate: null, shipDate: { $ne: null, $lt: end } },
@@ -93,10 +94,18 @@ export class FinanceService {
       this.payroll.paidOps(from, to, companyIds),
       db.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
+      db.collection('supplyinvoices').find({ status: 'paid', deletedAt: null, 'paymentSnapshot.paidAt': range },
+        { projection: { paymentSnapshot: 1, no: 1, payerCompanyId: 1 } }).toArray(),
     ]);
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const thumbMap = await firstPhotoThumbs(db, reqs);
+    const snapshotLines = paidInvoices.flatMap((invoice) => {
+      const snapshot = invoice.paymentSnapshot as { paidAt?: Date; lines?: Array<Record<string, unknown>> } | undefined;
+      return (snapshot?.lines ?? []).map((line) => ({ invoice, snapshot, line }));
+    });
+    const snapshotRequestIds = new Set(snapshotLines.map(({ line }) => String(line.requestId)));
+    const snapshotInvoiceIds = new Set(paidInvoices.map((invoice) => String(invoice._id)));
     const exp = (r: (typeof reqs)[number], date: string, overdue?: boolean): Op => ({ type: 'expense', id: String(r._id), date, amount: Number(r.priceHint), company: cname.get(String(r.companyId)) ?? '?',
         title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : undefined,
         category: r.categoryId ? cat.get(String(r.categoryId)) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, costCenter: costCenterLabel(r as { costCenter?: unknown; salesOrderId?: unknown }),
@@ -107,7 +116,16 @@ export class FinanceService {
     const today = iso(new Date());
     return {
       ops: [
-        ...reqs.filter((r) => r.paid === true).map((r) => exp(r, iso(r.paidAt) || iso(r.invoiceDate))).filter((o) => inRange(o.date)),
+        ...reqs.filter((r) => r.paid === true && !snapshotRequestIds.has(String(r._id)) && !(r.invoiceId && snapshotInvoiceIds.has(String(r.invoiceId)))).map((r) => exp(r, iso(r.paidAt) || iso(r.invoiceDate))).filter((o) => inRange(o.date)),
+        ...snapshotLines.filter(({ invoice, line }) => selectedCompanyIds.has(String(line.companyId ?? invoice.payerCompanyId))).map(({ invoice, snapshot, line }): Op => ({
+          type: 'expense', id: String(line.requestId), date: iso(snapshot?.paidAt), amount: Number(line.lineAmount) || 0,
+          company: cname.get(String(line.companyId ?? invoice.payerCompanyId)) ?? '?',
+          title: (line.num ? `№${line.num} · ` : '') + String(line.title ?? ''),
+          doc: String(line.invoiceNo ?? invoice.no ?? '') || undefined,
+          category: line.categoryId ? cat.get(String(line.categoryId)) : undefined,
+          counterparty: line.supplierId ? org.get(String(line.supplierId)) : line.supplierName ? String(line.supplierName) : undefined,
+          costCenter: costCenterLabel(line as { costCenter?: unknown; salesOrderId?: unknown }),
+        })).filter((o) => inRange(o.date)),
         ...incs.flatMap((i) => { const pays = incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }); return pays.map((p) => incomeOp(i, p, pays.length > 1 || p.amount < Number(i.amount))); }).filter((o) => inRange(o.date)),
         ...payroll.map((p): Op => ({ type: 'expense', id: p.id, date: p.date, amount: p.amount, company: cname.get(p.companyId) ?? '?', title: `${p.kind} · ${p.person}`, category: 'ФОТ', costCenter: 'ФОТ', counterparty: p.person })),
       ],

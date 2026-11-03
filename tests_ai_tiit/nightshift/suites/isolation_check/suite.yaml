@@ -1,5 +1,5 @@
 name: isolation_check
-command: ["python", "stand/isolation/run_check.py"]
-timeout_sec: 30
-priority: 1
-depends_on: []
+command: [python, -m, orchestrator.isolation_check]
+timeout_sec: 60
+needs_stand: true
+failure_category: runner_error

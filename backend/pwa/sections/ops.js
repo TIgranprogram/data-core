@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { parseNum, plural } from '../core/format.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
-import { row } from '../ui/kit/index.js';
+import { row, failBlock } from '../ui/kit/index.js';
 
 /* Приёмка машины по счёту — блок «Ждём поставку» в правой панели «Принять» (sections/stock-ops.js). Раздел «Операции» упразднён (SK-4b). */
 export function arrivalsBlock(onDone) {
@@ -11,7 +11,12 @@ export function arrivalsBlock(onDone) {
   async function load() {
     let res;
     try { res = await api('/supply/requests', { query: { status: 'ordered,paid', limit: 500 } }); }
-    catch { box.hidden = true; return; }
+    catch (e) {
+      if (e?.status === 403) { box.hidden = true; return; }
+      box.hidden = false;
+      box.replaceChildren(failBlock(e, load, { text: 'Счета к приёмке не загрузились' }));
+      return;
+    }
     const groups = new Map();
     for (const r of res.items) {
       const inv = String(r.invoiceNo || '').replace(/^\s*сч[её]т\s*№?\s*/i, '').trim();

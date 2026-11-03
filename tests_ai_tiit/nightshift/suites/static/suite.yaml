@@ -1,5 +1,4 @@
 name: static
-command: ["python", "-c", "print('static ok')"]
-timeout_sec: 60
-priority: 2
-depends_on: []
+command: [python, -m, orchestrator.datacore_checks, static]
+timeout_sec: 600
+failure_category: static_failure

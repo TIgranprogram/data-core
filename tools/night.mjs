@@ -1,7 +1,6 @@
 // Ночной стенд и ночной прогон dc: `dc stand [up|down|status]`, `dc night [--quick]`.
-// Стенд — отдельный compose-проект dcnight (tools/night/compose.yml), порты API 3102 и Mongo 27118,
-// БД datacore-night из свежего D:\datacore-backups\datacore-*.tgz. Ничего не делает с datacore-*, :3001/:3002/:27018, .data, продом.
-// Секреты стенда — tools/.night/stand.env (gitignored); в консоль и логи не попадают.
+// T23: каждый стенд — уникальный project/DB на -night. Legacy dcnight не управляется.
+// Остановка сохраняет volumes и данные. Паспорт и секреты — tools/.night/stands/<run-id>/.
 // Коды выхода: 0 норма · 1 есть красные шаги · 2 сбой инструмента или нарушена защита.
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -9,13 +8,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import net from 'node:net';
+import { createNightStand } from './night-stand.mjs';
+import { newStandRun } from './night-owner.mjs';
+import { terminateProcess } from '../pult/process.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const NIGHT_DIR = path.join(ROOT, 'tools', '.night');
 const COMPOSE = path.join(ROOT, 'tools', 'night', 'compose.yml');
 const WORKTREE = path.join(NIGHT_DIR, 'worktree');
 const LOCK = path.join(NIGHT_DIR, 'lock.json');
-const STAND_ENV = path.join(NIGHT_DIR, 'stand.env');
 const BACKUPS = process.env.DC_BACKUPS || 'D:\\datacore-backups';
 
 export const NIGHT_DB = 'datacore-night';
@@ -147,7 +149,7 @@ export function pickBackup(names) {
 
 function sh(cmd, args, o = {}) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...o });
-  return { code: r.status ?? (r.error ? -1 : 1), out: (r.stdout || '') + (r.stderr ? '\n' + r.stderr : ''), stdout: r.stdout || '' };
+  return { code: r.status ?? (r.error ? -1 : 1), out: (r.stdout || '') + (r.stderr ? '\n' + r.stderr : '') + (r.error ? '\n' + r.error.message : ''), stdout: r.stdout || '', error: r.error };
 }
 
 /** Шаг с таймаутом: по истечении убивает всё дерево процессов. Не бросает исключений. */
@@ -162,7 +164,7 @@ export function runAsync(cmd, args, { cwd = ROOT, env = process.env, timeoutMs =
     p.stdout.on('data', add); p.stderr.on('data', add);
     const timer = setTimeout(() => {
       timedOut = true;
-      if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(p.pid), '/T', '/F']); else p.kill('SIGKILL');
+      terminateProcess(p.pid).then((r) => { if (!r.ok) add('\nОстановка по таймауту не выполнена: ' + r.error); });
     }, timeoutMs);
     p.on('error', (e) => { out += '\n' + e.message; });
     p.on('close', (code) => { clearTimeout(timer); resolve({ code: timedOut ? 124 : (code ?? -1), out, ms: Date.now() - t0, timedOut }); });
@@ -170,124 +172,18 @@ export function runAsync(cmd, args, { cwd = ROOT, env = process.env, timeoutMs =
 }
 
 const docker = (args, o) => sh('docker', args, o);
+const stand = createNightStand({ docker, sh, root: ROOT, composeFile: COMPOSE, nightDir: NIGHT_DIR, backupDir: BACKUPS });
+export const standUp = (ctx, src = ROOT, run = null) => stand.up(ctx, src, run);
+export const standRefresh = (ctx, src = ROOT) => stand.refresh(ctx, src);
+export const standDown = (ctx, run) => stand.down(ctx, run);
+export const standStatus = (ctx) => stand.status(ctx);
 
-function standEnv() {
-  fs.mkdirSync(NIGHT_DIR, { recursive: true });
-  let e = {};
-  try { e = parseEnvFile(fs.readFileSync(STAND_ENV, 'utf8')); } catch { /* первый запуск */ }
-  const hex = (n) => crypto.randomBytes(n).toString('hex');
-  let changed = false;
-  for (const [k, n] of [['NIGHT_ROOT_PW', 12], ['NIGHT_APP_PW', 12], ['NIGHT_JWT', 24], ['NIGHT_JWT_REFRESH', 24], ['NIGHT_ADMIN_PW', 12], ['NIGHT_KEYFILE', 48], ['NIGHT_QA_PW', 12]]) {
-    if (!e[k]) { e[k] = hex(n); changed = true; }
-  }
-  if (changed) fs.writeFileSync(STAND_ENV, Object.entries(e).map(([k, v]) => `${k}=${v}`).join('\n') + '\n', { mode: 0o600 });
-  return e;
-}
-
-function composeEnv(src) {
-  const { MONGO_URI, MONGO_DB, MONGO_DB_TEST, ...rest } = process.env;
-  return { ...rest, ...standEnv(), NIGHT_SRC: src.replace(/\\/g, '/'), NIGHT_DB, NIGHT_API_PORT: String(API_PORT), NIGHT_MONGO_PORT: String(MONGO_PORT) };
-}
-
-const compose = (args, src, o = {}) => sh('docker', ['compose', '-p', 'dcnight', '-f', COMPOSE, ...args], { env: composeEnv(src), ...o });
-
-/** Скрипт на legacy-шелл mongo внутри dcnight-mongo от root (пароль берётся из окружения контейнера; скрипт идёт через stdin). */
-const mongoEval = (script) => sh('docker', ['exec', '-i', 'dcnight-mongo', 'sh', '-c', 'mongo --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin'], { input: script });
-
-const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-
-function waitFor(label, fn, tries, everyMs, ctx) {
-  for (let i = 0; i < tries; i++) { if (fn()) return true; sleepSync(everyMs); }
-  ctx.say(`Стенд: не дождался — ${label}`);
-  return false;
-}
-
-async function health() {
-  try { const r = await fetch(`http://127.0.0.1:${API_PORT}/api/health/ready`, { signal: AbortSignal.timeout(5000) }); return r.status === 200; } catch { return false; }
-}
-
-// ---------- dc stand ----------
-
-/** Стенд уже поднят — пересобрать только сервер из текущего кода (база не трогается): иначе проверка идёт по старой сборке. */
-export async function standRefresh(ctx, src = ROOT) {
-  assertStandSafe();
-  const r = compose(['up', '-d', '--build', 'backend'], src);
-  ctx.log(r.out);
-  if (r.code) { ctx.say('Стенд: сервер не пересобрался — ' + r.out.trim().split('\n').pop().slice(0, 120)); return 2; }
-  for (let i = 0; i < 60; i++) { if (await health()) return 0; sleepSync(2000); }
-  ctx.say('Стенд: после пересборки сервер не ответил health за 2 минуты');
-  return 2;
-}
-
-export async function standUp(ctx, src = ROOT) {
-  assertStandSafe();
-  if (await health()) { ctx.say(`Стенд уже поднят: http://localhost:${API_PORT}/app/`); return 0; }
-  const bk = pickBackup(fs.existsSync(BACKUPS) ? fs.readdirSync(BACKUPS) : []);
-  if (!bk) { ctx.say(`Стенд: нет бэкапа datacore-*.tgz в ${BACKUPS}`); return 2; }
-  const age = (Date.now() - fs.statSync(path.join(BACKUPS, bk)).mtimeMs) / 3600e3;
-  ctx.say(`Стенд: бэкап ${bk} (${Math.round(age)} ч назад)${age > 72 ? ' — СТАРЫЙ' : ''}`);
-  const t0 = Date.now();
-  let r = compose(['up', '-d', '--wait', 'mongo'], src);
-  ctx.log(r.out);
-  if (r.code) { ctx.say('Стенд: Mongo не поднялся — ' + r.out.trim().split('\n').pop().slice(0, 120)); return 2; }
-  // entrypoint mongo сперва поднимает временный сервер для создания root; ждём его конца
-  waitFor('конец инициализации mongo', () => /init process complete/.test(docker(['logs', 'dcnight-mongo']).out), 60, 2000, ctx);
-  waitFor('replica set rs0', () => {
-    mongoEval(`try{rs.status()}catch(e){}\nif(!rs.status().ok){rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]})}`);
-    return /true/.test(mongoEval('print(db.isMaster().ismaster)').out);
-  }, 40, 2000, ctx);
-
-  // восстановление копии
-  const ex = path.join(NIGHT_DIR, 'restore');
-  fs.rmSync(ex, { recursive: true, force: true });
-  fs.mkdirSync(ex, { recursive: true });
-  r = sh('tar', ['-xz'], { cwd: ex, input: fs.readFileSync(path.join(BACKUPS, bk)) }); // из stdin: «D:» в пути tar принимает за удалённый хост
-  if (r.code) { ctx.say('Стенд: не распаковался бэкап — ' + r.out.trim().slice(0, 100)); return 2; }
-  const top = fs.readdirSync(ex).find((n) => fs.existsSync(path.join(ex, n, 'datacore')));
-  if (!top) { ctx.say('Стенд: в бэкапе нет папки datacore'); return 2; }
-  docker(['cp', path.join(ex, top, 'datacore'), 'dcnight-mongo:/tmp/prod-dump']);
-  r = docker(['exec', 'dcnight-mongo', 'sh', '-c', `mongorestore --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --db ${NIGHT_DB} /tmp/prod-dump`]);
-  ctx.log(r.out);
-  fs.rmSync(ex, { recursive: true, force: true });
-  if (r.code) { ctx.say('Стенд: восстановление не удалось — ' + r.out.trim().split('\n').pop().slice(0, 120)); return 2; }
-  const e = standEnv();
-  ctx.log(mongoEval(`var d=db.getSiblingDB('admin');if(!d.getUser('dcnight')){d.createUser({user:'dcnight',pwd:'${e.NIGHT_APP_PW}',roles:[{role:'readWrite',db:'${NIGHT_DB}'}]})}`).out); // пользователь в admin: authSource=admin в URI
-
-  r = compose(['up', '-d', '--build', 'backend'], src);
-  ctx.log(r.out);
-  if (r.code) { ctx.say('Стенд: сервер не собрался/не запустился — ' + r.out.trim().split('\n').pop().slice(0, 120)); return 2; }
-  let ok = false;
-  for (let i = 0; i < 60 && !ok; i++) { ok = await health(); if (!ok) sleepSync(2000); }
-  if (!ok) { ctx.say('Стенд: сервер не ответил health за 2 минуты'); ctx.log(docker(['logs', '--tail', '40', 'dcnight-backend']).out); return 2; }
-
-  // тестовый пользователь qa (вход для qa-smoke); пароль — в файл, не в вывод
-  const h = docker(['exec', '-e', `PW=${e.NIGHT_QA_PW}`, 'dcnight-backend', 'node', '-e', "console.log(require('bcryptjs').hashSync(process.env.PW,10))"]);
-  const hash = h.stdout.trim();
-  if (h.code || !/^\$2[aby]\$/.test(hash)) { ctx.say('Стенд: не получил хеш пароля qa'); return 2; }
-  mongoEval(`var d=db.getSiblingDB('${NIGHT_DB}');d.users.updateOne({username:'qa'},{$set:{displayName:'QA night',passwordHash:'${hash}',role:'admin',permissions:[],isActive:true,isOwner:false,refreshTokenVersion:0,updatedAt:new Date()},$setOnInsert:{createdAt:new Date()}},{upsert:true})`);
-  fs.writeFileSync(path.join(NIGHT_DIR, 'qa-login.txt'), e.NIGHT_QA_PW, { mode: 0o600 });
-  ctx.say(`Стенд поднят за ${Math.round((Date.now() - t0) / 1000)} с: http://localhost:${API_PORT}/app/ · БД ${NIGHT_DB} · Mongo :${MONGO_PORT}`);
-  return 0;
-}
-
-export function standDown(ctx) {
-  const r = compose(['down', '-v', '--remove-orphans'], ROOT);
-  ctx.log(r.out);
-  fs.rmSync(path.join(NIGHT_DIR, 'restore'), { recursive: true, force: true });
-  ctx.say(r.code ? 'Стенд: не погас — ' + r.out.trim().split('\n').pop().slice(0, 120) : 'Стенд погашен (контейнеры и тома dcnight удалены)');
-  return r.code ? 2 : 0;
-}
-
-export async function standStatus(ctx) {
-  assertStandSafe();
-  const ps = docker(['ps', '--filter', 'label=com.docker.compose.project=dcnight', '--format', '{{.Names}} {{.Status}}']);
-  const rows = ps.stdout.trim().split('\n').filter(Boolean);
-  ctx.log(ps.out);
-  if (!rows.length) { ctx.say('Стенд dcnight: не запущен'); return 1; }
-  for (const l of rows) ctx.say('  ' + l);
-  const up = await health();
-  ctx.say(`API :${API_PORT}: ${up ? 'ответ ok' : 'не отвечает'} · БД ${NIGHT_DB} · Mongo :${MONGO_PORT}`);
-  return up ? 0 : 1;
+/** Полный прогон не занимает порты ручного/legacy стенда. */
+async function freePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer(); server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); });
+  });
 }
 
 export async function cmdStand(sub, ctx) {
@@ -347,6 +243,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
   const sctx = { log: slog, say: ctx.say };
   const steps = [];
   let commit = '?';
+  let run = null;
   try {
     const wt = prepareWorktree(ctx);
     if (wt.error) { ctx.say('Сбой: ' + wt.error); return 2; }
@@ -354,7 +251,6 @@ export async function cmdNight({ quick = false } = {}, ctx) {
     ctx.say(`Ночной прогон${quick ? ' (быстрый)' : ''}: origin/main ${commit}, worktree tools/.night/worktree`);
     if (!wt.lockSame) ctx.say('! pnpm-lock основной папки отличается от origin/main — зависимости могут не совпасть');
     const be = path.join(WORKTREE, 'backend');
-    const win = process.platform === 'win32';
     const baseEnv = (() => { const { MONGO_URI, MONGO_DB, MONGO_DB_TEST, MONGO_PORT: _p, MONGO_ROOT_PASSWORD, ...rest } = process.env; return rest; })();
     const doStep = async (name, cmd, args, o) => {
       const r = await runAsync(cmd, args, { env: baseEnv, ...o });
@@ -364,31 +260,35 @@ export async function cmdNight({ quick = false } = {}, ctx) {
       return s;
     };
     const MIN = 60000;
-    await doStep('tsc', 'npx', ['tsc', '--noEmit'], { cwd: be, shell: win, timeoutMs: 10 * MIN });
-    await doStep('unit', 'npx', ['jest', '--silent'], { cwd: be, shell: win, timeoutMs: 25 * MIN });
+    await doStep('tsc', process.execPath, [path.join(be, 'node_modules', 'typescript', 'bin', 'tsc'), '--noEmit'], { cwd: be, timeoutMs: 10 * MIN });
+    await doStep('unit', process.execPath, [path.join(be, 'node_modules', 'jest', 'bin', 'jest.js'), '--silent'], { cwd: be, timeoutMs: 25 * MIN });
     await doStep('imports', process.execPath, ['backend/scripts/pwa-import-check.mjs'], { cwd: WORKTREE, timeoutMs: 3 * MIN });
-    await doStep('eslint', 'npx', ['eslint', 'src/**/*.ts'], { cwd: be, shell: win, timeoutMs: 10 * MIN });
+    await doStep('eslint', process.execPath, [path.join(be, 'node_modules', 'eslint', 'bin', 'eslint.js'), 'src/**/*.ts'], { cwd: be, timeoutMs: 10 * MIN });
     await doStep('design-lint', process.execPath, ['backend/scripts/design-lint.mjs'], { cwd: WORKTREE, timeoutMs: 3 * MIN });
 
     if (!quick) {
+      const tools = await doStep('tools-unit', process.execPath, ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', ...fs.readdirSync(path.join(ROOT, 'pult', 'test')).filter((f) => f.endsWith('.test.mjs')).map((f) => 'pult/test/' + f)], { cwd: ROOT, timeoutMs: 5 * MIN });
+      if (!tools.ok) throw new Error('Safety unit не прошли; новый стенд не создаётся');
       assertStandSafe();
-      standDown(sctx);
-      const up = await standUp(sctx, WORKTREE);
-      const e = standEnv();
+      run = newStandRun({ apiPort: await freePort(), mongoPort: await freePort() });
+      fs.writeFileSync(path.join(runDir, 'stand-run.json'), JSON.stringify(run, null, 2) + '\n');
+      const up = await standUp(sctx, WORKTREE, run);
+      const e = stand.credentials(run);
       if (up !== 0) {
         for (const n of ['e2e', 'smoke', 'screen-walk', 'scenarios', 'stock-filters']) steps.push(makeStep(n, { code: 2, ms: 0, out: 'стенд не поднялся' }, commit));
       } else {
-        const eenv = { ...baseEnv, MONGO_ROOT_PASSWORD: e.NIGHT_ROOT_PW, MONGO_PORT: String(MONGO_PORT), MONGO_DB_TEST: TEST_DB };
+        const eenv = { ...baseEnv, MONGO_ROOT_PASSWORD: e.NIGHT_ROOT_PW, MONGO_HOST: '127.0.0.1', MONGO_PORT: String(run.mongoPort), MONGO_DB: run.testDb, MONGO_DB_TEST: run.testDb, MONGO_URI: `mongodb://root:${e.NIGHT_ROOT_PW}@127.0.0.1:${run.mongoPort}/${run.testDb}?authSource=admin&replicaSet=rs0&directConnection=true` };
+        Object.assign(eenv, { STOCK_CATALOG_TEST_DISPOSABLE: '1', STOCK_CATALOG_TEST_URI: `mongodb://root:${e.NIGHT_ROOT_PW}@127.0.0.1:${run.mongoPort}/datacore-test-t26-${run.id}-night?authSource=admin&replicaSet=rs0&directConnection=true` });
         assertStandSafe({ testDb: eenv.MONGO_DB_TEST });
-        await doStep('e2e', 'npx', ['jest', '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: be, shell: win, env: eenv, timeoutMs: 30 * MIN });
-        await doStep('smoke', process.execPath, ['backend/scripts/qa-smoke.mjs'], { cwd: WORKTREE, env: { ...baseEnv, QA_BASE: `http://localhost:${API_PORT}`, QA_DIR: NIGHT_DIR }, timeoutMs: 15 * MIN });
+        await doStep('e2e', process.execPath, [path.join(be, 'node_modules', 'jest', 'bin', 'jest.js'), '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: be, env: eenv, timeoutMs: 30 * MIN });
+        await doStep('smoke', process.execPath, ['backend/scripts/qa-smoke.mjs'], { cwd: WORKTREE, env: { ...baseEnv, QA_BASE: `http://localhost:${run.apiPort}`, QA_DIR: stand.runDir(run) }, timeoutMs: 15 * MIN });
         // обход экранов: мусор на экране («[object …]», undefined, «Изменить» без сущности); код из worktree, вход — тестовый qa
-        const qaPw = fs.readFileSync(path.join(NIGHT_DIR, 'qa-login.txt'), 'utf8').trim();
-        await doStep('screen-walk', process.execPath, [path.join(ROOT, 'tools', 'screen-walk.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
+        const qaPw = fs.readFileSync(path.join(stand.runDir(run), 'qa-login.txt'), 'utf8').trim();
+        await doStep('screen-walk', process.execPath, [path.join(ROOT, 'tools', 'screen-walk.mjs'), `http://localhost:${run.apiPort}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
         // сценарии «как человек»: паспорт, документация, проектирование, продукция, доски (tools/scenarios.mjs)
-        await doStep('scenarios', process.execPath, [path.join(ROOT, 'tools', 'scenarios.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
+        await doStep('scenarios', process.execPath, [path.join(ROOT, 'tools', 'scenarios.mjs'), `http://localhost:${run.apiPort}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
         // фильтры «Остатков»: число на кнопке признака = позиций в списке (замечание пользователя 2026-11-01)
-        await doStep('stock-filters', process.execPath, [path.join(ROOT, 'tools', 'stock-filter-check.mjs'), `http://localhost:${API_PORT}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 5 * MIN });
+        await doStep('stock-filters', process.execPath, [path.join(ROOT, 'tools', 'stock-filter-check.mjs'), `http://localhost:${run.apiPort}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 5 * MIN });
       }
     }
   } catch (e) {
@@ -396,7 +296,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
     slog(e.stack || '');
     steps.push(makeStep('tool', { code: 2, ms: 0, out: e.message }, commit));
   } finally {
-    if (!quick) { try { standDown(sctx); } catch (e) { ctx.say('Стенд не погашен: ' + e.message); } }
+    if (run) { try { standDown(sctx, run); } catch (e) { ctx.say('Cleanup отказан, данные сохранены: ' + e.message); steps.push(makeStep('cleanup', { code: 2, ms: 0, out: e.message }, commit)); } }
     releaseLock(LOCK);
   }
   const sum = summarize(steps);
@@ -404,7 +304,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
   fs.writeFileSync(path.join(runDir, 'summary.json'), JSON.stringify(summary, null, 2));
   fs.writeFileSync(path.join(runDir, 'night.log'), runLog.join('\n') + '\n');
   for (const s of steps) ctx.say(stepLine(s));
-  ctx.say(await pushRunToControl(summary));
+  ctx.say('Итог сохранён локально; live production transport не вызывается.');
   ctx.say(`Итог: зелёных ${sum.green}, красных ${sum.red} за ${Math.round(summary.durationMs / 1000)} с · ${path.relative(ROOT, runDir).replace(/\\/g, '/')}/summary.json`);
   return sum.red ? 1 : 0;
 }

@@ -2,8 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { parseNum, plural, qty } from '../core/format.js';
 import { current } from '../core/router.js';
-import { errText } from '../ui/errors.js';
-import { toast } from '../ui/toast.js';
+import { toast, failBlock } from '../ui/kit/index.js';
 import { issueToFields } from './issue.js';
 
 /*
@@ -14,12 +13,12 @@ import { issueToFields } from './issue.js';
  */
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const pos = (n) => plural(n, 'позицию', 'позиции', 'позиций');
-const stub = (text) => ({ el: h('p', { class: 'muted' }, text), dirty: () => false, focus: () => {}, read: () => ({ errors: { stub: 1 } }), bindSave: (set) => set(false) });
+const stub = (content) => ({ el: typeof content === 'string' ? h('p', { class: 'muted' }, content) : content, dirty: () => false, focus: () => {}, read: () => ({ errors: { stub: 1 } }), bindSave: (set) => set(false) });
 
 export async function buildIssueOrder() {
   const orderId = current().params.orderId;
   let d;
-  try { d = await api(`/stock/reservations/order/${orderId}`); } catch (e) { return stub('Не удалось открыть: ' + errText(e)); }
+  try { d = await api(`/stock/reservations/order/${orderId}`); } catch (e) { return stub(failBlock(e, null, { text: 'Брони заказа не загрузились' })); }
   const items = d.items || [];
   if (!items.length) return stub('Активных броней по заказу нет — закройте панель.');
 

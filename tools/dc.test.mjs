@@ -54,3 +54,21 @@ test('backupWord: возраст копии из /api/health', async () => {
   assert.equal(backupWord(JSON.stringify({ error: { backup: { status: 'down', ageHours: 40 } } })).bad, true);
   assert.equal(backupWord('').text, 'не отвечает');
 });
+
+import fs from 'node:fs';
+import { cmdStatus } from './dc.mjs';
+test('T23: dc status — отдельный live transport; в тесте только fake GET/curl', () => {
+  const calls = [], lines = [];
+  const code = cmdStatus({
+    prodGetFn: (route) => { calls.push(['GET', route]); return { ok: true, text: JSON.stringify({ status: 'ok', info: { backup: { ageHours: 1 } } }) }; },
+    runFn: (file, args) => { calls.push([file, ...args]); return { code: 0, stdout: file === 'git' ? 'abcdef0' : JSON.stringify({ v: 'abcdef0', n: 1, date: '2026-11-03' }) }; },
+    sayFn: (s) => lines.push(s), logFn() {}, testLogFn: () => 'fake unit', nightFn: () => 'fake night',
+  });
+  assert.equal(code, 0); assert.deepEqual(calls[0], ['GET', '/api/health']);
+  assert.equal(calls[1][0], 'curl'); assert.ok(calls[1].at(-1).endsWith('/app/version.json'));
+  assert.match(lines[0], /Прод: health ok/);
+});
+test('T23: check и full не вызывают dc status неявно', () => {
+  const source = fs.readFileSync(new URL('dc.mjs', import.meta.url), 'utf8');
+  for (const [start, end] of [['function cmdCheck()', 'export function cmdStatus'], ['function cmdFull()', 'function cmdLogs']]) assert.doesNotMatch(source.slice(source.indexOf(start), source.indexOf(end)), /cmdStatus\s*\(|['"]status['"]|prodGet\s*\(/);
+});

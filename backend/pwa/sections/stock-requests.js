@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { qty as fmt, date } from '../core/format.js';
-import { button, row, section, toast, toastError } from '../ui/kit/index.js';
+import { button, row, section, toast, toastError, failBlock } from '../ui/kit/index.js';
 
 /*
  * «Заявки на новые позиции» — кладовщик подал с телефона («Принять» → «Подать заявку на новую позицию»), менеджер здесь решает.
@@ -30,7 +30,11 @@ export function stockRequestsBox() {
           try { await closeRequest(x.id, 'rejected'); toast('Заявка отклонена'); load(); } catch (e) { toastError(e); }
         } })],
     })) }));
-  }).catch(() => { box.hidden = true; /* нет права или связи — плашка просто не показывается */ });
+  }).catch((e) => {
+    if (e?.status === 403) { box.hidden = true; return; } // нет права — блок не показываем
+    box.hidden = false;
+    box.replaceChildren(failBlock(e, load, { text: 'Заявки на новые позиции не загрузились' }));
+  });
   load();
   return box;
 }

@@ -4,9 +4,8 @@ import { isoDay, money, date } from '../core/format.js';
 import { photoField } from '../ui/photos.js';
 import { patch } from '../core/router.js';
 import { SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
-import { attachCombo } from '../ui/kit/index.js';
-import { modal } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
+import { attachCombo, modal, toast, toastError, button, actions, row, section, badge, INVOICE_STATUS, busyBlock, failBlock } from '../ui/kit/index.js';
+import { mergeInvoiceWithPreview } from '../core/invoice-merge.js';
 import { lookups, unitList } from './lookups.js';
 import { canContract, contractField, contractView, showWarnings } from './contracts.js';
 
@@ -103,6 +102,81 @@ async function ensureSupplierId(name) {
 const heading = (r) => (r.num ? `№${r.num} · ` : '') + (r.title || r.materialName || '—');
 const verbOf = (to) => ({ ordered: 'Заказал у поставщика', paid: 'Счёт оплачен' }[to] || SUPPLY_STATUS[to]?.label || '');
 
+const MERGE_LABELS = { append: 'Добавить все позиции', mergeSameRequest: 'Добавить без дублей', replaceLines: 'Заменить позиции целевого счёта' };
+/** Только подтверждение: POST выполняется после закрытия окна, не в обработчике submit. */
+function confirmInvoiceMerge(preview) {
+  const strategy = h('select', { value: 'append' }, ...preview.strategies.filter((k) => preview.plans[k]).map((k) => h('option', { value: k }, MERGE_LABELS[k])));
+  const plan = h('div', null);
+  const lines = (title, items, note) => section({ title, count: items.length, open: true, body: [
+    note ? h('p', { class: 'hint' }, note) : null,
+    ...items.map((x) => row({ title: heading(x), meta: `${x.qty ?? ''} ${x.unit || ''}`.trim(), side: session.canMoney ? money(x.priceHint) : null })),
+    !items.length ? h('p', { class: 'muted' }, 'Нет позиций') : null,
+  ] });
+  const paint = () => {
+    const p = preview.plans[strategy.value];
+    plan.replaceChildren(
+      lines('Будут добавлены', p.moved),
+      p.skipped.length ? lines('Дубли будут пропущены', p.skipped, 'Дубли исходного счёта не добавятся и будут убраны в корзину.') : null,
+      p.replaced.length ? lines('Будут убраны из целевого счёта', p.replaced, 'Эти заявки останутся, но больше не будут входить в целевой счёт.') : null,
+      session.canMoney ? h('p', null, 'Итог целевого счёта: ', h('b', null, money(preview.resultAmount[strategy.value]))) : null);
+    const submit = strategy.closest('form')?.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = strategy.value === 'replaceLines' ? 'Заменить позиции' : 'Добавить';
+  };
+  strategy.addEventListener('change', paint); paint();
+  const invoice = (title, inv) => section({ title, open: true, body: row({ title: `Счёт № ${inv.no || '—'}`, meta: `${inv.supplierName || 'Поставщик не указан'}${inv.date ? ' · ' + date(inv.date) : ''}`, side: badge(INVOICE_STATUS, inv.status) }) });
+  return modal({ title: 'Объединение счетов — предпросмотр', okText: 'Добавить', wide: true,
+    body: h('div', null,
+      invoice('Источник — этот счёт', preview.source), invoice('Цель — существующий счёт', preview.target),
+      h('label', { class: 'field' }, h('span', null, 'Способ объединения'), strategy), plan,
+      h('p', { class: 'hint' }, 'После подтверждения исходный счёт будет объединён с целевым и убран в корзину. Оплаченные счета и счета с приёмкой сервер объединить не разрешает. «Отмена» ничего не меняет.')),
+    onOk: () => strategy.value,
+  });
+}
+
+export async function previewInvoiceMerge(sourceId, targetId) {
+  return mergeInvoiceWithPreview(api, sourceId, targetId, { confirm: confirmInvoiceMerge,
+    retry: (e, sent) => modal({ title: sent ? 'Объединение не подтверждено' : 'Предпросмотр не загрузился', okText: 'Обновить предпросмотр',
+      body: h('div', null, failBlock(e, null, { text: sent ? 'Не удалось подтвердить объединение' : 'Не удалось загрузить предпросмотр' }),
+        h('p', { class: 'hint' }, sent ? 'При потере связи результат неизвестен. Повтор только перечитает счета; объединение потребует нового подтверждения.' : 'Повтор только загрузит данные. До вашего подтверждения позиции не изменятся.')),
+    }),
+  });
+}
+
+/** 409 — явный выбор; duplicateReason и открытие счёта остаются доступны без merge. */
+export async function patchInvoiceWithDuplicate(inv, payload) {
+  try { return await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: payload }); }
+  catch (e) {
+    const ex = e?.data;
+    if (e?.status !== 409 || !ex?.existingInvoiceId) throw e;
+    const target = await api(`/supply/invoices/${ex.existingInvoiceId}`).catch(() => null);
+    const pick = (value) => (ev) => { const form = ev.target.closest('form'); form.dataset.choice = value; form.requestSubmit(); };
+    const choice = await modal({ title: 'Такой счёт уже есть', okText: 'Открыть существующий',
+      body: h('div', null,
+        row({ title: `Счёт № ${target?.no || ex.existingNo || '—'}`, meta: target?.supplierName || inv.supplierName || 'Этот поставщик', side: badge(INVOICE_STATUS, target?.status || ex.existingStatus) }),
+        h('p', { class: 'muted' }, 'Выберите существующий счёт. Сначала покажем позиции и итог; объединение — только после подтверждения. Или сохраните отдельный счёт с причиной.'),
+        actions(button({ label: 'Посмотреть, что добавится', onClick: pick('merge') }), button({ label: 'Сохранить отдельный с причиной', onClick: pick('new') }))),
+      onOk: (form) => form.dataset.choice || 'open',
+    });
+    if (!choice) return null;
+    if (choice === 'open') { patch({ of: 'requests', tab: 'invoices', open: ex.existingInvoiceId }); return null; }
+    if (choice === 'merge') {
+      const result = await previewInvoiceMerge(inv.id, ex.existingInvoiceId);
+      if (result) {
+        toast('Позиции объединены с существующим счётом');
+        patch({ of: 'requests', tab: 'invoices', open: result.targetInvoiceId || ex.existingInvoiceId });
+      }
+      return null;
+    }
+    const why = h('input', { maxlength: 200, placeholder: 'Например: отдельная поставка, кредит-нота' });
+    const reason = await modal({ title: 'Отдельный счёт с тем же номером', okText: 'Сохранить',
+      body: h('label', { class: 'field' }, h('span', null, 'Причина'), why),
+      onOk: () => { const value = why.value.trim(); if (!value) throw new Error('Укажите причину'); return value; },
+    });
+    if (!reason) return null;
+    return api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...payload, duplicateReason: reason } });
+  }
+}
+
 /** Правая панель «Следующий шаг»: только недостающие поля, «Сохранить и перевести» двигает этап. */
 export const reqStep = {
   id: 'reqstep',
@@ -175,11 +249,18 @@ export const reqStep = {
       let saved;
       if (body._inv) {
         const { _inv, _sup, _line, ...inv } = body;
-        // сумму строки меняем отдельным endpoint'ом — amount счёта пересчитает сервер из строк
-        if (_line != null) await api(`/supply/invoices/${_inv}/lines/${id}`, { method: 'PATCH', body: { lineAmount: _line } });
         if (_sup) inv.supplierId = await ensureSupplierId(_sup); // сервер ставит имя счёта и переносит поставщика во все заявки счёта
-        // дубль № у поставщика — 409 с данными существующего счёта (автосклейки нет)
-        const res = await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { ...inv, issue: true } });
+        const stopped = () => { throw new Error('Перевод и оплата не выполнены. Проверьте выбранный счёт или продолжите редактирование.'); };
+        let res;
+        if (_line != null) {
+          // Сначала решаем 409; отмена preview не должна успеть изменить сумму строки.
+          const prepared = await patchInvoiceWithDuplicate({ id: _inv, supplierName: _sup }, inv);
+          if (!prepared) stopped();
+          await api(`/supply/invoices/${_inv}/lines/${id}`, { method: 'PATCH', body: { lineAmount: _line } });
+          // Реквизиты и duplicateReason уже сохранены; повторно их не передаём.
+          res = await api(`/supply/invoices/${_inv}`, { method: 'PATCH', body: { issue: true } });
+        } else res = await patchInvoiceWithDuplicate({ id: _inv, supplierName: _sup }, { ...inv, issue: true });
+        if (!res) stopped();
         showWarnings(res);
         const invId = res?.id || _inv;
         if (session.canMoney) { await api(`/supply/invoices/${invId}/pay`, { method: 'POST' }); toast('Счёт оплачен'); } else toast('Счёт выставлен — оплату отметит бухгалтер');
@@ -237,13 +318,13 @@ export async function bulkOrder(rows) {
 
 /** Блок «Счёт» в панели заявки с invoiceId: №, дата, сумма, плательщик, файл, заявки счёта; «Сохранить» (выставлен) и «Счёт оплачен». */
 export function invoiceBlock(r, ctx) {
-  const box = h('div', { class: 'inv-block' }, h('div', { class: 'muted' }, 'Загружаю счёт…'));
+  const box = h('div', { class: 'inv-block' }, busyBlock('счёт'));
   (async () => {
     const [inv, companies] = await Promise.all([api(`/supply/invoices/${r.invoiceId}`), payerList()]);
     const paid = inv.status === 'paid';
     const received = (inv.requests || []).some((x) => x.status === 'received');
-    // финансовые поля (сумма, цены, строки) фиксируются после оплаты/приёмки — как на сервере
-    const finLocked = paid || received;
+    // После оплаты можно править реквизиты до первой приёмки; первая приёмка фиксирует финансы.
+    const finLocked = received;
     const canMeta = session.canEdit; // №, дата, файлы, договор — можно и после оплаты/приёмки
     const no = h('input', { value: inv.no || '', maxlength: 100, disabled: !canMeta });
     const dt = h('input', { type: 'date', value: String(inv.date || '').slice(0, 10) || today(), disabled: !canMeta });
@@ -254,47 +335,18 @@ export function invoiceBlock(r, ctx) {
     // amount — производная от строк: вводится не здесь, а ценой позиции (вкладка «Счета»)
     const meta = () => ({ no: no.value.trim(), date: dt.value, fileIds: files.ids() });
     const body = () => ({ ...meta(), payerCompanyId: payer.value });
-    // Дубль № у поставщика: 409 → выбор (открыть / добавить в него / новый с причиной). Автосклейки нет.
-    const patchInvoice = async (payload) => {
-      try { return await api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: payload }); }
-      catch (e) {
-        const ex = e?.data;
-        if (e?.status !== 409 || !ex?.existingInvoiceId) throw e;
-        const pick = (v) => (ev) => { const f = ev.target.closest('form'); f.dataset.choice = v; f.requestSubmit(); };
-        const choice = await modal({
-          title: 'Такой счёт уже есть',
-          okText: 'Открыть существующий',
-          body: h('div', null,
-            h('p', null, `У этого поставщика уже есть счёт № ${ex.existingNo || '—'}.`),
-            h('p', { class: 'muted' }, 'Откройте его, добавьте позиции этого счёта в него (счета объединятся) или сохраните отдельный счёт с тем же номером и причиной.'),
-            h('div', { class: 'inv-actions' },
-              h('button', { type: 'button', class: 'btn', onclick: pick('merge') }, 'Добавить позиции в него'),
-              h('button', { type: 'button', class: 'btn', onclick: pick('new') }, 'Создать новый с причиной'))),
-          onOk: (form) => form.dataset.choice || 'open',
-        });
-        if (!choice) return null;
-        if (choice === 'open') { patch({ of: 'requests', tab: 'invoices', open: ex.existingInvoiceId }); return null; }
-        if (choice === 'merge') {
-          await api(`/supply/invoices/${inv.id}/merge`, { method: 'POST', body: { targetId: ex.existingInvoiceId, strategy: 'append' } });
-          toast('Позиции добавлены в существующий счёт');
-          patch({ of: 'requests', tab: 'invoices', open: ex.existingInvoiceId });
-          return null;
-        }
-        const why = h('input', { maxlength: 200, placeholder: 'Например: отдельная поставка, кредит-нота' });
-        const reason = await modal({
-          title: 'Новый счёт с тем же номером',
-          okText: 'Сохранить',
-          body: h('label', { class: 'field' }, h('span', null, 'Причина'), why),
-          onOk: () => { const v = why.value.trim(); if (!v) throw new Error('Укажите причину'); return v; },
-        });
-        if (!reason) return null;
-        return api(`/supply/invoices/${inv.id}`, { method: 'PATCH', body: { ...payload, duplicateReason: reason } });
-      }
-    };
-    const run = async (btn, fn) => { btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); } };
-    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { const res = await patchInvoice({ ...body(), issue: true }); if (res) { showWarnings(res); toast('Счёт сохранён'); } }) }, 'Сохранить');
-    const saveMeta = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveMeta, async () => { const res = await patchInvoice(meta()); if (res) toast('Счёт сохранён'); }) }, 'Сохранить');
+    const patchInvoice = (payload) => patchInvoiceWithDuplicate(inv, payload);
+    let running = false;
+    const run = async (btn, fn) => { if (running) return; running = true; btn.disabled = true; btn.classList.add('is-busy'); try { await fn(); ctx.changed?.(); } catch (e) { toastError(e); } finally { running = false; btn.disabled = false; btn.classList.remove('is-busy'); } };
+    const save = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(save, async () => { const payload = paid ? body() : { ...body(), issue: true }; const res = await patchInvoice(payload); if (res) { showWarnings(res); toast('Счёт сохранён'); } }) }, 'Сохранить');
+    const saveMeta = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => run(saveMeta, async () => { const res = await patchInvoice(finLocked ? meta() : body()); if (res) toast('Счёт сохранён'); }) }, 'Сохранить');
+    const canPayAfterReceipt = finLocked && session.canMoney && !paid && inv.status === 'issued';
     const pay = h('button', { class: 'btn', type: 'button', onclick: () => run(pay, async () => {
+      if (canPayAfterReceipt) {
+        await api(`/supply/invoices/${inv.id}/pay`, { method: 'POST' });
+        toast('Счёт оплачен');
+        return;
+      }
       const res = await patchInvoice({ ...(finLocked ? meta() : body()), issue: true });
       if (!res) return;
       showWarnings(res);
@@ -320,10 +372,16 @@ export function invoiceBlock(r, ctx) {
         !canMeta && !(inv.files || []).length ? h('span', { class: 'muted' }, 'Файла нет') : null,
         !canMeta ? h('div', null, ...(inv.files || []).map((f) => h('a', { href: PREFIX + f.url, target: '_blank', rel: 'noopener' }, f.name || 'Файл счёта'))) : null,
         finLocked && canMeta ? h('div', { class: 'inv-actions' }, saveFiles) : null),
-      finLocked ? h('div', { class: 'hint' }, (paid ? 'Счёт оплачен' : 'По счёту уже есть приёмка') + ' — меняются файлы, договор, номер и дата; сумма и позиции зафиксированы. Исправления — корректировкой/сторно.') : null,
+      session.canMoney && inv.paymentSnapshot ? h('div', { class: 'hint' },
+        `Фактически оплачено: ${money(inv.paymentSnapshot.amount)} (${date(inv.paymentSnapshot.paidAt)}). Текущая сумма строк: ${money(inv.amount)}. Изменения требуют сверки и не меняют исходный платёж.`,
+        ...(inv.paymentAdjustments || []).map((x) => h('div', { class: 'muted' }, `${date(x.at)} · ${x.reason} · изменение ${money(x.delta)}`))) : null,
+      finLocked ? h('div', { class: 'hint' }, 'По счёту уже есть приёмка — финансовые поля зафиксированы.') : paid ? h('div', { class: 'hint' }, 'Счёт оплачен; до первой приёмки реквизиты и суммы можно изменить.') : null,
       h('div', { class: 'muted' }, 'Заявки счёта' + (inv.supplierName ? ` · ${inv.supplierName}` : '') + (finLocked ? '' : ' · цену позиции правьте на вкладке «Счета»')),
       h('ul', { class: 'inv-reqs' }, ...(inv.requests || []).map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} ${x.title || x.materialName || ''}`), ` · ${x.qty ?? ''} ${x.unit || ''}`, x.priceHint ? ' · ' + money(x.priceHint) : ''))),
-      finLocked ? (canMeta ? h('div', { class: 'inv-actions' }, saveMeta) : null) : h('div', { class: 'inv-actions' }, save, session.canMoney ? pay : null));
-  })().catch((e) => box.replaceChildren(h('div', { class: 'err' }, e?.message || 'Не удалось загрузить счёт')));
+      finLocked ? h('div', { class: 'inv-actions' }, canMeta ? saveMeta : null, canPayAfterReceipt ? pay : null)
+        : h('div', { class: 'inv-actions' }, save, session.canMoney && !paid ? pay : null));
+  })().catch((e) => {
+    box.replaceChildren(failBlock(e, () => box.replaceWith(invoiceBlock(r, ctx)), { text: 'Счёт не загрузился' }));
+  });
   return box;
 }

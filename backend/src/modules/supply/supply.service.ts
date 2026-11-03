@@ -7,6 +7,7 @@ import { DICT, type Doc } from '../dicts/dicts.defs';
 import { searchTokens, tokenRegex } from '../../common/text/search-norm';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
+import type { ClientSession } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
@@ -87,6 +88,19 @@ export class SupplyService {
     @Optional() private readonly versions?: DataVersionService,
     @Optional() private readonly zones?: ZonesService,
   ) {}
+
+  private async markInvoiceReceiptBoundary(invoiceId: unknown, session: ClientSession) {
+    const invoices = this.connection.db!.collection('supplyinvoices');
+    const id = typeof invoiceId === 'string' ? oid(invoiceId, 'счёта') : invoiceId as Types.ObjectId;
+    const result = await invoices.updateOne(
+      { _id: id, deletedAt: null, $or: [{ receiptBoundaryAt: null }, { receiptBoundaryAt: { $exists: false } }] },
+      { $set: { receiptBoundaryAt: new Date() }, $inc: { version: 1 } }, { session },
+    );
+    if (result.matchedCount) return;
+    const existing = await invoices.findOne({ _id: id, deletedAt: null }, { projection: { receiptBoundaryAt: 1 }, session });
+    if (!existing) throw new BadRequestException('Связанный счёт не найден — приёмка отменена');
+    if (!existing.receiptBoundaryAt) throw new ConflictException('Счёт изменился во время приёмки — обновите карточку и повторите');
+  }
 
   private async names(coll: string, ids: unknown[]) {
     const oids = [...new Set(ids.filter(Boolean).map(String))].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i));
@@ -474,19 +488,23 @@ export class SupplyService {
     // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
     void userRole;
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
-    // Финансовая блокировка счёта: строки оплаченного/принятого счёта нельзя переоценивать в обход
-    // PATCH /supply/invoices/:id/lines/:lineId (единая точка правки цены). № и дата — только через счёт:
-    // он копирует их в строки. Отметку оплаты строки у оплаченного счёта не переключаем.
-    const financial = ['priceHint', 'qty', 'invoiceNo', 'invoiceDate'].some((k) => k in dto);
+    // Цена и количество строки счёта — только через PATCH строки с пересчётом amount в транзакции.
+    // Финансовая блокировка учитывает приёмку любой строки счёта, а не только текущей заявки.
+    const financial = ['priceHint', 'qty', 'invoiceNo', 'invoiceDate', 'supplierName', 'companyName'].some((k) => k in dto);
+    let linkedInvoiceId: unknown;
     if (financial || dto.statusLabel !== undefined) {
       const cur = await this.model.findById(id, { invoiceId: 1, status: 1, paid: 1 }).lean().exec() as { invoiceId?: unknown; status?: string; paid?: boolean } | null;
       if (cur?.invoiceId) {
-        const inv = await this.connection.db!.collection('supplyinvoices').findOne({ _id: cur.invoiceId, deletedAt: null }, { projection: { status: 1 } });
-        if (inv && (inv.status === 'paid' || cur.status === 'received')) {
-          if (financial) throw new BadRequestException('Счёт оплачен или уже принят на склад — цена и количество строки заблокированы. Исправления — корректировкой/сторно');
-          const next = dto.statusLabel === undefined ? null : statusFromLabel(dto.statusLabel);
-          if (inv.status === 'paid' && next && !!next.paid !== !!cur.paid) throw new BadRequestException('Счёт оплачен — отметку оплаты строки не меняем. Исправления — корректировкой/сторно');
+        linkedInvoiceId = cur.invoiceId;
+        if ('priceHint' in dto || 'qty' in dto) throw new BadRequestException('Цена и количество строки счёта заблокированы для PATCH заявки — измените строку счёта');
+        const inv = await this.connection.db!.collection('supplyinvoices').findOne({ _id: cur.invoiceId, deletedAt: null }, { projection: { status: 1, receiptBoundaryAt: 1 } });
+        const received = await this.model.countDocuments({ invoiceId: cur.invoiceId, deletedAt: null, status: 'received' }).exec();
+        if (inv?.status === 'paid' || inv?.status === 'issued' || inv?.receiptBoundaryAt || received > 0) {
+          if (financial) throw new BadRequestException('Счёт выставлен, оплачен или уже принят на склад — финансовые поля строки заблокированы. Измените счёт');
         }
+        const next = dto.statusLabel === undefined ? null : statusFromLabel(dto.statusLabel);
+        if (next && !!next.paid !== !!cur.paid) throw new BadRequestException('Отметка оплаты строки счёта меняется только через оплату счёта');
+        if (next?.status === 'cancelled') throw new BadRequestException('Сначала уберите строку из счёта, затем отменяйте заявку');
       }
     }
     const fields = await this.toFields(dto);
@@ -511,7 +529,22 @@ export class SupplyService {
     set.editedInApp = true;
     if (resetReceipt) Object.assign(unset, { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' });
     if (fields.paid === false) unset.paidAt = '';
-    const res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+    let res: { matchedCount: number } = { matchedCount: 0 };
+    if (linkedInvoiceId && financial) {
+      const session = await this.connection.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const barrier = await this.connection.db!.collection('supplyinvoices').updateOne(
+            { _id: linkedInvoiceId, deletedAt: null, $or: [{ receiptBoundaryAt: null }, { receiptBoundaryAt: { $exists: false } }] },
+            { $inc: { version: 1 } }, { session },
+          );
+          if (!barrier.matchedCount) throw new BadRequestException('По счёту уже началась приёмка — изменение строки заблокировано');
+          res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session }).exec();
+        });
+      } finally { await session.endSession(); }
+    } else {
+      res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+    }
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
@@ -546,11 +579,22 @@ export class SupplyService {
     if (!(qty > 0)) throw new BadRequestException('Укажите количество');
 
     // Куда пошло: на склад (по умолчанию) или сразу в работу / офис / объект — тогда без прихода, но с отметкой (ничего не «в воздухе»)
-    const d0 = doc as unknown as { costCenter?: string; costObject?: string; salesOrderId?: unknown };
+    const d0 = doc as unknown as { costCenter?: string; costObject?: string; salesOrderId?: unknown; invoiceId?: unknown };
     const costCenter = dto.costCenter || d0.costCenter || (d0.salesOrderId ? 'order' : 'workshop');
     const costObject = dto.costObject?.trim() || d0.costObject;
     if (dto.toStock === false) {
-      await this.model.updateOne({ _id: doc._id }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'direct', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
+      const set = { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'direct', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) };
+      if (d0.invoiceId) {
+        const session = await this.connection.startSession();
+        try {
+          await session.withTransaction(async () => {
+            await this.markInvoiceReceiptBoundary(d0.invoiceId, session);
+            await this.model.updateOne({ _id: doc._id, status: { $ne: 'received' } }, { $set: set }, { session }).exec();
+          });
+        } finally { await session.endSession(); }
+      } else {
+        await this.model.updateOne({ _id: doc._id }, { $set: set }).exec();
+      }
       return this.get(id);
     }
     let materialId = (dto.materialId && Types.ObjectId.isValid(dto.materialId)) ? dto.materialId : (doc.materialId ? String(doc.materialId) : '');
@@ -561,17 +605,22 @@ export class SupplyService {
       const item = await this.stock.createItem({ name, unit: doc.unit, article: doc.article, categoryName: cat?.name as string | undefined, invoiceName: name }); // ТИ-8: название из счёта — в invoiceName
       materialId = item.id;
     }
+    const receiptBoundary = d0.invoiceId ? (session: ClientSession) => this.markInvoiceReceiptBoundary(d0.invoiceId, session) : null;
     // ЗП.4: пришла часть — приход, заявка остаётся открытой на остаток (qty уменьшается, receivedQty копится)
     if (dto.partial && qty < Number(doc.qty)) {
       if (dto.clientUid && prevUid === dto.clientUid) return this.get(id); // этот приём уже записан — заявку не трогаем
-      await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''} (часть)`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid }, userId);
+      const movement = { type: 'in' as const, qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''} (часть)`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid };
+      if (receiptBoundary) await this.stock.move(materialId, movement, userId, receiptBoundary);
+      else await this.stock.move(materialId, movement, userId);
       const left = Math.round((Number(doc.qty) - qty) * 1000) / 1000;
       await this.model.updateOne({ _id: doc._id }, { $set: { qty: left, receivedQty: Math.round(((Number((doc as { receivedQty?: number }).receivedQty) || 0) + qty) * 1000) / 1000, editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
       return this.get(id);
     }
     // ключ приёма включает число отменённых приходов заявки: новый приём после отмены не совпадёт со старым движением
     const cancelled = dto.clientUid ? 0 : await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${id}`, cancelledAt: { $ne: null } });
-    await this.stock.move(materialId, { type: 'in', qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid ?? `receive:${id}:${(doc as { receivedQty?: number }).receivedQty ?? 0}:${cancelled}` }, userId);
+    const movement = { type: 'in' as const, qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid ?? `receive:${id}:${(doc as { receivedQty?: number }).receivedQty ?? 0}:${cancelled}` };
+    if (receiptBoundary) await this.stock.move(materialId, movement, userId, receiptBoundary);
+    else await this.stock.move(materialId, movement, userId);
     if (doc.article) await this.stock.adoptArticle(materialId, doc.article, `заявка${doc.num ? ' №' + doc.num : ''}`).catch(() => undefined);
     const done = await this.model.updateOne({ _id: doc._id, status: { $ne: 'received' } }, { $set: { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: 'stock', costCenter, ...(costObject ? { costObject } : {}), editedInApp: true, materialId: new Types.ObjectId(materialId), ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}) } }).exec();
     if (!done.matchedCount) {

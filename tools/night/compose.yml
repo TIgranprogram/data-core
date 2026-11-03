@@ -1,10 +1,15 @@
-# Ночной стенд dc: отдельный проект dcnight, свой Mongo и своя БД datacore-night.
-# Не пересекается с datacore-* (порты 3001/3002/27018 не используются). Секреты — из tools/.night/stand.env.
-# Запуск только через `dc stand up` (node tools/dc.mjs stand up): там проверки имени БД и портов.
-name: dcnight
+# T23: новый уникальный project/DB/volumes; legacy dcnight не используется.
+# Запуск только через tools/night.mjs с проверкой паспорта и пустого inventory.
+name: ${NIGHT_PROJECT:?}
+x-owner: &owner
+  dc.night.owner: datacore-night-v1
+  dc.night.run: ${NIGHT_RUN_ID:?}
+  dc.night.db: ${NIGHT_DB:?}
 services:
   keyfile:
-    image: mongo:4.4
+    image: busybox:1.36
+    container_name: ${NIGHT_PROJECT:?}-keyfile
+    labels: *owner
     restart: "no"
     environment:
       KF: ${NIGHT_KEYFILE:?}
@@ -13,19 +18,18 @@ services:
     entrypoint: >-
       sh -c "mkdir -p /secrets && printf '%s' \"$$KF\" > /secrets/mongo-keyfile
       && chown 999:999 /secrets/mongo-keyfile && chmod 600 /secrets/mongo-keyfile"
-
   mongo:
     image: mongo:4.4
-    container_name: dcnight-mongo
+    container_name: ${NIGHT_PROJECT:?}-mongo
+    labels: *owner
     restart: "no"
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--auth", "--keyFile", "/run/secrets/mongo-keyfile"]
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: ${NIGHT_ROOT_PW:?}
-    ports:
-      - "127.0.0.1:${NIGHT_MONGO_PORT:-27118}:27017"
     volumes:
       - mongo-data:/data/db
+      - mongo-config:/data/configdb
       - secrets:/run/secrets:ro
     depends_on:
       keyfile:
@@ -35,31 +39,57 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
-
   backend:
     build: ${NIGHT_SRC:?}/backend
-    image: dcnight-backend:latest
-    container_name: dcnight-backend
+    image: ${NIGHT_PROJECT:?}-backend:latest
+    container_name: ${NIGHT_PROJECT:?}-backend
+    labels: *owner
     restart: "no"
     depends_on:
       mongo:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:${NIGHT_API_PORT:-3102}:3000"
     environment:
-      NODE_ENV: development
+      NODE_ENV: test
       PORT: "3000"
       DISABLE_THROTTLE: "1"
+      SHEETS_SYNC_INTERVAL_MIN: "0"
+      DISABLE_PASSWORD_DRIFT_CHECK: "1"
       MONGO_DB: ${NIGHT_DB:?}
       MONGO_URI: mongodb://dcnight:${NIGHT_APP_PW:?}@mongo:27017/${NIGHT_DB}?authSource=admin&replicaSet=rs0
       JWT_SECRET: ${NIGHT_JWT:?}
       JWT_REFRESH_SECRET: ${NIGHT_JWT_REFRESH:?}
-      ADMIN_USERNAME: admin
+      ADMIN_USERNAME: ${NIGHT_ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${NIGHT_ADMIN_PW:?}
     volumes:
       - ${NIGHT_SRC}/backend/admin:/app/admin:ro
       - ${NIGHT_SRC}/backend/pwa:/app/pwa:ro
-
+  proxy:
+    image: alpine/socat@sha256:466c8a0383e16463fabdb7df01008292fb78d07da60224a46cb5d3142ce122ed
+    container_name: ${NIGHT_PROJECT:?}-proxy
+    labels: *owner
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["socat TCP-LISTEN:3000,fork,reuseaddr TCP:backend:3000 & socat TCP-LISTEN:27017,fork,reuseaddr TCP:mongo:27017 & wait"]
+    networks: [default, access]
+    ports:
+      - "127.0.0.1:${NIGHT_API_PORT:?}:3000"
+      - "127.0.0.1:${NIGHT_MONGO_PORT:?}:27017"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      backend:
+        condition: service_started
 volumes:
   secrets:
+    labels: *owner
   mongo-data:
+    labels: *owner
+  mongo-config:
+    labels: *owner
+networks:
+  default:
+    internal: true
+    labels: *owner
+  access:
+    internal: false
+    labels: *owner

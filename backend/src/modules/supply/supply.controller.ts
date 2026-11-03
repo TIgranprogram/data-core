@@ -27,7 +27,7 @@ const noScoped = (scope: StockScope | null) => {
 
 /** Заявки снабжения на общей коллекции CRM `supplyrequests`. Роли — как в CRM kppdf. */
 @ApiTags('Снабжение')
-@UseInterceptors(MoneyMaskInterceptor) // суммы — только админ / директор / бухгалтер
+@UseInterceptors(MoneyMaskInterceptor) // суммы — денежным ролям, включая менеджера (common/roles-hierarchy.ts)
 @AppSection('requests')
 @Controller('supply')
 export class SupplyController {
@@ -76,19 +76,19 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.requests_added', entityType: 'SupplyInvoice', idParam: 'id' })
-  async addInvoiceRequests(@Param('id') id: string, @Body() dto: AddInvoiceRequestsDto, @StockScoped() scope: StockScope | null) {
+  async addInvoiceRequests(@Param('id') id: string, @Body() dto: AddInvoiceRequestsDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
     await this.invoices.assertRequests(dto.requestIds, scope);
-    return this.invoices.addRequests(id, dto.requestIds);
+    return this.invoices.addRequests(id, dto.requestIds, dto.reason, user?.id);
   }
 
   /** Правка цены строки счёта: unitPrice или lineAmount; amount пересчитывается из строк. */
   @Patch('invoices/:id/lines/:lineId')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.line_updated', entityType: 'SupplyInvoice', idParam: 'id' })
-  async updateInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() dto: PatchInvoiceLineDto, @StockScoped() scope: StockScope | null) {
+  async updateInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() dto: PatchInvoiceLineDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.updateLine(id, lineId, dto);
+    return this.invoices.updateLine(id, lineId, dto, user?.id);
   }
 
   /** Убрать строку из счёта (заявка остаётся, возвращается в «В заказ»). */
@@ -136,9 +136,9 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'director', 'accountant', 'manager')
   @AuditAction({ action: 'supply.invoice.paid', entityType: 'SupplyInvoice', idParam: 'id' })
-  async payInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
+  async payInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.pay(id);
+    return this.invoices.pay(id, user?.id);
   }
 
   @Delete('invoices/:id')

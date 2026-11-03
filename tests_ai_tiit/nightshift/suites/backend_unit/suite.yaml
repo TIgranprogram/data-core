@@ -1,0 +1,3 @@
+name: backend_unit
+command: [python, -m, orchestrator.datacore_checks, unit]
+timeout_sec: 900

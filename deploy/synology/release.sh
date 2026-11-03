@@ -13,6 +13,15 @@
 #                     в /var/lib/datacore/backups/archive-<дата>/ и удаляются (разово, TASKS 7.2).
 # Mongo-контейнер и CRM kppdf не трогаются: пересобирается и перезапускается только datacore-backend.
 set -euo pipefail
+if [[ "${DC_RELEASE_LOGGED:-0}" != 1 ]]; then
+  LOG="$(mktemp "${DC_RELEASE_LOG_DIR:-${TMPDIR:-/tmp}}/dc-release-XXXXXXXX.log")"
+  RC=0
+  DC_RELEASE_LOGGED=1 bash "$0" "$@" >"$LOG" 2>&1 || RC=$?
+  grep -E '^== Путь:|^  ✓|^ВОРОТА:|^БЭКАП:|^ОТКАТ:|^ГОТОВО |^СТОП:' "$LOG" | tail -8 || true
+  [[ $RC == 0 ]] || { echo "ВЫПУСК: СТОП (код $RC)"; tail -3 "$LOG"; }
+  echo "Полный лог: $LOG"
+  exit "$RC"
+fi
 VM="${VM:-tiit@192.168.1.52}"
 KEY="${KEY:-$HOME/.ssh/kppdf80-vm}"
 ORDERS_DIR="${ORDERS_DIR:-для анализа/заказы}"
@@ -21,6 +30,10 @@ DATA=0; DROP=0; URGENT=""; DRY=0; FORCE_FULL=0
 for a in "$@"; do [[ "$a" == "--data" ]] && DATA=1; [[ "$a" == "--drop-archive" ]] && DROP=1; [[ "$a" == "--force-urgent" ]] && URGENT="--force-urgent"; [[ "$a" == "--dry-run" ]] && DRY=1; [[ "$a" == "--full" ]] && FORCE_FULL=1; done
 
 cd "$(git rev-parse --show-toplevel)"
+if [[ " $* " == *" --rollback "* ]]; then
+  "${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/rollback.sh'
+  exit $?
+fi
 
 # Выбор пути (быстрый / полный). Любое сомнение — полный. Пометка версии сервера — /opt/data-core/.release-commit,
 # пишется только после успешной проверки, удаляется в начале выкладки и при откате.
@@ -55,13 +68,38 @@ if [[ -z "$FREE_KB" || "$FREE_KB" -lt 2097152 ]]; then
 fi
 
 # с этого момента версия сервера «неизвестна», пока проверка не пройдёт
-"${SSH[@]}" 'rm -f /opt/data-core/.release-commit'
 TS="$(date +%Y%m%d%H%M%S)"   # имя копии backend.prev-$TS — откату передаётся точно
 TMP="$(mktemp -d)"
+MUTATED=0; VERIFIED=0
+cleanup_release() {
+  RC=$?
+  trap - EXIT
+  if [[ $RC != 0 && $MUTATED == 1 && $VERIFIED == 0 ]]; then
+    echo "ОТКАТ: ошибка выпуска, возвращаю предыдущий код и образ"
+    if ! "${SSH[@]}" "DC_ROLLBACK_ROOT=/opt/data-core bash -s -- backend.prev-$TS" < deploy/synology/rollback.sh; then
+      echo "ОТКАТ: СБОЙ — нужен ручной контроль сервера"
+    fi
+  fi
+  rm -rf "$TMP"
+  exit "$RC"
+}
+trap cleanup_release EXIT
 # версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
 # n — номер версии: число коммитов, менявших приложение (растёт с каждым обновлением; показ «v1.n»)
 PWA_N="$(git rev-list --count HEAD -- backend/pwa)"
 PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"date":"%cI"}' -- backend/pwa)"
+PWA_HASH="$(git log -1 --format=%h -- backend/pwa)"
+# Резервируем неизменяемую пару образ/код до первой замены; чужие прошлые копии не перезаписываем.
+"${SSH[@]}" "TS=$TS MODE=$MODE bash -s" <<'EOS'
+set -euo pipefail; cd /opt/data-core
+test ! -e backend.prev-$TS; test ! -e .rollback-$TS
+OLD="$(cat .release-commit 2>/dev/null || true)"
+IMAGE="$(docker inspect -f '{{.Image}}' datacore-backend)"
+[[ "$IMAGE" =~ ^sha256:[0-9a-f]{64}$ ]]
+docker image inspect "$IMAGE" >/dev/null
+docker tag "$IMAGE" datacore-backend:prev
+printf 'image=%s\nrelease=%s\nmode=%s\n' "$IMAGE" "$OLD" "$MODE" > .rollback-$TS
+EOS
 
 if [[ $MODE == fast ]]; then
   echo "== 1. Бэкап: копия базы моложе суток — пропуск, иначе бэкап"
@@ -70,10 +108,12 @@ if [[ $MODE == fast ]]; then
   # sync-dir.sh едет в том же архиве (на VM нет rsync; своя копия скрипта — независимо от версии deploy/ на сервере)
   git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/screens.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend/pwa backend/admin deploy/synology/sync-dir.sh
   scp -i "$KEY" -o BatchMode=yes "$TMP/screens.tgz" "$VM:/tmp/dc-screens.tgz"
+  MUTATED=1
   # папки обновляются на месте (их держит привязка контейнера); version.json — последним, чтобы приложение не закэшировало смесь
   "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
 set -e; R=/tmp/dc-scr-$TS; mkdir -p $R; tar -xzf /tmp/dc-screens.tgz -C $R; cd /opt/data-core
 cp -a backend backend.prev-$TS
+rm -f .release-commit
 bash $R/deploy/synology/sync-dir.sh $R/backend/pwa backend/pwa --skip version.json
 bash $R/deploy/synology/sync-dir.sh $R/backend/admin backend/admin
 cp $R/backend/pwa/version.json backend/pwa/version.json
@@ -86,15 +126,20 @@ echo "== 1. Бэкап базы на VM"
 echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
 git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend docker-compose.prod.yml deploy
 scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
+MUTATED=1
 "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
 set -e; R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
 cp /opt/data-core/deploy/synology/.env $R/deploy/synology/.env 2>/dev/null || true
-cd /opt/data-core; mv backend backend.prev-$TS; mv deploy deploy.prev-$TS; cp docker-compose.prod.yml docker-compose.prod.yml.prev-$TS
+cd /opt/data-core
+test -d $R/backend; test -d $R/deploy; test -f $R/docker-compose.prod.yml
+cp -a backend backend.prev-$TS; cp -a deploy deploy.prev-$TS; cp -p docker-compose.prod.yml docker-compose.prod.yml.prev-$TS
+rm -f .release-commit
+mv backend backend.replacing-$TS; mv deploy deploy.replacing-$TS
 mv $R/backend backend; mv $R/deploy deploy; cp $R/docker-compose.prod.yml docker-compose.prod.yml; rm -rf $R; echo "заменено, откат: deploy/synology/rollback.sh backend.prev-$TS"
 EOS
 
 echo "== 3. Сборка и перезапуск backend (mongo не трогаем)"
-"${SSH[@]}" 'cd /opt/data-core && N=$(docker inspect -f "{{.Config.Image}}" datacore-backend 2>/dev/null) && docker tag "$N" datacore-backend:prev; docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1 && tail -2 /tmp/dc-build.log && docker compose -f docker-compose.prod.yml up -d --no-deps backend'
+"${SSH[@]}" 'set -e; cd /opt/data-core; docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1; tail -2 /tmp/dc-build.log; docker compose -f docker-compose.prod.yml up -d --no-deps backend'
 
 # 2026-10-24: кэш сборки Docker копился с каждой выкладкой (42 ГБ) — держим не больше 10 ГБ (2026-10-30: по времени разрослось до 55 ГБ)
 "${SSH[@]}" 'docker builder prune -f --max-used-space 10GB >/dev/null 2>&1; docker image prune -f >/dev/null 2>&1' || true
@@ -110,21 +155,34 @@ CHECK="$("${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{ht
   # А2 (2026-10-26): смоук оболочки — каждый файл 200 и быстрее 3 с; иначе строка «СБОЙ»
   # холодный старт медленный: до трёх попыток с паузой, иначе ложный откат здорового релиза
   for try in 1 2 3; do bad=0; for u in /api/health /app/index.html /app/main.js /app/ui/base.css /app/ui/panels.css /app/version.json /admin/index.html; do
-    r=$(curl -s -o /dev/null -w "%{http_code} %{time_total}" http://127.0.0.1:3001$u); c=${r% *}; t=${r#* }
+    r=$(curl --max-time 10 -s -o /dev/null -w "%{http_code} %{time_total}" http://127.0.0.1:3001$u); c=${r% *}; t=${r#* }
     if [ "$c" != 200 ] || awk "BEGIN{exit !($t>3)}"; then [ "$try" = 3 ] && echo "СБОЙ $u: $r"; bad=1; fi; done
     [ $bad = 0 ] && break; sleep 5; done
   [ $bad = 0 ] && echo "смоук: 7 из 7 в норме" || echo "смоук: есть сбои — смотреть выше"' || true)"
 echo "$CHECK"
+# Нет ответа — потеря связи, а не доказанный дефект. Не откатываем вслепую.
+if [[ -z "$CHECK" ]]; then MUTATED=0; echo "СТОП: нет связи с VM при проверке. Новая версия запущена, нужен ручной контроль"; exit 1; fi
+VERSION="$("${SSH[@]}" 'curl --max-time 10 -fsS http://127.0.0.1:3001/app/version.json' || true)"
+if ! node -e 'const [raw,expected]=process.argv.slice(1);try{if(JSON.parse(raw).v!==expected)process.exit(1)}catch{process.exit(1)}' "$VERSION" "$PWA_HASH"; then
+  CHECK+=$'\nСБОЙ: version.json не соответствует выложенному коду'
+fi
+# Только искусственный fail для проверок на явно разрешённом тестовом хосте.
+if [[ "${RG_TEST_FAIL:-0}" == 1 ]]; then
+  [[ "${RG_TEST_ALLOWED:-0}" == 1 ]] || { echo "СТОП: RG_TEST_FAIL разрешён только на тестовом хосте"; exit 1; }
+  CHECK+=$'\nСБОЙ: искусственный тест отката'
+fi
 # пустой ответ — оборвалась связь, а не проверка: откатывать вслепую нельзя
-if [[ -z "$CHECK" ]]; then echo "СТОП: нет связи с VM при проверке. Новая версия запущена, проверьте вручную: bash remote-access/check.sh"; exit 1; fi
-if ! grep -q 'ready: 200' <<<"$CHECK" || ! grep -q 'смоук: 7 из 7' <<<"$CHECK"; then
+if [[ -z "$CHECK" ]]; then MUTATED=0; echo "СТОП: нет связи с VM при проверке. Новая версия запущена, нужен ручной контроль"; exit 1; fi
+if ! grep -q 'ready: 200' <<<"$CHECK" || ! grep -q '/app/: 200' <<<"$CHECK" || ! grep -q 'смоук: 7 из 7' <<<"$CHECK" || grep -q 'СБОЙ' <<<"$CHECK"; then
   echo "СТОП: проверка не прошла, возвращаю прошлую версию"
-  if [[ $MODE == fast ]]; then RB="backend.prev-$TS --screens-only"; else RB="backend.prev-$TS"; fi
-  "${SSH[@]}" "cd /opt/data-core && bash deploy/synology/rollback.sh $RB" || echo "ОТКАТ НЕ ПРОШЁЛ: чинить вручную, логи — docker logs datacore-backend"
   exit 1
 fi
 # проверка прошла — запомнить версию сервера (следующая выкладка сравнит с ней)
 "${SSH[@]}" "echo $(git rev-parse HEAD) > /opt/data-core/.release-commit"
+VERIFIED=1
+if [[ $MODE == full ]]; then
+  "${SSH[@]}" "rm -rf /opt/data-core/backend.replacing-$TS /opt/data-core/deploy.replacing-$TS" || true
+fi
 
 if [[ $DATA == 1 ]]; then
   echo "== 5. Данные (в контейнере datacore-backend, его MONGO_URI)"
@@ -152,3 +210,11 @@ node backend/scripts/devlog-import.js prod --apply 2>&1 | tail -15 || echo "им
 echo "== Готово. Публично: https://kppdf-crm.ru/db/app/"
 # пользователь сверяет с меню приложения («v1.N») — то ли он видит (просьба 2026-10-25)
 echo "== Версия приложения: v1.$PWA_N (коммит $(git log -1 --format=%h -- backend/pwa)), сервер — $(git log --oneline -1 | cut -c1-60)"
+TAG="release-v1.$PWA_N-$(git rev-parse --short HEAD)"
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+  [[ "$(git rev-list -1 "$TAG")" == "$(git rev-parse HEAD)" ]] || { echo "СТОП: тег выпуска уже указывает на другой коммит"; exit 1; }
+else
+  git tag "$TAG"
+fi
+git push origin "refs/tags/$TAG"
+echo "ГОТОВО v1.$PWA_N — health 200; смоук 7/7; версия $PWA_HASH; тег $TAG"

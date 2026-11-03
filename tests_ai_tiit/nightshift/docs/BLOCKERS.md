@@ -1,19 +1,18 @@
-# BLOCKERS
+# Nightshift — состояние 2026-11-03
 
-## 2026-11-02: uv не установлен
-- Проблема: команда `uv` не найдена в PATH.
-- Что пробовал: `uv --version` → CommandNotFoundException.
-- Влияние: этап 1.1 (uv sync) заблокирован; зависимости не устанавливаются.
-- Как решить: установить uv (winget install astral-sh.uv или скачиванием с astral.sh) и добавить в PATH; затем `uv sync`.
-- До решения: можно использовать `python -m pip` для черновиков, но ТЗ требует uv.
+## Технические блокеры T22 устранены
 
-## 2026-11-02: PyYAML не устанавливается на Python 3.15
-- Проблема: нет wheel для Python 3.15; сборка из исходников падает.
-- Влияние: пункт 6 (заменить simple_yaml на PyYAML) не выполнен; используется simple_yaml.
-- Как решить: установить Python 3.12 + uv, затем pyyaml.
+Установлена новая локальная Python 3.12 среда через `uv sync --extra dev`. Doctor и status реальны. Python: 76 tests passed. Исправлены сохранение полного маскированного Docker-журнала, варианты pwd/credential/private_key/-p и справочник паспортов в Dockerfile.
 
-## 2026-11-02: Этап 2 не выполнен реально
-- Проблема: stand refresh/up, реальная изоляция, xdist, scenarios sync, сравнение конфигураций — только скелеты/заглушки.
-- Что пробовал: создан docker-compose.yml (не запускался), isolation/check.py (зелёный, но не проверяет реальную сеть), regression/static suites (скелеты).
-- Влияние: этап 2 не принят; нет доказательств.
-- Как решить: реализовать stand up/down/refresh (Docker), реальный тест изоляции (попытки подключения из контейнера к боевой Mongo/VM), xdist для regression, scenarios sync с реальным сканированием кода.
+Реальный новый внутренний контур собран и прошёл health. Профиль night дважды выполнил harness, static, backend_unit, isolation_check, regression: все пять категорий passed. Первый отчёт: `reports/2026-11-03_072127_620b5a52`; второй на восстановленной копии: `reports/2026-11-03_073649_84891715`.
+
+Refresh создал отдельный новый project nsqa-f9f1e50466174092be28a77139485d90: 141 коллекция, 12957 документов. Импорт без очистки существующих баз и томов. Bootstrap берётся из копии; production и legacy dcnight не используются.
+
+## Ограничения, не выдавать за выполненное
+
+- Проверена чистая локальная virtualenv текущей Windows. Установка на другой, заново установленной Windows не проверялась.
+- Regression Nightshift read-only; полный backend E2E исполняется отдельно. В общем выпуске он прошёл: 62 suites / 487 tests, только disposable Mongo 4.4 rs0.
+- backup/load/soak/chaos/fuzz/mutation/visual/monkey/flaky: not_implemented, исключены из профилей. AI/GUI/scheduler/resume не входят в приёмку T22.
+- Автоматической очистки прежних QA volumes нет. Остановка требует manifest и ownership; рабочие данные не удаляются.
+
+Старый static RED был настоящим результатом промежуточного WIP; он устранён и не описывает текущий выпуск.

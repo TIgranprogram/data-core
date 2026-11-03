@@ -1,4 +1,5 @@
 // Окно пульта: разделы, карточки, подтверждение, журнал запусков. Текст всегда идёт через textContent.
+import { isBatchSafe } from './chain.mjs';
 const token = document.querySelector('meta[name="pult-token"]').content;
 const $ = (id) => document.getElementById(id);
 const CONFIRM_RISKS = new Set(['prod-write', 'danger']);
@@ -331,14 +332,14 @@ async function launch(c, extra) {
 // ---------- цепочка «Выполнить всё по очереди» (2026-10-31) ----------
 // Пункты «Нужно от вас» с командой и без слова-подтверждения: одно подтверждение, дальше сами, по одному; ошибка — стоп.
 let chainOn = false;
-const chainCmd = (x) => { const c = x.cmd && S.catalog.commands.find((k) => k.id === x.cmd); return c && c.kind === 'job' && !c.word && !c.blocked.length ? c : null; };
+const chainCmd = (x) => { const c = x.cmd && S.catalog.commands.find((k) => k.id === x.cmd); return isBatchSafe(c) ? c : null; };
 const chainItems = () => (S.advice?.items || []).filter((x) => x.level === 'you' && chainCmd(x));
 const waitJob = (id) => new Promise((ok) => { const t = setInterval(() => { const j = S.jobs.get(id); if (j && j.state !== 'running') { clearInterval(t); ok(j); } }, 1000); });
 async function runChain() {
   const list = chainItems();
   if (!list.length || chainOn) return;
   const more = list.reduce((n, x) => n + (x.next || 0), 0);
-  const msg = [`Выполнить по очереди (${list.length + more}):`, '', ...list.map((x, i) => `${i + 1}. ${x.title}${x.next ? ` (и следующие шаги: ${x.next})` : ''}`), '', 'Перед записью данных каждый раз делается копия базы. Ошибка — остановка.'].join('\n');
+  const msg = [`Выполнить по очереди (${list.length + more}):`, '', ...list.map((x, i) => `${i + 1}. ${x.title}${x.next ? ` (и следующие шаги: ${x.next})` : ''}`), '', 'Пакетно запускаются только безопасные проверки. Изменение сайта или данных потребует отдельного подтверждения. Ошибка — остановка.'].join('\n');
   if (!confirm(msg)) return;
   chainOn = true; render();
   const seen = new Set();
@@ -526,7 +527,7 @@ async function loadStatus() {
   S.schedule = await api('/api/schedule').catch(() => S.schedule);
   if (S.query || !['now', 'stand', 'auto'].includes(S.section)) renderNav(); else render();
   const list = [
-    s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Сервер сайта → Осмотр сайта»'),
+    s.site == null ? pill('warn', 'Прод не проверялся', 'Отдельная кнопка «Проверить прод» выполняет live-запрос') : s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Сервер сайта → Осмотр сайта»'),
     s.gateFiles.length
       ? pill('warn', `Выкладка закрыта: файлов без коммита ${s.gateFiles.length}`, s.gateFiles.join('\n'))
       : pill('ok', 'Незакоммиченного кода нет', 'Ворота проверяют backend, deploy, docker-compose.prod.yml'),

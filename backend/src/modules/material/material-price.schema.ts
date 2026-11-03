@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
 export type MaterialPriceDocument = HydratedDocument<MaterialPrice>;
-export const PRICE_SOURCES = ['invoice_issued', 'invoice_paid', 'manual', 'import'] as const;
+export const PRICE_SOURCES = ['invoice_issued', 'invoice_paid', 'invoice_adjustment', 'manual', 'import'] as const;
 export type PriceSource = (typeof PRICE_SOURCES)[number];
 
 /** История цен материала (`materialprices`) — только data-core. Строка = факт цены; цена хранится без НДС. */

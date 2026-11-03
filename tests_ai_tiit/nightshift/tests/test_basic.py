@@ -48,6 +48,7 @@ def test_report_and_handoff():
         assert data["issues"][0]["suite"] == "p"
         assert "expected" in data["issues"][0]
         assert "repro" in data["issues"][0]
+        assert "category" in data["issues"][0]
         hd = create_handoff(res, out_dir=str(Path(td) / "handoff"))
         assert (hd / "README_FOR_AI.md").exists()
         assert (hd / "issues" / "p" / "issue.json").exists()
