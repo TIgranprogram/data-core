@@ -4,7 +4,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
-import { actions, badge as kbadge, button, stepFunnel, table } from '../ui/kit/index.js';
+import { actions, button, stepFunnel, table } from '../ui/kit/index.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 const invoiceHref = (id) => { const route = current(); return '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries({ ...route.params, of: 'invoicecard', open: id, new: undefined, fill: undefined }).filter(([, value]) => value !== undefined && value !== '')).toString(); };
@@ -226,7 +226,13 @@ function stepFoot(r, ctx) {
       else if (await advance(r, st.to, patchStatus)) { toast(`${heading(r)} → ${SUPPLY_STATUS[st.to].label}`); ctx.changed(); }
     } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
   } });
-  return actions(miss.length ? kbadge('не хватает: ' + miss.map((f) => f.label.toLowerCase()).join(', '), 'warn') : null, btn);
+  // Полный список — в title; на карточке коротко, иначе текст вылезает за край (как на скрине).
+  const missTip = miss.length ? 'не хватает: ' + miss.map((f) => f.label.toLowerCase()).join(', ') : '';
+  const missBadge = miss.length
+    ? h('span', { class: 'badge warn k-miss', title: missTip },
+        miss.length === 1 ? 'не хватает: ' + miss[0].label.toLowerCase() : `не хватает ${miss.length}`)
+    : null;
+  return actions(missBadge, btn);
 }
 /** Кнопка шага в карточке-панели: тот же глагол и те же ворота. */
 function stepAct(r) {

@@ -145,7 +145,14 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .db-order.k-gfold .db-lines .tcard:hover { transform: translateY(-1px); }
 .db-order.k-gfold .db-lines .tcard .t-title,
 .db-order.k-gfold .db-lines .tcard .t-sub { user-select: none; }
-.db-order.k-gfold .db-lines .tcard .k-actions .btn { width: 100%; justify-content: center; }
+.db-order.k-gfold .db-lines .tcard .k-actions,
+.col-body .tcard .k-actions { flex-direction: column; align-items: stretch; min-width: 0; }
+.db-order.k-gfold .db-lines .tcard .k-actions .btn,
+.col-body .tcard .k-actions .btn { width: 100%; justify-content: center; }
+.col-body .tcard .k-actions .badge.k-miss,
+.db-order.k-gfold .db-lines .tcard .k-actions .badge.k-miss {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .tcard .t-pic { max-width: 100%; max-height: 140px; object-fit: contain; }
 .tcard .t-main, .tcard .t-title, .tcard .t-sub, .tcard .t-foot { min-width: 0; }
 .tcard .t-sub {
