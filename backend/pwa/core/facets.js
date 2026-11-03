@@ -72,9 +72,21 @@ export function index(items) {
   const section = one('assortment'), grade = one('materialGrade');
   for (const it of items) {
     const isPipe = it.metal === 'pipe' && !!it.assortment;
-    it._f = isPipe ? { pipe: pipeKey(it), wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая' }
-      : { ...(it.metal ? {} : facetsOf(it.name)), section: section(it.assortment), grade: grade(it.materialGrade), thick: it.dims?.thickness ? String(it.dims.thickness) : null };
-    it._s = normSearch([it.name, it.article, it.sku, it.categoryName].filter(Boolean).join(' '));
+    if (isPipe) {
+      it._f = { pipe: pipeKey(it), wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая' };
+    } else {
+      // C009 / СКФ.7: заполненные dimensions[] важнее разбора имени; имя — запасной источник
+      const fromName = it.metal ? {} : facetsOf(it.name);
+      const len = it.dims?.length != null ? String(it.dims.length) : (fromName.length || null);
+      it._f = {
+        ...fromName,
+        ...(len ? { length: len } : {}),
+        section: section(it.assortment),
+        grade: grade(it.materialGrade),
+        thick: it.dims?.thickness != null ? String(it.dims.thickness) : null,
+      };
+    }
+    it._s = normSearch([it.name, it.article, it.sku, it.categoryName, it.assortment, it.materialGrade].filter(Boolean).join(' '));
   }
   return items;
 }

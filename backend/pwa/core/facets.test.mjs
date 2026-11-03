@@ -7,3 +7,12 @@ test('валидные ключи трубы сохраняют вид, сече
 test('старое выбранное сечение без разделителей не вызывает replace у undefined',()=>{assert.equal(facetLabel('pipe','Труба 80×80×3'),'80×80×3 куски');assert.deepEqual(pipeParts('Труба 80×80×3'),{kind:'rect',section:'Труба 80×80×3',len:0});});
 test('пустые и неполные значения не роняют хлебную крошку',()=>{for(const v of [undefined,null,'','rect|','rect|Труба 40×20×2|не число'])assert.doesNotThrow(()=>facetLabel('pipe',v));assert.equal(facetLabel('pipe',undefined),'Сечение не указано');assert.equal(facetLabel('pipe','rect|Труба 40×20×2|не число'),'40×20×2 куски');});
 test('остальные подписи фильтров не меняются',()=>{assert.equal(facetLabel('section','Труба 80×80×3'),'80×80×3');assert.equal(facetLabel('grade','Ст3'),'Ст3');});
+{
+  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
+  const {index,facetsOf}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
+  test('длина из dimensions важнее разбора имени',()=>{
+    const [it]=index([{name:'Болт M8х40',dims:{length:100}}]);
+    assert.equal(it._f.length,'100');
+    assert.equal(facetsOf('Болт M8х40').length,'40');
+  });
+}
