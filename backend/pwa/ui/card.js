@@ -1,5 +1,6 @@
 import { api, canEditSection, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { readonlyGroups } from './kit/readonly.js';
 import { go } from '../core/router.js';
 import { dateTime } from '../core/format.js';
 import { actionLabel, changeList, usefulEntry } from './history.js';
@@ -59,6 +60,9 @@ const parts = (x) => [].concat(x ?? []).filter((n) => n !== null && n !== undefi
 export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let row = null;
   let form = null;
+  let saving = false;
+  let building = false;
+  let disposed = false;
   const titleEl = h('h2');
   // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
   const kindEl = h('div', { class: 'drawer-kind', hidden: !section.kind }, section.kind || '');
@@ -80,9 +84,13 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   document.body.append(back, drawer);
   applyDock();
 
-  function destroy() { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', applyDock); document.body.classList.remove('detail-open'); back.remove(); drawer.remove(); }
+  function destroy() { disposed = true; document.removeEventListener('keydown', onKey); window.removeEventListener('resize', applyDock); document.body.classList.remove('detail-open'); back.remove(); drawer.remove(); }
+  async function canLeave() {
+    if (saving || building || form?.busy?.()) return false;
+    return !form?.dirty() || await confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' });
+  }
   async function tryClose() {
-    if (form && form.dirty() && !(await confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' }))) return;
+    if (!(await canLeave())) return;
     destroy(); ctx.close();
   }
 
@@ -129,11 +137,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');
       }
     }
-    // пустые строки не выводим; заголовок группы (grp) без заполненных строк под ним — тоже
-    const isGrp = ([l]) => l?.classList?.contains('fields-grp');
-    const rows = (section.card.view(row, actx()) || []).filter(Boolean).filter(([, v]) => v !== undefined && v !== null && v !== '');
-    const shown = rows.filter((r, i) => !isGrp(r) || (rows[i + 1] && !isGrp(rows[i + 1])));
-    put(h('dl', { class: 'fields' }, shown.flatMap(([l, v]) => [h('dt', null, l), h('dd', null, v)])), 'fields');
+    put(readonlyGroups(section.card.view(row, actx()) || []), 'fields');
     if (section.card.extra) put(section.card.extra(row, actx()), 'extra');
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
@@ -142,7 +146,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     body.replaceChildren(...arrange(content));
     if (histUl) loadHistory(histUl, histWrap);
 
-    if (canEditSection(section) && section.form) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, 'Изменить'));
+    if (canEditSection(section) && section.form && (!section.card.editable || section.card.editable(row))) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, section.card.editLabel || 'Изменить'));
     buildMenu(rare);
   }
   /** Блоки по зонам: one — плоско, как раньше; two/wide — сетка .dz-box > .dz-grid (колонки по ширине самой панели, ui/panels.css). */
@@ -205,7 +209,12 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
 
   function actx() {
-    return { edit: () => showForm('edit'), reload: () => showView(), setRow: (r) => { showView(r); ctx.changed(); }, changed: ctx.changed, close: () => { destroy(); ctx.close(); } };
+    return {
+      edit: async (draft) => { if (await canLeave()) return showForm('edit', draft); },
+      reload: async () => { if (await canLeave()) return showView(); },
+      setRow: (r) => { if (!disposed) { const shown = showView(r); ctx.changed(); return shown; } }, changed: ctx.changed, close: tryClose,
+      run: async (fn) => { if (!(await canLeave())) return false; saving = true; try { await fn(); return true; } finally { saving = false; } },
+    };
   }
   async function runAction(a, btn) {
     // дольше четверти секунды — крутилка на кнопке: видно, что дело идёт (замечание 2026-10-22 «тишина»); ОШ2.5 — ui/busy.js
@@ -230,7 +239,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   // ---------- Правка / создание ----------
   async function showForm(m, init, revert) {
     const isNew = m === 'create';
-    const base0 = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : section.form.toInitial ? section.form.toInitial(row) : row;
+    if (saving || building || disposed) return;
+    building = true;
+    let base0;
+    try { base0 = isNew ? (await init) || (section.form.initial ? await section.form.initial() : {}) : { ...(section.form.toInitial ? section.form.toInitial(row) : row), ...(init || {}) }; }
+    catch (e) { building = false; body.replaceChildren(failBlock(e, () => showForm(m, init, revert), { text: 'Форма не открылась' })); return; }
     const base = revert ? { ...base0, ...revert.values } : base0; // И.3: прежние значения поверх текущих
     menuBox.replaceChildren();
     // заголовок — «что и о чём»: «Изделие · 32.11 Скамья», а не «Изменить»; режим — мелкой строкой ниже
@@ -245,9 +258,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     foot.replaceChildren();
     let flds;
     try {
-      if (section.form.build) form = await section.form.build(base); // своя форма раздела (счёт с позициями)
+      if (section.form.build) form = await section.form.build(base, actx()); // своя форма раздела (счёт с позициями)
       else { flds = await section.form.fields(isNew ? null : row); form = buildForm(flds, base); }
     } catch (e) { body.replaceChildren(failBlock(e, () => showForm(m, init, revert), { text: 'Форма не открылась' })); return; }
+    finally { building = false; }
+    if (disposed) return;
     const err = h('div', { class: 'form-error', hidden: true });
     body.replaceChildren(...[err, revert ? h('div', { class: 'fill-note' }, revert.note) : null, form.el].filter(Boolean));
     let saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
@@ -255,26 +270,35 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     // форма сама управляет кнопкой: неактивна, пока нечего сохранять; подпись по выбору («Выдать 3 позиции») — SK-6c
     form.bindSave?.((enabled, label) => { save.disabled = !enabled; if (label) { saveLabel = label; save.textContent = label; } });
     const cancel = h('button', { class: 'btn', type: 'button', onclick: async () => {
+      if (saving || building || form?.busy?.()) return;
       if (form.dirty() && !(await confirmDlg('Отменить изменения?', 'Введённые данные не сохранятся.', { okText: 'Да, отменить' }))) return;
       if (isNew && !row) { destroy(); ctx.close(); } else showView(row);
     } }, 'Отмена');
     save.onclick = async () => {
       let saved;
       if (save.disabled) return;
-      const r = form.read();
-      if (r.errors) return;
+      if (saving || form?.busy?.()) return;
       const done = busyBtn(save, 'Сохраняю…'); err.hidden = true;
+      saving = true; cancel.disabled = true;
+      const controls = [...body.querySelectorAll('input,textarea,select,button')].map((el) => ({ el, disabled: el.disabled }));
+      controls.forEach(({ el }) => { el.disabled = true; });
+      const unlock = () => controls.forEach(({ el, disabled }) => { el.disabled = disabled; });
       try {
+        const r = form.read();
+        if (r.errors) { saving = false; cancel.disabled = false; unlock(); done(); return; }
         const bodyData = section.form.toBody(r.values, isNew ? null : row);
         saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
       } catch (e) {
         // ОШ2.4: сбой — «Не удалось сохранить: нет связи… Проверьте интернет…»; ответ сервера — «Не сохранено: Укажите…»
         err.textContent = isFailure(e) ? actionText(isNew ? 'создать запись' : 'сохранить', e) : 'Не сохранено: ' + errText(e); err.hidden = false;
         if (e?.fields) form.markErrors?.(e.fields);
-        done(); save.textContent = saveLabel;
+        form.onError?.(e);
+        saving = false; cancel.disabled = false; unlock();
+        done(); if (form.conflicted) save.disabled = true; save.textContent = saveLabel;
         return;
       }
       // после успешного сохранения — вне try: сбой показа не выдаётся за «Не сохранено» (и повтор не создаст дубль)
+      saving = false;
       form = null;
       // панель осталась открытой (отчёт внутри формы: спецификация) — только «Закрыть»
       if (saved && saved.stay) {
@@ -313,9 +337,11 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   else showView();
   return {
     close: destroy,
+    canLeave,
+    get saving() { return saving || building || !!form?.busy?.(); },
     /** Другая запись в той же панели. false — если в форме несохранённые правки и пользователь остался. */
     async load(nextId) {
-      if (form && form.dirty() && !(await confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' }))) return false;
+      if (!(await canLeave())) return false;
       id = nextId; menuBox.replaceChildren();
       await showView();
       // панель-правка (справочники): другая запись открывается сразу правкой, как первая
@@ -325,6 +351,6 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     },
     get editing() { return !!form; },
     /** В форме несохранённые правки (НВ.4: «Назад» спросит «Выйти без сохранения?»). */
-    isDirty: () => !!(form && form.dirty()),
+    isDirty: () => saving || building || !!form?.busy?.() || !!(form && form.dirty()),
   };
 }

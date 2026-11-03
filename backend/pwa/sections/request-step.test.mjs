@@ -42,7 +42,7 @@ async function component({ failPost = false, canMoney = true, paid = false, rece
   const mocks = {
     '../core/api.js': { api, PREFIX: '', session: { canEdit: true, canMoney } }, '../core/dom.js': { h },
     '../core/format.js': { isoDay: () => '2026-11-01', money: (n) => String(n ?? 0), date: (v) => String(v || '') },
-    '../ui/photos.js': { photoField: () => ({ el: h('files'), ids: () => [] }) }, '../core/router.js': { patch: (route) => routes.push(route) },
+    '../ui/photos.js': { photoField: () => ({ el: h('files'), ids: () => [] }) }, '../core/router.js': { current: () => ({ section: 'requests', params: { q: 'болт', page: '2' } }), patch: (route) => routes.push(route) },
     '../ui/badges.js': { SUPPLY_STATUS: {}, supplyKey: (r) => r.status }, '../ui/kit/index.js': kit,
     './lookups.js': { lookups: lk, unitList: () => [] }, './contracts.js': { canContract: () => false, contractField() {}, contractView: () => h('contract'), showWarnings() {} },
   };
@@ -112,36 +112,26 @@ test('обычное сохранение с причиной — один PATCH
   assert.equal(c.calls.length, 1); assert.equal(c.posts().length, 0);
 });
 
-test('шаг оплаты: отмена дубликата не меняет сумму строки и не оплачивает', async () => {
-  const c = await component(), run = c.ui.reqStep.form.update('a', { _inv: 'source', _line: 400, no: '102', date: '2026-11-01', payerCompanyId: 'payer' });
-  const rejection = assert.rejects(run, /Перевод и оплата не выполнены/);
-  (await c.nextDialog()).resolve('merge'); (await c.nextDialog()).resolve(null);
-  await rejection; assert.equal(c.calls.filter((x) => x.path.includes('/lines/')).length, 0); assert.equal(c.posts().length, 0);
+test('шаг оплаты привязанной заявки — только invoicecard route, без writes', async () => {
+  const c = await component();
+  c.ui.openStep({ id: 'a', invoiceId: 'source' }, 'paid');
+  assert.equal(c.routes[0].of, 'invoicecard'); assert.equal(c.routes[0].open, 'source'); assert.equal(c.calls.length, 0);
 });
 
-test('шаг оплаты без дубликата: реквизиты → итог строки → выставление → оплата', async () => {
+test('старая многоendpoint оплата не исполняется: _inv отвергается без writes', async () => {
   const c = await component({ normalSave: true });
-  const saved = await c.ui.reqStep.form.update('a', { _inv: 'source', _line: 400, no: '102', date: '2026-11-01', payerCompanyId: 'payer' });
-  assert.equal(saved.id, 'a');
-  assert.deepEqual(c.calls.map((x) => x.path), ['/supply/invoices/source', '/supply/invoices/source/lines/a', '/supply/invoices/source', '/supply/invoices/source/pay', '/supply/requests/a']);
-  assert.equal(c.calls[1].body.lineAmount, 400); assert.deepEqual(JSON.parse(JSON.stringify(c.calls[2].body)), { issue: true });
+  await assert.rejects(c.ui.reqStep.form.update('a', { _inv: 'source', _line: 400, no: '102' }), /только в панели счёта/);
+  assert.equal(c.calls.length, 0);
 });
 
-test('paid snapshot отличается от текущей суммы; paid редактируется до первой приёмки, без повторной оплаты', async () => {
-  const c = await component({ paid: true }), box = c.ui.invoiceBlock({ invoiceId: 'source' }, {}); await tick();
-  assert.match(text(box), /Фактически оплачено: 250/); assert.match(text(box), /Текущая сумма строк: 300/);
-  assert.match(text(box), /Уточнение цены/); assert.match(text(box), /до первой приёмки/);
-  assert.equal(find(box, (x) => x.tag === 'button' && text(x) === 'Счёт оплачен'), null);
-  assert.equal(c.posts().length, 0);
+test('invoiceBlock — summary + router-only link, не загружает и не рисует финансы/формы', async () => {
+  const c = await component({ paid: true }), box = c.ui.invoiceBlock({ invoiceId: 'source', invoiceNo: '102', invoiceDate: '2026-11-01', supplierName: 'Поставщик' }, {});
+  const a = find(box, (x) => x.tag === 'a'); assert.ok(a); assert.match(a.attrs.href, /of=invoicecard/); assert.match(a.attrs.href, /open=source/); assert.match(a.attrs.href, /page=2/);
+  assert.match(text(box), /единой панели счёта/); assert.equal(find(box, (x) => x.tag === 'input' || x.tag === 'button'), null); assert.equal(c.calls.length, 0);
 });
 
-test('финансовая блокировка после приёмки и скрытие snapshot без money остаются', async () => {
-  const c = await component({ paid: true, received: true, canMoney: false }), box = c.ui.invoiceBlock({ invoiceId: 'source' }, {}); await tick();
-  assert.match(text(box), /финансовые поля зафиксированы/); assert.doesNotMatch(text(box), /Фактически оплачено/);
-});
-
-test('ошибка загрузки invoiceBlock даёт общий failBlock с read-only retry', async () => {
-  const c = await component({ failLoad: true }), box = c.ui.invoiceBlock({ invoiceId: 'source' }, {}); await tick();
-  const failure = find(box, (x) => x.tag === 'fail'); assert.ok(failure); assert.equal(typeof failure.attrs.retry, 'function');
-  failure.attrs.retry(); await tick(); assert.equal(c.posts().length, 0);
+test('ссылка блока доступна без money и при receipt; snapshot остаётся только в workspace', async () => {
+  const c = await component({ paid: true, received: true, canMoney: false });
+  const box = c.ui.invoiceBlock({ invoiceId: 'source' }, {});
+  assert.ok(find(box, (x) => x.tag === 'a')); assert.doesNotMatch(text(box), /Фактически оплачено|250|300/); assert.equal(c.calls.length, 0);
 });

@@ -26,9 +26,36 @@ export const RULES = {
   e: 'сжатый текст «столбиком»', f: 'картинка выше 200px или шире колонки', g: 'кликабельное меньше 36px по меньшей стороне (390)', h: 'вкладка со счётчиком 0 / пустая без подсказки',
   i: 'внутренние коды на экране', j: 'inline style / класс, которого нет ни в CSS, ни в JS', k: 'ошибки консоли, API ≥ 400 или медленнее 1500 мс', l: 'карточки .tcard выглядят по-разному',
   m: 'мелко: кликабельное 36–39px (390), не ошибка', x: 'проверки кода (design-lint, импорты, tsc)',
+  n: 'счёт с идентификатором в группе не открывается отдельной ссылкой',
+  o: 'группы реквизитов правой панели разбросаны без карточной структуры',
+  p: 'объект фотографии превращён в URL',
 };
 
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
+
+/** Структурные регрессии: только безопасные DOM-признаки, без данных форм и токенов. */
+export function panelStructureFindings({ groups = [], flatGroupHeadings = 0, imageSources = [] } = {}) {
+  const findings = [];
+  for (const g of groups) {
+    if (/^[a-f0-9]{24}$/i.test(g.key || '') && /^Счёт(?:\s|$)/i.test(g.label || '') && !g.hasEntry) {
+      findings.push({ rule: 'n', sel: '.k-gfold .db-oname', text: 'Номер счёта только раскрывает группу: отдельной ссылки в панель нет' });
+    }
+  }
+  if (flatGroupHeadings > 1) findings.push({ rule: 'o', sel: '.drawer dl.fields', text: 'Несколько групп реквизитов собраны в одну простыню вместо компактных карточных блоков' });
+  if (imageSources.some((src) => /\[object(?:\s|%20)Object\]/i.test(String(src)))) findings.push({ rule: 'p', sel: 'img[src]', text: 'В адрес изображения попал объект вместо thumb/url' });
+  return findings;
+}
+
+export function panelStructureSnapshot(doc = document) {
+  return {
+    groups: [...doc.querySelectorAll('.k-gfold[data-group-key]')].map((el) => {
+      const name = el.querySelector('.db-oname');
+      return { key: el.dataset.groupKey, label: name?.textContent?.trim() || '', hasEntry: !!(name?.matches('button,a,[role="link"]') || name?.querySelector('button,a,[role="link"]')) };
+    }),
+    flatGroupHeadings: doc.querySelectorAll('.drawer dl.fields > dt .fields-grp').length,
+    imageSources: [...doc.querySelectorAll('img[src]')].map((img) => img.getAttribute('src')),
+  };
+}
 
 /** Склеивает находки с одинаковым правилом/экраном/селектором/текстом: ширины собираются в список. */
 export function mergeFindings(list) {
@@ -161,6 +188,7 @@ for(const el of document.querySelectorAll('main [style],.drawer [style]')){
   if(el.tagName==='I'&&/^\\s*flex:[^;]*;?\\s*$/.test(el.getAttribute('style')||''))continue; // ширина доли в полосе — из данных
   const st=el.getAttribute('style')||'';const props=st.split(';').map(x=>x.trim()).filter(Boolean).filter(x=>!x.startsWith('--'));
   if(props.length)add('j',sel(el),'inline style: '+props.join('; '))}
+for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 return out})()`;
 
 const JS_TOKENS = (() => {

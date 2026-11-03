@@ -30,9 +30,11 @@ export function table({ columns = [], rows = [], mode = 'list', empty, cls, labe
       ...r.cells.map((c, i) => {
         const o = c && typeof c === 'object' && !(c instanceof Node) && 'v' in c ? c : { v: c };
         const col = columns[i] || {};
-        return h('td', { class: [col.num ? 'num right' : '', col.hide ? 'md-hide' : '', o.cls || col.cls || ''].filter(Boolean).join(' ') || null }, o.v);
+        const check = o.v instanceof Node && o.v.tagName === 'INPUT' && o.v.getAttribute('type') === 'checkbox';
+        const value = check ? h('label', { class: 'k-table-check', title: o.v.getAttribute('aria-label') }, o.v) : o.v;
+        return h('td', { class: [col.num ? 'num right' : '', col.hide ? 'md-hide' : '', o.cls || col.cls || ''].filter(Boolean).join(' ') || null }, value);
       }));
   };
-  return h('div', { class: 'table-wrap' + (maxHeight ? ' k-scroll-' + String(maxHeight).toLowerCase() : '') }, h('table', { class: 'list' + (clickable ? '' : ' k-static') + (cls ? ' ' + cls : ''), 'aria-label': label || null },
+  return h('div', { class: 'table-wrap k-table-wrap' + (maxHeight ? ' k-scroll-' + String(maxHeight).toLowerCase() : '') }, h('table', { class: 'list' + (clickable ? '' : ' k-static') + (cls ? ' ' + cls : ''), 'aria-label': label || null },
     h('thead', null, h('tr', null, ...columns.map(th))), h('tbody', null, ...rows.map(tr)), foot?.length ? h('tfoot', null, ...foot) : null));
 }

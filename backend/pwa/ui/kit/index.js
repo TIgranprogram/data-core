@@ -169,3 +169,6 @@ export { buildForm } from '../form.js';
 
 /** Подсказка «похожее уже есть» под названием изделия — ui/kit/similar.js */
 export { similarBox } from "./similar.js";
+
+export { readonlyGroup, readonlyGroups } from './readonly.js';
+export { photoField } from '../photos.js';

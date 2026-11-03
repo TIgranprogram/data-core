@@ -8,11 +8,14 @@ const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function plan(root=ROOT,{quick=false}={}){
  const node=process.execPath,night=path.join(root,'tests_ai_tiit/nightshift');
  const pultTests=fs.readdirSync(path.join(root,'pult/test')).filter(f=>f.endsWith('.test.mjs')).map(f=>'pult/test/'+f);
+ const pwaTests=[];
+ const collect=d=>{for(const f of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,f.name);if(f.isDirectory())collect(p);else if(f.name.endsWith('.test.mjs'))pwaTests.push(path.relative(root,p).replace(/\\/g,'/'));}};
+ collect(path.join(root,'backend/pwa'));pwaTests.sort();
  const steps=[];
  if(!quick)steps.push({name:'backend',title:'Типы, юнит, импорты, дизайн и каталог',cmd:node,args:['tools/dc.mjs','check'],cwd:root});
  steps.push({name:'safety',title:'Безопасность стенда и пульта',cmd:node,args:['--test','tools/dc.test.mjs','tools/night.test.mjs',...pultTests],cwd:root});
  steps.push({name:'release',title:'Выпуск и откат без настоящего сервера',cmd:node,args:['--test','deploy/synology/release.test.mjs','deploy/synology/release-flow.test.mjs'],cwd:root});
- steps.push({name:'pwa',title:'Оплата, предпросмотр и фильтры склада',cmd:node,args:['--experimental-vm-modules','--test','backend/pwa/core/facets.test.mjs','backend/pwa/core/invoice-merge.test.mjs','backend/pwa/core/write-retry.test.mjs','backend/pwa/sections/request-step.test.mjs','backend/pwa/sections/invoice-price.test.mjs'],cwd:root});
+ steps.push({name:'pwa',title:'Все регрессии приложения и правила UI-аудита',cmd:node,args:['--experimental-vm-modules','--test',...pwaTests,'tools/site-audit.test.mjs'],cwd:root});
  steps.push({name:'nightshift',title:'Nightshift и маскирование журналов',cmd:path.join(night,'.venv',process.platform==='win32'?'Scripts/python.exe':'bin/python'),args:['-m','pytest','-q'],cwd:night});
  return steps;
 }
