@@ -350,7 +350,21 @@ export const requests = {
         body: [
           r.photo ? h('img', { class: 't-pic', src: PREFIX + (typeof r.photo === 'string' ? r.photo : r.photo.thumb || r.photo.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
           h('div', { class: 't-title', title: heading(r) }, heading(r)),
-          h('div', { class: 't-sub' }, [`${qty(r.qty)} ${r.unit || ''}`.trim(), r.supplierName, r.salesOrderId ? orderTag(r) : '', r.priceHint && session.canMoney ? money(r.priceHint) : ''].filter(Boolean).join(' · ')),
+          h('div', { class: 't-sub', title: [
+            `${qty(r.qty)} ${r.unit || ''}`.trim(),
+            r.supplierName,
+            r.salesOrderId ? orderTag(r) : '',
+            r.invoiceNo ? 'Счёт № ' + r.invoiceNo : (['ordered', 'paid'].includes(supplyKey(r)) ? 'Нет № счёта' : ''),
+            r.invoiceDate ? date(r.invoiceDate) : '',
+            r.priceHint && session.canMoney ? money(r.priceHint) : '',
+          ].filter(Boolean).join(' · ') }, [
+            `${qty(r.qty)} ${r.unit || ''}`.trim(),
+            r.supplierName,
+            r.salesOrderId ? orderTag(r) : '',
+            r.invoiceNo ? 'Счёт № ' + r.invoiceNo : (['ordered', 'paid'].includes(supplyKey(r)) ? 'Нет № счёта' : ''),
+            r.invoiceDate ? date(r.invoiceDate) : '',
+            r.priceHint && session.canMoney ? money(r.priceHint) : '',
+          ].filter(Boolean).join(' · ')),
           r.priority === 'urgent' ? h('div', { class: 't-foot' }, badge(PRIORITY, 'urgent')) : null,
         ],
         foot: session.canEdit ? stepFoot(r, ctx) : null,
@@ -418,12 +432,14 @@ export const requests = {
       ['Примечание', r.notes],
     ],
     extra: (r, ctx) => h('div', null, handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
+    // Одна главная кнопка = nextStep; «Принять» только в «Оплачено». Раньше «Принять» висела на всех статусах.
     actions: (r) => {
-      const k = supplyKey(r);
+      const st = nextStep(r);
+      const step = stepAct(r);
       return [
-        !['received', 'cancelled'].includes(k) && { label: 'Принять на склад', primary: true, run: receive },
-        stepAct(r),
-        { label: 'Сменить статус…', run: changeStatus },
+        st?.kind === 'receive' ? { label: st.verb, primary: true, run: receive } : null,
+        step ? { ...step, primary: true } : null,
+        !['received', 'cancelled'].includes(supplyKey(r)) ? { label: 'Сменить статус…', run: changeStatus } : null,
       ];
     },
   },
