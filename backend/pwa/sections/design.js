@@ -71,7 +71,11 @@ export async function moveTask(r, to) {
   if (to === 'work' && !r.assigneeId) { const who = await askAssignee(await people()); if (!who) return null; body.assigneeId = who; } // окно «Кто проектирует?» вместо ошибки
   const saved = await api(`/design-tasks/${r.id}`, { method: 'PATCH', body });
   toast(`${r.code} → ${STATUS[to].label}`, { undo: async () => {
-    await api(`/design-tasks/${r.id}`, { method: 'PATCH', body: { status: r.status, ...(r.status === 'paused' || r.status === 'cancelled' ? { pauseReason: r.pauseReason || 'Возврат после отмены' } : {}) } });
+    await api(`/design-tasks/${r.id}`, { method: 'PATCH', body: {
+      status: r.status,
+      assigneeId: r.assigneeId || null,
+      ...(r.status === 'paused' || r.status === 'cancelled' ? { pauseReason: r.pauseReason || 'Возврат после отмены' } : {}),
+    } });
     window.dispatchEvent(new CustomEvent('data-changed'));
   } });
   return saved;
@@ -137,7 +141,7 @@ function topBlock(r, ctx) {
   const grid = h('dl', { class: 'kv-grid' },
     ...pair('Изготовить', made, 'kv-full'),
     ...pair('Артикул', kitSku(clean(r.sku))),
-    ...pair('№ заказа / поз.', znpText ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, znpText) : znpText) : ''),
+    ...pair('№ заказа / поз.', znpText ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + encodeURIComponent(znp || r.orderId || '') }, znpText) : ''),
     ...pair('Название в договоре', clean(r.customerTitle), 'kv-full'),
     ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
     ...pair('Исполнитель', who));
@@ -339,6 +343,6 @@ export const design = {
     restore: (r) => api(`/design-tasks/${r.id}/restore`, { method: 'POST' }),
   },
 
-  searchRow: (r) => ({ title: `${r.code} · ${title(r)}`, sub: [r.orderNo && 'заказ ' + r.orderNo, r.customer].filter(Boolean).join(' · '), side: badge(STATUS, r.status) }),
+  searchRow: (r) => ({ title: `${r.code} · ${title(r)}`, sub: [clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), r.orderNo && 'договор ' + r.orderNo, r.customer].filter(Boolean).join(' · '), side: badge(STATUS, r.status) }),
   open: (id) => go('design', { open: id }),
 };

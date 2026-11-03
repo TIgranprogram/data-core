@@ -3,7 +3,7 @@ import { nextStep, orderCounts } from './salesorders-next.js';
 import { stageBar } from '../ui/stage-bar.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/pop-menu.js';
 import { sideForm, openSide, sideNote } from '../ui/side-form.js';
-import { api, PREFIX, session, writeHooks } from '../core/api.js';
+import { api, session, writeHooks } from '../core/api.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
@@ -420,7 +420,6 @@ function boardBody(r) {
   const flags = [warn ? kbadge(warn, 'warn') : null, un ? unmatchedFlag(un.id) : null].filter(Boolean);
   return {
     body: [
-      r.coverPhoto ? h('img', { class: 't-pic', src: PREFIX + (r.coverPhoto.thumb || r.coverPhoto.url || r.coverPhoto), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
       h('div', { class: 't-title', title: heading(r) }, heading(r)),
       h('div', { class: 't-sub' }, sub),
       flags.length ? h('div', { class: 't-foot' }, ...flags) : null,
@@ -472,7 +471,6 @@ export const salesorders = {
     periods: (P) => (['shipped', 'closed'].includes(P.filter) ? { date: (r) => r.deadline || r.createdAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.amount) || 0), 0)) : undefined } : null),
     rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage], run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
-      { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => posPic(r.coverPhoto, 'sm') },
       { key: 'productionNo', label: '№ заказа', sort: 'productionNo', cls: 'nowrap', render: (r) => (r.productionNo ? h('b', null, r.productionNo) : h('span', { class: 'muted' }, 'нет №')) },
       { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: names(r.customers) }, names(r.customers)) },
@@ -487,11 +485,9 @@ export const salesorders = {
       title: (r) => `№ ${prodNo(r)} · ${names(r.customers)}`,
       sub: (r) => [(r.orderNos || []).length && 'договоры ' + names(r.orderNos), `${r.lineCount} поз.`, r.deadline ? 'срок ' + date(r.deadline) : ''].filter(Boolean).join(' · '),
       side: (r) => [badge(STAGE, r.stage), prio(r)],
-      thumb: (r) => posPic(r.coverPhoto, 'sm'),
     },
     board: {
       default: true,
-      cls: 'board-pics',
       map: (r) => ({ ...r, id: r.key }),
       columns: ['new', 'production', 'ready', 'partly', 'shipped'].map((k) => ({ key: k, label: STAGE[k].label, hint: COL_HINT[k], tone: STAGE[k].tone, query: { stage: k, sort: k === 'shipped' ? '-deadline' : 'deadline' } })),
       card: (r) => boardBody(r),
@@ -516,12 +512,25 @@ export const salesorders = {
       ['Этапы по договорам', r.stagesDiffer ? h('span', null, ...(r.orders || []).flatMap((o, i) => [i ? h('br') : '', `${o.orderNo || '—'}: ${STAGE[o.stage]?.label || o.stage}`])) : ''],
     ],
     // воронка этапов и крошки «Заказ № … ›»; шаг открывает нужный блок, этап не меняет
-    top: (r) => { crumbTrail([orderCrumb(r)]); return stageBar(r, { onStep: openStep }); },
+    top: (r) => {
+      crumbTrail([orderCrumb(r)]);
+      // доска «Отгрузка» даёт ?tab=ship — открыть вкладку после отрисовки договоров
+      const tab = current().params.tab;
+      if (tab && TAB_NAME[tab]) {
+        setTimeout(() => {
+          const detail = { tab, handled: false };
+          window.dispatchEvent(new CustomEvent('so-open-tab', { detail }));
+        }, 80);
+        patch({ tab: undefined }, { replace: true });
+      }
+      return stageBar(r, { onStep: openStep });
+    },
     actions: (r) => {
       if (!editableOrder(r)) return []; // завершённый заказ правит только админ
       const many = NEXT[r.stage] && lagging(r, NEXT[r.stage]).length > 1;
       return [
-        // в производстве этот шаг делает кнопка блока «Готовность»: там же видно, что мешает
+        // в производстве шаг — в блоке «Готовность»; дублируем короткую ссылку в шапке (C017)
+        r.stage === 'production' && { label: 'Готовность', title: 'Проверить готовность к отгрузке', run: () => openStep('ready') },
         NEXT[r.stage] && r.stage !== 'production' && { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage] + (many ? ' Договоры выберете галочками.' : ''), primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
         { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
       ];

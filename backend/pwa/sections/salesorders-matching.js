@@ -71,17 +71,31 @@ function lineRow(it, run, write, single) {
     };
     if (single) togglePick();
     else acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: togglePick }, 'Выбрать другое изделие'));
-    // подходящего нет — создать изделие из названия позиции; после «Создать» позиция сопоставляется с ним и панель возвращается сюда
+    // подходящего нет — создать изделие; сначала всегда проверка похожих (C017), второй клик — «Всё равно создать»
     let warned = false;
     acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async (e) => {
-      if (!warned) { // перед созданием — показать похожие; второй клик создаёт
-        const b = e.currentTarget; b.classList.add('is-busy');
-        try { if ((await sim.load(it.title)).length) { warned = true; b.textContent = 'Всё равно создать'; return; } } catch { /* подсказка не обязательна */ } finally { b.classList.remove('is-busy'); }
+      const b = e.currentTarget;
+      if (!warned) {
+        b.classList.add('is-busy');
+        try {
+          const found = await sim.load(it.title);
+          if (found.length) {
+            warned = true;
+            b.textContent = 'Всё равно создать';
+            toast(`Похожих изделий: ${found.length}. Возьмите существующее или подтвердите создание.`);
+            return;
+          }
+        } catch (err) {
+          warned = true;
+          b.textContent = 'Создать без проверки';
+          toastError(err, 'проверить похожие изделия');
+          return;
+        } finally { b.classList.remove('is-busy'); }
       }
-      const { createProductFor } = await import('./products.js'); // форма изделия — только по нажатию (не грузим при старте)
+      const { createProductFor } = await import('./products.js');
       const back = { of: current().params.of, open: current().params.open };
       createProductFor({ name: it.title, unit: it.unit || 'шт' }, async (prod) => {
-        try { await api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: prod.id } }); toast('Изделие создано и сопоставлено'); } catch (e) { toastError(e, 'сопоставить с новым изделием'); }
+        try { await api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: prod.id } }); toast('Изделие создано и сопоставлено'); } catch (err) { toastError(err, 'сопоставить с новым изделием'); }
         patch({ ...back, new: undefined });
       });
     } }, '+ Изделие'));

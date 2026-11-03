@@ -50,7 +50,7 @@ export function orderDesign(order, lines) {
     paint();
     box.replaceChildren(h('div', { class: 'section-title' }, `Проектирование (${byLine.size} из ${lines.length} поз.)`),
       h('ul', { class: 'spec-list' }, ...rows),
-      link({ href: '#design?o=' + order.id, title: 'Доска проектирования с этим заказом', label: 'Открыть в проектировании' }),
+      link({ href: '#design?orderId=' + encodeURIComponent(order.id), title: 'Доска проектирования с этим заказом', label: 'Открыть в проектировании' }),
       can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже переданы.')) : null);
   }
   box.replaceChildren(h('div', { class: 'section-title' }, 'Проектирование'), h('div', { class: 'skel', style: { width: '50%' } }));

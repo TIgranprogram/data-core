@@ -153,7 +153,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     buildMenu(rare);
   }
   /**
-   * one — плоско; two/wide — поток `.dz-flow` змейкой (слева сверху вниз, затем справа), история/wide снизу на всю ширину.
+   * one — плоско; two/wide — поток `.dz-flow` в две колонки (balance), история/wide снизу на всю ширину.
    * Раньше main|side оставляли все группы слева, а справа только фото.
    */
   function arrange(content) {

@@ -171,8 +171,6 @@ export const stockMobile = {
           afterTarget();
         };
         /** Нет позиций / одна позиция — меньше нажатий; иначе список, «на весь заказ» сверху. */
-        /** Обложка заказа — первое фото среди позиций (lookup уже отдаёт photo). */
-        const coverOf = (o) => (o.lines || []).map((l) => l.photo).find((p) => p?.thumb || p?.url) || null;
         const takeOrder = (o, back) => {
           const lines = o.lines || [];
           if (!lines.length) { pickOrder(o, null, ''); return; }
@@ -202,7 +200,7 @@ export const stockMobile = {
           const open = () => show(screen({ title, step: { n: 1, of: 3 }, back: paint, body: [
             hint ? h('p', { class: 'm-empty' }, hint) : null,
             choice({
-              items: list.map((o) => ({ value: o, label: orderLabel(o), hint: [o.customer, o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') || title, photo: coverOf(o), showPic: true })),
+              items: list.map((o) => ({ value: o, label: orderLabel(o), hint: [o.customer, o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') || title })),
               empty,
               onPick: (it) => takeOrder(it.value, open),
             }),
@@ -212,7 +210,7 @@ export const stockMobile = {
         const openReady = openList('Готовые к отгрузке', ready, 'Готовых к отгрузке заказов нет', 'Заказы, которые уже готовы и ждут отгрузки.');
         const openShipped = openList('Полностью отгруженные', shipped, 'Полностью отгруженных заказов нет', 'Отгружено всё — можно довыдать мелочь со склада.');
         const d = drill({ levels: [
-          { title: '', load: async () => work.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · '), photo: coverOf(o), showPic: true })) },
+          { title: '', load: async () => work.map((o) => ({ value: o.id, label: orderLabel(o), hint: [o.title, (o.lines || []).length ? `${o.lines.length} поз.` : ''].filter(Boolean).join(' · ') })) },
           { title: '', load: async ([id]) => linesOf(orders.find((x) => x.id === id) || {}) },
         ], empty: 'Сейчас нет заказов в работе', onPick: (it) => pickOrder(it.value.o, it.value.line, it.value.lab) });
         const paint = () => show(screen({ title: 'Заказ и позиция', step: { n: 1, of: 3 }, back: () => { if (!d.up()) stepKind(); }, body: [

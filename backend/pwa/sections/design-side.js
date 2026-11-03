@@ -51,7 +51,7 @@ export function designSide({ query, env, onBoard }) {
     const title = (l.lineNo != null ? `поз. ${l.lineNo} · ` : '') + l.title;
     const node = card({ size: 'S', title, meta: h('span', null, kitSku(l.sku), l.sku && l.qty != null ? ' · ' : null, dotted(l.qty != null && qty(l.qty) + ' шт')),
       badges: t ? badge(DESIGN_STATUS, t.status) : null,
-      actions: !t && canEdit ? button({ label: 'Взять в работу', size: 'S', onClick: () => take(l, 'work') }) : null,
+      actions: !t && canEdit ? [button({ label: 'На распределение', size: 'S', kind: 'ghost', onClick: () => take(l, 'queue') }), button({ label: 'Взять в работу', size: 'S', onClick: () => take(l, 'work') })] : null,
       onClick: () => (t ? openTask(t) : openOrder(o.orderId)) });
     paintOrder(node, o.orderId);
     if (!t && canEdit) draggable(node, { canStart: () => !isPhone(), targetSel: '.board .col', canDrop: (c) => c.dataset.key !== 'done', onDrop: (c) => take(l, c.dataset.key) });

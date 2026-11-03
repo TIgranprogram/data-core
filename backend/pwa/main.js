@@ -231,7 +231,8 @@ function shell() {
     h('a', { class: 'brand', href: '#' + defaultSection() }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
-    group('Производство', navLinks.salesorders, navLinks.matching, navLinks.design, navLinks.work), // «Контрагенты» — только в «Справочниках» (пользователь 2026-10-25: дубль в меню); в NAV остаются ради прав роли
+    // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
+    group('Производство', navLinks.salesorders, navLinks.design, navLinks.work),
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock, navLinks['stock-mobile']), // «Склад (телефон)» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
@@ -441,7 +442,7 @@ function render(c) {
     else if (section === 'dicts') list = FN.mountDicts(params);
     else if (section === 'fill') list = FN.mountFill(params);
     else if (section === 'search') list = FN.mountSearch(params);
-    else if (section === 'matching') list = FN.mountMatchingQueue(params);
+    else if (section === 'matching') { go('salesorders', {}, { replace: true }); return; } // C017: очередь — в шапке «Заказов»
     else { go(defaultSection(), {}, { replace: true }); return; }
     } catch (e) {
       reportError(e, { kind: 'unhandled', action: 'открыть раздел' });

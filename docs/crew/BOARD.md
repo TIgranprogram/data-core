@@ -21,6 +21,8 @@
 | C011 | datacore-analyst | XL | Аудит бизнес-логики | done — REPORT/FIX-TZ |
 | C012 | datacore-designer | L | Правая панель + карточка заказа | done — REPORT/FIX-TZ |
 | C013 | datacore-architect (Grok) | XL | HA Дом↔Sportin: автосинхрон и переключение | P0 done (Sportin на 122039); P1/P2 ждут «да» |
+| C016 | Cursor (координатор) | S | Аудит: нужна ли страница «Сопоставление» | done — `C016-matching-nav-audit/REPORT.md` |
+| C017 | Cursor (оркестратор) | M | Производство: заказы/сопоставление/design/work | done — `C017-production-polish/REPORT.md` |
 
 Worktree счетов: `D:\data-core\.manus\worktrees\soorwu5tl3w6zui0j26jlr`  
 Отчёт: `docs/crew/C004-invoice-workspace-wip/`  

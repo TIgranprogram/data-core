@@ -42,7 +42,8 @@ const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, 
 export function dots(r) {
   const route = r.route || [];
   return h('span', { class: 'wk-dots', title: route.length ? route.map((s) => s.name).join(' → ') : 'Маршрут не задан' },
-    ...route.map((s) => h('i', { class: 'wk-dot ' + (r.status === 'done' ? 'done' : r.status === 'waiting' ? 'next' : s.state), title: s.name })));
+    // waiting: пустые точки (не «next»), чтобы не казалось, что шаг уже впереди по маршруту
+    ...route.map((s) => h('i', { class: 'wk-dot' + (r.status === 'done' ? ' done' : r.status === 'waiting' ? '' : ' ' + s.state), title: s.name })));
 }
 /** Где сейчас карточка словами. */
 export const stepText = (r) => (r.status === 'waiting' ? 'Ждёт запуска' : r.status === 'done' ? 'Готово' : r.status === 'cancelled' ? 'Отменена' : r.currentStep || 'В работе');
@@ -139,7 +140,7 @@ function topBlock(r) {
     ...pair('Изготовить', r.qty ? h('span', { class: 'kv-qty' }, `${qty(r.qty)} ${clean(r.unit) || 'шт'}`) : ''),
     ...pair('Артикул', kitSku(clean(r.sku))),
     ...pair('Изделие', r.productId ? h('a', { href: '#products?open=' + r.productId }, clean(r.productName) || clean(r.sku) || 'Открыть изделие') : ''),
-    ...pair('Заказ / поз.', znp ? (r.orderId ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + r.orderId }, '№ ' + znp) : znp) : ''),
+    ...pair('Заказ / поз.', znp ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + encodeURIComponent(clean(r.productionNo) || r.orderId || '') }, '№ ' + znp) : ''),
     ...pair('Заказчик', clean(r.customer)),
     ...pair('Срок', dueNode(r)),
     ...(can ? [] : pair('Исполнитель', r.assignee ? r.assignee.name : 'не назначен')));

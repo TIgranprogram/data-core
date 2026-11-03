@@ -291,19 +291,23 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
   .drawer-head .btn.btn-icon { min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); }
 }
 
-/* Правая панель: змейка групп (card.js arrange) */
+/* РџСЂР°РІР°СЏ РїР°РЅРµР»СЊ: РїРѕС‚РѕРє Р±Р»РѕРєРѕРІ (card.js arrange в†’ .dz-box > .dz-flow | .dz-flow-wide) */
 .dz-flow { column-count: 1; column-gap: var(--s5); min-width: 0; }
 .dz-flow > * { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin: 0 0 var(--s4); min-width: 0; width: 100%; display: block; }
 .dz-flow > *:last-child { margin-bottom: 0; }
+/* Р’РѕСЂРѕРЅРєР° СЌС‚Р°РїРѕРІ вЂ” РЅР° РІСЃСЋ С€РёСЂРёРЅСѓ РїРѕС‚РѕРєР°, РёРЅР°С‡Рµ РІ 2 РєРѕР»РѕРЅРєР°С… СѓРµР·Р¶Р°РµС‚ РІР»РµРІРѕ */
+.dz-flow > .stg,
+.dz-flow > .stg-cancel { column-span: all; }
 .dz-flow-wide { min-width: 0; display: flex; flex-direction: column; gap: var(--s4); }
 @container dz (min-width: 460px) {
-  .dz-flow { column-count: 2; column-fill: auto; }
+  /* balance: auto Р±РµР· РІС‹СЃРѕС‚С‹ РєРѕРЅС‚РµР№РЅРµСЂР° Р·Р°РїРѕР»РЅСЏРµС‚ С‚РѕР»СЊРєРѕ Р»РµРІСѓСЋ РєРѕР»РѕРЅРєСѓ */
+  .dz-flow { column-count: 2; column-fill: balance; }
 }
 
-/* Заявка: ссылка на позицию склада в форме */
+/* пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ */
 .rq-stock-ref { display: flex; flex-direction: column; gap: var(--s2); align-items: flex-start; }
 
-/* Счёт: один экран, inline, поле «+» */
+/* пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, inline, пїЅпїЅпїЅпїЅ пїЅ+пїЅ */
 .iw-screen { display: flex; flex-direction: column; gap: var(--s4); }
 .iw-meta.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); margin-bottom: var(--s3); }
 .iw-meta .field.wide { grid-column: 1 / -1; }
