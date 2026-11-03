@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЕН 2026-11-03)
+коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03)
 
 ## Единая номенклатура (ЕН, 2026-11-03)
 - Канон склада — `materials` (+ остаток `storageitems`). Изделия — `products` (ДМ-1: покупные остаются в materials). Каталог — `supplieritems` (data-core), факт цены — `materialprices` → `lastPrice*`. Заявка — снимок `supplyrequests` (`title` без `materialId` допустим; `supplierItemId` нет, СК-3).
@@ -95,3 +95,11 @@
 
 ## Отделы и воронка (ОТД, 2026-11-01)
 - `docs/audit/DEPARTMENTS-FUNNEL.md`. `worktypes.department` уже есть (`work-type.schema.ts:21`, не используется); `persons.workTypeIds[]` есть (`person-work-types.ts`); дыра: `issue.js:16 peopleByWork` группирует по виду работ, `stock-mobile.js:128` сравнивает с отделом → не совпадает. Чек-листов нет; план: снимок в `worktasks.route[]`. Вопросы О-1…О-5 в QUESTIONS. коммит: — (не закоммичено)
+
+## Аудит бизнес-логики (C011, 2026-11-03)
+
+- Отчёт `docs/crew/C011-biz-logic-audit/REPORT.md`, правки `FIX-TZ.md`, файлы `INVENTORY.md`.
+- Канон: заявка-снимок → `supplyinvoices` → `SupplyService.receive` → `materials`/`storageitems` → бронь/выдача → `salesorders`+`incomes` → `designtasks`/`worktasks` → паспорт изделия → `shipments` → деньги из оплат. `paid` заявки — флаг при `status=ordered` (`badges.js:20`).
+- Дыры: `invoice.js:218` не создаёт счёт; `stock-ops.js:314` приход мимо заявки; `order-readiness.ts:24` «выдано» = нет брони; `incomes.service.ts:299` само клеит изделие по короткому имени; `work-type.schema.ts:21` строка `department`, экран читает `departmentId` (`dicts.defs.ts:602`, `stock-mobile.js:197`); КП не рождает заказ (`offers.controller.ts:96`).
+- Меню: убрать `matching` из группы (`main.js:234`), «Договоры поставщиков», вернуть `partners`. Вкладки договора не плодить (`salesorders.js:305`).
+- Устарело и не чинить заново: запрет правки позиций с `ready` уже в `incomes.service.ts:283`; календарь на `paidAt` (`finance.service.ts:86`). Вопросы C011-1…5. коммит: — (не закоммичено)

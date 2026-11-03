@@ -1,6 +1,7 @@
 # Карта роли designer
 
-коммит: (после mobile+плиты) мобильный склад принят 03.11: kit.css m-keys ≥64, подсказки без small; stock-mobile — готовые заказы, корзина «ещё на этого же», экран «Готово». Снимка стенда нет — глазами у пользователя.
+коммит: (после C012) план правой панели и карточки заказа 03.11, код не менялся. Снимка нет — разбор по коду.
+- C012 (план 03.11): docs/crew/C012-right-panel-order/REPORT.md, FIX-TZ.md, ZONES-MAP.md. Оболочка одна: ui/card.js openCard ~60–183, зоны panels.css ~409–426, вход main.js ~495–527. kit/panel.js — только витрина kit.js. Заказ: salesorders.js card ~503–531, details ~380–391, contractGroup ~242–351; side пуст, extra=wide. Части без этапа и человека: order-design.js ~43, order-work.js ~53–56. Назад из позиции врёт номер: orders.js:220.
 - Мобильный склад (приёмка 03.11): kit.css:155–166,182; stock-mobile.js выдача/корзина/готовые; DESIGN-MOBILE §2/§4. design-lint 0.
 - Панель счёта invoice-workspace (принято по коду 03.11 C005, стенд — DESIGNER.md): sections/invoice-workspace.js:59–85 (readonlyGroup + section + table), invoice-workspace-forms.js; ui/kit/readonly.js + kit.css:233–241; входы requests.js:295,338, invoices-tab.js:49–52, board.js:170–181; fixture invoice-workspace.*
 - Корректировка оплаченной позиции счёта (принято 03.11, второй review, без нового commit): backend/pwa/sections/invoices-tab.js:39–47 — openCard и четыре поля widget в правой панели; :29–38,55–58 — взаимный пересчёт и сохранение точной суммы; :51–54 — проверки количества, суммы и причины. Визуальные якоря: .work/previews/invoice-price-375.png, invoice-price-1280.png; итог .work/reviews/designer-final.md.

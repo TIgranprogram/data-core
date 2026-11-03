@@ -7,8 +7,7 @@
  *   docker exec datacore-backend node scripts/fill-material-dims.js [--apply] [--limit=N]
  */
 const path = require('path');
-const root = require('fs').existsSync(path.join(__dirname, '..', 'node_modules')) ? path.join(__dirname, '..') : process.cwd();
-const { MongoClient, ObjectId } = require(require.resolve('mongodb', { paths: [root] }));
+const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
 const apply = process.argv.includes('--apply');
 const limArg = process.argv.find((a) => a.startsWith('--limit='));
 const limit = limArg ? Math.max(1, Number(limArg.slice(8)) || 0) : 0;
