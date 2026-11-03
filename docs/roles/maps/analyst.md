@@ -1,6 +1,10 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЗО, ЗД)
+коммит: не закоммичен (ЕН 2026-11-03)
+
+## Единая номенклатура (ЕН, 2026-11-03)
+- Канон склада — `materials` (+ остаток `storageitems`). Изделия — `products` (ДМ-1: покупные остаются в materials). Каталог — `supplieritems` (data-core), факт цены — `materialprices` → `lastPrice*`. Заявка — снимок `supplyrequests` (`title` без `materialId` допустим; `supplierItemId` нет, СК-3).
+- Не сливать прайс (`priceHistory`) и закупки. Не писать прайс в `pricePerUnit`/`supplierId` (их видит CRM). Фильтр «M10×100» — из названия, поля СКФ.7 не заведены. Вопросы ЕН-1, ЕН-2.
 
 ## Паспорта (ПВ, 2026-10-25)
 - Справочники паспортов: `backend/src/modules/dicts/dicts.defs.ts:538–724`.
