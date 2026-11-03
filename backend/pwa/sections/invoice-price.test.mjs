@@ -5,10 +5,10 @@ const source = readFileSync(new URL('./invoice-workspace-state.js', import.meta.
 const state = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const invoice = { status: 'paid', version: 4 };
 
-test('100 / 3 сохраняет точные 100, paid reason обязателен, version включена', () => {
+test('100 / 3 сохраняет точные 100, paid reason по желанию, version включена', () => {
   const draft = state.lineDraft({ qty: 3, priceHint: 100 });
   assert.equal(draft.unitPrice, '33.33');
-  assert.throws(() => state.lineBody(invoice, draft), /причину/);
+  assert.deepEqual(state.lineBody(invoice, draft), { qty: 3, lineAmount: 100, version: 4 });
   assert.deepEqual(state.lineBody(invoice, { ...draft, reason: ' Уточнение количества ' }), { qty: 3, lineAmount: 100, reason: 'Уточнение количества', version: 4 });
 });
 test('точные 101 при qty 3 не превращаются в 101.01', () => {
