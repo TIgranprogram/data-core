@@ -152,24 +152,34 @@ async function loadPast() {
 
 /** Показ без правки: значение берётся из счёта (правится только в счёте). */
 const fromInvoice = (label, text) => ({ key: '_inv' + label, type: 'widget', label, hint: 'Из счёта — правится в счёте', widget: () => ({ el: h('div', null, text || '—'), get value() { return ''; }, set value(_) { /* только показ */ } }) });
+/** Поля позиции склада в заявке только для чтения: править — в карточке `#stock?open=…`. */
+const fromStock = (label, text) => ({ key: '_stk_' + label, type: 'widget', label, hint: 'Из позиции склада — правится только в её карточке', widget: () => ({ el: h('div', null, text || '—'), get value() { return ''; }, set value(_) { /* только показ */ } }) });
 
 const fields = async (r) => {
   const lk = await lookups();
   const inv = !!r?.invoiceId; // З6: № счёта, дата, поставщик лежат в счёте — в заявке только показ
+  const linked = !!r?.materialId; // связана со складом — название/артикул/категория не правятся здесь
   return [
     { section: 'Что заказать', tone: 'main', fixed: true },
     r ? null : { key: '_pick', type: 'pick', load: pastItems, target: 'title' },
     { key: 'materialId', type: 'hidden' },
     { key: 'num', type: 'hidden' },
-    { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
-    { key: 'article', label: 'Артикул', max: 100, span: 1 },
+    linked
+      ? { key: '_stk_open', type: 'widget', label: 'Позиция склада', hint: 'Чтобы изменить название или реквизиты — откройте карточку позиции', widget: () => ({
+        el: h('div', { class: 'rq-stock-ref' },
+          h('div', null, r.title || r.materialName || '—'),
+          h('a', { class: 'btn btn-ghost btn-sm', href: '#stock?open=' + r.materialId }, 'Открыть карточку позиции')),
+        get value() { return ''; }, set value(_) { /* только показ */ },
+      }), span: 3 }
+      : { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
+    linked ? fromStock('Артикул', r.article) : { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
-    { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, span: 1 },
+    linked ? fromStock('Единица', r.unit) : { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, span: 1 },
     { key: 'priority', label: 'Приоритет', type: 'segment', options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
     { section: 'Детали товара', tone: 'info', collapsed: true },
-    { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
-    { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
-    { key: 'productUrl', label: 'Ссылка на товар', max: 1000, placeholder: 'https://…', wide: true },
+    linked ? fromStock('Категория', r.categoryName) : { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
+    linked ? fromStock('Цвет', r.color) : { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
+    linked ? fromStock('Ссылка на товар', r.productUrl) : { key: 'productUrl', label: 'Ссылка на товар', max: 1000, placeholder: 'https://…', wide: true },
     { key: 'deliveryNote', label: 'Доставка', max: 300, wide: true },
     { key: 'photos', label: 'Фото', type: 'photos', hint: 'Своё фото заявки показывается вместо фото позиции склада' },
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
@@ -456,13 +466,22 @@ export const requests = {
     toInitial,
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
+      const linked = !!v.materialId; // поля позиции не шлём — истина в карточке склада
       const body = {
-        title: s(v.title), qty: v.qty ?? 1, unit: s(v.unit), categoryName: s(v.categoryName), 
-        companyName: s(v.companyName), orderLabel: s(v.orderLabel), requestedBy: s(v.requestedBy), article: s(v.article), color: s(v.color),
-        productUrl: s(v.productUrl), invoiceType: s(v.invoiceType), deliveryNote: s(v.deliveryNote), notes: s(v.notes),
+        qty: v.qty ?? 1,
+        companyName: s(v.companyName), orderLabel: s(v.orderLabel), requestedBy: s(v.requestedBy),
+        invoiceType: s(v.invoiceType), deliveryNote: s(v.deliveryNote), notes: s(v.notes),
         statusLabel: SUPPLY_STATUS[v.status]?.label, priorityLabel: PRIORITY[v.priority]?.label,
         photoIds: v.photos || [],
       };
+      if (!linked) {
+        body.title = s(v.title);
+        body.unit = s(v.unit);
+        body.categoryName = s(v.categoryName);
+        body.article = s(v.article);
+        body.color = s(v.color);
+        body.productUrl = s(v.productUrl);
+      }
       body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7)
       if (v.requestDate) body.requestDate = v.requestDate;
       body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
