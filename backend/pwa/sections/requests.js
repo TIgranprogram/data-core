@@ -177,7 +177,7 @@ const fields = async (r) => {
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
     { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : 'Пришло — кнопка «Принять»: товар встанет на склад' },
     inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
-    { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке, не цена за штуку' },
+    { key: 'priceHint', money: true, label: 'Сумма с НДС, ₽', type: 'money', min: 0, hint: 'Сумма по строке с НДС; закупка на складе — без НДС, не копируйте слепо' },
     { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },
     inv ? fromInvoice('№ счёта', r.invoiceNo) : { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },

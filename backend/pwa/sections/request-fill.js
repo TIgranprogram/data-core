@@ -4,12 +4,14 @@ import { date, money } from '../core/format.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 
 /**
- * Автозаполнение формы заявки (CHAIN-AUDIT З1–З4). Подключается как `mount` поля «Наименование».
- *  З1: выбрана позиция склада (скрытое materialId) -> цена, поставщик из GET /materials/:id/price-default, серая строка «последняя цена от …».
- *  З2: в истории (GET /materials/:id/prices) >= 2 поставщиков -> до 3 кнопок «Поставщик · цена · дата».
- *  З3: выбран поставщик, а позиции нет -> подсказка позиций из его каталога (GET /supply/catalog/items).
- *  З4: заказ выбран/пришёл из заказа -> заказчик подставляется, под полем «Заказ № N поз M».
- * Руками правленное (api.manual) не перетираем. Цена в истории — за единицу; в заявке «сумма по строке» = цена × количество.
+ * Автозаполнение формы заявки (CHAIN-AUDIT З1–З4 + C009 фаза 1).
+ *  З1: materialId → GET /materials/:id/price-default: поставщик всегда; сумма с НДС не копируется слепо
+ *      (закупка без НДС) — подсказка + чип «Подставить сумму без НДС — проверьте».
+ *  З2: история цен ≥ 2 поставщиков → чипы (явная подстановка, цены без НДС).
+ *  З3: поставщик без позиции → подсказка из каталога поставщика.
+ *  C009: по materialId — read-only «В каталоге сейчас …»; нет закупки — «Ещё не закупали…».
+ *  З4: заказ → заказчик / кол-во + строка «Заказ № N поз M».
+ * Руками правленное (api.manual) не перетираем.
  */
 const round = (x) => Math.round(x * 100) / 100;
 let partners = null;
@@ -24,48 +26,93 @@ export function wireFill(fapi) {
   const note = h('div', { class: 'hint rq-note', hidden: true });
   const chips = h('div', { class: 'rq-chips', hidden: true });
   const cat = h('div', { class: 'rq-chips', hidden: true });
+  const catHint = h('div', { class: 'hint rq-note', hidden: true });
   fapi.field('supplierName')?.append(note, chips, cat);
+  fapi.field('priceHint')?.append(catHint);
   const orderNote = h('div', { class: 'hint rq-note', hidden: true });
   fapi.field('salesOrderRef')?.append(orderNote);
-  let last = null; // { price } — цена за единицу из последней закупки
+  let last = null; // { price } — цена за единицу из последней закупки (без НДС); в сумму — только по чипу
+  let applied = false; // пользователь нажал чип подстановки суммы
   let token = 0;
 
   const chip = (text, onclick, title) => h('button', { type: 'button', class: 'tag rq-chip', title, onclick }, text);
   const sum = (price) => round(price * (Number(fapi.get('qty')) || 1));
   const putSum = (price, auto) => { if (money$) fapi.set('priceHint', sum(price), { auto }); };
 
-  // ---- З1 + З2 ----
+  // ---- З1 + З2 + C009 каталог ----
   async function onMaterial() {
     const id = fapi.get('materialId'); const my = ++token;
-    last = null; note.hidden = true; chips.hidden = true; chips.replaceChildren();
+    last = null; applied = false;
+    note.hidden = true; chips.hidden = true; chips.replaceChildren();
+    catHint.hidden = true; catHint.textContent = '';
     if (!id) return;
-    const [def, hist] = await Promise.all([
+    const [def, hist, catalog] = await Promise.all([
       api(`/materials/${id}/price-default`).catch(() => null),
       api(`/materials/${id}/prices`, { query: { limit: 20 } }).catch(() => null),
+      api('/supply/catalog/items', { query: { materialId: id, limit: 5 } }).catch(() => null),
     ]);
     if (my !== token) return;
-    if (def && def.price > 0) {
-      last = { price: Number(def.price) };
-      if (def.supplierName && !fapi.manual('supplierName')) fapi.set('supplierName', def.supplierName, { auto: true });
-      if (!fapi.manual('priceHint')) putSum(last.price, true);
-      note.textContent = `Последняя цена${def.date ? ' от ' + date(def.date) : ''}: ${money(def.price)} ₽ за единицу${def.supplierName ? ', ' + def.supplierName : ''}. Можно поправить.`;
-      note.hidden = !money$ && !def.supplierName;
-      if (!money$) note.textContent = `Последний поставщик${def.date ? ' (от ' + date(def.date) + ')' : ''}: ${def.supplierName}.`;
+
+    const price = def && def.price != null ? Number(def.price) : NaN;
+    const hasPrice = Number.isFinite(price) && price > 0;
+    const hasSup = !!(def && def.supplierName);
+
+    if (hasSup && !fapi.manual('supplierName')) fapi.set('supplierName', def.supplierName, { auto: true });
+
+    if (hasPrice || hasSup) {
+      if (hasPrice) last = { price };
+      if (money$ && hasPrice) {
+        note.textContent = `Последняя закупка${def.date ? ' от ' + date(def.date) : ''}: ${money(def.price)} ₽ за ед. без НДС${def.supplierName ? ' · ' + def.supplierName : ''}. В заявке — сумма с НДС.`;
+        note.hidden = false;
+      } else if (hasSup) {
+        note.textContent = `Последний поставщик${def.date ? ' (от ' + date(def.date) + ')' : ''}: ${def.supplierName}.`;
+        note.hidden = false;
+      }
+    } else {
+      note.textContent = 'Ещё не закупали — укажите поставщика и цену сами.';
+      note.hidden = false;
     }
+
+    const parts = [];
+    if (money$ && hasPrice) {
+      parts.push(chip('Подставить сумму без НДС — проверьте', () => {
+        applied = true; putSum(last.price, true);
+      }, 'Закупка без НДС; в заявке нужна сумма с НДС — проверьте перед сохранением'));
+    }
+
     const rows = (hist?.items || hist || []).filter((x) => x && x.price > 0 && (x.supplierName || x.supplierId));
     const seen = new Map();
     for (const x of [...rows].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))) {
       const k = String(x.supplierId || x.supplierName); if (!seen.has(k)) seen.set(k, x);
     }
     if (seen.size >= 2 && money$) {
-      chips.replaceChildren(...[...seen.values()].slice(0, 3).map((x) => chip(`${x.supplierName || 'поставщик'} · ${money(x.price)} ₽ · ${date(x.date)}`, () => {
-        fapi.set('supplierName', x.supplierName || ''); last = { price: Number(x.price) }; putSum(last.price, false);
-      }, 'Подставить поставщика и цену')));
-      chips.hidden = false;
+      for (const x of [...seen.values()].slice(0, 3)) {
+        parts.push(chip(`${x.supplierName || 'поставщик'} · ${money(x.price)} ₽ · ${date(x.date)}`, () => {
+          fapi.set('supplierName', x.supplierName || '');
+          last = { price: Number(x.price) };
+          applied = true;
+          putSum(last.price, true);
+        }, 'Подставить поставщика и сумму без НДС — в заявке нужна сумма с НДС'));
+      }
+    }
+    if (parts.length) { chips.replaceChildren(...parts); chips.hidden = false; }
+
+    // Подсказка каталога — только показ, поля заявки не трогаем (ЕН-1 / СКЕ-1)
+    if (money$) {
+      const catItems = (catalog?.items || []).filter((it) => it && it.priceHint != null);
+      if (catItems.length) {
+        const bits = catItems.slice(0, 3).map((it) => [
+          it.supplierName || 'поставщик',
+          money(it.priceHint) + ' ₽',
+        ].filter(Boolean).join(' · '));
+        catHint.textContent = 'В каталоге сейчас: ' + bits.join('; ') + ' — заявка не меняется.';
+        catHint.hidden = false;
+      }
     }
   }
   fapi.on('materialId', onMaterial);
-  fapi.on('qty', () => { if (last && money$ && !fapi.manual('priceHint')) putSum(last.price, true); });
+  // Пересчёт суммы при смене qty — только после явного чипа (не при автовыборе позиции)
+  fapi.on('qty', () => { if (applied && last && money$ && !fapi.manual('priceHint')) putSum(last.price, true); });
 
   // ---- З3 ----
   let tcat = 0;
@@ -79,12 +126,12 @@ export function wireFill(fapi) {
     if (!res || my !== tcat || fapi.get('title').trim()) return;
     const items = (res.items || []).slice(0, 6);
     if (!items.length) return;
-    cat.append(h('span', { class: 'hint' }, 'Из каталога поставщика: '), ...items.map((it) => chip(`${it.name}${money$ && it.price != null ? ' · ' + money(it.price) + ' ₽' : ''}`, () => {
+    cat.append(h('span', { class: 'hint' }, 'Из каталога поставщика: '), ...items.map((it) => chip(`${it.name}${money$ && it.priceHint != null ? ' · ' + money(it.priceHint) + ' ₽' : ''}`, () => {
       fapi.set('title', it.name);
       if (it.article && !String(it.article).startsWith('manual:')) fapi.set('article', it.article);
       if (it.unit && !fapi.manual('unit')) fapi.set('unit', it.unit);
       if (it.materialId) fapi.set('materialId', it.materialId);
-      else if (money$ && it.price != null) { last = { price: Number(it.price) }; putSum(last.price, false); }
+      else if (money$ && it.priceHint != null) { last = { price: Number(it.priceHint) }; applied = true; putSum(last.price, true); }
       cat.hidden = true;
     }, 'Подставить позицию из каталога')));
     cat.hidden = false;
