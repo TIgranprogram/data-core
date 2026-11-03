@@ -263,16 +263,16 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .m-fi-date { color: var(--muted); }
 .m-fi-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .m-fi-sub { font-size: 16px; color: var(--muted); font-weight: 400; }
-/* Группа выдачи по заказу: цветная полоска слева, заголовок мелкий, строки внутри */
-.m-fg { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-left: 4px solid var(--fg, var(--primary)); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
-.m-fg-0 { --fg: var(--ok); }
-.m-fg-1 { --fg: var(--info); }
-.m-fg-2 { --fg: var(--gold); }
-.m-fg-3 { --fg: var(--warn); }
-.m-fg-4 { --fg: var(--primary); }
-.m-fg-h { padding: var(--s1) var(--s3); font-size: 16px; font-weight: 600; color: var(--muted); background: var(--surface-2, var(--paper)); border-bottom: 1px solid var(--border); }
+/* Группа (заказ / счёт): цвет --oc как на доске заявок (order-color.js) */
+.m-fg { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-left: 4px solid var(--oc, var(--muted)); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.m-fg-h { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); width: 100%; padding: var(--s2) var(--s3); font: inherit; font-size: 16px; font-weight: 700; color: var(--text); text-align: left; background: var(--oc-soft, var(--surface-2, var(--paper))); border: 0; border-bottom: 1px solid var(--border); cursor: default; }
+button.m-fg-h { cursor: pointer; }
+.m-fg-h .m-fg-chev { color: var(--muted); font-weight: 700; }
 .m-fg .m-fi { border: 0; border-radius: 0; border-top: 1px solid var(--border); background: transparent; }
-.m-fg .m-fi:first-of-type { border-top: 0; }
+.m-fg-h + .m-fi { border-top: 0; }
+.m-fg .m-choice { padding: var(--s2); gap: var(--s2); }
+.m-fg.is-shut .m-fg-body { display: none; }
+.m-fg.is-shut .m-fg-h { border-bottom: 0; }
 .m-skel { min-height: 40px; border-radius: var(--radius-sm); background: var(--border); animation: m-pulse 1.2s ease-in-out infinite; }
 @keyframes m-pulse { 50% { opacity: .5; } }
 .m-more { min-height: 1px; }

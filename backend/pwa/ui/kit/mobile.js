@@ -1,5 +1,6 @@
 import { PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
+import { paintOrder } from '../../core/order-color.js';
 import { catArt } from '../cat-art.js';
 
 /**
@@ -94,16 +95,18 @@ const feedRow = (it) => h('div', { class: 'm-fi m-fi-' + (it.kind || 'out') },
 
 /**
  * feed({ items, groups, loading, empty }) → лента плитками (не кликабельна).
- * groups: [{ title, tone: 0..4, items }] — выдача сгруппирована по заказу (цвет слева).
- * Без groups — плоский список (приёмка).
+ * groups: [{ title, colorId, items }] — цвет как у счетов/заказов на доске (order-color / --oc-N).
  */
 export function feed({ items = [], groups, loading = false, empty = 'За 7 дней операций нет' } = {}) {
   if (loading) return h('div', { class: 'm-feed', 'aria-busy': 'true' }, ...[0, 1, 2].map(() => h('div', { class: 'm-skel' })));
   if (groups) {
     if (!groups.length) return h('div', { class: 'm-empty' }, empty, h('br'), h('small', null, 'Здесь появятся ваши выдачи и приёмки за неделю.'));
-    return h('div', { class: 'm-feed' }, ...groups.map((g) => h('div', { class: `m-fg m-fg-${(g.tone ?? 0) % 5}`, role: 'group', 'aria-label': g.title },
-      h('div', { class: 'm-fg-h' }, g.title),
-      ...g.items.map((it) => feedRow({ ...it, prefix: it.prefix ?? '' })))));
+    return h('div', { class: 'm-feed' }, ...groups.map((g) => {
+      const box = h('div', { class: 'm-fg', role: 'group', 'aria-label': g.title },
+        h('div', { class: 'm-fg-h' }, g.title),
+        ...g.items.map((it) => feedRow({ ...it, prefix: it.prefix ?? '' })));
+      return paintOrder(box, g.colorId || '');
+    }));
   }
   if (!items.length) return h('div', { class: 'm-empty' }, empty, h('br'), h('small', null, 'Здесь появятся ваши выдачи и приёмки за неделю.'));
   return h('div', { class: 'm-feed' }, ...items.map(feedRow));

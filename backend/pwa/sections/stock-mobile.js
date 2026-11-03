@@ -1,6 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty as fmt } from '../core/format.js';
+import { paintOrder } from '../core/order-color.js';
 import { mobile, segmented, errText, toast, catArt } from '../ui/kit/index.js';
 import { orderLabel } from './salesorders.js';
 import { ordersLookup } from '../core/orders-lookup.js';
@@ -27,10 +28,25 @@ let lastIssue = null; // { target, where }
 let feedKind = 'out';
 /** Стандарт в конце названия («…, DIN 603», «ГОСТ 7798-70») — вниз мелко; крупно остаётся название и размер. */
 export const splitStd = (name) => { const m = /,?\s*((?:DIN|ГОСТ|ISO|ОСТ|ТУ)\s*[\w.\-–]+)\s*$/i.exec(name || ''); return m ? { name: name.slice(0, m.index).trim(), std: m[1] } : { name: name || '', std: '' }; };
+/** Короткое имя для мобильных списков — без ГОСТ/DIN в конце, без лишней длины. */
+const shortName = (name) => { const n = splitStd(name || '').name || name || ''; return n.length > 48 ? n.slice(0, 47) + '…' : n; };
+/** Ключ цвета счёта — как в заявках (requests.js group). */
+const invColorId = (r) => (r?.invoiceId ? String(r.invoiceId) : (r?.invoiceNo ? 'n:' + r.invoiceNo : ''));
+const invTitle = (r) => (r?.invoiceNo ? `№ ${r.invoiceNo}` : 'Без №');
 /** Артикул для рабочего: внутренний код «СКЛ-…» не показываем (это не артикул, АР.1). */
 const artOf = (it) => (it.article && !/^СКЛ-/i.test(it.article) ? it.article : '');
 const dm = (d) => { const x = new Date(d); return `${String(x.getDate()).padStart(2, '0')}.${String(x.getMonth() + 1).padStart(2, '0')}`; };
 const unitOf = (it) => it.unit || 'шт';
+/** Собрать группы по ключу: порядок — первое появление. */
+const groupBy = (rows, keyOf, titleOf, colorOf) => {
+  const seen = []; const map = new Map();
+  for (const row of rows) {
+    const k = keyOf(row);
+    if (!map.has(k)) { seen.push(k); map.set(k, { key: k, title: titleOf(row), colorId: colorOf(row), items: [] }); }
+    map.get(k).items.push(row);
+  }
+  return seen.map((k) => map.get(k));
+};
 
 /** Выбор позиции без клавиатуры: категории плитками (рисунок — из справочника или по названию) → позиции с остатком. */
 const itemDrill = (onPick, scanBtn) => drill({ extra: scanBtn, empty: 'Позиций нет',
@@ -87,16 +103,29 @@ export const stockMobile = {
 
     // ---------- Главный: «Выдать» / «Принять» + переключатель ленты «Принято | Выдано» за 7 дней ----------
     const feedEmpty = (type) => (type === 'in' ? 'За неделю приёмок нет' : 'За неделю выдач нет');
-    /** Стабильный цвет группы по ключу заказа (не «рандом на каждый просмотр»). */
-    const toneOf = (key) => { let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0; return h % 5; };
-    /** Движения за 7 дней; выдача — группы по заказу (или по «кому»), приёмка — плоский список. */
+    /** Выдача — по заказу; приёмка — по счёту (цвет как в заявках). Имена короткие. */
     const loadFeed = async (type) => {
       const from = new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10);
-      const r = await call('/stock/movements', { query: { ...zoneQuery(), from, type, limit: 200, sort: '-date' } });
-      const moves = (r.items || []).filter((m) => !m.cancelledAt && !m.cancelOf && m.qty);
+      const fromMs = Date.now() - 7 * 86400e3;
       if (type === 'in') {
-        return { items: moves.map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: 'in' })) };
+        const r = await call('/supply/requests', { query: { status: 'received', limit: 200, sort: '-updatedAt' } });
+        const rows = (r.items || []).filter((x) => {
+          const t = x.receivedAt || x.updatedAt || x.requestDate;
+          return t && new Date(t).getTime() >= fromMs;
+        });
+        const feedRows = rows.map((x) => ({
+          _inv: x,
+          date: dm(x.receivedAt || x.updatedAt || x.requestDate),
+          text: shortName(x.title || x.materialName || x.name || 'Позиция'),
+          qty: fmt(x.receivedQty || x.qty),
+          unit: x.unit || '',
+          kind: 'in',
+        }));
+        const groups = groupBy(feedRows, (row) => invColorId(row._inv) || 'none', (row) => invTitle(row._inv), (row) => invColorId(row._inv));
+        return { groups: groups.map((g) => ({ title: g.title, colorId: g.colorId, items: g.items })) };
       }
+      const r = await call('/stock/movements', { query: { ...zoneQuery(), from, type: 'out', limit: 200, sort: '-date' } });
+      const moves = (r.items || []).filter((m) => !m.cancelledAt && !m.cancelOf && m.qty);
       const orders = await once('orders:all:lines', () => ordersLookup({ filter: 'all', lines: true }));
       const byOrder = new Map(orders.map((o) => [o.id, o]));
       const byLine = new Map();
@@ -104,24 +133,18 @@ export const stockMobile = {
       const rows = moves.map((m) => {
         const ord = m.salesOrderId ? byOrder.get(m.salesOrderId) : null;
         const hit = m.salesOrderLineId ? byLine.get(m.salesOrderLineId) : null;
-        const gkey = m.salesOrderId ? `o:${m.salesOrderId}` : (m.issuedTo ? `w:${m.issuedTo}` : 'x');
         const no = ord ? (ord.productionNo || ord.orderNo) : null;
-        const title = m.salesOrderId
-          ? (no ? `Заказ № ${no}` : 'На заказ')
-          : (m.issuedTo || 'Без заказа');
+        const gkey = m.salesOrderId ? `o:${m.salesOrderId}` : (m.issuedTo ? `w:${m.issuedTo}` : 'x');
+        const title = m.salesOrderId ? (no ? `№ ${no}` : 'На заказ') : (m.issuedTo || 'Без заказа');
         const pos = hit?.l ? (hit.l.seqNo ?? hit.l.lineNo) : null;
-        return { gkey, title, date: dm(m.date), text: m.materialName, sub: pos != null ? `поз. ${pos}` : undefined, qty: fmt(m.qty), unit: m.unit, kind: 'out' };
+        return {
+          gkey, title, colorId: m.salesOrderId || gkey,
+          date: dm(m.date), text: shortName(m.materialName), sub: pos != null ? `поз. ${pos}` : undefined,
+          qty: fmt(m.qty), unit: m.unit, kind: 'out',
+        };
       });
-      const seen = [];
-      const map = new Map();
-      for (const row of rows) {
-        if (!map.has(row.gkey)) {
-          seen.push(row.gkey);
-          map.set(row.gkey, { title: row.title, tone: toneOf(row.gkey), items: [] });
-        }
-        map.get(row.gkey).items.push(row);
-      }
-      return { groups: seen.map((k) => map.get(k)) };
+      const groups = groupBy(rows, (row) => row.gkey, (row) => row.title, (row) => row.colorId);
+      return { groups: groups.map((g) => ({ title: g.title, colorId: g.colorId, items: g.items })) };
     };
     const paintFeed = (box, type) => {
       const empty = feedEmpty(type);
@@ -348,29 +371,72 @@ export const stockMobile = {
       } }) }));
     }
 
-    // ---------- Приёмка: ожидаемая поставка → сколько ----------
+    // ---------- Приёмка: счета (цвет как в заявках) → позиции → сколько ----------
     function receive(preset) {
       const S = {};
-      const stepList = () => {
-        const d = drill({ levels: [{ title: '', load: async () => {
-          const rows = ((await call('/supply/requests', { query: { status: 'ordered,paid', limit: 100, sort: 'requestDate' } })).items || []).filter((r) => !preset || r.materialId === preset.id).sort((x, y) => (y.paid ? 1 : 0) - (x.paid ? 1 : 0));
-          return rows.map((r) => ({ value: r, label: r.title || r.name || 'Позиция', hint: [r.supplierName, `ждём ${fmt(r.qty)} ${r.unit || ''}`.trim(), r.invoiceNo ? '№ ' + r.invoiceNo : ''].filter(Boolean).join(' · ') }));
-        } }], empty: 'Нечего принимать — нет заказанных и оплаченных поставок', onPick: (o) => { S.req = o.value; stepQty(); } });
-        show(screen({ title: 'Что приняли?', back: home, body: [d.el, bigButton({ label: 'Нет в списке — выбрать позицию', tone: 'neutral', onClick: stepItem }), bigButton({ label: 'Подать заявку на новую позицию', tone: 'ghost', onClick: requestNew })] }));
+      const openInv = new Set(); // какие счета раскрыты (по умолчанию — все)
+      const stepList = async () => {
+        show(screen({ title: 'Что приняли?', back: home, body: [h('div', { class: 'm-empty' }, 'Загружаю…')] }));
+        let rows = [];
+        try {
+          rows = ((await call('/supply/requests', { query: { status: 'ordered,paid', limit: 100, sort: 'requestDate' } })).items || [])
+            .filter((r) => !preset || r.materialId === preset.id)
+            .sort((x, y) => (y.paid ? 1 : 0) - (x.paid ? 1 : 0) || String(x.invoiceNo || '').localeCompare(String(y.invoiceNo || ''), 'ru'));
+        } catch (e) { show(screen({ title: 'Что приняли?', back: home, body: [failed(e, stepList)] })); return; }
+        if (!rows.length) {
+          show(screen({ title: 'Что приняли?', back: home, body: [
+            h('div', { class: 'm-empty' }, 'Нечего принимать — нет заказанных и оплаченных поставок'),
+            bigButton({ label: 'Нет в списке — выбрать позицию', tone: 'neutral', onClick: stepItem }),
+            bigButton({ label: 'Подать заявку на новую позицию', tone: 'ghost', onClick: requestNew }),
+          ] }));
+          return;
+        }
+        const groups = groupBy(rows, (r) => invColorId(r) || 'none', invTitle, invColorId);
+        if (!openInv.size) groups.forEach((g) => openInv.add(g.key));
+        const paint = () => {
+          const blocks = groups.map((g) => {
+            const open = openInv.has(g.key);
+            const head = h('button', {
+              type: 'button', class: 'm-fg-h',
+              'aria-expanded': String(open),
+              'aria-label': `${open ? 'Скрыть' : 'Показать'} ${g.title}`,
+              onclick: () => { if (open) openInv.delete(g.key); else openInv.add(g.key); paint(); },
+            }, h('span', null, `${g.title} · ${g.items.length}`), h('span', { class: 'm-fg-chev', 'aria-hidden': 'true' }, open ? '▾' : '▸'));
+            const body = open ? h('div', { class: 'm-fg-body' }, choice({
+              items: g.items.map((r) => ({
+                value: r,
+                label: shortName(r.title || r.name || 'Позиция'),
+                hint: `ждём ${fmt(r.qty)} ${(r.unit || '').trim()}`.trim(),
+              })),
+              onPick: (o) => { S.req = o.value; stepQty(); },
+            })) : null;
+            return paintOrder(h('div', { class: 'm-fg' + (open ? '' : ' is-shut') }, head, body), g.colorId || '');
+          });
+          show(screen({ title: 'Что приняли?', back: home, body: [
+            ...blocks,
+            bigButton({ label: 'Нет в списке — выбрать позицию', tone: 'neutral', onClick: stepItem }),
+            bigButton({ label: 'Подать заявку на новую позицию', tone: 'ghost', onClick: requestNew }),
+          ] }));
+        };
+        paint();
       };
-      const stepItem = () => { const pick = (it) => { S.req = { id: null, qty: 1, unit: unitOf(it), name: it.name, materialId: it.id, item: it }; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepItem)); show(screen({ title: 'Какая позиция?', back: () => { if (!d.up()) stepList(); }, body: [d.el] })); };
+      const stepItem = () => { const pick = (it) => { S.req = { id: null, qty: 1, unit: unitOf(it), name: it.name, materialId: it.id, item: it }; stepQty(); }; const d = itemDrill(pick, scanBtn(pick, stepList)); show(screen({ title: 'Какая позиция?', back: () => { if (!d.up()) stepList(); }, body: [d.el] })); };
       const stepQty = () => {
         const r = S.req;
         const q = qty({ value: r.qty, unit: r.unit || '' });
         const msg = h('div');
-        show(screen({ title: r.title || r.name || 'Позиция', back: r.id ? stepList : stepItem, body: [q.el, msg], foot: bigButton({ label: 'Принять', onClick: async () => {
+        const name = shortName(r.title || r.name || 'Позиция');
+        show(screen({ title: name, back: r.id ? stepList : stepItem, body: [
+          r.invoiceNo ? h('p', { class: 'm-empty' }, `Счёт ${invTitle(r)}`) : null,
+          q.el, msg,
+        ], foot: bigButton({ label: 'Принять', onClick: async () => {
           const n = q.value();
           if (!(n > 0)) { msg.replaceChildren(error('Впишите количество больше нуля.')); return; }
           msg.replaceChildren();
           try {
             if (r.id) await call(`/supply/requests/${r.id}/receive`, { method: 'POST', body: { qty: n, partial: n < r.qty } });
             else await call('/stock/batch', { method: 'POST', body: { type: 'in', lines: [{ materialId: r.materialId, qty: n }], clientUid: uid() } });
-            toast(`Принято: ${r.title || r.name || 'Позиция'} · ${fmt(n)} ${r.unit || ''}`, { ms: 3000 }); home();
+            toast(`Принято: ${name} · ${fmt(n)} ${r.unit || ''}`, { ms: 3000 }); home();
           } catch (e) { msg.replaceChildren(failed(e)); }
         } }) }));
       };
