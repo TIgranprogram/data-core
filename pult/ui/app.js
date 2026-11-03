@@ -186,11 +186,42 @@ function todoRow(item, level, first) {
   return row;
 }
 
+function renderCheck(a) {
+  const check = a.check;
+  const problem = check && (check.code !== 0 || check.bad?.length);
+  const tone = !check ? 'warn' : check.code !== 0 ? 'bad' : check.bad?.length ? 'warn' : 'ok';
+  const row = el('div', `now-check ${tone}`);
+  const text = el('div', 'now-check-text');
+  const cmdId = check?.cmd || 'code-check';
+  const cmd = S.catalog.commands.find((c) => c.id === cmdId);
+  const title = cmd?.title || 'Быстрая проверка';
+  if (!check) {
+    text.append(el('b', '', 'Проверок с этого пульта ещё не было.'), el('span', '', 'Нажмите «Быстрая проверка». Она скажет, всё ли в порядке.'));
+  } else if (check.code !== 0) {
+    text.append(el('b', '', `${title} не прошла ${whenText(check.at)}.`), el('span', '', check.last || 'Подробности в журнале справа.'));
+  } else if (check.bad?.length) {
+    text.append(el('b', '', `${title} ${whenText(check.at)} нашла замечание.`), el('span', '', check.bad[0]));
+  } else {
+    text.append(el('b', '', `${title} ${whenText(check.at)}: замечаний нет.`));
+  }
+  row.append(text);
+  const already = (a.items || []).some((x) => x.cmd === cmdId);
+  if (cmd && !already) {
+    const b = el('button', problem || !check ? 'primary' : 'ghost', !check ? 'Запустить' : 'Проверить снова');
+    const live = [...S.jobs.values()].some((j) => j.cmdId === cmd.id && j.state === 'running');
+    b.disabled = live || (cmd.blocked || []).length > 0;
+    b.onclick = () => press(cmd);
+    row.append(b);
+  }
+  return row;
+}
+
 function renderNow() {
   const box = el('div', 'now');
   const a = S.advice;
   if (!a) box.append(el('div', 'none', 'Смотрю состояние проекта…'));
   else {
+    box.append(renderCheck(a));
     // одно главное дело: самое важное, что ждёт человека; плановое «Рекомендуется» главным не бывает
     const main = S.catalog.levels.filter((l) => l.id !== 'soon').flatMap((l) => a.items.filter((x) => x.level === l.id))[0];
     if (!main) box.append(el('div', 'now-clear', 'Сейчас от вас ничего не нужно.'));
@@ -554,9 +585,21 @@ async function start() {
   if (S.order.length) select(S.order[S.order.length - 1]);
   loadStatus();
   setInterval(loadStatus, 60000);
-  const events = new EventSource(`/api/events?t=${token}`);
-  events.onmessage = (m) => onEvent(JSON.parse(m.data));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadStatus(); });
+  connectEvents();
   setInterval(() => { if (S.jobs.get(S.current)?.state === 'running') renderHead(); }, 1000);
+}
+
+function connectEvents() {
+  const events = new EventSource(`/api/events?t=${token}`);
+  let down = false;
+  events.onmessage = (m) => onEvent(JSON.parse(m.data));
+  events.onerror = () => {
+    if (down) return;
+    down = true;
+    events.close();
+    setTimeout(() => { loadStatus().finally(connectEvents); }, 2000);
+  };
 }
 
 $('search').oninput = (e) => { S.query = e.target.value; render(); };

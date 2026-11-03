@@ -11,6 +11,8 @@ export const LEVELS = [
 const HOUR = 3600000;
 const DAY = 24 * HOUR;
 const POST_CHECK_AFTER = HOUR;
+/** Проверки, чей последний итог всегда виден на экране «Что делать сейчас». */
+const CHECKS = ['code-check', 'check-full', 'site-audit', 'release-qa', 'day-start', 'day-errors'];
 const cut = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
@@ -28,6 +30,17 @@ export function todoDone(t, runs, s = {}) {
   // выкладка с другого ПК / из пульта не записалась — смотрим version.json, а не runs.json
   if (t.cmd === 'deploy-release' && siteHasCurrentCode(s)) return true;
   return false;
+}
+
+/** Последняя из проверок CHECKS. Нет запусков — null. */
+export function latestCheck(runs, ids = CHECKS) {
+  let best = null;
+  for (const id of ids) {
+    const r = runs[id];
+    if (!r?.at) continue;
+    if (!best || r.at > best.at) best = { cmd: id, at: r.at, code: r.code, bad: r.bad || [], last: r.last || '' };
+  }
+  return best;
 }
 
 /** s — состояние из readStatus, runs — { id команды: { at, code, last, bad, commit } }, todo — поручения. */
@@ -79,7 +92,18 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
     }
   }
 
+  const check = latestCheck(runs);
+  if (check && (check.code !== 0 || check.bad.length)) {
+    const level = check.code !== 0 ? 'urgent' : 'today';
+    const why = check.code !== 0
+      ? `Проверка не прошла: ${cut(check.last || 'смотрите журнал справа', 130)}`
+      : `Проверка нашла: ${cut(check.bad[0], 130)}`;
+    const hit = items.find((x) => x.cmd === check.cmd);
+    if (!hit) items.push({ level, cmd: check.cmd, why });
+    else { hit.level = level; hit.why = why; }
+  }
+
   const done = commands.filter((c) => runs[c.id]?.code === 0 && sameDay(runs[c.id].at, now) && !items.some((x) => x.cmd === c.id))
     .map((c) => ({ cmd: c.id, at: runs[c.id].at }));
-  return { items, done };
+  return { items, done, check };
 }

@@ -59,7 +59,7 @@ export const SCHEDULE = [
   { id: 'day-errors', kind: 'daily', time: '18:00', enabled: true, params: { hours: '24' } },
   { id: 'prod-doctor', kind: 'weekly', day: 1, time: '09:30', enabled: true },
   { id: 'day-data', kind: 'weekly', day: 1, time: '10:00', enabled: true },
-  { id: 'code-check', kind: 'weekly', day: 5, time: '17:00', enabled: true },
+  { id: 'code-check', kind: 'daily', time: '09:10', enabled: true },
   { id: 'sportin-drill', kind: 'monthly', day: 1, time: '12:00', enabled: true },
 ];
 
@@ -152,8 +152,8 @@ export const COMMANDS = [
   ]),
 
   // ---------- Проверка кода ----------
-  { id: 'code-check', section: 'check', title: 'Быстрая проверка', risk: 'read', time: '2–4 мин', run: dc('check'),
-    hint: 'Типы, юнит-тесты, импорты, дизайн и пульт. Те же шаги, что в воротах выкладки. Сайт не нужен.' },
+  { id: 'code-check', section: 'check', title: 'Быстрая проверка', risk: 'read', time: '2–4 мин', run: dc('check'), every: 1, why: 'Каждый день смотрит типы, тесты и пульт. Замечание остаётся на экране, пока проверка не станет зелёной',
+    hint: 'Типы, юнит-тесты, импорты, дизайн и пульт. Те же шаги, что в воротах выкладки. Сайт не нужен. Утром пульт запускает её сам, если открыт.' },
   { id: 'release-qa', section: 'check', title: 'Пакет выпуска: собрать показатели', risk: 'local', time: '2–5 мин', run: { node: ['tools/release-qa.mjs'] },
     hint: 'Компьютер последовательно проверит backend, безопасность пульта, откат, оплату и Nightshift. Короткий итог и полный JSON для ИИ — tools/logs/RELEASE-QA.json. Сайт, Docker и E2E не запускаются.' },
   { id: 'check-full', section: 'check', title: 'Полная проверка', risk: 'local', time: '20–60 мин', needs: ['docker'], run: dc('full'),

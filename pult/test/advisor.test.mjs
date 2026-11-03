@@ -151,6 +151,26 @@ test('release checklist: готовность → ворота → отдель�
   assert.deepEqual(visible(gatePassed), [flow[2].id]);
 });
 
+test('последняя проверка с замечанием просит повторить её', () => {
+  const runs = { ...allFresh, 'code-check': { at: NOW - 1000, code: 0, bad: ['✗ пульт: ОТСТАЛ'] } };
+  const x = find(plan({}, runs), 'code-check');
+  assert.equal(x.level, 'today');
+  assert.match(x.why, /ОТСТАЛ/);
+  assert.equal(advise(calm, runs, COMMANDS, NOW).check.cmd, 'code-check');
+});
+
+test('упавшая проверка становится первым делом', () => {
+  const runs = { ...allFresh, 'check-full': { at: NOW - 500, code: 1, last: 'e2e: 3 failed' }, 'code-check': { at: NOW - 5000, code: 0 } };
+  assert.equal(find(plan({}, runs), 'check-full').level, 'urgent');
+  assert.equal(advise(calm, runs, COMMANDS, NOW).check.cmd, 'check-full');
+});
+
+test('зелёная проверка не добавляет дело и остаётся в итоге', () => {
+  const runs = { ...allFresh, 'code-check': { at: NOW - 1000, code: 0, bad: [], last: 'ОК' } };
+  assert.ok(!find(plan({}, runs), 'code-check'));
+  assert.equal(advise(calm, runs, COMMANDS, NOW).check.code, 0);
+});
+
 test('запущенные стенды видны с кнопкой остановки', () => {
   const items = plan({ nightStand: true, localSite: true }, allFresh);
   assert.equal(find(items, 'night-down').level, 'soon');

@@ -152,6 +152,13 @@ dialog label[hidden] { display: none; }
 .todo-main .why { color: var(--warn); }
 .todo button { flex: none; }
 .now-clear { padding: 18px; background: var(--ok-soft); color: var(--ok); border-radius: 10px; font-weight: 600; }
+.now-check { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 14px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.now-check.ok { background: var(--ok-soft); }
+.now-check.warn { background: var(--warn-soft); }
+.now-check.bad { background: var(--bad-soft); }
+.now-check-text { flex: 1; min-width: 0; }
+.now-check-text b, .now-check-text span { display: block; }
+.now-check-text span { color: var(--text); font-size: 13px; }
 
 @media (max-width: 1050px) {
   .layout { grid-template-columns: 200px 1fr; grid-template-rows: 1fr 40%; }
