@@ -84,14 +84,29 @@ export function tiles({ items = [], onPick, empty = 'Ничего нет', selec
 }
 export { catArt };
 
-/** feed({ items: [{ date, text, qty, unit, kind: 'out'|'in' }], loading, empty }) → лента плитками (не кликабельна); loading — скелет */
-export function feed({ items = [], loading = false, empty = 'За 7 дней операций нет' } = {}) {
+/** Одна строка ленты: дата · что · количество; sub — мелкая подпись (поз. заказа). */
+const feedRow = (it) => h('div', { class: 'm-fi m-fi-' + (it.kind || 'out') },
+  h('span', { class: 'm-fi-date' }, it.date),
+  h('span', { class: 'm-fi-what' },
+    h('span', null, (it.prefix != null ? it.prefix : (it.kind === 'in' ? '↑ Принято · ' : '↓ Выдано · ')) + it.text),
+    it.sub ? h('small', { class: 'm-fi-sub' }, it.sub) : null),
+  h('b', { class: 'm-fi-qty' }, `${it.qty} ${it.unit || ''}`.trim()));
+
+/**
+ * feed({ items, groups, loading, empty }) → лента плитками (не кликабельна).
+ * groups: [{ title, tone: 0..4, items }] — выдача сгруппирована по заказу (цвет слева).
+ * Без groups — плоский список (приёмка).
+ */
+export function feed({ items = [], groups, loading = false, empty = 'За 7 дней операций нет' } = {}) {
   if (loading) return h('div', { class: 'm-feed', 'aria-busy': 'true' }, ...[0, 1, 2].map(() => h('div', { class: 'm-skel' })));
+  if (groups) {
+    if (!groups.length) return h('div', { class: 'm-empty' }, empty, h('br'), h('small', null, 'Здесь появятся ваши выдачи и приёмки за неделю.'));
+    return h('div', { class: 'm-feed' }, ...groups.map((g) => h('div', { class: `m-fg m-fg-${(g.tone ?? 0) % 5}`, role: 'group', 'aria-label': g.title },
+      h('div', { class: 'm-fg-h' }, g.title),
+      ...g.items.map((it) => feedRow({ ...it, prefix: it.prefix ?? '' })))));
+  }
   if (!items.length) return h('div', { class: 'm-empty' }, empty, h('br'), h('small', null, 'Здесь появятся ваши выдачи и приёмки за неделю.'));
-  return h('div', { class: 'm-feed' }, ...items.map((it) => h('div', { class: 'm-fi m-fi-' + it.kind },
-    h('span', { class: 'm-fi-date' }, it.date),
-    h('span', { class: 'm-fi-what' }, (it.kind === 'in' ? '↑ Принято · ' : '↓ Выдано · ') + it.text),
-    h('b', { class: 'm-fi-qty' }, `${it.qty} ${it.unit || ''}`.trim()))));
+  return h('div', { class: 'm-feed' }, ...items.map(feedRow));
 }
 
 /** dateChoice({ onChange }) → { el, value() → ГГГГ-ММ-ДД } — «Сегодня / Вчера / Другая дата» крупными кнопками (другая — список последних 30 дней), без клавиатуры */

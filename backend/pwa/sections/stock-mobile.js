@@ -87,17 +87,46 @@ export const stockMobile = {
 
     // ---------- Главный: «Выдать» / «Принять» + переключатель ленты «Принято | Выдано» за 7 дней ----------
     const feedEmpty = (type) => (type === 'in' ? 'За неделю приёмок нет' : 'За неделю выдач нет');
-    /** Движения склада за 7 дней одного типа (in|out); sort=-date — последнее сверху. */
+    /** Стабильный цвет группы по ключу заказа (не «рандом на каждый просмотр»). */
+    const toneOf = (key) => { let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0; return h % 5; };
+    /** Движения за 7 дней; выдача — группы по заказу (или по «кому»), приёмка — плоский список. */
     const loadFeed = async (type) => {
       const from = new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10);
       const r = await call('/stock/movements', { query: { ...zoneQuery(), from, type, limit: 200, sort: '-date' } });
-      return (r.items || []).filter((m) => !m.cancelledAt && !m.cancelOf && m.qty)
-        .map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: m.type === 'in' ? 'in' : 'out' }));
+      const moves = (r.items || []).filter((m) => !m.cancelledAt && !m.cancelOf && m.qty);
+      if (type === 'in') {
+        return { items: moves.map((m) => ({ date: dm(m.date), text: m.materialName, qty: fmt(m.qty), unit: m.unit, kind: 'in' })) };
+      }
+      const orders = await once('orders:all:lines', () => ordersLookup({ filter: 'all', lines: true }));
+      const byOrder = new Map(orders.map((o) => [o.id, o]));
+      const byLine = new Map();
+      for (const o of orders) for (const l of o.lines || []) byLine.set(l.id, { o, l });
+      const rows = moves.map((m) => {
+        const ord = m.salesOrderId ? byOrder.get(m.salesOrderId) : null;
+        const hit = m.salesOrderLineId ? byLine.get(m.salesOrderLineId) : null;
+        const gkey = m.salesOrderId ? `o:${m.salesOrderId}` : (m.issuedTo ? `w:${m.issuedTo}` : 'x');
+        const no = ord ? (ord.productionNo || ord.orderNo) : null;
+        const title = m.salesOrderId
+          ? (no ? `Заказ № ${no}` : 'На заказ')
+          : (m.issuedTo || 'Без заказа');
+        const pos = hit?.l ? (hit.l.seqNo ?? hit.l.lineNo) : null;
+        return { gkey, title, date: dm(m.date), text: m.materialName, sub: pos != null ? `поз. ${pos}` : undefined, qty: fmt(m.qty), unit: m.unit, kind: 'out' };
+      });
+      const seen = [];
+      const map = new Map();
+      for (const row of rows) {
+        if (!map.has(row.gkey)) {
+          seen.push(row.gkey);
+          map.set(row.gkey, { title: row.title, tone: toneOf(row.gkey), items: [] });
+        }
+        map.get(row.gkey).items.push(row);
+      }
+      return { groups: seen.map((k) => map.get(k)) };
     };
     const paintFeed = (box, type) => {
       const empty = feedEmpty(type);
       box.replaceChildren(feed({ loading: true, empty }));
-      loadFeed(type).then((items) => { if (alive) box.replaceChildren(feed({ items, empty })); })
+      loadFeed(type).then((data) => { if (alive) box.replaceChildren(feed({ ...data, empty })); })
         .catch((e) => { if (alive) box.replaceChildren(failed(e, () => paintFeed(box, type))); });
     };
     const home = () => {
