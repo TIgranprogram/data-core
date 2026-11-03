@@ -16,6 +16,7 @@
 | C006 | Cursor | S | Вердикт Nightshift vs Пульт: GUI не доделываем | done |
 | C007 | Cursor | M | Выдача на готовые заказы + несколько позиций на один заказ (телефон) | done |
 | C008 | Cursor | M | Склад «Плитные материалы» + роль «Кладовщик плит (телефон)» | done |
+| C009 | Cursor | XL | Единая номенклатура: договор + заявки + каталог + фильтры | audit — TZ готов |
 
 Worktree счетов: `D:\data-core\.manus\worktrees\soorwu5tl3w6zui0j26jlr`  
 Отчёт: `docs/crew/C004-invoice-workspace-wip/`  
