@@ -68,7 +68,7 @@ export class ProductRequestsService {
     const prev = income.productRequestId as Types.ObjectId | undefined;
     await this.db.collection('incomes').updateOne({ _id: income._id as Types.ObjectId }, {
       $set: { lineType: 'new_product', productRequestId: req!._id, editedInApp: true },
-      $unset: { productId: '', matchStatus: '', matchedAt: '', matchedBy: '', workTypeId: '' },
+      $unset: { productId: '', matchStatus: '', matchedAt: '', matchedBy: '', serviceId: '', workTypeId: '' },
     });
     await this.recalc(req!._id);
     if (prev && String(prev) !== String(req!._id)) await this.recalc(prev);

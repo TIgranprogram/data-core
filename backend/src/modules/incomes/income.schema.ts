@@ -25,10 +25,10 @@ export class Income {
   @Prop({ enum: ['auto', 'confirmed', 'none'] }) matchStatus?: 'auto' | 'confirmed' | 'none';
   @Prop({ type: Date }) matchedAt?: Date;
   @Prop({ type: Types.ObjectId, ref: 'User' }) matchedBy?: Types.ObjectId;
-  /** Тип позиции: product — изделие из «Продукции»; new_product — заявка на новое изделие (productrequests); service — услуга (Доставка/Монтаж). Нет значения — старая позиция, состояние по productId/matchStatus. */
+  /** Тип позиции: product — изделие из «Продукции»; new_product — заявка на новое изделие (productrequests); service — услуга из справочника «Услуги». Нет значения — старая позиция, состояние по productId/matchStatus. */
   @Prop({ enum: ['product', 'new_product', 'service'] }) lineType?: 'product' | 'new_product' | 'service';
-  /** Услуга: вид работ из справочника (Доставка / Монтаж). */
-  @Prop({ type: Types.ObjectId, ref: 'WorkType' }) workTypeId?: Types.ObjectId;
+  /** Услуга: запись справочника «Услуги» (`dict_values` dict=services). Не путать с «Видами работ». */
+  @Prop({ type: Types.ObjectId, index: true, sparse: true }) serviceId?: Types.ObjectId;
   /** Новое изделие: заявка проектировщику (productrequests); после подтверждения/«дубля» позиция получает productId. */
   @Prop({ type: Types.ObjectId, index: true, sparse: true }) productRequestId?: Types.ObjectId;
   @Prop() lineNo?: number;

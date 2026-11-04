@@ -635,7 +635,7 @@ const BASE: DictBase[] = [
   simpleList('invoiceTypes', 'Заявки и счета', 'Типы счетов', 'Поле «Тип счёта» в заявке и счёте: счёт на оплату, счёт-договор, УПД…', [],
     { coll: 'supplyrequests', field: 'sheetExtra.invoiceType' }, ['Счет на оплату', 'Счет-договор', 'Счет', 'УПД'], 'invoiceTypes'),
   paymentFormsList(),
-  simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в счетах: доставка, погрузка, аренда техники…', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
+  simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в заказе, КП и счетах: доставка, монтаж, погрузка, аренда техники… Список общий. Новые — только здесь, не в «Видах работ».', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
 
   productSeriesList(),
 

@@ -25,9 +25,12 @@ describe('ORDER-LINES: позиции заказа, заявки на издел
     ctx = await createTestApp();
     app = ctx.app;
     admin = await loginAsAdmin(app);
-    for (const c of ['salesorders', 'incomes', 'products', 'productrequests', 'worktypes', 'productaliases', 'productpassports']) await db().collection(c).deleteMany({});
+    for (const c of ['salesorders', 'incomes', 'products', 'productrequests', 'dict_values', 'productaliases', 'productpassports']) await db().collection(c).deleteMany({});
   });
   afterAll(async () => { await ctx?.cleanup(); });
+
+  const addService = async (name: string) =>
+    (await http().post('/api/dicts/services').set(auth()).send({ name }).expect(201)).body.id as string;
 
   it('новое изделие: без цены — 400; с ценой — заявка open, позиция привязана, нет в «Продукции»', async () => {
     const o = await order('OL-1');
@@ -43,15 +46,16 @@ describe('ORDER-LINES: позиции заказа, заявки на издел
     expect(await db().collection('products').countDocuments({})).toBe(0);
   });
 
-  it('услуга «Доставка»: без цены/вида работ/не из Доставки-Монтажа — 400; с ценой — не в очередях сопоставления', async () => {
+  it('услуга из справочника «Услуги»: без цены/serviceId/чужой id — 400; с ценой — не в очередях сопоставления', async () => {
     const o = await order('OL-2');
-    const wt = (await http().post('/api/work-types').set(auth()).send({ name: 'Доставка', hourlyRate: 0 }).expect(201)).body.id;
-    const other = (await http().post('/api/work-types').set(auth()).send({ name: 'Сварка', hourlyRate: 0 }).expect(201)).body.id;
+    const sid = await addService('Доставка');
+    const fake = new Types.ObjectId().toString();
     const svc = (extra: Record<string, unknown>) => http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Доставка до объекта', qty: 1, unit: 'усл', lineType: 'service', ...extra });
-    await svc({ workTypeId: wt }).expect(400); // нет цены
-    await svc({ unitPrice: 500 }).expect(400); // нет вида работ
-    await svc({ workTypeId: other, unitPrice: 500 }).expect(400); // не Доставка/Монтаж
-    const l = (await svc({ workTypeId: wt, unitPrice: 500 }).expect(201)).body;
+    await svc({ serviceId: sid }).expect(400); // нет цены
+    await svc({ unitPrice: 500 }).expect(400); // нет услуги
+    await svc({ serviceId: fake, unitPrice: 500 }).expect(400); // не из справочника
+    const l = (await svc({ serviceId: sid, unitPrice: 500 }).expect(201)).body;
+    expect(l.serviceId).toBe(sid);
     const q = (await http().get('/api/matching/unmatched').query({ limit: 100 }).set(auth()).expect(200)).body;
     expect(JSON.stringify(q.items)).not.toContain(l.id);
     expect((await card(o)).lines.find((x: { id: string }) => x.id === l.id).unassigned).toBe(false);
@@ -85,8 +89,8 @@ describe('ORDER-LINES: позиции заказа, заявки на издел
     const o = await order('OL-5');
     const prod = (await http().post('/api/showcase').set(auth()).send({ sku: 'OL-P1', name: 'Горка', type: 'Благоустройство' }).expect(201)).body.id;
     const l = (await newLine(o, 'Горка новая ZG').expect(201)).body;
-    const wt = (await http().post('/api/work-types').set(auth()).send({ name: 'Монтаж', hourlyRate: 0 }).expect(201)).body.id;
-    await http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Монтаж', qty: 1, unit: 'усл', lineType: 'service', workTypeId: wt, unitPrice: 300 }).expect(201);
+    const sid = await addService('Монтаж');
+    await http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Монтаж', qty: 1, unit: 'усл', lineType: 'service', serviceId: sid, unitPrice: 300 }).expect(201);
     const before = await db().collection('products').countDocuments({});
     const r = (await http().post(`/api/product-requests/${l.productRequestId}/reject`).set(auth()).send({ productId: prod }).expect(200)).body;
     expect(r.status).toBe('rejected');

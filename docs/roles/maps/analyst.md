@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03)
+коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04)
 
 ## Единая номенклатура (ЕН, 2026-11-03)
 - Канон склада — `materials` (+ остаток `storageitems`). Изделия — `products` (ДМ-1: покупные остаются в materials). Каталог — `supplieritems` (data-core), факт цены — `materialprices` → `lastPrice*`. Заявка — снимок `supplyrequests` (`title` без `materialId` допустим; `supplierItemId` нет, СК-3).
@@ -103,3 +103,7 @@
 - Дыры: `invoice.js:218` не создаёт счёт; `stock-ops.js:314` приход мимо заявки; `order-readiness.ts:24` «выдано» = нет брони; `incomes.service.ts:299` само клеит изделие по короткому имени; `work-type.schema.ts:21` строка `department`, экран читает `departmentId` (`dicts.defs.ts:602`, `stock-mobile.js:197`); КП не рождает заказ (`offers.controller.ts:96`).
 - Меню: убрать `matching` из группы (`main.js:234`), «Договоры поставщиков», вернуть `partners`. Вкладки договора не плодить (`salesorders.js:305`).
 - Устарело и не чинить заново: запрет правки позиций с `ready` уже в `incomes.service.ts:283`; календарь на `paidAt` (`finance.service.ts:86`). Вопросы C011-1…5. коммит: — (не закоммичено)
+
+## Услуги заказа и виды работ (УСЛ, 2026-11-04)
+- «Виды работ» — шаги цеха. Услуги заказа/КП/счетов — справочник `services` (`dict_values`), уже на проде (Доставка, Монтаж и др.).
+- Решение УСЛ-1: позиция `lineType=service` → `serviceId` из `/api/dicts/services`, не `workTypeId`. Пункт пульта `worktypes-services` снят. КП — тем же справочником позже.

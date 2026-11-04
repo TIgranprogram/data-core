@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import { checkLine, isServiceWorkType } from './line-type';
+import { checkLine } from './line-type';
 
-const run = (type: Parameters<typeof checkLine>[0], f: Record<string, unknown>, wt?: string | null) => () => checkLine(type, (k) => f[k], wt);
+const run = (type: Parameters<typeof checkLine>[0], f: Record<string, unknown>, ok = false) => () => checkLine(type, (k) => f[k], ok);
 
 describe('типы позиций заказа', () => {
   it('без типа (старые позиции) — не проверяется', () => {
@@ -17,13 +17,13 @@ describe('типы позиций заказа', () => {
     expect(run('new_product', { title: ' ', qty: 1, unitPrice: 5 })).toThrow('наименование');
   });
 
-  it('услуга: только Доставка/Монтаж из справочника и цена > 0', () => {
-    expect(run('service', { title: 'Доставка', workTypeId: 'w', unitPrice: 500 }, 'Доставка')).not.toThrow();
-    expect(run('service', { title: 'Монтаж', workTypeId: 'w', unitPrice: 500 }, ' монтаж ')).not.toThrow();
-    expect(run('service', { title: 'Сварка', workTypeId: 'w', unitPrice: 500 }, 'Сварка')).toThrow('Доставка или Монтаж');
-    expect(run('service', { title: 'Доставка', unitPrice: 500 })).toThrow('вид работ');
-    expect(run('service', { title: 'Доставка', workTypeId: 'w' }, 'Доставка')).toThrow('цену');
-    expect(isServiceWorkType(null)).toBe(false);
+  it('услуга: нужен serviceId из справочника «Услуги» и цена > 0', () => {
+    expect(run('service', { title: 'Доставка', serviceId: 's', unitPrice: 500 }, true)).not.toThrow();
+    expect(run('service', { title: 'Аренда', serviceId: 's', unitPrice: 500 }, true)).not.toThrow();
+    expect(run('service', { title: 'Доставка', serviceId: 's', unitPrice: 500 }, false)).toThrow('не найдена');
+    expect(run('service', { title: 'Доставка', unitPrice: 500 })).toThrow('справочника');
+    expect(run('service', { title: 'Доставка', serviceId: 's' }, true)).toThrow('цену');
+    expect(run('service', { title: 'Доставка', serviceId: 's', unitPrice: 500, productId: 'p' }, true)).toThrow(BadRequestException);
   });
 
   it('изделие: нужен productId', () => {

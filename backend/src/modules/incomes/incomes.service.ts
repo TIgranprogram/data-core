@@ -162,7 +162,7 @@ export class IncomesService {
     if (dto.orderId !== undefined) f.orderId = dto.orderId ? oid(dto.orderId, 'заказа') : undefined;
     if (dto.productId !== undefined) f.productId = dto.productId ? oid(dto.productId, 'изделия') : undefined;
     if (dto.lineType !== undefined) f.lineType = dto.lineType || undefined;
-    if (dto.workTypeId !== undefined) f.workTypeId = dto.workTypeId ? oid(dto.workTypeId, 'вида работ') : undefined;
+    if (dto.serviceId !== undefined) f.serviceId = dto.serviceId ? oid(dto.serviceId, 'услуги') : undefined;
     if (dto.productRequestId !== undefined) f.productRequestId = dto.productRequestId ? oid(dto.productRequestId, 'заявки') : undefined;
     if (dto.companyId) f.companyId = new Types.ObjectId(dto.companyId);
     else if (dto.companyName !== undefined) {
@@ -197,8 +197,10 @@ export class IncomesService {
     const val = (k: string) => (k in f ? f[k] : cur?.[k]);
     const type = val('lineType') as LineType | undefined;
     if (!type) return;
-    const wt = type === 'service' && val('workTypeId') ? await this.connection.db!.collection('worktypes').findOne({ _id: val('workTypeId') as Types.ObjectId, deletedAt: null }, { projection: { name: 1 } }) : null;
-    checkLine(type, val, wt ? String(wt.name ?? '') : null);
+    const svcOk = type === 'service' && val('serviceId')
+      ? !!(await this.connection.db!.collection('dict_values').findOne({ _id: val('serviceId') as Types.ObjectId, dict: 'services', deletedAt: null }, { projection: { _id: 1 } }))
+      : false;
+    checkLine(type, val, svcOk);
   }
 
   /** Услуга — не изделие: сопоставление «не изделие», чтобы очереди склада, паспортов и «В работе» её пропускали. */

@@ -729,6 +729,9 @@ Write-paths, которые должны быть all-or-nothing, использ
 | qty, unit, unitPrice | number, string, number | |
 | amountManual | number | «доход вручную» — важнее qty × unitPrice |
 | productId | ObjectId → products | изделие «Продукции» (БЗ-5); при создании без него — подбор по короткому названию |
+| lineType | product \| new_product \| service | тип позиции; нет — старая запись |
+| serviceId | ObjectId → dict_values (dict=services) | услуга из справочника «Услуги»; не путать с worktypes |
+| productRequestId | ObjectId → productrequests | заявка на новое изделие |
 | kind, color | string | «Вид», «Цвет» листа |
 | size | string | размер — вариант изделия (БЗ-5) |
 | shipDate, paidDate | Date | отгрузка; paidDate — дата ПОЛНОЙ оплаты (вычисляется из `payments`; у старых записей без `payments` — оплачено целиком) |
