@@ -107,8 +107,16 @@ export class OffersService {
   }
 
   private async companyName(id: unknown): Promise<string | null> {
-    const c = await this.db().collection('organizations').findOne({ _id: id as Types.ObjectId }, { projection: { name: 1, fullName: 1 } });
-    return c ? String(c.fullName || c.name || '') : null;
+    const c = await this.db().collection('organizations').findOne({ _id: id as Types.ObjectId }, { projection: { name: 1, fullName: 1, shortName: 1 } });
+    return c ? String(c.shortName || c.name || c.fullName || '') : null;
+  }
+
+  /** Короткие имена наших фирм для списка КП (пачкой). */
+  private async companyNames(ids: unknown[]): Promise<Map<string, string>> {
+    const oids = [...new Set(ids.map((x) => String(x || '')).filter((id) => Types.ObjectId.isValid(id)))].map((id) => new Types.ObjectId(id));
+    if (!oids.length) return new Map();
+    const rows = await this.db().collection('organizations').find({ _id: { $in: oids } }, { projection: { name: 1, shortName: 1, fullName: 1 } }).toArray();
+    return new Map(rows.map((o) => [String(o._id), String(o.shortName || o.name || o.fullName || '')]));
   }
 
   private async ourCompany(id: string) {
@@ -143,7 +151,8 @@ export class OffersService {
     ]);
     const counts: Record<string, number> = { all: 0, ...Object.fromEntries(OFFER_STATUSES.map((s) => [s, 0])) };
     for (const g of grouped) { counts[g._id] = g.n; counts.all += g.n; }
-    return { items: rows.map((r) => this.present(r)), total, page: p.page, limit: p.limit, counts };
+    const names = await this.companyNames(rows.map((r) => r.companyId));
+    return { items: rows.map((r) => this.present(r, names.get(String(r.companyId)) ?? null)), total, page: p.page, limit: p.limit, counts };
   }
 
   private async find(id: string): Promise<Doc> {

@@ -212,21 +212,22 @@ export const offers = {
     columns: [
       { key: 'number', label: '№ КП', sort: 'number', cls: 'nowrap', render: (r) => h('b', null, r.number || '—') },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
+      { key: 'companyName', label: 'Наша фирма', cls: 'clip nowrap', render: (r) => cell(r.companyName) },
       { key: 'customer', label: 'Заказчик', cls: 'clip', render: (r) => cell(r.customer) },
       { key: 'total', money: true, label: 'Сумма', sort: 'total', cls: 'num right nowrap', render: totalOf },
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(STATUS, r.status) },
     ],
     card: {
       title: (r) => [r.number || 'КП', r.customer].filter(Boolean).join(' · '),
-      sub: (r) => [date(r.date), r.total ? money(r.total) : 'без цены'].filter(Boolean).join(' · '),
+      sub: (r) => [r.companyName, date(r.date), r.total ? money(r.total) : 'без цены'].filter(Boolean).join(' · '),
       side: (r) => [badge(STATUS, r.status)],
     },
   },
   card: {
     heading: (r) => `${r.number || 'КП'}`,
-    subheading: (r) => [r.customer, STATUS[r.status]?.label].filter(Boolean).join(' · '),
+    subheading: (r) => [r.companyName, r.customer, STATUS[r.status]?.label].filter(Boolean).join(' · '),
     view: (r) => [
-      ['Заказчик', r.customer], ['Дата', date(r.date)], ['Действительно до', r.validUntil ? date(r.validUntil) : ''],
+      ['Наша фирма', r.companyName], ['Заказчик', r.customer], ['Дата', date(r.date)], ['Действительно до', r.validUntil ? date(r.validUntil) : ''],
       ['Сумма', r.total ? money(r.total) : 'цены не указаны'],
       ['Предоплата', r.prepaymentPercent ? `${r.prepaymentPercent} %` : ''], ['Срок изготовления', r.productionDays ? `${r.productionDays} дн.` : ''], ['Срок доставки', r.deliveryDays ? `${r.deliveryDays} дн.` : ''],
       ['Условия', r.terms], ['Примечание', r.notes],
@@ -258,7 +259,7 @@ export const offers = {
     restore: (r) => api(`/offers/${r.id}/restore`, { method: 'POST' }),
   },
   open: (id) => go('offers', { open: id }),
-  searchRow: (r) => ({ title: [r.number, r.customer].filter(Boolean).join(' · '), sub: date(r.date), side: badge(STATUS, r.status) }),
+  searchRow: (r) => ({ title: [r.number, r.companyName, r.customer].filter(Boolean).join(' · '), sub: date(r.date), side: badge(STATUS, r.status) }),
 };
 
 /** Создать КП из корзины (sections/kp.js). 404 — сервер старый: вернуть null, вызвавший печатает по-старому. */
