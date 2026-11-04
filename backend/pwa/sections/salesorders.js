@@ -9,7 +9,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/badges.js';
-import { actions, badge as kbadge, button } from '../ui/kit/index.js';
+import { actions, badge as kbadge, button, sku as kitSku } from '../ui/kit/index.js';
 import { toast } from '../ui/toast.js';
 import { confirmDlg, modal } from '../ui/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
@@ -171,9 +171,12 @@ async function matchProducts(r) {
   return saved && saved.id ? saved : null;
 }
 
-/** Строка «Наше: …» под названием позиции; фото — в карточке позиции. */
+/** Строка «Наше: …» под названием позиции; у сопоставленного — артикул эталоном kit.sku. */
 const ourLine = (l) => {
-  const our = l.product?.ourName || (l.productName && [l.sku || l.productSku, l.productName].filter(Boolean).join(' · '));
+  if (l.product?.name || l.product?.sku) {
+    return h('div', { class: 'muted small' }, 'Наше: ', kitSku(l.product.sku), l.product.sku ? ' ' : null, l.product.name || '');
+  }
+  const our = l.productName && [l.sku || l.productSku, l.productName].filter(Boolean).join(' · ');
   if (our) return h('div', { class: 'muted small' }, 'Наше: ' + our);
   return l.productId || l.product ? null : h('div', { class: 'muted small' }, 'Свяжите с каталогом');
 };
@@ -355,9 +358,12 @@ function contractGroup(o, reload) {
 function produceBlock(d) {
   const t = d.toProduce || [];
   if (!t.length) return null;
+  const nameCell = (x) => (x.sku
+    ? h('span', { title: [x.sku, x.title].filter(Boolean).join(' · ') }, kitSku(x.sku), ' ', x.title)
+    : x.title);
   return sec(`К производству (${t.length})`,
     table({ columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
-      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, x.title, qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
+      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, nameCell(x), qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
 }
 

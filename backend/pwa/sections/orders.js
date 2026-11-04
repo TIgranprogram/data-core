@@ -1,9 +1,8 @@
-import { grp } from '../ui/kit/index.js';
+import { grp, sku as kitSku, attachCombo } from '../ui/kit/index.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
-import { attachCombo } from '../ui/kit/index.js';
 import { badge } from '../ui/badges.js';
 import { modal } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
@@ -229,8 +228,12 @@ export const orders = {
       grp('Позиция'),
       ['Статус', badge(INCOME_STATUS, r.status)],
       ['Состояние', lineMark(r) || ''],
-      ['Изделие', r.product ? h('a', { href: '#products?open=' + r.product.id }, r.product.name + ' →') : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
-      ['Названия', r.product || r.title ? h('div', null, ...[['В заказе', r.title], ['Короткое', r.product?.name]].filter(([, v]) => v).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v))) : ''],
+      ['Изделие', r.product
+        ? h('a', { href: '#products?open=' + r.product.id }, kitSku(r.product.sku), r.product.sku ? ' ' : null, r.product.name, ' →')
+        : h('span', { class: 'muted' }, 'не привязано — выберите в «Изменить»')],
+      ['Названия', r.product || r.title ? h('div', null,
+        ...[['В заказе', r.title], ['Короткое', r.product?.name], ['Артикул', r.product?.sku]].filter(([, v]) => v)
+          .map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), k === 'Артикул' ? kitSku(v) : v))) : ''],
       ['Количество', r.qty != null ? `${qty(r.qty)} ${r.unit || ''}`.trim() : ''],
       ['Вид', r.kind],
       ['Цвет', r.color],

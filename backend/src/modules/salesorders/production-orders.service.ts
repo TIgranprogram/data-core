@@ -241,7 +241,10 @@ export class ProductionOrdersService {
       const ls = sortLines(c.lines as never[]) as unknown as Array<Doc & { id: string }>;
       const withSeq = ls.map((l) => ({ ...l, seqNo: seq.get(l.id) ?? null, matched: isMatched(l) })) as Array<Doc & { id: string; seqNo: number | null }>;
       if (c.stage !== 'cancelled') {
-        for (const l of withSeq) lines.push({ seqNo: l.seqNo as number, title: String(l.title ?? ''), unit: l.unit as string | undefined, qty: l.qty as number | undefined, productId: l.productId ? String(l.productId) : null, productName: (l.product as { name?: string } | null)?.name, photo: l.photo as ProduceLine['photo'] });
+        for (const l of withSeq) {
+          const p = l.product as { name?: string; sku?: string } | null;
+          lines.push({ seqNo: l.seqNo as number, title: String(l.title ?? ''), unit: l.unit as string | undefined, qty: l.qty as number | undefined, productId: l.productId ? String(l.productId) : null, productName: p?.name, sku: p?.sku ?? null, photo: l.photo as ProduceLine['photo'] });
+        }
       }
       return { ...c, lines: withSeq, unmatchedCount: withSeq.filter((l) => !(l as unknown as { matched: boolean }).matched).length };
     });

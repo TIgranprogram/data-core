@@ -30,13 +30,13 @@ describe('«К производству»', () => {
       { seqNo: 1, title: 'Лавочка  Ёлка', unit: 'шт', qty: 2 },
       { seqNo: 2, title: 'лавочка елка', unit: 'шт', qty: 3 },
       { seqNo: 3, title: 'Лавочка елка', unit: 'м', qty: 1 },
-      { seqNo: 4, title: 'Урна', productId: 'p1', productName: 'Урна У-1', unit: 'шт', qty: 4 },
+      { seqNo: 4, title: 'Урна', productId: 'p1', productName: 'Урна У-1', sku: 'У-1', unit: 'шт', qty: 4 },
       { seqNo: 5, title: 'Урна (иначе названа)', productId: 'p1', unit: 'шт', qty: 1 },
     ]);
     expect(rows).toHaveLength(3);
-    expect(rows[0]).toMatchObject({ qty: 5, unit: 'шт', seqNos: [1, 2] });
+    expect(rows[0]).toMatchObject({ qty: 5, unit: 'шт', seqNos: [1, 2], sku: null });
     expect(rows[1]).toMatchObject({ qty: 1, unit: 'м', seqNos: [3] });
-    expect(rows[2]).toMatchObject({ productId: 'p1', title: 'Урна У-1', qty: 5, seqNos: [4, 5] });
+    expect(rows[2]).toMatchObject({ productId: 'p1', title: 'Урна У-1', sku: 'У-1', qty: 5, seqNos: [4, 5] });
   });
 });
 
