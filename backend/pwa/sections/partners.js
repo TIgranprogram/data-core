@@ -73,7 +73,7 @@ function stampBlock(r, ctx) {
     zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('over'); upload(e.dataTransfer?.files?.[0]); });
     zone.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file')?.getAsFile(); if (f) { e.preventDefault(); upload(f); } });
     const del = cur ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
-    return h('div', { class: 'pp-kind stamp-slot' },
+    return h('div', { class: 'pp-kind' },
       h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ' · ' + tip)),
       cur ? lazyPreview(cur, label, del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
       session.canEdit ? h('label', { class: 'check' }, clear, 'Убрать белый фон при загрузке') : null,
@@ -131,7 +131,7 @@ function kpBgBlock(r, ctx) {
           h('div', { class: 'stamp-prev', title: 'Фон PDF КП (А4)' }, h('img', { src: PREFIX + cur.url, alt: title, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден')) })),
           del)
         : h('div', { class: 'muted' }, 'Не загружено — в КП подставится общий или встроенный бланк');
-      return h('div', { class: 'pp-kind stamp-slot' },
+      return h('div', { class: 'pp-kind' },
         h('div', { class: 'pp-kind-head' }, h('b', null, title), h('span', { class: 'muted' }, ' · ' + tip)),
         prev, session.canEdit ? zone : null);
     };
