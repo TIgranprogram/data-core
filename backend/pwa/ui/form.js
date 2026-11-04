@@ -287,7 +287,8 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
     keys: () => [...inputs.keys()],
     root: root || grid,
   };
-  for (const [, x] of inputs) if (x.f.mount) setTimeout(() => x.f.mount(fapi));
+  // mount сразу: иначе воронка полей (склад/металл) на кадр показывает скрытое (C022)
+  for (const [, x] of inputs) if (x.f.mount) x.f.mount(fapi);
 
   const snapshot = () => JSON.stringify([...inputs.values()].map(({ input }) => input.value));
   const start = snapshot();

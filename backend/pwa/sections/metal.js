@@ -6,46 +6,137 @@ import { toast } from '../ui/toast.js';
 import { dictNames } from '../ui/dict-options.js';
 
 /*
- * Металл на складе (TASKS СМ.1–СМ.2): сортамент, марка, размеры у труб и листов; обрезки, которые ещё пригодятся.
- * Сервер: поля позиции `assortment`, `materialGrade`, `dims` (мм), вид `metal` (pipe | sheet — по категории),
- * обрезок — POST /stock/items/:id/offcut (своя позиция «… — обрезок 1,2 м», в «Операциях» показывается первой).
+ * Металл на складе (TASKS СМ.1–СМ.2 / C022): сортамент, марка, размеры у труб и листов; обрезки.
+ * Сервер: `assortment`, `materialGrade`, `dims` (мм), вид `metal` (pipe | sheet — по категории),
+ * обрезок — POST /stock/items/:id/offcut. Воронка полей: вид → только свои поля (C022 FIX-TZ).
  */
 const m = (mm) => (mm ? (mm / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 3 }) : '');
 const mm = (v) => (v ? `${qty(v)} мм` : '');
 
-/** Строки карточки: сортамент, марка, размеры, обрезки (ссылками). */
+/** Тот же смысл, что backend stock/metal.ts metalKind — без импорта сервера. */
+export function metalKindUi(categoryName, unit) {
+  const c = String(categoryName ?? '').toLowerCase();
+  if (/труб/.test(c)) return 'pipe';
+  if (/лист/.test(c) || String(unit ?? '').toLowerCase() === 'лист') return 'sheet';
+  return null;
+}
+
+/** Строки карточки: только если сервер уже дал r.metal (C022-6). */
 export function metalView(r) {
+  if (r.metal !== 'pipe' && r.metal !== 'sheet') return [];
   const d = r.dims || {};
-  const size = r.metal === 'sheet' ? [d.thickness && `толщина ${mm(d.thickness)}`, d.length && d.width && `формат ${m(d.length)}×${m(d.width)} м`].filter(Boolean).join(', ')
+  const size = r.metal === 'sheet'
+    ? [d.thickness && `толщина ${mm(d.thickness)}`, d.length && d.width && `формат ${m(d.length)}×${m(d.width)} м`].filter(Boolean).join(', ')
     : [d.diameter && `Ø ${mm(d.diameter)}`, d.thickness && `стенка ${mm(d.thickness)}`, d.length && `хлыст ${m(d.length)} м`].filter(Boolean).join(', ');
   return [
     ['Сортамент / сечение', r.assortment],
     ['Марка стали', r.materialGrade],
-    ['Мойка', r.washed == null ? '' : r.washed ? 'Мытая' : 'Не мытая'],
+    r.metal === 'pipe' ? ['Мойка', r.washed == null ? '' : r.washed ? 'Мытая' : 'Не мытая'] : null,
     ['Размеры', size],
     ['Обрезки', (r.offcuts || []).length ? h('span', null, ...r.offcuts.flatMap((o, i) => [i ? ', ' : '', h('a', { href: '#stock?open=' + o.id }, `${o.name.split(' — обрезок ')[1] || o.name} × ${qty(o.qty)}`)]), h('span', { class: 'muted' }, ' — берите сначала их')) : ''],
     ['Обрезок от', r.offcutOf ? h('a', { href: '#stock?open=' + r.offcutOf }, 'основная позиция →') : ''],
+  ].filter(Boolean);
+}
+
+const METAL_KEYS = ['assortment', 'materialGrade', 'thickness', 'lengthM', 'wash', 'widthM'];
+
+/** Поля формы: блок «Труба» / «Лист»; видимость — mount по категории и ед. (C022-1). */
+export async function metalFields() {
+  const names = await dictNames('metalAssortments')().catch(() => []);
+  return [
+    { section: 'Труба', tone: 'info' }, // заголовок меняет mount; у не-металла блок скрыт до первой отрисовки
+    { key: 'assortment', label: 'Сортамент / сечение', type: 'combo', max: 200, span: 2,
+      options: (get) => {
+        const k = metalKindUi(get('categoryName'), get('unit'));
+        if (k === 'pipe') return names.filter((n) => !/лист/i.test(n));
+        if (k === 'sheet') return names.filter((n) => !/труб/i.test(n));
+        return names;
+      },
+      placeholder: 'Выберите или впишите',
+      mount: (f) => {
+        const unitField = f.field('unit');
+        let unitHint = unitField?.querySelector('.hint');
+        if (unitField && !unitHint) { unitHint = h('div', { class: 'hint' }); unitField.append(unitHint); }
+        const thickHint = () => {
+          let el = f.field('thickness')?.querySelector('.hint');
+          if (!el && f.field('thickness')) { el = h('div', { class: 'hint' }); f.field('thickness').append(el); }
+          return el;
+        };
+        const apply = () => {
+          const kind = metalKindUi(f.get('categoryName'), f.get('unit'));
+          const blk = f.field('assortment')?.closest?.('.form-block');
+          if (blk) {
+            blk.hidden = !kind;
+            const title = blk.querySelector('.form-sec-t');
+            if (title && kind) title.textContent = kind === 'pipe' ? 'Труба' : 'Лист';
+          }
+          const show = (key, on) => { const el = f.field(key); if (el) el.hidden = !on; };
+          for (const key of METAL_KEYS) show(key, !!kind);
+          if (kind === 'pipe') { show('widthM', false); show('wash', true); }
+          if (kind === 'sheet') { show('wash', false); show('widthM', true); }
+          const th = thickHint();
+          if (th) {
+            th.hidden = !kind;
+            if (kind === 'pipe') th.textContent = 'Стенка трубы. Длина хлыста — обычно 6 или 12 м.';
+            else if (kind === 'sheet') th.textContent = 'Толщина, длина и ширина — формат листа.';
+            else th.textContent = '';
+          }
+          if (unitHint) {
+            const u = String(f.get('unit') || '').toLowerCase();
+            if (kind === 'pipe' && u !== 'м') unitHint.textContent = 'Трубу обычно считают в метрах';
+            else if (kind === 'sheet' && u !== 'лист') unitHint.textContent = 'Лист обычно считают в листах';
+            else unitHint.textContent = '';
+            unitHint.hidden = !unitHint.textContent.trim();
+          }
+          const inp = f.input('assortment');
+          if (inp && inp.placeholder !== undefined) {
+            inp.placeholder = kind === 'pipe' ? 'Труба 40×20×2' : kind === 'sheet' ? 'Лист 2 мм' : 'Выберите или впишите';
+          }
+          if (kind) f.open('assortment');
+        };
+        // сразу скрыть до paint (блок иначе вспыхивает «Труба»)
+        const blk0 = f.field('assortment')?.closest?.('.form-block');
+        if (blk0 && !metalKindUi(f.get('categoryName'), f.get('unit'))) blk0.hidden = true;
+        f.on('categoryName', apply);
+        f.on('unit', apply);
+        apply();
+      } },
+    { key: 'materialGrade', label: 'Марка стали', type: 'combo', max: 100, span: 2, load: dictNames('steelGrades'), placeholder: 'Ст3, 09Г2С, AISI 304' },
+    { key: 'thickness', label: 'Толщина, мм', type: 'number', min: 0, span: 1, hint: ' ' },
+    { key: 'lengthM', label: 'Длина, м', type: 'number', min: 0, span: 1 },
+    { key: 'wash', label: 'Мойка трубы', type: 'select', span: 1, options: [{ value: '1', label: 'Мытая' }, { value: '0', label: 'Не мытая' }] },
+    { key: 'widthM', label: 'Ширина, м', type: 'number', min: 0, span: 1 },
   ];
 }
 
-
-/** Поля формы позиции — блок «Металл» (свёрнут; для труб и листов). */
-export const metalFields = () => [
-  { section: 'Металл: труба, лист', tone: 'info', collapsed: true },
-  { key: 'assortment', label: 'Сортамент / сечение', type: 'combo', max: 200, span: 2, load: dictNames('metalAssortments'), placeholder: 'Труба 40×20×2, лист 2 мм' },
-  { key: 'materialGrade', label: 'Марка стали', type: 'combo', max: 100, span: 2, load: dictNames('steelGrades'), placeholder: 'Ст3, 09Г2С, AISI 304' },
-  { key: 'thickness', label: 'Толщина, мм', type: 'number', min: 0, span: 1 },
-  { key: 'lengthM', label: 'Длина, м', type: 'number', min: 0, span: 1 },
-  { key: 'wash', label: 'Мойка трубы', type: 'select', span: 1, options: [{ value: '', label: '—' }, { value: '1', label: 'Мытая' }, { value: '0', label: 'Не мытая' }] },
-  { key: 'widthM', label: 'Ширина, м', type: 'number', min: 0, span: 1 },
-  { note: 'Толщина — стенка трубы или лист. Длина трубы — 6 или 12 м; ширина — только для листа.' },
-];
-export const metalInitial = (r) => ({ thickness: r.dims?.thickness ?? null, lengthM: r.dims?.length ? r.dims.length / 1000 : null, widthM: r.dims?.width ? r.dims.width / 1000 : null, wash: r.washed == null ? '' : r.washed ? '1' : '0' });
-/** В тело запроса: метры → мм; пусто — стереть. */
-export const metalBody = (v) => ({
-  assortment: v.assortment || null, materialGrade: v.materialGrade || null, washed: v.wash === '' || v.wash == null ? null : v.wash === '1',
-  dims: { thickness: v.thickness || null, length: v.lengthM ? Math.round(v.lengthM * 1000) : null, width: v.widthM ? Math.round(v.widthM * 1000) : null },
+export const metalInitial = (r) => ({
+  thickness: r.dims?.thickness ?? null,
+  lengthM: r.dims?.length ? r.dims.length / 1000 : null,
+  widthM: r.dims?.width ? r.dims.width / 1000 : null,
+  wash: r.washed == null ? '' : r.washed ? '1' : '0',
 });
+
+/**
+ * В тело запроса по виду (C022-2). wasKind — вид при открытии формы (null = создаём / не было металла).
+ * Пустое число → null. Диаметр не кладём.
+ */
+export const metalBody = (v, { wasKind = null } = {}) => {
+  const kind = metalKindUi(v.categoryName, v.unit);
+  const num = (x) => { const n = Number(x); return Number.isFinite(n) && n > 0 ? n : null; };
+  if (!kind) {
+    if (!wasKind) return {}; // метиз как был — ключи металла не трогаем
+    return { assortment: null, materialGrade: null, washed: null, dims: { thickness: null, length: null, width: null } };
+  }
+  const thickness = num(v.thickness);
+  const length = v.lengthM ? Math.round(num(v.lengthM) * 1000) : null;
+  const width = kind === 'sheet' && v.widthM ? Math.round(num(v.widthM) * 1000) : null;
+  return {
+    assortment: v.assortment || null,
+    materialGrade: v.materialGrade || null,
+    washed: kind === 'pipe' ? (v.wash === '' || v.wash == null ? null : v.wash === '1') : null,
+    dims: { thickness, length, width: kind === 'pipe' ? null : width },
+  };
+};
 
 /** «Отложить обрезок»: длина (лист — и ширина), сколько кусков. */
 export async function offcutDialog(r, ctx) {

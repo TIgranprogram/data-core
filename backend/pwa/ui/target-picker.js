@@ -121,19 +121,30 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
   async function chooseOrder(o, lineNo, lineId) {
     order = { id: o.id, label: o.label || orderLabel(o), orderNo: o.orderNo }; lines = null; linesErr = ''; line = null; whole = false; q = ''; wantLineNo = lineNo || null;
     renderOrder();
+    onChange?.(null); // заказ выбран — слушатель (бронь) прячет дубль «Для чего»
     try {
       lines = await orderLines(o.id);
       if (lineId) { const l = lines.find((x) => String(x.id) === String(lineId)); if (l) line = l; }
       else if (lineId === null) whole = true;
       else if (wantLineNo) { const l = lines.find((x) => String(x.lineNo) === String(wantLineNo)); if (l) line = l; }
     } catch (e) { linesErr = errText(e); }
-    if (order?.id === o.id) renderOrder();
+    if (order?.id === o.id) { renderOrder(); if (line || whole) onChange?.(line); }
+  }
+
+  function clearOrder() {
+    order = null; lines = null; line = null; whole = false; renderOrder(); onChange?.(null);
+    requestAnimationFrame(() => orderIn.focus());
   }
 
   function renderOrder() {
-    if (!order) { orderTitle.textContent = ret ? 'Заказ, из которого вернули' : res ? 'Под заказ (необязательно)' : 'Заказ'; orderBox.replaceChildren(orderField); return; }
+    if (!order) {
+      orderTitle.textContent = ret ? 'Заказ, из которого вернули' : res ? 'Заказ (если уже есть)' : 'Заказ';
+      if (res) orderIn.placeholder = 'Номер или заказчик — или оставьте пусто и впишите конструкцию ниже';
+      orderBox.replaceChildren(orderField);
+      return;
+    }
     const head = h('div', { class: 'tp-sel' }, h('b', { class: 'clip' }, order.label),
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { order = null; lines = null; line = null; whole = false; renderOrder(); requestAnimationFrame(() => orderIn.focus()); } }, 'Сменить заказ'));
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => clearOrder() }, 'Сменить заказ'));
     if (linesErr) { orderBox.replaceChildren(head, h('p', { class: 'muted' }, 'Позиции не загрузились: ' + linesErr)); return; }
     if (!lines) { orderBox.replaceChildren(head, h('div', { class: 'skel', style: { width: '60%', margin: 'var(--s2) 0' } })); return; }
     if (line || whole) {

@@ -38,4 +38,5 @@ export function stockLookup() {
 export const resetStock = () => { cached = null; cachedLookup = null; };
 
 writeHooks.push((path) => { if (/^\/(stock|supply)\//.test(path)) resetStock(); });
-window.addEventListener('data-changed', resetStock); // изменение из другого экрана — следующий вызов возьмёт свежий склад
+// C022: data-changed больше не сбрасывает кэш — иначе ftLoad и смена склада снова качают 10 000 позиций.
+// Свежесть после записи — writeHooks выше; принудительно: resetStock().

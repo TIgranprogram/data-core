@@ -21,7 +21,8 @@ function zoneBar() {
   box.hidden = true;
   const used = zoneNow();
   loadZones().then((zs) => {
-    if (zs.length < 2) { if (used) window.dispatchEvent(new CustomEvent('data-changed')); return; }
+    // один склад: переключатель скрыт; раньше при used слали data-changed и сбрасывали кэш 10k (C022)
+    if (zs.length < 2) return;
     box.hidden = false;
     box.replaceChildren(segmented({ label: 'Склад', items: zs.map((z) => ({ key: z.id, label: z.name })), value: zoneNow(),
       onChange: (id) => { setZone(id); patch({ categoryId: undefined, page: undefined }); window.dispatchEvent(new CustomEvent('data-changed')); } }).el);
@@ -32,7 +33,7 @@ function zoneBar() {
 
 export { mountPipeGrid } from './pipe-grid.js';
 export { mountSheetGrid } from './sheet-grid.js';
-import { metalBody, metalFields, metalInitial, metalView, offcutDialog } from './metal.js';
+import { metalBody, metalFields, metalInitial, metalKindUi, metalView, offcutDialog } from './metal.js';
 import { orderedBlock, orderItem } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/errors.js';
@@ -169,7 +170,7 @@ export const stock = {
     sortDefault: 'name',
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',
-    emptyText: 'На складе пока нет позиций.', emptyHint: 'Позиции появляются из прихода по заявке или кнопкой «+ Позиция» (категория, ед. изм., остаток).',
+    emptyText: 'На складе пока нет позиций.', emptyHint: 'Позиции появляются из прихода по заявке или кнопкой «Новая позиция склада» (категория, ед. изм., остаток).',
     filters: [
       { key: 'status', label: 'Состояние', type: 'chips',
         options: () => [
@@ -186,11 +187,11 @@ export const stock = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {
-      '': 'Все позиции склада. В строке: «+ Принять», «− Выдать»; если не хватает — «Заказать». Несколько позиций разом, бронь и пересчёт — кнопки сверху: «Принять», «Выдать», «Забронировать», «ещё».',
-      low: 'Меньше минимального остатка — пора заказать: кнопка «Заказать» в строке.',
-      none: 'Закончилось — закажите, если позиция ещё нужна.',
+      '': 'Все позиции склада. В строке: «+ Принять» и «Забронировать» (если есть бронь — «Выдать»). Сверху — «Принять на склад»; в «Ещё» — бронь списком, пересчёт, движения. Списание и заказ — в карточке позиции.',
+      low: 'Меньше минимального остатка — пора заказать: откройте позицию → «Заказать».',
+      none: 'Закончилось — закажите из карточки, если позиция ещё нужна.',
       ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',
-      reserved: 'Отложено под заказы. Выдать — кнопка «Выдать» в строке. Снять бронь — откройте позицию, кнопка «Снять бронь».',
+      reserved: 'Отложено под заказы. В строке — «Выдать». Снять бронь — в карточке позиции.',
       ok: 'Хватает. Делать ничего не нужно.',
     },
     rowAction: (r) => {
@@ -214,7 +215,11 @@ export const stock = {
         ? h('span', { title: r.name }, h('b', null, facetLabel('pipe', pipeKey(r))), /нерж/i.test(r.name) ? h('span', { class: 'badge', style: { marginLeft: '6px' } }, 'нерж.') : null, r.washed == null ? null : h('span', { class: 'badge ' + (r.washed ? 'info' : 'warn'), style: { marginLeft: '6px' } }, r.washed ? 'Мытая' : 'Не мытая'))
         : h('span', { title: r.name }, r.name)) },
       { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
-      { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => h('span', { class: 'nowrap' }, h('b', null, qty(r.quantity), r.metal === 'pipe' ? ' м' : ''), r.metal === 'pipe' && r.dims?.length ? h('span', { class: 'muted' }, ` · ${qty(Math.floor(r.quantity * 1000 / r.dims.length))} шт`) : null) },
+      { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => {
+        // C022-4: «м» и пересчёт хлыстов — только труба в метрах с длиной хлыста; обрезок в шт — как штуки
+        const pipeM = r.metal === 'pipe' && String(r.unit || '').toLowerCase() === 'м';
+        return h('span', { class: 'nowrap' }, h('b', null, qty(r.quantity), pipeM ? ' м' : ''), pipeM && r.dims?.length ? h('span', { class: 'muted' }, ` · ${qty(Math.floor(r.quantity * 1000 / r.dims.length))} шт`) : null);
+      } },
       { key: 'unit', label: 'Ед. изм.', render: unit },
       { key: 'reservedQty', label: 'В брони', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
@@ -283,27 +288,45 @@ export const stock = {
   form: {
     fields: async (row) => {
       const lk = await lookups().catch(() => ({ categories: [] }));
-      const ps = await passportSpecField(row);
+      const [ps, metal] = await Promise.all([passportSpecField(row), metalFields()]);
+      const namesOpen = !!(row?.fullName || row?.invoiceName);
+      const stockOpen = !!(row?.weightG || row?.minQuantity);
       return [
+        // C022: воронка — сначала категория и ед., затем названия; металл только у трубы/листа
         { section: 'Что за позиция', tone: 'main', fixed: true },
-        { key: 'name', label: 'Короткое название', required: true, max: 300, span: 3, ...(row ? {} : similarOnStock()), hint: 'Для списков и фильтров, как на складе: «Болт мебельный, M8х40, DIN 603»' },
-        // ДМ.2: необязательные — полное и «как в счёте» (поиск находит по всем трём)
+        { key: 'categoryName', label: 'Категория', type: 'combo', required: !row, options: lk.categories.map((c) => c.name), max: 100, hint: 'От категории зависят поля трубы или листа' },
+        { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30, hint: ' ' },
+        { key: 'name', label: 'Короткое название', required: true, max: 300, span: 3, ...(row ? {} : similarOnStock()), hint: 'Для списков и фильтров: «Болт мебельный, M8х40, DIN 603»' },
+        { key: 'article', label: 'Артикул (поставщика)', max: 100, span: 1, hint: 'Из счёта / заявки. Пусто — останется внутренний код' },
+        { section: 'Ещё названия', tone: 'info', collapsed: !namesOpen },
         { key: 'fullName', label: 'Длинное название', max: 500, span: 3, hint: 'Для документов и паспорта. Пусто — берётся короткое' },
         { key: 'invoiceName', label: 'Название в счёте', max: 500, span: 3, hint: 'Как пишет поставщик — поиск найдёт позицию и по нему' },
-        { key: 'article', label: 'Артикул (поставщика)', max: 100, span: 1, hint: 'Из счёта / заявки. Пусто — останется внутренний код' },
-        { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
-        { key: 'unit', label: 'Ед. изм.', type: 'combo', required: true, options: unitList(lk), max: 30 },
-        // новая позиция — сразу «Начальный остаток»: штуками или по весу (НО.2)
         ...(row ? [] : [{ section: 'Начальный остаток', tone: 'info', fixed: true },
-          { key: 'initial', type: 'widget', label: '', wide: true, widget: () => { const q = h('input', { inputmode: 'decimal', placeholder: '0' }); const wc = weightCount({ qtyInput: q, label: 'Количество' }); return { el: wc.el, get value() { return JSON.stringify(wc.get()); }, set value(_) { /* только ввод */ } }; } }]),
-        { key: 'weightG', label: 'Вес 1 шт., г', type: 'number', min: 0, hint: 'Для счёта по весу: штуки = вес партии ÷ вес 1 шт.' },
-        ...metalFields(),
+          { key: 'initial', type: 'widget', label: '', wide: true,
+            widget: () => {
+              const host = h('div');
+              const q = h('input', { inputmode: 'decimal', placeholder: '0' });
+              let wc = weightCount({ qtyInput: q, unit: 'шт', label: 'Количество' });
+              host.append(wc.el);
+              const api = {
+                el: host,
+                get value() { return JSON.stringify(wc.get()); },
+                set value(_) { /* только ввод */ },
+                setUnit(u) { wc = weightCount({ qtyInput: q, unit: u || 'шт', label: 'Количество' }); host.replaceChildren(wc.el); },
+              };
+              return api;
+            },
+            mount: (f) => {
+              const sync = () => f.input('initial')?.setUnit?.(f.get('unit') || 'шт');
+              f.on('unit', sync); sync();
+            } }]),
+        ...metal,
         { section: 'Фото и примечание', tone: 'main' },
         { key: 'photos', label: 'Фото', type: 'photos', hint: 'Перетащите, вставьте Ctrl+V или выберите файл' },
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
-        // СКФ.5: настройки склада — отдельно от свойств самой позиции
-        { section: 'Склад', tone: 'info' },
+        { section: 'Склад', tone: 'info', collapsed: !stockOpen },
         { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
+        { key: 'weightG', label: 'Вес 1 шт., г', type: 'number', min: 0, hint: 'Для счёта по весу: штуки = вес партии ÷ вес 1 шт.' },
         ...(ps ? [{ section: 'Для паспорта', tone: 'info' }, ps] : []),
       ];
     },
@@ -313,7 +336,7 @@ export const stock = {
       return { unit: 'шт', photos: [], name: fromReq.name || fromCat.name || '', article: fromCat.article || '' };
     },
     toInitial: (r) => ({ ...r, article: r.supplierArticle || '', ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
-    toBody: (v) => {
+    toBody: (v, row) => {
       const b = { photoIds: v.photos || [], name: v.name, fullName: v.fullName || '', invoiceName: v.invoiceName || '', unit: v.unit || 'шт', categoryName: v.categoryName || '', notes: v.notes || '' };
       if (v.article) b.article = v.article;
       // пустое поле = стереть значение (В.7): null уходит на сервер, мин. остаток станет 0
@@ -321,7 +344,8 @@ export const stock = {
       b.weightG = v.weightG; // НО: вес 1 шт. в граммах (сервер хранит кг)
       if (v.initial) b.initial = v.initial;
       if (v.passportSpec) b.passportSpec = v.passportSpec;
-      return { ...b, ...metalBody(v) };
+      const wasKind = row ? (row.metal || metalKindUi(row.categoryName, row.unit)) : null;
+      return { ...b, ...metalBody(v, { wasKind }) };
     },
     create: async (body) => {
       const same = await api('/stock/items', { query: { search: body.name, limit: 20 } });

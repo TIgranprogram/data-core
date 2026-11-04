@@ -1,6 +1,7 @@
 # Карта роли architect
 
-коммит: 5157e5e
+коммит: 66ff0b61
+C022 волна B (2026-11-04): открытие «Склада» несколько раз бьёт GET /stock/items?limit=10000 и /stock/categories; 325 с в SlowScreen — таймер плиток, не один запрос. Кэш клиента гасит data-changed (stock-list.js:41, stock.js:24, :98). Серверный stock.items сбрасывает запись CRM в materials/storageitems/supplyrequests/categories/warehouses. Отчёт: docs/crew/C022-stock-order/ARCHITECT.md.
 аудит C013: без коммита кода, HEAD на чтении 23ff7ff7 (2026-11-03).
 
 Паспорта: текст сейчас — product-passport/passport-v2-text.ts:buildV2Text (Для всех = код + ALL_V2 в passporttemplates, плюс версия категории; замена по номеру пункта); снимок service.snapshot (~284) в textSnapshot; выпуск passport-issue.ts:32.
