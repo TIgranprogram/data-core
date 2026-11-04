@@ -177,7 +177,7 @@ export function mountMoney(params) {
     const calm = { calm: !withOpen };
     const rows = [
       withOpen ? row('Остаток на начало дня', 'bal', cell(c.totals.opening), (d) => cell(d.opening)) : null,
-      row('Поступления', c.totals.income ? 'grp in' : 'grp flat', cell(c.totals.income, { strong: true }), (d) => cell(d.income, { strong: true }), true),
+      row('Поступления', c.totals.income ? 'grp in' : '', cell(c.totals.income, { strong: true }), (d) => cell(d.income, { strong: true }), true),
       ...cos.map((co) => row(co, 'sub', cell(c.totals.incomeBy[co]), (d) => cell(d.incomeBy[co]), true)),
       row('Выплаты', 'grp out', cell(c.totals.expense, { strong: true }), (d) => cell(d.expense, { strong: true }), true),
       ...cos.map((co) => row(co, 'sub', cell(c.totals.expenseBy[co]), (d) => cell(d.expenseBy[co]), true)),

@@ -131,7 +131,6 @@ table.cal tr.sub th.sticky { font-weight: 400; color: var(--muted); padding-left
 table.cal tr.sub td { color: var(--muted); }
 table.cal tr.grp th.sticky::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--ok); }
 table.cal tr.grp.out th.sticky::before { background: var(--danger); }
-table.cal tr.grp.flat th.sticky::before { background: var(--muted); } /* ноль поступлений — не «успех» */
 table.cal tr.bal td, table.cal tr.bal th { background: var(--surface-2); }
 table.cal tr.end td, table.cal tr.end th { border-top: 2px solid var(--border-strong); }
 table.cal td.click { cursor: pointer; color: var(--text); font-weight: 600; }
