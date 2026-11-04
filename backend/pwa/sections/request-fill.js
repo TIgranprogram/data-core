@@ -65,6 +65,21 @@ export function wireFill(fapi) {
     }
   }
   fapi.on('materialId', onMaterial);
+
+  // Выбрали позицию из подсказки, потом поменяли размер в названии (16х100 → 10х100) — это уже другой товар:
+  // привязку к позиции склада снять, иначе приход ляжет в чужой остаток (заявка №191, 2026-11-02). Дописанное слово (HBM) привязку не снимает.
+  const nums = (s) => (String(s || '').match(/\d+(?:[.,]\d+)?/g) || []).join(' ');
+  const unlinkNote = h('div', { class: 'hint warn', hidden: true });
+  fapi.field('title')?.append(unlinkNote);
+  let linkedNums = null;
+  fapi.on('materialId', () => setTimeout(() => { linkedNums = fapi.get('materialId') ? nums(fapi.get('title')) : null; if (linkedNums !== null) unlinkNote.hidden = true; }, 0));
+  fapi.on('title', () => {
+    if (linkedNums === null || !fapi.get('materialId') || nums(fapi.get('title')) === linkedNums) return;
+    linkedNums = null;
+    fapi.set('materialId', '');
+    unlinkNote.textContent = 'Размер в названии изменён — это другой товар. Связь с позицией склада снята: при приёмке появится новая позиция.';
+    unlinkNote.hidden = false;
+  });
   fapi.on('qty', () => { if (last && money$ && !fapi.manual('priceHint')) putSum(last.price, true); });
 
   // ---- З3 ----
