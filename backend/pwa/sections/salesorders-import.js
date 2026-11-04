@@ -6,9 +6,7 @@ import { h } from '../core/dom.js';
 import { api, session } from '../core/api.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { readTableFile } from '../core/xlsx-read.js';
-import { toast } from '../ui/toast.js';
-import { modal } from '../ui/dialog.js';
-import { errText } from '../ui/errors.js';
+import { toast, modal, errText } from '../ui/kit/index.js';
 import { go } from '../core/router.js';
 
 const HEAD_KEYS = {
@@ -93,21 +91,23 @@ export function downloadOrderTemplate() {
 
 function previewBody(parsed) {
   const { header, lines, errors, warnings, ok } = parsed;
-  const row = (k, v) => h('div', { class: 'so-imp-row' }, h('span', { class: 'muted' }, k), h('span', null, v || '—'));
-  return h('div', { class: 'so-imp' },
+  // только эталоны kit/form (design-lint R3/R4): без своих .so-imp-*
+  const row = (k, v) => h('div', { class: 'field' }, h('span', null, k), h('div', null, v || '—'));
+  return h('div', null,
     ok
-      ? h('p', { class: 'so-imp-ok' }, '✓ Сопоставление полей в порядке — можно загружать')
+      ? h('p', { class: 'muted' }, '✓ Сопоставление полей в порядке — можно загружать')
       : h('p', { class: 'form-error' }, 'Исправьте файл и загрузите снова'),
-    errors.length ? h('ul', { class: 'so-imp-err' }, ...errors.map((e) => h('li', null, e))) : null,
-    warnings.length ? h('ul', { class: 'so-imp-warn' }, ...warnings.map((w) => h('li', null, w))) : null,
+    errors.length ? h('div', { class: 'form-error' }, h('ul', null, ...errors.map((e) => h('li', null, e)))) : null,
+    warnings.length ? h('p', { class: 'muted' }, warnings.map((w) => '⚠ ' + w).join(' · ')) : null,
     h('div', { class: 'section-title' }, 'Шапка'),
-    row('№ договора', header.orderNo),
-    row('№ заказа', header.productionNo || '(подставится сам)'),
-    row('Заказчик', header.customer),
-    row('Наша компания', header.companyName),
-    row('Предмет', header.title),
+    h('div', { class: 'form-grid' },
+      row('№ договора', header.orderNo),
+      row('№ заказа', header.productionNo || '(подставится сам)'),
+      row('Заказчик', header.customer),
+      row('Наша компания', header.companyName),
+      row('Предмет', header.title)),
     h('div', { class: 'section-title' }, `Позиции (${lines.length})`),
-    h('ol', { class: 'so-imp-lines' }, ...lines.slice(0, 40).map((l) =>
+    h('ol', { class: 'muted' }, ...lines.slice(0, 40).map((l) =>
       h('li', null, `${l.title} — ${l.qty} ${l.unit}${l.unitPrice != null ? ` · ${l.unitPrice} ₽` : ''}`))),
     lines.length > 40 ? h('p', { class: 'muted' }, `…и ещё ${lines.length - 40}`) : null,
   );

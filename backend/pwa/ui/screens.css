@@ -1310,13 +1310,6 @@ body.has-board-bar { padding-bottom: 80px; }
 /* Готовность заказа к отгрузке */
 .rdy-row { padding: var(--sp-1, 4px) 0; }
 .rdy-row.ok { color: var(--text-muted, inherit); }
-
-/* C019: импорт заказа из Excel */
-.so-imp-ok { color: var(--ok, #1b7f3a); font-weight: 600; margin: 0 0 var(--s3); }
-.so-imp-err { color: var(--danger); margin: 0 0 var(--s3); padding-left: 1.2em; }
-.so-imp-warn { color: var(--warn, #a67c00); margin: 0 0 var(--s3); padding-left: 1.2em; }
-.so-imp-row { display: grid; grid-template-columns: 10rem 1fr; gap: var(--s2); margin: 2px 0; }
-.so-imp-lines { margin: 0; padding-left: 1.2em; max-height: 220px; overflow: auto; }
 .btn.btn-warm { background: var(--gold, var(--accent)); border-color: var(--gold, var(--accent)); color: var(--on-accent, #fff); }
 
 /* Мгновенный отклик: нажатие и полоска загрузки (DESIGN §4) */
