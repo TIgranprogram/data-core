@@ -1,4 +1,3 @@
-import { toast } from '../ui/toast.js';
 import { isBackgroundPath, newKey, withWriteRetry } from './write-retry.js';
 import { applyView, canViewAsUser, clearViewAsStore, viewAsActive, VIEW_AS_BLOCK } from './view-as.js';
 
@@ -160,13 +159,16 @@ async function errorOf(res) {
   return err;
 }
 
-/** «Смотреть как»: любая запись (не GET/HEAD) не уходит на сервер — api, apiFile, confirm, quiet. */
+/** «Смотреть как»: любая запись (не GET/HEAD) не уходит на сервер — api, apiFile, confirm, quiet.
+ *  toast подгружаем лениво: статический импорт тянет DOM и ломает node --test без браузера. */
 function guardViewAsWrite(method = 'GET') {
   const m = String(method || 'GET').toUpperCase();
   if (m === 'GET' || m === 'HEAD' || !viewAsActive(session.realUser)) return;
   const err = new ApiError(VIEW_AS_BLOCK, 403);
   err.viewAs = true;
-  try { toast(VIEW_AS_BLOCK, { tone: 'warn' }); } catch { /* без документа */ }
+  if (typeof document !== 'undefined') {
+    import('../ui/toast.js').then((m) => m.toast(VIEW_AS_BLOCK, { tone: 'warn' })).catch(() => {});
+  }
   throw err;
 }
 
