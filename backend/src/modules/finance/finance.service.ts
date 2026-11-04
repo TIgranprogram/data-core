@@ -4,11 +4,11 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { ourCompanies } from '../incomes/incomes.service';
-import { buildCashflow, buildPending, buildSummary, openingFromStart, type Op, type Start } from './cashflow';
+import { buildCashflow, buildPending, buildSummary, foldOverdueInvoices, openingFromStart, type Op, type Start } from './cashflow';
 import { incomePayments, type IncomePayment } from '../incomes/income.schema';
 import { PayrollService } from '../payroll/payroll.service';
 import { firstPhotoThumbs } from '../../common/photo-thumbs';
-import { buildForecast, expectedOps, type ExpenseSrc, type IncomeSrc } from './forecast';
+import { buildForecast, expectedOps, invoiceStaleSince, type ExpenseSrc, type IncomeSrc } from './forecast';
 
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,18 +74,23 @@ export class FinanceService {
     return { all, used };
   }
 
-  /** Операции периода по выбранным компаниям. */
-  private async ops(from: string, to: string, companyIds: Types.ObjectId[]): Promise<{ ops: Op[]; invoices: Op[]; awaiting: Op[] }> {
+  /** Операции периода по выбранным компаниям. `overdueBefore` — ещё неоплаченные счета раньше периода, не старше 90 дней (прогноз ставит их на сегодня). */
+  private async ops(from: string, to: string, companyIds: Types.ObjectId[], overdueBefore = false): Promise<{ ops: Op[]; invoices: Op[]; awaiting: Op[] }> {
     const db = this.connection.db!;
     const range = { $gte: new Date(from + 'T00:00:00Z'), $lt: new Date(Date.parse(to + 'T00:00:00Z') + 86400000) };
     const companies = await ourCompanies(this.connection);
     const cname = new Map(companies.map((c) => [String(c.id), c.name]));
     const selectedCompanyIds = new Set(companyIds.map(String));
     const end = range.$lt;
+    const today = iso(new Date());
+    const overdueClause = overdueBefore
+      ? [{ paid: { $ne: true }, invoiceDate: { $gte: new Date(invoiceStaleSince(today) + 'T00:00:00Z'), $lt: new Date(from + 'T00:00:00Z') } }]
+      : [];
     const [reqs, incs, shipped, payroll, cats, orgs, paidInvoices] = await Promise.all([
-      // оплаченные — по дате оплаты (paidAt, нет — дата счёта); неоплаченные с датой счёта в периоде — «счета к оплате»
+      // оплаченные — по дате оплаты (paidAt, нет — дата счёта); неоплаченные с датой счёта в периоде — «счета к оплате»;
+      // раньше периода (не старше 90 дней) — те же просроченные, что прогноз ставит на сегодня
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
-        { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }] },
+        { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }, ...overdueClause] },
         { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, $or: [{ 'payments.date': range }, { paidDate: range }] },
         { projection: { orderNo: 1, title: 1, amount: 1, paidDate: 1, payments: 1, companyId: 1, customer: 1 } }).toArray(),
@@ -113,7 +118,6 @@ export class FinanceService {
     const inRange = (d: string) => d >= from && d <= to;
     const incomeOp = (i: (typeof incs)[number], p: IncomePayment, partial: boolean): Op => ({ type: 'income', id: String(i._id), date: iso(p.date), amount: p.amount, company: cname.get(String(i.companyId)) ?? '?',
       title: String(i.title ?? '') + (partial ? ' · частичная оплата' : ''), doc: i.orderNo ? `заказ ${i.orderNo}` : undefined, counterparty: i.customer ? String(i.customer) : undefined, ...(p.method ? { method: p.method } : {}) });
-    const today = iso(new Date());
     return {
       ops: [
         ...reqs.filter((r) => r.paid === true && !snapshotRequestIds.has(String(r._id)) && !(r.invoiceId && snapshotInvoiceIds.has(String(r.invoiceId)))).map((r) => exp(r, iso(r.paidAt) || iso(r.invoiceDate))).filter((o) => inRange(o.date)),
@@ -129,7 +133,7 @@ export class FinanceService {
         ...incs.flatMap((i) => { const pays = incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }); return pays.map((p) => incomeOp(i, p, pays.length > 1 || p.amount < Number(i.amount))); }).filter((o) => inRange(o.date)),
         ...payroll.map((p): Op => ({ type: 'expense', id: p.id, date: p.date, amount: p.amount, company: cname.get(p.companyId) ?? '?', title: `${p.kind} · ${p.person}`, category: 'ФОТ', costCenter: 'ФОТ', counterparty: p.person })),
       ],
-      invoices: reqs.filter((r) => r.paid !== true).map((r) => exp(r, iso(r.invoiceDate), iso(r.invoiceDate) < today)),
+      invoices: reqs.filter((r) => r.paid !== true).map((r) => { const d = iso(r.invoiceDate); return exp(r, d, !!d && d <= today); }),
       awaiting: shipped.flatMap((i): Op[] => {
         const left = Math.round((Number(i.amount) - incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }).reduce((s, p) => s + p.amount, 0)) * 100) / 100;
         return left > 0 ? [{ type: 'income', id: String(i._id), date: iso(i.shipDate), amount: left, company: cname.get(String(i.companyId)) ?? '?', title: String(i.title ?? ''),
@@ -169,19 +173,21 @@ export class FinanceService {
     const { used } = await this.companies(q.org);
     const names = used.map((c) => c.name);
     const ids = used.map((c) => c.id);
-    const { ops, invoices, awaiting } = await this.ops(from, to, ids);
+    const today = iso(new Date());
+    const periodHasToday = from <= today && today <= to;
+    const { ops, invoices, awaiting } = await this.ops(from, to, ids, periodHasToday);
     const start = await this.start(names);
     // со стартом учёта остаток на начало периода считается от старта, а не из запроса
     const open = start && start.date < from ? openingFromStart(start, (await this.ops(start.date, iso(new Date(Date.parse(from + 'T00:00:00Z') - 86400000)), ids)).ops, from) : opening;
     const { days, totals } = buildCashflow(ops, from, to, open, names, start);
-    // «Ещё не деньги» (В-1, В-2): в остаток не входит; overdue — срок раньше начала периода
-    const pending = { invoices: buildPending(invoices, from, to, names), awaiting: buildPending(awaiting, '0000-01-01', to, names) };
-    const today = iso(new Date());
+    // «Ещё не деньги» (В-1, В-2): в остаток не входит. Просроченные счета — на сегодня, не старше 90 дней, как в прогнозе.
+    const due = foldOverdueInvoices(invoices, from, to, today, invoiceStaleSince(today));
+    const pending = { invoices: buildPending(due, from, to, names), awaiting: buildPending(awaiting, '0000-01-01', to, names) };
     // показатели периода для шапки экрана
     const metrics = {
       received: totals.income, paid: totals.expense, saldo: Math.round((totals.income - totals.expense) * 100) / 100,
       expectedIncome: pending.awaiting.total, invoicesToPay: pending.invoices.total,
-      overdueInvoices: Math.round(invoices.filter((o) => o.date < today && o.date <= to).reduce((s, o) => s + o.amount, 0) * 100) / 100,
+      overdueInvoices: Math.round(due.filter((o) => o.overdue && o.date >= from && o.date <= to).reduce((s, o) => s + o.amount, 0) * 100) / 100,
     };
     return { from, to, org: q.org || 'all', companies: names, opening: open, startDate: start?.date ?? null, days, totals, metrics, pending, needsFill: await this.needsFill() };
   }
@@ -206,7 +212,7 @@ export class FinanceService {
     if (start && start.date <= today) opening = openingFromStart(start, (await this.ops(start.date, today, ids)).ops, iso(new Date(Date.parse(today + 'T00:00:00Z') + 86400000)));
     const cname = new Map(used.map((c) => [String(c.id), c.name]));
     const db = this.connection.db!;
-    const stale = new Date(Date.parse(today + 'T00:00:00Z') - 90 * 86400000); // старые неоплаченные счета — не прогноз, а чистка данных
+    const stale = new Date(invoiceStaleSince(today) + 'T00:00:00Z'); // старые неоплаченные счета — не прогноз, а чистка данных
     const [reqs, incs, orgs, payDue] = await Promise.all([
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids },
         $or: [{ invoiceDate: { $gte: stale } }, { invoiceDate: null, status: { $in: ['in_progress', 'requested', 'ordered'] } }, { invoiceDate: { $exists: false }, status: { $in: ['in_progress', 'requested', 'ordered'] } }] },

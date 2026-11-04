@@ -18,11 +18,11 @@ describe('app-sections: Документация', () => {
 });
 
 describe('app-sections: Склад (телефон)', () => {
-  it('раздел есть, открывает только склад и заявки', () => {
+  it('раздел есть, открывает склад и не открывает заявки', () => {
     expect(APP_SECTION_IDS).toContain('stock-mobile');
     const open = new Set(['stock-mobile']);
     expect(sectionOpen(open, 'stock')).toBe(true);
-    expect(sectionOpen(open, 'requests')).toBe(true);
+    expect(sectionOpen(open, 'requests')).toBe(false);
     expect(sectionOpen(open, 'money')).toBe(false);
   });
 });

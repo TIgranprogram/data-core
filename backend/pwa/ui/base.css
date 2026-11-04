@@ -52,6 +52,9 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); margin: 0
 .gsearch::before { content: '⌕'; position: absolute; z-index: 1; pointer-events: none; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; line-height: 1; }
 .gsearch kbd { position: absolute; z-index: 1; right: 10px; top: 9px; font: 11px var(--font); color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; background: var(--surface-2); }
 .net-off { background: var(--danger); color: var(--on-danger); text-align: center; padding: 6px var(--gutter); font-size: var(--fs-sm); }
+.view-as { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--s3); background: var(--warn-soft); color: var(--warn); text-align: center; padding: 6px var(--gutter); font-size: var(--fs-sm); font-weight: 600; }
+.view-as .btn { font-weight: 600; }
+@media (max-width: 720px) { .view-as .btn { min-height: 44px; } }
 .side-back { display: none; }
 
 @media (max-width: 1100px) {

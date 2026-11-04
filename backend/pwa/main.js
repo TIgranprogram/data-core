@@ -4,6 +4,7 @@ import { isDragging } from './ui/drag.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, canEditSection, events, login, PREFIX, session, trackLoad } from './core/api.js';
+import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view-as.js';
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/dialog.js';
@@ -13,7 +14,7 @@ import { installGlobalErrors } from './ui/errors.js';
 import { toast, toastError } from './ui/toast.js';
 import { icon } from './ui/icons.js';
 import { closePopMenu, isOpenFor, openPopMenu } from './ui/pop-menu.js';
-import { iconButton } from './ui/kit/index.js';
+import { button, iconButton } from './ui/kit/index.js';
 import { mountList } from './ui/list.js';
 import { mountHome } from './sections/home.js';
 import { lookups } from './sections/lookups.js';
@@ -248,6 +249,7 @@ function shell() {
     backBtn.title = i.canBack ? `Назад: ${screenTitle(i.backUrl)} (Alt+←)` : 'Назад — это первый экран';
     fwdBtn.title = i.canForward ? `Вперёд: ${screenTitle(i.forwardUrl)} (Alt+→)` : 'Вперёд — некуда';
   });
+  const viewBar = viewAsBar();
   const topbar = h('header', { class: 'topbar' },
     h('button', { class: 'btn btn-ghost btn-icon burger', type: 'button', 'aria-label': 'Меню', onclick: () => shellEl.classList.toggle('nav-open') }, icon('menu')),
     // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
@@ -262,12 +264,30 @@ function shell() {
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
-    h('div', { class: 'main' }, topbar, crumbsEl, netBar, main));
+    h('div', { class: 'main' }, topbar, viewBar, crumbsEl, netBar, main));
   root.replaceChildren(shellEl);
   refreshCounts();
   return { main, gs, gsb };
 }
 const roleName = (r) => ({ admin: 'администратор', director: 'руководитель', manager: 'менеджер', user: 'просмотр' })[r] || (r ? 'другая роль' : '');
+
+/** Полоса просмотра роли. Скрыта, когда смотрим как обычно. Кнопка сбрасывает выбор локально. */
+function viewAsBar() {
+  if (!viewAsActive(session.realUser)) return null;
+  const label = session.user?.roleLabel || 'роль';
+  return h('div', { class: 'view-as', role: 'status' },
+    h('span', null, 'Сейчас как: ', h('b', null, label), ' · только просмотр'),
+    button({ label: 'Вернуть свою роль', size: 'S', kind: 'secondary', onClick: () => setViewAs(null) }));
+}
+
+/** Меню заново — как после смены разделов роли. Карточка откроется снова, если адрес её держит. */
+function rebuildShell() {
+  if (!ui) return;
+  closeCard();
+  ui = shell();
+  mounted = null;
+  render(current());
+}
 // SW-6: запись ждёт сервер (переключение, обрыв) — полоса другим текстом: запрос не потерян, повторится сам
 const NET_OFF = 'Нет связи с сервером — изменения сейчас не сохранятся. Проверьте интернет.';
 const NET_WAIT = 'Нет соединения с сервером. Подождите, повторяем запрос.';
@@ -531,7 +551,7 @@ function syncCard(section, params) {
 }
 
 async function showApp() {
-  startPrefs(session.user); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
+  startPrefs(session.realUser); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
   if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain();
   startLiveSync({ busy: isBusy, onChange: onVersions });
   ui = shell();
@@ -545,15 +565,19 @@ async function showApp() {
 
 /** Свежие данные о себе: разделы роли — перестроить меню, аватар и имя — перерисовать шапку (иначе после смены на другом ПК нужен второй F5). */
 function refreshMe() {
-  return api('/auth/me').then((me) => {
+  return api('/auth/me').then(async (me) => {
     if (!(me?.id || me?.username)) return;
     const was = JSON.stringify(session.user?.sections ?? null);
     const face = (u) => `${u?.avatar ?? ''}|${u?.displayName ?? ''}`;
-    const wasFace = face(session.user);
-    session.user = { ...session.user, ...me };
+    const wasFace = face(session.realUser);
+    session.user = { ...session.realUser, ...me };
     serverPrefs(me.uiPrefs); // ШП: с сервера перекрывают локальные (с другого ПК)
-    if (JSON.stringify(session.user?.sections ?? null) !== was) { closeCard(); ui = shell(); mounted = null; render(current()); }
-    else if (face(session.user) !== wasFace) window.dispatchEvent(new CustomEvent('dc:profile'));
+    let rebuilt = false;
+    if (getViewAs() && !session.canViewAs) rebuilt = setViewAs(null) !== false && !getViewAs();
+    else if (getViewAs() && session.canViewAs) {
+      try { rebuilt = await syncViewAsRoles(api); } catch { /* снимок прежний, меню по нему */ }
+    } else if (JSON.stringify(session.user?.sections ?? null) !== was) { rebuildShell(); rebuilt = true; }
+    if (!rebuilt && face(session.realUser) !== wasFace) window.dispatchEvent(new CustomEvent('dc:profile'));
   }).catch(() => {});
 }
 // Программный go/patch также обязан пройти guard до closeCard() (native hash уже проверен router).
@@ -614,6 +638,7 @@ function onVersions(keys) {
   if (!shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }
   refreshCounts(new Set([...keys].filter((k) => k !== 'passports' && k !== 'products')));
 }
+document.addEventListener('dc:view-as', () => rebuildShell());
 window.addEventListener('data-changed', onDataChanged);
 document.addEventListener('dc:changed', onDataChanged);
 window.addEventListener('online', () => events.onNet(true));

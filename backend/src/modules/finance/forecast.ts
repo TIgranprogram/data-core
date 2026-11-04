@@ -5,7 +5,7 @@
  * Факт — только оплаченное (заявки с paid, платежи по позициям, выплаты ФОТ), поэтому в прогноз идёт всё неоплаченное:
  * Ожидаемые выплаты — НЕоплаченные заявки (не отменённые) с суммой и нашей компанией:
  *   дата счёта позже сегодня → в этот день; дата счёта уже прошла (счёт не оплачен) → на сегодня как «просрочено»;
- *   открытые (ожидает / заказать / в работе) без даты счёта → «без срока».
+ *   старше 90 дней (invoiceStaleSince) — не прогноз; открытые без даты счёта → «без срока».
  * Ожидаемые поступления — неоплаченный остаток позиций заказов (сумма − уже принятые платежи, К7):
  *   форма оплаты «… 30% …» — 30% в день заказа (договора), остаток — в срок; уже принятая предоплата вычитается; иначе всё — в срок;
  *   срок = отгрузка → изготовление → окончание поставки; срок уже прошёл — на сегодня как «просрочено»; срока нет — «без срока».
@@ -24,6 +24,14 @@ export interface IncomeSrc {
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const OPEN = new Set(['in_progress', 'requested', 'ordered']);
 
+/** Неоплаченный счёт старше этого срока — не прогноз и не «к оплате» на сегодня, а чистка данных. */
+export const INVOICE_STALE_DAYS = 90;
+
+/** Нижняя граница даты счёта (ГГГГ-ММ-ДД): раньше неё просрочка в прогноз и в календарь «на сегодня» не входит. */
+export function invoiceStaleSince(today: string): string {
+  return new Date(Date.parse(today + 'T00:00:00Z') - INVOICE_STALE_DAYS * 86400000).toISOString().slice(0, 10);
+}
+
 /** «б/р 30%» → 30; «50% предоплата» → 50; нет процента — null. */
 export function prepayPercent(form?: string | null): number | null {
   const m = String(form ?? '').match(/(\d{1,3})\s*%/);
@@ -38,6 +46,7 @@ export function expectedOps(expenses: ExpenseSrc[], incomes: IncomeSrc[], today:
   for (const e of expenses) {
     if (!(e.amount > 0) || e.status === 'cancelled') continue;
     if (e.invoiceDate) {
+      if (e.invoiceDate < invoiceStaleSince(today)) continue; // старые неоплаченные — чистка данных, не прогноз
       const overdue = e.invoiceDate <= today;
       ops.push({ type: 'expense', id: e.id, date: overdue ? today : e.invoiceDate, amount: r2(e.amount), company: e.company, title: overdue ? `${e.title} · просрочено` : e.title, doc: e.doc, counterparty: e.counterparty, thumb: e.thumb, overdue });
     }

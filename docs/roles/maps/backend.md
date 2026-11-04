@@ -1,5 +1,17 @@
 # Карта роли backend
 
+## Деньги: просроченные счета в календаре (MONEY-SHOW §B, 2026-11-04, не закоммичено)
+- `cashflow.ts:49` `foldOverdueInvoices`: просрочка (срок ≤ сегодня, не старше `invoiceStaleSince`) встаёт на сегодня, если период включает сегодня; прошлый месяц оставляет счета на своей дате.
+- `forecast.ts:31` `invoiceStaleSince` (90 дней); `expectedOps:49` тот же отсев. `finance.service.ts:86` добирает неоплаченные раньше периода; `:184` pending/metrics считаются после переноса. Поля ответа те же.
+- Тесты: `cashflow.spec` + `forecast.spec` — 18 зелёных. ФОТ в «счета к оплате» не входит. коммит: —
+
+## Доступы ролей (C020 волна B, 2026-11-04, не закоммичено)
+- `common/app-sections.ts:95` `sectionOpen`: `stock-mobile` открывает только `stock`, не `requests`.
+- `supply.controller.ts:284` GET `requests` и `:408` POST `receive` — `@AppSection('requests','stock','stock-mobile')`. `stock` оставлен: экран «Остатки» зовёт тот же список и приёмку.
+- `supply.controller.ts:342` POST `requests` — без метода, действует класс `requests`. Иначе `stock-mobile` создавал заявки через открытый `stock`.
+- `pwa/core/api.js:47` `sees`: нет автопоказа `stock-mobile` от галочки `stock`. `onlyStockMobile:56` без изменений.
+- Тесты: `app-sections.spec` + `app-section.guard.spec` — 13 зелёных. `node --check` api.js (stdin) — ок. openapi не трогался. коммит: —
+
 ## Склады-зоны (WZ, шаги M сервер + L перевод, 2026-11-01, не закоммичено)
 - Доступ: `common/stock-scope.ts` (`stockScopeFor`, `inScope`, `scopeMatch`, `narrowToZone`, кэш зон/дерева/ролей), `common/decorators/stock-scoped.decorator.ts` (`@StockScoped()`), `common/supply-scope.ts` (заявки/каталог по `materialId`/`categoryId`).
 - Справочник: `modules/stock-zones/` (schema `stockzones`, service `refresh` + CRUD, controller `/stockzones`); `GET /stock/zones` — `stock.controller.ts`. Роль: `role.schema.ts`/`create-role.dto.ts` `warehouseIds`, `role.service.ts` `setRoleStockScope(name, doc)`.

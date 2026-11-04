@@ -150,16 +150,34 @@
   }
 
   // ---- Ведение проекта (devlog): версии, ошибки, задачи, время, документы, набор ----
-  const DV = { tab: 'releases', built: false };
-  const DV_TABS = [['releases', 'Версии'], ['errors', 'Ошибки'], ['tasks', 'Задачи'], ['time', 'Время'], ['docs', 'Документы'], ['kit', 'Шаблоны']];
+  const DV = { tab: 'time', built: false };
+  const DV_TABS = [['time', 'Время'], ['releases', 'Версии'], ['errors', 'Ошибки'], ['tasks', 'Задачи'], ['docs', 'Документы'], ['kit', 'Шаблоны']];
   const DV_PREFIX = { feat: 'новое', fix: 'исправление', docs: 'документы', chore: 'служебное', perf: 'ускорение', refactor: 'порядок в коде', test: 'проверки', style: 'оформление' };
+  const DV_AREA = {
+    pwa: 'приложение', admin: 'админка', docs: 'документы', scripts: 'скрипты', passports: 'паспорта', pult: 'пульт',
+    stock: 'склад', supply: 'заявки', deploy: 'выкладка', crew: 'команда', nightshift: 'ночная смена', orders: 'заказы',
+    offers: 'предложения', test: 'проверки', tests: 'проверки', products: 'изделия', showcase: 'каталог', finance: 'деньги',
+    incomes: 'доходы', expenses: 'расходы', partners: 'контрагенты', auth: 'вход', roles: 'роли', users: 'пользователи',
+    meta: 'схема API', work: 'производство', matching: 'сопоставление', chat: 'чат', files: 'файлы', disk: 'диск',
+    common: 'общее', database: 'база', print: 'печать', 'без раздела': 'без раздела', 'без префикса': 'без типа',
+  };
   const DV_ERR = { new: 'новая', in_progress: 'в работе', fixed: 'исправлена', not_bug: 'не ошибка' };
   const DV_TASK = { open: 'открыта', in_progress: 'в работе', done: 'сделана', not_bug: 'не нужна' };
+  const DV_PLACE = { home: 'дом', work: 'работа' };
+  const dvNice = (code, map, fallback) => {
+    const k = String(code || '').toLowerCase();
+    if (map[code]) return map[code];
+    if (map[k]) return map[k];
+    if (!k || k === 'undefined') return fallback || 'прочее';
+    return fallback ? fallback.replace('%', k) : k;
+  };
   const dvItems = (r) => (Array.isArray(r) ? r : (r && r.items) || []);
   const dvQs = (o) => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== '' && v != null) p.set(k, v); }); const s = p.toString(); return s ? '?' + s : ''; };
   const dvDay = (s) => s ? new Date(s).toLocaleDateString('ru-RU') : '—';
   const dvDateTime = (s) => s ? new Date(s).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  const dvTimeOnly = (s) => s ? new Date(s).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
   const dvHours = (n) => (Number(n) || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+  const dvIso = (d) => d.toISOString().slice(0, 10);
   function dvEmpty(box, text) { box.replaceChildren(el('p', 'muted dv-empty', text)); }
   function dvTable(heads, rows) {
     const wrap = el('div', 'table-wrap'), t = el('table', 'table'), th = el('tr');
@@ -171,6 +189,12 @@
   function dvSelect(map, cur, onChange) {
     const s = el('select'); Object.entries(map).forEach(([k, v]) => s.append(new Option(v, k))); s.value = cur in map ? cur : Object.keys(map)[0];
     s.addEventListener('change', () => onChange(s.value)); return s;
+  }
+  function dvKpi(label, value, hint) {
+    const c = el('div', 'dv-kpi');
+    c.append(el('div', 'dv-kpi-v', value), el('div', 'dv-kpi-l', label));
+    if (hint) c.append(el('div', 'muted small', hint));
+    return c;
   }
   function openDevlog() {
     const root = $('#dv-body');
@@ -244,34 +268,96 @@
   function dvBars(data, title) {
     const box = el('div', 'dv-chart'); box.append(el('h3', '', title));
     if (!data.length) { box.append(el('p', 'muted small', 'Нет данных за период.')); return box; }
-    const W = 520, H = 180, pad = 24, max = Math.max(...data.map((d) => d.v), 1), bw = (W - pad) / data.length;
+    const W = 520, H = 180, pad = 28, max = Math.max(...data.map((d) => d.v), 1), bw = (W - pad) / data.length;
     const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H + 36}`); svg.setAttribute('class', 'dv-svg'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', title + ': ' + data.map((d) => d.l + ' — ' + dvHours(d.v) + ' ч').join('; '));
+    svg.setAttribute('viewBox', `0 0 ${W} ${H + 40}`); svg.setAttribute('class', 'dv-svg'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', title + ': ' + data.map((d) => d.l + ' — ' + dvHours(d.v) + ' ч').join('; '));
     const mk = (n, a, t) => { const e = document.createElementNS(NS, n); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (t != null) e.textContent = t; return e; };
+    svg.append(mk('line', { x1: pad - 4, y1: H, x2: W, y2: H, class: 'dv-axis' }));
+    const maxLbl = Math.max(6, Math.floor(bw / 7));
     data.forEach((d, i) => {
       const bh = Math.max(2, (d.v / max) * (H - 20)), x = pad + i * bw;
-      const r = mk('rect', { x: x + 3, y: H - bh, width: Math.max(4, bw - 8), height: bh, rx: 3, class: 'dv-bar' }); r.append(mk('title', {}, `${d.l}: ${dvHours(d.v)} ч`));
-      svg.append(r, mk('text', { x: x + bw / 2, y: H - bh - 4, 'text-anchor': 'middle', class: 'dv-val' }, dvHours(d.v) + ' ч'), mk('text', { x: x + bw / 2, y: H + 14, 'text-anchor': 'middle', class: 'dv-lbl' }, d.l.length > 9 ? d.l.slice(0, 8) + '…' : d.l));
+      const full = String(d.l), short = full.length > maxLbl ? full.slice(0, Math.max(4, maxLbl - 1)) + '…' : full;
+      const tip = `${full}: ${dvHours(d.v)} ч`;
+      const r = mk('rect', { x: x + 3, y: H - bh, width: Math.max(4, bw - 8), height: bh, rx: 3, class: 'dv-bar' }); r.append(mk('title', {}, tip));
+      const lbl = mk('text', { x: x + bw / 2, y: H + 16, 'text-anchor': 'middle', class: 'dv-lbl' }, short); lbl.append(mk('title', {}, tip));
+      svg.append(r, mk('text', { x: x + bw / 2, y: H - bh - 4, 'text-anchor': 'middle', class: 'dv-val' }, dvHours(d.v)), lbl);
     });
     box.append(svg); return box;
   }
   async function dvTime(root) {
-    const now = new Date(), from = new Date(now.getTime() - 30 * 864e5), iso = (d) => d.toISOString().slice(0, 10);
-    const fl = el('div', 'filters'), a = el('input'), b = el('input'), m = el('input'); a.type = 'date'; b.type = 'date'; m.type = 'checkbox'; m.checked = true; a.value = iso(from); b.value = iso(now);
+    const now = new Date();
+    const fl = el('div', 'filters'), presets = el('div', 'dv-presets');
+    const a = el('input'), b = el('input'), m = el('input');
+    a.type = 'date'; b.type = 'date'; m.type = 'checkbox'; m.checked = true;
     a.className = b.className = 'dv-date';
-    const ml = el('label', 'dv-chk'); ml.append(m, document.createTextNode(' с ручной правкой часов'));
-    fl.append(el('label', '', 'С'), a, el('label', '', 'по'), b, ml);
-    const out = el('div'); root.replaceChildren(fl, out);
+    let preset = 'all';
+    const setRange = (key) => {
+      preset = key;
+      if (key === 'all') { a.value = ''; b.value = ''; }
+      else {
+        const days = key === '7' ? 7 : 30;
+        a.value = dvIso(new Date(now.getTime() - days * 864e5));
+        b.value = dvIso(now);
+      }
+      Array.from(presets.children).forEach((btn) => btn.classList.toggle('btn-primary', btn.dataset.k === key));
+    };
+    [['all', 'Всё время'], ['30', '30 дней'], ['7', '7 дней']].forEach(([k, t]) => {
+      const btn = el('button', 'btn btn-sm', t); btn.type = 'button'; btn.dataset.k = k;
+      btn.addEventListener('click', () => { setRange(k); safe(); });
+      presets.append(btn);
+    });
+    setRange('all');
+    const ml = el('label', 'dv-chk'); ml.append(m, document.createTextNode(' учитывать ваши часы'));
+    fl.append(presets, el('label', '', 'С'), a, el('label', '', 'по'), b, ml);
+    const hint = el('p', 'muted small dv-method', 'Как считаем: правки с паузой меньше 2 часов — одна сессия; часы = от первой до последней правки + 0,5 ч. День без коммитов не виден. Место — по эстафете 🏠 / 🏢 в конце коммита.');
+    const out = el('div'); root.replaceChildren(hint, fl, out);
     const load = async () => {
       out.replaceChildren(el('p', 'muted', 'Загрузка…'));
-      const range = { from: a.value, to: b.value };
-      const [st, ss] = await Promise.all([api('/devlog/stats' + dvQs({ ...range, manual: m.checked ? 1 : '' })), api('/devlog/sessions' + dvQs(range))]);
+      const range = {};
+      if (a.value) range.from = a.value;
+      if (b.value) range.to = b.value;
+      const [st, ss] = await Promise.all([
+        api('/devlog/stats' + dvQs({ ...range, manual: m.checked ? 1 : '' })),
+        api('/devlog/sessions' + dvQs({ ...range, limit: 200 })),
+      ]);
       const sessions = dvItems(ss);
-      if (!sessions.length && !(st && st.totalHours)) return dvEmpty(out, 'За этот период работы не видно. Выберите другие даты.');
-      const tot = el('div', 'dv-total'); tot.append(el('b', '', dvHours(st.totalHours) + ' ч'), el('span', 'muted', ` · сессий: ${st.sessions ?? sessions.length} · правок: ${st.commits ?? 0}`));
-      tot.append(el('div', 'muted small', st.note || 'Оценка по правкам, точность ±30–40 %.'));
-      const obj = (v) => Array.isArray(v) ? v.map((x) => ({ l: dvLabel(String(x.week ?? x.area ?? x.key ?? x.label ?? x._id ?? '')), v: Number(x.hours ?? x.value ?? 0) })) : Object.entries(v || {}).map(([l, x]) => ({ l: dvLabel(l), v: Number(x && typeof x === 'object' ? x.hours : x) || 0 }));
-      const charts = el('div', 'dv-charts'); charts.append(dvBars(obj(st.byWeek), 'Часы по неделям'), dvBars(obj(st.byArea).sort((p, q) => q.v - p.v).slice(0, 8), 'Часы по разделам'));
+      if (!sessions.length && !(st && st.totalHours)) return dvEmpty(out, 'За этот период работы не видно. Выберите другие даты или «Всё время».');
+      const eff = (s) => (m.checked && s.manualHours != null ? Number(s.manualHours) : Number(s.hours)) || 0;
+      let homeH = 0, workH = 0, unkH = 0, manualN = 0;
+      sessions.forEach((s) => {
+        const h = eff(s);
+        if (s.manualHours != null) manualN++;
+        if (s.place === 'home') homeH += h;
+        else if (s.place === 'work') workH += h;
+        else unkH += h;
+      });
+      const placeVal = el('div', 'dv-kpi-split');
+      placeVal.append(el('div', '', 'дом ' + dvHours(homeH)), el('div', '', 'работа ' + dvHours(workH)));
+      const placeCard = el('div', 'dv-kpi');
+      placeCard.append(placeVal, el('div', 'dv-kpi-l', 'Дом и работа'));
+      placeCard.append(el('div', 'muted small', unkH ? ('без метки: ' + dvHours(unkH) + ' ч') : (manualN ? ('ваших часов: ' + manualN) : 'по эстафете в коммите')));
+      const kpis = el('div', 'dv-kpis');
+      kpis.append(
+        dvKpi('Часов всего', dvHours(st.totalHours), st.note || 'оценка ±30–40 %'),
+        dvKpi('Сессий', String(st.sessions ?? sessions.length), 'пауза между правками < 2 ч'),
+        dvKpi('Правок', String(st.commits ?? 0), 'коммитов в периоде'),
+        placeCard,
+      );
+      const weekObj = (Array.isArray(st.byWeek) ? st.byWeek : []).map((x) => ({ l: dvLabel(String(x.week || '')), v: Number(x.hours) || 0 }));
+      const areaObj = (Array.isArray(st.byArea) ? st.byArea : []).map((x) => ({ l: dvNice(String(x.area || ''), DV_AREA, 'раздел «%»'), v: Number(x.hours) || 0 })).sort((p, q) => q.v - p.v).slice(0, 8);
+      const prefixObj = (Array.isArray(st.byPrefix) ? st.byPrefix : []).map((x) => ({ l: dvNice(String(x.prefix || ''), DV_PREFIX, 'прочее'), v: Number(x.hours) || 0 })).slice(0, 6);
+      const placeBars = [
+        { l: 'дом', v: Math.round(homeH * 100) / 100 },
+        { l: 'работа', v: Math.round(workH * 100) / 100 },
+        { l: 'без метки', v: Math.round(unkH * 100) / 100 },
+      ].filter((x) => x.v > 0);
+      const charts = el('div', 'dv-charts');
+      charts.append(
+        dvBars(weekObj, 'Часы по неделям'),
+        dvBars(areaObj, 'Часы по разделам'),
+        dvBars(placeBars, 'Дом и работа'),
+        dvBars(prefixObj, 'По типу правок'),
+      );
       const trs = sessions.map((s) => {
         const tr = el('tr'), inp = el('input'); inp.type = 'number'; inp.min = '0'; inp.step = '0.5'; inp.className = 'dv-hours';
         inp.value = s.manualHours ?? ''; inp.placeholder = dvHours(s.hours);
@@ -282,13 +368,25 @@
           catch (e) { toast(e.message); save.disabled = false; }
         });
         const cell = el('div', 'dv-edit'); cell.append(inp, save);
-        tr.append(dvTd(dvDateTime(s.start)), dvTd(dvHours(s.hours), 'num'), dvTd(s.commits ?? '—', 'num'), dvTd(s.place === 'home' ? 'дом' : s.place === 'work' ? 'работа' : '—'), dvTd(cell));
+        const when = el('div');
+        when.append(el('div', '', dvDay(s.start)));
+        const span = [dvTimeOnly(s.start), dvTimeOnly(s.end)].filter(Boolean).join('–');
+        if (span) when.append(el('div', 'muted small', span));
+        const est = el('div');
+        est.append(el('div', 'num', dvHours(s.hours)));
+        if (s.manualHours != null) est.append(el('div', 'muted small', 'ваши ' + dvHours(s.manualHours)));
+        tr.append(dvTd(when), dvTd(est, 'num'), dvTd(s.commits ?? '—', 'num'), dvTd(DV_PLACE[s.place] || '—'), dvTd(cell));
         return tr;
       });
-      out.replaceChildren(tot, charts, el('h3', 'dv-h', 'Рабочие сессии'), trs.length ? dvTable(['День', '#Часы (оценка)', '#Правок', 'Место', 'Ваши часы (если точнее)'], trs) : el('p', 'muted', 'Сессий нет.'));
+      out.replaceChildren(kpis, charts, el('h3', 'dv-h', 'Рабочие сессии'), trs.length ? dvTable(['Когда', '#Часы (оценка)', '#Правок', 'Место', 'Ваши часы'], trs) : el('p', 'muted', 'Сессий нет.'));
     };
     const safe = () => load().catch((e) => out.replaceChildren(el('p', 'error', 'Не удалось загрузить. Попробуйте ещё раз.')));
-    [a, b, m].forEach((x) => x.addEventListener('change', safe));
+    [a, b].forEach((x) => x.addEventListener('change', () => {
+      preset = 'custom';
+      Array.from(presets.children).forEach((btn) => btn.classList.remove('btn-primary'));
+      safe();
+    }));
+    m.addEventListener('change', safe);
     await load();
   }
   async function dvDocs(root) {
@@ -1614,9 +1712,11 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       const wrap = el('div', 'srv-btns'); wrap.append(btn);
       const parts = [wrap, line];
       if (st.state === 'failed' && st.error) parts.push(el('pre', 'mono small', st.error));
-      if (st.state === 'idle' || st.state === 'done') parts.push(el('p', 'muted small', 'Хранятся последние 3 пакета; старые удаляются автоматически.'));
+      if (st.state === 'idle' || st.state === 'done') parts.push(el('p', 'muted small', 'Хранятся последние 2 пакета; старые удаляются автоматически.'));
       if (busy) parts.push(el('p', 'muted small', 'Закрывать вкладку можно — сборка идёт на сервере.'));
       if (d.items.length) {
+        const totalBytes = d.items.reduce((s, it) => s + (it.bytes || 0), 0);
+        parts.push(el('p', 'muted small', 'На сервере пакетов: ' + d.items.length + ' · занято ' + gb(totalBytes) + '.'));
         const prog = el('span', 'muted srv-prog');
         const table = el('table', 'srv-backups');
         const hr = el('tr'); ['', 'Дата', 'Размер', 'Скачать'].forEach((x) => hr.append(el('th', null, x)));

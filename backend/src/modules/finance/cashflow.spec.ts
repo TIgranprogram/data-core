@@ -1,4 +1,5 @@
-import { buildCashflow, buildPending, buildSummary, daysBetween, openingFromStart, type Op } from './cashflow';
+import { buildCashflow, buildPending, buildSummary, daysBetween, foldOverdueInvoices, openingFromStart, type Op } from './cashflow';
+import { expectedOps, invoiceStaleSince } from './forecast';
 import { incomeDerived } from '../incomes/income.schema';
 
 const op = (type: Op['type'], date: string, amount: number, company = 'СИЮ', extra: Partial<Op> = {}): Op => ({ type, id: date + amount, date, amount, company, title: 'x', ...extra });
@@ -70,5 +71,37 @@ describe('Старт учёта и «ещё не деньги»', () => {
   it('pending: итог по компаниям, просроченные до периода входят', () => {
     const p = buildPending([{ ...op('2026-09-01', 'expense', 10), overdue: true }, op('2026-10-05', 'expense', 20), op('2026-11-05', 'expense', 40)], '2026-10-01', '2026-10-31', ['СИЮ']);
     expect(p).toMatchObject({ total: 30, count: 2, byCompany: { СИЮ: 30 } });
+  });
+
+  it('календарь месяца и «на сегодня»: просрочка встаёт на сегодня, как в прогнозе, старше 90 дней — нет', () => {
+    const today = '2026-11-04';
+    const stale = invoiceStaleSince(today);
+    const src = [
+      { id: 'old', title: 'Старый', amount: 1000, company: 'СИЮ', invoiceDate: '2026-08-01', status: 'ordered' },
+      { id: 'oct', title: 'Октябрь', amount: 157351, company: 'СИЮ', invoiceDate: '2026-10-20', status: 'ordered' },
+      { id: 'nov', title: 'Ноябрь', amount: 500, company: 'СИЮ', invoiceDate: '2026-11-02', status: 'ordered' },
+      { id: 'due', title: 'Сегодня', amount: 10, company: 'СИЮ', invoiceDate: today, status: 'ordered' },
+      { id: 'fut', title: 'Потом', amount: 999, company: 'СИЮ', invoiceDate: '2026-11-20', status: 'ordered' },
+    ];
+    const forecastOverdue = expectedOps(src, [], today).ops.filter((o) => o.overdue && o.type === 'expense');
+    const loaded: Op[] = src.filter((e) => e.invoiceDate <= today).map((e) => ({ type: 'expense', id: e.id, date: e.invoiceDate, amount: e.amount, company: e.company, title: e.title }));
+    const month = foldOverdueInvoices(loaded, '2026-11-01', today, today, stale);
+    const onToday = foldOverdueInvoices(loaded, today, today, today, stale);
+    const sum = (list: { amount: number }[]) => list.reduce((s, o) => s + o.amount, 0);
+    expect(month.map((o) => [o.id, o.date, o.overdue])).toEqual([['oct', today, true], ['nov', today, true], ['due', today, true]]);
+    expect(sum(month)).toBe(sum(forecastOverdue));
+    expect(buildPending(month, '2026-11-01', today, ['СИЮ'])).toMatchObject({ total: sum(forecastOverdue), count: forecastOverdue.length });
+    expect(sum(onToday.filter((o) => o.overdue))).toBe(sum(forecastOverdue));
+    expect(month.find((o) => o.id === 'old')).toBeUndefined();
+  });
+
+  it('прошлый месяц не забирает просрочку, которую прогноз ставит на сегодня', () => {
+    const today = '2026-11-04';
+    const loaded: Op[] = [
+      { type: 'expense', id: 'sep', date: '2026-09-15', amount: 10, company: 'СИЮ', title: 't' },
+      { type: 'expense', id: 'oct', date: '2026-10-20', amount: 20, company: 'СИЮ', title: 't' },
+    ];
+    const folded = foldOverdueInvoices(loaded, '2026-10-01', '2026-10-31', today, invoiceStaleSince(today));
+    expect(folded.map((o) => [o.id, o.date])).toEqual([['oct', '2026-10-20']]);
   });
 });

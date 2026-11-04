@@ -280,7 +280,8 @@ export class SupplyController {
     return this.catalog.remove(id);
   }
 
-  @AppSection('requests', 'stock')
+  // Список: заявки, остатки и телефонный склад (stock-mobile.js: received / ordered,paid). Метод перекрывает класс.
+  @AppSection('requests', 'stock', 'stock-mobile')
   @Get('requests')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤1000, по умолчанию 1000' })
@@ -338,7 +339,6 @@ export class SupplyController {
     return this.supply.get(id, scope);
   }
 
-  @AppSection('requests', 'stock')
   @Post('requests')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
@@ -404,8 +404,8 @@ export class SupplyController {
     return this.supply.removePhoto(id, photoId);
   }
 
-  /** Оприходовать на склад: приход + статус «Получено». */
-  @AppSection('requests', 'stock')
+  /** Оприходовать на склад: приход + статус «Получено». Телефонный склад — тоже; создать заявку он не может. */
+  @AppSection('requests', 'stock', 'stock-mobile')
   @Post('requests/:id/receive')
   @HttpCode(200)
   @Roles('admin', 'manager', 'user')

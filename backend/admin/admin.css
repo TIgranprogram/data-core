@@ -231,6 +231,9 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 
 /* ---------- Ведение проекта ---------- */
 .dv-empty { padding: 24px 0; }
+.dv-method { margin: 0 0 12px; max-width: 980px; }
+.dv-presets { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-right: 8px; }
+.dv-presets .btn { min-height: 36px; }
 .dv-feed { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
 .dv-card { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow); }
 .dv-card summary { cursor: pointer; }
@@ -239,13 +242,20 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 .dv-tag-feat { background: var(--primary-soft); color: var(--primary); }
 .dv-tag-fix { background: var(--danger-soft); color: var(--danger); }
 .dv-tag-back { background: var(--warn-soft); color: var(--warn); margin-top: 4px; }
+.dv-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 4px 0 16px; }
+.dv-kpi { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--shadow); }
+.dv-kpi-v { font-size: 28px; font-weight: 700; color: var(--heading); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.dv-kpi-split { display: flex; flex-direction: column; gap: 2px; font-size: 22px; font-weight: 700; color: var(--heading); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.dv-kpi-l { margin-top: 4px; font-size: var(--fs-sm, 12.5px); color: var(--text); }
+.dv-kpi .muted { color: var(--muted); }
 .dv-total { margin: 4px 0 14px; }
 .dv-total b { font-size: 28px; color: var(--heading); }
-.dv-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 18px; }
+.dv-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 18px; }
 .dv-chart { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 12px 16px; }
-.dv-chart h3, .dv-h { margin: 0 0 8px; font-size: 16px; color: var(--heading); }
+.dv-chart h3, .dv-h { margin: 0 0 8px; font-size: 16px; font-weight: 650; color: var(--heading); }
 .dv-svg { width: 100%; height: auto; }
 .dv-bar { fill: var(--primary); }
+.dv-axis { stroke: var(--border-strong); stroke-width: 1; }
 .dv-val, .dv-lbl { fill: var(--muted); font-size: 11px; }
 .dv-edit { display: flex; gap: 6px; align-items: center; }
 .dv-hours { width: 90px; }
@@ -259,4 +269,9 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 .dv-kit { max-width: 720px; }
 @media (max-width: 900px) { .dv-docs { grid-template-columns: 1fr; } }
 .dv-doc:focus-visible, .dv-card summary:focus-visible { outline: 3px solid var(--primary-soft); outline-offset: 2px; }
-@media (max-width: 900px) { .dv-tab, .dv-doc, .dv-date, .dv-hours, .dv-edit .btn { min-height: 44px; } .dv-chk { min-height: 44px; } .dv-card summary { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; } }
+@media (max-width: 900px) {
+  .dv-tab, .dv-doc, .dv-date, .dv-hours, .dv-edit .btn, .dv-presets .btn { min-height: 44px; }
+  .dv-chk { min-height: 44px; }
+  .dv-card summary { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; }
+  .dv-kpi-v, .dv-kpi-split { font-size: 22px; }
+}

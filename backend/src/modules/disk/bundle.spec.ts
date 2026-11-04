@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { bundleFile, createBundleRequest, isBundleName, listBundles, readBundleStatus } from './bundle';
@@ -41,12 +41,16 @@ describe('переносной пакет', () => {
     const done = await readBundleStatus(req);
     expect(done).toMatchObject({ state: 'done', bytes: 5 });
     expect(done).not.toHaveProperty('secret');
-    writeFileSync(path.join(req, 'request'), '');
+    writeFileSync(path.join(req, 'request'), 'tok-new\n');
     expect((await readBundleStatus(req)).state).toBe('queued');
+    // тот же токен уже в doneRequest — не queued (антицикл sticky/прав)
+    status({ state: 'done', file: 'datacore-bundle-a.tar.gz', bytes: 5, doneRequest: 'tok-new' });
+    expect((await readBundleStatus(req)).state).toBe('done');
     rmSync(path.join(req, 'request'));
     writeFileSync(path.join(req, 'status.json'), '{oops');
     expect((await readBundleStatus(req)).state).toBe('idle');
   });
+
   it('статус: running дольше 6 часов — failed', async () => {
     status({ state: 'running', startedAt: new Date(Date.now() - 7 * 3600e3).toISOString() });
     expect((await readBundleStatus(req)).state).toBe('failed');
@@ -56,11 +60,13 @@ describe('переносной пакет', () => {
   it('запрос: создаётся, повтор и идущая сборка — busy (409)', async () => {
     expect(await createBundleRequest(req)).toBe('ok');
     if (process.platform !== 'win32') expect(statSync(path.join(req, 'request')).mode & 0o777).toBe(0o666);
-    expect(await createBundleRequest(req)).toBe('busy');
-    rmSync(path.join(req, 'request'));
+    expect(await createBundleRequest(req)).toBe('busy'); // request ещё не обработан → queued
+    status({ state: 'done', doneRequest: readFileSync(path.join(req, 'request'), 'utf8').trim() });
+    expect(await createBundleRequest(req)).toBe('ok'); // новый токен поверх старого файла
     status({ state: 'running', startedAt: new Date().toISOString() });
     expect(await createBundleRequest(req)).toBe('busy');
-    status({ state: 'failed' });
+    status({ state: 'failed', doneRequest: readFileSync(path.join(req, 'request'), 'utf8').trim() });
     expect(await createBundleRequest(req)).toBe('ok');
   });
 });
+

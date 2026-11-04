@@ -12,13 +12,29 @@ export const bundlesRoot = () => process.env.HOST_BUNDLES_DIR || '/host-bundles'
 export const requestsRoot = () => process.env.HOST_REQUESTS_DIR || '/host-requests';
 
 export type BundleState = 'idle' | 'queued' | 'running' | 'done' | 'failed';
-export interface BundleStatus { state: BundleState; startedAt?: string; finishedAt?: string; file?: string; bytes?: number; error?: string }
+export interface BundleStatus {
+  state: BundleState;
+  startedAt?: string;
+  finishedAt?: string;
+  file?: string;
+  bytes?: number;
+  error?: string;
+  /** Содержимое request, по которому уже отработала сборка (антицикл, если файл не удалился). */
+  doneRequest?: string;
+}
 
 const exists = (p: string) => fs.lstat(p).then(() => true, () => false);
 
+async function readRequestToken(reqDir: string): Promise<string | null> {
+  try {
+    const t = (await fs.readFile(path.join(reqDir, 'request'), 'utf8')).replace(/\r?\n/g, '').trim();
+    return t || null;
+  } catch { return null; }
+}
+
 /** status.json от bundle-watch.sh + файл-запрос → единое состояние. Битый/чужой файл — как «нет статуса». */
 export async function readBundleStatus(reqDir: string, now = Date.now()): Promise<BundleStatus> {
-  let raw: Partial<BundleStatus> = {};
+  let raw: Partial<BundleStatus> & { doneRequest?: string } = {};
   try {
     const j = JSON.parse(await fs.readFile(path.join(reqDir, 'status.json'), 'utf8'));
     if (j && typeof j === 'object') raw = j;
@@ -31,13 +47,16 @@ export async function readBundleStatus(reqDir: string, now = Date.now()): Promis
     if (typeof raw.file === 'string' && isBundleName(raw.file)) st.file = raw.file;
     if (typeof raw.bytes === 'number') st.bytes = raw.bytes;
     if (typeof raw.error === 'string') st.error = raw.error.slice(0, 2000);
+    if (typeof raw.doneRequest === 'string') st.doneRequest = raw.doneRequest.slice(0, 200);
     return st;
   };
   const st = pick();
   if (st.state === 'running' && st.startedAt && now - Date.parse(st.startedAt) > STALE_RUNNING_MS) {
     return { ...st, state: 'failed', error: 'Сборка не завершилась за 6 часов — проверьте хост (bundle-watch.sh, лог bundles/bundle.log).' };
   }
-  if (st.state !== 'running' && (await exists(path.join(reqDir, 'request')))) return { state: 'queued' };
+  const token = await readRequestToken(reqDir);
+  // Тот же request уже обработан (часто остаётся из‑за sticky-бита) — не «queued», иначе вечный цикл в UI.
+  if (token && st.state !== 'running' && st.doneRequest !== token) return { state: 'queued' };
   return st;
 }
 
@@ -73,17 +92,13 @@ export async function deleteBundle(root: string, name: string): Promise<boolean>
 
 export type RequestResult = 'ok' | 'busy';
 
-/** Кладёт файл-запрос для bundle-watch.sh. busy — запрос уже есть или сборка идёт. */
+/** Кладёт файл-запрос для bundle-watch.sh. busy — сборка уже идёт или ждёт хост. */
 export async function createBundleRequest(reqDir: string): Promise<RequestResult> {
   const st = await readBundleStatus(reqDir);
   if (st.state === 'running' || st.state === 'queued') return 'busy';
   const file = path.join(reqDir, 'request');
-  try {
-    await fs.writeFile(file, new Date().toISOString() + '\n', { flag: 'wx', mode: 0o666 });
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'EEXIST') return 'busy';
-    throw e;
-  }
+  // Перезапись: старый request часто нельзя удалить (sticky + uid контейнера), нужен новый токен.
+  await fs.writeFile(file, new Date().toISOString() + '\n', { flag: 'w', mode: 0o666 });
   await fs.chmod(file, 0o666).catch(() => undefined); // umask контейнера мог урезать — хост (другой uid) должен суметь удалить
   return 'ok';
 }

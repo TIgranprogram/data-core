@@ -1,4 +1,6 @@
+import { toast } from '../ui/toast.js';
 import { isBackgroundPath, newKey, withWriteRetry } from './write-retry.js';
+import { applyView, canViewAsUser, clearViewAsStore, viewAsActive, VIEW_AS_BLOCK } from './view-as.js';
 
 /** Связь с сервером: JWT + обновление сессии, понятные русские ошибки (CANON §2 «Тексты»). */
 export const PREFIX = location.pathname.replace(/\/app(\/.*)?$/, ''); // '' локально или '/db' за nginx
@@ -19,9 +21,14 @@ const store = {
 export const session = {
   get access() { return store.get('dca_access'); }, set access(v) { store.set('dca_access', v); },
   get refresh() { return store.get('dca_refresh'); }, set refresh(v) { store.set('dca_refresh', v); },
-  get user() { try { return JSON.parse(store.get('dca_user') || 'null'); } catch { return null; } },
+  /** Пользователь из dca_user, без просмотра роли. */
+  get realUser() { try { return JSON.parse(store.get('dca_user') || 'null'); } catch { return null; } },
+  /** С наложением «Смотреть как», если оно включено у настоящего админа. */
+  get user() { return applyView(this.realUser); },
   set user(v) { store.set('dca_user', v ? JSON.stringify(v) : ''); },
-  clear() { this.access = ''; this.refresh = ''; this.user = null; try { Object.keys(localStorage).filter((k) => k.startsWith('dca_dict:')).forEach((k) => localStorage.removeItem(k)); } catch { /* приватный режим */ } }, // кэш справочников (ui/dict-options.js)
+  clear() { this.access = ''; this.refresh = ''; this.user = null; clearViewAsStore(); try { Object.keys(localStorage).filter((k) => k.startsWith('dca_dict:')).forEach((k) => localStorage.removeItem(k)); } catch { /* приватный режим */ } }, // кэш справочников (ui/dict-options.js)
+  /** Пункт «Смотреть как» — только настоящий admin/owner, до наложения. */
+  get canViewAs() { return canViewAsUser(this.realUser); },
   /** SK-8c: роль для прав — у своей роли («Кладовщик») это её «права как у» (baseRole), у встроенной — она сама. */
   get role() { const u = this.user; return u?.baseRole || u?.role; },
   /** Может ли менять данные (как на сервере: admin, manager). */
@@ -42,8 +49,8 @@ export const session = {
     if (id === 'staff') return this.role === 'admin' || this.role === 'director' || this.user?.isOwner === true; // «Управление → Сотрудники»: только руководство
     const u = this.user, s = u?.sections;
     // «Документация» (docs) видна и ролям со старой галочкой «паспорта» — миграция ролей не нужна
-    // «Склад (телефон)» — тот же склад: открыт всем, у кого отмечен «Склад» (пользователь 2026-11-02)
-    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports')) || (id === 'stock-mobile' && s.includes('stock'));
+    // «Склад (телефон)» — только явная галочка в sections (onlyStockMobile ниже не трогаем)
+    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports'));
   },
   /** Роль «Ассистент кладовщика»: отмечен только раздел «Склад (телефон)» — меню и шапка скрыты, сразу эта страница. */
   get onlyStockMobile() { const s = this.user?.sections; return this.role !== 'admin' && Array.isArray(s) && s.length === 1 && s[0] === 'stock-mobile'; },
@@ -153,11 +160,22 @@ async function errorOf(res) {
   return err;
 }
 
+/** «Смотреть как»: любая запись (не GET/HEAD) не уходит на сервер — api, apiFile, confirm, quiet. */
+function guardViewAsWrite(method = 'GET') {
+  const m = String(method || 'GET').toUpperCase();
+  if (m === 'GET' || m === 'HEAD' || !viewAsActive(session.realUser)) return;
+  const err = new ApiError(VIEW_AS_BLOCK, 403);
+  err.viewAs = true;
+  try { toast(VIEW_AS_BLOCK, { tone: 'warn' }); } catch { /* без документа */ }
+  throw err;
+}
+
 /** Скачать файл (PDF, ZIP) с сервера и сохранить: имя — из Content-Disposition (filename*). */
 export async function apiFile(path, opts = {}) {
-  return fileGet(path, opts).catch((e) => failed(e, path, 'GET'));
+  return fileGet(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
 }
 async function fileGet(path, { query, fallback = 'file', timeout = 180000, method, body } = {}) {
+  guardViewAsWrite(method || 'GET');
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   const init = { timeout, ...(method ? { method, body } : {}), ...(method && method !== 'GET' ? { headers: { 'Idempotency-Key': newKey() } } : {}) };
   let res = await raw(path + qs, init, session.access);
@@ -177,14 +195,17 @@ async function fileGet(path, { query, fallback = 'file', timeout = 180000, metho
 
 /** Проверка пароля текущего пользователя → токен подтверждения. Неверный пароль (401/403) не выбрасывает из системы. */
 export async function confirmPassword(password) {
+  guardViewAsWrite('POST');
   const res = await raw('/auth/confirm', { method: 'POST', body: { password } }, session.access);
   if (res.status === 401 || res.status === 403 || res.status === 400) throw new Error('Пароль неверный');
   if (!res.ok) throw await errorOf(res);
   return (parse(await res.text()) || {}).token;
 }
 
-/** Запрос к API. path — без /api. body — объект (JSON) или FormData. */
+/** Запрос к API. path — без /api. body — объект (JSON) или FormData.
+ *  «Смотреть как роль»: любой не-GET не уходит на сервер. */
 export async function api(path, opts = {}) {
+  guardViewAsWrite(opts.method || 'GET');
   return trackLoad(call(path, opts).catch((e) => failed(e, path, opts.method || 'GET')));
 }
 
@@ -278,6 +299,7 @@ async function send(url, method, body, key) {
 
 /** Тихая запись без продления входа, хуков и сборщика (ОШ2: отправка ошибки не должна сама порождать ошибки). → HTTP-код. */
 export async function apiQuiet(path, body) {
+  if (viewAsActive(session.realUser)) return 403; // без toast — тихий канал ошибок
   const res = await raw(path, { method: 'POST', body, timeout: 10000 }, session.access);
   return res.status;
 }

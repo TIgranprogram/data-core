@@ -1,6 +1,10 @@
 # Карта роли designer
 
-коммит: (после C012) план правой панели и карточки заказа 03.11, код не менялся. Снимка нет — разбор по коду.
+коммит: a842b2e0 (+ незакоммиченное C021 «Деньги» повторная приёмка принято, «Время» принято третьей приёмкой, C019; журнал review-scope не закрыт — чужие экраны не смотрел). Снимка нет.
+
+- C021 «Деньги» (повторная приёмка 04.11, принято по коду): кнопка money.js:210 `link-btn` → scrollIntoView `#money-cal` :223 (адрес не меняется); итог компании :245 через `cell`; точка нуля `grp flat` :180 и screens.css:134 `--muted`. Прогноз не открывать (money-forecast.js:42 всё ещё `grp in`). Отчёт docs/crew/C021-money-audit/DESIGNER.md. Журнал review-scope не закрыт.
+- C021 «Время» (третья приёмка 04.11, принято): admin.js DV_AREA 156–163 (crew/nightshift/orders/offers/test и частые — словами), dvNice 167–173 (нет ключа раздела — «раздел «код»», нет ключа типа — «прочее»), графики 347–348. Журнал DESIGN §8 2026-11-04. Отчёт docs/crew/C021-devlog-time-audit/DESIGNER.md. Семь пунктов закрыты. Журнал review-scope не закрыт.
+- C019 «Смотреть как» (принято по коду 04.11): profile.js viewAsField 17–33, вставка 84–94; main.js viewAsBar 275–280, место в оболочке 252–267; base.css .view-as 55–57. Каталог DESIGN §4 строка «Смотреть как роль», журнал §8 2026-11-04. Отчёт docs/crew/C019-admin-view-as-role/DESIGNER.md. P2: полоса не липкая.
 - C012 (план 03.11): docs/crew/C012-right-panel-order/REPORT.md, FIX-TZ.md, ZONES-MAP.md. Оболочка одна: ui/card.js openCard ~60–183, зоны panels.css ~409–426, вход main.js ~495–527. kit/panel.js — только витрина kit.js. Заказ: salesorders.js card ~503–531, details ~380–391, contractGroup ~242–351; side пуст, extra=wide. Части без этапа и человека: order-design.js ~43, order-work.js ~53–56. Назад из позиции врёт номер: orders.js:220.
 - Мобильный склад (приёмка 03.11): kit.css:155–166,182; stock-mobile.js выдача/корзина/готовые; DESIGN-MOBILE §2/§4. design-lint 0.
 - Панель счёта invoice-workspace (принято по коду 03.11 C005, стенд — DESIGNER.md): sections/invoice-workspace.js:59–85 (readonlyGroup + section + table), invoice-workspace-forms.js; ui/kit/readonly.js + kit.css:233–241; входы requests.js:295,338, invoices-tab.js:49–52, board.js:170–181; fixture invoice-workspace.*

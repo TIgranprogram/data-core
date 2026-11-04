@@ -40,6 +40,30 @@ export function openingFromStart(start: Start, ops: Op[], day: string): number {
 
 export interface Pending { total: number; count: number; byCompany: Record<string, number>; items: Op[] }
 
+/**
+ * Неоплаченные счета для строки pending.
+ * Просрочка — как в прогнозе: срок уже наступил и дата не старше `staleSince` → на сегодня,
+ * если период включает сегодня. Старше лимита в этот перенос не входят.
+ * Период целиком в прошлом: счёт остаётся на своей дате внутри периода.
+ */
+export function foldOverdueInvoices(ops: Op[], from: string, to: string, today: string, staleSince: string): Op[] {
+  const periodHasToday = from <= today && today <= to;
+  const out: Op[] = [];
+  for (const o of ops) {
+    if (!(o.amount > 0) || !o.date) continue;
+    const pastDue = o.date <= today;
+    const inPeriod = o.date >= from && o.date <= to;
+    if (pastDue && periodHasToday && o.date >= staleSince && (inPeriod || o.date < from)) {
+      out.push({ ...o, date: today, overdue: true });
+      continue;
+    }
+    if (!inPeriod) continue;
+    if (pastDue && periodHasToday && o.date < staleSince) continue;
+    out.push(pastDue ? { ...o, overdue: true } : o);
+  }
+  return out;
+}
+
 /** «Ещё не деньги»: счета к оплате и отгруженное без оплаты — отдельной строкой, в остаток не входят (В-1, В-2). */
 export function buildPending(ops: Op[], from: string, to: string, companies: string[], limit = 200): Pending {
   const list = ops.filter((o) => o.amount > 0 && o.date <= to && (o.date >= from || o.overdue === true));

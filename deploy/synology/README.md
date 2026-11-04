@@ -122,7 +122,8 @@ cd /opt/data-core && DATA_DIR=/var/lib/datacore bash deploy/synology/bundle-watc
 crontab -e   # пользователь tiit, добавить строку:
 * * * * * DATA_DIR=/var/lib/datacore bash /opt/data-core/deploy/synology/bundle-watch.sh >/dev/null 2>&1
 ```
-Проверить: `touch /var/lib/datacore/bundle-requests/request` → в течение минуты `cat /var/lib/datacore/bundle-requests/status.json` покажет `running`, затем `done` с именем файла; при `failed` — `tail /var/lib/datacore/bundles/bundle.log`. Повторный запуск при идущей сборке безопасен (flock). Если сборка «зависла» после перезагрузки хоста — через 6 часов админка сама покажет ошибку; запрос можно повторить.
+Проверить: `touch /var/lib/datacore/bundle-requests/request` → в течение минуты `cat /var/lib/datacore/bundle-requests/status.json` покажет `running`, затем `done` с именем файла; при `failed` — `tail /var/lib/datacore/bundles/bundle.log`. Повторный запуск при идущей сборке безопасен (flock). Один и тот же файл-запрос собирается один раз (`doneRequest` в status.json): если из‑за sticky-бита cron не смог удалить `request` от root-контейнера, повторной сборки каждую минуту не будет. Новый пакет — только новая запись в `request` (кнопка «Пересобрать»). Если сборка «зависла» после перезагрузки хоста — через 6 часов админка сама покажет ошибку; запрос можно повторить.
+
 
 
 ## Инцидент 2026-10-24: сайт 504 после смены внешнего адреса дома

@@ -1,5 +1,14 @@
 # Карта роли frontend
 
+## Смотреть как роль (VIEW-AS, 2026-11-04)
+коммит: не закоммичено
+- `backend/pwa/core/view-as.js` — `getViewAs`/`setViewAs` (`dca_viewAs` + снимок), `fieldsOf`, `applyView`, `rolesForSelect`, `syncViewAsRoles`, `viewAsActive`.
+- `backend/pwa/core/api.js:25` `realUser`; `:27` `user` с наложением; `:31` `canViewAs`; `:195` `api()` режет не-GET.
+- `backend/pwa/sections/profile.js:17` `viewAsField` — select «Смотреть как».
+- `backend/pwa/main.js:275` `viewAsBar`; `:284` `rebuildShell`; `:567` `refreshMe` сбрасывает просмотр, если это уже не админ; `:641` `dc:view-as`.
+- `backend/pwa/ui/base.css:55` `.view-as` (рядом с `.net-off`, токены `--warn-soft` / `--warn`).
+- `backend/pwa/ui/toast.js` — повторный toast по `e.viewAs` не показывается.
+
 коммит: 1cab104 (+ незакоммиченная работа «Паспорт воронкой», 2026-10-25)
 - 2026-10-31 ORDER-LINES 5–6: `sections/order-lines.js` (lineTypeFields, lineBody, lineMark, countOf, distribBlock), `orders.js` form (isNew ~262, toBody ~300, view «Состояние»), `salesorders.js` (distribBlock в табе Позиции ~299, колонка Поз., view «Не распределено»), CSS конец screens.css `.ol-*`.
 - 2026-11-04 УСЛ: услуга в заказе — `serviceId` из `/dicts/services` (не worktypes). `order-lines.js` serviceTypes/NO_TYPES.
@@ -145,3 +154,10 @@
 ## Серверы: обновить перед переключением (C013, 2026-11-03, не закоммичено)
 - `backend/admin/control-switch.js`: `REFRESH_STEPS` 9–12, `isRefresh`/`stepId` 13–21 (`photos_pre`→Фото), `progress` 96–129, `confirmRefresh` 173–198 (`POST /control/switch/refresh`), `switchSlot` 278–316 (шаги только на запасном), overview muted 354. `control-switch.css` `.sw-phase` после `.sw-act`. Карта обновлена.
 коммит: не закоммичено
+
+## Деньги к показу (MONEY-SHOW волна 1, 2026-11-04, не закоммичено)
+- `sections/money.js`: `cell` 30–35 (ноль — серый «0»), `zeroIncomeText` 37–41, `openingIsZero` 86–90. Календарь: плитки `.m-tiles` убраны; строка `.summary` (поступления / выплаты / итог или остаток); «к оплате / просрочено» — ссылка `#money-cal` только если сумма > 0 (`dueLine` 209). Строки «Итог дня» / «Итог с начала» 184–185. Сводка: фраза над цифрами 281, «Итого за год» 294, без Total и без зелёного нуля.
+- `sections/money-forecast.js`: `zeroBook` 25–28 (старт с нуля и нет ожидаемых поступлений) — фраза 51–53, без красной заливки `.gap` и без «успеха». Слова: поступления / выплаты / итог.
+- `sections/help-flow-data.js` узел `money` 26–27: прогноз — не выписка банка.
+коммит: не закоммичено
+Карта обновлена.

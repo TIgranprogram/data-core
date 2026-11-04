@@ -1,9 +1,10 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { getViewAs, rememberRoles, rolesForSelect, setViewAs } from '../core/view-as.js';
 import { toast, toastError } from '../ui/toast.js';
 import { AVATAR_PRESETS, avatarNode, presetNode } from '../ui/avatars.js';
 import { getPref, setPref } from '../core/prefs.js';
-import { segmented } from '../ui/kit/index.js';
+import { enhanceSelect, segmented } from '../ui/kit/index.js';
 
 /**
  * Правая панель «Мой профиль» (`?of=profile&open=me`): имя, телефон, аватар (10 пресетов или своё фото).
@@ -11,6 +12,26 @@ import { segmented } from '../ui/kit/index.js';
  * «Вид экрана» (ИЗ-19) — сразу, без «Сохранить»: uiPrefs.viewScale (core/prefs.js), у каждого свой, на любом устройстве.
  */
 const photoOf = (a) => (String(a || '').startsWith('photo:') ? a : null);
+
+/** Выбор роли для просмотра. Список — GET /roles; встроенные без карточки всё равно есть. Смена только локальная. */
+function viewAsField() {
+  const sel = h('select', { 'aria-label': 'Смотреть как' });
+  const fill = () => {
+    const cur = getViewAs();
+    const opts = rolesForSelect();
+    sel.replaceChildren(
+      h('option', { value: '' }, 'Как обычно (моя роль)'),
+      ...opts.map((o) => h('option', { value: o.name }, o.label)),
+    );
+    sel.value = opts.some((o) => o.name === cur) ? cur : '';
+  };
+  fill();
+  sel.addEventListener('change', () => setViewAs(sel.value || null));
+  api('/roles').then((res) => { rememberRoles(res); fill(); }).catch(() => {});
+  enhanceSelect(sel, { force: true });
+  return h('div', { class: 'field' }, h('span', null, 'Смотреть как'), sel,
+    h('small', { class: 'muted' }, 'Только просмотр: данные менять нельзя'));
+}
 
 export const profile = {
   id: 'profile',
@@ -51,7 +72,7 @@ export const profile = {
         const btn = e.currentTarget; btn.classList.add('is-busy'); btn.disabled = true;
         try {
           const me = await api('/auth/me', { method: 'PATCH', body: { displayName: name.value.trim(), phone: phone.value.trim(), avatar } });
-          session.user = { ...session.user, ...me };
+          session.user = { ...session.realUser, ...me };
           window.dispatchEvent(new CustomEvent('dc:profile'));
           toast('Профиль сохранён');
           ctx.reload?.();
@@ -60,6 +81,7 @@ export const profile = {
       // ИЗ-19: крупный вид — сразу на экране, сохраняется у пользователя
       const VIEWS = [{ v: 'normal', label: 'Обычный' }, { v: 'large', label: 'Крупный' }];
       const viewSeg = segmented({ items: VIEWS.map((o) => ({ key: o.v, label: o.label })), value: getPref('viewScale') === 'large' ? 'large' : 'normal', label: 'Вид экрана', onChange: (k) => setPref('viewScale', k === 'large' ? 'large' : '') });
+      const viewAs = session.canViewAs ? viewAsField() : null;
       paint();
       return h('div', { class: 'pf-profile' },
         h('div', { class: 'pf-av-head' }, preview, h('div', null, h('b', null, r.displayName || r.username || ''), h('div', { class: 'muted' }, r.roleLabel || ''))),
@@ -69,6 +91,7 @@ export const profile = {
           h('div', { class: 'pf-av-up' }, upBtn, photoOf(avatar) ? h('span', { class: 'muted' }, 'Выбрано своё фото') : null), file),
         h('div', { class: 'field' }, h('span', null, 'Вид экрана'), viewSeg.el,
           h('small', { class: 'muted' }, 'Крупный — фото, текст, поля и кнопки больше. Меняется сразу, сохраняется для вас на любом устройстве.')),
+        viewAs,
         h('div', { class: 'actions' }, save));
     },
   },

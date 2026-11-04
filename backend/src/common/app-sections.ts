@@ -89,7 +89,9 @@ export function openSectionsFor(
   return roleSections.get(user.role) ?? null;
 }
 
-/** Открыт ли раздел (null-набор = всё открыто). */
+/** Открыт ли раздел (null-набор = всё открыто).
+ *  stock-mobile открывает склад (остатки, выдача), но не «Заявки»:
+ *  список и приёмка — отдельные @AppSection на методах supply.controller. */
 export function sectionOpen(open: Set<string> | null, id: string): boolean {
-  return !open || open.has(id) || (id === 'passports' && open.has('docs')) || (open.has('stock-mobile') && (id === 'stock' || id === 'requests'));
+  return !open || open.has(id) || (id === 'passports' && open.has('docs')) || (open.has('stock-mobile') && id === 'stock');
 }

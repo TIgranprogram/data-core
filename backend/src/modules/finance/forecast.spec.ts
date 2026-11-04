@@ -1,4 +1,4 @@
-import { buildForecast, expectedOps, prepayPercent } from './forecast';
+import { buildForecast, expectedOps, invoiceStaleSince, INVOICE_STALE_DAYS, prepayPercent } from './forecast';
 
 const T = '2026-10-21';
 
@@ -20,6 +20,17 @@ describe('forecast (БЗ-1): прогноз денег', () => {
     ], [], T);
     expect(ops.map((o) => [o.id, o.date, o.amount])).toEqual([['a', '2026-10-25', 1000], ['b', T, 500]]);
     expect(noDate.map((x) => x.id)).toEqual(['c']);
+  });
+
+  it('счёт старше 90 дней в прогноз не входит', () => {
+    expect(INVOICE_STALE_DAYS).toBe(90);
+    expect(invoiceStaleSince('2026-11-04')).toBe(new Date(Date.parse('2026-11-04T00:00:00Z') - 90 * 86400000).toISOString().slice(0, 10));
+    const { ops, noDate } = expectedOps([
+      { id: 'old', title: 'Старый', amount: 1000, company: 'СИЮ', invoiceDate: '2026-08-01', status: 'ordered' },
+      { id: 'edge', title: 'Граница', amount: 10, company: 'СИЮ', invoiceDate: invoiceStaleSince('2026-11-04'), status: 'ordered' },
+    ], [], '2026-11-04');
+    expect(ops.map((o) => o.id)).toEqual(['edge']);
+    expect(noDate).toHaveLength(0);
   });
 
   it('поступления: предоплата 30% в день заказа (прошёл — сегодня, «просрочено»), остаток — в срок; без срока — отдельно', () => {

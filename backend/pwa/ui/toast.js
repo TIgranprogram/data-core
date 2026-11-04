@@ -36,6 +36,7 @@ export function toast(text, { error = false, undo, ms, actions, tone, sub, notic
 // Одинаковые подряд: сбой (сеть, 5xx, код) — один раз в 30 с; ответ сервера («Укажите…») — в 4 с, чтобы повторное нажатие не было «тишиной».
 const lastShown = new Map();
 export const toastError = (e, action) => {
+  if (e?.viewAs) return; // текст уже показан в api() — второе окно не нужно
   const t = actionText(typeof action === 'string' ? action : '', e);
   const gap = isFailure(e) ? 30000 : 4000;
   if (Date.now() - (lastShown.get(t) || 0) < gap) return;
