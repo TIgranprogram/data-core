@@ -25,8 +25,10 @@
 | C017 | Cursor (оркестратор) | M | Производство: заказы/сопоставление/design/work | done — `C017-production-polish/REPORT.md` |
 | C018 | Cursor (оркестратор) | L | Доска/группы/счётчик + доки/КП аудит | done — `C018-production-products-docs/REPORT.md` |
 | C019 | Cursor | M | «Смотреть как роль» (только просмотр) | ТЗ VIEW-AS — другой чат |
+| C019b | Cursor | M | Локальный ИИ → Excel заказа + импорт на сайте | код готов — `C019-local-ai-order-import/`; выкладка с C022 |
 | C020 | access + backend | L | Починка доступов ролей | волны A/B запущены — `ROLES-FIX.md` |
 | C021 | координатор | M | Аудит «Ведение проекта» + вид вкладки «Время» | audit done — `C021-devlog-time-audit/`; UI локально, выкладка ждёт |
+| C022 | координатор | L | Склад: воронка позиции + бронь без дубля полей | код готов — `C022-stock-order/`; коммит вместе с C019b |
 
 Worktree счетов: `D:\data-core\.manus\worktrees\soorwu5tl3w6zui0j26jlr`  
 Отчёт: `docs/crew/C004-invoice-workspace-wip/`  

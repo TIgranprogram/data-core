@@ -48,6 +48,13 @@ release.tgz
 
 tools/logs/
 
+# Локальный ИИ (C019): URL/ключ и готовые Excel — только на ПК
+tools/local-ai-order/settings.json
+tools/local-ai-order/out/*
+!tools/local-ai-order/out/README.md
+tools/local-ai-order/inbox/*
+!tools/local-ai-order/inbox/README.md
+
 # Ночной стенд и прогоны dc night (секреты стенда, worktree, итоги)
 tools/.night/
 

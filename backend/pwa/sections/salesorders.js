@@ -29,6 +29,7 @@ import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLi
 import { orderPassportActions } from './order-passports.js';
 import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
+import { importOrderExcel, downloadOrderTemplate } from './salesorders-import.js';
 
 import { table, tabs as kitTabs } from '../ui/kit/index.js';
 /**
@@ -451,11 +452,15 @@ export const salesorders = {
     export: 'admin',
     sortDefault: 'deadline',
     createLabel: false,
-    headActions: () => [h('button', { class: 'btn btn-primary', type: 'button', title: 'Новый заказ (договор): № заказа можно взять существующий — договоры объединятся в один заказ', onclick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }, '+ Заказ')],
+    headActions: () => session.canEditOrders ? [
+      h('button', { class: 'btn btn-primary', type: 'button', title: 'Новый заказ (договор): № заказа можно взять существующий — договоры объединятся в один заказ', onclick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }, '+ Заказ'),
+      h('button', { class: 'btn', type: 'button', title: 'Проверка полей Excel и загрузка заказа на сайт', onclick: () => importOrderExcel().catch((e) => toast(errText(e))) }, 'Импорт Excel'),
+      h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать пустой шаблон Excel для заказа', onclick: () => downloadOrderTemplate() }, 'Шаблон'),
+    ] : [],
     searchPlaceholder: 'Поиск: № заказа, № договора, заказчик, предмет…',
     extraKeys: ['productId'], query: (P) => ({ productId: P.productId || undefined }),
     emptyText: 'Заказов пока нет.',
-    emptyHint: 'Нажмите «+ Заказ»: № заказа, заказчик, срок. Договоры с одним № заказа объединяются в один заказ.',
+    emptyHint: '«+ Заказ» вручную или «Импорт Excel» из файла. Договоры с одним № заказа объединяются.',
     rowClass: (r) => r.stage === 'new' ? 'so-design-row' : '',
     filters: [
       // вкладки: Новые → В работе (по умолчанию) → Отгруженные → Завершённые → Все в конце (ORDERS-1; старый адрес filter=done ведёт на «Завершённые»)
@@ -542,6 +547,18 @@ export const salesorders = {
 
 const orderCrumb = (r) => (r.productionNo ? `Заказ № ${r.productionNo}` : 'Заказ без №');
 
+/** Подставить свободный № заказа, если поле пусто (новый или заказ без №). */
+const fillFreeNo = (fa) => {
+  const run = async () => {
+    if (String(fa.get('productionNo')).trim()) return;
+    const v = await freeNo();
+    if (v && !String(fa.get('productionNo')).trim()) fa.set('productionNo', v, { auto: true });
+  };
+  run();
+  const inp = fa.input('productionNo');
+  (inp?.el || inp)?.addEventListener?.('change', run);
+};
+
 /** «Изменить заказ» (правая панель): № заказа, срок, приоритет → PATCH /salesorders/:id по очереди на каждый договор. */
 export const orderEdit = sideForm({
   id: 'orderedit', title: 'Изменить заказ', noun: 'заказ',
@@ -550,11 +567,16 @@ export const orderEdit = sideForm({
   heading: (r) => heading(r),
   subheading: (r) => [names(r.customers), `договоров: ${(r.orders || []).length}`].filter(Boolean).join(' · '),
   fields: async (row) => {
-    const nums = await activeOrderNos().catch(() => []);
+    const [nums, next] = await Promise.all([activeOrderNos().catch(() => []), freeNo()]);
+    const options = uniq([next, ...nums].filter(Boolean));
     return [
       { section: 'Заказ', tone: 'main', fixed: true },
       { key: '_note', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote(`Изменения запишутся во все договоры заказа (${(row?.orders || []).length}): ${names((row?.orders || []).map((o) => o.orderNo || '—'))}.`), get value() { return ''; }, set value(_) { /* только показ */ } }) },
-      { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50, hint: 'Номер для производства, например 21-26. Выберете № другого заказа — договоры объединятся с ним.' },
+      { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options, max: 50,
+        hint: row?.productionNo
+          ? 'Номер для производства, например 21-26. Выберете № другого заказа — договоры объединятся с ним.'
+          : (next ? `Подставлен следующий свободный № ${next} (последний + 1). Можно выбрать другой из списка.` : 'Номер для производства, например 21-26. Выберете № другого заказа — договоры объединятся с ним.'),
+        mount: fillFreeNo },
       { key: 'deadline', label: 'Срок (дата отгрузки)', type: 'date', hint: 'Запишется в «Дата отгрузки» каждого договора. Пусто — срок не меняется.' },
       { key: 'priority', label: 'Приоритет', type: 'select', options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },
     ];
@@ -635,17 +657,23 @@ export const salesorder = {
 
   form: {
     fields: async (row) => {
-      const [l, nums] = await Promise.all([
+      const [l, nums, next] = await Promise.all([
         incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'б/р 30%', 'б/р 50%', 'нал'] })),
         activeOrderNos().catch(() => []),
+        freeNo(),
       ]);
+      const options = uniq([next, ...nums].filter(Boolean));
+      const needNo = !row || !String(row.productionNo || '').trim();
       return [
         { section: 'Договор с заказчиком', tone: 'main', fixed: true },
-        { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options: nums, max: 50,
-          hint: row ? 'Номер для производства, например 21-26: номер и год. Выберите № из списка — договор войдёт в этот заказ.'
-            : 'Подставлен свободный №. Выберите № из списка — договор войдёт в этот заказ. Очистите поле — снова встанет свободный.',
-          // новый заказ: пустое поле после правки — снова свободный №
-          mount: (fa) => { if (row) return; const inp = fa.input('productionNo'); (inp?.el || inp)?.addEventListener?.('change', async () => { if (!String(fa.get('productionNo')).trim()) { const v = await freeNo(); if (v && !String(fa.get('productionNo')).trim()) fa.set('productionNo', v, { auto: true }); } }); } },
+        { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options, max: 50,
+          hint: needNo
+            ? (next
+              ? `Подставлен следующий свободный № ${next} (последний + 1). Можно выбрать другой из списка. Очистите поле — номер встанет снова.`
+              : 'Номер для производства, например 21-26. Выберите № из списка — договор войдёт в этот заказ.')
+            : 'Номер для производства, например 21-26: номер и год. Выберите № из списка — договор войдёт в этот заказ.',
+          // пусто (новый или без №) — сразу last+1; очистили поле — снова last+1
+          mount: (fa) => { if (!needNo) return; fillFreeNo(fa); } },
         { key: 'orderNo', label: '№ договора', required: true, max: 50 },
         { key: 'customer', label: 'Заказчик', type: 'combo', required: true, options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },

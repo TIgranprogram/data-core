@@ -42,6 +42,7 @@ export const SECTIONS = [
   { id: 'auto', group: 'pc', title: 'Автозапуск', icon: '⏰', hint: 'Что пульт запускает сам, пока открыт' },
   { id: 'setup', group: 'pc', title: 'Настройка ПК', icon: '⚙', hint: 'Разовая подготовка этого компьютера' },
   { id: 'links', group: 'pc', title: 'Ссылки и папки', icon: '🔗', hint: 'Сайт, админка и рабочие папки' },
+  { id: 'localai', group: 'pc', title: 'Локальный ИИ', icon: '🤖', hint: 'Папка документов → Excel заказа → импорт на сайт' },
 ];
 
 export const SCHEDULE = [
@@ -161,6 +162,18 @@ export const COMMANDS = [
     hint: 'Открывает проект в проводнике.' },
   { id: 'link-logs', section: 'links', title: 'Журналы пульта', risk: 'read', time: 'сразу', run: { folder: 'pult/logs' },
     hint: 'Полный вывод каждого запуска.' },
+
+  // ---------- Локальный ИИ (C019) ----------
+  { id: 'lai-inbox', section: 'localai', title: 'Открыть входящие', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/inbox' },
+    hint: 'Сюда кладите ТЗ, ВОР, КП, контракт. Затем «Собрать Excel заказа».' },
+  { id: 'lai-out', section: 'localai', title: 'Открыть готовое', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/out' },
+    hint: 'Готовый Excel для «Заказы → Импорт Excel» на сайте.' },
+  { id: 'lai-settings', section: 'localai', title: 'Открыть настройки ИИ', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order' },
+    hint: 'Скопируйте settings.example.json → settings.json и укажите baseUrl LM Studio (…/v1).' },
+  { id: 'lai-check', section: 'localai', title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
+    hint: 'Запрос /v1/models. LM Studio должен быть Running, CORS включён.' },
+  { id: 'lai-build', section: 'localai', title: 'Собрать Excel заказа', risk: 'local', time: '1–10 мин', run: { node: ['tools/local-ai-order/run.mjs'] },
+    hint: 'Локальный ИИ читает inbox и пишет файл в out/. Потом импортируйте на сайте сами.' },
 ];
 
 export const SWITCHES = [

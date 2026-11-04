@@ -68,10 +68,22 @@ describe('SalesOrdersService: приоритет и изделие позици�
     expect(model.find).not.toHaveBeenCalled();
   });
 
-  it('requireFields (форма приложения): без № заказа, заказчика, компании — 400 со списком; без флага — как раньше', async () => {
-    await expect(service.create({ orderNo: '7', requireFields: true })).rejects.toThrow('Заполните: № заказа, заказчик, наша компания');
+  it('requireFields (форма приложения): без заказчика/компании — 400; № заказа при создании подставляется сам; без флага — как раньше', async () => {
+    await expect(service.create({ orderNo: '7', requireFields: true })).rejects.toThrow('Заполните: заказчик, наша компания');
     await expect(service.update(String(orderId), { customer: '', requireFields: true })).rejects.toThrow('Заполните: № заказа, заказчик, наша компания');
     await expect(service.update(String(orderId), { customer: 'Школа' })).resolves.toBeDefined();
+  });
+
+  it('create без productionNo — подставляет следующий свободный № (last+1)', async () => {
+    const created = { _id: new Types.ObjectId(), orderNo: '8', productionNo: '21-26', toObject() { return this; } };
+    const create = jest.fn(async () => created);
+    (model as { create?: jest.Mock }).create = create;
+    model.find.mockReturnValueOnce(chain([{ productionNo: '20-26' }])); // nextProductionNo
+    model.findOne.mockReturnValueOnce(chain(null)); // clash: нет дубля
+    model.find.mockReturnValueOnce(chain([])); // clash: кандидаты
+    jest.spyOn(service, 'get').mockResolvedValue({ id: String(created._id), productionNo: '21-26' } as never);
+    await service.create({ orderNo: '8', customer: 'Школа' });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ productionNo: '21-26', productionAddedAt: expect.any(Date) }));
   });
 
   it('PATCH с priority пишет поле и не копирует его в позиции; "" снимает', async () => {

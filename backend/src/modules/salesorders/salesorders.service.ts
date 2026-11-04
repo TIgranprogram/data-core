@@ -360,6 +360,8 @@ export class SalesOrdersService {
       if (dup) return this.get(String(dup._id));
     }
     const { f, companyShort } = await this.toFields(dto);
+    // Новый договор всегда получает № заказа: пусто → следующий свободный «N-ГГ» (last+1).
+    if (!String(f.productionNo ?? '').trim()) f.productionNo = (await this.nextProductionNo()).value;
     if (dto.requireFields) this.checkRequired(f);
     if (!f.orderNo) throw new BadRequestException('Укажите № договора');
     const key = orderKey(companyShort ?? '', f.orderNo);
@@ -368,7 +370,7 @@ export class SalesOrdersService {
     const doc = await this.model.create({
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
       stage: f.stage ?? 'new', importKey: key, clientUid: dto.clientUid,
-      ...(f.productionNo ? { productionAddedAt: new Date() } : {}),
+      productionAddedAt: new Date(),
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
     await this.afterCreate(doc.toObject() as unknown as Doc, userId);

@@ -1,0 +1,6 @@
+{
+  "baseUrl": "http://10.8.1.11:1234/v1",
+  "apiKey": "lm-studio",
+  "model": "",
+  "temperature": 0.2
+}
