@@ -24,6 +24,8 @@
 | C016 | Cursor (координатор) | S | Аудит: нужна ли страница «Сопоставление» | done — `C016-matching-nav-audit/REPORT.md` |
 | C017 | Cursor (оркестратор) | M | Производство: заказы/сопоставление/design/work | done — `C017-production-polish/REPORT.md` |
 | C018 | Cursor (оркестратор) | L | Доска/группы/счётчик + доки/КП аудит | done — `C018-production-products-docs/REPORT.md` |
+| C019 | Cursor (координатор) | M | «Смотреть как роль» только просмотр (клиент) | ТЗ готов — ждать «поехали»; `C019-admin-view-as-role/` |
+| C020 | access + analyst | M | Аудит доступов ролей (матрица, без UI) | done — `C020-roles-access-audit/FINDINGS.md` |
 
 Worktree счетов: `D:\data-core\.manus\worktrees\soorwu5tl3w6zui0j26jlr`  
 Отчёт: `docs/crew/C004-invoice-workspace-wip/`  

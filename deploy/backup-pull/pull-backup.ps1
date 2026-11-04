@@ -1,4 +1,4 @@
-# pull-backup.ps1 - copy the latest data-core backup from the VM to this Windows PC (off-NAS copy).
+﻿# pull-backup.ps1 - copy the latest data-core backup from the VM to this Windows PC (off-NAS copy).
 #
 # What it does (idempotent, safe to run any time):
 #   1. Finds the newest /var/lib/datacore/backups/mongo-<ts> on the VM (made by cron 03:00, backup.sh).
@@ -52,8 +52,10 @@ try {
     $SshOpts = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHostKeyChecking=accept-new")
     if ($Key) { $SshOpts += @("-i", $Key) }
 
-    $latest = (& ssh.exe @SshOpts $Target "ls -1d /var/lib/datacore/backups/mongo-* 2>/dev/null | tail -1").Trim()
-    if ($LASTEXITCODE -ne 0 -or -not $latest) { throw "cannot list backups on VM (ssh exit $LASTEXITCODE)" }
+    $latestRaw = & ssh.exe @SshOpts $Target "ls -1d /var/lib/datacore/backups/mongo-* 2>/dev/null | tail -1"
+    if ($LASTEXITCODE -ne 0) { throw "cannot list backups on VM (ssh exit $LASTEXITCODE)" }
+    $latest = if ($null -eq $latestRaw) { "" } else { ("$latestRaw").Trim() }
+    if (-not $latest) { throw "cannot list backups on VM (empty list)" }
     $ts = ($latest -split "/")[-1] -replace "^mongo-", ""
     $file = Join-Path $Dest ("datacore-" + $ts + ".tgz")
 
@@ -63,11 +65,33 @@ try {
         $remoteTmp = "/tmp/datacore-pull-$ts.tgz"
         # No double quotes inside: Windows PowerShell 5.1 mangles them when passing args to ssh.exe.
         $pack = "cd /var/lib/datacore/backups && tar -czf $remoteTmp mongo-$ts `$(test -d uploads-$ts && echo uploads-$ts) && echo PACKED"
+        Log "packing on VM…"
         $out = (& ssh.exe @SshOpts $Target $pack) -join ""
         if ($out -notmatch "PACKED") { throw "pack failed on VM: $out" }
+        $sizeRaw = & ssh.exe @SshOpts $Target "stat -c%s $remoteTmp 2>/dev/null"
+        $remoteBytes = [int64]0
+        if ($LASTEXITCODE -eq 0 -and $sizeRaw) { [void][int64]::TryParse(("$sizeRaw").Trim(), [ref]$remoteBytes) }
+        $remoteMb = if ($remoteBytes -gt 0) { [math]::Round($remoteBytes / 1MB, 1) } else { "?" }
+        Log "download $remoteMb MB via scp (from work PC often 20-60 min; progress every 15 s)"
         $tmp = $file + ".part"
-        & scp.exe -q @SshOpts ("${Target}:" + $remoteTmp) $tmp
-        $scpExit = $LASTEXITCODE
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+        $scpArgs = @("-q") + $SshOpts + @("${Target}:$remoteTmp", $tmp)
+        $scpProc = Start-Process -FilePath "scp.exe" -ArgumentList $scpArgs -PassThru -WindowStyle Hidden
+        while (-not $scpProc.HasExited) {
+            Start-Sleep -Seconds 15
+            if (Test-Path $tmp) {
+                $have = [math]::Round((Get-Item $tmp).Length / 1MB, 1)
+                if ($remoteBytes -gt 0) {
+                    $pct = [math]::Min(99, [math]::Round(100.0 * (Get-Item $tmp).Length / $remoteBytes))
+                    Log "downloaded $have MB of $remoteMb MB ($pct%)"
+                } else {
+                    Log "downloaded $have MB…"
+                }
+            } else {
+                Log "waiting for first bytes…"
+            }
+        }
+        $scpExit = $scpProc.ExitCode
         & ssh.exe @SshOpts $Target "rm -f $remoteTmp" | Out-Null
         if ($scpExit -ne 0 -or -not (Test-Path $tmp)) { throw "scp failed (exit $scpExit)" }
         # System tar: the Git Bash tar on PATH reads "D:" as a remote host.

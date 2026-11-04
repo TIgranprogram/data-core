@@ -83,6 +83,13 @@ test('скрипт со своим входом на сервер получае
   assert.equal(buildRun(cmd, {}, { ...work, route: 'home' }).env, undefined);
 });
 
+test('папка копий открывается абсолютным путём', () => {
+  const cmd = COMMANDS.find((c) => c.id === 'open-backups');
+  assert.equal(buildRun(cmd, {}, work).folder, 'D:\\datacore-backups');
+  const logs = buildRun(COMMANDS.find((c) => c.id === 'link-logs'), {}, work).folder;
+  assert.match(logs.replace(/\\/g, '/'), /pult\/logs$/);
+});
+
 test('скрипты с адресом сервера внутри помечены vmEnv', () => {
   for (const c of COMMANDS) {
     const script = c.run.bash?.[0];

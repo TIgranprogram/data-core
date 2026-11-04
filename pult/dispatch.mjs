@@ -88,7 +88,9 @@ export function buildRun(cmd, values, m, root = ROOT) {
   const cwd = run.cwd ? path.join(root, run.cwd) : root;
   const a = (list) => list.map((x) => fill(x, values));
   if (run.open) return { open: run.open };
-  if (run.folder) return { folder: path.join(root, run.folder) };
+  if (run.folder) {
+    return { folder: path.isAbsolute(run.folder) ? run.folder : path.join(root, run.folder) };
+  }
   if (run.node) return { file: process.execPath, args: a(run.node), cwd };
   if (run.bash) return { file: m.bash, args: a(run.bash), cwd, env };
   if (run.deploy) {
