@@ -84,9 +84,71 @@ function stampBlock(r, ctx) {
     slot('seal', 'Печать', 'круглая печать организации'), slot('signature', 'Подпись', 'подпись директора'), slot('logo', 'Логотип', 'логотип организации'));
 }
 
+/**
+ * Бланк КП (К11): фон А4 по умолчанию у этой нашей фирмы.
+ * В КП без выбора бланка подставляется отсюда (стр. 1 и стр. 2+).
+ */
+function kpBgBlock(r, ctx) {
+  const root = h('div', { class: 'pp-images' });
+  const paint = async () => {
+    let items = [];
+    try {
+      const resp = await api('/offers/backgrounds');
+      items = (Array.isArray(resp) ? resp : resp?.items || []).filter((b) => !b.builtin && String(b.companyId || '') === String(r.id));
+    } catch (e) { toastError(e); }
+    const slot = (page, title, tip) => {
+      const cur = items.find((b) => Number(b.page) === page && b.isDefault) || items.find((b) => Number(b.page) === page);
+      const input = h('input', { type: 'file', accept: 'image/png,image/jpeg', hidden: true });
+      const upload = async (file) => {
+        if (!file || !/^image\/(png|jpeg)$/.test(file.type)) { toastError(new Error('Нужен PNG или JPG до 5 МБ, пропорции А4')); return; }
+        const fd = new FormData();
+        fd.append('file', file, file.name || `kp-p${page}.jpg`);
+        fd.append('name', `${r.name || 'КП'} · стр. ${page}`);
+        fd.append('page', String(page));
+        fd.append('companyId', r.id);
+        fd.append('isDefault', 'true');
+        try {
+          const saved = await api('/offers/backgrounds', { method: 'POST', body: fd });
+          toast(saved?.warning ? `Бланк загружен. ${saved.warning}` : 'Бланк КП загружен — будет в PDF по умолчанию');
+          ctx.reload();
+        } catch (e) { toastError(e); }
+      };
+      input.addEventListener('change', () => { upload(input.files[0]); input.value = ''; });
+      const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'PNG/JPG до 5 МБ, размер страницы А4' },
+        h('span', null, cur ? 'Заменить бланк: перетащите, Ctrl+V или ' : 'Перетащите бланк А4, вставьте Ctrl+V или '),
+        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => input.click() }, 'выберите файл'), input);
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+      zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('over'); upload(e.dataTransfer?.files?.[0]); });
+      zone.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file')?.getAsFile(); if (f) { e.preventDefault(); upload(f); } });
+      const del = cur && session.canEdit
+        ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => {
+          try { await api(`/offers/backgrounds/${cur.id}`, { method: 'DELETE' }); toast('Бланк убран'); ctx.reload(); } catch (e) { toastError(e); }
+        } }, 'Убрать')
+        : null;
+      const prev = cur?.url
+        ? h('div', { class: 'stamp-pic' },
+          h('div', { class: 'stamp-prev', title: 'Фон PDF КП (А4)' }, h('img', { src: PREFIX + cur.url, alt: title, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден')) })),
+          del)
+        : h('div', { class: 'muted' }, 'Не загружено — в КП подставится общий или встроенный бланк');
+      return h('div', { class: 'pp-kind stamp-slot' },
+        h('div', { class: 'pp-kind-head' }, h('b', null, title), h('span', { class: 'muted' }, ' · ' + tip)),
+        prev, session.canEdit ? zone : null);
+    };
+    root.replaceChildren(
+      h('div', { class: 'section-title' }, 'Бланк КП (фон А4)'),
+      h('p', { class: 'muted' }, 'PNG или JPG до 5 МБ, пропорции листа А4. Этот фон подставляется в PDF КП этой фирмы по умолчанию (можно сменить в карточке КП).'),
+      slot(1, 'Страница 1', 'первая страница КП'),
+      slot(2, 'Страницы 2+', 'вторая и следующие'),
+    );
+  };
+  paint();
+  return root;
+}
+
 function related(r, ctx) {
   const items = r.related || [];
-  if (r.kind === 'our') return h('div', null, stampBlock(r, ctx), relatedRest(r, items));
+  if (r.kind === 'our') return h('div', null, stampBlock(r, ctx), kpBgBlock(r, ctx), relatedRest(r, items));
   if (r.kind === 'supplier') return h('div', null, contractsBlock(r), relatedRest(r, items));
   return relatedRest(r, items);
 }
