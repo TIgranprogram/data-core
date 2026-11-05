@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
 import { avatarNode } from '../ui/avatars.js';

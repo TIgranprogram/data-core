@@ -3,11 +3,11 @@ import { h } from '../core/dom.js';
 import { go, navInfo } from '../core/router.js';
 import { getPref, setPref } from '../core/prefs.js';
 import { icon } from '../ui/icons.js';
-import { toastError } from '../ui/toast.js';
+import { toastError } from '../ui/kit/toast.js';
 import { iconButton } from '../ui/kit/index.js';
 import { noticeTime } from '../ui/notice-card.js';
-import { uploadPhoto } from '../ui/photos.js';
-import { openZoom } from '../ui/gallery.js';
+import { uploadPhoto } from '../ui/kit/photos.js';
+import { openZoom } from '../ui/kit/gallery.js';
 import { CHAT_REFRESH } from '../ui/chat-button.js';
 
 /**

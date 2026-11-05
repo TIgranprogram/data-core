@@ -1,7 +1,7 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { modal } from '../../ui/dialog.js';
-import { toast } from '../../ui/toast.js';
+import { modal } from '../../ui/kit/dialog.js';
+import { toast } from '../../ui/kit/toast.js';
 
 /**
  * ПЧ-3: «Подставить по типу» — части и материалы по умолчанию из справочника «Типы изделий».

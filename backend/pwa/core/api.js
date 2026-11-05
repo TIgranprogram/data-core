@@ -168,7 +168,7 @@ function guardViewAsWrite(method = 'GET') {
   const err = new ApiError(VIEW_AS_BLOCK, 403);
   err.viewAs = true;
   if (typeof document !== 'undefined') {
-    import('../ui/toast.js').then((m) => m.toast(VIEW_AS_BLOCK, { tone: 'warn' })).catch(() => {});
+    import('../ui/kit/toast.js').then((m) => m.toast(VIEW_AS_BLOCK, { tone: 'warn' })).catch(() => {});
   }
   throw err;
 }

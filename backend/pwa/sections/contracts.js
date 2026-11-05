@@ -3,10 +3,10 @@ import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { attachCombo } from '../ui/kit/index.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { errText } from '../ui/errors.js';
-import { photoField } from '../ui/photos.js';
-import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { errText } from '../ui/kit/errors.js';
+import { photoField } from '../ui/kit/photos.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 
 /**
  * Договоры поставщиков (ТЗ SUPPLIER-CONTRACTS). Сервер: /supply/contracts (GET список/:id, POST, PATCH :id, DELETE :id).

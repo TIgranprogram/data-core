@@ -1,8 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { confirmDlg } from '../ui/dialog.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
 import { allStickers, dropStickersCache } from '../ui/design-stickers.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 
 /**
  * Правая панель «Настройки доски» (`?of=designsettings&open=board`, только admin): какие стикеры показывать на карточках,

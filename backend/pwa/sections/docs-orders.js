@@ -1,9 +1,9 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
-import { modal } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
-import { failBlock } from '../ui/busy.js';
+import { modal } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { statusOf, canEdit as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
 import { orderPassportsButton } from './order-passport-plan.js';

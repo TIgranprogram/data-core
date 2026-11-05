@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { toastError, toast, link, DESIGN_STATUS as STATUS } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 

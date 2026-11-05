@@ -4,8 +4,8 @@ import { row } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, plural, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
-import { toast, toastError } from '../ui/toast.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { issueDialog } from './issue.js';
 
 /*

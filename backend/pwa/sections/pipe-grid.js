@@ -4,7 +4,7 @@ import { filter } from '../ui/kit/index.js';
 import { PIPE_KINDS, facetLabel, pipeKey, pipeParts } from '../core/facets.js';
 import { qty } from '../core/format.js';
 import { go } from '../core/router.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 
 /**
  * Экран «Трубы» для роли «Трубарез» (СМ.5): таблица как его Excel, без правой панели.

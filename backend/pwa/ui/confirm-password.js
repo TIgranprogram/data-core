@@ -1,6 +1,6 @@
 import { confirmPassword, session, setConfirmToken } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { modal } from './dialog.js';
+import { modal } from './kit/dialog.js';
 
 /**
  * Пароль перед удалением/восстановлением (ТИ-4, Т-А2): админу не нужен, остальным — свой пароль.

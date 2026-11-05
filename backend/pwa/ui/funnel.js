@@ -1,7 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from './busy.js';
-import { toast } from './toast.js';
+import { failBlock } from './kit/busy.js';
+import { toast } from './kit/toast.js';
 import { link } from './kit/index.js';
 
 /**

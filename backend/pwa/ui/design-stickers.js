@@ -1,10 +1,10 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, qty } from '../core/format.js';
-import { ORDER_PRIORITY } from './badges.js';
-import { confirmDlg } from './dialog.js';
-import { photoDrop } from './photos.js';
-import { toastError } from './toast.js';
+import { ORDER_PRIORITY } from './kit/badges.js';
+import { confirmDlg } from './kit/dialog.js';
+import { photoDrop } from './kit/photos.js';
+import { toastError } from './kit/toast.js';
 
 /**
  * Стикеры и фото задач проектирования (карточки как в YouGile). Сервер: GET /design-stickers (все), стикеры доски — в GET /design-board,

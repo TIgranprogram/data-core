@@ -1,7 +1,7 @@
 import { h } from '../core/dom.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { readTableFile } from '../core/xlsx-read.js';
-import { toast, toastError } from './toast.js';
+import { toast, toastError } from './kit/toast.js';
 
 /**
  * Таблица строк в форме (поле `type: 'widget'`; комплектность паспорта, запрос 2026-10-22): поля в ячейках,

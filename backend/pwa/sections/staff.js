@@ -2,9 +2,9 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { tabs as kitTabs, empty as kitEmpty } from '../ui/kit/index.js';
 
 /**

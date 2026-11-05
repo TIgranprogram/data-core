@@ -2,11 +2,11 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { failBlock } from '../ui/busy.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { posPic } from '../ui/pos-pic.js';
 
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { editReservation } from './reservations.js';
 
 /*

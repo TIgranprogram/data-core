@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
-import { toast, toastError } from './toast.js';
+import { toast, toastError } from './kit/toast.js';
 
 /*
  * «⇩ Excel» в любом списке (TASKS МВ.5): весь список с текущими фильтрами, поиском и сортировкой — в .xlsx.

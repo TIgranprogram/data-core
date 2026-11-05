@@ -4,7 +4,7 @@ import { plural, qty } from '../core/format.js';
 import { icon } from '../ui/icons.js';
 import { openStockOp } from './stock-ops.js';
 import { dayLabel, moveLabel } from './movements.js';
-import { badge, STOCK_STATUS } from '../ui/badges.js';
+import { badge, STOCK_STATUS } from '../ui/kit/badges.js';
 
 const isMobile = () => window.innerWidth <= 720;
 const thumb = (photo) => photo ? h('img', { class: 'mob-thumb', src: PREFIX + (photo.thumb || photo.url), alt: '', loading: 'lazy' }) : null;

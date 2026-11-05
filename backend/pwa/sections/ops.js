@@ -1,8 +1,8 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { parseNum, plural } from '../core/format.js';
-import { modal } from '../ui/dialog.js';
-import { toast } from '../ui/toast.js';
+import { modal } from '../ui/kit/dialog.js';
+import { toast } from '../ui/kit/toast.js';
 import { row, failBlock } from '../ui/kit/index.js';
 
 /* Приёмка машины по счёту — блок «Ждём поставку» в правой панели «Принять» (sections/stock-ops.js). Раздел «Операции» упразднён (SK-4b). */

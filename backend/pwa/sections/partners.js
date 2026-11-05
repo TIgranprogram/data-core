@@ -2,11 +2,11 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { modal } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
-import { openSide } from '../ui/side-form.js';
+import { modal } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { openSide } from '../ui/kit/side-form.js';
 import { STAGE } from './salesorders.js';
-import { badge, SUPPLY_STATUS, supplyKey } from '../ui/badges.js';
+import { badge, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
 import { contractsBlock } from './contracts.js';
 
 /**

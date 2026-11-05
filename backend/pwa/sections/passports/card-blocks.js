@@ -1,9 +1,9 @@
 import { api, PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { photoDrop } from '../../ui/photos.js';
+import { photoDrop } from '../../ui/kit/photos.js';
 import { imagesBody } from '../../core/passport-images.js';
-import { toast, toastError } from '../../ui/toast.js';
-import { confirmDlg } from '../../ui/dialog.js';
+import { toast, toastError } from '../../ui/kit/toast.js';
+import { confirmDlg } from '../../ui/kit/dialog.js';
 import { table } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
 import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';

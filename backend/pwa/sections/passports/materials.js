@@ -1,7 +1,7 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { toast } from '../../ui/toast.js';
-import { confirmDlg } from '../../ui/dialog.js';
+import { toast } from '../../ui/kit/toast.js';
+import { confirmDlg } from '../../ui/kit/dialog.js';
 import { materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { fillFromType } from './product-types.js';
 

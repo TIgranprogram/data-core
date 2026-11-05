@@ -2,10 +2,10 @@ import { api, apiFile, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, newUid, parseNum, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
-import { failBlock } from '../ui/busy.js';
-import { emptyState } from '../ui/empty.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { failBlock } from '../ui/kit/busy.js';
+import { emptyState } from '../ui/kit/empty.js';
 import { posPic } from '../ui/pos-pic.js';
 
 import { table } from '../ui/kit/index.js';

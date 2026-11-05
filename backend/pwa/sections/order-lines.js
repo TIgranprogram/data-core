@@ -1,8 +1,8 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { modal } from '../ui/dialog.js';
-import { toast } from '../ui/toast.js';
+import { modal } from '../ui/kit/dialog.js';
+import { toast } from '../ui/kit/toast.js';
 import { patch } from '../core/router.js';
 
 /**

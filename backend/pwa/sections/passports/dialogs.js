@@ -1,9 +1,9 @@
 import { api, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { busyBtn } from '../../ui/busy.js';
+import { busyBtn } from '../../ui/kit/busy.js';
 import { attachCombo } from '../../ui/kit/index.js';
-import { toast } from '../../ui/toast.js';
-import { confirmDlg, modal } from '../../ui/dialog.js';
+import { toast } from '../../ui/kit/toast.js';
+import { confirmDlg, modal } from '../../ui/kit/dialog.js';
 import { icon } from '../../ui/icons.js';
 import { LATER_CATS, V2_CATS, heading, numberOf } from './common.js';
 import { productsAll } from './models.js';

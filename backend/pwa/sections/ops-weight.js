@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { modal } from '../ui/dialog.js';
+import { modal } from '../ui/kit/dialog.js';
 import { calcWeight, weightCount } from '../ui/weight-count.js';
 
 /*

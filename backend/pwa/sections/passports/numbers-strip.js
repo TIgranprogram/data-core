@@ -1,6 +1,6 @@
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { toast } from '../../ui/toast.js';
+import { toast } from '../../ui/kit/toast.js';
 
 /** ПН: полоска «последний / следующий» номера; «Следующий №» и «Изделие №» можно поправить (admin/director/владелец), талон — автоматом. */
 const canEdit = () => session.role === 'admin' || session.role === 'director' || !!session.user?.isOwner;

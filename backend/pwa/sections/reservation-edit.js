@@ -2,10 +2,10 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { errText } from '../ui/errors.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { errText } from '../ui/kit/errors.js';
 import { targetPicker } from '../ui/target-picker.js';
-import { toast } from '../ui/toast.js';
+import { toast } from '../ui/kit/toast.js';
 import { buildIssueOrder } from './order-issue.js';
 
 /*

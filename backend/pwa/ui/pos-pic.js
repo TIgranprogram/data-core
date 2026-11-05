@@ -1,6 +1,6 @@
 import { PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { openZoom } from './gallery.js';
+import { openZoom } from './kit/gallery.js';
 
 /**
  * Фото позиции/изделия: photo = { url, thumb } | null. Клик — крупно; фото нет (или битое) — «нет фото» в той же рамке.

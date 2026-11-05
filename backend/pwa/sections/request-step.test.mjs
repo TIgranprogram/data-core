@@ -42,8 +42,8 @@ async function component({ failPost = false, canMoney = true, paid = false, rece
   const mocks = {
     '../core/api.js': { api, PREFIX: '', session: { canEdit: true, canMoney } }, '../core/dom.js': { h },
     '../core/format.js': { isoDay: () => '2026-11-01', money: (n) => String(n ?? 0), date: (v) => String(v || '') },
-    '../ui/photos.js': { photoField: () => ({ el: h('files'), ids: () => [] }) }, '../core/router.js': { current: () => ({ section: 'requests', params: { q: 'болт', page: '2' } }), patch: (route) => routes.push(route) },
-    '../ui/badges.js': { SUPPLY_STATUS: {}, supplyKey: (r) => r.status }, '../ui/kit/index.js': kit,
+    '../ui/kit/photos.js': { photoField: () => ({ el: h('files'), ids: () => [] }) }, '../core/router.js': { current: () => ({ section: 'requests', params: { q: 'болт', page: '2' } }), patch: (route) => routes.push(route) },
+    '../ui/kit/badges.js': { SUPPLY_STATUS: {}, supplyKey: (r) => r.status }, '../ui/kit/index.js': kit,
     './lookups.js': { lookups: lk, unitList: () => [] }, './contracts.js': { canContract: () => false, contractField() {}, contractView: () => h('contract'), showWarnings() {} },
   };
   const root = new SourceTextModule(readFileSync(new URL('./request-step.js', import.meta.url), 'utf8'));

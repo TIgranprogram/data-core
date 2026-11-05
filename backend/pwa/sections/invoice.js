@@ -6,13 +6,13 @@ import { downloadTemplate, readTableFile } from '../core/xlsx-read.js';
 import { matchLines, rememberPairs } from '../core/bulk-match.js';
 import { normSearch } from '../core/facets.js';
 import { attachCombo, segmented } from '../ui/kit/index.js';
-import { photoField } from '../ui/photos.js';
-import { COST_CENTER } from '../ui/badges.js';
-import { toast, toastError } from '../ui/toast.js';
+import { photoField } from '../ui/kit/photos.js';
+import { COST_CENTER } from '../ui/kit/badges.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups, UNITS, unitList, partnerAction } from './lookups.js';
 import { pastItems } from './requests.js';
 import { orderedNote } from './item-orders.js';
-import { errText } from '../ui/errors.js';
+import { errText } from '../ui/kit/errors.js';
 
 /**
  * «+ Счёт» (TASKS В.3): уже оплаченный / полученный счёт, которого не было в заявках — вносится одним окном.

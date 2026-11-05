@@ -1,13 +1,13 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBtn } from './busy.js';
+import { busyBtn } from './kit/busy.js';
 import { date, parseNum, plural, qty } from '../core/format.js';
 import { current } from '../core/router.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
-import { errText } from './errors.js';
+import { errText } from './kit/errors.js';
 import { enhanceSelect } from './kit/index.js';
-import { toast, toastError } from './toast.js';
+import { toast, toastError } from './kit/toast.js';
 
 /*
  * Спецификация из Excel → брони под заказ (SK-6b), правая панель: ?of=specimport&new=1&orderId=<заказ>.

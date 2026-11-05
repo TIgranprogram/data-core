@@ -1,14 +1,14 @@
 import { api } from '../core/api.js';
 import { zoneQuery } from '../core/zone.js';
 import { h } from '../core/dom.js';
-import { busyBtn } from '../ui/busy.js';
+import { busyBtn } from '../ui/kit/busy.js';
 import { parseNum, plural, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { stockList } from '../core/stock-list.js';
 import { attachCombo, enhanceSelect, ftParams, ftQuery, row } from '../ui/kit/index.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { errText } from '../ui/errors.js';
-import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { errText } from '../ui/kit/errors.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { offerAfterIssue } from '../ui/composition-suggest.js';
 import { lineCode, targetPicker } from '../ui/target-picker.js';
 import { receiveField } from './item-orders.js';

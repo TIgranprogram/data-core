@@ -3,12 +3,12 @@ import { h } from '../core/dom.js';
 import { sku as kitSku } from '../ui/kit/index.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
-import { badge, ORDER_PRIORITY } from '../ui/badges.js';
+import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
 import { mountBoard } from '../ui/board.js';
 import { mountGantt } from '../ui/gantt.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { enhanceSelect } from '../ui/kit/index.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 export { workLaunch } from './work-launch.js'; // панель «Запуск в работу» (of=worklaunch)
 

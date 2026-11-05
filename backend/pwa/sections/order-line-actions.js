@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { toast } from '../ui/toast.js';
-import { modal } from '../ui/dialog.js';
+import { toast } from '../ui/kit/toast.js';
+import { modal } from '../ui/kit/dialog.js';
 import { STAGE } from './order-stage.js';
 
 /**

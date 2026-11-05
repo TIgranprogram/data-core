@@ -2,7 +2,7 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
 import { formImages, modelImagesToForm } from '../../core/passport-images.js';
-import { toast } from '../../ui/toast.js';
+import { toast } from '../../ui/kit/toast.js';
 import { V2_NUMS, api_get, api_post, codeList, isIssued, keyLines, kinds, kvLines, num, reqKinds, st } from './common.js';
 import { DEFAULT_KEYS } from './models.js';
 

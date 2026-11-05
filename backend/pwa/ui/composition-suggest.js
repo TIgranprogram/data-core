@@ -2,8 +2,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { money, plural, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
-import { errText } from './errors.js';
-import { toast } from './toast.js';
+import { errText } from './kit/errors.js';
+import { toast } from './kit/toast.js';
 
 /*
  * «Предложено из выдач» (SK-7b): состав изделия по тому, что выдали со склада под позицию заказа.

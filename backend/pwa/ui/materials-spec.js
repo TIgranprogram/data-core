@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { normSearch } from '../core/facets.js';
 import { attachCombo } from './kit/index.js';
 import { tagPick } from './kit/index.js';
-import { toast, toastError } from './toast.js';
+import { toast, toastError } from './kit/toast.js';
 
 /*
  * Материалы изделия таблицей (Фаза МИ.2/МИ.4/МИ.5): поле `type: 'widget'` правой панели, вид — как «Комплектность» (.rt-table).

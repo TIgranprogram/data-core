@@ -6,7 +6,7 @@ import { date } from '../../core/format.js';
 import { patch } from '../../core/router.js';
 import { createProductFor } from '../products.js';
 import { modal, segmented } from '../../ui/kit/index.js';
-import { toastError } from '../../ui/toast.js';
+import { toastError } from '../../ui/kit/toast.js';
 import { LATER_CATS, kinds, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, canEdit, dims, num, st } from './common.js';
 import { mmOf, models, productsAll, resetProducts } from './models.js';
 

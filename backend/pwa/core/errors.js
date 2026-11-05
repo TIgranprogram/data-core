@@ -7,7 +7,7 @@
  * Ответы сервера (400/401/403/404/409 с текстом) — не сбой, не отправляются (isFailure). Старый сервер (404) — больше не слать.
  */
 import { apiQuiet, session } from './api.js';
-import { isFailure } from '../ui/errors.js';
+import { isFailure } from '../ui/kit/errors.js';
 import { currentVersion } from './update-check.js';
 
 const SAME_MS = 30000;

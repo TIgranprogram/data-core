@@ -2,9 +2,9 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date } from '../core/format.js';
 import { go } from '../core/router.js';
-import { failBlock } from '../ui/busy.js';
-import { emptyState } from '../ui/empty.js';
-import { toastError } from '../ui/toast.js';
+import { failBlock } from '../ui/kit/busy.js';
+import { emptyState } from '../ui/kit/empty.js';
+import { toastError } from '../ui/kit/toast.js';
 import { issuePassport } from './passports.js';
 import { canEdit as canEditTexts } from './passports/common.js';
 

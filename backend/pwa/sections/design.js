@@ -7,7 +7,7 @@ import { designSide } from './design-side.js';
 import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason } from './design-data.js';
-import { carousel } from '../ui/gallery.js';
+import { carousel } from '../ui/kit/gallery.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { targetPicker } from '../ui/target-picker.js';

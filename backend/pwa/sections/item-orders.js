@@ -1,12 +1,12 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
-import { modal } from '../ui/dialog.js';
+import { modal } from '../ui/kit/dialog.js';
 import { enhanceSelect } from '../ui/kit/index.js';
-import { toast } from '../ui/toast.js';
+import { toast } from '../ui/kit/toast.js';
 
 /*
  * «Уже заказано» по позиции склада (TASKS ЗП): блок «Заказано» и «Поставщики и цены» в карточке (ЗП.1, ЗП.5),

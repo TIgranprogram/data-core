@@ -1,21 +1,21 @@
 import { startRain, stopRain } from './ui/cat-rain.js';
 import { startLiveSync, stopLiveSync } from './core/live-sync.js';
-import { isDragging } from './ui/drag.js';
+import { isDragging } from './ui/kit/drag.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
 import { api, canEditSection, events, login, PREFIX, quietLoadFor, session, trackLoad } from './core/api.js';
 import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view-as.js';
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
-import { confirmDlg, modal } from './ui/dialog.js';
+import { confirmDlg, modal } from './ui/kit/dialog.js';
 import { searchBox } from './ui/searchbox.js';
-import { openCard } from './ui/card.js';
-import { installGlobalErrors } from './ui/errors.js';
-import { toast, toastError } from './ui/toast.js';
+import { openCard } from './ui/kit/card.js';
+import { installGlobalErrors } from './ui/kit/errors.js';
+import { toast, toastError } from './ui/kit/toast.js';
 import { icon } from './ui/icons.js';
-import { closePopMenu, isOpenFor, openPopMenu } from './ui/pop-menu.js';
+import { closePopMenu, isOpenFor, openPopMenu } from './ui/kit/pop-menu.js';
 import { button, iconButton } from './ui/kit/index.js';
-import { mountList } from './ui/list.js';
+import { mountList } from './ui/kit/list.js';
 import { mountHome } from './sections/home.js';
 import { lookups } from './sections/lookups.js';
 /** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
@@ -28,8 +28,8 @@ import { chatButton } from './ui/chat-button.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
-import { failBlock } from './ui/busy.js';
-import { setCrumbs, crumbsEl } from './ui/crumbs.js';
+import { failBlock } from './ui/kit/busy.js';
+import { setCrumbs, crumbsEl } from './ui/kit/crumbs.js';
 // ОШ2: сбой запроса (сеть, 5xx, ответ не разобрался) — в сборщик; GET — фоновая загрузка, запись — действие человека
 events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: method === 'GET' ? 'загрузка' : 'запись', url });
 // ОШ: любая необработанная ошибка — в сборщик и понятным русским текстом (детали — в консоль), без повторов;

@@ -1,11 +1,11 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { searchBox } from '../ui/searchbox.js';
 import { h } from '../core/dom.js';
-import { busyBlock, busyBtn, failBlock } from '../ui/busy.js';
+import { busyBlock, busyBtn, failBlock } from '../ui/kit/busy.js';
 import { money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
-import { confirmDlg, modal } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg, modal } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
 import { tagPick } from '../ui/kit/index.js';

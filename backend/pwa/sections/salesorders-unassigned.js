@@ -4,10 +4,10 @@ import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
-import { toast } from '../ui/toast.js';
-import { modal } from '../ui/dialog.js';
+import { toast } from '../ui/kit/toast.js';
+import { modal } from '../ui/kit/dialog.js';
 import { attachCombo } from '../ui/kit/index.js';
-import { errText } from '../ui/errors.js';
+import { errText } from '../ui/kit/errors.js';
 
 /** В3: «Договоры без заказа» — выбор галочками и перенос в новый или существующий заказ (POST /production-orders/assign). */
 

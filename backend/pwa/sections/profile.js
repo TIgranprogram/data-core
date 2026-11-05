@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { getViewAs, rememberRoles, rolesForSelect, setViewAs } from '../core/view-as.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { AVATAR_PRESETS, avatarNode, presetNode } from '../ui/avatars.js';
 import { getPref, setPref } from '../core/prefs.js';
 import { enhanceSelect, segmented } from '../ui/kit/index.js';

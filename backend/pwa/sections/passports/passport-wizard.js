@@ -1,6 +1,6 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { toastError } from '../../ui/toast.js';
+import { toastError } from '../../ui/kit/toast.js';
 import { link } from '../../ui/kit/index.js';
 import { go } from '../../core/router.js';
 import { rowsTable } from '../../ui/rows-table.js';

@@ -1,10 +1,10 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/busy.js';
-import { modal } from '../ui/dialog.js';
+import { failBlock } from '../ui/kit/busy.js';
+import { modal } from '../ui/kit/dialog.js';
 import { isoDay, date } from '../core/format.js';
 import { patch, go } from '../core/router.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
 import { empty, card, row } from '../ui/kit/index.js';

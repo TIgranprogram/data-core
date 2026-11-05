@@ -1,10 +1,10 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { date, money, newUid, parseNum, qty } from '../core/format.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { openSide, sideForm } from '../ui/side-form.js';
-import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { openSide, sideForm } from '../ui/kit/side-form.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups, todayMsk } from './orders.js';
 import { table } from '../ui/kit/index.js';
 

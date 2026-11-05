@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { parseNum } from '../core/format.js';
-import { toast, toastError } from './toast.js';
+import { toast, toastError } from './kit/toast.js';
 
 /**
  * Быстрое добавление одной строкой (CANON §2): «что нужно · сколько · ед. · Enter».

@@ -2,9 +2,9 @@ import { api, apiFile } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum } from '../core/format.js';
 import { go } from '../core/router.js';
-import { badge } from '../ui/badges.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
+import { badge } from '../ui/kit/badges.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
 import { isAdmin, withReason } from './admin-override.js';
 

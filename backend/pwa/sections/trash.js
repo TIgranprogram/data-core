@@ -1,8 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { dateTime } from '../core/format.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { table } from '../ui/kit/index.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { requests } from './requests.js';

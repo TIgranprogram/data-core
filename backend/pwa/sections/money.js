@@ -1,12 +1,12 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { money } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { filter, table, tabs as kitTabs } from '../ui/kit/index.js';
-import { mountList } from '../ui/list.js';
-import { openSide, noteField, sideForm } from '../ui/side-form.js';
-import { toast } from '../ui/toast.js';
+import { mountList } from '../ui/kit/list.js';
+import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
+import { toast } from '../ui/kit/toast.js';
 import { opRow } from '../ui/op-row.js';
 import { forecastView } from './money-forecast.js';
 

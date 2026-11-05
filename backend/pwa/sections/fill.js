@@ -1,10 +1,10 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { qty, parseNum } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
-import { toast } from '../ui/toast.js';
+import { toast } from '../ui/kit/toast.js';
 import { empty } from '../ui/kit/index.js';
 
 /**

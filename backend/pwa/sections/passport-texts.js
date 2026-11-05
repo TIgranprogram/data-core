@@ -1,10 +1,10 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { tabs } from '../ui/kit/index.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 
 /**
  * «Справочники → Паспорта → Общие разделы (шаблон)» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2); тексты ВАРИАНТОВ для воронки — в passport-tree.js. 

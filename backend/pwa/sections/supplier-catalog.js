@@ -4,12 +4,12 @@ import { date, money, qty, plural } from '../core/format.js';
 import { stepFunnel, attachCombo, enhanceSelect } from '../ui/kit/index.js';
 import { catArt } from '../ui/cat-art.js';
 import { current, patch, go } from '../core/router.js';
-import { openSide, noteField, sideForm } from '../ui/side-form.js';
+import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
-import { openPopMenu } from '../ui/pop-menu.js';
+import { openPopMenu } from '../ui/kit/pop-menu.js';
 import { icon } from '../ui/icons.js';
-import { toast, toastError } from '../ui/toast.js';
-import { setCrumbTail } from '../ui/crumbs.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
 
 import { table } from '../ui/kit/index.js';

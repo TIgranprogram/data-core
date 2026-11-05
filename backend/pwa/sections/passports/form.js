@@ -4,7 +4,7 @@ import { isoDay } from '../../core/format.js';
 import { rowsTable } from '../../ui/rows-table.js';
 import { tagPick } from '../../ui/kit/index.js';
 import { formImages, imagesBody } from '../../core/passport-images.js';
-import { toast, toastError } from '../../ui/toast.js';
+import { toast, toastError } from '../../ui/kit/toast.js';
 import { personNames } from '../../ui/dict-options.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
 import { AFTER_PRINT, BOM_COLS, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';

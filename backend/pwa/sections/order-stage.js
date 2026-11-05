@@ -1,5 +1,5 @@
 import { current, onChange } from '../core/router.js';
-import { setCrumbTail } from '../ui/crumbs.js';
+import { setCrumbTail } from '../ui/kit/crumbs.js';
 
 /** Этапы заказа: отдельным файлом, чтобы экраны в стартовой сборке не тянули весь раздел «Заказы». */
 export const STAGE = {

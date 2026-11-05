@@ -1,15 +1,15 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { sku as kitSku } from '../ui/kit/index.js';
-import { busyBtn } from '../ui/busy.js';
+import { busyBtn } from '../ui/kit/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { attachCombo } from '../ui/kit/index.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';
-import { errText } from '../ui/errors.js';
+import { errText } from '../ui/kit/errors.js';
 import { go } from '../core/router.js';
 import { createOffer } from './offers.js';
 

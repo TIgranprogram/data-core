@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { link, openSide } from '../ui/kit/index.js';
 import { openLaunch } from './work-launch.js';
 

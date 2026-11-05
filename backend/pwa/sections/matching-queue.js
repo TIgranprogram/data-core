@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { enhanceSelect, table, tabs as kitTabs } from '../ui/kit/index.js';
-import { toastError } from '../ui/toast.js';
+import { toastError } from '../ui/kit/toast.js';
 import { STAGE } from './order-stage.js';
 import { openMatching } from './salesorders-matching.js';
 import { posPic } from '../ui/pos-pic.js';

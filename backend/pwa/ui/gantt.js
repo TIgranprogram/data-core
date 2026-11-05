@@ -1,8 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
-import { toast, toastError } from './toast.js';
-import { failBlock } from './busy.js';
+import { toast, toastError } from './kit/toast.js';
+import { failBlock } from './kit/busy.js';
 
 /**
  * Вид «Гант» для списка заданий (раздел «В работе»). Подключается как `list.gantt = { mount: mountGantt, … }` (ui/list.js).

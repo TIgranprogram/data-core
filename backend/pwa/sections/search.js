@@ -8,7 +8,7 @@ import { passports } from './passports.js';
 import { partners } from './partners.js';
 import { products } from './products.js';
 import { design } from './design.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 
 
 /** Поиск по всему (PRODUCT §6): номер / название / поставщик → совпадения во всех разделах. Раздел без прав (403) не показывается. */

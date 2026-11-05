@@ -4,7 +4,7 @@ import { persons } from './passports/common.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { modal } from '../ui/dialog.js';
+import { modal } from '../ui/kit/dialog.js';
 import { attachCombo, enhanceSelect } from '../ui/kit/index.js';
 
 /*

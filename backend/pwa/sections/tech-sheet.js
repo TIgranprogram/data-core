@@ -1,8 +1,8 @@
 import { apiFile } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { modal } from '../ui/dialog.js';
+import { modal } from '../ui/kit/dialog.js';
 import { loadMaterialDicts } from '../ui/materials-spec.js';
-import { toast } from '../ui/toast.js';
+import { toast } from '../ui/kit/toast.js';
 
 /**
  * «Техническое описание» изделия: фото слева, справа таблица с допусками. Строки подставляются из изделия, всё правится здесь же,

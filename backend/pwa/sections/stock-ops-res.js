@@ -2,9 +2,9 @@ import { api } from '../core/api.js';
 import { zoneQuery } from '../core/zone.js';
 import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { errText } from '../ui/errors.js';
-import { toast } from '../ui/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { errText } from '../ui/kit/errors.js';
+import { toast } from '../ui/kit/toast.js';
 import { issueToFields } from './issue.js';
 import { editReservation } from './reservations.js';
 

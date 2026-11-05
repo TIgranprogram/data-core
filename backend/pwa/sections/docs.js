@@ -2,8 +2,8 @@ export { orderpass } from './order-passport-plan.js'; // LAZY.docs в main.js ж
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { current, go, patch } from '../core/router.js';
-import { toast, toastError } from '../ui/toast.js';
-import { mountList } from '../ui/list.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { mountList } from '../ui/kit/list.js';
 import { funnelBox } from '../ui/funnel.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';

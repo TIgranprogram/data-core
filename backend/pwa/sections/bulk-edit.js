@@ -1,8 +1,8 @@
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { attachCombo, tagPick, segmented } from '../ui/kit/index.js';
-import { confirmDlg } from '../ui/dialog.js';
-import { toast } from '../ui/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
+import { toast } from '../ui/kit/toast.js';
 
 /*
  * «Изменить выбранные» (БЗ-9) — правая панель массового изменения: у каждого поля галочка «менять»; меняется только

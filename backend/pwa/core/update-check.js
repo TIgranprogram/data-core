@@ -1,5 +1,5 @@
 import { h } from './dom.js';
-import { toast } from '../ui/toast.js';
+import { toast } from '../ui/kit/toast.js';
 
 /**
  * Новая версия приложения (замечание 2026-10-22: установленное на Windows приложение «не обновилось»; затем —

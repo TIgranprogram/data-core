@@ -3,9 +3,9 @@ import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { attachCombo, tabs, table, empty, tabs as kitTabs } from '../ui/kit/index.js';
-import { modal } from '../ui/dialog.js';
-import { carousel } from '../ui/gallery.js';
-import { toastError } from '../ui/toast.js';
+import { modal } from '../ui/kit/dialog.js';
+import { carousel } from '../ui/kit/gallery.js';
+import { toastError } from '../ui/kit/toast.js';
 
 /**
  * «Заявки на создание изделия» в разделе «Проектирование» (ORDER-LINES шаг 7): менеджер в заказе добавил «новое изделие»,

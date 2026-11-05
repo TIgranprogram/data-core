@@ -1,8 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/busy.js';
+import { failBlock } from '../ui/kit/busy.js';
 import { enhanceSelect } from '../ui/kit/index.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 
 /*
  * «Как делается» в карточке изделия: маршрут по видам работ (сварка → покраска → сборка). По нему «Запустить в работу»

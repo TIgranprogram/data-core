@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
-import { toast } from '../ui/toast.js';
-import { errText } from '../ui/errors.js';
+import { toast } from '../ui/kit/toast.js';
+import { errText } from '../ui/kit/errors.js';
 import { resetDictOptions } from '../ui/dict-options.js';
 
 /** Справочники для форм и фильтров (поставщики, категории, «кто подал»): кэш 60 с, сброс после сохранения. */

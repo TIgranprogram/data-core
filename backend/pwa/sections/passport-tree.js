@@ -1,9 +1,9 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBlock, failBlock } from '../ui/busy.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
-import { confirmDlg, modal } from '../ui/dialog.js';
-import { toast, toastError } from '../ui/toast.js';
+import { confirmDlg, modal } from '../ui/kit/dialog.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { catChips } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { LATER_CATS, dictRows } from './passports/common.js';

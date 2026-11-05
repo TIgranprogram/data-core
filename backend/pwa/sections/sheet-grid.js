@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { filter } from '../ui/kit/index.js';
 import { qty } from '../core/format.js';
 import { go } from '../core/router.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { moveCell, reservedTable } from './pipe-grid.js';
 
 /**

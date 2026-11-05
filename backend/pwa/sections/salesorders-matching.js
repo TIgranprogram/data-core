@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { attachCombo, similarBox } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
-import { toast, toastError } from '../ui/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { current, patch } from '../core/router.js';
 
 /**
