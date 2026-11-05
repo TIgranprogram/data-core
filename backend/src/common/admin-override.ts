@@ -17,7 +17,7 @@ export const isAdminActor = (a?: OverrideActor | null): boolean => !!a && (a.rol
 /** Причина обхода: обязательна, от 3 символов (как stageReason заказа). Вызывать ДО записи данных. */
 export function overrideReason(reason?: string | null): string {
   const r = String(reason ?? '').trim();
-  if (r.length < 3) throw new BadRequestException('Администратор обходит запрет только с причиной — напишите её (от 3 символов)');
+  if (r.length < 3) throw new BadRequestException({ statusCode: 400, message: 'Администратор обходит запрет только с причиной — напишите её (от 3 символов)', error: 'Bad Request', code: 'REASON_REQUIRED' });
   return r.slice(0, 500);
 }
 
