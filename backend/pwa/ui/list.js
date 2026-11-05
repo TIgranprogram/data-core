@@ -9,7 +9,6 @@ import { qty, plural } from '../core/format.js';
 import { patch, current } from '../core/router.js';
 import { mountBoard } from './board.js';
 import { icon } from './icons.js';
-import { pager } from './pager.js';
 import { openPopMenu } from './pop-menu.js';
 import { toastError } from './toast.js';
 import { button } from './kit/index.js';
@@ -167,6 +166,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const hintBox = h('div', { class: 'list-hint', hidden: true });
   let chipOpts = null;
   let lastResp = null;
+  let rawRows = [];
   Promise.all(chipFilters.map((f) => Promise.resolve(f.options()))).then((o) => { chipOpts = o; renderChips(); });
   function renderChips() {
     if (!chipOpts) return;
@@ -234,7 +234,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (selBtn) selBtn.classList.toggle('active', bulkMode);
     const pickedRows = () => rows.filter((r) => picked.has(r.id));
     bulkBar.replaceChildren(h('b', null, picked.size ? `Выбрано: ${qty(picked.size)}` : 'Отметьте строки — клик по строке или галочке'),
-      picked.size && L.bulk.open ? h('button', { type: 'button', class: 'btn btn-sm', disabled: !!L.bulk.disabled?.(pickedRows()), onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load(); }, rows: pickedRows() }) }, (typeof L.bulk.label === 'function' ? L.bulk.label(pickedRows()) : L.bulk.label) || 'Изменить выбранные') : null,
+      picked.size && L.bulk.open ? h('button', { type: 'button', class: 'btn btn-sm', disabled: !!L.bulk.disabled?.(pickedRows()), onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load({ keep: true }); }, rows: pickedRows() }) }, (typeof L.bulk.label === 'function' ? L.bulk.label(pickedRows()) : L.bulk.label) || 'Изменить выбранные') : null,
       ...(picked.size ? (L.bulk.extra || []).map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => a.run([...picked], pickedRows()) }, a.label)) : []),
       h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять выбор' : 'Готово'));
     const all = headPick(); if (all) { const ids = rows.filter(canPick).map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
@@ -396,7 +396,17 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (isBoard && L.path === '/production-orders' && query.filter && query.filter !== 'all') delete query.filter;
     return query;
   }
-  async function load() {
+  // ПГ-1: автоподгрузка — строки добавляются при прокрутке к низу; адресный page не используется
+  let pagesLoaded = 1;
+  let loadingMore = false;
+  const moreNote = h('span', { class: 'muted' });
+  const sentinel = h('div', { 'aria-hidden': 'true' });
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => {
+    if (es.some((x) => x.isIntersecting) && !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading')) load({ append: true });
+  }, { rootMargin: '300px 0px' }) : null;
+  io?.observe(sentinel);
+  const rewatch = () => { if (io) { io.unobserve(sentinel); io.observe(sentinel); } };
+  async function load(opt = {}) {
     let { limit, page, sort, board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
     const query = currentQuery(isBoard);
@@ -415,6 +425,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       return;
     }
     const my = ++seq;
+    const infinite = !per;
+    const append = infinite && !!opt.append && !!lastResp;
+    if (infinite && !append && !opt.keep) pagesLoaded = 1;
+    if (infinite) page = 1;
     if (isGallery && L.landing && !picked.size && L.landing.when(P)) { // галочки видны всегда — стартовые плитки показываем, пока ничего не отмечено
       countEl.textContent = ''; foot.replaceChildren(); panel.classList.remove('loading');
       const node = await L.landing.render({ pick: (v) => patch({ [L.tiles?.key || 'groupId']: v, page: undefined }) });
@@ -422,30 +436,37 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       loaded = true; rows = []; galleryBox.replaceChildren(node);
       return;
     }
-    if (!loaded) stateRow(() => h('div', { class: 'skel-block' }, ...Array.from({ length: 6 }, () => h('div', { class: 'skel' }))));
-    panel.classList.add('loading');
+    if (append) { loadingMore = true; moreNote.textContent = 'Загрузка…'; } else if (!loaded) stateRow(() => h('div', { class: 'skel-block' }, ...Array.from({ length: 6 }, () => h('div', { class: 'skel' }))));
+    if (!append) panel.classList.add('loading');
     let resp;
     try {
-      resp = await api(L.path, { query: { ...query, page, limit, sort } });
+      if (append) {
+        resp = await api(L.path, { query: { ...query, page: pagesLoaded + 1, limit, sort } });
+        if (my === seq) { resp = { ...resp, items: [...rawRows, ...resp.items] }; pagesLoaded++; }
+      } else if (infinite && opt.keep && pagesLoaded > 1) {
+        const n = pagesLoaded; resp = await api(L.path, { query: { ...query, page: 1, limit, sort } });
+        for (let p = 2; p <= n && resp.items.length < resp.total; p++) { const r = await api(L.path, { query: { ...query, page: p, limit, sort } }); resp.items = [...resp.items, ...r.items]; }
+      } else resp = await api(L.path, { query: { ...query, page, limit, sort } });
     } catch (e) {
+      loadingMore = false;
       if (my !== seq) return;
+      if (append) { moreNote.textContent = ''; foot.replaceChildren(failBlock(e, () => load({ append: true }))); return; }
       panel.classList.remove('loading');
-      stateRow(() => failBlock(e, load));
+      stateRow(() => failBlock(e, () => load()));
       foot.replaceChildren();
       return;
     }
     if (my !== seq) return;
-    loaded = true;
+    loaded = true; loadingMore = false;
     if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - t0; if (ms > 2000) reportSlow(ms, t0); }
     panel.classList.remove('loading');
-    lastResp = resp;
+    lastResp = resp; rawRows = resp.items;
     countEl.textContent = qty(resp.total);
     renderChips();
     rows = L.map ? resp.items.map(L.map) : resp.items; // L.map — привести строку ответа к виду { id, … } (список «Заказов»: key → id)
     if (bulkOn) queueMicrotask(paintBulk); // «все на странице» — по новой странице
     const active = anyFilter() || P.q;
     if (!rows.length) {
-      if (page > 1 && resp.total > 0) { patch({ page: Math.ceil(resp.total / limit) }); return; }
       stateRow(() => active
         ? h('div', { class: 'state' }, h('div', null, P.q ? `По «${P.q}» ничего не найдено.` : 'Ничего не найдено.'),
           P.q ? h('button', { class: 'btn', type: 'button', onclick: () => { sb.set('', true); patch({ q: undefined, page: undefined }); } }, 'Сбросить поиск') : null,
@@ -488,12 +509,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       markSelected();
     }
     if (per) { foot.replaceChildren(...[h('span', null, resp.total ? `${qty(resp.total)} ${plural(resp.total, 'запись', 'записи', 'записей')} по месяцам` : ''), L.footer ? L.footer(resp) : null].filter(Boolean)); return; }
-    const from = resp.total ? (page - 1) * limit + 1 : 0;
-    const to = Math.min(resp.total, page * limit);
+    moreNote.textContent = '';
     foot.replaceChildren(...[
-      h('span', null, resp.total ? `${from}–${to} из ${qty(resp.total)}` : ''),
+      h('span', null, resp.total ? `Показано ${qty(rows.length)} из ${qty(resp.total)}` : ''),
       L.footer ? L.footer(resp) : null,
-      resp.total > 25 ? pager({ page, limit, total: resp.total, onPage: (p) => patch({ page: p > 1 ? p : undefined }), onLimit: (n) => patch({ limit: n === (L.limit || 25) ? undefined : n, page: undefined }) }) : null].filter(Boolean));
+      rows.length < resp.total ? moreNote : null,
+      sentinel].filter(Boolean));
+    rewatch();
   }
 
   /* ---------- Галерея: карточки с фото по группам (ПС: паспорта по категориям) ---------- */
@@ -584,7 +606,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     return button({ label: a.label, size: 'S', title: a.title, onClick: async (e) => {
       e.stopPropagation();
       const b = e.currentTarget; b.disabled = true;
-      try { if (await a.run(row) !== false) { await load(); onChanged?.(); } } catch (ex) { toastError(ex); } finally { b.disabled = false; }
+      try { if (await a.run(row) !== false) { await load({ keep: true }); onChanged?.(); } } catch (ex) { toastError(ex); } finally { b.disabled = false; }
     } });
   }
 
@@ -623,8 +645,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     el,
     update,
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
-    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load(); },
+    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
     focusSearch: () => sb.focus(),
-    destroy: () => document.removeEventListener('keydown', onKey),
+    destroy: () => { document.removeEventListener('keydown', onKey); io?.disconnect(); },
   };
 }
