@@ -178,6 +178,25 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
 }
 
 /**
+ * «Виды вложений» (ВЛ-1): файлы изделия раскладываются по видам (Чертежи, Паспорта…). Файл хранит `typeId` — ссылка по id,
+ * поэтому переименование безопасно. «Используется» — число файлов (без убранных); занятый вид удалить нельзя, объединение переносит файлы.
+ */
+function attachmentTypesList(): DictBase {
+  const base = simpleList('attachmentTypes', 'Продукция', 'Виды вложений',
+    'Папки для файлов изделия: Чертежи, Паспорта, Договоры, 3D-модели… В карточке изделия в блоке «Вложения» файлы раскладываются по этим видам.',
+    [{ key: 'order', label: 'Порядок', hint: 'Число: чем меньше, тем выше в карточке изделия' }, { key: 'formats', label: 'Допустимые форматы', hint: 'Подсказка менеджеру, необязательно: «PDF, DWG»', wide: true }],
+    undefined, ['Чертежи', 'Паспорта', 'Договоры / КП', '3D-модели']);
+  const files = (d: Doc) => ({ typeId: d._id, deletedAt: null });
+  return {
+    ...base,
+    usage: async (db, docs) => new Map(await Promise.all(docs.map(async (d) => [String(d._id), await db.collection('productattachments').countDocuments(files(d))] as [string, number]))),
+    busy: async (db, d) => (await db.collection('productattachments').countDocuments(files(d), { limit: 1 })) > 0,
+    related: async (db, d) => ({ title: 'Файлов в изделиях', total: await db.collection('productattachments').countDocuments(files(d)), items: [] }),
+    reassign: async (db, from, to) => (await db.collection('productattachments').updateMany({ typeId: from._id }, { $set: { typeId: to._id } })).modifiedCount,
+  };
+}
+
+/**
  * «Серии изделий» (ИЗ-18): `products.series` хранит название строкой; серия изделия выбирается только из справочника.
  * «Используется» — число изделий; переименование и объединение правят `products.series` (поле только data-core, CRM его не читает).
  */
@@ -638,6 +657,7 @@ const BASE: DictBase[] = [
   simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в заказе, КП и счетах: доставка, монтаж, погрузка, аренда техники… Список общий. Новые — только здесь, не в «Видах работ».', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
 
   productSeriesList(),
+  attachmentTypesList(),
 
   // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.2, §3.3): правят директор и админ ─────────
   // ПВ2 (2026-10-25): порядок полей = порядок в карточке — частое сверху; коды и настроечное (tech) — внизу, не столбцы таблицы.
@@ -849,7 +869,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
-  productSeries: { newTitle: 'Новая серия' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
+  productSeries: { newTitle: 'Новая серия' }, attachmentTypes: { newTitle: 'Новый вид вложений' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
   passportStyle: { newTitle: 'Новый элемент оформления' },
 };
 /** Поля справочника с подписью «Название» из DICT_UI. */

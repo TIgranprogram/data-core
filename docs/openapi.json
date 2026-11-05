@@ -15579,6 +15579,242 @@
           }
         }
       }
+    },
+    "/products/{id}/attachments": {
+      "get": {
+        "operationId": "ProductAttachmentsController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deleted",
+            "required": false,
+            "in": "query",
+            "description": "1 — убранные файлы (только admin)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{items,total,page,limit}; без storedPath"
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      },
+      "post": {
+        "operationId": "ProductAttachmentsController_upload",
+        "summary": "Загрузить вложение (multipart, поле file; вид — ?typeId=; до ATTACHMENT_MAX_BYTES, 512 МБ). admin, manager",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeId",
+            "required": true,
+            "in": "query",
+            "description": "id строки справочника attachmentTypes",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "формат/содержимое не разрешены"
+          },
+          "413": {
+            "description": "больше лимита"
+          },
+          "507": {
+            "description": "нет места"
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}": {
+      "delete": {
+        "operationId": "ProductAttachmentsController_remove",
+        "summary": "Убрать вложение (мягко). Только admin",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}/restore": {
+      "post": {
+        "operationId": "ProductAttachmentsController_restore",
+        "summary": "Вернуть убранное вложение. Только admin",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}/download-ticket": {
+      "post": {
+        "operationId": "ProductAttachmentsController_ticket",
+        "summary": "Одноразовый тикет на скачивание (60 с) → {ticket,expiresIn,url}",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}/file": {
+      "get": {
+        "operationId": "ProductAttachmentFileController_file",
+        "summary": "Скачать файл по тикету (без JWT; Range поддерживается; тикет гасится)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "t",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "application/octet-stream"
+          },
+          "206": {
+            "description": "часть файла"
+          },
+          "403": {
+            "description": "тикет устарел"
+          },
+          "404": {
+            "description": ""
+          },
+          "416": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
     }
   },
   "info": {
@@ -15587,7 +15823,12 @@
     "version": "0.1.0",
     "contact": {}
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "Вложения изделия",
+      "description": ""
+    }
+  ],
   "servers": [],
   "components": {
     "securitySchemes": {

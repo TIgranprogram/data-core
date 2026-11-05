@@ -51,7 +51,7 @@ export class MulterExceptionFilter implements ExceptionFilter {
 
     const humanMessage: Partial<Record<MulterError['code'], string>> = {
       LIMIT_FILE_SIZE:
-        'Файл превышает максимально допустимый размер (5 МБ).',
+        'Файл превышает максимально допустимый размер.',
       LIMIT_FILE_COUNT: 'Слишком много файлов в запросе (допустимо: 1).',
       LIMIT_UNEXPECTED_FILE:
         'Неожиданное имя поля файла. Ожидается поле «file».',

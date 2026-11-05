@@ -1,5 +1,12 @@
 # Карта роли backend
 
+## Вложения изделия (ВЛ-1, BE-1, 2026-11-05, не закоммичено)
+- `modules/productattachments/`: формат/сигнатуры `attachment-formats.ts:signatureOk`, пути/Range/имя `attachment-paths.ts` (`isAttachmentsUrl`, `resolveInside`), тикет `download-tickets.ts`, место `attachment-capacity.ts`, multer `attachment-upload.options.ts`, предпроверка `attachment-upload.guard.ts`, `productattachments.service.ts` (`save`, `fileByTicket`, сид видов `onModuleInit`), контроллеры (`file` — @Public по тикету). Справочник `dicts.defs.ts:attachmentTypesList`, `dicts.meta.ts`.
+- `main.ts`: 404 на `/uploads/attachments` перед статикой; `server.requestTimeout` 1 ч. Индекс — `scripts/ensure-indexes.js` MODELS. openapi правлен вручную (скриптом из scratchpad), не регенерирован. e2e не писался. Отчёт — `docs/crew/VL-1-BE1-report.md`. коммит: —
+
+## ЗЯ-1a админ обходит блоки (2026-11-05, не закоммичено)
+- `common/admin-override.ts` (`isAdminActor`, `overrideReason`, `adminOverride`→AuditService `admin.override`). `supply.service.ts:488` update(actor) — реквизиты строки; `supply-invoice.service.ts:641` `adminEditLine`; `supply.controller.ts:353`; КП: `offer-rules.ts:25` + `offers.service.ts:189,226`. Тесты рядом, отчёт `docs/crew/ZYA-1a-report.md`. openapi не обновлён. коммит: —
+
 ## Деньги: просроченные счета в календаре (MONEY-SHOW §B, 2026-11-04, не закоммичено)
 - `cashflow.ts:49` `foldOverdueInvoices`: просрочка (срок ≤ сегодня, не старше `invoiceStaleSince`) встаёт на сегодня, если период включает сегодня; прошлый месяц оставляет счета на своей дате.
 - `forecast.ts:31` `invoiceStaleSince` (90 дней); `expectedOps:49` тот же отсев. `finance.service.ts:86` добирает неоплаченные раньше периода; `:184` pending/metrics считаются после переноса. Поля ответа те же.

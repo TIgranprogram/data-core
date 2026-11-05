@@ -66,6 +66,7 @@ import { ProductRequestsModule } from './modules/product-requests/product-reques
 import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { OffersModule } from './modules/offers/offers.module';
 import { QrModule } from './modules/qr/qr.module';
+import { ProductAttachmentsModule } from './modules/productattachments/productattachments.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { DictsModule } from './modules/dicts/dicts.module';
 import { FillAuditModule } from './modules/fill-audit/fill-audit.module';
@@ -193,6 +194,7 @@ import { RequestMethod } from '@nestjs/common';
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     OffersModule,           // /api/offers — коммерческие предложения (КП-1), коллекции commercialoffers, offerbackgrounds
     QrModule,               // /api/qr, /q/:code — QR-коды позиций склада и изделий (qrcodes)
+    ProductAttachmentsModule, // /api/products/:id/attachments — вложения изделия (productattachments), ВЛ-1
     NotificationsModule,    // /api/notifications — уведомления пользователя (Важные / Система)
     ZonesModule,            // /api/zones, /api/staff — зоны ответственности, сотрудник ↔ вход, адресация уведомлений (ЗО)
     MessagesModule,         // /api/messages — мини-чат сотрудников

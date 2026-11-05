@@ -21,6 +21,7 @@ import { createQuietNestLogger } from './common/logging/quiet-nest-logger';
 import { SecretValidationService } from './config/secret-validation.service';
 import { registerAppDataBodyParser } from './modules/app-data/app-data.body-parser';
 import { MetaService } from './modules/meta/meta.controller';
+import { isAttachmentsUrl } from './modules/productattachments/attachment-paths';
 
 async function bootstrap() {
   // TZ-157: Initialize Sentry before NestJS so exceptions in bootstrap are captured
@@ -72,6 +73,8 @@ async function bootstrap() {
     bufferLogs: true,
   });
   app.useBodyParser('json', { limit: '1mb' }); // POST /api/devlog/import — тело до 1 МБ
+  // Загрузка вложений до 512 МБ на узком канале идёт дольше 5 минут (по умолчанию Node рвёт запрос): час, переменной можно изменить; 0 — без предела
+  app.getHttpServer().requestTimeout = Number(process.env.HTTP_REQUEST_TIMEOUT_MS ?? 3_600_000);
 
   // TZ-OPS-301: mute Nest DI INFO spam (InstanceLoader / RoutesResolver / …).
   // warn/error always pass; NEST_BOOT_VERBOSE=1 or LOG_LEVEL=debug → full dump.
@@ -119,6 +122,9 @@ async function bootstrap() {
 
   // Сжатие — до раздачи статики, иначе /app и /admin уходят несжатыми (канал до VM узкий)
   app.use(compression());
+
+  // Вложения изделий (ВЛ-1) не раздаются статикой: только по одноразовому тикету через API (до useStaticAssets!)
+  app.use((req: { url?: string }, res: { status(c: number): { end(): void } }, next: () => void) => (isAttachmentsUrl(req.url) ? res.status(404).end() : next()));
 
   // Static serve for uploaded photos at /uploads/* → ./uploads/
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
