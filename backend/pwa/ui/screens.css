@@ -732,7 +732,7 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gal-group + .gal-group { margin-top: var(--s4); }
 .gal-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 10px; }
 .gal-n { color: var(--muted); font-size: var(--fs-sm); font-weight: 500; }
-.gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--s4); }
+.gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: var(--card-gap); }
 .gc-price { font-weight: 700; color: var(--text); }
 .gal-head { font-size: var(--fs-h3); }
 .gcard { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font: inherit; min-width: 0; }

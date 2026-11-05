@@ -24,7 +24,7 @@ export const AUDIT_DIR = path.join(ROOT, 'tools', 'logs', 'audit', DAY);
 export const RULES = {
   a: 'мусор в тексте', b: 'заголовок панели из одного слова', c: '«скоро / в разработке / TODO»', d: 'горизонтальная прокрутка страницы (реальная)',
   e: 'сжатый текст «столбиком»', f: 'картинка выше 200px или шире колонки', g: 'кликабельное меньше 36px по меньшей стороне (390)', h: 'вкладка со счётчиком 0 / пустая без подсказки',
-  i: 'внутренние коды на экране', j: 'inline style / класс, которого нет ни в CSS, ни в JS', k: 'ошибки консоли, API ≥ 400 или медленнее 1500 мс', l: 'карточки .tcard выглядят по-разному',
+  i: 'внутренние коды на экране', j: 'inline style / класс, которого нет ни в CSS, ни в JS', k: 'ошибки консоли, API ≥ 400 или медленнее 1500 мс', l: 'карточки: радиус 10, рамка 1px, без тени в покое; .tcard выглядят по-разному',
   m: 'мелко: кликабельное 36–39px (390), не ошибка', x: 'проверки кода (design-lint, импорты, tsc)',
   n: 'счёт с идентификатором в группе не открывается отдельной ссылкой',
   o: 'группы реквизитов правой панели разбросаны без карточной структуры',
@@ -35,6 +35,28 @@ export const RULES = {
 };
 
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
+
+/** Стиль «картотека» (ДС-1, DESIGN §2.2): радиус 10, рамка 1px, тени в покое нет. card = { radius, borderTop, shadow, selected }. Выполняется и внутри браузера. */
+export function cardLookFindings(card = {}) {
+  const out = [];
+  if (card.radius !== '10px') out.push('радиус ' + card.radius + ', нужен 10px (--radius)');
+  if (card.borderTop !== '1px') out.push('рамка ' + card.borderTop + ', нужна 1px');
+  if (!card.selected && card.shadow && card.shadow !== 'none') out.push('тень в покое — карточка «бумага» без тени');
+  return out;
+}
+
+/** Правила :hover карточек. rules = [{ sel, transform, shadow }]. Подъём при наведении — только k-hover: translateY(-2px) и var(--shadow); у остальных подъёма нет. */
+export function hoverRuleFindings(rules = []) {
+  const out = [];
+  for (const r of rules) {
+    const lift = /translatey\(\s*-?[\d.]+px/i.test(r.transform || '');
+    if (/\.k-hover:hover/.test(r.sel)) {
+      if (r.transform && r.transform !== 'none' && !/translateY\(-2px\)/.test(r.transform)) out.push({ sel: r.sel, text: 'подъём при наведении не -2px: ' + r.transform });
+      if (r.shadow && r.shadow !== 'var(--shadow)') out.push({ sel: r.sel, text: 'тень при наведении ' + r.shadow + ', нужна var(--shadow)' });
+    } else if (lift) out.push({ sel: r.sel, text: 'подъём при наведении есть не у k-hover: ' + r.transform });
+  }
+  return out;
+}
 
 /** Структурные регрессии: только безопасные DOM-признаки, без данных форм и токенов. */
 export function panelStructureFindings({ groups = [], flatGroupHeadings = 0, imageSources = [] } = {}) {
@@ -196,6 +218,15 @@ for(const el of document.querySelectorAll('main [style],.drawer [style]')){
  for(const el of document.querySelectorAll('main :is('+RAW+'),.drawer :is('+RAW+'),.modal-back :is('+RAW+')')){if(!vis(el)||el.closest('[data-k]'))continue;bad.push(el)}
  if(bad.length){const by=new Map();for(const el of bad){const k=sel(el);by.set(k,(by.get(k)||0)+1)}
   add('s','main, .drawer','не из kit: '+bad.length+' ('+[...by].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,n])=>k+'×'+n).join(', ')+')')}}
+// ДС-1: l — вид карточки (радиус, рамка, тень в покое); r — правила наведения (подъём -2px и --shadow только у k-hover)
+const cardLook=(${cardLookFindings.toString()});
+for(const el of document.querySelectorAll('main :is(.tcard,.tile,.db-order),.drawer :is(.tcard,.tile,.db-order)')){
+  if(!vis(el)||el.classList.contains('dragging'))continue;const cs=getComputedStyle(el);
+  for(const t of cardLook({radius:cs.borderTopLeftRadius,borderTop:cs.borderTopWidth,shadow:cs.boxShadow,selected:el.classList.contains('active')}))add('l',sel(el),t)}
+{const hov=(${hoverRuleFindings.toString()});const rules=[];
+ const walk=x=>{if(x.selectorText&&/:hover/.test(x.selectorText)&&/(k-hover|tcard|\\.tile|db-order)/.test(x.selectorText))rules.push({sel:x.selectorText,transform:x.style.transform,shadow:x.style.boxShadow});if(x.cssRules)for(const y of x.cssRules)walk(y)};
+ for(const sh of document.styleSheets){try{for(const r of sh.cssRules)walk(r)}catch(e){}}
+ for(const f of hov(rules))add('r',f.sel,f.text)}
 // A3 q: карточка не из kit; r: кликабельная карточка без k-hover
 for(const el of document.querySelectorAll('main :is(article,.tcard,.tile,.db-order),.drawer :is(article,.tcard,.tile,.db-order)')){
   if(!vis(el))continue;

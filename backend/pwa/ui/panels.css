@@ -62,7 +62,7 @@
 
 /* ===== Заказ внутри колонки доски и общие куски проектирования (ui/kit/board.js groupCard, панели design-*) ===== */
 .db-empty, .db-hint { color: var(--muted); font-size: var(--fs-sm); padding: var(--s3); text-align: center; }
-.db-order { background: var(--surface); border: 1px solid var(--border); border-left: 6px solid var(--oc, var(--muted)); border-radius: var(--radius-sm); padding: 8px 8px 8px 6px; display: flex; flex-direction: column; gap: 4px; }
+.db-order { background: var(--surface); border: 1px solid var(--border); border-left: 6px solid var(--oc, var(--muted)); border-radius: var(--radius); padding: var(--card-pad); display: flex; flex-direction: column; gap: 4px; }
 .db-order.open { background: linear-gradient(var(--oc-soft, transparent), var(--oc-soft, transparent)), var(--surface); }
 .db-oh { display: flex; align-items: center; gap: 2px; }
 .db-chev { flex: none; width: 28px; height: 28px; border: 0; background: none; border-radius: 6px; cursor: pointer; color: var(--muted); font: inherit; }

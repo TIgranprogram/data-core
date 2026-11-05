@@ -141,6 +141,7 @@ export const toolbar = (...children) => mark(h('div', { class: 'toolbar' }, ...n
 /** Доска с данными с сервера (колонки, DnD, порции) — ui/kit/board.js */
 export { mountBoard as board } from './board.js';
 export { table } from './table.js';
+export { links } from './links.js';
 export { panel } from './panel.js';
 
 /** boardStatic({ columns: [{ key, label, tone, hint?, cards: [узлы], empty? }], density }) → .board без сервера (витрина, малые списки) */

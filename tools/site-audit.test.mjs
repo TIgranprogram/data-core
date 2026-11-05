@@ -57,3 +57,14 @@ test('новые правила присутствуют в штатном от�
   assert.match(r, /o\).*: 1/);
   assert.match(r, /p\).*: 1/);
 });
+
+test('ДС-1: вид карточки и правила наведения', async () => {
+  const { cardLookFindings, hoverRuleFindings } = await import('./site-audit.mjs');
+  assert.deepEqual(cardLookFindings({ radius: '10px', borderTop: '1px', shadow: 'none' }), []);
+  assert.equal(cardLookFindings({ radius: '7px', borderTop: '1px', shadow: 'none' }).length, 1);
+  assert.equal(cardLookFindings({ radius: '10px', borderTop: '1px', shadow: 'rgba(0,0,0,.1) 0 1px 2px' }).length, 1);
+  assert.deepEqual(cardLookFindings({ radius: '10px', borderTop: '1px', shadow: '0 0 0 2px red', selected: true }), []);
+  assert.deepEqual(hoverRuleFindings([{ sel: '.k-hover:hover', transform: 'translateY(-2px)', shadow: 'var(--shadow)' }, { sel: '.tcard:hover', transform: '', shadow: 'var(--shadow)' }]), []);
+  assert.equal(hoverRuleFindings([{ sel: '.k-hover:hover', transform: 'translateY(-2px)', shadow: 'var(--shadow-lg)' }]).length, 1);
+  assert.equal(hoverRuleFindings([{ sel: '.col-body .tcard:hover', transform: 'translateY(-1px)', shadow: '' }]).length, 1);
+});

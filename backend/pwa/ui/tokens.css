@@ -24,6 +24,8 @@
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --radius: 10px;
+  /* Стиль «картотека» (ДС-1, STYLE-DECISION): псевдонимы карточки, один бренд — одна правка */
+  --card-pad: var(--s3) var(--s4); --card-gap: var(--s3); --card-min: 240px; --cell-pad: var(--s2) var(--s3);
   --radius-sm: 7px;
   --shadow: 0 1px 2px rgba(20, 26, 38, .05), 0 2px 8px rgba(20, 26, 38, .05);
   --shadow-sm: 0 1px 2px rgba(20, 26, 38, .08);
@@ -193,7 +195,7 @@
 }
 
 @media (max-width: 1100px) { :root { --gutter: 20px; } }
-@media (max-width: 720px) { :root { --gutter: 12px; --fs-h1: 21px; --fs-h2: 17px; --fs-h3: 15px; --topbar-h: 56px; } }
+@media (max-width: 720px) { :root { --card-pad: var(--s3); --gutter: 12px; --fs-h1: 21px; --fs-h2: 17px; --fs-h3: 15px; --topbar-h: 56px; } }
 
 /* ИЗ-19: «Крупный» вид (Мой профиль → Вид экрана; атрибут ставит core/prefs.js).
    Весь экран чуть крупнее (текст, поля, кнопки), фото в списках — заметно крупнее. */
