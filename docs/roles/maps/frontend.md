@@ -1,5 +1,13 @@
 # Карта роли frontend
 
+## autoMore — подгрузка порциями (ПГ-1c, 2026-11-05)
+коммит: не закоммичено
+- `ui/kit/auto-more.js`: `moreSentinel` (наблюдатель, 22), `autoMore` (44–100; `run` — порция/keep/сбой). Экспорт `autoMore` — `kit/index.js` (173). Потребители: `sections/design-requests.js` requestsView, `docs-orders.js` mountOrdersTab, `invoices-tab.js`, `invoice-workspace-forms.js` buildAddForm; `kit/list.js` — `moreSentinel`. Витрина `#kit` блок «Подгрузка порциями»; DESIGN §4 строка «Подгрузка порциями». Карта обновлена.
+
+## Выдать материалы (СКЛ-1c, 2026-11-05, не закоммичено)
+коммит: не закоммичено
+- `sections/stock-issue.js` — панель `of=stockissue&new=1` (build: «Кому» = targetPicker out, каскад складов, «Что выдаём», run() → POST /stock/batch | /stock/reserve-list, таблица нехватки из `e.data.details`); `sections/stock-issue-card.js` — `warehouseCard` (kit card table + buildForm поиск/категория + qty-ввод). Кнопка — `stock.js` headActions (через реэкспорт `stock-ops.js openStockIssue`); `main.js` LAZY/OWNER stockissue; `core/api.js` errorOf кладёт `err.data.details` для 400. Карта обновлена.
+
 ## Kit честный + data-k + empty (ORDER W0-B, 2026-11-05)
 коммит: не закоммичено
 - 15 модулей теперь в `backend/pwa/ui/kit/` (dialog, toast, busy, errors, list, card, badges, pop-menu, drag, gallery, photos, side-form, crumbs, form, empty). `list.js` разрезан: `list-tiles/chips/periods/rows/view.js` (контракт `section.list` — комментарий в `list-view.js`).
@@ -173,3 +181,5 @@
 ## Администратор обходит запрет (ЗЯ-1c, 2026-11-05, не закоммичено)
 - `sections/admin-override.js`: `adminAction` (POST ?dryRun=1 → окно с warnings/blockers → {confirm,reason}), `withReason` (400 «причин» → спросить и повторить), `askReason`, `isAdmin`.
 - `requests.js`: `rollbackReceipt` ~95, действие «Отменить приёмку» (admin, received), `update` через withReason. `invoice-workspace.js`: `override` ~129, кнопки «Снять оплату» / «Отменить приёмку» по строке. `invoice-workspace-state.js`: права `unpay`, `rollback`. `offers.js`: `setStatus`/`update` через withReason, «Вернуть статус: …» для admin. Карта обновлена.
+
+- ORDER-W1: kit/target-picker.js:69 (targetPicker, перенесён из ui/), kit/qty-input.js:10 (qtyInput), sections/order-attachments-zip.js (orderZipAction в конце), витрина sections/kit.js блоки qtyInput/targetPicker. Коммит: не закоммичено.

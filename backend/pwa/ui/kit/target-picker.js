@@ -1,13 +1,13 @@
-import { api, PREFIX } from '../core/api.js';
-import { h } from '../core/dom.js';
-import { qty } from '../core/format.js';
-import { normSearch, searchTokens } from '../core/facets.js';
-import { activeOrders, orderLabel } from '../sections/salesorders.js';
-import { peopleByWork, withOrders, lastTo, saveTo } from '../sections/issue.js';
-import { attachCombo } from './kit/index.js';
-import { errText } from './kit/errors.js';
-import { enhanceSelect } from './kit/index.js';
-import { segmented } from './kit/index.js';
+import { api, PREFIX } from '../../core/api.js';
+import { h } from '../../core/dom.js';
+import { qty } from '../../core/format.js';
+import { normSearch, searchTokens } from '../../core/facets.js';
+import { activeOrders, orderLabel } from '../../sections/salesorders.js';
+import { peopleByWork, withOrders, lastTo, saveTo } from '../../sections/issue.js';
+import { attachCombo, enhanceSelect } from './pick.js';
+import { errText } from './errors.js';
+import { segmented } from './index.js';
+import { mark } from './mark.js';
 
 /*
  * «Кому / под что» при выдаче и возврате (SK-5b). Заказы и позиции не грузятся при открытии панели:
@@ -78,7 +78,7 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
   let whole = false;
   let q = '';
 
-  const el = h('div', { class: 'tp wide' });
+  const el = mark(h('div', { class: 'tp wide' }), 'targetPicker');
 
   // ---------- переключатель ----------
   const KINDS = [['order', 'Под заказ'], ['person', 'Сотруднику'], ['free', 'Без заказа']];

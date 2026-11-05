@@ -377,3 +377,5 @@ button.m-fg-h { cursor: pointer; }
 /* Вложения изделия: перетаскивание на карточку вида; кнопки в таблице карточки — 44 px на телефоне */
 .k-over { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-soft); }
 @media (max-width: 720px) { .k-card-table .btn, .k-card .k-actions .btn { min-height: 44px; } }
+.k-actions input { width: 7em; min-width: 6em; max-width: 8em; }
+@media (pointer: coarse), (max-width: 720px) { .k-actions input { min-height: 44px; } }

@@ -5,6 +5,7 @@ import { enhanceSelect } from './index.js';
 import { api, canEditSection, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { failBlock } from './busy.js';
+import { moreSentinel } from './auto-more.js';
 import { qty, plural } from '../../core/format.js';
 import { patch, current } from '../../core/router.js';
 import { mountBoard } from '../board.js';
@@ -269,12 +270,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   let pagesLoaded = 1;
   let loadingMore = false;
   const moreNote = h('span', { class: 'muted' });
-  const sentinel = h('div', { 'aria-hidden': 'true' });
-  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => {
-    if (es.some((x) => x.isIntersecting) && !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading')) load({ append: true });
-  }, { rootMargin: '300px 0px' }) : null;
-  io?.observe(sentinel);
-  const rewatch = () => { if (io) { io.unobserve(sentinel); io.observe(sentinel); } };
+  const watch = moreSentinel({ hasMore: () => !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading'), onMore: () => load({ append: true }) });
+  const sentinel = watch.el;
+  const rewatch = watch.rewatch;
   async function load(opt = {}) {
     let { limit, page, sort, board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
@@ -394,6 +392,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
     reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
     focusSearch: () => sb.focus(),
-    destroy: () => { document.removeEventListener('keydown', onKey); io?.disconnect(); },
+    destroy: () => { document.removeEventListener('keydown', onKey); watch.destroy(); },
   };
 }
