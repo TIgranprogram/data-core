@@ -82,9 +82,12 @@ export class StockSearchService {
     // priority=1 (SK-4a): «заканчивается» и «в брони» — сверху; внутри групп порядок выбранной сортировки (sort стабилен)
     if (String(q.priority) === '1') rows.sort((a, b) => attentionRank(a) - attentionRank(b));
     const page = rows.slice(p.skip, p.skip + p.limit);
-    const photos = await this.photoMap(page.flatMap((r) => r.photoIds));
     // «висящая» бронь (СК-6): сколько в брони под отгруженный / аннулированный заказ — считаем только для строк страницы с бронью
-    const hang = await hangingQtyByMaterial(this.connection.db!, page.filter((r) => r.reservedQty > 0).map((r) => new Types.ObjectId(r.materialId)));
+    // фото и «висящая» бронь независимы — читаем разом
+    const [photos, hang] = await Promise.all([
+      this.photoMap(page.flatMap((r) => r.photoIds)),
+      hangingQtyByMaterial(this.connection.db!, page.filter((r) => r.reservedQty > 0).map((r) => new Types.ObjectId(r.materialId))),
+    ]);
     const items = page.map(({ photoIds, ...r }) => ({ ...r, hangingQty: hang.get(r.materialId) ?? 0, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
     return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
   }

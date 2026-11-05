@@ -117,14 +117,15 @@ export class SupplyService {
     return new Map(docs.filter((d) => typeof d.amount === 'number').map((d) => [String(d._id), d.amount as number]));
   }
 
-  /** Главное фото позиций склада: materialId → { url, thumb }. */
-  private async materialPhotos(ids: unknown[]) {
+  /** Позиции склада одним запросом: materialId → название и главное фото { url, thumb }. */
+  private async materialInfo(ids: unknown[]) {
+    const names = new Map<string, string>();
     const oidsList = [...new Set(ids.filter(Boolean).map(String))].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i));
-    if (!oidsList.length) return new Map<string, { url: string; thumb: string }>();
-    const db = this.connection.db!;
-    const mats = await db.collection('materials').find({ _id: { $in: oidsList } }, { projection: { mainPhotoId: 1, photoIds: 1 } }).toArray();
+    if (!oidsList.length) return { names, photos: new Map<string, { url: string; thumb: string }>() };
+    const mats = await this.connection.db!.collection('materials').find({ _id: { $in: oidsList } }, { projection: { name: 1, shortName: 1, mainPhotoId: 1, photoIds: 1 } }).toArray();
+    for (const m of mats) names.set(String(m._id), String(m.shortName || m.name));
     const main = new Map(mats.map((m) => [String(m._id), (m.mainPhotoId ?? (m.photoIds as Types.ObjectId[] | undefined)?.[0]) as Types.ObjectId | undefined]).filter(([, p]) => p) as Array<[string, Types.ObjectId]>);
-    return this.photoUrls(main);
+    return { names, photos: await this.photoUrls(main) };
   }
 
   /** ключ → id фото  ⇒  ключ → { url, thumb } (превью — вариант thumb, иначе оригинал). */
@@ -145,16 +146,16 @@ export class SupplyService {
 
   /** Вид для клиента: ObjectId → названия, статус и приоритет — подписями. */
   private async present(docs: Array<Record<string, unknown>>) {
-    const [sup, cat, mat, photo, inv] = await Promise.all([
-      this.names('organizations', docs.flatMap((d) => [d.supplierId, d.companyId])),
-      this.names('categories', docs.map((d) => d.categoryId)),
-      this.names('materials', docs.map((d) => d.materialId)),
-      this.materialPhotos(docs.map((d) => d.materialId)),
-      this.invoiceAmounts(docs.map((d) => d.invoiceId)),
-    ]);
     // Свои фото заявки (загружены в приложении или из «Справочника») — photoIds, вне схемы CRM
     const ownIds = (d: Record<string, unknown>) => (d.photoIds as Types.ObjectId[] | undefined) ?? [];
-    const own = await this.photoUrls(new Map(docs.flatMap((d) => ownIds(d)).map((p) => [String(p), p] as [string, Types.ObjectId])));
+    // позиции склада читаются один раз (названия + главное фото); все чтения независимы — разом
+    const [sup, cat, { names: mat, photos: photo }, inv, own] = await Promise.all([
+      this.names('organizations', docs.flatMap((d) => [d.supplierId, d.companyId])),
+      this.names('categories', docs.map((d) => d.categoryId)),
+      this.materialInfo(docs.map((d) => d.materialId)),
+      this.invoiceAmounts(docs.map((d) => d.invoiceId)),
+      this.photoUrls(new Map(docs.flatMap((d) => ownIds(d)).map((p) => [String(p), p] as [string, Types.ObjectId]))),
+    ]);
     return docs.map((d) => ({
       ...d,
       id: String(d._id), _id: String(d._id),
