@@ -27,28 +27,44 @@ export function badge(a, b) {
 
 export { emptyState as empty };
 
-/** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls })
+/** Слот variant карточки: 'long' — длинный текст (строка или узлы), 6 строк + «Развернуть»; 'table' — body = kit table() внутри карточки. */
+function variantBody(variant, body) {
+  const kids = nodes(body);
+  if (!kids.length || (variant !== 'long' && variant !== 'table')) return null;
+  if (variant === 'table') return quiet(h('div', { class: 'k-card-body k-card-table' }, ...kids));
+  const text = h('div', { class: 'k-card-body k-card-long clamp' }, ...kids);
+  const more = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-expanded': 'false', onclick: () => {
+    const open = text.classList.toggle('clamp') === false;
+    more.setAttribute('aria-expanded', String(open)); more.textContent = open ? 'Свернуть' : 'Развернуть';
+  } }, 'Развернуть');
+  return quiet(h('div', { class: 'k-card-slot' }, text, more));
+}
+
+/** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table', body })
+ *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
  *  photo — строка-адрес или { thumb, url } (с PREFIX); badges/actions — узлы или массивы; кнопки в actions не открывают карточку. */
-export function card({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls } = {}) {
+export function card({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body } = {}) {
   const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
+  const hover = onClick ? ' k-hover' : '';
+  const slot = variantBody(variant, body);
   const open = onClick ? { tabindex: '0', role: 'button', onclick: onClick, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); } } } : {};
   const bs = nodes(badges), as = nodes(actions);
   const pic = photo ? h('img', { class: 't-pic', src: typeof photo === 'string' ? photo : PREFIX + (photo.thumb || photo.url), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' }) : null;
-  const extra = cls ? ' ' + cls : '';
+  const extra = (variant === 'long' || variant === 'table' ? ' k-' + variant : '') + hover + (cls ? ' ' + cls : '');
   if (size === 'S') {
     return h('div', { class: 'tile k-s' + toned + extra, ...open }, h('b', { title }, title), meta ? h('span', { class: 'muted' }, meta) : null,
-      bs.length ? h('div', { class: 'k-badges' }, ...bs) : null, as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null);
+      bs.length ? h('div', { class: 'k-badges' }, ...bs) : null, slot, as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null);
   }
   if (size === 'L') {
     return h('article', { class: 'db-order' + toned + extra, ...open },
       h('div', { class: 'db-oh' }, h('span', { class: 'db-oname' }, h('b', null, title), meta ? h('span', { class: 'db-cust' }, ' · ' + meta) : null)),
-      bs.length || as.length ? h('div', { class: 'db-ocnt' }, ...bs, ...as) : null);
+      bs.length || as.length ? h('div', { class: 'db-ocnt' }, ...bs, ...as) : null, slot);
   }
   const compact = density === 'compact';
   const text = [h('div', { class: 't-title', title }, title), meta || bs.length ? h('div', { class: 't-meta' }, meta, ...bs) : null];
   return h('article', { class: 'tcard' + (compact ? ' compact' : '') + toned + extra, ...open },
-    pic, compact ? h('div', { class: 't-main' }, ...text) : text,
+    pic, compact ? h('div', { class: 't-main' }, ...text) : text, slot,
     as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null);
 }
 

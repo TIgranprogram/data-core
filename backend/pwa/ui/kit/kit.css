@@ -171,6 +171,19 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
   .db-order.k-gfold .db-lines .tcard:hover,
   .col-body .tcard:not(.dragging):hover { transform: none; }
 }
+/* ДС-1 шаг 1: наведение карточки kit (только с onClick) и варианты long / table */
+.k-hover:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .k-hover { transition: transform .15s, box-shadow .15s; }
+  .k-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce) { .k-hover:hover { border-color: var(--border-strong); } }
+.k-card-slot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); min-width: 0; width: 100%; }
+.k-card-long { font-size: var(--fs-sm); color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.k-card-long.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.k-card-table { width: 100%; min-width: 0; overflow-x: auto; }
+.k-card-table .table-wrap, .k-card-table .k-table-wrap { border: 0; box-shadow: none; border-radius: 0; }
+.k-card-table table.list thead th { background: var(--surface-2); }
 @media (pointer: coarse), (max-width: 720px) { .pager button, .pager select { min-width: 44px; height: 44px; } }
 
 /* P10 р3: обёртки в шапке не шире строки; на телефоне цели касания >= 40px */

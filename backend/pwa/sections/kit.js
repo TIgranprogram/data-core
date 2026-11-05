@@ -84,6 +84,13 @@ export const kit = {
         sample(...cards('M'), card({ size: 'M', title: LONG, meta: LONG }), card({ size: 'M', title: 'С фото', meta: 'чертёж', photo: PIC }),
           card({ size: 'M', title: 'Плотная', meta: 'compact', photo: PIC, density: 'compact' }), card({ size: 'M', title: 'С действием', actions: button({ label: 'Принять', kind: 'primary', size: 'S' }) }),
           actions(button({ label: 'Распределить', size: 'S' }), button({ label: 'Отгрузка', size: 'S' })))),
+      block('Карточка: варианты long / table', 'variant:\'long\' — длинный текст, 6 строк и «Развернуть»; variant:\'table\' — body = table() внутри карточки. Наведение (подъём -2px, --shadow-lg) только у карточек с onClick; без onClick — статичны.',
+        sample(
+          card({ size: 'M', variant: 'long', title: 'Примечание', meta: 'длинный текст', body: Array(12).fill(LONG + '.').join(' '), onClick: () => toast('Клик: long') }),
+          card({ size: 'M', variant: 'long', title: 'Короткое, без клика', body: 'Короткий текст примечания.' }),
+          card({ size: 'L', variant: 'table', title: 'Заказ № 20-26', meta: 'движения', onClick: () => toast('Клик: table'),
+            body: table({ columns: [{ key: 'n', label: 'Позиция' }, { key: 'q', label: 'Кол-во', num: true }], rows: [{ cells: ['Труба 57×3', '12'] }, { cells: [LONG, '3'] }] }) }),
+          card({ size: 'L', variant: 'table', title: 'Без клика (статична)', body: table({ columns: [{ key: 'n', label: 'Позиция' }], rows: [], empty: 'Нет строк' }) }))),
       block('Карточка L (.db-order)', 'Заказ / шапка сущности.', sample(...cards('L'), card({ size: 'L', title: LONG, meta: LONG }))),
       block('Строка (.k-row)', 'Список позиций, корзина с количеством, строка с галочкой. tone — полоса слева.', sample(
         row({ title: 'Труба 57×3', meta: 'на складе 120 м', side: h('b', null, '120 м'), action: button({ label: 'Принять', size: 'S' }) }),
