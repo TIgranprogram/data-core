@@ -614,6 +614,7 @@ html { scrollbar-gutter: stable; }
 .go-tiles { display: none; }
 @media (max-width: 720px) {
   .btn, .seg button, .chip, input, select, textarea, .side-link, .q-row .btn, .tag, .link-btn, .form-sec, .pt-item, details.month-group > summary { min-height: 44px; }
+  a.link-btn { display: inline-flex; align-items: center; }
   input, select, textarea { font-size: 16px; }
   .tag { min-height: 44px; padding-left: var(--s3); padding-right: var(--s3); }
   .go-tiles { display: grid; gap: var(--s3); margin: 0 0 var(--s4); }

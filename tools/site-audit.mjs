@@ -151,7 +151,7 @@ const GARB=new RegExp(${JSON.stringify(GARBAGE_SRC)},'u');
 const text=document.body.innerText.split('\\n');
 for(const l of text){
   if(GARB.test(l))add('a','body',l);
-  if(/(^|[^\\p{L}«])(скоро|в разработке|todo|заглушка)([^\\p{L}.]|$)/iu.test(l))add('c','body',l);
+  if(/(^|[^\\p{L}«])(скоро|в разработке|todo)([^\\p{L}.]|$)/iu.test(l))add('c','body',l);
   if(/\\b(BLG|WRK|TRN|DIO|DSP|MAF)\\b|\\bimg_[\\w-]+|\\b[0-9a-f]{24}\\b/.test(l))add('i','body',l);
 }
 for(const el of document.querySelectorAll('[title],[aria-label],[placeholder]'))for(const a of ['title','aria-label','placeholder']){const v=el.getAttribute(a);if(v&&GARB.test(v))add('a',sel(el)+'['+a+']',v)}
