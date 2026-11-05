@@ -5,18 +5,19 @@
  *   busyBtn(btn, 'Сохраняю…') → кнопка заблокирована, крутилка и подпись; через 10 с — «Долго… Сохраняю…»; вернуть — done().
  * tag/cls — чтобы встать в список (li) или таблицу (td) соседа.
  */
-import { h } from '../core/dom.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
 import { errText } from './errors.js';
-import { reportError } from '../core/errors.js';
-import { noticeCard } from './notice-card.js';
-import { addNotice } from './notices.js';
+import { reportError } from '../../core/errors.js';
+import { noticeCard } from '../notice-card.js';
+import { addNotice } from '../notices.js';
 
 const LONG_MS = 10000;
 const retryBtn = (retry) => h('button', { type: 'button', class: 'btn btn-sm', onclick: retry }, 'Повторить');
 
 export function busyBlock(what = '', { retry, tag = 'div', cls = 'state' } = {}) {
   const text = h('span', null, 'Загружаю' + (what ? ' ' + what : '') + '…');
-  const el = h(tag, { class: cls + ' is-loading', role: 'status', 'aria-live': 'polite' }, text);
+  const el = mark(h(tag, { class: cls + ' is-loading', role: 'status', 'aria-live': 'polite' }, text), 'busyBlock');
   setTimeout(() => {
     if (!el.isConnected) return; // уже загрузилось — блок заменён
     text.textContent = 'Долго… сервер ещё отвечает.';
@@ -31,8 +32,8 @@ export function failBlock(e, retry, { tag = 'div', cls = 'state', text = 'Не �
   // тот же вид, что уведомление (DESIGN §4 «Уведомление»), но на месте блока; в историю колокольчика — одна запись на тот же текст за минуту
   const why = errText(e);
   addNotice({ id: `f:${text}|${why}`, text, sub: why, tone: 'error', once: 60000 });
-  return h(tag, { class: cls + ' is-failed' },
-    noticeCard({ tone: 'error', title: text, sub: why, actions: retry ? [{ label: 'Повторить', run: retry }] : null }));
+  return mark(h(tag, { class: cls + ' is-failed' },
+    noticeCard({ tone: 'error', title: text, sub: why, actions: retry ? [{ label: 'Повторить', run: retry }] : null })), 'failBlock');
 }
 
 /** text=null — подпись не менять (только крутилка); delay — крутилка, если дольше (мгновенные действия без мигания). */

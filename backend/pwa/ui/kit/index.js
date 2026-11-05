@@ -1,7 +1,7 @@
 import { h } from '../../core/dom.js';
 import { PREFIX } from '../../core/api.js';
-import { badge as badgeOf } from '../badges.js';
-import { emptyState } from '../empty.js';
+import { badge as badgeOf } from './badges.js';
+import { mark } from './mark.js';
 
 /**
  * kit — единая библиотека эталонов. Разделы импортируют ТОЛЬКО отсюда (docs/roles/tz/DESIGN-KIT.md).
@@ -16,16 +16,16 @@ const quiet = (node) => { for (const t of ['pointerdown', 'click', 'keydown']) n
 /** button({ label, kind: 'primary'|'secondary'|'ghost'|'danger', size: 'M'|'S', icon?, onClick, busy?, disabled?, title?, type? }) → .btn */
 export function button({ label, kind = 'secondary', size = 'M', icon, onClick, busy = false, disabled = false, title, type = 'button' } = {}) {
   const cls = ['btn', kind === 'primary' ? 'btn-primary' : kind === 'ghost' ? 'btn-ghost' : kind === 'danger' ? 'btn-danger' : '', size === 'S' ? 'btn-sm' : '', busy ? 'is-busy' : ''].filter(Boolean).join(' ');
-  return h('button', { type, class: cls, disabled: disabled || busy, title, onclick: onClick }, icon || null, label);
+  return mark(h('button', { type, class: cls, disabled: disabled || busy, title, onclick: onClick }, icon || null, label), 'button');
 }
 
 /** badge(map, key) — как badges.js; badge('Текст', 'ok'|'warn'|'danger'|'info'|'dim') — одиночная метка → .badge */
 export function badge(a, b) {
-  if (a && typeof a === 'object') return badgeOf(a, b);
-  return h('span', { class: 'badge ' + (b || 'dim') }, a);
+  if (a && typeof a === 'object') return mark(badgeOf(a, b), 'badge');
+  return mark(h('span', { class: 'badge ' + (b || 'dim') }, a), 'badge');
 }
 
-export { emptyState as empty };
+export { empty } from './empty.js';
 
 /** Слот variant карточки: 'long' — длинный текст (строка или узлы), 6 строк + «Развернуть»; 'table' — body = kit table() внутри карточки. */
 function variantBody(variant, body) {
@@ -44,7 +44,8 @@ function variantBody(variant, body) {
  *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
  *  photo — строка-адрес или { thumb, url } (с PREFIX); badges/actions — узлы или массивы; кнопки в actions не открывают карточку. */
-export function card({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body } = {}) {
+export function card(opts = {}) { return mark(cardRaw(opts), 'card'); }
+function cardRaw({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body } = {}) {
   const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
   const hover = onClick ? ' k-hover' : '';
   const slot = variantBody(variant, body);
@@ -69,7 +70,7 @@ export function card({ size = 'M', tone = 'neutral', title, meta, badges, action
 }
 
 /** actions(...узлы) → .k-actions — тот же ряд кнопок, что в card({ actions }); для низа карточки доски (card → { foot }) */
-export const actions = (...children) => h('div', { class: 'k-actions' }, ...nodes(children));
+export const actions = (...children) => mark(h('div', { class: 'k-actions' }, ...nodes(children)), 'actions');
 
 /** row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag, cls, data })
  *  Строка списка/корзины: имя + мета, справа side (узлы) и action (кнопка). Если есть qty/diff — раскладка «корзина»:
@@ -81,12 +82,12 @@ export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn
   const kids = [lead || null, name, ...nodes(side), action ? h('div', { class: 'k-row-act' }, ...nodes(action)) : null];
   if (cart) kids.push(h('div', { class: 'k-row-qty' }, ...nodes(qty)), diff || null);
   kids.push(...nodes(warn), ...nodes(below));
-  return h(tag, { class: cn, ...(data ? { 'data-id': data } : {}), ...(onClick ? { onclick: onClick } : {}) }, ...kids);
+  return mark(h(tag, { class: cn, ...(data ? { 'data-id': data } : {}), ...(onClick ? { onclick: onClick } : {}) }, ...kids), 'row');
 }
 
 /** tabs({ items: [{ key, label, count? }], value, onChange(key), label (aria) }) → { el, set(key) } — .chips/.chip */
 export function tabs({ items, value, onChange, label }) {
-  const el = h('div', { class: 'chips', role: 'tablist', 'aria-label': label || null });
+  const el = mark(h('div', { class: 'chips', role: 'tablist', 'aria-label': label || null }), 'tabs');
   const set = (key) => el.querySelectorAll('.chip').forEach((c) => { const on = c.dataset.key === String(key); c.classList.toggle('active', on); c.setAttribute('aria-selected', String(on)); });
   el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
     it.label, it.count != null ? h('b', null, String(it.count)) : null)));
@@ -97,14 +98,14 @@ export function tabs({ items, value, onChange, label }) {
 /** iconButton({ icon, label (aria), onClick, size: 'S'|'M', menu?, title?, cls? }) → .btn.btn-ghost.k-icon; menu → aria-haspopup */
 export function iconButton({ icon, label, onClick, size = 'M', menu = false, title, cls } = {}) {
   const c = ['btn', 'btn-ghost', 'k-icon', size === 'S' ? 'btn-sm' : '', cls || ''].filter(Boolean).join(' ');
-  return h('button', { type: 'button', class: c, 'aria-label': label, title: title || label, 'aria-haspopup': menu ? 'menu' : null, 'aria-expanded': menu ? 'false' : null, onclick: onClick }, icon);
+  return mark(h('button', { type: 'button', class: c, 'aria-label': label, title: title || label, 'aria-haspopup': menu ? 'menu' : null, 'aria-expanded': menu ? 'false' : null, onclick: onClick }, icon), 'iconButton');
 }
 
 /** segmented({ items: [{ key, label, tone? }], value, onChange(key), label (aria), cls? }) → { el, set(key), buttons } — .k-seg, aria-pressed; set() не зовёт onChange */
 export function segmented({ items, value, onChange, label, cls } = {}) {
   const set = (key) => buttons.forEach((b) => { const on = b.dataset.key === String(key); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
   const buttons = items.map((it) => h('button', { type: 'button', class: 'k-seg-btn', dataset: { key: String(it.key) }, 'data-tone': it.tone || null, 'aria-pressed': 'false', onclick: () => { set(it.key); onChange?.(it.key); } }, it.label));
-  const el = h('div', { class: 'k-seg' + (cls ? ' ' + cls : ''), role: 'group', 'aria-label': label || null }, ...buttons);
+  const el = mark(h('div', { class: 'k-seg' + (cls ? ' ' + cls : ''), role: 'group', 'aria-label': label || null }, ...buttons), 'segmented');
   set(value ?? items[0]?.key);
   return { el, set, buttons };
 }
@@ -112,30 +113,30 @@ export function segmented({ items, value, onChange, label, cls } = {}) {
 /** link({ label, href, onClick, title, target }) → <a> (переход, есть href) или <button> (действие), вид — ссылка-текст .link-btn */
 export function link({ label, href, onClick, title, target, cls } = {}) {
   const c = 'link-btn' + (cls ? ' ' + cls : '');
-  if (href) return h('a', { class: c, href, title, target, rel: target ? 'noopener' : null, onclick: onClick }, label);
-  return h('button', { type: 'button', class: c, title, onclick: onClick }, label);
+  if (href) return mark(h('a', { class: c, href, title, target, rel: target ? 'noopener' : null, onclick: onClick }, label), 'link');
+  return mark(h('button', { type: 'button', class: c, title, onclick: onClick }, label), 'link');
 }
 
 /** sku(text) → .k-sku: артикул изделия (моноширинные цифры, жирный, цвет текста); пусто → null. Без подписи «арт.» */
 /** Заголовок группы в просмотре карточки (`card.view`): строка `grp('Цена')`; группа без заполненных строк не выводится (ui/card.js). */
 export const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { class: 'fields-grp-end' })];
 
-export const sku = (text) => (text == null || String(text).trim() === '' ? null : h('span', { class: 'k-sku' }, String(text).trim()));
+export const sku = (text) => (text == null || String(text).trim() === '' ? null : mark(h('span', { class: 'k-sku' }, String(text).trim()), 'sku'));
 
 /** section({ title, count?, open?, body, cls? }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
  *  В шапке — заголовок, число (count) и стрелка; открывается Enter/Пробел/щелчком. body — узлы или массив. Свёрнутое состояние не хранится. */
 export function section({ title, count, open = false, body, cls } = {}) {
   const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title),
     count != null ? h('span', { class: 'badge dim k-sec-n' }, String(count)) : null, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
-  return h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': 'main', open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body)));
+  return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': 'main', open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body))), 'section');
 }
 
 /** stat({ value, label }) → .stat; stats([...]) → .stats */
-export const stat = ({ value, label }) => h('div', { class: 'stat' }, h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label));
-export const stats = (items) => h('div', { class: 'stats' }, ...items.map(stat));
+export const stat = ({ value, label }) => mark(h('div', { class: 'stat' }, h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label)), 'stat');
+export const stats = (items) => mark(h('div', { class: 'stats' }, ...items.map(stat)), 'stats');
 
 /** toolbar(...узлы) → .toolbar */
-export const toolbar = (...children) => h('div', { class: 'toolbar' }, ...nodes(children));
+export const toolbar = (...children) => mark(h('div', { class: 'toolbar' }, ...nodes(children)), 'toolbar');
 
 /** Доска с данными с сервера (колонки, DnD, порции) — ui/kit/board.js */
 export { mountBoard as board } from './board.js';
@@ -144,18 +145,18 @@ export { panel } from './panel.js';
 
 /** boardStatic({ columns: [{ key, label, tone, hint?, cards: [узлы], empty? }], density }) → .board без сервера (витрина, малые списки) */
 export function boardStatic({ columns, density = 'normal' }) {
-  return h('div', { class: 'board' + (density === 'pics' ? ' board-pics' : '') },
+  return mark(h('div', { class: 'board' + (density === 'pics' ? ' board-pics' : '') },
     ...columns.map((c) => h('section', { class: 'col tone-' + (c.tone || 'dim'), 'aria-label': c.label },
       h('div', { class: 'col-head' }, h('span', { class: 'dot' }), h('span', null, c.label), h('span', { class: 'n' }, String(c.cards.length))),
       c.hint ? h('div', { class: 'col-hint' }, c.hint) : null,
-      h('div', { class: 'col-body' }, ...(c.cards.length ? c.cards : [h('div', { class: 'col-more muted' }, c.empty || 'Пусто')])))));
+      h('div', { class: 'col-body' }, ...(c.cards.length ? c.cards : [h('div', { class: 'col-more muted' }, c.empty || 'Пусто')]))))), 'board');
 }
 
 /** layout.split({ side, main, sideLabel }) → доска с боковым списком: слева колонка фиксированной ширины, справа main; на телефоне список сворачивается за кнопку сверху */
 export const layout = {
   split({ side, main, sideLabel = 'Список' }) {
     const toggle = h('button', { type: 'button', class: 'btn btn-sm k-split-toggle', 'aria-expanded': 'false', onclick: () => { toggle.setAttribute('aria-expanded', String(el.classList.toggle('side-open'))); } }, sideLabel);
-    const el = h('div', { class: 'k-split' }, toggle, h('aside', { class: 'k-split-side', 'aria-label': sideLabel }, side), h('div', { class: 'k-split-main' }, main));
+    const el = mark(h('div', { class: 'k-split' }, toggle, h('aside', { class: 'k-split-side', 'aria-label': sideLabel }, side), h('div', { class: 'k-split-main' }, main)), 'layout.split');
     return el;
   },
 };
@@ -164,27 +165,27 @@ export const layout = {
 export { mobile, catArt } from './mobile.js';
 
 // ---- Реэкспорт существующих эталонов ----
-export { modal, confirmDlg } from '../dialog.js';
-export { toast, toastError } from '../toast.js';
-export { failBlock, busyBlock } from '../busy.js';
-export { errText } from '../errors.js';
-export { mountList } from '../list.js';
-export { openCard } from '../card.js';
+export { modal, confirmDlg } from './dialog.js';
+export { toast, toastError } from './toast.js';
+export { failBlock, busyBlock } from './busy.js';
+export { errText } from './errors.js';
+export { mountList } from './list.js';
+export { openCard } from './card.js';
 export { pick, enhanceSelect, isLong, attachCombo, tagPick, attachSuggest } from './pick.js';
 export { filter, chipsFilter, stepFunnel, facetFilter, parseFt, ftQuery, ftParams } from './filter.js';
-export { SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY, PRIORITY, supplyKey } from '../badges.js';
-export { openPopMenu } from '../pop-menu.js';
-export { draggable, afterDrag } from '../drag.js';
-export { carousel } from '../gallery.js';
-export { uploadPhoto, photoDrop } from '../photos.js';
-export { sideForm, sideNote, openSide } from '../side-form.js';
+export { SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY, PRIORITY, supplyKey } from './badges.js';
+export { openPopMenu } from './pop-menu.js';
+export { draggable, afterDrag } from './drag.js';
+export { carousel } from './gallery.js';
+export { uploadPhoto, photoDrop } from './photos.js';
+export { sideForm, sideNote, openSide } from './side-form.js';
 
 /** Хвост хлебных крошек раздела: crumbTail('Паспорта › Выпущенные паспорта') */
-export { setCrumbTail as crumbTail } from '../crumbs.js';
-export { buildForm } from '../form.js';
+export { setCrumbTail as crumbTail } from './crumbs.js';
+export { buildForm } from './form.js';
 
 /** Подсказка «похожее уже есть» под названием изделия — ui/kit/similar.js */
 export { similarBox } from "./similar.js";
 
 export { readonlyGroup, readonlyGroups } from './readonly.js';
-export { photoField } from '../photos.js';
+export { photoField } from './photos.js';

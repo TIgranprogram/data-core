@@ -1,3 +1,4 @@
+import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
 import { normSearch, searchTokens } from '../../core/facets.js';
 import { highlight, placeList } from '../popup.js';
@@ -33,7 +34,7 @@ document.addEventListener('focusin', (e) => {
  * выбор дописывает его и «, », уже вписанные не предлагаются; писать через запятую вручную по-прежнему можно.
  */
 export function attachCombo(input, { options, onPick, max = 60, empty, extra, multi = false }) {
-  const box = h('div', { class: 'combo-list', hidden: true, role: 'listbox' });
+  const box = mark(h('div', { class: 'combo-list', hidden: true, role: 'listbox' }), 'pick');
   // поле ещё не в странице (форма собирается до вставки) — подключаемся, когда появится (ошибка с сайта «classList of null»)
   let tries = 0;
   const mount = () => {
@@ -126,13 +127,14 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
 export const isLong = (sel, { chars = 28, count = 12 } = {}) => sel.options.length > count || [...sel.options].some((o) => o.textContent.length > chars);
 
 export function enhanceSelect(sel, { force = false } = {}, tries = 0) {
+  mark(sel, 'pick');
   if (sel.dataset.enhanced || (!force && !isLong(sel))) return sel;
   // поле ещё не в документе (форма собирается) — подождать, пока встанет на место
   if (!sel.parentElement) { if (tries < 60) requestAnimationFrame(() => enhanceSelect(sel, { force }, tries + 1)); return sel; }
   sel.dataset.enhanced = '1';
   const empty = [...sel.options].find((o) => o.value === '');
   const input = h('input', { class: 'sel-input' + (sel.className ? ' ' + sel.className : ''), autocomplete: 'off', placeholder: empty?.textContent || 'Выберите', 'aria-label': sel.getAttribute('aria-label') || '' });
-  const wrap = h('span', { class: 'sel-wrap' }, input);
+  const wrap = mark(h('span', { class: 'sel-wrap' }, input), 'pick');
   sel.insertAdjacentElement('afterend', wrap);
   sel.hidden = true;
   const label = () => { const o = sel.selectedOptions[0]; return o && o.value !== '' ? o.textContent : ''; };
@@ -166,7 +168,7 @@ export function tagPick({ options, value, label }) {
   const parse = (v) => { if (Array.isArray(v)) return v.map(String); try { return (JSON.parse(v || '[]') || []).map(String); } catch { return []; } };
   let cur = new Set(parse(value));
   let scope = ''; let showAll = false;
-  const box = h('div', { class: 'tag-pick', role: 'group', 'aria-label': label || 'Выбор' });
+  const box = mark(h('div', { class: 'tag-pick', role: 'group', 'aria-label': label || 'Выбор' }), 'pick');
   const mine = (o) => !scope || !(o.cats || []).length || o.cats.includes(scope);
   const items = options.map((o) => {
     const note = h('small', null, o.sub || '');
@@ -211,7 +213,7 @@ export function tagPick({ options, value, label }) {
  */
 export function attachSuggest(input, { load, onPick, title = 'Уже заказывали' }) {
   let all = null; let cat = ''; let active = 0; let shown = [];
-  const box = h('div', { class: 'suggest', hidden: true, role: 'listbox' });
+  const box = mark(h('div', { class: 'suggest', hidden: true, role: 'listbox' }), 'pick');
   input.parentElement.classList.add('has-suggest');
   input.insertAdjacentElement('afterend', box);
   const close = () => { box.hidden = true; };

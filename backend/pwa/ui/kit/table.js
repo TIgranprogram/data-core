@@ -1,6 +1,7 @@
+import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
 import { session } from '../../core/api.js';
-import { emptyState } from '../empty.js';
+import { emptyState } from './empty.js';
 import { rowsTable } from '../rows-table.js';
 
 /**
@@ -15,7 +16,7 @@ import { rowsTable } from '../rows-table.js';
  * Постраничность, поиск, телефонный вид «карточки» — mountList (ui/list.js), это тот же вид.
  */
 export function table({ columns = [], rows = [], mode = 'list', empty, cls, label, file, example, foot, clickable = false, maxHeight } = {}) {
-  if (mode === 'input') return rowsTable({ columns, rows, file, example });
+  if (mode === 'input') return mark(rowsTable({ columns, rows, file, example }), 'table');
   // колонка { money: true } — только с галочкой «Деньги» у роли: колонку и её ячейки не рисуем
   const keep = columns.map((c) => !c.money || session.canMoney);
   if (keep.includes(false)) {
@@ -35,6 +36,6 @@ export function table({ columns = [], rows = [], mode = 'list', empty, cls, labe
         return h('td', { class: [col.num ? 'num right' : '', col.hide ? 'md-hide' : '', o.cls || col.cls || ''].filter(Boolean).join(' ') || null }, value);
       }));
   };
-  return h('div', { class: 'table-wrap k-table-wrap' + (maxHeight ? ' k-scroll-' + String(maxHeight).toLowerCase() : '') }, h('table', { class: 'list' + (clickable ? '' : ' k-static') + (cls ? ' ' + cls : ''), 'aria-label': label || null },
-    h('thead', null, h('tr', null, ...columns.map(th))), h('tbody', null, ...rows.map(tr)), foot?.length ? h('tfoot', null, ...foot) : null));
+  return mark(h('div', { class: 'table-wrap k-table-wrap' + (maxHeight ? ' k-scroll-' + String(maxHeight).toLowerCase() : '') }, h('table', { class: 'list' + (clickable ? '' : ' k-static') + (cls ? ' ' + cls : ''), 'aria-label': label || null },
+    h('thead', null, h('tr', null, ...columns.map(th))), h('tbody', null, ...rows.map(tr)), foot?.length ? h('tfoot', null, ...foot) : null)), 'table');
 }

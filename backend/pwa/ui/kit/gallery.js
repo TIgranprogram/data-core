@@ -1,5 +1,6 @@
-import { PREFIX } from '../core/api.js';
-import { h } from '../core/dom.js';
+import { PREFIX } from '../../core/api.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
 
 /**
  * Карусель фото `.pgal` (DESIGN §4): крупное 4:3, стрелки ‹ ›, счётчик «2 / 5», лента миниатюр, свайп, ←/→, клик — крупно.
@@ -8,7 +9,7 @@ import { h } from '../core/dom.js';
  */
 export function carousel(pics, { onAdd, emptyText = 'Добавить фото' } = {}) {
   if (!pics.length) {
-    return { el: onAdd ? h('button', { type: 'button', class: 't-pic-none pgal-empty', onclick: onAdd }, '+ ' + emptyText) : null, show() {} };
+    return { el: onAdd ? mark(h('button', { type: 'button', class: 't-pic-none pgal-empty', onclick: onAdd }, '+ ' + emptyText), 'gallery') : null, show() {} };
   }
   let cur = 0;
   const big = h('img', { class: 'pgal-img', alt: 'Фото', decoding: 'async', draggable: 'false', tabindex: 0, title: 'Открыть крупно' });
@@ -28,7 +29,7 @@ export function carousel(pics, { onAdd, emptyText = 'Добавить фото' 
   big.addEventListener('click', () => zoom(pics, cur, show));
   big.addEventListener('keydown', (e) => { if (e.key === 'Enter') zoom(pics, cur, show); });
   const stage = h('div', { class: 'pgal-stage' }, big, arrow(-1, 'Предыдущее фото', '‹'), arrow(1, 'Следующее фото', '›'), many ? count : null);
-  const el = h('div', { class: 'pgal', role: 'region', 'aria-label': 'Фото', tabindex: -1 }, stage, strip);
+  const el = mark(h('div', { class: 'pgal', role: 'region', 'aria-label': 'Фото', tabindex: -1 }, stage, strip), 'gallery');
   let x0 = null;
   stage.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
   stage.addEventListener('touchend', (e) => { if (x0 === null || !many) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1); }, { passive: true });

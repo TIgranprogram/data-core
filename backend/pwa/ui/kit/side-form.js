@@ -1,5 +1,5 @@
-import { h } from '../core/dom.js';
-import { patch } from '../core/router.js';
+import { h } from '../../core/dom.js';
+import { patch } from '../../core/router.js';
 
 /*
  * Ввод в правой панели вместо окна (аудит П3). Раздел `of=<id>&open=<ключ>`: сразу форма, «Сохранить» → запись → панель закрывается.

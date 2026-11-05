@@ -1,12 +1,13 @@
 import { api, PREFIX, session } from '../../core/api.js';
+import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
 import { money, qty } from '../../core/format.js';
 import { onChange, patch } from '../../core/router.js';
-import { failBlock } from '../busy.js';
+import { failBlock } from './busy.js';
 import { paintOrder } from '../../core/order-color.js';
-import { toastError } from '../toast.js';
-import { draggable } from '../drag.js';
-import { openPopMenu } from '../pop-menu.js';
+import { toastError } from './toast.js';
+import { draggable } from './drag.js';
+import { openPopMenu } from './pop-menu.js';
 import { link, iconButton } from './index.js';
 import { getPref, setPref } from '../../core/prefs.js';
 
@@ -37,7 +38,7 @@ import { getPref, setPref } from '../../core/prefs.js';
  */
 export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTotal }) {
   let query = initialQuery;
-  const el = h('div', { class: 'board' + (board.density === 'pics' ? ' board-pics' : '') + (board.cls ? ' ' + board.cls : '') });
+  const el = mark(h('div', { class: 'board' + (board.density === 'pics' ? ' board-pics' : '') + (board.cls ? ' ' + board.cls : '') }), 'board');
   const per = board.perColumn || 30;
   const canMove = !!board.move && (board.canMove ? board.canMove() : session.canEdit);
   // board.canDrop(row, toKey) — можно ли бросить эту карточку на колонку (доска «В работе»: колонки, которых нет в маршруте изделия, не принимают)

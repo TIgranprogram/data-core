@@ -1,54 +1,25 @@
-import { exportList } from './list-export.js';
-import { makeResizable } from './resizer.js';
-import { searchBox } from './searchbox.js';
-import { enhanceSelect } from './kit/index.js';
-import { api, canEditSection, session } from '../core/api.js';
-import { h } from '../core/dom.js';
+import { exportList } from '../list-export.js';
+import { makeResizable } from '../resizer.js';
+import { searchBox } from '../searchbox.js';
+import { enhanceSelect } from './index.js';
+import { api, canEditSection, session } from '../../core/api.js';
+import { h } from '../../core/dom.js';
 import { failBlock } from './busy.js';
-import { qty, plural } from '../core/format.js';
-import { patch, current } from '../core/router.js';
-import { mountBoard } from './board.js';
-import { icon } from './icons.js';
+import { qty, plural } from '../../core/format.js';
+import { patch, current } from '../../core/router.js';
+import { mountBoard } from '../board.js';
+import { icon } from '../icons.js';
 import { openPopMenu } from './pop-menu.js';
-import { toastError } from './toast.js';
-import { button } from './kit/index.js';
-import { reportSlow } from '../core/errors.js';
+import { button } from './index.js';
+import { reportSlow } from '../../core/errors.js';
+import { mark } from './mark.js';
+import { viewStore, listKeys } from './list-view.js';
+import { paintTiles } from './list-tiles.js';
+import { paintChips } from './list-chips.js';
+import { periodState, paintPeriods } from './list-periods.js';
+import { rowActions, longPress, paintGallery, paintRows, emptyBlock } from './list-rows.js';
 
-/**
- * Экран-список (CANON §2) — один на все разделы. Состояние — в адресе: page, limit, q, sort, фильтры, view, open.
- * Экран строится ОДИН раз; смена фильтра/страницы/сортировки — update(params): элементы управления не пересоздаются,
- * строки заменяются, когда пришли новые данные (старые остаются видны, без моргания).
- * section.list = {
- *   toolbarExtra?() → { el, update(P) } — свой элемент в панели инструментов (фильтры по признакам у «Остатков»), extraKeys — его ключи в адресе;
- *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
- *   moreActions?(reload) → [{ label, title?, onSelect?, href? }] | [{ title?, sep?, items }] — второстепенные действия шапки в меню «Ещё ▾» (вместе с «⇩ Excel»); в шапке остаётся одна главная кнопка (аудит П2),
- *   columns: [{ key, label, sort?, cls?, render(row) }],
- *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
- *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label, hint? }], count?(resp, value) }],
- *   footer?(resp), query?(params),
- *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», sections/design-data.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
- *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
- *   limit?: число строк таблицы по умолчанию (25); выбор 25/50/100 — внизу.
- *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, price?, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
- *   bulk?: { label?, open?(ids, { done }), extra?: [{label, run(ids, rows)}] } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
- *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
- *   tiles?: { key, title?, load: async () => [{ value, label, n, sub, head? }] } — плитки-фильтр над списком; с sidebar — список «Категории» в левой панели (head — раздел-заголовок),
- *   chipsTop?: true — с sidebar чипы-фильтры не в панели, а строкой над таблицей (СКФ.2: «Состояние» сверху, слева — только «что ищем»),
- *   sidebar?: true — левая панель (280 px, всегда открыта): поиск, tiles, фильтры chips/select/date, toolbarExtra, «Сбросить всё»; на телефоне — лист по кнопке «Фильтры · N» (NAV F1),
- *   defaults?: { status: 'requested' } — фильтры при входе в раздел без параметров в адресе (попадают в адрес; чип «Все» снимает),
- *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
- *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
- *   rowAction?(row) → { label, title, run(row) } | null — кнопка следующего шага в строке (как на «Сегодня»),
- *   groupBy?(row) → подпись группы (строка-заголовок при смене значения: дни в «Движениях»), groupTotal?(rows) → узел,
- *   колонка { money: true } — только тем, кто видит деньги (session.canMoney);
- *   periods?(P) → null | { date(row) → дата, total?(rows) → узел } — завершённое сворачивается по месяцам/годам
- *     (TASKS фаза М): список грузится целиком (до 2000), текущий месяц раскрыт, прошлые — строкой «Сентябрь 2026 · 34»,
- *     прошлые годы — строкой года; раскрытое запоминается. При поиске — всё раскрыто.
- * }
- * Возвращает { el, update(params), reload(), focusSearch(), destroy() }.
- */
-const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-
+// Контракт section.list (все опции) описан в ./list-view.js
 export function mountList(section, params, { onOpen, onCreate, quick, onChanged }) {
   const L = { ...section.list, columns: section.list.columns.filter((c) => !c.money || session.canMoney) };
   let P = { ...params };
@@ -61,20 +32,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     P = { ...L.defaults };
     setTimeout(() => { const c = current(); if (c.section === section.id && !Object.keys(c.params).length) patch(L.defaults); }, 0);
   }
-  const vKey = () => L.viewKey ? 'dc-view-' + L.viewKey : null;
-  const savedView = () => { const k = vKey(); if (!k) return ''; try { return localStorage.getItem(k) || ''; } catch { return ''; } };
-  const saveView = (v) => { const k = vKey(); if (!k) return; try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* */ } };
-  const st = () => {
-    const sv = !P.view ? savedView() : '';
-    return {
-      limit: Number(P.limit) || L.limit || 25,
-      page: Math.max(1, Number(P.page) || 1),
-      sort: P.sort || L.sortDefault,
-      gantt: !!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt')),
-      board: !!L.board && !(!!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt'))) && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
-      gallery: !!L.gallery && (P.view === 'gallery' || (!!L.landing && !P.view && L.landing.when(P)) || (!!L.gallery.default && !P.view && sv !== 'table') || (!P.view && sv === 'gallery')),
-    };
-  };
+  const { savedView, saveView, st } = viewStore(L, () => P);
   let rows = [];
 
   // ---------- Шапка ----------
@@ -161,44 +119,12 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
 
   // Чипы: варианты загружаются один раз, счётчики — с каждым ответом
   const chipsBox = h('div', { class: sideChips ? 'ls-chips' : 'chips' });
-  const optBtn = (label, n, active, onclick, cls = '', sub = '') => h('button', { type: 'button', class: 'ls-opt' + (active ? ' active' : '') + (cls ? ' ' + cls : ''), onclick },
-    h('span', { class: 'ls-t', title: label }, label), sub ? h('span', { class: 'ls-sub' }, sub) : null, n !== undefined && n !== null ? h('b', null, qty(n)) : null);
   const hintBox = h('div', { class: 'list-hint', hidden: true });
   let chipOpts = null;
   let lastResp = null;
   let rawRows = [];
   Promise.all(chipFilters.map((f) => Promise.resolve(f.options()))).then((o) => { chipOpts = o; renderChips(); });
-  function renderChips() {
-    if (!chipOpts) return;
-    if (sideChips) {
-      chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
-        if (st().board && f.key === 'status') return [];
-        const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
-        const curIsAll = cur === '' || cur === 'all';
-        const opts = [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
-          const isAll = o.value === ''; const isAct = isAll ? curIsAll : String(o.value) === cur;
-          return optBtn(o.label, f.count && lastResp ? f.count(lastResp, o.value) : undefined, isAct,
-            () => { if (isAct && isAll) return; patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }); }, '', o.hint || '');
-        });
-        return [h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), h('div', { class: 'ls-list' }, ...opts))];
-      }));
-      return;
-    }
-    chipsBox.replaceChildren(...chipFilters.flatMap((f, i) => {
-      if (st().board && f.key === 'status') return [];
-      const cur = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
-      const curIsAll = cur === '' || cur === 'all';
-      return [...(f.noAll ? [] : [{ value: '', label: f.allLabel || 'Все' }]), ...chipOpts[i]].map((o) => {
-        const isAll = o.value === ''; const isAct = isAll ? curIsAll : String(o.value) === cur;
-        const n = f.count && lastResp ? f.count(lastResp, o.value) : undefined;
-        return h('button', {
-          type: 'button', class: 'chip' + (isAct ? ' active' : ''), title: o.hint,
-          // активная «Все» — ничего (иначе при defaultValue фильтр возвращался к «В работе»)
-          onclick: () => { if (isAct && isAll) return; patch({ [f.key]: isAct ? undefined : (isAll && f.defaultValue ? 'all' : o.value), page: undefined }); },
-        }, o.label, n !== undefined ? h('b', null, qty(n)) : null);
-      });
-    }));
-  }
+  function renderChips() { paintChips({ chipsBox, chipFilters, chipOpts, sideChips, P, isBoard: st().board, lastResp }); }
 
   // ---------- Таблица и карточки ----------
   const theadRow = h('tr');
@@ -256,14 +182,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const togglePick = (id) => { if (picked.has(id)) picked.delete(id); else picked.add(id); syncPicks(); paintBulk(); leaveIfEmpty(); };
   const exitBulkMode = () => { bulkMode = always; if (!always) panel.classList.remove('bulk-mode'); picked.clear(); syncPicks(); paintBulk(); };
   if (always && bulkOn) { bulkMode = true; panel.classList.add("bulk-mode"); }
-  const bindLong = bulkOn ? (el, id) => {
-    let tmr = null; let suppress = false;
-    el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; suppress = false; tmr = setTimeout(() => { tmr = null; suppress = true; enterBulkMode(id); if (navigator.vibrate) navigator.vibrate(15); }, 350); });
-    const cancel = () => { clearTimeout(tmr); tmr = null; };
-    el.addEventListener('pointerup', cancel); el.addEventListener('pointercancel', () => { cancel(); suppress = false; });
-    el.addEventListener('click', (ev) => { if (suppress) { suppress = false; ev.stopImmediatePropagation(); } }, true);
-    el.addEventListener('contextmenu', (ev) => { if (suppress || tmr) ev.preventDefault(); }); // долгое нажатие — не меню выделения текста
-  } : null;
+  const bindLong = bulkOn ? longPress(enterBulkMode) : null;
 
   // Плитки (категории склада)
   const tilesBox = L.tiles ? h('div', { class: side ? 'ls-list' : 'tiles' }) : null;
@@ -272,57 +191,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   let tiles = [];
   const loadTiles = (again) => Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => { if (!again) (tilesGroup || tilesBox).remove(); });
   if (tilesBox) loadTiles(false);
-  function renderTiles() {
-    if (!tilesBox) return;
-    const cur = P[L.tiles.key] || '';
-    // при поиске счётчики групп устарели — скрываем чтобы не вводить в заблуждение
-    const showN = (n) => (P.q ? undefined : n);
-    if (side) {
-      // ТИ-7: группы по заголовкам (head:true) — свёрнуты по умолчанию, кроме активной
-      const groups = [];
-      let grp = null;
-      for (const x of tiles) {
-        if (x.head) { grp = { tile: x, subs: [] }; groups.push(grp); }
-        else if (grp) grp.subs.push(x);
-        else { if (!groups.length || groups[0].tile !== null) groups.unshift({ tile: null, subs: [] }); groups[0].subs.push(x); }
-      }
-      const nodes = groups.flatMap(({ tile, subs }) => {
-        if (!tile) return subs.map((x) => optBtn(x.label, showN(x.n), String(x.value) === cur,
-          () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
-          x.sub && typeof x.sub === 'string' ? 'sub' : '', typeof x.sub === 'string' ? x.sub : ''));
-        const hasActive = String(tile.value) === cur || subs.some((x) => String(x.value) === cur);
-        // Раздел без подгрупп — работает как фильтр напрямую, а не как аккордеон; head-leaf — нет стрелки
-        if (!subs.length) {
-          return [optBtn(tile.label, showN(tile.n), String(tile.value) === cur,
-            () => patch({ [L.tiles.key]: String(tile.value) === cur ? undefined : tile.value, page: undefined }),
-            'head head-leaf', '')];
-        }
-        const subsEl = h('div', { class: 'ls-subs', hidden: !hasActive },
-          ...subs.map((x) => optBtn(x.label, showN(x.n), String(x.value) === cur,
-            () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
-            'sub', typeof x.sub === 'string' ? x.sub : '')));
-        const headBtn = optBtn(tile.label, showN(tile.n), hasActive,
-          // ПРД.5: клик по разделу — раскрыть и сразу показать весь раздел (с подгруппами); повторный по выбранному — снять
-          () => { const on = String(tile.value) === cur; subsEl.hidden = on; headBtn.classList.toggle('open', !on); patch({ [L.tiles.key]: on ? undefined : tile.value, page: undefined }); },
-          'head' + (hasActive ? ' open' : ''), '');
-        return [headBtn, subsEl];
-      });
-      tilesBox.replaceChildren(...nodes);
-      // ТИ-6: крошка выбранной категории (точечный сброс — тот же клик по активной плитке)
-      if (tileTagBox) {
-        const active = tiles.find((x) => String(x.value) === cur);
-        if (active) {
-          tileTagBox.replaceChildren(h('button', { type: 'button', class: 'tag active ff-tag', title: 'Сбросить выбор', onclick: () => patch({ [L.tiles.key]: undefined, page: undefined }) }, active.label, ' ×'));
-          tileTagBox.hidden = false;
-        } else { tileTagBox.replaceChildren(); tileTagBox.hidden = true; }
-      }
-      return;
-    }
-    tilesBox.replaceChildren(...tiles.map((x) => h('button', {
-      type: 'button', class: 'tile' + (String(x.value) === cur ? ' active' : ''),
-      onclick: () => patch({ [L.tiles.key]: String(x.value) === cur ? undefined : x.value, page: undefined }),
-    }, h('b', { title: x.label }, x.label), showN(x.n) !== undefined ? h('span', { class: 'tl-n' }, qty(showN(x.n))) : null, x.sub ? h('span', { class: 'tl-sub' }, x.sub) : null)));
-  }
+  function renderTiles() { paintTiles({ L, P, tiles, tilesBox, tileTagBox, side }); }
 
   // ---------- Левая панель: сборка, лист на телефоне ----------
   const shade = side ? h('div', { class: 'ls-shade', hidden: true, onclick: () => closeSheet() }) : null;
@@ -337,9 +206,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
   function openSheet() { side.classList.add('open'); shade.hidden = false; openBtn.setAttribute('aria-expanded', 'true'); }
   function closeSheet() { side.classList.remove('open'); shade.hidden = true; openBtn.setAttribute('aria-expanded', 'false'); }
-  const el = side
+  const el = mark(side
     ? h('div', { class: 'list-screen has-side' }, head, h('div', { class: 'ls-grid' }, side, h('div', { class: 'ls-main' }, panel, boardBox, ganttBox)), shade)
-    : h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox, ganttBox);
+    : h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox, ganttBox), 'list');
 
   // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
@@ -467,45 +336,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (bulkOn) queueMicrotask(paintBulk); // «все на странице» — по новой странице
     const active = anyFilter() || P.q;
     if (!rows.length) {
-      stateRow(() => active
-        ? h('div', { class: 'state' }, h('div', null, P.q ? `По «${P.q}» ничего не найдено.` : 'Ничего не найдено.'),
-          P.q ? h('button', { class: 'btn', type: 'button', onclick: () => { sb.set('', true); patch({ q: undefined, page: undefined }); } }, 'Сбросить поиск') : null,
-          h('button', { class: 'btn btn-ghost', type: 'button', onclick: resetFilters }, 'Сбросить всё'))
-        : h('div', { class: 'state' }, h('div', null, L.emptyText || 'Записей пока нет.'), L.emptyHint ? h('p', { class: 'state-hint' }, L.emptyHint) : null,
-          canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate }, '+ ' + (L.createLabel || 'Создать')) : null));
+      stateRow(() => emptyBlock({ L, P, active, sb, resetFilters, canCreate, onCreate }));
     } else if (isGallery) {
       renderGallery();
     } else if (per) {
       renderPeriods(per);
     } else {
-      const trs = [];
-      let group = null;
-      rows.forEach((row, i) => {
-        if (L.groupBy) {
-          const g = L.groupBy(row);
-          if (g !== group) {
-            group = g;
-            const same = rows.filter((r) => L.groupBy(r) === g);
-            trs.push(h('tr', { class: 'group-row' }, h('td', { colspan: L.columns.length + (L.rowAction ? 1 : 0) + (bulkOn ? 1 : 0) }, h('span', null, g), L.groupTotal ? L.groupTotal(same) : null)));
-          }
-        }
-        const trCls = L.rowClass ? L.rowClass(row) : '';
-        const tr = h('tr', { class: trCls || undefined, onclick: (e) => { if (bulkMode && !always) { if (canPick(row)) togglePick(row.id); return; } if (bulkOn && (e.ctrlKey || e.metaKey)) { enterBulkMode(row.id); return; } onOpen(row); }, dataset: { i: String(i) } },
-          bulkOn ? h('td', { class: 'pick' }, pickBox(row)) : null,
-          L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
-        if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
-        trs.push(tr);
-      });
-      tbody.replaceChildren(...trs);
-      cards.replaceChildren(...rows.map((row) => {
-        const li = h('li', { onclick: () => { if (bulkMode && !always) { togglePick(row.id); return; } onOpen(row); } },
-          bulkOn ? h('label', { class: 'pick-hit', title: 'Отметить', onclick: (e) => e.stopPropagation() }, pickBox(row)) : null,
-          L.card.thumb ? L.card.thumb(row) : null,
-          h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
-          h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null));
-        if (bindLong) bindLong(li, row.id);
-        return li;
-      }));
+      paintRows({ rows, L, canAct: !!L.rowAction && canEditSection(section), bulkOn, tbody, cards, pickBox, rowClick, openOrPick, bindLong, actionButton });
       markSelected();
     }
     if (per) { foot.replaceChildren(...[h('span', null, resp.total ? `${qty(resp.total)} ${plural(resp.total, 'запись', 'записи', 'записей')} по месяцам` : ''), L.footer ? L.footer(resp) : null].filter(Boolean)); return; }
@@ -519,109 +356,19 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
 
   /* ---------- Галерея: карточки с фото по группам (ПС: паспорта по категориям) ---------- */
-  function renderGallery() {
-    const groups = new Map();
-    for (const r of rows) { const g = L.gallery.groupBy ? L.gallery.groupBy(r) : ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); }
-    const order = [...groups].sort((a, b) => (a[0] === L.gallery.lastGroup) - (b[0] === L.gallery.lastGroup)); // «Без категории» — в конце
-    galleryBox.replaceChildren(...order.map(([g, items]) => h('section', { class: 'gal-group' },
-      g ? h('h3', { class: 'gal-head' }, g, h('span', { class: 'gal-n' }, qty(items.length))) : null,
-      h('div', { class: 'gal' }, ...items.map((row) => {
-        const v = L.gallery.card(row);
-        const card = h('button', { type: 'button', class: 'gcard' + (row.id === P.open ? ' selected' : ''), dataset: { id: row.id },
-          onclick: () => { if (bulkMode && !always) { togglePick(row.id); return; } onOpen(row); }, title: v.title },
-          v.pic ? h('img', { class: 'gc-pic', src: v.pic, alt: '', loading: 'lazy', decoding: 'async', onerror: (e) => e.target.replaceWith(h('div', { class: 'gc-pic gc-none' }, 'нет фото')) }) : h('div', { class: 'gc-pic gc-none' }, 'нет фото'),
-          h('div', { class: 'gc-title' }, v.title), v.meta ? h('div', { class: 'gc-meta' }, v.meta) : null, v.price ? h('div', { class: 'gc-price' }, v.price) : null, v.badge || null);
-        if (bindLong) bindLong(card, row.id);
-        return bulkOn ? h('div', { class: 'gcard-wrap' }, card, h('label', { class: 'gc-pick', title: 'Отметить' }, pickBox(row))) : card;
-      })))));
-  }
+  const openOrPick = (row) => { if (bulkMode && !always) { togglePick(row.id); return; } onOpen(row); };
+  const rowClick = (row, e) => { if (bulkMode && !always) { if (canPick(row)) togglePick(row.id); return; } if (bulkOn && (e.ctrlKey || e.metaKey)) { enterBulkMode(row.id); return; } onOpen(row); };
+  function renderGallery() { paintGallery({ galleryBox, rows, L, P, bindLong, bulkOn, pickBox, openOrPick }); }
 
-  /* ---------- Месяцы и годы (фаза М) ---------- */
-  const openKey = 'dc-open-' + section.id;
-  const opened = new Set((() => { try { return JSON.parse(localStorage.getItem(openKey) || '[]'); } catch { return []; } })());
-  const toggle = (k) => { opened.has(k) ? opened.delete(k) : opened.add(k); try { localStorage.setItem(openKey, JSON.stringify([...opened].slice(-60))); } catch { /* */ } renderPeriods(L.periods(P)); };
+  const pstate = periodState(section.id, () => renderPeriods(L.periods(P)));
   function renderPeriods(per) {
-    const now = new Date();
-    const curYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    const all = !!P.q; // при поиске всё раскрыто
-    const months = new Map();
-    for (const r of rows) {
-      const d = per.date(r) ? new Date(per.date(r)) : null;
-      const ym = d && !Number.isNaN(d.getTime()) ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') : 'none';
-      if (!months.has(ym)) months.set(ym, []);
-      months.get(ym).push(r);
-    }
-    const keys = [...months.keys()].sort().reverse();
-    const cols = L.columns.length + (L.rowAction && canEditSection(section) ? 1 : 0);
-    const trs = []; const lis = [];
-    const head = (k, label, n, items, level, isOpen) => {
-      const tot = per.total ? per.total(items) : null;
-      trs.push(h('tr', { class: 'period-row lvl' + level + (isOpen ? ' open' : ''), onclick: () => toggle(k) },
-        h('td', { colspan: cols }, h('span', { class: 'p-caret', 'aria-hidden': 'true' }, isOpen ? '▾' : '▸'), h('b', null, label), h('span', { class: 'p-n' }, qty(n)), tot ? h('span', { class: 'p-tot' }, tot) : null)));
-      lis.push(h('li', { class: 'period-li lvl' + level, onclick: () => toggle(k) }, h('span', null, (isOpen ? '▾ ' : '▸ ') + label), h('span', { class: 'p-n' }, qty(n)), tot ? h('span', { class: 'p-tot' }, tot) : null));
-    };
-    const rowsOf = (items) => items.forEach((row) => {
-      const i = rows.indexOf(row);
-      const trClsP = L.rowClass ? L.rowClass(row) : '';
-      const tr = h('tr', { class: trClsP || undefined, onclick: () => onOpen(row), dataset: { i: String(i) } }, L.columns.map((c) => h('td', { class: c.cls || '' }, c.render ? c.render(row) : row[c.key] ?? '')));
-      if (L.rowAction && canEditSection(section)) tr.append(h('td', { class: 'act' }, actionButton(row)));
-      trs.push(tr);
-      lis.push(h('li', { onclick: () => onOpen(row) }, L.card.thumb ? L.card.thumb(row) : null,
-        h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, L.card.title(row)), h('div', { class: 'c-sub' }, L.card.sub(row))),
-        h('div', { class: 'c-side' }, L.card.side ? L.card.side(row) : null)));
-    });
-    const monthName = (ym) => { if (ym === 'none') return 'Без даты'; const [y, m] = ym.split('-').map(Number); return MONTHS[m - 1] + ' ' + y; };
-    const year = String(now.getFullYear());
-    // этот год — месяцами; прошлые годы — строкой года, внутри месяцы
-    const byYear = new Map();
-    for (const k of keys) { const y = k === 'none' ? 'none' : k.slice(0, 4); if (!byYear.has(y)) byYear.set(y, []); byYear.get(y).push(k); }
-    for (const [y, ks] of byYear) {
-      const nested = y !== year && y !== 'none' && byYear.size > 1;
-      let show = true;
-      if (nested) {
-        const items = ks.flatMap((k) => months.get(k));
-        const yk = 'y' + y; const isOpen = all || opened.has(yk);
-        head(yk, y + ' год', items.length, items, 0, isOpen);
-        show = isOpen;
-      }
-      if (!show) continue;
-      for (const k of ks) {
-        const items = months.get(k);
-        const isOpen = all || k === curYM || opened.has(k) || (keys.length === 1);
-        head(k, monthName(k), items.length, items, nested ? 1 : 0, isOpen);
-        if (isOpen) rowsOf(items);
-      }
-    }
-    tbody.replaceChildren(...trs);
-    cards.replaceChildren(...lis);
-    markSelected();
+    paintPeriods({ per, rows, P, L, canAct: !!L.rowAction && canEditSection(section), onOpen, actionButton, tbody, cards, state: pstate, markSelected });
   }
 
-  /** Кнопка следующего шага в строке: делает дело на месте, список обновляется без моргания. */
-  function actionButton(row) {
-    const acts = [].concat(L.rowAction(row) || []).filter(Boolean);
-    return acts.length ? h('span', { class: 'row-acts' }, acts.map((a) => oneButton(row, a))) : null;
-  }
-  function oneButton(row, a) {
-    return button({ label: a.label, size: 'S', title: a.title, onClick: async (e) => {
-      e.stopPropagation();
-      const b = e.currentTarget; b.disabled = true;
-      try { if (await a.run(row) !== false) { await load({ keep: true }); onChanged?.(); } } catch (ex) { toastError(ex); } finally { b.disabled = false; }
-    } });
-  }
+  const actionButton = rowActions(L, (o) => load(o), onChanged);
 
   // ---------- Клавиатура: ↑/↓ — соседняя запись, N — новая ----------
-  function onKey(e) {
-    if (e.key === 'Escape' && side?.classList.contains('open')) { closeSheet(); return; }
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || document.querySelector('.modal-back')) return;
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length && !st().board && !st().gantt) {
-      e.preventDefault();
-      const i = rows.findIndex((r) => r.id === P.open);
-      const next = e.key === 'ArrowDown' ? Math.min(rows.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1);
-      onOpen(rows[next]);
-    } else if ((e.key === 'n' || e.key === 'т') && canCreate) { e.preventDefault(); onCreate(); }
-  }
+  const onKey = listKeys({ side: () => side, closeSheet, rows: () => rows, P: () => P, st, onOpen, canCreate, onCreate });
   document.addEventListener('keydown', onKey);
 
   syncControls();

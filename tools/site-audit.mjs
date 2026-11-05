@@ -29,6 +29,9 @@ export const RULES = {
   n: 'счёт с идентификатором в группе не открывается отдельной ссылкой',
   o: 'группы реквизитов правой панели разбросаны без карточной структуры',
   p: 'объект фотографии превращён в URL',
+  s: 'A1: элементы экрана и панели не из kit (нет data-k на себе и предках) — счётчик',
+  q: 'A3-q: карточка не из kit (article / .tcard / .tile / .db-order без data-k)',
+  r: 'A3-r: кликабельная карточка без наведения k-hover (подъём и тень отличаются)',
 };
 
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
@@ -188,6 +191,16 @@ for(const el of document.querySelectorAll('main [style],.drawer [style]')){
   if(el.tagName==='I'&&/^\\s*flex:[^;]*;?\\s*$/.test(el.getAttribute('style')||''))continue; // ширина доли в полосе — из данных
   const st=el.getAttribute('style')||'';const props=st.split(';').map(x=>x.trim()).filter(Boolean).filter(x=>!x.startsWith('--'));
   if(props.length)add('j',sel(el),'inline style: '+props.join('; '))}
+// A1 (ORDER-MASTER-PLAN §3): каждая фабрика kit ставит data-k на корень; считаем видимое без data-k на себе и предках
+{const RAW='button,a.btn,table,input:not([type=hidden]),select,[role=tab],article,.drawer';const bad=[];
+ for(const el of document.querySelectorAll('main :is('+RAW+'),.drawer :is('+RAW+'),.modal-back :is('+RAW+')')){if(!vis(el)||el.closest('[data-k]'))continue;bad.push(el)}
+ if(bad.length){const by=new Map();for(const el of bad){const k=sel(el);by.set(k,(by.get(k)||0)+1)}
+  add('s','main, .drawer','не из kit: '+bad.length+' ('+[...by].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,n])=>k+'×'+n).join(', ')+')')}}
+// A3 q: карточка не из kit; r: кликабельная карточка без k-hover
+for(const el of document.querySelectorAll('main :is(article,.tcard,.tile,.db-order),.drawer :is(article,.tcard,.tile,.db-order)')){
+  if(!vis(el))continue;
+  if(!el.closest('[data-k]'))add('q',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста');
+  else if(getComputedStyle(el).cursor==='pointer'&&!el.classList.contains('k-hover'))add('r',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста')}
 for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 return out})()`;
 

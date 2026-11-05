@@ -1,12 +1,13 @@
-import { h } from '../core/dom.js';
-import { session } from '../core/api.js';
-import { parseNum } from '../core/format.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
+import { session } from '../../core/api.js';
+import { parseNum } from '../../core/format.js';
 import { photoField } from './photos.js';
-import { attachCombo } from './kit/index.js';
-import { attachSuggest } from './kit/index.js';
-import { attachPhrases } from './phrases.js';
-import { enhanceSelect } from './kit/index.js';
-import { segmented } from './kit/index.js';
+import { attachCombo } from './index.js';
+import { attachSuggest } from './index.js';
+import { attachPhrases } from '../phrases.js';
+import { enhanceSelect } from './index.js';
+import { segmented } from './index.js';
 
 /**
  * Форма из описания полей (CANON §2 «Карточка»). Поле:
@@ -332,7 +333,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
   }
 
   return {
-    el: root || grid,
+    el: mark(root || grid, 'form'),
     read,
     markErrors,
     dirty: () => snapshot() !== start,

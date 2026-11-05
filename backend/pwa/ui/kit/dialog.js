@@ -1,4 +1,5 @@
-import { h } from '../core/dom.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
 
 /** Модальное окно. Возвращает Promise: значение из onOk или null при отмене. */
 export function modal({ title, body, okText = 'OK', cancelText = 'Отмена', danger = false, wide = false, onOk }) {
@@ -10,7 +11,7 @@ export function modal({ title, body, okText = 'OK', cancelText = 'Отмена',
       h('div', { class: 'modal-body' }, err, body),
       h('div', { class: 'modal-foot' },
         h('button', { class: 'btn', type: 'button', onclick: () => done(null) }, cancelText), ok));
-    const back = h('div', { class: 'modal-back', onmousedown: (e) => { if (e.target === back) done(null); } }, form);
+    const back = mark(h('div', { class: 'modal-back', onmousedown: (e) => { if (e.target === back) done(null); } }, form), 'modal');
     const onKey = (e) => { if (e.key === 'Escape') done(null); };
     function done(v) { document.removeEventListener('keydown', onKey, true); back.remove(); resolve(v); }
     form.addEventListener('submit', async (e) => {

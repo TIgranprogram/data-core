@@ -1,4 +1,4 @@
-import { h } from '../core/dom.js';
+import { h } from '../../core/dom.js';
 
 /**
  * Хлебные крошки (DESIGN §4): Группа › Раздел › (хвост) — одна полоса над экраном, рисует main.js.

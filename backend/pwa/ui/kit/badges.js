@@ -1,4 +1,4 @@
-import { h } from '../core/dom.js';
+import { h } from '../../core/dom.js';
 
 /** Единый набор бейджей статусов (CANON §2). Разделы используют только его. */
 export const SUPPLY_STATUS = {

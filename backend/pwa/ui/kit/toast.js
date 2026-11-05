@@ -1,7 +1,8 @@
-import { h } from '../core/dom.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
 import { actionText, isFailure } from './errors.js';
-import { noticeCard, splitReason } from './notice-card.js';
-import { addNotice } from './notices.js';
+import { noticeCard, splitReason } from '../notice-card.js';
+import { addNotice } from '../notices.js';
 
 /**
  * Всплывающее сообщение — тот же вид, что строка в колокольчике (DESIGN §4 «Уведомление»).
@@ -20,7 +21,7 @@ export function toast(text, { error = false, undo, ms, actions, tone, sub, notic
   if (undo) acts.push({ label: 'Отменить', run: async () => { close(); await undo(); } });
   // actions — кнопки-предложения (SK-7b: «Посмотреть» / «Не сейчас»), закрывают сообщение
   for (const a of actions || []) acts.push({ label: a.label, run: async () => { close(); await a.run?.(); } });
-  const t = noticeCard({ tone: tn, title, sub: reason, actions: acts, cls: 'toast' });
+  const t = mark(noticeCard({ tone: tn, title, sub: reason, actions: acts, cls: 'toast' }), 'toast');
   box.append(t);
   setTimeout(close, ms ?? (actions ? 20000 : undo ? 10000 : tn === 'error' ? 6000 : 3500));
   // история: кроме «Готовлю…» и явного notice:false; отмену (undo) в историю не кладём — её уже нет

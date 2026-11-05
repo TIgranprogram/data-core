@@ -1,3 +1,4 @@
+import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
 
 /**
@@ -11,6 +12,6 @@ export function panel({ title, sub, kind, blocks = [], footer = [], onClose } = 
     onClose ? h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть панель', 'aria-label': 'Закрыть', onclick: onClose }, '✕') : null);
   const body = h('div', { class: 'drawer-body' }, ...blocks.map((b) => h('section', { class: 'form-block', 'data-tone': 'main' }, b.title ? h('div', { class: 'form-sec-t' }, b.title) : null, b.body)));
   const foot = h('div', { class: 'drawer-foot' }, ...[].concat(footer).filter(Boolean));
-  const el = h('aside', { class: 'drawer docked k-panel', role: 'region', 'aria-label': title }, head, body, foot);
+  const el = mark(h('aside', { class: 'drawer docked k-panel', role: 'region', 'aria-label': title }, head, body, foot), 'panel');
   return { el, head, body, foot };
 }

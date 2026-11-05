@@ -1,5 +1,10 @@
 # Карта роли frontend
 
+## Kit честный + data-k + empty (ORDER W0-B, 2026-11-05)
+коммит: не закоммичено
+- 15 модулей теперь в `backend/pwa/ui/kit/` (dialog, toast, busy, errors, list, card, badges, pop-menu, drag, gallery, photos, side-form, crumbs, form, empty). `list.js` разрезан: `list-tiles/chips/periods/rows/view.js` (контракт `section.list` — комментарий в `list-view.js`).
+- `ui/kit/mark.js` — `mark(el,name)`/`markEl(res,name)`: data-k на корне каждой фабрики. `ui/kit/empty.js` — `empty({kind})`. Правила A1/A3: `tools/site-audit.mjs` RULES s/q/r (SCAN, блок «A1»). Отчёт: `docs/crew/ORDER-W0-B-report.md`. Карта обновлена.
+
 ## Смотреть как роль (VIEW-AS, 2026-11-04)
 коммит: не закоммичено
 - `backend/pwa/core/view-as.js` — `getViewAs`/`setViewAs` (`dca_viewAs` + снимок), `fieldsOf`, `applyView`, `rolesForSelect`, `syncViewAsRoles`, `viewAsActive`.

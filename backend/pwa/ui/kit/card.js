@@ -1,18 +1,19 @@
-import { api, canEditSection, PREFIX, session } from '../core/api.js';
-import { h } from '../core/dom.js';
-import { readonlyGroups } from './kit/readonly.js';
-import { go } from '../core/router.js';
-import { dateTime } from '../core/format.js';
-import { actionLabel, changeList, usefulEntry } from './history.js';
+import { api, canEditSection, PREFIX, session } from '../../core/api.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
+import { readonlyGroups } from './readonly.js';
+import { go } from '../../core/router.js';
+import { dateTime } from '../../core/format.js';
+import { actionLabel, changeList, usefulEntry } from '../history.js';
 import { confirmDlg } from './dialog.js';
-import { withConfirm } from './confirm-password.js';
+import { withConfirm } from '../confirm-password.js';
 import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
 import { actionText, errText, isFailure } from './errors.js';
 import { busyBlock, busyBtn, failBlock } from './busy.js';
-import { makeResizable } from './resizer.js';
-import { DOCK_MIN, getPref, setPref } from '../core/prefs.js';
+import { makeResizable } from '../resizer.js';
+import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
 
 /**
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
@@ -71,10 +72,10 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   const menuBox = h('div', { class: 'rel' });
   const body = h('div', { class: 'drawer-body' });
   const foot = h('div', { class: 'drawer-foot' });
-  const drawer = h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
+  const drawer = mark(h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
     h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, titleEl, subEl), menuBox,
       h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
-    body, foot);
+    body, foot), 'drawer');
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
   const back = h('div', { class: 'drawer-back', onclick: () => tryClose() });
   const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-back')) tryClose(); };

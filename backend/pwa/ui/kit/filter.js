@@ -2,7 +2,8 @@ import { stockList } from '../../core/stock-list.js';
 import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
 import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } from '../../core/facets.js';
-import { busyBlock } from '../busy.js';
+import { mark } from './mark.js';
+import { busyBlock } from './busy.js';
 import { zoneCats } from '../../core/zone.js';
 import { searchBox } from '../searchbox.js';
 import { makeResizable } from '../resizer.js';
@@ -22,7 +23,7 @@ export function filter({ mode = 'chips', ...opts } = {}) {
 
 export function chipsFilter({ items, value, multi = false, onChange, label, cls } = {}) {
   const cur = new Set(multi ? [].concat(value ?? []).map(String) : (value ?? items[0]?.key) != null ? [String(value ?? items[0]?.key)] : []);
-  const el = h('div', { class: 'chips' + (cls ? ' ' + cls : ''), role: multi ? 'group' : 'tablist', 'aria-label': label || null });
+  const el = mark(h('div', { class: 'chips' + (cls ? ' ' + cls : ''), role: multi ? 'group' : 'tablist', 'aria-label': label || null }), 'filter');
   const paint = () => el.querySelectorAll('.chip').forEach((c) => { const on = cur.has(c.dataset.key); c.classList.toggle('active', on); c.setAttribute(multi ? 'aria-pressed' : 'aria-selected', String(on)); });
   el.append(...items.map((it) => h('button', { type: 'button', role: multi ? null : 'tab', class: 'chip', dataset: { key: String(it.key) }, title: it.title || null, onclick: () => {
     const k = String(it.key);
@@ -82,7 +83,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
     h('div', { class: 'ff-foot' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ ft: undefined, page: undefined }) }, 'Сбросить признаки'), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => close() }, 'Готово')));
   makeResizable(pop, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' }); // ШП
   const shade = h('div', { class: 'ff-shade', hidden: true, onclick: () => close() });
-  const el = h('div', { class: 'ff' }, btn, tags, shade, pop);
+  const el = mark(h('div', { class: 'ff' }, btn, tags, shade, pop), 'filter');
   const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
   const onKey = (e) => { if (e.key === 'Escape' && !pop.hidden) close(); }; // с непустым поиском Esc сначала очищает его (searchBox гасит событие)
   let watch = null; // следит: открылась правая панель или экран ушёл — фильтр закрываем, слушатель снимаем
@@ -160,7 +161,7 @@ function inlineFilter(categoryKey) {
   const folded = new Map();
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
-  const el = h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, 'Уточнить'), crumbs, body);
+  const el = mark(h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, 'Уточнить'), crumbs, body), 'filter');
   const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function render() {
@@ -202,7 +203,7 @@ export function stepFunnel({ steps, load, title = 'Уточнить' }) {
   const folded = new Map();
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
-  const el = h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, title), crumbs, body);
+  const el = mark(h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, title), crumbs, body), 'filter');
   const set = (k, v) => patch({ [k]: String(P[k] ?? '') === String(v) ? undefined : String(v), page: undefined });
   async function render() {
     const my = ++seq;

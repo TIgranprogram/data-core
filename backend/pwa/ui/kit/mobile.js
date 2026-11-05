@@ -1,5 +1,6 @@
 import { PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
+import { markEl } from './mark.js';
 import { paintOrder } from '../../core/order-color.js';
 import { catArt } from '../cat-art.js';
 
@@ -245,4 +246,6 @@ export function scan({ onCode, onCancel, hint = 'Наведите на код' }
   return { el, stop };
 }
 
-export const mobile = { screen, bigButton, choice, tiles, feed, dateChoice, qty, textField, drill, done, error, scan, scanSupported };
+/** Каждая фабрика mobile.* ставит data-k="mobile.<имя>" на корень (site-audit A1). */
+const m = (name, fn) => (...a) => markEl(fn(...a), 'mobile.' + name);
+export const mobile = { screen: m('screen', screen), bigButton: m('bigButton', bigButton), choice: m('choice', choice), tiles: m('tiles', tiles), feed: m('feed', feed), dateChoice: m('dateChoice', dateChoice), qty: m('qty', qty), textField: m('textField', textField), drill: m('drill', drill), done: m('done', done), error: m('error', error), scan: m('scan', scan), scanSupported };

@@ -1,7 +1,8 @@
 /** Всплывающее меню (DESIGN §4 «Всплывающее меню»): «Настройки» внизу меню (вверх) и меню аватара в шапке (вниз).
  *  На телефоне (≤ 760) — нижний лист с подложкой. Один открытый за раз. Esc / клик вне / выбор пункта закрывают, фокус — на кнопку. */
-import { h } from '../core/dom.js';
-import { icon } from './icons.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
+import { icon } from '../icons.js';
 
 let current = null;
 const isPhone = () => window.matchMedia?.('(max-width: 760px)').matches;
@@ -30,7 +31,7 @@ export function openPopMenu({ anchor, groups, head, side = 'up', cls = '' }) {
     body.push(h('div', { class: 'pm-group' + (g.sep ? ' sep' : ''), role: 'group', 'aria-label': g.title || null },
       g.title ? h('div', { class: 'pm-title' }, g.title) : null, ...g.items.filter(Boolean).map(mkItem)));
   });
-  const pop = h('div', { class: 'pm ' + cls + (phone ? ' pm-sheet' : ''), role: 'menu', 'aria-label': 'Меню' }, ...body);
+  const pop = mark(h('div', { class: 'pm ' + cls + (phone ? ' pm-sheet' : ''), role: 'menu', 'aria-label': 'Меню' }, ...body), 'menu');
   const back = phone ? h('div', { class: 'pm-back', onclick: () => done(true) }) : null;
   document.body.append(...[back, pop].filter(Boolean));
   anchor.setAttribute('aria-expanded', 'true');

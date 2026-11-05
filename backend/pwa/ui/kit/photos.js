@@ -1,5 +1,6 @@
-import { api, PREFIX } from '../core/api.js';
-import { h } from '../core/dom.js';
+import { api, PREFIX } from '../../core/api.js';
+import { mark } from './mark.js';
+import { h } from '../../core/dom.js';
 import { toastError } from './toast.js';
 
 /** Загрузить одну картинку: POST /photos/upload -> { id, url, thumb }. Общая для drop-зоны и чата. */
@@ -23,7 +24,7 @@ export function photoDrop({ attach, done, pdf = false, purpose, drawing = false,
   const idle = idleText || (drawing ? 'Перетащите чертёж (PDF, DWG, DXF) сюда или вставьте Ctrl+V' : null) || (pdf ? 'Перетащите файл (PDF или фото) сюда или вставьте Ctrl+V' : 'Перетащите фото сюда или вставьте Ctrl+V');
   const label = h('span', { class: 'pd-text' }, idle);
   const pick = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => input.click() }, 'Выбрать файл');
-  const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), label, pick, input);
+  const zone = mark(h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), label, pick, input), 'photoDrop');
   let busy = false;
 
   async function upload(files) {
@@ -96,5 +97,5 @@ export function photoField(initial = [], { pdf = false, main = false } = {}) {
     pics.length > 1 ? h('button', { type: 'button', class: 'pf-main' + (i ? '' : ' on'), title: i ? 'Сделать главным' : 'Главное фото', 'aria-label': i ? 'Сделать главным' : 'Главное фото', onclick: () => { if (i) { pics.unshift(...pics.splice(i, 1)); render(); } } }, i ? '☆' : '★') : null)));
   const drop = photoDrop({ attach: async (id, p) => { pics.push({ id, ...p }); return pics; }, done: render, pdf });
   render();
-  return { el: h('div', { class: 'photo-field' }, strip, drop), ids: () => pics.map((p) => p.id), set: (list) => { pics = [...(list || [])]; render(); }, focus: () => drop.focus() };
+  return { el: mark(h('div', { class: 'photo-field' }, strip, drop), 'photoField'), ids: () => pics.map((p) => p.id), set: (list) => { pics = [...(list || [])]; render(); }, focus: () => drop.focus() };
 }

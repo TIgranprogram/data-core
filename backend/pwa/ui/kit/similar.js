@@ -1,4 +1,5 @@
 import { api } from '../../core/api.js';
+import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
 import { posPic } from '../pos-pic.js';
 import { row, sku } from './index.js';
@@ -10,7 +11,7 @@ import { row, sku } from './index.js';
  */
 export function similarBox({ onPick, pickLabel } = {}) {
   const list = h('div', { class: 'k-sim-list' });
-  const el = h('div', { class: 'k-sim', hidden: true }, h('div', { class: 'hint' }, 'Похожее уже есть — может, это оно?'), list);
+  const el = mark(h('div', { class: 'k-sim', hidden: true }, h('div', { class: 'hint' }, 'Похожее уже есть — может, это оно?'), list), 'similarBox');
   let timer = 0; let seq = 0;
   const paint = (items) => {
     list.replaceChildren(...items.map((it) => row({
